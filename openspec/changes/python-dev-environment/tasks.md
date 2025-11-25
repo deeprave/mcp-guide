@@ -1,0 +1,36 @@
+- [x] 1. Update pyproject.toml with complete configuration
+- [x] 2. Create src/mcp_core package structure
+- [x] 3. Create src/mcp_guide package structure
+- [x] 4. Copy LICENSE.md from mcp-server-guide
+- [x] 5. Copy and adapt osvcheck.py
+- [x] 6. Copy templates from mcp-server-guide
+- [x] 7. Rename template files to .md.mustache
+- [x] 8. Move templates into mcp_guide package
+- [x] 9. Pin Python version to 3.13
+- [x] 10. Sync all dependencies with uv
+- [x] 11. Install pre-commit hooks
+- [x] 12. Create minimal CLI entry point
+- [x] 13. Create .coveragerc configuration
+- [x] 14. Create basic import tests
+- [x] 15. Update README.md
+- [x] 16. Configure build-backend for multiple packages
+- [x] 17. Verify tests pass
+- [x] 18. Verify mypy passes
+- [x] 19. Verify ruff passes
+- [x] 20. Verify uv build succeeds
+- [x] 21. Verify CLI entry point works
+- [x] 22. Verify both packages included in wheel
+- [x] 23. Verify templates included in wheel
+- [x] 24. Run all tests: `uv run pytest`
+- [x] 25. Verify 100% test pass rate
+- [x] 26. Run type checking: `uv run mypy src`
+- [x] 27. Verify no type errors
+- [x] 28. Run linting: `uv run ruff check src tests`
+- [x] 29. Verify no linting warnings
+- [x] 30. Run pre-commit hooks: `uv run pre-commit run --all-files`
+- [x] 31. Verify all hooks pass (except no-commit-to-branch on main)
+- [x] 32. Verify `uv build` succeeds
+- [x] 33. Review all tasks marked complete
+- [ ] 34. **READY FOR REVIEW** - Request user review
+- [ ] 35. Address review concerns (if any)
+- [ ] 36. **USER APPROVAL RECEIVED** - Ready for archiving

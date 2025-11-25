@@ -1,0 +1,75 @@
+[project]
+name = "mcp-guide"
+version = "0.5.0"
+description = "MCP server for handling guidelines, project rules and controlled development"
+readme = "README.md"
+license = {file = "LICENSE.md"}
+authors = [{name = "David Nugent", email = "davidn@uniquode.io"}]
+requires-python = ">=3.13"
+dependencies = [
+    "mcp[cli]>=1.16.0",
+    "pydantic>=2.0",
+    "pyyaml>=6.0",
+    "aiohttp>=3.9.0",
+    "aioshutil>=1.6",
+    "aiofiles>=23.2.1",
+    "chevron>=0.14.0",
+    "click>=8.3.0",
+]
+
+[project.scripts]
+mcp-guide = "mcp_guide.main:cli_main"
+osvcheck = "osvcheck:main"
+
+[build-system]
+requires = ["uv_build"]
+build-backend = "uv_build"
+
+[tool.uv]
+package = true
+
+[tool.uv.build-backend]
+module-name = ["mcp_core", "mcp_guide"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+asyncio_mode = "auto"
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "--cov=src/mcp_core",
+    "--cov=src/mcp_guide",
+    "--cov-report=term-missing",
+]
+
+[tool.ruff]
+src = ["src"]
+target-version = "py313"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["I"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["mcp_core", "mcp_guide"]
+
+[tool.mypy]
+python_version = "3.13"
+mypy_path = "src"
+strict = true
+namespace_packages = true
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.2",
+    "pytest-asyncio>=1.2.0",
+    "pytest-cov>=7.0.0",
+    "coverage>=7.10.7",
+    "ruff>=0.13.2",
+    "mypy>=1.18.2",
+    "pre-commit>=4.0.0",
+    "types-aiofiles>=24.1.0.20250822",
+    "types-pyyaml>=6.0.12.20250915",
+    "mcp-inspector>=0.1.0",
+]
