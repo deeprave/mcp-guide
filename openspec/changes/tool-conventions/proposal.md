@@ -217,5 +217,5 @@ Result(
 
 - ADR-005: [005-tool-definition-conventions.md](../../adr/005-tool-definition-conventions.md)
 - ADR-004: [004-logging-architecture.md](../../adr/004-logging-architecture.md)
-- ADR-003: Result Pattern and Error Handling
+- ADR-003: Result Pattern for Tool and Prompt Responses
 - Reference: mcp-server-guide production code
