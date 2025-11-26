@@ -76,8 +76,8 @@ async def lock_update(file_path: Path, func: Callable[..., Awaitable[T]], *args:
                     lock_file.unlink(missing_ok=True)
                 else:
                     await asyncio.sleep(1)
-            except Exception:
-                # If we can't read the lock file, treat as stale
+            except (OSError, ValueError):
+                # If we can't read the lock file (corrupted or permission error), treat as stale
                 lock_file.unlink(missing_ok=True)
 
     try:

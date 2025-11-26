@@ -10,7 +10,7 @@ def test_protection_monitors_real_production_paths(session_temp_dir):
     """Verify watchdog monitors REAL production paths, not test paths."""
     from mcp_guide.config_paths import get_config_file, get_docroot
 
-    # Verify environment is redirected to test paths
+    # Verify environment is redirected to test paths using get_config_file() and get_docroot()
     test_config = get_config_file().parent
     test_docroot = get_docroot()
 

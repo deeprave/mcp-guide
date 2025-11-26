@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from typing import Callable, Optional
 
 from mcp_guide.config import ConfigManager
-from mcp_guide.models import _NAME_REGEX, NAME_PATTERN, Project, SessionState
+from mcp_guide.models import _NAME_REGEX, Project, SessionState
 
 
 @dataclass
