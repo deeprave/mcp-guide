@@ -30,9 +30,55 @@ Create an OpenSpec change proposal for [feature description]
 ```
 
 AI creates `openspec/changes/feature-name/` with:
-- `proposal.md` - Why and what changes
+- `proposal.md` - Why and what changes (see format below)
 - `tasks.md` - Implementation checklist
 - `specs/` - Delta showing additions/modifications/removals
+
+**Important**: Specs must follow the directory structure:
+```
+specs/
+└── spec-name/          ← directory named after the spec
+    └── spec.md         ← file must be named "spec.md"
+```
+
+Not: `specs/spec-name.md` (direct file won't be merged during archiving)
+
+#### Proposal Format
+
+Proposals must include these required sections:
+
+```markdown
+# Feature Name
+
+**Status**: Proposed
+**Priority**: High/Medium/Low
+**Complexity**: High/Medium/Low
+
+## Why
+
+Explain the motivation and problem being solved:
+- What problem exists?
+- Why is it important?
+- What's the impact if not addressed?
+
+## What Changes
+
+List the specific changes being made:
+- New components/modules being added
+- Existing components being modified
+- Components being removed
+- Dependencies being added/changed
+
+## Technical Approach (Optional)
+
+Implementation details, patterns, and decisions.
+
+## Success Criteria (Optional)
+
+How to verify the change is complete and working.
+```
+
+**Note**: Use `## Why` and `## What Changes` headers exactly as shown - these are validated by openspec.
 
 ### 2. Review & Align
 Iterate on specifications until they match requirements:
@@ -140,8 +186,9 @@ openspec list --changes
 
 ### Planning Phase
 - Finalize tasks.md with TDD steps
-- Validate spec formatting
+- **REQUIRED**: Validate spec formatting with `openspec validate <change> --strict`
 - Ensure all requirements have scenarios
+- Fix any validation errors before proceeding to implementation
 
 ### Implementation Phase
 - Work through tasks incrementally
@@ -165,7 +212,7 @@ openspec list --changes
 1. **One change per feature** - Keep changes focused and atomic
 2. **Complete specs first** - Don't start implementation until specs are approved
 3. **Use deltas** - Show only what changes, not entire specs
-4. **Validate early** - Run `openspec validate` before implementation
+4. **Validate early and often** - Run `openspec validate <change> --strict` before implementation (REQUIRED)
 5. **Include Check phase** - Every tasks.md must have a Check phase with review steps
 6. **User review required** - Never archive without explicit user approval
 7. **Archive promptly** - Don't let completed changes linger after approval

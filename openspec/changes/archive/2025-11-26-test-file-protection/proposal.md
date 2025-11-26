@@ -6,6 +6,10 @@
 **Complexity**: Low
 **Estimated Effort**: ~1 hour
 
+**JIRA**:
+- **Epic**: MG-18 - MCP Guide Architectural Reboot
+- **Issue**: MG-21 - Test File Protection
+
 ## Problem Statement
 
 Integration tests that exercise ProjectConfigManager and document operations risk corrupting production files if tests fail to properly isolate their operations. A single bug in test setup (e.g., using production paths instead of temporary directories) could silently overwrite user configuration or documents, causing data loss.
