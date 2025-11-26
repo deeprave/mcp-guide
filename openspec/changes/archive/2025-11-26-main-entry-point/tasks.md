@@ -53,26 +53,32 @@
 - [x] 7.4 Test reliability: Replaced fixed delays with polling + timeout
 - [x] 7.5 Updated tests to match simplified async_main()
 
-## 8. Verification
+## 8. Documentation
 
-- [x] 8.1 Run all tests: `uv run pytest` - 14/14 passed
-- [x] 8.2 Run type checking: `uv run mypy src` - No errors
-- [x] 8.3 Run linting: `uv run ruff check src tests` - All checks passed
-- [x] 8.4 Verify 100% test pass rate - ✅
+- [x] 8.1 Created ADR-007: MCP SDK Client-Based Integration Testing
+- [x] 8.2 Documented future testing approach with MCP SDK clients
+- [x] 8.3 Provided implementation patterns for future reference
 
-## 9. Check Phase
+## 9. Verification
 
-- [x] 9.1 Run all tests: `uv run pytest`
-- [x] 9.2 Verify 100% test pass rate - 14/14 passed
-- [x] 9.3 Run type checking: `uv run mypy src`
-- [x] 9.4 Verify no type errors - ✅
-- [x] 9.5 Run linting: `uv run ruff check src tests`
-- [x] 9.6 Verify no linting warnings - ✅
-- [x] 9.7 Integration tests verify server startup and MCP protocol
-- [x] 9.8 Server responds to handshake - ✅
-- [x] 9.9 Server metadata correct - ✅ (name: mcp-guide)
-- [x] 9.10 Review all tasks marked complete
-- [x] 9.11 Address review feedback - ✅
-- [ ] 9.12 **READY FOR REVIEW** - Request user review
-- [ ] 9.13 Address review concerns (if any)
-- [ ] 9.14 **USER APPROVAL RECEIVED** - Ready for archiving
+- [x] 9.1 Run all tests: `uv run pytest` - 14/14 passed
+- [x] 9.2 Run type checking: `uv run mypy src` - No errors
+- [x] 9.3 Run linting: `uv run ruff check src tests` - All checks passed
+- [x] 9.4 Verify 100% test pass rate - ✅
+
+## 10. Check Phase
+
+- [x] 10.1 Run all tests: `uv run pytest`
+- [x] 10.2 Verify 100% test pass rate - 14/14 passed
+- [x] 10.3 Run type checking: `uv run mypy src`
+- [x] 10.4 Verify no type errors - ✅
+- [x] 10.5 Run linting: `uv run ruff check src tests`
+- [x] 10.6 Verify no linting warnings - ✅
+- [x] 10.7 Integration tests verify server startup and MCP protocol
+- [x] 10.8 Server responds to handshake - ✅
+- [x] 10.9 Server metadata correct - ✅ (name: mcp-guide)
+- [x] 10.10 Review all tasks marked complete
+- [x] 10.11 Address review feedback - ✅
+- [x] 10.12 **READY FOR REVIEW** - Request user review
+- [x] 10.13 Address review concerns (if any)
+- [x] 10.14 **USER APPROVAL RECEIVED** - Ready for archiving
