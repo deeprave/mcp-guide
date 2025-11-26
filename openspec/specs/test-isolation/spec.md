@@ -1,8 +1,30 @@
 # Test Isolation Specification
 
-## Overview
+## Purpose
 
 This specification documents test isolation measures that prevent tests from interfering with production data or each other. It covers both existing patterns (subprocess isolation) and new protective measures (filesystem monitoring).
+
+## Requirements
+
+### Requirement: Environment Variable Isolation
+The system SHALL override XDG environment variables before test collection to redirect file operations to temporary directories.
+
+#### Scenario: pytest_configure hook execution
+- **WHEN** pytest starts
+- **THEN** pytest_configure hook runs before any imports
+- **AND** XDG_CONFIG_HOME and XDG_DATA_HOME are set to temp directories
+- **AND** production code using these paths writes to temp directories
+
+### Requirement: Production File Protection
+The system SHALL monitor production file paths and terminate tests immediately if any production file is modified.
+
+#### Scenario: Production file modification detection
+- **WHEN** a test attempts to modify a production file
+- **THEN** the filesystem monitor detects the change
+- **AND** pytest.exit() is called with clear error message
+- **AND** the test session terminates immediately
+
+## Implementation Notes
 
 ## Existing Isolation Measures (To Be Copied from mcp-server-guide)
 
