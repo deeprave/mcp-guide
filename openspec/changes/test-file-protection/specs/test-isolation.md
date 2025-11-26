@@ -195,19 +195,30 @@ async def server_process() -> AsyncIterator[subprocess.Popen]:
 
 #### Protected Paths
 
-1. **Production Config Directory**: `$XDG_CONFIG_HOME/mcp-guide/` (or `~/.config/mcp-guide/`)
+1. **Production Config Directory (mcp-guide)**: `$XDG_CONFIG_HOME/mcp-guide/`
    - Contains: `config.json` and related configuration files
    - Monitoring: Non-recursive (directory level only)
-   - Reason: Protects user project configurations
+   - Reason: Protects user project configurations for mcp-guide
 
-2. **Production Document Root**: `{config_dir}/docs/`
+2. **Production Document Root (mcp-guide)**: `{config_dir}/docs/`
    - Contains: All user documentation, category directories, `__docs__/` folders, metadata
    - Monitoring: Recursive (all subdirectories and files)
-   - Reason: Protects all indexed documentation
+   - Reason: Protects all indexed documentation for mcp-guide
+
+3. **Production Config Directory (mcp-server-guide)**: `$XDG_CONFIG_HOME/mcp-server-guide/`
+   - Contains: `config.yaml` and related configuration files
+   - Monitoring: Non-recursive (directory level only)
+   - Reason: Protects existing Guide MCP server configuration
+
+4. **Production Document Root (mcp-server-guide)**: `{mcp-server-guide-config_dir}/docs/`
+   - Contains: All documentation for the current Guide MCP server
+   - Monitoring: Recursive (all subdirectories and files)
+   - Reason: Protects existing Guide server documentation
 
 #### Implementation Pattern
 
 ```python
+import os
 import pytest
 from pathlib import Path
 from watchdog.observers import Observer
@@ -234,15 +245,26 @@ def protect_production_files():
     handler = ProductionFileHandler()
     observer = Observer()
 
-    # Monitor config directory
+    # Monitor mcp-guide config directory
     config_path = get_default_config_file().parent
     if config_path.exists():
         observer.schedule(handler, str(config_path), recursive=False)
 
-    # Monitor docroot (recursive)
+    # Monitor mcp-guide docroot (recursive)
     docroot_path = get_default_docroot()
     if docroot_path.exists():
         observer.schedule(handler, str(docroot_path), recursive=True)
+
+    # Monitor mcp-server-guide config directory
+    xdg_config = os.environ.get("XDG_CONFIG_HOME", str(Path.home() / ".config"))
+    msg_config_path = Path(xdg_config) / "mcp-server-guide"
+    if msg_config_path.exists():
+        observer.schedule(handler, str(msg_config_path), recursive=False)
+
+    # Monitor mcp-server-guide docroot (recursive)
+    msg_docroot_path = msg_config_path / "docs"
+    if msg_docroot_path.exists():
+        observer.schedule(handler, str(msg_docroot_path), recursive=True)
 
     observer.start()
     yield
@@ -253,6 +275,9 @@ def protect_production_files():
 **Behavior**:
 - **Scope**: Session-level, applies to all tests automatically (`autouse=True`)
 - **Trigger**: Any filesystem event (create, modify, delete, move) on protected paths
+- **Action**: `pytest.exit()` with clear error message
+- **Conditional**: Only monitors paths that exist (handles fresh environments and gradual migration from mcp-server-guide to mcp-guide)
+- **Early Warning**: If mcp-guide paths don't exist at test start but appear during tests, they won't be caught until next test run (acceptable tradeoff)
 - **Action**: Immediate test termination via `pytest.exit()`
 - **Error Message**: Shows exact file path and event type
 - **Conditional**: Only monitors paths that exist (handles fresh environments)
