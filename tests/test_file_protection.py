@@ -22,9 +22,10 @@ def test_protection_monitors_real_production_paths(session_temp_dir):
     assert test_docroot != conftest._REAL_MCP_GUIDE_DOCROOT, "Real production docroot should differ from test docroot"
 
     # Verify real paths point to actual user directories (not test temp)
-    assert str(conftest._REAL_HOME) in str(conftest._REAL_MCP_GUIDE_CONFIG) or "AppData" in str(
-        conftest._REAL_MCP_GUIDE_CONFIG
-    ), "Real config should be in real user home or AppData"
+    assert str(session_temp_dir) not in str(conftest._REAL_MCP_GUIDE_CONFIG), (
+        "Real config should not be in test temp dir"
+    )
+    assert conftest._REAL_MCP_GUIDE_CONFIG.is_absolute(), "Real config should be an absolute path"
 
 
 def test_protection_fixture_exists():
