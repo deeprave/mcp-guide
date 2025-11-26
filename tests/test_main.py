@@ -34,8 +34,6 @@ def test_main_has_no_required_parameters() -> None:
     from mcp_guide.main import main
 
     sig = inspect.signature(main)
-    required_params = [
-        p for p in sig.parameters.values() if p.default == inspect.Parameter.empty
-    ]
+    required_params = [p for p in sig.parameters.values() if p.default == inspect.Parameter.empty]
 
     assert not required_params
