@@ -203,5 +203,5 @@ All quality gates must pass before requesting user approval:
 
 - **ADR-006**: Session Management Architecture (detailed design)
 - **Architecture Spec**: `openspec/project.md`
-- **ADR-003**: Result Pattern for Error Handling
+- **ADR-003**: Result Pattern for Tool and Prompt Responses
 - **v1 Issues**: Singleton at wrong level, testing complexity, hidden state

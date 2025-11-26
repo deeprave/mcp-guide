@@ -326,5 +326,5 @@ Accepted - to be implemented in Phase 3 after main-entry-point is complete.
 ## References
 
 - Architecture Spec: `openspec/project.md`
-- ADR-003: Result Pattern for Error Handling
+- ADR-003: Result Pattern for Tool and Prompt Responses
 - v1 Issues: Testing complexity, hidden state, tight coupling

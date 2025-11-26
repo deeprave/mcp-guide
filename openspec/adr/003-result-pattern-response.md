@@ -1,8 +1,8 @@
-# ADR-003: Result Pattern for Error Handling
+# ADR-003: Result Pattern for Tool and Prompt Responses
 
 **Date:** 2025-11-25
 **Status:** Accepted
-**Context:** Error and Response Handling Improvement
+**Context:** Tool and Prompt Response Handling
 
 ## Problem
 

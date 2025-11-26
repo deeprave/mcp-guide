@@ -3,6 +3,16 @@
 **Date:** 2025-11-27
 **Status:** Accepted
 **Dependencies:** ADR-004 (Logging Architecture), ADR-003 (Result Pattern)
+**Revised:** 2025-11-27 - Integrated logging into decorator (removed separate log_tool_usage decorator)
+
+## Revision History
+
+### 2025-11-27: Integrated Logging Approach
+**What Changed:** Combined `log_tool_usage` decorator into `ExtMcpToolDecorator`
+
+**Why:** Simplifies usage and reduces boilerplate. Instead of requiring two decorators (`@tools.tool()` + `@log_tool_usage`), logging is now automatic when using `@tools.tool()`. This decision was made during implementation planning to reduce developer friction and ensure consistent logging across all tools without manual decorator application.
+
+**Impact:** Tools now only need single decorator. Logging happens automatically for all tool invocations.
 
 ## Context
 
@@ -18,13 +28,17 @@ This ADR establishes conventions for tool definition, naming, descriptions, and 
 
 ## Decision
 
-### 1. Tool Name Decoration
+### 1. Tool Name Decoration with Integrated Logging
 
-All MCP tools MUST use a custom decorator that adds an optional prefix to tool names:
+All MCP tools MUST use a custom decorator that adds an optional prefix to tool names and automatically logs all invocations:
 
 ```python
+from mcp_core.mcp_log import get_logger
+
+logger = get_logger(__name__)
+
 class ExtMcpToolDecorator:
-    """Extended MCP tool decorator with prefix handling."""
+    """Extended MCP tool decorator with prefix and automatic logging."""
 
     def __init__(self, server: Any, prefix: Optional[str] = None):
         self.server = server
@@ -32,17 +46,43 @@ class ExtMcpToolDecorator:
         self.prefix = self.default_prefix
 
     def tool(self, name: Optional[str] = None, **kwargs: Any) -> Callable:
-        """Tool decorator that handles prefix addition."""
+        """Tool decorator with automatic logging."""
         def decorator(func: Callable) -> Callable:
             tool_name = name or func.__name__
             prefix = kwargs.pop("prefix", None)
             active_prefix = prefix if prefix is not None else self.prefix
             final_name = f"{active_prefix}{tool_name}" if active_prefix else tool_name
 
+            # Wrap with logging
+            if inspect.iscoroutinefunction(func):
+                @functools.wraps(func)
+                async def async_wrapper(*args, **kwargs):
+                    logger.trace(f"Tool called: {tool_name}")
+                    try:
+                        result = await func(*args, **kwargs)
+                        logger.trace(f"Tool {tool_name} completed successfully")
+                        return result
+                    except Exception as e:
+                        logger.error(f"Tool {tool_name} failed: {str(e)}")
+                        raise
+                wrapped = async_wrapper
+            else:
+                @functools.wraps(func)
+                def sync_wrapper(*args, **kwargs):
+                    logger.trace(f"Tool called: {tool_name}")
+                    try:
+                        result = func(*args, **kwargs)
+                        logger.debug(f"Tool {tool_name} completed successfully")
+                        return result
+                    except Exception as e:
+                        logger.error(f"Tool {tool_name} failed: {str(e)}")
+                        raise
+                wrapped = sync_wrapper
+
             final_kwargs = {"name": final_name}
             final_kwargs.update(kwargs)
+            return self.server.tool(**final_kwargs)(wrapped)
 
-            return self.server.tool(**final_kwargs)(func)
         return decorator
 ```
 
@@ -51,51 +91,17 @@ class ExtMcpToolDecorator:
 - Per-tool override via `prefix` kwarg in decorator
 - Empty string disables prefix (for agents that auto-prefix)
 
+**Automatic Logging:**
+- TRACE level: Tool invocation and successful completion (async)
+- DEBUG level: Successful completion (sync)
+- ERROR level: Tool failures with exception details
+- No manual decorator application required
+
 **Documentation Convention:**
 - All documentation, code, specifications, and references MUST use the **undecorated** tool name
 - Prefix is an implementation detail for runtime collision avoidance
 
-### 2. Tool Logging
-
-All tool calls MUST be logged for debugging and audit purposes:
-
-```python
-def log_tool_usage(func: Callable) -> Callable:
-    """Decorator to log tool usage."""
-    if inspect.iscoroutinefunction(func):
-        @functools.wraps(func)
-        async def async_wrapper(*args, **kwargs):
-            tool_name = func.__name__
-            logger.trace(f"Tool called: {tool_name}")
-            try:
-                result = await func(*args, **kwargs)
-                logger.trace(f"Tool {tool_name} completed successfully")
-                return result
-            except Exception as e:
-                logger.error(f"Tool {tool_name} failed: {str(e)}")
-                raise
-        return async_wrapper
-    else:
-        @functools.wraps(func)
-        def sync_wrapper(*args, **kwargs):
-            tool_name = func.__name__
-            logger.trace(f"Tool called: {tool_name}")
-            try:
-                result = func(*args, **kwargs)
-                logger.debug(f"Tool {tool_name} completed successfully")
-                return result
-            except Exception as e:
-                logger.error(f"Tool {tool_name} failed: {str(e)}")
-                raise
-        return sync_wrapper
-```
-
-**Logging Levels:**
-- TRACE: Tool invocation and successful completion (async)
-- DEBUG: Successful completion (sync)
-- ERROR: Tool failures with exception details
-
-### 3. Tool Descriptions
+### 2. Tool Descriptions
 
 Tool descriptions MUST be:
 - **Succinct**: Brief, clear statement of purpose
@@ -138,40 +144,32 @@ For destructive or significant operations, use `Literal` type hints to require e
 
 This prevents accidental invocation and ensures user intent.
 
-### 4. Result Pattern
+### 3. Result Pattern
 
-All tools MUST return `Result[T]` where T is JSON-serializable:
+All tools MUST return `Result[T]` as defined in ADR-003, where T is JSON-serializable.
 
-```python
-@dataclass
-class Result(Generic[T]):
-    """Standard tool response."""
-    # Success
-    value: Optional[T] = None
+**Reference:** See [ADR-003: Result Pattern for Tool and Prompt Responses](003-result-pattern-response.md) for complete Result definition including:
+- `success: bool` field (required, explicit)
+- `value`, `error`, `error_type`, `exception` fields
+- `message` and `instruction` fields
+- Helper methods: `ok()`, `failure()`, `is_ok()`, `is_failure()`
+- JSON serialization: `to_json()`, `to_json_str()`
 
-    # Failure
-    error: Optional[str] = None
-    error_type: Optional[str] = None
-    exception: Optional[str] = None
-
-    # Both
-    message: Optional[str] = None      # For user
-    instruction: Optional[str] = None  # For agent
-```
-
-**Field Semantics:**
+**Field Usage in Tools:**
 
 **Success Response:**
-- `value`: Result data (optional - some tools just indicate success)
-- `message`: Information for the user
-- `instruction`: Guidance for the agent
+- `success: bool = True` - Explicit success indicator
+- `value: Optional[T]` - Result data (optional - some tools just indicate success)
+- `message: Optional[str]` - Information for the user
+- `instruction: Optional[str]` - Guidance for the agent
 
 **Failure Response:**
-- `error`: What went wrong (required)
-- `error_type`: Classification of error (required)
-- `exception`: Exception details if applicable
-- `message`: User-facing error explanation
-- `instruction`: How agent should handle the error
+- `success: bool = False` - Explicit failure indicator
+- `error: str` - What went wrong (required)
+- `error_type: str` - Classification of error (required)
+- `exception: Optional[Exception]` - Original exception object if applicable
+- `message: Optional[str]` - User-facing error explanation
+- `instruction: Optional[str]` - How agent should handle the error
 
 **JSON-Serializable Types:**
 T must be one of:
@@ -180,7 +178,7 @@ T must be one of:
 - Types with `.to_dict()` or `.to_json()` methods
 - Pydantic models (auto-serializable)
 
-### 5. Instruction Field Semantics
+### 4. Instruction Field Semantics
 
 The `instruction` field controls agent behavior on receiving the response:
 
@@ -189,6 +187,7 @@ The `instruction` field controls agent behavior on receiving the response:
 ```python
 # Error handling - prevent remediation
 Result(
+    success=False,
     error="File not found",
     error_type="NotFoundError",
     message="The requested file does not exist.",
@@ -198,6 +197,7 @@ Result(
 
 # Error handling - suggest remediation
 Result(
+    success=False,
     error="Invalid format",
     error_type="ValidationError",
     message="The document format is invalid.",
@@ -207,6 +207,7 @@ Result(
 
 # Mode switching
 Result(
+    success=True,
     value={"status": "planning_required"},
     message="This operation requires planning.",
     instruction="Switch to PLANNING mode. Create a detailed plan before "
@@ -215,6 +216,7 @@ Result(
 
 # Operational boundaries
 Result(
+    success=True,
     value={"config": config_data},
     message="Configuration loaded successfully.",
     instruction="You are now in DISCUSSION mode. Gather requirements and "
@@ -248,7 +250,7 @@ While instructions are free-form text, these patterns are recommended:
 - `"Review [specific documentation] before proceeding."`
 - `"Validate [specific aspect] with the user."`
 
-### 6. Pydantic Validation
+### 5. Pydantic Validation
 
 Tools SHOULD use Pydantic models for argument validation:
 
@@ -312,8 +314,7 @@ logger = get_logger(__name__)
 mcp = FastMCP("mcp-guide")
 tools = ExtMcpToolDecorator(mcp, prefix=None)  # Uses MCP_TOOL_PREFIX env var
 
-@tools.tool()
-@log_tool_usage
+@tools.tool()  # Logging happens automatically
 async def get_project_config(project: Optional[str] = None) -> Result[dict]:
     """Get project configuration settings.
 
@@ -326,15 +327,17 @@ async def get_project_config(project: Optional[str] = None) -> Result[dict]:
     try:
         config = await load_config(project)
         return Result(
+            success=True,
             value=config.to_dict(),
             message="Configuration loaded successfully.",
             instruction="Review the configuration before making changes."
         )
     except FileNotFoundError as e:
         return Result(
+            success=False,
             error="Configuration file not found",
             error_type="NotFoundError",
-            exception=str(e),
+            exception=e,
             message=f"No configuration found for project: {project}",
             instruction="Present this error to the user. Do not attempt to "
                        "create a default configuration automatically."
@@ -347,21 +350,22 @@ async def get_project_config(project: Optional[str] = None) -> Result[dict]:
 - Test explicit use pattern rejects invalid literals
 - Test Result serialization for all supported types
 - Test instruction field handling in integration tests
-- Mock logging to verify TRACE/DEBUG/ERROR levels
+- Test automatic logging at TRACE/DEBUG/ERROR levels
+- Mock logging to verify correct log levels and messages
 
 ### Migration from Existing Tools
 
 1. Wrap existing tools with `ExtMcpToolDecorator`
-2. Add `@log_tool_usage` decorator
-3. Convert return values to `Result[T]`
-4. Add `instruction` field to guide agent behavior
-5. Add explicit use pattern for destructive operations
+2. Convert return values to `Result[T]`
+3. Add `instruction` field to guide agent behavior
+4. Add explicit use pattern for destructive operations
+5. Logging is automatic - no additional decorator needed
 
 ## Dependencies
 
 **Required:**
 - ADR-004 (Logging Architecture) - MUST be implemented first for TRACE level and logging integration
-- ADR-003 (Result Pattern) - Already exists, may need updates for `instruction` field
+- ADR-003 (Result Pattern) - Provides Result[T] type with success field, instruction field, and JSON serialization
 
 **Related:**
 - Tool implementations will follow these conventions
@@ -370,7 +374,7 @@ async def get_project_config(project: Optional[str] = None) -> Result[dict]:
 ## References
 
 - Reference Implementation: `mcp-server-guide` production code
-- ADR-003: Result Pattern and Error Handling
+- ADR-003: Result Pattern for Tool and Prompt Responses
 - ADR-004: Logging Architecture
 - FastMCP Documentation: https://github.com/jlowin/fastmcp
 - MCP Protocol: https://modelcontextprotocol.io/
