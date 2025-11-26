@@ -72,4 +72,5 @@ dev = [
     "types-aiofiles>=24.1.0.20250822",
     "types-pyyaml>=6.0.12.20250915",
     "mcp-inspector>=0.1.0",
+    "watchdog>=6.0.0",
 ]
