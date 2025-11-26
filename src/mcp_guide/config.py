@@ -7,7 +7,7 @@ from typing import Optional
 import yaml
 
 from mcp_guide.file_lock import lock_update
-from mcp_guide.models import _NAME_REGEX, NAME_PATTERN, Project
+from mcp_guide.models import _NAME_REGEX, Project
 
 
 class ConfigManager:

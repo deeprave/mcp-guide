@@ -1,7 +1,5 @@
 """Tests for immutable data models."""
 
-from datetime import datetime
-
 import pytest
 
 from mcp_guide.models import Category, Collection, Project, SessionState

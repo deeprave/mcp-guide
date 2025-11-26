@@ -100,31 +100,31 @@ class Project:
 
     def with_category(self, category: Category) -> "Project":
         """Return new Project with category added."""
-        return replace(self, categories=[*self.categories, category])
+        return replace(self, categories=[*self.categories, category], updated_at=datetime.now())
 
     def without_category(self, name: str) -> "Project":
         """Return new Project with category removed."""
         new_categories = [c for c in self.categories if c.name != name]
-        return replace(self, categories=new_categories)
+        return replace(self, categories=new_categories, updated_at=datetime.now())
 
     def with_collection(self, collection: Collection) -> "Project":
         """Return new Project with collection added."""
-        return replace(self, collections=[*self.collections, collection])
+        return replace(self, collections=[*self.collections, collection], updated_at=datetime.now())
 
     def without_collection(self, name: str) -> "Project":
         """Return new Project with collection removed."""
         new_collections = [c for c in self.collections if c.name != name]
-        return replace(self, collections=new_collections)
+        return replace(self, collections=new_collections, updated_at=datetime.now())
 
     def update_category(self, name: str, updater: Callable[[Category], Category]) -> "Project":
         """Return new Project with category updated."""
         new_categories = [updater(c) if c.name == name else c for c in self.categories]
-        return replace(self, categories=new_categories)
+        return replace(self, categories=new_categories, updated_at=datetime.now())
 
     def update_collection(self, name: str, updater: Callable[[Collection], Collection]) -> "Project":
         """Return new Project with collection updated."""
         new_collections = [updater(c) if c.name == name else c for c in self.collections]
-        return replace(self, collections=new_collections)
+        return replace(self, collections=new_collections, updated_at=datetime.now())
 
 
 @dataclass

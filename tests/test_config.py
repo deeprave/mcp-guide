@@ -2,8 +2,7 @@
 
 import pytest
 
-from mcp_guide.config import ConfigManager, get_config_manager
-from mcp_guide.models import Project
+from mcp_guide.config import ConfigManager
 
 
 class TestConfigManager:
