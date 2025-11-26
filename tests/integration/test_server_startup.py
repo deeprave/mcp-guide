@@ -38,9 +38,7 @@ async def wait_for_server_ready(process: subprocess.Popen, timeout: float = 2.0)
     return process.poll() is None
 
 
-async def read_response_with_timeout(
-    process: subprocess.Popen, timeout: float = 2.0
-) -> str | None:
+async def read_response_with_timeout(process: subprocess.Popen, timeout: float = 2.0) -> str | None:
     """Read response from server with timeout using polling."""
     assert process.stdout is not None
     start = asyncio.get_event_loop().time()
@@ -69,10 +67,7 @@ async def test_server_starts_without_errors(server_process: subprocess.Popen) ->
                 stderr_output = f"<failed to read stderr: {exc!r}>"
 
         pytest.fail(
-            "Server process failed to start.\n"
-            f"ready={ready}\n"
-            f"returncode={returncode}\n"
-            f"stderr:\n{stderr_output}"
+            f"Server process failed to start.\nready={ready}\nreturncode={returncode}\nstderr:\n{stderr_output}"
         )
 
 
