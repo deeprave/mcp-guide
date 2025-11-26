@@ -46,8 +46,7 @@ async def read_response_with_timeout(
     start = asyncio.get_event_loop().time()
     while asyncio.get_event_loop().time() - start < timeout:
         if process.stdout.readable():
-            line = process.stdout.readline()
-            if line:
+            if line := process.stdout.readline():
                 return line
         await asyncio.sleep(0.1)
     return None
@@ -57,7 +56,24 @@ async def read_response_with_timeout(
 async def test_server_starts_without_errors(server_process: subprocess.Popen) -> None:
     """Test that server process starts without immediate errors."""
     ready = await wait_for_server_ready(server_process)
-    assert ready, "Server process terminated unexpectedly"
+
+    if not ready:
+        server_process.poll()
+        returncode = server_process.returncode
+
+        stderr_output = None
+        if server_process.stderr is not None:
+            try:
+                stderr_output = server_process.stderr.read()
+            except Exception as exc:
+                stderr_output = f"<failed to read stderr: {exc!r}>"
+
+        pytest.fail(
+            "Server process failed to start.\n"
+            f"ready={ready}\n"
+            f"returncode={returncode}\n"
+            f"stderr:\n{stderr_output}"
+        )
 
 
 @pytest.mark.asyncio
@@ -115,6 +131,9 @@ async def test_server_advertises_correct_name(server_process: subprocess.Popen) 
 
     response = json.loads(response_line)
 
-    if "result" in response:
-        server_info = response["result"].get("serverInfo", {})
-        assert server_info.get("name") == "mcp-guide"
+    if "error" in response:
+        pytest.fail(f"Server returned error: {response['error']}")
+
+    assert "result" in response, "Response missing 'result' field"
+    server_info = response["result"].get("serverInfo", {})
+    assert server_info.get("name") == "mcp-guide"

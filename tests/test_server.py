@@ -24,5 +24,6 @@ def test_server_has_instructions() -> None:
     from mcp_guide.server import create_server
 
     server = create_server()
-    assert server.instructions is not None
+    assert isinstance(server.instructions, str)
+    assert server.instructions.strip()
     assert "project documentation" in server.instructions.lower()

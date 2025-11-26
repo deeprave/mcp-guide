@@ -1,24 +1,8 @@
 """Tests for main entry point."""
 
 import inspect
-from enum import Enum
 
 import pytest
-
-
-def test_transport_mode_enum_exists() -> None:
-    """Test that TransportMode enum can be imported."""
-    from mcp_guide.main import TransportMode
-
-    assert issubclass(TransportMode, Enum)
-
-
-def test_transport_mode_has_stdio() -> None:
-    """Test that TransportMode has STDIO value."""
-    from mcp_guide.main import TransportMode
-
-    assert hasattr(TransportMode, "STDIO")
-    assert TransportMode.STDIO.value == "stdio"
 
 
 @pytest.mark.asyncio
@@ -54,4 +38,4 @@ def test_main_has_no_required_parameters() -> None:
         p for p in sig.parameters.values() if p.default == inspect.Parameter.empty
     ]
 
-    assert len(required_params) == 0
+    assert not required_params

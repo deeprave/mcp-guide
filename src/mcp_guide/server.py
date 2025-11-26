@@ -9,11 +9,7 @@ def create_server() -> FastMCP:
     Returns:
         Configured FastMCP instance
     """
-    mcp = FastMCP(
+    return FastMCP(
         name="mcp-guide",
         instructions="MCP server for project documentation and development guidance",
     )
-
-    # Future: Register tools, prompts, and resources here
-
-    return mcp

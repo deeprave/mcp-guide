@@ -1,17 +1,6 @@
 """Main entry point for mcp-guide MCP server."""
 
 import asyncio
-from enum import Enum
-
-
-class TransportMode(str, Enum):
-    """MCP transport modes."""
-
-    STDIO = "stdio"
-    # Future transport modes:
-    # HTTP = "http"
-    # SSE = "sse"
-    # WEBSOCKET = "websocket"
 
 
 async def async_main() -> None:
