@@ -31,6 +31,6 @@
 - [x] 31. Verify all hooks pass (except no-commit-to-branch on main)
 - [x] 32. Verify `uv build` succeeds
 - [x] 33. Review all tasks marked complete
-- [ ] 34. **READY FOR REVIEW** - Request user review
-- [ ] 35. Address review concerns (if any)
-- [ ] 36. **USER APPROVAL RECEIVED** - Ready for archiving
+- [x] 34. **READY FOR REVIEW** - Request user review
+- [x] 35. Address review concerns (author attribution, Jira metadata added)
+- [x] 36. **USER APPROVAL RECEIVED** - Ready for archiving

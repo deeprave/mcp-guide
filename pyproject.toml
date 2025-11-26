@@ -18,7 +18,7 @@ dependencies = [
 ]
 
 [project.scripts]
-mcp-guide = "mcp_guide.main:cli_main"
+mcp-guide = "mcp_guide.main:main"
 osvcheck = "osvcheck:main"
 
 [build-system]
