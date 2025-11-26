@@ -26,21 +26,21 @@ This implements the core architecture that all tools will depend on. The design 
 
 ## Objectives
 
-1. Implement ProjectConfigManager singleton for config file management
-2. Implement GuideSession non-singleton for per-project runtime state
+1. Implement ConfigManager singleton for config file management
+2. Implement Session non-singleton for per-project runtime state
 3. Create immutable Project model with functional updates
 4. Integrate ContextVar for async task-local session tracking
 5. Provide session access patterns for tools
 
 ## Requirements
 
-### ProjectConfigManager (Singleton)
+### ConfigManager (Singleton)
 
 **File**: `src/mcp_guide/config.py`
 
 - Singleton pattern with thread-safe initialization
 - Manages single YAML file: `~/.config/mcp-guide/config.yaml`
-- File locking for atomic operations (using `filelock` package)
+- Custom async file locking for atomic operations (matches mcp-server-guide pattern)
 - Operations:
   - `get_or_create_project_config(name) -> Project`
   - `save_project_config(project: Project) -> None`
@@ -48,7 +48,7 @@ This implements the core architecture that all tools will depend on. The design 
   - `list_projects() -> List[str]`
   - `delete_project(name) -> None`
 
-### GuideSession (Non-Singleton)
+### Session (Non-Singleton)
 
 **File**: `src/mcp_guide/session.py`
 
@@ -74,9 +74,9 @@ This implements the core architecture that all tools will depend on. The design 
 
 **File**: `src/mcp_guide/session.py`
 
-- Global ContextVar: `active_sessions: ContextVar[Dict[str, GuideSession]]`
+- Global ContextVar: `active_sessions: ContextVar[Dict[str, Session]]`
 - Helper functions:
-  - `get_current_session(project_name) -> Optional[GuideSession]`
+  - `get_current_session(project_name) -> Optional[Session]`
   - `set_current_session(session) -> None`
   - `remove_current_session(project_name) -> None`
 
@@ -93,13 +93,13 @@ This implements the core architecture that all tools will depend on. The design 
 ### Phase 1: Models and Config Manager
 - [ ] Create immutable Project model (Pydantic)
 - [ ] Create Category and Collection models
-- [ ] Create SessionState model
-- [ ] Implement ProjectConfigManager singleton
-- [ ] Add file locking with filelock
-- [ ] Implement YAML serialization
+- [x] Create SessionState model
+- [x] Implement ConfigManager singleton
+- [x] Add custom async file locking (mcp-server-guide pattern)
+- [x] Implement YAML serialization
 
 ### Phase 2: Session Management
-- [ ] Implement GuideSession dataclass
+- [ ] Implement Session dataclass
 - [ ] Add eager name validation
 - [ ] Add lazy config loading
 - [ ] Implement functional update pattern
@@ -118,8 +118,8 @@ This implements the core architecture that all tools will depend on. The design 
 - [ ] Add error handling for missing sessions
 
 ### Phase 5: Testing
-- [ ] Unit tests for ProjectConfigManager
-- [ ] Unit tests for GuideSession
+- [ ] Unit tests for ConfigManager
+- [ ] Unit tests for Session
 - [ ] Unit tests for Project model
 - [ ] Integration tests for ContextVar
 - [ ] Concurrent access tests
@@ -146,14 +146,58 @@ This implements the core architecture that all tools will depend on. The design 
 
 ## Success Criteria
 
-- [ ] ProjectConfigManager can load/save configs atomically
-- [ ] GuideSession can be created for any project
+- [ ] ConfigManager can load/save configs atomically
+- [ ] Session can be created for any project
 - [ ] ContextVar tracks sessions per async task
 - [ ] Concurrent sessions on different projects work correctly
 - [ ] Immutable Project updates work functionally
 - [ ] All tests pass with ≥90% coverage
 - [ ] File locking prevents race conditions
 - [ ] Example tool demonstrates session access pattern
+
+## Quality Gates
+
+All quality gates must pass before requesting user approval:
+
+### Test Quality
+- [ ] 100% test pass rate (no failures, no skips)
+- [ ] No test warnings when run with `-Walways`
+- [ ] All tests use isolation fixtures (isolated_config_file, temp_project_dir)
+- [ ] Production file protection not triggered during test runs
+- [ ] Integration tests verify end-to-end workflows
+
+### Code Coverage
+- [ ] ≥90% coverage for models.py
+- [ ] ≥90% coverage for config.py
+- [ ] ≥90% coverage for session.py
+- [ ] All uncovered lines justified or tested
+
+### Type Safety
+- [ ] Zero mypy errors in strict mode
+- [ ] All public APIs have complete type hints
+- [ ] No `type: ignore` comments without justification
+
+### Code Quality
+- [ ] Zero ruff linting errors
+- [ ] Code formatted with ruff
+- [ ] No verbose or unnecessary code
+- [ ] No TODO comments in production code
+- [ ] No debug print statements
+
+### Concurrency
+- [ ] ContextVar provides task isolation (verified by tests)
+- [ ] File locking prevents race conditions (verified by tests)
+- [ ] Singleton thread-safe (verified by tests)
+
+### Documentation
+- [ ] All public classes have docstrings
+- [ ] All public methods have docstrings
+- [ ] Session access pattern documented with examples
+- [ ] Code examples in docstrings are correct
+
+### Dependencies
+- [x] No new dependencies required (uses custom file locking)
+- [x] Existing dependencies sufficient (Pydantic, PyYAML)
 
 ## References
 

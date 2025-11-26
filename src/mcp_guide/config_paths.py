@@ -1,25 +1,55 @@
-"""Default configuration paths with XDG compliance and Windows support."""
+"""Configuration path helpers with test injection support."""
 
 import os
-import platform
 from pathlib import Path
+from typing import Optional
 
 
-def get_default_config_file() -> Path:
-    """Get default config file path with XDG support on Unix and APPDATA on Windows."""
-    if platform.system() == "Windows":
-        if appdata := os.environ.get("APPDATA"):
-            config_dir = Path(appdata)
-        else:
-            config_dir = Path.home() / "AppData" / "Roaming"
-    elif config_home := os.environ.get("XDG_CONFIG_HOME"):
-        config_dir = Path(config_home)
-    else:
-        config_dir = Path.home() / ".config"
+def get_config_dir(config_dir: Optional[str] = None) -> Path:
+    """Get configuration directory.
 
-    return config_dir / "mcp-guide" / "config.json"
+    Args:
+        config_dir: Optional override directory for testing
+
+    Returns:
+        Path to config directory
+    """
+    if config_dir:
+        return Path(config_dir)
+
+    # Unix: XDG_CONFIG_HOME or ~/.config
+    if os.name != "nt":
+        xdg_config = os.environ.get("XDG_CONFIG_HOME")
+        if xdg_config:
+            return Path(xdg_config) / "mcp-guide"
+        return Path.home() / ".config" / "mcp-guide"
+
+    # Windows: APPDATA
+    appdata = os.environ.get("APPDATA")
+    if appdata:
+        return Path(appdata) / "mcp-guide"
+    return Path.home() / "AppData" / "Roaming" / "mcp-guide"
 
 
-def get_default_docroot() -> Path:
-    """Get default docroot path."""
-    return get_default_config_file().parent / "docs"
+def get_config_file(config_dir: Optional[str] = None) -> Path:
+    """Get configuration file path.
+
+    Args:
+        config_dir: Optional override directory for testing
+
+    Returns:
+        Path to config.yaml file
+    """
+    return get_config_dir(config_dir) / "config.yaml"
+
+
+def get_docroot(config_dir: Optional[str] = None) -> Path:
+    """Get document root directory.
+
+    Args:
+        config_dir: Optional override directory for testing
+
+    Returns:
+        Path to docs directory
+    """
+    return get_config_file(config_dir).parent / "docs"

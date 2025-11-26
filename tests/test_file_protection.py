@@ -8,11 +8,11 @@ import pytest
 
 def test_protection_monitors_real_production_paths(session_temp_dir):
     """Verify watchdog monitors REAL production paths, not test paths."""
-    from mcp_guide.config_paths import get_default_config_file, get_default_docroot
+    from mcp_guide.config_paths import get_config_file, get_docroot
 
     # Verify environment is redirected to test paths
-    test_config = get_default_config_file().parent
-    test_docroot = get_default_docroot()
+    test_config = get_config_file().parent
+    test_docroot = get_docroot()
 
     assert str(session_temp_dir) in str(test_config), "Config should be in test temp dir"
     assert str(session_temp_dir) in str(test_docroot), "Docroot should be in test temp dir"
@@ -35,10 +35,10 @@ def test_protection_fixture_exists():
     pass
 
 
-def test_can_safely_modify_test_paths(isolated_config_file, session_temp_dir):
+def test_can_safely_modify_test_paths(tmp_path, session_temp_dir):
     """Verify tests CAN modify test paths without triggering protection."""
     # This should NOT trigger watchdog because it's in test temp dir
-    test_file = isolated_config_file.parent / "safe_test_file.txt"
+    test_file = tmp_path / "safe_test_file.txt"
     test_file.write_text("This is safe - it's in test temp dir")
 
     # If we get here without pytest.exit(), protection is working correctly

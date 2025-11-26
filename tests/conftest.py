@@ -14,7 +14,7 @@ This module provides comprehensive test isolation through multiple mechanisms:
    - Only monitors paths that exist (handles gradual migration)
 
 3. **Helper Fixtures**:
-   - isolated_config_file: Test-specific config file path
+   - tmp_path: Test-specific config file path
    - temp_project_dir: Unique temporary directory per test
    - unique_category_name: Collision-free category names
    - session_temp_dir: Access to session-wide temp directory
@@ -175,22 +175,6 @@ def event_loop():
     loop = asyncio.new_event_loop()
     yield loop
     loop.close()
-
-
-@pytest.fixture
-def isolated_config_file():
-    """Provide an isolated config file path for tests that need real file I/O."""
-    from mcp_guide.config_paths import get_default_config_file
-
-    config_path = get_default_config_file()
-
-    if config_path.exists():
-        config_path.unlink()
-
-    yield config_path
-
-    if config_path.exists():
-        config_path.unlink()
 
 
 @pytest.fixture
