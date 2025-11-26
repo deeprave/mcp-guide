@@ -1,19 +1,31 @@
-"""Main entry point for mcp-guide CLI."""
+"""Main entry point for mcp-guide MCP server."""
 
-import click
-
-
-@click.group()
-@click.version_option(version="0.5.0", prog_name="mcp-guide")
-def cli() -> None:
-    """MCP Guide - Guidelines and project rules management."""
-    pass
+import asyncio
+from enum import Enum
 
 
-def cli_main() -> None:
-    """Entry point for console script."""
-    cli()
+class TransportMode(str, Enum):
+    """MCP transport modes."""
+
+    STDIO = "stdio"
+    # Future transport modes:
+    # HTTP = "http"
+    # SSE = "sse"
+    # WEBSOCKET = "websocket"
+
+
+async def async_main() -> None:
+    """Async entry point - starts MCP server with STDIO transport."""
+    from mcp_guide.server import create_server
+
+    mcp = create_server()
+    await mcp.run_stdio_async()
+
+
+def main() -> None:
+    """MCP Guide Server - Main entry point."""
+    asyncio.run(async_main())
 
 
 if __name__ == "__main__":
-    cli_main()
+    main()

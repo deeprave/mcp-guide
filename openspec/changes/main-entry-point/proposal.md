@@ -1,5 +1,10 @@
 # Proposal: Main Entry Point and Server Initialization
 
+## Metadata
+- **Epic**: MG-18 - MCP Guide Architectural Reboot
+- **Issue**: MG-19 - Minimal MCP server in stdio mode
+- **Assignee**: David Nugent
+
 ## Overview
 
 Implement the minimal main entry point that starts the MCP server with STDIO transport.
@@ -50,29 +55,16 @@ class TransportMode(str, Enum):
     # SSE = "sse"
     # WEBSOCKET = "websocket"
 
+async def async_main():
+    """Async entry point - starts MCP server with STDIO transport"""
+    from mcp_guide.server import create_server
+
+    mcp = create_server()
+    await mcp.run_stdio_async()
+
 def main():
     """MCP Guide Server - Main entry point"""
-    # Future: Add CLI options for transport, host, port, log_level
-    # For now: STDIO only with sensible defaults
-    asyncio.run(async_main(
-        transport=TransportMode.STDIO,
-        host="0.0.0.0",  # Unused in STDIO mode
-        port=8000,       # Unused in STDIO mode
-        log_level="INFO"
-    ))
-
-async def async_main(
-    transport: TransportMode,
-    host: str,
-    port: int,
-    log_level: str
-):
-    """Async entry point - starts MCP server with selected transport
-
-    Args:
-        transport: Transport mode (currently only STDIO supported)
-        host: Host for HTTP/SSE modes (unused in STDIO mode)
-        port: Port for HTTP/SSE modes (unused in STDIO mode)
+    asyncio.run(async_main())
         log_level: Logging level
     """
     from mcp_guide.server import create_server
@@ -92,7 +84,7 @@ if __name__ == "__main__":
 ```python
 # src/mcp_guide/server.py
 
-from fastmcp import FastMCP
+from mcp.server import FastMCP
 
 def create_server() -> FastMCP:
     """Create and configure the MCP Guide server
@@ -102,8 +94,7 @@ def create_server() -> FastMCP:
     """
     mcp = FastMCP(
         name="mcp-guide",
-        version="0.5.0",
-        description="MCP server for project documentation and development guidance"
+        instructions="MCP server for project documentation and development guidance"
     )
 
     # Future: Register tools, prompts, resources here
