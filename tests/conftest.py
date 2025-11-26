@@ -69,7 +69,6 @@ if os.name == "nt":
     _REAL_MCP_GUIDE_DOCROOT = _REAL_MCP_GUIDE_CONFIG / "docs"
     _REAL_MSG_CONFIG = Path(_REAL_APPDATA) / "mcp-server-guide"
     _REAL_MSG_DOCROOT = _REAL_MSG_CONFIG / "docs"
-    _REAL_MSG_DOCROOT = _REAL_MSG_CONFIG / "docs"
 
 
 class ProductionFileHandler(FileSystemEventHandler):
@@ -201,6 +200,8 @@ def temp_project_dir() -> Generator[Path, None, None]:
 
     global _session_temp_dir
 
+    assert _session_temp_dir is not None, "Session temp dir not initialized by pytest_configure"
+
     # Create subdirectory within session temp dir
     project_subdir = _session_temp_dir / f"project_{uuid.uuid4().hex[:8]}"
     project_subdir.mkdir(parents=True, exist_ok=True)
@@ -224,4 +225,5 @@ def unique_category_name(request):
 def session_temp_dir() -> Path:
     """Provide access to session temp directory."""
     global _session_temp_dir
+    assert _session_temp_dir is not None, "Session temp dir not initialized by pytest_configure"
     return _session_temp_dir
