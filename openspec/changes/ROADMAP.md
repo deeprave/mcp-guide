@@ -17,23 +17,25 @@ This roadmap tracks the phased implementation of mcp-guide, organized by functio
 **Goal:** Establish reusable logging infrastructure for all MCP servers
 
 ### logging-implementation
-**Status:** Proposed
+**Status:** ✅ Complete (Ready for archive)
 **ADR:** 004-logging-architecture
-**Blocks:** All subsequent phases (tool-conventions requires TRACE logging)
+**JIRA:** GUIDE-2
+**Epic:** GUIDE-24
+**Completed:** 2025-11-27
 
 **Deliverables:**
-- `src/mcp_core/mcp_log.py` - Core logging module with TRACE level
-- `src/mcp_core/mcp_log_filter.py` - PII redaction stub
-- WatchedFileHandler for Unix/Linux file rotation support
-- JSON and text formatters with redaction integration
-- mcp_guide integration (config.py, main.py)
-- Documentation and tests
+- ✅ `src/mcp_core/mcp_log.py` - Core logging module with TRACE level (92% coverage)
+- ✅ `src/mcp_core/mcp_log_filter.py` - PII redaction stub (100% coverage)
+- ✅ WatchedFileHandler for Unix/Linux file rotation support
+- ✅ JSON and text formatters with redaction integration
+- ✅ mcp_guide integration (config.py, main.py)
+- ✅ Documentation and tests (31 tests passing)
 
 **Success Criteria:**
-- TRACE level functional
-- File logging with JSON works
-- Logger hierarchy prevents duplication
-- >80% test coverage
+- ✅ TRACE level functional
+- ✅ File logging with JSON works
+- ✅ Logger hierarchy prevents duplication
+- ✅ >80% test coverage achieved (92%)
 
 ---
 
@@ -43,8 +45,8 @@ This roadmap tracks the phased implementation of mcp-guide, organized by functio
 
 ### tool-conventions
 **Status:** Proposed
-**ADR:** 005-tool-definition-conventions
-**Requires:** logging-implementation
+**ADR:** 008-tool-definition-conventions
+**Requires:** ✅ logging-implementation (Complete)
 **Blocks:** All tool implementations (Phase 3)
 
 **Deliverables:**
@@ -70,57 +72,145 @@ This roadmap tracks the phased implementation of mcp-guide, organized by functio
 
 **Note:** Phase 3 groups can proceed in parallel after Phase 2 completes. However, within guide-content-tools, category/collection/document operations should be implemented together as they are foundational.
 
-### Phase 3a: guide-content-tools (FOUNDATIONAL - Implement First)
-**Status:** Not Started
+### Phase 3a: Content and Configuration Tools (FOUNDATIONAL - Implement First)
+**Status:** Proposed
 **Requires:** tool-conventions
 **Priority:** HIGH - Core functionality
 
-**Rationale:** Category, collection, and document operations are the cornerstone of how mcp-guide serves documents. All other tools depend on this foundation.
+**Rationale:** Content retrieval and configuration management are the cornerstone of mcp-guide. All other tools depend on this foundation.
 
-**Tool Groups:**
+**Changes:**
 
-#### Category Operations
-- `get_category` - Retrieve category configuration
-- `add_category` - Create new category
-- `update_category` - Modify category settings
-- `remove_category` - Delete category
-- `list_categories` - List all categories
+#### add-content-tools (28 tasks)
+**Status:** Proposed
+**Requires:** tool-conventions, add-category-tools, add-collection-tools
 
-#### Collection Operations
-- `get_collection` - Retrieve collection configuration
-- `add_collection` - Create new collection
-- `update_collection` - Modify collection settings
-- `remove_collection` - Delete collection
-- `list_collections` - List all collections
+**Tools:**
+- `get_content` - Unified category/collection content access
+- `get_category_content` - Category-specific content retrieval
+- `get_collection_content` - Collection-specific content retrieval
 
-#### Document Operations
-- `create_mcp_document` - Upload new document (explicit use)
-- `get_mcp_document` - Retrieve document content
-- `update_mcp_document` - Modify document (explicit use)
-- `delete_mcp_document` - Remove document (explicit use)
-- `list_mcp_documents` - List documents in category
-
-#### Content Access
-- `get_category_content` - Get content from category
-- `get_file_content` - Get raw file content
-- `search_content` - Search across categories
-
-**Implementation Strategy:**
-1. Implement category operations first (foundation)
-2. Implement collection operations (depends on categories)
-3. Implement document operations (depends on categories)
-4. Implement content access (uses all above)
+**Features:**
+- Result pattern responses with error instructions
+- Pattern-based content filtering (glob syntax)
+- Single match → plain markdown
+- Multiple matches → MIME multipart format
+- Agent-friendly error handling
 
 **Success Criteria:**
-- All CRUD operations working
-- Explicit use pattern on destructive operations
-- Content retrieval efficient
-- Search functional across all content
-- Integration tests cover workflows
+- ✅ All three tools implemented
+- ✅ Pattern matching works (glob syntax)
+- ✅ MIME multipart formatting correct
+- ✅ Result pattern with instructions
+- ✅ Integration tests cover workflows
+
+#### add-category-tools (44 tasks)
+**Status:** Proposed
+**Requires:** tool-conventions
+
+**Tools:**
+- `category_add` - Create new category
+- `category_remove` - Delete category (auto-removes from collections)
+- `category_change` - Replace category configuration
+- `category_update` - Modify specific fields (add/remove patterns)
+
+**Features:**
+- Comprehensive validation (name, dir, description, patterns)
+- Traversal prevention and path safety
+- Auto-update collections on remove/rename
+- Change vs update semantics (replace vs modify)
+
+**Success Criteria:**
+- ✅ All CRUD operations working
+- ✅ Validation prevents unsafe operations
+- ✅ Auto-update collections works
+- ✅ Configuration persistence safe
+
+#### add-collection-tools (43 tasks)
+**Status:** Proposed
+**Requires:** tool-conventions, add-category-tools (for validation)
+
+**Tools:**
+- `collection_add` - Create new collection
+- `collection_remove` - Delete collection
+- `collection_change` - Replace collection configuration
+- `collection_update` - Modify specific fields (add/remove categories)
+
+**Features:**
+- Category reference validation (referential integrity)
+- Change vs update semantics (replace vs modify)
+- Comprehensive validation (name, description, categories)
+
+**Success Criteria:**
+- ✅ All CRUD operations working
+- ✅ Category references validated
+- ✅ Configuration persistence safe
+- ✅ Integration with category tools
+
+#### add-guide-uri-scheme (17 tasks)
+**Status:** Proposed
+**Requires:** tool-conventions, add-content-tools
+
+**Features:**
+- MCP `resources/list` handler with guide:// URIs
+- MCP `resources/read` handler for URI resolution
+- URI patterns: help, collection/{id}, category/{name}, category/{name}/{docId}, document/{context}/{docId}
+- Delegates to content tools for retrieval
+
+**Success Criteria:**
+- ✅ Resources list returns templates
+- ✅ URI parsing works correctly
+- ✅ Content delegation functional
+- ✅ guide://help provides documentation
+
+**Implementation Order:**
+1. add-category-tools (category management)
+2. add-collection-tools (collection management, depends on categories)
+3. add-content-tools (content retrieval, depends on both)
+4. add-guide-uri-scheme (resources layer, depends on content tools)
 
 ---
 
-### Phase 3b: guide-project-tools
+### Phase 3b: Project, Utility, and Discovery Tools
+**Status:** Placeholder
+**Requires:** tool-conventions, add-category-tools, add-collection-tools
+**Priority:** MEDIUM - Supporting functionality
+
+**Changes:**
+
+#### add-guide-project-tools (Placeholder)
+**Status:** Placeholder
+**Requires:** tool-conventions, add-category-tools, add-collection-tools
+
+**Tools:**
+- `get_current_project` - Returns all data about current project
+- `set_current_project` - Sets current project by name, creating if required
+- `clone_project` - Copy existing project to current or new project
+
+**Success Criteria:**
+- TBD when detailed proposal created
+
+#### add-guide-utility-tools (Placeholder)
+**Status:** Placeholder
+**Requires:** tool-conventions, add-category-tools, add-collection-tools
+
+**Tools:**
+- `get_agent_info` - Returns information about agent/client
+
+**Success Criteria:**
+- TBD when detailed proposal created
+
+#### add-mcp-discovery-tools (Placeholder)
+**Status:** Placeholder
+**Requires:** tool-conventions, add-category-tools, add-collection-tools
+
+**Tools:**
+- `list_prompts` - Enumerate available prompts
+- `list_resources` - Enumerate available resources
+- `list_tools` - Enumerate available tools
+
+**Success Criteria:**
+- TBD when detailed proposal created
 **Status:** Not Started
 **Requires:** tool-conventions
 **Priority:** MEDIUM - Project management
@@ -185,7 +275,7 @@ After Phase 2 completes:
 
 - **Unit tests**: Each tool in isolation
 - **Integration tests**: Tool workflows (e.g., create category → add document → retrieve content)
-- **Convention tests**: Verify all tools follow ADR-005 patterns
+- **Convention tests**: Verify all tools follow ADR-008 patterns
 
 ### Documentation Requirements
 

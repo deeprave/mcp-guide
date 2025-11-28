@@ -92,10 +92,62 @@ class Result(Generic[T]):
 - **Rich Error Information**: Specific error messages and types
 - **Better Debugging**: Clear distinction between error types + original exception preservation
 - **User Feedback**: Actionable error messages for users
+- **Agent Guidance**: Instructions field controls agent behavior on responses
 - **Consistent Pattern**: Uniform error handling across the system
 - **Type Safety**: Generic type support for different return types
 - **MCP Compatibility**: Direct JSON serialization for MCP tool responses
 - **Exception Preservation**: Original exceptions stored for detailed debugging
+
+## Field Usage
+
+### Success Response Fields
+
+- `success: bool = True` - Explicit success indicator (required)
+- `value: Optional[T]` - Result data (optional - some operations just indicate success without returning data)
+- `message: Optional[str]` - Information message for the user
+- `instruction: Optional[str]` - Guidance for the agent on how to handle the response
+
+### Failure Response Fields
+
+- `success: bool = False` - Explicit failure indicator (required)
+- `error: str` - What went wrong (required for failures)
+- `error_type: str` - Classification of error (required for failures)
+- `exception: Optional[Exception]` - Original exception object for debugging (automatically serialized to `exception_type` and `exception_message` strings in JSON)
+- `message: Optional[str]` - User-facing error explanation
+- `instruction: Optional[str]` - How agent should handle the error
+
+### Instruction Field Semantics
+
+The `instruction` field provides guidance to AI agents on how to respond to the result:
+
+**Error Handling Patterns:**
+- `"Present this error to the user and take no further action."` - Prevents unwanted remediation attempts
+- `"Suggest [specific remediation] before retrying."` - Guides agent toward solution
+- `"Ask the user for clarification on [specific aspect]."` - Requests user input
+
+**Mode Control Patterns:**
+- `"Switch to PLANNING mode."` - Changes operational mode
+- `"You are now in DISCUSSION mode."` - Sets context
+- `"Return to CHECK mode."` - Transitions workflow state
+
+**Operational Boundary Patterns:**
+- `"Do NOT make any changes to the project."` - Prevents actions
+- `"Require explicit user consent before proceeding."` - Enforces safety
+- `"This operation requires user review and approval."` - Adds checkpoint
+
+### JSON Serialization
+
+The `to_json()` method handles serialization of all fields:
+
+**Exception Handling:** The `exception` field stores the actual Exception object for debugging in Python code. When serializing to JSON via `to_json()`, it is automatically converted to JSON-safe format:
+- `exception_type`: Exception class name (e.g., "FileNotFoundError")
+- `exception_message`: String representation of the exception
+
+**Value Serialization:** Only the `value: T` field requires T to be JSON-serializable. Acceptable types:
+- Primitive types: `str`, `int`, `float`, `bool`, `None`
+- Collections: `list`, `dict`, `tuple`
+- Types with `.to_dict()` or `.to_json()` methods
+- Pydantic models (auto-serializable)
 
 ## Implementation
 

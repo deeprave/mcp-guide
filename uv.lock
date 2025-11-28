@@ -602,7 +602,6 @@ dependencies = [
 [package.dev-dependencies]
 dev = [
     { name = "coverage" },
-    { name = "mcp-inspector" },
     { name = "mypy" },
     { name = "pre-commit" },
     { name = "pytest" },
@@ -629,7 +628,6 @@ requires-dist = [
 [package.metadata.requires-dev]
 dev = [
     { name = "coverage", specifier = ">=7.10.7" },
-    { name = "mcp-inspector", specifier = ">=0.1.0" },
     { name = "mypy", specifier = ">=1.18.2" },
     { name = "pre-commit", specifier = ">=4.0.0" },
     { name = "pytest", specifier = ">=8.4.2" },
@@ -639,15 +637,6 @@ dev = [
     { name = "types-aiofiles", specifier = ">=24.1.0.20250822" },
     { name = "types-pyyaml", specifier = ">=6.0.12.20250915" },
     { name = "watchdog", specifier = ">=6.0.0" },
-]
-
-[[package]]
-name = "mcp-inspector"
-version = "0.1.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/96/ec/abb96ee13f2dfafe1063fbdc6e2db7fc0fe4021bf5f1fd6faa2d5b147c26/mcp_inspector-0.1.0.tar.gz", hash = "sha256:b80a7f7538cc6df2f5f492cbd80f0b1db30b4be19917bd0831f9b76a06d010b2", size = 1366, upload-time = "2025-09-29T14:58:22.291Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/41/7b/6f18587822c3b211d8a9848592cd91941cec4edaffd71bf6f9e848c111a9/mcp_inspector-0.1.0-py3-none-any.whl", hash = "sha256:0c4339f71eeb028d6b2755559d8ad2b86beb494acf8d96aef160a46af4fb1074", size = 1532, upload-time = "2025-09-29T14:58:21.037Z" },
 ]
 
 [[package]]

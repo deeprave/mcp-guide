@@ -1,8 +1,8 @@
-# ADR-005: MCP Tool Definition Conventions
+# ADR-008: MCP Tool Definition Conventions
 
 **Date:** 2025-11-27
 **Status:** Accepted
-**Dependencies:** ADR-004 (Logging Architecture), ADR-003 (Result Pattern)
+**Dependencies:** ADR-001 (Tool Naming Convention), ADR-004 (Logging Architecture), ADR-003 (Result Pattern)
 **Revised:** 2025-11-27 - Integrated logging into decorator (removed separate log_tool_usage decorator)
 
 ## Revision History
@@ -30,7 +30,9 @@ This ADR establishes conventions for tool definition, naming, descriptions, and 
 
 ### 1. Tool Name Decoration with Integrated Logging
 
-All MCP tools MUST use a custom decorator that adds an optional prefix to tool names and automatically logs all invocations:
+All MCP tools MUST use a custom decorator that adds an optional prefix to tool names and automatically logs all invocations.
+
+**Note:** This implements the tool naming convention from ADR-001, which decided to use namespaced tool names with configurable prefix to prevent naming conflicts across MCP servers.
 
 ```python
 from mcp_core.mcp_log import get_logger
@@ -148,35 +150,16 @@ This prevents accidental invocation and ensures user intent.
 
 All tools MUST return `Result[T]` as defined in ADR-003, where T is JSON-serializable.
 
-**Reference:** See [ADR-003: Result Pattern for Tool and Prompt Responses](003-result-pattern-response.md) for complete Result definition including:
-- `success: bool` field (required, explicit)
-- `value`, `error`, `error_type`, `exception` fields
-- `message` and `instruction` fields
-- Helper methods: `ok()`, `failure()`, `is_ok()`, `is_failure()`
-- JSON serialization: `to_json()`, `to_json_str()`
+**Reference:** See [ADR-003: Result Pattern for Tool and Prompt Responses](003-result-pattern-response.md) for:
+- Complete Result definition with all fields
+- Field usage patterns for success and failure responses
+- Instruction field semantics and common patterns
+- Exception handling and JSON serialization
+- Helper methods: `ok()`, `failure()`, `is_ok()`, `is_failure()`, `to_json()`, `to_json_str()`
 
-**Field Usage in Tools:**
+**Tool-Specific Usage:**
 
-**Success Response:**
-- `success: bool = True` - Explicit success indicator
-- `value: Optional[T]` - Result data (optional - some tools just indicate success)
-- `message: Optional[str]` - Information for the user
-- `instruction: Optional[str]` - Guidance for the agent
-
-**Failure Response:**
-- `success: bool = False` - Explicit failure indicator
-- `error: str` - What went wrong (required)
-- `error_type: str` - Classification of error (required)
-- `exception: Optional[Exception]` - Original exception object if applicable
-- `message: Optional[str]` - User-facing error explanation
-- `instruction: Optional[str]` - How agent should handle the error
-
-**JSON-Serializable Types:**
-T must be one of:
-- Primitive types: `str`, `int`, `float`, `bool`, `None`
-- Collections: `list`, `dict`, `tuple`
-- Types with `.to_dict()` or `.to_json()` methods
-- Pydantic models (auto-serializable)
+Tools should use the `instruction` field to guide agent behavior. Common patterns include preventing unwanted error remediation, suggesting specific fixes, controlling operational modes, and enforcing safety boundaries. See ADR-003 for detailed instruction patterns and examples.
 
 ### 4. Instruction Field Semantics
 
@@ -373,8 +356,10 @@ async def get_project_config(project: Optional[str] = None) -> Result[dict]:
 
 ## References
 
-- Reference Implementation: `mcp-server-guide` production code
+- ADR-001: Tool Naming Convention
 - ADR-003: Result Pattern for Tool and Prompt Responses
 - ADR-004: Logging Architecture
+- Reference Implementation: `mcp-server-guide` production code
 - FastMCP Documentation: https://github.com/jlowin/fastmcp
 - MCP Protocol: https://modelcontextprotocol.io/
+

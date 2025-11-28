@@ -3,7 +3,7 @@
 **Status**: Proposed
 **Priority**: High
 **Complexity**: Medium
-**ADR**: [005-tool-definition-conventions](../../adr/005-tool-definition-conventions.md)
+**ADR**: [008-tool-definition-conventions](../../adr/008-tool-definition-conventions.md)
 **Phase**: 2 - Tool Infrastructure
 **Requires**: logging-implementation
 
@@ -27,34 +27,48 @@ Without these conventions:
 
 ## What Changes
 
-### New Components
+### New Components (mcp_core - generic, reusable)
 
-1. **Tool Decorator** (`src/mcp_guide/tool_decorator.py`)
+1. **Result Pattern** (`src/mcp_core/result.py`) - JIRA: GUIDE-23
+   - Generic Result[T] dataclass for tool responses
+   - Fields: success, value, error, error_type, exception, message, instruction
+   - Helper methods: ok(), failure(), is_ok(), is_failure(), to_json(), to_json_str()
+   - JSON serialization for MCP responses
+
+2. **Tool Arguments Base** (`src/mcp_core/tool_arguments.py`) - JIRA: GUIDE-10
+   - Base Pydantic model with common validation (extra="forbid", validate_assignment=True)
+   - Tool collection pattern with @ToolArguments.declare decorator
+   - get_declared_tools() method with asyncio lock for thread safety
+   - to_schema_markdown() for generating markdown-formatted schemas
+   - build_tool_description() for combining docstrings with schemas
+
+3. **Tool Decorator** (`src/mcp_core/tool_decorator.py`) - JIRA: GUIDE-10
    - ExtMcpToolDecorator class with name prefixing
-   - Automatic TRACE logging integration
-   - Configurable prefix via MCP_TOOL_PREFIX environment variable
+   - Automatic TRACE/DEBUG/ERROR logging integration
+   - Reads MCP_TOOL_PREFIX environment variable (no hardcoded default)
    - Per-tool prefix override support
 
-2. **Base Tool Arguments** (`src/mcp_guide/tool_base.py`)
-   - Base Pydantic model for tool arguments
-   - Shared validation and documentation patterns
-   - Common utility methods (if needed)
+### Modified Components (mcp_guide - project-specific)
 
-3. **Example Tool** (`src/mcp_guide/tools/example_tool.py`)
-   - Demonstrates all conventions
-   - Shows explicit use pattern
-   - Shows Result[T] usage
-   - Shows instruction field patterns
-
-### Modified Components
-
-1. **Result Pattern** (verify `src/mcp_guide/result.py` or ADR-003)
-   - Confirm `instruction` field exists
-   - Add if missing (breaking change)
+1. **Environment Configuration** (`src/mcp_guide/main.py`)
+   - Add _configure_environment() function
+   - Set MCP_TOOL_PREFIX="guide" if not already set
+   - Call before _configure_logging() and server initialization
 
 2. **Server Setup** (`src/mcp_guide/server.py`)
    - Use ExtMcpToolDecorator instead of direct FastMCP decorator
-   - Configure tool prefix
+   - Import tool modules (triggers @ToolArguments.declare collection)
+   - Call get_declared_tools() to retrieve collected tools
+   - Generate descriptions with build_tool_description()
+   - Register tools with generated descriptions
+   - Conditional import of tool_example based on MCP_INCLUDE_EXAMPLE_TOOLS
+
+3. **Example Tool** (`src/mcp_guide/tools/tool_example.py`)
+   - Demonstrates all conventions (temporary, conditionally included)
+   - Shows @ToolArguments.declare pattern
+   - Shows explicit use pattern with Literal types
+   - Shows Result[T] usage with instruction field
+   - Can be excluded by not setting MCP_INCLUDE_EXAMPLE_TOOLS=true
 
 ### New Documentation
 
@@ -66,7 +80,8 @@ Without these conventions:
 
 2. **Tool Conventions Reference** (update `README.md`)
    - Quick reference for tool conventions
-   - Link to ADR-005
+   - Environment variables (MCP_TOOL_PREFIX, MCP_INCLUDE_EXAMPLE_TOOLS)
+   - Link to ADR-008
 
 ## Technical Approach
 
@@ -194,15 +209,21 @@ Result(
 
 ## Success Criteria
 
-1. ✅ ExtMcpToolDecorator supports prefix configuration (env var + per-tool override)
-2. ✅ Automatic TRACE logging on all tool calls (entry, success, failure)
-3. ✅ Result[T] pattern includes instruction field
-4. ✅ Base ToolArgs Pydantic model available
-5. ✅ Explicit use pattern with Literal types works
-6. ✅ Example tool demonstrates all patterns
-7. ✅ Tool implementation guide complete
-8. ✅ All tests pass (>80% coverage)
-9. ✅ No breaking changes to existing functionality
+1. ✅ Result[T] pattern implemented in mcp_core with instruction field (GUIDE-23)
+2. ✅ ToolArguments base class in mcp_core with collection pattern (GUIDE-10)
+3. ✅ @ToolArguments.declare decorator for tool collection
+4. ✅ get_declared_tools() with asyncio lock for thread safety
+5. ✅ to_schema_markdown() generates markdown-formatted schemas
+6. ✅ build_tool_description() combines docstrings with schemas
+7. ✅ ExtMcpToolDecorator in mcp_core with no hardcoded default prefix
+8. ✅ Automatic TRACE/DEBUG/ERROR logging on all tool calls
+9. ✅ MCP_TOOL_PREFIX environment variable support
+10. ✅ _configure_environment() sets default prefix early in startup
+11. ✅ Server integration uses collection pattern for automatic registration
+12. ✅ Example tool demonstrates all patterns (conditionally included)
+13. ✅ Tool implementation guide complete
+14. ✅ All tests pass (>80% coverage)
+15. ✅ No breaking changes to existing functionality
 
 ## Dependencies
 
@@ -215,7 +236,7 @@ Result(
 
 ## References
 
-- ADR-005: [005-tool-definition-conventions.md](../../adr/005-tool-definition-conventions.md)
+- ADR-008: [008-tool-definition-conventions.md](../../adr/008-tool-definition-conventions.md)
 - ADR-004: [004-logging-architecture.md](../../adr/004-logging-architecture.md)
 - ADR-003: Result Pattern for Tool and Prompt Responses
 - Reference: mcp-server-guide production code

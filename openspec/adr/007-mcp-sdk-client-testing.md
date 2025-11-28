@@ -3,7 +3,7 @@
 **Status**: Accepted
 **Date**: 2025-11-26
 **Deciders**: David Nugent
-**Related**: ADR-005 (MCP Inspector for Integration Testing)
+**Supersedes**: ADR-005 (MCP Inspector for Integration Testing)
 
 ## Context
 
@@ -14,6 +14,31 @@ The MCP Python SDK provides two approaches for testing:
 2. **STDIO client testing**: `stdio_client()` with `StdioServerParameters` - Spawns actual server process
 
 Initial investigation of `mcp-inspector` package revealed it's a placeholder (v0.1.0) with no actual implementation. However, the core `mcp` package provides comprehensive client functionality for testing.
+
+## Historical Context: ADR-005
+
+**Original Decision (2025-11-25):** Use MCP Inspector CLI mode for integration testing.
+
+**Why It Changed:** Investigation revealed that `mcp-inspector` is a placeholder package with no actual implementation. The MCP Python SDK (`mcp` package) provides official client testing utilities that are:
+- Actually implemented and maintained
+- Used by the MCP ecosystem
+- Better integrated with Python testing
+- More comprehensive than the inspector approach
+
+**ADR-005 Content (for reference):**
+
+The original decision proposed using MCP Inspector because it was:
+- Official tool maintained by MCP protocol team
+- Had CLI mode for automation
+- Available as Python package
+- Could validate protocol compliance
+
+However, upon implementation attempt, we discovered:
+- `mcp-inspector` v0.1.0 is a placeholder with no code
+- The `mcp` SDK provides better testing utilities
+- SDK approach is more maintainable and official
+
+This led to the current decision to use MCP SDK client testing instead.
 
 ## Decision
 
