@@ -61,6 +61,10 @@ files = ["src"]
 strict = true
 namespace_packages = true
 
+[[tool.mypy.overrides]]
+module = "fastmcp"
+ignore_missing_imports = true
+
 [dependency-groups]
 dev = [
     "pytest>=8.4.2",
