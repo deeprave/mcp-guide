@@ -57,6 +57,7 @@ known-first-party = ["mcp_core", "mcp_guide"]
 [tool.mypy]
 python_version = "3.13"
 mypy_path = "src"
+files = ["src"]
 strict = true
 namespace_packages = true
 

@@ -140,6 +140,12 @@ def parse_args() -> ServerConfig:
         if "-h" in sys.argv or "--help" in sys.argv:
             config.should_exit = True
 
+    except click.exceptions.Exit as e:
+        # Help/version/other exit paths - mark for exit
+        config.should_exit = True
+        # Exit code 0 means help/version, non-zero means error
+        if e.exit_code != 0:
+            config.cli_error = e  # type: ignore[assignment]
     except click.Abort as e:
         # Ctrl+C - store for deferred handling
         config.cli_error = e  # type: ignore[assignment]

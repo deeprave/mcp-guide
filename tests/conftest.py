@@ -18,7 +18,6 @@ This module provides comprehensive test isolation through multiple mechanisms:
    - temp_project_dir: Unique temporary directory per test
    - unique_category_name: Collision-free category names
    - session_temp_dir: Access to session-wide temp directory
-   - event_loop: Session-scoped async event loop
 
 Protected Paths (if they exist):
 - mcp-guide config: $XDG_CONFIG_HOME/mcp-guide/
@@ -153,6 +152,35 @@ def pytest_unconfigure(config):
         _session_temp_dir = None
 
 
+def pytest_sessionfinish(session, exitstatus):
+    """Close any remaining event loops after test session."""
+    # Get all event loops and close them
+    try:
+        policy = asyncio.get_event_loop_policy()
+        if hasattr(policy, "_local"):
+            # Close all loops in the policy
+            if hasattr(policy._local, "_loop"):
+                loop = policy._local._loop
+                if loop and not loop.is_closed():
+                    loop.close()
+    except (RuntimeError, AttributeError):
+        pass
+
+
+@pytest.fixture(scope="module")
+def event_loop_policy():
+    """Set event loop policy for the test module."""
+    policy = asyncio.get_event_loop_policy()
+    yield policy
+    # Close any loops created by this module
+    try:
+        loop = policy.get_event_loop()
+        if not loop.is_closed():
+            loop.close()
+    except RuntimeError:
+        pass
+
+
 def robust_cleanup(directory: Path) -> None:
     """Robustly clean up a directory, handling read-only files and other issues."""
 
@@ -167,14 +195,6 @@ def robust_cleanup(directory: Path) -> None:
 
     if directory.exists():
         shutil.rmtree(directory, onerror=handle_remove_readonly)
-
-
-@pytest.fixture(scope="session")
-def event_loop():
-    """Create an instance of the default event loop for the test session."""
-    loop = asyncio.new_event_loop()
-    yield loop
-    loop.close()
 
 
 @pytest.fixture

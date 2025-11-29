@@ -36,6 +36,34 @@ class TestParseArgs:
                 assert config.log_json is False
                 assert config.tool_prefix == "guide"
 
+    def test_help_sets_should_exit_and_no_error(self) -> None:
+        """`--help` should mark config for exit without an error."""
+        with patch("sys.argv", ["mcp-guide", "--help"]):
+            config = parse_args()
+            assert config.should_exit is True
+            assert config.cli_error is None
+
+    def test_version_sets_should_exit_and_no_error(self) -> None:
+        """`--version` should mark config for exit without an error."""
+        with patch("sys.argv", ["mcp-guide", "--version"]):
+            config = parse_args()
+            assert config.should_exit is True
+            assert config.cli_error is None
+
+    def test_click_abort_populates_cli_error_and_sets_should_exit(self) -> None:
+        """Simulate Ctrl+C (click.Abort) and ensure it is captured on the config."""
+        import click
+
+        def aborting_invoke(self, ctx):
+            raise click.Abort()
+
+        with patch.object(click.Command, "invoke", aborting_invoke):
+            with patch("sys.argv", ["mcp-guide"]):
+                config = parse_args()
+
+                assert isinstance(config.cli_error, click.Abort)
+                assert config.should_exit is True
+
     def test_cli_args_override_defaults(self) -> None:
         """Test CLI arguments override default values."""
         with patch("sys.argv", ["mcp-guide", "--log-level", "DEBUG", "--log-json"]):
