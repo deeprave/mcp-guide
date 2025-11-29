@@ -8,6 +8,7 @@ from typing import Any, Literal
 
 from mcp_core.result import Result
 from mcp_core.tool_arguments import ToolArguments
+from mcp_guide.server import tools
 
 
 class ExampleArgs(ToolArguments):
@@ -17,7 +18,7 @@ class ExampleArgs(ToolArguments):
     message: str = "Hello, World!"
 
 
-@ToolArguments.declare
+@tools.tool(ExampleArgs)
 def example_tool(args: ExampleArgs) -> dict[str, Any]:
     """Example tool demonstrating all tool conventions.
 
@@ -29,7 +30,7 @@ def example_tool(args: ExampleArgs) -> dict[str, Any]:
     - Literal types for constrained choices
     - Result[T] pattern for rich error handling
     - Instruction field for agent guidance
-    - @ToolArguments.declare decorator for collection
+    - Decorator-based registration
 
     Args:
         args: Example arguments with action and message
@@ -47,7 +48,7 @@ def example_tool(args: ExampleArgs) -> dict[str, Any]:
                 "Literal type constraints",
                 "Result[T] pattern",
                 "Instruction field",
-                "Tool collection via @declare",
+                "Decorator-based registration",
             ],
         }
     )

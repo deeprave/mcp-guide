@@ -1,5 +1,8 @@
 # Change: Add Category Management Tools
 
+**Jira ID:** GUIDE-25
+**Epic:** GUIDE-24
+
 ## Why
 
 Categories are the primary organizational unit in mcp-guide, defining content directories and patterns. Currently, there's no standardized way to manage categories through tools. We need:
@@ -12,6 +15,7 @@ Categories are the primary organizational unit in mcp-guide, defining content di
 
 ## What Changes
 
+- Implement `category_list` tool (list all categories with patterns)
 - Implement `category_add` tool (create new category)
 - Implement `category_remove` tool (delete category, auto-remove from collections)
 - Implement `category_change` tool (replace category configuration)
@@ -22,8 +26,18 @@ Categories are the primary organizational unit in mcp-guide, defining content di
 
 ## Impact
 
-- Affected specs: New capability `category-tools`
-- Affected code: New tools module, configuration management
-- Dependencies: Result pattern (ADR-003), tool conventions (ADR-008), session management
-- Breaking changes: None (new tools)
+- Affected specs: New capability `category-tools`, tool-infrastructure (registration refactor)
+- Affected code: New tools module, configuration management, tool registration infrastructure
+- Dependencies: Result pattern (ADR-003), tool conventions (ADR-008 - needs revision), session management
+- Breaking changes: None (new tools, internal infrastructure refactor)
 - Side effects: category_remove auto-removes category from all collections
+
+## Prerequisites
+
+**CRITICAL:** Tool registration infrastructure must be refactored before implementing category tools.
+
+**Current Issue:** Lazy constructor registration pattern is broken - tools don't register with FastMCP.
+
+**Solution:** Implement decorator-based registration with ContextVar test mode control (Phase 0).
+
+**See:** `REGISTRATION_REFACTOR.md` and `PHASE_0_PLAN.md` for details.

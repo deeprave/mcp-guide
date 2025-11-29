@@ -42,106 +42,65 @@ def test_main_has_no_required_parameters() -> None:
 
 
 class TestLoggingConfiguration:
-    """Tests for logging configuration from environment variables."""
+    """Tests for logging configuration from ServerConfig."""
 
     @patch("mcp_core.mcp_log.get_logger")
     @patch("mcp_core.mcp_log.configure")
     def test_configure_logging_default_values(self, mock_configure: MagicMock, mock_get_logger: MagicMock) -> None:
         """Test logging configuration with default values."""
+        from mcp_guide.cli import ServerConfig
         from mcp_guide.main import _configure_logging
 
-        # Clear environment variables
-        env_backup = {k: v for k, v in os.environ.items() if k.startswith("MG_LOG_")}
-        for key in list(os.environ.keys()):
-            if key.startswith("MG_LOG_"):
-                del os.environ[key]
+        config = ServerConfig()
+        _configure_logging(config)
 
-        try:
-            _configure_logging()
-
-            mock_configure.assert_called_once_with(
-                level="INFO",
-                file_path=None,
-                json_format=False,
-            )
-            mock_get_logger.assert_called_once_with("mcp_guide.main")
-        finally:
-            # Restore environment
-            os.environ.update(env_backup)
+        mock_configure.assert_called_once_with(
+            level="INFO",
+            file_path=None,
+            json_format=False,
+        )
+        mock_get_logger.assert_called_once_with("mcp_guide.main")
 
     @patch("mcp_core.mcp_log.get_logger")
     @patch("mcp_core.mcp_log.configure")
-    def test_configure_logging_from_env_vars(self, mock_configure: MagicMock, mock_get_logger: MagicMock) -> None:
-        """Test logging configuration reads environment variables."""
+    def test_configure_logging_from_config(self, mock_configure: MagicMock, mock_get_logger: MagicMock) -> None:
+        """Test logging configuration from ServerConfig."""
+        from mcp_guide.cli import ServerConfig
         from mcp_guide.main import _configure_logging
 
-        env_backup = {k: v for k, v in os.environ.items() if k.startswith("MG_LOG_")}
-        try:
-            os.environ["MG_LOG_LEVEL"] = "DEBUG"
-            os.environ["MG_LOG_FILE"] = "/tmp/test.log"
-            os.environ["MG_LOG_JSON"] = "true"
+        config = ServerConfig(
+            log_level="DEBUG",
+            log_file="/tmp/test.log",
+            log_json=True,
+        )
+        _configure_logging(config)
 
-            _configure_logging()
-
-            mock_configure.assert_called_once_with(
-                level="DEBUG",
-                file_path="/tmp/test.log",
-                json_format=True,
-            )
-        finally:
-            # Restore environment
-            for key in list(os.environ.keys()):
-                if key.startswith("MG_LOG_"):
-                    del os.environ[key]
-            os.environ.update(env_backup)
-
-    @patch("mcp_core.mcp_log.get_logger")
-    @patch("mcp_core.mcp_log.configure")
-    def test_configure_logging_json_variants(self, mock_configure: MagicMock, mock_get_logger: MagicMock) -> None:
-        """Test MG_LOG_JSON accepts various true values."""
-        from mcp_guide.main import _configure_logging
-
-        env_backup = {k: v for k, v in os.environ.items() if k.startswith("MG_LOG_")}
-
-        for value in ["true", "1", "yes", "TRUE", "Yes"]:
-            try:
-                os.environ["MG_LOG_JSON"] = value
-                mock_configure.reset_mock()
-
-                _configure_logging()
-
-                assert mock_configure.call_args[1]["json_format"] is True
-            finally:
-                for key in list(os.environ.keys()):
-                    if key.startswith("MG_LOG_"):
-                        del os.environ[key]
-                os.environ.update(env_backup)
+        mock_configure.assert_called_once_with(
+            level="DEBUG",
+            file_path="/tmp/test.log",
+            json_format=True,
+        )
 
     @patch("mcp_core.mcp_log.get_logger")
     @patch("mcp_core.mcp_log.configure")
     def test_configure_logging_startup_messages(self, mock_configure: MagicMock, mock_get_logger: MagicMock) -> None:
         """Test startup logging messages are logged."""
+        from mcp_guide.cli import ServerConfig
         from mcp_guide.main import _configure_logging
 
         mock_logger = MagicMock()
         mock_get_logger.return_value = mock_logger
 
-        env_backup = {k: v for k, v in os.environ.items() if k.startswith("MG_LOG_")}
-        try:
-            os.environ["MG_LOG_LEVEL"] = "TRACE"
-            os.environ["MG_LOG_FILE"] = "/tmp/test.log"
-            os.environ["MG_LOG_JSON"] = "true"
+        config = ServerConfig(
+            log_level="TRACE",
+            log_file="/tmp/test.log",
+            log_json=True,
+        )
+        _configure_logging(config)
 
-            _configure_logging()
-
-            mock_logger.info.assert_called_once_with("Starting mcp-guide server")
-            mock_logger.debug.assert_called_once()
-            debug_msg = mock_logger.debug.call_args[0][0]
-            assert "TRACE" in debug_msg
-            assert "/tmp/test.log" in debug_msg
-            assert "True" in debug_msg
-        finally:
-            for key in list(os.environ.keys()):
-                if key.startswith("MG_LOG_"):
-                    del os.environ[key]
-            os.environ.update(env_backup)
+        mock_logger.info.assert_called_once_with("Starting mcp-guide server")
+        mock_logger.debug.assert_called_once()
+        debug_msg = mock_logger.debug.call_args[0][0]
+        assert "TRACE" in debug_msg
+        assert "/tmp/test.log" in debug_msg
+        assert "True" in debug_msg

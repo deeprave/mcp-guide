@@ -1,7 +1,8 @@
-# Tool Infrastructure Capability
+# tool-infrastructure Specification
 
-## ADDED Requirements
-
+## Purpose
+TBD - created by archiving change tool-conventions. Update Purpose after archive.
+## Requirements
 ### Requirement: Result Pattern Implementation
 The system SHALL provide a Result[T] generic type in mcp_core for tool responses.
 
@@ -174,3 +175,4 @@ The system SHALL enforce documentation conventions for tools.
 - **WHEN** tool modules are created
 - **THEN** files are named with tool_ prefix (e.g., tool_category.py)
 - **AND** naming enables easy identification and exclusion
+
