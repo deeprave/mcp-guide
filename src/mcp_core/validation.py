@@ -15,7 +15,7 @@ ERR_INVALID_CHARACTERS = "Description contains quote characters"
 DEFAULT_INSTRUCTION = "Return error to user without attempting remediation"
 
 
-class ValidationError(BaseException):
+class ValidationError(ValueError):
     """Validation error with structured information for agents.
 
     Args:
@@ -57,11 +57,7 @@ def is_absolute_path(path: str) -> bool:
         return True
 
     # UNC path (\\server\share)
-    if path.startswith("\\\\"):
-        return True
-
-    # Use pathlib as fallback
-    return Path(path).is_absolute()
+    return True if path.startswith("\\\\") else Path(path).is_absolute()
 
 
 def validate_directory_path(path: Optional[str], default: str) -> str:
@@ -83,7 +79,11 @@ def validate_directory_path(path: Optional[str], default: str) -> str:
     if is_absolute_path(path):
         raise ValidationError(ERR_ABSOLUTE_PATH, error_type="absolute_path")
 
-    if ".." in path:
+    # Normalize path separators and check individual components for traversal attempts
+    # This avoids rejecting benign names like "file..txt" while still blocking "../" usage
+    normalized_path = path.replace("\\", "/")
+    parts = normalized_path.split("/")
+    if any(part == ".." for part in parts):
         raise ValidationError(ERR_PATH_TRAVERSAL, error_type="traversal_attempt")
 
     parts = path.replace("\\", "/").split("/")

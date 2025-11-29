@@ -6,30 +6,28 @@ from mcp_guide.server import tools
 
 
 class CategoryListArgs(ToolArguments):
-    """Arguments for category_list tool (currently no arguments needed)."""
+    """Arguments for category_list tool."""
 
-    pass
+    verbose: bool = True
 
 
 @tools.tool(CategoryListArgs)
-async def category_list() -> str:
+async def category_list(verbose: bool = True) -> str:
     """List all categories in the current project.
 
-    Returns a list of all categories with their configuration details including
-    name, directory, patterns, and description (if available).
+    Args:
+        verbose: If True (default), return full category details; if False, return only names
 
     Returns:
-        JSON string with Result containing list of category dictionaries, each with:
-        - name: Category name
-        - dir: Directory path
-        - patterns: List of glob patterns
-        - description: Optional description (None if not available)
+        JSON string with Result containing:
+        - If verbose=True: list of category dictionaries with name, dir, patterns, description
+        - If verbose=False: list of category names only
 
     Example:
-        >>> result = await category_list()
+        >>> result = await category_list(verbose=True)
         >>> result_dict = json.loads(result)
         >>> if result_dict["success"]:
-        ...     for cat in result_dict["data"]:
+        ...     for cat in result_dict["value"]:
         ...         print(f"{cat['name']}: {cat['dir']}")
     """
     from mcp_guide.session import active_sessions
@@ -40,18 +38,20 @@ async def category_list() -> str:
 
     session = next(iter(sessions.values()))
 
-    # Use proper async method - no encapsulation violation
     project = await session.get_project()
 
-    categories = []
-    for category in project.categories:
-        categories.append(
+    if verbose:
+        categories: list[dict[str, str | list[str] | None]] = [
             {
                 "name": category.name,
                 "dir": category.dir,
                 "patterns": list(category.patterns),
-                "description": getattr(category, "description", None),
+                "description": category.description,
             }
-        )
+            for category in project.categories
+        ]
+    else:
+        categories_list: list[str] = [category.name for category in project.categories]
+        return Result.ok(categories_list).to_json_str()
 
     return Result.ok(categories).to_json_str()

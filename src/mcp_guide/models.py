@@ -4,6 +4,7 @@ import re
 from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 from datetime import datetime
+from typing import Optional
 
 from pydantic import field_validator
 from pydantic.dataclasses import dataclass as pydantic_dataclass
@@ -21,6 +22,7 @@ class Category:
         name: Category name (alphanumeric, hyphens, underscores, 1-30 chars)
         dir: Directory path for category content
         patterns: List of glob patterns (may be empty)
+        description: Optional description of the category
 
     Note:
         Instances are immutable (frozen=True).
@@ -29,6 +31,7 @@ class Category:
     name: str
     dir: str
     patterns: list[str]
+    description: Optional[str] = None
 
     @field_validator("name")
     @classmethod

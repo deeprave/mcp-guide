@@ -83,6 +83,8 @@ class TestExtMcpToolDecorator:
         decorator = ExtMcpToolDecorator(mock_mcp)
 
         class TestArgs(ToolArguments):
+            """Test function."""
+
             value: str
 
         disable_test_mode()  # Ensure production mode
@@ -92,9 +94,11 @@ class TestExtMcpToolDecorator:
             """Test function."""
             return Result.ok("test")
 
-        # Verify build_tool_description was used
-        # (We'll check this by verifying the tool was registered)
-        assert mock_mcp.tool.called
+        # Verify description was auto-generated and passed to tool registration
+        call_args, call_kwargs = mock_mcp.tool.call_args
+        assert "description" in call_kwargs
+        assert isinstance(call_kwargs["description"], str)
+        assert "Test function." in call_kwargs["description"]
 
     def test_manual_description_overrides_auto_generation(self):
         """Test that manual description overrides auto-generation."""
