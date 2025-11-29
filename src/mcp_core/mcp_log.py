@@ -176,7 +176,7 @@ def get_logger(name: str) -> logging.Logger:
         Logger instance with trace() method
     """
     try:
-        from fastmcp import get_logger as fastmcp_get_logger  # type: ignore[import-not-found]
+        from fastmcp import get_logger as fastmcp_get_logger
 
         return fastmcp_get_logger(name)  # type: ignore[no-any-return]
     except ImportError:
