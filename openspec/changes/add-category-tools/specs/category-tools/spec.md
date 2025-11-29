@@ -2,6 +2,34 @@
 
 ## ADDED Requirements
 
+### Requirement: category_list Tool
+
+The system SHALL provide a `category_list` tool that lists all categories.
+
+Arguments:
+- `verbose` (optional, boolean): Include full details (defaults to false)
+
+The tool SHALL:
+- Return list of all categories in project configuration
+- Include name, dir, description, patterns for each category
+- Return Result pattern response
+
+#### Scenario: List all categories
+- **WHEN** tool is called
+- **THEN** return all categories with their configuration
+
+#### Scenario: Empty category list
+- **WHEN** no categories exist
+- **THEN** return empty list with success
+
+#### Scenario: Verbose mode
+- **WHEN** verbose is true
+- **THEN** include all fields (name, dir, description, patterns)
+
+#### Scenario: Non-verbose mode
+- **WHEN** verbose is false or omitted
+- **THEN** include all fields (name, dir, description, patterns)
+
 ### Requirement: category_add Tool
 
 The system SHALL provide a `category_add` tool that creates a new category.
@@ -250,19 +278,23 @@ Validation SHALL enforce:
 - **WHEN** pattern starts with "/"
 - **THEN** validation fails with error_type "absolute_path"
 
-### Requirement: Configuration Persistence
+### Requirement: Configuration Persistence (Auto-Save)
 
-All tools SHALL persist configuration changes to disk safely.
+All tools SHALL persist configuration changes to disk IMMEDIATELY after modification.
+
+**CRITICAL**: Configuration MUST be saved automatically on every change. If the user exits without explicit save, changes would be lost. This is an "auto-save" requirement.
 
 Persistence SHALL:
+- Save configuration to disk immediately after any modification
 - Use file locking to prevent concurrent modification
 - Validate configuration before writing
 - Handle write errors gracefully
 - Return error if persistence fails
+- Never return success without persisting changes
 
 #### Scenario: Successful persistence
 - **WHEN** configuration is valid and writable
-- **THEN** write to disk and return success
+- **THEN** write to disk immediately and return success
 
 #### Scenario: Write error
 - **WHEN** file cannot be written
@@ -275,6 +307,10 @@ Persistence SHALL:
 #### Scenario: Invalid configuration
 - **WHEN** configuration fails validation before write
 - **THEN** return error without writing
+
+#### Scenario: Auto-save on every change
+- **WHEN** any category tool modifies configuration
+- **THEN** configuration is persisted to disk before returning success
 
 ### Requirement: Collection Auto-Update
 

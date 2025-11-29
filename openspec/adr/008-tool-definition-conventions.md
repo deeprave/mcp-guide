@@ -7,6 +7,18 @@
 
 ## Revision History
 
+### 2025-11-29: Lazy Tool Registration
+**What Changed:** Replaced `@ToolArguments.declare` decorator with lazy registration via constructor
+
+**Why:** Import-time decorator registration caused test isolation issues - tools registered in one test polluted global state for subsequent tests. Lazy registration via constructor ensures tools are only registered when actually instantiated, preventing cross-test pollution and enabling proper cleanup.
+
+**Impact:**
+- Tool functions no longer use `@ToolArguments.declare` decorator
+- Args classes must call `super().__init__(handler=func, **data)` in constructor
+- Registration happens on first instantiation, not at import time
+- Tests have proper isolation - importing a tool module doesn't register it
+- `get_declared_tools()` returns `Dict[str, tuple[Type[ToolArguments], Callable]]`
+
 ### 2025-11-27: Integrated Logging Approach
 **What Changed:** Combined `log_tool_usage` decorator into `ExtMcpToolDecorator`
 
@@ -233,14 +245,15 @@ While instructions are free-form text, these patterns are recommended:
 - `"Review [specific documentation] before proceeding."`
 - `"Validate [specific aspect] with the user."`
 
-### 5. Pydantic Validation
+### 5. Pydantic Validation and Lazy Registration
 
-Tools SHOULD use Pydantic models for argument validation:
+Tools MUST use Pydantic models for argument validation with lazy registration pattern:
 
 ```python
 from pydantic import BaseModel, Field
+from mcp_core.tool_arguments import ToolArguments
 
-class CreateDocumentArgs(BaseModel):
+class CreateDocumentArgs(ToolArguments):
     """Arguments for document creation."""
     category_dir: str = Field(..., description="Category directory path")
     name: str = Field(..., min_length=1, max_length=100, description="Document name")
@@ -250,12 +263,25 @@ class CreateDocumentArgs(BaseModel):
         description="Must be 'CREATE_DOCUMENT' to confirm intent"
     )
 
-@mcp.tool()
-async def create_document(args: CreateDocumentArgs) -> Result[dict]:
+    def __init__(self, handler: Callable, **data):
+        super().__init__(handler=handler, **data)
+
+def create_document(args: CreateDocumentArgs) -> Result[dict]:
     """Create a new document."""
-    # Validation happens automatically
-    # Access via args.category_dir, args.name, etc.
+    # Implementation
+    pass
+
+# Usage - registration happens on instantiation
+args = CreateDocumentArgs(handler=create_document, category_dir="docs", name="test.md",
+                          content="...", explicit_action="CREATE_DOCUMENT")
 ```
+
+**Lazy Registration Pattern:**
+- Tool registration happens when args class is first instantiated, not at import time
+- Handler function is passed to args constructor
+- Prevents test isolation issues from import-time side effects
+- `get_declared_tools()` returns `Dict[str, tuple[Type[ToolArguments], Callable]]`
+
 
 ## Consequences
 

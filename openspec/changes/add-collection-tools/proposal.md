@@ -12,6 +12,7 @@ Collections group related categories for organized content access. Currently, th
 
 ## What Changes
 
+- Implement `collection_list` tool (list all collections with categories)
 - Implement `collection_add` tool (create new collection)
 - Implement `collection_remove` tool (delete collection)
 - Implement `collection_change` tool (replace collection configuration)

@@ -1,11 +1,51 @@
 """MCP server creation and configuration."""
 
 import os
+from typing import Any, Callable, Optional
 
 from mcp.server import FastMCP
 
-from mcp_core.tool_arguments import ToolArguments
 from mcp_core.tool_decorator import ExtMcpToolDecorator
+
+
+class _ToolsProxy:
+    """Proxy that defers to actual decorator when available."""
+
+    _instance: Optional[ExtMcpToolDecorator] = None
+
+    @classmethod
+    def set_instance(cls, instance: ExtMcpToolDecorator) -> None:
+        """Set the actual decorator instance.
+
+        Args:
+            instance: ExtMcpToolDecorator instance to delegate to
+        """
+        cls._instance = instance
+
+    def tool(self, *args: Any, **kwargs: Any) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+        """Decorate a tool function.
+
+        If instance is set, delegates to actual decorator.
+        Otherwise returns no-op decorator.
+
+        Args:
+            *args: Positional arguments for decorator
+            **kwargs: Keyword arguments for decorator
+
+        Returns:
+            Decorator function
+        """
+        if self._instance is None:
+            # Before server init - return no-op decorator
+            def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+                return func
+
+            return decorator
+        return self._instance.tool(*args, **kwargs)
+
+
+# Module-level instance for imports
+tools = _ToolsProxy()
 
 
 def create_server() -> FastMCP:
@@ -19,18 +59,14 @@ def create_server() -> FastMCP:
         instructions="MCP server for project documentation and development guidance",
     )
 
-    # Create tool decorator
-    tools = ExtMcpToolDecorator(mcp)
+    # Create tool decorator and set proxy instance
+    decorator = ExtMcpToolDecorator(mcp)
+    tools.set_instance(decorator)
 
-    # Import tool modules (triggers @ToolArguments.declare)
-    # Conditional example tool import
+    # Import tool modules - decorators register immediately
+    from mcp_guide.tools import tool_category  # noqa: F401
+
     if os.environ.get("MCP_INCLUDE_EXAMPLE_TOOLS", "").lower() in ("true", "1", "yes"):
         from mcp_guide.tools import tool_example  # noqa: F401
-
-    # Get collected tools and register them
-    declared_tools = ToolArguments.get_declared_tools()
-    for name, func in declared_tools.items():
-        description = ToolArguments.build_tool_description(func)
-        tools.tool(description=description)(func)
 
     return mcp

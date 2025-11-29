@@ -2,31 +2,63 @@
 
 import asyncio
 import os
+import sys
+
+import click
+
+from mcp_guide.cli import ServerConfig
 
 
-def _configure_environment() -> None:
-    """Configure environment variables before server initialization."""
-    if "MCP_TOOL_PREFIX" not in os.environ:
-        os.environ["MCP_TOOL_PREFIX"] = "guide"
+def _configure_environment(config: ServerConfig) -> None:
+    """Configure environment variables from config.
+
+    Args:
+        config: Server configuration
+    """
+    os.environ["MCP_TOOL_PREFIX"] = config.tool_prefix
 
 
-def _configure_logging() -> None:
-    """Configure logging from environment variables."""
+def _configure_logging(config: ServerConfig) -> None:
+    """Configure logging from config.
+
+    Args:
+        config: Server configuration
+    """
     from mcp_core.mcp_log import configure, get_logger
 
-    log_level = os.environ.get("MG_LOG_LEVEL", "INFO").upper()
-    log_file = os.environ.get("MG_LOG_FILE", "")
-    log_json = os.environ.get("MG_LOG_JSON", "").lower() in ("true", "1", "yes")
-
     configure(
-        level=log_level,
-        file_path=log_file if log_file else None,
-        json_format=log_json,
+        level=config.log_level,
+        file_path=config.log_file,
+        json_format=config.log_json,
     )
 
     logger = get_logger(__name__)
     logger.info("Starting mcp-guide server")
-    logger.debug(f"Log level: {log_level}, File: {log_file or 'none'}, JSON: {log_json}")
+    logger.debug(f"Log level: {config.log_level}, File: {config.log_file or 'none'}, JSON: {config.log_json}")
+
+
+def _handle_cli_error(config: ServerConfig) -> None:
+    """Handle CLI errors after logging is configured.
+
+    Args:
+        config: Server configuration with potential CLI error
+    """
+    if not config.cli_error:
+        return
+
+    from mcp_core.mcp_log import get_logger
+
+    logger = get_logger(__name__)
+
+    if config.should_exit:
+        # Ctrl+C
+        logger.info("Interrupted by user (Ctrl+C)")
+        sys.exit(130)
+    else:
+        # Log error and continue with defaults
+        error_msg = config.cli_error.format_message()
+        logger.error(f"CLI error: {error_msg}")
+        logger.warning("Continuing with default configuration due to CLI error")
 
 
 async def async_main() -> None:
@@ -39,8 +71,17 @@ async def async_main() -> None:
 
 def main() -> None:
     """MCP Guide Server - Main entry point."""
-    _configure_environment()
-    _configure_logging()
+    from mcp_guide.cli import parse_args
+
+    config = parse_args()
+
+    # Exit immediately for help/version (before logging setup)
+    if config.should_exit and not config.cli_error:
+        sys.exit(0)
+
+    _configure_environment(config)
+    _configure_logging(config)
+    _handle_cli_error(config)
     asyncio.run(async_main())
 
 

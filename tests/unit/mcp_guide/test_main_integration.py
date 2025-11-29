@@ -10,19 +10,23 @@ class TestEnvironmentConfiguration:
     """Tests for _configure_environment()."""
 
     def test_configure_environment_sets_mcp_tool_prefix(self):
-        """_configure_environment() should set MCP_TOOL_PREFIX to 'guide'."""
+        """_configure_environment() should set MCP_TOOL_PREFIX from config."""
+        from mcp_guide.cli import ServerConfig
         from mcp_guide.main import _configure_environment
 
         with patch.dict(os.environ, {}, clear=True):
-            _configure_environment()
+            config = ServerConfig(tool_prefix="guide")
+            _configure_environment(config)
             assert os.environ["MCP_TOOL_PREFIX"] == "guide"
 
-    def test_preserves_existing_mcp_tool_prefix(self):
-        """_configure_environment() should preserve existing MCP_TOOL_PREFIX."""
+    def test_sets_custom_tool_prefix(self):
+        """_configure_environment() should set custom prefix from config."""
+        from mcp_guide.cli import ServerConfig
         from mcp_guide.main import _configure_environment
 
-        with patch.dict(os.environ, {"MCP_TOOL_PREFIX": "custom"}):
-            _configure_environment()
+        with patch.dict(os.environ, {}, clear=True):
+            config = ServerConfig(tool_prefix="custom")
+            _configure_environment(config)
             assert os.environ["MCP_TOOL_PREFIX"] == "custom"
 
     def test_configure_environment_called_before_logging(self):

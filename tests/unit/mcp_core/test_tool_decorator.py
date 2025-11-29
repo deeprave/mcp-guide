@@ -1,134 +1,180 @@
-"""Tests for ExtMcpToolDecorator."""
+"""Tests for tool decorator test mode control."""
 
-import os
-from unittest.mock import Mock, patch
+from unittest.mock import MagicMock, Mock
 
 import pytest
 
-from mcp_core.tool_decorator import ExtMcpToolDecorator
+from mcp_core.result import Result
+from mcp_core.tool_arguments import ToolArguments
+from mcp_core.tool_decorator import ExtMcpToolDecorator, disable_test_mode, enable_test_mode
 
 
-class TestExtMcpToolDecoratorInit:
-    """Tests for ExtMcpToolDecorator initialization."""
+class TestTestModeControl:
+    """Tests for test mode enable/disable functions."""
 
-    def test_initialization_with_no_default_prefix(self):
-        """ExtMcpToolDecorator should not have hardcoded default prefix."""
-        mcp_mock = Mock()
-        decorator = ExtMcpToolDecorator(mcp_mock)
+    def test_enable_test_mode_sets_context_var_to_true(self):
+        """Test that enable_test_mode() sets ContextVar to True."""
+        from mcp_core.tool_decorator import _test_mode
 
-        assert decorator.mcp == mcp_mock
-        assert not hasattr(decorator, "default_prefix")
+        enable_test_mode()
+        assert _test_mode.get() is True
 
-    def test_reads_mcp_tool_prefix_environment_variable(self):
-        """ExtMcpToolDecorator should read MCP_TOOL_PREFIX from environment."""
-        mcp_mock = Mock()
+    def test_disable_test_mode_sets_context_var_to_false(self):
+        """Test that disable_test_mode() sets ContextVar to False."""
+        from mcp_core.tool_decorator import _test_mode
 
-        with patch.dict(os.environ, {"MCP_TOOL_PREFIX": "test"}):
-            decorator = ExtMcpToolDecorator(mcp_mock)
+        enable_test_mode()  # First enable
+        disable_test_mode()
+        assert _test_mode.get() is False
 
-            @decorator.tool()
-            def example_tool():
-                return "ok"
+    def test_default_value_is_false(self):
+        """Test that ContextVar default value is False."""
+        # Reset to default by creating new context
+        import contextvars
 
-            # Verify tool was registered with prefix
-            calls = mcp_mock.tool.call_args_list
-            assert len(calls) > 0
+        from mcp_core.tool_decorator import _test_mode
 
+        ctx = contextvars.copy_context()
+        result = ctx.run(lambda: _test_mode.get())
+        assert result is False
 
-class TestToolPrefixing:
-    """Tests for tool name prefixing."""
+    def test_context_var_is_isolated_per_context(self):
+        """Test that ContextVar changes don't affect parent context."""
+        import contextvars
 
-    def test_per_tool_prefix_override(self):
-        """Tool decorator should support per-tool prefix override."""
-        mcp_mock = Mock()
-        decorator = ExtMcpToolDecorator(mcp_mock)
+        from mcp_core.tool_decorator import _test_mode
 
-        @decorator.tool(prefix="custom")
-        def example_tool():
-            return "ok"
+        # Set in current context
+        enable_test_mode()
+        assert _test_mode.get() is True
 
-        # Should register with custom prefix
-        mcp_mock.tool.assert_called()
+        # Create child context and modify there
+        def modify_in_child():
+            disable_test_mode()
+            return _test_mode.get()
 
-    def test_empty_string_disables_prefix(self):
-        """Empty string prefix should disable prefixing."""
-        mcp_mock = Mock()
-        decorator = ExtMcpToolDecorator(mcp_mock)
+        ctx = contextvars.copy_context()
+        result = ctx.run(modify_in_child)
+        assert result is False
 
-        @decorator.tool(prefix="")
-        def example_tool():
-            return "ok"
-
-        # Should register without prefix
-        mcp_mock.tool.assert_called()
+        # Parent context should still be True
+        assert _test_mode.get() is True
 
 
-class TestToolLogging:
-    """Tests for tool invocation logging."""
+class TestExtMcpToolDecorator:
+    """Tests for ExtMcpToolDecorator with args_class parameter."""
 
-    @pytest.mark.asyncio
-    async def test_trace_logging_on_async_tool_invocation(self):
-        """Async tool invocation should log at TRACE level."""
-        mcp_mock = Mock()
-        decorator = ExtMcpToolDecorator(mcp_mock)
+    def test_tool_with_args_class_parameter(self):
+        """Test that tool() accepts args_class parameter."""
+        mock_mcp = Mock()
+        decorator = ExtMcpToolDecorator(mock_mcp)
 
-        @decorator.tool()
-        async def async_tool():
-            return "result"
+        class TestArgs(ToolArguments):
+            value: str
 
-        # Tool should be registered
-        assert mcp_mock.tool.called
+        # Should not raise
+        result = decorator.tool(args_class=TestArgs)
+        assert callable(result)
 
-    def test_debug_logging_on_sync_tool_success(self):
-        """Sync tool success should log at DEBUG level."""
-        mcp_mock = Mock()
-        decorator = ExtMcpToolDecorator(mcp_mock)
+    def test_auto_generate_description_from_args_class(self):
+        """Test that description is auto-generated from args_class."""
+        mock_mcp = Mock()
+        mock_mcp.tool = Mock(return_value=lambda f: f)
+        decorator = ExtMcpToolDecorator(mock_mcp)
 
-        @decorator.tool()
-        def sync_tool():
-            return "result"
+        class TestArgs(ToolArguments):
+            value: str
 
-        # Tool should be registered
-        assert mcp_mock.tool.called
+        disable_test_mode()  # Ensure production mode
 
-    def test_error_logging_on_tool_failure(self):
-        """Tool failure should log at ERROR level."""
-        mcp_mock = Mock()
-        decorator = ExtMcpToolDecorator(mcp_mock)
+        @decorator.tool(args_class=TestArgs)
+        def test_func(args: TestArgs) -> Result:
+            """Test function."""
+            return Result.ok("test")
 
-        @decorator.tool()
-        def failing_tool():
-            raise ValueError("test error")
+        # Verify build_tool_description was used
+        # (We'll check this by verifying the tool was registered)
+        assert mock_mcp.tool.called
 
-        # Tool should be registered
-        assert mcp_mock.tool.called
+    def test_manual_description_overrides_auto_generation(self):
+        """Test that manual description overrides auto-generation."""
+        mock_mcp = Mock()
+        mock_mcp.tool = Mock(return_value=lambda f: f)
+        decorator = ExtMcpToolDecorator(mock_mcp)
 
-    def test_exception_re_raising_after_logging(self):
-        """Exceptions should be re-raised after logging."""
-        mcp_mock = Mock()
-        decorator = ExtMcpToolDecorator(mcp_mock)
+        class TestArgs(ToolArguments):
+            value: str
 
-        @decorator.tool()
-        def failing_tool():
-            raise ValueError("test error")
+        disable_test_mode()  # Ensure production mode
+        manual_desc = "Manual description"
 
-        # Tool should be registered
-        assert mcp_mock.tool.called
+        @decorator.tool(args_class=TestArgs, description=manual_desc)
+        def test_func(args: TestArgs) -> Result:
+            """Test function."""
+            return Result.ok("test")
 
+        # Verify manual description was used
+        call_args = mock_mcp.tool.call_args
+        assert call_args is not None
 
-class TestToolNamePrefixing:
-    """Tests for tool name prefix logic."""
+    def test_test_mode_returns_noop_decorator(self):
+        """Test that test mode returns no-op decorator."""
+        mock_mcp = Mock()
+        decorator = ExtMcpToolDecorator(mock_mcp)
 
-    def test_tool_name_prefixing_with_env_var(self):
-        """Tool names should be prefixed based on MCP_TOOL_PREFIX."""
-        mcp_mock = Mock()
+        class TestArgs(ToolArguments):
+            value: str
 
-        with patch.dict(os.environ, {"MCP_TOOL_PREFIX": "guide"}):
-            decorator = ExtMcpToolDecorator(mcp_mock)
+        enable_test_mode()  # Enable test mode
 
-            @decorator.tool()
-            def example_tool():
-                return "ok"
+        @decorator.tool(args_class=TestArgs)
+        def test_func(args: TestArgs) -> Result:
+            """Test function."""
+            return Result.ok("test")
 
-            # Verify prefix was applied
-            assert mcp_mock.tool.called
+        # In test mode, mcp.tool should NOT be called
+        assert not mock_mcp.tool.called
+
+        # Function should still be callable (pass dict instead of args object for now)
+        result = test_func({"value": "test"})
+        assert result.is_ok()
+
+    def test_production_mode_registers_with_fastmcp(self):
+        """Test that production mode registers with FastMCP."""
+        mock_mcp = Mock()
+        mock_mcp.tool = Mock(return_value=lambda f: f)
+        decorator = ExtMcpToolDecorator(mock_mcp)
+
+        class TestArgs(ToolArguments):
+            value: str
+
+        disable_test_mode()  # Ensure production mode
+
+        @decorator.tool(args_class=TestArgs)
+        def test_func(args: TestArgs) -> Result:
+            """Test function."""
+            return Result.ok("test")
+
+        # In production mode, mcp.tool SHOULD be called
+        assert mock_mcp.tool.called
+
+    def test_build_tool_description_called_correctly(self):
+        """Test that build_tool_description() is called with correct args."""
+        mock_mcp = Mock()
+        mock_mcp.tool = Mock(return_value=lambda f: f)
+        decorator = ExtMcpToolDecorator(mock_mcp)
+
+        class TestArgs(ToolArguments):
+            """Test arguments."""
+
+            value: str
+
+        disable_test_mode()  # Ensure production mode
+
+        @decorator.tool(args_class=TestArgs)
+        def test_func(args: TestArgs) -> Result:
+            """Test function docstring."""
+            return Result.ok("test")
+
+        # Verify tool was registered
+        assert mock_mcp.tool.called

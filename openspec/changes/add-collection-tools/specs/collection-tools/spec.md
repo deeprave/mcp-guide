@@ -2,6 +2,34 @@
 
 ## ADDED Requirements
 
+### Requirement: collection_list Tool
+
+The system SHALL provide a `collection_list` tool that lists all collections.
+
+Arguments:
+- `verbose` (optional, boolean): Include full details (defaults to false)
+
+The tool SHALL:
+- Return list of all collections in project configuration
+- Include name, description, categories for each collection
+- Return Result pattern response
+
+#### Scenario: List all collections
+- **WHEN** tool is called
+- **THEN** return all collections with their configuration
+
+#### Scenario: Empty collection list
+- **WHEN** no collections exist
+- **THEN** return empty list with success
+
+#### Scenario: Verbose mode
+- **WHEN** verbose is true
+- **THEN** include all fields (name, description, categories)
+
+#### Scenario: Non-verbose mode
+- **WHEN** verbose is false or omitted
+- **THEN** include all fields (name, description, categories)
+
 ### Requirement: collection_add Tool
 
 The system SHALL provide a `collection_add` tool that creates a new collection.
@@ -203,19 +231,23 @@ Validation SHALL:
 - **WHEN** multiple referenced categories don't exist
 - **THEN** error message lists all missing categories
 
-### Requirement: Configuration Persistence
+### Requirement: Configuration Persistence (Auto-Save)
 
-All tools SHALL persist configuration changes to disk safely.
+All tools SHALL persist configuration changes to disk IMMEDIATELY after modification.
+
+**CRITICAL**: Configuration MUST be saved automatically on every change. If the user exits without explicit save, changes would be lost. This is an "auto-save" requirement.
 
 Persistence SHALL:
+- Save configuration to disk immediately after any modification
 - Use file locking to prevent concurrent modification
 - Validate configuration before writing
 - Handle write errors gracefully
 - Return error if persistence fails
+- Never return success without persisting changes
 
 #### Scenario: Successful persistence
 - **WHEN** configuration is valid and writable
-- **THEN** write to disk and return success
+- **THEN** write to disk immediately and return success
 
 #### Scenario: Write error
 - **WHEN** file cannot be written

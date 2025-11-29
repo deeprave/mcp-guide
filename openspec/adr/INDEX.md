@@ -43,6 +43,13 @@ This index tracks all ADRs including historical decisions that have been superse
 **File:** [008-tool-definition-conventions.md](008-tool-definition-conventions.md)
 **Dependencies:** ADR-001, ADR-003, ADR-004
 
+### ADR-009: Client Project Name Detection
+**Status:** Accepted
+**Date:** 2025-11-29
+**File:** [009-client-project-name-detection.md](009-client-project-name-detection.md)
+**Dependencies:** ADR-006
+**Summary:** Defines priority order for detecting client's current working directory/project: (1) MCP client roots via Context, (2) cached project name, (3) PWD environment variable as last fallback. Documents MCP roots specification, FastMCP Context implementation, and when roots may not be available.
+
 ## Historical ADRs
 
 ### ADR-005: MCP Inspector for Integration Testing
@@ -66,7 +73,7 @@ ADR numbers are assigned sequentially and are never reused. When an ADR is super
 ## Maintenance
 
 When creating a new ADR:
-1. Use the next available number (currently: 009)
+1. Use the next available number (currently: 010)
 2. Add entry to this index
 3. Update "Supersedes" field if replacing an existing ADR
 4. Move superseded ADR to "Historical ADRs" section

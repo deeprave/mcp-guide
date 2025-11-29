@@ -1,7 +1,6 @@
-"""Base class for tool arguments with schema generation and collection."""
+"""Base class for tool arguments with schema generation."""
 
-import asyncio
-from typing import Any, Callable, ClassVar, Dict
+from typing import Any, Callable
 
 from pydantic import BaseModel, ConfigDict
 
@@ -12,38 +11,9 @@ class ToolArguments(BaseModel):
     Provides:
     - Pydantic validation with extra='forbid'
     - Schema markdown generation for tool descriptions
-    - Tool collection via @declare decorator
-    - Thread-safe tool registry with asyncio locks
     """
 
     model_config = ConfigDict(extra="forbid")
-
-    _declared: ClassVar[Dict[str, Callable[..., Any]]] = {}
-    _lock: ClassVar[asyncio.Lock] = asyncio.Lock()
-
-    @classmethod
-    def declare(cls, func: Callable[..., Any]) -> Callable[..., Any]:
-        """Collect tool without wrapping.
-
-        Args:
-            func: Tool function to collect
-
-        Returns:
-            Original function unchanged
-        """
-        cls._declared[func.__name__] = func
-        return func
-
-    @classmethod
-    def get_declared_tools(cls) -> Dict[str, Callable[..., Any]]:
-        """Return and clear collected tools.
-
-        Returns:
-            Dictionary of tool name to function
-        """
-        tools = cls._declared.copy()
-        cls._declared.clear()
-        return tools
 
     @classmethod
     def to_schema_markdown(cls) -> str:

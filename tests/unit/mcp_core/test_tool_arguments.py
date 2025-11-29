@@ -1,6 +1,5 @@
 """Tests for ToolArguments base class."""
 
-import asyncio
 from typing import Literal
 
 import pytest
@@ -73,85 +72,3 @@ class TestSchemaGeneration:
 
         assert "This is a test tool." in description
         assert "## Arguments" in description
-
-
-class TestToolCollection:
-    """Tests for @ToolArguments.declare decorator."""
-
-    def setup_method(self):
-        """Clear declared tools before each test."""
-        ToolArguments._declared.clear()
-
-    def test_declare_decorator_collects_tool(self):
-        """@ToolArguments.declare should collect tool without wrapping."""
-
-        @ToolArguments.declare
-        def test_tool(args: SimpleArgs) -> dict:
-            return {"result": "ok"}
-
-        # Function should not be wrapped
-        result = test_tool(SimpleArgs(name="test"))
-        assert result == {"result": "ok"}
-
-        # Should be in collection
-        declared = ToolArguments._declared
-        assert "test_tool" in declared
-
-    def test_get_declared_tools_returns_and_clears(self):
-        """get_declared_tools() should return collection and clear it."""
-
-        @ToolArguments.declare
-        def tool1(args: SimpleArgs) -> dict:
-            return {}
-
-        @ToolArguments.declare
-        def tool2(args: SimpleArgs) -> dict:
-            return {}
-
-        # First call returns tools
-        tools = ToolArguments.get_declared_tools()
-        assert "tool1" in tools
-        assert "tool2" in tools
-
-        # Second call returns empty (cleared)
-        tools2 = ToolArguments.get_declared_tools()
-        assert len(tools2) == 0
-
-    def test_double_registration_prevention(self):
-        """get_declared_tools() clearing prevents double registration."""
-
-        @ToolArguments.declare
-        def test_tool(args: SimpleArgs) -> dict:
-            return {}
-
-        # First retrieval
-        tools1 = ToolArguments.get_declared_tools()
-        assert "test_tool" in tools1
-
-        # Second retrieval should be empty
-        tools2 = ToolArguments.get_declared_tools()
-        assert "test_tool" not in tools2
-
-    @pytest.mark.asyncio
-    async def test_asyncio_lock_thread_safety(self):
-        """_lock should protect _declared dictionary access."""
-
-        @ToolArguments.declare
-        def test_tool(args: SimpleArgs) -> dict:
-            return {}
-
-        # Simulate concurrent access
-        def get_tools():
-            return ToolArguments.get_declared_tools()
-
-        # Run in executor to simulate concurrent access
-        loop = asyncio.get_event_loop()
-        results = await asyncio.gather(
-            loop.run_in_executor(None, get_tools),
-            loop.run_in_executor(None, get_tools),
-            loop.run_in_executor(None, get_tools),
-        )
-
-        # Only one should get the tools, others should get empty
-        non_empty = [r for r in results if len(r) > 0]
-        assert len(non_empty) == 1
