@@ -1,0 +1,29 @@
+# Quick review instructions
+
+You are tasked with a brief but insightful review of uncommited changes and provide specific feedback for any issues discovered.
+Focus on patterns, security, correctness, security, and consistency with the existing codebase.
+Ensuring that the changes implement the specification and implementation plan and use bests practices
+
+=== IMPORTANT ===
+
+If basic checks such as unit or integration test failure, CEASE THE REVIEW IMMEDIATELY and inform the user of the error.
+
+=================
+
+You should ensure that your review is brief and highlights only important issues that need to be addressed.
+Unless the report contains many items, presentation to the console is preferred.
+If there are more than three critical items then please create a report with an applicable name in the '.todo/' directory.
+
+- Focus on what matters
+- Look for:
+  - Violations of secure coding principles: failing to validate input from all external sources
+  - Code duplications or re-implementation
+  - Code that implements:
+    - existing standard library functions, or
+    - implemented by better tested third-party libraries which are already imported (or should be)
+  - Variations in the approach taken in different parts of the codebase
+  - Violating encapsulation boundaries and misuse of private APIs
+  - Over-engineered features, based on context - not maintaining YAGNI.
+  - Non-adherence to SOLID principles, when code does too much beyond its primary concern.
+  - Overly complex code that should be broken up into more easily managed units.
+- Respect established choices made for this project.
