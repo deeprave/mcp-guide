@@ -1,16 +1,15 @@
 """Tests for Session and ContextVar integration."""
 
 import json
-import os
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+import mcp_guide.session
 from mcp_guide.config import ConfigManager
 from mcp_guide.session import (
     CachedRootsInfo,
     Session,
-    _determine_project_name,
     get_or_create_session,
     set_project,
 )
@@ -102,7 +101,7 @@ class TestProjectNameDetection:
         mock_root.uri = "file:///home/user/my-project"
         mock_ctx.session.list_roots = AsyncMock(return_value=MagicMock(roots=[mock_root]))
 
-        project_name = await _determine_project_name(mock_ctx)
+        project_name = await mcp_guide.session._determine_project_name(mock_ctx)
         assert project_name == "my-project"
 
     @pytest.mark.asyncio
@@ -111,7 +110,7 @@ class TestProjectNameDetection:
         monkeypatch.setenv("PWD", "/home/user/test-project")
 
         # No context provided
-        project_name = await _determine_project_name(None)
+        project_name = await mcp_guide.session._determine_project_name(None)
         assert project_name == "test-project"
 
     @pytest.mark.asyncio
@@ -120,7 +119,7 @@ class TestProjectNameDetection:
         monkeypatch.setenv("PWD", "./relative/path")
 
         with pytest.raises(ValueError, match="Project context not available"):
-            await _determine_project_name(None)
+            await mcp_guide.session._determine_project_name(None)
 
     @pytest.mark.asyncio
     async def test_error_when_no_source_available(self, monkeypatch):
@@ -128,7 +127,7 @@ class TestProjectNameDetection:
         monkeypatch.delenv("PWD", raising=False)
 
         with pytest.raises(ValueError, match="Call set_project"):
-            await _determine_project_name(None)
+            await mcp_guide.session._determine_project_name(None)
 
     @pytest.mark.asyncio
     async def test_handles_client_roots_exception(self, monkeypatch):
@@ -140,7 +139,7 @@ class TestProjectNameDetection:
         mock_ctx.session.list_roots = AsyncMock(side_effect=Exception("Client error"))
 
         # Should fall back to PWD
-        project_name = await _determine_project_name(mock_ctx)
+        project_name = await mcp_guide.session._determine_project_name(mock_ctx)
         assert project_name == "fallback-project"
 
     @pytest.mark.asyncio
@@ -156,7 +155,7 @@ class TestProjectNameDetection:
         mock_root.uri = "file:///home/user/cached-project"
         mock_ctx.session.list_roots = AsyncMock(return_value=MagicMock(roots=[mock_root]))
 
-        await _determine_project_name(mock_ctx)
+        await mcp_guide.session._determine_project_name(mock_ctx)
 
         # Check cache was populated
         cached = mcp_guide.session._cached_roots.get()
