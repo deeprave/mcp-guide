@@ -2,6 +2,8 @@
 
 from typing import Optional
 
+from pydantic import Field
+
 from mcp_core.result import Result
 from mcp_core.tool_arguments import ToolArguments
 from mcp_core.validation import ArgValidationError, validate_description, validate_directory_path, validate_pattern
@@ -64,7 +66,7 @@ class CategoryAddArgs(ToolArguments):
 
     name: str
     dir: Optional[str] = None
-    patterns: list[str] = []
+    patterns: list[str] = Field(default_factory=list)
     description: Optional[str] = None
 
 
@@ -72,7 +74,7 @@ class CategoryAddArgs(ToolArguments):
 async def category_add(
     name: str,
     dir: Optional[str] = None,
-    patterns: list[str] = [],
+    patterns: Optional[list[str]] = None,
     description: Optional[str] = None,
     ctx: Optional[Context] = None,  # type: ignore
 ) -> str:
@@ -98,6 +100,8 @@ async def category_add(
     """
     from mcp_guide.session import get_or_create_session
 
+    patterns = patterns or []
+
     try:
         session = await get_or_create_session(ctx)
     except ValueError as e:
@@ -121,6 +125,7 @@ async def category_add(
     try:
         category = Category(name=name, dir=validated_dir, patterns=patterns, description=validated_description)
     except ValueError as e:
+        # ValueError can only come from Category.name validation (other fields validated above)
         return ArgValidationError([{"field": "name", "message": str(e)}]).to_result().to_json_str()
 
     try:

@@ -169,6 +169,27 @@ class TestCategoryAdd:
         assert session._cached_project.categories[0].description == "API documentation"
 
     @pytest.mark.asyncio
+    async def test_category_add_dir_defaults_to_name(self, tmp_path: Path) -> None:
+        """When dir is omitted, it defaults to name."""
+        from mcp_guide.tools.tool_category import CategoryAddArgs, category_add
+
+        manager = ConfigManager(config_dir=str(tmp_path))
+        session = Session(config_manager=manager, project_name="test")
+        session._cached_project = Project(name="test", categories=[], collections=[])
+        set_current_session(session)
+
+        # Omit dir parameter
+        args = CategoryAddArgs(name="docs", patterns=["*.md"])
+        result_str = await category_add(**args.model_dump())
+        result_dict = json.loads(result_str)
+
+        assert result_dict["success"] is True
+        assert len(session._cached_project.categories) == 1
+        # Verify dir defaulted to name
+        assert session._cached_project.categories[0].dir == "docs"
+        assert session._cached_project.categories[0].name == "docs"
+
+    @pytest.mark.asyncio
     async def test_category_add_multiple_patterns(self, tmp_path: Path) -> None:
         """Add category with multiple patterns."""
         from mcp_guide.tools.tool_category import CategoryAddArgs, category_add
@@ -408,16 +429,15 @@ class TestCategoryAdd:
         assert result_dict["success"] is True
         update_mock.assert_called_once()
 
-    def test_category_add_no_session(self, monkeypatch: MonkeyPatch) -> None:
+    @pytest.mark.asyncio
+    async def test_category_add_no_session(self, monkeypatch: MonkeyPatch) -> None:
         """No active session returns error."""
-        import asyncio
-
         from mcp_guide.tools.tool_category import CategoryAddArgs, category_add
 
         monkeypatch.delenv("PWD", raising=False)
 
         args = CategoryAddArgs(name="docs", dir="docs", patterns=["*.md"])
-        result_str = asyncio.run(category_add(**args.model_dump()))
+        result_str = await category_add(**args.model_dump())
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is False
