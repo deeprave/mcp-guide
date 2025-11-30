@@ -22,7 +22,7 @@
 - [ ] `docs/*.md` matches markdown files in docs subdirectory
 - [ ] Returns empty list when no matches found
 - [ ] Handles non-existent directories gracefully
-- [ ] Unit tests achieve 90%+ coverage
+- [ ] Unit tests cover all functionality
 
 ---
 
@@ -139,7 +139,7 @@
 - Test all glob syntax variations
 - Test edge cases (empty patterns, special characters)
 - Test error conditions
-- Achieve 90%+ code coverage
+- Meet project test coverage standards
 
 **Assumptions**:
 - Test fixtures provide sample directory structures
@@ -154,7 +154,7 @@
 - [ ] Tests for invalid patterns
 - [ ] Tests for empty directory
 - [ ] All tests pass
-- [ ] Coverage ≥90% on pattern matching code
+- [ ] Unit tests meet project standards
 
 ---
 
@@ -181,7 +181,7 @@
 - [ ] Tests for permission errors
 - [ ] Tests for missing files
 - [ ] All tests pass
-- [ ] Coverage ≥90% on file operation code
+- [ ] Unit tests meet project standards
 
 ---
 
@@ -294,7 +294,7 @@
 - Test content preservation
 - Test various file types
 - Test edge cases (empty, large)
-- Achieve 90%+ coverage
+- Meet project test coverage standards
 
 **Assumptions**:
 - Test fixtures provide sample content
@@ -307,7 +307,7 @@
 - [ ] Tests for files with special characters
 - [ ] Tests verify no modifications to content
 - [ ] All tests pass
-- [ ] Coverage ≥90% on formatter code
+- [ ] Unit tests meet project standards
 
 ---
 
@@ -320,7 +320,7 @@
 - Test boundary generation
 - Test metadata headers
 - Test multiple files
-- Achieve 90%+ coverage
+- Meet project test coverage standards
 
 **Assumptions**:
 - Tests can parse generated MIME format
@@ -334,7 +334,7 @@
 - [ ] Tests verify final boundary terminator
 - [ ] Tests for various file types
 - [ ] All tests pass
-- [ ] Coverage ≥90% on formatter code
+- [ ] Unit tests meet project standards
 
 ---
 
