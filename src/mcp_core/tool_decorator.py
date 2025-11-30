@@ -77,33 +77,111 @@ class ExtMcpToolDecorator:
             # Build tool name
             tool_name = f"{tool_prefix}_{func.__name__}" if tool_prefix else func.__name__
 
-            # Wrap function with logging
+            # Create wrapper that FastMCP will register
+            # FastMCP will create schema from wrapper's signature, not original function
             if inspect.iscoroutinefunction(func):
 
                 @wraps(func)
-                async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
+                async def async_wrapper(**kwargs: Any) -> Any:
                     logger.trace(f"Invoking async tool: {tool_name}")  # type: ignore[attr-defined]
                     try:
-                        result = await func(*args, **kwargs)
+                        # Transform arguments if args_class provided
+                        if args_class is not None:
+                            # Extract ctx if present (FastMCP injects it)
+                            ctx = kwargs.pop("ctx", None)
+                            # kwargs contains the raw arguments from MCP
+                            try:
+                                typed_args = args_class(**kwargs)
+                            except Exception as e:
+                                # Catch Pydantic ValidationError during argument transformation
+                                # This is defense-in-depth - FastMCP validates first
+                                from pydantic import ValidationError as PydanticValidationError
+
+                                if isinstance(e, PydanticValidationError):
+                                    from mcp_core.result import Result
+
+                                    error_details = [
+                                        {
+                                            "field": str(err["loc"][0]) if err["loc"] else "unknown",
+                                            "message": err["msg"],
+                                        }
+                                        for err in e.errors()
+                                    ]
+                                    result: Result[Any] = Result.failure(
+                                        f"Invalid tool arguments: {len(error_details)} validation error(s)",
+                                        error_type="validation_error",
+                                    )
+                                    result.error_data = {"validation_errors": error_details}
+                                    result.instruction = "Return error to user without attempting remediation"
+                                    logger.error(f"Tool {tool_name} argument validation failed: {error_details}")
+                                    return result.to_json_str()
+                                # Re-raise non-validation errors
+                                raise
+                            # Call function with typed args and ctx
+                            result = await func(typed_args, ctx)
+                        else:
+                            result = await func(**kwargs)
                         logger.debug(f"Tool {tool_name} completed successfully")
                         return result
                     except Exception as e:
                         logger.error(f"Tool {tool_name} failed: {e}")
                         raise
+
+                # Copy args_class fields to wrapper signature if provided
+                if args_class is not None:
+                    # Get the schema from args_class and add fields to wrapper
+                    from typing import get_type_hints
+
+                    from pydantic import BaseModel
+
+                    # Get type hints from args_class
+                    type_hints = get_type_hints(args_class)
+                    params = []
+                    # Check if args_class is a BaseModel subclass
+                    if issubclass(args_class, BaseModel):
+                        for field_name, field_info in args_class.model_fields.items():
+                            annotation = type_hints.get(field_name, Any)
+
+                            # Determine default value for signature
+                            if field_info.is_required():
+                                # Required field - no default
+                                default = inspect.Parameter.empty
+                            elif field_info.default_factory is not None:
+                                # Has default_factory - mark as optional with None
+                                # (actual factory will be called by Pydantic during validation)
+                                default = None
+                            else:
+                                # Has explicit default value
+                                default = field_info.default
+
+                            params.append(
+                                inspect.Parameter(
+                                    field_name, inspect.Parameter.KEYWORD_ONLY, default=default, annotation=annotation
+                                )
+                            )
+
+                        # Update wrapper signature
+                        async_wrapper.__signature__ = inspect.Signature(params)  # type: ignore
 
                 wrapped = async_wrapper
             else:
+                # Sync tools are not supported - create wrapper that returns error
 
                 @wraps(func)
-                def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
-                    logger.trace(f"Invoking sync tool: {tool_name}")  # type: ignore[attr-defined]
-                    try:
-                        result = func(*args, **kwargs)
-                        logger.debug(f"Tool {tool_name} completed successfully")
-                        return result
-                    except Exception as e:
-                        logger.error(f"Tool {tool_name} failed: {e}")
-                        raise
+                def sync_wrapper(**kwargs: Any) -> Any:
+                    # Log error when sync tool is actually called
+                    logger.error(
+                        f"Sync tool {tool_name} called but sync tools are not supported. "
+                        "All MCP tools must be async to properly handle Context parameter."
+                    )
+                    # Return error result immediately
+                    from mcp_core.result import Result
+
+                    return Result.failure(
+                        "Tool implementation error: synchronous tools are not supported. "
+                        "All MCP tools must be async to handle Context parameter.",
+                        error_type="sync_tool_not_supported",
+                    ).to_json_str()
 
                 wrapped = sync_wrapper
 

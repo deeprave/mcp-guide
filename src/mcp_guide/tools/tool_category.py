@@ -1,8 +1,15 @@
 """Category management tools."""
 
+from typing import Optional
+
 from mcp_core.result import Result
 from mcp_core.tool_arguments import ToolArguments
 from mcp_guide.server import tools
+
+try:
+    from mcp.server.fastmcp import Context
+except ImportError:
+    Context = None  # type: ignore
 
 
 class CategoryListArgs(ToolArguments):
@@ -12,35 +19,28 @@ class CategoryListArgs(ToolArguments):
 
 
 @tools.tool(CategoryListArgs)
-async def category_list(verbose: bool = True) -> str:
+async def category_list(args: CategoryListArgs, ctx: Optional[Context] = None) -> str:  # type: ignore
     """List all categories in the current project.
 
     Args:
-        verbose: If True (default), return full category details; if False, return only names
+        args: Tool arguments with verbose flag
+        ctx: MCP Context (auto-injected by FastMCP)
 
     Returns:
         JSON string with Result containing:
         - If verbose=True: list of category dictionaries with name, dir, patterns, description
         - If verbose=False: list of category names only
-
-    Example:
-        >>> result = await category_list(verbose=True)
-        >>> result_dict = json.loads(result)
-        >>> if result_dict["success"]:
-        ...     for cat in result_dict["value"]:
-        ...         print(f"{cat['name']}: {cat['dir']}")
     """
-    from mcp_guide.session import active_sessions
+    from mcp_guide.session import get_or_create_session
 
-    sessions = active_sessions.get({})
-    if not sessions:
-        return Result.failure("No active session", error_type="no_session").to_json_str()
-
-    session = next(iter(sessions.values()))
+    try:
+        session = await get_or_create_session(ctx)
+    except ValueError as e:
+        return Result.failure(str(e), error_type="no_project").to_json_str()
 
     project = await session.get_project()
 
-    if verbose:
+    if args.verbose:
         categories: list[dict[str, str | list[str] | None]] = [
             {
                 "name": category.name,

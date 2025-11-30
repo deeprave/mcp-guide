@@ -4,11 +4,16 @@ REQUIRES EXPLICIT USER INSTRUCTION to use this tool.
 This tool is for demonstration purposes only.
 """
 
-from typing import Any, Literal
+from typing import Any, Literal, Optional
 
 from mcp_core.result import Result
 from mcp_core.tool_arguments import ToolArguments
 from mcp_guide.server import tools
+
+try:
+    from mcp.server.fastmcp import Context
+except ImportError:
+    Context = None  # type: ignore
 
 
 class ExampleArgs(ToolArguments):
@@ -19,7 +24,7 @@ class ExampleArgs(ToolArguments):
 
 
 @tools.tool(ExampleArgs)
-def example_tool(args: ExampleArgs) -> dict[str, Any]:
+async def example_tool(args: ExampleArgs, ctx: Optional[Context] = None) -> dict[str, Any]:  # type: ignore
     """Example tool demonstrating all tool conventions.
 
     REQUIRES EXPLICIT USER INSTRUCTION: Only use when user explicitly requests
@@ -31,13 +36,19 @@ def example_tool(args: ExampleArgs) -> dict[str, Any]:
     - Result[T] pattern for rich error handling
     - Instruction field for agent guidance
     - Decorator-based registration
+    - Context parameter for MCP capabilities
 
     Args:
         args: Example arguments with action and message
+        ctx: MCP Context (auto-injected by FastMCP)
 
     Returns:
         Result[dict] with demonstration data
     """
+    # Log using context if available
+    if ctx is not None:
+        await ctx.info(f"Example tool invoked with action={args.action}, message={args.message}")
+
     # Demonstrate Result pattern with instruction field
     result = Result.ok(
         {
@@ -49,6 +60,7 @@ def example_tool(args: ExampleArgs) -> dict[str, Any]:
                 "Result[T] pattern",
                 "Instruction field",
                 "Decorator-based registration",
+                "Context parameter usage",
             ],
         }
     )

@@ -92,3 +92,28 @@ class TestResultToJson:
         data = result.to_json()
 
         assert data["instruction"] == "Try using --force flag"
+
+    def test_to_json_includes_error_data(self):
+        """to_json() should include error_data when present on failure."""
+        error_data = {
+            "validation_errors": [
+                {"field": "name", "message": "Required field"},
+                {"field": "age", "message": "Must be positive"},
+            ]
+        }
+        result = Result.failure("Validation failed", error_type="validation_error")
+        result.error_data = error_data
+
+        data = result.to_json()
+
+        assert data["error_data"] == error_data
+        assert data["error"] == "Validation failed"
+        assert data["error_type"] == "validation_error"
+
+    def test_to_json_omits_error_data_when_none(self):
+        """to_json() should not include error_data field when None."""
+        result = Result.failure("Simple error")
+
+        data = result.to_json()
+
+        assert "error_data" not in data

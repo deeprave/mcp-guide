@@ -6,7 +6,7 @@ from functools import wraps
 from typing import Optional, TypeVar
 
 from mcp_core.result import Result
-from mcp_core.validation import ValidationError
+from mcp_core.validation import ArgValidationError
 
 T = TypeVar("T")
 
@@ -17,7 +17,7 @@ def validate_result(
 ) -> Callable[[Callable[..., Awaitable[T]]], Callable[..., Awaitable[Result[T]]]]:
     """Decorator to wrap async function results in Result type with validation error handling.
 
-    Converts ValidationError exceptions into Result.failure, all other exceptions propagate.
+    Converts ArgValidationError exceptions into Result.failure, all other exceptions propagate.
     Only supports async functions.
 
     Args:
@@ -33,7 +33,7 @@ def validate_result(
     Example:
         @validate_result(success_instruction="Data validated successfully")
         async def process_data(data: str) -> str:
-            validate_path(data)  # May raise ValidationError
+            validate_path(data)  # May raise ArgValidationError
             return data.upper()
     """
 
@@ -49,8 +49,8 @@ def validate_result(
                 if success_instruction:
                     result.instruction = success_instruction
                 return result
-            except ValidationError as e:
-                result = Result.failure(e.message, error_type=e.error_type, exception=e)
+            except ArgValidationError as e:
+                result = e.to_result()
                 if failure_instruction:
                     result.instruction = failure_instruction
                 return result
