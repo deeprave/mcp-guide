@@ -229,7 +229,10 @@ class ConfigManager:
         """Convert Project to dict for YAML serialization."""
         return {
             "name": project.name,
-            "categories": [{"name": c.name, "dir": c.dir, "patterns": c.patterns} for c in project.categories],
+            "categories": [
+                {"name": c.name, "dir": c.dir, "patterns": c.patterns, "description": c.description}
+                for c in project.categories
+            ],
             "collections": [
                 {
                     "name": c.name,

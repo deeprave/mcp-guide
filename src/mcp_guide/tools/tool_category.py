@@ -188,3 +188,132 @@ async def category_remove(
         return Result.failure(f"Failed to save project configuration: {e}", error_type="save_error").to_json_str()
 
     return Result.ok(f"Category '{name}' removed successfully").to_json_str()
+
+
+class CategoryChangeArgs(ToolArguments):
+    """Arguments for category_change tool."""
+
+    name: str
+    new_name: Optional[str] = None
+    new_dir: Optional[str] = None
+    new_patterns: Optional[list[str]] = None
+    new_description: Optional[str] = None
+
+
+@tools.tool(CategoryChangeArgs)
+async def category_change(
+    name: str,
+    new_name: Optional[str] = None,
+    new_dir: Optional[str] = None,
+    new_patterns: Optional[list[str]] = None,
+    new_description: Optional[str] = None,
+    ctx: Optional[Context] = None,  # type: ignore
+) -> str:
+    """Change properties of an existing category.
+
+    Can change name (with collection updates), dir, patterns, or description.
+    At least one new value must be provided.
+    Changes are saved to the project configuration immediately.
+
+    Args:
+        name: Current name of the category to change
+        new_name: New name for the category (updates collections)
+        new_dir: New directory path
+        new_patterns: New patterns list (replaces all patterns)
+        new_description: New description (empty string clears it)
+        ctx: MCP Context (auto-injected by FastMCP)
+
+    Returns:
+        JSON string with Result containing success message
+
+    Examples:
+        >>> category_change(name="docs", new_name="documentation")
+        >>> category_change(name="docs", new_dir="documentation")
+        >>> category_change(name="docs", new_description="Updated docs")
+        >>> category_change(name="docs", new_patterns=["*.md", "*.txt"])
+    """
+    from mcp_guide.session import get_or_create_session
+
+    try:
+        session = await get_or_create_session(ctx)
+    except ValueError as e:
+        return Result.failure(str(e), error_type="no_project").to_json_str()
+
+    project = await session.get_project()
+
+    existing_category = next((c for c in project.categories if c.name == name), None)
+    if existing_category is None:
+        return Result.failure(f"Category '{name}' does not exist", error_type="not_found").to_json_str()
+
+    if new_name is None and new_dir is None and new_patterns is None and new_description is None:
+        return (
+            ArgValidationError(
+                [
+                    {
+                        "field": "changes",
+                        "message": "At least one change must be provided (new_name, new_dir, new_patterns, or new_description)",
+                    }
+                ]
+            )
+            .to_result()
+            .to_json_str()
+        )
+
+    try:
+        if new_name is not None:
+            if any(c.name == new_name for c in project.categories if c.name != name):
+                raise ArgValidationError([{"field": "new_name", "message": f"Category '{new_name}' already exists"}])
+
+        if new_dir is not None:
+            validate_directory_path(new_dir, default=new_dir)
+
+        if new_description is not None and new_description != "":
+            validate_description(new_description)
+
+        if new_patterns is not None:
+            for pattern in new_patterns:
+                validate_pattern(pattern)
+
+    except ArgValidationError as e:
+        return e.to_result().to_json_str()
+
+    if new_description == "":
+        final_description = None
+    elif new_description is not None:
+        final_description = new_description
+    else:
+        final_description = existing_category.description
+
+    try:
+        updated_category = Category(
+            name=new_name if new_name is not None else existing_category.name,
+            dir=new_dir if new_dir is not None else existing_category.dir,
+            patterns=new_patterns if new_patterns is not None else existing_category.patterns,
+            description=final_description,
+        )
+    except ValueError as e:
+        return ArgValidationError([{"field": "new_name", "message": str(e)}]).to_result().to_json_str()
+
+    def update_category_and_collections(p: Project) -> Project:
+        p_without_old = p.without_category(name)
+        p_with_new = p_without_old.with_category(updated_category)
+
+        if new_name is not None and new_name != name:
+            updated_collections = [
+                replace(col, categories=[new_name if c == name else c for c in col.categories])
+                for col in p_with_new.collections
+            ]
+            return replace(p_with_new, collections=updated_collections)
+
+        return p_with_new
+
+    try:
+        await session.update_config(update_category_and_collections)
+    except Exception as e:
+        return Result.failure(f"Failed to save project configuration: {e}", error_type="save_error").to_json_str()
+
+    change_msg = f"Category '{name}' updated successfully"
+    if new_name is not None and new_name != name:
+        change_msg = f"Category '{name}' renamed to '{new_name}' successfully"
+
+    return Result.ok(change_msg).to_json_str()
