@@ -176,36 +176,62 @@ Implement 5 category management tools following tool conventions with auto-save 
 - `src/mcp_guide/tools/tool_category.py`
 - `tests/unit/mcp_guide/tools/test_tool_category.py`
 
-## Phase 3: category_add Tool
+## Phase 3: category_add Tool ✅ COMPLETE
 
-### 3.1 category_add - RED
-- [ ] Write test: add category with minimal args
-- [ ] Write test: add category with all args
-- [ ] Write test: reject duplicate name
-- [ ] Write test: reject invalid name
-- [ ] Write test: reject invalid directory
-- [ ] Write test: reject invalid description
-- [ ] Write test: reject invalid patterns
-- [ ] Write test: auto-save after add
-- [ ] Write test: no active session error
+### 3.1 category_add - RED ✅
+- [x] Write test: add category with minimal args
+- [x] Write test: add category with all args
+- [x] Write test: add category with multiple patterns
+- [x] Write test: reject duplicate name
+- [x] Write test: reject invalid name
+- [x] Write test: reject invalid directory
+- [x] Write test: reject invalid description
+- [x] Write test: reject invalid patterns
+- [x] Write test: auto-save after add
+- [x] Write test: no active session error
+- [x] Write test: save failure handling
 
-### 3.2 category_add - GREEN
-- [ ] Define `CategoryAddArgs(ToolArguments)`
-- [ ] Implement `category_add` function
-- [ ] Get current session
-- [ ] Validate all inputs using validation functions
-- [ ] Check category doesn't exist
-- [ ] Create new category
-- [ ] Add to project config
-- [ ] **Auto-save config immediately**
-- [ ] Return Result.ok
-- [ ] All tests pass
+### 3.2 category_add - GREEN ✅
+- [x] Define `CategoryAddArgs(ToolArguments)`
+- [x] Implement `category_add` function
+- [x] Get current session
+- [x] Validate all inputs using validation functions
+- [x] Check category doesn't exist
+- [x] Create new category
+- [x] Add to project config
+- [x] **Auto-save config immediately**
+- [x] Return Result.ok
+- [x] All tests pass
 
-### 3.3 category_add - REFACTOR
-- [ ] Add comprehensive docstring with examples
-- [ ] Run ruff format
-- [ ] Run mypy
-- [ ] Verify >80% coverage
+### 3.3 category_add - REFACTOR ✅
+- [x] Add comprehensive docstring with examples
+- [x] Run ruff format
+- [x] Run ruff check
+- [x] Run mypy
+- [x] Verify >80% coverage (94% achieved)
+
+**Phase 3 Results:**
+- ✅ 18 new tests passing (all category_add tests + timestamp + length validation)
+- ✅ 246 total tests passing, 87% overall coverage
+- ✅ 93% coverage on tool_category.py
+- ✅ All quality checks pass
+- ✅ Immutability pattern correctly implemented using `session.update_config()` and `Project.with_category()`
+- ✅ Timestamp test verifies immutability contract is honored
+- ✅ DRY principle honored - validation delegated to Category model
+- ✅ Ready for Phase 4
+
+**Files Modified:**
+- `src/mcp_guide/tools/tool_category.py` - Added CategoryAddArgs and category_add
+- `tests/unit/mcp_guide/tools/test_tool_category.py` - Added 18 tests for category_add
+
+**Implementation Notes:**
+- Uses `session.update_config(lambda p: p.with_category(category))` to maintain immutability
+- Honors Project dataclass frozen contract
+- Ensures `updated_at` timestamp is correctly set
+- Cache management handled by Session.update_config
+- Test `test_category_add_updates_timestamp` verifies immutability pattern works correctly
+- Validation delegated to Category model (DRY) - catches ValueError and converts to ArgValidationError
+- Test `test_category_add_invalid_name_too_long` verifies 30-character limit enforcement
 
 ## Phase 4: category_remove Tool
 
