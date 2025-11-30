@@ -231,3 +231,36 @@ def session_temp_dir() -> Path:
     global _session_temp_dir
     assert _session_temp_dir is not None, "Session temp dir not initialized by pytest_configure"
     return _session_temp_dir
+
+
+@pytest.fixture
+def project_dir(tmp_path: Path, monkeypatch) -> Generator[Path, None, None]:
+    """Set up isolated project directory with PWD and CWD.
+
+    Creates a project directory named "test" and sets environment variables
+    so that _determine_project_name() will correctly identify the project.
+
+    Args:
+        tmp_path: pytest's tmp_path fixture
+        monkeypatch: pytest's monkeypatch fixture for isolated env var changes
+
+    Yields:
+        Path to the project directory
+
+    Note:
+        - Project name will be "test" (derived from directory name)
+        - PWD and CWD are set to the project directory
+        - Session is automatically cleaned up after test
+    """
+    from mcp_guide.session import remove_current_session
+
+    project_name = "test"
+    test_project_dir = tmp_path / project_name
+    test_project_dir.mkdir(exist_ok=True)
+
+    monkeypatch.setenv("PWD", str(test_project_dir))
+    monkeypatch.setenv("CWD", str(test_project_dir))
+
+    yield test_project_dir
+
+    remove_current_session(project_name)

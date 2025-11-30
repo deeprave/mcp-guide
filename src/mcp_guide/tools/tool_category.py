@@ -1,5 +1,6 @@
 """Category management tools."""
 
+from dataclasses import replace
 from typing import Optional
 
 from pydantic import Field
@@ -7,7 +8,7 @@ from pydantic import Field
 from mcp_core.result import Result
 from mcp_core.tool_arguments import ToolArguments
 from mcp_core.validation import ArgValidationError, validate_description, validate_directory_path, validate_pattern
-from mcp_guide.models import Category
+from mcp_guide.models import Category, Project
 from mcp_guide.server import tools
 
 try:
@@ -134,3 +135,56 @@ async def category_add(
         return Result.failure(f"Failed to save project configuration: {e}", error_type="save_error").to_json_str()
 
     return Result.ok(f"Category '{name}' added successfully").to_json_str()
+
+
+class CategoryRemoveArgs(ToolArguments):
+    """Arguments for category_remove tool."""
+
+    name: str
+
+
+@tools.tool(CategoryRemoveArgs)
+async def category_remove(
+    name: str,
+    ctx: Optional[Context] = None,  # type: ignore
+) -> str:
+    """Remove a category from the current project.
+
+    Removes the specified category and automatically removes it from all collections.
+    Changes are saved to the project configuration immediately.
+
+    Args:
+        name: Name of the category to remove
+        ctx: MCP Context (auto-injected by FastMCP)
+
+    Returns:
+        JSON string with Result containing success message
+
+    Examples:
+        >>> category_remove(name="docs")
+    """
+    from mcp_guide.session import get_or_create_session
+
+    try:
+        session = await get_or_create_session(ctx)
+    except ValueError as e:
+        return Result.failure(str(e), error_type="no_project").to_json_str()
+
+    project = await session.get_project()
+
+    if not any(cat.name == name for cat in project.categories):
+        return Result.failure(f"Category '{name}' does not exist", error_type="not_found").to_json_str()
+
+    def remove_category_and_update_collections(p: Project) -> Project:
+        p_without_cat = p.without_category(name)
+        updated_collections = [
+            replace(col, categories=[c for c in col.categories if c != name]) for col in p_without_cat.collections
+        ]
+        return replace(p_without_cat, collections=updated_collections)
+
+    try:
+        await session.update_config(remove_category_and_update_collections)
+    except Exception as e:
+        return Result.failure(f"Failed to save project configuration: {e}", error_type="save_error").to_json_str()
+
+    return Result.ok(f"Category '{name}' removed successfully").to_json_str()
