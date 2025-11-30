@@ -2,24 +2,24 @@
 
 ## Task 4.1: Add Mustache Library Dependency
 
-**Description**: Add chevron (mustache) library as project dependency for template rendering.
+**Description**: Add mustache template library as project dependency for template rendering.
 
 **Requirements**:
-- Add chevron to pyproject.toml dependencies
+- Add mustache library to pyproject.toml dependencies
 - Lock dependency version
 - Verify library installation
 - Document library choice
 
 **Assumptions**:
 - Chevron is maintained and stable
-- Chevron supports Python 3.13
+- Library supports project Python version
 - No conflicts with existing dependencies
 
 **Acceptance Criteria**:
-- [ ] chevron added to pyproject.toml
-- [ ] Dependency version locked (e.g., chevron>=0.14.0)
-- [ ] `uv sync` installs successfully
-- [ ] Import chevron works in code
+- [ ] mustache library added to pyproject.toml
+- [ ] Dependency version appropriately constrained
+- [ ] Dependency installation succeeds
+- [ ] Library imports successfully in code
 - [ ] No dependency conflicts
 - [ ] Library choice documented in ADR or comments
 
@@ -52,7 +52,7 @@
 
 ## Task 4.3: Implement Template Rendering
 
-**Description**: Implement mustache template rendering using chevron library.
+**Description**: Implement mustache template rendering using mustache library.
 
 **Requirements**:
 - Parse template content
@@ -95,7 +95,7 @@
 - [ ] Non-template files returned unchanged
 - [ ] Template files are rendered
 - [ ] Content preservation verified
-- [ ] No performance overhead for non-templates
+- [ ] Non-templates processed efficiently
 - [ ] Unit tests verify pass-through
 - [ ] Unit tests verify rendering
 
@@ -106,8 +106,8 @@
 **Description**: Implement error handling for template syntax errors with clear messages.
 
 **Requirements**:
-- Catch chevron parsing errors
-- Catch chevron rendering errors
+- Catch library parsing errors
+- Catch library rendering errors
 - Return structured error
 - Include error details (line, column if available)
 
@@ -135,7 +135,7 @@
 - Test various file extensions
 - Test case sensitivity
 - Test edge cases
-- Achieve 90%+ coverage
+- Meet project test coverage standards
 
 **Assumptions**:
 - Test fixtures provide sample filenames
@@ -149,7 +149,7 @@
 - [ ] Test empty extension
 - [ ] Test no extension
 - [ ] All tests pass
-- [ ] Coverage ≥90%
+- [ ] Unit tests meet project standards
 
 ---
 
@@ -161,7 +161,7 @@
 - Test all mustache syntax features
 - Test with various contexts
 - Test error cases
-- Achieve 90%+ coverage
+- Meet project test coverage standards
 
 **Assumptions**:
 - Test fixtures provide sample templates
@@ -176,7 +176,7 @@
 - [ ] Test nested contexts
 - [ ] Test HTML escaping
 - [ ] All tests pass
-- [ ] Coverage ≥90%
+- [ ] Unit tests meet project standards
 
 ---
 
@@ -319,7 +319,7 @@
 - Test each source
 - Test priority merging
 - Test missing variables
-- Achieve 90%+ coverage
+- Meet project test coverage standards
 
 **Assumptions**:
 - Test fixtures provide mock sources
@@ -333,7 +333,7 @@
 - [ ] Test missing variables
 - [ ] Test empty sources
 - [ ] All tests pass
-- [ ] Coverage ≥90%
+- [ ] Unit tests meet project standards
 
 ---
 
@@ -474,7 +474,7 @@
 - Test cache operations
 - Test hit/miss scenarios
 - Test invalidation
-- Achieve 90%+ coverage
+- Meet project test coverage standards
 
 **Assumptions**:
 - Test fixtures provide mock templates
@@ -488,7 +488,7 @@
 - [ ] Test freshness check
 - [ ] Test stale entry
 - [ ] All tests pass
-- [ ] Coverage ≥90%
+- [ ] Unit tests meet project standards
 
 ---
 
@@ -518,16 +518,15 @@
 
 ## Task 6.7: Performance Testing
 
-**Description**: Create performance tests to verify caching improves template rendering speed.
+**Description**: Document caching behavior and verify cache functionality.
 
 **Requirements**:
 - Measure render time with cache
 - Measure render time without cache
 - Verify cache provides speedup
-- Document performance characteristics
+- Document caching behavior
 
 **Assumptions**:
-- Caching should improve performance
 - Performance tests are repeatable
 - Speedup is measurable
 

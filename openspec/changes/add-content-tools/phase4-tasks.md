@@ -143,12 +143,12 @@
 
 ## Task 9.6: Document Caching Behavior
 
-**Description**: Document template caching behavior and performance characteristics.
+**Description**: Document template caching behavior.
 
 **Requirements**:
 - Explain cache purpose
 - Document cache invalidation
-- Explain performance benefits
+- Explain caching benefits
 - Document cache limits
 - Explain when cache is used
 
