@@ -265,6 +265,8 @@ async def category_change(
                 raise ArgValidationError([{"field": "new_name", "message": f"Category '{new_name}' already exists"}])
 
         if new_dir is not None:
+            if new_dir == "":
+                raise ArgValidationError([{"field": "new_dir", "message": "Directory path cannot be empty"}])
             validate_directory_path(new_dir, default=new_dir)
 
         if new_description is not None and new_description != "":
