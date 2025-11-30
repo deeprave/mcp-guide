@@ -937,6 +937,25 @@ class TestCategoryChange:
         assert result_dict["error_type"] == "validation_error"
 
     @pytest.mark.asyncio
+    async def test_category_change_empty_dir(self, tmp_path: Path) -> None:
+        """Reject empty string for new directory."""
+        from mcp_guide.tools.tool_category import CategoryChangeArgs, category_change
+
+        manager = ConfigManager(config_dir=str(tmp_path))
+        session = Session(config_manager=manager, project_name="test")
+        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
+        session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
+        set_current_session(session)
+
+        args = CategoryChangeArgs(name="docs", new_dir="")
+        result_str = await category_change(**args.model_dump())
+        result_dict = json.loads(result_str)
+
+        assert result_dict["success"] is False
+        assert result_dict["error_type"] == "validation_error"
+        assert "cannot be empty" in result_dict["error"].lower()
+
+    @pytest.mark.asyncio
     async def test_category_change_invalid_dir(self, tmp_path: Path) -> None:
         """Reject invalid new directory."""
         from mcp_guide.tools.tool_category import CategoryChangeArgs, category_change
