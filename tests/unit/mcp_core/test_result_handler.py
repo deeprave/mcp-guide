@@ -3,12 +3,12 @@
 import pytest
 
 from mcp_core.result_handler import validate_result
-from mcp_core.validation import ValidationError
+from mcp_core.validation import ArgValidationError
 
 
 @pytest.mark.asyncio
 async def test_non_validation_error_is_propagated():
-    """Non-ValidationError exceptions should propagate unchanged."""
+    """Non-ArgValidationError exceptions should propagate unchanged."""
 
     @validate_result()
     async def error_fn() -> str:
@@ -44,16 +44,17 @@ class TestValidateResult:
 
     @pytest.mark.asyncio
     async def test_validation_error_returns_failure_result(self):
-        """ValidationError is caught and wrapped in Result.failure."""
+        """ArgValidationError is caught and wrapped in Result.failure."""
 
         @validate_result()
         async def error_fn() -> str:
-            raise ValidationError("Invalid input", error_type="validation")
+            raise ArgValidationError([{"field": "input", "message": "Invalid input"}])
 
         result = await error_fn()
         assert result.is_failure()
-        assert result.error == "Invalid input"
-        assert result.error_type == "validation"
+        assert "Invalid input" in result.error
+        assert result.error_type == "validation_error"
+        assert result.error_data == {"validation_errors": [{"field": "input", "message": "Invalid input"}]}
 
     @pytest.mark.asyncio
     async def test_success_instruction_added(self):
@@ -72,7 +73,7 @@ class TestValidateResult:
 
         @validate_result(failure_instruction="Fix the error")
         async def error_fn() -> str:
-            raise ValidationError("Bad data", error_type="validation")
+            raise ArgValidationError([{"field": "data", "message": "Bad data"}])
 
         result = await error_fn()
         assert result.instruction == "Fix the error"

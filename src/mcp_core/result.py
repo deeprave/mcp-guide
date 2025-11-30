@@ -22,6 +22,7 @@ class Result(Generic[T]):
     exception: Optional[Exception] = field(default=None, repr=False, compare=False)
     message: Optional[str] = None
     instruction: Optional[str] = None
+    error_data: Optional[dict[str, Any]] = None
 
     @classmethod
     def ok(cls, value: T) -> "Result[T]":
@@ -81,6 +82,8 @@ class Result(Generic[T]):
                 "error": self.error,
                 "error_type": self.error_type,
             }
+            if self.error_data:
+                result["error_data"] = self.error_data
             # Include exception details for debugging
             if self.exception:
                 result["exception_type"] = type(self.exception).__name__

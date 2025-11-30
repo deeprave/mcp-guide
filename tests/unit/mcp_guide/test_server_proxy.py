@@ -11,18 +11,19 @@ from mcp_guide.server import _ToolsProxy, tools
 class TestToolsProxy:
     """Tests for _ToolsProxy lazy initialization."""
 
-    def test_tool_before_set_instance_returns_noop(self):
+    @pytest.mark.asyncio
+    async def test_tool_before_set_instance_returns_noop(self) -> None:
         """Test that tool() before set_instance returns no-op decorator."""
         proxy = _ToolsProxy()
 
         @proxy.tool()
-        def test_func():
+        async def test_func() -> str:
             return "test"
 
         # Function should be unchanged
-        assert test_func() == "test"
+        assert await test_func() == "test"
 
-    def test_tool_after_set_instance_delegates(self):
+    def test_tool_after_set_instance_delegates(self) -> None:
         """Test that tool() after set_instance delegates to actual decorator."""
         proxy = _ToolsProxy()
         mock_mcp = Mock()
@@ -33,13 +34,13 @@ class TestToolsProxy:
 
         # Now tool() should delegate
         @proxy.tool()
-        def test_func():
+        async def test_func() -> str:
             return "test"
 
         # Verify delegation happened (mcp.tool was called)
         assert mock_mcp.tool.called
 
-    def test_set_instance_updates_class_variable(self):
+    def test_set_instance_updates_class_variable(self) -> None:
         """Test that set_instance() updates _instance class variable."""
         # Reset class variable first
         _ToolsProxy._instance = None
@@ -52,13 +53,13 @@ class TestToolsProxy:
         proxy.set_instance(decorator)
         assert proxy._instance is decorator
 
-    def test_module_level_tools_instance_exists(self):
+    def test_module_level_tools_instance_exists(self) -> None:
         """Test that module-level tools instance exists."""
         from mcp_guide.server import tools
 
         assert isinstance(tools, _ToolsProxy)
 
-    def test_tool_with_args_and_kwargs(self):
+    def test_tool_with_args_and_kwargs(self) -> None:
         """Test that tool() passes through args and kwargs."""
         proxy = _ToolsProxy()
         mock_mcp = Mock()
@@ -68,7 +69,7 @@ class TestToolsProxy:
         proxy.set_instance(decorator)
 
         @proxy.tool(description="test desc", prefix="test")
-        def test_func():
+        async def test_func() -> str:
             return "test"
 
         # Verify args were passed through

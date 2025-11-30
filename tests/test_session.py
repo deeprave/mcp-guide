@@ -1,9 +1,181 @@
 """Tests for Session and ContextVar integration."""
 
+import json
+import os
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
 
 from mcp_guide.config import ConfigManager
-from mcp_guide.session import Session
+from mcp_guide.session import (
+    CachedRootsInfo,
+    Session,
+    _determine_project_name,
+    get_or_create_session,
+    set_project,
+)
+
+
+class TestSetProject:
+    """Tests for set_project tool function."""
+
+    @pytest.mark.asyncio
+    async def test_set_project_creates_and_loads(self, tmp_path, monkeypatch):
+        """set_project creates/loads project successfully."""
+        monkeypatch.setattr("mcp_guide.session.ConfigManager", lambda: ConfigManager(config_dir=str(tmp_path)))
+
+        result_str = await set_project("new-project")
+        result = json.loads(result_str)
+
+        assert result["success"] is True
+        assert "new-project" in result["value"]
+        assert "loaded successfully" in result["value"]
+
+    @pytest.mark.asyncio
+    async def test_set_project_with_invalid_name(self, tmp_path, monkeypatch):
+        """set_project returns error for invalid project name."""
+        monkeypatch.setattr("mcp_guide.session.ConfigManager", lambda: ConfigManager(config_dir=str(tmp_path)))
+
+        result_str = await set_project("invalid@name")
+        result = json.loads(result_str)
+
+        assert result["success"] is False
+        assert result["error_type"] == "project_load_error"
+
+
+class TestGetOrCreateSession:
+    """Tests for get_or_create_session function."""
+
+    @pytest.mark.asyncio
+    async def test_creates_session_with_explicit_name(self, tmp_path, monkeypatch):
+        """Creates session when explicit project_name provided."""
+        monkeypatch.setattr("mcp_guide.session.ConfigManager", lambda: ConfigManager(config_dir=str(tmp_path)))
+
+        session = await get_or_create_session(project_name="explicit-project")
+        assert session.project_name == "explicit-project"
+
+    @pytest.mark.asyncio
+    async def test_creates_session_from_context(self, tmp_path, monkeypatch):
+        """Creates session by detecting name from context."""
+        monkeypatch.setattr("mcp_guide.session.ConfigManager", lambda: ConfigManager(config_dir=str(tmp_path)))
+
+        mock_ctx = MagicMock()
+        mock_root = MagicMock()
+        mock_root.uri = "file:///home/user/detected-project"
+        mock_ctx.session.list_roots = AsyncMock(return_value=MagicMock(roots=[mock_root]))
+
+        session = await get_or_create_session(ctx=mock_ctx)
+        assert session.project_name == "detected-project"
+
+    @pytest.mark.asyncio
+    async def test_returns_existing_session(self, tmp_path, monkeypatch):
+        """Returns existing session if already created."""
+        monkeypatch.setattr("mcp_guide.session.ConfigManager", lambda: ConfigManager(config_dir=str(tmp_path)))
+
+        session1 = await get_or_create_session(project_name="same-project")
+        session2 = await get_or_create_session(project_name="same-project")
+
+        assert session1 is session2
+
+    @pytest.mark.asyncio
+    async def test_creates_different_sessions_for_different_projects(self, tmp_path, monkeypatch):
+        """Creates separate sessions for different projects."""
+        monkeypatch.setattr("mcp_guide.session.ConfigManager", lambda: ConfigManager(config_dir=str(tmp_path)))
+
+        session1 = await get_or_create_session(project_name="project1")
+        session2 = await get_or_create_session(project_name="project2")
+
+        assert session1 is not session2
+        assert session1.project_name == "project1"
+        assert session2.project_name == "project2"
+
+
+class TestProjectNameDetection:
+    """Tests for _determine_project_name function."""
+
+    @pytest.mark.asyncio
+    async def test_determine_from_client_roots(self):
+        """Project name determined from MCP client roots (PRIMARY)."""
+        # Mock Context with roots
+        mock_ctx = MagicMock()
+        mock_root = MagicMock()
+        mock_root.uri = "file:///home/user/my-project"
+        mock_ctx.session.list_roots = AsyncMock(return_value=MagicMock(roots=[mock_root]))
+
+        project_name = await _determine_project_name(mock_ctx)
+        assert project_name == "my-project"
+
+    @pytest.mark.asyncio
+    async def test_determine_from_pwd_fallback(self, monkeypatch):
+        """Project name determined from PWD as LAST FALLBACK."""
+        monkeypatch.setenv("PWD", "/home/user/test-project")
+
+        # No context provided
+        project_name = await _determine_project_name(None)
+        assert project_name == "test-project"
+
+    @pytest.mark.asyncio
+    async def test_pwd_must_be_absolute(self, monkeypatch):
+        """PWD must be absolute path - reject relative paths."""
+        monkeypatch.setenv("PWD", "./relative/path")
+
+        with pytest.raises(ValueError, match="Project context not available"):
+            await _determine_project_name(None)
+
+    @pytest.mark.asyncio
+    async def test_error_when_no_source_available(self, monkeypatch):
+        """Raises ValueError with instruction when no source available."""
+        monkeypatch.delenv("PWD", raising=False)
+
+        with pytest.raises(ValueError, match="Call set_project"):
+            await _determine_project_name(None)
+
+    @pytest.mark.asyncio
+    async def test_handles_client_roots_exception(self, monkeypatch):
+        """Gracefully handles exception from client roots."""
+        monkeypatch.setenv("PWD", "/home/user/fallback-project")
+
+        # Mock Context that raises exception
+        mock_ctx = MagicMock()
+        mock_ctx.session.list_roots = AsyncMock(side_effect=Exception("Client error"))
+
+        # Should fall back to PWD
+        project_name = await _determine_project_name(mock_ctx)
+        assert project_name == "fallback-project"
+
+    @pytest.mark.asyncio
+    async def test_caches_roots_info(self):
+        """Caches entire roots list and derived project name."""
+        import mcp_guide.session
+
+        # Reset cache (ContextVar)
+        mcp_guide.session._cached_roots.set(None)
+
+        mock_ctx = MagicMock()
+        mock_root = MagicMock()
+        mock_root.uri = "file:///home/user/cached-project"
+        mock_ctx.session.list_roots = AsyncMock(return_value=MagicMock(roots=[mock_root]))
+
+        await _determine_project_name(mock_ctx)
+
+        # Check cache was populated
+        cached = mcp_guide.session._cached_roots.get()
+        assert cached is not None
+        assert cached.project_name == "cached-project"
+        assert len(cached.roots) == 1
+
+
+class TestCachedRootsInfo:
+    """Tests for CachedRootsInfo dataclass."""
+
+    def test_cached_roots_info_creation(self):
+        """CachedRootsInfo can be created with roots, project_name, and timestamp."""
+        roots = [{"uri": "file:///test/project", "name": "Test Project"}]
+        cache = CachedRootsInfo(roots=roots, project_name="project", timestamp=1234567890.0)
+
+        assert cache.roots == roots
+        assert cache.project_name == "project"
+        assert cache.timestamp == 1234567890.0
 
 
 class TestSession:

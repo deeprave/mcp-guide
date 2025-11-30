@@ -6,11 +6,38 @@ from pydantic import BaseModel, ConfigDict
 
 
 class ToolArguments(BaseModel):
-    """Base class for tool arguments.
+    """Base class for tool arguments with automatic schema generation and validation.
 
-    Provides:
-    - Pydantic validation with extra='forbid'
-    - Schema markdown generation for tool descriptions
+    This class works with ExtMcpToolDecorator to provide a clean abstraction for tool arguments.
+    When you define a tool with ToolArguments, the decorator handles the translation between
+    FastMCP's flat argument structure and your typed argument class.
+
+    Usage Pattern:
+        1. Define your arguments class:
+           ```python
+           class MyToolArgs(ToolArguments):
+               name: str
+               age: int = 0
+           ```
+
+        2. Define your tool function:
+           ```python
+           @tools.tool(args_class=MyToolArgs)
+           async def my_tool(args: MyToolArgs, ctx: Context) -> Result[str]:
+               return Result.ok(f"Hello {args.name}, age {args.age}")
+           ```
+
+        3. The decorator automatically:
+           - Extracts individual fields from MyToolArgs for FastMCP's schema
+           - Receives flat kwargs from FastMCP: {"name": "Alice", "age": 30, "ctx": <Context>}
+           - Transforms them into MyToolArgs instance: MyToolArgs(name="Alice", age=30)
+           - Calls your function with (args, ctx)
+
+    Features:
+    - Pydantic validation with extra='forbid' (rejects unknown fields)
+    - Automatic schema markdown generation for tool descriptions
+    - Type-safe argument access in tool implementations
+    - Validation errors collected and returned as structured error_data
     """
 
     model_config = ConfigDict(extra="forbid")

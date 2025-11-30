@@ -7,6 +7,35 @@
 
 ## Revision History
 
+### 2025-11-30: ToolArguments Automatic Transformation
+**What Changed:** Enhanced decorator to automatically construct and validate ToolArguments instances from FastMCP kwargs
+
+**Why:** Previous pattern required manual synchronization between ToolArguments schema and function signature - every field had to be duplicated. This was error-prone and violated DRY principle. The ToolArguments class was only used for documentation generation, not runtime validation or transformation.
+
+**Impact:**
+- Decorator now detects if function expects ToolArguments instance (inspects first parameter type)
+- Automatically constructs ToolArguments from kwargs with Pydantic validation
+- Function signature simplified: `func(args: ToolArgs, ctx: Context = None)`
+- Single source of truth: ToolArguments class defines schema once
+- Automatic validation: Pydantic validates all inputs at runtime
+- Validation errors converted to Result.failure with structured details
+- Legacy pattern (individual parameters) still supported for backward compatibility
+
+**New Pattern (Preferred):**
+```python
+@tools.tool(CategoryListArgs)
+async def category_list(args: CategoryListArgs, ctx: Context = None) -> str:
+    if args.verbose:  # Type-safe access
+        ...
+```
+
+**Legacy Pattern (Deprecated but supported):**
+```python
+@tools.tool(CategoryListArgs)
+async def category_list(verbose: bool = True, ctx: Any = None) -> str:
+    # Must manually keep signature in sync with CategoryListArgs
+```
+
 ### 2025-11-29: Lazy Tool Registration
 **What Changed:** Replaced `@ToolArguments.declare` decorator with lazy registration via constructor
 
@@ -245,7 +274,78 @@ While instructions are free-form text, these patterns are recommended:
 - `"Review [specific documentation] before proceeding."`
 - `"Validate [specific aspect] with the user."`
 
-### 5. Pydantic Validation and Lazy Registration
+### 5. ToolArguments Automatic Transformation
+
+The decorator automatically constructs and validates ToolArguments instances from FastMCP kwargs, eliminating signature duplication.
+
+**Pattern Detection:**
+The decorator inspects the function signature to determine which pattern to use:
+- If first parameter is a ToolArguments subclass → construct instance and validate
+- Otherwise → pass kwargs through (legacy pattern)
+
+**New Pattern (Preferred):**
+```python
+class CategoryListArgs(ToolArguments):
+    """Arguments for category_list tool."""
+    verbose: bool = True
+    include_hidden: bool = False
+
+@tools.tool(CategoryListArgs)
+async def category_list(args: CategoryListArgs, ctx: Context = None) -> str:
+    """List all categories in the current project."""
+    if args.verbose:
+        # Type-safe access to validated arguments
+        categories = get_detailed_categories(include_hidden=args.include_hidden)
+    else:
+        categories = get_category_names()
+    return Result.ok(categories).to_json_str()
+```
+
+**Benefits:**
+- **Single Source of Truth**: ToolArguments class defines schema once
+- **Automatic Validation**: Pydantic validates all inputs at runtime
+- **Type Safety**: IDE autocomplete and type checking work correctly
+- **Maintainability**: Add/modify fields in one place only
+- **Error Quality**: Structured validation errors for agents
+
+**Context Parameter Handling:**
+- `ctx: Context` is always extracted from kwargs (never part of ToolArguments)
+- FastMCP injects ctx, not from JSON
+- Passed as separate keyword argument to function
+- Optional parameter (defaults to None)
+
+**Validation Error Handling:**
+```python
+# Decorator automatically catches ValidationError
+try:
+    tool_args = args_class(**kwargs)
+    result = await func(tool_args, ctx=ctx)
+except ValidationError as e:
+    # Converted to Result.failure with field-level details
+    error_details = {
+        "validation_errors": [
+            {"field": err["loc"][0], "message": err["msg"]}
+            for err in e.errors()
+        ]
+    }
+    return Result.failure(
+        f"Invalid arguments: {e}",
+        error_type="validation_error",
+        data=error_details
+    ).to_json_str()
+```
+
+**Legacy Pattern (Deprecated):**
+```python
+@tools.tool(CategoryListArgs)
+async def category_list(verbose: bool = True, ctx: Any = None) -> str:
+    """Legacy pattern - must manually sync signature with ToolArguments."""
+    # Decorator passes kwargs through unchanged
+```
+
+The legacy pattern is supported for backward compatibility but should not be used for new tools.
+
+### 6. Pydantic Validation and Lazy Registration
 
 Tools MUST use Pydantic models for argument validation with lazy registration pattern:
 

@@ -10,9 +10,9 @@ import urllib.request
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-CACHE_FILE = Path(".osvcheck")
+CACHE_FILE = Path(".osvcheck_cache")
 CACHE_MIN_TTL = 12 * 3600  # 12 hours in seconds
-CACHE_MAX_TTL = 24 * 3600  # 24 hours in seconds
+CACHE_MAX_TTL = 48 * 3600  # 48 hours in seconds
 
 
 def get_direct_dependencies() -> List[str]:

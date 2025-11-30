@@ -195,12 +195,11 @@ q.json
 .claude
 
 # Project configuration
-.mcp-server-guide.*
 q.chat
 q.json
 .consent
 .issue
-.osvcheck
+.osvcheck_cache
 
 .hook_log
 .amazonq

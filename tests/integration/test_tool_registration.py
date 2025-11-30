@@ -68,10 +68,18 @@ async def test_server_starts_and_registers_tools(test_session):
     assert hasattr(server, "tool")
 
     # Verify the decorator pattern worked
+    from unittest.mock import AsyncMock, MagicMock
+
     from mcp_guide.tools.tool_category import category_list
 
+    # Mock Context for tool call
+    mock_ctx = MagicMock()
+    mock_root = MagicMock()
+    mock_root.uri = "file:///test/project"
+    mock_ctx.session.list_roots = AsyncMock(return_value=MagicMock(roots=[mock_root]))
+
     # Tool function should still be callable directly (now async)
-    result_str = await category_list()
+    result_str = await category_list(mock_ctx)
     result_dict = json.loads(result_str)
 
     # Should return proper result
