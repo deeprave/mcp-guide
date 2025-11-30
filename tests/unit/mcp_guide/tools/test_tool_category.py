@@ -1110,3 +1110,283 @@ class TestCategoryChange:
         assert result_dict["success"] is True
         new_time = session._cached_project.updated_at
         assert new_time > original_time
+
+
+class TestCategoryUpdate:
+    """Tests for category_update tool."""
+
+    @pytest.fixture(autouse=True)
+    def setup_teardown(self, project_dir: Path) -> Generator[None, None, None]:
+        """Setup and teardown for each test."""
+        yield
+
+    @pytest.mark.asyncio
+    async def test_category_update_add_single_pattern(self, tmp_path: Path) -> None:
+        """Add a single pattern to category."""
+        from mcp_guide.tools.tool_category import CategoryUpdateArgs, category_update
+
+        manager = ConfigManager(config_dir=str(tmp_path))
+        session = Session(config_manager=manager, project_name="test")
+        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
+        session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
+        set_current_session(session)
+
+        args = CategoryUpdateArgs(name="docs", add_patterns=["*.txt"])
+        result_str = await category_update(**args.model_dump())
+        result_dict = json.loads(result_str)
+
+        assert result_dict["success"] is True
+        doc_cat = next(c for c in session._cached_project.categories if c.name == "docs")
+        assert doc_cat.patterns == ["*.md", "*.txt"]
+
+    @pytest.mark.asyncio
+    async def test_category_update_remove_single_pattern(self, tmp_path: Path) -> None:
+        """Remove a single pattern from category."""
+        from mcp_guide.tools.tool_category import CategoryUpdateArgs, category_update
+
+        manager = ConfigManager(config_dir=str(tmp_path))
+        session = Session(config_manager=manager, project_name="test")
+        docs_cat = Category(name="docs", dir="docs", patterns=["*.md", "*.txt"])
+        session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
+        set_current_session(session)
+
+        args = CategoryUpdateArgs(name="docs", remove_patterns=["*.txt"])
+        result_str = await category_update(**args.model_dump())
+        result_dict = json.loads(result_str)
+
+        assert result_dict["success"] is True
+        doc_cat = next(c for c in session._cached_project.categories if c.name == "docs")
+        assert doc_cat.patterns == ["*.md"]
+
+    @pytest.mark.asyncio
+    async def test_category_update_add_and_remove_patterns(self, tmp_path: Path) -> None:
+        """Add and remove patterns together (remove happens first)."""
+        from mcp_guide.tools.tool_category import CategoryUpdateArgs, category_update
+
+        manager = ConfigManager(config_dir=str(tmp_path))
+        session = Session(config_manager=manager, project_name="test")
+        docs_cat = Category(name="docs", dir="docs", patterns=["*.md", "*.txt"])
+        session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
+        set_current_session(session)
+
+        args = CategoryUpdateArgs(name="docs", remove_patterns=["*.txt"], add_patterns=["*.rst"])
+        result_str = await category_update(**args.model_dump())
+        result_dict = json.loads(result_str)
+
+        assert result_dict["success"] is True
+        doc_cat = next(c for c in session._cached_project.categories if c.name == "docs")
+        assert doc_cat.patterns == ["*.md", "*.rst"]
+
+    @pytest.mark.asyncio
+    async def test_category_update_remove_nonexistent_pattern(self, tmp_path: Path) -> None:
+        """Remove non-existent pattern succeeds (idempotent)."""
+        from mcp_guide.tools.tool_category import CategoryUpdateArgs, category_update
+
+        manager = ConfigManager(config_dir=str(tmp_path))
+        session = Session(config_manager=manager, project_name="test")
+        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
+        session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
+        set_current_session(session)
+
+        args = CategoryUpdateArgs(name="docs", remove_patterns=["*.txt"])
+        result_str = await category_update(**args.model_dump())
+        result_dict = json.loads(result_str)
+
+        assert result_dict["success"] is True
+        doc_cat = next(c for c in session._cached_project.categories if c.name == "docs")
+        assert doc_cat.patterns == ["*.md"]
+
+    @pytest.mark.asyncio
+    async def test_category_update_add_multiple_patterns(self, tmp_path: Path) -> None:
+        """Add multiple patterns at once."""
+        from mcp_guide.tools.tool_category import CategoryUpdateArgs, category_update
+
+        manager = ConfigManager(config_dir=str(tmp_path))
+        session = Session(config_manager=manager, project_name="test")
+        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
+        session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
+        set_current_session(session)
+
+        args = CategoryUpdateArgs(name="docs", add_patterns=["*.txt", "*.rst"])
+        result_str = await category_update(**args.model_dump())
+        result_dict = json.loads(result_str)
+
+        assert result_dict["success"] is True
+        doc_cat = next(c for c in session._cached_project.categories if c.name == "docs")
+        assert doc_cat.patterns == ["*.md", "*.txt", "*.rst"]
+
+    @pytest.mark.asyncio
+    async def test_category_update_remove_multiple_patterns(self, tmp_path: Path) -> None:
+        """Remove multiple patterns at once."""
+        from mcp_guide.tools.tool_category import CategoryUpdateArgs, category_update
+
+        manager = ConfigManager(config_dir=str(tmp_path))
+        session = Session(config_manager=manager, project_name="test")
+        docs_cat = Category(name="docs", dir="docs", patterns=["*.md", "*.txt", "*.rst"])
+        session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
+        set_current_session(session)
+
+        args = CategoryUpdateArgs(name="docs", remove_patterns=["*.txt", "*.rst"])
+        result_str = await category_update(**args.model_dump())
+        result_dict = json.loads(result_str)
+
+        assert result_dict["success"] is True
+        doc_cat = next(c for c in session._cached_project.categories if c.name == "docs")
+        assert doc_cat.patterns == ["*.md"]
+
+    @pytest.mark.asyncio
+    async def test_category_update_invalid_add_pattern(self, tmp_path: Path) -> None:
+        """Reject invalid pattern in add_patterns."""
+        from mcp_guide.tools.tool_category import CategoryUpdateArgs, category_update
+
+        manager = ConfigManager(config_dir=str(tmp_path))
+        session = Session(config_manager=manager, project_name="test")
+        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
+        session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
+        set_current_session(session)
+
+        args = CategoryUpdateArgs(name="docs", add_patterns=["../traversal"])
+        result_str = await category_update(**args.model_dump())
+        result_dict = json.loads(result_str)
+
+        assert result_dict["success"] is False
+        assert result_dict["error_type"] == "validation_error"
+
+    @pytest.mark.asyncio
+    async def test_category_update_category_not_found(self, tmp_path: Path) -> None:
+        """Reject update for non-existent category."""
+        from mcp_guide.tools.tool_category import CategoryUpdateArgs, category_update
+
+        manager = ConfigManager(config_dir=str(tmp_path))
+        session = Session(config_manager=manager, project_name="test")
+        session._cached_project = Project(name="test", categories=[], collections=[])
+        set_current_session(session)
+
+        args = CategoryUpdateArgs(name="docs", add_patterns=["*.txt"])
+        result_str = await category_update(**args.model_dump())
+        result_dict = json.loads(result_str)
+
+        assert result_dict["success"] is False
+        assert result_dict["error_type"] == "not_found"
+        assert "does not exist" in result_dict["error"]
+
+    @pytest.mark.asyncio
+    async def test_category_update_no_operations(self, tmp_path: Path) -> None:
+        """Reject when no operations provided."""
+        from mcp_guide.tools.tool_category import CategoryUpdateArgs, category_update
+
+        manager = ConfigManager(config_dir=str(tmp_path))
+        session = Session(config_manager=manager, project_name="test")
+        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
+        session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
+        set_current_session(session)
+
+        args = CategoryUpdateArgs(name="docs")
+        result_str = await category_update(**args.model_dump())
+        result_dict = json.loads(result_str)
+
+        assert result_dict["success"] is False
+        assert result_dict["error_type"] == "validation_error"
+        assert "at least one" in result_dict["error"].lower()
+
+    @pytest.mark.asyncio
+    async def test_category_update_auto_saves(self, tmp_path: Path) -> None:
+        """Verify changes are persisted."""
+        from mcp_guide.tools.tool_category import CategoryUpdateArgs, category_update
+
+        manager = ConfigManager(config_dir=str(tmp_path))
+        session = Session(config_manager=manager, project_name="test")
+        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
+        session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
+        set_current_session(session)
+
+        args = CategoryUpdateArgs(name="docs", add_patterns=["*.txt"])
+        result_str = await category_update(**args.model_dump())
+        result_dict = json.loads(result_str)
+
+        assert result_dict["success"] is True
+
+        reloaded_project = await manager.get_or_create_project_config("test")
+        doc_cat = next(c for c in reloaded_project.categories if c.name == "docs")
+        assert doc_cat.patterns == ["*.md", "*.txt"]
+
+    @pytest.mark.asyncio
+    async def test_category_update_no_session(self, monkeypatch: MonkeyPatch) -> None:
+        """No active session returns error."""
+        from mcp_guide.tools.tool_category import CategoryUpdateArgs, category_update
+
+        monkeypatch.delenv("PWD", raising=False)
+        monkeypatch.delenv("CWD", raising=False)
+
+        args = CategoryUpdateArgs(name="docs", add_patterns=["*.txt"])
+        result_str = await category_update(**args.model_dump())
+        result_dict = json.loads(result_str)
+
+        assert result_dict["success"] is False
+        assert result_dict["error_type"] == "no_project"
+
+    @pytest.mark.asyncio
+    async def test_category_update_save_failure(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
+        """Handle save failure gracefully."""
+        from unittest.mock import AsyncMock
+
+        from mcp_guide.tools.tool_category import CategoryUpdateArgs, category_update
+
+        manager = ConfigManager(config_dir=str(tmp_path))
+        session = Session(config_manager=manager, project_name="test")
+        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
+        session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
+        set_current_session(session)
+
+        update_mock = AsyncMock(side_effect=Exception("Save failed"))
+        monkeypatch.setattr(session, "update_config", update_mock)
+
+        args = CategoryUpdateArgs(name="docs", add_patterns=["*.txt"])
+        result_str = await category_update(**args.model_dump())
+        result_dict = json.loads(result_str)
+
+        assert result_dict["success"] is False
+        assert result_dict["error_type"] == "save_error"
+
+    @pytest.mark.asyncio
+    async def test_category_update_updates_timestamp(self, tmp_path: Path) -> None:
+        """Verify updated_at timestamp changes."""
+        import asyncio
+
+        from mcp_guide.tools.tool_category import CategoryUpdateArgs, category_update
+
+        manager = ConfigManager(config_dir=str(tmp_path))
+        session = Session(config_manager=manager, project_name="test")
+        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
+        session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
+        set_current_session(session)
+
+        original_time = session._cached_project.updated_at
+        await asyncio.sleep(0.01)
+
+        args = CategoryUpdateArgs(name="docs", add_patterns=["*.txt"])
+        result_str = await category_update(**args.model_dump())
+        result_dict = json.loads(result_str)
+
+        assert result_dict["success"] is True
+        new_time = session._cached_project.updated_at
+        assert new_time > original_time
+
+    @pytest.mark.asyncio
+    async def test_category_update_add_duplicate_pattern(self, tmp_path: Path) -> None:
+        """Adding duplicate pattern should not create duplicates."""
+        from mcp_guide.tools.tool_category import CategoryUpdateArgs, category_update
+
+        manager = ConfigManager(config_dir=str(tmp_path))
+        session = Session(config_manager=manager, project_name="test")
+        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
+        session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
+        set_current_session(session)
+
+        args = CategoryUpdateArgs(name="docs", add_patterns=["*.md"])
+        result_str = await category_update(**args.model_dump())
+        result_dict = json.loads(result_str)
+
+        assert result_dict["success"] is True
+        doc_cat = next(c for c in session._cached_project.categories if c.name == "docs")
+        assert doc_cat.patterns == ["*.md"]

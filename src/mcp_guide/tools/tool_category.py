@@ -319,3 +319,94 @@ async def category_change(
         change_msg = f"Category '{name}' renamed to '{new_name}' successfully"
 
     return Result.ok(change_msg).to_json_str()
+
+
+class CategoryUpdateArgs(ToolArguments):
+    """Arguments for category_update tool."""
+
+    name: str
+    add_patterns: Optional[list[str]] = None
+    remove_patterns: Optional[list[str]] = None
+
+
+@tools.tool(CategoryUpdateArgs)
+async def category_update(
+    name: str,
+    add_patterns: Optional[list[str]] = None,
+    remove_patterns: Optional[list[str]] = None,
+    ctx: Optional[Context] = None,  # type: ignore
+) -> str:
+    """Update category patterns incrementally.
+
+    Add or remove patterns from a category without replacing the entire list.
+    Patterns are removed first, then added (avoiding duplicates).
+
+    Args:
+        name: Name of the category to update
+        add_patterns: Patterns to add (skips if already exists)
+        remove_patterns: Patterns to remove (idempotent - no error if doesn't exist)
+        ctx: MCP Context (auto-injected by FastMCP)
+
+    Returns:
+        JSON string with Result containing success message
+
+    Examples:
+        >>> category_update(name="docs", add_patterns=["*.txt"])
+        >>> category_update(name="docs", remove_patterns=["*.old"])
+        >>> category_update(name="docs", remove_patterns=["*.txt"], add_patterns=["*.rst"])
+    """
+    from mcp_guide.session import get_or_create_session
+
+    try:
+        session = await get_or_create_session(ctx)
+    except ValueError as e:
+        return Result.failure(str(e), error_type="no_project").to_json_str()
+
+    project = await session.get_project()
+
+    existing_category = next((c for c in project.categories if c.name == name), None)
+    if existing_category is None:
+        return Result.failure(f"Category '{name}' does not exist", error_type="not_found").to_json_str()
+
+    if add_patterns is None and remove_patterns is None:
+        return (
+            ArgValidationError(
+                [
+                    {
+                        "field": "operations",
+                        "message": "At least one operation must be provided (add_patterns or remove_patterns)",
+                    }
+                ]
+            )
+            .to_result()
+            .to_json_str()
+        )
+
+    try:
+        if add_patterns:
+            for pattern in add_patterns:
+                validate_pattern(pattern)
+    except ArgValidationError as e:
+        return e.to_result().to_json_str()
+
+    current_patterns = list(existing_category.patterns)
+
+    if remove_patterns:
+        current_patterns = [p for p in current_patterns if p not in remove_patterns]
+
+    if add_patterns:
+        for pattern in add_patterns:
+            if pattern not in current_patterns:
+                current_patterns.append(pattern)
+
+    updated_category = replace(existing_category, patterns=current_patterns)
+
+    def update_category_patterns(p: Project) -> Project:
+        return p.without_category(name).with_category(updated_category)
+
+    try:
+        await session.update_config(update_category_patterns)
+    except Exception as e:
+        return Result.failure(f"Failed to save project configuration: {e}", error_type="save_error").to_json_str()
+
+    return Result.ok(f"Category '{name}' patterns updated successfully").to_json_str()
