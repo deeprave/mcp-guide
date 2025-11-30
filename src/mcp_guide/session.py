@@ -9,11 +9,6 @@ from mcp_core.mcp_log import get_logger
 from mcp_guide.config import ConfigManager
 from mcp_guide.models import _NAME_REGEX, Project, SessionState
 
-try:
-    from mcp.types import Root
-except ImportError:
-    Root = None  # type: ignore
-
 logger = get_logger(__name__)
 
 
@@ -134,7 +129,6 @@ async def _determine_project_name(ctx: Optional[Any] = None) -> str:
         except Exception as e:
             # Unexpected error - log for debugging but continue to fallback
             logger.debug(f"Failed to get client roots: {e}")
-            pass
 
     # Priority 2: PWD environment variable (Unix/Linux shells)
     pwd = os.environ.get("PWD")
