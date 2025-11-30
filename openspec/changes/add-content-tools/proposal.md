@@ -12,19 +12,35 @@ Content retrieval is the core functionality of mcp-guide. Currently, the impleme
 
 ## What Changes
 
-- Implement `get_content` tool (unified category/collection access)
+### Core Tools
 - Implement `get_category_content` tool (category-specific access)
 - Implement `get_collection_content` tool (collection-specific access)
-- Return Result pattern responses with proper error handling
+- Implement `get_content` tool (unified category/collection access)
+
+### Content Retrieval
+- Glob pattern matching for file discovery
+- File reading and content extraction
 - Support optional pattern parameter for content filtering
 - Format single matches as plain markdown
 - Format multiple matches as MIME multipart
+
+### Template Support
+- Mustache template rendering for .mustache files
+- Template context resolution and sources
+- Template caching for performance
+- Pass-through for non-template files
+
+### Error Handling
+- Return Result pattern responses with proper error handling
 - Add agent instructions for error cases
+- Specific error types: not_found, no_matches, invalid_pattern, no_session
 
 ## Impact
 
 - Affected specs: New capability `content-tools`
-- Affected code: New tools module, MCP server tool registration
-- Dependencies: Result pattern (ADR-003), tool conventions (ADR-008)
+- Affected code: New tools module, content retrieval, template rendering, MCP server tool registration
+- Dependencies: Result pattern (ADR-003), tool conventions (ADR-008), mustache library
 - Breaking changes: None (new tools)
-- Future expansion: Document-specific arguments when document functionality is implemented
+- Phased implementation: Core content retrieval → Template support → Collection-based retrieval
+- External dependency: Collection management tools (add-collection-tools) must be implemented before get_collection_content
+- Future expansion: Agent filesystem access for local instruction files (separate task)

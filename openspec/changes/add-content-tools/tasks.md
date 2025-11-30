@@ -1,43 +1,112 @@
 # Implementation Tasks
 
-## 1. Result Pattern Implementation
-- [ ] 1.1 Create Result class in mcp_core (if not exists)
-- [ ] 1.2 Add to_json_str() method for MCP responses
-- [ ] 1.3 Define standard error types for content retrieval
+**See roadmap.md for overall strategy and phase dependencies**
 
-## 2. Content Retrieval Core
-- [ ] 2.1 Implement pattern matching logic (glob-based)
-- [ ] 2.2 Implement single match formatter (plain markdown)
-- [ ] 2.3 Implement multiple match formatter (MIME multipart)
-- [ ] 2.4 Add metadata extraction for MIME parts
+## Phase 1: Core Content Retrieval (Category-Based)
 
-## 3. Tool Implementation
-- [ ] 3.1 Implement get_content tool with argument schema
-- [ ] 3.2 Implement get_category_content tool with argument schema
-- [ ] 3.3 Implement get_collection_content tool with argument schema
-- [ ] 3.4 Add session integration for project context
+### 1. Content Retrieval Logic
+- [ ] 1.1 Implement glob pattern matching
+- [ ] 1.2 Implement file discovery in category directories
+- [ ] 1.3 Implement file reading and content extraction
+- [ ] 1.4 Add path resolution and validation
+- [ ] 1.5 Handle missing files/directories errors
+- [ ] 1.6 Add unit tests for pattern matching
+- [ ] 1.7 Add unit tests for file operations
 
-## 4. Error Handling
-- [ ] 4.1 Define error types (not_found, invalid_pattern, etc.)
-- [ ] 4.2 Add agent instructions for each error type
-- [ ] 4.3 Implement Result.failure() responses
-- [ ] 4.4 Test error message clarity
+### 2. MIME Multipart Formatting
+- [ ] 2.1 Implement single file formatter (plain markdown)
+- [ ] 2.2 Implement MIME multipart formatter (RFC 2046)
+- [ ] 2.3 Add metadata extraction (Content-Type, Content-Location, Content-Length)
+- [ ] 2.4 Implement boundary generation
+- [ ] 2.5 Add unit tests for single file format
+- [ ] 2.6 Add unit tests for multipart format
+- [ ] 2.7 Validate RFC 2046 compliance
 
-## 5. Tool Registration
-- [ ] 5.1 Register tools with MCP server
-- [ ] 5.2 Define tool schemas per ADR-008 conventions
-- [ ] 5.3 Add tool descriptions and examples
-- [ ] 5.4 Validate tool schemas
+### 3. get_category_content Tool
+- [ ] 3.1 Define argument schema (category, pattern)
+- [ ] 3.2 Implement tool function with session integration
+- [ ] 3.3 Add Result pattern responses
+- [ ] 3.4 Define error types (not_found, no_matches, no_session)
+- [ ] 3.5 Add agent instructions for each error type
+- [ ] 3.6 Register tool with MCP server
+- [ ] 3.7 Add integration tests for tool
+- [ ] 3.8 Test error cases and instructions
 
-## 6. Testing
-- [ ] 6.1 Unit tests for pattern matching
-- [ ] 6.2 Unit tests for content formatting
-- [ ] 6.3 Integration tests for each tool
-- [ ] 6.4 Test error cases and instructions
-- [ ] 6.5 Test MIME multipart parsing
+## Phase 2: Template Support
 
-## 7. Documentation
-- [ ] 7.1 Document tool usage and examples
-- [ ] 7.2 Document pattern syntax
-- [ ] 7.3 Document MIME multipart format
-- [ ] 7.4 Add troubleshooting guide
+### 4. Template Rendering
+- [ ] 4.1 Add mustache library dependency
+- [ ] 4.2 Implement .mustache file detection
+- [ ] 4.3 Implement template rendering
+- [ ] 4.4 Add pass-through for non-template files
+- [ ] 4.5 Handle template syntax errors
+- [ ] 4.6 Add unit tests for template detection
+- [ ] 4.7 Add unit tests for rendering
+- [ ] 4.8 Test error handling
+
+### 5. Template Context Resolution
+- [ ] 5.1 Define context sources (project, env, built-in)
+- [ ] 5.2 Implement context priority and merging
+- [ ] 5.3 Add built-in variables (project.name, timestamp, etc.)
+- [ ] 5.4 Implement context resolver
+- [ ] 5.5 Add unit tests for context resolution
+- [ ] 5.6 Test context priority rules
+
+### 6. Template Caching
+- [ ] 6.1 Implement template cache structure
+- [ ] 6.2 Add cache hit/miss logic
+- [ ] 6.3 Implement cache invalidation on file changes
+- [ ] 6.4 Add cache size limits and LRU eviction
+- [ ] 6.5 Add unit tests for caching
+- [ ] 6.6 Test cache invalidation
+- [ ] 6.7 Performance testing
+
+## PAUSE: Collection Management Tools
+
+**External Dependency**: Switch to `add-collection-tools` implementation
+
+Collection management tools must be implemented before Phase 3.
+
+## Phase 3: Collection-Based Content Retrieval
+
+### 7. get_collection_content Tool
+- [ ] 7.1 Define argument schema (collection, pattern)
+- [ ] 7.2 Implement collection resolution
+- [ ] 7.3 Aggregate content from collection's categories
+- [ ] 7.4 Apply pattern across all categories
+- [ ] 7.5 Merge results with proper metadata
+- [ ] 7.6 Add Result pattern responses
+- [ ] 7.7 Register tool with MCP server
+- [ ] 7.8 Add integration tests
+
+### 8. get_content Tool (Unified Access)
+- [ ] 8.1 Define argument schema (category_or_collection, pattern)
+- [ ] 8.2 Implement category resolution (try first)
+- [ ] 8.3 Implement collection resolution (fallback)
+- [ ] 8.4 Add consistent error handling
+- [ ] 8.5 Add agent-friendly error messages
+- [ ] 8.6 Register tool with MCP server
+- [ ] 8.7 Add integration tests
+- [ ] 8.8 Test resolution priority
+
+## Phase 4: Documentation
+
+### 9. Documentation
+- [ ] 9.1 Document tool usage and examples (content-tools.md)
+- [ ] 9.2 Document pattern syntax guide
+- [ ] 9.3 Document MIME multipart format
+- [ ] 9.4 Document template syntax and context (content-templates.md)
+- [ ] 9.5 Document context variables reference
+- [ ] 9.6 Document caching behavior
+- [ ] 9.7 Add troubleshooting guide (content-troubleshooting.md)
+- [ ] 9.8 Document error types and solutions
+- [ ] 9.9 Document agent instructions
+
+## Summary
+
+**Phase 1**: 3 task groups (Content Retrieval, MIME Formatting, get_category_content)
+**Phase 2**: 3 task groups (Template Rendering, Context Resolution, Caching)
+**Phase 3**: 2 task groups (get_collection_content, get_content)
+**Phase 4**: 1 task group (Documentation)
+
+**Total**: 9 task groups, ~60 individual tasks
