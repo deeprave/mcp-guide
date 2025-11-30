@@ -249,6 +249,88 @@ Tools SHALL:
 - **WHEN** retrieving content
 - **THEN** use session.get_project() for configuration
 
+### Requirement: Template Rendering
+
+The system SHALL support mustache template rendering for files with `.mustache` extension.
+
+Template rendering SHALL:
+- Detect files with `.mustache` extension
+- Render templates using mustache syntax
+- Pass through non-template files unchanged
+- Return rendered content in responses
+- Handle template syntax errors gracefully
+
+#### Scenario: Mustache file detected
+- **WHEN** file has `.mustache` extension
+- **THEN** render as mustache template before returning
+
+#### Scenario: Non-template file
+- **WHEN** file does not have `.mustache` extension
+- **THEN** return file content unchanged
+
+#### Scenario: Template syntax error
+- **WHEN** template has invalid mustache syntax
+- **THEN** return Result.failure with error_type "template_error"
+
+#### Scenario: Template rendering in MIME multipart
+- **WHEN** multiple files include templates
+- **THEN** render each template before adding to multipart response
+
+### Requirement: Template Context Resolution
+
+The system SHALL provide context data for template rendering.
+
+Context sources SHALL include (in priority order):
+1. Project configuration
+2. Environment variables
+3. Built-in variables
+4. Custom context providers (future)
+
+Built-in context variables SHALL include:
+- `project.name`: Current project name
+- `project.categories`: List of category names
+- `project.collections`: List of collection names
+- `timestamp`: Current timestamp
+- `date`: Current date
+
+#### Scenario: Context variable access
+- **WHEN** template uses `{{project.name}}`
+- **THEN** substitute with current project name
+
+#### Scenario: Missing context variable
+- **WHEN** template references undefined variable
+- **THEN** render as empty string (mustache default behavior)
+
+#### Scenario: Context priority
+- **WHEN** variable defined in multiple sources
+- **THEN** use value from highest priority source
+
+### Requirement: Template Caching
+
+The system SHALL cache parsed templates for performance.
+
+Caching SHALL:
+- Cache parsed template AST
+- Invalidate cache on file modification
+- Limit cache size to prevent memory issues
+- Be transparent to tool callers
+
+#### Scenario: Template cache hit
+- **WHEN** template requested and cached
+- **THEN** use cached parsed template
+
+#### Scenario: Template cache miss
+- **WHEN** template requested and not cached
+- **THEN** parse template and add to cache
+
+#### Scenario: Template file modified
+- **WHEN** template file modification detected
+- **THEN** invalidate cached entry
+
+#### Scenario: Cache size limit
+- **WHEN** cache exceeds size limit
+- **THEN** evict least recently used entries
+
 ### Requirement: Error Types
 
 The system SHALL define the following error types:
@@ -258,6 +340,7 @@ The system SHALL define the following error types:
 - `invalid_pattern`: Pattern syntax is invalid
 - `no_session`: No active project session
 - `io_error`: File system error during content retrieval
+- `template_error`: Template syntax or rendering error
 - `unknown`: Unexpected error
 
 #### Scenario: Error type classification
@@ -278,6 +361,25 @@ Current arguments:
 
 Future expansion (reserved):
 - `document` (optional): Specific document identifier
+
+## FUTURE Requirements (Not in Current Scope)
+
+### Future Requirement: Agent Filesystem Access
+
+**Note**: This requirement is documented for future planning but is NOT part of the current implementation scope.
+
+The system MAY support serving files from the agent's local filesystem in a future release.
+
+Potential features:
+- URI scheme for agent files (e.g., `agent://path/to/file`)
+- Security: Path traversal prevention
+- Permissions: Read-only access
+- Discovery: Agent advertisement of available files
+- Coordination: Agent-server communication protocol
+
+Use case: Users create local instruction files that agents can reference and serve through the content tools.
+
+**Recommendation**: Create separate proposal/task when collection management tools are complete.
 - Pattern may match documents or patterns
 
 #### Scenario: Pattern as document name
