@@ -681,3 +681,413 @@ class TestCategoryRemove:
         assert result_dict["success"] is True
         new_time = session._cached_project.updated_at
         assert new_time > original_time
+
+
+class TestCategoryChange:
+    """Tests for category_change tool."""
+
+    @pytest.fixture(autouse=True)
+    def setup_teardown(self, project_dir: Path) -> Generator[None, None, None]:
+        """Setup and teardown for each test."""
+        yield
+
+    @pytest.mark.asyncio
+    async def test_category_change_name(self, tmp_path: Path) -> None:
+        """Change category name (rename)."""
+        from mcp_guide.tools.tool_category import CategoryChangeArgs, category_change
+
+        manager = ConfigManager(config_dir=str(tmp_path))
+        session = Session(config_manager=manager, project_name="test")
+        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"], description="Documentation")
+        session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
+        set_current_session(session)
+
+        args = CategoryChangeArgs(name="docs", new_name="documentation")
+        result_str = await category_change(**args.model_dump())
+        result_dict = json.loads(result_str)
+
+        assert result_dict["success"] is True
+        assert not any(c.name == "docs" for c in session._cached_project.categories)
+        doc_cat = next(c for c in session._cached_project.categories if c.name == "documentation")
+        assert doc_cat.dir == "docs"
+        assert doc_cat.patterns == ["*.md"]
+        assert doc_cat.description == "Documentation"
+
+    @pytest.mark.asyncio
+    async def test_category_change_dir(self, tmp_path: Path) -> None:
+        """Change category directory."""
+        from mcp_guide.tools.tool_category import CategoryChangeArgs, category_change
+
+        manager = ConfigManager(config_dir=str(tmp_path))
+        session = Session(config_manager=manager, project_name="test")
+        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
+        session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
+        set_current_session(session)
+
+        args = CategoryChangeArgs(name="docs", new_dir="documentation")
+        result_str = await category_change(**args.model_dump())
+        result_dict = json.loads(result_str)
+
+        assert result_dict["success"] is True
+        doc_cat = next(c for c in session._cached_project.categories if c.name == "docs")
+        assert doc_cat.dir == "documentation"
+        assert doc_cat.patterns == ["*.md"]
+
+    @pytest.mark.asyncio
+    async def test_category_change_description(self, tmp_path: Path) -> None:
+        """Change category description."""
+        from mcp_guide.tools.tool_category import CategoryChangeArgs, category_change
+
+        manager = ConfigManager(config_dir=str(tmp_path))
+        session = Session(config_manager=manager, project_name="test")
+        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"], description="Old")
+        session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
+        set_current_session(session)
+
+        args = CategoryChangeArgs(name="docs", new_description="New description")
+        result_str = await category_change(**args.model_dump())
+        result_dict = json.loads(result_str)
+
+        assert result_dict["success"] is True
+        doc_cat = next(c for c in session._cached_project.categories if c.name == "docs")
+        assert doc_cat.description == "New description"
+        assert doc_cat.dir == "docs"
+
+    @pytest.mark.asyncio
+    async def test_category_change_clear_description(self, tmp_path: Path) -> None:
+        """Clear category description with empty string."""
+        from mcp_guide.tools.tool_category import CategoryChangeArgs, category_change
+
+        manager = ConfigManager(config_dir=str(tmp_path))
+        session = Session(config_manager=manager, project_name="test")
+        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"], description="Something")
+        session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
+        set_current_session(session)
+
+        args = CategoryChangeArgs(name="docs", new_description="")
+        result_str = await category_change(**args.model_dump())
+        result_dict = json.loads(result_str)
+
+        assert result_dict["success"] is True
+        doc_cat = next(c for c in session._cached_project.categories if c.name == "docs")
+        assert doc_cat.description is None
+
+    @pytest.mark.asyncio
+    async def test_category_change_patterns(self, tmp_path: Path) -> None:
+        """Replace category patterns."""
+        from mcp_guide.tools.tool_category import CategoryChangeArgs, category_change
+
+        manager = ConfigManager(config_dir=str(tmp_path))
+        session = Session(config_manager=manager, project_name="test")
+        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
+        session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
+        set_current_session(session)
+
+        args = CategoryChangeArgs(name="docs", new_patterns=["*.txt", "*.rst"])
+        result_str = await category_change(**args.model_dump())
+        result_dict = json.loads(result_str)
+
+        assert result_dict["success"] is True
+        doc_cat = next(c for c in session._cached_project.categories if c.name == "docs")
+        assert doc_cat.patterns == ["*.txt", "*.rst"]
+
+    @pytest.mark.asyncio
+    async def test_category_change_multiple_fields(self, tmp_path: Path) -> None:
+        """Change multiple fields at once."""
+        from mcp_guide.tools.tool_category import CategoryChangeArgs, category_change
+
+        manager = ConfigManager(config_dir=str(tmp_path))
+        session = Session(config_manager=manager, project_name="test")
+        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
+        session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
+        set_current_session(session)
+
+        args = CategoryChangeArgs(name="docs", new_name="documentation", new_dir="docs_new", new_description="Updated")
+        result_str = await category_change(**args.model_dump())
+        result_dict = json.loads(result_str)
+
+        assert result_dict["success"] is True
+        doc_cat = next(c for c in session._cached_project.categories if c.name == "documentation")
+        assert doc_cat.dir == "docs_new"
+        assert doc_cat.description == "Updated"
+
+    @pytest.mark.asyncio
+    async def test_category_change_name_to_same_name(self, tmp_path: Path) -> None:
+        """Renaming to same name should succeed without updating collections."""
+        from mcp_guide.tools.tool_category import CategoryChangeArgs, category_change
+
+        manager = ConfigManager(config_dir=str(tmp_path))
+        session = Session(config_manager=manager, project_name="test")
+        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
+        api_cat = Category(name="api", dir="api", patterns=["*.py"])
+        all_col = Collection(name="all", categories=["docs", "api"])
+        session._cached_project = Project(name="test", categories=[docs_cat, api_cat], collections=[all_col])
+        set_current_session(session)
+
+        args = CategoryChangeArgs(name="docs", new_name="docs")
+        result_str = await category_change(**args.model_dump())
+        result_dict = json.loads(result_str)
+
+        assert result_dict["success"] is True
+        assert "updated successfully" in result_dict["value"]
+        all_collection = next(c for c in session._cached_project.collections if c.name == "all")
+        assert all_collection.categories == ["docs", "api"]
+
+    @pytest.mark.asyncio
+    async def test_category_change_name_updates_collections(self, tmp_path: Path) -> None:
+        """Rename updates collections."""
+        from mcp_guide.tools.tool_category import CategoryChangeArgs, category_change
+
+        manager = ConfigManager(config_dir=str(tmp_path))
+        session = Session(config_manager=manager, project_name="test")
+        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
+        api_cat = Category(name="api", dir="api", patterns=["*.py"])
+        all_col = Collection(name="all", categories=["docs", "api"])
+        session._cached_project = Project(name="test", categories=[docs_cat, api_cat], collections=[all_col])
+        set_current_session(session)
+
+        args = CategoryChangeArgs(name="docs", new_name="documentation")
+        result_str = await category_change(**args.model_dump())
+        result_dict = json.loads(result_str)
+
+        assert result_dict["success"] is True
+        all_collection = next(c for c in session._cached_project.collections if c.name == "all")
+        assert all_collection.categories == ["documentation", "api"]
+
+    @pytest.mark.asyncio
+    async def test_category_change_name_updates_multiple_collections(self, tmp_path: Path) -> None:
+        """Rename updates multiple collections."""
+        from mcp_guide.tools.tool_category import CategoryChangeArgs, category_change
+
+        manager = ConfigManager(config_dir=str(tmp_path))
+        session = Session(config_manager=manager, project_name="test")
+        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
+        api_cat = Category(name="api", dir="api", patterns=["*.py"])
+        backend_col = Collection(name="backend", categories=["api"])
+        frontend_col = Collection(name="frontend", categories=["docs", "api"])
+        session._cached_project = Project(
+            name="test", categories=[docs_cat, api_cat], collections=[backend_col, frontend_col]
+        )
+        set_current_session(session)
+
+        args = CategoryChangeArgs(name="docs", new_name="documentation")
+        result_str = await category_change(**args.model_dump())
+        result_dict = json.loads(result_str)
+
+        assert result_dict["success"] is True
+        backend = next(c for c in session._cached_project.collections if c.name == "backend")
+        frontend = next(c for c in session._cached_project.collections if c.name == "frontend")
+        assert backend.categories == ["api"]
+        assert frontend.categories == ["documentation", "api"]
+
+    @pytest.mark.asyncio
+    async def test_category_change_not_found(self, tmp_path: Path) -> None:
+        """Reject changing non-existent category."""
+        from mcp_guide.tools.tool_category import CategoryChangeArgs, category_change
+
+        manager = ConfigManager(config_dir=str(tmp_path))
+        session = Session(config_manager=manager, project_name="test")
+        session._cached_project = Project(name="test", categories=[], collections=[])
+        set_current_session(session)
+
+        args = CategoryChangeArgs(name="docs", new_name="documentation")
+        result_str = await category_change(**args.model_dump())
+        result_dict = json.loads(result_str)
+
+        assert result_dict["success"] is False
+        assert result_dict["error_type"] == "not_found"
+        assert "does not exist" in result_dict["error"]
+
+    @pytest.mark.asyncio
+    async def test_category_change_name_conflict(self, tmp_path: Path) -> None:
+        """Reject new name that conflicts with existing category."""
+        from mcp_guide.tools.tool_category import CategoryChangeArgs, category_change
+
+        manager = ConfigManager(config_dir=str(tmp_path))
+        session = Session(config_manager=manager, project_name="test")
+        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
+        api_cat = Category(name="api", dir="api", patterns=["*.py"])
+        session._cached_project = Project(name="test", categories=[docs_cat, api_cat], collections=[])
+        set_current_session(session)
+
+        args = CategoryChangeArgs(name="docs", new_name="api")
+        result_str = await category_change(**args.model_dump())
+        result_dict = json.loads(result_str)
+
+        assert result_dict["success"] is False
+        assert result_dict["error_type"] == "validation_error"
+        assert "already exists" in result_dict["error"]
+
+    @pytest.mark.asyncio
+    async def test_category_change_invalid_name(self, tmp_path: Path) -> None:
+        """Reject invalid new name."""
+        from mcp_guide.tools.tool_category import CategoryChangeArgs, category_change
+
+        manager = ConfigManager(config_dir=str(tmp_path))
+        session = Session(config_manager=manager, project_name="test")
+        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
+        session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
+        set_current_session(session)
+
+        args = CategoryChangeArgs(name="docs", new_name="invalid name!")
+        result_str = await category_change(**args.model_dump())
+        result_dict = json.loads(result_str)
+
+        assert result_dict["success"] is False
+        assert result_dict["error_type"] == "validation_error"
+
+    @pytest.mark.asyncio
+    async def test_category_change_invalid_dir(self, tmp_path: Path) -> None:
+        """Reject invalid new directory."""
+        from mcp_guide.tools.tool_category import CategoryChangeArgs, category_change
+
+        manager = ConfigManager(config_dir=str(tmp_path))
+        session = Session(config_manager=manager, project_name="test")
+        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
+        session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
+        set_current_session(session)
+
+        args = CategoryChangeArgs(name="docs", new_dir="/absolute/path")
+        result_str = await category_change(**args.model_dump())
+        result_dict = json.loads(result_str)
+
+        assert result_dict["success"] is False
+        assert result_dict["error_type"] == "validation_error"
+
+    @pytest.mark.asyncio
+    async def test_category_change_invalid_description(self, tmp_path: Path) -> None:
+        """Reject invalid new description."""
+        from mcp_guide.tools.tool_category import CategoryChangeArgs, category_change
+
+        manager = ConfigManager(config_dir=str(tmp_path))
+        session = Session(config_manager=manager, project_name="test")
+        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
+        session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
+        set_current_session(session)
+
+        args = CategoryChangeArgs(name="docs", new_description='Has "quotes"')
+        result_str = await category_change(**args.model_dump())
+        result_dict = json.loads(result_str)
+
+        assert result_dict["success"] is False
+        assert result_dict["error_type"] == "validation_error"
+
+    @pytest.mark.asyncio
+    async def test_category_change_invalid_pattern(self, tmp_path: Path) -> None:
+        """Reject invalid new pattern."""
+        from mcp_guide.tools.tool_category import CategoryChangeArgs, category_change
+
+        manager = ConfigManager(config_dir=str(tmp_path))
+        session = Session(config_manager=manager, project_name="test")
+        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
+        session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
+        set_current_session(session)
+
+        args = CategoryChangeArgs(name="docs", new_patterns=["../traversal"])
+        result_str = await category_change(**args.model_dump())
+        result_dict = json.loads(result_str)
+
+        assert result_dict["success"] is False
+        assert result_dict["error_type"] == "validation_error"
+
+    @pytest.mark.asyncio
+    async def test_category_change_no_changes(self, tmp_path: Path) -> None:
+        """Reject when no changes provided."""
+        from mcp_guide.tools.tool_category import CategoryChangeArgs, category_change
+
+        manager = ConfigManager(config_dir=str(tmp_path))
+        session = Session(config_manager=manager, project_name="test")
+        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
+        session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
+        set_current_session(session)
+
+        args = CategoryChangeArgs(name="docs")
+        result_str = await category_change(**args.model_dump())
+        result_dict = json.loads(result_str)
+
+        assert result_dict["success"] is False
+        assert result_dict["error_type"] == "validation_error"
+        assert "at least one change" in result_dict["error"].lower()
+
+    @pytest.mark.asyncio
+    async def test_category_change_auto_saves(self, tmp_path: Path) -> None:
+        """Verify changes are persisted."""
+        from mcp_guide.tools.tool_category import CategoryChangeArgs, category_change
+
+        manager = ConfigManager(config_dir=str(tmp_path))
+        session = Session(config_manager=manager, project_name="test")
+        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
+        session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
+        set_current_session(session)
+
+        args = CategoryChangeArgs(name="docs", new_description="Updated")
+        result_str = await category_change(**args.model_dump())
+        result_dict = json.loads(result_str)
+
+        assert result_dict["success"] is True
+
+        reloaded_project = await manager.get_or_create_project_config("test")
+        doc_cat = next(c for c in reloaded_project.categories if c.name == "docs")
+        assert doc_cat.description == "Updated"
+
+    @pytest.mark.asyncio
+    async def test_category_change_no_session(self, monkeypatch: MonkeyPatch) -> None:
+        """No active session returns error."""
+        from mcp_guide.tools.tool_category import CategoryChangeArgs, category_change
+
+        monkeypatch.delenv("PWD", raising=False)
+        monkeypatch.delenv("CWD", raising=False)
+
+        args = CategoryChangeArgs(name="docs", new_description="Updated")
+        result_str = await category_change(**args.model_dump())
+        result_dict = json.loads(result_str)
+
+        assert result_dict["success"] is False
+        assert result_dict["error_type"] == "no_project"
+
+    @pytest.mark.asyncio
+    async def test_category_change_save_failure(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
+        """Handle save failure gracefully."""
+        from unittest.mock import AsyncMock
+
+        from mcp_guide.tools.tool_category import CategoryChangeArgs, category_change
+
+        manager = ConfigManager(config_dir=str(tmp_path))
+        session = Session(config_manager=manager, project_name="test")
+        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
+        session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
+        set_current_session(session)
+
+        update_mock = AsyncMock(side_effect=Exception("Save failed"))
+        monkeypatch.setattr(session, "update_config", update_mock)
+
+        args = CategoryChangeArgs(name="docs", new_description="Updated")
+        result_str = await category_change(**args.model_dump())
+        result_dict = json.loads(result_str)
+
+        assert result_dict["success"] is False
+        assert "save" in result_dict["error"].lower()
+
+    @pytest.mark.asyncio
+    async def test_category_change_updates_timestamp(self, tmp_path: Path) -> None:
+        """Verify updated_at timestamp changes after change."""
+        import asyncio
+
+        from mcp_guide.tools.tool_category import CategoryChangeArgs, category_change
+
+        manager = ConfigManager(config_dir=str(tmp_path))
+        session = Session(config_manager=manager, project_name="test")
+        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
+        session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
+        set_current_session(session)
+
+        original_time = session._cached_project.updated_at
+        await asyncio.sleep(0.01)
+
+        args = CategoryChangeArgs(name="docs", new_description="Updated")
+        result_str = await category_change(**args.model_dump())
+        result_dict = json.loads(result_str)
+
+        assert result_dict["success"] is True
+        new_time = session._cached_project.updated_at
+        assert new_time > original_time

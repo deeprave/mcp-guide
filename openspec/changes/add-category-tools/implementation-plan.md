@@ -233,51 +233,125 @@ Implement 5 category management tools following tool conventions with auto-save 
 - Validation delegated to Category model (DRY) - catches ValueError and converts to ArgValidationError
 - Test `test_category_add_invalid_name_too_long` verifies 30-character limit enforcement
 
-## Phase 4: category_remove Tool
+## Phase 4: category_remove Tool ✅ COMPLETE
 
-### 4.1 category_remove - RED
-- [ ] Write test: remove existing category
-- [ ] Write test: reject non-existent category
-- [ ] Write test: auto-remove from collections
-- [ ] Write test: auto-save after remove
-- [ ] Write test: no active session error
+### 4.1 category_remove - RED ✅
+- [x] Write test: remove existing category
+- [x] Write test: reject non-existent category
+- [x] Write test: auto-remove from single collection
+- [x] Write test: auto-remove from multiple collections
+- [x] Write test: category not in collections
+- [x] Write test: auto-save after remove
+- [x] Write test: no active session error
+- [x] Write test: save failure handling
+- [x] Write test: updates timestamp
 
-### 4.2 category_remove - GREEN
-- [ ] Define `CategoryRemoveArgs(ToolArguments)`
-- [ ] Implement `category_remove` function
-- [ ] Get current session
-- [ ] Validate category exists
-- [ ] Remove from all collections
-- [ ] Remove from project config
-- [ ] **Auto-save config immediately**
-- [ ] Return Result.ok
-- [ ] All tests pass
+### 4.2 category_remove - GREEN ✅
+- [x] Define `CategoryRemoveArgs(ToolArguments)`
+- [x] Implement `category_remove` function
+- [x] Get current session
+- [x] Validate category exists
+- [x] Remove from all collections using list comprehension
+- [x] Remove from project config using `Project.without_category()`
+- [x] **Auto-save config immediately**
+- [x] Return Result.ok
+- [x] All tests pass
 
-### 4.3 category_remove - REFACTOR
-- [ ] Add comprehensive docstring
-- [ ] Run ruff format
-- [ ] Run mypy
-- [ ] Verify >80% coverage
+### 4.3 category_remove - REFACTOR ✅
+- [x] Add comprehensive docstring
+- [x] Run ruff format
+- [x] Run ruff check
+- [x] Run mypy
+- [x] Verify >90% coverage (95% achieved)
 
-## Phase 5: category_change Tool
+**Phase 4 Results:**
+- ✅ 9 tests passing
+- ✅ 95% coverage on tool_category.py
+- ✅ All quality checks pass
+- ✅ Collections automatically updated when category removed
+- ✅ Immutability pattern maintained
+- ✅ Ready for Phase 5
 
-### 5.1 category_change - RED
-- [ ] Write test: rename category
-- [ ] Write test: change directory
-- [ ] Write test: change description
-- [ ] Write test: replace patterns
-- [ ] Write test: clear description with empty string
-- [ ] Write test: reject new_name conflict
-- [ ] Write test: update collections on rename
-- [ ] Write test: auto-save after change
-- [ ] Write test: reject non-existent category
-- [ ] Write test: validate all new values
+**Files Modified:**
+- `src/mcp_guide/tools/tool_category.py` - Added CategoryRemoveArgs and category_remove
+- `tests/unit/mcp_guide/tools/test_tool_category.py` - Added 9 tests for category_remove
 
-### 5.2 category_change - GREEN
-- [ ] Define `CategoryChangeArgs(ToolArguments)`
-- [ ] Implement `category_change` function
-- [ ] Get current session
-- [ ] Validate category exists
+## Phase 5: category_change Tool ✅ COMPLETE
+
+### 5.1 category_change - RED ✅
+- [x] Write test: rename category
+- [x] Write test: change directory
+- [x] Write test: change description
+- [x] Write test: replace patterns
+- [x] Write test: clear description with empty string
+- [x] Write test: change multiple fields
+- [x] Write test: rename updates single collection
+- [x] Write test: rename updates multiple collections
+- [x] Write test: reject non-existent category
+- [x] Write test: reject new_name conflict
+- [x] Write test: validate invalid new_name
+- [x] Write test: validate invalid new_dir
+- [x] Write test: validate invalid new_description
+- [x] Write test: validate invalid new_pattern
+- [x] Write test: reject no changes provided
+- [x] Write test: auto-save after change
+- [x] Write test: no active session error
+- [x] Write test: save failure handling
+- [x] Write test: updates timestamp
+- [x] Write test: rename to same name (edge case added in CHECK phase)
+
+### 5.2 category_change - GREEN ✅
+- [x] Define `CategoryChangeArgs(ToolArguments)`
+- [x] Implement `category_change` function
+- [x] Get current session
+- [x] Validate category exists
+- [x] Validate at least one change provided
+- [x] Validate new_name if provided (no conflict, valid format)
+- [x] Validate new_dir if provided
+- [x] Validate new_description if provided (empty string clears)
+- [x] Validate new_patterns if provided
+- [x] Build updated category with new values
+- [x] Replace category in project
+- [x] Update collections if renamed (optimized: only when name actually changes)
+- [x] **Auto-save config immediately**
+- [x] Return appropriate success message
+- [x] All tests pass
+
+### 5.3 category_change - REFACTOR ✅
+- [x] Add comprehensive docstring with examples
+- [x] Run ruff format
+- [x] Run ruff check
+- [x] Run mypy
+- [x] Verify >90% coverage (97% achieved)
+- [x] Refactor exception handling for consistency (CHECK phase)
+- [x] Improve code clarity for description handling (CHECK phase)
+
+**Phase 5 Results:**
+- ✅ 20 tests passing (19 initial + 1 edge case)
+- ✅ 97% coverage on tool_category.py (136 statements, 4 uncovered)
+- ✅ All quality checks pass
+- ✅ Collections automatically updated when category renamed
+- ✅ Optimized: skips collection updates when name unchanged
+- ✅ Empty string clears description (sets to None)
+- ✅ Comprehensive validation and error handling
+- ✅ Bug fix: Category descriptions now properly saved to config
+- ✅ Ready for Phase 6
+
+**Phase 5 CHECK Phase Improvements:**
+- Exception handling refactored to match category_add pattern
+- Added edge case test for same-name rename
+- Improved code clarity with explicit description handling logic
+
+**Files Modified:**
+- `src/mcp_guide/tools/tool_category.py` - Added CategoryChangeArgs and category_change
+- `src/mcp_guide/config.py` - Fixed _project_to_dict to include description field
+- `tests/unit/mcp_guide/tools/test_tool_category.py` - Added 20 tests for category_change
+- `.todo/phase5-category-change-tdd-plan.md` - Detailed TDD plan and completion status
+
+**Critical Bug Fixed:**
+- ConfigManager._project_to_dict() was not serializing category descriptions
+- This affected all category operations, not just category_change
+- Fix: Added "description": c.description to category serialization
 - [ ] Validate new_name if provided
 - [ ] Validate all new values
 - [ ] Replace category configuration
