@@ -25,10 +25,18 @@ Content retrieval is the core functionality of mcp-guide. Currently, the impleme
 - Format multiple matches as MIME multipart
 
 ### Template Support
-- Mustache template rendering for .mustache files
-- Template context resolution and sources
-- Template caching for performance
-- Pass-through for non-template files
+- **Template Discovery** (IMPLEMENTED in GUIDE-33): Finding `.mustache` files
+  - Templates named as `{basename}.{ext}.mustache` (e.g., `doc.md.mustache`)
+  - Pattern matching includes both regular files and templates (e.g., `*.md` matches `*.md.mustache`)
+  - Template precedence: prefer non-template over template when both exist
+  - FileInfo includes `basename` field (filename without `.mustache` extension)
+  - Pattern expansion: search both `pattern` and `pattern.mustache`
+  - Deduplication: group by basename, prefer non-template
+- **Template Rendering** (FUTURE): Applying Chevron/Mustache context
+  - Mustache template rendering for .mustache files
+  - Template context resolution and sources
+  - Template caching for performance
+  - Pass-through for non-template files
 
 ### Error Handling
 - Return Result pattern responses with proper error handling

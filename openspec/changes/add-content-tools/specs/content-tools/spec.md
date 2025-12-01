@@ -99,6 +99,20 @@ Pattern matching SHALL use glob syntax with the following rules:
 - `[abc]` matches any character in the set
 - If pattern has no extension, match all files with that root name
 
+**Template Discovery (IMPLEMENTED in GUIDE-33)**:
+- Templates named as `{basename}.{ext}.mustache` (e.g., `doc.md.mustache`)
+- Pattern `*.md` SHALL match both `*.md` and `*.md.mustache` files ✅
+- When both template and non-template exist, prefer non-template ✅
+- FileInfo SHALL include `basename` field (filename without `.mustache` extension) ✅
+- Pattern expansion: search both `pattern` and `pattern.mustache` ✅
+- Deduplication: group by basename, prefer non-template ✅
+- Status: Implemented in GUIDE-33 with 15 tests passing, 97% coverage
+
+**Template Rendering (FUTURE)**:
+- Chevron/Mustache context application (not yet implemented)
+- Template context resolution (not yet implemented)
+- Template caching (not yet implemented)
+
 #### Scenario: Wildcard pattern
 - **WHEN** pattern is "*.md"
 - **THEN** match all markdown files

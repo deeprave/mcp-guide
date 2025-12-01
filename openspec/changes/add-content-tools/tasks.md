@@ -5,13 +5,13 @@
 ## Phase 1: Core Content Retrieval (Category-Based)
 
 ### 1. Content Retrieval Logic
-- [ ] 1.1 Implement glob pattern matching
-- [ ] 1.2 Implement file discovery in category directories
+- [x] 1.1 Implement glob pattern matching (GUIDE-32 ✓)
+- [x] 1.2 Implement file discovery in category directories (GUIDE-33 ✓)
 - [ ] 1.3 Implement file reading and content extraction
 - [ ] 1.4 Add path resolution and validation
 - [ ] 1.5 Handle missing files/directories errors
-- [ ] 1.6 Add unit tests for pattern matching
-- [ ] 1.7 Add unit tests for file operations
+- [x] 1.6 Add unit tests for pattern matching (GUIDE-32 ✓)
+- [x] 1.7 Add unit tests for file operations (GUIDE-33 ✓)
 
 ### 2. MIME Multipart Formatting
 - [ ] 2.1 Implement single file formatter (plain markdown)
