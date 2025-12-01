@@ -42,13 +42,37 @@
 - File system permissions allow reading
 
 **Acceptance Criteria**:
-- [ ] Resolves category directory from config
-- [ ] Applies default patterns when none provided
-- [ ] Applies override pattern when provided
-- [ ] Returns file paths relative to category directory
-- [ ] Includes file metadata in results
-- [ ] Handles missing category directory with clear error
-- [ ] Unit tests cover all path resolution scenarios
+- [x] Resolves category directory from config
+- [x] Applies default patterns when none provided
+- [x] Applies override pattern when provided
+- [x] Returns file paths relative to category directory
+- [x] Includes file metadata in results
+- [x] Handles missing category directory with clear error
+- [x] Unit tests cover all path resolution scenarios
+- [x] Validates category_dir is absolute path
+
+**Status**: ✅ COMPLETE (GUIDE-33)
+
+**Template Discovery - IMPLEMENTED in GUIDE-33**:
+Template **discovery** (finding `.mustache` files) was implemented as part of GUIDE-33 because template files in `src/mcp_guide/templates/` need to be discovered immediately. Template **rendering** (applying context) will be implemented in a future task.
+
+**Implemented Features**:
+- [x] Templates named as `{basename}.{ext}.mustache` (e.g., `doc.md.mustache`)
+- [x] Pattern `*.md` matches both `*.md` and `*.md.mustache` files
+- [x] When both template and non-template exist, prefer non-template
+- [x] FileInfo includes `basename` field (filename without `.mustache`)
+- [x] Pattern expansion: search both `pattern` and `pattern.mustache`
+- [x] Deduplication: group by basename, prefer non-template
+- [x] 15 tests passing (including 4 template-specific tests)
+- [x] 97% coverage on file_discovery.py
+- [x] Verified with real template files in `src/mcp_guide/templates/`
+
+**Future Work - Template Rendering**:
+- Template context resolution (not implemented)
+- Chevron/Mustache rendering (not implemented)
+- Template caching (not implemented)
+
+See `.todo/file-discovery-plan.md` for complete implementation details.
 
 ---
 
