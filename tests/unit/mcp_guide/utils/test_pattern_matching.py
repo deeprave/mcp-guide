@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from mcp_guide.constants import MAX_DOCUMENTS_PER_GLOB, MAX_GLOB_DEPTH
 from mcp_guide.utils.pattern_matching import safe_glob_search
 
 
@@ -147,6 +148,40 @@ class TestHiddenFileExclusion:
         assert len(results) == 1
         assert results[0].name == "file.md"
 
+    def test_exclude_hidden_parent_directory(self, temp_project_dir):
+        """Test files under hidden parent directories are excluded."""
+        # Arrange
+        test_dir = temp_project_dir / "test_hidden_parent"
+        test_dir.mkdir()
+        hidden_dir = test_dir / ".hidden" / "sub"
+        hidden_dir.mkdir(parents=True)
+        (hidden_dir / "file.md").write_text("content")
+        (test_dir / "visible.md").write_text("content")
+
+        # Act
+        results = safe_glob_search(test_dir, ["**/*.md"])
+
+        # Assert
+        assert len(results) == 1
+        assert results[0].name == "visible.md"
+
+    def test_exclude_dunder_parent_directory(self, temp_project_dir):
+        """Test files under dunder parent directories are excluded."""
+        # Arrange
+        test_dir = temp_project_dir / "test_dunder_parent"
+        test_dir.mkdir()
+        dunder_dir = test_dir / "pkg" / "__pycache__" / "sub"
+        dunder_dir.mkdir(parents=True)
+        (dunder_dir / "file.md").write_text("content")
+        (test_dir / "normal.md").write_text("content")
+
+        # Act
+        results = safe_glob_search(test_dir, ["**/*.md"])
+
+        # Assert
+        assert len(results) == 1
+        assert results[0].name == "normal.md"
+
 
 class TestExtensionlessFallback:
     """Tests for extensionless pattern fallback to .md."""
@@ -196,6 +231,50 @@ class TestExtensionlessFallback:
         assert results[0].name == "intro.txt"
 
 
+class TestSymlinkAndBoundaryBehavior:
+    """Tests for symlink resolution, deduplication, and boundary checks."""
+
+    def test_symlink_inside_search_dir_is_deduplicated(self, temp_project_dir):
+        """A symlink to a file inside search_dir should appear only once."""
+        # Arrange
+        search_dir = temp_project_dir / "search"
+        search_dir.mkdir()
+
+        real_file = search_dir / "target.txt"
+        real_file.write_text("hello")
+
+        symlink = search_dir / "link_to_target.txt"
+        symlink.symlink_to(real_file)
+
+        # Act
+        matches = safe_glob_search(search_dir, ["**/*.txt"])
+
+        # Assert
+        assert real_file.resolve() in [p.resolve() for p in matches]
+        resolved_paths = [p.resolve() for p in matches]
+        assert len(resolved_paths) == len(set(resolved_paths))
+
+    def test_symlink_pointing_outside_search_dir_is_skipped(self, temp_project_dir):
+        """A symlink inside search_dir pointing outside it should be ignored."""
+        # Arrange
+        search_dir = temp_project_dir / "search"
+        search_dir.mkdir()
+
+        outside_dir = temp_project_dir / "outside"
+        outside_dir.mkdir()
+        outside_file = outside_dir / "outside.txt"
+        outside_file.write_text("outside")
+
+        bad_symlink = search_dir / "link_to_outside.txt"
+        bad_symlink.symlink_to(outside_file)
+
+        # Act
+        matches = safe_glob_search(search_dir, ["**/*.txt"])
+
+        # Assert
+        assert matches == []
+
+
 class TestDepthLimit:
     """Tests for MAX_GLOB_DEPTH enforcement."""
 
@@ -205,40 +284,69 @@ class TestDepthLimit:
         test_dir = temp_project_dir / "test_depth"
         test_dir.mkdir()
 
-        # Create nested structure 10 levels deep
+        included_files = []
+        excluded_files = []
+
         current = test_dir
-        for i in range(10):
-            current = current / f"level{i}"
+        for depth in range(1, MAX_GLOB_DEPTH + 2):
+            current = current / f"level_{depth}"
             current.mkdir()
-            (current / f"file{i}.md").write_text(f"content{i}")
+            file_path = current / f"file_depth_{depth}.txt"
+            file_path.write_text(f"depth {depth}")
+
+            if depth <= MAX_GLOB_DEPTH:
+                included_files.append(file_path)
+            else:
+                excluded_files.append(file_path)
 
         # Act
-        results = safe_glob_search(test_dir, ["**/*.md"])
+        results = safe_glob_search(test_dir, ["**/*.txt"])
+        result_paths = {p.resolve() for p in results}
 
-        # Assert - should only get files within depth 8
-        assert len(results) <= 8
-        # Verify deepest file is at most depth 8
-        for result in results:
-            relative = result.relative_to(test_dir.resolve())
-            depth = len(relative.parts) - 1  # Subtract 1 for file itself
-            assert depth <= 8
+        # Assert: all files at depth <= MAX_GLOB_DEPTH are included
+        for file_path in included_files:
+            assert file_path.resolve() in result_paths
+
+        # Assert: files at depth > MAX_GLOB_DEPTH are excluded
+        for file_path in excluded_files:
+            assert file_path.resolve() not in result_paths
 
 
 class TestDocumentLimit:
     """Tests for MAX_DOCUMENTS_PER_GLOB enforcement."""
 
     def test_stop_at_max_documents(self, temp_project_dir):
-        """Test stops at MAX_DOCUMENTS_PER_GLOB."""
+        """Ensure a single pattern is truncated at MAX_DOCUMENTS_PER_GLOB."""
         # Arrange
         test_dir = temp_project_dir / "test_limit"
         test_dir.mkdir()
 
-        # Create 150 files
-        for i in range(150):
+        total_files = MAX_DOCUMENTS_PER_GLOB + 50
+        for i in range(total_files):
             (test_dir / f"file{i:03d}.md").write_text(f"content{i}")
 
         # Act
         results = safe_glob_search(test_dir, ["*.md"])
 
         # Assert
-        assert len(results) == 100
+        assert len(results) == MAX_DOCUMENTS_PER_GLOB
+
+    def test_combined_patterns_respects_global_limit(self, temp_project_dir):
+        """Ensure MAX_DOCUMENTS_PER_GLOB is applied across all patterns."""
+        # Arrange
+        test_dir = temp_project_dir / "test_combined"
+        test_dir.mkdir()
+
+        for i in range(MAX_DOCUMENTS_PER_GLOB):
+            (test_dir / f"doc_{i}.md").write_text("markdown")
+        for i in range(MAX_DOCUMENTS_PER_GLOB):
+            (test_dir / f"note_{i}.txt").write_text("text")
+
+        # Act
+        results = safe_glob_search(test_dir, ["*.md", "*.txt"])
+
+        # Assert
+        assert len(results) <= MAX_DOCUMENTS_PER_GLOB
+        assert results  # Sanity check we got some results
+        suffixes = {path.suffix for path in results}
+        assert suffixes & {".md", ".txt"}

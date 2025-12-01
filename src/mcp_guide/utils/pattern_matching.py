@@ -25,10 +25,49 @@ def is_valid_file(path: Path) -> bool:
         return False
 
     # Check if any parent directory starts with . or __
-    for part in path.parts:
-        if part.startswith(".") or part.startswith("__"):
-            return False
+    return not any(part.startswith(".") or part.startswith("__") for part in path.parts)
 
+
+def _process_match(
+    match_path: Path,
+    search_dir: Path,
+    seen_files: Set[Path],
+    matched_files: List[Path],
+) -> bool:
+    """Process a single glob match and add to results if valid.
+
+    Returns:
+        True if file was added, False otherwise
+    """
+    if not match_path.is_file():
+        return False
+
+    if not is_valid_file(match_path):
+        return False
+
+    # Resolve symlinks and deduplicate
+    try:
+        resolved_path = match_path.resolve()
+    except OSError as e:
+        logger.warning(f"Failed to resolve symlink {match_path}: {e}")
+        return False
+
+    if resolved_path in seen_files:
+        return False
+
+    # Check depth limit
+    try:
+        relative_path = resolved_path.relative_to(search_dir.resolve())
+        depth = len(relative_path.parts) - 1  # Subtract 1 for file itself
+        if depth > MAX_GLOB_DEPTH:
+            return False
+    except ValueError:
+        # Path is outside search_dir, skip
+        logger.debug(f"Skipping file outside search directory: {resolved_path}")
+        return False
+
+    matched_files.append(resolved_path)
+    seen_files.add(resolved_path)
     return True
 
 
@@ -59,38 +98,9 @@ def safe_glob_search(search_dir: Path, patterns: List[str]) -> List[Path]:
                 logger.warning(f"Reached maximum document limit ({MAX_DOCUMENTS_PER_GLOB}) for glob search")
                 break
 
-            matches_found = True
             match_path = Path(match_str)
-
-            if not match_path.is_file():
-                continue
-
-            if not is_valid_file(match_path):
-                continue
-
-            # Resolve symlinks and deduplicate
-            try:
-                resolved_path = match_path.resolve()
-            except OSError as e:
-                logger.warning(f"Failed to resolve symlink {match_path}: {e}")
-                continue
-
-            if resolved_path in seen_files:
-                continue
-
-            # Check depth limit
-            try:
-                relative_path = resolved_path.relative_to(search_dir.resolve())
-                depth = len(relative_path.parts) - 1  # Subtract 1 for file itself
-                if depth > MAX_GLOB_DEPTH:
-                    continue
-            except ValueError:
-                # Path is outside search_dir, skip
-                logger.debug(f"Skipping file outside search directory: {resolved_path}")
-                continue
-
-            matched_files.append(resolved_path)
-            seen_files.add(resolved_path)
+            if _process_match(match_path, search_dir, seen_files, matched_files):
+                matches_found = True
 
         # If no matches and pattern has no extension, try with .md
         if not matches_found and "." not in Path(pattern).name:
@@ -99,34 +109,12 @@ def safe_glob_search(search_dir: Path, patterns: List[str]) -> List[Path]:
 
             for match_str in glob.iglob(str(md_pattern_path), recursive=True):
                 if len(matched_files) >= MAX_DOCUMENTS_PER_GLOB:
+                    logger.warning(
+                        f"Reached maximum document limit ({MAX_DOCUMENTS_PER_GLOB}) for glob search (.md fallback)"
+                    )
                     break
 
                 match_path = Path(match_str)
-
-                if not match_path.is_file():
-                    continue
-
-                if not is_valid_file(match_path):
-                    continue
-
-                # Resolve and check same as above
-                try:
-                    resolved_path = match_path.resolve()
-                except OSError:
-                    continue
-
-                if resolved_path in seen_files:
-                    continue
-
-                try:
-                    relative_path = resolved_path.relative_to(search_dir.resolve())
-                    depth = len(relative_path.parts) - 1
-                    if depth > MAX_GLOB_DEPTH:
-                        continue
-                except ValueError:
-                    continue
-
-                matched_files.append(resolved_path)
-                seen_files.add(resolved_path)
+                _process_match(match_path, search_dir, seen_files, matched_files)
 
     return matched_files
