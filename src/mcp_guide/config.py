@@ -23,19 +23,40 @@ class ConfigManager:
         self._config_dir = config_dir
         self._lock = asyncio.Lock()
         self._initialized = False
+        self._docroot: Optional[str] = None
 
     async def _ensure_initialized(self) -> None:
         """Initialize config manager (only once)."""
         if not self._initialized:
             async with self._lock:
                 if not self._initialized:
-                    from mcp_guide.config_paths import get_config_file
+                    from mcp_guide.config_paths import get_config_file, get_docroot
 
                     self.config_file = get_config_file(self._config_dir)
                     self.config_file.parent.mkdir(parents=True, exist_ok=True)
                     if not self.config_file.exists():
-                        self.config_file.write_text("projects: {}\n")
+                        default_docroot = str(get_docroot())
+                        self.config_file.write_text(f"docroot: {default_docroot}\nprojects: {{}}\n")
+                        self._docroot = default_docroot
+                    else:
+                        # Read docroot from existing config
+                        content = self.config_file.read_text()
+                        data = yaml.safe_load(content)
+                        self._docroot = data.get("docroot", str(get_docroot()))
                     self._initialized = True
+
+    def get_docroot(self) -> str:
+        """Get cached docroot value.
+
+        Returns:
+            Docroot path as string (may contain ~ or ${VAR})
+
+        Raises:
+            RuntimeError: If called before initialization
+        """
+        if not self._initialized:
+            raise RuntimeError("ConfigManager not initialized")
+        return self._docroot or ""
 
     async def get_or_create_project_config(self, name: str) -> Project:
         """Get project config or create if it doesn't exist.

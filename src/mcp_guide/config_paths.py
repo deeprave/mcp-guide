@@ -2,7 +2,10 @@
 
 import os
 from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    from mcp_guide.mcp_core.lazy_path import LazyPath
 
 
 def get_config_dir(config_dir: Optional[str] = None) -> Path:
@@ -53,3 +56,19 @@ def get_docroot(config_dir: Optional[str] = None) -> Path:
         Path to docs directory
     """
     return get_config_file(config_dir).parent / "docs"
+
+
+def get_docroot_from_config(config_dir: Optional[str] = None) -> "LazyPath":
+    """Get configured docroot as LazyPath.
+
+    Args:
+        config_dir: Optional override directory for testing
+
+    Returns:
+        LazyPath with configured docroot (lazy evaluation)
+    """
+    from mcp_guide.config import ConfigManager
+    from mcp_guide.mcp_core.lazy_path import LazyPath
+
+    manager = ConfigManager(config_dir)
+    return LazyPath(manager.get_docroot())
