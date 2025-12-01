@@ -1,4 +1,4 @@
-# ADR 002: Client Project Name Detection
+# ADR 009: Client Project Name Detection
 
 ## Status
 
