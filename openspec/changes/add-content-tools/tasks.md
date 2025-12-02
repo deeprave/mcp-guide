@@ -7,11 +7,11 @@
 ### 1. Content Retrieval Logic
 - [x] 1.1 Implement glob pattern matching (GUIDE-32 ✓)
 - [x] 1.2 Implement file discovery in category directories (GUIDE-33 ✓)
-- [ ] 1.3 Implement file reading and content extraction
-- [ ] 1.4 Add path resolution and validation
-- [ ] 1.5 Handle missing files/directories errors
-- [x] 1.6 Add unit tests for pattern matching (GUIDE-32 ✓)
-- [x] 1.7 Add unit tests for file operations (GUIDE-33 ✓)
+- [x] 1.3 Implement file reading and content extraction (GUIDE-34 ✓)
+- [x] 1.4 Add path resolution and validation (GUIDE-35 ✓)
+- [x] 1.5 Handle missing files/directories errors (GUIDE-36 ✓)
+- [x] 1.6 Add unit tests for pattern matching (GUIDE-32/37 ✓)
+- [x] 1.7 Add unit tests for file operations (GUIDE-33/34/35/36/38 ✓)
 
 ### 2. MIME Multipart Formatting
 - [ ] 2.1 Implement single file formatter (plain markdown)

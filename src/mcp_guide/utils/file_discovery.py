@@ -20,6 +20,7 @@ class FileInfo:
     size: int
     mtime: datetime
     basename: str
+    content: str | None = None
 
 
 async def discover_category_files(
