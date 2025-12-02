@@ -64,17 +64,23 @@ async def test_invalid_utf8_raises_error(tmp_path: Path) -> None:
 
 
 @pytest.mark.asyncio
-async def test_permission_error(tmp_path: Path) -> None:
-    """Test that permission errors are raised."""
-    file = tmp_path / "noperm.txt"
-    file.write_text("content")
-    file.chmod(0o000)  # Remove all permissions
+async def test_permission_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that permission errors are raised in a platform-independent way."""
+    from contextlib import asynccontextmanager
+    from typing import Any, AsyncIterator
 
-    try:
-        with pytest.raises(PermissionError):
-            await read_file_content(file)
-    finally:
-        file.chmod(0o644)  # Restore for cleanup
+    import aiofiles
+
+    @asynccontextmanager
+    async def _raise_permission_error(*args: object, **kwargs: object) -> AsyncIterator[None]:
+        raise PermissionError("mocked permission error")
+        yield  # Required for asynccontextmanager, though not reached
+
+    # Force aiofiles.open to raise PermissionError regardless of OS permissions
+    monkeypatch.setattr(aiofiles, "open", _raise_permission_error)
+
+    with pytest.raises(PermissionError):
+        await read_file_content(Path("noperm.txt"))
 
 
 @pytest.mark.asyncio
@@ -112,15 +118,13 @@ async def test_unicode_content(tmp_path: Path) -> None:
 
 @pytest.mark.asyncio
 async def test_various_line_endings(tmp_path: Path) -> None:
-    """Test files with different line endings."""
+    """Test files with different line endings are normalized by Python text mode."""
     file = tmp_path / "mixed.txt"
-    # Python normalizes to \n on read
     content = "Unix\nWindows\r\nMac\rMixed\n"
     file.write_text(content, newline="")
 
     result = await read_file_content(file)
 
-    # Verify content is preserved
-    assert "Unix" in result
-    assert "Windows" in result
-    assert "Mac" in result
+    # Python text mode normalizes all line endings to \n
+    expected = "Unix\nWindows\nMac\nMixed\n"
+    assert result == expected
