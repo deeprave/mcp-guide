@@ -13,7 +13,7 @@ async def read_file_content(file_path: Path) -> str:
     without blocking other async tasks.
 
     Args:
-        file_path: Absolute path to the file to read.
+        file_path: Path to the file to read (absolute or relative).
 
     Returns:
         The complete file content as a string. Returns empty string for
