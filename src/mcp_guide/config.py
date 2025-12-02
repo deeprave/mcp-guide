@@ -6,6 +6,7 @@ from typing import Optional
 
 import yaml
 
+from mcp_core.file_reader import read_file_content
 from mcp_guide.file_lock import lock_update
 from mcp_guide.models import _NAME_REGEX, Project
 
@@ -40,7 +41,7 @@ class ConfigManager:
                         self._docroot = default_docroot
                     else:
                         # Read docroot from existing config
-                        content = self.config_file.read_text()
+                        content = await read_file_content(self.config_file)
                         data = yaml.safe_load(content)
                         self._docroot = data.get("docroot", str(get_docroot()))
                     self._initialized = True
@@ -88,7 +89,7 @@ class ConfigManager:
 
         async def _get_or_create(file_path: Path) -> Project:
             try:
-                content = file_path.read_text()
+                content = await read_file_content(file_path)
             except OSError as e:
                 raise OSError(f"Failed to read config file {file_path}: {e}") from e
 
@@ -137,7 +138,7 @@ class ConfigManager:
 
         async def _save(file_path: Path) -> None:
             try:
-                content = file_path.read_text()
+                content = await read_file_content(file_path)
             except OSError as e:
                 raise OSError(f"Failed to read config file {file_path}: {e}") from e
 
@@ -163,7 +164,7 @@ class ConfigManager:
 
         async def _list(file_path: Path) -> list[str]:
             try:
-                content = file_path.read_text()
+                content = await read_file_content(file_path)
             except OSError as e:
                 raise OSError(f"Failed to read config file {file_path}: {e}") from e
 
@@ -191,7 +192,7 @@ class ConfigManager:
 
         async def _rename(file_path: Path) -> None:
             try:
-                content = file_path.read_text()
+                content = await read_file_content(file_path)
             except OSError as e:
                 raise OSError(f"Failed to read config file {file_path}: {e}") from e
 
@@ -223,7 +224,7 @@ class ConfigManager:
 
         async def _delete(file_path: Path) -> None:
             try:
-                content = file_path.read_text()
+                content = await read_file_content(file_path)
             except OSError as e:
                 raise OSError(f"Failed to read config file {file_path}: {e}") from e
 
