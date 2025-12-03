@@ -288,6 +288,134 @@ async def test_no_matches_returns_failure(tmp_path, monkeypatch):
     assert "*.txt" in result["error"]
 
 
+async def test_file_read_error_single_file(tmp_path, monkeypatch):
+    """Test that single file read error returns ERROR_FILE_READ."""
+    import json
+
+    from mcp_guide.models import Category, Project
+    from mcp_guide.tools.tool_category import (
+        ERROR_FILE_READ,
+        INSTRUCTION_FILE_READ,
+        CategoryContentArgs,
+        get_category_content,
+    )
+
+    # Create test project with category
+    project = Project(
+        name="test",
+        categories=[Category(name="docs", dir=".", patterns=["*.md"])],
+    )
+
+    # Create a file
+    test_file = tmp_path / "test.md"
+    test_file.write_text("content")
+
+    # Mock session
+    class MockConfigManager:
+        def get_docroot(self):
+            return str(tmp_path)
+
+    class MockSession:
+        def __init__(self):
+            self.config_manager = MockConfigManager()
+
+        async def get_project(self):
+            return project
+
+    async def mock_get_session(ctx=None):
+        return MockSession()
+
+    # Mock read_file_content to raise error
+    async def mock_read_error(path):
+        raise PermissionError("Permission denied")
+
+    monkeypatch.setattr("mcp_guide.tools.tool_category.get_or_create_session", mock_get_session)
+    monkeypatch.setattr("mcp_guide.tools.tool_category.read_file_content", mock_read_error)
+
+    # Call tool
+    args = CategoryContentArgs(category="docs")
+    result_json = await get_category_content(args)
+
+    # Parse result
+    result = json.loads(result_json)
+    assert result["success"] is False
+    assert result["error_type"] == ERROR_FILE_READ
+    assert result["instruction"] == INSTRUCTION_FILE_READ
+    assert "test.md" in result["error"]
+    assert "Permission denied" in result["error"]
+
+
+async def test_file_read_error_multiple_files(tmp_path, monkeypatch):
+    """Test that multiple file read errors are aggregated."""
+    import json
+
+    from mcp_guide.models import Category, Project
+    from mcp_guide.tools.tool_category import (
+        ERROR_FILE_READ,
+        INSTRUCTION_FILE_READ,
+        CategoryContentArgs,
+        get_category_content,
+    )
+
+    # Create test project with category
+    project = Project(
+        name="test",
+        categories=[Category(name="docs", dir=".", patterns=["*.md"])],
+    )
+
+    # Create multiple files
+    (tmp_path / "file1.md").write_text("content1")
+    (tmp_path / "file2.md").write_text("content2")
+    (tmp_path / "file3.md").write_text("content3")
+
+    # Mock session
+    class MockConfigManager:
+        def get_docroot(self):
+            return str(tmp_path)
+
+    class MockSession:
+        def __init__(self):
+            self.config_manager = MockConfigManager()
+
+        async def get_project(self):
+            return project
+
+    async def mock_get_session(ctx=None):
+        return MockSession()
+
+    # Mock read_file_content to raise different errors for different files
+    call_count = 0
+
+    async def mock_read_error(path):
+        nonlocal call_count
+        call_count += 1
+        if "file1" in str(path):
+            raise FileNotFoundError("File not found")
+        elif "file2" in str(path):
+            raise PermissionError("Permission denied")
+        else:
+            raise UnicodeDecodeError("utf-8", b"", 0, 1, "invalid start byte")
+
+    monkeypatch.setattr("mcp_guide.tools.tool_category.get_or_create_session", mock_get_session)
+    monkeypatch.setattr("mcp_guide.tools.tool_category.read_file_content", mock_read_error)
+
+    # Call tool
+    args = CategoryContentArgs(category="docs")
+    result_json = await get_category_content(args)
+
+    # Parse result
+    result = json.loads(result_json)
+    assert result["success"] is False
+    assert result["error_type"] == ERROR_FILE_READ
+    assert result["instruction"] == INSTRUCTION_FILE_READ
+    # All three files should be in error message
+    assert "file1.md" in result["error"]
+    assert "file2.md" in result["error"]
+    assert "file3.md" in result["error"]
+    # Check aggregation format with semicolons
+    assert ";" in result["error"]
+
+
 async def test_error_responses_include_all_fields(tmp_path, monkeypatch):
     """Test that error responses include error_type, instruction, and message."""
     import json
