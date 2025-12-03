@@ -154,24 +154,102 @@ async def test_format_single_none_content():
     assert result == ""
 
 
-async def test_format_multiple_files_placeholder():
-    """Test that multiple files returns empty string (placeholder for future)."""
+async def test_format_multiple_two_files():
+    """Test formatting two files with separators."""
     from mcp_guide.utils.content_formatter_plain import PlainFormatter
 
     formatter = PlainFormatter()
-    file_info1 = FileInfo(
-        path=Path("test1.md"),
-        basename="test1.md",
+    file1 = FileInfo(
+        path=Path("docs/file1.md"),
+        basename="file1.md",
         size=10,
         mtime=datetime.now(),
         content="Content 1",
     )
-    file_info2 = FileInfo(
-        path=Path("test2.md"),
-        basename="test2.md",
+    file2 = FileInfo(
+        path=Path("docs/file2.md"),
+        basename="file2.md",
         size=10,
         mtime=datetime.now(),
         content="Content 2",
     )
-    result = await formatter.format([file_info1, file_info2], "test")
-    assert result == ""
+    result = await formatter.format([file1, file2], "test")
+
+    expected = "--- file1.md ---\nContent 1\n--- file2.md ---\nContent 2"
+    assert result == expected
+
+
+async def test_format_multiple_three_files():
+    """Test formatting three files with separators."""
+    from mcp_guide.utils.content_formatter_plain import PlainFormatter
+
+    formatter = PlainFormatter()
+    files = [
+        FileInfo(
+            path=Path(f"file{i}.md"),
+            basename=f"file{i}.md",
+            size=10,
+            mtime=datetime.now(),
+            content=f"Content {i}",
+        )
+        for i in range(1, 4)
+    ]
+    result = await formatter.format(files, "test")
+
+    expected = "--- file1.md ---\nContent 1\n--- file2.md ---\nContent 2\n--- file3.md ---\nContent 3"
+    assert result == expected
+
+
+async def test_format_multiple_uses_basename():
+    """Test that separator uses basename not full path."""
+    from mcp_guide.utils.content_formatter_plain import PlainFormatter
+
+    formatter = PlainFormatter()
+    file1 = FileInfo(
+        path=Path("docs/subdir/file.md"),
+        basename="file.md",
+        size=10,
+        mtime=datetime.now(),
+        content="Content",
+    )
+    file2 = FileInfo(
+        path=Path("other/path/test.md"),
+        basename="test.md",
+        size=10,
+        mtime=datetime.now(),
+        content="Test",
+    )
+    result = await formatter.format([file1, file2], "test")
+
+    assert "--- file.md ---" in result
+    assert "--- test.md ---" in result
+    assert "docs/subdir" not in result
+    assert "other/path" not in result
+
+
+async def test_format_multiple_preserves_content():
+    """Test that content is preserved exactly in multiple files."""
+    from mcp_guide.utils.content_formatter_plain import PlainFormatter
+
+    formatter = PlainFormatter()
+    content1 = "# Title\n\nWith **formatting**"
+    content2 = "  Spaces  \n\tTabs\n"
+
+    file1 = FileInfo(
+        path=Path("file1.md"),
+        basename="file1.md",
+        size=len(content1),
+        mtime=datetime.now(),
+        content=content1,
+    )
+    file2 = FileInfo(
+        path=Path("file2.md"),
+        basename="file2.md",
+        size=len(content2),
+        mtime=datetime.now(),
+        content=content2,
+    )
+    result = await formatter.format([file1, file2], "test")
+
+    assert content1 in result
+    assert content2 in result

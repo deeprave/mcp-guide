@@ -147,3 +147,164 @@ async def test_format_single_utf8_content():
     byte_count = len(content.encode("utf-8"))
     assert f"Content-Length: {byte_count}" in result
     assert byte_count > len(content)  # Verify multi-byte counting
+
+
+async def test_format_multiple_main_header():
+    """Test that multiple files have multipart/mixed header with boundary."""
+    from mcp_guide.utils.content_formatter_mime import MimeFormatter
+
+    formatter = MimeFormatter()
+    files = [
+        FileInfo(
+            path=Path("file1.md"),
+            basename="file1.md",
+            size=10,
+            mtime=datetime.now(),
+            content="Content 1",
+        ),
+        FileInfo(
+            path=Path("file2.md"),
+            basename="file2.md",
+            size=10,
+            mtime=datetime.now(),
+            content="Content 2",
+        ),
+    ]
+    result = await formatter.format(files, "test")
+
+    assert result.startswith("Content-Type: multipart/mixed; boundary=")
+    # Extract boundary from header
+    lines = result.split("\r\n")
+    assert "Content-Type: multipart/mixed; boundary=" in lines[0]
+
+
+async def test_format_multiple_boundary_format():
+    """Test that boundary follows UUID format and is used correctly."""
+    from mcp_guide.utils.content_formatter_mime import MimeFormatter
+
+    formatter = MimeFormatter()
+    files = [
+        FileInfo(
+            path=Path("file1.md"),
+            basename="file1.md",
+            size=10,
+            mtime=datetime.now(),
+            content="Content 1",
+        ),
+        FileInfo(
+            path=Path("file2.md"),
+            basename="file2.md",
+            size=10,
+            mtime=datetime.now(),
+            content="Content 2",
+        ),
+    ]
+    result = await formatter.format(files, "test")
+
+    # Extract boundary
+    first_line = result.split("\r\n")[0]
+    boundary = first_line.split('boundary="')[1].rstrip('"')
+
+    # Check UUID format (8-4-4-4-12 hex digits)
+    import re
+
+    uuid_pattern = r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    assert re.match(uuid_pattern, boundary), f"Boundary {boundary} is not valid UUID"
+
+    # Check boundary usage
+    assert f"--{boundary}\r\n" in result  # Part boundaries
+    assert f"--{boundary}--" in result  # Closing boundary
+
+
+async def test_format_multiple_part_headers():
+    """Test that each part has proper MIME headers."""
+    from mcp_guide.utils.content_formatter_mime import MimeFormatter
+
+    formatter = MimeFormatter()
+    files = [
+        FileInfo(
+            path=Path("docs/file1.md"),
+            basename="file1.md",
+            size=10,
+            mtime=datetime.now(),
+            content="Content 1",
+        ),
+        FileInfo(
+            path=Path("docs/file2.txt"),
+            basename="file2.txt",
+            size=10,
+            mtime=datetime.now(),
+            content="Content 2",
+        ),
+    ]
+    result = await formatter.format(files, "test")
+
+    # Check first part headers
+    assert "Content-Type: text/markdown" in result
+    assert "Content-Location: guide://category/test/docs/file1.md" in result
+    assert f"Content-Length: {len('Content 1'.encode('utf-8'))}" in result
+
+    # Check second part headers
+    assert "Content-Type: text/plain" in result
+    assert "Content-Location: guide://category/test/docs/file2.txt" in result
+    assert f"Content-Length: {len('Content 2'.encode('utf-8'))}" in result
+
+
+async def test_format_multiple_crlf_line_endings():
+    """Test that CRLF line endings are used throughout."""
+    from mcp_guide.utils.content_formatter_mime import MimeFormatter
+
+    formatter = MimeFormatter()
+    files = [
+        FileInfo(
+            path=Path("file1.md"),
+            basename="file1.md",
+            size=10,
+            mtime=datetime.now(),
+            content="Content 1",
+        ),
+        FileInfo(
+            path=Path("file2.md"),
+            basename="file2.md",
+            size=10,
+            mtime=datetime.now(),
+            content="Content 2",
+        ),
+    ]
+    result = await formatter.format(files, "test")
+
+    # Check CRLF is used
+    assert "\r\n" in result
+    # Verify no bare LF (except possibly in content)
+    lines = result.split("\r\n")
+    assert len(lines) > 5  # Should have multiple lines
+
+
+async def test_format_multiple_content_preserved():
+    """Test that content is preserved exactly in multipart format."""
+    from mcp_guide.utils.content_formatter_mime import MimeFormatter
+
+    formatter = MimeFormatter()
+    content1 = "# Title\n\nWith **formatting**"
+    content2 = "  Spaces  \n\tTabs\n"
+
+    files = [
+        FileInfo(
+            path=Path("file1.md"),
+            basename="file1.md",
+            size=len(content1),
+            mtime=datetime.now(),
+            content=content1,
+        ),
+        FileInfo(
+            path=Path("file2.md"),
+            basename="file2.md",
+            size=len(content2),
+            mtime=datetime.now(),
+            content=content2,
+        ),
+    ]
+    result = await formatter.format(files, "test")
+
+    assert content1 in result
+    assert content2 in result

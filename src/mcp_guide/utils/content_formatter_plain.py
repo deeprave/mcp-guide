@@ -22,7 +22,7 @@ class PlainFormatter:
         if len(file_infos) == 1:
             return await self.format_single(file_infos[0], category_name)
 
-        return ""
+        return await self.format_multiple(file_infos, category_name)
 
     async def format_single(self, file_info: FileInfo, category_name: str) -> str:
         """Format single file as plain content.
@@ -35,3 +35,20 @@ class PlainFormatter:
             Plain content without headers
         """
         return file_info.content or ""
+
+    async def format_multiple(self, file_infos: list[FileInfo], category_name: str) -> str:
+        """Format multiple files with separators.
+
+        Args:
+            file_infos: List of files with content
+            category_name: Name of the category (unused for plain format)
+
+        Returns:
+            Concatenated content with separators
+        """
+        parts = []
+        for file_info in file_infos:
+            separator = f"--- {file_info.basename} ---\n"
+            content = file_info.content or ""
+            parts.append(separator + content)
+        return "\n".join(parts)
