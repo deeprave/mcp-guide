@@ -1,5 +1,9 @@
 # Specification: Collection Management Tools
 
+**Status**: Selected for Development
+**Jira**: GUIDE-101 (Validation), GUIDE-102 (Tools), GUIDE-108 (Integration)
+**Implementation**: TDD methodology - tests integrated with implementation
+
 ## ADDED Requirements
 
 ### Requirement: collection_list Tool
@@ -13,22 +17,6 @@ The tool SHALL:
 - Return list of all collections in project configuration
 - Include name, description, categories for each collection
 - Return Result pattern response
-
-#### Scenario: List all collections
-- **WHEN** tool is called
-- **THEN** return all collections with their configuration
-
-#### Scenario: Empty collection list
-- **WHEN** no collections exist
-- **THEN** return empty list with success
-
-#### Scenario: Verbose mode
-- **WHEN** verbose is true
-- **THEN** include all fields (name, description, categories)
-
-#### Scenario: Non-verbose mode
-- **WHEN** verbose is false or omitted
-- **THEN** include all fields (name, description, categories)
 
 ### Requirement: collection_add Tool
 
@@ -47,25 +35,10 @@ The tool SHALL:
 - Persist configuration to disk
 - Return Result pattern response
 
-#### Scenario: Create collection with minimal args
-- **WHEN** name is provided and valid
-- **THEN** create collection with empty categories
-
-#### Scenario: Create collection with categories
-- **WHEN** categories are provided and all exist
-- **THEN** create collection with specified categories
-
-#### Scenario: Collection already exists
-- **WHEN** collection with same name already exists
-- **THEN** return Result.failure with error_type "already_exists"
-
-#### Scenario: Invalid name
-- **WHEN** name fails validation
-- **THEN** return Result.failure with error_type "invalid_name"
-
-#### Scenario: Category doesn't exist
-- **WHEN** referenced category doesn't exist
-- **THEN** return Result.failure with error_type "category_not_found"
+Error types:
+- `already_exists` - Collection with same name exists
+- `invalid_name` - Name fails validation
+- `category_not_found` - Referenced category doesn't exist
 
 ### Requirement: collection_remove Tool
 
@@ -80,13 +53,8 @@ The tool SHALL:
 - Persist configuration to disk
 - Return Result pattern response
 
-#### Scenario: Remove existing collection
-- **WHEN** collection exists
-- **THEN** remove from configuration
-
-#### Scenario: Collection not found
-- **WHEN** collection doesn't exist
-- **THEN** return Result.failure with error_type "not_found"
+Error types:
+- `not_found` - Collection doesn't exist
 
 ### Requirement: collection_change Tool
 
@@ -107,25 +75,10 @@ The tool SHALL:
 - Persist configuration to disk
 - Return Result pattern response
 
-#### Scenario: Rename collection
-- **WHEN** new_name is provided and valid
-- **THEN** rename collection
-
-#### Scenario: Replace categories
-- **WHEN** categories is provided
-- **THEN** replace all existing categories with new categories
-
-#### Scenario: Clear description
-- **WHEN** description is empty string
-- **THEN** remove description from collection
-
-#### Scenario: New name conflicts
-- **WHEN** new_name already exists as different collection
-- **THEN** return Result.failure with error_type "name_conflict"
-
-#### Scenario: Category doesn't exist
-- **WHEN** referenced category doesn't exist
-- **THEN** return Result.failure with error_type "category_not_found"
+Error types:
+- `not_found` - Collection doesn't exist
+- `name_conflict` - New name already exists
+- `category_not_found` - Referenced category doesn't exist
 
 ### Requirement: collection_update Tool
 
@@ -139,30 +92,14 @@ Arguments:
 The tool SHALL:
 - Validate collection exists
 - Add categories if add_categories provided
-- Remove categories if remove_categories provided
+- Remove categories if remove_categories provided (idempotent - ignore if not present)
 - Validate added categories exist
 - Persist configuration to disk
 - Return Result pattern response
 
-#### Scenario: Add categories
-- **WHEN** add_categories is provided
-- **THEN** append categories to existing categories
-
-#### Scenario: Remove categories
-- **WHEN** remove_categories is provided
-- **THEN** remove matching categories from existing categories
-
-#### Scenario: Add and remove categories
-- **WHEN** both add_categories and remove_categories provided
-- **THEN** remove first, then add
-
-#### Scenario: Category not found for removal
-- **WHEN** remove_categories contains non-existent category
-- **THEN** ignore silently (idempotent operation)
-
-#### Scenario: Added category doesn't exist
-- **WHEN** add_categories contains non-existent category
-- **THEN** return Result.failure with error_type "category_not_found"
+Error types:
+- `not_found` - Collection doesn't exist
+- `category_not_found` - Added category doesn't exist
 
 ### Requirement: Collection Name Validation
 
@@ -173,18 +110,6 @@ Validation SHALL enforce:
 - Length between 1 and 30 characters
 - No leading or trailing hyphens or underscores
 
-#### Scenario: Valid name
-- **WHEN** name is "my-collection_123"
-- **THEN** validation passes
-
-#### Scenario: Invalid characters
-- **WHEN** name contains spaces or special characters
-- **THEN** validation fails with clear error message
-
-#### Scenario: Name too long
-- **WHEN** name exceeds 30 characters
-- **THEN** validation fails with clear error message
-
 ### Requirement: Description Validation
 
 Descriptions SHALL be validated for length and content.
@@ -193,22 +118,11 @@ Validation SHALL enforce:
 - Maximum length of 500 characters
 - Valid Unicode characters
 - No quote characters (single or double)
+- Empty string or omitted is valid (optional field)
 
-#### Scenario: Valid description
-- **WHEN** description is under 500 chars with valid Unicode
-- **THEN** validation passes
-
-#### Scenario: Description too long
-- **WHEN** description exceeds 500 characters
-- **THEN** validation fails with error_type "description_too_long"
-
-#### Scenario: Contains quotes
-- **WHEN** description contains " or ' characters
-- **THEN** validation fails with error_type "invalid_characters"
-
-#### Scenario: Empty description allowed
-- **WHEN** description is empty string or omitted
-- **THEN** validation passes (optional field)
+Error types:
+- `description_too_long` - Exceeds 500 characters
+- `invalid_characters` - Contains quotes or invalid characters
 
 ### Requirement: Category Reference Validation
 
@@ -219,17 +133,8 @@ Validation SHALL:
 - Return error if any category doesn't exist
 - Provide list of missing categories in error message
 
-#### Scenario: All categories exist
-- **WHEN** all referenced categories exist
-- **THEN** validation passes
-
-#### Scenario: Category doesn't exist
-- **WHEN** referenced category doesn't exist
-- **THEN** validation fails with error_type "category_not_found"
-
-#### Scenario: Multiple missing categories
-- **WHEN** multiple referenced categories don't exist
-- **THEN** error message lists all missing categories
+Error types:
+- `category_not_found` - One or more categories don't exist (lists all missing)
 
 ### Requirement: Configuration Persistence (Auto-Save)
 
@@ -245,21 +150,9 @@ Persistence SHALL:
 - Return error if persistence fails
 - Never return success without persisting changes
 
-#### Scenario: Successful persistence
-- **WHEN** configuration is valid and writable
-- **THEN** write to disk immediately and return success
-
-#### Scenario: Write error
-- **WHEN** file cannot be written
-- **THEN** return Result.failure with error_type "write_error"
-
-#### Scenario: Concurrent access
-- **WHEN** another process is writing configuration
-- **THEN** wait for lock or return error
-
-#### Scenario: Invalid configuration
-- **WHEN** configuration fails validation before write
-- **THEN** return error without writing
+Error types:
+- `write_error` - File cannot be written
+- `lock_error` - Concurrent access conflict
 
 ### Requirement: Result Pattern Responses
 
@@ -276,18 +169,6 @@ Failure responses SHALL include:
 - `error_type`: Classification
 - `instruction`: Agent guidance
 
-#### Scenario: Success response
-- **WHEN** operation succeeds
-- **THEN** return Result.ok with confirmation
-
-#### Scenario: Validation failure
-- **WHEN** validation fails
-- **THEN** return Result.failure with specific error_type and instruction
-
-#### Scenario: Not found error
-- **WHEN** collection doesn't exist
-- **THEN** return Result.failure with error_type "not_found"
-
 ### Requirement: Tool Argument Schemas
 
 All tools SHALL define argument schemas following ADR-008 conventions.
@@ -298,34 +179,17 @@ Schemas SHALL include:
 - Description and examples
 - Validation rules
 
-#### Scenario: Required argument validation
-- **WHEN** required argument is missing
-- **THEN** return error before processing
-
-#### Scenario: Type validation
-- **WHEN** argument has wrong type
-- **THEN** return error with expected type
-
-#### Scenario: Optional argument handling
-- **WHEN** optional argument is omitted
-- **THEN** use default value or skip
-
 ### Requirement: Session Integration
 
 All tools SHALL use session management for project context.
 
 Tools SHALL:
-- Call `get_current_session()` for project access
+- Call `get_or_create_session()` for project access
 - Return error if no active session
 - Use session's project configuration
 
-#### Scenario: Active session
-- **WHEN** tool is called with active session
-- **THEN** use session's project configuration
-
-#### Scenario: No active session
-- **WHEN** tool is called without active session
-- **THEN** return Result.failure with error_type "no_session"
+Error types:
+- `no_session` - No active session available
 
 ### Requirement: Change vs Update Semantics
 
@@ -340,15 +204,3 @@ The system SHALL distinguish between change (replace) and update (modify) operat
 - Modify specific fields
 - Cannot rename (use change for that)
 - Adds/removes categories incrementally
-
-#### Scenario: Change replaces categories
-- **WHEN** collection_change is called with categories
-- **THEN** replace all existing categories with new list
-
-#### Scenario: Update adds categories
-- **WHEN** collection_update is called with add_categories
-- **THEN** append to existing categories
-
-#### Scenario: Update removes categories
-- **WHEN** collection_update is called with remove_categories
-- **THEN** remove from existing categories
