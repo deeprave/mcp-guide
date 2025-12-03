@@ -23,14 +23,14 @@
 - [x] 2.7 Validate RFC 2046 compliance (GUIDE-45 ✓)
 
 ### 3. get_category_content Tool
-- [ ] 3.1 Define argument schema (category, pattern)
-- [ ] 3.2 Implement tool function with session integration
-- [ ] 3.3 Add Result pattern responses
-- [ ] 3.4 Define error types (not_found, no_matches, no_session)
-- [ ] 3.5 Add agent instructions for each error type
-- [ ] 3.6 Register tool with MCP server
-- [ ] 3.7 Add integration tests for tool
-- [ ] 3.8 Test error cases and instructions
+- [x] 3.1 Define argument schema (category, pattern) (GUIDE-46 ✓)
+- [x] 3.2 Implement tool function with session integration (GUIDE-47 ✓)
+- [x] 3.3 Add Result pattern responses (GUIDE-48 ✓)
+- [x] 3.4 Define error types (not_found, no_matches, file_read) (GUIDE-49 ✓)
+- [x] 3.5 Add agent instructions for each error type (GUIDE-50 ✓)
+- [x] 3.6 Register tool with MCP server (GUIDE-51 ✓)
+- [x] 3.7 Add integration tests for tool (GUIDE-52 ✓)
+- [x] 3.8 Test error cases and instructions (GUIDE-53 ✓)
 
 ## Phase 2: Template Support
 
