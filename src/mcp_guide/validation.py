@@ -14,7 +14,8 @@ def validate_category_exists(project: Project, category_name: str) -> None:
     Raises:
         ArgValidationError: If category doesn't exist
     """
-    if not any(cat.name == category_name for cat in project.categories):
+    category_names = {cat.name for cat in project.categories}
+    if category_name not in category_names:
         raise ArgValidationError([{"field": "category", "message": f"Category '{category_name}' does not exist"}])
 
 
@@ -28,10 +29,11 @@ def validate_categories_exist(project: Project, category_names: list[str]) -> No
     Raises:
         ArgValidationError: If any categories don't exist (lists all missing)
     """
-    errors = []
-    for name in category_names:
-        if not any(cat.name == name for cat in project.categories):
-            errors.append({"field": "categories", "message": f"Category '{name}' does not exist"})
-
-    if errors:
+    existing_names = {cat.name for cat in project.categories}
+    if errors := [
+        {"field": "categories", "message": f"Category '{name}' does not exist"}
+        for name in category_names
+        if name not in existing_names
+    ]:
         raise ArgValidationError(errors)
+
