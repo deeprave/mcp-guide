@@ -27,7 +27,7 @@ def production_mode():
 def test_session(tmp_path):
     """Create test session with sample project."""
     manager = ConfigManager(config_dir=str(tmp_path))
-    session = Session(config_manager=manager, project_name="test")
+    session = Session(_config_manager=manager, project_name="test")
 
     # Create sample project with categories
     category = Category(

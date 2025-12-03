@@ -21,7 +21,7 @@ class TestConfigSessionIntegration:
         assert len(project.categories) == 0
 
         # Create session
-        session = Session(config_manager=manager, project_name="test-project")
+        session = Session(_config_manager=manager, project_name="test-project")
         set_current_session(session)
 
         # Update config through session
@@ -47,7 +47,7 @@ class TestConfigSessionIntegration:
         results = []
 
         async def task1():
-            session1 = Session(config_manager=manager, project_name="project1")
+            session1 = Session(_config_manager=manager, project_name="project1")
             set_current_session(session1)
 
             category = Category(name="api", dir="api/", patterns=["*.py"])
@@ -61,7 +61,7 @@ class TestConfigSessionIntegration:
             results.append(("task1", len(project.categories)))
 
         async def task2():
-            session2 = Session(config_manager=manager, project_name="project2")
+            session2 = Session(_config_manager=manager, project_name="project2")
             set_current_session(session2)
 
             category = Category(name="web", dir="web/", patterns=["*.html"])

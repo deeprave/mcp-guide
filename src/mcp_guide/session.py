@@ -25,7 +25,7 @@ class CachedRootsInfo:
 class Session:
     """Per-project runtime session (non-singleton)."""
 
-    config_manager: ConfigManager
+    _config_manager: ConfigManager = field(repr=False)
     project_name: str
     _state: SessionState = field(default_factory=SessionState, init=False)
     _cached_project: Optional[Project] = field(default=None, init=False)
@@ -51,7 +51,7 @@ class Session:
             Use update_config() to modify and persist changes.
         """
         if self._cached_project is None:
-            self._cached_project = await self.config_manager.get_or_create_project_config(self.project_name)
+            self._cached_project = await self._config_manager.get_or_create_project_config(self.project_name)
         return self._cached_project
 
     async def update_config(self, updater: Callable[[Project], Project]) -> None:
@@ -67,12 +67,20 @@ class Session:
         """
         project = await self.get_project()
         updated_project = updater(project)
-        await self.config_manager.save_project_config(updated_project)
+        await self._config_manager.save_project_config(updated_project)
         self._cached_project = updated_project
 
     def get_state(self) -> SessionState:
         """Get mutable session state."""
         return self._state
+
+    def get_docroot(self) -> str:
+        """Get document root path for the project.
+
+        Returns:
+            Absolute path to the document root directory
+        """
+        return self._config_manager.get_docroot()
 
 
 # ContextVar for async task-local session tracking
@@ -178,7 +186,7 @@ async def get_or_create_session(ctx: Optional[Any] = None, project_name: Optiona
 
     # Create new session
     config_manager = ConfigManager()
-    session = Session(config_manager=config_manager, project_name=project_name)
+    session = Session(_config_manager=config_manager, project_name=project_name)
 
     # Store in ContextVar
     set_current_session(session)

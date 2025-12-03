@@ -186,7 +186,7 @@ class TestSession:
         manager = ConfigManager(config_dir=str(tmp_path))
         await manager.get_or_create_project_config("test-project")
 
-        session = Session(config_manager=manager, project_name="test-project")
+        session = Session(_config_manager=manager, project_name="test-project")
         assert session.project_name == "test-project"
 
     @pytest.mark.asyncio
@@ -196,11 +196,11 @@ class TestSession:
 
         # Empty name should fail
         with pytest.raises(ValueError, match="cannot be empty"):
-            Session(config_manager=manager, project_name="")
+            Session(_config_manager=manager, project_name="")
 
         # Whitespace-only name should fail
         with pytest.raises(ValueError, match="cannot be empty"):
-            Session(config_manager=manager, project_name="   ")
+            Session(_config_manager=manager, project_name="   ")
 
     @pytest.mark.asyncio
     async def test_session_rejects_invalid_characters(self, tmp_path):
@@ -209,7 +209,7 @@ class TestSession:
         invalid_names = ["project@name", "project name", "project/name", "project.name", "project!"]
         for name in invalid_names:
             with pytest.raises(ValueError, match="must contain only alphanumeric"):
-                Session(config_manager=manager, project_name=name)
+                Session(_config_manager=manager, project_name=name)
 
     @pytest.mark.asyncio
     async def test_lazy_config_loading(self, tmp_path):
@@ -217,7 +217,7 @@ class TestSession:
         manager = ConfigManager(config_dir=str(tmp_path))
         await manager.get_or_create_project_config("test-project")
 
-        session = Session(config_manager=manager, project_name="test-project")
+        session = Session(_config_manager=manager, project_name="test-project")
 
         # Config not loaded yet
         assert session._cached_project is None
@@ -238,7 +238,7 @@ class TestSession:
         manager = ConfigManager(config_dir=str(tmp_path))
         await manager.get_or_create_project_config("test-project")
 
-        session = Session(config_manager=manager, project_name="test-project")
+        session = Session(_config_manager=manager, project_name="test-project")
 
         category = Category(name="docs", dir="docs/", patterns=["*.md"])
         await session.update_config(lambda p: p.with_category(category))
@@ -254,7 +254,7 @@ class TestSession:
         manager = ConfigManager(config_dir=str(tmp_path))
         await manager.get_or_create_project_config("test-project")
 
-        session = Session(config_manager=manager, project_name="test-project")
+        session = Session(_config_manager=manager, project_name="test-project")
         state = session.get_state()
 
         state.current_dir = "/test/path"
@@ -272,7 +272,7 @@ class TestContextVar:
         manager = ConfigManager(config_dir=str(tmp_path))
         await manager.get_or_create_project_config("test-project")
 
-        session = Session(config_manager=manager, project_name="test-project")
+        session = Session(_config_manager=manager, project_name="test-project")
         set_current_session(session)
 
         retrieved = get_current_session("test-project")
@@ -298,7 +298,7 @@ class TestContextVar:
         manager = ConfigManager(config_dir=str(tmp_path))
         await manager.get_or_create_project_config("test-project")
 
-        session = Session(config_manager=manager, project_name="test-project")
+        session = Session(_config_manager=manager, project_name="test-project")
         set_current_session(session)
 
         remove_current_session("test-project")
@@ -318,7 +318,7 @@ class TestContextVar:
         await manager.get_or_create_project_config("project2")
 
         async def task1():
-            session1 = Session(config_manager=manager, project_name="project1")
+            session1 = Session(_config_manager=manager, project_name="project1")
             set_current_session(session1)
             await asyncio.sleep(0.01)
             retrieved = get_current_session("project1")
@@ -326,7 +326,7 @@ class TestContextVar:
             assert get_current_session("project2") is None
 
         async def task2():
-            session2 = Session(config_manager=manager, project_name="project2")
+            session2 = Session(_config_manager=manager, project_name="project2")
             set_current_session(session2)
             await asyncio.sleep(0.01)
             retrieved = get_current_session("project2")
