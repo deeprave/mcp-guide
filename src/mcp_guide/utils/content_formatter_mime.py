@@ -2,7 +2,6 @@
 
 import mimetypes
 import uuid
-from pathlib import Path
 
 from mcp_guide.utils.file_discovery import FileInfo
 
