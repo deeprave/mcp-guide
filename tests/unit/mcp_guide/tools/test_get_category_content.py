@@ -236,7 +236,7 @@ async def test_category_not_found_returns_failure(tmp_path, monkeypatch):
 
 
 async def test_no_matches_returns_failure(tmp_path, monkeypatch):
-    """Test that no matches returns Result.failure()."""
+    """Test that no matches with default patterns returns success, with pattern override returns failure."""
     import json
 
     from mcp_guide.models import Category, Project
@@ -270,16 +270,22 @@ async def test_no_matches_returns_failure(tmp_path, monkeypatch):
 
     monkeypatch.setattr("mcp_guide.tools.tool_category.get_or_create_session", mock_get_session)
 
-    # Call tool
+    # Test 1: Default patterns - should return success
     args = CategoryContentArgs(category="docs")
     result_json = await get_category_content(args)
+    result = json.loads(result_json)
+    assert result["success"] is True
+    assert result["instruction"] == INSTRUCTION_NO_MATCHES
+    assert "No files found" in result["value"]
 
-    # Parse result
+    # Test 2: Pattern override - should return failure
+    args = CategoryContentArgs(category="docs", pattern="*.txt")
+    result_json = await get_category_content(args)
     result = json.loads(result_json)
     assert result["success"] is False
     assert result["error_type"] == ERROR_NO_MATCHES
     assert result["instruction"] == INSTRUCTION_NO_MATCHES
-    assert "docs" in result["error"]
+    assert "*.txt" in result["error"]
 
 
 async def test_error_responses_include_all_fields(tmp_path, monkeypatch):
