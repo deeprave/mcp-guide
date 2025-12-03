@@ -1,5 +1,3 @@
-from mcp_guide.session import get_or_create_session
-
 """Tests for category management tools."""
 
 import json

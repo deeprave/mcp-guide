@@ -11,6 +11,7 @@ from mcp_guide.session import (
     CachedRootsInfo,
     Session,
     get_or_create_session,
+    set_current_session,
     set_project,
 )
 
@@ -21,7 +22,9 @@ class TestSetProject:
     @pytest.mark.asyncio
     async def test_set_project_creates_and_loads(self, tmp_path, monkeypatch):
         """set_project creates/loads project successfully."""
-        monkeypatch.setattr("mcp_guide.session.ConfigManager", lambda: ConfigManager(config_dir=str(tmp_path)))
+        monkeypatch.setattr(
+            "mcp_guide.session.ConfigManager", lambda config_dir=None: ConfigManager(config_dir=str(tmp_path))
+        )
 
         result_str = await set_project("new-project")
         result = json.loads(result_str)
@@ -33,7 +36,9 @@ class TestSetProject:
     @pytest.mark.asyncio
     async def test_set_project_with_invalid_name(self, tmp_path, monkeypatch):
         """set_project returns error for invalid project name."""
-        monkeypatch.setattr("mcp_guide.session.ConfigManager", lambda: ConfigManager(config_dir=str(tmp_path)))
+        monkeypatch.setattr(
+            "mcp_guide.session.ConfigManager", lambda config_dir=None: ConfigManager(config_dir=str(tmp_path))
+        )
 
         result_str = await set_project("invalid@name")
         result = json.loads(result_str)
@@ -48,15 +53,19 @@ class TestGetOrCreateSession:
     @pytest.mark.asyncio
     async def test_creates_session_with_explicit_name(self, tmp_path, monkeypatch):
         """Creates session when explicit project_name provided."""
-        monkeypatch.setattr("mcp_guide.session.ConfigManager", lambda: ConfigManager(config_dir=str(tmp_path)))
+        monkeypatch.setattr(
+            "mcp_guide.session.ConfigManager", lambda config_dir=None: ConfigManager(config_dir=str(tmp_path))
+        )
 
-        session = await get_or_create_session(project_name="explicit-project")
+        session = await get_or_create_session(project_name="explicit-project", _config_dir_for_tests=str(tmp_path))
         assert session.project_name == "explicit-project"
 
     @pytest.mark.asyncio
     async def test_creates_session_from_context(self, tmp_path, monkeypatch):
         """Creates session by detecting name from context."""
-        monkeypatch.setattr("mcp_guide.session.ConfigManager", lambda: ConfigManager(config_dir=str(tmp_path)))
+        monkeypatch.setattr(
+            "mcp_guide.session.ConfigManager", lambda config_dir=None: ConfigManager(config_dir=str(tmp_path))
+        )
 
         mock_ctx = MagicMock()
         mock_root = MagicMock()
@@ -69,7 +78,9 @@ class TestGetOrCreateSession:
     @pytest.mark.asyncio
     async def test_returns_existing_session(self, tmp_path, monkeypatch):
         """Returns existing session if already created."""
-        monkeypatch.setattr("mcp_guide.session.ConfigManager", lambda: ConfigManager(config_dir=str(tmp_path)))
+        monkeypatch.setattr(
+            "mcp_guide.session.ConfigManager", lambda config_dir=None: ConfigManager(config_dir=str(tmp_path))
+        )
 
         session1 = await get_or_create_session(project_name="same-project")
         session2 = await get_or_create_session(project_name="same-project")
@@ -79,7 +90,9 @@ class TestGetOrCreateSession:
     @pytest.mark.asyncio
     async def test_creates_different_sessions_for_different_projects(self, tmp_path, monkeypatch):
         """Creates separate sessions for different projects."""
-        monkeypatch.setattr("mcp_guide.session.ConfigManager", lambda: ConfigManager(config_dir=str(tmp_path)))
+        monkeypatch.setattr(
+            "mcp_guide.session.ConfigManager", lambda config_dir=None: ConfigManager(config_dir=str(tmp_path))
+        )
 
         session1 = await get_or_create_session(project_name="project1")
         session2 = await get_or_create_session(project_name="project2")
@@ -183,7 +196,7 @@ class TestSession:
     @pytest.mark.asyncio
     async def test_session_creation(self, tmp_path):
         """Session can be created with valid project name."""
-        session = await get_or_create_session(project_name="test-project")
+        session = await get_or_create_session(project_name="test-project", _config_dir_for_tests=str(tmp_path))
         assert session.project_name == "test-project"
 
     @pytest.mark.asyncio
@@ -211,7 +224,7 @@ class TestSession:
     @pytest.mark.asyncio
     async def test_lazy_config_loading(self, tmp_path):
         """Project config is loaded lazily on first access."""
-        session = await get_or_create_session(project_name="test-project")
+        session = await get_or_create_session(project_name="test-project", _config_dir_for_tests=str(tmp_path))
 
         # Config not loaded yet
         assert session._cached_project is None
@@ -230,13 +243,17 @@ class TestSession:
         from mcp_guide.config import ConfigManager
         from mcp_guide.models import Category
 
-        session = await get_or_create_session(project_name="test-project")
+        # Create session with tmp_path-backed config manager for test isolation
+        manager = ConfigManager(config_dir=str(tmp_path))
+        await manager.get_or_create_project_config("test-project")
+
+        session = Session(_config_manager=manager, project_name="test-project")
+        set_current_session(session)
 
         category = Category(name="docs", dir="docs/", patterns=["*.md"])
         await session.update_config(lambda p: p.with_category(category))
 
-        # Verify update was saved by reloading from disk
-        manager = ConfigManager()
+        # Verify update was saved by reloading from disk (same tmp_path)
         reloaded = await manager.get_or_create_project_config("test-project")
         assert len(reloaded.categories) == 1
         assert reloaded.categories[0].name == "docs"
@@ -244,7 +261,7 @@ class TestSession:
     @pytest.mark.asyncio
     async def test_get_state_returns_mutable_state(self, tmp_path):
         """get_state returns mutable SessionState."""
-        session = await get_or_create_session(project_name="test-project")
+        session = await get_or_create_session(project_name="test-project", _config_dir_for_tests=str(tmp_path))
         state = session.get_state()
 
         state.current_dir = "/test/path"
@@ -259,7 +276,7 @@ class TestContextVar:
         """get_current_session returns session from ContextVar."""
         from mcp_guide.session import get_current_session, set_current_session
 
-        session = await get_or_create_session(project_name="test-project")
+        session = await get_or_create_session(project_name="test-project", _config_dir_for_tests=str(tmp_path))
         set_current_session(session)
 
         retrieved = get_current_session("test-project")
@@ -282,7 +299,7 @@ class TestContextVar:
             set_current_session,
         )
 
-        session = await get_or_create_session(project_name="test-project")
+        session = await get_or_create_session(project_name="test-project", _config_dir_for_tests=str(tmp_path))
         set_current_session(session)
 
         remove_current_session("test-project")
