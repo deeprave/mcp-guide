@@ -156,12 +156,17 @@ async def _determine_project_name(ctx: Optional[Any] = None) -> str:
     raise ValueError("Project context not available. Call set_project() with the basename of your current directory.")
 
 
-async def get_or_create_session(ctx: Optional[Any] = None, project_name: Optional[str] = None) -> Session:
+async def get_or_create_session(
+    ctx: Optional[Any] = None,
+    project_name: Optional[str] = None,
+    _config_dir_for_tests: Optional[str] = None,
+) -> Session:
     """Get or create session for project.
 
     Args:
         ctx: Optional MCP Context (for roots detection)
         project_name: Optional explicit project name (for set_project calls)
+        _config_dir_for_tests: Optional config directory for test isolation (internal use only)
 
     Returns:
         Session for the project
@@ -185,7 +190,7 @@ async def get_or_create_session(ctx: Optional[Any] = None, project_name: Optiona
         return existing_session
 
     # Create new session
-    config_manager = ConfigManager()
+    config_manager = ConfigManager(config_dir=_config_dir_for_tests)
     session = Session(_config_manager=config_manager, project_name=project_name)
 
     # Store in ContextVar

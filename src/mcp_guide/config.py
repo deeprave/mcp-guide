@@ -103,7 +103,8 @@ class ConfigManager:
             if name in projects:
                 project_data = projects[name]
                 try:
-                    return Project(**project_data)
+                    # Add name from key since it's not stored in the value
+                    return Project(name=name, **project_data)
                 except Exception as e:
                     raise ValueError(f"Invalid project data for '{name}' in {file_path}: {e}") from e
 
@@ -250,7 +251,6 @@ class ConfigManager:
     def _project_to_dict(self, project: Project) -> dict[str, object]:
         """Convert Project to dict for YAML serialization."""
         return {
-            "name": project.name,
             "categories": [
                 {"name": c.name, "dir": c.dir, "patterns": c.patterns, "description": c.description}
                 for c in project.categories
