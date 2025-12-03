@@ -1,8 +1,12 @@
 """MIME content formatter for single and multiple file responses."""
 
 import mimetypes
+from typing import TYPE_CHECKING
 
-from uuid_extensions import uuid7  # type: ignore[import-untyped]
+if TYPE_CHECKING:
+    from uuid_extensions import uuid7  # type: ignore[import-untyped]
+else:
+    from uuid_extensions import uuid7
 
 from mcp_guide.utils.file_discovery import FileInfo
 
