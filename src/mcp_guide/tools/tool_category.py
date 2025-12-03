@@ -485,25 +485,38 @@ async def get_category_content(
 
     # Check for no matches
     if not files:
-        result = Result.failure(
-            f"No files matched pattern(s) in category '{args.category}'",
-            error_type=ERROR_NO_MATCHES,
-        )
-        result.instruction = INSTRUCTION_NO_MATCHES
-        return result.to_json_str()
+        if args.pattern:
+            result = Result.failure(
+                f"No files matched pattern '{args.pattern}' in category '{args.category}'",
+                error_type=ERROR_NO_MATCHES,
+            )
+            result.instruction = INSTRUCTION_NO_MATCHES
+            return result.to_json_str()
+        else:
+            result = Result.ok(f"No files found in category '{args.category}'")
+            result.instruction = INSTRUCTION_NO_MATCHES
+            return result.to_json_str()
 
-    # Read file content
+    # Read file content, collecting any failures
+    file_read_errors: list[str] = []
+
     for file_info in files:
         try:
             file_path = resolve_safe_path(category_dir, file_info.path)
             file_info.content = await read_file_content(file_path)
         except (FileNotFoundError, PermissionError, UnicodeDecodeError) as e:
-            error_result: Result[str] = Result.failure(
-                f"Failed to read file '{file_info.path}': {e}",
-                error_type=ERROR_FILE_READ,
-            )
-            error_result.instruction = INSTRUCTION_FILE_READ
-            return error_result.to_json_str()
+            file_read_errors.append(f"'{file_info.path}': {e}")
+
+    if file_read_errors:
+        error_message = f"Failed to read one or more files in category '{args.category}': " + "; ".join(
+            file_read_errors
+        )
+        error_result: Result[str] = Result.failure(
+            error_message,
+            error_type=ERROR_FILE_READ,
+        )
+        error_result.instruction = INSTRUCTION_FILE_READ
+        return error_result.to_json_str()
 
     # Format content
     formatter = get_formatter()

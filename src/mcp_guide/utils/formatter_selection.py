@@ -1,14 +1,17 @@
 """Formatter selection using ContextVar."""
 
 from contextvars import ContextVar
+from typing import Literal
 
 from mcp_guide.utils.content_formatter_mime import MimeFormatter
 from mcp_guide.utils.content_formatter_plain import PlainFormatter
 
-_FORMATTER_TYPE: ContextVar[str] = ContextVar("formatter_type", default="plain")
+FormatterType = Literal["plain", "mime"]
+
+_FORMATTER_TYPE: ContextVar[FormatterType] = ContextVar("formatter_type", default="plain")
 
 
-def set_formatter(formatter_type: str) -> None:
+def set_formatter(formatter_type: FormatterType) -> None:
     """Set active formatter type.
 
     Args:
@@ -29,6 +32,4 @@ def get_formatter() -> PlainFormatter | MimeFormatter:
         PlainFormatter or MimeFormatter based on current context
     """
     formatter_type = _FORMATTER_TYPE.get()
-    if formatter_type == "mime":
-        return MimeFormatter()
-    return PlainFormatter()
+    return MimeFormatter() if formatter_type == "mime" else PlainFormatter()
