@@ -203,11 +203,11 @@ async def test_format_multiple_boundary_format():
     first_line = result.split("\r\n")[0]
     boundary = first_line.split('boundary="')[1].rstrip('"')
 
-    # Check UUID format (8-4-4-4-12 hex digits)
+    # Check guide-boundary-{uuid} format
     import re
 
-    uuid_pattern = r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
-    assert re.match(uuid_pattern, boundary), f"Boundary {boundary} is not valid UUID"
+    boundary_pattern = r"^guide-boundary-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    assert re.match(boundary_pattern, boundary), f"Boundary {boundary} does not match guide-boundary-{{uuid}} format"
 
     # Check boundary usage
     assert f"--{boundary}\r\n" in result  # Part boundaries

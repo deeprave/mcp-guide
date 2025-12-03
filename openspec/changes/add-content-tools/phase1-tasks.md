@@ -239,12 +239,12 @@ See `.todo/file-discovery-plan.md` for complete implementation details.
 - Content is already validated as text
 
 **Acceptance Criteria**:
-- [ ] Returns file content unchanged
-- [ ] Preserves line endings
-- [ ] Preserves whitespace
-- [ ] No additional formatting added
-- [ ] Works with empty files
-- [ ] Unit tests verify content preservation
+- [x] Returns file content unchanged
+- [x] Preserves line endings
+- [x] Preserves whitespace
+- [x] No additional formatting added
+- [x] Works with empty files
+- [x] Unit tests verify content preservation
 
 ---
 
@@ -264,12 +264,12 @@ See `.todo/file-discovery-plan.md` for complete implementation details.
 - Boundary string won't appear in content
 
 **Acceptance Criteria**:
-- [ ] Generates unique boundary (e.g., "guide-boundary-{uuid}")
-- [ ] Formats with `Content-Type: multipart/mixed; boundary="..."`
-- [ ] Each part separated by `--boundary`
-- [ ] Final boundary is `--boundary--`
-- [ ] Complies with RFC 2046 specification
-- [ ] Unit tests verify format structure
+- [x] Generates unique boundary (e.g., "guide-boundary-{uuid}")
+- [x] Formats with `Content-Type: multipart/mixed; boundary="..."`
+- [x] Each part separated by `--boundary`
+- [x] Final boundary is `--boundary--`
+- [x] Complies with RFC 2046 specification
+- [x] Unit tests verify format structure
 
 ---
 
@@ -289,13 +289,13 @@ See `.todo/file-discovery-plan.md` for complete implementation details.
 - Content-Length is byte count (UTF-8)
 
 **Acceptance Criteria**:
-- [ ] `.md` files get `Content-Type: text/markdown`
-- [ ] `.txt` files get `Content-Type: text/plain`
-- [ ] Content-Location format: `guide://category/{name}/{path}`
-- [ ] Content-Length is accurate byte count
-- [ ] Headers formatted as `Header: Value\r\n`
-- [ ] Unknown extensions default to `text/plain`
-- [ ] Unit tests verify all metadata fields
+- [x] `.md` files get `Content-Type: text/markdown`
+- [x] `.txt` files get `Content-Type: text/plain`
+- [x] Content-Location format: `guide://category/{name}/{path}`
+- [x] Content-Length is accurate byte count
+- [x] Headers formatted as `Header: Value\r\n`
+- [x] Unknown extensions default to `text/plain`
+- [x] Unit tests verify all metadata fields
 
 ---
 
@@ -315,12 +315,12 @@ See `.todo/file-discovery-plan.md` for complete implementation details.
 - Boundary format: `guide-boundary-{uuid}`
 
 **Acceptance Criteria**:
-- [ ] Generates unique boundary each time
-- [ ] Format: `guide-boundary-{uuid}`
-- [ ] Uses only safe characters (alphanumeric, hyphen)
-- [ ] Length ≤70 characters (RFC recommendation)
-- [ ] Unit tests verify uniqueness
-- [ ] Unit tests verify format
+- [x] Generates unique boundary each time
+- [x] Format: `guide-boundary-{uuid}`
+- [x] Uses only safe characters (alphanumeric, hyphen)
+- [x] Length ≤70 characters (RFC recommendation)
+- [x] Unit tests verify uniqueness
+- [x] Unit tests verify format
 
 ---
 
@@ -339,13 +339,13 @@ See `.todo/file-discovery-plan.md` for complete implementation details.
 - Tests verify exact content match
 
 **Acceptance Criteria**:
-- [ ] Tests for markdown files
-- [ ] Tests for text files
-- [ ] Tests for empty files
-- [ ] Tests for files with special characters
-- [ ] Tests verify no modifications to content
-- [ ] All tests pass
-- [ ] Unit tests meet project standards
+- [x] Tests for markdown files
+- [x] Tests for text files
+- [x] Tests for empty files
+- [x] Tests for files with special characters
+- [x] Tests verify no modifications to content
+- [x] All tests pass
+- [x] Unit tests meet project standards
 
 ---
 
@@ -365,14 +365,14 @@ See `.todo/file-discovery-plan.md` for complete implementation details.
 - Tests verify structure and content
 
 **Acceptance Criteria**:
-- [ ] Tests for 2+ file formatting
-- [ ] Tests verify boundary format
-- [ ] Tests verify header format
-- [ ] Tests verify content preservation
-- [ ] Tests verify final boundary terminator
-- [ ] Tests for various file types
-- [ ] All tests pass
-- [ ] Unit tests meet project standards
+- [x] Tests for 2+ file formatting
+- [x] Tests verify boundary format
+- [x] Tests verify header format
+- [x] Tests verify content preservation
+- [x] Tests verify final boundary terminator
+- [x] Tests for various file types
+- [x] All tests pass
+- [x] Unit tests meet project standards
 
 ---
 
@@ -393,11 +393,11 @@ See `.todo/file-discovery-plan.md` for complete implementation details.
 - Compliance is verifiable through testing
 
 **Acceptance Criteria**:
-- [ ] Boundary format matches RFC 2046 section 5.1.1
-- [ ] Header format matches RFC 2046 requirements
-- [ ] Part separation matches RFC 2046
-- [ ] Final boundary matches RFC 2046
-- [ ] Standard MIME parser can parse output
+- [x] Boundary format matches RFC 2046 section 5.1.1
+- [x] Header format matches RFC 2046 requirements
+- [x] Part separation matches RFC 2046
+- [x] Final boundary matches RFC 2046
+- [x] Standard MIME parser can parse output
 - [ ] Compliance documented in code comments
 - [ ] Integration test with MIME parser library
 
