@@ -14,13 +14,13 @@
 - [x] 1.7 Add unit tests for file operations (GUIDE-33/34/35/36/38 ✓)
 
 ### 2. MIME Multipart Formatting
-- [ ] 2.1 Implement single file formatter (plain markdown)
-- [ ] 2.2 Implement MIME multipart formatter (RFC 2046)
-- [ ] 2.3 Add metadata extraction (Content-Type, Content-Location, Content-Length)
-- [ ] 2.4 Implement boundary generation
-- [ ] 2.5 Add unit tests for single file format
-- [ ] 2.6 Add unit tests for multipart format
-- [ ] 2.7 Validate RFC 2046 compliance
+- [x] 2.1 Implement single file formatter (plain markdown) (GUIDE-39 ✓)
+- [x] 2.2 Implement MIME multipart formatter (RFC 2046) (GUIDE-40 ✓)
+- [x] 2.3 Add metadata extraction (Content-Type, Content-Location, Content-Length) (GUIDE-41 ✓)
+- [x] 2.4 Implement boundary generation (GUIDE-42 ✓)
+- [x] 2.5 Add unit tests for single file format (GUIDE-43 ✓)
+- [x] 2.6 Add unit tests for multipart format (GUIDE-44 ✓)
+- [x] 2.7 Validate RFC 2046 compliance (GUIDE-45 ✓)
 
 ### 3. get_category_content Tool
 - [ ] 3.1 Define argument schema (category, pattern)

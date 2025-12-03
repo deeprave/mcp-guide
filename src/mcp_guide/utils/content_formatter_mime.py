@@ -1,7 +1,8 @@
 """MIME content formatter for single and multiple file responses."""
 
 import mimetypes
-import uuid
+
+from uuid_extensions import uuid7  # type: ignore[import-untyped]
 
 from mcp_guide.utils.file_discovery import FileInfo
 
@@ -67,8 +68,8 @@ class MimeFormatter:
         Returns:
             RFC 2046 multipart/mixed formatted content
         """
-        # Generate boundary using UUID
-        boundary = str(uuid.uuid4())
+        # Generate boundary using UUID7 (time-ordered)
+        boundary = f"guide-boundary-{uuid7()}"
 
         # Build main header
         result = f'Content-Type: multipart/mixed; boundary="{boundary}"\r\n\r\n'

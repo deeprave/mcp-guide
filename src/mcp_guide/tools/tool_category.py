@@ -1,15 +1,21 @@
 """Category management tools."""
 
 from dataclasses import replace
+from pathlib import Path
 from typing import Optional
 
 from pydantic import Field
 
+from mcp_core.file_reader import read_file_content
+from mcp_core.path_security import resolve_safe_path
 from mcp_core.result import Result
 from mcp_core.tool_arguments import ToolArguments
 from mcp_core.validation import ArgValidationError, validate_description, validate_directory_path, validate_pattern
 from mcp_guide.models import Category, Project
 from mcp_guide.server import tools
+from mcp_guide.session import get_or_create_session
+from mcp_guide.utils.file_discovery import discover_category_files
+from mcp_guide.utils.formatter_selection import get_formatter
 
 try:
     from mcp.server.fastmcp import Context
@@ -21,6 +27,30 @@ class CategoryListArgs(ToolArguments):
     """Arguments for category_list tool."""
 
     verbose: bool = True
+
+
+class CategoryContentArgs(ToolArguments):
+    """Arguments for get_category_content tool."""
+
+    category: str = Field(description="Name of the category to retrieve content from")
+    pattern: str | None = Field(
+        default=None, description="Optional glob pattern to override category's default patterns"
+    )
+
+
+# Error types for get_category_content
+ERROR_NOT_FOUND = "not_found"
+ERROR_NO_MATCHES = "no_matches"
+ERROR_FILE_READ = "file_read_error"
+
+# Error instructions for get_category_content
+INSTRUCTION_NOT_FOUND = "Present this error to the user and take no further action."
+INSTRUCTION_NO_MATCHES = (
+    "Present this error to the user so they can correct the pattern. Do NOT attempt corrective action."
+)
+INSTRUCTION_FILE_READ = (
+    "Present this error to the user. The file may have been deleted, moved, or has permission issues."
+)
 
 
 @tools.tool(CategoryListArgs)
@@ -410,3 +440,73 @@ async def category_update(
         return Result.failure(f"Failed to save project configuration: {e}", error_type="save_error").to_json_str()
 
     return Result.ok(f"Category '{name}' patterns updated successfully").to_json_str()
+
+
+@tools.tool(CategoryContentArgs)
+async def get_category_content(
+    args: CategoryContentArgs,
+    ctx: Optional[Context] = None,  # type: ignore[type-arg]
+) -> str:
+    """Get content from a category.
+
+    Args:
+        args: Tool arguments with category name and optional pattern
+        ctx: MCP Context (auto-injected by FastMCP)
+
+    Returns:
+        JSON string with Result containing formatted content or error
+    """
+    # Get session
+    try:
+        session = await get_or_create_session(ctx)
+    except ValueError as e:
+        return Result.failure(str(e), error_type="no_project").to_json_str()
+
+    # Get project
+    project = await session.get_project()
+
+    # Resolve category
+    category = next((c for c in project.categories if c.name == args.category), None)
+    if category is None:
+        result: Result[str] = Result.failure(
+            f"Category '{args.category}' not found in project",
+            error_type=ERROR_NOT_FOUND,
+        )
+        result.instruction = INSTRUCTION_NOT_FOUND
+        return result.to_json_str()
+
+    # Get patterns
+    patterns = [args.pattern] if args.pattern else category.patterns
+
+    # Discover files
+    docroot = Path(session.config_manager.get_docroot())
+    category_dir = docroot / category.dir
+    files = await discover_category_files(category_dir, patterns)
+
+    # Check for no matches
+    if not files:
+        result = Result.failure(
+            f"No files matched pattern(s) in category '{args.category}'",
+            error_type=ERROR_NO_MATCHES,
+        )
+        result.instruction = INSTRUCTION_NO_MATCHES
+        return result.to_json_str()
+
+    # Read file content
+    for file_info in files:
+        try:
+            file_path = resolve_safe_path(category_dir, file_info.path)
+            file_info.content = await read_file_content(file_path)
+        except (FileNotFoundError, PermissionError, UnicodeDecodeError) as e:
+            error_result: Result[str] = Result.failure(
+                f"Failed to read file '{file_info.path}': {e}",
+                error_type=ERROR_FILE_READ,
+            )
+            error_result.instruction = INSTRUCTION_FILE_READ
+            return error_result.to_json_str()
+
+    # Format content
+    formatter = get_formatter()
+    content = await formatter.format(files, args.category)
+
+    return Result.ok(content).to_json_str()

@@ -15,6 +15,7 @@ dependencies = [
     "aiofiles>=23.2.1",
     "chevron>=0.14.0",
     "click>=8.3.0",
+    "uuid7>=0.1.0",
 ]
 
 [project.scripts]
