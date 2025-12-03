@@ -36,4 +36,3 @@ def validate_categories_exist(project: Project, category_names: list[str]) -> No
         if name not in existing_names
     ]:
         raise ArgValidationError(errors)
-
