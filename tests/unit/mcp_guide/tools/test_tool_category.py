@@ -26,7 +26,7 @@ class TestCategoryList:
     async def test_list_empty_categories(self, tmp_path: Path) -> None:
         """List empty categories returns empty list."""
         manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(config_manager=manager, project_name="test")
+        session = Session(_config_manager=manager, project_name="test")
         session._cached_project = Project(name="test", categories=[], collections=[])
         set_current_session(session)
 
@@ -46,7 +46,7 @@ class TestCategoryList:
             patterns=["*.md", "*.txt"],
         )
         manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(config_manager=manager, project_name="test")
+        session = Session(_config_manager=manager, project_name="test")
         session._cached_project = Project(name="test", categories=[category], collections=[])
         set_current_session(session)
 
@@ -67,7 +67,7 @@ class TestCategoryList:
         cat1 = Category(name="docs", dir="docs", patterns=["*.md"])
         cat2 = Category(name="src", dir="src", patterns=["*.py"])
         manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(config_manager=manager, project_name="test")
+        session = Session(_config_manager=manager, project_name="test")
         session._cached_project = Project(name="test", categories=[cat1, cat2], collections=[])
         set_current_session(session)
 
@@ -99,7 +99,7 @@ class TestCategoryList:
     async def test_result_pattern_response(self, tmp_path: Path) -> None:
         """Returns Result.ok with proper structure."""
         manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(config_manager=manager, project_name="test")
+        session = Session(_config_manager=manager, project_name="test")
         session._cached_project = Project(name="test", categories=[], collections=[])
         set_current_session(session)
 
@@ -125,7 +125,7 @@ class TestCategoryAdd:
         from mcp_guide.tools.tool_category import CategoryAddArgs, category_add
 
         manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(config_manager=manager, project_name="test")
+        session = Session(_config_manager=manager, project_name="test")
         session._cached_project = Project(name="test", categories=[], collections=[])
         set_current_session(session)
 
@@ -147,7 +147,7 @@ class TestCategoryAdd:
         from mcp_guide.tools.tool_category import CategoryAddArgs, category_add
 
         manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(config_manager=manager, project_name="test")
+        session = Session(_config_manager=manager, project_name="test")
         session._cached_project = Project(name="test", categories=[], collections=[])
         set_current_session(session)
 
@@ -166,7 +166,7 @@ class TestCategoryAdd:
         from mcp_guide.tools.tool_category import CategoryAddArgs, category_add
 
         manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(config_manager=manager, project_name="test")
+        session = Session(_config_manager=manager, project_name="test")
         session._cached_project = Project(name="test", categories=[], collections=[])
         set_current_session(session)
 
@@ -187,7 +187,7 @@ class TestCategoryAdd:
         from mcp_guide.tools.tool_category import CategoryAddArgs, category_add
 
         manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(config_manager=manager, project_name="test")
+        session = Session(_config_manager=manager, project_name="test")
         session._cached_project = Project(name="test", categories=[], collections=[])
         set_current_session(session)
 
@@ -205,7 +205,7 @@ class TestCategoryAdd:
 
         existing = Category(name="docs", dir="documentation", patterns=["*.md"])
         manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(config_manager=manager, project_name="test")
+        session = Session(_config_manager=manager, project_name="test")
         session._cached_project = Project(name="test", categories=[existing], collections=[])
         set_current_session(session)
 
@@ -224,7 +224,7 @@ class TestCategoryAdd:
         from mcp_guide.tools.tool_category import CategoryAddArgs, category_add
 
         manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(config_manager=manager, project_name="test")
+        session = Session(_config_manager=manager, project_name="test")
         session._cached_project = Project(name="test", categories=[], collections=[])
         set_current_session(session)
 
@@ -242,7 +242,7 @@ class TestCategoryAdd:
         from mcp_guide.tools.tool_category import CategoryAddArgs, category_add
 
         manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(config_manager=manager, project_name="test")
+        session = Session(_config_manager=manager, project_name="test")
         session._cached_project = Project(name="test", categories=[], collections=[])
         set_current_session(session)
 
@@ -260,7 +260,7 @@ class TestCategoryAdd:
         from mcp_guide.tools.tool_category import CategoryAddArgs, category_add
 
         manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(config_manager=manager, project_name="test")
+        session = Session(_config_manager=manager, project_name="test")
         session._cached_project = Project(name="test", categories=[], collections=[])
         set_current_session(session)
 
@@ -279,7 +279,7 @@ class TestCategoryAdd:
         from mcp_guide.tools.tool_category import CategoryAddArgs, category_add
 
         manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(config_manager=manager, project_name="test")
+        session = Session(_config_manager=manager, project_name="test")
         session._cached_project = Project(name="test", categories=[], collections=[])
         set_current_session(session)
 
@@ -297,7 +297,7 @@ class TestCategoryAdd:
         from mcp_guide.tools.tool_category import CategoryAddArgs, category_add
 
         manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(config_manager=manager, project_name="test")
+        session = Session(_config_manager=manager, project_name="test")
         session._cached_project = Project(name="test", categories=[], collections=[])
         set_current_session(session)
 
@@ -315,7 +315,7 @@ class TestCategoryAdd:
         from mcp_guide.tools.tool_category import CategoryAddArgs, category_add
 
         manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(config_manager=manager, project_name="test")
+        session = Session(_config_manager=manager, project_name="test")
         session._cached_project = Project(name="test", categories=[], collections=[])
         set_current_session(session)
 
@@ -333,7 +333,7 @@ class TestCategoryAdd:
         from mcp_guide.tools.tool_category import CategoryAddArgs, category_add
 
         manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(config_manager=manager, project_name="test")
+        session = Session(_config_manager=manager, project_name="test")
         session._cached_project = Project(name="test", categories=[], collections=[])
         set_current_session(session)
 
@@ -351,7 +351,7 @@ class TestCategoryAdd:
         from mcp_guide.tools.tool_category import CategoryAddArgs, category_add
 
         manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(config_manager=manager, project_name="test")
+        session = Session(_config_manager=manager, project_name="test")
         session._cached_project = Project(name="test", categories=[], collections=[])
         set_current_session(session)
 
@@ -369,7 +369,7 @@ class TestCategoryAdd:
         from mcp_guide.tools.tool_category import CategoryAddArgs, category_add
 
         manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(config_manager=manager, project_name="test")
+        session = Session(_config_manager=manager, project_name="test")
         session._cached_project = Project(name="test", categories=[], collections=[])
         set_current_session(session)
 
@@ -387,7 +387,7 @@ class TestCategoryAdd:
         from mcp_guide.tools.tool_category import CategoryAddArgs, category_add
 
         manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(config_manager=manager, project_name="test")
+        session = Session(_config_manager=manager, project_name="test")
         session._cached_project = Project(name="test", categories=[], collections=[])
         set_current_session(session)
 
@@ -407,7 +407,7 @@ class TestCategoryAdd:
         from mcp_guide.tools.tool_category import CategoryAddArgs, category_add
 
         manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(config_manager=manager, project_name="test")
+        session = Session(_config_manager=manager, project_name="test")
         session._cached_project = Project(name="test", categories=[], collections=[])
         set_current_session(session)
 
@@ -444,7 +444,7 @@ class TestCategoryAdd:
         from mcp_guide.tools.tool_category import CategoryAddArgs, category_add
 
         manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(config_manager=manager, project_name="test")
+        session = Session(_config_manager=manager, project_name="test")
         session._cached_project = Project(name="test", categories=[], collections=[])
         set_current_session(session)
 
@@ -466,7 +466,7 @@ class TestCategoryAdd:
         from mcp_guide.tools.tool_category import CategoryAddArgs, category_add
 
         manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(config_manager=manager, project_name="test")
+        session = Session(_config_manager=manager, project_name="test")
         session._cached_project = Project(name="test", categories=[], collections=[])
         set_current_session(session)
 
@@ -496,7 +496,7 @@ class TestCategoryRemove:
         from mcp_guide.tools.tool_category import CategoryRemoveArgs, category_remove
 
         manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(config_manager=manager, project_name="test")
+        session = Session(_config_manager=manager, project_name="test")
         docs_category = Category(name="docs", dir="docs", patterns=["*.md"])
         session._cached_project = Project(name="test", categories=[docs_category], collections=[])
         set_current_session(session)
@@ -515,7 +515,7 @@ class TestCategoryRemove:
         from mcp_guide.tools.tool_category import CategoryRemoveArgs, category_remove
 
         manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(config_manager=manager, project_name="test")
+        session = Session(_config_manager=manager, project_name="test")
         session._cached_project = Project(name="test", categories=[], collections=[])
         set_current_session(session)
 
@@ -534,7 +534,7 @@ class TestCategoryRemove:
         from mcp_guide.tools.tool_category import CategoryRemoveArgs, category_remove
 
         manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(config_manager=manager, project_name="test")
+        session = Session(_config_manager=manager, project_name="test")
         docs_category = Category(name="docs", dir="docs", patterns=["*.md"])
         all_collection = Collection(name="all", categories=["docs"])
         session._cached_project = Project(name="test", categories=[docs_category], collections=[all_collection])
@@ -555,7 +555,7 @@ class TestCategoryRemove:
         from mcp_guide.tools.tool_category import CategoryRemoveArgs, category_remove
 
         manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(config_manager=manager, project_name="test")
+        session = Session(_config_manager=manager, project_name="test")
         docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
         api_cat = Category(name="api", dir="api", patterns=["*.py"])
         tests_cat = Category(name="tests", dir="tests", patterns=["*.py"])
@@ -584,7 +584,7 @@ class TestCategoryRemove:
         from mcp_guide.tools.tool_category import CategoryRemoveArgs, category_remove
 
         manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(config_manager=manager, project_name="test")
+        session = Session(_config_manager=manager, project_name="test")
         docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
         api_cat = Category(name="api", dir="api", patterns=["*.py"])
         backend_col = Collection(name="backend", categories=["api"])
@@ -606,7 +606,7 @@ class TestCategoryRemove:
         from mcp_guide.tools.tool_category import CategoryRemoveArgs, category_remove
 
         manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(config_manager=manager, project_name="test")
+        session = Session(_config_manager=manager, project_name="test")
         docs_category = Category(name="docs", dir="docs", patterns=["*.md"])
         session._cached_project = Project(name="test", categories=[docs_category], collections=[])
         set_current_session(session)
@@ -643,7 +643,7 @@ class TestCategoryRemove:
         from mcp_guide.tools.tool_category import CategoryRemoveArgs, category_remove
 
         manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(config_manager=manager, project_name="test")
+        session = Session(_config_manager=manager, project_name="test")
         docs_category = Category(name="docs", dir="docs", patterns=["*.md"])
         session._cached_project = Project(name="test", categories=[docs_category], collections=[])
         set_current_session(session)
@@ -666,7 +666,7 @@ class TestCategoryRemove:
         from mcp_guide.tools.tool_category import CategoryRemoveArgs, category_remove
 
         manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(config_manager=manager, project_name="test")
+        session = Session(_config_manager=manager, project_name="test")
         docs_category = Category(name="docs", dir="docs", patterns=["*.md"])
         session._cached_project = Project(name="test", categories=[docs_category], collections=[])
         set_current_session(session)
@@ -697,7 +697,7 @@ class TestCategoryChange:
         from mcp_guide.tools.tool_category import CategoryChangeArgs, category_change
 
         manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(config_manager=manager, project_name="test")
+        session = Session(_config_manager=manager, project_name="test")
         docs_cat = Category(name="docs", dir="docs", patterns=["*.md"], description="Documentation")
         session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
         set_current_session(session)
@@ -719,7 +719,7 @@ class TestCategoryChange:
         from mcp_guide.tools.tool_category import CategoryChangeArgs, category_change
 
         manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(config_manager=manager, project_name="test")
+        session = Session(_config_manager=manager, project_name="test")
         docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
         session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
         set_current_session(session)
@@ -739,7 +739,7 @@ class TestCategoryChange:
         from mcp_guide.tools.tool_category import CategoryChangeArgs, category_change
 
         manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(config_manager=manager, project_name="test")
+        session = Session(_config_manager=manager, project_name="test")
         docs_cat = Category(name="docs", dir="docs", patterns=["*.md"], description="Old")
         session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
         set_current_session(session)
@@ -759,7 +759,7 @@ class TestCategoryChange:
         from mcp_guide.tools.tool_category import CategoryChangeArgs, category_change
 
         manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(config_manager=manager, project_name="test")
+        session = Session(_config_manager=manager, project_name="test")
         docs_cat = Category(name="docs", dir="docs", patterns=["*.md"], description="Something")
         session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
         set_current_session(session)
@@ -778,7 +778,7 @@ class TestCategoryChange:
         from mcp_guide.tools.tool_category import CategoryChangeArgs, category_change
 
         manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(config_manager=manager, project_name="test")
+        session = Session(_config_manager=manager, project_name="test")
         docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
         session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
         set_current_session(session)
@@ -797,7 +797,7 @@ class TestCategoryChange:
         from mcp_guide.tools.tool_category import CategoryChangeArgs, category_change
 
         manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(config_manager=manager, project_name="test")
+        session = Session(_config_manager=manager, project_name="test")
         docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
         session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
         set_current_session(session)
@@ -817,7 +817,7 @@ class TestCategoryChange:
         from mcp_guide.tools.tool_category import CategoryChangeArgs, category_change
 
         manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(config_manager=manager, project_name="test")
+        session = Session(_config_manager=manager, project_name="test")
         docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
         api_cat = Category(name="api", dir="api", patterns=["*.py"])
         all_col = Collection(name="all", categories=["docs", "api"])
@@ -839,7 +839,7 @@ class TestCategoryChange:
         from mcp_guide.tools.tool_category import CategoryChangeArgs, category_change
 
         manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(config_manager=manager, project_name="test")
+        session = Session(_config_manager=manager, project_name="test")
         docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
         api_cat = Category(name="api", dir="api", patterns=["*.py"])
         all_col = Collection(name="all", categories=["docs", "api"])
@@ -860,7 +860,7 @@ class TestCategoryChange:
         from mcp_guide.tools.tool_category import CategoryChangeArgs, category_change
 
         manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(config_manager=manager, project_name="test")
+        session = Session(_config_manager=manager, project_name="test")
         docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
         api_cat = Category(name="api", dir="api", patterns=["*.py"])
         backend_col = Collection(name="backend", categories=["api"])
@@ -886,7 +886,7 @@ class TestCategoryChange:
         from mcp_guide.tools.tool_category import CategoryChangeArgs, category_change
 
         manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(config_manager=manager, project_name="test")
+        session = Session(_config_manager=manager, project_name="test")
         session._cached_project = Project(name="test", categories=[], collections=[])
         set_current_session(session)
 
@@ -904,7 +904,7 @@ class TestCategoryChange:
         from mcp_guide.tools.tool_category import CategoryChangeArgs, category_change
 
         manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(config_manager=manager, project_name="test")
+        session = Session(_config_manager=manager, project_name="test")
         docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
         api_cat = Category(name="api", dir="api", patterns=["*.py"])
         session._cached_project = Project(name="test", categories=[docs_cat, api_cat], collections=[])
@@ -924,7 +924,7 @@ class TestCategoryChange:
         from mcp_guide.tools.tool_category import CategoryChangeArgs, category_change
 
         manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(config_manager=manager, project_name="test")
+        session = Session(_config_manager=manager, project_name="test")
         docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
         session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
         set_current_session(session)
@@ -942,7 +942,7 @@ class TestCategoryChange:
         from mcp_guide.tools.tool_category import CategoryChangeArgs, category_change
 
         manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(config_manager=manager, project_name="test")
+        session = Session(_config_manager=manager, project_name="test")
         docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
         session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
         set_current_session(session)
@@ -961,7 +961,7 @@ class TestCategoryChange:
         from mcp_guide.tools.tool_category import CategoryChangeArgs, category_change
 
         manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(config_manager=manager, project_name="test")
+        session = Session(_config_manager=manager, project_name="test")
         docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
         session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
         set_current_session(session)
@@ -979,7 +979,7 @@ class TestCategoryChange:
         from mcp_guide.tools.tool_category import CategoryChangeArgs, category_change
 
         manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(config_manager=manager, project_name="test")
+        session = Session(_config_manager=manager, project_name="test")
         docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
         session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
         set_current_session(session)
@@ -997,7 +997,7 @@ class TestCategoryChange:
         from mcp_guide.tools.tool_category import CategoryChangeArgs, category_change
 
         manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(config_manager=manager, project_name="test")
+        session = Session(_config_manager=manager, project_name="test")
         docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
         session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
         set_current_session(session)
@@ -1015,7 +1015,7 @@ class TestCategoryChange:
         from mcp_guide.tools.tool_category import CategoryChangeArgs, category_change
 
         manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(config_manager=manager, project_name="test")
+        session = Session(_config_manager=manager, project_name="test")
         docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
         session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
         set_current_session(session)
@@ -1034,7 +1034,7 @@ class TestCategoryChange:
         from mcp_guide.tools.tool_category import CategoryChangeArgs, category_change
 
         manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(config_manager=manager, project_name="test")
+        session = Session(_config_manager=manager, project_name="test")
         docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
         session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
         set_current_session(session)
@@ -1072,7 +1072,7 @@ class TestCategoryChange:
         from mcp_guide.tools.tool_category import CategoryChangeArgs, category_change
 
         manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(config_manager=manager, project_name="test")
+        session = Session(_config_manager=manager, project_name="test")
         docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
         session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
         set_current_session(session)
@@ -1095,7 +1095,7 @@ class TestCategoryChange:
         from mcp_guide.tools.tool_category import CategoryChangeArgs, category_change
 
         manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(config_manager=manager, project_name="test")
+        session = Session(_config_manager=manager, project_name="test")
         docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
         session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
         set_current_session(session)
@@ -1126,7 +1126,7 @@ class TestCategoryUpdate:
         from mcp_guide.tools.tool_category import CategoryUpdateArgs, category_update
 
         manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(config_manager=manager, project_name="test")
+        session = Session(_config_manager=manager, project_name="test")
         docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
         session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
         set_current_session(session)
@@ -1145,7 +1145,7 @@ class TestCategoryUpdate:
         from mcp_guide.tools.tool_category import CategoryUpdateArgs, category_update
 
         manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(config_manager=manager, project_name="test")
+        session = Session(_config_manager=manager, project_name="test")
         docs_cat = Category(name="docs", dir="docs", patterns=["*.md", "*.txt"])
         session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
         set_current_session(session)
@@ -1164,7 +1164,7 @@ class TestCategoryUpdate:
         from mcp_guide.tools.tool_category import CategoryUpdateArgs, category_update
 
         manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(config_manager=manager, project_name="test")
+        session = Session(_config_manager=manager, project_name="test")
         docs_cat = Category(name="docs", dir="docs", patterns=["*.md", "*.txt"])
         session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
         set_current_session(session)
@@ -1183,7 +1183,7 @@ class TestCategoryUpdate:
         from mcp_guide.tools.tool_category import CategoryUpdateArgs, category_update
 
         manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(config_manager=manager, project_name="test")
+        session = Session(_config_manager=manager, project_name="test")
         docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
         session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
         set_current_session(session)
@@ -1202,7 +1202,7 @@ class TestCategoryUpdate:
         from mcp_guide.tools.tool_category import CategoryUpdateArgs, category_update
 
         manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(config_manager=manager, project_name="test")
+        session = Session(_config_manager=manager, project_name="test")
         docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
         session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
         set_current_session(session)
@@ -1221,7 +1221,7 @@ class TestCategoryUpdate:
         from mcp_guide.tools.tool_category import CategoryUpdateArgs, category_update
 
         manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(config_manager=manager, project_name="test")
+        session = Session(_config_manager=manager, project_name="test")
         docs_cat = Category(name="docs", dir="docs", patterns=["*.md", "*.txt", "*.rst"])
         session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
         set_current_session(session)
@@ -1240,7 +1240,7 @@ class TestCategoryUpdate:
         from mcp_guide.tools.tool_category import CategoryUpdateArgs, category_update
 
         manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(config_manager=manager, project_name="test")
+        session = Session(_config_manager=manager, project_name="test")
         docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
         session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
         set_current_session(session)
@@ -1258,7 +1258,7 @@ class TestCategoryUpdate:
         from mcp_guide.tools.tool_category import CategoryUpdateArgs, category_update
 
         manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(config_manager=manager, project_name="test")
+        session = Session(_config_manager=manager, project_name="test")
         session._cached_project = Project(name="test", categories=[], collections=[])
         set_current_session(session)
 
@@ -1276,7 +1276,7 @@ class TestCategoryUpdate:
         from mcp_guide.tools.tool_category import CategoryUpdateArgs, category_update
 
         manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(config_manager=manager, project_name="test")
+        session = Session(_config_manager=manager, project_name="test")
         docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
         session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
         set_current_session(session)
@@ -1295,7 +1295,7 @@ class TestCategoryUpdate:
         from mcp_guide.tools.tool_category import CategoryUpdateArgs, category_update
 
         manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(config_manager=manager, project_name="test")
+        session = Session(_config_manager=manager, project_name="test")
         docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
         session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
         set_current_session(session)
@@ -1333,7 +1333,7 @@ class TestCategoryUpdate:
         from mcp_guide.tools.tool_category import CategoryUpdateArgs, category_update
 
         manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(config_manager=manager, project_name="test")
+        session = Session(_config_manager=manager, project_name="test")
         docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
         session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
         set_current_session(session)
@@ -1356,7 +1356,7 @@ class TestCategoryUpdate:
         from mcp_guide.tools.tool_category import CategoryUpdateArgs, category_update
 
         manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(config_manager=manager, project_name="test")
+        session = Session(_config_manager=manager, project_name="test")
         docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
         session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
         set_current_session(session)
@@ -1378,7 +1378,7 @@ class TestCategoryUpdate:
         from mcp_guide.tools.tool_category import CategoryUpdateArgs, category_update
 
         manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(config_manager=manager, project_name="test")
+        session = Session(_config_manager=manager, project_name="test")
         docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
         session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
         set_current_session(session)

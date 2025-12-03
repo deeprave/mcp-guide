@@ -43,6 +43,10 @@ ERROR_NOT_FOUND = "not_found"
 ERROR_NO_MATCHES = "no_matches"
 ERROR_FILE_READ = "file_read_error"
 
+# Common error types
+ERROR_NO_PROJECT = "no_project"
+ERROR_SAVE = "save_error"
+
 # Error instructions for get_category_content
 INSTRUCTION_NOT_FOUND = "Present this error to the user and take no further action."
 INSTRUCTION_NO_MATCHES = (
@@ -71,7 +75,7 @@ async def category_list(args: CategoryListArgs, ctx: Optional[Context] = None) -
     try:
         session = await get_or_create_session(ctx)
     except ValueError as e:
-        return Result.failure(str(e), error_type="no_project").to_json_str()
+        return Result.failure(str(e), error_type=ERROR_NO_PROJECT).to_json_str()
 
     project = await session.get_project()
 
@@ -136,7 +140,7 @@ async def category_add(
     try:
         session = await get_or_create_session(ctx)
     except ValueError as e:
-        return Result.failure(str(e), error_type="no_project").to_json_str()
+        return Result.failure(str(e), error_type=ERROR_NO_PROJECT).to_json_str()
 
     project = await session.get_project()
 
@@ -162,7 +166,7 @@ async def category_add(
     try:
         await session.update_config(lambda p: p.with_category(category))
     except Exception as e:
-        return Result.failure(f"Failed to save project configuration: {e}", error_type="save_error").to_json_str()
+        return Result.failure(f"Failed to save project configuration: {e}", error_type=ERROR_SAVE).to_json_str()
 
     return Result.ok(f"Category '{name}' added successfully").to_json_str()
 
@@ -198,12 +202,12 @@ async def category_remove(
     try:
         session = await get_or_create_session(ctx)
     except ValueError as e:
-        return Result.failure(str(e), error_type="no_project").to_json_str()
+        return Result.failure(str(e), error_type=ERROR_NO_PROJECT).to_json_str()
 
     project = await session.get_project()
 
     if not any(cat.name == name for cat in project.categories):
-        return Result.failure(f"Category '{name}' does not exist", error_type="not_found").to_json_str()
+        return Result.failure(f"Category '{name}' does not exist", error_type=ERROR_NOT_FOUND).to_json_str()
 
     def remove_category_and_update_collections(p: Project) -> Project:
         p_without_cat = p.without_category(name)
@@ -215,7 +219,7 @@ async def category_remove(
     try:
         await session.update_config(remove_category_and_update_collections)
     except Exception as e:
-        return Result.failure(f"Failed to save project configuration: {e}", error_type="save_error").to_json_str()
+        return Result.failure(f"Failed to save project configuration: {e}", error_type=ERROR_SAVE).to_json_str()
 
     return Result.ok(f"Category '{name}' removed successfully").to_json_str()
 
@@ -267,13 +271,13 @@ async def category_change(
     try:
         session = await get_or_create_session(ctx)
     except ValueError as e:
-        return Result.failure(str(e), error_type="no_project").to_json_str()
+        return Result.failure(str(e), error_type=ERROR_NO_PROJECT).to_json_str()
 
     project = await session.get_project()
 
     existing_category = next((c for c in project.categories if c.name == name), None)
     if existing_category is None:
-        return Result.failure(f"Category '{name}' does not exist", error_type="not_found").to_json_str()
+        return Result.failure(f"Category '{name}' does not exist", error_type=ERROR_NOT_FOUND).to_json_str()
 
     if new_name is None and new_dir is None and new_patterns is None and new_description is None:
         return (
@@ -342,7 +346,7 @@ async def category_change(
     try:
         await session.update_config(update_category_and_collections)
     except Exception as e:
-        return Result.failure(f"Failed to save project configuration: {e}", error_type="save_error").to_json_str()
+        return Result.failure(f"Failed to save project configuration: {e}", error_type=ERROR_SAVE).to_json_str()
 
     change_msg = f"Category '{name}' updated successfully"
     if new_name is not None and new_name != name:
@@ -390,13 +394,13 @@ async def category_update(
     try:
         session = await get_or_create_session(ctx)
     except ValueError as e:
-        return Result.failure(str(e), error_type="no_project").to_json_str()
+        return Result.failure(str(e), error_type=ERROR_NO_PROJECT).to_json_str()
 
     project = await session.get_project()
 
     existing_category = next((c for c in project.categories if c.name == name), None)
     if existing_category is None:
-        return Result.failure(f"Category '{name}' does not exist", error_type="not_found").to_json_str()
+        return Result.failure(f"Category '{name}' does not exist", error_type=ERROR_NOT_FOUND).to_json_str()
 
     if add_patterns is None and remove_patterns is None:
         return (
@@ -437,7 +441,7 @@ async def category_update(
     try:
         await session.update_config(update_category_patterns)
     except Exception as e:
-        return Result.failure(f"Failed to save project configuration: {e}", error_type="save_error").to_json_str()
+        return Result.failure(f"Failed to save project configuration: {e}", error_type=ERROR_SAVE).to_json_str()
 
     return Result.ok(f"Category '{name}' patterns updated successfully").to_json_str()
 
@@ -460,7 +464,7 @@ async def get_category_content(
     try:
         session = await get_or_create_session(ctx)
     except ValueError as e:
-        return Result.failure(str(e), error_type="no_project").to_json_str()
+        return Result.failure(str(e), error_type=ERROR_NO_PROJECT).to_json_str()
 
     # Get project
     project = await session.get_project()
@@ -479,7 +483,7 @@ async def get_category_content(
     patterns = [args.pattern] if args.pattern else category.patterns
 
     # Discover files
-    docroot = Path(session.config_manager.get_docroot())
+    docroot = Path(session.get_docroot())
     category_dir = docroot / category.dir
     files = await discover_category_files(category_dir, patterns)
 
