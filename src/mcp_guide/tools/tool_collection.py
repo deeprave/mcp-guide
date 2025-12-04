@@ -143,7 +143,7 @@ async def collection_remove(args: CollectionRemoveArgs, ctx: Optional[Context] =
 
     project = await session.get_project()
 
-    if not any(col.name == args.name for col in project.collections):
+    if all(col.name != args.name for col in project.collections):
         return Result.failure(f"Collection '{args.name}' does not exist", error_type=ERROR_NOT_FOUND).to_json_str()
 
     try:
