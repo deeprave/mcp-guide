@@ -293,9 +293,13 @@ async def collection_update(args: CollectionUpdateArgs, ctx: Optional[Context] =
             ArgValidationError(
                 [
                     {
-                        "field": "operations",
+                        "field": "add_categories",
                         "message": "At least one operation must be provided (add_categories or remove_categories)",
-                    }
+                    },
+                    {
+                        "field": "remove_categories",
+                        "message": "At least one operation must be provided (add_categories or remove_categories)",
+                    },
                 ]
             )
             .to_result()
