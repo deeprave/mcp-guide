@@ -8,7 +8,7 @@ from _pytest.monkeypatch import MonkeyPatch
 
 from mcp_guide.config import ConfigManager
 from mcp_guide.models import Category, Collection, Project
-from mcp_guide.session import Session, set_current_session
+from mcp_guide.session import Session, get_or_create_session, set_current_session
 from mcp_guide.tools.tool_collection import CollectionAddArgs, CollectionListArgs, collection_add, collection_list
 
 
@@ -380,3 +380,84 @@ class TestCollectionAdd:
         assert result_dict["success"] is False
         assert result_dict["error_type"] == "save_error"
         assert "Failed to save" in result_dict["error"]
+
+
+class TestCollectionRemove:
+    """Tests for collection_remove tool."""
+
+    @pytest.mark.asyncio
+    async def test_collection_remove_existing(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
+        """Remove existing collection."""
+        from mcp_guide.tools.tool_collection import CollectionRemoveArgs, collection_remove
+
+        monkeypatch.setenv("PWD", "/fake/path/test")
+        session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
+
+        backend_collection = Collection(name="backend", categories=["api"], description="Backend")
+        await session.update_config(lambda p: p.with_collection(backend_collection))
+
+        args = CollectionRemoveArgs(name="backend")
+        result_str = await collection_remove(args)
+        result_dict = json.loads(result_str)
+
+        assert result_dict["success"] is True
+        assert "removed successfully" in result_dict["value"]
+
+        project = await session.get_project()
+        assert len(project.collections) == 0
+
+    @pytest.mark.asyncio
+    async def test_collection_remove_nonexistent(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
+        """Reject removing non-existent collection."""
+        from mcp_guide.tools.tool_collection import CollectionRemoveArgs, collection_remove
+
+        monkeypatch.setenv("PWD", "/fake/path/test")
+        session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
+        await session.update_config(lambda p: p)
+
+        args = CollectionRemoveArgs(name="nonexistent")
+        result_str = await collection_remove(args)
+        result_dict = json.loads(result_str)
+
+        assert result_dict["success"] is False
+        assert result_dict["error_type"] == "not_found"
+        assert "does not exist" in result_dict["error"]
+        assert "nonexistent" in result_dict["error"]
+
+    @pytest.mark.asyncio
+    async def test_collection_remove_no_session(self, monkeypatch: MonkeyPatch) -> None:
+        """Reject when no session exists."""
+        from mcp_guide.tools.tool_collection import CollectionRemoveArgs, collection_remove
+
+        monkeypatch.delenv("PWD", raising=False)
+        monkeypatch.delenv("CWD", raising=False)
+
+        args = CollectionRemoveArgs(name="backend")
+        result_str = await collection_remove(args)
+        result_dict = json.loads(result_str)
+
+        assert result_dict["success"] is False
+        assert result_dict["error_type"] == "no_project"
+
+    @pytest.mark.asyncio
+    async def test_collection_remove_auto_saves(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
+        """Verify configuration is automatically saved."""
+        from mcp_guide.tools.tool_collection import CollectionRemoveArgs, collection_remove
+
+        monkeypatch.setenv("PWD", "/fake/path/test")
+        session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
+
+        backend_collection = Collection(name="backend", categories=[], description="Backend")
+        await session.update_config(lambda p: p.with_collection(backend_collection))
+
+        args = CollectionRemoveArgs(name="backend")
+        result_str = await collection_remove(args)
+        result_dict = json.loads(result_str)
+
+        assert result_dict["success"] is True
+
+        # Reload from disk to verify persistence
+        from mcp_guide.session import Session
+        new_session = Session(_config_manager=session._config_manager, project_name="test")
+        reloaded_project = await new_session.get_project()
+        assert len(reloaded_project.collections) == 0
