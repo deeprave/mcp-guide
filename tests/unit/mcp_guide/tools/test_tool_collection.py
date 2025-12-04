@@ -458,6 +458,7 @@ class TestCollectionRemove:
 
         # Reload from disk to verify persistence
         from mcp_guide.session import Session
+
         new_session = Session(_config_manager=session._config_manager, project_name="test")
         reloaded_project = await new_session.get_project()
         assert len(reloaded_project.collections) == 0
