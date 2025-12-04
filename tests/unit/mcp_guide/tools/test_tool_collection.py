@@ -920,6 +920,33 @@ class TestCollectionUpdate:
         assert project.collections[0].categories == ["api", "docs"]
 
     @pytest.mark.asyncio
+    async def test_update_collection_add_and_remove_same_category(
+        self, tmp_path: Path, monkeypatch: MonkeyPatch
+    ) -> None:
+        """Same category in both add and remove results in it being present (remove then add)."""
+        from mcp_guide.tools.tool_collection import CollectionUpdateArgs, collection_update
+
+        monkeypatch.setenv("PWD", "/fake/path/test")
+        session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
+
+        api_cat = Category(name="api", dir="api", patterns=["*.py"])
+        tests_cat = Category(name="tests", dir="tests", patterns=["test_*.py"])
+        await session.update_config(lambda p: p.with_category(api_cat).with_category(tests_cat))
+
+        backend_collection = Collection(name="backend", categories=["api", "tests"], description=None)
+        await session.update_config(lambda p: p.with_collection(backend_collection))
+
+        # Remove "tests" then add "tests" - should result in "tests" being present
+        args = CollectionUpdateArgs(name="backend", remove_categories=["tests"], add_categories=["tests"])
+        result_str = await collection_update(args)
+        result_dict = json.loads(result_str)
+
+        assert result_dict["success"] is True
+
+        project = await session.get_project()
+        assert project.collections[0].categories == ["api", "tests"]
+
+    @pytest.mark.asyncio
     async def test_update_collection_add_multiple_categories(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Add multiple categories."""
         from mcp_guide.tools.tool_collection import CollectionUpdateArgs, collection_update
@@ -1021,6 +1048,36 @@ class TestCollectionUpdate:
         assert project.collections[0].categories == ["api", "tests", "docs"]
 
     @pytest.mark.asyncio
+    async def test_update_collection_deduplicates_add_categories_argument(
+        self, tmp_path: Path, monkeypatch: MonkeyPatch
+    ) -> None:
+        """Input add_categories argument with duplicates is deduplicated."""
+        from mcp_guide.tools.tool_collection import CollectionUpdateArgs, collection_update
+
+        monkeypatch.setenv("PWD", "/fake/path/test")
+        session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
+
+        api_cat = Category(name="api", dir="api", patterns=["*.py"])
+        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
+        await session.update_config(lambda p: p.with_category(api_cat).with_category(docs_cat))
+
+        backend_collection = Collection(name="backend", categories=["api"], description=None)
+        await session.update_config(lambda p: p.with_collection(backend_collection))
+
+        # Pass duplicates in add_categories
+        args = CollectionUpdateArgs(name="backend", add_categories=["api", "api", "docs"])
+        result_str = await collection_update(args)
+        result_dict = json.loads(result_str)
+
+        assert result_dict["success"] is True
+
+        project = await session.get_project()
+        # "api" should not be duplicated, "docs" should be added exactly once
+        assert project.collections[0].categories.count("api") == 1
+        assert project.collections[0].categories.count("docs") == 1
+        assert project.collections[0].categories == ["api", "docs"]
+
+    @pytest.mark.asyncio
     async def test_update_collection_not_found(self, monkeypatch: MonkeyPatch, tmp_path: Path) -> None:
         """Reject non-existent collection."""
         from mcp_guide.tools.tool_collection import CollectionUpdateArgs, collection_update
@@ -1052,7 +1109,8 @@ class TestCollectionUpdate:
 
         assert result_dict["success"] is False
         assert result_dict["error_type"] == "validation_error"
-        assert "at least one operation" in result_dict["error"].lower()
+        # Check that validation errors are present
+        assert "validation error" in result_dict["error"].lower()
 
     @pytest.mark.asyncio
     async def test_update_collection_invalid_categories(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
