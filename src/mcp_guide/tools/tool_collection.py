@@ -74,26 +74,18 @@ class CollectionAddArgs(ToolArguments):
 
 
 @tools.tool(CollectionAddArgs)
-async def collection_add(
-    name: str,
-    description: Optional[str] = None,
-    categories: Optional[list[str]] = None,
-    ctx: Optional[Context] = None,  # type: ignore
-) -> str:
+async def collection_add(args: CollectionAddArgs, ctx: Optional[Context] = None) -> str:  # type: ignore
     """Add a new collection to the current project.
 
     Args:
-        name: Collection name
-        description: Optional description
-        categories: Optional list of category names
+        args: Tool arguments with name, description, and categories
         ctx: MCP Context (auto-injected by FastMCP)
 
     Returns:
         JSON string with Result containing success message
     """
-    categories = categories or []
     # Deduplicate while preserving order
-    categories = list(dict.fromkeys(categories))
+    categories = list(dict.fromkeys(args.categories))
 
     try:
         session = await get_or_create_session(ctx)
@@ -103,10 +95,10 @@ async def collection_add(
     project = await session.get_project()
 
     try:
-        if any(col.name == name for col in project.collections):
-            raise ArgValidationError([{"field": "name", "message": f"Collection '{name}' already exists"}])
+        if any(col.name == args.name for col in project.collections):
+            raise ArgValidationError([{"field": "name", "message": f"Collection '{args.name}' already exists"}])
 
-        validated_description = validate_description(description) if description else None
+        validated_description = validate_description(args.description) if args.description else None
 
         if categories:
             validate_categories_exist(project, categories)
@@ -114,7 +106,7 @@ async def collection_add(
         return e.to_result().to_json_str()
 
     try:
-        collection = Collection(name=name, categories=categories, description=validated_description or "")
+        collection = Collection(name=args.name, categories=categories, description=validated_description or "")
     except ValueError as e:
         return ArgValidationError([{"field": "name", "message": str(e)}]).to_result().to_json_str()
 
@@ -123,4 +115,4 @@ async def collection_add(
     except Exception as e:
         return Result.failure(f"Failed to save project configuration: {e}", error_type=ERROR_SAVE).to_json_str()
 
-    return Result.ok(f"Collection '{name}' added successfully").to_json_str()
+    return Result.ok(f"Collection '{args.name}' added successfully").to_json_str()

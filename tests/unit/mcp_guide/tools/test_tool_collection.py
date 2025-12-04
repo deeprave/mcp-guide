@@ -9,7 +9,7 @@ from _pytest.monkeypatch import MonkeyPatch
 from mcp_guide.config import ConfigManager
 from mcp_guide.models import Category, Collection, Project
 from mcp_guide.session import Session, set_current_session
-from mcp_guide.tools.tool_collection import CollectionListArgs, collection_add, collection_list
+from mcp_guide.tools.tool_collection import CollectionAddArgs, CollectionListArgs, collection_add, collection_list
 
 
 class TestCollectionList:
@@ -128,13 +128,15 @@ class TestCollectionAdd:
     @pytest.mark.asyncio
     async def test_add_collection_name_only(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Create collection with just name."""
-        manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(_config_manager=manager, project_name="test")
-        session._cached_project = Project(name="test", categories=[], collections=[])
-        set_current_session(session)
-        monkeypatch.setenv("PWD", "/fake/path/test")
+        from mcp_guide.session import get_or_create_session
 
-        result_str = await collection_add(name="backend")
+        monkeypatch.setenv("PWD", "/fake/path/test")
+        session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
+        # Initialize project via proper API
+        await session.update_config(lambda p: p)
+
+        args = CollectionAddArgs(name="backend")
+        result_str = await collection_add(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is True
@@ -151,13 +153,14 @@ class TestCollectionAdd:
     @pytest.mark.asyncio
     async def test_add_collection_with_description(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Create collection with name and description."""
-        manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(_config_manager=manager, project_name="test")
-        session._cached_project = Project(name="test", categories=[], collections=[])
-        set_current_session(session)
-        monkeypatch.setenv("PWD", "/fake/path/test")
+        from mcp_guide.session import get_or_create_session
 
-        result_str = await collection_add(name="docs", description="Documentation files")
+        monkeypatch.setenv("PWD", "/fake/path/test")
+        session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
+        await session.update_config(lambda p: p)
+
+        args = CollectionAddArgs(name="docs", description="Documentation files")
+        result_str = await collection_add(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is True
@@ -171,17 +174,19 @@ class TestCollectionAdd:
     @pytest.mark.asyncio
     async def test_add_collection_with_categories(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Create collection with valid categories."""
-        categories = [
-            Category(name="api", dir="api", patterns=["*.py"]),
-            Category(name="tests", dir="tests", patterns=["test_*.py"]),
-        ]
-        manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(_config_manager=manager, project_name="test")
-        session._cached_project = Project(name="test", categories=categories, collections=[])
-        set_current_session(session)
-        monkeypatch.setenv("PWD", "/fake/path/test")
+        from mcp_guide.session import get_or_create_session
 
-        result_str = await collection_add(name="backend", categories=["api", "tests"])
+        monkeypatch.setenv("PWD", "/fake/path/test")
+        session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
+        # Add categories via proper API
+        await session.update_config(
+            lambda p: p.with_category(Category(name="api", dir="api", patterns=["*.py"])).with_category(
+                Category(name="tests", dir="tests", patterns=["test_*.py"])
+            )
+        )
+
+        args = CollectionAddArgs(name="backend", categories=["api", "tests"])
+        result_str = await collection_add(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is True
@@ -195,19 +200,20 @@ class TestCollectionAdd:
     @pytest.mark.asyncio
     async def test_add_collection_deduplicates_categories(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Duplicate categories should be deduplicated while preserving order."""
-        categories = [
-            Category(name="api", dir="api", patterns=["*.py"]),
-            Category(name="tests", dir="tests", patterns=["test_*.py"]),
-            Category(name="docs", dir="docs", patterns=["*.md"]),
-        ]
-        manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(_config_manager=manager, project_name="test")
-        session._cached_project = Project(name="test", categories=categories, collections=[])
-        set_current_session(session)
+        from mcp_guide.session import get_or_create_session
+
         monkeypatch.setenv("PWD", "/fake/path/test")
+        session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
+        # Add categories via proper API
+        await session.update_config(
+            lambda p: p.with_category(Category(name="api", dir="api", patterns=["*.py"]))
+            .with_category(Category(name="tests", dir="tests", patterns=["test_*.py"]))
+            .with_category(Category(name="docs", dir="docs", patterns=["*.md"]))
+        )
 
         # Pass duplicates: api, tests, api, docs, tests
-        result_str = await collection_add(name="backend", categories=["api", "tests", "api", "docs", "tests"])
+        args = CollectionAddArgs(name="backend", categories=["api", "tests", "api", "docs", "tests"])
+        result_str = await collection_add(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is True
@@ -219,47 +225,69 @@ class TestCollectionAdd:
     @pytest.mark.asyncio
     async def test_add_collection_duplicate_name_error(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Duplicate collection name should return validation error."""
-        existing = Collection(name="backend", categories=[], description="")
-        manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(_config_manager=manager, project_name="test")
-        session._cached_project = Project(name="test", categories=[], collections=[existing])
-        set_current_session(session)
-        monkeypatch.setenv("PWD", "/fake/path/test")
+        from mcp_guide.session import get_or_create_session
 
-        result_str = await collection_add(name="backend")
+        monkeypatch.setenv("PWD", "/fake/path/test")
+        session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
+        # Add existing collection via proper API
+        await session.update_config(
+            lambda p: p.with_collection(Collection(name="backend", categories=[], description=""))
+        )
+
+        # Capture original project state
+        original_project = await session.get_project()
+        original_collections = list(original_project.collections)
+
+        args = CollectionAddArgs(name="backend")
+        result_str = await collection_add(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is False
         assert result_dict["error_type"] == "validation_error"
         assert "already exists" in result_dict["error"]
 
+        # Project state should be unchanged after failed validation
+        project = await session.get_project()
+        assert len(project.collections) == len(original_collections)
+        assert project.collections == original_collections
+
     @pytest.mark.asyncio
     async def test_add_collection_invalid_description_too_long(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Description exceeding max length should return validation error."""
-        manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(_config_manager=manager, project_name="test")
-        session._cached_project = Project(name="test", categories=[], collections=[])
-        set_current_session(session)
+        from mcp_guide.session import get_or_create_session
+
         monkeypatch.setenv("PWD", "/fake/path/test")
+        session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
+        await session.update_config(lambda p: p)
+
+        # Capture original project state
+        original_project = await session.get_project()
+        original_collections = list(original_project.collections)
 
         long_desc = "x" * 501
-        result_str = await collection_add(name="backend", description=long_desc)
+        args = CollectionAddArgs(name="backend", description=long_desc)
+        result_str = await collection_add(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is False
         assert result_dict["error_type"] == "validation_error"
         assert "exceeds" in result_dict["error"]
 
+        # Project state should be unchanged
+        project = await session.get_project()
+        assert len(project.collections) == len(original_collections)
+
     @pytest.mark.asyncio
     async def test_add_collection_invalid_description_quotes(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Description with quotes should return validation error."""
-        manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(_config_manager=manager, project_name="test")
-        session._cached_project = Project(name="test", categories=[], collections=[])
-        set_current_session(session)
-        monkeypatch.setenv("PWD", "/fake/path/test")
+        from mcp_guide.session import get_or_create_session
 
-        result_str = await collection_add(name="backend", description='Has "quotes" in it')
+        monkeypatch.setenv("PWD", "/fake/path/test")
+        session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
+        await session.update_config(lambda p: p)
+
+        args = CollectionAddArgs(name="backend", description='Has "quotes" in it')
+        result_str = await collection_add(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is False
@@ -269,19 +297,28 @@ class TestCollectionAdd:
     @pytest.mark.asyncio
     async def test_add_collection_nonexistent_categories(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Non-existent categories should return validation error."""
-        categories = [Category(name="api", dir="api", patterns=["*.py"])]
-        manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(_config_manager=manager, project_name="test")
-        session._cached_project = Project(name="test", categories=categories, collections=[])
-        set_current_session(session)
-        monkeypatch.setenv("PWD", "/fake/path/test")
+        from mcp_guide.session import get_or_create_session
 
-        result_str = await collection_add(name="backend", categories=["api", "nonexistent"])
+        monkeypatch.setenv("PWD", "/fake/path/test")
+        session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
+        # Add one category via proper API
+        await session.update_config(lambda p: p.with_category(Category(name="api", dir="api", patterns=["*.py"])))
+
+        # Capture original project state
+        original_project = await session.get_project()
+        original_collections = list(original_project.collections)
+
+        args = CollectionAddArgs(name="backend", categories=["api", "nonexistent"])
+        result_str = await collection_add(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is False
         assert result_dict["error_type"] == "validation_error"
         assert "does not exist" in result_dict["error"]
+
+        # Project state should be unchanged
+        project = await session.get_project()
+        assert len(project.collections) == len(original_collections)
 
     @pytest.mark.asyncio
     async def test_add_collection_no_session_error(self, monkeypatch: MonkeyPatch) -> None:
@@ -289,7 +326,8 @@ class TestCollectionAdd:
         monkeypatch.delenv("PWD", raising=False)
         monkeypatch.delenv("CWD", raising=False)
 
-        result_str = await collection_add(name="backend")
+        args = CollectionAddArgs(name="backend")
+        result_str = await collection_add(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is False
@@ -298,15 +336,47 @@ class TestCollectionAdd:
     @pytest.mark.asyncio
     async def test_add_collection_invalid_name(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Invalid collection name should return validation error."""
-        manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(_config_manager=manager, project_name="test")
-        session._cached_project = Project(name="test", categories=[], collections=[])
-        set_current_session(session)
+        from mcp_guide.session import get_or_create_session
+
         monkeypatch.setenv("PWD", "/fake/path/test")
+        session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
+        await session.update_config(lambda p: p)
+
+        # Capture original project state
+        original_project = await session.get_project()
+        original_collections = list(original_project.collections)
 
         # Test name too long
-        result_str = await collection_add(name="x" * 31)
+        args = CollectionAddArgs(name="x" * 31)
+        result_str = await collection_add(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is False
         assert result_dict["error_type"] == "validation_error"
+
+        # Project state should be unchanged
+        project = await session.get_project()
+        assert len(project.collections) == len(original_collections)
+
+    @pytest.mark.asyncio
+    async def test_add_collection_save_error(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
+        """Configuration save failure should return ERROR_SAVE."""
+        from mcp_guide.session import get_or_create_session
+
+        monkeypatch.setenv("PWD", "/fake/path/test")
+        session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
+        await session.update_config(lambda p: p)
+
+        # Mock update_config to raise an exception
+        async def mock_update_config(*args, **kwargs):  # type: ignore
+            raise RuntimeError("Simulated save failure")
+
+        monkeypatch.setattr(session, "update_config", mock_update_config)
+
+        args = CollectionAddArgs(name="backend")
+        result_str = await collection_add(args)
+        result_dict = json.loads(result_str)
+
+        assert result_dict["success"] is False
+        assert result_dict["error_type"] == "save_error"
+        assert "Failed to save" in result_dict["error"]
