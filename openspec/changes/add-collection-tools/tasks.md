@@ -11,8 +11,8 @@
 
 ## 2. Collection Management Tools (GUIDE-102)
 
-### 2.1 collection_list Tool (GUIDE-103)
-- [ ] Implement tool with TDD (schema + logic + tests)
+### 2.1 collection_list Tool (GUIDE-103) ✅
+- [x] Implement tool with TDD (schema + logic + tests)
 
 ### 2.2 collection_add Tool (GUIDE-104)
 - [ ] Implement tool with TDD (schema + validation + create + persist + tests)
