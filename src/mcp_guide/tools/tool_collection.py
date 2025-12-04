@@ -206,19 +206,19 @@ async def collection_change(args: CollectionChangeArgs, ctx: Optional[Context] =
         )
 
     try:
-        if args.new_name is not None:
-            if any(c.name == args.new_name for c in project.collections if c.name != args.name):
-                raise ArgValidationError(
-                    [{"field": "new_name", "message": f"Collection '{args.new_name}' already exists"}]
-                )
+        if args.new_name is not None and any(
+            c.name == args.new_name for c in project.collections if c.name != args.name
+        ):
+            raise ArgValidationError([{"field": "new_name", "message": f"Collection '{args.new_name}' already exists"}])
 
         if args.new_description is not None and args.new_description != "":
             validate_description(args.new_description)
 
+        deduplicated_categories = None
         if args.new_categories is not None:
-            categories = list(dict.fromkeys(args.new_categories))
-            if categories:
-                validate_categories_exist(project, categories)
+            deduplicated_categories = list(dict.fromkeys(args.new_categories))
+            if deduplicated_categories:
+                validate_categories_exist(project, deduplicated_categories)
     except ArgValidationError as e:
         return e.to_result().to_json_str()
 
@@ -230,7 +230,7 @@ async def collection_change(args: CollectionChangeArgs, ctx: Optional[Context] =
         final_description = existing_collection.description
 
     final_categories = (
-        list(dict.fromkeys(args.new_categories)) if args.new_categories is not None else existing_collection.categories
+        deduplicated_categories if deduplicated_categories is not None else existing_collection.categories
     )
 
     try:

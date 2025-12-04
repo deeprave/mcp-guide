@@ -594,19 +594,21 @@ class TestCollectionChange:
         session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
         api_cat = Category(name="api", dir="api", patterns=["*.py"])
-        await session.update_config(lambda p: p.with_category(api_cat))
+        tests_cat = Category(name="tests", dir="tests", patterns=["test_*.py"])
+        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
+        await session.update_config(lambda p: p.with_category(api_cat).with_category(tests_cat).with_category(docs_cat))
 
-        backend_collection = Collection(name="backend", categories=[], description="")
+        backend_collection = Collection(name="backend", categories=[], description=None)
         await session.update_config(lambda p: p.with_collection(backend_collection))
 
-        args = CollectionChangeArgs(name="backend", new_categories=["api", "api", "api"])
+        args = CollectionChangeArgs(name="backend", new_categories=["api", "tests", "api", "docs", "tests"])
         result_str = await collection_change(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is True
 
         project = await session.get_project()
-        assert project.collections[0].categories == ["api"]
+        assert project.collections[0].categories == ["api", "tests", "docs"]
 
     @pytest.mark.asyncio
     async def test_change_collection_multiple_fields(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
@@ -696,6 +698,25 @@ class TestCollectionChange:
         assert "already exists" in result_dict["error"]
 
     @pytest.mark.asyncio
+    async def test_change_collection_invalid_new_name(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
+        """Reject invalid new_name that fails Collection validation."""
+        from mcp_guide.tools.tool_collection import CollectionChangeArgs, collection_change
+
+        monkeypatch.setenv("PWD", "/fake/path/test")
+        session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
+
+        backend_collection = Collection(name="backend", categories=[], description=None)
+        await session.update_config(lambda p: p.with_collection(backend_collection))
+
+        args = CollectionChangeArgs(name="backend", new_name="")
+        result_str = await collection_change(args)
+        result_dict = json.loads(result_str)
+
+        assert result_dict["success"] is False
+        assert result_dict["error_type"] == "validation_error"
+        assert "name" in result_dict["error"].lower()
+
+    @pytest.mark.asyncio
     async def test_change_collection_invalid_categories(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Reject non-existent categories."""
         from mcp_guide.tools.tool_collection import CollectionChangeArgs, collection_change
@@ -739,10 +760,11 @@ class TestCollectionChange:
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
-        backend_collection = Collection(name="backend", categories=[], description="")
+        backend_collection = Collection(name="backend", categories=[], description=None)
         await session.update_config(lambda p: p.with_collection(backend_collection))
 
-        update_mock = AsyncMock(side_effect=Exception("Disk full"))
+        underlying_message = "Disk full"
+        update_mock = AsyncMock(side_effect=Exception(underlying_message))
         monkeypatch.setattr(session, "update_config", update_mock)
 
         args = CollectionChangeArgs(name="backend", new_name="new")
@@ -752,6 +774,7 @@ class TestCollectionChange:
         assert result_dict["success"] is False
         assert result_dict["error_type"] == "save_error"
         assert "Failed to save" in result_dict["error"]
+        assert underlying_message in result_dict["error"]
 
     @pytest.mark.asyncio
     async def test_change_collection_same_name(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
