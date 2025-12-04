@@ -107,16 +107,15 @@ class TestCollectionList:
         assert len(result_dict["value"]) == 1
         assert result_dict["value"][0]["categories"] == []
 
-    def test_no_active_session_error(self, monkeypatch: MonkeyPatch) -> None:
+    @pytest.mark.asyncio
+    async def test_no_active_session_error(self, monkeypatch: MonkeyPatch) -> None:
         """No active session returns error."""
-        import asyncio
-
         # Unset PWD and CWD so get_or_create_session fails
         monkeypatch.delenv("PWD", raising=False)
         monkeypatch.delenv("CWD", raising=False)
 
         args = CollectionListArgs()
-        result_str = asyncio.run(collection_list(args))
+        result_str = await collection_list(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is False

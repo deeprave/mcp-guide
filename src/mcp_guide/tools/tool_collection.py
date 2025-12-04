@@ -1,8 +1,6 @@
 """Collection management tools."""
 
-from typing import Optional
-
-from pydantic import Field
+from typing import Any, Optional
 
 from mcp_core.result import Result
 from mcp_core.tool_arguments import ToolArguments
@@ -45,8 +43,9 @@ async def collection_list(args: CollectionListArgs, ctx: Optional[Context] = Non
 
     project = await session.get_project()
 
+    collections: Any
     if args.verbose:
-        collections: list[dict[str, str | list[str]]] = [
+        collections = [
             {
                 "name": collection.name,
                 "categories": list(collection.categories),
@@ -55,7 +54,6 @@ async def collection_list(args: CollectionListArgs, ctx: Optional[Context] = Non
             for collection in project.collections
         ]
     else:
-        collections_list: list[str] = [collection.name for collection in project.collections]
-        return Result.ok(collections_list).to_json_str()
+        collections = [collection.name for collection in project.collections]
 
     return Result.ok(collections).to_json_str()
