@@ -1139,4 +1139,3 @@ class TestCollectionUpdate:
 
         project = await session.get_project()
         assert project.collections[0].categories == []
-
