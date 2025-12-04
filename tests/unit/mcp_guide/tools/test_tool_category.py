@@ -1390,3 +1390,24 @@ class TestCategoryUpdate:
         assert result_dict["success"] is True
         doc_cat = next(c for c in session._cached_project.categories if c.name == "docs")
         assert doc_cat.patterns == ["*.md"]
+
+    @pytest.mark.asyncio
+    async def test_category_update_deduplicates_patterns(self, tmp_path: Path) -> None:
+        """Deduplicate patterns after add/remove operations."""
+        from mcp_guide.tools.tool_category import CategoryUpdateArgs, category_update
+
+        manager = ConfigManager(config_dir=str(tmp_path))
+        session = Session(_config_manager=manager, project_name="test")
+        # Start with existing duplicates in patterns
+        docs_cat = Category(name="docs", dir="docs", patterns=["*.py", "*.txt", "*.py"])
+        session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
+        set_current_session(session)
+
+        args = CategoryUpdateArgs(name="docs", add_patterns=["*.md"])
+        result_str = await category_update(**args.model_dump())
+        result_dict = json.loads(result_str)
+
+        assert result_dict["success"] is True
+        doc_cat = next(c for c in session._cached_project.categories if c.name == "docs")
+        # Should deduplicate existing duplicates
+        assert doc_cat.patterns == ["*.py", "*.txt", "*.md"]

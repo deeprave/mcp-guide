@@ -1,5 +1,6 @@
 """Collection management tools."""
 
+from dataclasses import replace
 from typing import Any, Optional
 
 from pydantic import Field
@@ -252,3 +253,79 @@ async def collection_change(args: CollectionChangeArgs, ctx: Optional[Context] =
         change_msg = f"Collection '{args.name}' renamed to '{args.new_name}' successfully"
 
     return Result.ok(change_msg).to_json_str()
+
+
+class CollectionUpdateArgs(ToolArguments):
+    """Arguments for collection_update tool."""
+
+    name: str
+    add_categories: Optional[list[str]] = None
+    remove_categories: Optional[list[str]] = None
+
+
+@tools.tool(CollectionUpdateArgs)
+async def collection_update(args: CollectionUpdateArgs, ctx: Optional[Context] = None) -> str:  # type: ignore
+    """Update collection categories incrementally.
+
+    Add or remove categories from a collection without replacing the entire list.
+    Categories are removed first, then added (avoiding duplicates).
+
+    Args:
+        args: Tool arguments with name and optional add/remove lists
+        ctx: MCP Context (auto-injected by FastMCP)
+
+    Returns:
+        JSON string with Result containing success message
+    """
+    try:
+        session = await get_or_create_session(ctx)
+    except ValueError as e:
+        return Result.failure(str(e), error_type=ERROR_NO_PROJECT).to_json_str()
+
+    project = await session.get_project()
+
+    existing_collection = next((c for c in project.collections if c.name == args.name), None)
+    if existing_collection is None:
+        return Result.failure(f"Collection '{args.name}' does not exist", error_type=ERROR_NOT_FOUND).to_json_str()
+
+    if args.add_categories is None and args.remove_categories is None:
+        return (
+            ArgValidationError(
+                [
+                    {
+                        "field": "operations",
+                        "message": "At least one operation must be provided (add_categories or remove_categories)",
+                    }
+                ]
+            )
+            .to_result()
+            .to_json_str()
+        )
+
+    try:
+        if args.add_categories:
+            validate_categories_exist(project, args.add_categories)
+    except ArgValidationError as e:
+        return e.to_result().to_json_str()
+
+    current_categories = list(existing_collection.categories)
+
+    if args.remove_categories:
+        current_categories = [c for c in current_categories if c not in args.remove_categories]
+
+    if args.add_categories:
+        for category in args.add_categories:
+            if category not in current_categories:
+                current_categories.append(category)
+
+    # Deduplicate while preserving order
+    current_categories = list(dict.fromkeys(current_categories))
+
+    updated_collection = replace(existing_collection, categories=current_categories)
+
+    try:
+        await session.update_config(lambda p: p.without_collection(args.name).with_collection(updated_collection))
+    except Exception as e:
+        return Result.failure(f"Failed to save project configuration: {e}", error_type=ERROR_SAVE).to_json_str()
+
+    return Result.ok(f"Collection '{args.name}' categories updated successfully").to_json_str()
