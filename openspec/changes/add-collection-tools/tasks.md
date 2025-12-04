@@ -17,8 +17,8 @@
 ### 2.2 collection_add Tool (GUIDE-104) ✅
 - [x] Implement tool with TDD (schema + validation + create + persist + tests)
 
-### 2.3 collection_remove Tool (GUIDE-105)
-- [ ] Implement tool with TDD (schema + validation + remove + persist + tests)
+### 2.3 collection_remove Tool (GUIDE-105) ✅
+- [x] Implement tool with TDD (schema + validation + remove + persist + tests)
 
 ### 2.4 collection_change Tool (GUIDE-106)
 - [ ] Implement tool with TDD (schema + validation + replace + persist + tests)
