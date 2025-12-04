@@ -107,7 +107,7 @@ async def collection_add(args: CollectionAddArgs, ctx: Optional[Context] = None)
         return e.to_result().to_json_str()
 
     try:
-        collection = Collection(name=args.name, categories=categories, description=validated_description or "")
+        collection = Collection(name=args.name, categories=categories, description=validated_description)
     except ValueError as e:
         return ArgValidationError([{"field": "name", "message": str(e)}]).to_result().to_json_str()
 
@@ -152,3 +152,103 @@ async def collection_remove(args: CollectionRemoveArgs, ctx: Optional[Context] =
         return Result.failure(f"Failed to save project configuration: {e}", error_type=ERROR_SAVE).to_json_str()
 
     return Result.ok(f"Collection '{args.name}' removed successfully").to_json_str()
+
+
+class CollectionChangeArgs(ToolArguments):
+    """Arguments for collection_change tool."""
+
+    name: str
+    new_name: Optional[str] = None
+    new_description: Optional[str] = None
+    new_categories: Optional[list[str]] = None
+
+
+@tools.tool(CollectionChangeArgs)
+async def collection_change(args: CollectionChangeArgs, ctx: Optional[Context] = None) -> str:  # type: ignore
+    """Change properties of an existing collection.
+
+    Can change name, description, or categories.
+    At least one new value must be provided.
+    Changes are saved to the project configuration immediately.
+
+    Args:
+        args: Tool arguments with collection name and optional new values
+        ctx: MCP Context (auto-injected by FastMCP)
+
+    Returns:
+        JSON string with Result containing success message
+    """
+    try:
+        session = await get_or_create_session(ctx)
+    except ValueError as e:
+        return Result.failure(str(e), error_type=ERROR_NO_PROJECT).to_json_str()
+
+    project = await session.get_project()
+
+    existing_collection = next((c for c in project.collections if c.name == args.name), None)
+    if existing_collection is None:
+        return Result.failure(f"Collection '{args.name}' does not exist", error_type=ERROR_NOT_FOUND).to_json_str()
+
+    if args.new_name is None and args.new_description is None and args.new_categories is None:
+        return (
+            ArgValidationError(
+                [
+                    {
+                        "field": "changes",
+                        "message": (
+                            "At least one change must be provided (new_name, new_description, or new_categories)"
+                        ),
+                    }
+                ]
+            )
+            .to_result()
+            .to_json_str()
+        )
+
+    try:
+        if args.new_name is not None:
+            if any(c.name == args.new_name for c in project.collections if c.name != args.name):
+                raise ArgValidationError(
+                    [{"field": "new_name", "message": f"Collection '{args.new_name}' already exists"}]
+                )
+
+        if args.new_description is not None and args.new_description != "":
+            validate_description(args.new_description)
+
+        if args.new_categories is not None:
+            categories = list(dict.fromkeys(args.new_categories))
+            if categories:
+                validate_categories_exist(project, categories)
+    except ArgValidationError as e:
+        return e.to_result().to_json_str()
+
+    if args.new_description == "":
+        final_description = None
+    elif args.new_description is not None:
+        final_description = args.new_description
+    else:
+        final_description = existing_collection.description
+
+    final_categories = (
+        list(dict.fromkeys(args.new_categories)) if args.new_categories is not None else existing_collection.categories
+    )
+
+    try:
+        updated_collection = Collection(
+            name=args.new_name if args.new_name is not None else existing_collection.name,
+            categories=final_categories,
+            description=final_description,
+        )
+    except ValueError as e:
+        return ArgValidationError([{"field": "new_name", "message": str(e)}]).to_result().to_json_str()
+
+    try:
+        await session.update_config(lambda p: p.without_collection(args.name).with_collection(updated_collection))
+    except Exception as e:
+        return Result.failure(f"Failed to save project configuration: {e}", error_type=ERROR_SAVE).to_json_str()
+
+    change_msg = f"Collection '{args.name}' updated successfully"
+    if args.new_name is not None and args.new_name != args.name:
+        change_msg = f"Collection '{args.name}' renamed to '{args.new_name}' successfully"
+
+    return Result.ok(change_msg).to_json_str()

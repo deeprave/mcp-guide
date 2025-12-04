@@ -58,7 +58,7 @@ class Collection:
 
     name: str
     categories: list[str]
-    description: str = ""
+    description: Optional[str] = None
 
     @field_validator("name")
     @classmethod
