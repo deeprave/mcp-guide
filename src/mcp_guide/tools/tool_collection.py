@@ -20,6 +20,7 @@ except ImportError:
 
 # Common error types
 ERROR_NO_PROJECT = "no_project"
+ERROR_NOT_FOUND = "not_found"
 ERROR_SAVE = "save_error"
 
 
@@ -116,3 +117,38 @@ async def collection_add(args: CollectionAddArgs, ctx: Optional[Context] = None)
         return Result.failure(f"Failed to save project configuration: {e}", error_type=ERROR_SAVE).to_json_str()
 
     return Result.ok(f"Collection '{args.name}' added successfully").to_json_str()
+
+
+class CollectionRemoveArgs(ToolArguments):
+    """Arguments for collection_remove tool."""
+
+    name: str
+
+
+@tools.tool(CollectionRemoveArgs)
+async def collection_remove(args: CollectionRemoveArgs, ctx: Optional[Context] = None) -> str:  # type: ignore
+    """Remove a collection from the current project.
+
+    Args:
+        args: Tool arguments with collection name
+        ctx: MCP Context (auto-injected by FastMCP)
+
+    Returns:
+        JSON string with Result containing success message
+    """
+    try:
+        session = await get_or_create_session(ctx)
+    except ValueError as e:
+        return Result.failure(str(e), error_type=ERROR_NO_PROJECT).to_json_str()
+
+    project = await session.get_project()
+
+    if not any(col.name == args.name for col in project.collections):
+        return Result.failure(f"Collection '{args.name}' does not exist", error_type=ERROR_NOT_FOUND).to_json_str()
+
+    try:
+        await session.update_config(lambda p: p.without_collection(args.name))
+    except Exception as e:
+        return Result.failure(f"Failed to save project configuration: {e}", error_type=ERROR_SAVE).to_json_str()
+
+    return Result.ok(f"Collection '{args.name}' removed successfully").to_json_str()
