@@ -433,6 +433,9 @@ async def category_update(
             if pattern not in current_patterns:
                 current_patterns.append(pattern)
 
+    # Deduplicate while preserving order
+    current_patterns = list(dict.fromkeys(current_patterns))
+
     updated_category = replace(existing_category, patterns=current_patterns)
 
     def update_category_patterns(p: Project) -> Project:
