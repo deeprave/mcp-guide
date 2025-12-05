@@ -12,13 +12,15 @@ from mcp_core.validation import ArgValidationError, validate_description
 from mcp_guide.models import Collection
 from mcp_guide.server import tools
 from mcp_guide.session import get_or_create_session
-from mcp_guide.tools.tool_category import _create_file_read_error_result, _read_file_contents, _resolve_patterns
 from mcp_guide.tools.tool_constants import (
+    ERROR_FILE_READ,
     ERROR_NO_PROJECT,
     ERROR_NOT_FOUND,
     ERROR_SAVE,
+    INSTRUCTION_FILE_ERROR,
     INSTRUCTION_NOTFOUND_ERROR,
 )
+from mcp_guide.utils.content_utils import create_file_read_error_result, read_file_contents, resolve_patterns
 from mcp_guide.utils.file_discovery import FileInfo, discover_category_files
 from mcp_guide.utils.formatter_selection import get_formatter
 from mcp_guide.validation import validate_categories_exist
@@ -401,7 +403,7 @@ async def get_collection_content(
         category = next(c for c in project.categories if c.name == category_name)
 
         # Pattern override logic
-        patterns = _resolve_patterns(args.pattern, category.patterns)
+        patterns = resolve_patterns(args.pattern, category.patterns)
 
         # Discover files
         category_dir = docroot / category.dir
@@ -412,13 +414,15 @@ async def get_collection_content(
             continue
 
         # Read file content and modify basename
-        errors = await _read_file_contents(files, category_dir, category_prefix=category.name)
+        errors = await read_file_contents(files, category_dir, category_prefix=category.name)
         file_read_errors.extend(errors)
         all_files.extend(files)
 
     # Check for file read errors
     if file_read_errors:
-        return _create_file_read_error_result(file_read_errors, args.collection, "collection").to_json_str()
+        return create_file_read_error_result(
+            file_read_errors, args.collection, "collection", ERROR_FILE_READ, INSTRUCTION_FILE_ERROR
+        ).to_json_str()
 
     # Check if any files found
     if not all_files:

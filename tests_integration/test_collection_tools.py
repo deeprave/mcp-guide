@@ -516,7 +516,7 @@ async def test_get_collection_content_category_not_found(mcp_server, tmp_path, m
 @pytest.mark.anyio
 async def test_get_collection_content_empty_collection(mcp_server, tmp_path, monkeypatch):
     """Test success message when collection has no matching files."""
-    from tests.test_data_generator import generate_test_files
+    from tests_integration.test_data_generator import generate_test_files
 
     monkeypatch.setenv("PWD", "/fake/path/test")
 
@@ -545,7 +545,7 @@ async def test_get_collection_content_empty_collection(mcp_server, tmp_path, mon
 @pytest.mark.anyio
 async def test_get_collection_content_success_single_category(mcp_server, tmp_path, monkeypatch):
     """Test successful content retrieval from single category."""
-    from tests.test_data_generator import generate_test_files
+    from tests_integration.test_data_generator import generate_test_files
 
     monkeypatch.setenv("PWD", "/fake/path/test")
 
@@ -575,7 +575,7 @@ async def test_get_collection_content_success_single_category(mcp_server, tmp_pa
 @pytest.mark.anyio
 async def test_get_collection_content_success_multiple_categories(mcp_server, tmp_path, monkeypatch):
     """Test successful content retrieval from multiple categories."""
-    from tests.test_data_generator import generate_test_files
+    from tests_integration.test_data_generator import generate_test_files
 
     monkeypatch.setenv("PWD", "/fake/path/test")
 
@@ -599,6 +599,9 @@ async def test_get_collection_content_success_multiple_categories(mcp_server, tm
         assert "Kotlin Guide" in response["value"]
         assert "Development Standards" in response["value"]
         assert "Python Guide" not in response["value"]
+        # Verify category-prefixed basenames in separators
+        assert "--- lang/kotlin.md ---" in response["value"]
+        assert "--- context/standards.md ---" in response["value"]
 
     remove_current_session("test")
 
@@ -606,7 +609,7 @@ async def test_get_collection_content_success_multiple_categories(mcp_server, tm
 @pytest.mark.anyio
 async def test_get_collection_content_pattern_override(mcp_server, tmp_path, monkeypatch):
     """Test pattern overrides category defaults."""
-    from tests.test_data_generator import generate_test_files
+    from tests_integration.test_data_generator import generate_test_files
 
     monkeypatch.setenv("PWD", "/fake/path/test")
 

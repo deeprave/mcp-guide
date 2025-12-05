@@ -309,3 +309,78 @@ async def test_multiple_categories_aggregates_content(tmp_path, monkeypatch):
     assert result["success"] is True
     assert "Content 1" in result["value"]
     assert "Content 2" in result["value"]
+
+
+async def test_tool_handles_file_read_error(tmp_path, monkeypatch):
+    """Test that file read errors are handled and include category prefix."""
+    import json
+
+    from mcp_guide.models import Category, Collection, Project
+    from mcp_guide.tools.tool_collection import (
+        CollectionContentArgs,
+        get_collection_content,
+    )
+
+    # Create test files
+    (tmp_path / "test.md").write_text("# Test Content")
+
+    # Create test project
+    project = Project(
+        name="test",
+        categories=[Category(name="docs", dir=".", patterns=["*.md"])],
+        collections=[Collection(name="all-docs", categories=["docs"])],
+    )
+
+    # Mock session
+    class MockSession:
+        async def get_project(self):
+            return project
+
+        def get_docroot(self):
+            return str(tmp_path)
+
+    async def mock_get_session(ctx=None):
+        return MockSession()
+
+    # Mock read_file_contents to return errors with category prefix
+    async def mock_read_file_contents(files, base_dir, category_prefix=None):
+        return [f"{category_prefix}/test.md: Permission denied"]
+
+    monkeypatch.setattr("mcp_guide.tools.tool_collection.get_or_create_session", mock_get_session)
+    monkeypatch.setattr("mcp_guide.tools.tool_collection.read_file_contents", mock_read_file_contents)
+
+    # Call tool
+    args = CollectionContentArgs(collection="all-docs")
+    result_json = await get_collection_content(args)
+
+    # Parse result
+    result = json.loads(result_json)
+    assert result["success"] is False
+    assert result["error_type"] == "file_read_error"
+    assert "docs/test.md" in result["error"]
+
+
+async def test_get_or_create_session_error_returns_no_project_failure(monkeypatch):
+    """Test that get_or_create_session ValueError returns no_project error."""
+    import json
+
+    from mcp_guide.tools.tool_collection import (
+        CollectionContentArgs,
+        get_collection_content,
+    )
+
+    # Mock get_or_create_session to raise ValueError
+    async def mock_get_session(ctx=None):
+        raise ValueError("No project configured")
+
+    monkeypatch.setattr("mcp_guide.tools.tool_collection.get_or_create_session", mock_get_session)
+
+    # Call tool
+    args = CollectionContentArgs(collection="test-collection")
+    result_json = await get_collection_content(args)
+
+    # Parse result
+    result = json.loads(result_json)
+    assert result["success"] is False
+    assert result["error_type"] == "no_project"
+    assert "No project configured" in result["error"]
