@@ -1,4 +1,5 @@
 """Generate test data files for integration tests."""
+
 from pathlib import Path
 
 
@@ -21,10 +22,7 @@ def generate_test_files(docroot: Path) -> None:
     )
 
     (guide_dir / "guidelines-feature1.md").write_text(
-        "# Feature 1 Guidelines\n\n"
-        "## Implementation\n"
-        "- Use async/await patterns\n"
-        "- Handle errors gracefully\n"
+        "# Feature 1 Guidelines\n\n## Implementation\n- Use async/await patterns\n- Handle errors gracefully\n"
     )
 
     # Lang category
@@ -32,11 +30,7 @@ def generate_test_files(docroot: Path) -> None:
     lang_dir.mkdir(parents=True, exist_ok=True)
 
     (lang_dir / "python.md").write_text(
-        "# Python Guide\n\n"
-        "## Best Practices\n"
-        "- Use virtual environments\n"
-        "- Leverage type hints\n"
-        "- Follow PEP 8\n"
+        "# Python Guide\n\n## Best Practices\n- Use virtual environments\n- Leverage type hints\n- Follow PEP 8\n"
     )
 
     (lang_dir / "java.md").write_text(
@@ -56,11 +50,7 @@ def generate_test_files(docroot: Path) -> None:
     )
 
     (lang_dir / "kotlin.md").write_text(
-        "# Kotlin Guide\n\n"
-        "## Best Practices\n"
-        "- Use data classes\n"
-        "- Leverage null safety\n"
-        "- Use coroutines for async\n"
+        "# Kotlin Guide\n\n## Best Practices\n- Use data classes\n- Leverage null safety\n- Use coroutines for async\n"
     )
 
     # Context category
@@ -68,18 +58,11 @@ def generate_test_files(docroot: Path) -> None:
     context_dir.mkdir(parents=True, exist_ok=True)
 
     (context_dir / "jira.md").write_text(
-        "# Jira Integration\n\n"
-        "## Setup\n"
-        "- Configure API token\n"
-        "- Set project key\n"
-        "- Define issue types\n"
+        "# Jira Integration\n\n## Setup\n- Configure API token\n- Set project key\n- Define issue types\n"
     )
 
     (context_dir / "jira-settings.yaml").write_text(
-        "jira:\n"
-        "  url: https://example.atlassian.net\n"
-        "  project: PROJ\n"
-        "  api_token: ${JIRA_API_TOKEN}\n"
+        "jira:\n  url: https://example.atlassian.net\n  project: PROJ\n  api_token: ${JIRA_API_TOKEN}\n"
     )
 
     (context_dir / "standards.md").write_text(
