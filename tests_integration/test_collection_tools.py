@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 from mcp.shared.memory import create_connected_server_and_client_session
 
-from mcp_guide.models import Category
+from mcp_guide.models import Category, Collection
 from mcp_guide.session import get_or_create_session, remove_current_session
 
 
@@ -52,7 +52,9 @@ def mcp_server():
 @pytest.fixture
 async def test_session(tmp_path: Path):
     """Create test session with isolated config."""
-    session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
+    # Resolve symlinks to avoid path mismatch issues on macOS
+    resolved_tmp_path = tmp_path.resolve()
+    session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(resolved_tmp_path))
 
     # Setup initial categories
     await session.update_config(
@@ -443,4 +445,190 @@ async def test_collection_removal_preserves_categories(mcp_server, tmp_path, mon
     assert len(project.collections) == 0
     assert len(project.categories) == 1
     assert project.categories[0].name == "api"
+    remove_current_session("test")
+
+
+
+# Phase 7: Collection Content Retrieval
+
+
+@pytest.mark.anyio
+async def test_collection_content_args_valid():
+    """Test CollectionContentArgs accepts valid inputs."""
+    from mcp_guide.tools.tool_collection import CollectionContentArgs
+
+    args = CollectionContentArgs(collection="docs")
+    assert args.collection == "docs"
+    assert args.pattern is None
+
+
+@pytest.mark.anyio
+async def test_collection_content_args_with_pattern():
+    """Test CollectionContentArgs with pattern."""
+    from mcp_guide.tools.tool_collection import CollectionContentArgs
+
+    args = CollectionContentArgs(collection="docs", pattern="*.md")
+    assert args.pattern == "*.md"
+
+
+@pytest.mark.anyio
+async def test_get_collection_content_not_found(mcp_server, tmp_path, monkeypatch):
+    """Test error when collection doesn't exist."""
+    monkeypatch.setenv("PWD", "/fake/path/test")
+
+    # Create session with no collections
+    session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
+
+    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+        result = await client.call_tool("get_collection_content", {"collection": "nonexistent"})
+        response = json.loads(result.content[0].text)  # type: ignore[union-attr]
+
+        assert response["success"] is False
+        assert response["error_type"] == "not_found"
+        assert "nonexistent" in response["error"]
+
+    remove_current_session("test")
+
+
+@pytest.mark.anyio
+async def test_get_collection_content_category_not_found(mcp_server, tmp_path, monkeypatch):
+    """Test error when category in collection doesn't exist."""
+    monkeypatch.setenv("PWD", "/fake/path/test")
+
+    # Create session with collection referencing non-existent category
+    from mcp_guide.models import Collection
+
+    session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
+    await session.update_config(
+        lambda p: p.with_collection(Collection(name="test-collection", categories=["nonexistent"]))
+    )
+
+    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+        result = await client.call_tool("get_collection_content", {"collection": "test-collection"})
+        response = json.loads(result.content[0].text)  # type: ignore[union-attr]
+
+        assert response["success"] is False
+        assert response["error_type"] == "not_found"
+        assert "category" in response["error"].lower()
+
+    remove_current_session("test")
+
+
+@pytest.mark.anyio
+async def test_get_collection_content_empty_collection(mcp_server, tmp_path, monkeypatch):
+    """Test success message when collection has no matching files."""
+    from tests.test_data_generator import generate_test_files
+
+    monkeypatch.setenv("PWD", "/fake/path/test")
+
+    session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
+
+    # Add category with pattern that won't match
+    await session.update_config(
+        lambda p: p.with_category(Category(name="guide", dir="guide", patterns=["nomatch*"]))
+        .with_collection(Collection(name="empty-collection", categories=["guide"]))
+    )
+
+    docroot = Path(tmp_path.resolve()) / "docs"
+    generate_test_files(docroot)
+
+    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+        result = await client.call_tool("get_collection_content", {"collection": "empty-collection"})
+        response = json.loads(result.content[0].text)  # type: ignore[union-attr]
+
+        assert response["success"] is True
+        assert "no matching content" in response["value"].lower()
+
+    remove_current_session("test")
+
+
+@pytest.mark.anyio
+async def test_get_collection_content_success_single_category(mcp_server, tmp_path, monkeypatch):
+    """Test successful content retrieval from single category."""
+    from tests.test_data_generator import generate_test_files
+
+    monkeypatch.setenv("PWD", "/fake/path/test")
+
+    session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
+
+    # Add category matching python files only
+    await session.update_config(
+        lambda p: p.with_category(Category(name="lang", dir="lang", patterns=["python*"]))
+        .with_collection(Collection(name="test-collection", categories=["lang"]))
+    )
+
+    docroot = Path(tmp_path.resolve()) / "docs"
+    generate_test_files(docroot)
+
+    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+        result = await client.call_tool("get_collection_content", {"collection": "test-collection"})
+        response = json.loads(result.content[0].text)  # type: ignore[union-attr]
+
+        assert response["success"] is True
+        assert "Python Guide" in response["value"]
+        assert "Java Guide" not in response["value"]
+
+    remove_current_session("test")
+
+
+@pytest.mark.anyio
+async def test_get_collection_content_success_multiple_categories(mcp_server, tmp_path, monkeypatch):
+    """Test successful content retrieval from multiple categories."""
+    from tests.test_data_generator import generate_test_files
+
+    monkeypatch.setenv("PWD", "/fake/path/test")
+
+    session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
+
+    # Add categories with different patterns
+    await session.update_config(
+        lambda p: p.with_category(Category(name="lang", dir="lang", patterns=["kotlin*"]))
+        .with_category(Category(name="context", dir="context", patterns=["standards*"]))
+        .with_collection(Collection(name="all-docs", categories=["lang", "context"]))
+    )
+
+    docroot = Path(tmp_path.resolve()) / "docs"
+    generate_test_files(docroot)
+
+    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+        result = await client.call_tool("get_collection_content", {"collection": "all-docs"})
+        response = json.loads(result.content[0].text)  # type: ignore[union-attr]
+
+        assert response["success"] is True
+        assert "Kotlin Guide" in response["value"]
+        assert "Development Standards" in response["value"]
+        assert "Python Guide" not in response["value"]
+
+    remove_current_session("test")
+
+
+@pytest.mark.anyio
+async def test_get_collection_content_pattern_override(mcp_server, tmp_path, monkeypatch):
+    """Test pattern overrides category defaults."""
+    from tests.test_data_generator import generate_test_files
+
+    monkeypatch.setenv("PWD", "/fake/path/test")
+
+    session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
+
+    # Add category matching all guide files
+    await session.update_config(
+        lambda p: p.with_category(Category(name="guide", dir="guide", patterns=["*"]))
+        .with_collection(Collection(name="test-collection", categories=["guide"]))
+    )
+
+    docroot = Path(tmp_path.resolve()) / "docs"
+    generate_test_files(docroot)
+
+    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+        # Request only files matching "guidelines-*"
+        result = await client.call_tool(
+            "get_collection_content", {"collection": "test-collection", "pattern": "guidelines-*"}
+        )
+        response = json.loads(result.content[0].text)  # type: ignore[union-attr]
+
+        assert response["success"] is True
+        assert "Feature 1 Guidelines" in response["value"]
+        assert "Project Guidelines" not in response["value"]
+
     remove_current_session("test")

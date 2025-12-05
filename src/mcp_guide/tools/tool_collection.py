@@ -1,6 +1,7 @@
 """Collection management tools."""
 
 from dataclasses import replace
+from pathlib import Path
 from typing import Any, Optional
 
 from pydantic import Field
@@ -11,7 +12,15 @@ from mcp_core.validation import ArgValidationError, validate_description
 from mcp_guide.models import Collection
 from mcp_guide.server import tools
 from mcp_guide.session import get_or_create_session
-from mcp_guide.tools.tool_constants import ERROR_NO_PROJECT, ERROR_NOT_FOUND, ERROR_SAVE
+from mcp_guide.tools.tool_category import _create_file_read_error_result, _read_file_contents, _resolve_patterns
+from mcp_guide.tools.tool_constants import (
+    ERROR_NO_PROJECT,
+    ERROR_NOT_FOUND,
+    ERROR_SAVE,
+    INSTRUCTION_NOTFOUND_ERROR,
+)
+from mcp_guide.utils.file_discovery import FileInfo, discover_category_files
+from mcp_guide.utils.formatter_selection import get_formatter
 from mcp_guide.validation import validate_categories_exist
 
 try:
@@ -328,3 +337,96 @@ async def collection_update(args: CollectionUpdateArgs, ctx: Optional[Context] =
         return Result.failure(f"Failed to save project configuration: {e}", error_type=ERROR_SAVE).to_json_str()
 
     return Result.ok(f"Collection '{args.name}' categories updated successfully").to_json_str()
+
+
+class CollectionContentArgs(ToolArguments):
+    """Arguments for get_collection_content tool."""
+
+    collection: str = Field(description="Name of the collection to retrieve content from")
+    pattern: str | None = Field(
+        default=None, description="Optional glob pattern to override categories' default patterns"
+    )
+
+
+@tools.tool(CollectionContentArgs)
+async def get_collection_content(
+    args: CollectionContentArgs,
+    ctx: Optional[Context] = None,  # type: ignore[type-arg]
+) -> str:
+    """Get aggregated content from all categories in a collection.
+
+    Args:
+        args: Tool arguments with collection name and optional pattern
+        ctx: MCP Context (auto-injected by FastMCP)
+
+    Returns:
+        JSON string with Result containing formatted content or error
+    """
+    # Get session
+    try:
+        session = await get_or_create_session(ctx)
+    except ValueError as e:
+        return Result.failure(str(e), error_type=ERROR_NO_PROJECT).to_json_str()
+
+    # Get project
+    project = await session.get_project()
+
+    # Resolve collection
+    collection = next((c for c in project.collections if c.name == args.collection), None)
+    if collection is None:
+        result: Result[str] = Result.failure(
+            f"Collection '{args.collection}' not found in project",
+            error_type=ERROR_NOT_FOUND,
+        )
+        result.instruction = INSTRUCTION_NOTFOUND_ERROR
+        return result.to_json_str()
+
+    # Validate all categories exist
+    for category_name in collection.categories:
+        category = next((c for c in project.categories if c.name == category_name), None)
+        if category is None:
+            result = Result.failure(
+                f"Category '{category_name}' (referenced by collection '{args.collection}') not found",
+                error_type=ERROR_NOT_FOUND,
+            )
+            result.instruction = INSTRUCTION_NOTFOUND_ERROR
+            return result.to_json_str()
+
+    # Aggregate files from all categories
+    all_files: list[FileInfo] = []
+    file_read_errors: list[str] = []
+    docroot = Path(session.get_docroot())
+
+    for category_name in collection.categories:
+        category = next(c for c in project.categories if c.name == category_name)
+
+        # Pattern override logic
+        patterns = _resolve_patterns(args.pattern, category.patterns)
+
+        # Discover files
+        category_dir = docroot / category.dir
+        files = await discover_category_files(category_dir, patterns)
+
+        # Skip empty categories
+        if not files:
+            continue
+
+        # Read file content and modify basename
+        errors = await _read_file_contents(files, category_dir, category_prefix=category.name)
+        file_read_errors.extend(errors)
+        all_files.extend(files)
+
+    # Check for file read errors
+    if file_read_errors:
+        return _create_file_read_error_result(file_read_errors, args.collection, "collection").to_json_str()
+
+    # Check if any files found
+    if not all_files:
+        return Result.ok(f"No matching content found in collection '{args.collection}'").to_json_str()
+
+    # Format content
+    formatter = get_formatter()
+    content = await formatter.format(all_files, args.collection)
+
+    return Result.ok(content).to_json_str()
+
