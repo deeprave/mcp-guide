@@ -6,8 +6,6 @@ from typing import Optional
 
 from pydantic import Field
 
-from mcp_core.file_reader import read_file_content
-from mcp_core.path_security import resolve_safe_path
 from mcp_core.result import Result
 from mcp_core.tool_arguments import ToolArguments
 from mcp_core.validation import ArgValidationError, validate_description, validate_directory_path, validate_pattern
@@ -24,7 +22,8 @@ from mcp_guide.tools.tool_constants import (
     INSTRUCTION_NOTFOUND_ERROR,
     INSTRUCTION_PATTERN_ERROR,
 )
-from mcp_guide.utils.file_discovery import FileInfo, discover_category_files
+from mcp_guide.utils.content_utils import create_file_read_error_result, read_file_contents, resolve_patterns
+from mcp_guide.utils.file_discovery import discover_category_files
 from mcp_guide.utils.formatter_selection import get_formatter
 
 try:
@@ -388,78 +387,6 @@ async def category_update(args: CategoryUpdateArgs, ctx: Optional[Context] = Non
     return Result.ok(f"Category '{args.name}' patterns updated successfully").to_json_str()
 
 
-# Helper functions for content retrieval
-
-
-def _resolve_patterns(override_pattern: Optional[str], default_patterns: list[str]) -> list[str]:
-    """Resolve patterns with optional override.
-
-    Args:
-        override_pattern: Optional pattern to override defaults
-        default_patterns: Default patterns to use if no override
-
-    Returns:
-        List of patterns to use
-    """
-    return [override_pattern] if override_pattern else default_patterns
-
-
-async def _read_file_contents(
-    files: list[FileInfo],
-    base_dir: Path,
-    category_prefix: Optional[str] = None,
-) -> list[str]:
-    """Read content for FileInfo objects and optionally prefix basenames.
-
-    Args:
-        files: List of FileInfo objects to read
-        base_dir: Base directory for resolving file paths
-        category_prefix: Optional prefix to add to basenames (e.g., "category")
-
-    Returns:
-        List of error messages for files that failed to read
-    """
-    file_read_errors: list[str] = []
-
-    for file_info in files:
-        try:
-            file_path = resolve_safe_path(base_dir, file_info.path)
-            file_info.content = await read_file_content(file_path)
-
-            if category_prefix:
-                file_info.basename = f"{category_prefix}/{file_info.basename}"
-
-        except (FileNotFoundError, PermissionError, UnicodeDecodeError) as e:
-            error_path = f"{category_prefix}/{file_info.path}" if category_prefix else file_info.path
-            file_read_errors.append(f"'{error_path}': {e}")
-
-    return file_read_errors
-
-
-def _create_file_read_error_result(
-    errors: list[str],
-    context_name: str,
-    context_type: str = "category",
-) -> Result[str]:
-    """Create standardized file read error result.
-
-    Args:
-        errors: List of error messages
-        context_name: Name of the category or collection
-        context_type: Type of context ("category" or "collection")
-
-    Returns:
-        Result object with error
-    """
-    error_message = f"Failed to read one or more files in {context_type} '{context_name}': " + "; ".join(errors)
-    error_result: Result[str] = Result.failure(
-        error_message,
-        error_type=ERROR_FILE_READ,
-    )
-    error_result.instruction = INSTRUCTION_FILE_ERROR
-    return error_result
-
-
 @tools.tool(CategoryContentArgs)
 async def get_category_content(
     args: CategoryContentArgs,
@@ -494,7 +421,7 @@ async def get_category_content(
         return result.to_json_str()
 
     # Get patterns
-    patterns = _resolve_patterns(args.pattern, category.patterns)
+    patterns = resolve_patterns(args.pattern, category.patterns)
 
     # Discover files
     docroot = Path(session.get_docroot())
@@ -516,10 +443,12 @@ async def get_category_content(
             return result.to_json_str()
 
     # Read file content, collecting any failures
-    file_read_errors = await _read_file_contents(files, category_dir)
+    file_read_errors = await read_file_contents(files, category_dir)
 
     if file_read_errors:
-        return _create_file_read_error_result(file_read_errors, args.category, "category").to_json_str()
+        return create_file_read_error_result(
+            file_read_errors, args.category, "category", ERROR_FILE_READ, INSTRUCTION_FILE_ERROR
+        ).to_json_str()
 
     # Format content
     formatter = get_formatter()

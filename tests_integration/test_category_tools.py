@@ -392,7 +392,7 @@ async def test_update_category_preserves_collections(mcp_server, tmp_path, monke
 @pytest.mark.anyio
 async def test_get_category_content_not_found(mcp_server, tmp_path, monkeypatch):
     """Test error when category doesn't exist."""
-    from tests.test_data_generator import generate_test_files
+    from tests_integration.test_data_generator import generate_test_files
 
     monkeypatch.setenv("PWD", "/fake/path/test")
 
@@ -414,7 +414,7 @@ async def test_get_category_content_not_found(mcp_server, tmp_path, monkeypatch)
 @pytest.mark.anyio
 async def test_get_category_content_empty_category(mcp_server, tmp_path, monkeypatch):
     """Test success message when category has no matching files."""
-    from tests.test_data_generator import generate_test_files
+    from tests_integration.test_data_generator import generate_test_files
 
     monkeypatch.setenv("PWD", "/fake/path/test")
 
@@ -439,7 +439,7 @@ async def test_get_category_content_empty_category(mcp_server, tmp_path, monkeyp
 @pytest.mark.anyio
 async def test_get_category_content_success_single_file(mcp_server, tmp_path, monkeypatch):
     """Test successful content retrieval with single file."""
-    from tests.test_data_generator import generate_test_files
+    from tests_integration.test_data_generator import generate_test_files
 
     monkeypatch.setenv("PWD", "/fake/path/test")
 
@@ -465,7 +465,7 @@ async def test_get_category_content_success_single_file(mcp_server, tmp_path, mo
 @pytest.mark.anyio
 async def test_get_category_content_success_multiple_files(mcp_server, tmp_path, monkeypatch):
     """Test successful content retrieval with multiple files."""
-    from tests.test_data_generator import generate_test_files
+    from tests_integration.test_data_generator import generate_test_files
 
     monkeypatch.setenv("PWD", "/fake/path/test")
 
@@ -492,7 +492,7 @@ async def test_get_category_content_success_multiple_files(mcp_server, tmp_path,
 @pytest.mark.anyio
 async def test_get_category_content_pattern_override(mcp_server, tmp_path, monkeypatch):
     """Test pattern overrides category defaults."""
-    from tests.test_data_generator import generate_test_files
+    from tests_integration.test_data_generator import generate_test_files
 
     monkeypatch.setenv("PWD", "/fake/path/test")
 
@@ -512,5 +512,39 @@ async def test_get_category_content_pattern_override(mcp_server, tmp_path, monke
         assert response["success"] is True
         assert "Feature 1 Guidelines" in response["value"]
         assert "Project Guidelines" not in response["value"]
+
+    remove_current_session("test")
+
+
+@pytest.mark.anyio
+async def test_get_category_content_file_read_error(mcp_server, tmp_path, monkeypatch):
+    """Test error handling when file cannot be read."""
+    import os
+
+    monkeypatch.setenv("PWD", "/fake/path/test")
+
+    session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
+
+    # Add category
+    await session.update_config(lambda p: p.with_category(Category(name="docs", dir="docs", patterns=["*.md"])))
+
+    # Create test file and make it unreadable
+    docroot = Path(tmp_path.resolve()) / "docs" / "docs"
+    docroot.mkdir(parents=True, exist_ok=True)
+    test_file = docroot / "test.md"
+    test_file.write_text("# Test Content")
+    os.chmod(test_file, 0o000)
+
+    try:
+        async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+            result = await client.call_tool("get_category_content", {"category": "docs"})
+            response = json.loads(result.content[0].text)  # type: ignore[union-attr]
+
+            assert response["success"] is False
+            assert response["error_type"] == "file_read_error"
+            assert "test.md" in response["error"]
+    finally:
+        # Restore permissions for cleanup
+        os.chmod(test_file, 0o644)
 
     remove_current_session("test")
