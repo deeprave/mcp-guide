@@ -130,7 +130,7 @@ class TestCategoryAdd:
         set_current_session(session)
 
         args = CategoryAddArgs(name="docs", dir="docs", patterns=["*.md"])
-        result_str = await category_add(**args.model_dump())
+        result_str = await category_add(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is True
@@ -152,7 +152,7 @@ class TestCategoryAdd:
         set_current_session(session)
 
         args = CategoryAddArgs(name="api", dir="api", patterns=["*.py"], description="API documentation")
-        result_str = await category_add(**args.model_dump())
+        result_str = await category_add(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is True
@@ -172,7 +172,7 @@ class TestCategoryAdd:
 
         # Omit dir parameter
         args = CategoryAddArgs(name="docs", patterns=["*.md"])
-        result_str = await category_add(**args.model_dump())
+        result_str = await category_add(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is True
@@ -192,7 +192,7 @@ class TestCategoryAdd:
         set_current_session(session)
 
         args = CategoryAddArgs(name="code", dir="src", patterns=["*.py", "*.pyx", "*.pyi"])
-        result_str = await category_add(**args.model_dump())
+        result_str = await category_add(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is True
@@ -210,7 +210,7 @@ class TestCategoryAdd:
         set_current_session(session)
 
         args = CategoryAddArgs(name="docs", dir="other", patterns=["*.txt"])
-        result_str = await category_add(**args.model_dump())
+        result_str = await category_add(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is False
@@ -229,7 +229,7 @@ class TestCategoryAdd:
         set_current_session(session)
 
         args = CategoryAddArgs(name="", dir="docs", patterns=["*.md"])
-        result_str = await category_add(**args.model_dump())
+        result_str = await category_add(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is False
@@ -247,7 +247,7 @@ class TestCategoryAdd:
         set_current_session(session)
 
         args = CategoryAddArgs(name="docs/api", dir="docs", patterns=["*.md"])
-        result_str = await category_add(**args.model_dump())
+        result_str = await category_add(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is False
@@ -265,7 +265,7 @@ class TestCategoryAdd:
         set_current_session(session)
 
         args = CategoryAddArgs(name="a" * 31, dir="docs", patterns=["*.md"])
-        result_str = await category_add(**args.model_dump())
+        result_str = await category_add(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is False
@@ -284,7 +284,7 @@ class TestCategoryAdd:
         set_current_session(session)
 
         args = CategoryAddArgs(name="docs", dir="/absolute/path", patterns=["*.md"])
-        result_str = await category_add(**args.model_dump())
+        result_str = await category_add(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is False
@@ -302,7 +302,7 @@ class TestCategoryAdd:
         set_current_session(session)
 
         args = CategoryAddArgs(name="docs", dir="../parent", patterns=["*.md"])
-        result_str = await category_add(**args.model_dump())
+        result_str = await category_add(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is False
@@ -320,7 +320,7 @@ class TestCategoryAdd:
         set_current_session(session)
 
         args = CategoryAddArgs(name="docs", dir="docs", patterns=["*.md"], description="x" * 501)
-        result_str = await category_add(**args.model_dump())
+        result_str = await category_add(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is False
@@ -338,7 +338,7 @@ class TestCategoryAdd:
         set_current_session(session)
 
         args = CategoryAddArgs(name="docs", dir="docs", patterns=["*.md"], description='Has "quotes"')
-        result_str = await category_add(**args.model_dump())
+        result_str = await category_add(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is False
@@ -356,7 +356,7 @@ class TestCategoryAdd:
         set_current_session(session)
 
         args = CategoryAddArgs(name="docs", dir="docs", patterns=["/absolute/*.md"])
-        result_str = await category_add(**args.model_dump())
+        result_str = await category_add(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is False
@@ -374,7 +374,7 @@ class TestCategoryAdd:
         set_current_session(session)
 
         args = CategoryAddArgs(name="docs", dir="docs", patterns=["../*.md"])
-        result_str = await category_add(**args.model_dump())
+        result_str = await category_add(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is False
@@ -392,7 +392,7 @@ class TestCategoryAdd:
         set_current_session(session)
 
         args = CategoryAddArgs(name="docs", dir="docs", patterns=[])
-        result_str = await category_add(**args.model_dump())
+        result_str = await category_add(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is True
@@ -415,7 +415,7 @@ class TestCategoryAdd:
         monkeypatch.setattr(session, "update_config", update_mock)
 
         args = CategoryAddArgs(name="docs", dir="docs", patterns=["*.md"])
-        result_str = await category_add(**args.model_dump())
+        result_str = await category_add(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is True
@@ -430,7 +430,7 @@ class TestCategoryAdd:
         monkeypatch.delenv("CWD", raising=False)
 
         args = CategoryAddArgs(name="docs", dir="docs", patterns=["*.md"])
-        result_str = await category_add(**args.model_dump())
+        result_str = await category_add(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is False
@@ -452,7 +452,7 @@ class TestCategoryAdd:
         monkeypatch.setattr(session, "update_config", update_mock)
 
         args = CategoryAddArgs(name="docs", dir="docs", patterns=["*.md"])
-        result_str = await category_add(**args.model_dump())
+        result_str = await category_add(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is False
@@ -474,7 +474,7 @@ class TestCategoryAdd:
         await asyncio.sleep(0.01)
 
         args = CategoryAddArgs(name="docs", dir="docs", patterns=["*.md"])
-        result_str = await category_add(**args.model_dump())
+        result_str = await category_add(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is True
@@ -502,7 +502,7 @@ class TestCategoryRemove:
         set_current_session(session)
 
         args = CategoryRemoveArgs(name="docs")
-        result_str = await category_remove(**args.model_dump())
+        result_str = await category_remove(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is True
@@ -520,7 +520,7 @@ class TestCategoryRemove:
         set_current_session(session)
 
         args = CategoryRemoveArgs(name="docs")
-        result_str = await category_remove(**args.model_dump())
+        result_str = await category_remove(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is False
@@ -541,7 +541,7 @@ class TestCategoryRemove:
         set_current_session(session)
 
         args = CategoryRemoveArgs(name="docs")
-        result_str = await category_remove(**args.model_dump())
+        result_str = await category_remove(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is True
@@ -567,7 +567,7 @@ class TestCategoryRemove:
         set_current_session(session)
 
         args = CategoryRemoveArgs(name="api")
-        result_str = await category_remove(**args.model_dump())
+        result_str = await category_remove(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is True
@@ -592,7 +592,7 @@ class TestCategoryRemove:
         set_current_session(session)
 
         args = CategoryRemoveArgs(name="docs")
-        result_str = await category_remove(**args.model_dump())
+        result_str = await category_remove(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is True
@@ -612,7 +612,7 @@ class TestCategoryRemove:
         set_current_session(session)
 
         args = CategoryRemoveArgs(name="docs")
-        result_str = await category_remove(**args.model_dump())
+        result_str = await category_remove(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is True
@@ -629,7 +629,7 @@ class TestCategoryRemove:
         monkeypatch.delenv("CWD", raising=False)
 
         args = CategoryRemoveArgs(name="docs")
-        result_str = await category_remove(**args.model_dump())
+        result_str = await category_remove(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is False
@@ -652,7 +652,7 @@ class TestCategoryRemove:
         monkeypatch.setattr(session, "update_config", update_mock)
 
         args = CategoryRemoveArgs(name="docs")
-        result_str = await category_remove(**args.model_dump())
+        result_str = await category_remove(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is False
@@ -675,7 +675,7 @@ class TestCategoryRemove:
         await asyncio.sleep(0.01)
 
         args = CategoryRemoveArgs(name="docs")
-        result_str = await category_remove(**args.model_dump())
+        result_str = await category_remove(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is True
@@ -703,7 +703,7 @@ class TestCategoryChange:
         set_current_session(session)
 
         args = CategoryChangeArgs(name="docs", new_name="documentation")
-        result_str = await category_change(**args.model_dump())
+        result_str = await category_change(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is True
@@ -725,7 +725,7 @@ class TestCategoryChange:
         set_current_session(session)
 
         args = CategoryChangeArgs(name="docs", new_dir="documentation")
-        result_str = await category_change(**args.model_dump())
+        result_str = await category_change(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is True
@@ -745,7 +745,7 @@ class TestCategoryChange:
         set_current_session(session)
 
         args = CategoryChangeArgs(name="docs", new_description="New description")
-        result_str = await category_change(**args.model_dump())
+        result_str = await category_change(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is True
@@ -765,7 +765,7 @@ class TestCategoryChange:
         set_current_session(session)
 
         args = CategoryChangeArgs(name="docs", new_description="")
-        result_str = await category_change(**args.model_dump())
+        result_str = await category_change(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is True
@@ -784,7 +784,7 @@ class TestCategoryChange:
         set_current_session(session)
 
         args = CategoryChangeArgs(name="docs", new_patterns=["*.txt", "*.rst"])
-        result_str = await category_change(**args.model_dump())
+        result_str = await category_change(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is True
@@ -803,7 +803,7 @@ class TestCategoryChange:
         set_current_session(session)
 
         args = CategoryChangeArgs(name="docs", new_name="documentation", new_dir="docs_new", new_description="Updated")
-        result_str = await category_change(**args.model_dump())
+        result_str = await category_change(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is True
@@ -825,7 +825,7 @@ class TestCategoryChange:
         set_current_session(session)
 
         args = CategoryChangeArgs(name="docs", new_name="docs")
-        result_str = await category_change(**args.model_dump())
+        result_str = await category_change(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is True
@@ -847,7 +847,7 @@ class TestCategoryChange:
         set_current_session(session)
 
         args = CategoryChangeArgs(name="docs", new_name="documentation")
-        result_str = await category_change(**args.model_dump())
+        result_str = await category_change(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is True
@@ -871,7 +871,7 @@ class TestCategoryChange:
         set_current_session(session)
 
         args = CategoryChangeArgs(name="docs", new_name="documentation")
-        result_str = await category_change(**args.model_dump())
+        result_str = await category_change(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is True
@@ -891,7 +891,7 @@ class TestCategoryChange:
         set_current_session(session)
 
         args = CategoryChangeArgs(name="docs", new_name="documentation")
-        result_str = await category_change(**args.model_dump())
+        result_str = await category_change(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is False
@@ -911,7 +911,7 @@ class TestCategoryChange:
         set_current_session(session)
 
         args = CategoryChangeArgs(name="docs", new_name="api")
-        result_str = await category_change(**args.model_dump())
+        result_str = await category_change(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is False
@@ -930,7 +930,7 @@ class TestCategoryChange:
         set_current_session(session)
 
         args = CategoryChangeArgs(name="docs", new_name="invalid name!")
-        result_str = await category_change(**args.model_dump())
+        result_str = await category_change(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is False
@@ -948,7 +948,7 @@ class TestCategoryChange:
         set_current_session(session)
 
         args = CategoryChangeArgs(name="docs", new_dir="")
-        result_str = await category_change(**args.model_dump())
+        result_str = await category_change(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is False
@@ -967,7 +967,7 @@ class TestCategoryChange:
         set_current_session(session)
 
         args = CategoryChangeArgs(name="docs", new_dir="/absolute/path")
-        result_str = await category_change(**args.model_dump())
+        result_str = await category_change(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is False
@@ -985,7 +985,7 @@ class TestCategoryChange:
         set_current_session(session)
 
         args = CategoryChangeArgs(name="docs", new_description='Has "quotes"')
-        result_str = await category_change(**args.model_dump())
+        result_str = await category_change(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is False
@@ -1003,7 +1003,7 @@ class TestCategoryChange:
         set_current_session(session)
 
         args = CategoryChangeArgs(name="docs", new_patterns=["../traversal"])
-        result_str = await category_change(**args.model_dump())
+        result_str = await category_change(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is False
@@ -1021,7 +1021,7 @@ class TestCategoryChange:
         set_current_session(session)
 
         args = CategoryChangeArgs(name="docs")
-        result_str = await category_change(**args.model_dump())
+        result_str = await category_change(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is False
@@ -1040,7 +1040,7 @@ class TestCategoryChange:
         set_current_session(session)
 
         args = CategoryChangeArgs(name="docs", new_description="Updated")
-        result_str = await category_change(**args.model_dump())
+        result_str = await category_change(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is True
@@ -1058,7 +1058,7 @@ class TestCategoryChange:
         monkeypatch.delenv("CWD", raising=False)
 
         args = CategoryChangeArgs(name="docs", new_description="Updated")
-        result_str = await category_change(**args.model_dump())
+        result_str = await category_change(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is False
@@ -1081,7 +1081,7 @@ class TestCategoryChange:
         monkeypatch.setattr(session, "update_config", update_mock)
 
         args = CategoryChangeArgs(name="docs", new_description="Updated")
-        result_str = await category_change(**args.model_dump())
+        result_str = await category_change(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is False
@@ -1104,7 +1104,7 @@ class TestCategoryChange:
         await asyncio.sleep(0.01)
 
         args = CategoryChangeArgs(name="docs", new_description="Updated")
-        result_str = await category_change(**args.model_dump())
+        result_str = await category_change(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is True
@@ -1132,7 +1132,7 @@ class TestCategoryUpdate:
         set_current_session(session)
 
         args = CategoryUpdateArgs(name="docs", add_patterns=["*.txt"])
-        result_str = await category_update(**args.model_dump())
+        result_str = await category_update(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is True
@@ -1151,7 +1151,7 @@ class TestCategoryUpdate:
         set_current_session(session)
 
         args = CategoryUpdateArgs(name="docs", remove_patterns=["*.txt"])
-        result_str = await category_update(**args.model_dump())
+        result_str = await category_update(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is True
@@ -1170,7 +1170,7 @@ class TestCategoryUpdate:
         set_current_session(session)
 
         args = CategoryUpdateArgs(name="docs", remove_patterns=["*.txt"], add_patterns=["*.rst"])
-        result_str = await category_update(**args.model_dump())
+        result_str = await category_update(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is True
@@ -1189,7 +1189,7 @@ class TestCategoryUpdate:
         set_current_session(session)
 
         args = CategoryUpdateArgs(name="docs", remove_patterns=["*.txt"])
-        result_str = await category_update(**args.model_dump())
+        result_str = await category_update(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is True
@@ -1208,7 +1208,7 @@ class TestCategoryUpdate:
         set_current_session(session)
 
         args = CategoryUpdateArgs(name="docs", add_patterns=["*.txt", "*.rst"])
-        result_str = await category_update(**args.model_dump())
+        result_str = await category_update(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is True
@@ -1227,7 +1227,7 @@ class TestCategoryUpdate:
         set_current_session(session)
 
         args = CategoryUpdateArgs(name="docs", remove_patterns=["*.txt", "*.rst"])
-        result_str = await category_update(**args.model_dump())
+        result_str = await category_update(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is True
@@ -1246,7 +1246,7 @@ class TestCategoryUpdate:
         set_current_session(session)
 
         args = CategoryUpdateArgs(name="docs", add_patterns=["../traversal"])
-        result_str = await category_update(**args.model_dump())
+        result_str = await category_update(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is False
@@ -1263,7 +1263,7 @@ class TestCategoryUpdate:
         set_current_session(session)
 
         args = CategoryUpdateArgs(name="docs", add_patterns=["*.txt"])
-        result_str = await category_update(**args.model_dump())
+        result_str = await category_update(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is False
@@ -1282,7 +1282,7 @@ class TestCategoryUpdate:
         set_current_session(session)
 
         args = CategoryUpdateArgs(name="docs")
-        result_str = await category_update(**args.model_dump())
+        result_str = await category_update(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is False
@@ -1301,7 +1301,7 @@ class TestCategoryUpdate:
         set_current_session(session)
 
         args = CategoryUpdateArgs(name="docs", add_patterns=["*.txt"])
-        result_str = await category_update(**args.model_dump())
+        result_str = await category_update(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is True
@@ -1319,7 +1319,7 @@ class TestCategoryUpdate:
         monkeypatch.delenv("CWD", raising=False)
 
         args = CategoryUpdateArgs(name="docs", add_patterns=["*.txt"])
-        result_str = await category_update(**args.model_dump())
+        result_str = await category_update(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is False
@@ -1342,7 +1342,7 @@ class TestCategoryUpdate:
         monkeypatch.setattr(session, "update_config", update_mock)
 
         args = CategoryUpdateArgs(name="docs", add_patterns=["*.txt"])
-        result_str = await category_update(**args.model_dump())
+        result_str = await category_update(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is False
@@ -1365,7 +1365,7 @@ class TestCategoryUpdate:
         await asyncio.sleep(0.01)
 
         args = CategoryUpdateArgs(name="docs", add_patterns=["*.txt"])
-        result_str = await category_update(**args.model_dump())
+        result_str = await category_update(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is True
@@ -1384,7 +1384,7 @@ class TestCategoryUpdate:
         set_current_session(session)
 
         args = CategoryUpdateArgs(name="docs", add_patterns=["*.md"])
-        result_str = await category_update(**args.model_dump())
+        result_str = await category_update(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is True
@@ -1404,7 +1404,7 @@ class TestCategoryUpdate:
         set_current_session(session)
 
         args = CategoryUpdateArgs(name="docs", add_patterns=["*.md"])
-        result_str = await category_update(**args.model_dump())
+        result_str = await category_update(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is True

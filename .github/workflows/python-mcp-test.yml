@@ -29,8 +29,14 @@ jobs:
     - name: Install dependencies
       run: uv sync --dev
 
-    - name: Run tests with pytest
-      run: uv run pytest -v -Walways
+    - name: Run unit tests with pytest
+      run: uv run pytest tests/ -v -Walways
+      env:
+        NO_COLOR: "1"
+        TERM: "dumb"
+
+    - name: Run integration tests with pytest
+      run: uv run pytest tests_integration/ -v -Walways
       env:
         NO_COLOR: "1"
         TERM: "dumb"
@@ -42,4 +48,4 @@ jobs:
       run: uv run ruff format --check
 
     - name: Type check with mypy
-      run: uv run mypy src/ --ignore-missing-imports
+      run: uv run mypy src/

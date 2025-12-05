@@ -59,27 +59,28 @@ def test_error_types_defined():
 def test_error_instructions_defined():
     """Test that error instructions are defined."""
     from mcp_guide.tools.tool_category import (
-        INSTRUCTION_NO_MATCHES,
-        INSTRUCTION_NOT_FOUND,
+        INSTRUCTION_NOTFOUND_ERROR,
+        INSTRUCTION_PATTERN_ERROR,
     )
 
-    assert "Present this error to the user" in INSTRUCTION_NOT_FOUND
-    assert "take no further action" in INSTRUCTION_NOT_FOUND
-    assert "Present this error to the user" in INSTRUCTION_NO_MATCHES
-    assert "Do NOT attempt corrective action" in INSTRUCTION_NO_MATCHES
+    assert "Present this error to the user" in INSTRUCTION_NOTFOUND_ERROR
+    assert "take no further action" in INSTRUCTION_NOTFOUND_ERROR
+    assert "Present this error to the user" in INSTRUCTION_PATTERN_ERROR
+    assert "Do NOT attempt corrective action" in INSTRUCTION_PATTERN_ERROR
 
 
 def test_instructions_prevent_futile_remediation():
     """Test that instructions explicitly prevent agent remediation."""
     from mcp_guide.tools.tool_category import (
-        INSTRUCTION_NO_MATCHES,
-        INSTRUCTION_NOT_FOUND,
+        INSTRUCTION_NOTFOUND_ERROR,
+        INSTRUCTION_PATTERN_ERROR,
     )
 
     # Both should tell agent not to try fixing
-    assert any(phrase in INSTRUCTION_NOT_FOUND.lower() for phrase in ["no further action", "do not", "don't"])
+    assert any(phrase in INSTRUCTION_NOTFOUND_ERROR.lower() for phrase in ["no further action", "do not", "don't"])
     assert any(
-        phrase in INSTRUCTION_NO_MATCHES.lower() for phrase in ["do not attempt", "don't attempt", "no further action"]
+        phrase in INSTRUCTION_PATTERN_ERROR.lower()
+        for phrase in ["do not attempt", "don't attempt", "no further action"]
     )
 
 
@@ -204,7 +205,7 @@ async def test_category_not_found_returns_failure(tmp_path, monkeypatch):
     from mcp_guide.models import Project
     from mcp_guide.tools.tool_category import (
         ERROR_NOT_FOUND,
-        INSTRUCTION_NOT_FOUND,
+        INSTRUCTION_NOTFOUND_ERROR,
         CategoryContentArgs,
         get_category_content,
     )
@@ -240,7 +241,7 @@ async def test_category_not_found_returns_failure(tmp_path, monkeypatch):
     result = json.loads(result_json)
     assert result["success"] is False
     assert result["error_type"] == ERROR_NOT_FOUND
-    assert result["instruction"] == INSTRUCTION_NOT_FOUND
+    assert result["instruction"] == INSTRUCTION_NOTFOUND_ERROR
     assert "nonexistent" in result["error"]
 
 
@@ -251,7 +252,7 @@ async def test_no_matches_returns_failure(tmp_path, monkeypatch):
     from mcp_guide.models import Category, Project
     from mcp_guide.tools.tool_category import (
         ERROR_NO_MATCHES,
-        INSTRUCTION_NO_MATCHES,
+        INSTRUCTION_PATTERN_ERROR,
         CategoryContentArgs,
         get_category_content,
     )
@@ -287,7 +288,7 @@ async def test_no_matches_returns_failure(tmp_path, monkeypatch):
     result_json = await get_category_content(args)
     result = json.loads(result_json)
     assert result["success"] is True
-    assert result["instruction"] == INSTRUCTION_NO_MATCHES
+    assert result["instruction"] == INSTRUCTION_PATTERN_ERROR
     assert "No files found" in result["value"]
 
     # Test 2: Pattern override - should return failure
@@ -296,7 +297,7 @@ async def test_no_matches_returns_failure(tmp_path, monkeypatch):
     result = json.loads(result_json)
     assert result["success"] is False
     assert result["error_type"] == ERROR_NO_MATCHES
-    assert result["instruction"] == INSTRUCTION_NO_MATCHES
+    assert result["instruction"] == INSTRUCTION_PATTERN_ERROR
     assert "*.txt" in result["error"]
 
 
@@ -307,7 +308,7 @@ async def test_file_read_error_single_file(tmp_path, monkeypatch):
     from mcp_guide.models import Category, Project
     from mcp_guide.tools.tool_category import (
         ERROR_FILE_READ,
-        INSTRUCTION_FILE_READ,
+        INSTRUCTION_FILE_ERROR,
         CategoryContentArgs,
         get_category_content,
     )
@@ -355,7 +356,7 @@ async def test_file_read_error_single_file(tmp_path, monkeypatch):
     result = json.loads(result_json)
     assert result["success"] is False
     assert result["error_type"] == ERROR_FILE_READ
-    assert result["instruction"] == INSTRUCTION_FILE_READ
+    assert result["instruction"] == INSTRUCTION_FILE_ERROR
     assert "test.md" in result["error"]
     assert "Permission denied" in result["error"]
 
@@ -367,7 +368,7 @@ async def test_file_read_error_multiple_files(tmp_path, monkeypatch):
     from mcp_guide.models import Category, Project
     from mcp_guide.tools.tool_category import (
         ERROR_FILE_READ,
-        INSTRUCTION_FILE_READ,
+        INSTRUCTION_FILE_ERROR,
         CategoryContentArgs,
         get_category_content,
     )
@@ -425,7 +426,7 @@ async def test_file_read_error_multiple_files(tmp_path, monkeypatch):
     result = json.loads(result_json)
     assert result["success"] is False
     assert result["error_type"] == ERROR_FILE_READ
-    assert result["instruction"] == INSTRUCTION_FILE_READ
+    assert result["instruction"] == INSTRUCTION_FILE_ERROR
     # All three files should be in error message
     assert "file1.md" in result["error"]
     assert "file2.md" in result["error"]
