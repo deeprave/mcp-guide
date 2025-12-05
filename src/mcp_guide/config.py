@@ -36,14 +36,14 @@ class ConfigManager:
                     self.config_file = get_config_file(self._config_dir)
                     self.config_file.parent.mkdir(parents=True, exist_ok=True)
                     if not self.config_file.exists():
-                        default_docroot = str(get_docroot())
+                        default_docroot = str(get_docroot(self._config_dir))
                         self.config_file.write_text(f"docroot: {default_docroot}\nprojects: {{}}\n")
                         self._docroot = default_docroot
                     else:
                         # Read docroot from existing config
                         content = await read_file_content(self.config_file)
                         data = yaml.safe_load(content)
-                        self._docroot = data.get("docroot", str(get_docroot()))
+                        self._docroot = data.get("docroot", str(get_docroot(self._config_dir)))
                     self._initialized = True
 
     def get_docroot(self) -> str:

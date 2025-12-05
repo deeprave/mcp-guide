@@ -1,5 +1,7 @@
 """Shared fixtures for integration tests."""
 
+from pathlib import Path
+
 import pytest
 
 
@@ -18,3 +20,5 @@ def mcp_server():
     _ToolsProxy._instance = None
 
     return create_server()
+
+
