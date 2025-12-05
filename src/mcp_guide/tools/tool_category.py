@@ -14,6 +14,16 @@ from mcp_core.validation import ArgValidationError, validate_description, valida
 from mcp_guide.models import Category, Project
 from mcp_guide.server import tools
 from mcp_guide.session import get_or_create_session
+from mcp_guide.tools.tool_constants import (
+    ERROR_FILE_READ,
+    ERROR_NO_MATCHES,
+    ERROR_NO_PROJECT,
+    ERROR_NOT_FOUND,
+    ERROR_SAVE,
+    INSTRUCTION_FILE_ERROR,
+    INSTRUCTION_NOTFOUND_ERROR,
+    INSTRUCTION_PATTERN_ERROR,
+)
 from mcp_guide.utils.file_discovery import discover_category_files
 from mcp_guide.utils.formatter_selection import get_formatter
 
@@ -36,25 +46,6 @@ class CategoryContentArgs(ToolArguments):
     pattern: str | None = Field(
         default=None, description="Optional glob pattern to override category's default patterns"
     )
-
-
-# Error types for get_category_content
-ERROR_NOT_FOUND = "not_found"
-ERROR_NO_MATCHES = "no_matches"
-ERROR_FILE_READ = "file_read_error"
-
-# Common error types
-ERROR_NO_PROJECT = "no_project"
-ERROR_SAVE = "save_error"
-
-# Error instructions for get_category_content
-INSTRUCTION_NOT_FOUND = "Present this error to the user and take no further action."
-INSTRUCTION_NO_MATCHES = (
-    "Present this error to the user so they can correct the pattern. Do NOT attempt corrective action."
-)
-INSTRUCTION_FILE_READ = (
-    "Present this error to the user. The file may have been deleted, moved, or has permission issues."
-)
 
 
 @tools.tool(CategoryListArgs)
@@ -106,36 +97,17 @@ class CategoryAddArgs(ToolArguments):
 
 
 @tools.tool(CategoryAddArgs)
-async def category_add(
-    name: str,
-    dir: Optional[str] = None,
-    patterns: Optional[list[str]] = None,
-    description: Optional[str] = None,
-    ctx: Optional[Context] = None,  # type: ignore
-) -> str:
+async def category_add(args: CategoryAddArgs, ctx: Optional[Context] = None) -> str:  # type: ignore
     """Add a new category to the current project.
 
-    Creates a new category with the specified name, directory, patterns, and optional description.
-    The category is validated and saved to the project configuration immediately.
-
     Args:
-        name: Category name (alphanumeric, dash, underscore only, max 30 chars)
-        dir: Relative directory path for the category (defaults to name if omitted)
-        patterns: List of glob patterns (defaults to empty list if omitted)
-        description: Optional description (max 500 chars, no quotes)
+        args: Tool arguments with name, dir, patterns, and description
         ctx: MCP Context (auto-injected by FastMCP)
 
     Returns:
         JSON string with Result containing success message
-
-    Examples:
-        >>> category_add(name="docs")
-        >>> category_add(name="docs", dir="documentation", patterns=["*.md"])
-        >>> category_add(name="api", dir="api", patterns=["*.py"], description="API docs")
     """
     from mcp_guide.session import get_or_create_session
-
-    patterns = patterns or []
 
     try:
         session = await get_or_create_session(ctx)
@@ -145,22 +117,23 @@ async def category_add(
     project = await session.get_project()
 
     try:
-        if any(cat.name == name for cat in project.categories):
-            raise ArgValidationError([{"field": "name", "message": f"Category '{name}' already exists"}])
+        if any(cat.name == args.name for cat in project.categories):
+            raise ArgValidationError([{"field": "name", "message": f"Category '{args.name}' already exists"}])
 
-        validated_dir = validate_directory_path(dir, default=name)
-        validated_description = validate_description(description) if description else None
+        validated_dir = validate_directory_path(args.dir, default=args.name)
+        validated_description = validate_description(args.description) if args.description else None
 
-        for pattern in patterns:
+        for pattern in args.patterns:
             validate_pattern(pattern)
 
     except ArgValidationError as e:
         return e.to_result().to_json_str()
 
     try:
-        category = Category(name=name, dir=validated_dir, patterns=patterns, description=validated_description)
+        category = Category(
+            name=args.name, dir=validated_dir, patterns=args.patterns, description=validated_description
+        )
     except ValueError as e:
-        # ValueError can only come from Category.name validation (other fields validated above)
         return ArgValidationError([{"field": "name", "message": str(e)}]).to_result().to_json_str()
 
     try:
@@ -168,7 +141,7 @@ async def category_add(
     except Exception as e:
         return Result.failure(f"Failed to save project configuration: {e}", error_type=ERROR_SAVE).to_json_str()
 
-    return Result.ok(f"Category '{name}' added successfully").to_json_str()
+    return Result.ok(f"Category '{args.name}' added successfully").to_json_str()
 
 
 class CategoryRemoveArgs(ToolArguments):
@@ -178,17 +151,14 @@ class CategoryRemoveArgs(ToolArguments):
 
 
 @tools.tool(CategoryRemoveArgs)
-async def category_remove(
-    name: str,
-    ctx: Optional[Context] = None,  # type: ignore
-) -> str:
+async def category_remove(args: CategoryRemoveArgs, ctx: Optional[Context] = None) -> str:  # type: ignore
     """Remove a category from the current project.
 
     Removes the specified category and automatically removes it from all collections.
     Changes are saved to the project configuration immediately.
 
     Args:
-        name: Name of the category to remove
+        args: Tool arguments with category name
         ctx: MCP Context (auto-injected by FastMCP)
 
     Returns:
@@ -206,13 +176,13 @@ async def category_remove(
 
     project = await session.get_project()
 
-    if not any(cat.name == name for cat in project.categories):
-        return Result.failure(f"Category '{name}' does not exist", error_type=ERROR_NOT_FOUND).to_json_str()
+    if not any(cat.name == args.name for cat in project.categories):
+        return Result.failure(f"Category '{args.name}' does not exist", error_type=ERROR_NOT_FOUND).to_json_str()
 
     def remove_category_and_update_collections(p: Project) -> Project:
-        p_without_cat = p.without_category(name)
+        p_without_cat = p.without_category(args.name)
         updated_collections = [
-            replace(col, categories=[c for c in col.categories if c != name]) for col in p_without_cat.collections
+            replace(col, categories=[c for c in col.categories if c != args.name]) for col in p_without_cat.collections
         ]
         return replace(p_without_cat, collections=updated_collections)
 
@@ -221,7 +191,7 @@ async def category_remove(
     except Exception as e:
         return Result.failure(f"Failed to save project configuration: {e}", error_type=ERROR_SAVE).to_json_str()
 
-    return Result.ok(f"Category '{name}' removed successfully").to_json_str()
+    return Result.ok(f"Category '{args.name}' removed successfully").to_json_str()
 
 
 class CategoryChangeArgs(ToolArguments):
@@ -235,36 +205,15 @@ class CategoryChangeArgs(ToolArguments):
 
 
 @tools.tool(CategoryChangeArgs)
-async def category_change(
-    name: str,
-    new_name: Optional[str] = None,
-    new_dir: Optional[str] = None,
-    new_patterns: Optional[list[str]] = None,
-    new_description: Optional[str] = None,
-    ctx: Optional[Context] = None,  # type: ignore
-) -> str:
+async def category_change(args: CategoryChangeArgs, ctx: Optional[Context] = None) -> str:  # type: ignore
     """Change properties of an existing category.
 
-    Can change name (with collection updates), dir, patterns, or description.
-    At least one new value must be provided.
-    Changes are saved to the project configuration immediately.
-
     Args:
-        name: Current name of the category to change
-        new_name: New name for the category (updates collections)
-        new_dir: New directory path
-        new_patterns: New patterns list (replaces all patterns)
-        new_description: New description (empty string clears it)
+        args: Tool arguments with name and optional new values
         ctx: MCP Context (auto-injected by FastMCP)
 
     Returns:
         JSON string with Result containing success message
-
-    Examples:
-        >>> category_change(name="docs", new_name="documentation")
-        >>> category_change(name="docs", new_dir="documentation")
-        >>> category_change(name="docs", new_description="Updated docs")
-        >>> category_change(name="docs", new_patterns=["*.md", "*.txt"])
     """
     from mcp_guide.session import get_or_create_session
 
@@ -275,11 +224,11 @@ async def category_change(
 
     project = await session.get_project()
 
-    existing_category = next((c for c in project.categories if c.name == name), None)
+    existing_category = next((c for c in project.categories if c.name == args.name), None)
     if existing_category is None:
-        return Result.failure(f"Category '{name}' does not exist", error_type=ERROR_NOT_FOUND).to_json_str()
+        return Result.failure(f"Category '{args.name}' does not exist", error_type=ERROR_NOT_FOUND).to_json_str()
 
-    if new_name is None and new_dir is None and new_patterns is None and new_description is None:
+    if args.new_name is None and args.new_dir is None and args.new_patterns is None and args.new_description is None:
         return (
             ArgValidationError(
                 [
@@ -294,49 +243,51 @@ async def category_change(
         )
 
     try:
-        if new_name is not None:
-            if any(c.name == new_name for c in project.categories if c.name != name):
-                raise ArgValidationError([{"field": "new_name", "message": f"Category '{new_name}' already exists"}])
+        if args.new_name is not None:
+            if any(c.name == args.new_name for c in project.categories if c.name != args.name):
+                raise ArgValidationError(
+                    [{"field": "new_name", "message": f"Category '{args.new_name}' already exists"}]
+                )
 
-        if new_dir is not None:
-            if new_dir == "":
+        if args.new_dir is not None:
+            if args.new_dir == "":
                 raise ArgValidationError([{"field": "new_dir", "message": "Directory path cannot be empty"}])
-            validate_directory_path(new_dir, default=new_dir)
+            validate_directory_path(args.new_dir, default=args.new_dir)
 
-        if new_description is not None and new_description != "":
-            validate_description(new_description)
+        if args.new_description is not None and args.new_description != "":
+            validate_description(args.new_description)
 
-        if new_patterns is not None:
-            for pattern in new_patterns:
+        if args.new_patterns is not None:
+            for pattern in args.new_patterns:
                 validate_pattern(pattern)
 
     except ArgValidationError as e:
         return e.to_result().to_json_str()
 
-    if new_description == "":
+    if args.new_description == "":
         final_description = None
-    elif new_description is not None:
-        final_description = new_description
+    elif args.new_description is not None:
+        final_description = args.new_description
     else:
         final_description = existing_category.description
 
     try:
         updated_category = Category(
-            name=new_name if new_name is not None else existing_category.name,
-            dir=new_dir if new_dir is not None else existing_category.dir,
-            patterns=new_patterns if new_patterns is not None else existing_category.patterns,
+            name=args.new_name if args.new_name is not None else existing_category.name,
+            dir=args.new_dir if args.new_dir is not None else existing_category.dir,
+            patterns=args.new_patterns if args.new_patterns is not None else existing_category.patterns,
             description=final_description,
         )
     except ValueError as e:
         return ArgValidationError([{"field": "new_name", "message": str(e)}]).to_result().to_json_str()
 
     def update_category_and_collections(p: Project) -> Project:
-        p_without_old = p.without_category(name)
+        p_without_old = p.without_category(args.name)
         p_with_new = p_without_old.with_category(updated_category)
 
-        if new_name is not None and new_name != name:
+        if args.new_name is not None and args.new_name != args.name:
             updated_collections = [
-                replace(col, categories=[new_name if c == name else c for c in col.categories])
+                replace(col, categories=[args.new_name if c == args.name else c for c in col.categories])
                 for col in p_with_new.collections
             ]
             return replace(p_with_new, collections=updated_collections)
@@ -348,9 +299,9 @@ async def category_change(
     except Exception as e:
         return Result.failure(f"Failed to save project configuration: {e}", error_type=ERROR_SAVE).to_json_str()
 
-    change_msg = f"Category '{name}' updated successfully"
-    if new_name is not None and new_name != name:
-        change_msg = f"Category '{name}' renamed to '{new_name}' successfully"
+    change_msg = f"Category '{args.name}' updated successfully"
+    if args.new_name is not None and args.new_name != args.name:
+        change_msg = f"Category '{args.name}' renamed to '{args.new_name}' successfully"
 
     return Result.ok(change_msg).to_json_str()
 
@@ -364,30 +315,15 @@ class CategoryUpdateArgs(ToolArguments):
 
 
 @tools.tool(CategoryUpdateArgs)
-async def category_update(
-    name: str,
-    add_patterns: Optional[list[str]] = None,
-    remove_patterns: Optional[list[str]] = None,
-    ctx: Optional[Context] = None,  # type: ignore
-) -> str:
+async def category_update(args: CategoryUpdateArgs, ctx: Optional[Context] = None) -> str:  # type: ignore
     """Update category patterns incrementally.
 
-    Add or remove patterns from a category without replacing the entire list.
-    Patterns are removed first, then added (avoiding duplicates).
-
     Args:
-        name: Name of the category to update
-        add_patterns: Patterns to add (skips if already exists)
-        remove_patterns: Patterns to remove (idempotent - no error if doesn't exist)
+        args: Tool arguments with name and pattern changes
         ctx: MCP Context (auto-injected by FastMCP)
 
     Returns:
         JSON string with Result containing success message
-
-    Examples:
-        >>> category_update(name="docs", add_patterns=["*.txt"])
-        >>> category_update(name="docs", remove_patterns=["*.old"])
-        >>> category_update(name="docs", remove_patterns=["*.txt"], add_patterns=["*.rst"])
     """
     from mcp_guide.session import get_or_create_session
 
@@ -398,11 +334,11 @@ async def category_update(
 
     project = await session.get_project()
 
-    existing_category = next((c for c in project.categories if c.name == name), None)
+    existing_category = next((c for c in project.categories if c.name == args.name), None)
     if existing_category is None:
-        return Result.failure(f"Category '{name}' does not exist", error_type=ERROR_NOT_FOUND).to_json_str()
+        return Result.failure(f"Category '{args.name}' does not exist", error_type=ERROR_NOT_FOUND).to_json_str()
 
-    if add_patterns is None and remove_patterns is None:
+    if args.add_patterns is None and args.remove_patterns is None:
         return (
             ArgValidationError(
                 [
@@ -417,19 +353,22 @@ async def category_update(
         )
 
     try:
-        if add_patterns:
-            for pattern in add_patterns:
+        if args.add_patterns:
+            for pattern in args.add_patterns:
+                validate_pattern(pattern)
+        if args.remove_patterns:
+            for pattern in args.remove_patterns:
                 validate_pattern(pattern)
     except ArgValidationError as e:
         return e.to_result().to_json_str()
 
     current_patterns = list(existing_category.patterns)
 
-    if remove_patterns:
-        current_patterns = [p for p in current_patterns if p not in remove_patterns]
+    if args.remove_patterns:
+        current_patterns = [p for p in current_patterns if p not in args.remove_patterns]
 
-    if add_patterns:
-        for pattern in add_patterns:
+    if args.add_patterns:
+        for pattern in args.add_patterns:
             if pattern not in current_patterns:
                 current_patterns.append(pattern)
 
@@ -439,14 +378,14 @@ async def category_update(
     updated_category = replace(existing_category, patterns=current_patterns)
 
     def update_category_patterns(p: Project) -> Project:
-        return p.without_category(name).with_category(updated_category)
+        return p.without_category(args.name).with_category(updated_category)
 
     try:
         await session.update_config(update_category_patterns)
     except Exception as e:
         return Result.failure(f"Failed to save project configuration: {e}", error_type=ERROR_SAVE).to_json_str()
 
-    return Result.ok(f"Category '{name}' patterns updated successfully").to_json_str()
+    return Result.ok(f"Category '{args.name}' patterns updated successfully").to_json_str()
 
 
 @tools.tool(CategoryContentArgs)
@@ -479,7 +418,7 @@ async def get_category_content(
             f"Category '{args.category}' not found in project",
             error_type=ERROR_NOT_FOUND,
         )
-        result.instruction = INSTRUCTION_NOT_FOUND
+        result.instruction = INSTRUCTION_NOTFOUND_ERROR
         return result.to_json_str()
 
     # Get patterns
@@ -497,11 +436,11 @@ async def get_category_content(
                 f"No files matched pattern '{args.pattern}' in category '{args.category}'",
                 error_type=ERROR_NO_MATCHES,
             )
-            result.instruction = INSTRUCTION_NO_MATCHES
+            result.instruction = INSTRUCTION_PATTERN_ERROR
             return result.to_json_str()
         else:
             result = Result.ok(f"No files found in category '{args.category}'")
-            result.instruction = INSTRUCTION_NO_MATCHES
+            result.instruction = INSTRUCTION_PATTERN_ERROR
             return result.to_json_str()
 
     # Read file content, collecting any failures
@@ -522,7 +461,7 @@ async def get_category_content(
             error_message,
             error_type=ERROR_FILE_READ,
         )
-        error_result.instruction = INSTRUCTION_FILE_READ
+        error_result.instruction = INSTRUCTION_FILE_ERROR
         return error_result.to_json_str()
 
     # Format content

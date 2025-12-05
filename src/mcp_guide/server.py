@@ -64,7 +64,7 @@ def create_server() -> FastMCP:
     tools.set_instance(decorator)
 
     # Import tool modules - decorators register immediately
-    from mcp_guide.tools import tool_category  # noqa: F401
+    from mcp_guide.tools import tool_category, tool_collection  # noqa: F401
 
     if os.environ.get("MCP_INCLUDE_EXAMPLE_TOOLS", "").lower() in ("true", "1", "yes"):
         from mcp_guide.tools import tool_example  # noqa: F401

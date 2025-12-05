@@ -11,18 +11,13 @@ from mcp_core.validation import ArgValidationError, validate_description
 from mcp_guide.models import Collection
 from mcp_guide.server import tools
 from mcp_guide.session import get_or_create_session
+from mcp_guide.tools.tool_constants import ERROR_NO_PROJECT, ERROR_NOT_FOUND, ERROR_SAVE
 from mcp_guide.validation import validate_categories_exist
 
 try:
     from mcp.server.fastmcp import Context
 except ImportError:
     Context = None  # type: ignore
-
-
-# Common error types
-ERROR_NO_PROJECT = "no_project"
-ERROR_NOT_FOUND = "not_found"
-ERROR_SAVE = "save_error"
 
 
 class CollectionListArgs(ToolArguments):

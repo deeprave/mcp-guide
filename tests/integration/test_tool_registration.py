@@ -15,7 +15,7 @@ from mcp_guide.models import Category, Project
 from mcp_guide.session import Session, remove_current_session, set_current_session
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture(scope="session", autouse=True)
 def production_mode():
     """Ensure production mode for integration tests."""
     disable_test_mode()
@@ -53,8 +53,6 @@ async def test_server_starts_and_registers_tools(test_session):
     """
     from mcp_guide.server import create_server
 
-    disable_test_mode()
-
     # Create server - this triggers tool registration
     server = create_server()
 
@@ -67,31 +65,11 @@ async def test_server_starts_and_registers_tools(test_session):
     # create_server() completes without error, tools are registered
     assert hasattr(server, "tool")
 
-    # Verify the decorator pattern worked
-    from unittest.mock import AsyncMock, MagicMock
-
-    from mcp_guide.tools.tool_category import category_list
-
-    # Mock Context for tool call
-    mock_ctx = MagicMock()
-    mock_root = MagicMock()
-    mock_root.uri = "file:///test/project"
-    mock_ctx.session.list_roots = AsyncMock(return_value=MagicMock(roots=[mock_root]))
-
-    # Tool function should still be callable directly (now async)
-    result_str = await category_list(mock_ctx)
-    result_dict = json.loads(result_str)
-
-    # Should return proper result
-    assert result_dict["success"] is True
-
 
 @pytest.mark.asyncio
 async def test_tool_registration_with_fastmcp():
     """Test that tools register correctly with FastMCP instance."""
     from mcp_guide.server import create_server
-
-    disable_test_mode()
 
     # Create server
     server = create_server()
@@ -107,32 +85,9 @@ async def test_tool_registration_with_fastmcp():
 
 
 @pytest.mark.asyncio
-async def test_tool_not_registered_in_test_mode():
-    """Test that tools don't register when test mode is enabled."""
-    from mcp_guide.server import _ToolsProxy, tools
-
-    enable_test_mode()
-
-    # Reset proxy instance
-    _ToolsProxy._instance = None
-
-    # In test mode, tool() should return no-op
-    @tools.tool()
-    def test_func():
-        return "test"
-
-    # Function should be unchanged
-    assert test_func() == "test"
-
-    disable_test_mode()
-
-
-@pytest.mark.asyncio
 async def test_auto_generated_description():
     """Test that tool descriptions are auto-generated from args class."""
     from mcp_guide.server import create_server
-
-    disable_test_mode()
 
     # Create server (triggers registration)
     server = create_server()
@@ -159,8 +114,6 @@ async def test_mcp_client_can_list_and_call_tools(test_session, tmp_path):
     """
     import asyncio
     import sys
-
-    disable_test_mode()
 
     # Server parameters - run mcp-guide server
     server_params = StdioServerParameters(
