@@ -421,9 +421,7 @@ async def test_get_category_content_empty_category(mcp_server, tmp_path, monkeyp
     session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
 
     # Add category with pattern that won't match any files
-    await session.update_config(
-        lambda p: p.with_category(Category(name="guide", dir="guide", patterns=["nomatch*"]))
-    )
+    await session.update_config(lambda p: p.with_category(Category(name="guide", dir="guide", patterns=["nomatch*"])))
 
     docroot = Path(tmp_path.resolve()) / "docs"
     generate_test_files(docroot)
@@ -448,9 +446,7 @@ async def test_get_category_content_success_single_file(mcp_server, tmp_path, mo
     session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
 
     # Add category with pattern matching single file
-    await session.update_config(
-        lambda p: p.with_category(Category(name="lang", dir="lang", patterns=["python*"]))
-    )
+    await session.update_config(lambda p: p.with_category(Category(name="lang", dir="lang", patterns=["python*"])))
 
     docroot = Path(tmp_path.resolve()) / "docs"
     generate_test_files(docroot)
@@ -476,9 +472,7 @@ async def test_get_category_content_success_multiple_files(mcp_server, tmp_path,
     session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
 
     # Add category with pattern matching multiple files
-    await session.update_config(
-        lambda p: p.with_category(Category(name="context", dir="context", patterns=["jira*"]))
-    )
+    await session.update_config(lambda p: p.with_category(Category(name="context", dir="context", patterns=["jira*"])))
 
     docroot = Path(tmp_path.resolve()) / "docs"
     generate_test_files(docroot)
@@ -505,9 +499,7 @@ async def test_get_category_content_pattern_override(mcp_server, tmp_path, monke
     session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
 
     # Add category with pattern matching all files
-    await session.update_config(
-        lambda p: p.with_category(Category(name="guide", dir="guide", patterns=["*"]))
-    )
+    await session.update_config(lambda p: p.with_category(Category(name="guide", dir="guide", patterns=["*"])))
 
     docroot = Path(tmp_path.resolve()) / "docs"
     generate_test_files(docroot)

@@ -429,4 +429,3 @@ async def get_collection_content(
     content = await formatter.format(all_files, args.collection)
 
     return Result.ok(content).to_json_str()
-

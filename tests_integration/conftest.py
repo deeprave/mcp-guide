@@ -20,5 +20,3 @@ def mcp_server():
     _ToolsProxy._instance = None
 
     return create_server()
-
-

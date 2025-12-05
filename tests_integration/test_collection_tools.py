@@ -448,7 +448,6 @@ async def test_collection_removal_preserves_categories(mcp_server, tmp_path, mon
     remove_current_session("test")
 
 
-
 # Phase 7: Collection Content Retrieval
 
 
@@ -525,8 +524,9 @@ async def test_get_collection_content_empty_collection(mcp_server, tmp_path, mon
 
     # Add category with pattern that won't match
     await session.update_config(
-        lambda p: p.with_category(Category(name="guide", dir="guide", patterns=["nomatch*"]))
-        .with_collection(Collection(name="empty-collection", categories=["guide"]))
+        lambda p: p.with_category(Category(name="guide", dir="guide", patterns=["nomatch*"])).with_collection(
+            Collection(name="empty-collection", categories=["guide"])
+        )
     )
 
     docroot = Path(tmp_path.resolve()) / "docs"
@@ -553,8 +553,9 @@ async def test_get_collection_content_success_single_category(mcp_server, tmp_pa
 
     # Add category matching python files only
     await session.update_config(
-        lambda p: p.with_category(Category(name="lang", dir="lang", patterns=["python*"]))
-        .with_collection(Collection(name="test-collection", categories=["lang"]))
+        lambda p: p.with_category(Category(name="lang", dir="lang", patterns=["python*"])).with_collection(
+            Collection(name="test-collection", categories=["lang"])
+        )
     )
 
     docroot = Path(tmp_path.resolve()) / "docs"
@@ -613,8 +614,9 @@ async def test_get_collection_content_pattern_override(mcp_server, tmp_path, mon
 
     # Add category matching all guide files
     await session.update_config(
-        lambda p: p.with_category(Category(name="guide", dir="guide", patterns=["*"]))
-        .with_collection(Collection(name="test-collection", categories=["guide"]))
+        lambda p: p.with_category(Category(name="guide", dir="guide", patterns=["*"])).with_collection(
+            Collection(name="test-collection", categories=["guide"])
+        )
     )
 
     docroot = Path(tmp_path.resolve()) / "docs"
