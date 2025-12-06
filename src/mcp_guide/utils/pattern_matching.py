@@ -2,14 +2,14 @@
 
 import fnmatch
 import glob
+import logging
 import os
 from pathlib import Path
 from typing import List, Set
 
-from mcp_core.mcp_log import get_logger
 from mcp_guide.constants import MAX_DOCUMENTS_PER_GLOB, MAX_GLOB_DEPTH, METADATA_SUFFIX
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 def is_valid_file(path: Path) -> bool:

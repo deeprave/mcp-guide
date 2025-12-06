@@ -286,52 +286,6 @@ class TestStructuredJSONFormatter:
         assert "ValueError" in data["exception"]
 
 
-class TestFileHandler:
-    """Tests for file handler selection."""
-
-    def test_watched_file_handler_on_unix(self, monkeypatch, tmp_path):
-        """Test WatchedFileHandler used on Unix/Linux."""
-        import sys
-
-        from mcp_core.mcp_log import add_file_handler
-
-        monkeypatch.setattr(sys, "platform", "linux")
-
-        log_file = tmp_path / "test.log"
-        add_file_handler(str(log_file), level="INFO", json_format=False)
-
-        # Verify handler was added
-        import logging
-
-        root_logger = logging.getLogger()
-        file_handlers = [h for h in root_logger.handlers if isinstance(h, logging.FileHandler)]
-        assert len(file_handlers) > 0
-
-        # Check it's WatchedFileHandler on Unix
-        from logging.handlers import WatchedFileHandler
-
-        watched_handlers = [h for h in file_handlers if isinstance(h, WatchedFileHandler)]
-        assert len(watched_handlers) > 0
-
-    def test_file_handler_on_windows(self, monkeypatch, tmp_path):
-        """Test FileHandler used on Windows."""
-        import sys
-
-        from mcp_core.mcp_log import add_file_handler
-
-        monkeypatch.setattr(sys, "platform", "win32")
-
-        log_file = tmp_path / "test.log"
-        add_file_handler(str(log_file), level="INFO", json_format=False)
-
-        # Verify handler was added
-        import logging
-
-        root_logger = logging.getLogger()
-        file_handlers = [h for h in root_logger.handlers if isinstance(h, logging.FileHandler)]
-        assert len(file_handlers) > 0
-
-
 class TestLoggerHierarchy:
     """Tests for logger hierarchy configuration."""
 
@@ -376,27 +330,6 @@ class TestLoggerHierarchy:
         # Should appear exactly once in the output
         output = stream.getvalue()
         assert output.count("test message") == 1
-
-
-class TestGetLogger:
-    """Tests for get_logger() wrapper."""
-
-    def test_get_logger_returns_logger_with_trace(self):
-        """Test get_logger returns logger with trace() method."""
-        from mcp_core.mcp_log import get_logger
-
-        logger = get_logger("test.module")
-        assert hasattr(logger, "trace")
-        assert callable(logger.trace)
-
-    def test_get_logger_works_without_fastmcp(self, monkeypatch):
-        """Test get_logger falls back to standard logging if FastMCP unavailable."""
-        from mcp_core.mcp_log import get_logger
-
-        # Should work even if FastMCP not available
-        logger = get_logger("test.fallback")
-        assert logger is not None
-        assert hasattr(logger, "trace")
 
 
 class TestContextTrace:

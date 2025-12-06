@@ -1,12 +1,14 @@
 """Main entry point for mcp-guide MCP server."""
 
 import asyncio
+import logging
 import os
 import sys
 
 import click
 
-from mcp_guide.cli import ServerConfig
+from mcp_guide.cli import ServerConfig, parse_args
+from mcp_guide.config import DocrootError
 
 
 def _configure_environment(config: ServerConfig) -> None:
@@ -24,15 +26,35 @@ def _configure_logging(config: ServerConfig) -> None:
     Args:
         config: Server configuration
     """
-    from mcp_core.mcp_log import configure, get_logger
+    from mcp_core.mcp_log import (
+        configure,
+        create_console_handler,
+        create_file_handler,
+        create_formatter,
+        save_logging_config,
+    )
 
+    # Create handlers
+    console_handler = create_console_handler()
+    file_handler = create_file_handler(config.log_file) if config.log_file else None
+
+    # Create and apply formatters
+    formatter = create_formatter(config.log_json)
+    console_handler.setFormatter(formatter)
+    if file_handler:
+        file_handler.setFormatter(formatter)
+
+    # Save configuration for restoration after FastMCP init
+    save_logging_config(console_handler, file_handler)
+
+    # Apply initial configuration
     configure(
         level=config.log_level,
         file_path=config.log_file,
         json_format=config.log_json,
     )
 
-    logger = get_logger(__name__)
+    logger = logging.getLogger(__name__)
     logger.info("Starting mcp-guide server")
     logger.debug(f"Log level: {config.log_level}, File: {config.log_file or 'none'}, JSON: {config.log_json}")
 
@@ -46,9 +68,7 @@ def _handle_cli_error(config: ServerConfig) -> None:
     if not config.cli_error:
         return
 
-    from mcp_core.mcp_log import get_logger
-
-    logger = get_logger(__name__)
+    logger = logging.getLogger(__name__)
 
     if config.should_exit:
         # Ctrl+C
@@ -71,11 +91,6 @@ async def async_main() -> None:
 
 def main() -> None:
     """MCP Guide Server - Main entry point."""
-    # Local imports to avoid import-time side effects (logging, config initialization)
-    from mcp_core.mcp_log import get_logger
-    from mcp_guide.cli import parse_args
-    from mcp_guide.config import DocrootError
-
     config = parse_args()
 
     # Exit immediately for help/version (before logging setup)
@@ -89,7 +104,7 @@ def main() -> None:
     try:
         asyncio.run(async_main())
     except DocrootError as e:
-        logger = get_logger(__name__)
+        logger = logging.getLogger(__name__)
         logger.error(f"FATAL: {e}")
         logger.error("MCP server cannot function without a valid docroot. Exiting.")
         sys.exit(1)
