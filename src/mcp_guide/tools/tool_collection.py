@@ -19,6 +19,7 @@ from mcp_guide.tools.tool_constants import (
     ERROR_SAVE,
     INSTRUCTION_FILE_ERROR,
     INSTRUCTION_NOTFOUND_ERROR,
+    INSTRUCTION_PATTERN_ERROR,
 )
 from mcp_guide.utils.content_utils import create_file_read_error_result, read_file_contents, resolve_patterns
 from mcp_guide.utils.file_discovery import FileInfo, discover_category_files
@@ -413,6 +414,11 @@ async def get_collection_content(
         if not files:
             continue
 
+        # Set category and collection fields on all FileInfo objects
+        for file in files:
+            file.category = category.name
+            file.collection = args.collection
+
         # Read file content and modify basename
         errors = await read_file_contents(files, category_dir, category_prefix=category.name)
         file_read_errors.extend(errors)
@@ -426,7 +432,9 @@ async def get_collection_content(
 
     # Check if any files found
     if not all_files:
-        return Result.ok(f"No matching content found in collection '{args.collection}'").to_json_str()
+        result = Result.ok(f"No matching content found in collection '{args.collection}'")
+        result.instruction = INSTRUCTION_PATTERN_ERROR
+        return result.to_json_str()
 
     # Format content
     formatter = get_formatter()

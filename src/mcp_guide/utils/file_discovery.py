@@ -14,13 +14,25 @@ TEMPLATE_EXTENSION = ".mustache"
 
 @dataclass
 class FileInfo:
-    """File metadata."""
+    """File metadata.
+
+    Attributes:
+        path: Relative path to file from category directory
+        size: File size in bytes
+        mtime: File modification time
+        basename: File basename (without template extension if applicable)
+        content: File content (populated after reading)
+        category: Category name where file was discovered (for templating)
+        collection: Collection name where file was discovered (for templating)
+    """
 
     path: Path
     size: int
     mtime: datetime
     basename: str
     content: str | None = None
+    category: str | None = None
+    collection: str | None = None
 
 
 async def discover_category_files(

@@ -291,14 +291,13 @@ async def test_no_matches_returns_failure(tmp_path, monkeypatch):
     assert result["instruction"] == INSTRUCTION_PATTERN_ERROR
     assert "No files found" in result["value"]
 
-    # Test 2: Pattern override - should return failure
+    # Test 2: Pattern override - should also return success (consistent with other tools)
     args = CategoryContentArgs(category="docs", pattern="*.txt")
     result_json = await get_category_content(args)
     result = json.loads(result_json)
-    assert result["success"] is False
-    assert result["error_type"] == ERROR_NO_MATCHES
+    assert result["success"] is True
     assert result["instruction"] == INSTRUCTION_PATTERN_ERROR
-    assert "*.txt" in result["error"]
+    assert "*.txt" in result["value"]
 
 
 async def test_file_read_error_single_file(tmp_path, monkeypatch):

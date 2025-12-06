@@ -392,7 +392,7 @@ async def test_update_category_preserves_collections(mcp_server, tmp_path, monke
 @pytest.mark.anyio
 async def test_get_category_content_not_found(mcp_server, tmp_path, monkeypatch):
     """Test error when category doesn't exist."""
-    from tests_integration.test_data_generator import generate_test_files
+    from .test_data_generator import generate_test_files
 
     monkeypatch.setenv("PWD", "/fake/path/test")
 
@@ -414,7 +414,7 @@ async def test_get_category_content_not_found(mcp_server, tmp_path, monkeypatch)
 @pytest.mark.anyio
 async def test_get_category_content_empty_category(mcp_server, tmp_path, monkeypatch):
     """Test success message when category has no matching files."""
-    from tests_integration.test_data_generator import generate_test_files
+    from .test_data_generator import generate_test_files
 
     monkeypatch.setenv("PWD", "/fake/path/test")
 
@@ -439,7 +439,7 @@ async def test_get_category_content_empty_category(mcp_server, tmp_path, monkeyp
 @pytest.mark.anyio
 async def test_get_category_content_success_single_file(mcp_server, tmp_path, monkeypatch):
     """Test successful content retrieval with single file."""
-    from tests_integration.test_data_generator import generate_test_files
+    from .test_data_generator import generate_test_files
 
     monkeypatch.setenv("PWD", "/fake/path/test")
 
@@ -465,7 +465,7 @@ async def test_get_category_content_success_single_file(mcp_server, tmp_path, mo
 @pytest.mark.anyio
 async def test_get_category_content_success_multiple_files(mcp_server, tmp_path, monkeypatch):
     """Test successful content retrieval with multiple files."""
-    from tests_integration.test_data_generator import generate_test_files
+    from .test_data_generator import generate_test_files
 
     monkeypatch.setenv("PWD", "/fake/path/test")
 
@@ -492,7 +492,7 @@ async def test_get_category_content_success_multiple_files(mcp_server, tmp_path,
 @pytest.mark.anyio
 async def test_get_category_content_pattern_override(mcp_server, tmp_path, monkeypatch):
     """Test pattern overrides category defaults."""
-    from tests_integration.test_data_generator import generate_test_files
+    from .test_data_generator import generate_test_files
 
     monkeypatch.setenv("PWD", "/fake/path/test")
 

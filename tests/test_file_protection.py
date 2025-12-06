@@ -2,8 +2,9 @@
 
 from pathlib import Path
 
-import conftest
 import pytest
+
+from .conftest import REAL_PATHS
 
 
 def test_protection_monitors_real_production_paths(session_temp_dir):
@@ -18,14 +19,14 @@ def test_protection_monitors_real_production_paths(session_temp_dir):
     assert str(session_temp_dir) in str(test_docroot), "Docroot should be in test temp dir"
 
     # Verify real paths are DIFFERENT from test paths
-    assert test_config != conftest._REAL_MCP_GUIDE_CONFIG, "Real production config should differ from test config"
-    assert test_docroot != conftest._REAL_MCP_GUIDE_DOCROOT, "Real production docroot should differ from test docroot"
+    assert test_config != REAL_PATHS["mcp_guide_config"], "Real production config should differ from test config"
+    assert test_docroot != REAL_PATHS["mcp_guide_docroot"], "Real production docroot should differ from test docroot"
 
     # Verify real paths point to actual user directories (not test temp)
-    assert str(session_temp_dir) not in str(conftest._REAL_MCP_GUIDE_CONFIG), (
+    assert str(session_temp_dir) not in str(REAL_PATHS["mcp_guide_config"]), (
         "Real config should not be in test temp dir"
     )
-    assert conftest._REAL_MCP_GUIDE_CONFIG.is_absolute(), "Real config should be an absolute path"
+    assert REAL_PATHS["mcp_guide_config"].is_absolute(), "Real config should be an absolute path"
 
 
 def test_protection_fixture_exists():
