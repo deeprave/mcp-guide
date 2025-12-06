@@ -69,25 +69,33 @@ Collection management tools must be implemented before Phase 3.
 
 ## Phase 3: Collection-Based Content Retrieval
 
+**UPDATED 2025-12-05**: Corrected get_content semantics and added FileInfo metadata enhancements.
+
+**FileInfo Enhancement**: Add `category` and `collection` optional fields for future templating support.
+
 ### 7. get_collection_content Tool
-- [ ] 7.1 Define argument schema (collection, pattern)
-- [ ] 7.2 Implement collection resolution
-- [ ] 7.3 Aggregate content from collection's categories
-- [ ] 7.4 Apply pattern across all categories
-- [ ] 7.5 Merge results with proper metadata
-- [ ] 7.6 Add Result pattern responses
-- [ ] 7.7 Register tool with MCP server
-- [ ] 7.8 Add integration tests
+- [x] 7.1 Define argument schema (collection, pattern) (GUIDE-75 ✓)
+- [x] 7.2 Implement collection resolution (GUIDE-76 ✓)
+- [x] 7.3 Aggregate content from collection's categories (GUIDE-77 ✓)
+- [x] 7.4 Apply pattern across all categories (GUIDE-78 ✓)
+- [x] 7.5 Merge results with proper metadata (GUIDE-79 ✓)
+- [x] 7.6 Add Result pattern responses (GUIDE-80 ✓)
+- [x] 7.7 Register tool with MCP server (GUIDE-81 ✓)
+- [x] 7.8 Add integration tests (GUIDE-82 ✓)
+- [x] 7.9 Add FileInfo metadata (category, collection fields) ✓
+- [x] 7.10 Fix empty results (add instruction field) ✓
 
 ### 8. get_content Tool (Unified Access)
-- [ ] 8.1 Define argument schema (category_or_collection, pattern)
-- [ ] 8.2 Implement category resolution (try first)
-- [ ] 8.3 Implement collection resolution (fallback)
-- [ ] 8.4 Add consistent error handling
-- [ ] 8.5 Add agent-friendly error messages
-- [ ] 8.6 Register tool with MCP server
-- [ ] 8.7 Add integration tests
-- [ ] 8.8 Test resolution priority
+**CORRECTED**: Collections searched first, then categories (BOTH, not either/or). Aggregate and de-duplicate.
+
+- [x] 8.1 Define argument schema (category_or_collection, pattern) (GUIDE-83 ✓)
+- [x] 8.2 Implement collection search (first) (GUIDE-84 ✓)
+- [x] 8.3 Implement category search (second) (GUIDE-85 ✓)
+- [x] 8.4 Implement de-duplication and aggregation (GUIDE-86 ✓)
+- [x] 8.5 Implement consistent empty results handling (GUIDE-87 ✓)
+- [x] 8.6 Register tool with MCP server (GUIDE-88 ✓)
+- [x] 8.7 Add integration tests (GUIDE-89 ✓)
+- [x] 8.8 Test de-duplication priority (GUIDE-90 ✓)
 
 ## Phase 4: Documentation
 

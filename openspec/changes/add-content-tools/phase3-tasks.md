@@ -2,6 +2,39 @@
 
 **Note**: This phase requires collection management tools to be implemented first (add-collection-tools).
 
+**UPDATED 2025-12-05**: Corrected get_content semantics and added FileInfo metadata enhancements.
+
+## Key Semantic Changes for Task 8 (get_content)
+
+**Original (INCORRECT):**
+- Try category first, fallback to collection if not found
+- Return first match
+
+**Corrected (CORRECT):**
+- Search collections first, then categories (BOTH, not either/or)
+- Aggregate all FileInfo from both searches
+- De-duplicate by absolute path, preserving discovery order
+- First occurrence wins (collection metadata over category-only)
+- Read content for unique files
+- Return aggregated result
+
+## FileInfo Metadata Enhancement (Applies to All Tasks)
+
+Two new fields added to FileInfo for future templating support:
+- `category: Optional[str] = None` - category where file was discovered
+- `collection: Optional[str] = None` - collection where file was discovered
+
+**Field Population:**
+- get_category_content: Set `category` field after discovery
+- get_collection_content: Set both `category` and `collection` fields after discovery
+- get_content: Fields already set by underlying category searches
+
+## Consistency Fix (Task 7.x)
+
+get_collection_content must add instruction field when no files found:
+- Change: `Result.ok(message)` → `Result.ok(message)` + `result.instruction = INSTRUCTION_PATTERN_ERROR`
+- Ensures consistency with get_category_content behavior
+
 ## Task 7.1: Define Argument Schema (collection, pattern)
 
 **Description**: Define Pydantic argument schema for get_collection_content tool following ADR-008 conventions.
@@ -218,47 +251,57 @@
 
 **Description**: Define Pydantic argument schema for get_content tool (unified access).
 
+**CORRECTED**: Collections searched first, then categories (BOTH, not either/or).
+
 **Requirements**:
 - Inherit from ToolArguments base class
-- Define `category_or_collection` (required, string)
-- Define `pattern` (optional, string)
+- Define `category_or_collection` (required, string) - exact name match
+- Define `pattern` (optional, string) - file pattern override
 - Add field descriptions
 - Add validation
 
 **Assumptions**:
 - ToolArguments base class exists
-- Name can be category or collection ID
-- Ambiguity resolved by trying category first
+- Name matches exact collection or category name
+- Both collections and categories are searched (not fallback)
 
 **Acceptance Criteria**:
 - [ ] Schema class inherits from ToolArguments
 - [ ] `category_or_collection` field is required string
 - [ ] `pattern` field is optional string
-- [ ] Field descriptions explain resolution order
+- [ ] Field descriptions explain aggregation behavior
 - [ ] Schema validates correctly
 - [ ] Schema generates proper markdown docs
 - [ ] Unit tests verify schema validation
 
 ---
 
-## Task 8.2: Implement Category Resolution (Try First)
+## Task 8.2: Implement Collection Search (First)
 
-**Description**: Implement category resolution as first attempt in unified access.
+**Description**: Implement collection search as first step in unified access.
+
+**CORRECTED**: Collections searched first (not category first).
 
 **Requirements**:
-- Try to resolve as category name
-- Return category if found
-- Return None if not found
-- Don't error on miss (try collection next)
+- Search for collection with exact name match
+- If found: aggregate files from all categories in collection
+- Set `file.category` and `file.collection` fields
+- Apply pattern override to all categories (or use defaults)
+- Collect all FileInfo
 
 **Assumptions**:
-- Category names are unique
-- Category resolution is fast
-- Categories tried before collections
+- Collection names are unique
+- Collection search is fast
+- Collections searched before categories
 
 **Acceptance Criteria**:
-- [ ] Attempts category resolution first
-- [ ] Returns category if found
+- [ ] Searches collection by exact name match first
+- [ ] Aggregates files from all categories in collection
+- [ ] Sets both category and collection fields on FileInfo
+- [ ] Applies pattern override correctly
+- [ ] Collects all FileInfo for later de-duplication
+- [ ] Unit tests verify collection search
+- [ ] Unit tests verify metadata population
 - [ ] Returns None if not found
 - [ ] No error on miss
 - [ ] Unit tests verify resolution
@@ -266,79 +309,86 @@
 
 ---
 
-## Task 8.3: Implement Collection Resolution (Fallback)
+## Task 8.3: Implement Category Search (Second)
 
-**Description**: Implement collection resolution as fallback when category not found.
+**Description**: Implement category search as second step in unified access.
+
+**CORRECTED**: Categories searched after collections (NOT fallback - always search both).
 
 **Requirements**:
-- Try collection resolution if category not found
-- Return collection if found
-- Return None if not found
-- Error if neither found
+- Search for category with exact name match
+- If found: discover files using pattern override (or defaults)
+- `file.category` already set by discovery
+- Collect all FileInfo for aggregation
 
 **Assumptions**:
-- Collection IDs are unique
-- Collection resolution is fast
-- Collections tried after categories
+- Category names are unique
+- Category search is fast
+- Categories searched after collections (both are searched)
 
 **Acceptance Criteria**:
-- [ ] Attempts collection resolution on category miss
-- [ ] Returns collection if found
-- [ ] Returns None if not found
-- [ ] Errors if neither category nor collection found
-- [ ] Unit tests verify fallback
-- [ ] Unit tests verify error case
+- [ ] Searches category by exact name match
+- [ ] Discovers files with pattern override
+- [ ] Category field already set on FileInfo
+- [ ] Collects all FileInfo for later de-duplication
+- [ ] Unit tests verify category search
+- [ ] Unit tests verify it runs after collection search
 
 ---
 
-## Task 8.4: Add Consistent Error Handling
+## Task 8.4: Implement De-duplication and Aggregation
 
-**Description**: Implement consistent error handling for unified access tool.
+**Description**: Implement de-duplication of FileInfo by absolute path and content aggregation.
+
+**CORRECTED**: De-duplicate before reading content (efficiency).
 
 **Requirements**:
-- Handle not found (neither category nor collection)
-- Handle no matches
-- Handle no session
-- Use same error types as other tools
-- Include agent instructions
+- De-duplicate FileInfo by absolute path (category_dir / file.path)
+- Preserve discovery order (collections first, then categories)
+- First occurrence wins (collection metadata preserved)
+- Read content for unique files only
+- Format and return aggregated content
 
 **Assumptions**:
-- Error types are defined
-- Error messages are consistent
-- Agent instructions are established
+- FileInfo.path is relative to category_dir
+- Absolute path uniquely identifies a file
+- First occurrence has most complete metadata
 
 **Acceptance Criteria**:
-- [ ] `not_found` when neither found
-- [ ] `no_matches` when pattern matches nothing
-- [ ] `no_session` when no project context
-- [ ] Error messages are clear
-- [ ] Agent instructions included
-- [ ] Unit tests verify all error types
+- [ ] De-duplicates by absolute file path
+- [ ] Preserves discovery order
+- [ ] First occurrence wins
+- [ ] Reads content only for unique files
+- [ ] Formats aggregated content correctly
+- [ ] Unit tests verify de-duplication logic
+- [ ] Unit tests verify metadata preservation
 
 ---
 
-## Task 8.5: Add Agent-Friendly Error Messages
+## Task 8.5: Implement Consistent Empty Results Handling
 
-**Description**: Implement clear, actionable error messages for unified access tool.
+**Description**: Implement consistent empty results behavior across all content tools.
+
+**CORRECTED**: Empty results return success with instruction (not error).
 
 **Requirements**:
-- Explain what was tried (category, then collection)
-- Suggest corrective actions
-- Include specific details
-- Follow established message patterns
+- Return `Result.ok()` when no files found
+- Set `result.instruction = INSTRUCTION_PATTERN_ERROR`
+- Use consistent message format
+- Match get_collection_content behavior
 
 **Assumptions**:
-- Users may not know if name is category or collection
-- Error messages should educate
-- Suggestions should be actionable
+- Empty results are not errors
+- Agent needs instruction not to retry
+- Consistency across tools is important
 
 **Acceptance Criteria**:
-- [ ] Error explains resolution attempt order
-- [ ] Error suggests checking category list
-- [ ] Error suggests checking collection list
-- [ ] Error includes the name that was tried
-- [ ] Messages are user-friendly
-- [ ] Unit tests verify message content
+- [ ] Returns `Result.ok()` for empty results
+- [ ] Sets instruction field to INSTRUCTION_PATTERN_ERROR
+- [ ] Message format is consistent
+- [ ] Works when no collection or category matches
+- [ ] Works when matches found but no files
+- [ ] Unit tests verify empty result handling
 
 ---
 
@@ -372,11 +422,14 @@
 
 **Description**: Create integration tests for get_content tool (unified access).
 
+**CORRECTED**: Test aggregation from both collections and categories.
+
 **Requirements**:
 - Test tool via MCP protocol
-- Test category resolution
-- Test collection resolution
-- Test resolution priority
+- Test collection search
+- Test category search
+- Test aggregation from both
+- Test de-duplication
 - Test error cases
 
 **Assumptions**:
@@ -385,36 +438,39 @@
 - Both categories and collections can be configured
 
 **Acceptance Criteria**:
-- [ ] Test category resolution (found)
-- [ ] Test collection resolution (fallback)
-- [ ] Test resolution priority (category first)
-- [ ] Test not found error
-- [ ] Test no matches error
+- [ ] Test collection-only match
+- [ ] Test category-only match
+- [ ] Test both match (aggregation and de-duplication)
+- [ ] Test neither match (empty result)
 - [ ] Test with pattern override
+- [ ] Test FileInfo metadata population
 - [ ] All tests pass
 - [ ] Tests verify JSON response format
 
 ---
 
-## Task 8.8: Test Resolution Priority
+## Task 8.8: Test De-duplication Priority
 
-**Description**: Create tests that verify category-first resolution priority.
+**Description**: Create tests that verify collection-first de-duplication priority.
+
+**CORRECTED**: Collections searched first, so collection metadata wins on duplicates.
 
 **Requirements**:
-- Test with name that matches category
-- Test with name that matches collection
-- Test with name that matches both
-- Verify category wins when both match
+- Test with file in collection only
+- Test with file in category only
+- Test with same file in both
+- Verify collection metadata wins when both match
 
 **Assumptions**:
-- Names can overlap (category and collection)
-- Priority is deterministic
-- Tests can create overlapping names
+- Same file can appear in collection and category
+- De-duplication is by absolute path
+- First occurrence (collection) wins
 
 **Acceptance Criteria**:
-- [ ] Test category-only match
-- [ ] Test collection-only match
-- [ ] Test both match (category wins)
-- [ ] Test neither match (error)
-- [ ] Verify resolution order in logs
+- [ ] Test file in collection only
+- [ ] Test file in category only
+- [ ] Test same file in both (collection metadata wins)
+- [ ] Test multiple duplicates across categories
+- [ ] Verify de-duplication by absolute path
+- [ ] Verify metadata preservation
 - [ ] All tests pass

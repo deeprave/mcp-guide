@@ -1,14 +1,24 @@
 """Project configuration management."""
 
 import asyncio
+import sys
 from pathlib import Path
 from typing import Optional
 
 import yaml
 
 from mcp_core.file_reader import read_file_content
+from mcp_core.mcp_log import get_logger
 from mcp_guide.file_lock import lock_update
 from mcp_guide.models import _NAME_REGEX, Project
+
+logger = get_logger(__name__)
+
+
+class DocrootError(RuntimeError):
+    """Raised when docroot cannot be created or is invalid."""
+
+    pass
 
 
 class ConfigManager:
@@ -44,6 +54,21 @@ class ConfigManager:
                         content = await read_file_content(self.config_file)
                         data = yaml.safe_load(content)
                         self._docroot = data.get("docroot", str(get_docroot(self._config_dir)))
+
+                    # Validate and create docroot
+                    docroot_path = Path(self._docroot).expanduser()
+
+                    if not docroot_path.exists():
+                        try:
+                            docroot_path.mkdir(parents=True, exist_ok=True)
+                            logger.info(f"Created docroot directory: {docroot_path}")
+                        except (PermissionError, OSError) as e:
+                            logger.error(f"FATAL: Failed to create docroot directory '{docroot_path}': {e}")
+                            raise DocrootError(f"Failed to create docroot directory '{docroot_path}': {e}") from e
+                    elif not docroot_path.is_dir():
+                        logger.error(f"FATAL: Docroot path exists but is not a directory: {docroot_path}")
+                        raise DocrootError(f"Docroot path exists but is not a directory: {docroot_path}")
+
                     self._initialized = True
 
     def get_docroot(self) -> str:

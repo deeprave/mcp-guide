@@ -40,11 +40,7 @@ from watchdog.observers import Observer
 
 # Export real path constants for test validation
 __all__ = [
-    "_REAL_HOME",
-    "_REAL_MCP_GUIDE_CONFIG",
-    "_REAL_MCP_GUIDE_DOCROOT",
-    "_REAL_MSG_CONFIG",
-    "_REAL_MSG_DOCROOT",
+    "REAL_PATHS",
 ]
 
 # Global session temp directory
@@ -55,19 +51,27 @@ _session_temp_dir: Path | None = None
 _REAL_HOME = Path.home()
 _REAL_XDG_CONFIG = os.environ.get("XDG_CONFIG_HOME", str(_REAL_HOME / ".config"))
 
-# Unix/Linux/macOS paths
-_REAL_MCP_GUIDE_CONFIG = Path(_REAL_XDG_CONFIG) / "mcp-guide"
-_REAL_MCP_GUIDE_DOCROOT = _REAL_MCP_GUIDE_CONFIG / "docs"
-_REAL_MSG_CONFIG = Path(_REAL_XDG_CONFIG) / "mcp-server-guide"
-_REAL_MSG_DOCROOT = _REAL_MSG_CONFIG / "docs"
+# Store real paths in a dictionary for easy access
+REAL_PATHS = {
+    "home": _REAL_HOME,
+    "xdg_config": Path(_REAL_XDG_CONFIG),
+    "mcp_guide_config": Path(_REAL_XDG_CONFIG) / "mcp-guide",
+    "mcp_guide_docroot": Path(_REAL_XDG_CONFIG) / "mcp-guide" / "docs",
+    "msg_config": Path(_REAL_XDG_CONFIG) / "mcp-server-guide",
+    "msg_docroot": Path(_REAL_XDG_CONFIG) / "mcp-server-guide" / "docs",
+}
 
 # Windows support for real paths
 if os.name == "nt":
     _REAL_APPDATA = os.environ.get("APPDATA", str(_REAL_HOME / "AppData" / "Roaming"))
-    _REAL_MCP_GUIDE_CONFIG = Path(_REAL_APPDATA) / "mcp-guide"
-    _REAL_MCP_GUIDE_DOCROOT = _REAL_MCP_GUIDE_CONFIG / "docs"
-    _REAL_MSG_CONFIG = Path(_REAL_APPDATA) / "mcp-server-guide"
-    _REAL_MSG_DOCROOT = _REAL_MSG_CONFIG / "docs"
+    REAL_PATHS.update(
+        {
+            "mcp_guide_config": Path(_REAL_APPDATA) / "mcp-guide",
+            "mcp_guide_docroot": Path(_REAL_APPDATA) / "mcp-guide" / "docs",
+            "msg_config": Path(_REAL_APPDATA) / "mcp-server-guide",
+            "msg_docroot": Path(_REAL_APPDATA) / "mcp-server-guide" / "docs",
+        }
+    )
 
 
 class ProductionFileHandler(FileSystemEventHandler):
@@ -94,17 +98,17 @@ def protect_production_files():
     observer = Observer()
 
     # Monitor REAL production paths (captured before env modification)
-    if _REAL_MCP_GUIDE_CONFIG.exists():
-        observer.schedule(handler, str(_REAL_MCP_GUIDE_CONFIG), recursive=False)
+    if REAL_PATHS["mcp_guide_config"].exists():
+        observer.schedule(handler, str(REAL_PATHS["mcp_guide_config"]), recursive=False)
 
-    if _REAL_MCP_GUIDE_DOCROOT.exists():
-        observer.schedule(handler, str(_REAL_MCP_GUIDE_DOCROOT), recursive=True)
+    if REAL_PATHS["mcp_guide_docroot"].exists():
+        observer.schedule(handler, str(REAL_PATHS["mcp_guide_docroot"]), recursive=True)
 
-    if _REAL_MSG_CONFIG.exists():
-        observer.schedule(handler, str(_REAL_MSG_CONFIG), recursive=False)
+    if REAL_PATHS["msg_config"].exists():
+        observer.schedule(handler, str(REAL_PATHS["msg_config"]), recursive=False)
 
-    if _REAL_MSG_DOCROOT.exists():
-        observer.schedule(handler, str(_REAL_MSG_DOCROOT), recursive=True)
+    if REAL_PATHS["msg_docroot"].exists():
+        observer.schedule(handler, str(REAL_PATHS["msg_docroot"]), recursive=True)
 
     observer.start()
     yield
@@ -157,14 +161,20 @@ def pytest_sessionfinish(session, exitstatus):
     # Get all event loops and close them
     try:
         policy = asyncio.get_event_loop_policy()
-        if hasattr(policy, "_local"):
-            # Close all loops in the policy
-            if hasattr(policy._local, "_loop"):
-                loop = policy._local._loop
-                if loop and not loop.is_closed():
-                    loop.close()
+        if hasattr(policy, "_local") and hasattr(policy._local, "_loop"):
+            loop = policy._local._loop
+            if loop and not loop.is_closed():
+                loop.close()
     except (RuntimeError, AttributeError):
         pass
+
+
+@pytest.fixture(scope="session")
+def session_temp_dir() -> Path:
+    """Provide access to session temp directory."""
+    global _session_temp_dir
+    assert _session_temp_dir is not None, "Session temp dir not initialized by pytest_configure"
+    return _session_temp_dir
 
 
 @pytest.fixture(scope="module")
@@ -174,10 +184,12 @@ def event_loop_policy():
     yield policy
     # Close any loops created by this module
     try:
-        loop = policy.get_event_loop()
-        if not loop.is_closed():
-            loop.close()
-    except RuntimeError:
+        # Use get_event_loop_policy() to avoid deprecation warning
+        if hasattr(policy, "_local") and hasattr(policy._local, "_loop"):
+            loop = policy._local._loop
+            if loop and not loop.is_closed():
+                loop.close()
+    except (RuntimeError, AttributeError):
         pass
 
 
@@ -195,72 +207,3 @@ def robust_cleanup(directory: Path) -> None:
 
     if directory.exists():
         shutil.rmtree(directory, onerror=handle_remove_readonly)
-
-
-@pytest.fixture
-def temp_project_dir() -> Generator[Path, None, None]:
-    """Provide temporary project directory for tests."""
-    import uuid
-
-    global _session_temp_dir
-
-    assert _session_temp_dir is not None, "Session temp dir not initialized by pytest_configure"
-
-    # Create subdirectory within session temp dir
-    project_subdir = _session_temp_dir / f"project_{uuid.uuid4().hex[:8]}"
-    project_subdir.mkdir(parents=True, exist_ok=True)
-
-    yield project_subdir
-
-
-@pytest.fixture
-def unique_category_name(request):
-    """Generate a unique category name for each test to prevent conflicts.
-
-    Category names must be alphanumeric with hyphens/underscores and max 30 chars.
-    """
-    # Use hash of test node ID to create short unique name
-    test_id = request.node.nodeid
-    hash_val = hashlib.md5(test_id.encode()).hexdigest()[:8]
-    return f"cat_{hash_val}"
-
-
-@pytest.fixture
-def session_temp_dir() -> Path:
-    """Provide access to session temp directory."""
-    global _session_temp_dir
-    assert _session_temp_dir is not None, "Session temp dir not initialized by pytest_configure"
-    return _session_temp_dir
-
-
-@pytest.fixture
-def project_dir(tmp_path: Path, monkeypatch) -> Generator[Path, None, None]:
-    """Set up isolated project directory with PWD and CWD.
-
-    Creates a project directory named "test" and sets environment variables
-    so that _determine_project_name() will correctly identify the project.
-
-    Args:
-        tmp_path: pytest's tmp_path fixture
-        monkeypatch: pytest's monkeypatch fixture for isolated env var changes
-
-    Yields:
-        Path to the project directory
-
-    Note:
-        - Project name will be "test" (derived from directory name)
-        - PWD and CWD are set to the project directory
-        - Session is automatically cleaned up after test
-    """
-    from mcp_guide.session import remove_current_session
-
-    project_name = "test"
-    test_project_dir = tmp_path / project_name
-    test_project_dir.mkdir(exist_ok=True)
-
-    monkeypatch.setenv("PWD", str(test_project_dir))
-    monkeypatch.setenv("CWD", str(test_project_dir))
-
-    yield test_project_dir
-
-    remove_current_session(project_name)

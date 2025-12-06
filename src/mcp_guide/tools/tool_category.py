@@ -428,19 +428,20 @@ async def get_category_content(
     category_dir = docroot / category.dir
     files = await discover_category_files(category_dir, patterns)
 
+    # Set category field on all FileInfo objects
+    for file in files:
+        file.category = category.name
+
     # Check for no matches
     if not files:
-        if args.pattern:
-            result = Result.failure(
-                f"No files matched pattern '{args.pattern}' in category '{args.category}'",
-                error_type=ERROR_NO_MATCHES,
-            )
-            result.instruction = INSTRUCTION_PATTERN_ERROR
-            return result.to_json_str()
-        else:
-            result = Result.ok(f"No files found in category '{args.category}'")
-            result.instruction = INSTRUCTION_PATTERN_ERROR
-            return result.to_json_str()
+        message = (
+            f"No files matched pattern '{args.pattern}' in category '{args.category}'"
+            if args.pattern
+            else f"No files found in category '{args.category}'"
+        )
+        result = Result.ok(message)
+        result.instruction = INSTRUCTION_PATTERN_ERROR
+        return result.to_json_str()
 
     # Read file content, collecting any failures
     file_read_errors = await read_file_contents(files, category_dir)
