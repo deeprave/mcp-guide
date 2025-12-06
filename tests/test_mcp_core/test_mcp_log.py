@@ -286,6 +286,95 @@ class TestStructuredJSONFormatter:
         assert "ValueError" in data["exception"]
 
 
+class TestCreateFileHandler:
+    """Tests for create_file_handler platform selection and failure fallback."""
+
+    def test_watched_file_handler_on_non_windows(self, monkeypatch, tmp_path):
+        """On non-Windows platforms, WatchedFileHandler should be used."""
+        import platform
+        from logging import handlers
+
+        from mcp_core.mcp_log import create_file_handler
+
+        monkeypatch.setattr(platform, "system", lambda: "Linux")
+
+        log_file = tmp_path / "test_non_windows.log"
+        handler = create_file_handler(str(log_file))
+
+        try:
+            assert isinstance(handler, handlers.WatchedFileHandler)
+        finally:
+            handler.close()
+
+    def test_file_handler_on_windows(self, monkeypatch, tmp_path):
+        """On Windows platforms, FileHandler should be used."""
+        import platform
+
+        from mcp_core.mcp_log import create_file_handler
+
+        monkeypatch.setattr(platform, "system", lambda: "Windows")
+
+        log_file = tmp_path / "test_windows.log"
+        handler = create_file_handler(str(log_file))
+
+        try:
+            assert isinstance(handler, logging.FileHandler)
+            assert not isinstance(handler, logging.handlers.WatchedFileHandler)
+        finally:
+            handler.close()
+
+    def test_fallback_to_stream_handler_on_dir_creation_failure(self, monkeypatch, tmp_path):
+        """If directory creation fails, fall back to StreamHandler."""
+        import platform
+        from pathlib import Path
+
+        from mcp_core.mcp_log import create_file_handler
+
+        monkeypatch.setattr(platform, "system", lambda: "Linux")
+
+        original_mkdir = Path.mkdir
+
+        def failing_mkdir(self, *args, **kwargs):
+            raise PermissionError("cannot create directory")
+
+        monkeypatch.setattr(Path, "mkdir", failing_mkdir)
+
+        log_file = tmp_path / "subdir" / "test_permission.log"
+        handler = create_file_handler(str(log_file))
+
+        try:
+            assert isinstance(handler, logging.StreamHandler)
+            assert not isinstance(handler, logging.FileHandler)
+        finally:
+            handler.close()
+            monkeypatch.setattr(Path, "mkdir", original_mkdir)
+
+    def test_fallback_to_stream_handler_on_file_handler_failure(self, monkeypatch, tmp_path):
+        """If the file handler construction fails, fall back to StreamHandler."""
+        import platform
+
+        from mcp_core.mcp_log import create_file_handler
+
+        monkeypatch.setattr(platform, "system", lambda: "Windows")
+
+        original_init = logging.FileHandler.__init__
+
+        def failing_init(self, filename, *args, **kwargs):
+            raise OSError("cannot open log file")
+
+        monkeypatch.setattr(logging.FileHandler, "__init__", failing_init)
+
+        log_file = tmp_path / "test_file_failure.log"
+        handler = create_file_handler(str(log_file))
+
+        try:
+            assert isinstance(handler, logging.StreamHandler)
+            assert not isinstance(handler, logging.FileHandler)
+        finally:
+            handler.close()
+            monkeypatch.setattr(logging.FileHandler, "__init__", original_init)
+
+
 class TestLoggerHierarchy:
     """Tests for logger hierarchy configuration."""
 
