@@ -29,14 +29,8 @@ jobs:
     - name: Install dependencies
       run: uv sync --dev
 
-    - name: Run unit tests with pytest
-      run: uv run pytest tests/ -v -Walways
-      env:
-        NO_COLOR: "1"
-        TERM: "dumb"
-
-    - name: Run integration tests with pytest
-      run: uv run pytest tests_integration/ -v -Walways
+    - name: Run tests with pytest
+      run: uv run pytest tests/ -v -Walways --strict-warnings
       env:
         NO_COLOR: "1"
         TERM: "dumb"
