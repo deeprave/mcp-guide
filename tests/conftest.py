@@ -166,6 +166,7 @@ def pytest_sessionfinish(session, exitstatus):
             if loop and not loop.is_closed():
                 loop.close()
     except (RuntimeError, AttributeError):
+        # Ignore errors during event loop cleanup; loops may already be closed or missing
         pass
 
 
@@ -190,6 +191,7 @@ def event_loop_policy():
             if loop and not loop.is_closed():
                 loop.close()
     except (RuntimeError, AttributeError):
+        # Ignore errors during event loop cleanup; loops may already be closed or missing
         pass
 
 
