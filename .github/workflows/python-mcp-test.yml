@@ -30,7 +30,7 @@ jobs:
       run: uv sync --dev
 
     - name: Run tests with pytest
-      run: uv run pytest tests/ -v -Walways --strict-warnings
+      run: uv run pytest tests/ -v -Walways
       env:
         NO_COLOR: "1"
         TERM: "dumb"
