@@ -27,12 +27,19 @@ def _configure_logging(config: ServerConfig) -> None:
         config: Server configuration
     """
     from mcp_core.mcp_log import (
-        configure,
+        add_trace_to_context,
         create_console_handler,
         create_file_handler,
         create_formatter,
+        get_log_level,
+        initialize_trace_level,
+        register_cleanup_handlers,
         save_logging_config,
     )
+
+    # Initialize TRACE level and context
+    initialize_trace_level()
+    add_trace_to_context()
 
     # Create handlers
     console_handler = create_console_handler()
@@ -44,15 +51,21 @@ def _configure_logging(config: ServerConfig) -> None:
     if file_handler:
         file_handler.setFormatter(formatter)
 
+    # Configure root logger
+    root = logging.getLogger()
+    log_level = get_log_level(config.log_level)
+    root.setLevel(log_level)
+    console_handler.setLevel(log_level)
+    root.addHandler(console_handler)
+    if file_handler:
+        file_handler.setLevel(log_level)
+        root.addHandler(file_handler)
+
     # Save configuration for restoration after FastMCP init
     save_logging_config(console_handler, file_handler)
 
-    # Apply initial configuration
-    configure(
-        level=config.log_level,
-        file_path=config.log_file,
-        json_format=config.log_json,
-    )
+    # Register cleanup handlers for graceful shutdown
+    register_cleanup_handlers()
 
     logger = logging.getLogger(__name__)
     logger.info("Starting mcp-guide server")

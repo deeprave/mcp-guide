@@ -39,10 +39,15 @@ def _signal_handler(signum: int, frame: Any) -> None:
     sys.exit(128 + signum)
 
 
-# Register cleanup handlers
-atexit.register(_cleanup_logging)
-signal.signal(signal.SIGTERM, _signal_handler)
-signal.signal(signal.SIGINT, _signal_handler)
+def register_cleanup_handlers() -> None:
+    """Register cleanup handlers for graceful shutdown.
+
+    Call this explicitly from your application's main entry point
+    to enable automatic cleanup of logging resources on exit.
+    """
+    atexit.register(_cleanup_logging)
+    signal.signal(signal.SIGTERM, _signal_handler)
+    signal.signal(signal.SIGINT, _signal_handler)
 
 
 def _sanitize_log_message(message: Any) -> Any:
@@ -97,16 +102,24 @@ class StructuredJSONFormatter(logging.Formatter):
         return json.dumps(log_entry)
 
 
-def _get_log_level(level_name: str) -> int:
-    """Convert level name to logging level constant."""
+def get_log_level(level_name: str) -> int:
+    """Convert level name to logging level constant.
+
+    Supports standard levels (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+    and custom TRACE level.
+    """
     level_upper = level_name.upper()
     if level_upper == "TRACE":
         return TRACE_LEVEL
     return getattr(logging, level_upper, logging.INFO)
 
 
-def _initialize_trace_level() -> None:
-    """Initialize TRACE level in logging module."""
+def initialize_trace_level() -> None:
+    """Initialize TRACE level in logging module.
+
+    This must be called before using TRACE level logging.
+    Safe to call multiple times.
+    """
     global _trace_initialized
     if _trace_initialized:
         return
@@ -201,10 +214,10 @@ def create_file_handler(log_file: str) -> logging.Handler:
     try:
         if platform.system() == "Windows":
             return logging.FileHandler(log_path, mode="a")
-        else:
-            from logging.handlers import WatchedFileHandler
 
-            return WatchedFileHandler(log_path, mode="a")
+        from logging.handlers import WatchedFileHandler
+
+        return WatchedFileHandler(log_path, mode="a")
     except (OSError, PermissionError) as e:
         print(f"WARNING: Cannot create log file {log_path}: {e}", file=sys.stderr)
         print("Falling back to console-only logging", file=sys.stderr)
@@ -213,10 +226,7 @@ def create_file_handler(log_file: str) -> logging.Handler:
 
 def create_formatter(json_format: bool = False) -> logging.Formatter:
     """Create formatter based on configuration."""
-    if json_format:
-        return StructuredJSONFormatter()
-    else:
-        return RedactedFormatter()
+    return StructuredJSONFormatter() if json_format else RedactedFormatter()
 
 
 def save_logging_config(
@@ -232,22 +242,19 @@ def save_logging_config(
 
 
 def _configure_fastmcp_log_levels() -> None:
-    """Reduce FastMCP logger verbosity to prevent noise in application logs.
+    """Set FastMCP logger levels to match root logger level.
 
-    Sets FastMCP loggers to WARNING or higher to reduce noise, but respects
-    if they're already set to a less verbose level (ERROR, CRITICAL).
+    Only updates loggers that are more verbose than root level.
     """
-    target_level = logging.WARNING
+    root_level = logging.getLogger().level
 
     for logger_name in logging.Logger.manager.loggerDict:
         if logger_name.startswith("fastmcp") or logger_name.startswith("mcp."):
             logger = logging.getLogger(logger_name)
             current_level = logger.level
 
-            # Only set if current level is more verbose than target
-            # DEBUG=10, INFO=20, WARNING=30, ERROR=40, CRITICAL=50
-            if current_level < target_level:
-                logger.setLevel(target_level)
+            if current_level < root_level:
+                logger.setLevel(root_level)
 
 
 def restore_logging_config() -> None:
@@ -302,16 +309,16 @@ def configure(
         json_format: Use JSON formatting if True
         app_name: Application name for logger hierarchy (e.g., 'mcp_guide')
     """
-    _initialize_trace_level()
+    initialize_trace_level()
     add_trace_to_context()
 
     if file_path:
         handler = create_file_handler(file_path)
         formatter = create_formatter(json_format)
         handler.setFormatter(formatter)
-        handler.setLevel(_get_log_level(level))
+        handler.setLevel(get_log_level(level))
         root = logging.getLogger()
-        root.setLevel(_get_log_level(level))
+        root.setLevel(get_log_level(level))
         root.addHandler(handler)
 
     if app_name:
@@ -319,4 +326,4 @@ def configure(
 
 
 # Initialize TRACE level on module import
-_initialize_trace_level()
+initialize_trace_level()
