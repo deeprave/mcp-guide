@@ -1,15 +1,15 @@
 """Session management for per-project runtime state."""
 
+import logging
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 from time import time
 from typing import Any, Callable, Optional
 
-from mcp_core.mcp_log import get_logger
 from mcp_guide.config import ConfigManager
 from mcp_guide.models import _NAME_REGEX, Project, SessionState
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 @dataclass

@@ -1,14 +1,13 @@
 """Extended MCP tool decorator with logging and prefixing."""
 
 import inspect
+import logging
 import os
 from contextvars import ContextVar
 from functools import wraps
 from typing import Any, Callable, Optional
 
-from mcp_core.mcp_log import get_logger
-
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 # Internal test mode control - not exposed to external manipulation
 _test_mode: ContextVar[bool] = ContextVar("tool_test_mode", default=False)

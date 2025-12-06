@@ -1,6 +1,9 @@
 """Reusable MCP logging module with FastMCP integration."""
 
+import atexit
 import logging
+import signal
+import sys
 from typing import Any, Callable
 
 from mcp_core.mcp_log_filter import get_redaction_function
@@ -10,6 +13,36 @@ TRACE_LEVEL = 5
 
 # Track if TRACE level has been initialized
 _trace_initialized = False
+
+# Module-level storage for logging configuration
+_saved_logging_config: dict[str, Any] | None = None
+
+
+def _cleanup_logging() -> None:
+    """Clean up logging handlers on shutdown."""
+    global _saved_logging_config
+    if _saved_logging_config:
+        if _saved_logging_config.get("console_handler"):
+            _saved_logging_config["console_handler"].close()
+        if _saved_logging_config.get("file_handler"):
+            _saved_logging_config["file_handler"].close()
+
+    # Close all root logger handlers
+    for handler in logging.getLogger().handlers[:]:
+        handler.close()
+        logging.getLogger().removeHandler(handler)
+
+
+def _signal_handler(signum: int, frame: Any) -> None:
+    """Handle termination signals."""
+    _cleanup_logging()
+    sys.exit(128 + signum)
+
+
+# Register cleanup handlers
+atexit.register(_cleanup_logging)
+signal.signal(signal.SIGTERM, _signal_handler)
+signal.signal(signal.SIGINT, _signal_handler)
 
 
 def _sanitize_log_message(message: Any) -> Any:
@@ -72,40 +105,6 @@ def _get_log_level(level_name: str) -> int:
     return getattr(logging, level_upper, logging.INFO)
 
 
-def add_file_handler(file_path: str, level: str = "INFO", json_format: bool = False) -> None:
-    """Add file handler with rotation support.
-
-    Args:
-        file_path: Path to log file
-        level: Logging level (TRACE, DEBUG, INFO, WARN, ERROR)
-        json_format: Use JSON formatting if True, text if False
-    """
-    import sys
-
-    # Use WatchedFileHandler on Unix/Linux for rotation support
-    if sys.platform != "win32":
-        from logging.handlers import WatchedFileHandler
-
-        file_handler = WatchedFileHandler(file_path, mode="a")
-    else:
-        file_handler = logging.FileHandler(file_path, mode="a")
-
-    file_handler.setLevel(_get_log_level(level))
-
-    formatter: logging.Formatter
-    if json_format:
-        formatter = StructuredJSONFormatter()
-    else:
-        formatter = RedactedFormatter()
-
-    file_handler.setFormatter(formatter)
-
-    # Add to root logger and set its level
-    root_logger = logging.getLogger()
-    root_logger.setLevel(_get_log_level(level))
-    root_logger.addHandler(file_handler)
-
-
 def _initialize_trace_level() -> None:
     """Initialize TRACE level in logging module."""
     global _trace_initialized
@@ -164,23 +163,113 @@ def configure_logger_hierarchy(app_name: str) -> None:
     logging.getLogger = patched_getLogger
 
 
-def get_logger(name: str) -> logging.Logger:
-    """Get logger with TRACE support.
-
-    Integrates with FastMCP if available, otherwise uses standard logging.
-
-    Args:
-        name: Logger name (typically __name__)
-
-    Returns:
-        Logger instance with trace() method
-    """
+def create_console_handler() -> logging.Handler:
+    """Create console handler with RichHandler if available."""
     try:
-        from fastmcp import get_logger as fastmcp_get_logger
+        from rich.console import Console
+        from rich.logging import RichHandler
 
-        return fastmcp_get_logger(name)  # type: ignore[no-any-return]
+        return RichHandler(
+            console=Console(stderr=True),
+            rich_tracebacks=True,
+            show_time=True,
+            show_path=True,
+        )
     except ImportError:
-        return logging.getLogger(name)
+        return logging.StreamHandler()
+
+
+def create_file_handler(log_file: str) -> logging.Handler:
+    """Create file handler with external rotation support on non-Windows.
+
+    Falls back to StreamHandler if file creation fails.
+    """
+    import platform
+    import sys
+    from pathlib import Path
+
+    log_path = Path(log_file).expanduser()
+
+    # Ensure parent directory exists
+    try:
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+    except (OSError, PermissionError) as e:
+        print(f"WARNING: Cannot create log directory {log_path.parent}: {e}", file=sys.stderr)
+        print("Falling back to console-only logging", file=sys.stderr)
+        return logging.StreamHandler()
+
+    try:
+        if platform.system() == "Windows":
+            return logging.FileHandler(log_path, mode="a")
+        else:
+            from logging.handlers import WatchedFileHandler
+
+            return WatchedFileHandler(log_path, mode="a")
+    except (OSError, PermissionError) as e:
+        print(f"WARNING: Cannot create log file {log_path}: {e}", file=sys.stderr)
+        print("Falling back to console-only logging", file=sys.stderr)
+        return logging.StreamHandler()
+
+
+def create_formatter(json_format: bool = False) -> logging.Formatter:
+    """Create formatter based on configuration."""
+    if json_format:
+        return StructuredJSONFormatter()
+    else:
+        return RedactedFormatter()
+
+
+def save_logging_config(
+    console_handler: logging.Handler | None,
+    file_handler: logging.Handler | None,
+) -> None:
+    """Save logging configuration for restoration after FastMCP init."""
+    global _saved_logging_config
+    _saved_logging_config = {
+        "console_handler": console_handler,
+        "file_handler": file_handler,
+    }
+
+
+def _configure_fastmcp_log_levels() -> None:
+    """Reduce FastMCP logger verbosity to prevent noise in application logs.
+
+    Sets FastMCP loggers to WARNING or higher to reduce noise, but respects
+    if they're already set to a less verbose level (ERROR, CRITICAL).
+    """
+    target_level = logging.WARNING
+
+    for logger_name in logging.Logger.manager.loggerDict:
+        if logger_name.startswith("fastmcp") or logger_name.startswith("mcp."):
+            logger = logging.getLogger(logger_name)
+            current_level = logger.level
+
+            # Only set if current level is more verbose than target
+            # DEBUG=10, INFO=20, WARNING=30, ERROR=40, CRITICAL=50
+            if current_level < target_level:
+                logger.setLevel(target_level)
+
+
+def restore_logging_config() -> None:
+    """Restore logging configuration after FastMCP initialization."""
+    global _saved_logging_config
+
+    if _saved_logging_config is None:
+        return
+
+    root = logging.getLogger()
+
+    # Add our handlers back
+    if _saved_logging_config["console_handler"]:
+        root.addHandler(_saved_logging_config["console_handler"])
+    if _saved_logging_config["file_handler"]:
+        root.addHandler(_saved_logging_config["file_handler"])
+
+    # Configure FastMCP logger levels
+    _configure_fastmcp_log_levels()
+
+    # Configure logger hierarchy
+    configure_logger_hierarchy("mcp_guide")
 
 
 def add_trace_to_context() -> None:
@@ -217,7 +306,13 @@ def configure(
     add_trace_to_context()
 
     if file_path:
-        add_file_handler(file_path, level=level, json_format=json_format)
+        handler = create_file_handler(file_path)
+        formatter = create_formatter(json_format)
+        handler.setFormatter(formatter)
+        handler.setLevel(_get_log_level(level))
+        root = logging.getLogger()
+        root.setLevel(_get_log_level(level))
+        root.addHandler(handler)
 
     if app_name:
         configure_logger_hierarchy(app_name)

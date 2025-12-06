@@ -54,10 +54,15 @@ def create_server() -> FastMCP:
     Returns:
         Configured FastMCP instance
     """
+    from mcp_core.mcp_log import restore_logging_config
+
     mcp = FastMCP(
         name="mcp-guide",
         instructions="MCP server for project documentation and development guidance",
     )
+
+    # Restore our logging configuration after FastMCP init
+    restore_logging_config()
 
     # Create tool decorator and set proxy instance
     decorator = ExtMcpToolDecorator(mcp)

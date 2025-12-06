@@ -1,17 +1,17 @@
 """Project configuration management."""
 
 import asyncio
+import logging
 from pathlib import Path
 from typing import Optional
 
 import yaml
 
 from mcp_core.file_reader import read_file_content
-from mcp_core.mcp_log import get_logger
 from mcp_guide.file_lock import lock_update
 from mcp_guide.models import _NAME_REGEX, Project
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class DocrootError(RuntimeError):
