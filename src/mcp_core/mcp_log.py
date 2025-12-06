@@ -12,25 +12,43 @@ from mcp_core.mcp_log_filter import get_redaction_function
 TRACE_LEVEL = 5
 
 # Track if TRACE level has been initialized
+# Track if TRACE level has been initialized
 _trace_initialized = False
 
 # Module-level storage for logging configuration
 _saved_logging_config: dict[str, Any] | None = None
 
+# Guard flag to prevent double-cleanup
+_cleanup_done = False
+
 
 def _cleanup_logging() -> None:
     """Clean up logging handlers on shutdown."""
-    global _saved_logging_config
+    global _saved_logging_config, _cleanup_done
+
+    if _cleanup_done:
+        return
+    _cleanup_done = True
+
     if _saved_logging_config:
         if _saved_logging_config.get("console_handler"):
-            _saved_logging_config["console_handler"].close()
+            try:
+                _saved_logging_config["console_handler"].close()
+            except Exception:
+                pass
         if _saved_logging_config.get("file_handler"):
-            _saved_logging_config["file_handler"].close()
+            try:
+                _saved_logging_config["file_handler"].close()
+            except Exception:
+                pass
 
     # Close all root logger handlers
     for handler in logging.getLogger().handlers[:]:
-        handler.close()
-        logging.getLogger().removeHandler(handler)
+        try:
+            handler.close()
+            logging.getLogger().removeHandler(handler)
+        except Exception:
+            pass
 
 
 def _signal_handler(signum: int, frame: Any) -> None:
@@ -45,8 +63,11 @@ def register_cleanup_handlers() -> None:
     Call this explicitly from your application's main entry point
     to enable automatic cleanup of logging resources on exit.
     """
+    import platform
+
     atexit.register(_cleanup_logging)
-    signal.signal(signal.SIGTERM, _signal_handler)
+    if platform.system() != "Windows":
+        signal.signal(signal.SIGTERM, _signal_handler)
     signal.signal(signal.SIGINT, _signal_handler)
 
 
@@ -232,12 +253,20 @@ def create_formatter(json_format: bool = False) -> logging.Formatter:
 def save_logging_config(
     console_handler: logging.Handler | None,
     file_handler: logging.Handler | None,
+    app_name: str | None = None,
 ) -> None:
-    """Save logging configuration for restoration after FastMCP init."""
+    """Save logging configuration for restoration after FastMCP init.
+
+    Args:
+        console_handler: Console handler to save
+        file_handler: File handler to save
+        app_name: Application name for logger hierarchy (optional)
+    """
     global _saved_logging_config
     _saved_logging_config = {
         "console_handler": console_handler,
         "file_handler": file_handler,
+        "app_name": app_name,
     }
 
 
@@ -245,6 +274,7 @@ def _configure_fastmcp_log_levels() -> None:
     """Set FastMCP logger levels to match root logger level.
 
     Only updates loggers that are more verbose than root level.
+    Skips NOTSET loggers to preserve parent inheritance.
     """
     root_level = logging.getLogger().level
 
@@ -253,7 +283,8 @@ def _configure_fastmcp_log_levels() -> None:
             logger = logging.getLogger(logger_name)
             current_level = logger.level
 
-            if current_level < root_level:
+            # Skip NOTSET (0) - it means inherit from parent
+            if current_level != logging.NOTSET and current_level < root_level:
                 logger.setLevel(root_level)
 
 
@@ -275,8 +306,10 @@ def restore_logging_config() -> None:
     # Configure FastMCP logger levels
     _configure_fastmcp_log_levels()
 
-    # Configure logger hierarchy
-    configure_logger_hierarchy("mcp_guide")
+    # Configure logger hierarchy if app_name was saved
+    app_name = _saved_logging_config.get("app_name")
+    if app_name:
+        configure_logger_hierarchy(app_name)
 
 
 def add_trace_to_context() -> None:

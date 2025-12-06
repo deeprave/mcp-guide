@@ -62,7 +62,7 @@ def _configure_logging(config: ServerConfig) -> None:
         root.addHandler(file_handler)
 
     # Save configuration for restoration after FastMCP init
-    save_logging_config(console_handler, file_handler)
+    save_logging_config(console_handler, file_handler, app_name="mcp_guide")
 
     # Register cleanup handlers for graceful shutdown
     register_cleanup_handlers()

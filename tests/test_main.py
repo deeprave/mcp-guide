@@ -83,7 +83,7 @@ class TestLoggingConfiguration:
         mock_console_handler.setFormatter.assert_called_once_with(mock_formatter)
 
         # Verify handlers saved (no file handler)
-        mock_save_logging_config.assert_called_once_with(mock_console_handler, None)
+        mock_save_logging_config.assert_called_once_with(mock_console_handler, None, app_name="mcp_guide")
 
         # Verify cleanup handlers registered
         mock_register_cleanup.assert_called_once()
@@ -131,7 +131,7 @@ class TestLoggingConfiguration:
         mock_file_handler.setFormatter.assert_called_once_with(mock_formatter)
 
         # Verify both handlers saved
-        mock_save_logging_config.assert_called_once_with(mock_console_handler, mock_file_handler)
+        mock_save_logging_config.assert_called_once_with(mock_console_handler, mock_file_handler, app_name="mcp_guide")
 
         # Verify cleanup handlers registered
         mock_register_cleanup.assert_called_once()
