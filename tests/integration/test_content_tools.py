@@ -22,7 +22,6 @@ def mcp_server(mcp_server_factory):
     return mcp_server_factory(["tool_content", "tool_category", "tool_collection"])
 
 
-
 @pytest.mark.anyio
 async def test_get_content_category_only(mcp_server, tmp_path, monkeypatch):
     """Test get_content with category-only match."""
