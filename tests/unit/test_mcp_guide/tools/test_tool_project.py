@@ -2,14 +2,20 @@
 
 import json
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
+from mcp_core.result import Result
 from mcp_guide.config import ConfigManager
 from mcp_guide.models import Category, Collection, Project
 from mcp_guide.session import Session, remove_current_session, set_current_session
-from mcp_guide.tools.tool_project import GetCurrentProjectArgs, get_current_project
+from mcp_guide.tools.tool_project import (
+    GetCurrentProjectArgs,
+    SetCurrentProjectArgs,
+    get_current_project,
+    set_current_project,
+)
 
 
 class TestGetCurrentProject:
@@ -169,3 +175,146 @@ class TestGetCurrentProject:
             assert result["value"]["categories"] == []
         finally:
             remove_current_session("empty-project")
+
+
+class TestSetCurrentProject:
+    """Tests for set_current_project tool."""
+
+    def test_args_validation(self):
+        """Test SetCurrentProjectArgs schema validation."""
+        # Test with name and verbose=True
+        args = SetCurrentProjectArgs(name="test-project", verbose=True)
+        assert args.name == "test-project"
+        assert args.verbose is True
+
+        # Test with name and verbose=False
+        args = SetCurrentProjectArgs(name="test-project", verbose=False)
+        assert args.name == "test-project"
+        assert args.verbose is False
+
+        # Test default verbose value
+        args = SetCurrentProjectArgs(name="test-project")
+        assert args.name == "test-project"
+        assert args.verbose is False
+
+    @pytest.mark.asyncio
+    async def test_invalid_project_name(self):
+        """Test set_current_project with invalid project name."""
+        # Mock set_project to return failure for invalid name
+        mock_result = Result.failure(
+            "Project name 'invalid@name' must contain only alphanumeric characters, underscores, and hyphens",
+            error_type="invalid_name",
+        )
+
+        with patch("mcp_guide.tools.tool_project.set_project", return_value=mock_result):
+            args = SetCurrentProjectArgs(name="invalid@name", verbose=False)
+            result_str = await set_current_project(args)
+            result = json.loads(result_str)
+
+            assert result["success"] is False
+            assert result["error_type"] == "invalid_name"
+            assert "must contain only alphanumeric" in result["error"]
+
+    @pytest.mark.asyncio
+    async def test_switch_existing_project_non_verbose(self):
+        """Test switching to existing project with verbose=False."""
+        # Create mock project
+        project = Project(
+            name="existing-project",
+            categories=[
+                Category(name="python", dir="src/", patterns=["*.py"], description="Python files"),
+                Category(name="docs", dir="docs/", patterns=["*.md"], description="Documentation"),
+            ],
+            collections=[Collection(name="backend", categories=["python"], description="Backend code")],
+        )
+
+        # Mock set_project to return success
+        mock_result = Result.ok(project)
+
+        with patch("mcp_guide.tools.tool_project.set_project", return_value=mock_result):
+            args = SetCurrentProjectArgs(name="existing-project", verbose=False)
+            result_str = await set_current_project(args)
+            result = json.loads(result_str)
+
+            assert result["success"] is True
+            assert result["message"] == "Switched to project 'existing-project'"
+            assert result["value"]["project"] == "existing-project"
+            assert result["value"]["collections"] == ["backend"]
+            assert result["value"]["categories"] == ["python", "docs"]
+
+    @pytest.mark.asyncio
+    async def test_switch_existing_project_verbose(self):
+        """Test switching to existing project with verbose=True."""
+        # Create mock project
+        project = Project(
+            name="existing-project",
+            categories=[
+                Category(name="python", dir="src/", patterns=["*.py"], description="Python files"),
+                Category(name="docs", dir="docs/", patterns=["*.md"], description="Documentation"),
+            ],
+            collections=[Collection(name="backend", categories=["python"], description="Backend code")],
+        )
+
+        # Mock set_project to return success
+        mock_result = Result.ok(project)
+
+        with patch("mcp_guide.tools.tool_project.set_project", return_value=mock_result):
+            args = SetCurrentProjectArgs(name="existing-project", verbose=True)
+            result_str = await set_current_project(args)
+            result = json.loads(result_str)
+
+            assert result["success"] is True
+            assert result["message"] == "Switched to project 'existing-project'"
+            assert result["value"]["project"] == "existing-project"
+
+            # Check collections verbose format
+            assert len(result["value"]["collections"]) == 1
+            assert result["value"]["collections"][0]["name"] == "backend"
+            assert result["value"]["collections"][0]["description"] == "Backend code"
+            assert result["value"]["collections"][0]["categories"] == ["python"]
+
+            # Check categories verbose format
+            assert len(result["value"]["categories"]) == 2
+            assert result["value"]["categories"][0]["name"] == "python"
+            assert result["value"]["categories"][0]["dir"] == "src/"
+            assert result["value"]["categories"][0]["patterns"] == ["*.py"]
+            assert result["value"]["categories"][0]["description"] == "Python files"
+
+    @pytest.mark.asyncio
+    async def test_create_new_project(self):
+        """Test creating new project when it doesn't exist."""
+        # Create mock project (simulating newly created)
+        project = Project(
+            name="new-project",
+            categories=[],
+            collections=[],
+        )
+
+        # Mock set_project to return success (set_project handles creation)
+        mock_result = Result.ok(project)
+
+        with patch("mcp_guide.tools.tool_project.set_project", return_value=mock_result):
+            args = SetCurrentProjectArgs(name="new-project", verbose=False)
+            result_str = await set_current_project(args)
+            result = json.loads(result_str)
+
+            assert result["success"] is True
+            assert result["message"] == "Switched to project 'new-project'"
+            assert result["value"]["project"] == "new-project"
+            assert result["value"]["collections"] == []
+            assert result["value"]["categories"] == []
+
+    @pytest.mark.asyncio
+    async def test_error_passthrough(self):
+        """Test that errors from set_project are passed through."""
+        # Mock set_project to return a generic error
+        mock_result = Result.failure("Configuration file corrupted", error_type="project_load_error")
+
+        with patch("mcp_guide.tools.tool_project.set_project", return_value=mock_result):
+            args = SetCurrentProjectArgs(name="broken-project", verbose=False)
+            result_str = await set_current_project(args)
+            result = json.loads(result_str)
+
+            assert result["success"] is False
+            assert result["error_type"] == "project_load_error"
+            assert "Configuration file corrupted" in result["error"]
