@@ -4,6 +4,12 @@ from mcp_core.validation import ArgValidationError
 from mcp_guide.models import Project
 
 
+class InvalidProjectNameError(ValueError):
+    """Raised when project name validation fails."""
+
+    pass
+
+
 def validate_category_exists(project: Project, category_name: str) -> None:
     """Validate a single category reference exists.
 

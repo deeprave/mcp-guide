@@ -26,3 +26,12 @@ async def test_get_current_project_registered(mcp_server):
     tool_names = [tool.name for tool in tools]
 
     assert "get_current_project" in tool_names
+
+
+@pytest.mark.anyio
+async def test_set_current_project_registered(mcp_server):
+    """Test that set_current_project is registered in MCP."""
+    tools = await mcp_server.list_tools()
+    tool_names = [tool.name for tool in tools]
+
+    assert "set_current_project" in tool_names

@@ -4,7 +4,7 @@ import re
 from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 from datetime import datetime
-from typing import Optional
+from typing import Any, Optional
 
 from pydantic import field_validator
 from pydantic.dataclasses import dataclass as pydantic_dataclass
@@ -12,6 +12,34 @@ from pydantic.dataclasses import dataclass as pydantic_dataclass
 # Name validation pattern: alphanumeric, underscore, hyphen
 NAME_PATTERN = r"^[a-zA-Z0-9_-]+$"
 _NAME_REGEX = re.compile(NAME_PATTERN)
+
+
+def format_project_data(project: "Project", verbose: bool = False) -> dict[str, Any]:
+    """Format project data for tool responses.
+
+    Args:
+        project: Project to format
+        verbose: If True, include full details; if False, names only
+
+    Returns:
+        Formatted project data dictionary
+    """
+    collections: list[dict[str, str | list[str] | None]] | list[str]
+    categories: list[dict[str, str | list[str] | None]] | list[str]
+
+    if verbose:
+        collections = [
+            {"name": c.name, "description": c.description, "categories": c.categories} for c in project.collections
+        ]
+        categories = [
+            {"name": c.name, "dir": c.dir, "patterns": list(c.patterns), "description": c.description}
+            for c in project.categories
+        ]
+    else:
+        collections = [c.name for c in project.collections]
+        categories = [c.name for c in project.categories]
+
+    return {"project": project.name, "collections": collections, "categories": categories}
 
 
 @pydantic_dataclass(frozen=True)
