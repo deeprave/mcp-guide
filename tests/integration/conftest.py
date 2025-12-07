@@ -1,22 +1,56 @@
-"""Shared fixtures for integration tests."""
+"""Integration test fixtures.
 
-from pathlib import Path
+## MCP Server Factory Fixture
+
+Tools are registered with the MCP server via decorators that execute ON MODULE IMPORT.
+When pytest runs multiple test modules, Python's import system caches modules and does
+NOT re-import them. This causes tool contamination between test modules.
+
+The mcp_server_factory fixture solves this by providing a factory function that:
+1. Resets the ToolsProxy singleton
+2. Creates a fresh server instance
+3. Reloads specified tool modules
+4. Cleans up after tests complete
+
+See README.md in this directory for usage examples and detailed explanation.
+"""
+
+import sys
+from importlib import reload
 
 import pytest
 
-
-@pytest.fixture
-def anyio_backend():
-    """Use asyncio for async tests."""
-    return "asyncio"
+from mcp_guide.server import _ToolsProxy, create_server
 
 
-@pytest.fixture(scope="session")
-def mcp_server():
-    """Create single MCP server for entire test session."""
-    from mcp_guide.server import _ToolsProxy, create_server
+@pytest.fixture(scope="module")
+def mcp_server_factory():
+    """Factory to create MCP server with specified tool modules reloaded.
 
-    # Reset proxy to ensure tools register properly
+    Usage:
+        @pytest.fixture(scope="module")
+        def mcp_server(mcp_server_factory):
+            return mcp_server_factory(["tool_category"])
+    """
+    created_servers = []
+
+    def _create_server(tool_modules: list[str]):
+        # Reset proxy to clear any previously registered tools
+        _ToolsProxy._instance = None
+
+        # Create new server instance
+        server = create_server()
+
+        # Reload tool modules to re-execute decorators with new server
+        for module_name in tool_modules:
+            full_module_path = f"mcp_guide.tools.{module_name}"
+            if full_module_path in sys.modules:
+                reload(sys.modules[full_module_path])
+
+        created_servers.append(server)
+        return server
+
+    yield _create_server
+
+    # Clean up after module
     _ToolsProxy._instance = None
-
-    return create_server()

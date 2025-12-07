@@ -20,3 +20,4 @@ All tools should follow this pattern for session access:
 
 Note: Actual tool implementations will be added in separate changes.
 """
+

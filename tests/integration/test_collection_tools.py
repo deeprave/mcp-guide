@@ -24,29 +24,10 @@ def anyio_backend():
 
 
 @pytest.fixture(scope="module")
-def mcp_server():
+def mcp_server(mcp_server_factory):
     """Create fresh MCP server for this test module."""
-    import sys
-    from importlib import reload
+    return mcp_server_factory(["tool_category", "tool_collection"])
 
-    from mcp_guide.server import _ToolsProxy, create_server
-
-    # Reset proxy to clear any previously registered tools
-    _ToolsProxy._instance = None
-
-    # Create new server instance
-    server = create_server()
-
-    # Reload tool modules to re-execute decorators with new server
-    if "mcp_guide.tools.tool_category" in sys.modules:
-        reload(sys.modules["mcp_guide.tools.tool_category"])
-    if "mcp_guide.tools.tool_collection" in sys.modules:
-        reload(sys.modules["mcp_guide.tools.tool_collection"])
-
-    yield server
-
-    # Clean up after module
-    _ToolsProxy._instance = None
 
 
 @pytest.fixture

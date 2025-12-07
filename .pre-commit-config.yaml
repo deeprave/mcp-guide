@@ -47,7 +47,7 @@ repos:
     hooks:
       - id: osv-check
         name: osvcheck
-        entry: uv run src/osvcheck.py
+        entry: uv run osvcheck
         language: system
 
   - repo: https://github.com/abravalheri/validate-pyproject
