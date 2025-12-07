@@ -83,8 +83,7 @@ async def set_current_project(args: SetCurrentProjectArgs, ctx: Optional[Context
         assert project is not None  # is_ok() guarantees value is set
 
         response = format_project_data(project, verbose=args.verbose)
-        response["message"] = f"Switched to project '{project.name}'"
 
-        return Result.ok(response).to_json_str()
+        return Result.ok(response, message=f"Switched to project '{project.name}'").to_json_str()
 
     return result.to_json_str()

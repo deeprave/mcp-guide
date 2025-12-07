@@ -243,7 +243,7 @@ def remove_current_session(project_name: str) -> None:
     active_sessions.set(sessions)
 
 
-async def set_project(project_name: str, ctx: Optional[Any] = None) -> Result[Project]:
+async def set_project(project_name: str, ctx: Optional["Context"] = None) -> Result[Project]:  # type: ignore[name-defined]
     """Set/load project by name.
 
     Args:
