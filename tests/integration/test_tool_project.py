@@ -13,11 +13,16 @@ def anyio_backend():
     return "asyncio"
 
 
+@pytest.fixture(scope="module")
+def mcp_server(mcp_server_factory):
+    """Create fresh MCP server for this test module."""
+    return mcp_server_factory(["tool_project"])
+
+
 @pytest.mark.anyio
-async def test_get_current_project_registered(mcp_server_factory):
+async def test_get_current_project_registered(mcp_server):
     """Test that get_current_project is registered in MCP."""
-    server = mcp_server_factory(["tool_project"])
-    tools = await server.list_tools()
+    tools = await mcp_server.list_tools()
     tool_names = [tool.name for tool in tools]
 
     assert "get_current_project" in tool_names
