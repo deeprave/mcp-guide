@@ -416,8 +416,8 @@ async def get_category_content(
         result: Result[str] = Result.failure(
             f"Category '{args.category}' not found in project",
             error_type=ERROR_NOT_FOUND,
+            instruction=INSTRUCTION_NOTFOUND_ERROR,
         )
-        result.instruction = INSTRUCTION_NOTFOUND_ERROR
         return result.to_json_str()
 
     # Get patterns
@@ -439,9 +439,7 @@ async def get_category_content(
             if args.pattern
             else f"No files found in category '{args.category}'"
         )
-        result = Result.ok(message)
-        result.instruction = INSTRUCTION_PATTERN_ERROR
-        return result.to_json_str()
+        return Result.ok(message, instruction=INSTRUCTION_PATTERN_ERROR).to_json_str()
 
     # Read file content, collecting any failures
     file_read_errors = await read_file_contents(files, category_dir)

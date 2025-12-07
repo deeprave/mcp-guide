@@ -61,9 +61,9 @@ class ArgValidationError(ValueError):
         result: Result[Any] = Result.failure(
             error=message or self.message,
             error_type="validation_error",
+            instruction=instruction or self.instruction,
         )
         result.error_data = {"validation_errors": self.errors}
-        result.instruction = instruction or self.instruction
         return result
 
 

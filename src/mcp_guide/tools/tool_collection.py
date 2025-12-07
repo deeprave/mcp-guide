@@ -380,8 +380,8 @@ async def get_collection_content(
         result: Result[str] = Result.failure(
             f"Collection '{args.collection}' not found in project",
             error_type=ERROR_NOT_FOUND,
+            instruction=INSTRUCTION_NOTFOUND_ERROR,
         )
-        result.instruction = INSTRUCTION_NOTFOUND_ERROR
         return result.to_json_str()
 
     # Validate all categories exist
@@ -391,8 +391,8 @@ async def get_collection_content(
             result = Result.failure(
                 f"Category '{category_name}' (referenced by collection '{args.collection}') not found",
                 error_type=ERROR_NOT_FOUND,
+                instruction=INSTRUCTION_NOTFOUND_ERROR,
             )
-            result.instruction = INSTRUCTION_NOTFOUND_ERROR
             return result.to_json_str()
 
     # Aggregate files from all categories
@@ -432,9 +432,9 @@ async def get_collection_content(
 
     # Check if any files found
     if not all_files:
-        result = Result.ok(f"No matching content found in collection '{args.collection}'")
-        result.instruction = INSTRUCTION_PATTERN_ERROR
-        return result.to_json_str()
+        return Result.ok(
+            f"No matching content found in collection '{args.collection}'", instruction=INSTRUCTION_PATTERN_ERROR
+        ).to_json_str()
 
     # Format content
     formatter = get_formatter()
