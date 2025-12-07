@@ -90,14 +90,12 @@ def anyio_backend():
 
 
 @pytest.fixture(scope="module")
-def mcp_server():
+def mcp_server(mcp_server_factory):
     """Create fresh MCP server for this test module.
 
     See tests/integration/conftest.py for why this is necessary.
     """
-    from tests.integration.mcp_server_fixture import mcp_server_factory
-
-    yield from mcp_server_factory(["tool_example"])
+    return mcp_server_factory(["tool_example"])
 
 
 @pytest.mark.anyio
