@@ -29,7 +29,6 @@ def mcp_server(mcp_server_factory):
     return mcp_server_factory(["tool_category", "tool_collection"])
 
 
-
 @pytest.fixture
 async def test_session(tmp_path: Path):
     """Create test session with isolated config."""
