@@ -26,25 +26,24 @@ class TestSetProject:
             "mcp_guide.session.ConfigManager", lambda config_dir=None: ConfigManager(config_dir=str(tmp_path))
         )
 
-        result_str = await set_project("new-project")
-        result = json.loads(result_str)
+        result = await set_project("new-project")
 
-        assert result["success"] is True
-        assert "new-project" in result["value"]
-        assert "loaded successfully" in result["value"]
+        assert result.is_ok()
+        assert result.value.name == "new-project"
 
     @pytest.mark.asyncio
     async def test_set_project_with_invalid_name(self, tmp_path, monkeypatch):
         """set_project returns error for invalid project name."""
+        from mcp_guide.tools.tool_constants import ERROR_INVALID_NAME
+
         monkeypatch.setattr(
             "mcp_guide.session.ConfigManager", lambda config_dir=None: ConfigManager(config_dir=str(tmp_path))
         )
 
-        result_str = await set_project("invalid@name")
-        result = json.loads(result_str)
+        result = await set_project("invalid@name")
 
-        assert result["success"] is False
-        assert result["error_type"] == "project_load_error"
+        assert result.is_failure()
+        assert result.error_type == ERROR_INVALID_NAME
 
 
 class TestGetOrCreateSession:

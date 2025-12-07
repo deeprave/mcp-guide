@@ -3,6 +3,7 @@
 # Common error types
 ERROR_NO_PROJECT = "no_project"
 ERROR_NOT_FOUND = "not_found"
+ERROR_INVALID_NAME = "invalid_name"
 ERROR_SAVE = "save_error"
 ERROR_NO_MATCHES = "no_matches"
 ERROR_FILE_READ = "file_read_error"

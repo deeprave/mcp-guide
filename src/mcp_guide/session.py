@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from time import time
 from typing import Any, Callable, Optional
 
+from mcp_core.result import Result
 from mcp_guide.config import ConfigManager
 from mcp_guide.models import _NAME_REGEX, Project, SessionState
 
@@ -32,10 +33,12 @@ class Session:
 
     def __post_init__(self) -> None:
         """Validate project name immediately."""
+        from mcp_guide.validation import InvalidProjectNameError
+
         if not self.project_name or not self.project_name.strip():
-            raise ValueError("Project name cannot be empty")
+            raise InvalidProjectNameError("Project name cannot be empty")
         if not _NAME_REGEX.match(self.project_name):
-            raise ValueError(
+            raise InvalidProjectNameError(
                 f"Project name '{self.project_name}' must contain only alphanumeric characters, underscores, and hyphens"
             )
 
@@ -240,25 +243,30 @@ def remove_current_session(project_name: str) -> None:
     active_sessions.set(sessions)
 
 
-async def set_project(project_name: str) -> str:
+async def set_project(project_name: str, ctx: Optional[Any] = None) -> Result[Project]:
     """Set/load project by name.
 
     Args:
         project_name: Name of project to set/load
+        ctx: Optional MCP Context for roots detection
 
     Returns:
-        Success message
+        Result[Project]: Success with Project object, or failure with error
 
     Note:
         Creates or loads project configuration.
         Use when project cannot be auto-detected from context.
     """
-    from mcp_core.result import Result
+    from mcp_guide.tools.tool_constants import ERROR_INVALID_NAME
+    from mcp_guide.validation import InvalidProjectNameError
 
     try:
-        session = await get_or_create_session(project_name=project_name)
-        # Trigger project load to ensure it exists/is created
-        await session.get_project()
-        return Result.ok(f"Project '{project_name}' loaded successfully").to_json_str()
+        session = await get_or_create_session(ctx=ctx, project_name=project_name)
+        project = await session.get_project()
+        return Result.ok(project)
+    except InvalidProjectNameError as e:
+        return Result.failure(str(e), error_type=ERROR_INVALID_NAME)
+    except ValueError as e:
+        return Result.failure(str(e), error_type="project_load_error")
     except Exception as e:
-        return Result.failure(str(e), error_type="project_load_error").to_json_str()
+        return Result.failure(str(e), error_type="project_load_error")

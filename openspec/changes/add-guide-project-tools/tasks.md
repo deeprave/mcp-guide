@@ -17,16 +17,16 @@ This change implements five project management tools for multi-project workflows
 ## Implementation Phases
 
 ### Phase 1: Read-only Tools (14 tasks)
-- Add error constants
-- Implement `get_current_project` (verbose/non-verbose)
-- Implement `list_projects` (verbose/non-verbose)
-- Implement `list_project`
-- Register tools
+- [x] Add error constants
+- [x] Implement `get_current_project` (verbose/non-verbose) - **COMPLETE (GUIDE-111)**
+- [ ] Implement `list_projects` (verbose/non-verbose)
+- [ ] Implement `list_project`
+- [x] Register tools (get_current_project registered)
 
-### Phase 2: Project Switching (5 tasks)
-- Implement `set_current_project` (verbose/non-verbose)
-- Test project creation
-- Reuse existing `switch_project` logic
+### Phase 2: Project Switching (5 tasks) - **IN PROGRESS (GUIDE-112)**
+- [ ] Implement `set_current_project` (verbose/non-verbose)
+- [ ] Test project creation
+- [ ] Reuse existing `switch_project` logic
 
 ### Phase 3: Clone Functionality (12 tasks)
 - Implement `clone_project` with merge/replace logic
