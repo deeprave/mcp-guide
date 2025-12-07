@@ -23,17 +23,18 @@
 ### 2.4 collection_change Tool (GUIDE-106) ✅
 - [x] Implement tool with TDD (schema + validation + replace + persist + tests)
 
-### 2.5 collection_update Tool (GUIDE-107)
-- [ ] Implement tool with TDD (schema + validation + modify + persist + tests)
+### 2.5 collection_update Tool (GUIDE-107) ✅
+- [x] Implement tool with TDD (schema + validation + modify + persist + tests)
 
 *Note: Configuration persistence reused from category tools*
 
-## 3. Integration Testing (GUIDE-108)
-- [ ] 3.1 Collection management workflow tests
-- [ ] 3.2 Category validation integration tests
-- [ ] 3.3 Configuration persistence tests
-- [ ] 3.4 Error case tests
+## 3. Integration Testing (GUIDE-108) ✅
+- [x] 3.1 Collection management workflow tests
+- [x] 3.2 Category validation integration tests
+- [x] 3.3 Configuration persistence tests
+- [x] 3.4 Error case tests
 
 ---
 
 **Total: 3 stories, 5 subtasks = 8 Jira cards**
+**Status: ✅ ALL COMPLETE**

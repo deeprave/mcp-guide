@@ -20,7 +20,7 @@ dependencies = [
 
 [project.scripts]
 mcp-guide = "mcp_guide.main:main"
-osvcheck = "osvcheck:main"
+osvcheck = "scripts.osvcheck:main"
 
 [build-system]
 requires = ["uv_build"]
@@ -40,7 +40,8 @@ filterwarnings = ["error"]
 addopts = [
     "--strict-markers",
     "--strict-config",
-    "--cov",
+    "--cov=src/mcp_core",
+    "--cov=src/mcp_guide",
     "--cov-report=term-missing",
 ]
 

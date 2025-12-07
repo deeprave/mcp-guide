@@ -1,22 +1,60 @@
 # Integration Tests
 
-This directory contains integration tests that must be run separately from unit tests.
+Integration tests verify that tools are properly registered with the MCP server and work through the MCP protocol.
 
-## Running Integration Tests
+## The Problem: Tool Registration and Module Caching
 
-```bash
-# Run integration tests only
-pytest tests_integration/
+**Critical**: Tools are registered with the MCP server via decorators that execute **ON MODULE IMPORT**.
 
-# Run unit tests only (default)
-pytest tests/
+When pytest runs multiple test modules, Python's import system caches modules and does NOT re-import them. This causes contamination:
 
-# DO NOT run both together - this will cause failures
-# pytest tests/ tests_integration/  # ❌ Don't do this
+1. First test module imports `tool_category` → decorators register with ToolsProxy
+2. Second test module creates new server → but `tool_category` already cached
+3. Tools still registered with OLD server instance
+4. Tests fail with signature mismatches
+
+## The Solution: mcp_server_factory Fixture
+
+The `mcp_server_factory` fixture in `conftest.py` solves this by:
+1. Resetting the ToolsProxy singleton
+2. Creating a fresh server instance
+3. Reloading specified tool modules to re-execute decorators
+4. Cleaning up after tests complete
+
+## Usage Pattern
+
+```python
+@pytest.fixture(scope="module")
+def mcp_server(mcp_server_factory):
+    """Create fresh MCP server for this test module."""
+    return mcp_server_factory(["tool_category", "tool_collection"])
+
+
+@pytest.mark.anyio
+async def test_something(mcp_server):
+    """Test via MCP client."""
+    async with create_connected_server_and_client_session(mcp_server) as client:
+        result = await client.call_tool("category_add", {...})
+        # Assert on result...
 ```
 
-## Why Separate?
+## What to Test Here
 
-Due to Python's module caching, once tool modules (e.g., `tool_collection.py`) are imported and decorated, the decorators cannot be re-applied. When unit tests import these modules first, the `@tools.tool()` decorators execute and register the tools with FastMCP. If integration tests then try to create a new server instance, the tools won't re-register because the decorator code has already run.
+Integration tests should ONLY verify:
+- Tool is registered with MCP server
+- Tool works through MCP protocol (optional, usually covered by unit tests)
 
-Running the test suites separately ensures each runs in a clean Python process where tool modules are imported fresh and decorators execute properly.
+**Do NOT test tool logic here** - that belongs in unit tests (`tests/unit/`).
+
+## Unit Tests vs Integration Tests
+
+| Aspect | Unit Tests | Integration Tests |
+|--------|-----------|-------------------|
+| Location | `tests/unit/` | `tests/integration/` |
+| Purpose | Test tool logic | Test MCP registration |
+| Function calls | Direct: `await tool(args)` | Via MCP client |
+| Fixture needed | No `mcp_server` | Yes, `mcp_server_factory` |
+| Speed | Fast | Slower |
+| Coverage | 99% of tests | Minimal, registration only |
+
+See `docs/testing-tools.md` for comprehensive testing guide.
