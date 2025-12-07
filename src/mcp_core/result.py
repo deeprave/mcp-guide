@@ -25,30 +25,48 @@ class Result(Generic[T]):
     error_data: Optional[dict[str, Any]] = None
 
     @classmethod
-    def ok(cls, value: T) -> "Result[T]":
+    def ok(cls, value: T, message: Optional[str] = None, instruction: Optional[str] = None) -> "Result[T]":
         """Create a successful result.
 
         Args:
             value: Result value (can be None)
+            message: Optional message
+            instruction: Optional instruction for agent
 
         Returns:
             Result with success=True
         """
-        return cls(success=True, value=value)
+        return cls(success=True, value=value, message=message, instruction=instruction)
 
     @classmethod
-    def failure(cls, error: str, error_type: str = "unknown", exception: Optional[Exception] = None) -> "Result[T]":
+    def failure(
+        cls,
+        error: str,
+        error_type: str = "unknown",
+        exception: Optional[Exception] = None,
+        message: Optional[str] = None,
+        instruction: Optional[str] = None,
+    ) -> "Result[T]":
         """Create a failure result with error information.
 
         Args:
             error: Error message
             error_type: Error classification
             exception: Original exception (optional)
+            message: Optional message
+            instruction: Optional instruction for agent
 
         Returns:
             Result with success=False
         """
-        return cls(success=False, error=error, error_type=error_type, exception=exception)
+        return cls(
+            success=False,
+            error=error,
+            error_type=error_type,
+            exception=exception,
+            message=message,
+            instruction=instruction,
+        )
 
     def is_ok(self) -> bool:
         """Check if result is successful.

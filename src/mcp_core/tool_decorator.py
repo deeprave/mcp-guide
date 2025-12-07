@@ -7,6 +7,8 @@ from contextvars import ContextVar
 from functools import wraps
 from typing import Any, Callable, Optional
 
+from mcp_guide.tools.tool_constants import INSTRUCTION_VALIDATION_ERROR
+
 logger = logging.getLogger(__name__)
 
 # Internal test mode control - not exposed to external manipulation
@@ -109,9 +111,9 @@ class ExtMcpToolDecorator:
                                     result: Result[Any] = Result.failure(
                                         f"Invalid tool arguments: {len(error_details)} validation error(s)",
                                         error_type="validation_error",
+                                        instruction=INSTRUCTION_VALIDATION_ERROR,
                                     )
                                     result.error_data = {"validation_errors": error_details}
-                                    result.instruction = "Return error to user without attempting remediation"
                                     logger.error(f"Tool {tool_name} argument validation failed: {error_details}")
                                     return result.to_json_str()
                                 # Re-raise non-validation errors

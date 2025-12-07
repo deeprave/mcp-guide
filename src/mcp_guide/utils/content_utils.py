@@ -77,6 +77,6 @@ def create_file_read_error_result(
     error_result: Result[str] = Result.failure(
         error_message,
         error_type=error_type,
+        instruction=instruction,
     )
-    error_result.instruction = instruction
     return error_result

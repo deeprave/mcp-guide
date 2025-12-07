@@ -153,6 +153,6 @@ async def get_content(
         return Result.ok(content).to_json_str()
 
     # No files found
-    result = Result.ok(f"No matching content found for '{args.category_or_collection}'")
-    result.instruction = INSTRUCTION_PATTERN_ERROR
-    return result.to_json_str()
+    return Result.ok(
+        f"No matching content found for '{args.category_or_collection}'", instruction=INSTRUCTION_PATTERN_ERROR
+    ).to_json_str()

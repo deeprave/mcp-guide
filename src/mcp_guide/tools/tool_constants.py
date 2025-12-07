@@ -15,3 +15,5 @@ INSTRUCTION_PATTERN_ERROR = (
 INSTRUCTION_FILE_ERROR = (
     "Present this error to the user. The file may have been deleted, moved, or has permission issues."
 )
+INSTRUCTION_VALIDATION_ERROR = "Return error to user without attempting remediation"
+INSTRUCTION_NO_PROJECT = "To fix: Call set_current_project with the basename of the current working directory."

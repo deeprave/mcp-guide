@@ -8,7 +8,7 @@ from mcp_core.result import Result
 from mcp_core.tool_arguments import ToolArguments
 from mcp_guide.server import tools
 from mcp_guide.session import get_or_create_session
-from mcp_guide.tools.tool_constants import ERROR_NO_PROJECT
+from mcp_guide.tools.tool_constants import ERROR_NO_PROJECT, INSTRUCTION_NO_PROJECT
 
 try:
     from mcp.server.fastmcp import Context
@@ -39,7 +39,11 @@ async def get_current_project(args: GetCurrentProjectArgs, ctx: Optional[Context
     try:
         session = await get_or_create_session(ctx)
     except ValueError as e:
-        return Result.failure(str(e), error_type=ERROR_NO_PROJECT).to_json_str()
+        return Result.failure(
+            str(e),
+            error_type=ERROR_NO_PROJECT,
+            instruction=INSTRUCTION_NO_PROJECT,
+        ).to_json_str()
 
     project = await session.get_project()
 
