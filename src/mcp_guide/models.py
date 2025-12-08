@@ -6,7 +6,7 @@ from dataclasses import dataclass, field, replace
 from datetime import datetime
 from typing import Any, Optional
 
-from pydantic import field_validator
+from pydantic import ConfigDict, field_validator
 from pydantic.dataclasses import dataclass as pydantic_dataclass
 
 # Name validation pattern: alphanumeric, underscore, hyphen
@@ -39,7 +39,7 @@ def format_project_data(project: "Project", verbose: bool = False) -> dict[str, 
         collections = [c.name for c in project.collections]
         categories = [c.name for c in project.categories]
 
-    return {"project": project.name, "collections": collections, "categories": categories}
+    return {"collections": collections, "categories": categories}
 
 
 @pydantic_dataclass(frozen=True)
@@ -54,7 +54,10 @@ class Category:
 
     Note:
         Instances are immutable (frozen=True).
+        Extra fields from config files are ignored.
     """
+
+    model_config = ConfigDict(extra="ignore")
 
     name: str
     dir: str
@@ -82,7 +85,10 @@ class Collection:
 
     Note:
         Instances are immutable (frozen=True).
+        Extra fields from config files are ignored.
     """
+
+    model_config = ConfigDict(extra="ignore")
 
     name: str
     categories: list[str]
@@ -112,7 +118,10 @@ class Project:
     Note:
         Instances are immutable (frozen=True).
         Use with_* and without_* methods to create modified copies.
+        Extra fields from config files are ignored.
     """
+
+    model_config = ConfigDict(extra="ignore")
 
     name: str
     categories: list[Category] = field(default_factory=list)

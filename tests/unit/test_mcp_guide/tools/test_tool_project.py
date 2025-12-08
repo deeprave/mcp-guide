@@ -87,7 +87,6 @@ class TestGetCurrentProject:
             result = json.loads(result_str)
 
             assert result["success"] is True
-            assert result["value"]["project"] == "test-project"
             assert result["value"]["collections"] == ["api-docs"]
             assert set(result["value"]["categories"]) == {"python", "typescript"}
 
@@ -126,7 +125,6 @@ class TestGetCurrentProject:
             result = json.loads(result_str)
 
             assert result["success"] is True
-            assert result["value"]["project"] == "test-project"
 
             # Check collections are dicts with full details
             assert len(result["value"]["collections"]) == 1
@@ -167,7 +165,6 @@ class TestGetCurrentProject:
             result = json.loads(result_str)
 
             assert result["success"] is True
-            assert result["value"]["project"] == "empty-project"
             assert result["value"]["collections"] == []
             assert result["value"]["categories"] == []
 
@@ -177,7 +174,6 @@ class TestGetCurrentProject:
             result = json.loads(result_str)
 
             assert result["success"] is True
-            assert result["value"]["project"] == "empty-project"
             assert result["value"]["collections"] == []
             assert result["value"]["categories"] == []
         finally:
@@ -245,7 +241,6 @@ class TestSetCurrentProject:
 
             assert result["success"] is True
             assert result["message"] == "Switched to project 'existing-project'"
-            assert result["value"]["project"] == "existing-project"
             assert result["value"]["collections"] == ["backend"]
             assert result["value"]["categories"] == ["python", "docs"]
 
@@ -272,7 +267,6 @@ class TestSetCurrentProject:
 
             assert result["success"] is True
             assert result["message"] == "Switched to project 'existing-project'"
-            assert result["value"]["project"] == "existing-project"
 
             # Check collections verbose format
             assert len(result["value"]["collections"]) == 1
@@ -307,7 +301,6 @@ class TestSetCurrentProject:
 
             assert result["success"] is True
             assert result["message"] == "Switched to project 'new-project'"
-            assert result["value"]["project"] == "new-project"
             assert result["value"]["collections"] == []
             assert result["value"]["categories"] == []
 
@@ -363,8 +356,8 @@ class TestListProjects:
         mock_result = Result.ok(
             {
                 "projects": {
-                    "project1": {"project": "project1", "categories": [], "collections": []},
-                    "project2": {"project": "project2", "categories": [], "collections": []},
+                    "project1": {"categories": [], "collections": []},
+                    "project2": {"categories": [], "collections": []},
                 }
             }
         )
@@ -410,7 +403,7 @@ class TestListProject:
     @pytest.mark.asyncio
     async def test_list_project_current_project(self):
         """Test list_project with no name (defaults to current)."""
-        mock_result = Result.ok({"project": "test-project", "categories": [], "collections": []})
+        mock_result = Result.ok({"categories": [], "collections": []})
 
         with patch("mcp_guide.session.get_project_info", new=AsyncMock(return_value=mock_result)):
             args = ListProjectArgs(name=None, verbose=False)
@@ -418,12 +411,11 @@ class TestListProject:
             result = json.loads(result_str)
 
             assert result["success"] is True
-            assert result["value"]["project"] == "test-project"
 
     @pytest.mark.asyncio
     async def test_list_project_specific_project(self):
         """Test list_project with specific project name."""
-        mock_result = Result.ok({"project": "other-project", "categories": [], "collections": []})
+        mock_result = Result.ok({"categories": [], "collections": []})
 
         with patch("mcp_guide.session.get_project_info", new=AsyncMock(return_value=mock_result)):
             args = ListProjectArgs(name="other-project", verbose=False)
@@ -431,14 +423,12 @@ class TestListProject:
             result = json.loads(result_str)
 
             assert result["success"] is True
-            assert result["value"]["project"] == "other-project"
 
     @pytest.mark.asyncio
     async def test_list_project_verbose(self):
         """Test list_project with verbose mode."""
         mock_result = Result.ok(
             {
-                "project": "test-project",
                 "categories": [{"name": "docs", "dir": "docs", "patterns": ["*.md"], "description": None}],
                 "collections": [{"name": "all", "description": None, "categories": ["docs"]}],
             }

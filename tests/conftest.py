@@ -27,12 +27,10 @@ Protected Paths (if they exist):
 """
 
 import asyncio
-import hashlib
 import os
 import shutil
 import tempfile
 from pathlib import Path
-from typing import Generator
 
 import pytest
 from watchdog.events import FileSystemEventHandler
@@ -209,3 +207,43 @@ def robust_cleanup(directory: Path) -> None:
 
     if directory.exists():
         shutil.rmtree(directory, onerror=handle_remove_readonly)
+
+
+# MCP Tool Call Helper
+async def call_mcp_tool(client, tool_name: str, args_model=None, **kwargs):
+    """Helper to call MCP tools with proper argument wrapping.
+
+    Args:
+        client: MCP client session
+        tool_name: Name of the tool to call
+        args_model: Optional Pydantic model instance with tool arguments
+        **kwargs: Alternative to args_model - keyword arguments to wrap
+
+    Returns:
+        Tool call result
+
+    Examples:
+        # Using Pydantic model:
+        args = GetCurrentProjectArgs(verbose=True)
+        result = await call_mcp_tool(client, "get_current_project", args)
+
+        # Using kwargs:
+        result = await call_mcp_tool(client, "collection_add",
+                                     name="backend", categories=["api"])
+    """
+    if args_model is not None:
+        # Convert Pydantic model to dict and wrap in "args"
+        from pydantic import BaseModel
+
+        if isinstance(args_model, BaseModel):
+            arguments = {"args": args_model.model_dump()}
+        else:
+            arguments = {"args": args_model}
+    elif kwargs:
+        # Wrap kwargs in "args"
+        arguments = {"args": kwargs}
+    else:
+        # No arguments
+        arguments = {"args": {}}
+
+    return await client.call_tool(tool_name, arguments)

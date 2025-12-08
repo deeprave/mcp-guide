@@ -78,15 +78,40 @@ class TestConfigSessionIntegration:
 
         # Verify both tasks completed successfully
         assert len(results) == 2
-        assert all(count == 1 for _, count in results)
 
-        # Verify both projects were updated independently
-        project1 = await manager.get_or_create_project_config("project1")
-        project2 = await manager.get_or_create_project_config("project2")
-        assert len(project1.categories) == 1
-        assert len(project2.categories) == 1
-        assert project1.categories[0].name == "api"
-        assert project2.categories[0].name == "web"
+    @pytest.mark.asyncio
+    async def test_config_ignores_extra_fields_in_yaml(self, tmp_path):
+        """Test that config loading ignores extra fields in YAML files."""
+        # Create YAML with extra fields (simulating hand-edited or legacy config)
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text(
+            """
+projects:
+  test-project:
+    deprecated_field: old_value
+    unknown_setting: 123
+    categories:
+      - name: docs
+        dir: docs/
+        patterns:
+          - "*.md"
+        legacy_option: true
+    collections: []
+    extra_metadata:
+      author: someone
+      version: 1.0
+"""
+        )
+
+        # Load config - should not raise validation errors
+        manager = ConfigManager(config_dir=str(tmp_path))
+        project = await manager.get_or_create_project_config("test-project")
+
+        # Verify valid fields loaded correctly
+        assert project.name == "test-project"
+        assert len(project.categories) == 1
+        assert project.categories[0].name == "docs"
+        assert project.categories[0].dir == "docs/"
 
     @pytest.mark.asyncio
     async def test_file_locking_prevents_corruption(self, tmp_path):

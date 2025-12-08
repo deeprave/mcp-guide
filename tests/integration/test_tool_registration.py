@@ -134,7 +134,7 @@ async def test_mcp_client_can_list_and_call_tools(test_session, tmp_path):
 
             # Call guide_category_list tool
             call_result = await asyncio.wait_for(
-                session.call_tool("guide_category_list", {"verbose": False}), timeout=5.0
+                session.call_tool("guide_category_list", {"args": {"verbose": False}}), timeout=5.0
             )
 
             # Parse result
