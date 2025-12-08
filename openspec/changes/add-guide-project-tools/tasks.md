@@ -19,9 +19,9 @@ This change implements five project management tools for multi-project workflows
 ### Phase 1: Read-only Tools (14 tasks)
 - [x] Add error constants
 - [x] Implement `get_current_project` (verbose/non-verbose) - **COMPLETE (GUIDE-111)**
-- [ ] Implement `list_projects` (verbose/non-verbose)
+- [x] Implement `list_projects` (verbose/non-verbose) - **COMPLETE (GUIDE-114)**
 - [ ] Implement `list_project`
-- [x] Register tools (get_current_project registered)
+- [x] Register tools (get_current_project, list_projects registered)
 
 ### Phase 2: Project Switching (5 tasks) - **COMPLETE (GUIDE-112)**
 - [x] Implement `set_current_project` (verbose/non-verbose)

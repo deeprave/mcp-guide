@@ -146,6 +146,46 @@ class ConfigManager:
 
         return await lock_update(self.config_file, _get_or_create)
 
+    async def get_all_project_configs(self) -> dict[str, Project]:
+        """Get all project configurations as a snapshot.
+
+        This is a read-only operation that returns all projects at a point in time.
+        Does not create any projects. Uses file locking to ensure consistency.
+
+        Returns:
+            Dictionary mapping project names to Project objects
+
+        Raises:
+            OSError: If config file cannot be read
+            yaml.YAMLError: If config file contains invalid YAML
+            ValueError: If any project data is invalid
+        """
+        await self._ensure_initialized()
+
+        async def _read_all_projects(file_path: Path) -> dict[str, Project]:
+            try:
+                content = await read_file_content(file_path)
+            except OSError as e:
+                raise OSError(f"Failed to read config file {file_path}: {e}") from e
+
+            try:
+                data = yaml.safe_load(content)
+            except yaml.YAMLError as e:
+                raise yaml.YAMLError(f"Invalid YAML in config file {file_path}: {e}") from e
+
+            projects_data = data.get("projects", {})
+            projects: dict[str, Project] = {}
+
+            for name, project_data in projects_data.items():
+                try:
+                    projects[name] = Project(name=name, **project_data)
+                except Exception as e:
+                    raise ValueError(f"Invalid project data for '{name}': {e}") from e
+
+            return projects
+
+        return await lock_update(self.config_file, _read_all_projects)
+
     async def save_project_config(self, project: Project) -> None:
         """Save project config to file.
 

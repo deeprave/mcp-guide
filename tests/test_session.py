@@ -7,10 +7,12 @@ import pytest
 
 import mcp_guide.session
 from mcp_guide.config import ConfigManager
+from mcp_guide.models import Project
 from mcp_guide.session import (
     CachedRootsInfo,
     Session,
     get_or_create_session,
+    get_project_info,
     list_all_projects,
     set_current_session,
     set_project,
@@ -437,3 +439,196 @@ class TestListAllProjects:
         assert result.is_failure()
         assert "Error listing projects" in result.error
         assert result.error_type == "unexpected_error"
+
+
+class TestGetProjectInfo:
+    """Tests for get_project_info function."""
+
+    @pytest.mark.asyncio
+    async def test_get_project_info_current_project_non_verbose(self, tmp_path, monkeypatch):
+        """Test getting current project info without verbose mode."""
+        config_dir = tmp_path / ".mcp-guide"
+        config_dir.mkdir()
+
+        # Create test project config
+        project_config = {
+            "name": "test-project",
+            "categories": [],
+            "collections": [],
+        }
+        config_file = config_dir / "test-project.json"
+        config_file.write_text(json.dumps(project_config))
+
+        monkeypatch.setenv("MCP_GUIDE_CONFIG_DIR", str(config_dir))
+
+        # Create mock session with project
+        mock_session = AsyncMock()
+        mock_session.get_project = AsyncMock(return_value=Project(name="test-project", categories=[], collections=[]))
+
+        mock_config = AsyncMock()
+        mock_config.get_all_project_configs = AsyncMock(
+            return_value={"test-project": Project(name="test-project", categories=[], collections=[])}
+        )
+
+        monkeypatch.setattr("mcp_guide.session.get_or_create_session", AsyncMock(return_value=mock_session))
+        monkeypatch.setattr("mcp_guide.session.ConfigManager", lambda config_dir=None: mock_config)
+
+        result = await get_project_info(name=None, verbose=False)
+
+        assert result.success
+        data = result.value
+        assert data["project"] == "test-project"
+        assert "categories" in data
+        assert "collections" in data
+
+    @pytest.mark.asyncio
+    async def test_get_project_info_specific_project_non_verbose(self, tmp_path, monkeypatch):
+        """Test getting specific project info by name."""
+        config_dir = tmp_path / ".mcp-guide"
+        config_dir.mkdir()
+
+        # Create two test projects
+        for proj_name in ["current-project", "other-project"]:
+            project_config = {
+                "name": proj_name,
+                "categories": [],
+                "collections": [],
+            }
+            config_file = config_dir / f"{proj_name}.json"
+            config_file.write_text(json.dumps(project_config))
+
+        monkeypatch.setenv("MCP_GUIDE_CONFIG_DIR", str(config_dir))
+
+        mock_config = AsyncMock()
+        mock_config.get_all_project_configs = AsyncMock(
+            return_value={
+                "current-project": Project(name="current-project", categories=[], collections=[]),
+                "other-project": Project(name="other-project", categories=[], collections=[]),
+            }
+        )
+
+        monkeypatch.setattr("mcp_guide.session.ConfigManager", lambda config_dir=None: mock_config)
+
+        result = await get_project_info(name="other-project", verbose=False)
+
+        assert result.success
+        data = result.value
+        assert data["project"] == "other-project"
+
+    @pytest.mark.asyncio
+    async def test_get_project_info_verbose(self, tmp_path, monkeypatch):
+        """Test getting project info with verbose mode."""
+        config_dir = tmp_path / ".mcp-guide"
+        config_dir.mkdir()
+
+        monkeypatch.setenv("MCP_GUIDE_CONFIG_DIR", str(config_dir))
+
+        from mcp_guide.models import Category, Collection
+
+        mock_config = AsyncMock()
+        mock_config.get_all_project_configs = AsyncMock(
+            return_value={
+                "test-project": Project(
+                    name="test-project",
+                    categories=[Category(name="docs", dir="docs", patterns=["*.md"])],
+                    collections=[Collection(name="all", categories=["docs"])],
+                )
+            }
+        )
+
+        monkeypatch.setattr("mcp_guide.session.ConfigManager", lambda config_dir=None: mock_config)
+
+        result = await get_project_info(name="test-project", verbose=True)
+
+        assert result.success
+        data = result.value
+        assert data["project"] == "test-project"
+        # Verbose mode includes full details
+        assert isinstance(data["categories"], list)
+        assert len(data["categories"]) == 1
+        assert data["categories"][0]["name"] == "docs"
+        assert isinstance(data["collections"], list)
+        assert len(data["collections"]) == 1
+        assert data["collections"][0]["name"] == "all"
+
+    @pytest.mark.asyncio
+    async def test_get_project_info_project_not_found(self, tmp_path, monkeypatch):
+        """Test error when project doesn't exist."""
+        config_dir = tmp_path / ".mcp-guide"
+        config_dir.mkdir()
+
+        monkeypatch.setenv("MCP_GUIDE_CONFIG_DIR", str(config_dir))
+
+        mock_config = AsyncMock()
+        mock_config.get_all_project_configs = AsyncMock(
+            return_value={"test-project": Project(name="test-project", categories=[], collections=[])}
+        )
+
+        monkeypatch.setattr("mcp_guide.session.ConfigManager", lambda config_dir=None: mock_config)
+
+        result = await get_project_info(name="nonexistent-project", verbose=False)
+
+        assert not result.success
+        assert "not found" in result.error
+        assert result.error_type == "not_found"
+
+    @pytest.mark.asyncio
+    async def test_get_project_info_config_read_error(self, tmp_path, monkeypatch):
+        """Test OSError handling."""
+        config_dir = tmp_path / ".mcp-guide"
+        config_dir.mkdir()
+
+        monkeypatch.setenv("MCP_GUIDE_CONFIG_DIR", str(config_dir))
+
+        mock_config = AsyncMock()
+        mock_config.get_all_project_configs = AsyncMock(side_effect=OSError("Disk error"))
+
+        monkeypatch.setattr("mcp_guide.session.ConfigManager", lambda config_dir=None: mock_config)
+
+        result = await get_project_info(name="test-project", verbose=False)
+
+        assert not result.success
+        assert "Failed to read project configuration" in result.error
+        assert result.error_type == "config_read_error"
+
+    @pytest.mark.asyncio
+    async def test_get_project_info_unexpected_error(self, tmp_path, monkeypatch):
+        """Test generic exception handling."""
+        config_dir = tmp_path / ".mcp-guide"
+        config_dir.mkdir()
+
+        monkeypatch.setenv("MCP_GUIDE_CONFIG_DIR", str(config_dir))
+
+        mock_config = AsyncMock()
+        mock_config.get_all_project_configs = AsyncMock(side_effect=RuntimeError("Unexpected error"))
+
+        monkeypatch.setattr("mcp_guide.session.ConfigManager", lambda config_dir=None: mock_config)
+
+        result = await get_project_info(name=None, verbose=False)
+
+        assert not result.success
+        assert "Error retrieving project" in result.error
+        assert result.error_type == "unexpected_error"
+
+    @pytest.mark.asyncio
+    async def test_get_project_info_invalid_name(self, tmp_path, monkeypatch):
+        """Test error when project name is invalid."""
+        config_dir = tmp_path / ".mcp-guide"
+        config_dir.mkdir()
+
+        monkeypatch.setenv("MCP_GUIDE_CONFIG_DIR", str(config_dir))
+
+        mock_config = AsyncMock()
+        mock_config.get_all_project_configs = AsyncMock(
+            side_effect=ValueError(
+                "Invalid project name '../../../etc/passwd': must contain only alphanumeric characters, underscores, and hyphens"
+            )
+        )
+
+        monkeypatch.setattr("mcp_guide.session.ConfigManager", lambda config_dir=None: mock_config)
+
+        result = await get_project_info(name="../../../etc/passwd", verbose=False)
+
+        assert not result.success
+        assert "Invalid project name" in result.error
+        assert result.error_type == "invalid_name"
