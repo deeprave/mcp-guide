@@ -300,6 +300,7 @@ async def list_all_projects(verbose: bool = False) -> Result[dict[str, Any]]:
 
         return Result.ok({"projects": projects_data})
     except OSError as e:
-        return Result.failure(f"Failed to read configuration: {e}")
+        return Result.failure(f"Failed to read configuration: {e}", error_type="config_read_error")
     except Exception as e:
-        return Result.failure(f"Error listing projects: {e}")
+        logger.exception("Unexpected error listing projects")
+        return Result.failure(f"Error listing projects: {e}", error_type="unexpected_error")
