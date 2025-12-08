@@ -7,6 +7,7 @@ ERROR_INVALID_NAME = "invalid_name"
 ERROR_SAVE = "save_error"
 ERROR_NO_MATCHES = "no_matches"
 ERROR_FILE_READ = "file_read_error"
+ERROR_SAFEGUARD = "safeguard_prevented"
 
 # Error instructions
 INSTRUCTION_NOTFOUND_ERROR = "Present this error to the user and take no further action."

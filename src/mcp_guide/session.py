@@ -85,6 +85,30 @@ class Session:
         """
         return self._config_manager.get_docroot()
 
+    async def get_all_projects(self) -> dict[str, Project]:
+        """Get all project configurations atomically.
+
+        Returns:
+            Dictionary mapping project names to Project objects
+
+        Note:
+            This is a read-only operation that returns all projects at a point in time.
+            Uses file locking to ensure consistency.
+        """
+        return await self._config_manager.get_all_project_configs()
+
+    async def save_project(self, project: Project) -> None:
+        """Save project configuration to disk.
+
+        Args:
+            project: Project configuration to save
+
+        Note:
+            This operation is atomic and async-safe due to file locking.
+            If saving the current project, cache is NOT automatically invalidated.
+        """
+        await self._config_manager.save_project_config(project)
+
 
 # ContextVar for async task-local session tracking
 active_sessions: ContextVar[dict[str, Session]] = ContextVar("active_sessions")
