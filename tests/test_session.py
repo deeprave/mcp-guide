@@ -371,6 +371,18 @@ class TestListAllProjects:
         assert result.value == {"projects": ["alpha", "beta", "zebra"]}
 
     @pytest.mark.asyncio
+    async def test_list_all_projects_verbose_empty(self, tmp_path, monkeypatch):
+        """list_all_projects returns empty dict when no projects exist in verbose mode."""
+        monkeypatch.setattr(
+            "mcp_guide.session.ConfigManager", lambda config_dir=None: ConfigManager(config_dir=str(tmp_path))
+        )
+
+        result = await list_all_projects(verbose=True)
+
+        assert result.is_ok()
+        assert result.value == {"projects": {}}
+
+    @pytest.mark.asyncio
     async def test_list_all_projects_verbose(self, tmp_path, monkeypatch):
         """list_all_projects returns full project details in verbose mode."""
         monkeypatch.setattr(
@@ -408,6 +420,7 @@ class TestListAllProjects:
 
         assert result.is_failure()
         assert "Failed to read configuration" in result.error
+        assert result.error_type == "config_read_error"
 
     @pytest.mark.asyncio
     async def test_list_all_projects_unexpected_error(self, tmp_path, monkeypatch):
@@ -423,3 +436,4 @@ class TestListAllProjects:
 
         assert result.is_failure()
         assert "Error listing projects" in result.error
+        assert result.error_type == "unexpected_error"
