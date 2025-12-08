@@ -10,11 +10,14 @@ from mcp_core.result import Result
 from mcp_guide.config import ConfigManager
 from mcp_guide.models import Category, Collection, Project
 from mcp_guide.session import Session, remove_current_session, set_current_session
+from mcp_guide.tools.tool_constants import ERROR_SAFEGUARD
 from mcp_guide.tools.tool_project import (
+    CloneProjectArgs,
     GetCurrentProjectArgs,
     ListProjectArgs,
     ListProjectsArgs,
     SetCurrentProjectArgs,
+    clone_project,
     get_current_project,
     list_project,
     list_projects,
@@ -409,7 +412,7 @@ class TestListProject:
         """Test list_project with no name (defaults to current)."""
         mock_result = Result.ok({"project": "test-project", "categories": [], "collections": []})
 
-        with patch("mcp_guide.session.get_project_info", return_value=mock_result):
+        with patch("mcp_guide.session.get_project_info", new=AsyncMock(return_value=mock_result)):
             args = ListProjectArgs(name=None, verbose=False)
             result_str = await list_project(args)
             result = json.loads(result_str)
@@ -422,7 +425,7 @@ class TestListProject:
         """Test list_project with specific project name."""
         mock_result = Result.ok({"project": "other-project", "categories": [], "collections": []})
 
-        with patch("mcp_guide.session.get_project_info", return_value=mock_result):
+        with patch("mcp_guide.session.get_project_info", new=AsyncMock(return_value=mock_result)):
             args = ListProjectArgs(name="other-project", verbose=False)
             result_str = await list_project(args)
             result = json.loads(result_str)
@@ -441,7 +444,7 @@ class TestListProject:
             }
         )
 
-        with patch("mcp_guide.session.get_project_info", return_value=mock_result):
+        with patch("mcp_guide.session.get_project_info", new=AsyncMock(return_value=mock_result)):
             args = ListProjectArgs(name="test-project", verbose=True)
             result_str = await list_project(args)
             result = json.loads(result_str)
@@ -455,10 +458,299 @@ class TestListProject:
         """Test list_project error propagation."""
         mock_result = Result.failure("Project 'nonexistent' not found", error_type="project_not_found")
 
-        with patch("mcp_guide.session.get_project_info", return_value=mock_result):
+        with patch("mcp_guide.session.get_project_info", new=AsyncMock(return_value=mock_result)):
             args = ListProjectArgs(name="nonexistent", verbose=False)
             result_str = await list_project(args)
             result = json.loads(result_str)
 
             assert result["success"] is False
             assert "not found" in result["error"]
+
+
+def test_error_safeguard_constant():
+    """Test ERROR_SAFEGUARD constant exists and has correct value."""
+    assert ERROR_SAFEGUARD == "safeguard_prevented"
+
+
+class TestCloneProjectArgs:
+    """Tests for CloneProjectArgs schema."""
+
+    def test_args_validation_all_params(self):
+        """Test CloneProjectArgs with all parameters."""
+        args = CloneProjectArgs(from_project="source", to_project="target", merge=False, force=True)
+        assert args.from_project == "source"
+        assert args.to_project == "target"
+        assert args.merge is False
+        assert args.force is True
+
+    def test_args_default_values(self):
+        """Test CloneProjectArgs default values."""
+        args = CloneProjectArgs(from_project="source")
+        assert args.from_project == "source"
+        assert args.to_project is None  # Default
+        assert args.merge is True  # Default
+        assert args.force is False  # Default
+
+    def test_args_1arg_mode(self):
+        """Test CloneProjectArgs for 1-arg mode (to_project=None)."""
+        args = CloneProjectArgs(from_project="source", to_project=None)
+        assert args.from_project == "source"
+        assert args.to_project is None
+
+    def test_args_2arg_mode(self):
+        """Test CloneProjectArgs for 2-arg mode (to_project specified)."""
+        args = CloneProjectArgs(from_project="source", to_project="target")
+        assert args.from_project == "source"
+        assert args.to_project == "target"
+
+
+class TestCloneProject:
+    """Tests for clone_project tool."""
+
+    @pytest.mark.asyncio
+    async def test_source_project_not_found(self):
+        """Test clone_project with non-existent source project."""
+        mock_projects = {"existing-project": Project(name="existing-project", categories=[], collections=[])}
+        mock_session = AsyncMock()
+        mock_session.get_all_projects = AsyncMock(return_value=mock_projects)
+
+        with patch("mcp_guide.tools.tool_project.get_or_create_session", new=AsyncMock(return_value=mock_session)):
+            args = CloneProjectArgs(from_project="nonexistent")
+            result_str = await clone_project(args)
+            result = json.loads(result_str)
+
+            assert result["success"] is False
+            assert "not found" in result["error"].lower()
+            assert result["error_type"] == "not_found"
+
+    @pytest.mark.asyncio
+    async def test_invalid_source_project_name(self):
+        """Test clone_project with invalid source project name."""
+        # No mocking needed - validation happens before session access
+        args = CloneProjectArgs(from_project="../etc")
+        result_str = await clone_project(args)
+        result = json.loads(result_str)
+
+        assert result["success"] is False
+        assert result["error_type"] == "invalid_name"
+
+    @pytest.mark.asyncio
+    async def test_1arg_mode_uses_current_project(self):
+        """Test clone_project with to_project=None uses current project."""
+        source_cat = Category(name="docs", dir="docs", patterns=["*.md"], description=None)
+        source_proj = Project(name="source", categories=[source_cat], collections=[])
+        current_proj = Project(name="current", categories=[], collections=[])
+
+        mock_projects = {"source": source_proj, "current": current_proj}
+        mock_session = AsyncMock()
+        mock_session.get_all_projects = AsyncMock(return_value=mock_projects)
+        mock_session.get_project = AsyncMock(return_value=current_proj)
+        mock_session.save_project = AsyncMock()
+        mock_session._cached_project = current_proj
+
+        with patch("mcp_guide.tools.tool_project.get_or_create_session", new=AsyncMock(return_value=mock_session)):
+            args = CloneProjectArgs(from_project="source", to_project=None, merge=True)
+            result_str = await clone_project(args)
+            result = json.loads(result_str)
+
+            assert result["success"] is True
+            assert result["value"]["to_project"] == "current"
+
+    @pytest.mark.asyncio
+    async def test_2arg_mode_new_project(self):
+        """Test clone_project with to_project creating new project."""
+        source_cat = Category(name="docs", dir="docs", patterns=["*.md"], description=None)
+        source_proj = Project(name="source", categories=[source_cat], collections=[])
+
+        mock_projects = {"source": source_proj}
+        mock_session = AsyncMock()
+        mock_session.get_all_projects = AsyncMock(return_value=mock_projects)
+        mock_session.save_project = AsyncMock()
+
+        # First call fails (no current project), second call succeeds with temp session, third call fails again
+        with patch(
+            "mcp_guide.tools.tool_project.get_or_create_session",
+            side_effect=[ValueError("No current project"), mock_session, ValueError("No current project")],
+        ):
+            args = CloneProjectArgs(from_project="source", to_project="new-project", merge=True)
+            result_str = await clone_project(args)
+            result = json.loads(result_str)
+
+            assert result["success"] is True
+            assert result["value"]["to_project"] == "new-project"
+            assert result["value"]["categories_added"] == 1
+
+    @pytest.mark.asyncio
+    async def test_invalid_target_project_name(self):
+        """Test clone_project with invalid target project name."""
+        args = CloneProjectArgs(from_project="source", to_project="../etc")
+        result_str = await clone_project(args)
+        result = json.loads(result_str)
+
+        assert result["success"] is False
+        assert result["error_type"] == "invalid_name"
+
+    @pytest.mark.asyncio
+    async def test_safeguard_prevents_replace_with_existing_config(self):
+        """Test safeguard prevents replace mode on non-empty target."""
+        source_proj = Project(name="source", categories=[], collections=[])
+        target_cat = Category(name="existing", dir="src", patterns=["*.py"], description=None)
+        target_proj = Project(name="target", categories=[target_cat], collections=[])
+
+        mock_projects = {"source": source_proj, "target": target_proj}
+        mock_session = AsyncMock()
+        mock_session.get_all_projects = AsyncMock(return_value=mock_projects)
+
+        with patch(
+            "mcp_guide.tools.tool_project.get_or_create_session",
+            side_effect=[ValueError("No current project"), mock_session, ValueError("No current project")],
+        ):
+            args = CloneProjectArgs(from_project="source", to_project="target", merge=False, force=False)
+            result_str = await clone_project(args)
+            result = json.loads(result_str)
+
+            assert result["success"] is False
+            assert result["error_type"] == "safeguard_prevented"
+            assert "existing configuration" in result["error"]
+
+    @pytest.mark.asyncio
+    async def test_force_bypasses_safeguard(self):
+        """Test force=True bypasses safeguard."""
+        source_cat = Category(name="docs", dir="docs", patterns=["*.md"], description=None)
+        source_proj = Project(name="source", categories=[source_cat], collections=[])
+        target_cat = Category(name="existing", dir="src", patterns=["*.py"], description=None)
+        target_proj = Project(name="target", categories=[target_cat], collections=[])
+
+        mock_projects = {"source": source_proj, "target": target_proj}
+        mock_session = AsyncMock()
+        mock_session.get_all_projects = AsyncMock(return_value=mock_projects)
+        mock_session.save_project = AsyncMock()
+
+        with patch(
+            "mcp_guide.tools.tool_project.get_or_create_session",
+            side_effect=[ValueError("No current project"), mock_session, ValueError("No current project")],
+        ):
+            args = CloneProjectArgs(from_project="source", to_project="target", merge=False, force=True)
+            result_str = await clone_project(args)
+            result = json.loads(result_str)
+
+            assert result["success"] is True
+            assert result["value"]["categories_added"] == 1
+
+    @pytest.mark.asyncio
+    async def test_merge_with_conflicts_shows_warnings(self):
+        """Test merge mode with conflicts generates warnings."""
+        source_cat = Category(name="docs", dir="docs", patterns=["*.md"], description="Source docs")
+        source_proj = Project(name="source", categories=[source_cat], collections=[])
+        target_cat = Category(name="docs", dir="documentation", patterns=["*.txt"], description="Target docs")
+        target_proj = Project(name="target", categories=[target_cat], collections=[])
+
+        mock_projects = {"source": source_proj, "target": target_proj}
+        mock_session = AsyncMock()
+        mock_session.get_all_projects = AsyncMock(return_value=mock_projects)
+        mock_session.save_project = AsyncMock()
+
+        with patch(
+            "mcp_guide.tools.tool_project.get_or_create_session",
+            side_effect=[ValueError("No current project"), mock_session, ValueError("No current project")],
+        ):
+            args = CloneProjectArgs(from_project="source", to_project="target", merge=True)
+            result_str = await clone_project(args)
+            result = json.loads(result_str)
+
+            assert result["success"] is True
+            assert len(result["value"]["warnings"]) > 0
+            assert "overwrite" in result["value"]["warnings"][0].lower()
+            assert result["value"]["categories_overwritten"] == 1
+
+    @pytest.mark.asyncio
+    async def test_replace_mode_replaces_entire_config(self):
+        """Test replace mode replaces entire configuration."""
+        source_cat = Category(name="docs", dir="docs", patterns=["*.md"], description=None)
+        source_proj = Project(name="source", categories=[source_cat], collections=[])
+        target_proj = Project(name="target", categories=[], collections=[])
+
+        mock_projects = {"source": source_proj, "target": target_proj}
+        mock_session = AsyncMock()
+        mock_session.get_all_projects = AsyncMock(return_value=mock_projects)
+        mock_session.save_project = AsyncMock()
+
+        with patch(
+            "mcp_guide.tools.tool_project.get_or_create_session",
+            side_effect=[ValueError("No current project"), mock_session, ValueError("No current project")],
+        ):
+            args = CloneProjectArgs(from_project="source", to_project="target", merge=False, force=False)
+            result_str = await clone_project(args)
+            result = json.loads(result_str)
+
+            assert result["success"] is True
+            assert result["value"]["categories_added"] == 1
+            assert result["value"]["categories_overwritten"] == 0
+
+    @pytest.mark.asyncio
+    async def test_cache_invalidated_when_current_project_modified(self):
+        """Test cache is invalidated when current project is modified."""
+        source_cat = Category(name="docs", dir="docs", patterns=["*.md"], description=None)
+        source_proj = Project(name="source", categories=[source_cat], collections=[])
+        current_proj = Project(name="current", categories=[], collections=[])
+
+        mock_projects = {"source": source_proj, "current": current_proj}
+        mock_session = AsyncMock()
+        mock_session.get_all_projects = AsyncMock(return_value=mock_projects)
+        mock_session.get_project = AsyncMock(return_value=current_proj)
+        mock_session.save_project = AsyncMock()
+        mock_session._cached_project = current_proj
+
+        with patch("mcp_guide.tools.tool_project.get_or_create_session", new=AsyncMock(return_value=mock_session)):
+            args = CloneProjectArgs(from_project="source", to_project="current", merge=True)
+            result_str = await clone_project(args)
+            result = json.loads(result_str)
+
+            assert result["success"] is True
+            assert mock_session._cached_project is None  # Cache was cleared
+
+    @pytest.mark.asyncio
+    async def test_clone_empty_project(self):
+        """Test cloning empty project."""
+        source_proj = Project(name="source", categories=[], collections=[])
+        target_proj = Project(name="target", categories=[], collections=[])
+
+        mock_projects = {"source": source_proj, "target": target_proj}
+        mock_session = AsyncMock()
+        mock_session.get_all_projects = AsyncMock(return_value=mock_projects)
+        mock_session.save_project = AsyncMock()
+
+        with patch(
+            "mcp_guide.tools.tool_project.get_or_create_session",
+            side_effect=[ValueError("No current project"), mock_session, ValueError("No current project")],
+        ):
+            args = CloneProjectArgs(from_project="source", to_project="target", merge=True)
+            result_str = await clone_project(args)
+            result = json.loads(result_str)
+
+            assert result["success"] is True
+            assert result["value"]["categories_added"] == 0
+            assert result["value"]["collections_added"] == 0
+
+    @pytest.mark.asyncio
+    async def test_clone_to_same_project(self):
+        """Test cloning project to itself (idempotent)."""
+        source_cat = Category(name="docs", dir="docs", patterns=["*.md"], description=None)
+        source_proj = Project(name="source", categories=[source_cat], collections=[])
+
+        mock_projects = {"source": source_proj}
+        mock_session = AsyncMock()
+        mock_session.get_all_projects = AsyncMock(return_value=mock_projects)
+        mock_session.save_project = AsyncMock()
+
+        with patch(
+            "mcp_guide.tools.tool_project.get_or_create_session",
+            side_effect=[ValueError("No current project"), mock_session, ValueError("No current project")],
+        ):
+            args = CloneProjectArgs(from_project="source", to_project="source", merge=True)
+            result_str = await clone_project(args)
+            result = json.loads(result_str)
+
+            assert result["success"] is True
+            assert result["value"]["categories_added"] == 0
+            assert result["value"]["categories_overwritten"] == 1  # Overwrites itself

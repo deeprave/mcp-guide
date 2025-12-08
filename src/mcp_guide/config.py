@@ -21,7 +21,21 @@ class DocrootError(RuntimeError):
 
 
 class ConfigManager:
-    """Manager for project configuration file."""
+    """Manager for project configuration file.
+
+    IMPORTANT: This class should ONLY be instantiated and owned by the Session class.
+    No other code should create ConfigManager instances directly or indirectly.
+
+    The Session class is the sole owner of ConfigManager and provides controlled
+    access to configuration operations through its public methods:
+    - session.get_project() - Get current project config
+    - session.update_config() - Update current project config
+    - session.get_all_projects() - Get all projects atomically
+    - session.save_project() - Save a project config
+
+    Direct instantiation of ConfigManager outside of Session is a violation of
+    encapsulation and should be avoided.
+    """
 
     def __init__(self, config_dir: Optional[str] = None) -> None:
         """Initialize config manager.
@@ -29,6 +43,10 @@ class ConfigManager:
         Args:
             config_dir: Optional config directory for test isolation.
                        If None, uses default system config directory.
+
+        Warning:
+            This should only be called by Session.__init__().
+            Do not instantiate ConfigManager directly.
         """
         self._config_dir = config_dir
         self._lock = asyncio.Lock()
@@ -169,7 +187,7 @@ class ConfigManager:
                 raise OSError(f"Failed to read config file {file_path}: {e}") from e
 
             try:
-                data = yaml.safe_load(content)
+                data = yaml.safe_load(content) or {}
             except yaml.YAMLError as e:
                 raise yaml.YAMLError(f"Invalid YAML in config file {file_path}: {e}") from e
 
