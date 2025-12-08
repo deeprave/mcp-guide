@@ -11,6 +11,7 @@ from mcp_guide.session import (
     CachedRootsInfo,
     Session,
     get_or_create_session,
+    list_all_projects,
     set_current_session,
     set_project,
 )
@@ -334,3 +335,91 @@ class TestContextVar:
             assert get_current_session("project1") is None
 
         await asyncio.gather(task1(), task2())
+
+
+class TestListAllProjects:
+    """Tests for list_all_projects function."""
+
+    @pytest.mark.asyncio
+    async def test_list_all_projects_empty_non_verbose(self, tmp_path, monkeypatch):
+        """list_all_projects returns empty list when no projects exist."""
+        monkeypatch.setattr(
+            "mcp_guide.session.ConfigManager", lambda config_dir=None: ConfigManager(config_dir=str(tmp_path))
+        )
+
+        result = await list_all_projects(verbose=False)
+
+        assert result.is_ok()
+        assert result.value == {"projects": []}
+
+    @pytest.mark.asyncio
+    async def test_list_all_projects_non_verbose_with_projects(self, tmp_path, monkeypatch):
+        """list_all_projects returns sorted project names."""
+        monkeypatch.setattr(
+            "mcp_guide.session.ConfigManager", lambda config_dir=None: ConfigManager(config_dir=str(tmp_path))
+        )
+
+        # Create projects in non-alphabetical order
+        config_manager = ConfigManager(config_dir=str(tmp_path))
+        await config_manager.get_or_create_project_config("zebra")
+        await config_manager.get_or_create_project_config("alpha")
+        await config_manager.get_or_create_project_config("beta")
+
+        result = await list_all_projects(verbose=False)
+
+        assert result.is_ok()
+        assert result.value == {"projects": ["alpha", "beta", "zebra"]}
+
+    @pytest.mark.asyncio
+    async def test_list_all_projects_verbose(self, tmp_path, monkeypatch):
+        """list_all_projects returns full project details in verbose mode."""
+        monkeypatch.setattr(
+            "mcp_guide.session.ConfigManager", lambda config_dir=None: ConfigManager(config_dir=str(tmp_path))
+        )
+
+        # Create projects
+        config_manager = ConfigManager(config_dir=str(tmp_path))
+        await config_manager.get_or_create_project_config("project1")
+        await config_manager.get_or_create_project_config("project2")
+
+        result = await list_all_projects(verbose=True)
+
+        assert result.is_ok()
+        assert "projects" in result.value
+        projects = result.value["projects"]
+        assert "project1" in projects
+        assert "project2" in projects
+        # Verify full details are present (format_project_data uses 'project' not 'name')
+        assert "project" in projects["project1"]
+        assert "categories" in projects["project1"]
+        assert "collections" in projects["project1"]
+
+    @pytest.mark.asyncio
+    async def test_list_all_projects_config_read_error(self, tmp_path, monkeypatch):
+        """list_all_projects returns failure on OSError."""
+        from unittest.mock import AsyncMock
+
+        mock_config = AsyncMock()
+        mock_config.list_projects = AsyncMock(side_effect=OSError("Permission denied"))
+
+        monkeypatch.setattr("mcp_guide.session.ConfigManager", lambda: mock_config)
+
+        result = await list_all_projects(verbose=False)
+
+        assert result.is_failure()
+        assert "Failed to read configuration" in result.error
+
+    @pytest.mark.asyncio
+    async def test_list_all_projects_unexpected_error(self, tmp_path, monkeypatch):
+        """list_all_projects returns failure on unexpected error."""
+        from unittest.mock import AsyncMock
+
+        mock_config = AsyncMock()
+        mock_config.list_projects = AsyncMock(side_effect=RuntimeError("Unexpected error"))
+
+        monkeypatch.setattr("mcp_guide.session.ConfigManager", lambda: mock_config)
+
+        result = await list_all_projects(verbose=False)
+
+        assert result.is_failure()
+        assert "Error listing projects" in result.error
