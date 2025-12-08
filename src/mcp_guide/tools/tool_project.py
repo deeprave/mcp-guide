@@ -6,7 +6,7 @@ from pydantic import Field
 
 from mcp_core.result import Result
 from mcp_core.tool_arguments import ToolArguments
-from mcp_guide.models import Category, Collection, Project, format_project_data
+from mcp_guide.models import _NAME_REGEX, Category, Collection, Project, format_project_data
 from mcp_guide.server import tools
 from mcp_guide.session import get_or_create_session, list_all_projects, set_project
 from mcp_guide.tools.tool_constants import (
@@ -15,6 +15,7 @@ from mcp_guide.tools.tool_constants import (
     ERROR_NOT_FOUND,
     ERROR_SAFEGUARD,
     INSTRUCTION_NO_PROJECT,
+    INSTRUCTION_NOTFOUND_ERROR,
 )
 
 try:
@@ -173,9 +174,6 @@ async def clone_project(args: CloneProjectArgs, ctx: Optional[Context] = None) -
     Returns:
         JSON string with Result containing clone statistics and warnings
     """
-    from mcp_guide.models import _NAME_REGEX, Category, Collection, Project
-    from mcp_guide.tools.tool_constants import INSTRUCTION_NOTFOUND_ERROR
-
     # Validate source project name
     if not args.from_project or not _NAME_REGEX.match(args.from_project):
         return Result.failure(
@@ -300,7 +298,7 @@ async def clone_project(args: CloneProjectArgs, ctx: Optional[Context] = None) -
     if is_current_project:
         try:
             session = await get_or_create_session(ctx)
-            session._cached_project = None
+            session.invalidate_cache()
         except ValueError:
             pass
 
