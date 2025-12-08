@@ -12,9 +12,11 @@ from mcp_guide.models import Category, Collection, Project
 from mcp_guide.session import Session, remove_current_session, set_current_session
 from mcp_guide.tools.tool_project import (
     GetCurrentProjectArgs,
+    ListProjectArgs,
     ListProjectsArgs,
     SetCurrentProjectArgs,
     get_current_project,
+    list_project,
     list_projects,
     set_current_project,
 )
@@ -385,3 +387,78 @@ class TestListProjects:
 
             assert result["success"] is False
             assert "Failed to read configuration" in result["error"]
+
+
+class TestListProject:
+    """Tests for list_project tool."""
+
+    def test_args_validation(self):
+        """Test ListProjectArgs schema validation."""
+        # Test with name
+        args = ListProjectArgs(name="test-project", verbose=True)
+        assert args.name == "test-project"
+        assert args.verbose is True
+
+        # Test defaults
+        args = ListProjectArgs()
+        assert args.name is None
+        assert args.verbose is False
+
+    @pytest.mark.asyncio
+    async def test_list_project_current_project(self):
+        """Test list_project with no name (defaults to current)."""
+        mock_result = Result.ok({"project": "test-project", "categories": [], "collections": []})
+
+        with patch("mcp_guide.session.get_project_info", return_value=mock_result):
+            args = ListProjectArgs(name=None, verbose=False)
+            result_str = await list_project(args)
+            result = json.loads(result_str)
+
+            assert result["success"] is True
+            assert result["value"]["project"] == "test-project"
+
+    @pytest.mark.asyncio
+    async def test_list_project_specific_project(self):
+        """Test list_project with specific project name."""
+        mock_result = Result.ok({"project": "other-project", "categories": [], "collections": []})
+
+        with patch("mcp_guide.session.get_project_info", return_value=mock_result):
+            args = ListProjectArgs(name="other-project", verbose=False)
+            result_str = await list_project(args)
+            result = json.loads(result_str)
+
+            assert result["success"] is True
+            assert result["value"]["project"] == "other-project"
+
+    @pytest.mark.asyncio
+    async def test_list_project_verbose(self):
+        """Test list_project with verbose mode."""
+        mock_result = Result.ok(
+            {
+                "project": "test-project",
+                "categories": [{"name": "docs", "dir": "docs", "patterns": ["*.md"], "description": None}],
+                "collections": [{"name": "all", "description": None, "categories": ["docs"]}],
+            }
+        )
+
+        with patch("mcp_guide.session.get_project_info", return_value=mock_result):
+            args = ListProjectArgs(name="test-project", verbose=True)
+            result_str = await list_project(args)
+            result = json.loads(result_str)
+
+            assert result["success"] is True
+            assert isinstance(result["value"]["categories"], list)
+            assert result["value"]["categories"][0]["name"] == "docs"
+
+    @pytest.mark.asyncio
+    async def test_list_project_project_not_found(self):
+        """Test list_project error propagation."""
+        mock_result = Result.failure("Project 'nonexistent' not found", error_type="project_not_found")
+
+        with patch("mcp_guide.session.get_project_info", return_value=mock_result):
+            args = ListProjectArgs(name="nonexistent", verbose=False)
+            result_str = await list_project(args)
+            result = json.loads(result_str)
+
+            assert result["success"] is False
+            assert "not found" in result["error"]

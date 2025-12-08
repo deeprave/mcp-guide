@@ -38,6 +38,15 @@ class ListProjectsArgs(ToolArguments):
     verbose: bool = Field(default=False, description="If True, return full details; if False, return names only")
 
 
+class ListProjectArgs(ToolArguments):
+    """Arguments for list_project tool."""
+
+    name: Optional[str] = Field(
+        default=None, description="Name of the project to retrieve. If not provided, returns current project."
+    )
+    verbose: bool = Field(default=False, description="If True, return full details; if False, return basic information")
+
+
 @tools.tool(GetCurrentProjectArgs)
 async def get_current_project(args: GetCurrentProjectArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
     """Get information about the currently active project.
@@ -110,4 +119,24 @@ async def list_projects(args: ListProjectsArgs, ctx: Optional[Context] = None) -
         JSON string with Result containing projects list or dict
     """
     result = await list_all_projects(verbose=args.verbose)
+    return result.to_json_str()
+
+
+@tools.tool(ListProjectArgs)
+async def list_project(args: ListProjectArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
+    """Get information about a specific project by name.
+
+    Returns project details without switching the current project.
+    If no name provided, returns current project information.
+
+    Args:
+        args: Tool arguments with name and verbose flag
+        ctx: MCP Context (auto-injected by FastMCP)
+
+    Returns:
+        JSON string with Result containing project data
+    """
+    from mcp_guide.session import get_project_info
+
+    result = await get_project_info(name=args.name, verbose=args.verbose)
     return result.to_json_str()

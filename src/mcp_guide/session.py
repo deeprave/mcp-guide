@@ -275,6 +275,8 @@ async def set_project(project_name: str, ctx: Optional["Context"] = None) -> Res
 async def list_all_projects(verbose: bool = False) -> Result[dict[str, Any]]:
     """List all available projects.
 
+    This is a read-only operation that returns a snapshot of all projects.
+
     Args:
         verbose: If True, return full project details; if False, return names only
 
@@ -282,25 +284,92 @@ async def list_all_projects(verbose: bool = False) -> Result[dict[str, Any]]:
         Result with projects dict
     """
     from mcp_guide.models import format_project_data
+    from mcp_guide.tools.tool_constants import ERROR_INVALID_NAME
 
     config_manager = ConfigManager()
 
     try:
-        project_names = await config_manager.list_projects()
-        project_names.sort()
-
         if not verbose:
+            # Non-verbose: just return sorted project names
+            project_names = await config_manager.list_projects()
+            project_names.sort()
             return Result.ok({"projects": project_names})
 
-        # Verbose: load full details for each project
+        # Verbose: get all project configs in one atomic read
+        all_projects = await config_manager.get_all_project_configs()
         projects_data = {}
-        for name in project_names:
-            project = await config_manager.get_or_create_project_config(name)
-            projects_data[name] = format_project_data(project, verbose=True)
+        for name in sorted(all_projects.keys()):
+            projects_data[name] = format_project_data(all_projects[name], verbose=True)
 
         return Result.ok({"projects": projects_data})
     except OSError as e:
         return Result.failure(f"Failed to read configuration: {e}", error_type="config_read_error")
+    except ValueError as e:
+        return Result.failure(str(e), error_type=ERROR_INVALID_NAME)
     except Exception as e:
         logger.exception("Unexpected error listing projects")
         return Result.failure(f"Error listing projects: {e}", error_type="unexpected_error")
+
+
+async def get_project_info(name: Optional[str] = None, verbose: bool = False) -> Result[dict[str, Any]]:
+    """Get information about a specific project by name.
+
+    This is a read-only operation that retrieves project data without side effects.
+
+    Args:
+        name: Project name to retrieve. If None, uses current project.
+        verbose: If True, include full details; if False, basic info only
+
+    Returns:
+        Result with project data or error:
+        - ERROR_NO_PROJECT if no current project and name not provided
+        - ERROR_NOT_FOUND if specified project doesn't exist
+    """
+    from mcp_guide.models import format_project_data
+    from mcp_guide.tools.tool_constants import (
+        ERROR_INVALID_NAME,
+        ERROR_NO_PROJECT,
+        ERROR_NOT_FOUND,
+        INSTRUCTION_NO_PROJECT,
+        INSTRUCTION_NOTFOUND_ERROR,
+    )
+
+    config_manager = ConfigManager()
+
+    try:
+        # Default to current project if no name provided
+        if name is None:
+            # Get current project from session
+            try:
+                session = await get_or_create_session(None)
+                project = await session.get_project()
+                name = project.name
+            except ValueError:
+                # No current project set
+                return Result.failure(
+                    "No current project set. Please specify a project name.",
+                    error_type=ERROR_NO_PROJECT,
+                    instruction=INSTRUCTION_NO_PROJECT,
+                )
+
+        # Get all projects in one atomic read
+        all_projects = await config_manager.get_all_project_configs()
+
+        # Check if requested project exists
+        if name not in all_projects:
+            return Result.failure(
+                f"Project '{name}' not found",
+                error_type=ERROR_NOT_FOUND,
+                instruction=INSTRUCTION_NOTFOUND_ERROR,
+            )
+
+        # Format and return the requested project
+        project_data = format_project_data(all_projects[name], verbose=verbose)
+        return Result.ok(project_data)
+    except OSError as e:
+        return Result.failure(f"Failed to read project configuration: {e}", error_type="config_read_error")
+    except ValueError as e:
+        return Result.failure(str(e), error_type=ERROR_INVALID_NAME)
+    except Exception as e:
+        logger.exception("Unexpected error getting project info")
+        return Result.failure(f"Error retrieving project: {e}", error_type="unexpected_error")
