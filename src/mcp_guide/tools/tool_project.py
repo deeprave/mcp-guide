@@ -8,7 +8,7 @@ from mcp_core.result import Result
 from mcp_core.tool_arguments import ToolArguments
 from mcp_guide.models import format_project_data
 from mcp_guide.server import tools
-from mcp_guide.session import get_or_create_session, set_project
+from mcp_guide.session import get_or_create_session, list_all_projects, set_project
 from mcp_guide.tools.tool_constants import ERROR_NO_PROJECT, INSTRUCTION_NO_PROJECT
 
 try:
@@ -30,6 +30,12 @@ class SetCurrentProjectArgs(ToolArguments):
     verbose: bool = Field(
         default=False, description="If True, return full project details; if False, return simple confirmation"
     )
+
+
+class ListProjectsArgs(ToolArguments):
+    """Arguments for list_projects tool."""
+
+    verbose: bool = Field(default=False, description="If True, return full details; if False, return names only")
 
 
 @tools.tool(GetCurrentProjectArgs)
@@ -86,4 +92,22 @@ async def set_current_project(args: SetCurrentProjectArgs, ctx: Optional[Context
 
         return Result.ok(response, message=f"Switched to project '{project.name}'").to_json_str()
 
+    return result.to_json_str()
+
+
+@tools.tool(ListProjectsArgs)
+async def list_projects(args: ListProjectsArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
+    """List all available projects.
+
+    Returns project names (non-verbose) or full project details (verbose).
+    Does not require a current project context.
+
+    Args:
+        args: Tool arguments with verbose flag
+        ctx: MCP Context (auto-injected by FastMCP)
+
+    Returns:
+        JSON string with Result containing projects list or dict
+    """
+    result = await list_all_projects(verbose=args.verbose)
     return result.to_json_str()

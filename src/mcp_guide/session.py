@@ -270,3 +270,36 @@ async def set_project(project_name: str, ctx: Optional["Context"] = None) -> Res
         return Result.failure(str(e), error_type="project_load_error")
     except Exception as e:
         return Result.failure(str(e), error_type="project_load_error")
+
+
+async def list_all_projects(verbose: bool = False) -> Result[dict[str, Any]]:
+    """List all available projects.
+
+    Args:
+        verbose: If True, return full project details; if False, return names only
+
+    Returns:
+        Result with projects dict
+    """
+    from mcp_guide.models import format_project_data
+
+    config_manager = ConfigManager()
+
+    try:
+        project_names = await config_manager.list_projects()
+        project_names.sort()
+
+        if not verbose:
+            return Result.ok({"projects": project_names})
+
+        # Verbose: load full details for each project
+        projects_data = {}
+        for name in project_names:
+            project = await config_manager.get_or_create_project_config(name)
+            projects_data[name] = format_project_data(project, verbose=True)
+
+        return Result.ok({"projects": projects_data})
+    except OSError as e:
+        return Result.failure(f"Failed to read configuration: {e}")
+    except Exception as e:
+        return Result.failure(f"Error listing projects: {e}")

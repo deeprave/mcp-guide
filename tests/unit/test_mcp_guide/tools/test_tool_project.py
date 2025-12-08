@@ -12,8 +12,10 @@ from mcp_guide.models import Category, Collection, Project
 from mcp_guide.session import Session, remove_current_session, set_current_session
 from mcp_guide.tools.tool_project import (
     GetCurrentProjectArgs,
+    ListProjectsArgs,
     SetCurrentProjectArgs,
     get_current_project,
+    list_projects,
     set_current_project,
 )
 
@@ -318,3 +320,68 @@ class TestSetCurrentProject:
             assert result["success"] is False
             assert result["error_type"] == "project_load_error"
             assert "Configuration file corrupted" in result["error"]
+
+
+class TestListProjects:
+    """Tests for list_projects tool."""
+
+    def test_args_validation(self):
+        """Test ListProjectsArgs schema validation."""
+        # Test verbose=True
+        args = ListProjectsArgs(verbose=True)
+        assert args.verbose is True
+
+        # Test verbose=False
+        args = ListProjectsArgs(verbose=False)
+        assert args.verbose is False
+
+        # Test default value
+        args = ListProjectsArgs()
+        assert args.verbose is False
+
+    @pytest.mark.asyncio
+    async def test_list_projects_non_verbose(self):
+        """Test list_projects returns project names in non-verbose mode."""
+        mock_result = Result.ok({"projects": ["alpha", "beta", "gamma"]})
+
+        with patch("mcp_guide.tools.tool_project.list_all_projects", return_value=mock_result):
+            args = ListProjectsArgs(verbose=False)
+            result_str = await list_projects(args)
+            result = json.loads(result_str)
+
+            assert result["success"] is True
+            assert result["value"]["projects"] == ["alpha", "beta", "gamma"]
+
+    @pytest.mark.asyncio
+    async def test_list_projects_verbose(self):
+        """Test list_projects returns full details in verbose mode."""
+        mock_result = Result.ok(
+            {
+                "projects": {
+                    "project1": {"project": "project1", "categories": [], "collections": []},
+                    "project2": {"project": "project2", "categories": [], "collections": []},
+                }
+            }
+        )
+
+        with patch("mcp_guide.tools.tool_project.list_all_projects", return_value=mock_result):
+            args = ListProjectsArgs(verbose=True)
+            result_str = await list_projects(args)
+            result = json.loads(result_str)
+
+            assert result["success"] is True
+            assert "project1" in result["value"]["projects"]
+            assert "project2" in result["value"]["projects"]
+
+    @pytest.mark.asyncio
+    async def test_list_projects_error(self):
+        """Test list_projects propagates errors from list_all_projects."""
+        mock_result = Result.failure("Failed to read configuration: Permission denied")
+
+        with patch("mcp_guide.tools.tool_project.list_all_projects", return_value=mock_result):
+            args = ListProjectsArgs(verbose=False)
+            result_str = await list_projects(args)
+            result = json.loads(result_str)
+
+            assert result["success"] is False
+            assert "Failed to read configuration" in result["error"]
