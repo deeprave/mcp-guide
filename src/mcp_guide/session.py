@@ -109,6 +109,14 @@ class Session:
         """
         await self._config_manager.save_project_config(project)
 
+    def invalidate_cache(self) -> None:
+        """Invalidate the cached project configuration.
+
+        Forces the next call to get_project() to reload from disk.
+        Use this when the project configuration has been modified externally.
+        """
+        self._cached_project = None
+
 
 # ContextVar for async task-local session tracking
 active_sessions: ContextVar[dict[str, Session]] = ContextVar("active_sessions")
