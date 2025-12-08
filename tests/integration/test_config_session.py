@@ -78,6 +78,15 @@ class TestConfigSessionIntegration:
 
         # Verify both tasks completed successfully
         assert len(results) == 2
+        assert all(count == 1 for _, count in results)
+
+        # Verify both projects were updated independently
+        project1 = await manager.get_or_create_project_config("project1")
+        project2 = await manager.get_or_create_project_config("project2")
+        assert len(project1.categories) == 1
+        assert len(project2.categories) == 1
+        assert project1.categories[0].name == "api"
+        assert project2.categories[0].name == "web"
 
     @pytest.mark.asyncio
     async def test_config_ignores_extra_fields_in_yaml(self, tmp_path):
