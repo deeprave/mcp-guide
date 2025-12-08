@@ -154,3 +154,50 @@ class TestProject:
         assert new_project is not project
         assert len(new_project.categories) == 0
         assert len(project.categories) == 1  # Original unchanged
+
+
+class TestExtraFieldHandling:
+    """Tests for models ignoring extra fields in config."""
+
+    def test_project_ignores_extra_fields(self):
+        """Project should ignore extra fields from hand-edited configs."""
+        project = Project(
+            name="test-project",
+            categories=[],
+            collections=[],
+            deprecated_field="old_value",  # type: ignore
+            unknown_field=123,  # type: ignore
+        )
+        assert project.name == "test-project"
+        assert project.categories == []
+        assert project.collections == []
+        assert not hasattr(project, "deprecated_field")
+        assert not hasattr(project, "unknown_field")
+
+    def test_category_ignores_extra_fields(self):
+        """Category should ignore extra fields from hand-edited configs."""
+        category = Category(
+            name="docs",
+            dir="docs/",
+            patterns=["*.md"],
+            deprecated_field="old_value",  # type: ignore
+            unknown_field=123,  # type: ignore
+        )
+        assert category.name == "docs"
+        assert category.dir == "docs/"
+        assert category.patterns == ["*.md"]
+        assert not hasattr(category, "deprecated_field")
+        assert not hasattr(category, "unknown_field")
+
+    def test_collection_ignores_extra_fields(self):
+        """Collection should ignore extra fields from hand-edited configs."""
+        collection = Collection(
+            name="all",
+            categories=["docs", "api"],
+            deprecated_field="old_value",  # type: ignore
+            unknown_field=123,  # type: ignore
+        )
+        assert collection.name == "all"
+        assert collection.categories == ["docs", "api"]
+        assert not hasattr(collection, "deprecated_field")
+        assert not hasattr(collection, "unknown_field")

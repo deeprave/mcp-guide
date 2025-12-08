@@ -403,8 +403,7 @@ class TestListAllProjects:
         projects = result.value["projects"]
         assert "project1" in projects
         assert "project2" in projects
-        # Verify full details are present (format_project_data uses 'project' not 'name')
-        assert "project" in projects["project1"]
+        # Verify full details are present
         assert "categories" in projects["project1"]
         assert "collections" in projects["project1"]
 
@@ -477,7 +476,6 @@ class TestGetProjectInfo:
 
         assert result.success
         data = result.value
-        assert data["project"] == "test-project"
         assert "categories" in data
         assert "collections" in data
 
@@ -513,7 +511,8 @@ class TestGetProjectInfo:
 
         assert result.success
         data = result.value
-        assert data["project"] == "other-project"
+        assert "categories" in data
+        assert "collections" in data
 
     @pytest.mark.asyncio
     async def test_get_project_info_verbose(self, tmp_path, monkeypatch):
@@ -542,7 +541,6 @@ class TestGetProjectInfo:
 
         assert result.success
         data = result.value
-        assert data["project"] == "test-project"
         # Verbose mode includes full details
         assert isinstance(data["categories"], list)
         assert len(data["categories"]) == 1

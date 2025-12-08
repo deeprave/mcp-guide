@@ -5,9 +5,14 @@ import logging
 import os
 from contextvars import ContextVar
 from functools import wraps
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Coroutine, Optional, Union
 
 from mcp_guide.tools.tool_constants import INSTRUCTION_VALIDATION_ERROR
+
+try:
+    from mcp.server.fastmcp import Context
+except ImportError:
+    Context = None  # type: ignore
 
 logger = logging.getLogger(__name__)
 
@@ -79,90 +84,56 @@ class ExtMcpToolDecorator:
             tool_name = f"{tool_prefix}_{func.__name__}" if tool_prefix else func.__name__
 
             # Create wrapper that FastMCP will register
-            # FastMCP will create schema from wrapper's signature, not original function
+            # FastMCP will create schema from wrapper's signature
+            wrapped: Union[Callable[..., Coroutine[Any, Any, Any]], Callable[..., Any]]
             if inspect.iscoroutinefunction(func):
-
-                @wraps(func)
-                async def async_wrapper(**kwargs: Any) -> Any:
-                    logger.trace(f"Invoking async tool: {tool_name}")  # type: ignore[attr-defined]
-                    try:
-                        # Transform arguments if args_class provided
-                        if args_class is not None:
-                            # Extract ctx if present (FastMCP injects it)
-                            ctx = kwargs.pop("ctx", None)
-                            # kwargs contains the raw arguments from MCP
-                            try:
-                                typed_args = args_class(**kwargs)
-                            except Exception as e:
-                                # Catch Pydantic ValidationError during argument transformation
-                                # This is defense-in-depth - FastMCP validates first
-                                from pydantic import ValidationError as PydanticValidationError
-
-                                if isinstance(e, PydanticValidationError):
-                                    from mcp_core.result import Result
-
-                                    error_details = [
-                                        {
-                                            "field": str(err["loc"][0]) if err["loc"] else "unknown",
-                                            "message": err["msg"],
-                                        }
-                                        for err in e.errors()
-                                    ]
-                                    result: Result[Any] = Result.failure(
-                                        f"Invalid tool arguments: {len(error_details)} validation error(s)",
-                                        error_type="validation_error",
-                                        instruction=INSTRUCTION_VALIDATION_ERROR,
-                                    )
-                                    result.error_data = {"validation_errors": error_details}
-                                    logger.error(f"Tool {tool_name} argument validation failed: {error_details}")
-                                    return result.to_json_str()
-                                # Re-raise non-validation errors
-                                raise
-                            # Call function with typed args and ctx
-                            result = await func(typed_args, ctx)
-                        else:
-                            result = await func(**kwargs)
-                        logger.debug(f"Tool {tool_name} completed successfully")
-                        return result
-                    except Exception as e:
-                        logger.error(f"Tool {tool_name} failed: {e}")
-                        raise
-
-                # Copy args_class fields to wrapper signature if provided
                 if args_class is not None:
-                    # Get the schema from args_class and add fields to wrapper
-                    from typing import get_type_hints
+                    # Use Pydantic model as single parameter to preserve Field descriptions
+                    @wraps(func)
+                    async def async_wrapper(args: args_class, ctx: Optional[Context] = None) -> Any:  # type: ignore
+                        logger.trace(f"Invoking async tool: {tool_name}")  # type: ignore[attr-defined]
+                        try:
+                            # FastMCP validates and constructs args, we just pass it through
+                            result = await func(args, ctx)
+                            logger.debug(f"Tool {tool_name} completed successfully")
+                            return result
+                        except Exception as e:
+                            # Defense-in-depth: catch validation errors that might slip through
+                            from pydantic import ValidationError as PydanticValidationError
 
-                    from pydantic import BaseModel
+                            if isinstance(e, PydanticValidationError):
+                                from mcp_core.result import Result
 
-                    # Get type hints from args_class
-                    type_hints = get_type_hints(args_class)
-                    params = []
-                    # Check if args_class is a BaseModel subclass
-                    if issubclass(args_class, BaseModel):
-                        for field_name, field_info in args_class.model_fields.items():
-                            annotation = type_hints.get(field_name, Any)
-
-                            # Determine default value for signature
-                            if field_info.is_required():
-                                # Required field - no default
-                                default = inspect.Parameter.empty
-                            elif field_info.default_factory is not None:
-                                # Has default_factory - mark as optional with None
-                                # (actual factory will be called by Pydantic during validation)
-                                default = None
-                            else:
-                                # Has explicit default value
-                                default = field_info.default
-
-                            params.append(
-                                inspect.Parameter(
-                                    field_name, inspect.Parameter.KEYWORD_ONLY, default=default, annotation=annotation
+                                error_details = [
+                                    {
+                                        "field": str(err["loc"][0]) if err["loc"] else "unknown",
+                                        "message": err["msg"],
+                                    }
+                                    for err in e.errors()
+                                ]
+                                error_result: Result[Any] = Result.failure(
+                                    f"Invalid tool arguments: {len(error_details)} validation error(s)",
+                                    error_type="validation_error",
+                                    instruction=INSTRUCTION_VALIDATION_ERROR,
                                 )
-                            )
+                                error_result.error_data = {"validation_errors": error_details}
+                                logger.error(f"Tool {tool_name} argument validation failed: {error_details}")
+                                return error_result.to_json_str()
 
-                        # Update wrapper signature
-                        async_wrapper.__signature__ = inspect.Signature(params)  # type: ignore
+                            logger.error(f"Tool {tool_name} failed: {e}")
+                            raise
+                else:
+                    # No args_class - use **kwargs
+                    @wraps(func)
+                    async def async_wrapper(**kwargs: Any) -> Any:
+                        logger.trace(f"Invoking async tool: {tool_name}")  # type: ignore[attr-defined]
+                        try:
+                            result = await func(**kwargs)
+                            logger.debug(f"Tool {tool_name} completed successfully")
+                            return result
+                        except Exception as e:
+                            logger.error(f"Tool {tool_name} failed: {e}")
+                            raise
 
                 wrapped = async_wrapper
             else:
