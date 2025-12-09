@@ -79,11 +79,18 @@ def _configure_logging_after_fastmcp() -> None:
     # Get desired log level
     log_level = get_log_level(config.log_level)
 
-    # Adjust FastMCP loggers if they're more verbose than our level
+    # Get root logger
     root = logging.getLogger()
+
+    # Adjust FastMCP loggers if they're more verbose than our level.
+    # Use getEffectiveLevel() so we don't override loggers that inherit
+    # an appropriate level from their parents (i.e. those with level=NOTSET).
     for logger_name in list(logging.Logger.manager.loggerDict.keys()):
         logger = logging.getLogger(logger_name)
-        if logger.level < log_level:
+        # Skip non-Logger placeholders in loggerDict
+        if not isinstance(logger, logging.Logger):
+            continue
+        if logger.getEffectiveLevel() < log_level:
             logger.setLevel(log_level)
 
     # Create our handlers

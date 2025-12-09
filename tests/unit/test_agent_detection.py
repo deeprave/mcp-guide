@@ -47,6 +47,27 @@ def test_normalize_agent_name_unknown():
     assert normalize_agent_name("Some New Tool") == "unknown"
 
 
+def test_normalize_agent_name_q_dev():
+    """Test normalizing Q Dev agent names."""
+    assert normalize_agent_name("Q Dev") == "q-dev"
+    assert normalize_agent_name("q dev") == "q-dev"
+    assert normalize_agent_name("Q  Dev") == "q-dev"
+
+
+def test_normalize_agent_name_gemini():
+    """Test normalizing Gemini agent names."""
+    assert normalize_agent_name("Google Gemini") == "gemini"
+    assert normalize_agent_name("gemini") == "gemini"
+    assert normalize_agent_name("Gemini") == "gemini"
+
+
+def test_normalize_agent_name_windsurf():
+    """Test normalizing Windsurf agent names."""
+    assert normalize_agent_name("Windsurf") == "windsurf"
+    assert normalize_agent_name("Cascade") == "windsurf"
+    assert normalize_agent_name("windsurf") == "windsurf"
+
+
 def test_detect_agent_kiro():
     """Test detecting Kiro agent."""
     client_params = {"clientInfo": {"name": "Kiro CLI", "version": "1.0.0"}}
@@ -117,6 +138,28 @@ def test_detect_agent_with_none_client_info():
     assert agent.name == "Unknown"
     assert agent.normalized_name == "unknown"
     assert agent.version is None
+
+
+def test_detect_agent_with_empty_dict():
+    """Test detecting agent with empty dict (no clientInfo)."""
+    client_params = {}
+
+    agent = detect_agent(client_params)
+    assert agent.name == "Unknown"
+    assert agent.normalized_name == "unknown"
+    assert agent.version is None
+    assert agent.prompt_prefix == "/"
+
+
+def test_detect_agent_with_non_dict_non_object():
+    """Test detecting agent with non-dict, non-object input."""
+    # Test with various invalid inputs
+    for invalid_input in [123, "string", None, []]:
+        agent = detect_agent(invalid_input)
+        assert agent.name == "Unknown"
+        assert agent.normalized_name == "unknown"
+        assert agent.version is None
+        assert agent.prompt_prefix == "/"
 
 
 def test_format_agent_info_with_version():

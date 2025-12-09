@@ -1,5 +1,6 @@
 """Utility tools for server information."""
 
+import logging
 from typing import Optional
 
 from pydantic import Field
@@ -15,6 +16,8 @@ try:
     from mcp.server.fastmcp import Context
 except ImportError:
     Context = None  # type: ignore
+
+logger = logging.getLogger(__name__)
 
 
 class GetClientInfoArgs(ToolArguments):
@@ -54,7 +57,7 @@ async def get_client_info(args: GetClientInfoArgs, ctx: Optional[Context] = None
             agent_info = mcp.agent_info
         else:
             # Detect and cache
-            if not ctx.session.client_params:
+            if ctx.session.client_params is None:
                 return Result.failure("No client information available").to_json_str()
 
             agent_info = detect_agent(ctx.session.client_params)
@@ -88,5 +91,6 @@ async def get_client_info(args: GetClientInfoArgs, ctx: Optional[Context] = None
         result.message = markdown
         result.instruction = INSTRUCTION_DISPLAY_ONLY
         return result.to_json_str()
-    except Exception as e:
+    except (AttributeError, KeyError, TypeError) as e:
+        logger.exception("Error retrieving client info")
         return Result.failure(f"Error retrieving client info: {str(e)}").to_json_str()

@@ -1,8 +1,11 @@
 """GuideMCP - Extended FastMCP server with agent info caching."""
 
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from mcp.server import FastMCP
+
+if TYPE_CHECKING:
+    from mcp_guide.agent_detection import AgentInfo
 
 
 class GuideMCP(FastMCP):
@@ -14,4 +17,4 @@ class GuideMCP(FastMCP):
 
     def __init__(self, name: str, *args: Any, **kwargs: Any) -> None:
         super().__init__(name, *args, **kwargs)
-        self.agent_info: Optional["AgentInfo"] = None  # type: ignore
+        self.agent_info: Optional["AgentInfo"] = None
