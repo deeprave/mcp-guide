@@ -36,7 +36,15 @@ AGENT_PREFIX_MAP = {
 
 
 def normalize_agent_name(name: str) -> str:
-    """Normalise agent name to lowercase canonical form."""
+    """Normalise agent name to lowercase canonical form.
+
+    Converts agent names to a consistent format:
+    - Whitespace is collapsed and converted to hyphens
+    - Underscores are removed (e.g., "Agent_Name" → "agentname")
+    - Hyphens are preserved (e.g., "Agent-Name" → "agent-name")
+    - Special characters are stripped
+    - Returns "unknown" if result is empty
+    """
     # Strip and validate input
     name = name.strip()
     if not name:
@@ -48,7 +56,7 @@ def normalize_agent_name(name: str) -> str:
         if re.search(pattern, name_lower):
             return normalized
 
-    # Normalize whitespace: collapse multiple spaces to single hyphen
+    # Normalise whitespace: collapse multiple spaces to single hyphen
     normalized = re.sub(r"\s+", "-", name_lower)
     # Remove special characters except hyphens
     normalized = re.sub(r"[^a-z0-9-]", "", normalized)

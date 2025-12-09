@@ -68,6 +68,11 @@ def test_normalize_agent_name_edge_cases():
     # Leading/trailing spaces and hyphens
     assert normalize_agent_name("  Leading Spaces") == "leading-spaces"
     assert normalize_agent_name("Trailing Spaces  ") == "trailing-spaces"
+
+    # Only special characters (reduces to empty)
+    assert normalize_agent_name("!!!") == "unknown"
+    assert normalize_agent_name("@@@") == "unknown"
+    assert normalize_agent_name("---") == "unknown"
     assert normalize_agent_name("-Hyphen-Name-") == "hyphen-name"
 
     # Mixed cases

@@ -47,26 +47,21 @@ async def test_get_client_info_returns_agent_info(mcp_server, test_session):
 
         result_data = json.loads(content.text)  # type: ignore[union-attr]
 
-        # Print client info for inspection
-        print("\n=== MCP Test Client Info ===")
-        print(f"Success: {result_data['success']}")
-        print(f"Value: {result_data.get('value')}")
-        print(f"Message:\n{result_data.get('message', 'No message')}")
-        print("===========================\n")
+        # Verify successful response
+        assert result_data["success"] is True
+        assert "value" in result_data
+        assert "message" in result_data
 
-        # Verify result structure
-        # Note: client_params may not be available in test environment
-        if result_data["success"]:
-            assert "value" in result_data
-            assert "message" in result_data
-            message = result_data["message"]
-            # Check for AU/UK spelling
-            assert "Normalised Name:" in message
-            assert "Agent:" in message or "Client" in message
-        else:
-            # Expected if client_params not available
-            assert "error" in result_data or "message" in result_data
-            print(f"Note: {result_data.get('message', result_data.get('error'))}")
+        # Verify value schema
+        value = result_data["value"]
+        assert "agent" in value
+        assert "normalized_name" in value
+        assert "command_prefix" in value
+
+        # Verify message formatting (AU/UK spelling)
+        message = result_data["message"]
+        assert "Normalised Name:" in message
+        assert "Agent:" in message or "Client" in message
 
 
 @pytest.mark.anyio
@@ -85,17 +80,10 @@ async def test_get_client_info_caches_agent_info(mcp_server, test_session):
         content2 = result2.content[0]
         data2 = json.loads(content2.text)  # type: ignore[union-attr]
 
-        # Both calls should return same result (success or failure)
-        assert data1["success"] == data2["success"]
+        # Both calls must succeed to exercise cache path
+        assert data1["success"] is True
+        assert data2["success"] is True
 
-        if data1["success"]:
-            # If successful, verify caching worked
-            assert data1["message"] == data2["message"]
-            print("\n=== Caching Test ===")
-            print(f"First call: {data1['message'][:100]}...")
-            print(f"Second call: {data2['message'][:100]}...")
-            print("Results match: ✓")
-            print("===================\n")
-        else:
-            # Both should fail with same error
-            print(f"\nNote: Both calls failed as expected: {data1.get('message', data1.get('error'))}")
+        # Cached responses must be identical
+        assert data1["message"] == data2["message"]
+        assert data1["value"] == data2["value"]
