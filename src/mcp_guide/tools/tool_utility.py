@@ -74,18 +74,9 @@ async def get_client_info(args: GetClientInfoArgs, ctx: Optional[Context] = None
             "command_prefix": prompt_prefix,
         }
 
-        # Build markdown message
-        lines = [
-            "# MCP Client Information",
-            "",
-            f"**Agent:** {agent_info.name}",
-            f"**Normalized Name:** {agent_info.normalized_name}",
-        ]
-        if agent_info.version:
-            lines.append(f"**Version:** {agent_info.version}")
-        lines.append(f"**Command Prefix:** `{prompt_prefix}`")
-
-        markdown = "\n".join(lines)
+        # Use existing formatting function
+        formatted = format_agent_info(agent_info, mcp_name)
+        markdown = f"# MCP Client Information\n\n{formatted}"
 
         result = Result.ok(data)
         result.message = markdown

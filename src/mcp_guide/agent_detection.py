@@ -36,14 +36,26 @@ AGENT_PREFIX_MAP = {
 
 
 def normalize_agent_name(name: str) -> str:
-    """Normalize agent name to lowercase canonical form."""
+    """Normalise agent name to lowercase canonical form."""
+    # Strip and validate input
+    name = name.strip()
+    if not name:
+        return "unknown"
+
     name_lower = name.lower()
 
     for pattern, normalized in AGENT_PATTERNS:
         if re.search(pattern, name_lower):
             return normalized
 
-    return "unknown"
+    # Normalize whitespace: collapse multiple spaces to single hyphen
+    normalized = re.sub(r"\s+", "-", name_lower)
+    # Remove special characters except hyphens
+    normalized = re.sub(r"[^a-z0-9-]", "", normalized)
+    # Remove leading/trailing hyphens
+    normalized = normalized.strip("-")
+
+    return normalized if normalized else "unknown"
 
 
 def detect_agent(client_params: Union[dict[str, Any], Any]) -> AgentInfo:
@@ -81,7 +93,7 @@ def format_agent_info(agent_info: AgentInfo, mcp_name: str) -> str:
 
     lines = [
         f"Agent: {agent_info.name}",
-        f"Normalized Name: {agent_info.normalized_name}",
+        f"Normalised Name: {agent_info.normalized_name}",
     ]
 
     if agent_info.version:

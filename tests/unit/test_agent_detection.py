@@ -42,9 +42,37 @@ def test_normalize_agent_name_copilot():
 
 
 def test_normalize_agent_name_unknown():
-    """Test normalizing unknown agent names."""
-    assert normalize_agent_name("Unknown Agent") == "unknown"
-    assert normalize_agent_name("Some New Tool") == "unknown"
+    """Test normalising unknown agent names uses presented name."""
+    assert normalize_agent_name("Unknown Agent") == "unknown-agent"
+    assert normalize_agent_name("Some New Tool") == "some-new-tool"
+    assert normalize_agent_name("mcp") == "mcp"
+    assert normalize_agent_name("My Custom Agent") == "my-custom-agent"
+
+
+def test_normalize_agent_name_edge_cases():
+    """Test normalising agent names with edge cases."""
+    # Empty and whitespace-only strings
+    assert normalize_agent_name("") == "unknown"
+    assert normalize_agent_name("   ") == "unknown"
+    assert normalize_agent_name("\t\n") == "unknown"
+
+    # Multiple consecutive spaces
+    assert normalize_agent_name("Multiple   Spaces") == "multiple-spaces"
+    assert normalize_agent_name("Too    Many     Spaces") == "too-many-spaces"
+
+    # Special characters
+    assert normalize_agent_name("Special!@#Chars") == "specialchars"
+    assert normalize_agent_name("Agent-Name") == "agent-name"
+    assert normalize_agent_name("Agent_Name") == "agentname"
+
+    # Leading/trailing spaces and hyphens
+    assert normalize_agent_name("  Leading Spaces") == "leading-spaces"
+    assert normalize_agent_name("Trailing Spaces  ") == "trailing-spaces"
+    assert normalize_agent_name("-Hyphen-Name-") == "hyphen-name"
+
+    # Mixed cases
+    assert normalize_agent_name("My-Agent 2.0!") == "my-agent-20"
+    assert normalize_agent_name("Agent (Beta)") == "agent-beta"
 
 
 def test_normalize_agent_name_q_dev():
@@ -99,11 +127,11 @@ def test_detect_agent_no_version():
 
 
 def test_detect_agent_unknown():
-    """Test detecting unknown agent."""
+    """Test detecting unknown agent uses presented name."""
     client_params = {"clientInfo": {"name": "Unknown Tool"}}
 
     agent = detect_agent(client_params)
-    assert agent.normalized_name == "unknown"
+    assert agent.normalized_name == "unknown-tool"
     assert agent.prompt_prefix == "/"
 
 
