@@ -135,7 +135,7 @@ async def get_client_info(ctx: Context) -> str:
     return result.to_json_str()
 ```
 
-## Files to Create
+## Files Created
 1. `src/mcp_guide/guide.py` - GuideMCP class
 2. `src/mcp_guide/agent_detection.py` - Agent detection logic
 3. `src/mcp_guide/tools/tool_utility.py` - Utility tools
@@ -144,7 +144,7 @@ async def get_client_info(ctx: Context) -> str:
 6. `tests/unit/test_mcp_guide/tools/test_tool_utility.py` - Tool tests
 7. `tests/integration/test_utility_tools.py` - Integration tests
 
-## Files to Modify
+## Files Modified
 1. `src/mcp_guide/server.py` - Use GuideMCP, import tool_utility
 2. `src/mcp_guide/tools/tool_constants.py` - Add INSTRUCTION_DISPLAY_ONLY
 
@@ -154,50 +154,6 @@ async def get_client_info(ctx: Context) -> str:
 - list_resources (needs more thought)
 - Template-related functions (separate work item)
 - Lifespan support (deferred-tool-registration idea)
-
-## Architecture
-
-### GuideMCP Class (Simplified)
-```python
-# src/mcp_guide/guide.py
-class GuideMCP(FastMCP):
-    def __init__(self, name: str, *args, **kwargs):
-        super().__init__(name, *args, **kwargs)
-        self.agent_info: Optional[AgentInfo] = None
-```
-
-### Agent Detection
-```python
-# src/mcp_guide/agent_detection.py
-@dataclass
-class AgentInfo:
-    name: str
-    normalized_name: str
-    version: Optional[str]
-    prompt_prefix: str
-
-AGENT_PREFIX_MAP = {
-    "kiro": "@",
-    "claude": "/{mcp_name}:",
-    "copilot": "/",
-    # ...
-}
-```
-
-### Tool Implementation
-```python
-# src/mcp_guide/tools/tool_utility.py
-@tools.tool()
-async def get_client_info(ctx: Context) -> str:
-    # Check cache
-    if ctx.fastmcp.agent_info:
-        return format_cached()
-
-    # Detect and cache
-    agent_info = detect_agent(ctx.session.client_params)
-    ctx.fastmcp.agent_info = agent_info
-
-    # Return formatted result
     result = Result.ok(format_agent_info(...))
     result.instruction = INSTRUCTION_DISPLAY_ONLY
     return result.to_json_str()

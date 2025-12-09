@@ -79,3 +79,45 @@ async def test_get_client_info_no_client_params():
 
     assert result["success"] is False
     assert "No client information available" in result["error"]
+
+
+@pytest.mark.asyncio
+async def test_get_client_info_no_context():
+    """Test get_client_info handles missing context."""
+    result_str = await get_client_info(args=GetClientInfoArgs(), ctx=None)
+    result = json.loads(result_str)
+
+    assert result["success"] is False
+    assert "Context not available" in result["error"]
+
+
+@pytest.mark.asyncio
+async def test_get_client_info_wrong_server_type():
+    """Test get_client_info handles non-GuideMCP server."""
+    ctx = Mock()
+    ctx.fastmcp = object()  # Not a GuideMCP instance
+    ctx.session = Mock()
+
+    result_str = await get_client_info(args=GetClientInfoArgs(), ctx=ctx)
+    result = json.loads(result_str)
+
+    assert result["success"] is False
+    assert "Server must be GuideMCP instance" in result["error"]
+
+
+@pytest.mark.asyncio
+async def test_get_client_info_dict_without_client_info():
+    """Test get_client_info with dict missing clientInfo."""
+    ctx = Mock()
+    ctx.fastmcp = GuideMCP(name="test-server")
+    ctx.fastmcp.agent_info = None
+    ctx.session = Mock()
+    ctx.session.client_params = {}  # Empty dict, no clientInfo
+
+    result_str = await get_client_info(args=GetClientInfoArgs(), ctx=ctx)
+    result = json.loads(result_str)
+
+    assert result["success"] is True
+    assert result["value"]["agent"] == "Unknown"
+    assert result["value"]["normalized_name"] == "unknown"
+    assert result["value"]["command_prefix"] == "/"
