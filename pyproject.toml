@@ -83,4 +83,5 @@ dev = [
     "types-aiofiles>=24.1.0.20250822",
     "types-pyyaml>=6.0.12.20250915",
     "watchdog>=6.0.0",
+    "bandit>=1.9.2",
 ]

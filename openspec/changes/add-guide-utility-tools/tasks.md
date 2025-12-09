@@ -1,6 +1,6 @@
 # Implementation Tasks: Add Guide Utility Tools
 
-**Status:** ✅ IMPLEMENTATION COMPLETE - Ready for CHECK phase
+**Status:** ✅ COMPLETE
 
 **Scope:** Minimal implementation with single utility tool (get_client_info)
 
@@ -37,105 +37,30 @@
 - [x] 4.3 Verify server starts and tool is registered
 
 ## 5. Integration Tests
-- [ ] 5.1 RED: Write integration test for get_client_info with real session
-- [ ] 5.2 GREEN: Verify tool returns agent info
-- [ ] 5.3 RED: Write test for caching across multiple calls
-- [ ] 5.4 GREEN: Verify agent_info cached on GuideMCP instance
-- [ ] 5.5 REFACTOR: Clean up test fixtures
+- [x] 5.1 RED: Write integration test for get_client_info with real session
+- [x] 5.2 GREEN: Verify tool returns agent info
+- [x] 5.3 RED: Write test for caching across multiple calls
+- [x] 5.4 GREEN: Verify agent_info cached on GuideMCP instance
+- [x] 5.5 REFACTOR: Clean up test fixtures
 
 ## 6. Verification
-- [x] 6.1 Run full test suite: `pytest tests/` - 664 tests passed (663 passed, 1 skipped)
+- [x] 6.1 Run full test suite: `pytest tests/` - All tests passing
 - [x] 6.2 Run type checks: `mypy src/` - Success, no issues
 - [x] 6.3 Run code quality: `ruff check src/ tests/` - All checks passed
-- [x] 6.4 Run formatter: `ruff format src/ tests/` - 5 files reformatted
+- [x] 6.4 Run formatter: `ruff format src/ tests/` - All files formatted
 
 ---
 
-## Architecture
+## Test Results
 
-### GuideMCP Class
-```python
-# src/mcp_guide/guide.py
-from typing import Optional
-from fastmcp import FastMCP
-from mcp_guide.agent_detection import AgentInfo
+### MCP Test Client Info
+The integration tests revealed the MCP test client identifies as:
+- **Agent:** mcp
+- **Normalized Name:** unknown
+- **Version:** 0.1.0
+- **Command Prefix:** `/`
 
-class GuideMCP(FastMCP):
-    """Extended FastMCP with agent info caching."""
-
-    def __init__(self, name: str, *args, **kwargs):
-        super().__init__(name, *args, **kwargs)
-        self.agent_info: Optional[AgentInfo] = None
-```
-
-### Agent Detection
-```python
-# src/mcp_guide/agent_detection.py
-from dataclasses import dataclass
-from typing import Optional
-
-@dataclass
-class AgentInfo:
-    name: str
-    normalized_name: str
-    version: Optional[str]
-    prompt_prefix: str
-
-AGENT_PREFIX_MAP = {
-    "kiro": "@",
-    "claude": "/{mcp_name}:",
-    "copilot": "/",
-}
-
-AGENT_PATTERNS = [
-    (r"kiro", "kiro"),
-    (r"claude", "claude"),
-    (r"copilot", "copilot"),
-]
-
-def normalize_agent_name(name: str) -> str:
-    """Normalize agent name to lowercase canonical form."""
-
-def detect_agent(client_params: dict) -> AgentInfo:
-    """Detect agent from client parameters."""
-
-def format_agent_info(agent_info: AgentInfo, mcp_name: str) -> str:
-    """Format agent info for display."""
-```
-
-### Tool Implementation
-```python
-# src/mcp_guide/tools/tool_utility.py
-from mcp_guide.tools import tools
-from mcp_guide.result import Result
-from mcp_guide.tools.tool_constants import INSTRUCTION_DISPLAY_ONLY
-
-@tools.tool()
-async def get_client_info(ctx: Context) -> str:
-    """Get information about the MCP client/agent.
-
-    Returns cached agent info if available, otherwise detects
-    and caches for future calls.
-    """
-    # Check cache
-    if ctx.fastmcp.agent_info:
-        agent_info = ctx.fastmcp.agent_info
-    else:
-        # Detect and cache
-        if not ctx.session.client_params:
-            return Result.error("No client information available").to_json_str()
-
-        agent_info = detect_agent(ctx.session.client_params)
-        ctx.fastmcp.agent_info = agent_info
-
-    # Format and return
-    formatted = format_agent_info(agent_info, ctx.fastmcp.name)
-    result = Result.ok(formatted)
-    result.instruction = INSTRUCTION_DISPLAY_ONLY
-    return result.to_json_str()
-```
-
-## Files Created
+### Files Created
 1. `src/mcp_guide/guide.py` - GuideMCP class
 2. `src/mcp_guide/agent_detection.py` - Agent detection logic
 3. `src/mcp_guide/tools/tool_utility.py` - Utility tools
@@ -144,7 +69,7 @@ async def get_client_info(ctx: Context) -> str:
 6. `tests/unit/test_mcp_guide/tools/test_tool_utility.py` - Tool tests
 7. `tests/integration/test_utility_tools.py` - Integration tests
 
-## Files Modified
+### Files Modified
 1. `src/mcp_guide/server.py` - Use GuideMCP, import tool_utility
 2. `src/mcp_guide/tools/tool_constants.py` - Add INSTRUCTION_DISPLAY_ONLY
 
@@ -154,23 +79,3 @@ async def get_client_info(ctx: Context) -> str:
 - list_resources (needs more thought)
 - Template-related functions (separate work item)
 - Lifespan support (deferred-tool-registration idea)
-    result = Result.ok(format_agent_info(...))
-    result.instruction = INSTRUCTION_DISPLAY_ONLY
-    return result.to_json_str()
-```
-
-## Files to Create
-1. `src/mcp_guide/guide.py`
-2. `src/mcp_guide/agent_detection.py`
-3. `src/mcp_guide/tools/tool_utility.py`
-4. `tests/unit/test_agent_detection.py`
-5. `tests/unit/test_mcp_guide/tools/test_tool_utility.py`
-6. `tests/integration/test_utility_tools.py`
-
-## Files to Modify
-1. `src/mcp_guide/server.py` - Use GuideMCP, import tool_utility
-2. `src/mcp_guide/tools/tool_constants.py` - Add INSTRUCTION_DISPLAY_ONLY
-
-## Estimated Effort
-~3 hours total (TDD approach with smallest possible steps)
-
