@@ -15,8 +15,8 @@ category_content(category="category1/docname1,category2/docname2,category3", fil
 
 ### 2. Boolean Expression Support
 Add AND (`&`) and OR (`|`) operators for document selection within categories:
-- OR (`|`) has highest precedence
-- AND (`&`) for requiring multiple documents
+- AND (`&`) has highest precedence (binds more tightly)
+- OR (`|`) has lower precedence
 - Examples:
   - `category1/docname1|docname3` - fetch docname1 OR docname3
   - `category1/docname1&docname3` - fetch docname1 AND docname3

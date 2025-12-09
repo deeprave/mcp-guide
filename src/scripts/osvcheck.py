@@ -90,7 +90,11 @@ def check_vulnerability(pkg_name: str, pkg_version: str, cache: Dict[str, Dict[s
 
     vuln_type = None
     with contextlib.suppress(Exception):
-        with urllib.request.urlopen(req) as response:
+        # Validate HTTPS scheme for security (Bandit B310)
+        if not req.full_url.startswith("https://"):
+            raise ValueError("Only HTTPS URLs are allowed for security")
+
+        with urllib.request.urlopen(req) as response:  # nosec B310
             result = json.loads(response.read())
             if result.get("vulns", []):
                 vuln_type = "has_vulns"  # Will be updated to direct/indirect by caller
