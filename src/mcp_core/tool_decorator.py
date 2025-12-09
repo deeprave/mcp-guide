@@ -123,12 +123,12 @@ class ExtMcpToolDecorator:
                             logger.error(f"Tool {tool_name} failed: {e}")
                             raise
                 else:
-                    # No args_class - use **kwargs
+                    # No args_class - use explicit ctx parameter
                     @wraps(func)
-                    async def async_wrapper(**kwargs: Any) -> Any:
+                    async def async_wrapper(ctx: Optional[Context] = None) -> Any:  # type: ignore[type-arg]
                         logger.trace(f"Invoking async tool: {tool_name}")  # type: ignore[attr-defined]
                         try:
-                            result = await func(**kwargs)
+                            result = await func(ctx=ctx)
                             logger.debug(f"Tool {tool_name} completed successfully")
                             return result
                         except Exception as e:
