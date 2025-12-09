@@ -397,6 +397,8 @@ async def get_project_info(name: Optional[str] = None, verbose: bool = False) ->
 
         # Format and return the requested project
         project_data = format_project_data(all_projects[name], verbose=verbose)
+        # Include project name in response for single project operations
+        project_data["project"] = name
         return Result.ok(project_data)
     except OSError as e:
         return Result.failure(f"Failed to read project configuration: {e}", error_type="config_read_error")

@@ -21,55 +21,17 @@ def _configure_environment(config: ServerConfig) -> None:
 
 
 def _configure_logging(config: ServerConfig) -> None:
-    """Configure logging from config.
+    """Store logging configuration for later initialization.
+
+    Logging is configured AFTER FastMCP initializes to avoid conflicts.
 
     Args:
         config: Server configuration
     """
-    from mcp_core.mcp_log import (
-        add_trace_to_context,
-        create_console_handler,
-        create_file_handler,
-        create_formatter,
-        get_log_level,
-        initialize_trace_level,
-        register_cleanup_handlers,
-        save_logging_config,
-    )
+    # Store config globally for server.py to use after FastMCP init
+    import mcp_guide.server as server_module
 
-    # Initialize TRACE level and context
-    initialize_trace_level()
-    add_trace_to_context()
-
-    # Create handlers
-    console_handler = create_console_handler()
-    file_handler = create_file_handler(config.log_file) if config.log_file else None
-
-    # Create and apply formatters
-    formatter = create_formatter(config.log_json)
-    console_handler.setFormatter(formatter)
-    if file_handler:
-        file_handler.setFormatter(formatter)
-
-    # Configure root logger
-    root = logging.getLogger()
-    log_level = get_log_level(config.log_level)
-    root.setLevel(log_level)
-    console_handler.setLevel(log_level)
-    root.addHandler(console_handler)
-    if file_handler:
-        file_handler.setLevel(log_level)
-        root.addHandler(file_handler)
-
-    # Save configuration for restoration after FastMCP init
-    save_logging_config(console_handler, file_handler, app_name="mcp_guide")
-
-    # Register cleanup handlers for graceful shutdown
-    register_cleanup_handlers()
-
-    logger = logging.getLogger(__name__)
-    logger.info("Starting mcp-guide server")
-    logger.debug(f"Log level: {config.log_level}, File: {config.log_file or 'none'}, JSON: {config.log_json}")
+    server_module._pending_log_config = config
 
 
 def _handle_cli_error(config: ServerConfig) -> None:

@@ -19,3 +19,6 @@ INSTRUCTION_FILE_ERROR = (
 )
 INSTRUCTION_VALIDATION_ERROR = "Return error to user without attempting remediation"
 INSTRUCTION_NO_PROJECT = "To fix: Call set_current_project with the basename of the current working directory."
+
+# Display instructions
+INSTRUCTION_DISPLAY_ONLY = "Display this information to the user."

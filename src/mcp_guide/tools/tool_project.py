@@ -91,6 +91,8 @@ async def get_current_project(args: GetCurrentProjectArgs, ctx: Optional[Context
     project = await session.get_project()
 
     result_dict = format_project_data(project, verbose=args.verbose)
+    # Include project name in response for single project operations
+    result_dict["project"] = project.name
 
     return Result.ok(result_dict).to_json_str()
 
@@ -116,6 +118,8 @@ async def set_current_project(args: SetCurrentProjectArgs, ctx: Optional[Context
         assert project is not None  # is_ok() guarantees value is set
 
         response = format_project_data(project, verbose=args.verbose)
+        # Include project name in response for single project operations
+        response["project"] = project.name
 
         return Result.ok(response, message=f"Switched to project '{project.name}'").to_json_str()
 
