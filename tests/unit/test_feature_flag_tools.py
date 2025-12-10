@@ -96,9 +96,7 @@ class TestListFlagsTool:
             mock_session.feature_flags.return_value = mock_global_proxy
 
             mock_project_proxy = Mock()
-            mock_project_proxy.list = AsyncMock(
-                return_value={"specific_flag": ["list", "value"]}
-            )
+            mock_project_proxy.list = AsyncMock(return_value={"specific_flag": ["list", "value"]})
             mock_session.project_flags.return_value = mock_project_proxy
 
             result_json = await list_flags(args)

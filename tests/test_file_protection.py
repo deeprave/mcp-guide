@@ -1,7 +1,5 @@
 """Tests for production file protection mechanism."""
 
-
-
 from .conftest import REAL_PATHS
 
 

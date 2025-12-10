@@ -1,6 +1,5 @@
 """Tests for GuideMCP class."""
 
-
 from mcp_guide.guide import GuideMCP
 
 
