@@ -3,7 +3,10 @@
 import asyncio
 import logging
 from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING, Any, Optional
+
+if TYPE_CHECKING:
+    pass
 
 import yaml
 
@@ -52,6 +55,7 @@ class ConfigManager:
         self._lock = asyncio.Lock()
         self._initialized = False
         self._docroot: Optional[str] = None
+        self._cached_global_flags: Optional[dict[str, Any]] = None
 
     async def _ensure_initialized(self) -> None:
         """Initialize config manager (only once)."""
@@ -87,6 +91,10 @@ class ConfigManager:
                         raise DocrootError(f"Docroot path exists but is not a directory: {docroot_path}")
 
                     self._initialized = True
+
+    def _invalidate_global_flags_cache(self) -> None:
+        """Invalidate the global flags cache."""
+        self._cached_global_flags = None
 
     def get_docroot(self) -> str:
         """Get cached docroot value.
@@ -332,7 +340,7 @@ class ConfigManager:
 
     def _project_to_dict(self, project: Project) -> dict[str, object]:
         """Convert Project to dict for YAML serialization."""
-        return {
+        result: dict[str, object] = {
             "categories": [
                 {"name": c.name, "dir": c.dir, "patterns": c.patterns, "description": c.description}
                 for c in project.categories
@@ -348,6 +356,234 @@ class ConfigManager:
             "created_at": project.created_at.isoformat(),
             "updated_at": project.updated_at.isoformat(),
         }
+
+        # Add project_flags if not empty
+        if project.project_flags:
+            result["project_flags"] = project.project_flags
+
+        return result
+
+    async def get_feature_flags(self) -> dict[str, Any]:
+        """Get global feature flags (cached).
+
+        Returns:
+            Dictionary of global feature flags
+        """
+        await self._ensure_initialized()
+
+        if self._cached_global_flags is None:
+
+            async def _get_flags(file_path: Path) -> dict[str, Any]:
+                try:
+                    content = await read_file_content(file_path)
+                except OSError as e:
+                    raise OSError(f"Failed to read config file {file_path}") from e
+
+                try:
+                    data = yaml.safe_load(content) or {}
+                except yaml.YAMLError as e:
+                    raise yaml.YAMLError(f"Invalid YAML in config file {file_path}") from e
+
+                flags = data.get("feature_flags", {})
+                self._cached_global_flags = flags  # Cache the result
+                return flags  # type: ignore[no-any-return]
+
+            return await lock_update(self.config_file, _get_flags)
+
+        return self._cached_global_flags
+
+    async def set_feature_flag(self, flag_name: str, value: Any) -> None:
+        """Set a global feature flag.
+
+        Args:
+            flag_name: Name of the flag
+            value: Flag value
+        """
+        from mcp_guide.feature_flags.validation import validate_flag_name, validate_flag_value
+
+        if not validate_flag_name(flag_name):
+            raise ValueError(f"Invalid flag name: {flag_name}")
+        if not validate_flag_value(value):
+            raise ValueError(f"Invalid flag value type: {type(value)}")
+
+        await self._ensure_initialized()
+
+        async def _set_flag(file_path: Path) -> None:
+            try:
+                content = await read_file_content(file_path)
+            except OSError as e:
+                raise OSError(f"Failed to read config file {file_path}: {e}") from e
+
+            try:
+                data = yaml.safe_load(content) or {}
+            except yaml.YAMLError as e:
+                raise yaml.YAMLError(f"Invalid YAML in config file {file_path}: {e}") from e
+
+            feature_flags = data.get("feature_flags", {})
+            feature_flags[flag_name] = value
+            data["feature_flags"] = feature_flags
+
+            try:
+                file_path.write_text(yaml.dump(data))
+            except OSError as e:
+                raise OSError(f"Failed to write config file {file_path}: {e}") from e
+
+        await lock_update(self.config_file, _set_flag)
+        self._invalidate_global_flags_cache()
+
+    async def remove_feature_flag(self, flag_name: str) -> None:
+        """Remove a global feature flag.
+
+        Args:
+            flag_name: Name of the flag to remove
+        """
+        from mcp_guide.feature_flags.validation import validate_flag_name
+
+        if not validate_flag_name(flag_name):
+            raise ValueError(f"Invalid flag name: {flag_name}")
+
+        await self._ensure_initialized()
+
+        async def _remove_flag(file_path: Path) -> None:
+            try:
+                content = await read_file_content(file_path)
+            except OSError as e:
+                raise OSError(f"Failed to read config file {file_path}: {e}") from e
+
+            try:
+                data = yaml.safe_load(content) or {}
+            except yaml.YAMLError as e:
+                raise yaml.YAMLError(f"Invalid YAML in config file {file_path}: {e}") from e
+
+            feature_flags = data.get("feature_flags", {})
+            if flag_name in feature_flags:
+                del feature_flags[flag_name]
+                data["feature_flags"] = feature_flags
+
+                try:
+                    file_path.write_text(yaml.dump(data))
+                except OSError as e:
+                    raise OSError(f"Failed to write config file {file_path}: {e}") from e
+
+        await lock_update(self.config_file, _remove_flag)
+        self._invalidate_global_flags_cache()
+
+    async def get_project_flags(self, project_name: str) -> dict[str, Any]:
+        """Get project-specific feature flags.
+
+        Args:
+            project_name: Name of the project
+
+        Returns:
+            Dictionary of project feature flags
+        """
+        await self._ensure_initialized()
+
+        async def _get_flags(file_path: Path) -> dict[str, Any]:
+            try:
+                content = await read_file_content(file_path)
+            except OSError as e:
+                raise OSError(f"Failed to read config file {file_path}: {e}") from e
+
+            try:
+                data = yaml.safe_load(content) or {}
+            except yaml.YAMLError as e:
+                raise yaml.YAMLError(f"Invalid YAML in config file {file_path}: {e}") from e
+
+            projects = data.get("projects", {})
+            project_data = projects.get(project_name, {})
+            return project_data.get("project_flags", {})  # type: ignore[no-any-return]
+
+        return await lock_update(self.config_file, _get_flags)
+
+    async def set_project_flag(self, project_name: str, flag_name: str, value: Any) -> None:
+        """Set a project-specific feature flag.
+
+        Args:
+            project_name: Name of the project
+            flag_name: Name of the flag
+            value: Flag value
+        """
+        from mcp_guide.feature_flags.validation import validate_flag_name, validate_flag_value
+
+        if not validate_flag_name(flag_name):
+            raise ValueError(f"Invalid flag name: {flag_name}")
+        if not validate_flag_value(value):
+            raise ValueError(f"Invalid flag value type: {type(value)}")
+
+        await self._ensure_initialized()
+
+        async def _set_flag(file_path: Path) -> None:
+            try:
+                content = await read_file_content(file_path)
+            except OSError as e:
+                raise OSError(f"Failed to read config file {file_path}: {e}") from e
+
+            try:
+                data = yaml.safe_load(content) or {}
+            except yaml.YAMLError as e:
+                raise yaml.YAMLError(f"Invalid YAML in config file {file_path}: {e}") from e
+
+            projects = data.get("projects", {})
+            if project_name not in projects:
+                # Create project if it doesn't exist
+                projects[project_name] = {}
+
+            project_data = projects[project_name]
+            project_flags = project_data.get("project_flags", {})
+            project_flags[flag_name] = value
+            project_data["project_flags"] = project_flags
+            projects[project_name] = project_data
+            data["projects"] = projects
+
+            try:
+                file_path.write_text(yaml.dump(data))
+            except OSError as e:
+                raise OSError(f"Failed to write config file {file_path}: {e}") from e
+
+        await lock_update(self.config_file, _set_flag)
+
+    async def remove_project_flag(self, project_name: str, flag_name: str) -> None:
+        """Remove a project-specific feature flag.
+
+        Args:
+            project_name: Name of the project
+            flag_name: Name of the flag to remove
+        """
+        from mcp_guide.feature_flags.validation import validate_flag_name
+
+        if not validate_flag_name(flag_name):
+            raise ValueError(f"Invalid flag name: {flag_name}")
+
+        await self._ensure_initialized()
+
+        async def _remove_flag(file_path: Path) -> None:
+            try:
+                content = await read_file_content(file_path)
+            except OSError as e:
+                raise OSError(f"Failed to read config file {file_path}: {e}") from e
+
+            try:
+                data = yaml.safe_load(content) or {}
+            except yaml.YAMLError as e:
+                raise yaml.YAMLError(f"Invalid YAML in config file {file_path}: {e}") from e
+
+            projects = data.get("projects", {})
+            if project_name in projects:
+                project_data = projects[project_name]
+                project_flags = project_data.get("project_flags", {})
+                if flag_name in project_flags:
+                    del project_flags[flag_name]
+                    project_data["project_flags"] = project_flags
+                    projects[project_name] = project_data
+                    data["projects"] = projects
+
+                    try:
+                        file_path.write_text(yaml.dump(data))
+                    except OSError as e:
+                        raise OSError(f"Failed to write config file {file_path}: {e}") from e
+
+        await lock_update(self.config_file, _remove_flag)
 
 
 # Module-level singleton instance (lazy initialization)

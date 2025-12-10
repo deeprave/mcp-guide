@@ -4,7 +4,10 @@ import logging
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 from time import time
-from typing import Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
+
+if TYPE_CHECKING:
+    from mcp_guide.feature_flags.protocol import FeatureFlags
 
 from mcp_core.result import Result
 from mcp_guide.config import ConfigManager
@@ -116,6 +119,29 @@ class Session:
         Use this when the project configuration has been modified externally.
         """
         self._cached_project = None
+
+    def feature_flags(self) -> "FeatureFlags":
+        """Get global feature flags proxy.
+
+        Returns:
+            GlobalFlags implementation for global flags
+        """
+        from mcp_guide.feature_flags.global_flags import GlobalFlags
+
+        return GlobalFlags(self._config_manager)
+
+    def project_flags(self, project: Optional[str] = None) -> "FeatureFlags":
+        """Get project feature flags proxy.
+
+        Args:
+            project: Project name (ignored - always uses current session project)
+
+        Returns:
+            ProjectFlags implementation for current project flags
+        """
+        from mcp_guide.feature_flags.project_flags import ProjectFlags
+
+        return ProjectFlags(self)
 
 
 # ContextVar for async task-local session tracking
