@@ -2,8 +2,6 @@
 
 from typing import get_args
 
-import pytest
-
 from mcp_guide.feature_flags.types import FeatureValue, validate_feature_value_type
 
 

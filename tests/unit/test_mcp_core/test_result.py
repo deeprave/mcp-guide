@@ -2,8 +2,6 @@
 
 import json
 
-import pytest
-
 from mcp_core.result import Result
 
 

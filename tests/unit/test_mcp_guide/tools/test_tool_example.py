@@ -2,7 +2,6 @@
 
 import pytest
 
-from mcp_core.result import Result
 from mcp_guide.tools.tool_example import ExampleArgs, example_tool
 
 

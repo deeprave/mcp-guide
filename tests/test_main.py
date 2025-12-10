@@ -1,7 +1,6 @@
 """Tests for main entry point."""
 
 import inspect
-import os
 from unittest.mock import MagicMock, patch
 
 import pytest
