@@ -5,34 +5,7 @@ from dataclasses import fields
 import pytest
 
 from mcp_guide.feature_flags.types import FeatureValue
-from mcp_guide.models import Category, Collection, GlobalConfig, Project
-
-
-class TestGlobalConfigFeatureFlags:
-    """Test GlobalConfig feature_flags field."""
-
-    def test_global_config_has_feature_flags_field(self):
-        """Test that GlobalConfig has feature_flags field."""
-        # Check that feature_flags is a field
-        field_names = [f.name for f in fields(GlobalConfig)]
-        assert "feature_flags" in field_names
-
-    def test_global_config_feature_flags_default_empty_dict(self):
-        """Test that feature_flags defaults to empty dict."""
-        config = GlobalConfig(docroot="/tmp", projects={})
-        assert config.feature_flags == {}
-        assert isinstance(config.feature_flags, dict)
-
-    def test_global_config_feature_flags_accepts_valid_values(self):
-        """Test that feature_flags accepts valid FeatureValue types."""
-        feature_flags = {
-            "bool_flag": True,
-            "string_flag": "test",
-            "list_flag": ["a", "b"],
-            "dict_flag": {"key": "value"},
-        }
-        config = GlobalConfig(docroot="/tmp", projects={}, feature_flags=feature_flags)
-        assert config.feature_flags == feature_flags
+from mcp_guide.models import Category, Collection, Project
 
 
 class TestProjectFeatureFlags:

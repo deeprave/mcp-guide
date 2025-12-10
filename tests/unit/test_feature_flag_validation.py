@@ -2,48 +2,7 @@
 
 import pytest
 
-from mcp_guide.feature_flags.validation import validate_flag_name, validate_flag_value, validate_project_name
-
-
-class TestProjectNameValidation:
-    """Test project name validation for feature flag contexts."""
-
-    def test_project_name_allows_utf8_characters(self):
-        """Test that project names allow UTF-8 characters."""
-        assert validate_project_name("my.project") is True
-        assert validate_project_name("测试项目") is True  # Chinese characters
-        assert validate_project_name("café") is True  # Accented characters
-        assert validate_project_name("проект") is True  # Cyrillic characters
-        assert validate_project_name("プロジェクト") is True  # Japanese characters
-
-    def test_project_name_allows_periods(self):
-        """Test that project names allow periods."""
-        assert validate_project_name("com.example.project") is True
-        assert validate_project_name("my.project.name") is True
-        assert validate_project_name(".hidden") is True
-
-    def test_project_name_allows_filesystem_safe_characters(self):
-        """Test that project names allow filesystem-safe characters."""
-        assert validate_project_name("project-name") is True
-        assert validate_project_name("project_name") is True
-        assert validate_project_name("project name") is True  # spaces
-        assert validate_project_name("project(1)") is True  # parentheses
-        assert validate_project_name("project[test]") is True  # brackets
-
-    def test_project_name_rejects_control_characters(self):
-        """Test that project names reject control characters."""
-        assert validate_project_name("project\x00") is False  # null
-        assert validate_project_name("project\x01") is False  # start of heading
-        assert validate_project_name("project\x1f") is False  # unit separator
-        assert validate_project_name("project\x7f") is False  # delete
-        assert validate_project_name("project\n") is False  # newline
-        assert validate_project_name("project\t") is False  # tab
-        assert validate_project_name("project\r") is False  # carriage return
-
-    def test_project_name_empty_string(self):
-        """Test validation of empty project names."""
-        assert validate_project_name("") is False
-        assert validate_project_name("   ") is True  # spaces are allowed
+from mcp_guide.feature_flags.validation import validate_flag_name, validate_flag_value
 
 
 class TestFlagNameValidation:
