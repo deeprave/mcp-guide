@@ -9,6 +9,8 @@ from typing import Any, Optional
 from pydantic import ConfigDict, field_validator
 from pydantic.dataclasses import dataclass as pydantic_dataclass
 
+from mcp_guide.feature_flags.types import FeatureValue
+
 # Name validation pattern: alphanumeric, underscore, hyphen
 NAME_PATTERN = r"^[a-zA-Z0-9_-]+$"
 _NAME_REGEX = re.compile(NAME_PATTERN)
@@ -128,6 +130,7 @@ class Project:
     collections: list[Collection] = field(default_factory=list)
     created_at: datetime = field(default_factory=datetime.now)
     updated_at: datetime = field(default_factory=datetime.now)
+    project_flags: dict[str, FeatureValue] = field(default_factory=dict)
 
     @field_validator("name")
     @classmethod
@@ -165,6 +168,15 @@ class Project:
         """Return new Project with collection updated."""
         new_collections = [updater(c) if c.name == name else c for c in self.collections]
         return replace(self, collections=new_collections, updated_at=datetime.now())
+
+
+@dataclass
+class GlobalConfig:
+    """Global configuration containing docroot, projects, and feature flags."""
+
+    docroot: str
+    projects: dict[str, Project]
+    feature_flags: dict[str, FeatureValue] = field(default_factory=dict)
 
 
 @dataclass

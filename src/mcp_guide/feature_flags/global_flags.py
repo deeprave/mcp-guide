@@ -1,0 +1,32 @@
+"""Global feature flags implementation."""
+
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    from mcp_guide.config import ConfigManager
+
+from .types import FeatureValue
+
+
+class GlobalFlags:
+    """Global feature flags implementation that proxies ConfigManager."""
+
+    def __init__(self, config_manager: "ConfigManager"):
+        self._config_manager = config_manager
+
+    async def list(self) -> dict[str, FeatureValue]:
+        """List all global flags."""
+        return await self._config_manager.get_feature_flags()
+
+    async def get(self, flag_name: str) -> Optional[FeatureValue]:
+        """Get a specific global flag value."""
+        flags = await self.list()
+        return flags.get(flag_name)
+
+    async def set(self, flag_name: str, value: FeatureValue) -> None:
+        """Set a global flag value."""
+        await self._config_manager.set_feature_flag(flag_name, value)
+
+    async def remove(self, flag_name: str) -> None:
+        """Remove a global flag."""
+        await self._config_manager.remove_feature_flag(flag_name)
