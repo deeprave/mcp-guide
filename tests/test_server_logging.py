@@ -3,8 +3,6 @@
 import logging
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 import mcp_guide.server as server_module
 from mcp_guide.cli import ServerConfig
 

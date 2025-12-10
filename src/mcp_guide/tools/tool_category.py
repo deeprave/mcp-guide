@@ -14,7 +14,6 @@ from mcp_guide.server import tools
 from mcp_guide.session import get_or_create_session
 from mcp_guide.tools.tool_constants import (
     ERROR_FILE_READ,
-    ERROR_NO_MATCHES,
     ERROR_NO_PROJECT,
     ERROR_NOT_FOUND,
     ERROR_SAVE,

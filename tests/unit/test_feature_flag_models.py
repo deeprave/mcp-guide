@@ -2,10 +2,7 @@
 
 from dataclasses import fields
 
-import pytest
-
-from mcp_guide.feature_flags.types import FeatureValue
-from mcp_guide.models import Category, Collection, Project
+from mcp_guide.models import Project
 
 
 class TestProjectFeatureFlags:

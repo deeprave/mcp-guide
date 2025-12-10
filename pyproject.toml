@@ -51,7 +51,7 @@ target-version = "py313"
 line-length = 120
 
 [tool.ruff.lint]
-select = ["I"]
+select = ["I", "F401"]  # I = isort, F401 = unused imports
 
 [tool.ruff.lint.isort]
 known-first-party = ["mcp_core", "mcp_guide"]

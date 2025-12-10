@@ -3,8 +3,6 @@
 import os
 from unittest.mock import patch
 
-import pytest
-
 
 class TestEnvironmentConfiguration:
     """Tests for _configure_environment()."""
@@ -31,7 +29,6 @@ class TestEnvironmentConfiguration:
 
     def test_configure_environment_called_before_logging(self):
         """_configure_environment() should be called before logging setup."""
-        from mcp_guide.main import main
 
         # This is tested by the order of calls in main()
         # If environment is configured first, MCP_TOOL_PREFIX will be set

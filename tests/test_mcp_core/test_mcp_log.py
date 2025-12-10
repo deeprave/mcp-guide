@@ -2,8 +2,6 @@
 
 import logging
 
-import pytest
-
 
 class TestTraceLevel:
     """Tests for TRACE logging level."""

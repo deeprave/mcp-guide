@@ -3,9 +3,6 @@
 import os
 from unittest.mock import patch
 
-import pytest
-from click.testing import CliRunner
-
 from mcp_guide.cli import ServerConfig, parse_args
 
 

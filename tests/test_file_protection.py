@@ -1,8 +1,6 @@
 """Tests for production file protection mechanism."""
 
-from pathlib import Path
 
-import pytest
 
 from .conftest import REAL_PATHS
 

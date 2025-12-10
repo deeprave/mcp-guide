@@ -67,7 +67,7 @@ async def test_invalid_utf8_raises_error(tmp_path: Path) -> None:
 async def test_permission_error(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test that permission errors are raised in a platform-independent way."""
     from contextlib import asynccontextmanager
-    from typing import Any, AsyncIterator
+    from typing import AsyncIterator
 
     import aiofiles
 

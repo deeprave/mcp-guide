@@ -50,10 +50,9 @@ def test_schema_has_field_descriptions():
 
 def test_error_types_defined():
     """Test that error types are defined."""
-    from mcp_guide.tools.tool_category import ERROR_NO_MATCHES, ERROR_NOT_FOUND
+    from mcp_guide.tools.tool_category import ERROR_NOT_FOUND
 
     assert ERROR_NOT_FOUND == "not_found"
-    assert ERROR_NO_MATCHES == "no_matches"
 
 
 def test_error_instructions_defined():
@@ -251,7 +250,6 @@ async def test_no_matches_returns_failure(tmp_path, monkeypatch):
 
     from mcp_guide.models import Category, Project
     from mcp_guide.tools.tool_category import (
-        ERROR_NO_MATCHES,
         INSTRUCTION_PATTERN_ERROR,
         CategoryContentArgs,
         get_category_content,

@@ -5,8 +5,6 @@ import logging
 import os
 import sys
 
-import click
-
 from mcp_guide.cli import ServerConfig, parse_args
 from mcp_guide.config import DocrootError
 

@@ -1,6 +1,5 @@
 """CLI argument parsing and configuration."""
 
-import os
 import sys
 from dataclasses import dataclass
 from typing import Optional

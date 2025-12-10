@@ -1,7 +1,5 @@
 """Tests for feature flag validation functions."""
 
-import pytest
-
 from mcp_guide.feature_flags.validation import validate_flag_name, validate_flag_value
 
 

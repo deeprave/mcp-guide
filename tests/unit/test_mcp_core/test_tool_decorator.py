@@ -1,8 +1,6 @@
 """Tests for tool decorator test mode control."""
 
-from unittest.mock import MagicMock, Mock
-
-import pytest
+from unittest.mock import Mock
 
 from mcp_core.result import Result
 from mcp_core.tool_arguments import ToolArguments
