@@ -24,7 +24,7 @@ Content retrieval is the core functionality of mcp-guide. Currently, the impleme
 - Format single matches as plain markdown
 - Format multiple matches as MIME multipart
 
-### Template Support
+### Template Discovery (IMPLEMENTED)
 - **Template Discovery** (IMPLEMENTED in GUIDE-33): Finding `.mustache` files
   - Templates named as `{basename}.{ext}.mustache` (e.g., `doc.md.mustache`)
   - Pattern matching includes both regular files and templates (e.g., `*.md` matches `*.md.mustache`)
@@ -32,11 +32,8 @@ Content retrieval is the core functionality of mcp-guide. Currently, the impleme
   - FileInfo includes `basename` field (filename without `.mustache` extension)
   - Pattern expansion: search both `pattern` and `pattern.mustache`
   - Deduplication: group by basename, prefer non-template
-- **Template Rendering** (FUTURE): Applying Chevron/Mustache context
-  - Mustache template rendering for .mustache files
-  - Template context resolution and sources
-  - Template caching for performance
-  - Pass-through for non-template files
+
+**Note**: Template rendering and context resolution moved to separate `template-support` feature.
 
 ### Error Handling
 - Return Result pattern responses with proper error handling
@@ -46,9 +43,9 @@ Content retrieval is the core functionality of mcp-guide. Currently, the impleme
 ## Impact
 
 - Affected specs: New capability `content-tools`
-- Affected code: New tools module, content retrieval, template rendering, MCP server tool registration
-- Dependencies: Result pattern (ADR-003), tool conventions (ADR-008), mustache library
+- Affected code: New tools module, content retrieval, MCP server tool registration
+- Dependencies: Result pattern (ADR-003), tool conventions (ADR-008)
 - Breaking changes: None (new tools)
-- Phased implementation: Core content retrieval → Template support → Collection-based retrieval
+- Phased implementation: Core content retrieval → Collection-based retrieval
 - External dependency: Collection management tools (add-collection-tools) must be implemented before get_collection_content
-- Future expansion: Agent filesystem access for local instruction files (separate task)
+- Template support: Handled by separate `template-support` feature

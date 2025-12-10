@@ -1,3 +1,5 @@
+**Approval gate**: PENDING
+
 ## 1. Design Expression Parser
 - [ ] 1.1 Define expression grammar and precedence rules
 - [ ] 1.2 Design parser architecture

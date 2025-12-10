@@ -1,5 +1,7 @@
 # Implementation Tasks
 
+**Approval gate**: PENDING
+
 ## Placeholder
 
 This is a placeholder proposal. Detailed tasks will be defined when implementation begins.

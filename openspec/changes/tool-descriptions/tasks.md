@@ -1,3 +1,5 @@
+**Approval gate**: PENDING
+
 ## 1. Create Template Documentation
 - [ ] 1.1 Create `src/mcp_guide/tools/README.md` with tool description standard
 - [ ] 1.2 Include template structure: Description → Schema → Usage → Examples

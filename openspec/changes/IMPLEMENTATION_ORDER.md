@@ -22,7 +22,7 @@ This document tracks dependencies between OpenSpec change proposals to ensure co
 **Epic:** GUIDE-24
 **Completed:** 2025-11-27
 **Requires:** None
-**Unblocks:** tool-conventions
+**Unblocks:** tool-conventions, add-feature-flags
 
 **Deliverables:**
 - ✅ TRACE logging level in mcp_core (92% coverage)
@@ -38,10 +38,30 @@ This document tracks dependencies between OpenSpec change proposals to ensure co
 
 ---
 
-### Phase 2: Tool Infrastructure
+### Phase 2: Configuration and Infrastructure
 
-#### 2. tool-conventions
-**Status:** Proposed
+#### 2. add-feature-flags
+**Status:** 📋 Proposed (0% complete)
+**Requires:** ✅ logging-implementation (Complete)
+**Blocks:** template-support, add-openspec-support
+**Priority:** HIGH - Required for advanced features
+
+**Deliverables:**
+- Feature flag data models (global and project-specific)
+- MCP tools: list_flags, set_flag, get_flag
+- Flag resolution hierarchy (project → global → None)
+- Type-safe flag values (bool, str, list[str], dict[str, str])
+- Configuration validation and persistence
+
+**Validation:**
+- ⏳ Feature flags stored in configuration models
+- ⏳ MCP tools provide complete flag management
+- ⏳ Resolution hierarchy works correctly
+- ⏳ Immediate persistence on flag changes
+- ⏳ Validation prevents invalid flag names/values
+
+#### 3. tool-conventions
+**Status:** 📋 Proposed (0% complete)
 **ADR:** 008-tool-definition-conventions
 **Requires:** ✅ logging-implementation (Complete)
 **Blocks:** All tool implementations (Phase 3)
@@ -53,10 +73,10 @@ This document tracks dependencies between OpenSpec change proposals to ensure co
 - Explicit use pattern with Literal types
 
 **Validation:**
-- ✅ Decorator supports prefix configuration
-- ✅ Automatic TRACE logging on tool calls
-- ✅ Result[T] with instruction field works
-- ✅ Example tool demonstrates all patterns
+- ⏳ Decorator supports prefix configuration
+- ⏳ Automatic TRACE logging on tool calls
+- ⏳ Result[T] with instruction field works
+- ⏳ Example tool demonstrates all patterns
 
 ---
 
@@ -64,8 +84,8 @@ This document tracks dependencies between OpenSpec change proposals to ensure co
 
 **Note:** All Phase 3 changes require tool-conventions. Implement in the order listed below due to dependencies.
 
-#### 3a. add-category-tools (IMPLEMENT FIRST)
-**Status:** Proposed
+#### 4a. add-category-tools
+**Status:** ✅ Complete (2025-12-08)
 **Requires:** tool-conventions
 **Blocks:** add-collection-tools, add-content-tools
 **Priority:** HIGH - Configuration management foundation
@@ -88,8 +108,8 @@ This document tracks dependencies between OpenSpec change proposals to ensure co
 - ✅ Auto-update collections works
 - ✅ Configuration persistence safe
 
-#### 3b. add-collection-tools
-**Status:** Proposed
+#### 4b. add-collection-tools
+**Status:** ✅ Complete (2025-12-08)
 **Requires:** tool-conventions, add-category-tools
 **Blocks:** add-content-tools
 **Priority:** HIGH - Configuration management
@@ -111,8 +131,8 @@ This document tracks dependencies between OpenSpec change proposals to ensure co
 - ✅ Configuration persistence safe
 - ✅ Integration with category tools
 
-#### 3c. add-content-tools
-**Status:** Proposed
+#### 4c. add-content-tools
+**Status:** ✅ Complete (2025-12-08)
 **Requires:** tool-conventions, add-category-tools, add-collection-tools
 **Blocks:** add-guide-uri-scheme
 **Priority:** HIGH - Content retrieval
@@ -136,8 +156,8 @@ This document tracks dependencies between OpenSpec change proposals to ensure co
 - ✅ Result pattern with instructions
 - ✅ Integration tests pass
 
-#### 3d. add-guide-uri-scheme
-**Status:** Proposed
+#### 4d. add-guide-uri-scheme
+**Status:** 📋 Proposed (0% complete)
 **Requires:** tool-conventions, add-content-tools
 **Priority:** MEDIUM - Resource layer
 
@@ -148,13 +168,13 @@ This document tracks dependencies between OpenSpec change proposals to ensure co
 - Delegates to content tools for retrieval
 
 **Validation:**
-- ✅ Resources list returns templates
-- ✅ URI parsing works correctly
-- ✅ Content delegation functional
-- ✅ guide://help provides documentation
+- ⏳ Resources list returns templates
+- ⏳ URI parsing works correctly
+- ⏳ Content delegation functional
+- ⏳ guide://help provides documentation
 
-#### 3e. add-guide-project-tools (Placeholder)
-**Status:** Placeholder
+#### 4e. add-guide-project-tools
+**Status:** ✅ Complete (2025-12-08)
 **Requires:** tool-conventions, add-category-tools, add-collection-tools
 **Priority:** MEDIUM - Project management
 
@@ -162,24 +182,30 @@ This document tracks dependencies between OpenSpec change proposals to ensure co
 - get_current_project - Returns all data about current project
 - set_current_project - Sets current project by name, creating if required
 - clone_project - Copy existing project to current or new project
+- list_projects - List all available projects
+- list_project - Get specific project details
 
 **Validation:**
-- TBD when detailed proposal created
+- ✅ All 5 tools implemented and tested
+- ✅ 21 integration tests covering all workflows
+- ✅ MCP tool documentation complete
+- ✅ 641 tests passing, 90% coverage
 
-#### 3f. add-guide-utility-tools (Placeholder)
-**Status:** Placeholder
-**Requires:** tool-conventions, add-category-tools, add-collection-tools
+#### 4f. add-guide-utility-tools
+**Status:** 📋 Proposed (0% complete)
+**Requires:** tool-conventions
 **Priority:** LOW - Utilities
 
 **Tools:**
 - get_agent_info - Returns information about agent/client
 
 **Validation:**
-- TBD when detailed proposal created
+- ⏳ Agent info captured correctly
+- ⏳ Useful for debugging and logging
 
-#### 3g. add-mcp-discovery-tools (Placeholder)
-**Status:** Placeholder
-**Requires:** tool-conventions, add-category-tools, add-collection-tools
+#### 4g. add-mcp-discovery-tools
+**Status:** 📋 Proposed (0% complete)
+**Requires:** tool-conventions
 **Priority:** LOW - Introspection
 
 **Tools:**
@@ -188,9 +214,63 @@ This document tracks dependencies between OpenSpec change proposals to ensure co
 - list_tools - Enumerate available tools
 
 **Validation:**
-- TBD when detailed proposal created
-- ✅ Content delegation functional
-- ✅ guide://help provides documentation
+- ⏳ Complete tool/prompt/resource enumeration
+- ⏳ Useful metadata included
+- ⏳ Helps agents discover capabilities
+
+#### 4h. collections-with-patterns
+**Status:** 📋 Proposed (0% complete)
+**Requires:** add-collection-tools
+**Priority:** LOW - Enhancement
+
+**Features:**
+- Allow collections to override category patterns
+- Per-collection pattern customization
+- Backward compatibility with existing collections
+
+**Validation:**
+- ⏳ Collections can specify custom patterns
+- ⏳ Pattern override works correctly
+- ⏳ Existing collections unaffected
+
+---
+
+### Phase 4: Advanced Features
+
+#### 5a. template-support
+**Status:** 📋 Proposed (0% complete)
+**Requires:** add-feature-flags
+**Blocks:** add-openspec-support
+**Priority:** HIGH - Template rendering system
+
+**Features:**
+- Mustache/Chevron template rendering
+- TemplateContext with ChainMap hierarchy
+- Template discovery and rendering pipeline
+- Integration with feature flags for conditional rendering
+
+**Validation:**
+- ⏳ Template discovery works
+- ⏳ Context hierarchy resolves correctly
+- ⏳ Chevron rendering functional
+- ⏳ Feature flag integration complete
+
+#### 5b. add-openspec-support
+**Status:** 📋 Proposed (0% complete)
+**Requires:** add-feature-flags, template-support
+**Priority:** MEDIUM - OpenSpec workflow integration
+
+**Features:**
+- Conditional OpenSpec detection via feature flags
+- MCP tools for OpenSpec workflows
+- MCP resources for OpenSpec project state
+- Template context integration
+
+**Validation:**
+- ⏳ Feature flag conditional activation
+- ⏳ OpenSpec workflow tools functional
+- ⏳ Template integration complete
+- ⏳ MCP resources queryable
 
 ---
 
@@ -200,41 +280,56 @@ This document tracks dependencies between OpenSpec change proposals to ensure co
 Phase 1: Foundation
     ✅ logging-implementation (ADR-004) - COMPLETE
         ↓
-Phase 2: Infrastructure
-    tool-conventions (ADR-008)
+Phase 2: Configuration and Infrastructure
+    📋 add-feature-flags (NEW)
+    📋 tool-conventions (ADR-008)
         ↓
 Phase 3: Tool Implementations
-    add-category-tools (3a) ← IMPLEMENT FIRST
+    ✅ add-category-tools (4a) - COMPLETE
         ↓
-    add-collection-tools (3b)
+    ✅ add-collection-tools (4b) - COMPLETE
         ↓
-    add-content-tools (3c)
+    ✅ add-content-tools (4c) - COMPLETE
         ↓
-    add-guide-uri-scheme (3d)
+    📋 add-guide-uri-scheme (4d) - READY TO START
 
-    Placeholders (depend on category + collection):
-    ├─→ add-guide-project-tools (3e)
-    ├─→ add-guide-utility-tools (3f)
-    └─→ add-mcp-discovery-tools (3g)
+    Parallel (depend on tool-conventions only):
+    ✅ add-guide-project-tools (4e) - COMPLETE
+    📋 add-guide-utility-tools (4f)
+    📋 add-mcp-discovery-tools (4g)
+    📋 collections-with-patterns (4h) - depends on add-collection-tools
+
+Phase 4: Advanced Features
+    📋 template-support (5a) ← depends on add-feature-flags
+        ↓
+    📋 add-openspec-support (5b) ← depends on add-feature-flags + template-support
 ```
 
-**Implementation Order:**
+**Critical Path:**
 1. ✅ logging-implementation (Complete)
-2. tool-conventions (Ready to start)
-3. add-category-tools (After tool-conventions)
-4. add-collection-tools (After add-category-tools)
-5. add-content-tools (After add-collection-tools)
-6. add-guide-uri-scheme (After add-content-tools)
-7. Placeholders (After add-category-tools + add-collection-tools)
+2. 📋 add-feature-flags (NEW - blocks advanced features)
+3. 📋 tool-conventions (blocks remaining tools)
+4. 📋 template-support (after add-feature-flags)
+5. 📋 add-openspec-support (after template-support)
 
 ---
 
 ## Key Dependencies Explained
 
-### ✅ logging-implementation → tool-conventions (COMPLETE)
-**Reason:** ExtMcpToolDecorator uses `logger.trace()` for automatic tool invocation logging
-**Impact:** Cannot implement tool conventions without TRACE level
+### ✅ logging-implementation → add-feature-flags, tool-conventions (COMPLETE)
+**Reason:** Both use logging infrastructure for tool operations and validation
+**Impact:** Cannot implement configuration tools or conventions without logging
 **Status:** Unblocked - logging-implementation complete
+
+### add-feature-flags → template-support, add-openspec-support
+**Reason:** Both features require feature flag conditional activation
+**Impact:** Cannot implement advanced features without feature flag system
+**Validation:** Feature flag resolution and MCP tools must work before proceeding
+
+### template-support → add-openspec-support
+**Reason:** OpenSpec integration uses template context hierarchy
+**Impact:** Cannot integrate OpenSpec data without template system
+**Validation:** Template rendering and context resolution must work
 
 ### tool-conventions → All tool implementations
 **Reason:** All tools must use ExtMcpToolDecorator, Result[T] pattern, and follow ADR-008
@@ -256,23 +351,19 @@ Phase 3: Tool Implementations
 ## Parallel Work Opportunities
 
 ### ✅ After Phase 1 (logging-implementation) - COMPLETE
+- Both add-feature-flags and tool-conventions can start
 - Documentation for mcp_core logging ✅
 - Integration tests for logging in mcp_guide ✅
-- Ready to start Phase 2
 
-### After Phase 2 (tool-conventions)
-- Only add-category-tools can start (no other dependencies)
-- All other tools must wait for category and/or collection tools
-
-### Sequential Implementation Required
-- **add-category-tools** → **add-collection-tools** → **add-content-tools** → **add-guide-uri-scheme**
-- No parallelization possible due to dependencies
-- Placeholders (project/utility/discovery) can start after category + collection complete
+### After Phase 2 (add-feature-flags, tool-conventions)
+- **Sequential**: add-category-tools → add-collection-tools → add-content-tools → add-guide-uri-scheme
+- **Parallel**: add-guide-utility-tools, add-mcp-discovery-tools can start after tool-conventions
+- **Advanced**: template-support can start after add-feature-flags
 
 ### Within Changes
-- **add-category-tools**: Four tools can be implemented in parallel (share validation)
-- **add-collection-tools**: Four tools can be implemented in parallel (share validation)
-- **add-content-tools**: Three tools can be implemented in parallel (independent)
+- **add-category-tools**: Four tools can be implemented in parallel (share validation) ✅
+- **add-collection-tools**: Four tools can be implemented in parallel (share validation) ✅
+- **add-content-tools**: Three tools can be implemented in parallel (independent) ✅
 - **add-guide-uri-scheme**: Sequential (URI parsing → resource handlers → help content)
 
 ---
@@ -289,18 +380,28 @@ Phase 3: Tool Implementations
 - ✅ All tests pass (31 tests, >80% coverage)
 - ✅ Documentation complete
 
-### Phase 2: tool-conventions
-- ✅ ExtMcpToolDecorator implemented with prefix support
-- ✅ Automatic TRACE logging integrated into decorator
-- ✅ Result[T] pattern with instruction field
-- ✅ Base Pydantic model for tool arguments
-- ✅ Explicit use pattern with Literal types
-- ✅ Pydantic validation integration
-- ✅ All tests pass
-- ✅ ADR-008 published
-- ✅ Tool implementation guide available
+### Phase 2: Configuration and Infrastructure
 
-### Phase 3: Tool Implementations
+#### add-feature-flags
+- ⏳ Feature flag data models in configuration
+- ⏳ MCP tools: list_flags, set_flag, get_flag functional
+- ⏳ Resolution hierarchy (project → global → None) works
+- ⏳ Type validation for flag values
+- ⏳ Immediate persistence on flag changes
+- ⏳ All tests pass
+
+#### tool-conventions
+- ⏳ ExtMcpToolDecorator implemented with prefix support
+- ⏳ Automatic TRACE logging integrated into decorator
+- ⏳ Result[T] pattern with instruction field
+- ⏳ Base Pydantic model for tool arguments
+- ⏳ Explicit use pattern with Literal types
+- ⏳ Pydantic validation integration
+- ⏳ All tests pass
+- ⏳ ADR-008 published
+- ⏳ Tool implementation guide available
+
+### Phase 3: Tool Implementations ✅ MOSTLY COMPLETE
 - ✅ Each tool uses ExtMcpToolDecorator
 - ✅ Each tool returns Result[T] with instruction field
 - ✅ Destructive tools use explicit use pattern (if applicable)
@@ -309,6 +410,37 @@ Phase 3: Tool Implementations
 - ✅ Integration tests cover workflows
 - ✅ Validation prevents unsafe operations (category/collection tools)
 - ✅ Content formatting correct (single vs multiple matches)
+
+### Phase 4: Advanced Features
+- ⏳ Template discovery and rendering works
+- ⏳ Feature flag integration functional
+- ⏳ OpenSpec conditional activation works
+- ⏳ Template context hierarchy resolves correctly
+
+---
+
+## Current Status Summary (2025-12-10)
+
+**✅ Completed (5 changes):**
+- logging-implementation
+- add-category-tools
+- add-collection-tools
+- add-content-tools
+- add-guide-project-tools
+
+**📋 Ready to Start (2 changes):**
+- add-feature-flags (no dependencies)
+- tool-conventions (no dependencies)
+
+**📋 Blocked but Proposed (6 changes):**
+- add-guide-uri-scheme (needs tool-conventions)
+- add-guide-utility-tools (needs tool-conventions)
+- add-mcp-discovery-tools (needs tool-conventions)
+- collections-with-patterns (needs tool-conventions)
+- template-support (needs add-feature-flags)
+- add-openspec-support (needs add-feature-flags + template-support)
+
+**Total Progress:** 149/280+ tasks complete (53%)
 
 ---
 

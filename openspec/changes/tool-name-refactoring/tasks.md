@@ -1,3 +1,5 @@
+**Approval gate**: PENDING
+
 ## 1. Update Tool Implementations
 - [ ] 1.1 Rename `get_category_content` to `category_content` in tool_category.py
 - [ ] 1.2 Rename `get_collection_content` to `collection_content` in tool_collection.py

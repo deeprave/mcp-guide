@@ -18,6 +18,10 @@ The tool SHALL:
 - Include name, description, categories for each collection
 - Return Result pattern response
 
+#### Scenario: List collections successfully
+- **WHEN** collection_list tool is invoked
+- **THEN** return list of all collections with names and details
+
 ### Requirement: collection_add Tool
 
 The system SHALL provide a `collection_add` tool that creates a new collection.
@@ -40,6 +44,10 @@ Error types:
 - `invalid_name` - Name fails validation
 - `category_not_found` - Referenced category doesn't exist
 
+#### Scenario: Add collection successfully
+- **WHEN** collection_add tool is invoked with valid name
+- **THEN** create new collection and return success
+
 ### Requirement: collection_remove Tool
 
 The system SHALL provide a `collection_remove` tool that deletes a collection.
@@ -55,6 +63,10 @@ The tool SHALL:
 
 Error types:
 - `not_found` - Collection doesn't exist
+
+#### Scenario: Remove collection successfully
+- **WHEN** collection_remove tool is invoked with existing collection name
+- **THEN** remove collection and return success
 
 ### Requirement: collection_change Tool
 
@@ -80,6 +92,10 @@ Error types:
 - `name_conflict` - New name already exists
 - `category_not_found` - Referenced category doesn't exist
 
+#### Scenario: Change collection successfully
+- **WHEN** collection_change tool is invoked with valid parameters
+- **THEN** replace collection configuration and return success
+
 ### Requirement: collection_update Tool
 
 The system SHALL provide a `collection_update` tool that modifies specific collection fields.
@@ -101,6 +117,10 @@ Error types:
 - `not_found` - Collection doesn't exist
 - `category_not_found` - Added category doesn't exist
 
+#### Scenario: Update collection successfully
+- **WHEN** collection_update tool is invoked with valid categories
+- **THEN** modify collection categories and return success
+
 ### Requirement: Collection Name Validation
 
 Collection names SHALL be validated using existing validation rules.
@@ -109,6 +129,10 @@ Validation SHALL enforce:
 - Alphanumeric characters, hyphens, underscores only
 - Length between 1 and 30 characters
 - No leading or trailing hyphens or underscores
+
+#### Scenario: Validate collection name
+- **WHEN** collection name is validated
+- **THEN** enforce alphanumeric, hyphen, underscore rules
 
 ### Requirement: Description Validation
 
@@ -124,6 +148,10 @@ Error types:
 - `description_too_long` - Exceeds 500 characters
 - `invalid_characters` - Contains quotes or invalid characters
 
+#### Scenario: Validate description
+- **WHEN** description is validated
+- **THEN** enforce length and character restrictions
+
 ### Requirement: Category Reference Validation
 
 Category references SHALL be validated to ensure they exist.
@@ -135,6 +163,10 @@ Validation SHALL:
 
 Error types:
 - `category_not_found` - One or more categories don't exist (lists all missing)
+
+#### Scenario: Validate category references
+- **WHEN** category references are validated
+- **THEN** check all categories exist in project configuration
 
 ### Requirement: Configuration Persistence (Auto-Save)
 
@@ -154,6 +186,10 @@ Error types:
 - `write_error` - File cannot be written
 - `lock_error` - Concurrent access conflict
 
+#### Scenario: Auto-save configuration
+- **WHEN** configuration is modified
+- **THEN** immediately persist changes to disk
+
 ### Requirement: Result Pattern Responses
 
 All tools SHALL return Result pattern responses.
@@ -169,6 +205,10 @@ Failure responses SHALL include:
 - `error_type`: Classification
 - `instruction`: Agent guidance
 
+#### Scenario: Return result pattern
+- **WHEN** tool completes operation
+- **THEN** return standardized success or failure response
+
 ### Requirement: Tool Argument Schemas
 
 All tools SHALL define argument schemas following ADR-008 conventions.
@@ -178,6 +218,10 @@ Schemas SHALL include:
 - Required/optional designation
 - Description and examples
 - Validation rules
+
+#### Scenario: Define argument schemas
+- **WHEN** tool arguments are defined
+- **THEN** follow ADR-008 conventions for schema structure
 
 ### Requirement: Session Integration
 
@@ -190,6 +234,10 @@ Tools SHALL:
 
 Error types:
 - `no_session` - No active session available
+
+#### Scenario: Use session management
+- **WHEN** tool requires project context
+- **THEN** call get_or_create_session() for access
 
 ### Requirement: Change vs Update Semantics
 
@@ -204,3 +252,7 @@ The system SHALL distinguish between change (replace) and update (modify) operat
 - Modify specific fields
 - Cannot rename (use change for that)
 - Adds/removes categories incrementally
+
+#### Scenario: Distinguish change vs update
+- **WHEN** modifying collections
+- **THEN** use change for replacement, update for incremental modification

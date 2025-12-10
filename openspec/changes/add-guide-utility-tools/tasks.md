@@ -1,8 +1,15 @@
 # Implementation Tasks: Add Guide Utility Tools
 
-**Status:** ✅ COMPLETE
+**Status:** ✅ COMPLETE - Archived 2025-12-09
 
 **Scope:** Minimal implementation with single utility tool (get_client_info)
+
+**Code Review:** All comments addressed 2025-12-09
+- Integration tests made robust (require success, validate schema)
+- Caching tests validate actual caching behavior
+- Edge case tests cover empty string fallback
+- Operator precedence documentation corrected
+- AU/UK spelling consistency enforced throughout
 
 ## 1. Create GuideMCP Class
 - [x] 1.1 RED: Write test for GuideMCP initialization
