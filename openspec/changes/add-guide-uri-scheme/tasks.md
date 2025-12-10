@@ -1,5 +1,7 @@
 # Implementation Tasks
 
+**Approval gate**: PENDING
+
 ## 1. URI Pattern Definition
 - [ ] 1.1 Define guide:// URI structure and semantics
 - [ ] 1.2 Document URI patterns in spec

@@ -39,12 +39,32 @@ This roadmap tracks the phased implementation of mcp-guide, organized by functio
 
 ---
 
-## Phase 2: Tool Infrastructure
+## Phase 2: Configuration and Infrastructure
 
-**Goal:** Establish conventions and infrastructure for all MCP tools
+**Goal:** Establish feature flags and tool conventions for extensible configuration
+
+### add-feature-flags
+**Status:** 📋 Proposed (0% complete)
+**Requires:** ✅ logging-implementation (Complete)
+**Blocks:** template-support, add-openspec-support
+**Priority:** HIGH - Required for advanced features
+
+**Deliverables:**
+- Feature flag data models (global and project-specific)
+- MCP tools: list_flags, set_flag, get_flag
+- Flag resolution hierarchy (project → global → None)
+- Type-safe flag values (bool, str, list[str], dict[str, str])
+- Configuration validation and persistence
+
+**Success Criteria:**
+- ⏳ Feature flags stored in configuration models
+- ⏳ MCP tools provide complete flag management
+- ⏳ Resolution hierarchy works correctly
+- ⏳ Immediate persistence on flag changes
+- ⏳ Validation prevents invalid flag names/values
 
 ### tool-conventions
-**Status:** Proposed
+**Status:** 📋 Proposed (0% complete)
 **ADR:** 008-tool-definition-conventions
 **Requires:** ✅ logging-implementation (Complete)
 **Blocks:** All tool implementations (Phase 3)
@@ -58,11 +78,11 @@ This roadmap tracks the phased implementation of mcp-guide, organized by functio
 - Documentation and tests
 
 **Success Criteria:**
-- Decorator supports prefix configuration
-- Automatic TRACE logging on tool calls
-- Result[T] with instruction field
-- Pydantic validation working
-- Example tool demonstrating all patterns
+- ⏳ Decorator supports prefix configuration
+- ⏳ Automatic TRACE logging on tool calls
+- ⏳ Result[T] with instruction field
+- ⏳ Pydantic validation working
+- ⏳ Example tool demonstrating all patterns
 
 ---
 
@@ -129,13 +149,13 @@ This roadmap tracks the phased implementation of mcp-guide, organized by functio
 - ✅ Integration with category tools
 
 #### add-content-tools (28 tasks)
-**Status:** 🔄 In Progress (57% complete - 16/28 tasks)
+**Status:** ✅ Complete
 **Requires:** tool-conventions, add-category-tools, add-collection-tools
 
 **Tools:**
 - `get_content` - Unified category/collection content access
-- `get_category_content` - Category-specific content retrieval (✅ Complete)
-- `get_collection_content` - Collection-specific content retrieval (✅ Complete)
+- `get_category_content` - Category-specific content retrieval
+- `get_collection_content` - Collection-specific content retrieval
 
 **Features:**
 - Result pattern responses with error instructions
@@ -145,7 +165,7 @@ This roadmap tracks the phased implementation of mcp-guide, organized by functio
 - Agent-friendly error handling
 
 **Success Criteria:**
-- ⏳ All three tools implemented (2/3 complete)
+- ✅ All three tools implemented
 - ✅ Pattern matching works (glob syntax)
 - ✅ MIME multipart formatting correct
 - ✅ Result pattern with instructions
@@ -170,8 +190,8 @@ This roadmap tracks the phased implementation of mcp-guide, organized by functio
 **Implementation Order:**
 1. ✅ add-category-tools (category management)
 2. ✅ add-collection-tools (collection management, depends on categories)
-3. 🔄 add-content-tools (content retrieval, depends on both) - IN PROGRESS
-4. 📋 add-guide-uri-scheme (resources layer, depends on content tools) - BLOCKED
+3. ✅ add-content-tools (content retrieval, depends on both)
+4. 📋 add-guide-uri-scheme (resources layer, depends on content tools) - READY TO START
 
 ---
 
@@ -260,32 +280,85 @@ Enhanced `ExtMcpToolDecorator` to preserve Pydantic Field descriptions in MCP sc
 
 ---
 
+## Phase 4: Advanced Features
+
+**Goal:** Implement template rendering and OpenSpec integration
+
+### template-support
+**Status:** 📋 Proposed (0% complete)
+**Requires:** add-feature-flags
+**Priority:** HIGH - Template rendering system
+
+**Features:**
+- Mustache/Chevron template rendering
+- TemplateContext with ChainMap hierarchy
+- Template discovery and rendering pipeline
+- Integration with feature flags for conditional rendering
+
+**Success Criteria:**
+- ⏳ Template discovery works
+- ⏳ Context hierarchy resolves correctly
+- ⏳ Chevron rendering functional
+- ⏳ Feature flag integration complete
+
+### add-openspec-support
+**Status:** 📋 Proposed (0% complete)
+**Requires:** add-feature-flags, template-support
+**Priority:** MEDIUM - OpenSpec workflow integration
+
+**Features:**
+- Conditional OpenSpec detection via feature flags
+- MCP tools for OpenSpec workflows
+- MCP resources for OpenSpec project state
+- Template context integration
+
+**Success Criteria:**
+- ⏳ Feature flag conditional activation
+- ⏳ OpenSpec workflow tools functional
+- ⏳ Template integration complete
+- ⏳ MCP resources queryable
+
+---
+
 ## Implementation Notes
 
-### Current Progress (2025-12-08)
+### Current Progress (2025-12-10)
 
-**Completed Changes (3):**
+**Completed Changes (4):**
 - ✅ add-category-tools (44 tasks)
 - ✅ add-collection-tools (43 tasks)
 - ✅ add-guide-project-tools (34 tasks)
+- ✅ add-content-tools (28 tasks)
 
-**In Progress (1):**
-- 🔄 add-content-tools (16/28 tasks, 57% complete)
-
-**Proposed/Blocked (4):**
-- 📋 add-guide-uri-scheme (blocked by add-content-tools)
+**Proposed/Ready (8):**
+- 📋 add-feature-flags (NEW - blocks advanced features)
+- 📋 tool-conventions (ready to start)
+- 📋 add-guide-uri-scheme (ready after tool-conventions)
 - 📋 add-guide-utility-tools
 - 📋 add-mcp-discovery-tools
 - 📋 collections-with-patterns
+- 📋 template-support (blocked by add-feature-flags)
+- 📋 add-openspec-support (blocked by add-feature-flags, template-support)
 
-**Total Progress:** 40/96 tasks complete (42%)
+**Total Progress:** 149/280+ tasks complete (53%)
+
+### Critical Path Changes
+
+**Immediate Priority:**
+1. **add-feature-flags** - Unblocks template-support and add-openspec-support
+2. **tool-conventions** - Unblocks remaining tool implementations
+
+**Next Priority:**
+3. **add-guide-uri-scheme** - Completes core content functionality
+4. **template-support** - Enables advanced template features
+5. **add-openspec-support** - Enables OpenSpec workflow integration
 
 ### Parallel Work Opportunities
 
 After Phase 2 completes:
-- Phase 3a changes can proceed in order: categories → collections → content → URI scheme
-- Phase 3b changes can proceed in parallel with Phase 3a (project tools complete)
-- Phase 3c can proceed after Phase 3a completes
+- Phase 3a: add-guide-uri-scheme can proceed
+- Phase 3b: utility and discovery tools can proceed in parallel
+- Phase 4: template-support can proceed after add-feature-flags
 
 ### Key Achievements
 
@@ -298,6 +371,11 @@ After Phase 2 completes:
    - Result pattern with error instructions
    - Comprehensive validation and error handling
    - Integration test coverage for all workflows
+
+3. **Core Functionality Complete:**
+   - Category and collection management
+   - Content retrieval with pattern matching
+   - Project management with cloning
 
 ### Testing Strategy
 

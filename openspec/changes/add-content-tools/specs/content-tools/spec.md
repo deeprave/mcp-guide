@@ -108,10 +108,7 @@ Pattern matching SHALL use glob syntax with the following rules:
 - Deduplication: group by basename, prefer non-template ✅
 - Status: Implemented in GUIDE-33 with 15 tests passing, 97% coverage
 
-**Template Rendering (FUTURE)**:
-- Chevron/Mustache context application (not yet implemented)
-- Template context resolution (not yet implemented)
-- Template caching (not yet implemented)
+**Template Rendering**: Moved to separate `template-support` feature.
 
 #### Scenario: Wildcard pattern
 - **WHEN** pattern is "*.md"
@@ -263,88 +260,6 @@ Tools SHALL:
 - **WHEN** retrieving content
 - **THEN** use session.get_project() for configuration
 
-### Requirement: Template Rendering
-
-The system SHALL support mustache template rendering for files with `.mustache` extension.
-
-Template rendering SHALL:
-- Detect files with `.mustache` extension
-- Render templates using mustache syntax
-- Pass through non-template files unchanged
-- Return rendered content in responses
-- Handle template syntax errors gracefully
-
-#### Scenario: Mustache file detected
-- **WHEN** file has `.mustache` extension
-- **THEN** render as mustache template before returning
-
-#### Scenario: Non-template file
-- **WHEN** file does not have `.mustache` extension
-- **THEN** return file content unchanged
-
-#### Scenario: Template syntax error
-- **WHEN** template has invalid mustache syntax
-- **THEN** return Result.failure with error_type "template_error"
-
-#### Scenario: Template rendering in MIME multipart
-- **WHEN** multiple files include templates
-- **THEN** render each template before adding to multipart response
-
-### Requirement: Template Context Resolution
-
-The system SHALL provide context data for template rendering.
-
-Context sources SHALL include (in priority order):
-1. Project configuration
-2. Environment variables
-3. Built-in variables
-4. Custom context providers (future)
-
-Built-in context variables SHALL include:
-- `project.name`: Current project name
-- `project.categories`: List of category names
-- `project.collections`: List of collection names
-- `timestamp`: Current timestamp
-- `date`: Current date
-
-#### Scenario: Context variable access
-- **WHEN** template uses `{{project.name}}`
-- **THEN** substitute with current project name
-
-#### Scenario: Missing context variable
-- **WHEN** template references undefined variable
-- **THEN** render as empty string (mustache default behavior)
-
-#### Scenario: Context priority
-- **WHEN** variable defined in multiple sources
-- **THEN** use value from highest priority source
-
-### Requirement: Template Caching
-
-The system SHALL cache parsed templates for performance.
-
-Caching SHALL:
-- Cache parsed template AST
-- Invalidate cache on file modification
-- Limit cache size to prevent memory issues
-- Be transparent to tool callers
-
-#### Scenario: Template cache hit
-- **WHEN** template requested and cached
-- **THEN** use cached parsed template
-
-#### Scenario: Template cache miss
-- **WHEN** template requested and not cached
-- **THEN** parse template and add to cache
-
-#### Scenario: Template file modified
-- **WHEN** template file modification detected
-- **THEN** invalidate cached entry
-
-#### Scenario: Cache size limit
-- **WHEN** cache exceeds size limit
-- **THEN** evict least recently used entries
-
 ### Requirement: Error Types
 
 The system SHALL define the following error types:
@@ -354,8 +269,9 @@ The system SHALL define the following error types:
 - `invalid_pattern`: Pattern syntax is invalid
 - `no_session`: No active project session
 - `io_error`: File system error during content retrieval
-- `template_error`: Template syntax or rendering error
 - `unknown`: Unexpected error
+
+**Note**: `template_error` moved to separate `template-support` feature.
 
 #### Scenario: Error type classification
 - **WHEN** error occurs
@@ -375,6 +291,10 @@ Current arguments:
 
 Future expansion (reserved):
 - `document` (optional): Specific document identifier
+
+#### Scenario: Design for future expansion
+- **WHEN** designing tool argument schemas
+- **THEN** accommodate future document-specific arguments
 
 ## FUTURE Requirements (Not in Current Scope)
 
