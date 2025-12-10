@@ -153,6 +153,7 @@ def create_server() -> GuideMCP:
         tool_category,
         tool_collection,
         tool_content,
+        tool_feature_flags,
         tool_project,
         tool_utility,
     )

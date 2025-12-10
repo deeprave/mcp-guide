@@ -6,13 +6,12 @@ from pydantic import Field
 
 from mcp_core.result import Result
 from mcp_core.tool_arguments import ToolArguments
-from mcp_guide.feature_flags.resolution import get_target_project, resolve_flag
+from mcp_guide.feature_flags.resolution import resolve_flag
 from mcp_guide.feature_flags.types import FeatureValue
 from mcp_guide.feature_flags.validation import validate_flag_name, validate_flag_value
 from mcp_guide.server import tools
 from mcp_guide.tools.tool_constants import (
     ERROR_NO_PROJECT,
-    ERROR_NOT_FOUND,
     INSTRUCTION_DISPLAY_ONLY,
     INSTRUCTION_NO_PROJECT,
     INSTRUCTION_VALIDATION_ERROR,
@@ -27,7 +26,6 @@ except ImportError:
 class ListFlagsArgs(ToolArguments):
     """Arguments for list_flags tool."""
 
-    project: Optional[str] = Field(None, description="Project context: None=current, '*'=global, name=specific")
     feature_name: Optional[str] = Field(None, description="Specific flag name to retrieve")
     active: bool = Field(True, description="Include resolved flags (True) or project-only (False)")
 
@@ -35,7 +33,6 @@ class ListFlagsArgs(ToolArguments):
 class SetFlagArgs(ToolArguments):
     """Arguments for set_flag tool."""
 
-    project: Optional[str] = Field(None, description="Project context: None=current, '*'=global, name=specific")
     feature_name: str = Field(..., description="Flag name to set")
     value: Optional[FeatureValue] = Field(True, description="Flag value to set (True=default, None=remove)")
 
@@ -43,7 +40,6 @@ class SetFlagArgs(ToolArguments):
 class GetFlagArgs(ToolArguments):
     """Arguments for get_flag tool."""
 
-    project: Optional[str] = Field(None, description="Project context: None=current, '*'=global, name=specific")
     feature_name: str = Field(..., description="Flag name to retrieve")
 
 
@@ -58,27 +54,16 @@ async def list_flags(args: ListFlagsArgs, ctx: Optional[Context] = None) -> str:
         return Result.failure(str(e), error_type=ERROR_NO_PROJECT, instruction=INSTRUCTION_NO_PROJECT).to_json_str()
 
     try:
-        target_project = get_target_project(args.project, session)
-
-        if target_project is None:
-            return Result.failure(
-                "No current project available", error_type=ERROR_NO_PROJECT, instruction=INSTRUCTION_NO_PROJECT
-            ).to_json_str()
-
-        if target_project == "*":
-            # Global flags only
-            flags_proxy = session.feature_flags()
-            flags = await flags_proxy.list()
-        elif args.active:
+        if args.active:
             # Merged flags (global + project with project precedence)
             global_proxy = session.feature_flags()
-            project_proxy = session.project_flags(target_project)
+            project_proxy = session.project_flags()
             global_flags = await global_proxy.list()
             project_flags = await project_proxy.list()
             flags = {**global_flags, **project_flags}  # project overrides global
         else:
             # Project flags only
-            flags_proxy = session.project_flags(target_project)
+            flags_proxy = session.project_flags()
             flags = await flags_proxy.list()
 
         if args.feature_name:
@@ -94,8 +79,8 @@ async def list_flags(args: ListFlagsArgs, ctx: Optional[Context] = None) -> str:
     except Exception as e:
         return Result.failure(
             f"Failed to list flags: {e}",
-            error_type="internal_error",
-            instruction="Check session and configuration state",
+            error_type="unexpected_error",
+            instruction=INSTRUCTION_DISPLAY_ONLY,
         ).to_json_str()
 
 
@@ -126,30 +111,15 @@ async def set_flag(args: SetFlagArgs, ctx: Optional[Context] = None) -> str:  # 
         return Result.failure(str(e), error_type=ERROR_NO_PROJECT, instruction=INSTRUCTION_NO_PROJECT).to_json_str()
 
     try:
-        target_project = get_target_project(args.project, session)
-
-        if target_project is None:
-            return Result.failure(
-                "No current project available", error_type=ERROR_NO_PROJECT, instruction=INSTRUCTION_NO_PROJECT
-            ).to_json_str()
-
         if args.value is None:
             # Remove flag
-            if target_project == "*":
-                flags_proxy = session.feature_flags()
-                await flags_proxy.remove(args.feature_name)
-            else:
-                flags_proxy = session.project_flags(target_project)
-                await flags_proxy.remove(args.feature_name)
+            flags_proxy = session.project_flags()
+            await flags_proxy.remove(args.feature_name)
             return Result.ok(f"Flag '{args.feature_name}' removed").to_json_str()
         else:
             # Set flag
-            if target_project == "*":
-                flags_proxy = session.feature_flags()
-                await flags_proxy.set(args.feature_name, args.value)
-            else:
-                flags_proxy = session.project_flags(target_project)
-                await flags_proxy.set(args.feature_name, args.value)
+            flags_proxy = session.project_flags()
+            await flags_proxy.set(args.feature_name, args.value)
             return Result.ok(f"Flag '{args.feature_name}' set to {repr(args.value)}").to_json_str()
 
     except OSError as e:
@@ -157,7 +127,7 @@ async def set_flag(args: SetFlagArgs, ctx: Optional[Context] = None) -> str:  # 
 
     except Exception as e:
         return Result.failure(
-            f"Failed to set flag: {e}", error_type="internal_error", instruction="Check session and configuration state"
+            f"Failed to set flag: {e}", error_type="unexpected_error", instruction=INSTRUCTION_DISPLAY_ONLY
         ).to_json_str()
 
 
@@ -172,26 +142,19 @@ async def get_flag(args: GetFlagArgs, ctx: Optional[Context] = None) -> str:  # 
         return Result.failure(str(e), error_type=ERROR_NO_PROJECT, instruction=INSTRUCTION_NO_PROJECT).to_json_str()
 
     try:
-        target_project = get_target_project(args.project, session)
-
-        if target_project is None:
-            return Result.failure(
-                "No current project available", error_type=ERROR_NO_PROJECT, instruction=INSTRUCTION_NO_PROJECT
-            ).to_json_str()
-
-        if target_project == "*":
-            # Global only
-            flags_proxy = session.feature_flags()
-            value = await flags_proxy.get(args.feature_name)
-        else:
-            # Use resolution hierarchy: project → global → None
-            project_proxy = session.project_flags(target_project)
-            global_proxy = session.feature_flags()
-            project_flags = await project_proxy.list()
-            global_flags = await global_proxy.list()
-            value = resolve_flag(args.feature_name, project_flags, global_flags)
+        # Use resolution hierarchy: project → global → None
+        project_proxy = session.project_flags()
+        global_proxy = session.feature_flags()
+        project_flags = await project_proxy.list()
+        global_flags = await global_proxy.list()
+        value = resolve_flag(args.feature_name, project_flags, global_flags)
 
         return Result.ok(value).to_json_str()
 
     except OSError as e:
         return Result.failure(f"Failed to read configuration: {e}", error_type="config_read_error").to_json_str()
+
+    except Exception as e:
+        return Result.failure(
+            f"Failed to get flag: {e}", error_type="unexpected_error", instruction=INSTRUCTION_DISPLAY_ONLY
+        ).to_json_str()

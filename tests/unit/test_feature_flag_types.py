@@ -14,7 +14,6 @@ class TestFeatureValueType:
         """Test that FeatureValue includes correct types."""
         # Get the union args from FeatureValue
         args = get_args(FeatureValue)
-        expected_types = (bool, str, list, dict)
 
         # Check that all expected base types are present
         assert bool in args

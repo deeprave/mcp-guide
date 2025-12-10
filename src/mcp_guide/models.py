@@ -11,9 +11,9 @@ from pydantic.dataclasses import dataclass as pydantic_dataclass
 
 from mcp_guide.feature_flags.types import FeatureValue
 
-# Name validation pattern: alphanumeric, underscore, hyphen
-NAME_PATTERN = r"^[a-zA-Z0-9_-]+$"
-_NAME_REGEX = re.compile(NAME_PATTERN)
+# Name validation: Unicode alphanumeric, underscore, hyphen
+NAME_PATTERN = r"^[\w-]+$"
+_NAME_REGEX = re.compile(NAME_PATTERN, re.UNICODE)
 
 
 def format_project_data(project: "Project", verbose: bool = False) -> dict[str, Any]:
@@ -168,15 +168,6 @@ class Project:
         """Return new Project with collection updated."""
         new_collections = [updater(c) if c.name == name else c for c in self.collections]
         return replace(self, collections=new_collections, updated_at=datetime.now())
-
-
-@dataclass
-class GlobalConfig:
-    """Global configuration containing docroot, projects, and feature flags."""
-
-    docroot: str
-    projects: dict[str, Project]
-    feature_flags: dict[str, FeatureValue] = field(default_factory=dict)
 
 
 @dataclass
