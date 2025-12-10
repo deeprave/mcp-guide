@@ -1,6 +1,5 @@
 """Tests for agent detection logic."""
 
-
 from mcp_guide.agent_detection import AgentInfo, detect_agent, format_agent_info, normalize_agent_name
 
 

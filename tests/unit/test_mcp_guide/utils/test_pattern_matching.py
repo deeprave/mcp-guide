@@ -1,7 +1,5 @@
 """Tests for pattern matching utilities."""
 
-
-
 from mcp_guide.constants import MAX_DOCUMENTS_PER_GLOB, MAX_GLOB_DEPTH
 from mcp_guide.utils.pattern_matching import safe_glob_search
 
