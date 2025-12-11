@@ -95,3 +95,37 @@ All feature flag tools SHALL integrate with existing MCP server patterns and err
 #### Scenario: Concurrent access protection
 - **WHEN** multiple tools modify configuration simultaneously
 - **THEN** use file locking to prevent conflicts
+
+## MODIFIED Requirements
+
+### Requirement: Name Validation System
+The MCP server SHALL provide Unicode-aware validation for all naming throughout the system.
+
+#### Scenario: Unicode character support
+- **WHEN** validating project, category, collection, or flag names
+- **THEN** accept Unicode alphanumeric characters (café, 项目, プロジェクト, проект)
+
+#### Scenario: Problematic character rejection
+- **WHEN** validating names containing spaces, slashes, or special characters
+- **THEN** reject names with spaces, /, \, @, :, ;, ?, *, &, ! characters
+
+#### Scenario: Consolidated validation pattern
+- **WHEN** any component requires name validation
+- **THEN** use unified Unicode-aware regex pattern from models.py
+
+#### Scenario: Flag name specific rules
+- **WHEN** validating feature flag names
+- **THEN** use same Unicode pattern but maintain no-periods rule for future dot notation
+
+## REMOVED Requirements
+
+### Requirement: ASCII-Only Name Validation
+The previous ASCII-only validation pattern has been replaced with Unicode-aware validation.
+
+#### Scenario: Removed validate_project_name function
+- **WHEN** feature flag validation was needed
+- **THEN** function was removed as redundant with models.py validation
+
+#### Scenario: Removed duplicate regex patterns
+- **WHEN** multiple components needed name validation
+- **THEN** consolidated to single Unicode-aware pattern in models.py
