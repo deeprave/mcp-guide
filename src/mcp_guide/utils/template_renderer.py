@@ -1,5 +1,6 @@
 """Template rendering utilities for Mustache templates."""
 
+import logging
 from collections import ChainMap
 from typing import Any, Callable
 
@@ -24,13 +25,20 @@ def is_template_file(file_info: FileInfo) -> bool:
 
 
 def _safe_lambda(func: Callable[..., str]) -> Callable[..., str]:
-    """Wrap lambda function to handle errors gracefully."""
+    """Wrap lambda function to handle errors gracefully.
+
+    Logs the full exception and returns a concise, user-safe error string that
+    includes the exception type to aid debugging.
+    """
 
     def wrapper(*args: Any, **kwargs: Any) -> str:
         try:
             return func(*args, **kwargs)
         except Exception as e:
-            return f"[Template Error: {str(e)}]"
+            # Log full traceback for diagnostics
+            logging.exception("Error while evaluating template lambda")
+            # Return a user-friendly error string with exception type preserved
+            return f"[Template Error ({type(e).__name__}): {e}]"
 
     return wrapper
 

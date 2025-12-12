@@ -26,79 +26,71 @@ class TemplateFunctions:
         self.context = context
         self.highlighter = SyntaxHighlighter()
 
-    def format_date(self, text: str, render: Optional[Any] = None) -> str:
-        """Format dates: {{#format_date}}%Y-%m-%d{{created_at}}{{/format_date}}"""
+    def _parse_template_args(self, text: str) -> tuple[str, str]:
+        """Parse mustache-style lambda body into (arg, variable_name).
+
+        Example:
+            "%Y-%m-%d{{created_at}}" -> ("%Y-%m-%d", "created_at")
+        """
         if "{{" not in text or "}}" not in text:
             raise ValueError(f"Invalid template format: {text}")
 
-        parts = text.split("{{", 1)
-        if len(parts) != 2:
+        # Split once to keep everything before the first '{{' as the argument
+        arg_part, remainder = text.split("{{", 1)
+
+        # Extract content inside the first pair of braces
+        if "}}" not in remainder:
             raise ValueError(f"Invalid template format: {text}")
+        var_part, _ = remainder.split("}}", 1)
+        var_name = var_part.strip()
 
-        format_str = parts[0]
-        var_part = parts[1].rstrip("}}").strip()
+        if not var_name:
+            raise ValueError(f"Missing variable name in template: {text}")
+        if not var_name.replace("_", "").replace("-", "").replace(".", "").isalnum():
+            raise ValueError(f"Invalid variable name: {var_name}")
 
-        if not var_part or not var_part.replace("_", "").replace("-", "").isalnum():
-            raise ValueError(f"Invalid variable name: {var_part}")
+        return arg_part, var_name
 
-        if var_part not in self.context:
-            raise KeyError(f"Variable not found in context: {var_part}")
+    def format_date(self, text: str, render: Optional[Any] = None) -> str:
+        """Format dates: {{#format_date}}%Y-%m-%d{{created_at}}{{/format_date}}"""
+        format_str, var_name = self._parse_template_args(text)
 
-        date_value = self.context[var_part]
+        if var_name not in self.context:
+            raise KeyError(f"Variable not found in context: {var_name}")
+
+        date_value = self.context[var_name]
         if not hasattr(date_value, "strftime"):
-            raise TypeError(f"Variable {var_part} is not a datetime object")
+            raise TypeError(f"Variable {var_name} is not a datetime object")
 
         return str(date_value.strftime(format_str))
 
     def truncate(self, text: str, render: Optional[Any] = None) -> str:
         """Truncate with ellipses: {{#truncate}}50{{description}}{{/truncate}}"""
-        if "{{" not in text or "}}" not in text:
-            raise ValueError(f"Invalid template format: {text}")
-
-        parts = text.split("{{", 1)
-        if len(parts) != 2:
-            raise ValueError(f"Invalid template format: {text}")
-
-        length_str = parts[0].strip()
-        var_part = parts[1].rstrip("}}").strip()
+        length_str, var_name = self._parse_template_args(text)
 
         try:
-            max_len = int(length_str)
+            max_len = int(length_str.strip())
         except ValueError:
             raise ValueError(f"Invalid length value: {length_str}")
 
         if max_len < 0:
             raise ValueError(f"Length must be non-negative: {max_len}")
 
-        if not var_part or not var_part.replace("_", "").replace("-", "").isalnum():
-            raise ValueError(f"Invalid variable name: {var_part}")
+        if var_name not in self.context:
+            raise KeyError(f"Variable not found in context: {var_name}")
 
-        if var_part not in self.context:
-            raise KeyError(f"Variable not found in context: {var_part}")
-
-        value = str(self.context[var_part])
+        value = str(self.context[var_name])
         return value[:max_len] + "..." if len(value) > max_len else value
 
     def highlight_code(self, text: str, render: Optional[Any] = None) -> str:
         """Syntax highlight: {{#highlight_code}}python{{code_snippet}}{{/highlight_code}}"""
-        if "{{" not in text or "}}" not in text:
-            raise ValueError(f"Invalid template format: {text}")
+        language, var_name = self._parse_template_args(text)
 
-        parts = text.split("{{", 1)
-        if len(parts) != 2:
-            raise ValueError(f"Invalid template format: {text}")
-
-        language = parts[0].strip()
-        var_part = parts[1].rstrip("}}").strip()
-
-        if not language or not language.replace("-", "").replace("+", "").isalnum():
+        if not language.strip() or not language.replace("-", "").replace("+", "").isalnum():
             raise ValueError(f"Invalid language name: {language}")
 
-        if not var_part or not var_part.replace("_", "").replace("-", "").isalnum():
-            raise ValueError(f"Invalid variable name: {var_part}")
+        if var_name not in self.context:
+            raise KeyError(f"Variable not found in context: {var_name}")
 
-        if var_part not in self.context:
-            raise KeyError(f"Variable not found in context: {var_part}")
-
-        code = str(self.context[var_part])
+        code = str(self.context[var_name])
         return f"```{language}\n{code}\n```"
