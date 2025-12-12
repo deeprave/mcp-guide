@@ -88,14 +88,17 @@ Template support Phase 1 implemented basic template rendering with lambda functi
 
 ## Architecture
 
-### Context Layer Ordering (inner overrides outer)
-1. **System context**: `now`, `timestamp` (base layer)
-2. **Agent context**: `@`, `agent.name`, `agent.version`, `agent.prompt_prefix`
-3. **Project context**: `project.name`, `project.created_at`, `project.categories`, `project.collections`
-4. **Collection context**: `collection.name`, `collection.description`, `collection.categories` (when applicable)
-5. **Category context**: `category.name`, `category.description`, `category.dir`
-6. **File context**: `file.path`, `file.basename`, `file.size`, `file.mtime`, `file.ctime`
-7. **Lambda functions**: `format_date`, `truncate`, `highlight_code`
+### Context Layer Ordering (highest to lowest priority)
+1. **Transient context**: `now`, `timestamp` (added per-render, highest priority)
+2. **File context**: `file.path`, `file.basename`, `file.size`, `file.mtime`, `file.ctime`
+3. **Collection context**: `collection.name`, `collection.description`, `collection.categories` (when applicable)
+4. **Category context**: `category.name`, `category.description`, `category.dir`
+5. **Project context**: `project.name`, `project.created_at`, `project.categories`, `project.collections`
+6. **Agent context**: `@`, `agent.name`, `agent.version`, `agent.prompt_prefix`
+7. **System context**: Static program info (base layer, lowest priority)
+8. **Lambda functions**: `format_date`, `truncate`, `highlight_code` (injected during rendering)
+
+Note: Transient context (timestamps) is generated fresh per-render using `get_transient_context()` function to ensure current values.
 
 ### Type Conversion Strategy
 - **datetime → ISO 8601 string**: Template-safe, human-readable
