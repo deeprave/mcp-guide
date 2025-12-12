@@ -68,6 +68,33 @@ JSON formatting can be enabled for file outputs:
 add_file_handler("app.log", json_format=True)
 ```
 
+#### Structured Data with Extra Parameter
+
+For diagnostic and debugging information that is already structured or easily structured, use the `extra` parameter to provide machine-parseable context:
+
+```python
+logger.warning(
+    "Dropping non-string key in template context: %r (type: %s)",
+    key, type(key).__name__,
+    extra={
+        "dropped_key": key,
+        "key_type": type(key).__name__,
+        "component": "template_context"
+    }
+)
+```
+
+**Benefits of `extra` parameter:**
+- **Human readable**: Standard formatters show the message normally
+- **Machine parseable**: Extra fields available for filtering/indexing in log aggregators
+- **Future-proof**: Easy migration to structured logging without code changes
+- **Automatic handling**: Python logging processes extra fields transparently
+
+**Recommended `extra` fields:**
+- `component`: Module or subsystem name (e.g., "template_context", "file_discovery")
+- Context-specific fields: Error codes, file paths, user IDs, operation types
+- Avoid PII in extra fields unless redaction is configured
+
 #### Log Filtering/Redaction
 
 Optional PII redaction via a separate `mcp_log_filter.py` module:
@@ -88,6 +115,7 @@ Optional PII redaction via a separate `mcp_log_filter.py` module:
 - **Logger Separation**: Prevents log duplication between application and framework
 - **Optional Features**: Structured logging and redaction are configurable
 - **TRACE Level**: Enhanced debugging with custom TRACE level support
+- **Structured Context**: `extra` parameter provides machine-parseable diagnostic data without changing log format
 
 ### Negative
 
@@ -108,6 +136,7 @@ Optional PII redaction via a separate `mcp_log_filter.py` module:
 3. **Optional features**: Structured logging and redaction are conditionally enabled
 4. **Configuration timing**: Must happen after FastMCP server initialization
 5. **Integration points**: Configuration can be driven by CLI, environment, or direct API calls
+6. **Structured context**: Use `extra` parameter for diagnostic data that is already structured or easily structured
 
 ### Logger Hierarchy Details
 

@@ -35,98 +35,149 @@
 - [x] 1.6 Add unit tests for template detection
 - [x] 1.7 Add unit tests for rendering success cases
 - [x] 1.8 Add unit tests for error handling
+- [x] 1.9 Enhanced error handling with logging and exception types
+- [x] 1.10 Added proper Result.instruction consistency for agent guidance
 
 ### 2. FileInfo Enhancement
 - [x] 2.1 Add optional ctime field to FileInfo model
-- [x] 2.2 Update file discovery to populate ctime when available
+- [x] 2.2 Update file discovery to populate ctime when available (simplified, removed hasattr check)
 - [x] 2.3 Implement size tracking for rendered templates
 - [x] 2.4 Update FileInfo creation in discover_category_files
 - [x] 2.5 Add unit tests for ctime handling
 - [x] 2.6 Add unit tests for size tracking
+- [x] 2.7 Updated ctime documentation to clarify platform-dependent behavior (Unix: inode change time, Windows: creation time)
+
+### 3. Code Quality and Security Enhancements (COMPLETED ✅)
+- [x] 3.1 Centralized template parsing with _parse_template_args() helper
+- [x] 3.2 Enhanced variable name validation to support dotted paths (e.g., project.name)
+- [x] 3.3 Comprehensive security test coverage for all lambda functions
+- [x] 3.4 Enhanced _safe_lambda with exception type logging and better error context
+- [x] 3.5 Full MyPy strict type compliance
+- [x] 3.6 Ruff linting and formatting compliance
+- [x] 3.7 20 comprehensive test cases with 98%+ coverage
 
 **Files Created/Modified:**
-- `src/mcp_guide/utils/template_renderer.py` - Core template rendering functionality
+- `src/mcp_guide/utils/template_renderer.py` - Core template rendering functionality with enhanced error handling
 - `tests/test_template_renderer.py` - Comprehensive test suite (11 test cases, 100% coverage)
-- `src/mcp_guide/utils/file_discovery.py` - Added ctime field to FileInfo model
+- `src/mcp_guide/utils/file_discovery.py` - Added ctime field to FileInfo model with platform-dependent documentation
+- `src/mcp_guide/utils/template_functions.py` - Moved from guide/ to proper src structure, enhanced with centralized parsing
+- `tests/test_template_functions.py` - Expanded to 20 comprehensive test cases with 98% coverage
 
 **Key Features Implemented:**
 - Template detection using `.mustache` extension
 - Chevron integration with lambda function support
-- Result pattern for error handling
+- Result pattern for error handling with proper instruction consistency
 - Pass-through for non-template files
 - Size tracking for rendered templates
-- Optional ctime field with graceful fallback
+- Optional ctime field with platform-dependent documentation
+- Enhanced error diagnostics with exception types and logging
+- Centralized template parsing supporting dotted paths (e.g., `{{project.name}}`)
+- Comprehensive security validation and test coverage
+- Full MyPy strict type compliance and code quality standards
 
-## Phase 2: Template Context Resolution
+## Phase 2: Template Context Resolution (READY FOR IMPLEMENTATION)
 
-### 3. TemplateContext Infrastructure
-- [ ] 3.1 Create TemplateContext class extending ChainMap[str, Any]
-- [ ] 3.2 Implement type validation for keys (strings) and values (template-safe types)
-- [ ] 3.3 Override new_child() to return TemplateContext instances
-- [ ] 3.4 Override parents property to return TemplateContext | None
-- [ ] 3.5 Add soft_delete() and hard_delete() methods with sentinel masking
-- [ ] 3.6 Implement __getitem__ override to handle soft-deleted keys (KeyError)
-- [ ] 3.7 Add unit tests for TemplateContext type validation
-- [ ] 3.8 Add unit tests for scope chaining and priority resolution
-- [ ] 3.9 Add unit tests for both deletion modes (hard/soft)
+**See design.md for architecture decisions and technical details.**
 
-### 4. Context Builder with TemplateContext
-- [ ] 4.1 Create template context builder using TemplateContext
-- [ ] 4.2 Implement layered context creation (system → agent → project → collection → category → file)
-- [ ] 4.3 Add datetime to ISO string conversion utilities
-- [ ] 4.4 Add Path to string conversion utilities
-- [ ] 4.5 Handle None values gracefully in context chain
-- [ ] 4.6 Add unit tests for context builder with TemplateContext
-- [ ] 4.7 Add unit tests for type conversions and None handling
+### 3. TemplateContext Infrastructure (TDD: Red-Green-Refactor)
+- [ ] 3.1 **RED**: Create failing test for TemplateContext class extending ChainMap[str, Any]
+- [ ] 3.2 **GREEN**: Implement basic TemplateContext class with ChainMap inheritance
+- [ ] 3.3 **RED**: Create failing test for type validation (keys=strings, values=template-safe)
+- [ ] 3.4 **GREEN**: Implement type validation in __setitem__ and __init__
+- [ ] 3.5 **RED**: Create failing test for new_child() returning TemplateContext instances
+- [ ] 3.6 **GREEN**: Override new_child() method with proper return type
+- [ ] 3.7 **RED**: Create failing test for parents property returning TemplateContext | None
+- [ ] 3.8 **GREEN**: Override parents property with correct typing
+- [ ] 3.9 **RED**: Create failing tests for soft_delete() and hard_delete() methods
+- [ ] 3.10 **GREEN**: Implement deletion methods with sentinel masking
+- [ ] 3.11 **RED**: Create failing test for __getitem__ handling soft-deleted keys (KeyError)
+- [ ] 3.12 **GREEN**: Override __getitem__ to handle soft deletion
+- [ ] 3.13 **REFACTOR**: Clean up TemplateContext implementation and add comprehensive docstrings
 
-### 5. Project Context Variables
-- [ ] 5.1 Implement project context extraction from Project model
-- [ ] 5.2 Add project.name, created_at, updated_at
-- [ ] 5.3 Add project.categories list (category names)
-- [ ] 5.4 Add project.collections list (collection names)
-- [ ] 5.5 Add unit tests for project context
-- [ ] 5.6 Test with missing project data
+### 4. Context Builder with TemplateContext (TDD: Red-Green-Refactor)
+- [ ] 4.1 **RED**: Create failing test for build_template_context() function signature
+- [ ] 4.2 **GREEN**: Implement basic build_template_context() returning empty TemplateContext
+- [ ] 4.3 **RED**: Create failing test for layered context creation (system → agent → project → collection → category → file)
+- [ ] 4.4 **GREEN**: Implement context layering with TemplateContext.new_child()
+- [ ] 4.5 **RED**: Create failing tests for datetime to ISO string conversion utilities
+- [ ] 4.6 **GREEN**: Implement datetime conversion utilities
+- [ ] 4.7 **RED**: Create failing tests for Path to string conversion utilities
+- [ ] 4.8 **GREEN**: Implement Path conversion utilities
+- [ ] 4.9 **RED**: Create failing tests for None value handling in context chain
+- [ ] 4.10 **GREEN**: Implement graceful None handling
+- [ ] 4.11 **REFACTOR**: Optimize context builder and add comprehensive error handling
 
-### 6. File Context Variables
-- [ ] 6.1 Implement file context extraction from FileInfo
-- [ ] 6.2 Add file.path, basename, category, collection
-- [ ] 6.3 Add file.size (rendered size for templates)
-- [ ] 6.4 Add file.mtime, ctime (optional)
-- [ ] 6.5 Add unit tests for file context
-- [ ] 6.6 Test with missing optional fields
+### 5. Project Context Variables (TDD: Red-Green-Refactor)
+- [ ] 5.1 **RED**: Create failing test for project context extraction from Project model
+- [ ] 5.2 **GREEN**: Implement extract_project_context() function
+- [ ] 5.3 **RED**: Create failing tests for project.name, created_at, updated_at
+- [ ] 5.4 **GREEN**: Implement project basic fields extraction
+- [ ] 5.5 **RED**: Create failing tests for project.categories list (category names)
+- [ ] 5.6 **GREEN**: Implement categories list extraction
+- [ ] 5.7 **RED**: Create failing tests for project.collections list (collection names)
+- [ ] 5.8 **GREEN**: Implement collections list extraction
+- [ ] 5.9 **RED**: Create failing test for missing project data handling
+- [ ] 5.10 **GREEN**: Implement graceful handling of missing project data
+- [ ] 5.11 **REFACTOR**: Clean up project context extractor
 
-### 7. Category Context Variables
-- [ ] 7.1 Implement category context extraction from Category model
-- [ ] 7.2 Add category.name, description
-- [ ] 7.3 Add category.dir (relative path only, security requirement)
-- [ ] 7.4 Ensure no docroot exposure
-- [ ] 7.5 Add unit tests for category context
-- [ ] 7.6 Test security constraints
+### 6. File Context Variables (TDD: Red-Green-Refactor)
+- [ ] 6.1 **RED**: Create failing test for file context extraction from FileInfo
+- [ ] 6.2 **GREEN**: Implement extract_file_context() function
+- [ ] 6.3 **RED**: Create failing tests for file.path, basename, category, collection
+- [ ] 6.4 **GREEN**: Implement file basic fields extraction
+- [ ] 6.5 **RED**: Create failing test for file.size (rendered size for templates)
+- [ ] 6.6 **GREEN**: Implement size field extraction
+- [ ] 6.7 **RED**: Create failing tests for file.mtime, ctime (optional)
+- [ ] 6.8 **GREEN**: Implement optional datetime fields extraction
+- [ ] 6.9 **RED**: Create failing test for missing optional fields handling
+- [ ] 6.10 **GREEN**: Implement graceful handling of missing optional fields
+- [ ] 6.11 **REFACTOR**: Clean up file context extractor
 
-### 8. Collection Context Variables
-- [ ] 8.1 Implement collection context extraction from Collection model
-- [ ] 8.2 Add collection.name, description
-- [ ] 8.3 Add collection.categories list
-- [ ] 8.4 Handle None when file not accessed via collection
-- [ ] 8.5 Add unit tests for collection context
-- [ ] 8.6 Test None handling
+### 7. Category Context Variables (TDD: Red-Green-Refactor)
+- [ ] 7.1 **RED**: Create failing test for category context extraction from Category model
+- [ ] 7.2 **GREEN**: Implement extract_category_context() function
+- [ ] 7.3 **RED**: Create failing tests for category.name, description
+- [ ] 7.4 **GREEN**: Implement category basic fields extraction
+- [ ] 7.5 **RED**: Create failing test for category.dir (relative path only, security requirement)
+- [ ] 7.6 **GREEN**: Implement secure relative path extraction
+- [ ] 7.7 **RED**: Create failing test to ensure no docroot exposure
+- [ ] 7.8 **GREEN**: Implement docroot exposure prevention
+- [ ] 7.9 **RED**: Create failing test for security constraints validation
+- [ ] 7.10 **GREEN**: Implement security validation
+- [ ] 7.11 **REFACTOR**: Clean up category context extractor and security measures
 
-### 9. Agent Context Variables
-- [ ] 9.1 Implement agent context extraction from session
-- [ ] 9.2 Add @ variable (agent prompt character)
-- [ ] 9.3 Add agent.name, version, prompt_prefix
-- [ ] 9.4 Include all available agent info fields
-- [ ] 9.5 Handle missing agent info gracefully
-- [ ] 9.6 Add unit tests for agent context
-- [ ] 9.7 Test with missing agent data
+### 8. Collection Context Variables (TDD: Red-Green-Refactor)
+- [ ] 8.1 **RED**: Create failing test for collection context extraction from Collection model
+- [ ] 8.2 **GREEN**: Implement extract_collection_context() function
+- [ ] 8.3 **RED**: Create failing tests for collection.name, description
+- [ ] 8.4 **GREEN**: Implement collection basic fields extraction
+- [ ] 8.5 **RED**: Create failing test for collection.categories list
+- [ ] 8.6 **GREEN**: Implement categories list extraction
+- [ ] 8.7 **RED**: Create failing test for None handling when file not accessed via collection
+- [ ] 8.8 **GREEN**: Implement None handling for collection context
+- [ ] 8.9 **REFACTOR**: Clean up collection context extractor
 
-### 10. System Context Variables
-- [ ] 10.1 Implement system context generation
-- [ ] 10.2 Add now (ISO 8601 timestamp)
-- [ ] 10.3 Add timestamp (Unix timestamp)
-- [ ] 10.4 Ensure timestamp consistency within single render
-- [ ] 10.5 Add unit tests for system context
-- [ ] 10.6 Test timestamp consistency
+### 9. Agent Context Variables (TDD: Red-Green-Refactor)
+- [ ] 9.1 **RED**: Create failing test for agent context extraction from session
+- [ ] 9.2 **GREEN**: Implement extract_agent_context() function
+- [ ] 9.3 **RED**: Create failing test for @ variable (agent prompt character)
+- [ ] 9.4 **GREEN**: Implement @ variable extraction
+- [ ] 9.5 **RED**: Create failing tests for agent.name, version, prompt_prefix
+- [ ] 9.6 **GREEN**: Implement agent info fields extraction
+- [ ] 9.7 **RED**: Create failing test for missing agent info graceful handling
+- [ ] 9.8 **GREEN**: Implement graceful handling of missing agent data
+- [ ] 9.9 **REFACTOR**: Clean up agent context extractor
+
+### 10. System Context Variables (TDD: Red-Green-Refactor)
+- [ ] 10.1 **RED**: Create failing test for system context generation
+- [ ] 10.2 **GREEN**: Implement extract_system_context() function
+- [ ] 10.3 **RED**: Create failing test for now (ISO 8601 timestamp)
+- [ ] 10.4 **GREEN**: Implement now timestamp generation
+- [ ] 10.5 **RED**: Create failing test for timestamp (Unix timestamp)
+- [ ] 10.6 **GREEN**: Implement Unix timestamp generation
+- [ ] 10.7 **RED**: Create failing test for timestamp consistency within single render
+- [ ] 10.8 **GREEN**: Implement timestamp consistency mechanism
+- [ ] 10.9 **REFACTOR**: Clean up system context extractor and ensure consistency
 
 ## Phase 3: Integration and Error Handling
 
