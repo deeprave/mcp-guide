@@ -109,7 +109,7 @@ async def discover_category_files(
             size=stat_result.st_size,
             mtime=datetime.fromtimestamp(stat_result.st_mtime),
             basename=basename,
-            ctime=datetime.fromtimestamp(stat_result.st_ctime) if hasattr(stat_result, 'st_ctime') else None,
+            ctime=datetime.fromtimestamp(stat_result.st_ctime) if hasattr(stat_result, "st_ctime") else None,
         )
         results.append(file_info)
 
