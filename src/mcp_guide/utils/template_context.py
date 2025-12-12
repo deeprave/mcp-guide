@@ -1,6 +1,7 @@
 """Template context management with type-safe ChainMap extension."""
 
 import logging
+import time
 from collections import ChainMap
 from collections.abc import MutableMapping
 from datetime import datetime
@@ -183,3 +184,16 @@ def add_file_context(base_context: TemplateContext, file_info: "FileInfo") -> Te
             file_data["ctime"] = ""
 
     return base_context.new_child(file_data)
+
+
+def get_transient_context(base_context: TemplateContext) -> TemplateContext:
+    """Generate fresh transient data for template rendering.
+
+    Creates a new child context with runtime data that must be computed per-render.
+    This ensures timestamps and other dynamic values are always current.
+    """
+    transient_data = {
+        "now": datetime.now().isoformat(),
+        "timestamp": int(time.time()),
+    }
+    return base_context.new_child(transient_data)

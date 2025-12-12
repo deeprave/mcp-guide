@@ -1,11 +1,17 @@
 """Tests for template context builder functionality."""
 
 import logging
+import time
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
-from mcp_guide.utils.template_context import TemplateContext, add_file_context, build_template_context
+from mcp_guide.utils.template_context import (
+    TemplateContext,
+    add_file_context,
+    build_template_context,
+    get_transient_context,
+)
 
 
 @dataclass
@@ -186,3 +192,27 @@ class TestBuildTemplateContext:
         assert file_context["mtime"] == ""
         assert file_context["ctime"] == ""
         assert file_context["size"] == 1024
+
+    def test_get_transient_context(self):
+        """Test get_transient_context adds fresh runtime data."""
+        # Build base context
+        base_context = build_template_context(system_data={"static": "value"})
+
+        # Get transient context
+        transient_context = get_transient_context(base_context)
+
+        # Should have transient data
+        assert "now" in transient_context
+        assert "timestamp" in transient_context
+        assert "static" in transient_context  # Base context still accessible
+
+        # Should be fresh timestamps
+        assert isinstance(transient_context["now"], str)
+        assert isinstance(transient_context["timestamp"], int)
+
+        # Timestamps should be recent (within last few seconds)
+        now_timestamp = int(time.time())
+        assert abs(transient_context["timestamp"] - now_timestamp) < 5
+
+        # Should be TemplateContext instance
+        assert isinstance(transient_context, TemplateContext)
