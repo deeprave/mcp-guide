@@ -24,6 +24,7 @@ class FileInfo:
         content: File content (populated after reading)
         category: Category name where file was discovered (for templating)
         collection: Collection name where file was discovered (for templating)
+        ctime: File creation time (optional, when available)
     """
 
     path: Path
@@ -33,6 +34,7 @@ class FileInfo:
     content: str | None = None
     category: str | None = None
     collection: str | None = None
+    ctime: datetime | None = None
 
 
 async def discover_category_files(
@@ -107,6 +109,7 @@ async def discover_category_files(
             size=stat_result.st_size,
             mtime=datetime.fromtimestamp(stat_result.st_mtime),
             basename=basename,
+            ctime=datetime.fromtimestamp(stat_result.st_ctime) if hasattr(stat_result, 'st_ctime') else None,
         )
         results.append(file_info)
 

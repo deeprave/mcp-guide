@@ -2,6 +2,70 @@
 
 ## ADDED Requirements
 
+### Requirement: Template Lambda Functions (IMPLEMENTED ✅)
+
+The system SHALL provide advanced template functionality through lambda functions that support complex data formatting and processing.
+
+Template lambda functions SHALL:
+- Follow Mustache lambda specification (receive text and render parameters)
+- Integrate with ChainMap context system for data access
+- Support class-based architecture for clean dependency management
+- Provide graceful fallback for optional dependencies
+- Handle parsing errors gracefully with clear error messages
+
+#### Lambda Function: format_date
+The system SHALL provide date formatting capabilities through `format_date` lambda function.
+
+Date formatting SHALL:
+- Accept strftime format patterns as template text
+- Parse variable references from template content
+- Format datetime objects using Python strftime
+- Support all standard strftime format codes
+
+**Usage Pattern**: `{{#format_date}}%Y-%m-%d{{created_at}}{{/format_date}}`
+
+#### Scenario: Date formatting with strftime
+- **WHEN** template contains `{{#format_date}}%B %d, %Y{{created_at}}{{/format_date}}`
+- **AND** context contains `created_at` with datetime(2023, 12, 25)
+- **THEN** render as "December 25, 2023"
+
+#### Lambda Function: truncate
+The system SHALL provide text truncation capabilities through `truncate` lambda function.
+
+Text truncation SHALL:
+- Accept maximum length as numeric parameter
+- Parse variable references from template content
+- Truncate text to specified length with ellipses
+- Handle edge cases (empty text, negative lengths)
+
+**Usage Pattern**: `{{#truncate}}50{{description}}{{/truncate}}`
+
+#### Scenario: Text truncation with ellipses
+- **WHEN** template contains `{{#truncate}}20{{description}}{{/truncate}}`
+- **AND** context contains long description text
+- **THEN** truncate to 20 characters and append "..."
+
+#### Lambda Function: highlight_code
+The system SHALL provide syntax highlighting capabilities through `highlight_code` lambda function.
+
+Code highlighting SHALL:
+- Accept programming language as parameter
+- Parse code content from variable references
+- Generate markdown code blocks with language specification
+- Support optional Pygments integration for enhanced highlighting
+- Provide fallback to plain markdown code blocks
+
+**Usage Pattern**: `{{#highlight_code}}python{{code_snippet}}{{/highlight_code}}`
+
+#### Scenario: Code highlighting with markdown
+- **WHEN** template contains `{{#highlight_code}}python{{code_snippet}}{{/highlight_code}}`
+- **AND** context contains Python code in `code_snippet`
+- **THEN** render as markdown code block with python language tag
+
+#### Scenario: Pygments availability detection
+- **WHEN** SyntaxHighlighter initializes
+- **THEN** detect Pygments availability and set `pygments_available` flag
+
 ### Requirement: Template Detection and Rendering
 
 The system SHALL provide mustache template rendering for files with `.mustache` extension.
@@ -48,6 +112,62 @@ Context sources SHALL include (in priority order, later overrides earlier):
 1. **System context**: Built-in variables (now, timestamp)
 2. **Agent context**: Agent information and prompt character
 3. **Project context**: Project configuration data
+4. **Collection context**: Collection information (when applicable)
+5. **Category context**: Category configuration data
+6. **File context**: Current file metadata
+7. **Lambda functions**: Template processing functions (format_date, truncate, highlight_code)
+
+Context resolution SHALL:
+- Use TemplateContext.new_child() to create layered contexts
+- Compute context fresh on every template render (stateless approach)
+- Convert datetime objects to ISO 8601 strings
+- Convert Path objects to strings for template compatibility
+- Handle missing optional fields gracefully (None values)
+- Validate all context data at creation time
+- Inject TemplateFunctions lambda functions into context
+
+#### Scenario: TemplateContext type validation
+- **WHEN** creating context with invalid key type
+- **THEN** raise TypeError with clear message about string keys requirement
+
+#### Scenario: TemplateContext scope chaining
+- **WHEN** file context contains same key as category context
+- **THEN** file context value overrides category context value
+
+#### Scenario: TemplateContext hard deletion
+- **WHEN** deleting key from child context using del or hard_delete()
+- **THEN** parent context value becomes visible for that key
+
+#### Scenario: TemplateContext soft deletion
+- **WHEN** soft-deleting key from child context
+- **THEN** key appears missing (KeyError) even if present in parent
+
+#### Scenario: Context variable access
+- **WHEN** template uses `{{project.name}}`
+- **THEN** substitute with current project name from context
+
+#### Scenario: Missing context variable
+- **WHEN** template references undefined variable
+- **THEN** render as empty string (Chevron default behavior)
+
+#### Scenario: Context priority resolution
+- **WHEN** variable defined in multiple context sources
+- **THEN** use value from highest priority source (file overrides category, etc.)
+
+#### Scenario: Agent prompt character access
+- **WHEN** template uses `{{@}}`
+- **THEN** substitute with agent's prompt character (e.g., "guide", "/")
+
+#### Scenario: Lambda function integration
+- **WHEN** template uses lambda functions with context variables
+- **THEN** lambda functions access full context hierarchy through ChainMap
+
+### Requirement: TemplateContext Type Safety
+
+The system SHALL enforce type safety for template context data.
+
+TemplateContext SHALL validate:
+- Keys must be strings (for template variable names)
 4. **Collection context**: Collection information (when applicable)
 5. **Category context**: Category configuration data
 6. **File context**: Current file metadata

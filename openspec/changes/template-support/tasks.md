@@ -2,25 +2,60 @@
 
 **Approval gate**: PENDING
 
-## Phase 1: Template Rendering Engine
+## Phase 0: Template Lambda Functions (COMPLETED ✅)
+
+### 0. Template Lambda Functions Infrastructure
+- [x] 0.1 Create TemplateFunctions class with ChainMap context integration
+- [x] 0.2 Create SyntaxHighlighter class with optional Pygments integration
+- [x] 0.3 Implement format_date lambda function for datetime formatting
+- [x] 0.4 Implement truncate lambda function for text truncation with ellipses
+- [x] 0.5 Implement highlight_code lambda function for syntax highlighting
+- [x] 0.6 Support Mustache lambda specification (text, render parameters)
+- [x] 0.7 Add comprehensive unit tests for all lambda functions
+- [x] 0.8 Add Chevron integration test for full template rendering pipeline
+- [x] 0.9 Implement graceful fallback for missing Pygments dependency
+
+**Files Created:**
+- `guide/template_functions.py` - Core lambda functions implementation
+- `tests/test_template_functions.py` - Comprehensive test suite
+
+**Lambda Functions Available:**
+- `format_date`: Date formatting with strftime patterns (e.g., `{{#format_date}}%Y-%m-%d{{created_at}}{{/format_date}}`)
+- `truncate`: Text truncation with ellipses (e.g., `{{#truncate}}50{{description}}{{/truncate}}`)
+- `highlight_code`: Syntax highlighting with markdown code blocks (e.g., `{{#highlight_code}}python{{code_snippet}}{{/highlight_code}}`)
+
+## Phase 1: Template Rendering Engine (COMPLETED ✅)
 
 ### 1. Template Detection and Rendering
-- [ ] 1.1 Add chevron library integration (already dependency)
-- [ ] 1.2 Implement .mustache file detection (check FileInfo.path.name.endswith('.mustache'))
-- [ ] 1.3 Implement template rendering function with error handling
-- [ ] 1.4 Add pass-through for non-template files
-- [ ] 1.5 Handle template syntax errors with Result pattern
-- [ ] 1.6 Add unit tests for template detection
-- [ ] 1.7 Add unit tests for rendering success cases
-- [ ] 1.8 Add unit tests for error handling
+- [x] 1.1 Add chevron library integration (already dependency)
+- [x] 1.2 Implement .mustache file detection (check FileInfo.path.name.endswith('.mustache'))
+- [x] 1.3 Implement template rendering function with error handling
+- [x] 1.4 Add pass-through for non-template files
+- [x] 1.5 Handle template syntax errors with Result pattern
+- [x] 1.6 Add unit tests for template detection
+- [x] 1.7 Add unit tests for rendering success cases
+- [x] 1.8 Add unit tests for error handling
 
 ### 2. FileInfo Enhancement
-- [ ] 2.1 Add optional ctime field to FileInfo model
-- [ ] 2.2 Update file discovery to populate ctime when available
-- [ ] 2.3 Implement size tracking for rendered templates
-- [ ] 2.4 Update FileInfo creation in discover_category_files
-- [ ] 2.5 Add unit tests for ctime handling
-- [ ] 2.6 Add unit tests for size tracking
+- [x] 2.1 Add optional ctime field to FileInfo model
+- [x] 2.2 Update file discovery to populate ctime when available
+- [x] 2.3 Implement size tracking for rendered templates
+- [x] 2.4 Update FileInfo creation in discover_category_files
+- [x] 2.5 Add unit tests for ctime handling
+- [x] 2.6 Add unit tests for size tracking
+
+**Files Created/Modified:**
+- `src/mcp_guide/utils/template_renderer.py` - Core template rendering functionality
+- `tests/test_template_renderer.py` - Comprehensive test suite (11 test cases, 100% coverage)
+- `src/mcp_guide/utils/file_discovery.py` - Added ctime field to FileInfo model
+
+**Key Features Implemented:**
+- Template detection using `.mustache` extension
+- Chevron integration with lambda function support
+- Result pattern for error handling
+- Pass-through for non-template files
+- Size tracking for rendered templates
+- Optional ctime field with graceful fallback
 
 ## Phase 2: Template Context Resolution
 
@@ -105,17 +140,19 @@
 - [ ] 11.7 Test error logging
 - [ ] 11.8 Test agent instruction content
 
-### 12. Template Rendering Pipeline with TemplateContext
+### 12. Template Rendering Pipeline with TemplateContext and Lambda Functions
 - [ ] 12.1 Integrate TemplateContext into template rendering pipeline
 - [ ] 12.2 Build base context chain (system → agent → project → collection → category)
 - [ ] 12.3 Create per-file contexts using TemplateContext.new_child() for isolation
-- [ ] 12.4 Render templates with flattened TemplateContext (dict conversion)
-- [ ] 12.5 Handle template rendering errors gracefully
-- [ ] 12.6 Update FileInfo.size for rendered templates
-- [ ] 12.7 Add integration tests for TemplateContext in rendering pipeline
-- [ ] 12.8 Test context isolation between file renders
+- [ ] 12.4 Inject TemplateFunctions lambda functions into context
+- [ ] 12.5 Render templates with flattened TemplateContext (dict conversion)
+- [ ] 12.6 Handle template rendering errors gracefully
+- [ ] 12.7 Update FileInfo.size for rendered templates
+- [ ] 12.8 Add integration tests for TemplateContext in rendering pipeline
+- [ ] 12.9 Test context isolation between file renders
+- [ ] 12.10 Test lambda function integration with context variables
 
-### 13. Content Tools Integration with TemplateContext
+### 13. Content Tools Integration with TemplateContext and Lambda Functions
 - [ ] 13.1 Integrate TemplateContext into get_category_content tool
 - [ ] 13.2 Integrate TemplateContext into get_collection_content tool
 - [ ] 13.3 Integrate TemplateContext into get_content tool
@@ -124,10 +161,11 @@
 - [ ] 13.6 Handle MIME multipart with templates using TemplateContext
 - [ ] 13.7 Add integration tests for TemplateContext in content tools
 - [ ] 13.8 Test mixed template and non-template responses
+- [ ] 13.9 Test lambda functions in content tool responses
 
 ## Phase 4: Testing and Documentation
 
-### 14. Comprehensive Testing with TemplateContext
+### 14. Comprehensive Testing with TemplateContext and Lambda Functions
 - [ ] 14.1 Add end-to-end template rendering tests with TemplateContext
 - [ ] 14.2 Test all context variables in templates with scope chaining
 - [ ] 14.3 Test TemplateContext priority resolution (file > category > collection > project > agent > system)
@@ -138,25 +176,30 @@
 - [ ] 14.8 Test TemplateContext with dockerized MCP scenarios
 - [ ] 14.9 Test both hard and soft deletion modes
 - [ ] 14.10 Test TemplateContext type validation edge cases
+- [ ] 14.11 Test lambda functions with various data sources (files, loops, timestamps)
+- [ ] 14.12 Test syntax highlighting with and without Pygments
 
 ### 15. Documentation
 - [ ] 15.1 Document TemplateContext class and usage patterns
 - [ ] 15.2 Document template syntax and context variables
 - [ ] 15.3 Document context variable reference with scope chaining
-- [ ] 15.4 Document error types and solutions
-- [ ] 15.5 Document security considerations (no docroot exposure)
-- [ ] 15.6 Document integration with content tools
-- [ ] 15.7 Add troubleshooting guide for templates and TemplateContext
-- [ ] 15.8 Document agent instructions and template examples
+- [ ] 15.4 Document lambda functions (format_date, truncate, highlight_code)
+- [ ] 15.5 Document error types and solutions
+- [ ] 15.6 Document security considerations (no docroot exposure)
+- [ ] 15.7 Document integration with content tools
+- [ ] 15.8 Add troubleshooting guide for templates and TemplateContext
+- [ ] 15.9 Document agent instructions and template examples
+- [ ] 15.10 Document lambda function usage patterns and examples
 
 ## Summary
 
+**Phase 0**: Template lambda functions infrastructure (COMPLETED ✅)
 **Phase 1**: Template rendering engine and FileInfo enhancements (2 task groups)
 **Phase 2**: TemplateContext and context resolution for all variable types (8 task groups)
-**Phase 3**: Error handling and TemplateContext integration (3 task groups)
-**Phase 4**: Testing and documentation with TemplateContext (2 task groups)
+**Phase 3**: Error handling and TemplateContext integration with lambda functions (3 task groups)
+**Phase 4**: Testing and documentation with TemplateContext and lambda functions (2 task groups)
 
-**Total**: 15 task groups, ~120 individual tasks
+**Total**: 16 task groups, ~130 individual tasks (9 completed in Phase 0)
 
 **Key Dependencies**:
 - Chevron library (already added)
@@ -164,6 +207,7 @@
 - Content tools (existing)
 - Session management (existing)
 - TemplateContext (ChainMap-based, type-safe context system)
+- TemplateFunctions (lambda functions for advanced template features)
 
 **Security Requirements**:
 - No docroot path exposure
@@ -176,3 +220,4 @@
 - No caching (removed complexity)
 - Fresh context chain on every render
 - Efficient scope chaining with ChainMap
+- Class-based lambda functions for clean dependency management
