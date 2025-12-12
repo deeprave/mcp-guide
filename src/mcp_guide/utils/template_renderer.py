@@ -2,7 +2,7 @@
 
 import logging
 from collections import ChainMap
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 
 import chevron  # type: ignore[import-untyped]
 
@@ -43,21 +43,30 @@ def _safe_lambda(func: Callable[..., str]) -> Callable[..., str]:
     return wrapper
 
 
-def render_template_content(content: str, context: ChainMap[str, Any], file_path: str = "<template>") -> Result[str]:
+def render_template_content(
+    content: str,
+    context: ChainMap[str, Any],
+    file_path: str = "<template>",
+    transient_fn: Optional[Callable[[ChainMap[str, Any]], ChainMap[str, Any]]] = None,
+) -> Result[str]:
     """Render template content with context.
 
     Args:
         content: Template content to render
         context: Template context data
         file_path: File path for error reporting
+        transient_fn: Optional function to add transient data to context
 
     Returns:
         Result with rendered content or error
     """
     try:
+        # Apply transient function if provided
+        render_context = transient_fn(context) if transient_fn else context
+
         # Create template functions and inject into context with error handling
-        functions = TemplateFunctions(context)
-        template_context = context.new_child(
+        functions = TemplateFunctions(render_context)
+        template_context = render_context.new_child(
             {
                 "format_date": _safe_lambda(functions.format_date),
                 "truncate": _safe_lambda(functions.truncate),
