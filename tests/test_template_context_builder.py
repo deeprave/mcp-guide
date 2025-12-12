@@ -38,21 +38,59 @@ class TestBuildTemplateContext:
 
     def test_layered_context_creation(self):
         """Test proper layering order: collection > category > project > agent > system."""
-        # Test context layering priority (without file data)
-        system_data = {"name": "SystemDefault", "timestamp": "2024-01-01"}
-        project_data = {"name": "TestProject", "version": "1.0"}
-        collection_data = {"name": "TestCollection", "version": "2.0"}
+        # Test context layering priority across all levels (without file data)
+        system_data = {
+            "name": "SystemDefault",
+            "timestamp": "2024-01-01",
+            "priority_key": "system",
+            "system_only": "system-only",
+        }
+        agent_data = {
+            "name": "AgentDefault",
+            "priority_key": "agent",
+            "agent_only": "agent-only",
+        }
+        project_data = {
+            "name": "ProjectDefault",
+            "version": "1.0",
+            "priority_key": "project",
+            "project_only": "project-only",
+        }
+        category_data = {
+            "name": "CategoryDefault",
+            "priority_key": "category",
+            "category_only": "category-only",
+        }
+        collection_data = {
+            "name": "CollectionDefault",
+            "version": "2.0",
+            "priority_key": "collection",
+            "collection_only": "collection-only",
+        }
 
         context = build_template_context(
-            system_data=system_data, project_data=project_data, collection_data=collection_data
+            system_data=system_data,
+            agent_data=agent_data,
+            project_data=project_data,
+            category_data=category_data,
+            collection_data=collection_data,
         )
 
-        # Collection should override project and system (highest priority)
-        assert context["name"] == "TestCollection"
-        # Collection-specific data should be available
-        assert context["version"] == "2.0"
-        # System should be available when not overridden
+        # Keys defined at all levels should resolve according to:
+        # collection > category > project > agent > system
+        assert context["name"] == "CollectionDefault"
+        assert context["priority_key"] == "collection"
+
+        # Keys unique to each level should be preserved in the merged context
+        assert context["collection_only"] == "collection-only"
+        assert context["category_only"] == "category-only"
+        assert context["project_only"] == "project-only"
+        assert context["agent_only"] == "agent-only"
+        assert context["system_only"] == "system-only"
+
+        # Non-overlapping keys from lower-precedence levels should not be overridden
         assert context["timestamp"] == "2024-01-01"
+        assert context["version"] == "2.0"
 
     def test_file_context_per_file_rendering(self):
         """Test file context is added per-file using new_child."""
@@ -124,6 +162,23 @@ class TestBuildTemplateContext:
 
         assert isinstance(context, TemplateContext)
 
+    def test_error_handling_non_mapping_inputs(self):
+        """Test that non-mapping inputs are treated as empty data."""
+        # Non-dict system_data should be treated as empty
+        context = build_template_context(system_data=[("key", "value")], project_data=None)
+
+        assert isinstance(context, TemplateContext)
+        assert len(context) == 0
+        # Ensure no unexpected keys are added
+        assert list(context) == []
+
+        # Non-dict project_data should also be treated as empty
+        context = build_template_context(system_data=None, project_data="not-a-dict")
+
+        assert isinstance(context, TemplateContext)
+        assert len(context) == 0
+        assert list(context) == []
+
     def test_error_handling_invalid_values(self):
         """Test validation for invalid context values."""
         # Should handle invalid data gracefully
@@ -135,9 +190,16 @@ class TestBuildTemplateContext:
 
         context = build_template_context(system_data=invalid_data)
 
-        # Should only include valid entries
+        # Valid entries should be preserved
         assert "valid_key" in context
         assert context["valid_key"] == "valid_value"
+
+        # Non-string keys should be dropped
+        assert 123 not in context
+
+        # Complex/non-serializable values should be retained and converted to strings
+        assert "complex_object" in context
+        assert isinstance(context["complex_object"], str)
 
     def test_dropped_keys_logging(self, caplog):
         """Test that dropped non-string keys are logged."""

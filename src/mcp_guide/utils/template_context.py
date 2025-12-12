@@ -6,7 +6,7 @@ from collections import ChainMap
 from collections.abc import MutableMapping
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, Generator, Optional, Tuple, Union
 
 if TYPE_CHECKING:
     from mcp_guide.utils.file_discovery import FileInfo
@@ -64,11 +64,46 @@ class TemplateContext(ChainMap[str, Any]):
             raise KeyError(key)
         return value
 
+    def __contains__(self, key: object) -> bool:
+        """Check membership, treating soft-deleted keys as absent."""
+        if not isinstance(key, str):
+            return False
+        try:
+            value = super().__getitem__(key)
+            return value is not _SOFT_DELETE_SENTINEL
+        except KeyError:
+            return False
+
+    def get(self, key: str, default: Any = None) -> Any:
+        """Get value with default, respecting soft deletion."""
+        try:
+            return self[key]
+        except KeyError:
+            return default
+
+    def keys(self) -> Generator[str, None, None]:  # type: ignore[override]
+        """Return keys view excluding soft-deleted keys."""
+        return (k for k in super().keys() if k in self)
+
+    def items(self) -> Generator[Tuple[str, Any], None, None]:  # type: ignore[override]
+        """Return items view excluding soft-deleted keys."""
+        return ((k, v) for k, v in super().items() if k in self)
+
+    def values(self) -> Generator[Any, None, None]:  # type: ignore[override]
+        """Return values view excluding soft-deleted keys."""
+        return (v for k, v in super().items() if k in self)
+
     def soft_delete(self, key: str) -> None:
-        """Soft delete a key by masking it with sentinel value."""
+        """Soft delete a key by masking it with sentinel value if it exists in any layer."""
         if not isinstance(key, str):
             raise TypeError(f"Context keys must be strings, got {type(key).__name__}: {key}")
-        self.maps[0][key] = _SOFT_DELETE_SENTINEL
+
+        # Only apply the soft delete sentinel if the key exists in any map layer
+        for mapping in self.maps:
+            if key in mapping:
+                self.maps[0][key] = _SOFT_DELETE_SENTINEL
+                break
+                break
 
     def hard_delete(self, key: str) -> None:
         """Hard delete a key from current map, revealing parent value if any."""
@@ -93,6 +128,16 @@ def _convert_to_template_safe(value: Any) -> Union[str, int, float, bool]:
 def _validate_and_convert_data(data: Any) -> Dict[str, Any]:
     """Validate and convert data to template-safe format."""
     if not isinstance(data, dict):
+        if data is not None:  # None is acceptable (empty context)
+            logger.warning(
+                "Expected dict for template context data, got %r (type: %s)",
+                data,
+                type(data).__name__,
+                extra={
+                    "component": "template_context",
+                    "received_type": type(data).__name__,
+                },
+            )
         return {}
 
     result = {}
@@ -104,7 +149,7 @@ def _validate_and_convert_data(data: Any) -> Dict[str, Any]:
                 "Dropping non-string key in template context: %r (type: %s)",
                 key,
                 type(key).__name__,
-                extra={"dropped_key": key, "key_type": type(key).__name__, "component": "template_context"},
+                extra={"dropped_key": repr(key), "key_type": type(key).__name__, "component": "template_context"},
             )
     return result
 
