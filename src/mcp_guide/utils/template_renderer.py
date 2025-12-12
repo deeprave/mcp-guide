@@ -1,4 +1,5 @@
 """Template rendering utilities for Mustache templates."""
+
 from collections import ChainMap
 from typing import Any, Callable
 
@@ -24,19 +25,17 @@ def is_template_file(file_info: FileInfo) -> bool:
 
 def _safe_lambda(func: Callable[..., str]) -> Callable[..., str]:
     """Wrap lambda function to handle errors gracefully."""
+
     def wrapper(*args: Any, **kwargs: Any) -> str:
         try:
             return func(*args, **kwargs)
         except Exception as e:
             return f"[Template Error: {str(e)}]"
+
     return wrapper
 
 
-def render_template_content(
-    content: str,
-    context: ChainMap[str, Any],
-    file_path: str = "<template>"
-) -> Result[str]:
+def render_template_content(content: str, context: ChainMap[str, Any], file_path: str = "<template>") -> Result[str]:
     """Render template content with context.
 
     Args:
@@ -50,11 +49,13 @@ def render_template_content(
     try:
         # Create template functions and inject into context with error handling
         functions = TemplateFunctions(context)
-        template_context = context.new_child({
-            'format_date': _safe_lambda(functions.format_date),
-            'truncate': _safe_lambda(functions.truncate),
-            'highlight_code': _safe_lambda(functions.highlight_code)
-        })
+        template_context = context.new_child(
+            {
+                "format_date": _safe_lambda(functions.format_date),
+                "truncate": _safe_lambda(functions.truncate),
+                "highlight_code": _safe_lambda(functions.highlight_code),
+            }
+        )
 
         # Render template with Chevron
         rendered = chevron.render(content, template_context)
@@ -65,14 +66,11 @@ def render_template_content(
             error=f"Template rendering failed for {file_path}: {str(e)}",
             error_type="template_error",
             exception=e,
-            instruction=INSTRUCTION_VALIDATION_ERROR
+            instruction=INSTRUCTION_VALIDATION_ERROR,
         )
 
 
-def render_file_content(
-    file_info: FileInfo,
-    context: ChainMap[str, Any] | None = None
-) -> Result[str]:
+def render_file_content(file_info: FileInfo, context: ChainMap[str, Any] | None = None) -> Result[str]:
     """Render file content, applying template rendering if needed.
 
     Args:
@@ -86,7 +84,7 @@ def render_file_content(
         return Result.failure(
             error=f"File content not loaded: {file_info.path}",
             error_type="content_error",
-            instruction=INSTRUCTION_FILE_ERROR
+            instruction=INSTRUCTION_FILE_ERROR,
         )
 
     # Pass through non-template files unchanged
@@ -94,11 +92,7 @@ def render_file_content(
         return Result.ok(file_info.content)
 
     # Render template files
-    result = render_template_content(
-        file_info.content,
-        context,
-        str(file_info.path)
-    )
+    result = render_template_content(file_info.content, context, str(file_info.path))
 
     # Update file size if rendering succeeded
     if result.is_ok() and result.value is not None:
