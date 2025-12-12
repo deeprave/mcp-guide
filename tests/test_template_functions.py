@@ -79,7 +79,7 @@ class TestTemplateFunctionsSecurity:
         context = ChainMap({"created_at": datetime(2023, 12, 25)})
         functions = TemplateFunctions(context)
 
-        with pytest.raises(ValueError, match="Invalid variable name"):
+        with pytest.raises(ValueError, match="Missing variable name"):
             functions.format_date("%Y-{{}}")  # Empty variable
 
         with pytest.raises(ValueError, match="Invalid variable name"):
@@ -112,6 +112,22 @@ class TestTemplateFunctionsSecurity:
         with pytest.raises(ValueError, match="Length must be non-negative"):
             functions.truncate("-5{{description}}")
 
+    def test_truncate_invalid_variable_name(self):
+        """Test truncate with an invalid variable name."""
+        context = ChainMap({"description": "test text"})
+        functions = TemplateFunctions(context)
+
+        with pytest.raises(ValueError, match="Invalid variable name"):
+            functions.truncate("10{{invalid@var}}")
+
+    def test_truncate_missing_variable(self):
+        """Test truncate with a missing context variable."""
+        context = ChainMap({"description": "test text"})
+        functions = TemplateFunctions(context)
+
+        with pytest.raises(KeyError, match="missing_var"):
+            functions.truncate("10{{missing_var}}")
+
     def test_highlight_code_invalid_language(self):
         """Test highlight_code with invalid language names."""
         context = ChainMap({"code": 'print("hello")'})
@@ -122,6 +138,33 @@ class TestTemplateFunctionsSecurity:
 
         with pytest.raises(ValueError, match="Invalid language name"):
             functions.highlight_code("py@thon{{code}}")  # Invalid characters
+
+    def test_highlight_code_invalid_template_syntax(self):
+        """Test highlight_code with invalid template syntax."""
+        context = ChainMap({"code": 'print("hello")'})
+        functions = TemplateFunctions(context)
+
+        # Missing closing braces for the variable placeholder
+        with pytest.raises(ValueError, match="Invalid template"):
+            functions.highlight_code("python{{code")
+
+    def test_highlight_code_invalid_variable_name(self):
+        """Test highlight_code with invalid variable names."""
+        context = ChainMap({"code": 'print("hello")'})
+        functions = TemplateFunctions(context)
+
+        # Variable name contains invalid characters
+        with pytest.raises(ValueError, match="Invalid variable name"):
+            functions.highlight_code("python{{invalid@var}}")
+
+    def test_highlight_code_missing_variable_in_context(self):
+        """Test highlight_code with missing variables in the context."""
+        context = ChainMap({})
+        functions = TemplateFunctions(context)
+
+        # Referencing a variable that is not present in the context
+        with pytest.raises(KeyError):
+            functions.highlight_code("python{{missing_var}}")
 
 
 class TestSafeLambdaWrapper:
@@ -134,10 +177,28 @@ class TestSafeLambdaWrapper:
         result = render_template_content("Date: {{#format_date}}%Y-{{invalid_date}}{{/format_date}}", context)
 
         assert result.is_ok()
-        assert "[Template Error:" in result.value
+        assert "[Template Error (" in result.value
         assert "not a datetime object" in result.value
 
-    """Test integration with Chevron template rendering."""
+    def test_safe_lambda_error_handling_truncate(self):
+        """Test that safe lambda wrapper catches and formats errors for truncate."""
+        # Negative length should trigger a validation error inside truncate
+        context = ChainMap({"text": "Some example content"})
+
+        result = render_template_content("{{#truncate}}-5{{text}}{{/truncate}}", context)
+
+        assert result.is_ok()
+        assert "[Template Error (" in result.value
+
+    def test_safe_lambda_error_handling_highlight_code(self):
+        """Test that safe lambda wrapper catches and formats errors for highlight_code."""
+        # Invalid language name (contains invalid characters) should trigger a validation error
+        context = ChainMap({"code": "print('hello')"})
+
+        result = render_template_content("{{#highlight_code}}py@thon{{code}}{{/highlight_code}}", context)
+
+        assert result.is_ok()
+        assert "[Template Error (" in result.value
 
     def test_full_template_rendering_with_lambdas(self):
         """Test complete template rendering pipeline with lambda functions."""
