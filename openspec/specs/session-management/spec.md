@@ -121,15 +121,14 @@ The system SHALL eliminate duplicate MCP context extraction calls using a single
 
 #### Scenario: Consolidated extraction
 - WHEN session is created via get_or_create_session()
-- THEN _cache_mcp_globals() extracts all MCP context once
-- AND tools do NOT call session.cache_mcp_context()
+- THEN cache_mcp_globals() extracts all MCP context once
+- AND tools do NOT call a session-specific cache_mcp_context() method
 - AND no redundant extraction occurs during tool execution
 
 #### Scenario: Change detection only
-- WHEN session.cache_mcp_context() is called
-- THEN method only detects if roots have changed
-- AND method does NOT perform extraction
-- AND extraction is handled by _cache_mcp_globals()
+- WHEN MCP context change detection is needed
+- THEN only root changes are detected without redundant extraction
+- AND extraction is always handled by cache_mcp_globals()
 
 ### Requirement: Tool Integration Pattern
 The system SHALL provide helper functions for tools to access sessions.
