@@ -256,6 +256,22 @@ def remove_current_session(project_name: str) -> None:
     active_sessions.set(sessions)
 
 
+def get_any_active_session() -> Optional[Session]:
+    """Get any active session from ContextVar.
+
+    Returns:
+        First available session if any exist, None otherwise
+
+    Note:
+        This is useful for template contexts where we need project data
+        but don't have a specific project name.
+    """
+    sessions = active_sessions.get({})
+    if sessions:
+        return next(iter(sessions.values()))
+    return None
+
+
 async def set_project(project_name: str, ctx: Optional["Context"] = None) -> Result[Project]:  # type: ignore[name-defined]
     """Set/load project by name.
 

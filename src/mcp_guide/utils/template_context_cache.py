@@ -65,6 +65,31 @@ class TemplateContextCache(SessionListener):
 
         return TemplateContext(agent_vars)
 
+    def _build_project_context(self) -> "TemplateContext":
+        """Build project context with current project data."""
+        from mcp_guide.session import get_any_active_session
+        from mcp_guide.utils.template_context import TemplateContext
+
+        # Extract project information from current session with error handling
+        project_name = ""
+        try:
+            session = get_any_active_session()
+            if session and session._cached_project:
+                project_name = session._cached_project.name
+        except (AttributeError, ValueError, RuntimeError) as e:
+            logger.debug(f"Failed to get project from session: {e}")
+        except Exception as e:
+            logger.error(f"Unexpected error getting project from session: {e}")
+            raise
+
+        project_vars = {
+            "project": {
+                "name": project_name,
+            }
+        }
+
+        return TemplateContext(project_vars)
+
     def get_template_contexts(self, category_name: Optional[str] = None) -> "TemplateContext":
         """Get layered template contexts for rendering.
 
@@ -83,14 +108,15 @@ class TemplateContextCache(SessionListener):
         # Build contexts
         system_context = self._build_system_context()
         agent_context = self._build_agent_context()
+        project_context = self._build_project_context()
 
-        # Create layered context: agent context with system as parent
-        layered_context = agent_context.new_child(system_context)
+        # Create layered context: project context with agent and system as parents
+        layered_context = project_context.new_child(agent_context.new_child(system_context))
 
         # Cache the result
         _template_contexts.set(layered_context)
 
-        # TODO: Add project and category contexts to the chain when implemented
+        # TODO: Add category contexts to the chain when implemented
         return layered_context
 
 
