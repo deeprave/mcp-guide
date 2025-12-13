@@ -4,7 +4,7 @@ import logging
 from collections import ChainMap
 from typing import Any, Callable, Optional
 
-import chevron  # type: ignore[import-untyped]
+import chevron
 
 from mcp_core.result import Result
 from mcp_guide.tools.tool_constants import INSTRUCTION_FILE_ERROR, INSTRUCTION_VALIDATION_ERROR
@@ -74,8 +74,8 @@ def render_template_content(
             }
         )
 
-        # Render template with Chevron
-        rendered = chevron.render(content, template_context)
+        # Render template with Chevron (ChainMap works fine at runtime despite type annotation)
+        rendered = chevron.render(content, template_context)  # type: ignore[arg-type]
         return Result.ok(rendered)
 
     except Exception as e:

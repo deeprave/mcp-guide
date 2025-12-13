@@ -1,0 +1,129 @@
+"""MCP context data structures and management."""
+
+import logging
+from contextvars import ContextVar
+from dataclasses import dataclass
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Optional
+from urllib.parse import urlparse
+
+if TYPE_CHECKING:
+    from mcp_guide.agent_detection import AgentInfo
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class CachedMcpContext:
+    """Comprehensive MCP context cache."""
+
+    roots: list[Any]  # list[Root] when available
+    project_name: str
+    agent_info: Optional["AgentInfo"]
+    client_params: Optional[dict[str, Any]]
+    timestamp: float
+
+
+# ContextVar for comprehensive MCP context cache (thread-safe)
+cached_mcp_context: ContextVar[Optional[CachedMcpContext]] = ContextVar("cached_mcp_context", default=None)
+
+
+async def cache_mcp_globals(ctx: Optional[Any] = None) -> bool:
+    """Cache MCP globals (roots, agent info, client params) if context available.
+
+    Args:
+        ctx: Optional MCP Context (FastMCP auto-injects in tools)
+
+    Returns:
+        True if context was available and cached, False otherwise
+    """
+    if ctx is None:
+        return False
+
+    from time import time
+
+    from mcp_guide.agent_detection import detect_agent
+
+    # Initialize variables for comprehensive context
+    roots = []
+    agent_info = None
+    client_params = None
+
+    try:
+        # Extract client params first
+        if hasattr(ctx, "client_params") and ctx.client_params:
+            client_params = ctx.client_params
+            # Try to detect agent info from client params
+            try:
+                agent_info = detect_agent(client_params)
+            except Exception:
+                pass
+
+        # Extract roots
+        if hasattr(ctx, "session") and hasattr(ctx.session, "list_roots"):
+            roots_result = await ctx.session.list_roots()
+            if roots_result.roots:
+                roots = list(roots_result.roots)
+
+        # Cache MCP context (without project name - that's resolved separately)
+        cached_mcp_context.set(
+            CachedMcpContext(
+                roots=roots,
+                project_name="",  # Will be set by resolve_project_name
+                agent_info=agent_info,
+                client_params=client_params,
+                timestamp=time(),
+            )
+        )
+        return True
+
+    except AttributeError:
+        # Client doesn't support roots - expected
+        return False
+    except Exception as e:
+        logger.debug(f"Failed to cache MCP globals: {e}")
+        return False
+
+
+async def resolve_project_name() -> str:
+    """Resolve project name from cached context or environment fallbacks.
+
+    Resolution priority:
+    1. Client roots (via cached MCP Context) - PRIMARY
+    2. PWD environment variable - FALLBACK
+
+    Returns:
+        Project name string
+
+    Raises:
+        ValueError: If no project context is available
+    """
+    import os
+
+    # Priority 1: Client roots from cached context
+    cached = cached_mcp_context.get()
+    if cached and cached.roots:
+        first_root = cached.roots[0]
+        if str(first_root.uri).startswith("file://"):
+            parsed = urlparse(str(first_root.uri))
+            project_path = Path(parsed.path)
+            project_name = project_path.name
+            if project_name:
+                # Update cached context with resolved project name
+                cached_mcp_context.set(
+                    CachedMcpContext(
+                        roots=cached.roots,
+                        project_name=project_name,
+                        agent_info=cached.agent_info,
+                        client_params=cached.client_params,
+                        timestamp=cached.timestamp,
+                    )
+                )
+                return project_name
+
+    # Priority 2: PWD environment variable
+    pwd = os.environ.get("PWD")
+    if pwd and Path(pwd).is_absolute():
+        return Path(pwd).name
+
+    raise ValueError("Project context not available. Call set_project() with the basename of your current directory.")

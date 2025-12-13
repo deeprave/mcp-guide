@@ -652,6 +652,7 @@ dependencies = [
     { name = "mcp", extra = ["cli"] },
     { name = "pydantic" },
     { name = "pyyaml" },
+    { name = "types-chevron" },
     { name = "uuid7" },
 ]
 
@@ -680,6 +681,7 @@ requires-dist = [
     { name = "mcp", extras = ["cli"], specifier = ">=1.16.0" },
     { name = "pydantic", specifier = ">=2.0" },
     { name = "pyyaml", specifier = ">=6.0" },
+    { name = "types-chevron", specifier = ">=0.14.2.20250103" },
     { name = "uuid7", specifier = ">=0.1.0" },
 ]
 
@@ -1359,6 +1361,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/84/6c/6d23908a8217e36704aa9c79d99a620f2fdd388b66a4b7f72fbc6b6ff6c6/types_aiofiles-25.1.0.20251011.tar.gz", hash = "sha256:1c2b8ab260cb3cd40c15f9d10efdc05a6e1e6b02899304d80dfa0410e028d3ff", size = 14535, upload-time = "2025-10-11T02:44:51.237Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/71/0f/76917bab27e270bb6c32addd5968d69e558e5b6f7fb4ac4cbfa282996a96/types_aiofiles-25.1.0.20251011-py3-none-any.whl", hash = "sha256:8ff8de7f9d42739d8f0dadcceeb781ce27cd8d8c4152d4a7c52f6b20edb8149c", size = 14338, upload-time = "2025-10-11T02:44:50.054Z" },
+]
+
+[[package]]
+name = "types-chevron"
+version = "0.14.2.20250103"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/a1/d7/141ba90b040625c1e62d990bf3287a996e0581d9b6ef0006af1a1dcd078a/types_chevron-0.14.2.20250103.tar.gz", hash = "sha256:9dacdc9b01bdf717bcb7930f0602b9b74add054ebf3cf38d282b7e2b64c9d076", size = 8064, upload-time = "2025-01-03T02:42:18.525Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/98/01/ef027e1e5daf9e1b7ab480870947651f81e8177c45ac3e9039f55fe952a2/types_chevron-0.14.2.20250103-py3-none-any.whl", hash = "sha256:b255b2a71d83d9c548183d4eeadea874fbaec64b09f00d3bf3f43d3731c1c255", size = 8747, upload-time = "2025-01-03T02:42:17.644Z" },
 ]
 
 [[package]]
