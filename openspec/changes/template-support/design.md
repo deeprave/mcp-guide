@@ -104,23 +104,23 @@ Note: Transient context (timestamps) is generated fresh per-render using `get_tr
 
 **Problem:** Duplication between `_determine_project_name()` and `Session.cache_mcp_context()` both calling MCP `list_roots()` and extracting similar data.
 
-**Solution:** Consolidate MCP context extraction into global ContextVars:
+**Solution:** Consolidate MCP context extraction into global ContextVar:
 
-#### Global ContextVars (persist across project switches)
-- `_cached_roots: ContextVar[CachedRootsInfo]` (already exists)
-- `_cached_agent_info: ContextVar[AgentInfo]` (new)
-- `_cached_client_params: ContextVar[dict]` (new)
+#### Global ContextVar (persists across project switches)
+- `cached_mcp_context: ContextVar[CachedMcpContext]` (consolidated, holds roots, agent info, and client params)
+
+The `CachedMcpContext` dataclass encapsulates all global MCP context data (roots, agent info, client params) in a single ContextVar, simplifying cache management and access.
 
 #### Session-Specific Cache (invalidated on project switch)
 - `contexts["system"]`: Static system information
 - `contexts["project"]`: Project-specific data (invalidated when roots change)
 
 #### Implementation Changes
-1. **Rename `_determine_project_name()`** → `_cache_mcp_globals(ctx)`
+1. **Rename `_determine_project_name()`** → `cache_mcp_globals(ctx)`
 2. **Expand scope** to cache roots, agent info, and client params globally
 3. **Call once** in `get_or_create_session()` before session creation
 4. **Remove from SessionState**: `cached_agent_info`, `cached_client_params`
-5. **Session methods** read from global ContextVars instead of re-querying MCP
+5. **Session methods** read from global ContextVar instead of re-querying MCP
 
 #### Benefits
 - **Agent info persists** across project switches (global, not per-session)

@@ -62,7 +62,6 @@ class TemplateContextCache(SessionListener):
         except (AttributeError, KeyError, ValueError) as e:
             # Agent detection failed - log and use @ symbol only
             logger.debug(f"Agent detection failed: {e}")
-            pass
 
         return TemplateContext(agent_vars)
 
