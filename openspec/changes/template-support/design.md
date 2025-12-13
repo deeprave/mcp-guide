@@ -100,6 +100,35 @@ Template support Phase 1 implemented basic template rendering with lambda functi
 
 Note: Transient context (timestamps) is generated fresh per-render using `get_transient_context()` function to ensure current values.
 
+### MCP Context Caching Strategy
+
+**Problem:** Duplication between `_determine_project_name()` and `Session.cache_mcp_context()` both calling MCP `list_roots()` and extracting similar data.
+
+**Solution:** Consolidate MCP context extraction into global ContextVars:
+
+#### Global ContextVars (persist across project switches)
+- `_cached_roots: ContextVar[CachedRootsInfo]` (already exists)
+- `_cached_agent_info: ContextVar[AgentInfo]` (new)
+- `_cached_client_params: ContextVar[dict]` (new)
+
+#### Session-Specific Cache (invalidated on project switch)
+- `contexts["system"]`: Static system information
+- `contexts["project"]`: Project-specific data (invalidated when roots change)
+
+#### Implementation Changes
+1. **Rename `_determine_project_name()`** → `_cache_mcp_globals(ctx)`
+2. **Expand scope** to cache roots, agent info, and client params globally
+3. **Call once** in `get_or_create_session()` before session creation
+4. **Remove from SessionState**: `cached_agent_info`, `cached_client_params`
+5. **Session methods** read from global ContextVars instead of re-querying MCP
+
+#### Benefits
+- **Agent info persists** across project switches (global, not per-session)
+- **Roots persist** until they actually change (not lost on project switch)
+- **No duplication** - single MCP context extraction point
+- **Smaller session state** - only project-specific data cached per-session
+- **Better performance** - no re-detection of stable data on project switches
+
 ### Type Conversion Strategy
 - **datetime → ISO 8601 string**: Template-safe, human-readable
 - **Path → string**: Security-validated relative paths only

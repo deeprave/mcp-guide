@@ -16,6 +16,7 @@ dependencies = [
     "chevron>=0.14.0",
     "click>=8.3.0",
     "uuid7>=0.1.0",
+    "types-chevron>=0.14.2.20250103",
 ]
 
 [project.scripts]
