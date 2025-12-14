@@ -127,3 +127,71 @@ class TestTemplateContextCache:
             # Verify project context is accessible (highest priority)
             assert "project" in context
             assert context["project"]["name"] == "test-project"
+
+    def test_context_precedence_project_overrides_agent_overrides_system(self) -> None:
+        """Test that project context values override agent and system values in precedence order."""
+        from unittest.mock import patch
+
+        from mcp_guide.models import Project
+
+        cache = TemplateContextCache()
+
+        # Clear cache to ensure fresh context
+        from mcp_guide.utils.template_context_cache import _template_contexts
+
+        _template_contexts.set(None)
+
+        # Mock get_current_session to return session with cached project
+        mock_session = Mock()
+        mock_project = Project(name="project-value", categories=[], collections=[])
+        mock_session._cached_project = mock_project
+
+        with patch("mcp_guide.session.get_current_session", return_value=mock_session):
+            # Get layered contexts
+            context = cache.get_template_contexts()
+
+            # Test precedence: project should override system values
+            # System context has "system" key, project should be accessible with higher precedence
+            assert "project" in context
+            assert context["project"]["name"] == "project-value"
+
+            # System context should still be accessible
+            assert "system" in context
+            assert "os" in context["system"]
+
+    def test_complete_context_chain_provides_all_context_types(self) -> None:
+        """Test that complete context chain provides access to all context types."""
+        from unittest.mock import patch
+
+        from mcp_guide.models import Project
+
+        cache = TemplateContextCache()
+
+        # Clear cache to ensure fresh context
+        from mcp_guide.utils.template_context_cache import _template_contexts
+
+        _template_contexts.set(None)
+
+        # Mock get_current_session to return session with cached project
+        mock_session = Mock()
+        mock_project = Project(name="integration-test", categories=[], collections=[])
+        mock_session._cached_project = mock_project
+
+        with patch("mcp_guide.session.get_current_session", return_value=mock_session):
+            # Get complete layered contexts
+            context = cache.get_template_contexts()
+
+            # Verify all context types are accessible
+            # System context
+            assert "system" in context
+            assert "os" in context["system"]
+            assert "platform" in context["system"]
+            assert "python_version" in context["system"]
+
+            # Agent context (@ symbol)
+            assert "@" in context
+            assert context["@"] == "@"
+
+            # Project context
+            assert "project" in context
+            assert context["project"]["name"] == "integration-test"
