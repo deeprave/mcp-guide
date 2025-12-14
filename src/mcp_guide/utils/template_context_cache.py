@@ -81,9 +81,6 @@ class TemplateContextCache(SessionListener):
                     project_name = cached_project.name
         except (AttributeError, ValueError, RuntimeError) as e:
             logger.debug(f"Failed to get project from session: {e}")
-        except Exception as e:
-            logger.error(f"Unexpected error getting project from session: {e}")
-            raise
 
         project_vars = {
             "project": {
