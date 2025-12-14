@@ -67,15 +67,18 @@ class TemplateContextCache(SessionListener):
 
     def _build_project_context(self) -> "TemplateContext":
         """Build project context with current project data."""
-        from mcp_guide.session import get_any_active_session
+        from mcp_guide.session import get_current_session
         from mcp_guide.utils.template_context import TemplateContext
 
         # Extract project information from current session with error handling
         project_name = ""
         try:
-            session = get_any_active_session()
-            if session and session._cached_project:
-                project_name = session._cached_project.name
+            session = get_current_session()
+            if session:
+                # Use getattr to safely access cached project without relying on AttributeError
+                cached_project = getattr(session, "_cached_project", None)
+                if cached_project and hasattr(cached_project, "name"):
+                    project_name = cached_project.name
         except (AttributeError, ValueError, RuntimeError) as e:
             logger.debug(f"Failed to get project from session: {e}")
         except Exception as e:
