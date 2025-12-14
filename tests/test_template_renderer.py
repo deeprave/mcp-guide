@@ -1,11 +1,18 @@
 """Tests for template rendering utilities."""
 
-from collections import ChainMap
 from datetime import datetime
 from pathlib import Path
+from unittest.mock import patch
 
 from mcp_guide.utils.file_discovery import FileInfo
-from mcp_guide.utils.template_renderer import is_template_file, render_file_content, render_template_content
+from mcp_guide.utils.template_context import TemplateContext
+from mcp_guide.utils.template_renderer import (
+    _build_file_context,
+    is_template_file,
+    render_file_content,
+    render_template_content,
+    render_template_with_context_chain,
+)
 
 
 class TestTemplateDetection:
@@ -30,7 +37,7 @@ class TestTemplateRendering:
     def test_render_template_content_success(self):
         """Test successful template rendering."""
         content = "Hello {{name}}!"
-        context = ChainMap({"name": "World"})
+        context = TemplateContext({"name": "World"})
 
         result = render_template_content(content, context)
 
@@ -40,7 +47,7 @@ class TestTemplateRendering:
     def test_render_template_content_with_lambda_functions(self):
         """Test template rendering with lambda functions."""
         content = "Created: {{#format_date}}%Y-%m-%d{{created_at}}{{/format_date}}"
-        context = ChainMap({"created_at": datetime(2023, 12, 25)})
+        context = TemplateContext({"created_at": datetime(2023, 12, 25)})
 
         result = render_template_content(content, context)
 
@@ -50,7 +57,7 @@ class TestTemplateRendering:
     def test_render_template_content_syntax_error(self):
         """Test template rendering with syntax error."""
         content = "Hello {{#unclosed_section}}!"
-        context = ChainMap({"name": "World"})
+        context = TemplateContext({"name": "World"})
 
         result = render_template_content(content, context)
 
@@ -61,13 +68,23 @@ class TestTemplateRendering:
     def test_render_template_content_missing_variable(self):
         """Test template rendering with missing variable."""
         content = "Hello {{missing_var}}!"
-        context = ChainMap({"name": "World"})
+        context = TemplateContext({"name": "World"})
 
         result = render_template_content(content, context)
 
         # Chevron renders missing variables as empty string
         assert result.is_ok()
         assert result.value == "Hello !"
+
+    def test_render_template_content_accepts_template_context(self):
+        """Test that render_template_content accepts TemplateContext."""
+        content = "Hello {{name}}!"
+        context = TemplateContext({"name": "World"})
+
+        result = render_template_content(content, context)
+
+        assert result.is_ok()
+        assert result.value == "Hello World!"
 
 
 class TestFileContentRendering:
@@ -78,7 +95,7 @@ class TestFileContentRendering:
         file_info = FileInfo(
             path=Path("test.md"), size=100, mtime=datetime.now(), basename="test.md", content="# Hello World"
         )
-        context = ChainMap({"name": "World"})
+        context = TemplateContext({"name": "World"})
 
         result = render_file_content(file_info, context)
 
@@ -101,7 +118,7 @@ class TestFileContentRendering:
         file_info = FileInfo(
             path=Path("test.md.mustache"), size=100, mtime=datetime.now(), basename="test.md", content="Hello {{name}}!"
         )
-        context = ChainMap({"name": "World"})
+        context = TemplateContext({"name": "World"})
 
         result = render_file_content(file_info, context)
 
@@ -110,10 +127,22 @@ class TestFileContentRendering:
         # Check that file size was updated
         assert file_info.size == len("Hello World!")
 
+    def test_render_file_content_accepts_template_context(self):
+        """Test that render_file_content accepts TemplateContext."""
+        file_info = FileInfo(
+            path=Path("test.md.mustache"), size=100, mtime=datetime.now(), basename="test.md", content="Hello {{name}}!"
+        )
+        context = TemplateContext({"name": "World"})
+
+        result = render_file_content(file_info, context)
+
+        assert result.is_ok()
+        assert result.value == "Hello World!"
+
     def test_render_file_content_no_content_loaded(self):
         """Test rendering file with no content loaded."""
         file_info = FileInfo(path=Path("test.md"), size=100, mtime=datetime.now(), basename="test.md", content=None)
-        context = ChainMap({"name": "World"})
+        context = TemplateContext({"name": "World"})
 
         result = render_file_content(file_info, context)
 
@@ -130,10 +159,138 @@ class TestFileContentRendering:
             basename="test.md",
             content="Hello {{#unclosed}}!",
         )
-        context = ChainMap({"name": "World"})
+        context = TemplateContext({"name": "World"})
 
         result = render_file_content(file_info, context)
 
         assert result.is_failure()
         assert result.error_type == "template_error"
         assert "Template rendering failed" in result.error
+
+
+class TestContextChainRendering:
+    """Test context chain wrapper functions."""
+
+    async def test_render_template_with_context_chain_builds_base_context(self) -> None:
+        """Test that wrapper builds system → agent → project context chain."""
+        content = "Hello {{project.name}}!"
+
+        # Mock the context cache to return a known context
+        mock_context = TemplateContext({"project": {"name": "test-project"}})
+
+        with patch("mcp_guide.utils.template_renderer.get_template_contexts", return_value=mock_context):
+            result = await render_template_with_context_chain(content)
+
+            assert result.is_ok()
+            assert result.value == "Hello test-project!"
+
+    async def test_render_template_with_context_chain_adds_category_context(self) -> None:
+        """Test that wrapper adds category context when category_name provided."""
+        content = "Category: {{category.name}}"
+
+        # Mock base context (system → agent → project)
+        base_context = TemplateContext({"project": {"name": "test-project"}})
+
+        # Mock category context
+        category_context = TemplateContext({"category": {"name": "docs"}})
+
+        with patch("mcp_guide.utils.template_renderer.get_template_contexts", return_value=category_context):
+            result = await render_template_with_context_chain(content, category_name="docs")
+
+            assert result.is_ok()
+            assert result.value == "Category: docs"
+
+    async def test_render_template_with_context_chain_adds_transient_context(self) -> None:
+        """Test that wrapper adds transient context with timestamps."""
+        content = "Rendered at: {{timestamp}}"
+
+        # Mock base context
+        base_context = TemplateContext({"project": {"name": "test-project"}})
+
+        with patch("mcp_guide.utils.template_renderer.get_template_contexts", return_value=base_context):
+            result = await render_template_with_context_chain(content)
+
+            assert result.is_ok()
+            # Should contain a timestamp (exact value will vary)
+            assert "Rendered at:" in result.value
+            assert len(result.value) > len("Rendered at: ")
+
+
+class TestFileContextIsolation:
+    """Test per-file context isolation."""
+
+    def test_build_file_context_extracts_file_metadata(self) -> None:
+        """Test that _build_file_context extracts file metadata."""
+        file_info = FileInfo(
+            path=Path("/test/docs/readme.md"),
+            size=1024,
+            mtime=datetime(2023, 12, 25, 10, 30, 45),
+            basename="readme",
+            content="# Test",
+        )
+
+        context = _build_file_context(file_info)
+
+        assert "file" in context
+        assert context["file"]["path"] == "/test/docs/readme.md"
+        assert context["file"]["basename"] == "readme"
+        assert context["file"]["size"] == 1024
+        assert context["file"]["extension"] == ".md"
+        assert context["file"]["is_template"] is False
+        assert "2023-12-25" in context["file"]["mtime"]
+
+    def test_build_file_context_detects_template_files(self) -> None:
+        """Test that _build_file_context detects template files."""
+        file_info = FileInfo(
+            path=Path("/test/templates/page.md.mustache"),
+            size=512,
+            mtime=datetime(2023, 12, 25),
+            basename="page.md",
+            content="Hello {{name}}",
+        )
+
+        context = _build_file_context(file_info)
+
+        assert context["file"]["is_template"] is True
+        assert context["file"]["extension"] == ".mustache"
+        assert context["file"]["basename"] == "page.md"
+
+    def test_file_context_isolation_using_new_child(self) -> None:
+        """Test that file contexts are isolated using new_child()."""
+        base_context = TemplateContext({"shared": "value"})
+
+        file1_info = FileInfo(path=Path("/test/file1.md"), size=100, mtime=datetime(2023, 12, 25), basename="file1")
+
+        file2_info = FileInfo(path=Path("/test/file2.md"), size=200, mtime=datetime(2023, 12, 26), basename="file2")
+
+        # Build file contexts
+        file1_context = _build_file_context(file1_info)
+        file2_context = _build_file_context(file2_info)
+
+        # Create isolated contexts
+        isolated1 = file1_context.new_child(base_context)
+        isolated2 = file2_context.new_child(base_context)
+
+        # Verify isolation
+        assert isolated1["file"]["basename"] == "file1"
+        assert isolated2["file"]["basename"] == "file2"
+        assert isolated1["shared"] == "value"
+        assert isolated2["shared"] == "value"
+
+        # Verify they don't interfere
+        assert isolated1["file"]["size"] != isolated2["file"]["size"]
+
+    async def test_render_template_with_context_chain_includes_file_context(self) -> None:
+        """Test that wrapper includes file context when FileInfo provided."""
+        content = "File: {{file.basename}} ({{file.size}} bytes)"
+
+        file_info = FileInfo(path=Path("/test/readme.md"), size=1024, mtime=datetime(2023, 12, 25), basename="readme")
+
+        # Mock base context
+        base_context = TemplateContext({"project": {"name": "test-project"}})
+
+        with patch("mcp_guide.utils.template_renderer.get_template_contexts", return_value=base_context):
+            result = await render_template_with_context_chain(content, file_info=file_info)
+
+            assert result.is_ok()
+            assert result.value == "File: readme (1024 bytes)"

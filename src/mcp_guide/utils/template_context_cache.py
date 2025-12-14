@@ -23,7 +23,7 @@ class TemplateContextCache(SessionListener):
         _template_contexts.set(None)
         logger.debug(f"Template context cache invalidated for project: {project_name}")
 
-    def _build_system_context(self) -> "TemplateContext":
+    async def _build_system_context(self) -> "TemplateContext":
         """Build system context with static system information."""
         import platform
 
@@ -39,7 +39,7 @@ class TemplateContextCache(SessionListener):
 
         return TemplateContext(system_vars)
 
-    def _build_agent_context(self) -> "TemplateContext":
+    async def _build_agent_context(self) -> "TemplateContext":
         """Build agent context with @ symbol default and agent info if available."""
         from mcp_guide.mcp_context import cached_mcp_context
         from mcp_guide.utils.template_context import TemplateContext
@@ -65,20 +65,18 @@ class TemplateContextCache(SessionListener):
 
         return TemplateContext(agent_vars)
 
-    def _build_project_context(self) -> "TemplateContext":
+    async def _build_project_context(self) -> "TemplateContext":
         """Build project context with current project data."""
         from mcp_guide.session import get_current_session
         from mcp_guide.utils.template_context import TemplateContext
 
-        # Extract project information from current session with error handling
+        # Extract project information from current session using public API
         project_name = ""
         try:
             session = get_current_session()
             if session:
-                # Use getattr to safely access cached project without relying on AttributeError
-                cached_project = getattr(session, "_cached_project", None)
-                if cached_project and hasattr(cached_project, "name"):
-                    project_name = cached_project.name
+                project = await session.get_project()
+                project_name = project.name
         except (AttributeError, ValueError, RuntimeError) as e:
             logger.debug(f"Failed to get project from session: {e}")
 
@@ -90,7 +88,34 @@ class TemplateContextCache(SessionListener):
 
         return TemplateContext(project_vars)
 
-    def get_template_contexts(self, category_name: Optional[str] = None) -> "TemplateContext":
+    async def _build_category_context(self, category_name: str) -> "TemplateContext":
+        """Build category context with category data (not cached)."""
+        from mcp_guide.session import get_current_session
+        from mcp_guide.utils.template_context import TemplateContext
+
+        # Extract category information from current session's project
+        category_data = {"name": "", "dir": "", "patterns": [], "description": ""}
+        try:
+            session = get_current_session()
+            if session:
+                project = await session.get_project()
+                # Find category by name
+                for category in project.categories:
+                    if category.name == category_name:
+                        category_data = {
+                            "name": category.name,
+                            "dir": category.dir,
+                            "patterns": category.patterns,
+                            "description": getattr(category, "description", ""),
+                        }
+                        break
+        except (AttributeError, ValueError, RuntimeError) as e:
+            logger.debug(f"Failed to get category from session: {e}")
+
+        category_vars = {"category": category_data}
+        return TemplateContext(category_vars)
+
+    async def get_template_contexts(self, category_name: Optional[str] = None) -> "TemplateContext":
         """Get layered template contexts for rendering.
 
         Args:
@@ -100,31 +125,82 @@ class TemplateContextCache(SessionListener):
             TemplateContext with layered contexts (system → agent → project → category)
         """
 
-        # Check cache first
-        cached = _template_contexts.get()
-        if cached is not None:
-            return cached
+        # Check cache first (only for non-category contexts)
+        if category_name is None:
+            cached = _template_contexts.get()
+            if cached is not None:
+                return cached
 
         # Build contexts
-        system_context = self._build_system_context()
-        agent_context = self._build_agent_context()
-        project_context = self._build_project_context()
+        system_context = await self._build_system_context()
+        agent_context = await self._build_agent_context()
+        project_context = await self._build_project_context()
 
         # Create layered context: project context with agent and system as parents
         layered_context = project_context.new_child(agent_context.new_child(system_context))
 
-        # Cache the result
-        _template_contexts.set(layered_context)
+        # Add category context if requested (not cached)
+        if category_name is not None:
+            category_context = await self._build_category_context(category_name)
+            layered_context = category_context.new_child(layered_context)
+        else:
+            # Cache only when no category context (base contexts only)
+            _template_contexts.set(layered_context)
 
-        # TODO: Add category contexts to the chain when implemented
         return layered_context
+
+    def get_transient_context(self) -> "TemplateContext":
+        """Generate fresh transient context with timestamps.
+
+        Returns:
+            TemplateContext with fresh timestamp data
+        """
+        import time
+        from datetime import datetime, timezone
+
+        from mcp_guide.utils.template_context import TemplateContext
+
+        # Get single high-resolution timestamp
+        timestamp_ns = time.time_ns()
+
+        # Calculate all timestamp formats from the same source
+        timestamp = timestamp_ns / 1_000_000_000  # seconds (float)
+        timestamp_ms = timestamp_ns / 1_000_000  # milliseconds (float)
+
+        # Generate datetime objects
+        now_utc = datetime.fromtimestamp(timestamp, tz=timezone.utc)
+        now = datetime.fromtimestamp(timestamp).replace(
+            tzinfo=datetime.now().astimezone().tzinfo
+        )  # local timezone aware
+
+        transient_vars = {
+            "timestamp": timestamp,
+            "timestamp_ms": timestamp_ms,
+            "timestamp_ns": timestamp_ns,
+            "now": {
+                "date": now.strftime("%Y-%m-%d"),
+                "day": now.strftime("%A"),
+                "time": now.strftime("%H:%M"),
+                "tz": now.strftime("%z"),
+                "datetime": now.strftime("%Y-%m-%d %H:%M:%S%z"),
+            },
+            "now_utc": {
+                "date": now_utc.strftime("%Y-%m-%d"),
+                "day": now_utc.strftime("%A"),
+                "time": now_utc.strftime("%H:%M"),
+                "tz": "+0000",
+                "datetime": now_utc.strftime("%Y-%m-%d %H:%M:%SZ"),
+            },
+        }
+
+        return TemplateContext(transient_vars)
 
 
 # Global instance for use across the application
 template_context_cache = TemplateContextCache()
 
 
-def get_template_contexts(category_name: Optional[str] = None) -> "TemplateContext":
+async def get_template_contexts(category_name: Optional[str] = None) -> "TemplateContext":
     """Public API to get template contexts for rendering.
 
     Args:
@@ -133,4 +209,4 @@ def get_template_contexts(category_name: Optional[str] = None) -> "TemplateConte
     Returns:
         TemplateContext with layered contexts
     """
-    return template_context_cache.get_template_contexts(category_name)
+    return await template_context_cache.get_template_contexts(category_name)

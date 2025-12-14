@@ -1,6 +1,6 @@
 """Tests for template context cache functionality."""
 
-from unittest.mock import Mock
+from unittest.mock import AsyncMock, Mock
 
 from mcp_guide.utils.template_context_cache import TemplateContextCache
 
@@ -16,7 +16,7 @@ class TestTemplateContextCache:
         assert hasattr(cache, "_build_project_context")
         assert callable(getattr(cache, "_build_project_context"))
 
-    def test_build_project_context_returns_project_name(self) -> None:
+    async def test_build_project_context_returns_project_name(self) -> None:
         """Test that _build_project_context returns project name in context."""
         from unittest.mock import patch
 
@@ -24,20 +24,20 @@ class TestTemplateContextCache:
 
         cache = TemplateContextCache()
 
-        # Mock get_current_session to return session with cached project
+        # Mock get_current_session to return session with project
         mock_session = Mock()
         mock_project = Project(name="test-project", categories=[], collections=[])
-        mock_session._cached_project = mock_project
+        mock_session.get_project = AsyncMock(return_value=mock_project)
 
         with patch("mcp_guide.session.get_current_session", return_value=mock_session):
             # Get project context
-            context = cache._build_project_context()
+            context = await cache._build_project_context()
 
             # Verify project data is in context
             assert "project" in context
             assert context["project"]["name"] == "test-project"
 
-    def test_build_project_context_handles_missing_project(self) -> None:
+    async def test_build_project_context_handles_missing_project(self) -> None:
         """Test that _build_project_context handles missing project gracefully."""
         from unittest.mock import patch
 
@@ -46,31 +46,31 @@ class TestTemplateContextCache:
         # Mock get_current_session to return None
         with patch("mcp_guide.session.get_current_session", return_value=None):
             # Should not raise exception
-            context = cache._build_project_context()
+            context = await cache._build_project_context()
 
             # Should return empty project context
             assert "project" in context
             assert context["project"]["name"] == ""
 
-    def test_build_project_context_with_session_without_project_returns_empty_name(self) -> None:
+    async def test_build_project_context_with_session_without_project_returns_empty_name(self) -> None:
         """Test that _build_project_context handles session without cached project."""
         from unittest.mock import patch
 
         cache = TemplateContextCache()
 
-        # Mock get_current_session to return session without cached project
+        # Mock get_current_session to return session that raises exception on get_project
         mock_session = Mock()
-        mock_session._cached_project = None
+        mock_session.get_project = AsyncMock(side_effect=ValueError("No project"))
 
         with patch("mcp_guide.session.get_current_session", return_value=mock_session):
             # Should not raise exception
-            context = cache._build_project_context()
+            context = await cache._build_project_context()
 
             # Should return empty project context
             assert "project" in context
             assert context["project"]["name"] == ""
 
-    def test_build_project_context_handles_expected_exception(self) -> None:
+    async def test_build_project_context_handles_expected_exception(self) -> None:
         """Test that _build_project_context swallows expected exceptions and returns empty project context."""
         from unittest.mock import patch
 
@@ -82,13 +82,13 @@ class TestTemplateContextCache:
             side_effect=AttributeError("missing attribute"),
         ):
             # Should not raise exception
-            context = cache._build_project_context()
+            context = await cache._build_project_context()
 
             # Should return empty project context
             assert "project" in context
             assert context["project"]["name"] == ""
 
-    def test_build_project_context_allows_unexpected_exception_to_propagate(self) -> None:
+    async def test_build_project_context_allows_unexpected_exception_to_propagate(self) -> None:
         """Test that _build_project_context allows unexpected exceptions to propagate naturally."""
         from unittest.mock import patch
 
@@ -103,11 +103,11 @@ class TestTemplateContextCache:
         ):
             # Should propagate the exception naturally
             with pytest.raises(Exception) as exc_info:
-                cache._build_project_context()
+                await cache._build_project_context()
 
             assert "unexpected error" in str(exc_info.value)
 
-    def test_project_context_accessible_in_layered_contexts(self) -> None:
+    async def test_project_context_accessible_in_layered_contexts(self) -> None:
         """Test that project context is accessible in the layered context chain."""
         from unittest.mock import patch
 
@@ -115,20 +115,20 @@ class TestTemplateContextCache:
 
         cache = TemplateContextCache()
 
-        # Mock get_current_session to return session with cached project
+        # Mock get_current_session to return session with project
         mock_session = Mock()
         mock_project = Project(name="test-project", categories=[], collections=[])
-        mock_session._cached_project = mock_project
+        mock_session.get_project = AsyncMock(return_value=mock_project)
 
         with patch("mcp_guide.session.get_current_session", return_value=mock_session):
             # Get layered contexts
-            context = cache.get_template_contexts()
+            context = await cache.get_template_contexts()
 
             # Verify project context is accessible (highest priority)
             assert "project" in context
             assert context["project"]["name"] == "test-project"
 
-    def test_context_precedence_project_overrides_agent_overrides_system(self) -> None:
+    async def test_context_precedence_project_overrides_agent_overrides_system(self) -> None:
         """Test that project context values override agent and system values in precedence order."""
         from unittest.mock import patch
 
@@ -141,14 +141,14 @@ class TestTemplateContextCache:
 
         _template_contexts.set(None)
 
-        # Mock get_current_session to return session with cached project
+        # Mock get_current_session to return session with project
         mock_session = Mock()
         mock_project = Project(name="project-value", categories=[], collections=[])
-        mock_session._cached_project = mock_project
+        mock_session.get_project = AsyncMock(return_value=mock_project)
 
         with patch("mcp_guide.session.get_current_session", return_value=mock_session):
             # Get layered contexts
-            context = cache.get_template_contexts()
+            context = await cache.get_template_contexts()
 
             # Test precedence: project should override system values
             # System context has "system" key, project should be accessible with higher precedence
@@ -159,7 +159,60 @@ class TestTemplateContextCache:
             assert "system" in context
             assert "os" in context["system"]
 
-    def test_complete_context_chain_provides_all_context_types(self) -> None:
+    async def test_build_category_context_method_exists(self) -> None:
+        """Test that _build_category_context method exists."""
+        cache = TemplateContextCache()
+
+        # Method should exist
+        assert hasattr(cache, "_build_category_context")
+        assert callable(getattr(cache, "_build_category_context"))
+
+    async def test_build_category_context_returns_category_data(self) -> None:
+        """Test that _build_category_context returns category data in context."""
+        from unittest.mock import patch
+
+        from mcp_guide.models import Category, Project
+
+        cache = TemplateContextCache()
+
+        # Mock session with project containing category
+        mock_session = Mock()
+        test_category = Category(name="docs", dir="./docs", patterns=["*.md"])
+        mock_project = Project(name="test-project", categories=[test_category], collections=[])
+        mock_session.get_project = AsyncMock(return_value=mock_project)
+
+        with patch("mcp_guide.session.get_current_session", return_value=mock_session):
+            # Get category context
+            context = await cache._build_category_context("docs")
+
+            # Verify category data is in context
+            assert "category" in context
+            assert context["category"]["name"] == "docs"
+            assert context["category"]["dir"] == "./docs"
+            assert context["category"]["patterns"] == ["*.md"]
+
+    async def test_build_category_context_handles_missing_category(self) -> None:
+        """Test that _build_category_context handles missing category gracefully."""
+        from unittest.mock import patch
+
+        from mcp_guide.models import Project
+
+        cache = TemplateContextCache()
+
+        # Mock session with project without the requested category
+        mock_session = Mock()
+        mock_project = Project(name="test-project", categories=[], collections=[])
+        mock_session.get_project = AsyncMock(return_value=mock_project)
+
+        with patch("mcp_guide.session.get_current_session", return_value=mock_session):
+            # Should not raise exception
+            context = await cache._build_category_context("nonexistent")
+
+            # Should return empty category context
+            assert "category" in context
+            assert context["category"]["name"] == ""
+
+    async def test_complete_context_chain_provides_all_context_types(self) -> None:
         """Test that complete context chain provides access to all context types."""
         from unittest.mock import patch
 
@@ -172,14 +225,14 @@ class TestTemplateContextCache:
 
         _template_contexts.set(None)
 
-        # Mock get_current_session to return session with cached project
+        # Mock get_current_session to return session with project
         mock_session = Mock()
         mock_project = Project(name="integration-test", categories=[], collections=[])
-        mock_session._cached_project = mock_project
+        mock_session.get_project = AsyncMock(return_value=mock_project)
 
         with patch("mcp_guide.session.get_current_session", return_value=mock_session):
             # Get complete layered contexts
-            context = cache.get_template_contexts()
+            context = await cache.get_template_contexts()
 
             # Verify all context types are accessible
             # System context
@@ -195,3 +248,102 @@ class TestTemplateContextCache:
             # Project context
             assert "project" in context
             assert context["project"]["name"] == "integration-test"
+
+    def test_get_transient_context_method_exists(self) -> None:
+        """Test that get_transient_context method exists."""
+        cache = TemplateContextCache()
+
+        # Method should exist
+        assert hasattr(cache, "get_transient_context")
+        assert callable(getattr(cache, "get_transient_context"))
+
+    def test_get_transient_context_returns_template_context(self) -> None:
+        """Test that get_transient_context returns TemplateContext."""
+        from mcp_guide.utils.template_context import TemplateContext
+
+        cache = TemplateContextCache()
+        context = cache.get_transient_context()
+
+        assert isinstance(context, TemplateContext)
+
+    def test_get_transient_context_has_required_fields(self) -> None:
+        """Test that get_transient_context returns required timestamp fields."""
+        cache = TemplateContextCache()
+        context = cache.get_transient_context()
+
+        # Test required fields exist
+        assert "now" in context
+        assert "now_utc" in context
+        assert "timestamp" in context
+        assert "timestamp_ms" in context
+        assert "timestamp_ns" in context
+
+    def test_get_transient_context_field_types(self) -> None:
+        """Test that transient context fields have correct types."""
+        cache = TemplateContextCache()
+        context = cache.get_transient_context()
+
+        # Test field types
+        assert isinstance(context["now"], dict)
+        assert isinstance(context["now_utc"], dict)
+        assert isinstance(context["timestamp"], float)
+        assert isinstance(context["timestamp_ms"], float)
+        assert isinstance(context["timestamp_ns"], int)
+
+        # Test structured datetime fields
+        assert isinstance(context["now"]["date"], str)
+        assert isinstance(context["now"]["day"], str)
+        assert isinstance(context["now"]["time"], str)
+        assert isinstance(context["now"]["tz"], str)
+        assert isinstance(context["now"]["datetime"], str)
+
+        assert isinstance(context["now_utc"]["date"], str)
+        assert isinstance(context["now_utc"]["day"], str)
+        assert isinstance(context["now_utc"]["time"], str)
+        assert isinstance(context["now_utc"]["tz"], str)
+        assert isinstance(context["now_utc"]["datetime"], str)
+
+    def test_get_transient_context_timezone_awareness(self) -> None:
+        """Test that datetime fields contain timezone information."""
+        cache = TemplateContextCache()
+        context = cache.get_transient_context()
+
+        # Test timezone information is present
+        assert context["now"]["tz"]  # Should have timezone offset
+        assert context["now_utc"]["tz"] == "+0000"  # UTC always +0000
+
+        # Test datetime strings contain timezone info
+        assert context["now"]["datetime"]  # Should have timezone in datetime string
+        assert context["now_utc"]["datetime"].endswith("Z")  # UTC should end with Z
+
+    def test_transient_context_freshness(self) -> None:
+        """Test that transient context provides fresh timestamps on each call."""
+        import time
+
+        cache = TemplateContextCache()
+
+        context1 = cache.get_transient_context()
+        time.sleep(0.001)  # Small delay
+        context2 = cache.get_transient_context()
+
+        # Timestamps should be different
+        assert context1["timestamp_ns"] != context2["timestamp_ns"]
+        assert context1["timestamp_ms"] != context2["timestamp_ms"]
+        assert context1["timestamp"] != context2["timestamp"]
+
+    def test_transient_context_timestamp_consistency(self) -> None:
+        """Test that all timestamp fields represent the same moment."""
+        cache = TemplateContextCache()
+        context = cache.get_transient_context()
+
+        timestamp_ns = context["timestamp_ns"]
+        timestamp_ms = context["timestamp_ms"]
+        timestamp = context["timestamp"]
+
+        # Verify calculations are consistent
+        expected_timestamp = timestamp_ns / 1_000_000_000
+        expected_timestamp_ms = timestamp_ns / 1_000_000
+
+        # Allow small floating point differences
+        assert abs(timestamp - expected_timestamp) < 1e-9
+        assert abs(timestamp_ms - expected_timestamp_ms) < 1e-6

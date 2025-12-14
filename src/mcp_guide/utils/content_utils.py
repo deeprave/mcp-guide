@@ -8,6 +8,8 @@ from mcp_core.path_security import resolve_safe_path
 from mcp_core.result import Result
 from mcp_guide.utils.file_discovery import FileInfo
 
+# Temporarily disabled: from mcp_guide.utils.template_renderer import is_template_file, render_template_with_context_chain
+
 
 def resolve_patterns(override_pattern: Optional[str], default_patterns: list[str]) -> list[str]:
     """Resolve patterns with optional override.
