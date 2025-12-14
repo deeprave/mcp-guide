@@ -215,11 +215,11 @@ async def get_or_create_session(
     return session
 
 
-def get_current_session(project_name: str) -> Optional[Session]:
+def get_current_session(project_name: Optional[str] = None) -> Optional[Session]:
     """Get current session for project from ContextVar.
 
     Args:
-        project_name: Name of the project
+        project_name: Name of the project. If None, returns first available session.
 
     Returns:
         Session if exists in current async context, None otherwise
@@ -229,7 +229,10 @@ def get_current_session(project_name: str) -> Optional[Session]:
         Each task has its own session storage.
     """
     sessions = active_sessions.get({})
-    return sessions.get(project_name)
+    if project_name is not None:
+        return sessions.get(project_name)
+    # Return first available session if no project name specified
+    return next(iter(sessions.values())) if sessions else None
 
 
 def set_current_session(session: Session) -> None:
@@ -254,22 +257,6 @@ def remove_current_session(project_name: str) -> None:
     sessions = dict(active_sessions.get({}))
     sessions.pop(project_name, None)
     active_sessions.set(sessions)
-
-
-def get_any_active_session() -> Optional[Session]:
-    """Get any active session from ContextVar.
-
-    Returns:
-        First available session if any exist, None otherwise
-
-    Note:
-        This is useful for template contexts where we need project data
-        but don't have a specific project name.
-    """
-    sessions = active_sessions.get({})
-    if sessions:
-        return next(iter(sessions.values()))
-    return None
 
 
 async def set_project(project_name: str, ctx: Optional["Context"] = None) -> Result[Project]:  # type: ignore[name-defined]
