@@ -88,8 +88,8 @@ class TestTemplateContextCache:
             assert "project" in context
             assert context["project"]["name"] == ""
 
-    def test_build_project_context_propagates_unexpected_exception(self) -> None:
-        """Test that _build_project_context propagates unexpected exceptions."""
+    def test_build_project_context_allows_unexpected_exception_to_propagate(self) -> None:
+        """Test that _build_project_context allows unexpected exceptions to propagate naturally."""
         from unittest.mock import patch
 
         import pytest
@@ -101,7 +101,7 @@ class TestTemplateContextCache:
             "mcp_guide.session.get_current_session",
             side_effect=Exception("unexpected error"),
         ):
-            # Should propagate the exception
+            # Should propagate the exception naturally
             with pytest.raises(Exception) as exc_info:
                 cache._build_project_context()
 
