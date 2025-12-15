@@ -5,6 +5,7 @@ from contextvars import ContextVar
 from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
+    from mcp_guide.utils.file_discovery import FileInfo
     from mcp_guide.utils.template_context import TemplateContext
 
 from mcp_guide.session_listener import SessionListener
@@ -198,6 +199,25 @@ class TemplateContextCache(SessionListener):
 
 # Global instance for use across the application
 template_context_cache = TemplateContextCache()
+
+
+async def get_template_context_if_needed(
+    files: list["FileInfo"], category_name: Optional[str] = None
+) -> Optional["TemplateContext"]:
+    """Get template context only if files contain templates.
+
+    Args:
+        files: List of FileInfo objects to check
+        category_name: Category name for context building
+
+    Returns:
+        TemplateContext if templates found, None otherwise
+    """
+    from mcp_guide.utils.template_renderer import is_template_file
+
+    if any(is_template_file(file_info) for file_info in files):
+        return await get_template_contexts(category_name)
+    return None
 
 
 async def get_template_contexts(category_name: Optional[str] = None) -> "TemplateContext":
