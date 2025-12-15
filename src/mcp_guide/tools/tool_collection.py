@@ -21,9 +21,10 @@ from mcp_guide.tools.tool_constants import (
     INSTRUCTION_NOTFOUND_ERROR,
     INSTRUCTION_PATTERN_ERROR,
 )
-from mcp_guide.utils.content_utils import create_file_read_error_result, read_file_contents, resolve_patterns
+from mcp_guide.utils.content_utils import create_file_read_error_result, read_and_render_file_contents, resolve_patterns
 from mcp_guide.utils.file_discovery import FileInfo, discover_category_files
 from mcp_guide.utils.formatter_selection import get_formatter
+from mcp_guide.utils.template_context_cache import get_template_contexts
 from mcp_guide.validation import validate_categories_exist
 
 try:
@@ -419,8 +420,13 @@ async def get_collection_content(
             file.category = category.name
             file.collection = args.collection
 
-        # Read file content and modify basename
-        errors = await read_file_contents(files, category_dir, category_prefix=category.name)
+        # Read file content with template rendering and modify basename
+        template_context = None
+        if any(file_info.path.name.endswith(".mustache") for file_info in files):
+            template_context = await get_template_contexts(category.name)
+        errors = await read_and_render_file_contents(
+            files, category_dir, template_context, category_prefix=category.name
+        )
         file_read_errors.extend(errors)
         all_files.extend(files)
 

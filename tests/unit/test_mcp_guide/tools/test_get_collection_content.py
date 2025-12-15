@@ -342,12 +342,12 @@ async def test_tool_handles_file_read_error(tmp_path, monkeypatch):
     async def mock_get_session(ctx=None):
         return MockSession()
 
-    # Mock read_file_contents to return errors with category prefix
-    async def mock_read_file_contents(files, base_dir, category_prefix=None):
+    # Mock read_and_render_file_contents to return errors with category prefix
+    async def mock_read_file_contents(files, base_dir, template_context=None, category_prefix=None):
         return [f"{category_prefix}/test.md: Permission denied"]
 
     monkeypatch.setattr("mcp_guide.tools.tool_collection.get_or_create_session", mock_get_session)
-    monkeypatch.setattr("mcp_guide.tools.tool_collection.read_file_contents", mock_read_file_contents)
+    monkeypatch.setattr("mcp_guide.tools.tool_collection.read_and_render_file_contents", mock_read_file_contents)
 
     # Call tool
     args = CollectionContentArgs(collection="all-docs")

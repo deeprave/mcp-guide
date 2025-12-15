@@ -36,15 +36,15 @@ async def test_category_field_set_on_fileinfo(tmp_path: Path, monkeypatch: Monke
     # Patch to capture FileInfo objects
     captured_files = []
 
-    async def capture_read_contents(files, base_dir, category_prefix=None):
+    async def capture_read_contents(files, base_dir, template_context=None, category_prefix=None):
         nonlocal captured_files
         captured_files = list(files)  # Capture before processing
-        from mcp_guide.utils.content_utils import read_file_contents
+        from mcp_guide.utils.content_utils import read_and_render_file_contents
 
-        return await read_file_contents(files, base_dir, category_prefix)
+        return await read_and_render_file_contents(files, base_dir, template_context, category_prefix)
 
     monkeypatch.setattr("mcp_guide.tools.tool_category.get_or_create_session", mock_get_session)
-    monkeypatch.setattr("mcp_guide.tools.tool_category.read_file_contents", capture_read_contents)
+    monkeypatch.setattr("mcp_guide.tools.tool_category.read_and_render_file_contents", capture_read_contents)
 
     # Call tool
     args = CategoryContentArgs(category="guide")
