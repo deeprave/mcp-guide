@@ -4,6 +4,7 @@ import logging
 from typing import Any, Callable, Optional
 
 import chevron
+from chevron import ChevronError
 
 from mcp_core.result import Result
 from mcp_guide.tools.tool_constants import INSTRUCTION_FILE_ERROR, INSTRUCTION_VALIDATION_ERROR
@@ -79,7 +80,18 @@ def render_template_content(
         rendered = chevron.render(content, template_context)  # type: ignore[arg-type]
         return Result.ok(rendered)
 
+    except ChevronError as e:
+        # Enhanced Chevron-specific error handling - use WARNING level for consistency
+        logging.warning(f"Template syntax error in {file_path}: {str(e)}")
+        return Result.failure(
+            error=f"Template rendering failed for {file_path}: {str(e)}",
+            error_type="template_error",
+            exception=e,
+            instruction=f"Fix template syntax in {file_path}. Check for unclosed sections, mismatched tags, or invalid mustache syntax.",
+        )
     except Exception as e:
+        # General error handling for other exceptions - use WARNING level for rendering failures
+        logging.warning(f"Template rendering error in {file_path}: {str(e)}")
         return Result.failure(
             error=f"Template rendering failed for {file_path}: {str(e)}",
             error_type="template_error",

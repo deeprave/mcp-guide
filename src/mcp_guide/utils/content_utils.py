@@ -7,8 +7,8 @@ from mcp_core.file_reader import read_file_content
 from mcp_core.path_security import resolve_safe_path
 from mcp_core.result import Result
 from mcp_guide.utils.file_discovery import FileInfo
-
-# Temporarily disabled: from mcp_guide.utils.template_renderer import is_template_file, render_template_with_context_chain
+from mcp_guide.utils.template_context import TemplateContext
+from mcp_guide.utils.template_renderer import is_template_file, render_file_content
 
 
 def resolve_patterns(override_pattern: Optional[str], default_patterns: list[str]) -> list[str]:
@@ -39,13 +39,65 @@ async def read_file_contents(
     Returns:
         List of error messages for files that failed to read
     """
+    return await read_and_render_file_contents(files, base_dir, None, category_prefix)
+
+
+async def read_and_render_file_contents(
+    files: list[FileInfo],
+    base_dir: Path,
+    template_context: Optional[TemplateContext] = None,
+    category_prefix: Optional[str] = None,
+) -> list[str]:
+    """Read and render content for FileInfo objects with template support.
+
+    Args:
+        files: List of FileInfo objects to read and render
+        base_dir: Base directory for resolving file paths
+        template_context: Optional template context for rendering
+        category_prefix: Optional prefix to add to basenames (e.g., "category")
+
+    Returns:
+        List of error messages for files that failed to read or render
+    """
     file_read_errors: list[str] = []
+
+    # Check if any files are templates to avoid unnecessary context validation
+    has_templates = template_context is not None and any(is_template_file(f) for f in files)
 
     for file_info in files:
         try:
+            # Read file content
             file_path = resolve_safe_path(base_dir, file_info.path)
             file_info.content = await read_file_content(file_path)
 
+            # Render templates if context provided and file is a template
+            if has_templates and is_template_file(file_info):
+                # Enhanced validation of template context
+                if not isinstance(template_context, TemplateContext):
+                    error_path = f"{category_prefix}/{file_info.basename}" if category_prefix else file_info.basename
+                    file_read_errors.append(f"'{error_path}': Invalid template context type")
+                    continue
+
+                # Validate context data structure
+                try:
+                    # Test context access to catch corrupted internal state
+                    _ = dict(template_context)
+                except (TypeError, ValueError) as e:
+                    error_path = f"{category_prefix}/{file_info.basename}" if category_prefix else file_info.basename
+                    file_read_errors.append(f"'{error_path}': Invalid template context data: {str(e)}")
+                    continue
+
+                render_result = render_file_content(file_info, template_context)
+                if render_result.is_failure():
+                    # Skip file on template error for consistency with other validation failures
+                    error_path = f"{category_prefix}/{file_info.basename}" if category_prefix else file_info.basename
+                    file_read_errors.append(f"'{error_path}' template error: {render_result.error}")
+                    continue
+                else:
+                    # Update content with rendered version
+                    file_info.content = render_result.value
+
+            # Apply category prefix
             if category_prefix:
                 file_info.basename = f"{category_prefix}/{file_info.basename}"
 

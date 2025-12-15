@@ -65,6 +65,45 @@ class TestTemplateRendering:
         assert result.error_type == "template_error"
         assert "Template rendering failed" in result.error
 
+    def test_template_context_integration_in_pipeline(self):
+        """Test that TemplateContext is properly integrated in rendering pipeline."""
+        content = "Hello {{name}}! Project: {{project.name}}"
+        context = TemplateContext({"name": "World", "project": {"name": "test-project"}})
+
+        result = render_template_content(content, context)
+
+        assert result.is_ok()
+        assert result.value == "Hello World! Project: test-project"
+
+    def test_lambda_functions_injection_in_pipeline(self):
+        """Test that lambda functions are properly injected and work in pipeline."""
+        from datetime import datetime
+
+        test_cases = [
+            (
+                "Date: {{#format_date}}%Y-%m-%d{{created_at}}{{/format_date}}",
+                {"created_at": datetime(2023, 12, 25)},
+                "Date: 2023-12-25",
+            ),
+            (
+                "Text: {{#truncate}}10{{long_text}}{{/truncate}}",
+                {"long_text": "This is a very long text that should be truncated"},
+                "Text: This is a ...",
+            ),  # Fixed expected output
+            (
+                "Code: {{#highlight_code}}python{{code}}{{/highlight_code}}",
+                {"code": "print('hello')"},
+                "Code: ```python\nprint('hello')\n```",
+            ),
+        ]
+
+        for content, context_data, expected in test_cases:
+            context = TemplateContext(context_data)
+            result = render_template_content(content, context)
+
+            assert result.is_ok(), f"Failed for: {content}"
+            assert result.value == expected, f"Expected '{expected}', got '{result.value}'"
+
     def test_render_template_content_missing_variable(self):
         """Test template rendering with missing variable."""
         content = "Hello {{missing_var}}!"
