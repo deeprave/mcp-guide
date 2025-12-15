@@ -24,7 +24,7 @@ from mcp_guide.tools.tool_constants import (
 from mcp_guide.utils.content_utils import create_file_read_error_result, read_and_render_file_contents, resolve_patterns
 from mcp_guide.utils.file_discovery import FileInfo, discover_category_files
 from mcp_guide.utils.formatter_selection import get_formatter
-from mcp_guide.utils.template_context_cache import get_template_contexts
+from mcp_guide.utils.template_context_cache import get_template_context_if_needed
 from mcp_guide.validation import validate_categories_exist
 
 try:
@@ -421,9 +421,7 @@ async def get_collection_content(
             file.collection = args.collection
 
         # Read file content with template rendering and modify basename
-        template_context = None
-        if any(file_info.path.name.endswith(".mustache") for file_info in files):
-            template_context = await get_template_contexts(category.name)
+        template_context = await get_template_context_if_needed(files, category.name)
         errors = await read_and_render_file_contents(
             files, category_dir, template_context, category_prefix=category.name
         )

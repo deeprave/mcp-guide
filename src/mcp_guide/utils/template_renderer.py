@@ -81,8 +81,8 @@ def render_template_content(
         return Result.ok(rendered)
 
     except ChevronError as e:
-        # Enhanced Chevron-specific error handling - use WARNING level for consistency
-        logging.warning(f"Template syntax error in {file_path}: {str(e)}")
+        # Enhanced Chevron-specific error handling - use ERROR level for syntax errors
+        logging.error(f"Template syntax error in {file_path}: {str(e)}")
         return Result.failure(
             error=f"Template rendering failed for {file_path}: {str(e)}",
             error_type="template_error",
