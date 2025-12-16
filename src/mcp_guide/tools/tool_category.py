@@ -128,7 +128,9 @@ async def category_add(args: CategoryAddArgs, ctx: Optional[Context] = None) -> 
 
         # Validate name doesn't contain invalid characters
         if "/" in args.name or "\\" in args.name or " " in args.name or "!" in args.name:
-            raise ArgValidationError([{"field": "name", "message": "Category name cannot contain spaces or special characters"}])
+            raise ArgValidationError(
+                [{"field": "name", "message": "Category name cannot contain spaces or special characters"}]
+            )
 
         # Validate name length
         if len(args.name) > 30:
@@ -283,11 +285,15 @@ async def category_change(args: CategoryChangeArgs, ctx: Optional[Context] = Non
 
             # Validate new name doesn't contain invalid characters
             if "/" in args.new_name or "\\" in args.new_name or " " in args.new_name or "!" in args.new_name:
-                raise ArgValidationError([{"field": "new_name", "message": "Category name cannot contain spaces or special characters"}])
+                raise ArgValidationError(
+                    [{"field": "new_name", "message": "Category name cannot contain spaces or special characters"}]
+                )
 
             # Validate new name length
             if len(args.new_name) > 30:
-                raise ArgValidationError([{"field": "new_name", "message": "Category name must be 30 characters or less"}])
+                raise ArgValidationError(
+                    [{"field": "new_name", "message": "Category name must be 30 characters or less"}]
+                )
 
             if args.new_name in project.categories and args.new_name != args.name:
                 raise ArgValidationError(
@@ -452,15 +458,16 @@ async def _extract_frontmatter_description(file_path: Path) -> str | None:
     """Extract description from YAML front-matter if present."""
     try:
         import aiofiles
-        async with aiofiles.open(file_path, 'r', encoding='utf-8') as f:
+
+        async with aiofiles.open(file_path, "r", encoding="utf-8") as f:
             content = await f.read()
 
         # Check if file starts with front-matter
-        if not content.startswith('---\n'):
+        if not content.startswith("---\n"):
             return None
 
         # Find the end of front-matter
-        end_marker = content.find('\n---\n', 4)
+        end_marker = content.find("\n---\n", 4)
         if end_marker == -1:
             return None
 
@@ -468,9 +475,9 @@ async def _extract_frontmatter_description(file_path: Path) -> str | None:
         frontmatter_content = content[4:end_marker]
 
         # Simple parsing for Description field
-        for line in frontmatter_content.split('\n'):
+        for line in frontmatter_content.split("\n"):
             line = line.strip()
-            if line.startswith('Description:'):
+            if line.startswith("Description:"):
                 description = line[12:].strip()  # Remove 'Description:' prefix
                 return description if description else None
 

@@ -604,7 +604,7 @@ async def test_category_list_files_success(mcp_server, tmp_path, monkeypatch):
         files = response["value"]
         assert isinstance(files, list)
         assert len(files) > 0
-        
+
         # Check file structure
         file_info = files[0]
         assert "path" in file_info
@@ -643,13 +643,13 @@ async def test_category_list_files_mixed_file_types(mcp_server, tmp_path, monkey
         assert response["success"] is True
         files = response["value"]
         assert len(files) >= 3
-        
+
         # Check mixed file types are included
         basenames = [f["basename"] for f in files]
         assert "readme.md" in basenames
         assert "config.json" in basenames  # .mustache stripped
         assert "nested.txt" in basenames
-        
+
         # Verify subdirectory paths
         paths = [f["path"] for f in files]
         assert any("subdir/nested.txt" in path for path in paths)
@@ -663,7 +663,7 @@ async def test_category_list_files_output_format(mcp_server, tmp_path, monkeypat
 
     session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
     docroot = Path(tmp_path.resolve()) / "docs"
-    
+
     # Create test files with known content
     test_dir = docroot / "test"
     test_dir.mkdir(parents=True)
@@ -680,7 +680,7 @@ async def test_category_list_files_output_format(mcp_server, tmp_path, monkeypat
         assert response["success"] is True
         files = response["value"]
         assert len(files) == 2
-        
+
         # Verify 2-column format structure
         for file_info in files:
             assert "path" in file_info
@@ -690,7 +690,7 @@ async def test_category_list_files_output_format(mcp_server, tmp_path, monkeypat
             assert isinstance(file_info["size"], int)
             assert isinstance(file_info["basename"], str)
             assert file_info["size"] > 0
-        
+
         # Check specific file sizes
         small_file = next(f for f in files if f["basename"] == "small.txt")
         large_file = next(f for f in files if f["basename"] == "large.md")

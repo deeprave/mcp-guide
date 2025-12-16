@@ -106,11 +106,7 @@ async def test_tool_returns_result_ok_on_success(tmp_path, monkeypatch):
     test_file.write_text("# Test Content")
 
     # Create test project with category
-    project = Project(
-        name="test",
-        categories={"docs": Category(dir=".", patterns=["*.md"])},
-        collections={}
-    )
+    project = Project(name="test", categories={"docs": Category(dir=".", patterns=["*.md"])}, collections={})
 
     # Mock session
     class MockConfigManager:
@@ -160,11 +156,7 @@ async def test_tool_formats_with_active_formatter(tmp_path, monkeypatch):
     test_file.write_text("Test")
 
     # Create test project
-    project = Project(
-        name="test",
-        categories={"docs": Category(dir=".", patterns=["*.md"])},
-        collections={}
-    )
+    project = Project(name="test", categories={"docs": Category(dir=".", patterns=["*.md"])}, collections={})
 
     # Mock session
     class MockConfigManager:
@@ -258,11 +250,7 @@ async def test_no_matches_returns_failure(tmp_path, monkeypatch):
     )
 
     # Create test project with category but no matching files
-    project = Project(
-        name="test",
-        categories={"docs": Category(dir=".", patterns=["*.md"])},
-        collections={}
-    )
+    project = Project(name="test", categories={"docs": Category(dir=".", patterns=["*.md"])}, collections={})
 
     # Mock session (no files created in tmp_path)
     class MockConfigManager:
@@ -314,11 +302,7 @@ async def test_file_read_error_single_file(tmp_path, monkeypatch):
     )
 
     # Create test project with category
-    project = Project(
-        name="test",
-        categories={"docs": Category(dir=".", patterns=["*.md"])},
-        collections={}
-    )
+    project = Project(name="test", categories={"docs": Category(dir=".", patterns=["*.md"])}, collections={})
 
     # Create a file
     test_file = tmp_path / "test.md"
@@ -375,11 +359,7 @@ async def test_file_read_error_multiple_files(tmp_path, monkeypatch):
     )
 
     # Create test project with category
-    project = Project(
-        name="test",
-        categories={"docs": Category(dir=".", patterns=["*.md"])},
-        collections={}
-    )
+    project = Project(name="test", categories={"docs": Category(dir=".", patterns=["*.md"])}, collections={})
 
     # Create multiple files
     (tmp_path / "file1.md").write_text("content1")
