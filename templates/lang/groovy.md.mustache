@@ -1,3 +1,7 @@
+---
+Type: agent-information
+Description: Language guidelines for the groovy JVM language http://groovy-lang.org
+---
 # Groovy Guidelines (Testing Focus)
 
 ## Project Structure
@@ -6,13 +10,15 @@
 
 ```
 root/
-├── build.gradle / pom.xml
+├── build.gradle[.kts] / pom.xml
 ├── src/
 │   ├── main/java/
 │   │   └── com/example/
 │   └── test/groovy/
+│   │   └── com/example/
+│   │       └── unit/
+│   └── test/integration/
 │       └── com/example/
-│           ├── unit/
 │           └── integration/
 ├── README.md
 └── .gitignore

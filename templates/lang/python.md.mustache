@@ -1,20 +1,24 @@
+---
+Type: agent/information
+Description: Language guidelines for development in Python 3
+---
 # Python Guidelines
 
 ## Project Structure
 **Standard layout with uv:**
 ```
 root/
-├── .python-version          # 3.13
+├── .python-version          # 3.13+
 ├── .pre-commit-config.yaml  # pre-commit hooks
-├── .coveragerc             # coverage configuration
-├── pyproject.toml          # with pytest config
+├── .coveragerc              # coverage configuration
+├── pyproject.toml           # with pytest config
 ├── README.md
 ├── LICENSE.md
 ├── src/
-│   ├── __init__.py         # required for pytest path resolution
+│   ├── __init__.py          # required for pytest path resolution
 │   └── <modulename>/
 └── tests/
-    ├── __init__.py         # required for pytest path resolution
+    ├── __init__.py          # required for pytest path resolution
     └── <modulename>/
 ```
 
