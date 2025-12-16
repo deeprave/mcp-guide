@@ -483,7 +483,7 @@ async def _extract_frontmatter_description(file_path: Path) -> str | None:
         # Case-insensitive parsing for Description field
         for line in frontmatter_content.split("\n"):
             line = line.strip()
-            if line.lower().startswith("description:"):
+            if line.lower().startswith("description") and ":" in line.lower():
                 # Find the colon and extract everything after it
                 colon_pos = line.find(":")
                 if colon_pos != -1:
