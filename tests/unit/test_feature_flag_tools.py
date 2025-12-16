@@ -6,7 +6,14 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 
 from mcp_core.result import Result
-from mcp_guide.tools.tool_feature_flags import GetFlagArgs, ListFlagsArgs, SetFlagArgs, get_project_flag, list_project_flags, set_project_flag
+from mcp_guide.tools.tool_feature_flags import (
+    GetFlagArgs,
+    ListFlagsArgs,
+    SetFlagArgs,
+    get_project_flag,
+    list_project_flags,
+    set_project_flag,
+)
 
 
 def parse_result_json(json_str: str) -> Result:

@@ -38,7 +38,7 @@ def _validate_flag_args(feature_name: str, value: Optional[FeatureValue]) -> Opt
             error_type="validation_error",
             instruction=INSTRUCTION_VALIDATION_ERROR,
         ).to_json_str()
-    
+
     return None
 
 
