@@ -39,7 +39,8 @@ class TestCategoryList:
     @pytest.mark.asyncio
     async def test_list_single_category(self, tmp_path: Path) -> None:
         """List single category returns all fields."""
-        category = Category(dir="documentation",
+        category = Category(
+            dir="documentation",
             patterns=["*.md", "*.txt"],
         )
         manager = ConfigManager(config_dir=str(tmp_path))
@@ -534,7 +535,9 @@ class TestCategoryRemove:
         session = Session(_config_manager=manager, project_name="test")
         docs_category = Category(dir="docs", patterns=["*.md"])
         all_collection = Collection(categories=["docs"])
-        session._cached_project = Project(name="test", categories={"docs": docs_category}, collections={"all": all_collection})
+        session._cached_project = Project(
+            name="test", categories={"docs": docs_category}, collections={"all": all_collection}
+        )
         set_current_session(session)
 
         args = CategoryRemoveArgs(name="docs")
@@ -559,7 +562,9 @@ class TestCategoryRemove:
         backend_col = Collection(categories=["api", "tests"])
         frontend_col = Collection(categories=["docs", "api"])
         session._cached_project = Project(
-            name="test", categories={"docs": docs_cat, "api": api_cat, "tests": tests_cat}, collections={"backend": backend_col, "frontend": frontend_col}
+            name="test",
+            categories={"docs": docs_cat, "api": api_cat, "tests": tests_cat},
+            collections={"backend": backend_col, "frontend": frontend_col},
         )
         set_current_session(session)
 
@@ -583,7 +588,9 @@ class TestCategoryRemove:
         docs_cat = Category(dir="docs", patterns=["*.md"])
         api_cat = Category(dir="api", patterns=["*.py"])
         backend_col = Collection(categories=["api"])
-        session._cached_project = Project(name="test", categories={"docs": docs_cat, "api": api_cat}, collections={"backend": backend_col})
+        session._cached_project = Project(
+            name="test", categories={"docs": docs_cat, "api": api_cat}, collections={"backend": backend_col}
+        )
         set_current_session(session)
 
         args = CategoryRemoveArgs(name="docs")
@@ -816,7 +823,9 @@ class TestCategoryChange:
         docs_cat = Category(dir="docs", patterns=["*.md"])
         api_cat = Category(dir="api", patterns=["*.py"])
         all_col = Collection(categories=["docs", "api"])
-        session._cached_project = Project(name="test", categories={"docs": docs_cat, "api": api_cat}, collections={"all": all_col})
+        session._cached_project = Project(
+            name="test", categories={"docs": docs_cat, "api": api_cat}, collections={"all": all_col}
+        )
         set_current_session(session)
 
         args = CategoryChangeArgs(name="docs", new_name="docs")
@@ -838,7 +847,9 @@ class TestCategoryChange:
         docs_cat = Category(dir="docs", patterns=["*.md"])
         api_cat = Category(dir="api", patterns=["*.py"])
         all_col = Collection(categories=["docs", "api"])
-        session._cached_project = Project(name="test", categories={"docs": docs_cat, "api": api_cat}, collections={"all": all_col})
+        session._cached_project = Project(
+            name="test", categories={"docs": docs_cat, "api": api_cat}, collections={"all": all_col}
+        )
         set_current_session(session)
 
         args = CategoryChangeArgs(name="docs", new_name="documentation")
@@ -861,7 +872,9 @@ class TestCategoryChange:
         backend_col = Collection(categories=["api"])
         frontend_col = Collection(categories=["docs", "api"])
         session._cached_project = Project(
-            name="test", categories={"docs": docs_cat, "api": api_cat}, collections={"backend": backend_col, "frontend": frontend_col}
+            name="test",
+            categories={"docs": docs_cat, "api": api_cat},
+            collections={"backend": backend_col, "frontend": frontend_col},
         )
         set_current_session(session)
 
@@ -1483,7 +1496,7 @@ class TestCategoryListFiles:
         docs_dir.mkdir()
         (docs_dir / "readme.md").write_text("# README")
         (docs_dir / "guide.md.mustache").write_text("# Guide {{name}}")
-        
+
         monkeypatch.setattr(session, "get_docroot", lambda: str(tmp_path))
 
         args = CategoryListFilesArgs(name="docs")
@@ -1493,7 +1506,7 @@ class TestCategoryListFiles:
         assert result_dict["success"] is True
         files = result_dict["value"]
         assert len(files) == 2
-        
+
         # Check file structure
         for file_info in files:
             assert "path" in file_info
@@ -1501,7 +1514,7 @@ class TestCategoryListFiles:
             assert "basename" in file_info
             assert isinstance(file_info["size"], int)
             assert file_info["size"] > 0
-        
+
         # Check template extension stripping
         basenames = [f["basename"] for f in files]
         assert "guide.md" in basenames  # .mustache stripped

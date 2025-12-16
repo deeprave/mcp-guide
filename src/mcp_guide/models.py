@@ -31,7 +31,7 @@ def format_project_data(project: "Project", verbose: bool = False) -> dict[str, 
 
     if verbose:
         collections = [
-            {"name": name, "description": c.description, "categories": c.categories} 
+            {"name": name, "description": c.description, "categories": c.categories}
             for name, c in project.collections.items()
         ]
         categories = [

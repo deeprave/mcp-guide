@@ -108,15 +108,17 @@ async def collection_add(args: CollectionAddArgs, ctx: Optional[Context] = None)
         # Validate name is not empty
         if not args.name or not args.name.strip():
             raise ArgValidationError([{"field": "name", "message": "Collection name cannot be empty"}])
-        
+
         # Validate name doesn't contain invalid characters
         if "/" in args.name or "\\" in args.name or " " in args.name or "!" in args.name:
-            raise ArgValidationError([{"field": "name", "message": "Collection name cannot contain spaces or special characters"}])
-        
+            raise ArgValidationError(
+                [{"field": "name", "message": "Collection name cannot contain spaces or special characters"}]
+            )
+
         # Validate name length
         if len(args.name) > 30:
             raise ArgValidationError([{"field": "name", "message": "Collection name must be 30 characters or less"}])
-        
+
         # Use dict lookup for O(1) duplicate detection
         if args.name in project.collections:
             raise ArgValidationError([{"field": "name", "message": f"Collection '{args.name}' already exists"}])
@@ -235,17 +237,23 @@ async def collection_change(args: CollectionChangeArgs, ctx: Optional[Context] =
             # Validate new name is not empty
             if not args.new_name or not args.new_name.strip():
                 raise ArgValidationError([{"field": "new_name", "message": "Collection name cannot be empty"}])
-            
+
             # Validate new name doesn't contain invalid characters
             if "/" in args.new_name or "\\" in args.new_name or " " in args.new_name or "!" in args.new_name:
-                raise ArgValidationError([{"field": "new_name", "message": "Collection name cannot contain spaces or special characters"}])
-            
+                raise ArgValidationError(
+                    [{"field": "new_name", "message": "Collection name cannot contain spaces or special characters"}]
+                )
+
             # Validate new name length
             if len(args.new_name) > 30:
-                raise ArgValidationError([{"field": "new_name", "message": "Collection name must be 30 characters or less"}])
-            
+                raise ArgValidationError(
+                    [{"field": "new_name", "message": "Collection name must be 30 characters or less"}]
+                )
+
             if args.new_name in project.collections and args.new_name != args.name:
-                raise ArgValidationError([{"field": "new_name", "message": f"Collection '{args.new_name}' already exists"}])
+                raise ArgValidationError(
+                    [{"field": "new_name", "message": f"Collection '{args.new_name}' already exists"}]
+                )
 
         if args.new_description is not None and args.new_description != "":
             validate_description(args.new_description)
@@ -279,7 +287,9 @@ async def collection_change(args: CollectionChangeArgs, ctx: Optional[Context] =
 
     try:
         final_name = args.new_name if args.new_name is not None else args.name
-        await session.update_config(lambda p: p.without_collection(args.name).with_collection(final_name, updated_collection))
+        await session.update_config(
+            lambda p: p.without_collection(args.name).with_collection(final_name, updated_collection)
+        )
     except Exception as e:
         return Result.failure(f"Failed to save project configuration: {e}", error_type=ERROR_SAVE).to_json_str()
 
@@ -363,7 +373,9 @@ async def collection_update(args: CollectionUpdateArgs, ctx: Optional[Context] =
     updated_collection = replace(existing_collection, categories=current_categories)
 
     try:
-        await session.update_config(lambda p: p.without_collection(args.name).with_collection(args.name, updated_collection))
+        await session.update_config(
+            lambda p: p.without_collection(args.name).with_collection(args.name, updated_collection)
+        )
     except Exception as e:
         return Result.failure(f"Failed to save project configuration: {e}", error_type=ERROR_SAVE).to_json_str()
 

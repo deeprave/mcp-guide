@@ -232,9 +232,7 @@ class TestCollectionAdd:
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
         # Add existing collection via proper API
-        await session.update_config(
-            lambda p: p.with_collection("backend", Collection(categories=[], description=""))
-        )
+        await session.update_config(lambda p: p.with_collection("backend", Collection(categories=[], description="")))
 
         # Capture original project state
         original_project = await session.get_project()
@@ -571,7 +569,9 @@ class TestCollectionChange:
         api_cat = {"name": "api", "dir": "api", "patterns": ["*.py"]}
         tests_cat = {"name": "tests", "dir": "tests", "patterns": ["test_*.py"]}
         docs_cat = {"name": "docs", "dir": "docs", "patterns": ["*.md"]}
-        await session.update_config(lambda p: p.with_category("api", api_cat).with_category("tests", tests_cat).with_category("docs", docs_cat))
+        await session.update_config(
+            lambda p: p.with_category("api", api_cat).with_category("tests", tests_cat).with_category("docs", docs_cat)
+        )
 
         backend_collection = {"name": "backend", "categories": ["api"], "description": "Backend"}
         await session.update_config(lambda p: p.with_collection("backend", backend_collection))
@@ -600,7 +600,9 @@ class TestCollectionChange:
         api_cat = {"name": "api", "dir": "api", "patterns": ["*.py"]}
         tests_cat = {"name": "tests", "dir": "tests", "patterns": ["test_*.py"]}
         docs_cat = {"name": "docs", "dir": "docs", "patterns": ["*.md"]}
-        await session.update_config(lambda p: p.with_category("api", api_cat).with_category("tests", tests_cat).with_category("docs", docs_cat))
+        await session.update_config(
+            lambda p: p.with_category("api", api_cat).with_category("tests", tests_cat).with_category("docs", docs_cat)
+        )
 
         backend_collection = Collection(categories=[], description=None)
         await session.update_config(lambda p: p.with_collection("backend", backend_collection))
@@ -833,10 +835,16 @@ class TestCollectionUpdate:
         session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
         # Create categories using dict format
-        await session.update_config(lambda p: p.with_category("api", Category(dir="api", patterns=["*.py"])).with_category("tests", Category(dir="tests", patterns=["test_*.py"])))
+        await session.update_config(
+            lambda p: p.with_category("api", Category(dir="api", patterns=["*.py"])).with_category(
+                "tests", Category(dir="tests", patterns=["test_*.py"])
+            )
+        )
 
         # Create collection using dict format
-        await session.update_config(lambda p: p.with_collection("backend", Collection(categories=["api"], description=None)))
+        await session.update_config(
+            lambda p: p.with_collection("backend", Collection(categories=["api"], description=None))
+        )
 
         args = CollectionUpdateArgs(name="backend", add_categories=["tests"])
         result_str = await collection_update(args)
@@ -908,7 +916,9 @@ class TestCollectionUpdate:
         api_cat = {"name": "api", "dir": "api", "patterns": ["*.py"]}
         tests_cat = {"name": "tests", "dir": "tests", "patterns": ["test_*.py"]}
         docs_cat = {"name": "docs", "dir": "docs", "patterns": ["*.md"]}
-        await session.update_config(lambda p: p.with_category("api", api_cat).with_category("tests", tests_cat).with_category("docs", docs_cat))
+        await session.update_config(
+            lambda p: p.with_category("api", api_cat).with_category("tests", tests_cat).with_category("docs", docs_cat)
+        )
 
         backend_collection = {"name": "backend", "categories": ["api", "tests"], "description": None}
         await session.update_config(lambda p: p.with_collection("backend", backend_collection))
@@ -960,7 +970,9 @@ class TestCollectionUpdate:
         api_cat = {"name": "api", "dir": "api", "patterns": ["*.py"]}
         tests_cat = {"name": "tests", "dir": "tests", "patterns": ["test_*.py"]}
         docs_cat = {"name": "docs", "dir": "docs", "patterns": ["*.md"]}
-        await session.update_config(lambda p: p.with_category("api", api_cat).with_category("tests", tests_cat).with_category("docs", docs_cat))
+        await session.update_config(
+            lambda p: p.with_category("api", api_cat).with_category("tests", tests_cat).with_category("docs", docs_cat)
+        )
 
         backend_collection = {"name": "backend", "categories": ["api"], "description": None}
         await session.update_config(lambda p: p.with_collection("backend", backend_collection))
@@ -985,7 +997,9 @@ class TestCollectionUpdate:
         api_cat = {"name": "api", "dir": "api", "patterns": ["*.py"]}
         tests_cat = {"name": "tests", "dir": "tests", "patterns": ["test_*.py"]}
         docs_cat = {"name": "docs", "dir": "docs", "patterns": ["*.md"]}
-        await session.update_config(lambda p: p.with_category("api", api_cat).with_category("tests", tests_cat).with_category("docs", docs_cat))
+        await session.update_config(
+            lambda p: p.with_category("api", api_cat).with_category("tests", tests_cat).with_category("docs", docs_cat)
+        )
 
         backend_collection = {"name": "backend", "categories": ["api", "tests", "docs"], "description": None}
         await session.update_config(lambda p: p.with_collection("backend", backend_collection))
@@ -1010,7 +1024,9 @@ class TestCollectionUpdate:
         api_cat = {"name": "api", "dir": "api", "patterns": ["*.py"]}
         tests_cat = {"name": "tests", "dir": "tests", "patterns": ["test_*.py"]}
         docs_cat = {"name": "docs", "dir": "docs", "patterns": ["*.md"]}
-        await session.update_config(lambda p: p.with_category("api", api_cat).with_category("tests", tests_cat).with_category("docs", docs_cat))
+        await session.update_config(
+            lambda p: p.with_category("api", api_cat).with_category("tests", tests_cat).with_category("docs", docs_cat)
+        )
 
         # Start with duplicates
         backend_collection = {"name": "backend", "categories": ["api", "tests", "api"], "description": None}
@@ -1036,7 +1052,9 @@ class TestCollectionUpdate:
         api_cat = {"name": "api", "dir": "api", "patterns": ["*.py"]}
         tests_cat = {"name": "tests", "dir": "tests", "patterns": ["test_*.py"]}
         docs_cat = {"name": "docs", "dir": "docs", "patterns": ["*.md"]}
-        await session.update_config(lambda p: p.with_category("api", api_cat).with_category("tests", tests_cat).with_category("docs", docs_cat))
+        await session.update_config(
+            lambda p: p.with_category("api", api_cat).with_category("tests", tests_cat).with_category("docs", docs_cat)
+        )
 
         backend_collection = {"name": "backend", "categories": ["api", "tests"], "description": None}
         await session.update_config(lambda p: p.with_collection("backend", backend_collection))

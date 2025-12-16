@@ -74,9 +74,7 @@ class TestGetProject:
                 "python": Category(dir="src/", patterns=["*.py"], description="Python source files"),
                 "typescript": Category(dir="src/", patterns=["*.ts"], description="TypeScript files"),
             },
-            collections={
-                "api-docs": Collection(description="API documentation", categories=["python", "typescript"])
-            },
+            collections={"api-docs": Collection(description="API documentation", categories=["python", "typescript"])},
         )
         session._cached_project = project
         set_current_session(session)
@@ -112,9 +110,7 @@ class TestGetProject:
                 "python": Category(dir="src/", patterns=["*.py"], description="Python source files"),
                 "typescript": Category(dir="src/", patterns=["*.ts"], description="TypeScript files"),
             },
-            collections={
-                "api-docs": Collection(description="API documentation", categories=["python", "typescript"])
-            },
+            collections={"api-docs": Collection(description="API documentation", categories=["python", "typescript"])},
         )
         session._cached_project = project
         set_current_session(session)
@@ -785,12 +781,16 @@ class TestCloneProject:
         # Source project collections: one shared with target, one source-only
         source_coll_shared = Collection(description="from source", categories=["a"])
         source_coll_only = Collection(description="source only", categories=["b"])
-        source_proj = Project(name="source", categories={}, collections={"shared": source_coll_shared, "source_only": source_coll_only})
+        source_proj = Project(
+            name="source", categories={}, collections={"shared": source_coll_shared, "source_only": source_coll_only}
+        )
 
         # Target project collections: one shared with source, one target-only
         target_coll_shared = Collection(description="from target", categories=["c"])
         target_coll_only = Collection(description="target only", categories=["d"])
-        target_proj = Project(name="target", categories={}, collections={"shared": target_coll_shared, "target_only": target_coll_only})
+        target_proj = Project(
+            name="target", categories={}, collections={"shared": target_coll_shared, "target_only": target_coll_only}
+        )
 
         # Test merge mode
         mock_projects = {"source": source_proj, "target": target_proj}
@@ -811,7 +811,9 @@ class TestCloneProject:
             assert result["value"]["collections_overwritten"] == 1  # shared
 
         # Test replace mode
-        target_proj_replace = Project(name="target", categories={}, collections={"shared": target_coll_shared, "target_only": target_coll_only})
+        target_proj_replace = Project(
+            name="target", categories={}, collections={"shared": target_coll_shared, "target_only": target_coll_only}
+        )
         mock_projects_replace = {"source": source_proj, "target": target_proj_replace}
         mock_session_replace = AsyncMock()
         mock_session_replace.get_all_projects = AsyncMock(return_value=mock_projects_replace)

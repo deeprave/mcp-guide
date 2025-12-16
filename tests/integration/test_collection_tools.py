@@ -509,9 +509,7 @@ async def test_collection_content_category_not_found(mcp_server, tmp_path, monke
 
     # Create session with collection referencing non-existent category
     session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
-    await session.update_config(
-        lambda p: p.with_collection("test-collection", Collection(categories=["nonexistent"]))
-    )
+    await session.update_config(lambda p: p.with_collection("test-collection", Collection(categories=["nonexistent"])))
 
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
         args = CollectionContentArgs(collection="test-collection")

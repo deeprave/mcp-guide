@@ -152,10 +152,10 @@ class ConfigManager:
 
             if name in projects:
                 project_data = projects[name]
-                
+
                 # Migrate list-based configuration to dict-based (silent conversion)
                 project_data = self._migrate_project_data(project_data)
-                
+
                 try:
                     # Add name from key since it's not stored in the value
                     return Project(name=name, **project_data)
@@ -346,17 +346,18 @@ class ConfigManager:
 
     def _migrate_project_data(self, project_data: dict[str, Any]) -> dict[str, Any]:
         """Migrate list-based configuration to dict-based format.
-        
+
         Args:
             project_data: Raw project data from YAML
-            
+
         Returns:
             Migrated project data with dict-based categories and collections
         """
         # Create a deep copy to avoid modifying the original
         import copy
+
         migrated_data = copy.deepcopy(project_data)
-        
+
         # Migrate categories from list to dict
         if "categories" in migrated_data and isinstance(migrated_data["categories"], list):
             categories_dict = {}
@@ -365,8 +366,8 @@ class ConfigManager:
                     name = category.pop("name")  # Remove name field
                     categories_dict[name] = category
             migrated_data["categories"] = categories_dict
-        
-        # Migrate collections from list to dict  
+
+        # Migrate collections from list to dict
         if "collections" in migrated_data and isinstance(migrated_data["collections"], list):
             collections_dict = {}
             for collection in migrated_data["collections"]:
@@ -374,7 +375,7 @@ class ConfigManager:
                     name = collection.pop("name")  # Remove name field
                     collections_dict[name] = collection
             migrated_data["collections"] = collections_dict
-            
+
         return migrated_data
 
     def _project_to_dict(self, project: Project) -> dict[str, object]:
@@ -382,20 +383,21 @@ class ConfigManager:
         result: dict[str, object] = {
             "categories": {
                 name: {
-                    k: v for k, v in {
-                        "dir": category.dir, 
-                        "patterns": category.patterns, 
-                        "description": category.description
-                    }.items() if v is not None
+                    k: v
+                    for k, v in {
+                        "dir": category.dir,
+                        "patterns": category.patterns,
+                        "description": category.description,
+                    }.items()
+                    if v is not None
                 }
                 for name, category in project.categories.items()
             },
             "collections": {
                 name: {
-                    k: v for k, v in {
-                        "categories": collection.categories, 
-                        "description": collection.description
-                    }.items() if v is not None
+                    k: v
+                    for k, v in {"categories": collection.categories, "description": collection.description}.items()
+                    if v is not None
                 }
                 for name, collection in project.collections.items()
             },

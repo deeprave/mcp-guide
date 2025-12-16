@@ -33,11 +33,11 @@ class TestCategory:
     def test_category_without_name_field(self):
         """Category should not have name field (name becomes dict key)."""
         category = Category(dir="docs", patterns=["*.md"])
-        assert not hasattr(category, 'name')
+        assert not hasattr(category, "name")
         # Should only have dir, patterns, description
-        assert hasattr(category, 'dir')
-        assert hasattr(category, 'patterns')
-        assert hasattr(category, 'description')
+        assert hasattr(category, "dir")
+        assert hasattr(category, "patterns")
+        assert hasattr(category, "description")
 
     def test_category_is_frozen(self):
         """Category instances should be immutable."""
@@ -58,10 +58,10 @@ class TestCollection:
     def test_collection_without_name_field(self):
         """Collection should not have name field (name becomes dict key)."""
         collection = Collection(categories=["docs"], description="All docs")
-        assert not hasattr(collection, 'name')
+        assert not hasattr(collection, "name")
         # Should only have categories, description
-        assert hasattr(collection, 'categories')
-        assert hasattr(collection, 'description')
+        assert hasattr(collection, "categories")
+        assert hasattr(collection, "description")
 
     def test_collection_is_frozen(self):
         """Collection instances should be immutable."""
@@ -143,7 +143,7 @@ class TestProject:
 
         category = Category(dir="docs", patterns=["*.md"])
         project = Project(name="test", categories={"docs": category})
-        
+
         assert isinstance(project.categories, dict)
         assert "docs" in project.categories
         assert project.categories["docs"] == category
@@ -154,7 +154,7 @@ class TestProject:
 
         collection = Collection(categories=["docs"], description="All docs")
         project = Project(name="test", collections={"all": collection})
-        
+
         assert isinstance(project.collections, dict)
         assert "all" in project.collections
         assert project.collections["all"] == collection
