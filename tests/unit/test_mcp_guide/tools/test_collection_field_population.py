@@ -1,4 +1,4 @@
-"""Test that get_collection_content sets category and collection fields on FileInfo."""
+"""Test that collection_content sets category and collection fields on FileInfo."""
 
 import json
 from pathlib import Path
@@ -7,7 +7,7 @@ import pytest
 from _pytest.monkeypatch import MonkeyPatch
 
 from mcp_guide.models import Category, Collection, Project
-from mcp_guide.tools.tool_collection import CollectionContentArgs, get_collection_content
+from mcp_guide.tools.tool_collection import CollectionContentArgs, collection_content
 
 
 @pytest.mark.asyncio
@@ -48,7 +48,7 @@ async def test_collection_content_sets_both_fields(tmp_path: Path, monkeypatch: 
 
     # Call tool
     args = CollectionContentArgs(collection="all")
-    result_json = await get_collection_content(args)
+    result_json = await collection_content(args)
 
     # Parse result
     result = json.loads(result_json)
@@ -87,7 +87,7 @@ async def test_collection_content_empty_result_has_instruction(tmp_path: Path, m
 
     # Call tool
     args = CollectionContentArgs(collection="all")
-    result_json = await get_collection_content(args)
+    result_json = await collection_content(args)
 
     # Parse result
     result = json.loads(result_json)

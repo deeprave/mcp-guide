@@ -22,6 +22,9 @@ dependencies = [
 mcp-guide = "mcp_guide.main:main"
 osvcheck = "scripts.osvcheck:main"
 
+[tool.setuptools.package-data]
+"*" = ["templates/**/*"]
+
 [build-system]
 requires = ["uv_build"]
 build-backend = "uv_build"

@@ -21,13 +21,13 @@ logger = logging.getLogger(__name__)
 
 
 class GetClientInfoArgs(ToolArguments):
-    """Arguments for get_client_info tool."""
+    """Arguments for client_info tool."""
 
     verbose: bool = Field(default=False, description="Unused parameter for compatibility")
 
 
 @tools.tool(GetClientInfoArgs)
-async def get_client_info(args: GetClientInfoArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
+async def client_info(args: GetClientInfoArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
     """Get information about the MCP client/agent.
 
     Captures agent name, version, and prompt prefix from the MCP session.

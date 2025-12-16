@@ -18,15 +18,15 @@ from mcp_guide.tools.tool_project import (
     ListProjectsArgs,
     SetCurrentProjectArgs,
     clone_project,
-    get_current_project,
+    get_project,
     list_project,
     list_projects,
-    set_current_project,
+    set_project,
 )
 
 
-class TestGetCurrentProject:
-    """Tests for get_current_project tool."""
+class TestGetProject:
+    """Tests for get_project tool."""
 
     def test_args_validation(self):
         """Test GetCurrentProjectArgs schema validation."""
@@ -44,14 +44,14 @@ class TestGetCurrentProject:
 
     @pytest.mark.asyncio
     async def test_no_context_error(self):
-        """Test get_current_project with no project context."""
+        """Test get_project with no project context."""
         # Mock get_or_create_session to raise ValueError
         with patch(
             "mcp_guide.tools.tool_project.get_or_create_session",
             side_effect=ValueError("Project context not available"),
         ):
             args = GetCurrentProjectArgs(verbose=False)
-            result_str = await get_current_project(args)
+            result_str = await get_project(args)
             result = json.loads(result_str)
 
             assert result["success"] is False
@@ -60,7 +60,7 @@ class TestGetCurrentProject:
 
     @pytest.mark.asyncio
     async def test_non_verbose_output(self, tmp_path: Path, monkeypatch):
-        """Test get_current_project with verbose=False returns names only."""
+        """Test get_project with verbose=False returns names only."""
         # Set PWD to control project name detection
         monkeypatch.setenv("PWD", "/fake/path/test-project")
 
@@ -83,7 +83,7 @@ class TestGetCurrentProject:
 
         try:
             args = GetCurrentProjectArgs(verbose=False)
-            result_str = await get_current_project(args)
+            result_str = await get_project(args)
             result = json.loads(result_str)
 
             assert result["success"] is True
@@ -98,7 +98,7 @@ class TestGetCurrentProject:
 
     @pytest.mark.asyncio
     async def test_verbose_output(self, tmp_path: Path, monkeypatch):
-        """Test get_current_project with verbose=True returns full details."""
+        """Test get_project with verbose=True returns full details."""
         # Set PWD to control project name detection
         monkeypatch.setenv("PWD", "/fake/path/test-project")
 
@@ -121,7 +121,7 @@ class TestGetCurrentProject:
 
         try:
             args = GetCurrentProjectArgs(verbose=True)
-            result_str = await get_current_project(args)
+            result_str = await get_project(args)
             result = json.loads(result_str)
 
             assert result["success"] is True
@@ -149,7 +149,7 @@ class TestGetCurrentProject:
 
     @pytest.mark.asyncio
     async def test_empty_project(self, tmp_path: Path, monkeypatch):
-        """Test get_current_project with empty project."""
+        """Test get_project with empty project."""
         # Set PWD to control project name detection
         monkeypatch.setenv("PWD", "/fake/path/empty-project")
 
@@ -161,7 +161,7 @@ class TestGetCurrentProject:
         try:
             # Test non-verbose
             args = GetCurrentProjectArgs(verbose=False)
-            result_str = await get_current_project(args)
+            result_str = await get_project(args)
             result = json.loads(result_str)
 
             assert result["success"] is True
@@ -170,7 +170,7 @@ class TestGetCurrentProject:
 
             # Test verbose
             args = GetCurrentProjectArgs(verbose=True)
-            result_str = await get_current_project(args)
+            result_str = await get_project(args)
             result = json.loads(result_str)
 
             assert result["success"] is True
@@ -180,8 +180,8 @@ class TestGetCurrentProject:
             remove_current_session("empty-project")
 
 
-class TestSetCurrentProject:
-    """Tests for set_current_project tool."""
+class TestSetProject:
+    """Tests for set_project tool."""
 
     def test_args_validation(self):
         """Test SetCurrentProjectArgs schema validation."""
@@ -202,16 +202,16 @@ class TestSetCurrentProject:
 
     @pytest.mark.asyncio
     async def test_invalid_project_name(self):
-        """Test set_current_project with invalid project name."""
+        """Test set_project with invalid project name."""
         # Mock set_project to return failure for invalid name
         mock_result = Result.failure(
             "Project name 'invalid@name' must contain only alphanumeric characters, underscores, and hyphens",
             error_type="invalid_name",
         )
 
-        with patch("mcp_guide.tools.tool_project.set_project", return_value=mock_result):
+        with patch("mcp_guide.tools.tool_project.session_set_project", return_value=mock_result):
             args = SetCurrentProjectArgs(name="invalid@name", verbose=False)
-            result_str = await set_current_project(args)
+            result_str = await set_project(args)
             result = json.loads(result_str)
 
             assert result["success"] is False
@@ -234,9 +234,9 @@ class TestSetCurrentProject:
         # Mock set_project to return success
         mock_result = Result.ok(project)
 
-        with patch("mcp_guide.tools.tool_project.set_project", return_value=mock_result):
+        with patch("mcp_guide.tools.tool_project.session_set_project", return_value=mock_result):
             args = SetCurrentProjectArgs(name="existing-project", verbose=False)
-            result_str = await set_current_project(args)
+            result_str = await set_project(args)
             result = json.loads(result_str)
 
             assert result["success"] is True
@@ -260,9 +260,9 @@ class TestSetCurrentProject:
         # Mock set_project to return success
         mock_result = Result.ok(project)
 
-        with patch("mcp_guide.tools.tool_project.set_project", return_value=mock_result):
+        with patch("mcp_guide.tools.tool_project.session_set_project", return_value=mock_result):
             args = SetCurrentProjectArgs(name="existing-project", verbose=True)
-            result_str = await set_current_project(args)
+            result_str = await set_project(args)
             result = json.loads(result_str)
 
             assert result["success"] is True
@@ -294,9 +294,9 @@ class TestSetCurrentProject:
         # Mock set_project to return success (set_project handles creation)
         mock_result = Result.ok(project)
 
-        with patch("mcp_guide.tools.tool_project.set_project", return_value=mock_result):
+        with patch("mcp_guide.tools.tool_project.session_set_project", return_value=mock_result):
             args = SetCurrentProjectArgs(name="new-project", verbose=False)
-            result_str = await set_current_project(args)
+            result_str = await set_project(args)
             result = json.loads(result_str)
 
             assert result["success"] is True
@@ -310,9 +310,9 @@ class TestSetCurrentProject:
         # Mock set_project to return a generic error
         mock_result = Result.failure("Configuration file corrupted", error_type="project_load_error")
 
-        with patch("mcp_guide.tools.tool_project.set_project", return_value=mock_result):
+        with patch("mcp_guide.tools.tool_project.session_set_project", return_value=mock_result):
             args = SetCurrentProjectArgs(name="broken-project", verbose=False)
-            result_str = await set_current_project(args)
+            result_str = await set_project(args)
             result = json.loads(result_str)
 
             assert result["success"] is False

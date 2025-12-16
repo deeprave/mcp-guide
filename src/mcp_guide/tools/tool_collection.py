@@ -344,7 +344,7 @@ async def collection_update(args: CollectionUpdateArgs, ctx: Optional[Context] =
 
 
 class CollectionContentArgs(ToolArguments):
-    """Arguments for get_collection_content tool."""
+    """Arguments for collection_content tool."""
 
     collection: str = Field(description="Name of the collection to retrieve content from")
     pattern: str | None = Field(
@@ -353,7 +353,7 @@ class CollectionContentArgs(ToolArguments):
 
 
 @tools.tool(CollectionContentArgs)
-async def get_collection_content(
+async def collection_content(
     args: CollectionContentArgs,
     ctx: Optional[Context] = None,  # type: ignore[type-arg]
 ) -> str:

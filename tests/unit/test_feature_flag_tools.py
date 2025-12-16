@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 
 from mcp_core.result import Result
-from mcp_guide.tools.tool_feature_flags import GetFlagArgs, ListFlagsArgs, SetFlagArgs, get_flag, list_flags, set_flag
+from mcp_guide.tools.tool_feature_flags import GetFlagArgs, ListFlagsArgs, SetFlagArgs, get_project_flag, list_project_flags, set_project_flag
 
 
 def parse_result_json(json_str: str) -> Result:
@@ -24,7 +24,7 @@ def parse_result_json(json_str: str) -> Result:
 
 
 class TestListFlagsTool:
-    """Test list_flags MCP tool."""
+    """Test list_project_flags MCP tool."""
 
     @pytest.mark.asyncio
     @pytest.mark.asyncio
@@ -52,7 +52,7 @@ class TestListFlagsTool:
             mock_global_proxy.list = AsyncMock(return_value={"global_flag": True, "shared_flag": "global_value"})
             mock_session.feature_flags.return_value = mock_global_proxy
 
-            result_json = await list_flags(args)
+            result_json = await list_project_flags(args)
             result = parse_result_json(result_json)
 
             assert result.success is True
@@ -75,7 +75,7 @@ class TestListFlagsTool:
             mock_project_proxy.list = AsyncMock(return_value={"project_flag": False, "project_string": "value"})
             mock_session.project_flags.return_value = mock_project_proxy
 
-            result_json = await list_flags(args)
+            result_json = await list_project_flags(args)
             result = parse_result_json(result_json)
 
             assert result.success is True
@@ -99,7 +99,7 @@ class TestListFlagsTool:
             mock_project_proxy.list = AsyncMock(return_value={"specific_flag": ["list", "value"]})
             mock_session.project_flags.return_value = mock_project_proxy
 
-            result_json = await list_flags(args)
+            result_json = await list_project_flags(args)
             result = parse_result_json(result_json)
 
             assert result.success is True
@@ -113,7 +113,7 @@ class TestListFlagsTool:
         with patch("mcp_guide.session.get_or_create_session") as mock_session_func:
             mock_session_func.side_effect = ValueError("No current project available")
 
-            result_json = await list_flags(args)
+            result_json = await list_project_flags(args)
             result = parse_result_json(result_json)
 
             assert result.success is False
@@ -121,7 +121,7 @@ class TestListFlagsTool:
             assert "No current project" in result.error
 
 
-class TestSetFlagTool:
+class TestTestSetProjectFlagTool:
     """Test set_flag MCP tool."""
 
     @pytest.mark.asyncio
@@ -138,7 +138,7 @@ class TestSetFlagTool:
             mock_flags_proxy.set = AsyncMock()
             mock_session.project_flags.return_value = mock_flags_proxy
 
-            result_json = await set_flag(args)
+            result_json = await set_project_flag(args)
             result = parse_result_json(result_json)
 
             assert result.success is True
@@ -160,7 +160,7 @@ class TestSetFlagTool:
             mock_project_proxy.set = AsyncMock()
             mock_session.project_flags.return_value = mock_project_proxy
 
-            result_json = await set_flag(args)
+            result_json = await set_project_flag(args)
             result = parse_result_json(result_json)
 
             assert result.success is True
@@ -181,7 +181,7 @@ class TestSetFlagTool:
             mock_flags_proxy.remove = AsyncMock()
             mock_session.project_flags.return_value = mock_flags_proxy
 
-            result_json = await set_flag(args)
+            result_json = await set_project_flag(args)
             result = parse_result_json(result_json)
 
             assert result.success is True
@@ -193,7 +193,7 @@ class TestSetFlagTool:
         """Test validation error for invalid flag name."""
         args = SetFlagArgs(feature_name="invalid.flag", value=True)
 
-        result_json = await set_flag(args)
+        result_json = await set_project_flag(args)
         result = parse_result_json(result_json)
 
         assert result.success is False
@@ -201,7 +201,7 @@ class TestSetFlagTool:
         assert "periods" in result.error.lower()
 
 
-class TestGetFlagTool:
+class TestTestGetProjectFlagTool:
     """Test get_flag MCP tool."""
 
     @pytest.mark.asyncio
@@ -224,7 +224,7 @@ class TestGetFlagTool:
             mock_global_proxy.list = AsyncMock(return_value={"test_flag": "global_value"})
             mock_session.feature_flags.return_value = mock_global_proxy
 
-            result_json = await get_flag(args)
+            result_json = await get_project_flag(args)
             result = parse_result_json(result_json)
 
             assert result.success is True
@@ -248,7 +248,7 @@ class TestGetFlagTool:
             mock_global_proxy.list = AsyncMock(return_value={})  # No global flags
             mock_session.feature_flags.return_value = mock_global_proxy
 
-            result_json = await get_flag(args)
+            result_json = await get_project_flag(args)
             result = parse_result_json(result_json)
 
             assert result.success is True

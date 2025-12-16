@@ -485,7 +485,7 @@ async def test_collection_content_args_with_pattern():
 
 
 @pytest.mark.anyio
-async def test_get_collection_content_not_found(mcp_server, tmp_path, monkeypatch):
+async def test_collection_content_not_found(mcp_server, tmp_path, monkeypatch):
     """Test error when collection doesn't exist."""
     monkeypatch.setenv("PWD", "/fake/path/test")
 
@@ -494,7 +494,7 @@ async def test_get_collection_content_not_found(mcp_server, tmp_path, monkeypatc
 
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
         args = CollectionContentArgs(collection="nonexistent")
-        result = await call_mcp_tool(client, "get_collection_content", args)
+        result = await call_mcp_tool(client, "collection_content", args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
 
         assert response["success"] is False
@@ -505,7 +505,7 @@ async def test_get_collection_content_not_found(mcp_server, tmp_path, monkeypatc
 
 
 @pytest.mark.anyio
-async def test_get_collection_content_category_not_found(mcp_server, tmp_path, monkeypatch):
+async def test_collection_content_category_not_found(mcp_server, tmp_path, monkeypatch):
     """Test error when category in collection doesn't exist."""
     monkeypatch.setenv("PWD", "/fake/path/test")
 
@@ -517,7 +517,7 @@ async def test_get_collection_content_category_not_found(mcp_server, tmp_path, m
 
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
         args = CollectionContentArgs(collection="test-collection")
-        result = await call_mcp_tool(client, "get_collection_content", args)
+        result = await call_mcp_tool(client, "collection_content", args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
 
         assert response["success"] is False
@@ -528,7 +528,7 @@ async def test_get_collection_content_category_not_found(mcp_server, tmp_path, m
 
 
 @pytest.mark.anyio
-async def test_get_collection_content_empty_collection(mcp_server, tmp_path, monkeypatch):
+async def test_collection_content_empty_collection(mcp_server, tmp_path, monkeypatch):
     """Test success message when collection has no matching files."""
     from .test_data_generator import generate_test_files
 
@@ -548,7 +548,7 @@ async def test_get_collection_content_empty_collection(mcp_server, tmp_path, mon
 
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
         args = CollectionContentArgs(collection="empty-collection")
-        result = await call_mcp_tool(client, "get_collection_content", args)
+        result = await call_mcp_tool(client, "collection_content", args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
 
         assert response["success"] is True
@@ -558,7 +558,7 @@ async def test_get_collection_content_empty_collection(mcp_server, tmp_path, mon
 
 
 @pytest.mark.anyio
-async def test_get_collection_content_success_single_category(mcp_server, tmp_path, monkeypatch):
+async def test_collection_content_success_single_category(mcp_server, tmp_path, monkeypatch):
     """Test successful content retrieval from single category."""
     from .test_data_generator import generate_test_files
 
@@ -578,7 +578,7 @@ async def test_get_collection_content_success_single_category(mcp_server, tmp_pa
 
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
         args = CollectionContentArgs(collection="test-collection")
-        result = await call_mcp_tool(client, "get_collection_content", args)
+        result = await call_mcp_tool(client, "collection_content", args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
 
         assert response["success"] is True
@@ -589,7 +589,7 @@ async def test_get_collection_content_success_single_category(mcp_server, tmp_pa
 
 
 @pytest.mark.anyio
-async def test_get_collection_content_success_multiple_categories(mcp_server, tmp_path, monkeypatch):
+async def test_collection_content_success_multiple_categories(mcp_server, tmp_path, monkeypatch):
     """Test successful content retrieval from multiple categories."""
     from .test_data_generator import generate_test_files
 
@@ -609,7 +609,7 @@ async def test_get_collection_content_success_multiple_categories(mcp_server, tm
 
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
         args = CollectionContentArgs(collection="all-docs")
-        result = await call_mcp_tool(client, "get_collection_content", args)
+        result = await call_mcp_tool(client, "collection_content", args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
 
         assert response["success"] is True
@@ -624,7 +624,7 @@ async def test_get_collection_content_success_multiple_categories(mcp_server, tm
 
 
 @pytest.mark.anyio
-async def test_get_collection_content_pattern_override(mcp_server, tmp_path, monkeypatch):
+async def test_collection_content_pattern_override(mcp_server, tmp_path, monkeypatch):
     """Test pattern overrides category defaults."""
     from .test_data_generator import generate_test_files
 
@@ -645,7 +645,7 @@ async def test_get_collection_content_pattern_override(mcp_server, tmp_path, mon
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
         # Request only files matching "guidelines-*"
         args = CollectionContentArgs(collection="test-collection", pattern="guidelines-*")
-        result = await call_mcp_tool(client, "get_collection_content", args)
+        result = await call_mcp_tool(client, "collection_content", args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
 
         assert response["success"] is True

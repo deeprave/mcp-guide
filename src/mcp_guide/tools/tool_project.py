@@ -8,7 +8,8 @@ from mcp_core.result import Result
 from mcp_core.tool_arguments import ToolArguments
 from mcp_guide.models import _NAME_REGEX, Category, Collection, Project, format_project_data
 from mcp_guide.server import tools
-from mcp_guide.session import get_or_create_session, list_all_projects, set_project
+from mcp_guide.session import get_or_create_session, list_all_projects
+from mcp_guide.session import set_project as session_set_project
 from mcp_guide.tools.tool_constants import (
     ERROR_INVALID_NAME,
     ERROR_NO_PROJECT,
@@ -25,13 +26,13 @@ except ImportError:
 
 
 class GetCurrentProjectArgs(ToolArguments):
-    """Arguments for get_current_project tool."""
+    """Arguments for get_project tool."""
 
     verbose: bool = Field(default=False, description="If True, return full details; if False, return names only")
 
 
 class SetCurrentProjectArgs(ToolArguments):
-    """Arguments for set_current_project tool."""
+    """Arguments for set_project tool."""
 
     name: str = Field(description="Name of the project to switch to")
     verbose: bool = Field(
@@ -66,7 +67,7 @@ class CloneProjectArgs(ToolArguments):
 
 
 @tools.tool(GetCurrentProjectArgs)
-async def get_current_project(args: GetCurrentProjectArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
+async def get_project(args: GetCurrentProjectArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
     """Get information about the currently active project.
 
     Returns project name, collections, and categories. Use verbose=True for
@@ -98,7 +99,7 @@ async def get_current_project(args: GetCurrentProjectArgs, ctx: Optional[Context
 
 
 @tools.tool(SetCurrentProjectArgs)
-async def set_current_project(args: SetCurrentProjectArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
+async def set_project(args: SetCurrentProjectArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
     """Switch to a different project by name.
 
     Creates new project with default categories if it doesn't exist. Use verbose=True
@@ -111,7 +112,7 @@ async def set_current_project(args: SetCurrentProjectArgs, ctx: Optional[Context
     Returns:
         JSON string with Result containing switch confirmation and optional project details
     """
-    result = await set_project(args.name, ctx)
+    result = await session_set_project(args.name, ctx)
 
     if result.is_ok():
         project = result.value

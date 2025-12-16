@@ -225,7 +225,7 @@ async def call_mcp_tool(client, tool_name: str, args_model=None, **kwargs):
     Examples:
         # Using Pydantic model:
         args = GetCurrentProjectArgs(verbose=True)
-        result = await call_mcp_tool(client, "get_current_project", args)
+        result = await call_mcp_tool(client, "get_project", args)
 
         # Using kwargs:
         result = await call_mcp_tool(client, "collection_add",

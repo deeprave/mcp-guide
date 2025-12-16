@@ -1,4 +1,4 @@
-"""Test that get_category_content sets category field on FileInfo."""
+"""Test that category_content sets category field on FileInfo."""
 
 import json
 from pathlib import Path
@@ -7,7 +7,7 @@ import pytest
 from _pytest.monkeypatch import MonkeyPatch
 
 from mcp_guide.models import Category, Project
-from mcp_guide.tools.tool_category import CategoryContentArgs, get_category_content
+from mcp_guide.tools.tool_category import CategoryContentArgs, category_content
 
 
 @pytest.mark.asyncio
@@ -48,7 +48,7 @@ async def test_category_field_set_on_fileinfo(tmp_path: Path, monkeypatch: Monke
 
     # Call tool
     args = CategoryContentArgs(category="guide")
-    result_json = await get_category_content(args)
+    result_json = await category_content(args)
 
     # Parse result
     result = json.loads(result_json)

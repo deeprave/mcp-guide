@@ -62,6 +62,17 @@ The system SHALL provide create, read, update, delete operations for projects.
 - AND error is raised if old_name doesn't exist
 - AND error is raised if new_name already exists
 
+### Requirement: Project Configuration Model
+The configuration system SHALL support project-specific feature flags with flexible value types.
+
+#### Scenario: Project feature flags storage
+- **WHEN** project configuration is loaded
+- **THEN** include project_flags dict with FeatureValue types
+
+#### Scenario: Default empty project flags
+- **WHEN** new project is created
+- **THEN** project_flags defaults to empty dict
+
 ### Requirement: Error Handling
 The system SHALL provide clear error messages for config operations.
 
@@ -79,6 +90,17 @@ The system SHALL provide clear error messages for config operations.
 - THEN YAMLError is raised with clear message
 - AND error includes file location
 
+### Requirement: Global Configuration Model
+The configuration system SHALL support global feature flags with flexible value types.
+
+#### Scenario: Global feature flags storage
+- **WHEN** global configuration is loaded
+- **THEN** include feature_flags dict with FeatureValue types
+
+#### Scenario: Default empty feature flags
+- **WHEN** new configuration is created
+- **THEN** feature_flags defaults to empty dict
+
 ### Requirement: Constructor Injection for Testing
 The system SHALL support config_dir parameter for test isolation.
 
@@ -87,4 +109,45 @@ The system SHALL support config_dir parameter for test isolation.
 - THEN config file is located in specified directory
 - AND production config is not accessed
 - AND tests can use temporary directories
+
+### Requirement: Feature Flag Value Types
+Feature flag values SHALL be restricted to supported types for consistency and validation.
+
+#### Scenario: Supported value types
+- **WHEN** feature flag value is set
+- **THEN** accept only bool, str, list[str], or dict[str, str] types
+
+#### Scenario: Type validation
+- **WHEN** invalid value type is provided
+- **THEN** return validation error with supported types
+
+### Requirement: Feature Flag Name Validation
+Feature flag names SHALL follow project name validation rules with additional restrictions.
+
+#### Scenario: Valid flag names
+- **WHEN** flag name is validated
+- **THEN** accept alphanumeric characters, hyphens, and underscores only
+
+#### Scenario: Reject periods in flag names
+- **WHEN** flag name contains periods
+- **THEN** return validation error to avoid confusion with project syntax
+
+#### Scenario: Name length validation
+- **WHEN** flag name is validated
+- **THEN** enforce same length restrictions as project names
+
+### Requirement: Feature Flag Resolution
+The system SHALL resolve feature flag values using project-specific → global → None hierarchy.
+
+#### Scenario: Project flag takes precedence
+- **WHEN** flag exists in both project and global configuration
+- **THEN** return project-specific value
+
+#### Scenario: Global flag fallback
+- **WHEN** flag exists only in global configuration
+- **THEN** return global value
+
+#### Scenario: Flag not found
+- **WHEN** flag does not exist in project or global configuration
+- **THEN** return None
 

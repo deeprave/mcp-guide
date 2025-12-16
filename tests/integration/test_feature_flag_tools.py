@@ -47,14 +47,14 @@ def test_session(tmp_path):
 
 
 @pytest.mark.anyio
-async def test_set_flag_via_mcp(mcp_server, test_session, monkeypatch):
+async def test_set_project_flag_via_mcp(mcp_server, test_session, monkeypatch):
     """Test setting feature flag through MCP client."""
     monkeypatch.setenv("PWD", "/fake/path/test")
 
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
         # Set a project flag
         args = SetFlagArgs(feature_name="test_flag", value=True)
-        result = await call_mcp_tool(client, "set_flag", args)
+        result = await call_mcp_tool(client, "set_project_flag", args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
 
         assert response["success"] is True
@@ -62,18 +62,18 @@ async def test_set_flag_via_mcp(mcp_server, test_session, monkeypatch):
 
 
 @pytest.mark.anyio
-async def test_list_flags_via_mcp(mcp_server, test_session, monkeypatch):
+async def test_list_project_flags_via_mcp(mcp_server, test_session, monkeypatch):
     """Test listing feature flags through MCP client."""
     monkeypatch.setenv("PWD", "/fake/path/test")
 
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
         # First set a flag
         set_args = SetFlagArgs(feature_name="list_test", value="test_value")
-        await call_mcp_tool(client, "set_flag", set_args)
+        await call_mcp_tool(client, "set_project_flag", set_args)
 
         # Then list flags
         list_args = ListFlagsArgs()
-        result = await call_mcp_tool(client, "list_flags", list_args)
+        result = await call_mcp_tool(client, "list_project_flags", list_args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
 
         assert response["success"] is True
@@ -82,18 +82,18 @@ async def test_list_flags_via_mcp(mcp_server, test_session, monkeypatch):
 
 
 @pytest.mark.anyio
-async def test_get_flag_via_mcp(mcp_server, test_session, monkeypatch):
+async def test_get_project_flag_via_mcp(mcp_server, test_session, monkeypatch):
     """Test getting feature flag through MCP client."""
     monkeypatch.setenv("PWD", "/fake/path/test")
 
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
         # First set a flag
         set_args = SetFlagArgs(feature_name="get_test", value=["list", "value"])
-        await call_mcp_tool(client, "set_flag", set_args)
+        await call_mcp_tool(client, "set_project_flag", set_args)
 
         # Then get the flag
         get_args = GetFlagArgs(feature_name="get_test")
-        result = await call_mcp_tool(client, "get_flag", get_args)
+        result = await call_mcp_tool(client, "get_project_flag", get_args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
 
         assert response["success"] is True
@@ -108,7 +108,7 @@ async def test_flag_validation_via_mcp(mcp_server, test_session, monkeypatch):
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
         # Try to set flag with invalid name (contains period)
         args = SetFlagArgs(feature_name="invalid.flag", value=True)
-        result = await call_mcp_tool(client, "set_flag", args)
+        result = await call_mcp_tool(client, "set_project_flag", args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
 
         assert response["success"] is False
@@ -124,11 +124,11 @@ async def test_remove_flag_via_mcp(mcp_server, test_session, monkeypatch):
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
         # First set a flag
         set_args = SetFlagArgs(feature_name="remove_test", value=True)
-        await call_mcp_tool(client, "set_flag", set_args)
+        await call_mcp_tool(client, "set_project_flag", set_args)
 
         # Remove the flag
         remove_args = SetFlagArgs(feature_name="remove_test", value=None)
-        result = await call_mcp_tool(client, "set_flag", remove_args)
+        result = await call_mcp_tool(client, "set_project_flag", remove_args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
 
         assert response["success"] is True
@@ -136,7 +136,7 @@ async def test_remove_flag_via_mcp(mcp_server, test_session, monkeypatch):
 
         # Verify flag is gone
         get_args = GetFlagArgs(feature_name="remove_test")
-        result = await call_mcp_tool(client, "get_flag", get_args)
+        result = await call_mcp_tool(client, "get_project_flag", get_args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
 
         assert response["success"] is True

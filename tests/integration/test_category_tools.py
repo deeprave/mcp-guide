@@ -414,7 +414,7 @@ async def test_update_category_preserves_collections(mcp_server, tmp_path, monke
 
 
 @pytest.mark.anyio
-async def test_get_category_content_not_found(mcp_server, tmp_path, monkeypatch):
+async def test_category_content_not_found(mcp_server, tmp_path, monkeypatch):
     """Test error when category doesn't exist."""
     from .test_data_generator import generate_test_files
 
@@ -426,7 +426,7 @@ async def test_get_category_content_not_found(mcp_server, tmp_path, monkeypatch)
 
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
         args = CategoryContentArgs(category="nonexistent")
-        result = await call_mcp_tool(client, "get_category_content", args)
+        result = await call_mcp_tool(client, "category_content", args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
 
         assert response["success"] is False
@@ -437,7 +437,7 @@ async def test_get_category_content_not_found(mcp_server, tmp_path, monkeypatch)
 
 
 @pytest.mark.anyio
-async def test_get_category_content_empty_category(mcp_server, tmp_path, monkeypatch):
+async def test_category_content_empty_category(mcp_server, tmp_path, monkeypatch):
     """Test success message when category has no matching files."""
     from .test_data_generator import generate_test_files
 
@@ -453,7 +453,7 @@ async def test_get_category_content_empty_category(mcp_server, tmp_path, monkeyp
 
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
         args = CategoryContentArgs(category="guide")
-        result = await call_mcp_tool(client, "get_category_content", args)
+        result = await call_mcp_tool(client, "category_content", args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
 
         assert response["success"] is True
@@ -463,7 +463,7 @@ async def test_get_category_content_empty_category(mcp_server, tmp_path, monkeyp
 
 
 @pytest.mark.anyio
-async def test_get_category_content_success_single_file(mcp_server, tmp_path, monkeypatch):
+async def test_category_content_success_single_file(mcp_server, tmp_path, monkeypatch):
     """Test successful content retrieval with single file."""
     from .test_data_generator import generate_test_files
 
@@ -479,7 +479,7 @@ async def test_get_category_content_success_single_file(mcp_server, tmp_path, mo
 
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
         args = CategoryContentArgs(category="lang")
-        result = await call_mcp_tool(client, "get_category_content", args)
+        result = await call_mcp_tool(client, "category_content", args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
 
         assert response["success"] is True
@@ -490,7 +490,7 @@ async def test_get_category_content_success_single_file(mcp_server, tmp_path, mo
 
 
 @pytest.mark.anyio
-async def test_get_category_content_success_multiple_files(mcp_server, tmp_path, monkeypatch):
+async def test_category_content_success_multiple_files(mcp_server, tmp_path, monkeypatch):
     """Test successful content retrieval with multiple files."""
     from .test_data_generator import generate_test_files
 
@@ -506,7 +506,7 @@ async def test_get_category_content_success_multiple_files(mcp_server, tmp_path,
 
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
         args = CategoryContentArgs(category="context")
-        result = await call_mcp_tool(client, "get_category_content", args)
+        result = await call_mcp_tool(client, "category_content", args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
 
         assert response["success"] is True
@@ -518,7 +518,7 @@ async def test_get_category_content_success_multiple_files(mcp_server, tmp_path,
 
 
 @pytest.mark.anyio
-async def test_get_category_content_pattern_override(mcp_server, tmp_path, monkeypatch):
+async def test_category_content_pattern_override(mcp_server, tmp_path, monkeypatch):
     """Test pattern overrides category defaults."""
     from .test_data_generator import generate_test_files
 
@@ -535,7 +535,7 @@ async def test_get_category_content_pattern_override(mcp_server, tmp_path, monke
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
         # Request only files matching "guidelines-*"
         args = CategoryContentArgs(category="guide", pattern="guidelines-*")
-        result = await call_mcp_tool(client, "get_category_content", args)
+        result = await call_mcp_tool(client, "category_content", args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
 
         assert response["success"] is True
@@ -546,7 +546,7 @@ async def test_get_category_content_pattern_override(mcp_server, tmp_path, monke
 
 
 @pytest.mark.anyio
-async def test_get_category_content_file_read_error(mcp_server, tmp_path, monkeypatch):
+async def test_category_content_file_read_error(mcp_server, tmp_path, monkeypatch):
     """Test error handling when file cannot be read."""
     import os
 
@@ -567,7 +567,7 @@ async def test_get_category_content_file_read_error(mcp_server, tmp_path, monkey
     try:
         async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
             args = CategoryContentArgs(category="docs")
-            result = await call_mcp_tool(client, "get_category_content", args)
+            result = await call_mcp_tool(client, "category_content", args)
             response = json.loads(result.content[0].text)  # type: ignore[union-attr]
 
             assert response["success"] is False

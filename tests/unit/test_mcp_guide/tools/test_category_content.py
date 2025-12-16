@@ -1,4 +1,4 @@
-"""Tests for get_category_content tool."""
+"""Tests for category_content tool."""
 
 
 def test_category_content_args_exists():
@@ -83,12 +83,12 @@ def test_instructions_prevent_futile_remediation():
     )
 
 
-async def test_get_category_content_function_exists():
-    """Test that get_category_content function exists."""
-    from mcp_guide.tools.tool_category import get_category_content
+async def test_category_content_function_exists():
+    """Test that category_content function exists."""
+    from mcp_guide.tools.tool_category import category_content
 
-    assert get_category_content is not None
-    assert callable(get_category_content)
+    assert category_content is not None
+    assert callable(category_content)
 
 
 async def test_tool_returns_result_ok_on_success(tmp_path, monkeypatch):
@@ -98,7 +98,7 @@ async def test_tool_returns_result_ok_on_success(tmp_path, monkeypatch):
     from mcp_guide.models import Category, Project
     from mcp_guide.tools.tool_category import (
         CategoryContentArgs,
-        get_category_content,
+        category_content,
     )
 
     # Create test files
@@ -134,7 +134,7 @@ async def test_tool_returns_result_ok_on_success(tmp_path, monkeypatch):
 
     # Call tool
     args = CategoryContentArgs(category="docs")
-    result_json = await get_category_content(args)
+    result_json = await category_content(args)
 
     # Parse result
     result = json.loads(result_json)
@@ -150,7 +150,7 @@ async def test_tool_formats_with_active_formatter(tmp_path, monkeypatch):
     from mcp_guide.models import Category, Project
     from mcp_guide.tools.tool_category import (
         CategoryContentArgs,
-        get_category_content,
+        category_content,
     )
     from mcp_guide.utils.formatter_selection import set_formatter
 
@@ -187,7 +187,7 @@ async def test_tool_formats_with_active_formatter(tmp_path, monkeypatch):
     # Test with MIME formatter
     set_formatter("mime")
     args = CategoryContentArgs(category="docs")
-    result_json = await get_category_content(args)
+    result_json = await category_content(args)
     result = json.loads(result_json)
 
     # MIME format should have headers
@@ -206,7 +206,7 @@ async def test_category_not_found_returns_failure(tmp_path, monkeypatch):
         ERROR_NOT_FOUND,
         INSTRUCTION_NOTFOUND_ERROR,
         CategoryContentArgs,
-        get_category_content,
+        category_content,
     )
 
     # Create test project with no categories
@@ -234,7 +234,7 @@ async def test_category_not_found_returns_failure(tmp_path, monkeypatch):
 
     # Call tool with non-existent category
     args = CategoryContentArgs(category="nonexistent")
-    result_json = await get_category_content(args)
+    result_json = await category_content(args)
 
     # Parse result
     result = json.loads(result_json)
@@ -252,7 +252,7 @@ async def test_no_matches_returns_failure(tmp_path, monkeypatch):
     from mcp_guide.tools.tool_category import (
         INSTRUCTION_PATTERN_ERROR,
         CategoryContentArgs,
-        get_category_content,
+        category_content,
     )
 
     # Create test project with category but no matching files
@@ -283,7 +283,7 @@ async def test_no_matches_returns_failure(tmp_path, monkeypatch):
 
     # Test 1: Default patterns - should return success
     args = CategoryContentArgs(category="docs")
-    result_json = await get_category_content(args)
+    result_json = await category_content(args)
     result = json.loads(result_json)
     assert result["success"] is True
     assert result["instruction"] == INSTRUCTION_PATTERN_ERROR
@@ -291,7 +291,7 @@ async def test_no_matches_returns_failure(tmp_path, monkeypatch):
 
     # Test 2: Pattern override - should also return success (consistent with other tools)
     args = CategoryContentArgs(category="docs", pattern="*.txt")
-    result_json = await get_category_content(args)
+    result_json = await category_content(args)
     result = json.loads(result_json)
     assert result["success"] is True
     assert result["instruction"] == INSTRUCTION_PATTERN_ERROR
@@ -307,7 +307,7 @@ async def test_file_read_error_single_file(tmp_path, monkeypatch):
         ERROR_FILE_READ,
         INSTRUCTION_FILE_ERROR,
         CategoryContentArgs,
-        get_category_content,
+        category_content,
     )
 
     # Create test project with category
@@ -347,7 +347,7 @@ async def test_file_read_error_single_file(tmp_path, monkeypatch):
 
     # Call tool
     args = CategoryContentArgs(category="docs")
-    result_json = await get_category_content(args)
+    result_json = await category_content(args)
 
     # Parse result
     result = json.loads(result_json)
@@ -367,7 +367,7 @@ async def test_file_read_error_multiple_files(tmp_path, monkeypatch):
         ERROR_FILE_READ,
         INSTRUCTION_FILE_ERROR,
         CategoryContentArgs,
-        get_category_content,
+        category_content,
     )
 
     # Create test project with category
@@ -417,7 +417,7 @@ async def test_file_read_error_multiple_files(tmp_path, monkeypatch):
 
     # Call tool
     args = CategoryContentArgs(category="docs")
-    result_json = await get_category_content(args)
+    result_json = await category_content(args)
 
     # Parse result
     result = json.loads(result_json)
@@ -439,7 +439,7 @@ async def test_error_responses_include_all_fields(tmp_path, monkeypatch):
     from mcp_guide.models import Project
     from mcp_guide.tools.tool_category import (
         CategoryContentArgs,
-        get_category_content,
+        category_content,
     )
 
     # Create test project with no categories
@@ -467,7 +467,7 @@ async def test_error_responses_include_all_fields(tmp_path, monkeypatch):
 
     # Call tool
     args = CategoryContentArgs(category="test")
-    result_json = await get_category_content(args)
+    result_json = await category_content(args)
 
     # Parse result
     result = json.loads(result_json)

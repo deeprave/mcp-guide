@@ -32,11 +32,11 @@ async def test_session(tmp_path: Path):
 
 
 @pytest.mark.anyio
-async def test_get_client_info_returns_agent_info(mcp_server, test_session):
-    """Test that get_client_info returns agent information from MCP client."""
+async def test_client_info_returns_agent_info(mcp_server, test_session):
+    """Test that client_info returns agent information from MCP client."""
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
         args = GetClientInfoArgs()
-        result = await call_mcp_tool(client, "get_client_info", args)
+        result = await call_mcp_tool(client, "client_info", args)
 
         # Parse result
         assert result.content is not None
@@ -65,18 +65,18 @@ async def test_get_client_info_returns_agent_info(mcp_server, test_session):
 
 
 @pytest.mark.anyio
-async def test_get_client_info_caches_agent_info(mcp_server, test_session):
-    """Test that get_client_info caches agent info across multiple calls."""
+async def test_client_info_caches_agent_info(mcp_server, test_session):
+    """Test that client_info caches agent info across multiple calls."""
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
         args = GetClientInfoArgs()
 
         # First call
-        result1 = await call_mcp_tool(client, "get_client_info", args)
+        result1 = await call_mcp_tool(client, "client_info", args)
         content1 = result1.content[0]
         data1 = json.loads(content1.text)  # type: ignore[union-attr]
 
         # Second call
-        result2 = await call_mcp_tool(client, "get_client_info", args)
+        result2 = await call_mcp_tool(client, "client_info", args)
         content2 = result2.content[0]
         data2 = json.loads(content2.text)  # type: ignore[union-attr]
 

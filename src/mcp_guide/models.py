@@ -141,6 +141,18 @@ class Project:
             raise ValueError("Project name must contain only alphanumeric characters, underscores, and hyphens")
         return v
 
+    @field_validator("project_flags")
+    @classmethod
+    def validate_project_flags(cls, v: dict[str, FeatureValue]) -> dict[str, FeatureValue]:
+        from mcp_guide.feature_flags.validation import validate_flag_name, validate_flag_value
+        
+        for flag_name, flag_value in v.items():
+            if not validate_flag_name(flag_name):
+                raise ValueError(f"Invalid feature flag name: {flag_name}")
+            if not validate_flag_value(flag_value):
+                raise ValueError(f"Invalid feature flag value type for '{flag_name}': {type(flag_value)}")
+        return v
+
     def with_category(self, category: Category) -> "Project":
         """Return new Project with category added."""
         return replace(self, categories=[*self.categories, category], updated_at=datetime.now())
@@ -168,6 +180,38 @@ class Project:
         """Return new Project with collection updated."""
         new_collections = [updater(c) if c.name == name else c for c in self.collections]
         return replace(self, collections=new_collections, updated_at=datetime.now())
+
+
+@pydantic_dataclass(frozen=True)
+class GlobalConfig:
+    """Global configuration with feature flags.
+
+    Attributes:
+        feature_flags: Dictionary of global feature flags with FeatureValue types
+        docroot: Document root directory path
+
+    Note:
+        Instances are immutable (frozen=True).
+        Extra fields from config files are ignored.
+        Feature flag names and values are validated.
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    feature_flags: dict[str, FeatureValue] = field(default_factory=dict)
+    docroot: str = ""
+
+    @field_validator("feature_flags")
+    @classmethod
+    def validate_feature_flags(cls, v: dict[str, FeatureValue]) -> dict[str, FeatureValue]:
+        from mcp_guide.feature_flags.validation import validate_flag_name, validate_flag_value
+        
+        for flag_name, flag_value in v.items():
+            if not validate_flag_name(flag_name):
+                raise ValueError(f"Invalid feature flag name: {flag_name}")
+            if not validate_flag_value(flag_value):
+                raise ValueError(f"Invalid feature flag value type for '{flag_name}': {type(flag_value)}")
+        return v
 
 
 @dataclass

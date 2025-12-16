@@ -1,4 +1,4 @@
-"""Tests for get_collection_content tool."""
+"""Tests for collection_content tool."""
 
 
 def test_collection_content_args_exists():
@@ -37,12 +37,12 @@ def test_schema_validates_correctly():
     assert args.pattern == "*.md"
 
 
-async def test_get_collection_content_function_exists():
-    """Test that get_collection_content function exists."""
-    from mcp_guide.tools.tool_collection import get_collection_content
+async def test_collection_content_function_exists():
+    """Test that collection_content function exists."""
+    from mcp_guide.tools.tool_collection import collection_content
 
-    assert get_collection_content is not None
-    assert callable(get_collection_content)
+    assert collection_content is not None
+    assert callable(collection_content)
 
 
 async def test_tool_returns_result_ok_on_success(tmp_path, monkeypatch):
@@ -52,7 +52,7 @@ async def test_tool_returns_result_ok_on_success(tmp_path, monkeypatch):
     from mcp_guide.models import Category, Collection, Project
     from mcp_guide.tools.tool_collection import (
         CollectionContentArgs,
-        get_collection_content,
+        collection_content,
     )
 
     # Create test files
@@ -81,7 +81,7 @@ async def test_tool_returns_result_ok_on_success(tmp_path, monkeypatch):
 
     # Call tool
     args = CollectionContentArgs(collection="all-docs")
-    result_json = await get_collection_content(args)
+    result_json = await collection_content(args)
 
     # Parse result
     result = json.loads(result_json)
@@ -97,7 +97,7 @@ async def test_collection_not_found_returns_failure(tmp_path, monkeypatch):
     from mcp_guide.models import Project
     from mcp_guide.tools.tool_collection import (
         CollectionContentArgs,
-        get_collection_content,
+        collection_content,
     )
 
     # Create test project with no collections
@@ -119,7 +119,7 @@ async def test_collection_not_found_returns_failure(tmp_path, monkeypatch):
 
     # Call tool
     args = CollectionContentArgs(collection="nonexistent")
-    result_json = await get_collection_content(args)
+    result_json = await collection_content(args)
 
     # Parse result
     result = json.loads(result_json)
@@ -135,7 +135,7 @@ async def test_category_not_found_returns_failure(tmp_path, monkeypatch):
     from mcp_guide.models import Collection, Project
     from mcp_guide.tools.tool_collection import (
         CollectionContentArgs,
-        get_collection_content,
+        collection_content,
     )
 
     # Create test project with collection referencing non-existent category
@@ -161,7 +161,7 @@ async def test_category_not_found_returns_failure(tmp_path, monkeypatch):
 
     # Call tool
     args = CollectionContentArgs(collection="test-collection")
-    result_json = await get_collection_content(args)
+    result_json = await collection_content(args)
 
     # Parse result
     result = json.loads(result_json)
@@ -177,7 +177,7 @@ async def test_no_matches_returns_success_with_message(tmp_path, monkeypatch):
     from mcp_guide.models import Category, Collection, Project
     from mcp_guide.tools.tool_collection import (
         CollectionContentArgs,
-        get_collection_content,
+        collection_content,
     )
 
     # Create test project with category and collection but no matching files
@@ -203,7 +203,7 @@ async def test_no_matches_returns_success_with_message(tmp_path, monkeypatch):
 
     # Call tool
     args = CollectionContentArgs(collection="all-docs")
-    result_json = await get_collection_content(args)
+    result_json = await collection_content(args)
 
     # Parse result
     result = json.loads(result_json)
@@ -218,7 +218,7 @@ async def test_pattern_override_filters_files(tmp_path, monkeypatch):
     from mcp_guide.models import Category, Collection, Project
     from mcp_guide.tools.tool_collection import (
         CollectionContentArgs,
-        get_collection_content,
+        collection_content,
     )
 
     # Create test files
@@ -248,7 +248,7 @@ async def test_pattern_override_filters_files(tmp_path, monkeypatch):
 
     # Call tool with pattern override
     args = CollectionContentArgs(collection="all-docs", pattern="*.txt")
-    result_json = await get_collection_content(args)
+    result_json = await collection_content(args)
 
     # Parse result
     result = json.loads(result_json)
@@ -264,7 +264,7 @@ async def test_multiple_categories_aggregates_content(tmp_path, monkeypatch):
     from mcp_guide.models import Category, Collection, Project
     from mcp_guide.tools.tool_collection import (
         CollectionContentArgs,
-        get_collection_content,
+        collection_content,
     )
 
     # Create test files in different directories
@@ -302,7 +302,7 @@ async def test_multiple_categories_aggregates_content(tmp_path, monkeypatch):
 
     # Call tool
     args = CollectionContentArgs(collection="all-docs")
-    result_json = await get_collection_content(args)
+    result_json = await collection_content(args)
 
     # Parse result
     result = json.loads(result_json)
@@ -318,7 +318,7 @@ async def test_tool_handles_file_read_error(tmp_path, monkeypatch):
     from mcp_guide.models import Category, Collection, Project
     from mcp_guide.tools.tool_collection import (
         CollectionContentArgs,
-        get_collection_content,
+        collection_content,
     )
 
     # Create test files
@@ -351,7 +351,7 @@ async def test_tool_handles_file_read_error(tmp_path, monkeypatch):
 
     # Call tool
     args = CollectionContentArgs(collection="all-docs")
-    result_json = await get_collection_content(args)
+    result_json = await collection_content(args)
 
     # Parse result
     result = json.loads(result_json)
@@ -366,7 +366,7 @@ async def test_get_or_create_session_error_returns_no_project_failure(monkeypatc
 
     from mcp_guide.tools.tool_collection import (
         CollectionContentArgs,
-        get_collection_content,
+        collection_content,
     )
 
     # Mock get_or_create_session to raise ValueError
@@ -377,7 +377,7 @@ async def test_get_or_create_session_error_returns_no_project_failure(monkeypatc
 
     # Call tool
     args = CollectionContentArgs(collection="test-collection")
-    result_json = await get_collection_content(args)
+    result_json = await collection_content(args)
 
     # Parse result
     result = json.loads(result_json)

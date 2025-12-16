@@ -66,19 +66,19 @@ def mcp_server(mcp_server_factory, setup_config_isolation):
 
 
 @pytest.mark.anyio
-async def test_get_current_project_registered(mcp_server):
-    """Test that get_current_project is registered in MCP."""
+async def test_get_project_registered(mcp_server):
+    """Test that get_project is registered in MCP."""
     tools = await mcp_server.list_tools()
     tool_names = [tool.name for tool in tools]
-    assert "get_current_project" in tool_names
+    assert "get_project" in tool_names
 
 
 @pytest.mark.anyio
-async def test_set_current_project_registered(mcp_server):
-    """Test that set_current_project is registered in MCP."""
+async def test_set_project_registered(mcp_server):
+    """Test that set_project is registered in MCP."""
     tools = await mcp_server.list_tools()
     tool_names = [tool.name for tool in tools]
-    assert "set_current_project" in tool_names
+    assert "set_project" in tool_names
 
 
 @pytest.mark.anyio
@@ -109,13 +109,13 @@ async def test_clone_project_registered(mcp_server):
 
 
 @pytest.mark.anyio
-async def test_get_current_project_non_verbose(mcp_server, monkeypatch):
+async def test_get_project_non_verbose(mcp_server, monkeypatch):
     """Test getting current project in non-verbose mode."""
     monkeypatch.setenv("PWD", "/fake/path/test")
 
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
         args = GetCurrentProjectArgs()
-        result = await call_mcp_tool(client, "get_current_project", args)
+        result = await call_mcp_tool(client, "get_project", args)
 
         assert result.isError is False
         content = result.content[0].text  # type: ignore[union-attr]
@@ -123,13 +123,13 @@ async def test_get_current_project_non_verbose(mcp_server, monkeypatch):
 
 
 @pytest.mark.anyio
-async def test_get_current_project_verbose(mcp_server, monkeypatch):
+async def test_get_project_verbose(mcp_server, monkeypatch):
     """Test getting current project in verbose mode."""
     monkeypatch.setenv("PWD", "/fake/path/test")
 
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
         args = GetCurrentProjectArgs(verbose=True)
-        result = await call_mcp_tool(client, "get_current_project", args)
+        result = await call_mcp_tool(client, "get_project", args)
 
         assert result.isError is False
         content = result.content[0].text  # type: ignore[union-attr]
@@ -142,9 +142,9 @@ async def test_list_projects_non_verbose(mcp_server):
 
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
         # Create test projects
-        await call_mcp_tool(client, "set_current_project", SetCurrentProjectArgs(name="project_alpha"))
-        await call_mcp_tool(client, "set_current_project", SetCurrentProjectArgs(name="project_beta"))
-        await call_mcp_tool(client, "set_current_project", SetCurrentProjectArgs(name="project_gamma"))
+        await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_alpha"))
+        await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_beta"))
+        await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_gamma"))
 
         args = ListProjectsArgs()
         result = await call_mcp_tool(client, "list_projects", args)
@@ -162,8 +162,8 @@ async def test_list_projects_verbose(mcp_server):
 
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
         # Create test projects
-        await call_mcp_tool(client, "set_current_project", SetCurrentProjectArgs(name="project_alpha"))
-        await call_mcp_tool(client, "set_current_project", SetCurrentProjectArgs(name="project_beta"))
+        await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_alpha"))
+        await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_beta"))
 
         args = ListProjectsArgs(verbose=True)
         result = await call_mcp_tool(client, "list_projects", args)
@@ -181,7 +181,7 @@ async def test_list_project_by_name(mcp_server, monkeypatch):
 
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
         # Create project_alpha with categories
-        await call_mcp_tool(client, "set_current_project", SetCurrentProjectArgs(name="project_alpha"))
+        await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_alpha"))
         await call_mcp_tool(client, "category_add", CategoryAddArgs(name="docs", dir="docs", patterns=["*.md"]))
         await call_mcp_tool(client, "category_add", CategoryAddArgs(name="api", dir="src/api", patterns=["*.py"]))
 
@@ -219,22 +219,22 @@ async def test_switch_to_existing_project(mcp_server, monkeypatch):
 
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
         # Create project_alpha
-        await call_mcp_tool(client, "set_current_project", SetCurrentProjectArgs(name="project_alpha"))
+        await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_alpha"))
 
         # Switch to test project
         monkeypatch.setenv("PWD", "/fake/path/test")
-        await call_mcp_tool(client, "set_current_project", SetCurrentProjectArgs(name="test"))
+        await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="test"))
 
         # Now switch back to project_alpha
         monkeypatch.setenv("PWD", "/fake/path/project_alpha")
-        result = await call_mcp_tool(client, "set_current_project", SetCurrentProjectArgs(name="project_alpha"))
+        result = await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_alpha"))
 
         assert result.isError is False
         content = result.content[0].text  # type: ignore[union-attr]
         assert "project_alpha" in content
 
         # Verify current project changed
-        verify_result = await call_mcp_tool(client, "get_current_project", GetCurrentProjectArgs())
+        verify_result = await call_mcp_tool(client, "get_project", GetCurrentProjectArgs())
         verify_content = verify_result.content[0].text  # type: ignore[union-attr]
         assert "docs" in verify_content or "api" in verify_content
 
@@ -244,7 +244,7 @@ async def test_switch_creates_new_project(mcp_server):
     """Test switching to non-existent project creates it."""
 
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
-        result = await call_mcp_tool(client, "set_current_project", SetCurrentProjectArgs(name="new_project"))
+        result = await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="new_project"))
 
         assert result.isError is False
         content = result.content[0].text  # type: ignore[union-attr]
@@ -262,13 +262,11 @@ async def test_switch_verbose_mode(mcp_server):
 
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
         # Create project_beta with some content
-        await call_mcp_tool(client, "set_current_project", SetCurrentProjectArgs(name="project_beta"))
+        await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_beta"))
         await call_mcp_tool(client, "category_add", CategoryAddArgs(name="docs", dir="docs", patterns=["*.md"]))
-        await call_mcp_tool(client, "set_current_project", SetCurrentProjectArgs(name="test"))
+        await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="test"))
 
-        result = await call_mcp_tool(
-            client, "set_current_project", SetCurrentProjectArgs(name="project_beta", verbose=True)
-        )
+        result = await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_beta", verbose=True))
 
         assert result.isError is False
         content = result.content[0].text  # type: ignore[union-attr]
@@ -286,13 +284,13 @@ async def test_clone_to_current_merge(mcp_server, monkeypatch):
 
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
         # Create project_alpha with content
-        await call_mcp_tool(client, "set_current_project", SetCurrentProjectArgs(name="project_alpha"))
+        await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_alpha"))
         await call_mcp_tool(client, "category_add", CategoryAddArgs(name="docs", dir="docs", patterns=["*.md"]))
         await call_mcp_tool(client, "category_add", CategoryAddArgs(name="api", dir="src/api", patterns=["*.py"]))
 
         # Create empty project_gamma and switch to it
         monkeypatch.setenv("PWD", "/fake/path/project_gamma")
-        await call_mcp_tool(client, "set_current_project", SetCurrentProjectArgs(name="project_gamma"))
+        await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_gamma"))
 
         # Clone alpha to current (gamma)
         result = await call_mcp_tool(client, "clone_project", CloneProjectArgs(from_project="project_alpha"))
@@ -309,13 +307,13 @@ async def test_clone_to_different_merge(mcp_server):
 
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
         # Create project_alpha with content
-        await call_mcp_tool(client, "set_current_project", SetCurrentProjectArgs(name="project_alpha"))
+        await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_alpha"))
         await call_mcp_tool(client, "category_add", CategoryAddArgs(name="docs", dir="docs", patterns=["*.md"]))
         await call_mcp_tool(client, "category_add", CategoryAddArgs(name="api", dir="src/api", patterns=["*.py"]))
 
         # Create empty project_gamma
-        await call_mcp_tool(client, "set_current_project", SetCurrentProjectArgs(name="project_gamma"))
-        await call_mcp_tool(client, "set_current_project", SetCurrentProjectArgs(name="test"))
+        await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_gamma"))
+        await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="test"))
 
         result = await call_mcp_tool(
             client, "clone_project", CloneProjectArgs(from_project="project_alpha", to_project="project_gamma")
@@ -335,15 +333,15 @@ async def test_clone_with_conflicts(mcp_server):
 
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
         # Create project_alpha with docs category
-        await call_mcp_tool(client, "set_current_project", SetCurrentProjectArgs(name="project_alpha"))
+        await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_alpha"))
         await call_mcp_tool(client, "category_add", CategoryAddArgs(name="docs", dir="docs", patterns=["*.md"]))
 
         # Create project_beta with different docs category
-        await call_mcp_tool(client, "set_current_project", SetCurrentProjectArgs(name="project_beta"))
+        await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_beta"))
         await call_mcp_tool(
             client, "category_add", CategoryAddArgs(name="docs", dir="documentation", patterns=["*.md", "*.rst"])
         )
-        await call_mcp_tool(client, "set_current_project", SetCurrentProjectArgs(name="test"))
+        await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="test"))
 
         # Clone alpha to beta (both have "docs" category with different configs)
         result = await call_mcp_tool(
@@ -362,12 +360,12 @@ async def test_clone_replace_safeguard(mcp_server, monkeypatch):
 
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
         # Create project_alpha
-        await call_mcp_tool(client, "set_current_project", SetCurrentProjectArgs(name="project_alpha"))
+        await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_alpha"))
         await call_mcp_tool(client, "category_add", CategoryAddArgs(name="docs", dir="docs", patterns=["*.md"]))
 
         # Create project_beta with content
         monkeypatch.setenv("PWD", "/fake/path/project_beta")
-        await call_mcp_tool(client, "set_current_project", SetCurrentProjectArgs(name="project_beta"))
+        await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_beta"))
         await call_mcp_tool(client, "category_add", CategoryAddArgs(name="tests", dir="tests", patterns=["test_*.py"]))
 
         # Try to clone with replace mode (should fail without force)
@@ -389,13 +387,13 @@ async def test_clone_replace_force(mcp_server):
 
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
         # Create project_alpha
-        await call_mcp_tool(client, "set_current_project", SetCurrentProjectArgs(name="project_alpha"))
+        await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_alpha"))
         await call_mcp_tool(client, "category_add", CategoryAddArgs(name="docs", dir="docs", patterns=["*.md"]))
 
         # Create project_beta with different content
-        await call_mcp_tool(client, "set_current_project", SetCurrentProjectArgs(name="project_beta"))
+        await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_beta"))
         await call_mcp_tool(client, "category_add", CategoryAddArgs(name="tests", dir="tests", patterns=["test_*.py"]))
-        await call_mcp_tool(client, "set_current_project", SetCurrentProjectArgs(name="test"))
+        await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="test"))
 
         result = await call_mcp_tool(
             client,
@@ -418,18 +416,18 @@ async def test_clone_updates_cache(mcp_server):
 
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
         # Create project_alpha with content
-        await call_mcp_tool(client, "set_current_project", SetCurrentProjectArgs(name="project_alpha"))
+        await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_alpha"))
         await call_mcp_tool(client, "category_add", CategoryAddArgs(name="docs", dir="docs", patterns=["*.md"]))
         await call_mcp_tool(client, "category_add", CategoryAddArgs(name="api", dir="src/api", patterns=["*.py"]))
 
         # Switch to gamma
-        await call_mcp_tool(client, "set_current_project", SetCurrentProjectArgs(name="project_gamma"))
+        await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_gamma"))
 
         # Clone alpha to current
         await call_mcp_tool(client, "clone_project", CloneProjectArgs(from_project="project_alpha"))
 
         # Verify get_current shows new config
-        result = await call_mcp_tool(client, "get_current_project", GetCurrentProjectArgs(verbose=True))
+        result = await call_mcp_tool(client, "get_project", GetCurrentProjectArgs(verbose=True))
         content = result.content[0].text  # type: ignore[union-attr]
         assert "docs" in content or "api" in content
 
@@ -444,20 +442,20 @@ async def test_complete_multi_project_workflow(mcp_server, monkeypatch):
 
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
         # Create project_alpha with content
-        await call_mcp_tool(client, "set_current_project", SetCurrentProjectArgs(name="project_alpha"))
+        await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_alpha"))
         await call_mcp_tool(client, "category_add", CategoryAddArgs(name="docs", dir="docs", patterns=["*.md"]))
         await call_mcp_tool(client, "category_add", CategoryAddArgs(name="api", dir="src/api", patterns=["*.py"]))
 
         # Create empty project_gamma
         monkeypatch.setenv("PWD", "/fake/path/project_gamma")
-        await call_mcp_tool(client, "set_current_project", SetCurrentProjectArgs(name="project_gamma"))
+        await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_gamma"))
 
         # List all projects
         list_result = await call_mcp_tool(client, "list_projects", ListProjectsArgs())
         assert "project_alpha" in list_result.content[0].text  # type: ignore[union-attr]
 
         # Switch to gamma (already there)
-        switch_result = await call_mcp_tool(client, "set_current_project", SetCurrentProjectArgs(name="project_gamma"))
+        switch_result = await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_gamma"))
         assert switch_result.isError is False
 
         # Clone alpha to current
@@ -465,6 +463,6 @@ async def test_complete_multi_project_workflow(mcp_server, monkeypatch):
         assert clone_result.isError is False
 
         # Verify current project has cloned config
-        verify_result = await call_mcp_tool(client, "get_current_project", GetCurrentProjectArgs(verbose=True))
+        verify_result = await call_mcp_tool(client, "get_project", GetCurrentProjectArgs(verbose=True))
         verify_content = verify_result.content[0].text  # type: ignore[union-attr]
         assert "docs" in verify_content or "api" in verify_content

@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
-from mcp_guide.tools.tool_feature_flags import ListFlagsArgs, list_flags
+from mcp_guide.tools.tool_feature_flags import ListFlagsArgs, list_project_flags
 
 
 class TestSimple:
@@ -13,7 +13,7 @@ class TestSimple:
 
     @pytest.mark.asyncio
     async def test_list_flags_basic(self):
-        """Basic test for list_flags function."""
+        """Basic test for list_project_flags function."""
         args = ListFlagsArgs()
 
         # Mock the session and config manager
@@ -30,7 +30,7 @@ class TestSimple:
             mock_global_proxy.list = AsyncMock(return_value={"global_flag": False})
             mock_session.feature_flags.return_value = mock_global_proxy
 
-            result_str = await list_flags(args)
+            result_str = await list_project_flags(args)
             result = json.loads(result_str)
 
             # Basic assertion - project flags override global

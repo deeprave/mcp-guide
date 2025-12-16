@@ -39,7 +39,7 @@ class CategoryListArgs(ToolArguments):
 
 
 class CategoryContentArgs(ToolArguments):
-    """Arguments for get_category_content tool."""
+    """Arguments for category_content tool."""
 
     category: str = Field(description="Name of the category to retrieve content from")
     pattern: str | None = Field(
@@ -388,7 +388,7 @@ async def category_update(args: CategoryUpdateArgs, ctx: Optional[Context] = Non
 
 
 @tools.tool(CategoryContentArgs)
-async def get_category_content(
+async def category_content(
     args: CategoryContentArgs,
     ctx: Optional[Context] = None,  # type: ignore[type-arg]
 ) -> str:
