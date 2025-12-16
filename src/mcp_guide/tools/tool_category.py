@@ -125,15 +125,15 @@ async def category_add(args: CategoryAddArgs, ctx: Optional[Context] = None) -> 
         # Validate name is not empty
         if not args.name or not args.name.strip():
             raise ArgValidationError([{"field": "name", "message": "Category name cannot be empty"}])
-        
+
         # Validate name doesn't contain invalid characters
         if "/" in args.name or "\\" in args.name or " " in args.name or "!" in args.name:
             raise ArgValidationError([{"field": "name", "message": "Category name cannot contain spaces or special characters"}])
-        
+
         # Validate name length
         if len(args.name) > 30:
             raise ArgValidationError([{"field": "name", "message": "Category name must be 30 characters or less"}])
-        
+
         # Use dict lookup for O(1) duplicate detection
         if args.name in project.categories:
             raise ArgValidationError([{"field": "name", "message": f"Category '{args.name}' already exists"}])
@@ -258,7 +258,7 @@ async def category_change(args: CategoryChangeArgs, ctx: Optional[Context] = Non
     # Use dict lookup for O(1) existence check
     if args.name not in project.categories:
         return Result.failure(f"Category '{args.name}' does not exist", error_type=ERROR_NOT_FOUND).to_json_str()
-    
+
     existing_category = project.categories[args.name]
 
     if args.new_name is None and args.new_dir is None and args.new_patterns is None and args.new_description is None:
@@ -280,15 +280,15 @@ async def category_change(args: CategoryChangeArgs, ctx: Optional[Context] = Non
             # Validate new name is not empty
             if not args.new_name or not args.new_name.strip():
                 raise ArgValidationError([{"field": "new_name", "message": "Category name cannot be empty"}])
-            
+
             # Validate new name doesn't contain invalid characters
             if "/" in args.new_name or "\\" in args.new_name or " " in args.new_name or "!" in args.new_name:
                 raise ArgValidationError([{"field": "new_name", "message": "Category name cannot contain spaces or special characters"}])
-            
+
             # Validate new name length
             if len(args.new_name) > 30:
                 raise ArgValidationError([{"field": "new_name", "message": "Category name must be 30 characters or less"}])
-            
+
             if args.new_name in project.categories and args.new_name != args.name:
                 raise ArgValidationError(
                     [{"field": "new_name", "message": f"Category '{args.new_name}' already exists"}]
@@ -339,7 +339,7 @@ async def category_change(args: CategoryChangeArgs, ctx: Optional[Context] = Non
     def update_category_and_collections(p: Project) -> Project:
         # Remove old category
         p_without_old = p.without_category(args.name)
-        
+
         # Add updated category with new or existing name
         final_name = args.new_name if args.new_name is not None else args.name
         p_with_new = p_without_old.with_category(final_name, updated_category)
@@ -448,6 +448,37 @@ async def category_update(args: CategoryUpdateArgs, ctx: Optional[Context] = Non
     return Result.ok(f"Category '{args.name}' patterns updated successfully").to_json_str()
 
 
+async def _extract_frontmatter_description(file_path: Path) -> str | None:
+    """Extract description from YAML front-matter if present."""
+    try:
+        import aiofiles
+        async with aiofiles.open(file_path, 'r', encoding='utf-8') as f:
+            content = await f.read()
+
+        # Check if file starts with front-matter
+        if not content.startswith('---\n'):
+            return None
+
+        # Find the end of front-matter
+        end_marker = content.find('\n---\n', 4)
+        if end_marker == -1:
+            return None
+
+        # Extract front-matter content
+        frontmatter_content = content[4:end_marker]
+
+        # Simple parsing for Description field
+        for line in frontmatter_content.split('\n'):
+            line = line.strip()
+            if line.startswith('Description:'):
+                description = line[12:].strip()  # Remove 'Description:' prefix
+                return description if description else None
+
+        return None
+    except Exception:
+        return None
+
+
 @tools.tool(CategoryListFilesArgs)
 async def category_list_files(args: CategoryListFilesArgs, ctx: Optional[Context] = None) -> str:  # type: ignore
     """List all files in a category directory.
@@ -483,14 +514,24 @@ async def category_list_files(args: CategoryListFilesArgs, ctx: Optional[Context
     category_dir = docroot / category.dir
     files = await discover_category_files(category_dir, ["**/*"])
 
-    # Format as list of file info dictionaries
+    # Format as list of file info dictionaries with descriptions
     file_list = []
     for file in files:
-        file_list.append({
+        # Extract description from front-matter
+        full_path = category_dir / file.path
+        description = await _extract_frontmatter_description(full_path)
+
+        file_info = {
             "path": str(file.path),
             "size": file.size,
             "basename": file.basename,
-        })
+        }
+
+        # Only add description if it exists
+        if description:
+            file_info["description"] = description
+
+        file_list.append(file_info)
 
     return Result.ok(file_list).to_json_str()
 
