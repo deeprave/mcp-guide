@@ -108,7 +108,8 @@ async def test_tool_returns_result_ok_on_success(tmp_path, monkeypatch):
     # Create test project with category
     project = Project(
         name="test",
-        categories=[Category(name="docs", dir=".", patterns=["*.md"])],
+        categories={"docs": Category(dir=".", patterns=["*.md"])},
+        collections={}
     )
 
     # Mock session
@@ -161,7 +162,8 @@ async def test_tool_formats_with_active_formatter(tmp_path, monkeypatch):
     # Create test project
     project = Project(
         name="test",
-        categories=[Category(name="docs", dir=".", patterns=["*.md"])],
+        categories={"docs": Category(dir=".", patterns=["*.md"])},
+        collections={}
     )
 
     # Mock session
@@ -210,7 +212,7 @@ async def test_category_not_found_returns_failure(tmp_path, monkeypatch):
     )
 
     # Create test project with no categories
-    project = Project(name="test", categories=[])
+    project = Project(name="test", categories={}, collections={})
 
     # Mock session
     class MockConfigManager:
@@ -258,7 +260,8 @@ async def test_no_matches_returns_failure(tmp_path, monkeypatch):
     # Create test project with category but no matching files
     project = Project(
         name="test",
-        categories=[Category(name="docs", dir=".", patterns=["*.md"])],
+        categories={"docs": Category(dir=".", patterns=["*.md"])},
+        collections={}
     )
 
     # Mock session (no files created in tmp_path)
@@ -313,7 +316,8 @@ async def test_file_read_error_single_file(tmp_path, monkeypatch):
     # Create test project with category
     project = Project(
         name="test",
-        categories=[Category(name="docs", dir=".", patterns=["*.md"])],
+        categories={"docs": Category(dir=".", patterns=["*.md"])},
+        collections={}
     )
 
     # Create a file
@@ -373,7 +377,8 @@ async def test_file_read_error_multiple_files(tmp_path, monkeypatch):
     # Create test project with category
     project = Project(
         name="test",
-        categories=[Category(name="docs", dir=".", patterns=["*.md"])],
+        categories={"docs": Category(dir=".", patterns=["*.md"])},
+        collections={}
     )
 
     # Create multiple files
@@ -443,7 +448,7 @@ async def test_error_responses_include_all_fields(tmp_path, monkeypatch):
     )
 
     # Create test project with no categories
-    project = Project(name="test", categories=[])
+    project = Project(name="test", categories={}, collections={})
 
     # Mock session
     class MockConfigManager:

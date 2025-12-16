@@ -77,10 +77,10 @@ async def get_content(
     file_read_errors: list[str] = []
 
     # 1. Search collections first
-    collection = next((c for c in project.collections if c.name == args.category_or_collection), None)
+    collection = project.collections.get(args.category_or_collection)
     if collection:
         for category_name in collection.categories:
-            category = next((c for c in project.categories if c.name == category_name), None)
+            category = project.categories.get(category_name)
             if not category:
                 continue
 
@@ -90,14 +90,14 @@ async def get_content(
 
             # Set both category and collection fields
             for file in files:
-                file.category = category.name
-                file.collection = collection.name
+                file.category = category_name
+                file.collection = args.category_or_collection
 
             # Store with category_dir for later de-duplication
             all_files.extend((file, category_dir) for file in files)
 
     # 2. Search categories
-    category = next((c for c in project.categories if c.name == args.category_or_collection), None)
+    category = project.categories.get(args.category_or_collection)
     if category:
         patterns = resolve_patterns(args.pattern, category.patterns)
         category_dir = docroot / category.dir
@@ -105,7 +105,7 @@ async def get_content(
 
         # Set category field on all FileInfo objects
         for file in files:
-            file.category = category.name
+            file.category = args.category_or_collection
 
         # Store with category_dir for later de-duplication
         all_files.extend((file, category_dir) for file in files)

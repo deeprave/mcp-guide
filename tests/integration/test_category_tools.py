@@ -19,6 +19,7 @@ from mcp_guide.tools.tool_category import (
     CategoryAddArgs,
     CategoryContentArgs,
     CategoryListArgs,
+    CategoryListFilesArgs,
     CategoryRemoveArgs,
     CategoryUpdateArgs,
 )
@@ -257,9 +258,9 @@ async def test_category_persists_after_add(mcp_server, tmp_path, monkeypatch):
     session2 = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
     project = await session2.get_project()
     assert len(project.categories) == 1
-    assert project.categories[0].name == "api"
-    assert project.categories[0].dir == "src/api"
-    assert "*.py" in project.categories[0].patterns
+    assert "api" in project.categories
+    assert project.categories["api"].dir == "src/api"
+    assert "*.py" in project.categories["api"].patterns
 
     remove_current_session("test")
 
@@ -284,8 +285,7 @@ async def test_category_persists_after_update(mcp_server, tmp_path, monkeypatch)
     session2 = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
     project = await session2.get_project()
     assert len(project.categories) == 1
-    assert project.categories[0].name == "api"
-    assert "*.pyi" in project.categories[0].patterns
+    assert "*.pyi" in project.categories["api"].patterns
 
     remove_current_session("test")
 
@@ -338,8 +338,7 @@ async def test_multiple_operations_persist(mcp_server, tmp_path, monkeypatch):
     session2 = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
     project = await session2.get_project()
     assert len(project.categories) == 1
-    assert project.categories[0].name == "api"
-    assert "*.pyi" in project.categories[0].patterns
+    assert "*.pyi" in project.categories["api"].patterns
 
     remove_current_session("test")
 
@@ -372,9 +371,9 @@ async def test_category_removal_preserves_collections(mcp_server, tmp_path, monk
     session2 = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
     project = await session2.get_project()
     assert len(project.collections) == 1
-    assert project.collections[0].name == "backend"
-    assert "api" not in project.collections[0].categories  # Category reference removed
-    assert "docs" in project.collections[0].categories  # Other category remains
+    assert "backend" in project.collections
+    assert "api" not in project.collections["backend"].categories  # Category reference removed
+    assert "docs" in project.collections["backend"].categories  # Other category remains
 
     remove_current_session("test")
 
@@ -402,10 +401,10 @@ async def test_update_category_preserves_collections(mcp_server, tmp_path, monke
     session2 = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
     project = await session2.get_project()
     assert len(project.categories) == 1
-    assert "*.pyi" in project.categories[0].patterns
+    assert "*.pyi" in project.categories["api"].patterns
     assert len(project.collections) == 1
-    assert project.collections[0].name == "backend"
-    assert "api" in project.collections[0].categories
+    assert "backend" in project.collections
+    assert "api" in project.collections["backend"].categories
 
     remove_current_session("test")
 
@@ -446,7 +445,7 @@ async def test_category_content_empty_category(mcp_server, tmp_path, monkeypatch
     session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
 
     # Add category with pattern that won't match any files
-    await session.update_config(lambda p: p.with_category(Category(name="guide", dir="guide", patterns=["nomatch*"])))
+    await session.update_config(lambda p: p.with_category("guide", Category(dir="guide", patterns=["nomatch*"])))
 
     docroot = Path(tmp_path.resolve()) / "docs"
     generate_test_files(docroot)
@@ -472,7 +471,7 @@ async def test_category_content_success_single_file(mcp_server, tmp_path, monkey
     session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
 
     # Add category with pattern matching single file
-    await session.update_config(lambda p: p.with_category(Category(name="lang", dir="lang", patterns=["python*"])))
+    await session.update_config(lambda p: p.with_category("lang", Category(dir="lang", patterns=["python*"])))
 
     docroot = Path(tmp_path.resolve()) / "docs"
     generate_test_files(docroot)
@@ -499,7 +498,7 @@ async def test_category_content_success_multiple_files(mcp_server, tmp_path, mon
     session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
 
     # Add category with pattern matching multiple files
-    await session.update_config(lambda p: p.with_category(Category(name="context", dir="context", patterns=["jira*"])))
+    await session.update_config(lambda p: p.with_category("context", Category(dir="context", patterns=["jira*"])))
 
     docroot = Path(tmp_path.resolve()) / "docs"
     generate_test_files(docroot)
@@ -527,7 +526,7 @@ async def test_category_content_pattern_override(mcp_server, tmp_path, monkeypat
     session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
 
     # Add category with pattern matching all files
-    await session.update_config(lambda p: p.with_category(Category(name="guide", dir="guide", patterns=["*"])))
+    await session.update_config(lambda p: p.with_category("guide", Category(dir="guide", patterns=["*"])))
 
     docroot = Path(tmp_path.resolve()) / "docs"
     generate_test_files(docroot)
@@ -555,7 +554,7 @@ async def test_category_content_file_read_error(mcp_server, tmp_path, monkeypatc
     session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
 
     # Add category
-    await session.update_config(lambda p: p.with_category(Category(name="docs", dir="docs", patterns=["*.md"])))
+    await session.update_config(lambda p: p.with_category("docs", Category(dir="docs", patterns=["*.md"])))
 
     # Create test file and make it unreadable
     docroot = Path(tmp_path.resolve()) / "docs" / "docs"
@@ -576,5 +575,144 @@ async def test_category_content_file_read_error(mcp_server, tmp_path, monkeypatc
     finally:
         # Restore permissions for cleanup
         os.chmod(test_file, 0o644)
+
+    remove_current_session("test")
+
+
+# File Listing Tests
+
+
+async def test_category_list_files_success(mcp_server, tmp_path, monkeypatch):
+    """Test successful file listing in category."""
+    from .test_data_generator import generate_test_files
+
+    monkeypatch.setenv("PWD", "/fake/path/test")
+
+    session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
+    docroot = Path(tmp_path.resolve()) / "docs"
+    generate_test_files(docroot)
+
+    # Add category with pattern matching files
+    await session.update_config(lambda p: p.with_category("guide", Category(dir="guide", patterns=["general*"])))
+
+    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+        args = CategoryListFilesArgs(name="guide")
+        result = await call_mcp_tool(client, "category_list_files", args)
+        response = json.loads(result.content[0].text)  # type: ignore[union-attr]
+
+        assert response["success"] is True
+        files = response["value"]
+        assert isinstance(files, list)
+        assert len(files) > 0
+        
+        # Check file structure
+        file_info = files[0]
+        assert "path" in file_info
+        assert "size" in file_info
+        assert "basename" in file_info
+
+    remove_current_session("test")
+
+
+async def test_category_list_files_mixed_file_types(mcp_server, tmp_path, monkeypatch):
+    """Test file listing with mixed file types and subdirectories."""
+    from .test_data_generator import generate_test_files
+
+    monkeypatch.setenv("PWD", "/fake/path/test")
+
+    session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
+    docroot = Path(tmp_path.resolve()) / "docs"
+    generate_test_files(docroot)
+
+    # Create additional mixed files
+    guide_dir = docroot / "guide"
+    guide_dir.mkdir(exist_ok=True)
+    (guide_dir / "readme.md").write_text("# README")
+    (guide_dir / "config.json.mustache").write_text('{"name": "{{name}}"}')
+    (guide_dir / "subdir").mkdir()
+    (guide_dir / "subdir" / "nested.txt").write_text("nested content")
+
+    # Add category that matches all files
+    await session.update_config(lambda p: p.with_category("guide", Category(dir="guide", patterns=["**/*"])))
+
+    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+        args = CategoryListFilesArgs(name="guide")
+        result = await call_mcp_tool(client, "category_list_files", args)
+        response = json.loads(result.content[0].text)  # type: ignore[union-attr]
+
+        assert response["success"] is True
+        files = response["value"]
+        assert len(files) >= 3
+        
+        # Check mixed file types are included
+        basenames = [f["basename"] for f in files]
+        assert "readme.md" in basenames
+        assert "config.json" in basenames  # .mustache stripped
+        assert "nested.txt" in basenames
+        
+        # Verify subdirectory paths
+        paths = [f["path"] for f in files]
+        assert any("subdir/nested.txt" in path for path in paths)
+
+    remove_current_session("test")
+
+
+async def test_category_list_files_output_format(mcp_server, tmp_path, monkeypatch):
+    """Test 2-column output format with path and size."""
+    monkeypatch.setenv("PWD", "/fake/path/test")
+
+    session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
+    docroot = Path(tmp_path.resolve()) / "docs"
+    
+    # Create test files with known content
+    test_dir = docroot / "test"
+    test_dir.mkdir(parents=True)
+    (test_dir / "small.txt").write_text("small")  # 5 bytes
+    (test_dir / "large.md").write_text("# Large Content\n" + "x" * 100)  # >100 bytes
+
+    await session.update_config(lambda p: p.with_category("test", Category(dir="test", patterns=["*"])))
+
+    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+        args = CategoryListFilesArgs(name="test")
+        result = await call_mcp_tool(client, "category_list_files", args)
+        response = json.loads(result.content[0].text)  # type: ignore[union-attr]
+
+        assert response["success"] is True
+        files = response["value"]
+        assert len(files) == 2
+        
+        # Verify 2-column format structure
+        for file_info in files:
+            assert "path" in file_info
+            assert "size" in file_info
+            assert "basename" in file_info
+            assert isinstance(file_info["path"], str)
+            assert isinstance(file_info["size"], int)
+            assert isinstance(file_info["basename"], str)
+            assert file_info["size"] > 0
+        
+        # Check specific file sizes
+        small_file = next(f for f in files if f["basename"] == "small.txt")
+        large_file = next(f for f in files if f["basename"] == "large.md")
+        assert small_file["size"] == 5
+        assert large_file["size"] > 100
+
+    remove_current_session("test")
+
+
+async def test_category_list_files_category_not_found_integration(mcp_server, tmp_path, monkeypatch):
+    """Test category not found error through MCP."""
+    monkeypatch.setenv("PWD", "/fake/path/test")
+
+    session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
+
+    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+        args = CategoryListFilesArgs(name="nonexistent")
+        result = await call_mcp_tool(client, "category_list_files", args)
+        response = json.loads(result.content[0].text)  # type: ignore[union-attr]
+
+        assert response["success"] is False
+        assert response["error_type"] == "not_found"
+        assert "nonexistent" in response["error"]
 
     remove_current_session("test")

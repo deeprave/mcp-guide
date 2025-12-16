@@ -23,8 +23,8 @@ async def test_collection_content_sets_both_fields(tmp_path: Path, monkeypatch: 
         async def get_project(self):
             return Project(
                 name="test",
-                categories=[Category(name="guide", dir="guide", patterns=["*.md"])],
-                collections=[Collection(name="all", categories=["guide"])],
+                categories={"guide": Category(dir="guide", patterns=["*.md"])},
+                collections={"all": Collection(categories=["guide"])},
             )
 
         def get_docroot(self):
@@ -73,8 +73,8 @@ async def test_collection_content_empty_result_has_instruction(tmp_path: Path, m
         async def get_project(self):
             return Project(
                 name="test",
-                categories=[Category(name="guide", dir="guide", patterns=["*.md"])],
-                collections=[Collection(name="all", categories=["guide"])],
+                categories={"guide": Category(dir="guide", patterns=["*.md"])},
+                collections={"all": Collection(categories=["guide"])},
             )
 
         def get_docroot(self):

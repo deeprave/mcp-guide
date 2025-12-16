@@ -51,8 +51,8 @@ async def test_get_content_collection_only(tmp_path, monkeypatch):
         async def get_project(self):
             return Project(
                 name="test",
-                categories=[Category(name="guide", dir="guide", patterns=["*.md"])],
-                collections=[Collection(name="all", categories=["guide"])],
+                categories={"guide": Category(dir="guide", patterns=["*.md"])},
+                collections={"all": Collection(categories=["guide"])},
             )
 
         def get_docroot(self):
@@ -84,8 +84,8 @@ async def test_get_content_category_only(tmp_path, monkeypatch):
         async def get_project(self):
             return Project(
                 name="test",
-                categories=[Category(name="guide", dir="guide", patterns=["*.md"])],
-                collections=[],
+                categories={"guide": Category(dir="guide", patterns=["*.md"])},
+                collections={},
             )
 
         def get_docroot(self):
@@ -117,8 +117,8 @@ async def test_get_content_deduplicates(tmp_path, monkeypatch):
         async def get_project(self):
             return Project(
                 name="test",
-                categories=[Category(name="guide", dir="guide", patterns=["*.md"])],
-                collections=[Collection(name="guide", categories=["guide"])],
+                categories={"guide": Category(dir="guide", patterns=["*.md"])},
+                collections={"guide": Collection(categories=["guide"])},
             )
 
         def get_docroot(self):
@@ -151,8 +151,8 @@ async def test_get_content_empty_result(tmp_path, monkeypatch):
         async def get_project(self):
             return Project(
                 name="test",
-                categories=[Category(name="empty", dir="empty", patterns=["*.md"])],
-                collections=[],
+                categories={"empty": Category(dir="empty", patterns=["*.md"])},
+                collections={},
             )
 
         def get_docroot(self):
@@ -187,8 +187,8 @@ async def test_get_content_pattern_override(tmp_path, monkeypatch):
         async def get_project(self):
             return Project(
                 name="test",
-                categories=[Category(name="docs", dir="docs", patterns=["*.md", "*.txt"])],
-                collections=[],
+                categories={"docs": Category(dir="docs", patterns=["*.md", "*.txt"])},
+                collections={},
             )
 
         def get_docroot(self):
@@ -223,8 +223,8 @@ async def test_get_content_category_sets_metadata(tmp_path, monkeypatch):
         async def get_project(self):
             return Project(
                 name="test",
-                categories=[Category(name="docs", dir="docs", patterns=["*.md"])],
-                collections=[],
+                categories={"docs": Category(dir="docs", patterns=["*.md"])},
+                collections={},
             )
 
         def get_docroot(self):
@@ -258,8 +258,8 @@ async def test_get_content_collection_sets_metadata(tmp_path, monkeypatch):
         async def get_project(self):
             return Project(
                 name="test",
-                categories=[Category(name="docs", dir="docs", patterns=["*.md"])],
-                collections=[Collection(name="all", categories=["docs"])],
+                categories={"docs": Category(dir="docs", patterns=["*.md"])},
+                collections={"all": Collection(categories=["docs"])},
             )
 
         def get_docroot(self):

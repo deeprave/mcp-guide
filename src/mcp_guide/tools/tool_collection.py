@@ -63,14 +63,14 @@ async def collection_list(args: CollectionListArgs, ctx: Optional[Context] = Non
     if args.verbose:
         collections = [
             {
-                "name": collection.name,
+                "name": name,  # Inject name from dict key
                 "categories": list(collection.categories),
                 "description": collection.description,
             }
-            for collection in project.collections
+            for name, collection in project.collections.items()  # Use dict.items()
         ]
     else:
-        collections = [collection.name for collection in project.collections]
+        collections = list(project.collections.keys())  # Use dict.keys()
 
     return Result.ok(collections).to_json_str()
 
@@ -105,7 +105,20 @@ async def collection_add(args: CollectionAddArgs, ctx: Optional[Context] = None)
     project = await session.get_project()
 
     try:
-        if any(col.name == args.name for col in project.collections):
+        # Validate name is not empty
+        if not args.name or not args.name.strip():
+            raise ArgValidationError([{"field": "name", "message": "Collection name cannot be empty"}])
+        
+        # Validate name doesn't contain invalid characters
+        if "/" in args.name or "\\" in args.name or " " in args.name or "!" in args.name:
+            raise ArgValidationError([{"field": "name", "message": "Collection name cannot contain spaces or special characters"}])
+        
+        # Validate name length
+        if len(args.name) > 30:
+            raise ArgValidationError([{"field": "name", "message": "Collection name must be 30 characters or less"}])
+        
+        # Use dict lookup for O(1) duplicate detection
+        if args.name in project.collections:
             raise ArgValidationError([{"field": "name", "message": f"Collection '{args.name}' already exists"}])
 
         validated_description = validate_description(args.description) if args.description else None
@@ -116,12 +129,14 @@ async def collection_add(args: CollectionAddArgs, ctx: Optional[Context] = None)
         return e.to_result().to_json_str()
 
     try:
-        collection = Collection(name=args.name, categories=categories, description=validated_description)
+        # Create collection without name field (name becomes dict key)
+        collection = Collection(categories=categories, description=validated_description)
     except ValueError as e:
         return ArgValidationError([{"field": "name", "message": str(e)}]).to_result().to_json_str()
 
     try:
-        await session.update_config(lambda p: p.with_collection(collection))
+        # Use new dict-based with_collection method
+        await session.update_config(lambda p: p.with_collection(args.name, collection))
     except Exception as e:
         return Result.failure(f"Failed to save project configuration: {e}", error_type=ERROR_SAVE).to_json_str()
 
@@ -152,7 +167,8 @@ async def collection_remove(args: CollectionRemoveArgs, ctx: Optional[Context] =
 
     project = await session.get_project()
 
-    if all(col.name != args.name for col in project.collections):
+    # Use dict lookup for O(1) existence check
+    if args.name not in project.collections:
         return Result.failure(f"Collection '{args.name}' does not exist", error_type=ERROR_NOT_FOUND).to_json_str()
 
     try:
@@ -194,7 +210,7 @@ async def collection_change(args: CollectionChangeArgs, ctx: Optional[Context] =
 
     project = await session.get_project()
 
-    existing_collection = next((c for c in project.collections if c.name == args.name), None)
+    existing_collection = project.collections.get(args.name)
     if existing_collection is None:
         return Result.failure(f"Collection '{args.name}' does not exist", error_type=ERROR_NOT_FOUND).to_json_str()
 
@@ -215,10 +231,21 @@ async def collection_change(args: CollectionChangeArgs, ctx: Optional[Context] =
         )
 
     try:
-        if args.new_name is not None and any(
-            c.name == args.new_name for c in project.collections if c.name != args.name
-        ):
-            raise ArgValidationError([{"field": "new_name", "message": f"Collection '{args.new_name}' already exists"}])
+        if args.new_name is not None:
+            # Validate new name is not empty
+            if not args.new_name or not args.new_name.strip():
+                raise ArgValidationError([{"field": "new_name", "message": "Collection name cannot be empty"}])
+            
+            # Validate new name doesn't contain invalid characters
+            if "/" in args.new_name or "\\" in args.new_name or " " in args.new_name or "!" in args.new_name:
+                raise ArgValidationError([{"field": "new_name", "message": "Collection name cannot contain spaces or special characters"}])
+            
+            # Validate new name length
+            if len(args.new_name) > 30:
+                raise ArgValidationError([{"field": "new_name", "message": "Collection name must be 30 characters or less"}])
+            
+            if args.new_name in project.collections and args.new_name != args.name:
+                raise ArgValidationError([{"field": "new_name", "message": f"Collection '{args.new_name}' already exists"}])
 
         if args.new_description is not None and args.new_description != "":
             validate_description(args.new_description)
@@ -244,7 +271,6 @@ async def collection_change(args: CollectionChangeArgs, ctx: Optional[Context] =
 
     try:
         updated_collection = Collection(
-            name=args.new_name if args.new_name is not None else existing_collection.name,
             categories=final_categories,
             description=final_description,
         )
@@ -252,7 +278,8 @@ async def collection_change(args: CollectionChangeArgs, ctx: Optional[Context] =
         return ArgValidationError([{"field": "new_name", "message": str(e)}]).to_result().to_json_str()
 
     try:
-        await session.update_config(lambda p: p.without_collection(args.name).with_collection(updated_collection))
+        final_name = args.new_name if args.new_name is not None else args.name
+        await session.update_config(lambda p: p.without_collection(args.name).with_collection(final_name, updated_collection))
     except Exception as e:
         return Result.failure(f"Failed to save project configuration: {e}", error_type=ERROR_SAVE).to_json_str()
 
@@ -292,7 +319,7 @@ async def collection_update(args: CollectionUpdateArgs, ctx: Optional[Context] =
 
     project = await session.get_project()
 
-    existing_collection = next((c for c in project.collections if c.name == args.name), None)
+    existing_collection = project.collections.get(args.name)
     if existing_collection is None:
         return Result.failure(f"Collection '{args.name}' does not exist", error_type=ERROR_NOT_FOUND).to_json_str()
 
@@ -336,7 +363,7 @@ async def collection_update(args: CollectionUpdateArgs, ctx: Optional[Context] =
     updated_collection = replace(existing_collection, categories=current_categories)
 
     try:
-        await session.update_config(lambda p: p.without_collection(args.name).with_collection(updated_collection))
+        await session.update_config(lambda p: p.without_collection(args.name).with_collection(args.name, updated_collection))
     except Exception as e:
         return Result.failure(f"Failed to save project configuration: {e}", error_type=ERROR_SAVE).to_json_str()
 
@@ -376,7 +403,7 @@ async def collection_content(
     project = await session.get_project()
 
     # Resolve collection
-    collection = next((c for c in project.collections if c.name == args.collection), None)
+    collection = project.collections.get(args.collection)
     if collection is None:
         result: Result[str] = Result.failure(
             f"Collection '{args.collection}' not found in project",
@@ -387,7 +414,7 @@ async def collection_content(
 
     # Validate all categories exist
     for category_name in collection.categories:
-        category = next((c for c in project.categories if c.name == category_name), None)
+        category = project.categories.get(category_name)
         if category is None:
             result = Result.failure(
                 f"Category '{category_name}' (referenced by collection '{args.collection}') not found",
@@ -402,7 +429,7 @@ async def collection_content(
     docroot = Path(session.get_docroot())
 
     for category_name in collection.categories:
-        category = next(c for c in project.categories if c.name == category_name)
+        category = project.categories[category_name]  # We already validated it exists above
 
         # Pattern override logic
         patterns = resolve_patterns(args.pattern, category.patterns)
@@ -417,13 +444,13 @@ async def collection_content(
 
         # Set category and collection fields on all FileInfo objects
         for file in files:
-            file.category = category.name
+            file.category = category_name
             file.collection = args.collection
 
         # Read file content with template rendering and modify basename
-        template_context = await get_template_context_if_needed(files, category.name)
+        template_context = await get_template_context_if_needed(files, category_name)
         errors = await read_and_render_file_contents(
-            files, category_dir, template_context, category_prefix=category.name
+            files, category_dir, template_context, category_prefix=category_name
         )
         file_read_errors.extend(errors)
         all_files.extend(files)

@@ -34,7 +34,7 @@ async def test_get_content_category_only(mcp_server, tmp_path, monkeypatch):
     session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
 
     # Add category
-    await session.update_config(lambda p: p.with_category(Category(name="guide", dir="guide", patterns=["*.md"])))
+    await session.update_config(lambda p: p.with_category("guide", Category(dir="guide", patterns=["*.md"])))
 
     docroot = Path(tmp_path.resolve()) / "docs"
     generate_test_files(docroot)
@@ -61,9 +61,9 @@ async def test_get_content_collection_only(mcp_server, tmp_path, monkeypatch):
 
     # Add categories and collection
     await session.update_config(
-        lambda p: p.with_category(Category(name="guide", dir="guide", patterns=["*.md"]))
-        .with_category(Category(name="lang", dir="lang", patterns=["*.md"]))
-        .with_collection(Collection(name="all", categories=["guide", "lang"]))
+        lambda p: p.with_category("guide", Category(dir="guide", patterns=["*.md"]))
+        .with_category("lang", Category(dir="lang", patterns=["*.md"]))
+        .with_collection("all", Collection(categories=["guide", "lang"]))
     )
 
     docroot = Path(tmp_path.resolve()) / "docs"
@@ -92,8 +92,8 @@ async def test_get_content_both_match_deduplicates(mcp_server, tmp_path, monkeyp
 
     # Add category "guide" and collection "guide" containing "guide" category
     await session.update_config(
-        lambda p: p.with_category(Category(name="guide", dir="guide", patterns=["*.md"])).with_collection(
-            Collection(name="guide", categories=["guide"])
+        lambda p: p.with_category("guide", Category(dir="guide", patterns=["*.md"])).with_collection(
+            "guide", Collection(categories=["guide"])
         )
     )
 
@@ -127,7 +127,7 @@ async def test_get_content_pattern_override(mcp_server, tmp_path, monkeypatch):
 
     # Add category with multiple file types
     await session.update_config(
-        lambda p: p.with_category(Category(name="context", dir="context", patterns=["*.md", "*.yaml"]))
+        lambda p: p.with_category("context", Category(dir="context", patterns=["*.md", "*.yaml"]))
     )
 
     docroot = Path(tmp_path.resolve()) / "docs"
@@ -154,7 +154,7 @@ async def test_get_content_empty_result(mcp_server, tmp_path, monkeypatch):
     session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
 
     # Add category with no files
-    await session.update_config(lambda p: p.with_category(Category(name="empty", dir="empty", patterns=["*.md"])))
+    await session.update_config(lambda p: p.with_category("empty", Category(dir="empty", patterns=["*.md"])))
 
     # Create empty directory
     docroot = Path(tmp_path.resolve()) / "docs"

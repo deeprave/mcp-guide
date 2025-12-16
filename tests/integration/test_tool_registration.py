@@ -31,11 +31,10 @@ def test_session(tmp_path):
 
     # Create sample project with categories
     category = Category(
-        name="docs",
         dir="documentation",
         patterns=["*.md", "*.txt"],
     )
-    session._cached_project = Project(name="test", categories=[category], collections=[])
+    session._cached_project = Project(name="test", categories={"docs": category}, collections={})
 
     set_current_session(session)
     yield session

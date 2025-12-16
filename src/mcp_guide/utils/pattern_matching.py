@@ -21,13 +21,13 @@ def is_valid_file(path: Path) -> bool:
     Returns:
         True if file is valid, False if should be excluded
     """
-    # Check filename
+    # Check filename - exclude metadata files, __pycache__ style names, and hidden files
     name = path.name
-    if name.startswith(".") or name.startswith("__") or name.endswith(METADATA_SUFFIX):
+    if name.startswith("__") or name.endswith(METADATA_SUFFIX) or name.startswith("."):
         return False
 
-    # Check if any parent directory starts with . or __
-    return not any(part.startswith(".") or part.startswith("__") for part in path.parts)
+    # Check if any parent directory starts with . or __ (hidden or special directories)
+    return not any(part in (".", "..") or part.startswith("__") or part.startswith(".") for part in path.parts)
 
 
 def _process_match(

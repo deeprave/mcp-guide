@@ -152,6 +152,10 @@ class ConfigManager:
 
             if name in projects:
                 project_data = projects[name]
+                
+                # Migrate list-based configuration to dict-based (silent conversion)
+                project_data = self._migrate_project_data(project_data)
+                
                 try:
                     # Add name from key since it's not stored in the value
                     return Project(name=name, **project_data)
@@ -204,7 +208,9 @@ class ConfigManager:
 
             for name, project_data in projects_data.items():
                 try:
-                    projects[name] = Project(name=name, **project_data)
+                    # Migrate list-based configuration to dict-based (silent conversion)
+                    migrated_data = self._migrate_project_data(project_data)
+                    projects[name] = Project(name=name, **migrated_data)
                 except Exception as e:
                     raise ValueError(f"Invalid project data for '{name}': {e}") from e
 
@@ -338,21 +344,61 @@ class ConfigManager:
 
         await lock_update(self.config_file, _delete)
 
+    def _migrate_project_data(self, project_data: dict[str, Any]) -> dict[str, Any]:
+        """Migrate list-based configuration to dict-based format.
+        
+        Args:
+            project_data: Raw project data from YAML
+            
+        Returns:
+            Migrated project data with dict-based categories and collections
+        """
+        # Create a deep copy to avoid modifying the original
+        import copy
+        migrated_data = copy.deepcopy(project_data)
+        
+        # Migrate categories from list to dict
+        if "categories" in migrated_data and isinstance(migrated_data["categories"], list):
+            categories_dict = {}
+            for category in migrated_data["categories"]:
+                if isinstance(category, dict) and "name" in category:
+                    name = category.pop("name")  # Remove name field
+                    categories_dict[name] = category
+            migrated_data["categories"] = categories_dict
+        
+        # Migrate collections from list to dict  
+        if "collections" in migrated_data and isinstance(migrated_data["collections"], list):
+            collections_dict = {}
+            for collection in migrated_data["collections"]:
+                if isinstance(collection, dict) and "name" in collection:
+                    name = collection.pop("name")  # Remove name field
+                    collections_dict[name] = collection
+            migrated_data["collections"] = collections_dict
+            
+        return migrated_data
+
     def _project_to_dict(self, project: Project) -> dict[str, object]:
         """Convert Project to dict for YAML serialization."""
         result: dict[str, object] = {
-            "categories": [
-                {"name": c.name, "dir": c.dir, "patterns": c.patterns, "description": c.description}
-                for c in project.categories
-            ],
-            "collections": [
-                {
-                    "name": c.name,
-                    "categories": c.categories,
-                    "description": c.description,
+            "categories": {
+                name: {
+                    k: v for k, v in {
+                        "dir": category.dir, 
+                        "patterns": category.patterns, 
+                        "description": category.description
+                    }.items() if v is not None
                 }
-                for c in project.collections
-            ],
+                for name, category in project.categories.items()
+            },
+            "collections": {
+                name: {
+                    k: v for k, v in {
+                        "categories": collection.categories, 
+                        "description": collection.description
+                    }.items() if v is not None
+                }
+                for name, collection in project.collections.items()
+            },
             "created_at": project.created_at.isoformat(),
             "updated_at": project.updated_at.isoformat(),
         }

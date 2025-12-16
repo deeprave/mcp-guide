@@ -49,15 +49,15 @@ class TestConfigManager:
 
         manager = ConfigManager(config_dir=str(tmp_path))
         project = await manager.get_or_create_project_config("test-project")
-        category = Category(name="docs", dir="docs/", patterns=["*.md"])
-        updated_project = project.with_category(category)
+        category = Category(dir="docs/", patterns=["*.md"])
+        updated_project = project.with_category("docs", category)
 
         await manager.save_project_config(updated_project)
 
         # Reload and verify
         reloaded = await manager.get_or_create_project_config("test-project")
         assert len(reloaded.categories) == 1
-        assert reloaded.categories[0].name == "docs"
+        assert "docs" in reloaded.categories
 
     @pytest.mark.asyncio
     async def test_list_projects(self, tmp_path):

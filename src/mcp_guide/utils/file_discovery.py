@@ -69,19 +69,27 @@ async def discover_category_files(
                 "Template files are automatically discovered."
             )
 
-    # Expand patterns to include template variants
+    # Expand patterns to include extension variants and template variants
     expanded_patterns = []
     for pattern in patterns:
+        # Add exact pattern (e.g., "general")
         expanded_patterns.append(pattern)
+        # Add pattern with any extension (e.g., "general.*")
+        expanded_patterns.append(f"{pattern}.*")
+        # Add template variants
         expanded_patterns.append(f"{pattern}{TEMPLATE_EXTENSION}")
+        expanded_patterns.append(f"{pattern}.*{TEMPLATE_EXTENSION}")
 
     matched_paths = safe_glob_search(category_dir, expanded_patterns)
+
+    # Resolve category_dir for consistent path calculations
+    category_dir_resolved = category_dir.resolve()
 
     # Group by full relative path and prefer non-template over template
     # Note: safe_glob_search returns sorted results, so non-template always comes before template
     files_by_path: dict[str, Path] = {}
     for matched_path in matched_paths:
-        relative_path = matched_path.relative_to(category_dir)
+        relative_path = matched_path.relative_to(category_dir_resolved)
 
         # Calculate the key: full relative path without template extension
         path_str = str(relative_path)
@@ -98,7 +106,7 @@ async def discover_category_files(
     results = []
     for matched_path in files_by_path.values():
         stat_result = await aiofiles.os.stat(matched_path)
-        relative_path = matched_path.relative_to(category_dir)
+        relative_path = matched_path.relative_to(category_dir_resolved)
 
         # Calculate basename (just filename without template extension)
         basename = relative_path.name

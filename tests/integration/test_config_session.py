@@ -25,13 +25,12 @@ class TestConfigSessionIntegration:
         set_current_session(session)
 
         # Update config through session
-        category = Category(name="docs", dir="docs/", patterns=["*.md"])
-        await session.update_config(lambda p: p.with_category(category))
+        category = Category(dir="docs/", patterns=["*.md"])
+        await session.update_config(lambda p: p.with_category("docs", category))
 
         # Verify update persisted
         reloaded_project = await manager.get_or_create_project_config("test-project")
         assert len(reloaded_project.categories) == 1
-        assert reloaded_project.categories[0].name == "docs"
 
         # Verify session cache updated
         cached_project = await session.get_project()
@@ -50,8 +49,8 @@ class TestConfigSessionIntegration:
             session1 = Session(_config_manager=manager, project_name="project1")
             set_current_session(session1)
 
-            category = Category(name="api", dir="api/", patterns=["*.py"])
-            await session1.update_config(lambda p: p.with_category(category))
+            category = Category(dir="api/", patterns=["*.py"])
+            await session1.update_config(lambda p: p.with_category("api", category))
 
             await asyncio.sleep(0.01)
 
@@ -64,8 +63,8 @@ class TestConfigSessionIntegration:
             session2 = Session(_config_manager=manager, project_name="project2")
             set_current_session(session2)
 
-            category = Category(name="web", dir="web/", patterns=["*.html"])
-            await session2.update_config(lambda p: p.with_category(category))
+            category = Category(dir="web/", patterns=["*.html"])
+            await session2.update_config(lambda p: p.with_category("web", category))
 
             await asyncio.sleep(0.01)
 
@@ -85,8 +84,6 @@ class TestConfigSessionIntegration:
         project2 = await manager.get_or_create_project_config("project2")
         assert len(project1.categories) == 1
         assert len(project2.categories) == 1
-        assert project1.categories[0].name == "api"
-        assert project2.categories[0].name == "web"
 
     @pytest.mark.asyncio
     async def test_config_ignores_extra_fields_in_yaml(self, tmp_path):
@@ -119,8 +116,7 @@ projects:
         # Verify valid fields loaded correctly
         assert project.name == "test-project"
         assert len(project.categories) == 1
-        assert project.categories[0].name == "docs"
-        assert project.categories[0].dir == "docs/"
+        assert project.categories["docs"].dir == "docs/"
 
     @pytest.mark.asyncio
     async def test_file_locking_prevents_corruption(self, tmp_path):
@@ -135,8 +131,8 @@ projects:
             try:
                 # Each task reads current state, adds category, and saves
                 project = await manager.get_or_create_project_config("test-project")
-                category = Category(name=category_name, dir=f"{category_name}/", patterns=["*.md"])
-                updated = project.with_category(category)
+                category = Category(dir=f"{category_name}/", patterns=["*.md"])
+                updated = project.with_category(category_name, category)
                 await manager.save_project_config(updated)
                 results.append(category_name)
             except Exception as e:
@@ -155,7 +151,7 @@ projects:
 
         # Verify ALL categories were saved (no data loss from race conditions)
         project = await manager.get_or_create_project_config("test-project")
-        assert isinstance(project.categories, list)
+        assert isinstance(project.categories, dict)
         assert len(project.categories) == 5, f"Expected 5 categories, got {len(project.categories)}"
-        category_names = {c.name for c in project.categories}
+        category_names = set(project.categories.keys())
         assert category_names == {"cat0", "cat1", "cat2", "cat3", "cat4"}

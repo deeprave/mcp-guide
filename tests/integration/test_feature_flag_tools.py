@@ -33,13 +33,13 @@ def test_session(tmp_path):
     manager = ConfigManager(config_dir=str(tmp_path))
     session = Session(_config_manager=manager, project_name="test")
 
-    # Create sample project with categories
-    category = Category(
-        name="docs",
-        dir="documentation",
-        patterns=["*.md", "*.txt"],
+    # Create sample project with categories in dict format
+    category = Category(dir="documentation", patterns=["*.md", "*.txt"])
+    session._cached_project = Project(
+        name="test", 
+        categories={"docs": category}, 
+        collections={}
     )
-    session._cached_project = Project(name="test", categories=[category], collections=[])
 
     set_current_session(session)
     yield session

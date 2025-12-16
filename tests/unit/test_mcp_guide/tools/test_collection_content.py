@@ -61,8 +61,8 @@ async def test_tool_returns_result_ok_on_success(tmp_path, monkeypatch):
     # Create test project with category and collection
     project = Project(
         name="test",
-        categories=[Category(name="docs", dir=".", patterns=["*.md"])],
-        collections=[Collection(name="all-docs", categories=["docs"])],
+        categories={"docs": Category(dir=".", patterns=["*.md"])},
+        collections={"all-docs": Collection(categories=["docs"])},
     )
 
     # Mock session
@@ -101,7 +101,7 @@ async def test_collection_not_found_returns_failure(tmp_path, monkeypatch):
     )
 
     # Create test project with no collections
-    project = Project(name="test", categories=[], collections=[])
+    project = Project(name="test", categories={}, collections={})
 
     # Mock session
     class MockSession:
@@ -141,8 +141,8 @@ async def test_category_not_found_returns_failure(tmp_path, monkeypatch):
     # Create test project with collection referencing non-existent category
     project = Project(
         name="test",
-        categories=[],
-        collections=[Collection(name="test-collection", categories=["nonexistent"])],
+        categories={},
+        collections={"test-collection": Collection(categories=["nonexistent"])},
     )
 
     # Mock session
@@ -183,8 +183,8 @@ async def test_no_matches_returns_success_with_message(tmp_path, monkeypatch):
     # Create test project with category and collection but no matching files
     project = Project(
         name="test",
-        categories=[Category(name="docs", dir=".", patterns=["*.md"])],
-        collections=[Collection(name="all-docs", categories=["docs"])],
+        categories={"docs": Category(dir=".", patterns=["*.md"])},
+        collections={"all-docs": Collection(categories=["docs"])},
     )
 
     # Mock session
@@ -228,8 +228,8 @@ async def test_pattern_override_filters_files(tmp_path, monkeypatch):
     # Create test project with category matching both file types
     project = Project(
         name="test",
-        categories=[Category(name="docs", dir=".", patterns=["*.md", "*.txt"])],
-        collections=[Collection(name="all-docs", categories=["docs"])],
+        categories={"docs": Category(dir=".", patterns=["*.md", "*.txt"])},
+        collections={"all-docs": Collection(categories=["docs"])},
     )
 
     # Mock session
@@ -279,11 +279,11 @@ async def test_multiple_categories_aggregates_content(tmp_path, monkeypatch):
     # Create test project with multiple categories
     project = Project(
         name="test",
-        categories=[
-            Category(name="cat1", dir="dir1", patterns=["*.md"]),
-            Category(name="cat2", dir="dir2", patterns=["*.md"]),
-        ],
-        collections=[Collection(name="all-docs", categories=["cat1", "cat2"])],
+        categories={
+            "cat1": Category(dir="dir1", patterns=["*.md"]),
+            "cat2": Category(dir="dir2", patterns=["*.md"]),
+        },
+        collections={"all-docs": Collection(categories=["cat1", "cat2"])},
     )
 
     # Mock session
@@ -327,8 +327,8 @@ async def test_tool_handles_file_read_error(tmp_path, monkeypatch):
     # Create test project
     project = Project(
         name="test",
-        categories=[Category(name="docs", dir=".", patterns=["*.md"])],
-        collections=[Collection(name="all-docs", categories=["docs"])],
+        categories={"docs": Category(dir=".", patterns=["*.md"])},
+        collections={"all-docs": Collection(categories=["docs"])},
     )
 
     # Mock session

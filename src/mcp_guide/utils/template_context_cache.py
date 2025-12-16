@@ -100,21 +100,45 @@ class TemplateContextCache(SessionListener):
             session = get_current_session()
             if session:
                 project = await session.get_project()
-                # Find category by name
-                for category in project.categories:
-                    if category.name == category_name:
-                        category_data = {
-                            "name": category.name,
-                            "dir": category.dir,
-                            "patterns": category.patterns,
-                            "description": getattr(category, "description", ""),
-                        }
-                        break
+                # Find category by name using dict lookup
+                if category_name in project.categories:
+                    category = project.categories[category_name]
+                    category_data = {
+                        "name": category_name,  # Inject name from dict key
+                        "dir": category.dir,
+                        "patterns": category.patterns,
+                        "description": getattr(category, "description", ""),
+                    }
         except (AttributeError, ValueError, RuntimeError) as e:
             logger.debug(f"Failed to get category from session: {e}")
 
         category_vars = {"category": category_data}
         return TemplateContext(category_vars)
+
+    async def _build_collection_context(self, collection_name: str) -> "TemplateContext":
+        """Build collection context with collection data (not cached)."""
+        from mcp_guide.session import get_current_session
+        from mcp_guide.utils.template_context import TemplateContext
+
+        # Extract collection information from current session's project
+        collection_data = {"name": "", "categories": [], "description": ""}
+        try:
+            session = get_current_session()
+            if session:
+                project = await session.get_project()
+                # Find collection by name using dict lookup
+                if collection_name in project.collections:
+                    collection = project.collections[collection_name]
+                    collection_data = {
+                        "name": collection_name,  # Inject name from dict key
+                        "categories": collection.categories,
+                        "description": getattr(collection, "description", ""),
+                    }
+        except (AttributeError, ValueError, RuntimeError) as e:
+            logger.debug(f"Failed to get collection from session: {e}")
+
+        collection_vars = {"collection": collection_data}
+        return TemplateContext(collection_vars)
 
     async def get_template_contexts(self, category_name: Optional[str] = None) -> "TemplateContext":
         """Get layered template contexts for rendering.

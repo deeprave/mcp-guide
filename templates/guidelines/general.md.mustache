@@ -1,6 +1,6 @@
 ---
+Type: agent-instructions
 Description: This file contains general guidelines for AI Agents
-Instructions: You are required to follow these guidelines at all times except when the user states otherwise.
 ---
 # General Development Guidelines & Instructions
 
@@ -11,88 +11,81 @@ Instructions: You are required to follow these guidelines at all times except wh
 
 ## The Development Process
 
-The development cycle follows the following pattern:
+The development cycle follows the following cycle:
 
 - **Discussion**:
   The discussion phase is where the user may ideate or otherwise determine what is to be done.
   You must ask questions to clarify the tasks at hand, assist by focusing your resources and gathering requirements.
-  Ask for clarity about the architecture, known assumptions and non-functional requirements.
+  Ask for clarity about the architecture, identify gaps, known assumptions and non-functional requirements.
+  Provide feedback once you understand the requirements and objectives to ensure that you have reached alignment with the user.
+  You MUST NOT make changes to production code or tests during this phase.
 
-### Discussion
+- **Planning**:
+  During this phase you are to plan work that is to be carried out.
+  You are still able to ask questions clarifying details if needed.
+  If you are using OpenSpec, you will need to have a unique-id for this task and create the following documents:
+    - proposal  - statement of what is to be implmented and objectives of the feature or change
+    - spec.md   - specification: there may be more than one if the task is large and needs to be broken up
+    - tasks.md  - overall list of tasks to be completed to meet the specification
+  Create a detailed implementation plan in the .todo/ directory. Unlike openspec files, these are transient in nature
+  and only need to exist until the implementation has been complete.
+  You MUST NOT make changes to production code or tests during this phase.
 
-- This phas
+- **Implementation**:
+  Before moving into this phase you require EXPLICIT confirmation that the user has agreed to start making changes.
 
-### Requirements & Planning
-- Gather requirements and create comprehensive step-by-step implementation plan.
-  Use a `requirements` agent do do this, if you have one.
-- Break work into smallest possible tasks/subtasks
-- Always use task checklists
-- Identify unknowns - **ASK QUESTIONS** DO NOT make assumptions
-- Never make architecturally significant decisions - ASK THE USER FOR GUIDANCE.
+  **Pre-check**:
+  Before starting, ensure that all code quality checks pass to establish the baseline.
 
-### Implementation
+  **Method**:
+  Use TDD method, writing tests first, then the code to make them pass:
+    - You must implement tests individually, and the code to make it pass individually.
+    - You must not create more than a single test during each cycle.
+    You need not create individual steps documenting this proces - each step is its own red-green-refactor iteration.
+  Stick to the plan and attempt to complete as much of it as possible, and you MUST NOT leave parts of the implmentation
+    not done, and you MUST NOT leave "TODO" items instead of actually completing the implementation.
+  If you need an architectural decision, you MUST STOP AND CONSULT THE USER. ALWAYS.
+  You MUST make changes to production code or tests during this phase.
 
-**🚨 MANDATORY USER CONSENT REQUIREMENT:**
-1. Create detailed implementation plan
-2. **EXPLICITLY REQUEST** user review and confirmation
-3. **WAIT FOR EXPLICIT CONSENT** before making ANY changes to the project
-4. **NEVER BYPASS THIS STEP - NO EXCEPTIONS**
+  During implementation:
+  - follow **SOLID Principles**, use clean and well-encapsulated architecture.
+  - Respect existing encapsulation boundaries, avoid relying on implementation or internal details
+  - always follow the existing code style
+  - write self-documenting code, adding comments only when necessary, limited to:
+    * API documentation
+    * IDE bookmarks
+    * Clarify complex or ambiguous logic and algorithms
+  
 
-**Core Principles:**
-- **TDD MANDATORY:** Always write a failing test before implementation
-  There are rare exceptions: refactoring existing features, fixing tests, research
-- Follow **SOLID principles**, use clean and well encapsulated architecture
-- Use consistent naming conventions and code style
-  Always follow the existing code style.
-- Write self-documenting code.
-  Minimise comments exceptL API docs, IDE bookmarks, complex logic or algorithms/
+- **Check**:
+  Once implemenation is complete according to the plan, you must stop and run all code quality checks that covers
+  ALL files in the production code, not only the code that you have modified.
+  This step ensures that the entire implementation is free of unexpected side-effects.
+  You must fix all failures, whether you consider them related to your changes or not.
+  If tests were passing at the start and are failing after the changes, then YOU ARE RESPONSIBLE FOR THOST CHANGES.
+  Code quality tests require a 100% pass rate before tests are accepted into version control.
+  You may still need to make changes to production code or tests during this phase to ensure that code quality tests pass.
 
-### Iterative Development
-
-**Pre-Check**
-- Run complete test suite first (ensure that all tests pass)
-
-**Discussion**
-- The user will provide a story about the current iteration.
-- Provide your analysis, do your research via web_search and the codebase
-- Raise concerns, request clarity, present options. This is IMPORTANT.
-- Ensure that you understand the user's request completely.
-
-**Planning**
-- Create the implementation plan breaking the work down into small steps
-- Ensure the plan contains a checklist that can be updated during development
-
-**Implementation**
-- Implement step-by-step per the plan, following a TDD workflow
-    - Create a failing test that embodies expected behaviour
-    - Mark changes to production code, just enough to make the tests pass
-    - Refactor if required, clean up and test again to ensure tests pass
-- Raise questions if decisions are required, and present options to the user.
-- At the end of each phase:
-    - Unless otherwise directed, provide the user with opportunity to review after each step
-    - Check each item in the plan as each phase is completed
-    - Simplify your code, ensure tests still pass
-
-**Check**
-- Run all tests to ensure that tests pass
-- Add integration tests as required
-    - **100% test pass rate required**
-    - fix ALL failing tests, no warnings, no side-effects
-- Maintain required coverage threshold, but not artificially
+- **Review**:
+  When all tests are passing you are to prompt the user that the changes are available for review.
+  YOU MUST NOT CONTINUE UNTIL THE USER EXPLICITLY CONFIRMS that reviews are done and pass.
+  You may be presented with review comments and should build a todo list of issues you may need to address.
+  If you need to make changes, switch back into **Implementation Phase**, apply fixes and when done, transition to
+  **Check** phase again and run all code quality checks.
 
 ### Definition of Done
-- At the completion of each phase or cycle (user's preference) ensure that:
-   - All tests pass, no exceptions, no excuses
+- At the completion of each cycle ensure that:
+   - All tests pass without warning - no exceptions, no excuses
    - Resolve all linting and type checking issues.
-       - resolve means RESOLVE, not suppress unless with specific user consent.
+     * resolve means RESOLVE, not suppress unless with specific user consent.
    - Ensure that code is formatted according to the project standard
      This may involve using a language specific formatting tool.
-   - Ensure that any text file created or edited has a terminating newline
+   - Ensure that any text file created or edited has a terminating newline and has no lines with trailing whitespace
 
 ### Version Control
 - **NEVER** do any of the following git operations:
   - `git add` or `git push` (without explicit request)
-    The user must manage the composition of a commit
+    The user must manage the composition of each commit
   - `git commit`
     In most cases, the user must sign their commits, which the agent cannot do
   - `git revert`, `git checkout`, `git reset`, `git restore`,
@@ -104,4 +97,4 @@ The development cycle follows the following pattern:
     Include issue references for tracker association
 
 ## Confirmation Required
-You must confirm your understanding of guidelines before proceeding.
+You must confirm your understanding of these guidelines before proceeding.

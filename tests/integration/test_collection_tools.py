@@ -46,9 +46,9 @@ async def test_session(tmp_path: Path):
 
     # Setup initial categories
     await session.update_config(
-        lambda p: p.with_category(Category(name="api", dir="src/api", patterns=["*.py"]))
-        .with_category(Category(name="tests", dir="tests", patterns=["test_*.py"]))
-        .with_category(Category(name="docs", dir="docs", patterns=["*.md"]))
+        lambda p: p.with_category("api", Category(dir="src/api", patterns=["*.py"]))
+        .with_category("tests", Category(dir="tests", patterns=["test_*.py"]))
+        .with_category("docs", Category(dir="docs", patterns=["*.md"]))
     )
 
     yield session
@@ -252,7 +252,7 @@ async def test_collection_persists_after_add(mcp_server, tmp_path, monkeypatch):
 
     # Create session and add collection
     session1 = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
-    await session1.update_config(lambda p: p.with_category(Category(name="api", dir="src/api", patterns=["*.py"])))
+    await session1.update_config(lambda p: p.with_category("api", Category(dir="src/api", patterns=["*.py"])))
 
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
         args = CollectionAddArgs(name="backend", categories=["api"])
@@ -264,7 +264,6 @@ async def test_collection_persists_after_add(mcp_server, tmp_path, monkeypatch):
     session2 = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
     project = await session2.get_project()
     assert len(project.collections) == 1
-    assert project.collections[0].name == "backend"
     remove_current_session("test")
 
 
@@ -277,8 +276,8 @@ async def test_collection_persists_after_update(mcp_server, tmp_path, monkeypatc
     # Create session with categories
     session1 = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
     await session1.update_config(
-        lambda p: p.with_category(Category(name="api", dir="src/api", patterns=["*.py"])).with_category(
-            Category(name="docs", dir="docs", patterns=["*.md"])
+        lambda p: p.with_category("api", Category(dir="src/api", patterns=["*.py"])).with_category(
+            "docs", Category(dir="docs", patterns=["*.md"])
         )
     )
 
@@ -294,7 +293,7 @@ async def test_collection_persists_after_update(mcp_server, tmp_path, monkeypatc
     session2 = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
     project = await session2.get_project()
     assert len(project.collections) == 1
-    assert "docs" in project.collections[0].categories
+    assert "docs" in project.collections["backend"].categories
     remove_current_session("test")
 
 
@@ -306,7 +305,7 @@ async def test_collection_removed_persists(mcp_server, tmp_path, monkeypatch):
 
     # Create session and add collection
     session1 = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
-    await session1.update_config(lambda p: p.with_category(Category(name="api", dir="src/api", patterns=["*.py"])))
+    await session1.update_config(lambda p: p.with_category("api", Category(dir="src/api", patterns=["*.py"])))
 
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
         args1 = CollectionAddArgs(name="backend", categories=["api"])
@@ -332,8 +331,8 @@ async def test_multiple_operations_persist(mcp_server, tmp_path, monkeypatch):
     # Create session with categories
     session1 = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
     await session1.update_config(
-        lambda p: p.with_category(Category(name="api", dir="src/api", patterns=["*.py"])).with_category(
-            Category(name="docs", dir="docs", patterns=["*.md"])
+        lambda p: p.with_category("api", Category(dir="src/api", patterns=["*.py"])).with_category(
+            "docs", Category(dir="docs", patterns=["*.md"])
         )
     )
 
@@ -353,8 +352,7 @@ async def test_multiple_operations_persist(mcp_server, tmp_path, monkeypatch):
     session2 = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
     project = await session2.get_project()
     assert len(project.collections) == 1
-    assert project.collections[0].name == "backend"
-    assert set(project.collections[0].categories) == {"api", "docs"}
+    assert set(project.collections["backend"].categories) == {"api", "docs"}
     remove_current_session("test")
 
 
@@ -447,7 +445,7 @@ async def test_collection_removal_preserves_categories(mcp_server, tmp_path, mon
 
     # Create session with categories
     session1 = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
-    await session1.update_config(lambda p: p.with_category(Category(name="api", dir="src/api", patterns=["*.py"])))
+    await session1.update_config(lambda p: p.with_category("api", Category(dir="src/api", patterns=["*.py"])))
 
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
         args1 = CollectionAddArgs(name="backend", categories=["api"])
@@ -462,7 +460,7 @@ async def test_collection_removal_preserves_categories(mcp_server, tmp_path, mon
     project = await session2.get_project()
     assert len(project.collections) == 0
     assert len(project.categories) == 1
-    assert project.categories[0].name == "api"
+    assert "api" in project.categories
     remove_current_session("test")
 
 
@@ -512,7 +510,7 @@ async def test_collection_content_category_not_found(mcp_server, tmp_path, monke
     # Create session with collection referencing non-existent category
     session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
     await session.update_config(
-        lambda p: p.with_collection(Collection(name="test-collection", categories=["nonexistent"]))
+        lambda p: p.with_collection("test-collection", Collection(categories=["nonexistent"]))
     )
 
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
@@ -538,8 +536,8 @@ async def test_collection_content_empty_collection(mcp_server, tmp_path, monkeyp
 
     # Add category with pattern that won't match
     await session.update_config(
-        lambda p: p.with_category(Category(name="guide", dir="guide", patterns=["nomatch*"])).with_collection(
-            Collection(name="empty-collection", categories=["guide"])
+        lambda p: p.with_category("guide", Category(dir="guide", patterns=["nomatch*"])).with_collection(
+            "empty-collection", Collection(categories=["guide"])
         )
     )
 
@@ -568,8 +566,8 @@ async def test_collection_content_success_single_category(mcp_server, tmp_path, 
 
     # Add category matching python files only
     await session.update_config(
-        lambda p: p.with_category(Category(name="lang", dir="lang", patterns=["python*"])).with_collection(
-            Collection(name="test-collection", categories=["lang"])
+        lambda p: p.with_category("lang", Category(dir="lang", patterns=["python*"])).with_collection(
+            "test-collection", Collection(categories=["lang"])
         )
     )
 
@@ -599,9 +597,9 @@ async def test_collection_content_success_multiple_categories(mcp_server, tmp_pa
 
     # Add categories with different patterns
     await session.update_config(
-        lambda p: p.with_category(Category(name="lang", dir="lang", patterns=["kotlin*"]))
-        .with_category(Category(name="context", dir="context", patterns=["standards*"]))
-        .with_collection(Collection(name="all-docs", categories=["lang", "context"]))
+        lambda p: p.with_category("lang", Category(dir="lang", patterns=["kotlin*"]))
+        .with_category("context", Category(dir="context", patterns=["standards*"]))
+        .with_collection("all-docs", Collection(categories=["lang", "context"]))
     )
 
     docroot = Path(tmp_path.resolve()) / "docs"
@@ -634,8 +632,8 @@ async def test_collection_content_pattern_override(mcp_server, tmp_path, monkeyp
 
     # Add category matching all guide files
     await session.update_config(
-        lambda p: p.with_category(Category(name="guide", dir="guide", patterns=["*"])).with_collection(
-            Collection(name="test-collection", categories=["guide"])
+        lambda p: p.with_category("guide", Category(dir="guide", patterns=["*"])).with_collection(
+            "test-collection", Collection(categories=["guide"])
         )
     )
 

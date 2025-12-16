@@ -70,13 +70,13 @@ class TestGetProject:
 
         project = Project(
             name="test-project",
-            categories=[
-                Category(name="python", dir="src/", patterns=["*.py"], description="Python source files"),
-                Category(name="typescript", dir="src/", patterns=["*.ts"], description="TypeScript files"),
-            ],
-            collections=[
-                Collection(name="api-docs", description="API documentation", categories=["python", "typescript"])
-            ],
+            categories={
+                "python": Category(dir="src/", patterns=["*.py"], description="Python source files"),
+                "typescript": Category(dir="src/", patterns=["*.ts"], description="TypeScript files"),
+            },
+            collections={
+                "api-docs": Collection(description="API documentation", categories=["python", "typescript"])
+            },
         )
         session._cached_project = project
         set_current_session(session)
@@ -108,13 +108,13 @@ class TestGetProject:
 
         project = Project(
             name="test-project",
-            categories=[
-                Category(name="python", dir="src/", patterns=["*.py"], description="Python source files"),
-                Category(name="typescript", dir="src/", patterns=["*.ts"], description="TypeScript files"),
-            ],
-            collections=[
-                Collection(name="api-docs", description="API documentation", categories=["python", "typescript"])
-            ],
+            categories={
+                "python": Category(dir="src/", patterns=["*.py"], description="Python source files"),
+                "typescript": Category(dir="src/", patterns=["*.ts"], description="TypeScript files"),
+            },
+            collections={
+                "api-docs": Collection(description="API documentation", categories=["python", "typescript"])
+            },
         )
         session._cached_project = project
         set_current_session(session)
@@ -155,7 +155,7 @@ class TestGetProject:
 
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="empty-project")
-        session._cached_project = Project(name="empty-project", categories=[], collections=[])
+        session._cached_project = Project(name="empty-project", categories={}, collections={})
         set_current_session(session)
 
         try:
@@ -224,11 +224,11 @@ class TestSetProject:
         # Create mock project
         project = Project(
             name="existing-project",
-            categories=[
-                Category(name="python", dir="src/", patterns=["*.py"], description="Python files"),
-                Category(name="docs", dir="docs/", patterns=["*.md"], description="Documentation"),
-            ],
-            collections=[Collection(name="backend", categories=["python"], description="Backend code")],
+            categories={
+                "python": Category(dir="src/", patterns=["*.py"], description="Python files"),
+                "docs": Category(dir="docs/", patterns=["*.md"], description="Documentation"),
+            },
+            collections={"backend": Collection(categories=["python"], description="Backend code")},
         )
 
         # Mock set_project to return success
@@ -250,11 +250,11 @@ class TestSetProject:
         # Create mock project
         project = Project(
             name="existing-project",
-            categories=[
-                Category(name="python", dir="src/", patterns=["*.py"], description="Python files"),
-                Category(name="docs", dir="docs/", patterns=["*.md"], description="Documentation"),
-            ],
-            collections=[Collection(name="backend", categories=["python"], description="Backend code")],
+            categories={
+                "python": Category(dir="src/", patterns=["*.py"], description="Python files"),
+                "docs": Category(dir="docs/", patterns=["*.md"], description="Documentation"),
+            },
+            collections={"backend": Collection(categories=["python"], description="Backend code")},
         )
 
         # Mock set_project to return success
@@ -287,8 +287,8 @@ class TestSetProject:
         # Create mock project (simulating newly created)
         project = Project(
             name="new-project",
-            categories=[],
-            collections=[],
+            categories={},
+            collections={},
         )
 
         # Mock set_project to return success (set_project handles creation)
@@ -500,7 +500,7 @@ class TestCloneProject:
     @pytest.mark.asyncio
     async def test_source_project_not_found(self):
         """Test clone_project with non-existent source project."""
-        mock_projects = {"existing-project": Project(name="existing-project", categories=[], collections=[])}
+        mock_projects = {"existing-project": Project(name="existing-project", categories={}, collections={})}
         mock_session = AsyncMock()
         mock_session.get_all_projects = AsyncMock(return_value=mock_projects)
 
@@ -527,9 +527,9 @@ class TestCloneProject:
     @pytest.mark.asyncio
     async def test_1arg_mode_uses_current_project(self):
         """Test clone_project with to_project=None uses current project."""
-        source_cat = Category(name="docs", dir="docs", patterns=["*.md"], description=None)
-        source_proj = Project(name="source", categories=[source_cat], collections=[])
-        current_proj = Project(name="current", categories=[], collections=[])
+        source_cat = Category(dir="docs", patterns=["*.md"], description=None)
+        source_proj = Project(name="source", categories={"docs": source_cat}, collections={})
+        current_proj = Project(name="current", categories={}, collections={})
 
         mock_projects = {"source": source_proj, "current": current_proj}
         mock_session = AsyncMock()
@@ -549,8 +549,8 @@ class TestCloneProject:
     @pytest.mark.asyncio
     async def test_2arg_mode_new_project(self):
         """Test clone_project with to_project creating new project."""
-        source_cat = Category(name="docs", dir="docs", patterns=["*.md"], description=None)
-        source_proj = Project(name="source", categories=[source_cat], collections=[])
+        source_cat = Category(dir="docs", patterns=["*.md"], description=None)
+        source_proj = Project(name="source", categories={"docs": source_cat}, collections={})
 
         mock_projects = {"source": source_proj}
         mock_session = AsyncMock()
@@ -583,9 +583,9 @@ class TestCloneProject:
     @pytest.mark.asyncio
     async def test_safeguard_prevents_replace_with_existing_config(self):
         """Test safeguard prevents replace mode on non-empty target."""
-        source_proj = Project(name="source", categories=[], collections=[])
+        source_proj = Project(name="source", categories={}, collections={})
         target_cat = Category(name="existing", dir="src", patterns=["*.py"], description=None)
-        target_proj = Project(name="target", categories=[target_cat], collections=[])
+        target_proj = Project(name="target", categories={"docs": target_cat}, collections={})
 
         mock_projects = {"source": source_proj, "target": target_proj}
         mock_session = AsyncMock()
@@ -606,10 +606,10 @@ class TestCloneProject:
     @pytest.mark.asyncio
     async def test_force_bypasses_safeguard(self):
         """Test force=True bypasses safeguard."""
-        source_cat = Category(name="docs", dir="docs", patterns=["*.md"], description=None)
-        source_proj = Project(name="source", categories=[source_cat], collections=[])
+        source_cat = Category(dir="docs", patterns=["*.md"], description=None)
+        source_proj = Project(name="source", categories={"docs": source_cat}, collections={})
         target_cat = Category(name="existing", dir="src", patterns=["*.py"], description=None)
-        target_proj = Project(name="target", categories=[target_cat], collections=[])
+        target_proj = Project(name="target", categories={"docs": target_cat}, collections={})
 
         mock_projects = {"source": source_proj, "target": target_proj}
         mock_session = AsyncMock()
@@ -630,10 +630,10 @@ class TestCloneProject:
     @pytest.mark.asyncio
     async def test_merge_with_conflicts_shows_warnings(self):
         """Test merge mode with conflicts generates warnings."""
-        source_cat = Category(name="docs", dir="docs", patterns=["*.md"], description="Source docs")
-        source_proj = Project(name="source", categories=[source_cat], collections=[])
+        source_cat = Category(dir="docs", patterns=["*.md"], description="Source docs")
+        source_proj = Project(name="source", categories={"docs": source_cat}, collections={})
         target_cat = Category(name="docs", dir="documentation", patterns=["*.txt"], description="Target docs")
-        target_proj = Project(name="target", categories=[target_cat], collections=[])
+        target_proj = Project(name="target", categories={"docs": target_cat}, collections={})
 
         mock_projects = {"source": source_proj, "target": target_proj}
         mock_session = AsyncMock()
@@ -656,9 +656,9 @@ class TestCloneProject:
     @pytest.mark.asyncio
     async def test_replace_mode_replaces_entire_config(self):
         """Test replace mode replaces entire configuration."""
-        source_cat = Category(name="docs", dir="docs", patterns=["*.md"], description=None)
-        source_proj = Project(name="source", categories=[source_cat], collections=[])
-        target_proj = Project(name="target", categories=[], collections=[])
+        source_cat = Category(dir="docs", patterns=["*.md"], description=None)
+        source_proj = Project(name="source", categories={"docs": source_cat}, collections={})
+        target_proj = Project(name="target", categories={}, collections={})
 
         mock_projects = {"source": source_proj, "target": target_proj}
         mock_session = AsyncMock()
@@ -680,9 +680,9 @@ class TestCloneProject:
     @pytest.mark.asyncio
     async def test_cache_invalidated_when_current_project_modified(self):
         """Test cache is invalidated when current project is modified."""
-        source_cat = Category(name="docs", dir="docs", patterns=["*.md"], description=None)
-        source_proj = Project(name="source", categories=[source_cat], collections=[])
-        current_proj = Project(name="current", categories=[], collections=[])
+        source_cat = Category(dir="docs", patterns=["*.md"], description=None)
+        source_proj = Project(name="source", categories={"docs": source_cat}, collections={})
+        current_proj = Project(name="current", categories={}, collections={})
 
         mock_projects = {"source": source_proj, "current": current_proj}
         mock_session = AsyncMock()
@@ -702,8 +702,8 @@ class TestCloneProject:
     @pytest.mark.asyncio
     async def test_clone_empty_project(self):
         """Test cloning empty project."""
-        source_proj = Project(name="source", categories=[], collections=[])
-        target_proj = Project(name="target", categories=[], collections=[])
+        source_proj = Project(name="source", categories={}, collections={})
+        target_proj = Project(name="target", categories={}, collections={})
 
         mock_projects = {"source": source_proj, "target": target_proj}
         mock_session = AsyncMock()
@@ -725,8 +725,8 @@ class TestCloneProject:
     @pytest.mark.asyncio
     async def test_clone_to_same_project(self):
         """Test cloning project to itself (idempotent)."""
-        source_cat = Category(name="docs", dir="docs", patterns=["*.md"], description=None)
-        source_proj = Project(name="source", categories=[source_cat], collections=[])
+        source_cat = Category(dir="docs", patterns=["*.md"], description=None)
+        source_proj = Project(name="source", categories={"docs": source_cat}, collections={})
 
         mock_projects = {"source": source_proj}
         mock_session = AsyncMock()
@@ -762,8 +762,8 @@ class TestCloneProject:
     @pytest.mark.asyncio
     async def test_clone_project_config_write_error(self):
         """clone_project returns config_write_error when save_project raises OSError."""
-        source_proj = Project(name="source", categories=[], collections=[])
-        current_proj = Project(name="current", categories=[], collections=[])
+        source_proj = Project(name="source", categories={}, collections={})
+        current_proj = Project(name="current", categories={}, collections={})
 
         mock_projects = {"source": source_proj, "current": current_proj}
         mock_session = AsyncMock()
@@ -783,14 +783,14 @@ class TestCloneProject:
     async def test_clone_project_collection_statistics(self):
         """Exercise collection cloning/merging statistics for merge and replace modes."""
         # Source project collections: one shared with target, one source-only
-        source_coll_shared = Collection(name="shared", description="from source", categories=["a"])
-        source_coll_only = Collection(name="source_only", description="source only", categories=["b"])
-        source_proj = Project(name="source", categories=[], collections=[source_coll_shared, source_coll_only])
+        source_coll_shared = Collection(description="from source", categories=["a"])
+        source_coll_only = Collection(description="source only", categories=["b"])
+        source_proj = Project(name="source", categories={}, collections={"shared": source_coll_shared, "source_only": source_coll_only})
 
         # Target project collections: one shared with source, one target-only
-        target_coll_shared = Collection(name="shared", description="from target", categories=["c"])
-        target_coll_only = Collection(name="target_only", description="target only", categories=["d"])
-        target_proj = Project(name="target", categories=[], collections=[target_coll_shared, target_coll_only])
+        target_coll_shared = Collection(description="from target", categories=["c"])
+        target_coll_only = Collection(description="target only", categories=["d"])
+        target_proj = Project(name="target", categories={}, collections={"shared": target_coll_shared, "target_only": target_coll_only})
 
         # Test merge mode
         mock_projects = {"source": source_proj, "target": target_proj}
@@ -811,7 +811,7 @@ class TestCloneProject:
             assert result["value"]["collections_overwritten"] == 1  # shared
 
         # Test replace mode
-        target_proj_replace = Project(name="target", categories=[], collections=[target_coll_shared, target_coll_only])
+        target_proj_replace = Project(name="target", categories={}, collections={"shared": target_coll_shared, "target_only": target_coll_only})
         mock_projects_replace = {"source": source_proj, "target": target_proj_replace}
         mock_session_replace = AsyncMock()
         mock_session_replace.get_all_projects = AsyncMock(return_value=mock_projects_replace)

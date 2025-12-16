@@ -23,8 +23,8 @@ async def test_category_field_set_on_fileinfo(tmp_path: Path, monkeypatch: Monke
         async def get_project(self):
             return Project(
                 name="test",
-                categories=[Category(name="guide", dir="guide", patterns=["*.md"])],
-                collections=[],
+                categories={"guide": Category(dir="guide", patterns=["*.md"])},
+                collections={},
             )
 
         def get_docroot(self):

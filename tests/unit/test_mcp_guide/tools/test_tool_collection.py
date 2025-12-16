@@ -18,14 +18,15 @@ class TestCollectionList:
     @pytest.mark.asyncio
     async def test_verbose_true_returns_full_details(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """verbose=True should return full collection details."""
-        collections = [
-            Collection(name="backend", categories=["api", "tests"], description="Backend code"),
-            Collection(name="documentation", categories=["docs"], description="All docs"),
-            Collection(name="empty", categories=[], description="Empty collection"),
-        ]
+        # Create collections in dict format for Project model
+        collections_dict = {
+            "backend": Collection(categories=["api", "tests"], description="Backend code"),
+            "documentation": Collection(categories=["docs"], description="All docs"),
+            "empty": Collection(categories=[], description="Empty collection"),
+        }
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
-        session._cached_project = Project(name="test", categories=[], collections=collections)
+        session._cached_project = Project(name="test", categories={}, collections=collections_dict)
         set_current_session(session)
 
         # Set PWD so get_or_create_session can determine project name
@@ -56,13 +57,14 @@ class TestCollectionList:
     @pytest.mark.asyncio
     async def test_verbose_false_returns_names_only(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """verbose=False should return just collection names."""
-        collections = [
-            Collection(name="backend", categories=["api"], description="Backend"),
-            Collection(name="docs", categories=["md"], description="Docs"),
-        ]
+        # Create collections in dict format for Project model
+        collections_dict = {
+            "backend": Collection(categories=["api"], description="Backend"),
+            "docs": Collection(categories=["md"], description="Docs"),
+        }
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
-        session._cached_project = Project(name="test", categories=[], collections=collections)
+        session._cached_project = Project(name="test", categories={}, collections=collections_dict)
         set_current_session(session)
         monkeypatch.setenv("PWD", "/fake/path/test")
 
@@ -78,7 +80,7 @@ class TestCollectionList:
         """Empty collections list should return empty list."""
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
-        session._cached_project = Project(name="test", categories=[], collections=[])
+        session._cached_project = Project(name="test", categories={}, collections={})
         set_current_session(session)
         monkeypatch.setenv("PWD", "/fake/path/test")
 
@@ -92,10 +94,10 @@ class TestCollectionList:
     @pytest.mark.asyncio
     async def test_collection_with_empty_categories(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Collection with empty categories list should return empty list in categories field."""
-        collections = [Collection(name="empty", categories=[], description="No categories")]
+        collections = {"empty": Collection(categories=[], description="No categories")}
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
-        session._cached_project = Project(name="test", categories=[], collections=collections)
+        session._cached_project = Project(name="test", categories={}, collections=collections)
         set_current_session(session)
         monkeypatch.setenv("PWD", "/fake/path/test")
 
@@ -146,9 +148,9 @@ class TestCollectionAdd:
         # Verify collection exists in project
         project = await session.get_project()
         assert len(project.collections) == 1
-        assert project.collections[0].name == "backend"
-        assert project.collections[0].categories == []
-        assert project.collections[0].description is None
+        assert "backend" in project.collections
+        assert project.collections["backend"].categories == []
+        assert project.collections["backend"].description is None
 
     @pytest.mark.asyncio
     async def test_add_collection_with_description(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
@@ -168,8 +170,8 @@ class TestCollectionAdd:
         # Verify description is set
         project = await session.get_project()
         assert len(project.collections) == 1
-        assert project.collections[0].name == "docs"
-        assert project.collections[0].description == "Documentation files"
+        assert "docs" in project.collections
+        assert project.collections["docs"].description == "Documentation files"
 
     @pytest.mark.asyncio
     async def test_add_collection_with_categories(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
@@ -180,8 +182,8 @@ class TestCollectionAdd:
         session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
         # Add categories via proper API
         await session.update_config(
-            lambda p: p.with_category(Category(name="api", dir="api", patterns=["*.py"])).with_category(
-                Category(name="tests", dir="tests", patterns=["test_*.py"])
+            lambda p: p.with_category("api", Category(dir="api", patterns=["*.py"])).with_category(
+                "tests", Category(dir="tests", patterns=["test_*.py"])
             )
         )
 
@@ -194,8 +196,8 @@ class TestCollectionAdd:
         # Verify categories are set
         project = await session.get_project()
         assert len(project.collections) == 1
-        assert project.collections[0].name == "backend"
-        assert project.collections[0].categories == ["api", "tests"]
+        assert "backend" in project.collections
+        assert project.collections["backend"].categories == ["api", "tests"]
 
     @pytest.mark.asyncio
     async def test_add_collection_deduplicates_categories(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
@@ -206,9 +208,9 @@ class TestCollectionAdd:
         session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
         # Add categories via proper API
         await session.update_config(
-            lambda p: p.with_category(Category(name="api", dir="api", patterns=["*.py"]))
-            .with_category(Category(name="tests", dir="tests", patterns=["test_*.py"]))
-            .with_category(Category(name="docs", dir="docs", patterns=["*.md"]))
+            lambda p: p.with_category("api", Category(dir="api", patterns=["*.py"]))
+            .with_category("tests", Category(dir="tests", patterns=["test_*.py"]))
+            .with_category("docs", Category(dir="docs", patterns=["*.md"]))
         )
 
         # Pass duplicates: api, tests, api, docs, tests
@@ -220,7 +222,7 @@ class TestCollectionAdd:
 
         # Verify only unique categories stored, order preserved
         project = await session.get_project()
-        assert project.collections[0].categories == ["api", "tests", "docs"]
+        assert project.collections[list(project.collections.keys())[0]].categories == ["api", "tests", "docs"]
 
     @pytest.mark.asyncio
     async def test_add_collection_duplicate_name_error(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
@@ -231,12 +233,12 @@ class TestCollectionAdd:
         session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
         # Add existing collection via proper API
         await session.update_config(
-            lambda p: p.with_collection(Collection(name="backend", categories=[], description=""))
+            lambda p: p.with_collection("backend", Collection(categories=[], description=""))
         )
 
         # Capture original project state
         original_project = await session.get_project()
-        original_collections = list(original_project.collections)
+        original_collections = original_project.collections
 
         args = CollectionAddArgs(name="backend")
         result_str = await collection_add(args)
@@ -262,7 +264,7 @@ class TestCollectionAdd:
 
         # Capture original project state
         original_project = await session.get_project()
-        original_collections = list(original_project.collections)
+        original_collections = original_project.collections
 
         long_desc = "x" * 501
         args = CollectionAddArgs(name="backend", description=long_desc)
@@ -302,11 +304,11 @@ class TestCollectionAdd:
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
         # Add one category via proper API
-        await session.update_config(lambda p: p.with_category(Category(name="api", dir="api", patterns=["*.py"])))
+        await session.update_config(lambda p: p.with_category("api", Category(dir="api", patterns=["*.py"])))
 
         # Capture original project state
         original_project = await session.get_project()
-        original_collections = list(original_project.collections)
+        original_collections = original_project.collections
 
         args = CollectionAddArgs(name="backend", categories=["api", "nonexistent"])
         result_str = await collection_add(args)
@@ -344,7 +346,7 @@ class TestCollectionAdd:
 
         # Capture original project state
         original_project = await session.get_project()
-        original_collections = list(original_project.collections)
+        original_collections = original_project.collections
 
         # Test name too long
         args = CollectionAddArgs(name="x" * 31)
@@ -393,8 +395,8 @@ class TestCollectionRemove:
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
-        backend_collection = Collection(name="backend", categories=["api"], description="Backend")
-        await session.update_config(lambda p: p.with_collection(backend_collection))
+        backend_collection = {"name": "backend", "categories": ["api"], "description": "Backend"}
+        await session.update_config(lambda p: p.with_collection("backend", backend_collection))
 
         args = CollectionRemoveArgs(name="backend")
         result_str = await collection_remove(args)
@@ -447,8 +449,8 @@ class TestCollectionRemove:
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
-        backend_collection = Collection(name="backend", categories=[], description="Backend")
-        await session.update_config(lambda p: p.with_collection(backend_collection))
+        backend_collection = Collection(categories=[], description="Backend")
+        await session.update_config(lambda p: p.with_collection("backend", backend_collection))
 
         args = CollectionRemoveArgs(name="backend")
         result_str = await collection_remove(args)
@@ -470,8 +472,8 @@ class TestCollectionRemove:
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
-        backend_collection = Collection(name="backend", categories=[], description="Backend")
-        await session.update_config(lambda p: p.with_collection(backend_collection))
+        backend_collection = Collection(categories=[], description="Backend")
+        await session.update_config(lambda p: p.with_collection("backend", backend_collection))
 
         # Mock update_config to raise an exception
         update_mock = AsyncMock(side_effect=Exception("Disk full"))
@@ -497,8 +499,8 @@ class TestCollectionChange:
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
-        backend_collection = Collection(name="backend", categories=["api"], description="Backend code")
-        await session.update_config(lambda p: p.with_collection(backend_collection))
+        backend_collection = {"name": "backend", "categories": ["api"], "description": "Backend code"}
+        await session.update_config(lambda p: p.with_collection("backend", backend_collection))
 
         args = CollectionChangeArgs(name="backend", new_name="backend-api")
         result_str = await collection_change(args)
@@ -511,9 +513,9 @@ class TestCollectionChange:
 
         project = await session.get_project()
         assert len(project.collections) == 1
-        assert project.collections[0].name == "backend-api"
-        assert project.collections[0].categories == ["api"]
-        assert project.collections[0].description == "Backend code"
+        assert "backend-api" in project.collections
+        assert project.collections[list(project.collections.keys())[0]].categories == ["api"]
+        assert project.collections[list(project.collections.keys())[0]].description == "Backend code"
 
     @pytest.mark.asyncio
     async def test_change_collection_description_only(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
@@ -523,8 +525,8 @@ class TestCollectionChange:
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
-        backend_collection = Collection(name="backend", categories=["api"], description="Old desc")
-        await session.update_config(lambda p: p.with_collection(backend_collection))
+        backend_collection = {"name": "backend", "categories": ["api"], "description": "Old desc"}
+        await session.update_config(lambda p: p.with_collection("backend", backend_collection))
 
         args = CollectionChangeArgs(name="backend", new_description="New desc")
         result_str = await collection_change(args)
@@ -534,9 +536,9 @@ class TestCollectionChange:
         assert "updated successfully" in result_dict["value"]
 
         project = await session.get_project()
-        assert project.collections[0].name == "backend"
-        assert project.collections[0].description == "New desc"
-        assert project.collections[0].categories == ["api"]
+        assert "backend" in project.collections
+        assert project.collections[list(project.collections.keys())[0]].description == "New desc"
+        assert project.collections[list(project.collections.keys())[0]].categories == ["api"]
 
     @pytest.mark.asyncio
     async def test_change_collection_clear_description(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
@@ -546,8 +548,8 @@ class TestCollectionChange:
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
-        backend_collection = Collection(name="backend", categories=[], description="Some desc")
-        await session.update_config(lambda p: p.with_collection(backend_collection))
+        backend_collection = Collection(categories=[], description="Some desc")
+        await session.update_config(lambda p: p.with_collection("backend", backend_collection))
 
         args = CollectionChangeArgs(name="backend", new_description="")
         result_str = await collection_change(args)
@@ -556,7 +558,7 @@ class TestCollectionChange:
         assert result_dict["success"] is True
 
         project = await session.get_project()
-        assert project.collections[0].description is None
+        assert project.collections[list(project.collections.keys())[0]].description is None
 
     @pytest.mark.asyncio
     async def test_change_collection_categories_only(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
@@ -566,24 +568,26 @@ class TestCollectionChange:
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
-        api_cat = Category(name="api", dir="api", patterns=["*.py"])
-        tests_cat = Category(name="tests", dir="tests", patterns=["test_*.py"])
-        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
-        await session.update_config(lambda p: p.with_category(api_cat).with_category(tests_cat).with_category(docs_cat))
+        api_cat = {"name": "api", "dir": "api", "patterns": ["*.py"]}
+        tests_cat = {"name": "tests", "dir": "tests", "patterns": ["test_*.py"]}
+        docs_cat = {"name": "docs", "dir": "docs", "patterns": ["*.md"]}
+        await session.update_config(lambda p: p.with_category("api", api_cat).with_category("tests", tests_cat).with_category("docs", docs_cat))
 
-        backend_collection = Collection(name="backend", categories=["api"], description="Backend")
-        await session.update_config(lambda p: p.with_collection(backend_collection))
+        backend_collection = {"name": "backend", "categories": ["api"], "description": "Backend"}
+        await session.update_config(lambda p: p.with_collection("backend", backend_collection))
 
         args = CollectionChangeArgs(name="backend", new_categories=["api", "tests"])
         result_str = await collection_change(args)
         result_dict = json.loads(result_str)
 
+        if not result_dict["success"]:
+            print(f"Error: {result_dict.get('error', 'Unknown error')}")
         assert result_dict["success"] is True
 
         project = await session.get_project()
-        assert project.collections[0].categories == ["api", "tests"]
-        assert project.collections[0].name == "backend"
-        assert project.collections[0].description == "Backend"
+        assert project.collections[list(project.collections.keys())[0]].categories == ["api", "tests"]
+        assert "backend" in project.collections
+        assert project.collections[list(project.collections.keys())[0]].description == "Backend"
 
     @pytest.mark.asyncio
     async def test_change_collection_deduplicates_categories(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
@@ -593,13 +597,13 @@ class TestCollectionChange:
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
-        api_cat = Category(name="api", dir="api", patterns=["*.py"])
-        tests_cat = Category(name="tests", dir="tests", patterns=["test_*.py"])
-        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
-        await session.update_config(lambda p: p.with_category(api_cat).with_category(tests_cat).with_category(docs_cat))
+        api_cat = {"name": "api", "dir": "api", "patterns": ["*.py"]}
+        tests_cat = {"name": "tests", "dir": "tests", "patterns": ["test_*.py"]}
+        docs_cat = {"name": "docs", "dir": "docs", "patterns": ["*.md"]}
+        await session.update_config(lambda p: p.with_category("api", api_cat).with_category("tests", tests_cat).with_category("docs", docs_cat))
 
-        backend_collection = Collection(name="backend", categories=[], description=None)
-        await session.update_config(lambda p: p.with_collection(backend_collection))
+        backend_collection = Collection(categories=[], description=None)
+        await session.update_config(lambda p: p.with_collection("backend", backend_collection))
 
         args = CollectionChangeArgs(name="backend", new_categories=["api", "tests", "api", "docs", "tests"])
         result_str = await collection_change(args)
@@ -608,7 +612,7 @@ class TestCollectionChange:
         assert result_dict["success"] is True
 
         project = await session.get_project()
-        assert project.collections[0].categories == ["api", "tests", "docs"]
+        assert project.collections[list(project.collections.keys())[0]].categories == ["api", "tests", "docs"]
 
     @pytest.mark.asyncio
     async def test_change_collection_multiple_fields(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
@@ -618,11 +622,11 @@ class TestCollectionChange:
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
-        api_cat = Category(name="api", dir="api", patterns=["*.py"])
-        await session.update_config(lambda p: p.with_category(api_cat))
+        api_cat = {"name": "api", "dir": "api", "patterns": ["*.py"]}
+        await session.update_config(lambda p: p.with_category("api", api_cat))
 
-        backend_collection = Collection(name="backend", categories=[], description="Old")
-        await session.update_config(lambda p: p.with_collection(backend_collection))
+        backend_collection = Collection(categories=[], description="Old")
+        await session.update_config(lambda p: p.with_collection("backend", backend_collection))
 
         args = CollectionChangeArgs(
             name="backend", new_name="backend-api", new_description="New", new_categories=["api"]
@@ -635,9 +639,9 @@ class TestCollectionChange:
 
         project = await session.get_project()
         assert len(project.collections) == 1
-        assert project.collections[0].name == "backend-api"
-        assert project.collections[0].description == "New"
-        assert project.collections[0].categories == ["api"]
+        assert "backend-api" in project.collections
+        assert project.collections[list(project.collections.keys())[0]].description == "New"
+        assert project.collections[list(project.collections.keys())[0]].categories == ["api"]
 
     @pytest.mark.asyncio
     async def test_change_collection_no_changes(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
@@ -647,8 +651,8 @@ class TestCollectionChange:
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
-        backend_collection = Collection(name="backend", categories=[], description="")
-        await session.update_config(lambda p: p.with_collection(backend_collection))
+        backend_collection = Collection(categories=[], description="")
+        await session.update_config(lambda p: p.with_collection("backend", backend_collection))
 
         args = CollectionChangeArgs(name="backend")
         result_str = await collection_change(args)
@@ -683,10 +687,10 @@ class TestCollectionChange:
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
-        backend_collection = Collection(name="backend", categories=[], description="")
-        frontend_collection = Collection(name="frontend", categories=[], description="")
+        backend_collection = Collection(categories=[], description="")
+        frontend_collection = Collection(categories=[], description="")
         await session.update_config(
-            lambda p: p.with_collection(backend_collection).with_collection(frontend_collection)
+            lambda p: p.with_collection("backend", backend_collection).with_collection("frontend", frontend_collection)
         )
 
         args = CollectionChangeArgs(name="backend", new_name="frontend")
@@ -705,8 +709,8 @@ class TestCollectionChange:
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
-        backend_collection = Collection(name="backend", categories=[], description=None)
-        await session.update_config(lambda p: p.with_collection(backend_collection))
+        backend_collection = Collection(categories=[], description=None)
+        await session.update_config(lambda p: p.with_collection("backend", backend_collection))
 
         args = CollectionChangeArgs(name="backend", new_name="")
         result_str = await collection_change(args)
@@ -724,8 +728,8 @@ class TestCollectionChange:
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
-        backend_collection = Collection(name="backend", categories=[], description="")
-        await session.update_config(lambda p: p.with_collection(backend_collection))
+        backend_collection = Collection(categories=[], description="")
+        await session.update_config(lambda p: p.with_collection("backend", backend_collection))
 
         args = CollectionChangeArgs(name="backend", new_categories=["nonexistent"])
         result_str = await collection_change(args)
@@ -760,8 +764,8 @@ class TestCollectionChange:
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
-        backend_collection = Collection(name="backend", categories=[], description=None)
-        await session.update_config(lambda p: p.with_collection(backend_collection))
+        backend_collection = Collection(categories=[], description=None)
+        await session.update_config(lambda p: p.with_collection("backend", backend_collection))
 
         underlying_message = "Disk full"
         update_mock = AsyncMock(side_effect=Exception(underlying_message))
@@ -784,8 +788,8 @@ class TestCollectionChange:
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
-        backend_collection = Collection(name="backend", categories=[], description="")
-        await session.update_config(lambda p: p.with_collection(backend_collection))
+        backend_collection = Collection(categories=[], description="")
+        await session.update_config(lambda p: p.with_collection("backend", backend_collection))
 
         args = CollectionChangeArgs(name="backend", new_name="backend")
         result_str = await collection_change(args)
@@ -801,11 +805,11 @@ class TestCollectionChange:
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
-        api_cat = Category(name="api", dir="api", patterns=["*.py"])
-        await session.update_config(lambda p: p.with_category(api_cat))
+        api_cat = {"name": "api", "dir": "api", "patterns": ["*.py"]}
+        await session.update_config(lambda p: p.with_category("api", api_cat))
 
-        backend_collection = Collection(name="backend", categories=["api"], description="")
-        await session.update_config(lambda p: p.with_collection(backend_collection))
+        backend_collection = {"name": "backend", "categories": ["api"], "description": ""}
+        await session.update_config(lambda p: p.with_collection("backend", backend_collection))
 
         args = CollectionChangeArgs(name="backend", new_categories=[])
         result_str = await collection_change(args)
@@ -814,7 +818,7 @@ class TestCollectionChange:
         assert result_dict["success"] is True
 
         project = await session.get_project()
-        assert project.collections[0].categories == []
+        assert project.collections[list(project.collections.keys())[0]].categories == []
 
 
 class TestCollectionUpdate:
@@ -828,12 +832,11 @@ class TestCollectionUpdate:
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
-        api_cat = Category(name="api", dir="api", patterns=["*.py"])
-        tests_cat = Category(name="tests", dir="tests", patterns=["test_*.py"])
-        await session.update_config(lambda p: p.with_category(api_cat).with_category(tests_cat))
+        # Create categories using dict format
+        await session.update_config(lambda p: p.with_category("api", Category(dir="api", patterns=["*.py"])).with_category("tests", Category(dir="tests", patterns=["test_*.py"])))
 
-        backend_collection = Collection(name="backend", categories=["api"], description=None)
-        await session.update_config(lambda p: p.with_collection(backend_collection))
+        # Create collection using dict format
+        await session.update_config(lambda p: p.with_collection("backend", Collection(categories=["api"], description=None)))
 
         args = CollectionUpdateArgs(name="backend", add_categories=["tests"])
         result_str = await collection_update(args)
@@ -843,7 +846,7 @@ class TestCollectionUpdate:
         assert "updated successfully" in result_dict["value"]
 
         project = await session.get_project()
-        assert project.collections[0].categories == ["api", "tests"]
+        assert project.collections["backend"].categories == ["api", "tests"]
 
     @pytest.mark.asyncio
     async def test_update_collection_remove_single_category(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
@@ -853,12 +856,12 @@ class TestCollectionUpdate:
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
-        api_cat = Category(name="api", dir="api", patterns=["*.py"])
-        tests_cat = Category(name="tests", dir="tests", patterns=["test_*.py"])
-        await session.update_config(lambda p: p.with_category(api_cat).with_category(tests_cat))
+        api_cat = {"name": "api", "dir": "api", "patterns": ["*.py"]}
+        tests_cat = {"name": "tests", "dir": "tests", "patterns": ["test_*.py"]}
+        await session.update_config(lambda p: p.with_category("api", api_cat).with_category("tests", tests_cat))
 
-        backend_collection = Collection(name="backend", categories=["api", "tests"], description=None)
-        await session.update_config(lambda p: p.with_collection(backend_collection))
+        backend_collection = {"name": "backend", "categories": ["api", "tests"], "description": None}
+        await session.update_config(lambda p: p.with_collection("backend", backend_collection))
 
         args = CollectionUpdateArgs(name="backend", remove_categories=["tests"])
         result_str = await collection_update(args)
@@ -867,7 +870,7 @@ class TestCollectionUpdate:
         assert result_dict["success"] is True
 
         project = await session.get_project()
-        assert project.collections[0].categories == ["api"]
+        assert project.collections[list(project.collections.keys())[0]].categories == ["api"]
 
     @pytest.mark.asyncio
     async def test_update_collection_remove_nonexistent_idempotent(
@@ -879,11 +882,11 @@ class TestCollectionUpdate:
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
-        api_cat = Category(name="api", dir="api", patterns=["*.py"])
-        await session.update_config(lambda p: p.with_category(api_cat))
+        api_cat = {"name": "api", "dir": "api", "patterns": ["*.py"]}
+        await session.update_config(lambda p: p.with_category("api", api_cat))
 
-        backend_collection = Collection(name="backend", categories=["api"], description=None)
-        await session.update_config(lambda p: p.with_collection(backend_collection))
+        backend_collection = {"name": "backend", "categories": ["api"], "description": None}
+        await session.update_config(lambda p: p.with_collection("backend", backend_collection))
 
         args = CollectionUpdateArgs(name="backend", remove_categories=["tests"])
         result_str = await collection_update(args)
@@ -892,7 +895,7 @@ class TestCollectionUpdate:
         assert result_dict["success"] is True
 
         project = await session.get_project()
-        assert project.collections[0].categories == ["api"]
+        assert project.collections[list(project.collections.keys())[0]].categories == ["api"]
 
     @pytest.mark.asyncio
     async def test_update_collection_add_and_remove(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
@@ -902,13 +905,13 @@ class TestCollectionUpdate:
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
-        api_cat = Category(name="api", dir="api", patterns=["*.py"])
-        tests_cat = Category(name="tests", dir="tests", patterns=["test_*.py"])
-        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
-        await session.update_config(lambda p: p.with_category(api_cat).with_category(tests_cat).with_category(docs_cat))
+        api_cat = {"name": "api", "dir": "api", "patterns": ["*.py"]}
+        tests_cat = {"name": "tests", "dir": "tests", "patterns": ["test_*.py"]}
+        docs_cat = {"name": "docs", "dir": "docs", "patterns": ["*.md"]}
+        await session.update_config(lambda p: p.with_category("api", api_cat).with_category("tests", tests_cat).with_category("docs", docs_cat))
 
-        backend_collection = Collection(name="backend", categories=["api", "tests"], description=None)
-        await session.update_config(lambda p: p.with_collection(backend_collection))
+        backend_collection = {"name": "backend", "categories": ["api", "tests"], "description": None}
+        await session.update_config(lambda p: p.with_collection("backend", backend_collection))
 
         args = CollectionUpdateArgs(name="backend", remove_categories=["tests"], add_categories=["docs"])
         result_str = await collection_update(args)
@@ -917,7 +920,7 @@ class TestCollectionUpdate:
         assert result_dict["success"] is True
 
         project = await session.get_project()
-        assert project.collections[0].categories == ["api", "docs"]
+        assert project.collections[list(project.collections.keys())[0]].categories == ["api", "docs"]
 
     @pytest.mark.asyncio
     async def test_update_collection_add_and_remove_same_category(
@@ -929,12 +932,12 @@ class TestCollectionUpdate:
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
-        api_cat = Category(name="api", dir="api", patterns=["*.py"])
-        tests_cat = Category(name="tests", dir="tests", patterns=["test_*.py"])
-        await session.update_config(lambda p: p.with_category(api_cat).with_category(tests_cat))
+        api_cat = {"name": "api", "dir": "api", "patterns": ["*.py"]}
+        tests_cat = {"name": "tests", "dir": "tests", "patterns": ["test_*.py"]}
+        await session.update_config(lambda p: p.with_category("api", api_cat).with_category("tests", tests_cat))
 
-        backend_collection = Collection(name="backend", categories=["api", "tests"], description=None)
-        await session.update_config(lambda p: p.with_collection(backend_collection))
+        backend_collection = {"name": "backend", "categories": ["api", "tests"], "description": None}
+        await session.update_config(lambda p: p.with_collection("backend", backend_collection))
 
         # Remove "tests" then add "tests" - should result in "tests" being present
         args = CollectionUpdateArgs(name="backend", remove_categories=["tests"], add_categories=["tests"])
@@ -944,7 +947,7 @@ class TestCollectionUpdate:
         assert result_dict["success"] is True
 
         project = await session.get_project()
-        assert project.collections[0].categories == ["api", "tests"]
+        assert project.collections[list(project.collections.keys())[0]].categories == ["api", "tests"]
 
     @pytest.mark.asyncio
     async def test_update_collection_add_multiple_categories(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
@@ -954,13 +957,13 @@ class TestCollectionUpdate:
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
-        api_cat = Category(name="api", dir="api", patterns=["*.py"])
-        tests_cat = Category(name="tests", dir="tests", patterns=["test_*.py"])
-        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
-        await session.update_config(lambda p: p.with_category(api_cat).with_category(tests_cat).with_category(docs_cat))
+        api_cat = {"name": "api", "dir": "api", "patterns": ["*.py"]}
+        tests_cat = {"name": "tests", "dir": "tests", "patterns": ["test_*.py"]}
+        docs_cat = {"name": "docs", "dir": "docs", "patterns": ["*.md"]}
+        await session.update_config(lambda p: p.with_category("api", api_cat).with_category("tests", tests_cat).with_category("docs", docs_cat))
 
-        backend_collection = Collection(name="backend", categories=["api"], description=None)
-        await session.update_config(lambda p: p.with_collection(backend_collection))
+        backend_collection = {"name": "backend", "categories": ["api"], "description": None}
+        await session.update_config(lambda p: p.with_collection("backend", backend_collection))
 
         args = CollectionUpdateArgs(name="backend", add_categories=["tests", "docs"])
         result_str = await collection_update(args)
@@ -969,7 +972,7 @@ class TestCollectionUpdate:
         assert result_dict["success"] is True
 
         project = await session.get_project()
-        assert project.collections[0].categories == ["api", "tests", "docs"]
+        assert project.collections[list(project.collections.keys())[0]].categories == ["api", "tests", "docs"]
 
     @pytest.mark.asyncio
     async def test_update_collection_remove_multiple_categories(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
@@ -979,13 +982,13 @@ class TestCollectionUpdate:
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
-        api_cat = Category(name="api", dir="api", patterns=["*.py"])
-        tests_cat = Category(name="tests", dir="tests", patterns=["test_*.py"])
-        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
-        await session.update_config(lambda p: p.with_category(api_cat).with_category(tests_cat).with_category(docs_cat))
+        api_cat = {"name": "api", "dir": "api", "patterns": ["*.py"]}
+        tests_cat = {"name": "tests", "dir": "tests", "patterns": ["test_*.py"]}
+        docs_cat = {"name": "docs", "dir": "docs", "patterns": ["*.md"]}
+        await session.update_config(lambda p: p.with_category("api", api_cat).with_category("tests", tests_cat).with_category("docs", docs_cat))
 
-        backend_collection = Collection(name="backend", categories=["api", "tests", "docs"], description=None)
-        await session.update_config(lambda p: p.with_collection(backend_collection))
+        backend_collection = {"name": "backend", "categories": ["api", "tests", "docs"], "description": None}
+        await session.update_config(lambda p: p.with_collection("backend", backend_collection))
 
         args = CollectionUpdateArgs(name="backend", remove_categories=["tests", "docs"])
         result_str = await collection_update(args)
@@ -994,7 +997,7 @@ class TestCollectionUpdate:
         assert result_dict["success"] is True
 
         project = await session.get_project()
-        assert project.collections[0].categories == ["api"]
+        assert project.collections[list(project.collections.keys())[0]].categories == ["api"]
 
     @pytest.mark.asyncio
     async def test_update_collection_deduplicates_categories(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
@@ -1004,14 +1007,14 @@ class TestCollectionUpdate:
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
-        api_cat = Category(name="api", dir="api", patterns=["*.py"])
-        tests_cat = Category(name="tests", dir="tests", patterns=["test_*.py"])
-        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
-        await session.update_config(lambda p: p.with_category(api_cat).with_category(tests_cat).with_category(docs_cat))
+        api_cat = {"name": "api", "dir": "api", "patterns": ["*.py"]}
+        tests_cat = {"name": "tests", "dir": "tests", "patterns": ["test_*.py"]}
+        docs_cat = {"name": "docs", "dir": "docs", "patterns": ["*.md"]}
+        await session.update_config(lambda p: p.with_category("api", api_cat).with_category("tests", tests_cat).with_category("docs", docs_cat))
 
         # Start with duplicates
-        backend_collection = Collection(name="backend", categories=["api", "tests", "api"], description=None)
-        await session.update_config(lambda p: p.with_collection(backend_collection))
+        backend_collection = {"name": "backend", "categories": ["api", "tests", "api"], "description": None}
+        await session.update_config(lambda p: p.with_collection("backend", backend_collection))
 
         args = CollectionUpdateArgs(name="backend", add_categories=["docs"])
         result_str = await collection_update(args)
@@ -1020,7 +1023,7 @@ class TestCollectionUpdate:
         assert result_dict["success"] is True
 
         project = await session.get_project()
-        assert project.collections[0].categories == ["api", "tests", "docs"]
+        assert project.collections[list(project.collections.keys())[0]].categories == ["api", "tests", "docs"]
 
     @pytest.mark.asyncio
     async def test_update_collection_skip_adding_duplicate(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
@@ -1030,13 +1033,13 @@ class TestCollectionUpdate:
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
-        api_cat = Category(name="api", dir="api", patterns=["*.py"])
-        tests_cat = Category(name="tests", dir="tests", patterns=["test_*.py"])
-        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
-        await session.update_config(lambda p: p.with_category(api_cat).with_category(tests_cat).with_category(docs_cat))
+        api_cat = {"name": "api", "dir": "api", "patterns": ["*.py"]}
+        tests_cat = {"name": "tests", "dir": "tests", "patterns": ["test_*.py"]}
+        docs_cat = {"name": "docs", "dir": "docs", "patterns": ["*.md"]}
+        await session.update_config(lambda p: p.with_category("api", api_cat).with_category("tests", tests_cat).with_category("docs", docs_cat))
 
-        backend_collection = Collection(name="backend", categories=["api", "tests"], description=None)
-        await session.update_config(lambda p: p.with_collection(backend_collection))
+        backend_collection = {"name": "backend", "categories": ["api", "tests"], "description": None}
+        await session.update_config(lambda p: p.with_collection("backend", backend_collection))
 
         args = CollectionUpdateArgs(name="backend", add_categories=["api", "docs"])
         result_str = await collection_update(args)
@@ -1045,7 +1048,7 @@ class TestCollectionUpdate:
         assert result_dict["success"] is True
 
         project = await session.get_project()
-        assert project.collections[0].categories == ["api", "tests", "docs"]
+        assert project.collections[list(project.collections.keys())[0]].categories == ["api", "tests", "docs"]
 
     @pytest.mark.asyncio
     async def test_update_collection_deduplicates_add_categories_argument(
@@ -1057,12 +1060,12 @@ class TestCollectionUpdate:
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
-        api_cat = Category(name="api", dir="api", patterns=["*.py"])
-        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
-        await session.update_config(lambda p: p.with_category(api_cat).with_category(docs_cat))
+        api_cat = {"name": "api", "dir": "api", "patterns": ["*.py"]}
+        docs_cat = {"name": "docs", "dir": "docs", "patterns": ["*.md"]}
+        await session.update_config(lambda p: p.with_category("api", api_cat).with_category("docs", docs_cat))
 
-        backend_collection = Collection(name="backend", categories=["api"], description=None)
-        await session.update_config(lambda p: p.with_collection(backend_collection))
+        backend_collection = {"name": "backend", "categories": ["api"], "description": None}
+        await session.update_config(lambda p: p.with_collection("backend", backend_collection))
 
         # Pass duplicates in add_categories
         args = CollectionUpdateArgs(name="backend", add_categories=["api", "api", "docs"])
@@ -1073,9 +1076,9 @@ class TestCollectionUpdate:
 
         project = await session.get_project()
         # "api" should not be duplicated, "docs" should be added exactly once
-        assert project.collections[0].categories.count("api") == 1
-        assert project.collections[0].categories.count("docs") == 1
-        assert project.collections[0].categories == ["api", "docs"]
+        assert project.collections[list(project.collections.keys())[0]].categories.count("api") == 1
+        assert project.collections[list(project.collections.keys())[0]].categories.count("docs") == 1
+        assert project.collections[list(project.collections.keys())[0]].categories == ["api", "docs"]
 
     @pytest.mark.asyncio
     async def test_update_collection_not_found(self, monkeypatch: MonkeyPatch, tmp_path: Path) -> None:
@@ -1100,8 +1103,8 @@ class TestCollectionUpdate:
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
-        backend_collection = Collection(name="backend", categories=["api"], description=None)
-        await session.update_config(lambda p: p.with_collection(backend_collection))
+        backend_collection = {"name": "backend", "categories": ["api"], "description": None}
+        await session.update_config(lambda p: p.with_collection("backend", backend_collection))
 
         args = CollectionUpdateArgs(name="backend")
         result_str = await collection_update(args)
@@ -1120,8 +1123,8 @@ class TestCollectionUpdate:
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
-        backend_collection = Collection(name="backend", categories=[], description=None)
-        await session.update_config(lambda p: p.with_collection(backend_collection))
+        backend_collection = Collection(categories=[], description=None)
+        await session.update_config(lambda p: p.with_collection("backend", backend_collection))
 
         args = CollectionUpdateArgs(name="backend", add_categories=["nonexistent"])
         result_str = await collection_update(args)
@@ -1156,11 +1159,11 @@ class TestCollectionUpdate:
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
-        api_cat = Category(name="api", dir="api", patterns=["*.py"])
-        await session.update_config(lambda p: p.with_category(api_cat))
+        api_cat = {"name": "api", "dir": "api", "patterns": ["*.py"]}
+        await session.update_config(lambda p: p.with_category("api", api_cat))
 
-        backend_collection = Collection(name="backend", categories=[], description=None)
-        await session.update_config(lambda p: p.with_collection(backend_collection))
+        backend_collection = Collection(categories=[], description=None)
+        await session.update_config(lambda p: p.with_collection("backend", backend_collection))
 
         underlying_message = "Disk full"
         update_mock = AsyncMock(side_effect=Exception(underlying_message))
@@ -1183,11 +1186,11 @@ class TestCollectionUpdate:
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
-        api_cat = Category(name="api", dir="api", patterns=["*.py"])
-        await session.update_config(lambda p: p.with_category(api_cat))
+        api_cat = {"name": "api", "dir": "api", "patterns": ["*.py"]}
+        await session.update_config(lambda p: p.with_category("api", api_cat))
 
-        backend_collection = Collection(name="backend", categories=["api"], description=None)
-        await session.update_config(lambda p: p.with_collection(backend_collection))
+        backend_collection = {"name": "backend", "categories": ["api"], "description": None}
+        await session.update_config(lambda p: p.with_collection("backend", backend_collection))
 
         args = CollectionUpdateArgs(name="backend", remove_categories=["api"])
         result_str = await collection_update(args)
@@ -1196,4 +1199,4 @@ class TestCollectionUpdate:
         assert result_dict["success"] is True
 
         project = await session.get_project()
-        assert project.collections[0].categories == []
+        assert project.collections[list(project.collections.keys())[0]].categories == []

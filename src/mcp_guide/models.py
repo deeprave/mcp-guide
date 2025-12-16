@@ -31,15 +31,16 @@ def format_project_data(project: "Project", verbose: bool = False) -> dict[str, 
 
     if verbose:
         collections = [
-            {"name": c.name, "description": c.description, "categories": c.categories} for c in project.collections
+            {"name": name, "description": c.description, "categories": c.categories} 
+            for name, c in project.collections.items()
         ]
         categories = [
-            {"name": c.name, "dir": c.dir, "patterns": list(c.patterns), "description": c.description}
-            for c in project.categories
+            {"name": name, "dir": c.dir, "patterns": list(c.patterns), "description": c.description}
+            for name, c in project.categories.items()
         ]
     else:
-        collections = [c.name for c in project.collections]
-        categories = [c.name for c in project.categories]
+        collections = list(project.collections.keys())
+        categories = list(project.categories.keys())
 
     return {"collections": collections, "categories": categories}
 
@@ -49,7 +50,6 @@ class Category:
     """Category configuration.
 
     Attributes:
-        name: Category name (alphanumeric, hyphens, underscores, 1-30 chars)
         dir: Directory path for category content
         patterns: List of glob patterns (may be empty)
         description: Optional description of the category
@@ -57,23 +57,14 @@ class Category:
     Note:
         Instances are immutable (frozen=True).
         Extra fields from config files are ignored.
+        Name is stored as dict key in Project.categories.
     """
 
     model_config = ConfigDict(extra="ignore")
 
-    name: str
     dir: str
     patterns: list[str]
     description: Optional[str] = None
-
-    @field_validator("name")
-    @classmethod
-    def validate_name(cls, v: str) -> str:
-        if not v or len(v) > 30:
-            raise ValueError("Category name must be between 1 and 30 characters")
-        if not _NAME_REGEX.match(v):
-            raise ValueError("Category name must contain only alphanumeric characters, underscores, and hyphens")
-        return v
 
 
 @pydantic_dataclass(frozen=True)
@@ -81,29 +72,19 @@ class Collection:
     """Collection grouping related categories.
 
     Attributes:
-        name: Collection name (alphanumeric, hyphens, underscores, 1-30 chars)
         categories: List of category names in this collection
         description: Optional description of the collection
 
     Note:
         Instances are immutable (frozen=True).
         Extra fields from config files are ignored.
+        Name is stored as dict key in Project.collections.
     """
 
     model_config = ConfigDict(extra="ignore")
 
-    name: str
     categories: list[str]
     description: Optional[str] = None
-
-    @field_validator("name")
-    @classmethod
-    def validate_name(cls, v: str) -> str:
-        if not v or len(v) > 30:
-            raise ValueError("Collection name must be between 1 and 30 characters")
-        if not _NAME_REGEX.match(v):
-            raise ValueError("Collection name must contain only alphanumeric characters, underscores, and hyphens")
-        return v
 
 
 @pydantic_dataclass(frozen=True)
@@ -112,8 +93,8 @@ class Project:
 
     Attributes:
         name: Project name (alphanumeric, hyphens, underscores, 1-50 chars)
-        categories: List of category configurations
-        collections: List of collection configurations
+        categories: Dictionary of category configurations (name -> Category)
+        collections: Dictionary of collection configurations (name -> Collection)
         created_at: Timestamp when project was created
         updated_at: Timestamp when project was last updated
 
@@ -126,8 +107,8 @@ class Project:
     model_config = ConfigDict(extra="ignore")
 
     name: str
-    categories: list[Category] = field(default_factory=list)
-    collections: list[Collection] = field(default_factory=list)
+    categories: dict[str, Category] = field(default_factory=dict)
+    collections: dict[str, Collection] = field(default_factory=dict)
     created_at: datetime = field(default_factory=datetime.now)
     updated_at: datetime = field(default_factory=datetime.now)
     project_flags: dict[str, FeatureValue] = field(default_factory=dict)
@@ -153,32 +134,40 @@ class Project:
                 raise ValueError(f"Invalid feature flag value type for '{flag_name}': {type(flag_value)}")
         return v
 
-    def with_category(self, category: Category) -> "Project":
+    def with_category(self, name: str, category: Category) -> "Project":
         """Return new Project with category added."""
-        return replace(self, categories=[*self.categories, category], updated_at=datetime.now())
+        new_categories = {**self.categories, name: category}
+        return replace(self, categories=new_categories, updated_at=datetime.now())
 
     def without_category(self, name: str) -> "Project":
         """Return new Project with category removed."""
-        new_categories = [c for c in self.categories if c.name != name]
+        new_categories = {k: v for k, v in self.categories.items() if k != name}
         return replace(self, categories=new_categories, updated_at=datetime.now())
 
-    def with_collection(self, collection: Collection) -> "Project":
+    def with_collection(self, name: str, collection: Collection) -> "Project":
         """Return new Project with collection added."""
-        return replace(self, collections=[*self.collections, collection], updated_at=datetime.now())
+        new_collections = {**self.collections, name: collection}
+        return replace(self, collections=new_collections, updated_at=datetime.now())
 
     def without_collection(self, name: str) -> "Project":
         """Return new Project with collection removed."""
-        new_collections = [c for c in self.collections if c.name != name]
+        new_collections = {k: v for k, v in self.collections.items() if k != name}
         return replace(self, collections=new_collections, updated_at=datetime.now())
 
     def update_category(self, name: str, updater: Callable[[Category], Category]) -> "Project":
         """Return new Project with category updated."""
-        new_categories = [updater(c) if c.name == name else c for c in self.categories]
+        if name not in self.categories:
+            raise KeyError(f"Category '{name}' not found")
+        updated_category = updater(self.categories[name])
+        new_categories = {**self.categories, name: updated_category}
         return replace(self, categories=new_categories, updated_at=datetime.now())
 
     def update_collection(self, name: str, updater: Callable[[Collection], Collection]) -> "Project":
         """Return new Project with collection updated."""
-        new_collections = [updater(c) if c.name == name else c for c in self.collections]
+        if name not in self.collections:
+            raise KeyError(f"Collection '{name}' not found")
+        updated_collection = updater(self.collections[name])
+        new_collections = {**self.collections, name: updated_collection}
         return replace(self, collections=new_collections, updated_at=datetime.now())
 
 

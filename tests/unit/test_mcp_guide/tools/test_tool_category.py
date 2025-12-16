@@ -10,7 +10,7 @@ from _pytest.monkeypatch import MonkeyPatch
 from mcp_guide.config import ConfigManager
 from mcp_guide.models import Category, Collection, Project
 from mcp_guide.session import Session, set_current_session
-from mcp_guide.tools.tool_category import CategoryListArgs, category_list
+from mcp_guide.tools.tool_category import CategoryListArgs, CategoryListFilesArgs, category_list, category_list_files
 
 
 class TestCategoryList:
@@ -26,7 +26,7 @@ class TestCategoryList:
         """List empty categories returns empty list."""
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
-        session._cached_project = Project(name="test", categories=[], collections=[])
+        session._cached_project = Project(name="test", categories={}, collections={})
         set_current_session(session)
 
         args = CategoryListArgs()
@@ -39,14 +39,12 @@ class TestCategoryList:
     @pytest.mark.asyncio
     async def test_list_single_category(self, tmp_path: Path) -> None:
         """List single category returns all fields."""
-        category = Category(
-            name="docs",
-            dir="documentation",
+        category = Category(dir="documentation",
             patterns=["*.md", "*.txt"],
         )
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
-        session._cached_project = Project(name="test", categories=[category], collections=[])
+        session._cached_project = Project(name="test", categories={"docs": category}, collections={})
         set_current_session(session)
 
         args = CategoryListArgs()
@@ -63,11 +61,11 @@ class TestCategoryList:
     @pytest.mark.asyncio
     async def test_list_multiple_categories(self, tmp_path: Path) -> None:
         """List multiple categories returns all."""
-        cat1 = Category(name="docs", dir="docs", patterns=["*.md"])
-        cat2 = Category(name="src", dir="src", patterns=["*.py"])
+        cat1 = Category(dir="docs", patterns=["*.md"])
+        cat2 = Category(dir="src", patterns=["*.py"])
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
-        session._cached_project = Project(name="test", categories=[cat1, cat2], collections=[])
+        session._cached_project = Project(name="test", categories={"docs": cat1, "src": cat2}, collections={})
         set_current_session(session)
 
         args = CategoryListArgs()
@@ -99,7 +97,7 @@ class TestCategoryList:
         """Returns Result.ok with proper structure."""
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
-        session._cached_project = Project(name="test", categories=[], collections=[])
+        session._cached_project = Project(name="test", categories={}, collections={})
         set_current_session(session)
 
         args = CategoryListArgs()
@@ -125,7 +123,7 @@ class TestCategoryAdd:
 
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
-        session._cached_project = Project(name="test", categories=[], collections=[])
+        session._cached_project = Project(name="test", categories={}, collections={})
         set_current_session(session)
 
         args = CategoryAddArgs(name="docs", dir="docs", patterns=["*.md"])
@@ -135,10 +133,10 @@ class TestCategoryAdd:
         assert result_dict["success"] is True
         assert "docs" in result_dict["value"]
         assert len(session._cached_project.categories) == 1
-        assert session._cached_project.categories[0].name == "docs"
-        assert session._cached_project.categories[0].dir == "docs"
-        assert session._cached_project.categories[0].patterns == ["*.md"]
-        assert session._cached_project.categories[0].description is None
+        assert "docs" in session._cached_project.categories
+        assert session._cached_project.categories["docs"].dir == "docs"
+        assert session._cached_project.categories["docs"].patterns == ["*.md"]
+        assert session._cached_project.categories["docs"].description is None
 
     @pytest.mark.asyncio
     async def test_category_add_with_description(self, tmp_path: Path) -> None:
@@ -147,7 +145,7 @@ class TestCategoryAdd:
 
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
-        session._cached_project = Project(name="test", categories=[], collections=[])
+        session._cached_project = Project(name="test", categories={}, collections={})
         set_current_session(session)
 
         args = CategoryAddArgs(name="api", dir="api", patterns=["*.py"], description="API documentation")
@@ -156,8 +154,8 @@ class TestCategoryAdd:
 
         assert result_dict["success"] is True
         assert len(session._cached_project.categories) == 1
-        assert session._cached_project.categories[0].name == "api"
-        assert session._cached_project.categories[0].description == "API documentation"
+        assert "api" in session._cached_project.categories
+        assert session._cached_project.categories["api"].description == "API documentation"
 
     @pytest.mark.asyncio
     async def test_category_add_dir_defaults_to_name(self, tmp_path: Path) -> None:
@@ -166,7 +164,7 @@ class TestCategoryAdd:
 
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
-        session._cached_project = Project(name="test", categories=[], collections=[])
+        session._cached_project = Project(name="test", categories={}, collections={})
         set_current_session(session)
 
         # Omit dir parameter
@@ -177,8 +175,8 @@ class TestCategoryAdd:
         assert result_dict["success"] is True
         assert len(session._cached_project.categories) == 1
         # Verify dir defaulted to name
-        assert session._cached_project.categories[0].dir == "docs"
-        assert session._cached_project.categories[0].name == "docs"
+        assert session._cached_project.categories["docs"].dir == "docs"
+        assert "docs" in session._cached_project.categories
 
     @pytest.mark.asyncio
     async def test_category_add_multiple_patterns(self, tmp_path: Path) -> None:
@@ -187,7 +185,7 @@ class TestCategoryAdd:
 
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
-        session._cached_project = Project(name="test", categories=[], collections=[])
+        session._cached_project = Project(name="test", categories={}, collections={})
         set_current_session(session)
 
         args = CategoryAddArgs(name="code", dir="src", patterns=["*.py", "*.pyx", "*.pyi"])
@@ -195,17 +193,17 @@ class TestCategoryAdd:
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is True
-        assert session._cached_project.categories[0].patterns == ["*.py", "*.pyx", "*.pyi"]
+        assert session._cached_project.categories["code"].patterns == ["*.py", "*.pyx", "*.pyi"]
 
     @pytest.mark.asyncio
     async def test_category_add_duplicate_name(self, tmp_path: Path) -> None:
         """Reject duplicate category name."""
         from mcp_guide.tools.tool_category import CategoryAddArgs, category_add
 
-        existing = Category(name="docs", dir="documentation", patterns=["*.md"])
+        existing = Category(dir="documentation", patterns=["*.md"])
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
-        session._cached_project = Project(name="test", categories=[existing], collections=[])
+        session._cached_project = Project(name="test", categories={"docs": existing}, collections={})
         set_current_session(session)
 
         args = CategoryAddArgs(name="docs", dir="other", patterns=["*.txt"])
@@ -215,7 +213,7 @@ class TestCategoryAdd:
         assert result_dict["success"] is False
         assert "already exists" in result_dict["error"].lower()
         assert len(session._cached_project.categories) == 1
-        assert session._cached_project.categories[0].dir == "documentation"
+        assert session._cached_project.categories["docs"].dir == "documentation"
 
     @pytest.mark.asyncio
     async def test_category_add_invalid_name_empty(self, tmp_path: Path) -> None:
@@ -224,7 +222,7 @@ class TestCategoryAdd:
 
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
-        session._cached_project = Project(name="test", categories=[], collections=[])
+        session._cached_project = Project(name="test", categories={}, collections={})
         set_current_session(session)
 
         args = CategoryAddArgs(name="", dir="docs", patterns=["*.md"])
@@ -242,7 +240,7 @@ class TestCategoryAdd:
 
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
-        session._cached_project = Project(name="test", categories=[], collections=[])
+        session._cached_project = Project(name="test", categories={}, collections={})
         set_current_session(session)
 
         args = CategoryAddArgs(name="docs/api", dir="docs", patterns=["*.md"])
@@ -260,7 +258,7 @@ class TestCategoryAdd:
 
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
-        session._cached_project = Project(name="test", categories=[], collections=[])
+        session._cached_project = Project(name="test", categories={}, collections={})
         set_current_session(session)
 
         args = CategoryAddArgs(name="a" * 31, dir="docs", patterns=["*.md"])
@@ -279,7 +277,7 @@ class TestCategoryAdd:
 
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
-        session._cached_project = Project(name="test", categories=[], collections=[])
+        session._cached_project = Project(name="test", categories={}, collections={})
         set_current_session(session)
 
         args = CategoryAddArgs(name="docs", dir="/absolute/path", patterns=["*.md"])
@@ -297,7 +295,7 @@ class TestCategoryAdd:
 
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
-        session._cached_project = Project(name="test", categories=[], collections=[])
+        session._cached_project = Project(name="test", categories={}, collections={})
         set_current_session(session)
 
         args = CategoryAddArgs(name="docs", dir="../parent", patterns=["*.md"])
@@ -315,7 +313,7 @@ class TestCategoryAdd:
 
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
-        session._cached_project = Project(name="test", categories=[], collections=[])
+        session._cached_project = Project(name="test", categories={}, collections={})
         set_current_session(session)
 
         args = CategoryAddArgs(name="docs", dir="docs", patterns=["*.md"], description="x" * 501)
@@ -333,7 +331,7 @@ class TestCategoryAdd:
 
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
-        session._cached_project = Project(name="test", categories=[], collections=[])
+        session._cached_project = Project(name="test", categories={}, collections={})
         set_current_session(session)
 
         args = CategoryAddArgs(name="docs", dir="docs", patterns=["*.md"], description='Has "quotes"')
@@ -351,7 +349,7 @@ class TestCategoryAdd:
 
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
-        session._cached_project = Project(name="test", categories=[], collections=[])
+        session._cached_project = Project(name="test", categories={}, collections={})
         set_current_session(session)
 
         args = CategoryAddArgs(name="docs", dir="docs", patterns=["/absolute/*.md"])
@@ -369,7 +367,7 @@ class TestCategoryAdd:
 
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
-        session._cached_project = Project(name="test", categories=[], collections=[])
+        session._cached_project = Project(name="test", categories={}, collections={})
         set_current_session(session)
 
         args = CategoryAddArgs(name="docs", dir="docs", patterns=["../*.md"])
@@ -387,7 +385,7 @@ class TestCategoryAdd:
 
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
-        session._cached_project = Project(name="test", categories=[], collections=[])
+        session._cached_project = Project(name="test", categories={}, collections={})
         set_current_session(session)
 
         args = CategoryAddArgs(name="docs", dir="docs", patterns=[])
@@ -396,7 +394,7 @@ class TestCategoryAdd:
 
         assert result_dict["success"] is True
         assert len(session._cached_project.categories) == 1
-        assert session._cached_project.categories[0].patterns == []
+        assert session._cached_project.categories["docs"].patterns == []
 
     @pytest.mark.asyncio
     async def test_category_add_auto_saves(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
@@ -407,7 +405,7 @@ class TestCategoryAdd:
 
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
-        session._cached_project = Project(name="test", categories=[], collections=[])
+        session._cached_project = Project(name="test", categories={}, collections={})
         set_current_session(session)
 
         update_mock = AsyncMock()
@@ -444,7 +442,7 @@ class TestCategoryAdd:
 
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
-        session._cached_project = Project(name="test", categories=[], collections=[])
+        session._cached_project = Project(name="test", categories={}, collections={})
         set_current_session(session)
 
         update_mock = AsyncMock(side_effect=Exception("Save failed"))
@@ -466,7 +464,7 @@ class TestCategoryAdd:
 
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
-        session._cached_project = Project(name="test", categories=[], collections=[])
+        session._cached_project = Project(name="test", categories={}, collections={})
         set_current_session(session)
 
         original_time = session._cached_project.updated_at
@@ -496,8 +494,8 @@ class TestCategoryRemove:
 
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
-        docs_category = Category(name="docs", dir="docs", patterns=["*.md"])
-        session._cached_project = Project(name="test", categories=[docs_category], collections=[])
+        docs_category = Category(dir="docs", patterns=["*.md"])
+        session._cached_project = Project(name="test", categories={"docs": docs_category}, collections={})
         set_current_session(session)
 
         args = CategoryRemoveArgs(name="docs")
@@ -515,7 +513,7 @@ class TestCategoryRemove:
 
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
-        session._cached_project = Project(name="test", categories=[], collections=[])
+        session._cached_project = Project(name="test", categories={}, collections={})
         set_current_session(session)
 
         args = CategoryRemoveArgs(name="docs")
@@ -534,9 +532,9 @@ class TestCategoryRemove:
 
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
-        docs_category = Category(name="docs", dir="docs", patterns=["*.md"])
-        all_collection = Collection(name="all", categories=["docs"])
-        session._cached_project = Project(name="test", categories=[docs_category], collections=[all_collection])
+        docs_category = Category(dir="docs", patterns=["*.md"])
+        all_collection = Collection(categories=["docs"])
+        session._cached_project = Project(name="test", categories={"docs": docs_category}, collections={"all": all_collection})
         set_current_session(session)
 
         args = CategoryRemoveArgs(name="docs")
@@ -546,7 +544,7 @@ class TestCategoryRemove:
         assert result_dict["success"] is True
         assert len(session._cached_project.categories) == 0
         assert len(session._cached_project.collections) == 1
-        assert session._cached_project.collections[0].categories == []
+        assert session._cached_project.collections["all"].categories == []
 
     @pytest.mark.asyncio
     async def test_category_remove_updates_multiple_collections(self, tmp_path: Path) -> None:
@@ -555,13 +553,13 @@ class TestCategoryRemove:
 
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
-        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
-        api_cat = Category(name="api", dir="api", patterns=["*.py"])
-        tests_cat = Category(name="tests", dir="tests", patterns=["*.py"])
-        backend_col = Collection(name="backend", categories=["api", "tests"])
-        frontend_col = Collection(name="frontend", categories=["docs", "api"])
+        docs_cat = Category(dir="docs", patterns=["*.md"])
+        api_cat = Category(dir="api", patterns=["*.py"])
+        tests_cat = Category(dir="tests", patterns=["*.py"])
+        backend_col = Collection(categories=["api", "tests"])
+        frontend_col = Collection(categories=["docs", "api"])
         session._cached_project = Project(
-            name="test", categories=[docs_cat, api_cat, tests_cat], collections=[backend_col, frontend_col]
+            name="test", categories={"docs": docs_cat, "api": api_cat, "tests": tests_cat}, collections={"backend": backend_col, "frontend": frontend_col}
         )
         set_current_session(session)
 
@@ -571,11 +569,9 @@ class TestCategoryRemove:
 
         assert result_dict["success"] is True
         assert len(session._cached_project.categories) == 2
-        assert not any(c.name == "api" for c in session._cached_project.categories)
-        backend = next(c for c in session._cached_project.collections if c.name == "backend")
-        frontend = next(c for c in session._cached_project.collections if c.name == "frontend")
-        assert backend.categories == ["tests"]
-        assert frontend.categories == ["docs"]
+        assert "api" not in session._cached_project.categories
+        assert session._cached_project.collections["backend"].categories == ["tests"]
+        assert session._cached_project.collections["frontend"].categories == ["docs"]
 
     @pytest.mark.asyncio
     async def test_category_remove_not_in_collections(self, tmp_path: Path) -> None:
@@ -584,10 +580,10 @@ class TestCategoryRemove:
 
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
-        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
-        api_cat = Category(name="api", dir="api", patterns=["*.py"])
-        backend_col = Collection(name="backend", categories=["api"])
-        session._cached_project = Project(name="test", categories=[docs_cat, api_cat], collections=[backend_col])
+        docs_cat = Category(dir="docs", patterns=["*.md"])
+        api_cat = Category(dir="api", patterns=["*.py"])
+        backend_col = Collection(categories=["api"])
+        session._cached_project = Project(name="test", categories={"docs": docs_cat, "api": api_cat}, collections={"backend": backend_col})
         set_current_session(session)
 
         args = CategoryRemoveArgs(name="docs")
@@ -596,8 +592,8 @@ class TestCategoryRemove:
 
         assert result_dict["success"] is True
         assert len(session._cached_project.categories) == 1
-        assert session._cached_project.categories[0].name == "api"
-        assert session._cached_project.collections[0].categories == ["api"]
+        assert "api" in session._cached_project.categories
+        assert session._cached_project.collections["backend"].categories == ["api"]
 
     @pytest.mark.asyncio
     async def test_category_remove_auto_saves(self, tmp_path: Path) -> None:
@@ -606,8 +602,8 @@ class TestCategoryRemove:
 
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
-        docs_category = Category(name="docs", dir="docs", patterns=["*.md"])
-        session._cached_project = Project(name="test", categories=[docs_category], collections=[])
+        docs_category = Category(dir="docs", patterns=["*.md"])
+        session._cached_project = Project(name="test", categories={"docs": docs_category}, collections={})
         set_current_session(session)
 
         args = CategoryRemoveArgs(name="docs")
@@ -643,8 +639,8 @@ class TestCategoryRemove:
 
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
-        docs_category = Category(name="docs", dir="docs", patterns=["*.md"])
-        session._cached_project = Project(name="test", categories=[docs_category], collections=[])
+        docs_category = Category(dir="docs", patterns=["*.md"])
+        session._cached_project = Project(name="test", categories={"docs": docs_category}, collections={})
         set_current_session(session)
 
         update_mock = AsyncMock(side_effect=Exception("Save failed"))
@@ -666,8 +662,8 @@ class TestCategoryRemove:
 
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
-        docs_category = Category(name="docs", dir="docs", patterns=["*.md"])
-        session._cached_project = Project(name="test", categories=[docs_category], collections=[])
+        docs_category = Category(dir="docs", patterns=["*.md"])
+        session._cached_project = Project(name="test", categories={"docs": docs_category}, collections={})
         set_current_session(session)
 
         original_time = session._cached_project.updated_at
@@ -697,8 +693,8 @@ class TestCategoryChange:
 
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
-        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"], description="Documentation")
-        session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
+        docs_cat = Category(dir="docs", patterns=["*.md"], description="Documentation")
+        session._cached_project = Project(name="test", categories={"docs": docs_cat}, collections={})
         set_current_session(session)
 
         args = CategoryChangeArgs(name="docs", new_name="documentation")
@@ -706,8 +702,8 @@ class TestCategoryChange:
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is True
-        assert not any(c.name == "docs" for c in session._cached_project.categories)
-        doc_cat = next(c for c in session._cached_project.categories if c.name == "documentation")
+        assert "docs" not in session._cached_project.categories
+        doc_cat = session._cached_project.categories["documentation"]
         assert doc_cat.dir == "docs"
         assert doc_cat.patterns == ["*.md"]
         assert doc_cat.description == "Documentation"
@@ -719,8 +715,8 @@ class TestCategoryChange:
 
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
-        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
-        session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
+        docs_cat = Category(dir="docs", patterns=["*.md"])
+        session._cached_project = Project(name="test", categories={"docs": docs_cat}, collections={})
         set_current_session(session)
 
         args = CategoryChangeArgs(name="docs", new_dir="documentation")
@@ -728,7 +724,7 @@ class TestCategoryChange:
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is True
-        doc_cat = next(c for c in session._cached_project.categories if c.name == "docs")
+        doc_cat = session._cached_project.categories["docs"]
         assert doc_cat.dir == "documentation"
         assert doc_cat.patterns == ["*.md"]
 
@@ -739,8 +735,8 @@ class TestCategoryChange:
 
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
-        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"], description="Old")
-        session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
+        docs_cat = Category(dir="docs", patterns=["*.md"], description="Old")
+        session._cached_project = Project(name="test", categories={"docs": docs_cat}, collections={})
         set_current_session(session)
 
         args = CategoryChangeArgs(name="docs", new_description="New description")
@@ -748,7 +744,7 @@ class TestCategoryChange:
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is True
-        doc_cat = next(c for c in session._cached_project.categories if c.name == "docs")
+        doc_cat = session._cached_project.categories["docs"]
         assert doc_cat.description == "New description"
         assert doc_cat.dir == "docs"
 
@@ -759,8 +755,8 @@ class TestCategoryChange:
 
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
-        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"], description="Something")
-        session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
+        docs_cat = Category(dir="docs", patterns=["*.md"], description="Something")
+        session._cached_project = Project(name="test", categories={"docs": docs_cat}, collections={})
         set_current_session(session)
 
         args = CategoryChangeArgs(name="docs", new_description="")
@@ -768,7 +764,7 @@ class TestCategoryChange:
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is True
-        doc_cat = next(c for c in session._cached_project.categories if c.name == "docs")
+        doc_cat = session._cached_project.categories["docs"]
         assert doc_cat.description is None
 
     @pytest.mark.asyncio
@@ -778,8 +774,8 @@ class TestCategoryChange:
 
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
-        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
-        session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
+        docs_cat = Category(dir="docs", patterns=["*.md"])
+        session._cached_project = Project(name="test", categories={"docs": docs_cat}, collections={})
         set_current_session(session)
 
         args = CategoryChangeArgs(name="docs", new_patterns=["*.txt", "*.rst"])
@@ -787,7 +783,7 @@ class TestCategoryChange:
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is True
-        doc_cat = next(c for c in session._cached_project.categories if c.name == "docs")
+        doc_cat = session._cached_project.categories["docs"]
         assert doc_cat.patterns == ["*.txt", "*.rst"]
 
     @pytest.mark.asyncio
@@ -797,8 +793,8 @@ class TestCategoryChange:
 
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
-        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
-        session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
+        docs_cat = Category(dir="docs", patterns=["*.md"])
+        session._cached_project = Project(name="test", categories={"docs": docs_cat}, collections={})
         set_current_session(session)
 
         args = CategoryChangeArgs(name="docs", new_name="documentation", new_dir="docs_new", new_description="Updated")
@@ -806,7 +802,7 @@ class TestCategoryChange:
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is True
-        doc_cat = next(c for c in session._cached_project.categories if c.name == "documentation")
+        doc_cat = session._cached_project.categories["documentation"]
         assert doc_cat.dir == "docs_new"
         assert doc_cat.description == "Updated"
 
@@ -817,10 +813,10 @@ class TestCategoryChange:
 
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
-        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
-        api_cat = Category(name="api", dir="api", patterns=["*.py"])
-        all_col = Collection(name="all", categories=["docs", "api"])
-        session._cached_project = Project(name="test", categories=[docs_cat, api_cat], collections=[all_col])
+        docs_cat = Category(dir="docs", patterns=["*.md"])
+        api_cat = Category(dir="api", patterns=["*.py"])
+        all_col = Collection(categories=["docs", "api"])
+        session._cached_project = Project(name="test", categories={"docs": docs_cat, "api": api_cat}, collections={"all": all_col})
         set_current_session(session)
 
         args = CategoryChangeArgs(name="docs", new_name="docs")
@@ -829,7 +825,7 @@ class TestCategoryChange:
 
         assert result_dict["success"] is True
         assert "updated successfully" in result_dict["value"]
-        all_collection = next(c for c in session._cached_project.collections if c.name == "all")
+        all_collection = session._cached_project.collections["all"]
         assert all_collection.categories == ["docs", "api"]
 
     @pytest.mark.asyncio
@@ -839,10 +835,10 @@ class TestCategoryChange:
 
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
-        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
-        api_cat = Category(name="api", dir="api", patterns=["*.py"])
-        all_col = Collection(name="all", categories=["docs", "api"])
-        session._cached_project = Project(name="test", categories=[docs_cat, api_cat], collections=[all_col])
+        docs_cat = Category(dir="docs", patterns=["*.md"])
+        api_cat = Category(dir="api", patterns=["*.py"])
+        all_col = Collection(categories=["docs", "api"])
+        session._cached_project = Project(name="test", categories={"docs": docs_cat, "api": api_cat}, collections={"all": all_col})
         set_current_session(session)
 
         args = CategoryChangeArgs(name="docs", new_name="documentation")
@@ -850,7 +846,7 @@ class TestCategoryChange:
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is True
-        all_collection = next(c for c in session._cached_project.collections if c.name == "all")
+        all_collection = session._cached_project.collections["all"]
         assert all_collection.categories == ["documentation", "api"]
 
     @pytest.mark.asyncio
@@ -860,12 +856,12 @@ class TestCategoryChange:
 
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
-        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
-        api_cat = Category(name="api", dir="api", patterns=["*.py"])
-        backend_col = Collection(name="backend", categories=["api"])
-        frontend_col = Collection(name="frontend", categories=["docs", "api"])
+        docs_cat = Category(dir="docs", patterns=["*.md"])
+        api_cat = Category(dir="api", patterns=["*.py"])
+        backend_col = Collection(categories=["api"])
+        frontend_col = Collection(categories=["docs", "api"])
         session._cached_project = Project(
-            name="test", categories=[docs_cat, api_cat], collections=[backend_col, frontend_col]
+            name="test", categories={"docs": docs_cat, "api": api_cat}, collections={"backend": backend_col, "frontend": frontend_col}
         )
         set_current_session(session)
 
@@ -874,8 +870,8 @@ class TestCategoryChange:
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is True
-        backend = next(c for c in session._cached_project.collections if c.name == "backend")
-        frontend = next(c for c in session._cached_project.collections if c.name == "frontend")
+        backend = session._cached_project.collections["backend"]
+        frontend = session._cached_project.collections["frontend"]
         assert backend.categories == ["api"]
         assert frontend.categories == ["documentation", "api"]
 
@@ -886,7 +882,7 @@ class TestCategoryChange:
 
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
-        session._cached_project = Project(name="test", categories=[], collections=[])
+        session._cached_project = Project(name="test", categories={}, collections={})
         set_current_session(session)
 
         args = CategoryChangeArgs(name="docs", new_name="documentation")
@@ -904,9 +900,9 @@ class TestCategoryChange:
 
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
-        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
-        api_cat = Category(name="api", dir="api", patterns=["*.py"])
-        session._cached_project = Project(name="test", categories=[docs_cat, api_cat], collections=[])
+        docs_cat = Category(dir="docs", patterns=["*.md"])
+        api_cat = Category(dir="api", patterns=["*.py"])
+        session._cached_project = Project(name="test", categories={"docs": docs_cat, "api": api_cat}, collections={})
         set_current_session(session)
 
         args = CategoryChangeArgs(name="docs", new_name="api")
@@ -924,8 +920,8 @@ class TestCategoryChange:
 
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
-        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
-        session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
+        docs_cat = Category(dir="docs", patterns=["*.md"])
+        session._cached_project = Project(name="test", categories={"docs": docs_cat}, collections={})
         set_current_session(session)
 
         args = CategoryChangeArgs(name="docs", new_name="invalid name!")
@@ -942,8 +938,8 @@ class TestCategoryChange:
 
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
-        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
-        session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
+        docs_cat = Category(dir="docs", patterns=["*.md"])
+        session._cached_project = Project(name="test", categories={"docs": docs_cat}, collections={})
         set_current_session(session)
 
         args = CategoryChangeArgs(name="docs", new_dir="")
@@ -961,8 +957,8 @@ class TestCategoryChange:
 
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
-        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
-        session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
+        docs_cat = Category(dir="docs", patterns=["*.md"])
+        session._cached_project = Project(name="test", categories={"docs": docs_cat}, collections={})
         set_current_session(session)
 
         args = CategoryChangeArgs(name="docs", new_dir="/absolute/path")
@@ -979,8 +975,8 @@ class TestCategoryChange:
 
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
-        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
-        session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
+        docs_cat = Category(dir="docs", patterns=["*.md"])
+        session._cached_project = Project(name="test", categories={"docs": docs_cat}, collections={})
         set_current_session(session)
 
         args = CategoryChangeArgs(name="docs", new_description='Has "quotes"')
@@ -997,8 +993,8 @@ class TestCategoryChange:
 
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
-        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
-        session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
+        docs_cat = Category(dir="docs", patterns=["*.md"])
+        session._cached_project = Project(name="test", categories={"docs": docs_cat}, collections={})
         set_current_session(session)
 
         args = CategoryChangeArgs(name="docs", new_patterns=["../traversal"])
@@ -1015,8 +1011,8 @@ class TestCategoryChange:
 
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
-        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
-        session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
+        docs_cat = Category(dir="docs", patterns=["*.md"])
+        session._cached_project = Project(name="test", categories={"docs": docs_cat}, collections={})
         set_current_session(session)
 
         args = CategoryChangeArgs(name="docs")
@@ -1034,8 +1030,8 @@ class TestCategoryChange:
 
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
-        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
-        session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
+        docs_cat = Category(dir="docs", patterns=["*.md"])
+        session._cached_project = Project(name="test", categories={"docs": docs_cat}, collections={})
         set_current_session(session)
 
         args = CategoryChangeArgs(name="docs", new_description="Updated")
@@ -1045,7 +1041,7 @@ class TestCategoryChange:
         assert result_dict["success"] is True
 
         reloaded_project = await manager.get_or_create_project_config("test")
-        doc_cat = next(c for c in reloaded_project.categories if c.name == "docs")
+        doc_cat = reloaded_project.categories["docs"]
         assert doc_cat.description == "Updated"
 
     @pytest.mark.asyncio
@@ -1072,8 +1068,8 @@ class TestCategoryChange:
 
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
-        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
-        session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
+        docs_cat = Category(dir="docs", patterns=["*.md"])
+        session._cached_project = Project(name="test", categories={"docs": docs_cat}, collections={})
         set_current_session(session)
 
         update_mock = AsyncMock(side_effect=Exception("Save failed"))
@@ -1095,8 +1091,8 @@ class TestCategoryChange:
 
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
-        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
-        session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
+        docs_cat = Category(dir="docs", patterns=["*.md"])
+        session._cached_project = Project(name="test", categories={"docs": docs_cat}, collections={})
         set_current_session(session)
 
         original_time = session._cached_project.updated_at
@@ -1126,8 +1122,8 @@ class TestCategoryUpdate:
 
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
-        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
-        session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
+        docs_cat = Category(dir="docs", patterns=["*.md"])
+        session._cached_project = Project(name="test", categories={"docs": docs_cat}, collections={})
         set_current_session(session)
 
         args = CategoryUpdateArgs(name="docs", add_patterns=["*.txt"])
@@ -1135,7 +1131,7 @@ class TestCategoryUpdate:
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is True
-        doc_cat = next(c for c in session._cached_project.categories if c.name == "docs")
+        doc_cat = session._cached_project.categories["docs"]
         assert doc_cat.patterns == ["*.md", "*.txt"]
 
     @pytest.mark.asyncio
@@ -1145,8 +1141,8 @@ class TestCategoryUpdate:
 
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
-        docs_cat = Category(name="docs", dir="docs", patterns=["*.md", "*.txt"])
-        session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
+        docs_cat = Category(dir="docs", patterns=["*.md", "*.txt"])
+        session._cached_project = Project(name="test", categories={"docs": docs_cat}, collections={})
         set_current_session(session)
 
         args = CategoryUpdateArgs(name="docs", remove_patterns=["*.txt"])
@@ -1154,7 +1150,7 @@ class TestCategoryUpdate:
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is True
-        doc_cat = next(c for c in session._cached_project.categories if c.name == "docs")
+        doc_cat = session._cached_project.categories["docs"]
         assert doc_cat.patterns == ["*.md"]
 
     @pytest.mark.asyncio
@@ -1164,8 +1160,8 @@ class TestCategoryUpdate:
 
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
-        docs_cat = Category(name="docs", dir="docs", patterns=["*.md", "*.txt"])
-        session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
+        docs_cat = Category(dir="docs", patterns=["*.md", "*.txt"])
+        session._cached_project = Project(name="test", categories={"docs": docs_cat}, collections={})
         set_current_session(session)
 
         args = CategoryUpdateArgs(name="docs", remove_patterns=["*.txt"], add_patterns=["*.rst"])
@@ -1173,7 +1169,7 @@ class TestCategoryUpdate:
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is True
-        doc_cat = next(c for c in session._cached_project.categories if c.name == "docs")
+        doc_cat = session._cached_project.categories["docs"]
         assert doc_cat.patterns == ["*.md", "*.rst"]
 
     @pytest.mark.asyncio
@@ -1183,8 +1179,8 @@ class TestCategoryUpdate:
 
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
-        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
-        session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
+        docs_cat = Category(dir="docs", patterns=["*.md"])
+        session._cached_project = Project(name="test", categories={"docs": docs_cat}, collections={})
         set_current_session(session)
 
         args = CategoryUpdateArgs(name="docs", remove_patterns=["*.txt"])
@@ -1192,7 +1188,7 @@ class TestCategoryUpdate:
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is True
-        doc_cat = next(c for c in session._cached_project.categories if c.name == "docs")
+        doc_cat = session._cached_project.categories["docs"]
         assert doc_cat.patterns == ["*.md"]
 
     @pytest.mark.asyncio
@@ -1202,8 +1198,8 @@ class TestCategoryUpdate:
 
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
-        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
-        session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
+        docs_cat = Category(dir="docs", patterns=["*.md"])
+        session._cached_project = Project(name="test", categories={"docs": docs_cat}, collections={})
         set_current_session(session)
 
         args = CategoryUpdateArgs(name="docs", add_patterns=["*.txt", "*.rst"])
@@ -1211,7 +1207,7 @@ class TestCategoryUpdate:
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is True
-        doc_cat = next(c for c in session._cached_project.categories if c.name == "docs")
+        doc_cat = session._cached_project.categories["docs"]
         assert doc_cat.patterns == ["*.md", "*.txt", "*.rst"]
 
     @pytest.mark.asyncio
@@ -1221,8 +1217,8 @@ class TestCategoryUpdate:
 
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
-        docs_cat = Category(name="docs", dir="docs", patterns=["*.md", "*.txt", "*.rst"])
-        session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
+        docs_cat = Category(dir="docs", patterns=["*.md", "*.txt", "*.rst"])
+        session._cached_project = Project(name="test", categories={"docs": docs_cat}, collections={})
         set_current_session(session)
 
         args = CategoryUpdateArgs(name="docs", remove_patterns=["*.txt", "*.rst"])
@@ -1230,7 +1226,7 @@ class TestCategoryUpdate:
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is True
-        doc_cat = next(c for c in session._cached_project.categories if c.name == "docs")
+        doc_cat = session._cached_project.categories["docs"]
         assert doc_cat.patterns == ["*.md"]
 
     @pytest.mark.asyncio
@@ -1240,8 +1236,8 @@ class TestCategoryUpdate:
 
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
-        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
-        session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
+        docs_cat = Category(dir="docs", patterns=["*.md"])
+        session._cached_project = Project(name="test", categories={"docs": docs_cat}, collections={})
         set_current_session(session)
 
         args = CategoryUpdateArgs(name="docs", add_patterns=["../traversal"])
@@ -1258,7 +1254,7 @@ class TestCategoryUpdate:
 
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
-        session._cached_project = Project(name="test", categories=[], collections=[])
+        session._cached_project = Project(name="test", categories={}, collections={})
         set_current_session(session)
 
         args = CategoryUpdateArgs(name="docs", add_patterns=["*.txt"])
@@ -1276,8 +1272,8 @@ class TestCategoryUpdate:
 
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
-        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
-        session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
+        docs_cat = Category(dir="docs", patterns=["*.md"])
+        session._cached_project = Project(name="test", categories={"docs": docs_cat}, collections={})
         set_current_session(session)
 
         args = CategoryUpdateArgs(name="docs")
@@ -1295,8 +1291,8 @@ class TestCategoryUpdate:
 
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
-        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
-        session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
+        docs_cat = Category(dir="docs", patterns=["*.md"])
+        session._cached_project = Project(name="test", categories={"docs": docs_cat}, collections={})
         set_current_session(session)
 
         args = CategoryUpdateArgs(name="docs", add_patterns=["*.txt"])
@@ -1306,7 +1302,7 @@ class TestCategoryUpdate:
         assert result_dict["success"] is True
 
         reloaded_project = await manager.get_or_create_project_config("test")
-        doc_cat = next(c for c in reloaded_project.categories if c.name == "docs")
+        doc_cat = reloaded_project.categories["docs"]
         assert doc_cat.patterns == ["*.md", "*.txt"]
 
     @pytest.mark.asyncio
@@ -1333,8 +1329,8 @@ class TestCategoryUpdate:
 
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
-        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
-        session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
+        docs_cat = Category(dir="docs", patterns=["*.md"])
+        session._cached_project = Project(name="test", categories={"docs": docs_cat}, collections={})
         set_current_session(session)
 
         update_mock = AsyncMock(side_effect=Exception("Save failed"))
@@ -1356,8 +1352,8 @@ class TestCategoryUpdate:
 
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
-        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
-        session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
+        docs_cat = Category(dir="docs", patterns=["*.md"])
+        session._cached_project = Project(name="test", categories={"docs": docs_cat}, collections={})
         set_current_session(session)
 
         original_time = session._cached_project.updated_at
@@ -1378,8 +1374,8 @@ class TestCategoryUpdate:
 
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
-        docs_cat = Category(name="docs", dir="docs", patterns=["*.md"])
-        session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
+        docs_cat = Category(dir="docs", patterns=["*.md"])
+        session._cached_project = Project(name="test", categories={"docs": docs_cat}, collections={})
         set_current_session(session)
 
         args = CategoryUpdateArgs(name="docs", add_patterns=["*.md"])
@@ -1387,7 +1383,7 @@ class TestCategoryUpdate:
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is True
-        doc_cat = next(c for c in session._cached_project.categories if c.name == "docs")
+        doc_cat = session._cached_project.categories["docs"]
         assert doc_cat.patterns == ["*.md"]
 
     @pytest.mark.asyncio
@@ -1398,8 +1394,8 @@ class TestCategoryUpdate:
         manager = ConfigManager(config_dir=str(tmp_path))
         session = Session(_config_manager=manager, project_name="test")
         # Start with existing duplicates in patterns
-        docs_cat = Category(name="docs", dir="docs", patterns=["*.py", "*.txt", "*.py"])
-        session._cached_project = Project(name="test", categories=[docs_cat], collections=[])
+        docs_cat = Category(dir="docs", patterns=["*.py", "*.txt", "*.py"])
+        session._cached_project = Project(name="test", categories={"docs": docs_cat}, collections={})
         set_current_session(session)
 
         args = CategoryUpdateArgs(name="docs", add_patterns=["*.md"])
@@ -1407,6 +1403,106 @@ class TestCategoryUpdate:
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is True
-        doc_cat = next(c for c in session._cached_project.categories if c.name == "docs")
+        doc_cat = session._cached_project.categories["docs"]
         # Should deduplicate existing duplicates
         assert doc_cat.patterns == ["*.py", "*.txt", "*.md"]
+
+
+class TestCategoryListFiles:
+    """Tests for category_list_files tool."""
+
+    @pytest.fixture(autouse=True)
+    def setup_teardown(self, project_dir: Path) -> Generator[None, None, None]:
+        """Setup and teardown for each test."""
+        yield
+
+    @pytest.mark.asyncio
+    async def test_category_not_found(self, tmp_path: Path) -> None:
+        """Test error when category doesn't exist."""
+        manager = ConfigManager(config_dir=str(tmp_path))
+        session = Session(_config_manager=manager, project_name="test")
+        session._cached_project = Project(name="test", categories={}, collections={})
+        set_current_session(session)
+
+        args = CategoryListFilesArgs(name="nonexistent")
+        result_str = await category_list_files(args)
+        result_dict = json.loads(result_str)
+
+        assert result_dict["success"] is False
+        assert result_dict["error_type"] == "not_found"
+        assert "nonexistent" in result_dict["error"]
+
+    @pytest.mark.asyncio
+    async def test_no_session_error(self, monkeypatch: MonkeyPatch) -> None:
+        """Test error when no session is active."""
+        # Unset PWD and CWD so get_or_create_session fails
+        monkeypatch.delenv("PWD", raising=False)
+        monkeypatch.delenv("CWD", raising=False)
+
+        args = CategoryListFilesArgs(name="docs")
+        result_str = await category_list_files(args)
+        result_dict = json.loads(result_str)
+
+        assert result_dict["success"] is False
+        assert result_dict["error_type"] == "no_project"
+
+    @pytest.mark.asyncio
+    async def test_empty_directory(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
+        """Test success with empty directory."""
+        # Setup session with category
+        manager = ConfigManager(config_dir=str(tmp_path))
+        session = Session(_config_manager=manager, project_name="test")
+        category = Category(dir="docs", patterns=["*.md"])
+        session._cached_project = Project(name="test", categories={"docs": category}, collections={})
+        set_current_session(session)
+
+        # Mock docroot to point to empty directory
+        docs_dir = tmp_path / "docs"
+        docs_dir.mkdir()
+        monkeypatch.setattr(session, "get_docroot", lambda: str(tmp_path))
+
+        args = CategoryListFilesArgs(name="docs")
+        result_str = await category_list_files(args)
+        result_dict = json.loads(result_str)
+
+        assert result_dict["success"] is True
+        assert result_dict["value"] == []
+
+    @pytest.mark.asyncio
+    async def test_successful_file_listing(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
+        """Test successful file listing with template stripping."""
+        # Setup session with category
+        manager = ConfigManager(config_dir=str(tmp_path))
+        session = Session(_config_manager=manager, project_name="test")
+        category = Category(dir="docs", patterns=["*.md"])
+        session._cached_project = Project(name="test", categories={"docs": category}, collections={})
+        set_current_session(session)
+
+        # Create test files
+        docs_dir = tmp_path / "docs"
+        docs_dir.mkdir()
+        (docs_dir / "readme.md").write_text("# README")
+        (docs_dir / "guide.md.mustache").write_text("# Guide {{name}}")
+        
+        monkeypatch.setattr(session, "get_docroot", lambda: str(tmp_path))
+
+        args = CategoryListFilesArgs(name="docs")
+        result_str = await category_list_files(args)
+        result_dict = json.loads(result_str)
+
+        assert result_dict["success"] is True
+        files = result_dict["value"]
+        assert len(files) == 2
+        
+        # Check file structure
+        for file_info in files:
+            assert "path" in file_info
+            assert "size" in file_info
+            assert "basename" in file_info
+            assert isinstance(file_info["size"], int)
+            assert file_info["size"] > 0
+        
+        # Check template extension stripping
+        basenames = [f["basename"] for f in files]
+        assert "guide.md" in basenames  # .mustache stripped
+        assert "readme.md" in basenames

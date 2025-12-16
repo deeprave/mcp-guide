@@ -1,7 +1,10 @@
 ---
+Type: agent-infomation and instruction
 Description: This file provide essential information about OpenSpec, used in this project to manage features.
 ---
 # OpenSpec Workflow Guide
+
+[ref: openspec/AGENTS.md for complete information]
 
 ## What is OpenSpec?
 
@@ -103,6 +106,7 @@ The specs look good. Let's implement this change.
 AI works through tasks in `tasks.md`, marking them complete.
 
 ### 4. Archive Completed Change
+
 After implementation, merge changes back to source of truth:
 ```bash
 openspec archive feature-name --yes
@@ -221,7 +225,18 @@ openspec list --changes
 6. **User review required** - Never archive without explicit user approval
 7. **Archive promptly** - Don't let completed changes linger after approval
 
-## Key Differences from .todo
+## .todo/
 
-- **OpenSpec** - Structured features and architecture changes with specs
-- **.todo** - One-off fixes, investigations, and quick tasks without formal specs
+The .todo/ folder is a working document tree and its content is not persisted in version control.
+These are generally temporary in nature, including
+  - detailed implementation plans and checklists
+  - detailed investigation results
+  - detailed summaries
+  - quick tasks for bug fixes
+  - code reviews
+
+### Key difference between .todo/ and openspec
+- **OpenSpec**:
+  Structured features and architecture changes with specs, files supported by openspec
+- **.todo**:
+  One-off fixes, investigations, reviews, summaries and quick tasks without formal specs

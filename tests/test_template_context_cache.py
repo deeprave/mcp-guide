@@ -26,7 +26,7 @@ class TestTemplateContextCache:
 
         # Mock get_current_session to return session with project
         mock_session = Mock()
-        mock_project = Project(name="test-project", categories=[], collections=[])
+        mock_project = Project(name="test-project", categories={}, collections={})
         mock_session.get_project = AsyncMock(return_value=mock_project)
 
         with patch("mcp_guide.session.get_current_session", return_value=mock_session):
@@ -117,7 +117,7 @@ class TestTemplateContextCache:
 
         # Mock get_current_session to return session with project
         mock_session = Mock()
-        mock_project = Project(name="test-project", categories=[], collections=[])
+        mock_project = Project(name="test-project", categories={}, collections={})
         mock_session.get_project = AsyncMock(return_value=mock_project)
 
         with patch("mcp_guide.session.get_current_session", return_value=mock_session):
@@ -143,7 +143,7 @@ class TestTemplateContextCache:
 
         # Mock get_current_session to return session with project
         mock_session = Mock()
-        mock_project = Project(name="project-value", categories=[], collections=[])
+        mock_project = Project(name="project-value", categories={}, collections={})
         mock_session.get_project = AsyncMock(return_value=mock_project)
 
         with patch("mcp_guide.session.get_current_session", return_value=mock_session):
@@ -177,8 +177,8 @@ class TestTemplateContextCache:
 
         # Mock session with project containing category
         mock_session = Mock()
-        test_category = Category(name="docs", dir="./docs", patterns=["*.md"])
-        mock_project = Project(name="test-project", categories=[test_category], collections=[])
+        test_category = Category(dir="./docs", patterns=["*.md"])
+        mock_project = Project(name="test-project", categories={"docs": test_category}, collections={})
         mock_session.get_project = AsyncMock(return_value=mock_project)
 
         with patch("mcp_guide.session.get_current_session", return_value=mock_session):
@@ -201,7 +201,7 @@ class TestTemplateContextCache:
 
         # Mock session with project without the requested category
         mock_session = Mock()
-        mock_project = Project(name="test-project", categories=[], collections=[])
+        mock_project = Project(name="test-project", categories={}, collections={})
         mock_session.get_project = AsyncMock(return_value=mock_project)
 
         with patch("mcp_guide.session.get_current_session", return_value=mock_session):
@@ -227,7 +227,7 @@ class TestTemplateContextCache:
 
         # Mock get_current_session to return session with project
         mock_session = Mock()
-        mock_project = Project(name="integration-test", categories=[], collections=[])
+        mock_project = Project(name="integration-test", categories={}, collections={})
         mock_session.get_project = AsyncMock(return_value=mock_project)
 
         with patch("mcp_guide.session.get_current_session", return_value=mock_session):

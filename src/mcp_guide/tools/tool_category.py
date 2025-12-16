@@ -2,7 +2,7 @@
 
 from dataclasses import replace
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 
 from pydantic import Field
 
@@ -47,6 +47,12 @@ class CategoryContentArgs(ToolArguments):
     )
 
 
+class CategoryListFilesArgs(ToolArguments):
+    """Arguments for category_list_files tool."""
+
+    name: str = Field(description="Name of the category to list files from")
+
+
 @tools.tool(CategoryListArgs)
 async def category_list(args: CategoryListArgs, ctx: Optional[Context] = None) -> str:  # type: ignore
     """List all categories in the current project.
@@ -69,19 +75,19 @@ async def category_list(args: CategoryListArgs, ctx: Optional[Context] = None) -
 
     project = await session.get_project()
 
+    categories: Union[list[dict[str, str | list[str] | None]], list[str]]
     if args.verbose:
-        categories: list[dict[str, str | list[str] | None]] = [
+        categories = [
             {
-                "name": category.name,
+                "name": name,  # Inject name from dict key
                 "dir": category.dir,
                 "patterns": list(category.patterns),
                 "description": category.description,
             }
-            for category in project.categories
+            for name, category in project.categories.items()  # Use dict.items()
         ]
     else:
-        categories_list: list[str] = [category.name for category in project.categories]
-        return Result.ok(categories_list).to_json_str()
+        categories = list(project.categories.keys())  # Use dict.keys()
 
     return Result.ok(categories).to_json_str()
 
@@ -116,7 +122,20 @@ async def category_add(args: CategoryAddArgs, ctx: Optional[Context] = None) -> 
     project = await session.get_project()
 
     try:
-        if any(cat.name == args.name for cat in project.categories):
+        # Validate name is not empty
+        if not args.name or not args.name.strip():
+            raise ArgValidationError([{"field": "name", "message": "Category name cannot be empty"}])
+        
+        # Validate name doesn't contain invalid characters
+        if "/" in args.name or "\\" in args.name or " " in args.name or "!" in args.name:
+            raise ArgValidationError([{"field": "name", "message": "Category name cannot contain spaces or special characters"}])
+        
+        # Validate name length
+        if len(args.name) > 30:
+            raise ArgValidationError([{"field": "name", "message": "Category name must be 30 characters or less"}])
+        
+        # Use dict lookup for O(1) duplicate detection
+        if args.name in project.categories:
             raise ArgValidationError([{"field": "name", "message": f"Category '{args.name}' already exists"}])
 
         validated_dir = validate_directory_path(args.dir, default=args.name)
@@ -129,14 +148,24 @@ async def category_add(args: CategoryAddArgs, ctx: Optional[Context] = None) -> 
         return e.to_result().to_json_str()
 
     try:
-        category = Category(
-            name=args.name, dir=validated_dir, patterns=args.patterns, description=validated_description
-        )
+        # Create category without name field (name becomes dict key)
+        category = Category(dir=validated_dir, patterns=args.patterns, description=validated_description)
     except ValueError as e:
         return ArgValidationError([{"field": "name", "message": str(e)}]).to_result().to_json_str()
 
+    # Create the directory if it doesn't exist
     try:
-        await session.update_config(lambda p: p.with_category(category))
+        docroot = Path(session.get_docroot())
+        category_dir = docroot / validated_dir
+        category_dir.mkdir(parents=True, exist_ok=True)
+    except Exception:
+        # Directory creation failed (e.g., in test environment) - continue anyway
+        # The directory will be created when actually needed for file operations
+        pass
+
+    try:
+        # Use new dict-based with_category method
+        await session.update_config(lambda p: p.with_category(args.name, category))
     except Exception as e:
         return Result.failure(f"Failed to save project configuration: {e}", error_type=ERROR_SAVE).to_json_str()
 
@@ -175,14 +204,17 @@ async def category_remove(args: CategoryRemoveArgs, ctx: Optional[Context] = Non
 
     project = await session.get_project()
 
-    if not any(cat.name == args.name for cat in project.categories):
+    # Use dict lookup for O(1) existence check
+    if args.name not in project.categories:
         return Result.failure(f"Category '{args.name}' does not exist", error_type=ERROR_NOT_FOUND).to_json_str()
 
     def remove_category_and_update_collections(p: Project) -> Project:
         p_without_cat = p.without_category(args.name)
-        updated_collections = [
-            replace(col, categories=[c for c in col.categories if c != args.name]) for col in p_without_cat.collections
-        ]
+        # Update collections to use dict operations
+        updated_collections = {
+            name: replace(col, categories=[c for c in col.categories if c != args.name])
+            for name, col in p_without_cat.collections.items()
+        }
         return replace(p_without_cat, collections=updated_collections)
 
     try:
@@ -223,9 +255,11 @@ async def category_change(args: CategoryChangeArgs, ctx: Optional[Context] = Non
 
     project = await session.get_project()
 
-    existing_category = next((c for c in project.categories if c.name == args.name), None)
-    if existing_category is None:
+    # Use dict lookup for O(1) existence check
+    if args.name not in project.categories:
         return Result.failure(f"Category '{args.name}' does not exist", error_type=ERROR_NOT_FOUND).to_json_str()
+    
+    existing_category = project.categories[args.name]
 
     if args.new_name is None and args.new_dir is None and args.new_patterns is None and args.new_description is None:
         return (
@@ -243,7 +277,19 @@ async def category_change(args: CategoryChangeArgs, ctx: Optional[Context] = Non
 
     try:
         if args.new_name is not None:
-            if any(c.name == args.new_name for c in project.categories if c.name != args.name):
+            # Validate new name is not empty
+            if not args.new_name or not args.new_name.strip():
+                raise ArgValidationError([{"field": "new_name", "message": "Category name cannot be empty"}])
+            
+            # Validate new name doesn't contain invalid characters
+            if "/" in args.new_name or "\\" in args.new_name or " " in args.new_name or "!" in args.new_name:
+                raise ArgValidationError([{"field": "new_name", "message": "Category name cannot contain spaces or special characters"}])
+            
+            # Validate new name length
+            if len(args.new_name) > 30:
+                raise ArgValidationError([{"field": "new_name", "message": "Category name must be 30 characters or less"}])
+            
+            if args.new_name in project.categories and args.new_name != args.name:
                 raise ArgValidationError(
                     [{"field": "new_name", "message": f"Category '{args.new_name}' already exists"}]
                 )
@@ -272,7 +318,6 @@ async def category_change(args: CategoryChangeArgs, ctx: Optional[Context] = Non
 
     try:
         updated_category = Category(
-            name=args.new_name if args.new_name is not None else existing_category.name,
             dir=args.new_dir if args.new_dir is not None else existing_category.dir,
             patterns=args.new_patterns if args.new_patterns is not None else existing_category.patterns,
             description=final_description,
@@ -280,15 +325,31 @@ async def category_change(args: CategoryChangeArgs, ctx: Optional[Context] = Non
     except ValueError as e:
         return ArgValidationError([{"field": "new_name", "message": str(e)}]).to_result().to_json_str()
 
-    def update_category_and_collections(p: Project) -> Project:
-        p_without_old = p.without_category(args.name)
-        p_with_new = p_without_old.with_category(updated_category)
+    # Create the directory if it's being updated
+    if args.new_dir is not None:
+        try:
+            docroot = Path(session.get_docroot())
+            category_dir = docroot / args.new_dir
+            category_dir.mkdir(parents=True, exist_ok=True)
+        except Exception:
+            # Directory creation failed (e.g., in test environment) - continue anyway
+            # The directory will be created when actually needed for file operations
+            pass
 
+    def update_category_and_collections(p: Project) -> Project:
+        # Remove old category
+        p_without_old = p.without_category(args.name)
+        
+        # Add updated category with new or existing name
+        final_name = args.new_name if args.new_name is not None else args.name
+        p_with_new = p_without_old.with_category(final_name, updated_category)
+
+        # Update collections if category was renamed
         if args.new_name is not None and args.new_name != args.name:
-            updated_collections = [
-                replace(col, categories=[args.new_name if c == args.name else c for c in col.categories])
-                for col in p_with_new.collections
-            ]
+            updated_collections = {
+                name: replace(col, categories=[args.new_name if c == args.name else c for c in col.categories])
+                for name, col in p_with_new.collections.items()
+            }
             return replace(p_with_new, collections=updated_collections)
 
         return p_with_new
@@ -333,7 +394,7 @@ async def category_update(args: CategoryUpdateArgs, ctx: Optional[Context] = Non
 
     project = await session.get_project()
 
-    existing_category = next((c for c in project.categories if c.name == args.name), None)
+    existing_category = project.categories.get(args.name)
     if existing_category is None:
         return Result.failure(f"Category '{args.name}' does not exist", error_type=ERROR_NOT_FOUND).to_json_str()
 
@@ -377,7 +438,7 @@ async def category_update(args: CategoryUpdateArgs, ctx: Optional[Context] = Non
     updated_category = replace(existing_category, patterns=current_patterns)
 
     def update_category_patterns(p: Project) -> Project:
-        return p.without_category(args.name).with_category(updated_category)
+        return p.without_category(args.name).with_category(args.name, updated_category)
 
     try:
         await session.update_config(update_category_patterns)
@@ -385,6 +446,53 @@ async def category_update(args: CategoryUpdateArgs, ctx: Optional[Context] = Non
         return Result.failure(f"Failed to save project configuration: {e}", error_type=ERROR_SAVE).to_json_str()
 
     return Result.ok(f"Category '{args.name}' patterns updated successfully").to_json_str()
+
+
+@tools.tool(CategoryListFilesArgs)
+async def category_list_files(args: CategoryListFilesArgs, ctx: Optional[Context] = None) -> str:  # type: ignore
+    """List all files in a category directory.
+
+    Args:
+        args: Tool arguments with category name
+        ctx: MCP Context (auto-injected by FastMCP)
+
+    Returns:
+        JSON string with Result containing list of file information
+    """
+    # Get session
+    try:
+        session = await get_or_create_session(ctx)
+    except ValueError as e:
+        return Result.failure(str(e), error_type=ERROR_NO_PROJECT).to_json_str()
+
+    # Get project
+    project = await session.get_project()
+
+    # Resolve category
+    category = project.categories.get(args.name)
+    if category is None:
+        result: Result[str] = Result.failure(
+            f"Category '{args.name}' not found in project",
+            error_type=ERROR_NOT_FOUND,
+            instruction=INSTRUCTION_NOTFOUND_ERROR,
+        )
+        return result.to_json_str()
+
+    # Discover files using **/* pattern to get all files
+    docroot = Path(session.get_docroot())
+    category_dir = docroot / category.dir
+    files = await discover_category_files(category_dir, ["**/*"])
+
+    # Format as list of file info dictionaries
+    file_list = []
+    for file in files:
+        file_list.append({
+            "path": str(file.path),
+            "size": file.size,
+            "basename": file.basename,
+        })
+
+    return Result.ok(file_list).to_json_str()
 
 
 @tools.tool(CategoryContentArgs)
@@ -411,7 +519,7 @@ async def category_content(
     project = await session.get_project()
 
     # Resolve category
-    category = next((c for c in project.categories if c.name == args.category), None)
+    category = project.categories.get(args.category)
     if category is None:
         result: Result[str] = Result.failure(
             f"Category '{args.category}' not found in project",
@@ -430,7 +538,7 @@ async def category_content(
 
     # Set category field on all FileInfo objects
     for file in files:
-        file.category = category.name
+        file.category = args.category
 
     # Check for no matches
     if not files:

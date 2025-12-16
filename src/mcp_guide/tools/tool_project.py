@@ -245,7 +245,7 @@ async def clone_project(args: CloneProjectArgs, ctx: Optional[Context] = None) -
         target_project_maybe = all_projects.get(target_name)
         if target_project_maybe is None:
             # Create new empty project
-            target_project = Project(name=target_name, categories=[], collections=[])
+            target_project = Project(name=target_name, categories={}, collections={})
         else:
             target_project = target_project_maybe
         # Check if target is current project
@@ -284,8 +284,8 @@ async def clone_project(args: CloneProjectArgs, ctx: Optional[Context] = None) -
         merged_colls, colls_added, colls_overwritten = _merge_collections(source_project, target_project)
     else:
         # Replace: copy source entirely
-        merged_cats = list(source_project.categories)
-        merged_colls = list(source_project.collections)
+        merged_cats = dict(source_project.categories)
+        merged_colls = dict(source_project.collections)
         cats_added = len(merged_cats)
         cats_overwritten = 0
         colls_added = len(merged_colls)
@@ -330,74 +330,74 @@ def _detect_conflicts(source: Project, target: Project) -> tuple[list[str], list
     category_conflicts = []
     collection_conflicts = []
 
-    # Build lookup dicts
-    target_cats = {c.name: c for c in target.categories}
-    target_colls = {c.name: c for c in target.collections}
+    # Build lookup dicts - target is already dict-based
+    target_cats = target.categories
+    target_colls = target.collections
 
     # Check categories
-    for src_cat in source.categories:
-        if src_cat.name in target_cats:
-            tgt_cat = target_cats[src_cat.name]
+    for src_cat_name, src_cat in source.categories.items():
+        if src_cat_name in target_cats:
+            tgt_cat = target_cats[src_cat_name]
             if (
                 src_cat.dir != tgt_cat.dir
                 or src_cat.patterns != tgt_cat.patterns
                 or src_cat.description != tgt_cat.description
             ):
-                category_conflicts.append(src_cat.name)
+                category_conflicts.append(src_cat_name)
 
     # Check collections
-    for src_coll in source.collections:
-        if src_coll.name in target_colls:
-            tgt_coll = target_colls[src_coll.name]
+    for src_coll_name, src_coll in source.collections.items():
+        if src_coll_name in target_colls:
+            tgt_coll = target_colls[src_coll_name]
             if src_coll.description != tgt_coll.description or src_coll.categories != tgt_coll.categories:
-                collection_conflicts.append(src_coll.name)
+                collection_conflicts.append(src_coll_name)
 
     return category_conflicts, collection_conflicts
 
 
-def _merge_categories(source: Project, target: Project) -> tuple[list[Category], int, int]:
+def _merge_categories(source: Project, target: Project) -> tuple[dict[str, Category], int, int]:
     """Merge categories from source into target.
 
     Returns:
-        Tuple of (merged_categories, added_count, overwritten_count)
+        Tuple of (merged_categories_dict, added_count, overwritten_count)
 
     Note:
         This function is intentionally similar to _merge_collections.
         The duplication is minimal and maintains type safety without generic complexity.
     """
-    target_cats = {c.name: c for c in target.categories}
+    target_cats = dict(target.categories)  # Copy target categories
     added = 0
     overwritten = 0
 
-    for src_cat in source.categories:
-        if src_cat.name in target_cats:
+    for src_cat_name, src_cat in source.categories.items():
+        if src_cat_name in target_cats:
             overwritten += 1
         else:
             added += 1
-        target_cats[src_cat.name] = src_cat
+        target_cats[src_cat_name] = src_cat
 
-    return list(target_cats.values()), added, overwritten
+    return target_cats, added, overwritten
 
 
-def _merge_collections(source: Project, target: Project) -> tuple[list[Collection], int, int]:
+def _merge_collections(source: Project, target: Project) -> tuple[dict[str, Collection], int, int]:
     """Merge collections from source into target.
 
     Returns:
-        Tuple of (merged_collections, added_count, overwritten_count)
+        Tuple of (merged_collections_dict, added_count, overwritten_count)
 
     Note:
         This function is intentionally similar to _merge_categories.
         The duplication is minimal and maintains type safety without generic complexity.
     """
-    target_colls = {c.name: c for c in target.collections}
+    target_colls = dict(target.collections)  # Copy target collections
     added = 0
     overwritten = 0
 
-    for src_coll in source.collections:
-        if src_coll.name in target_colls:
+    for src_coll_name, src_coll in source.collections.items():
+        if src_coll_name in target_colls:
             overwritten += 1
         else:
             added += 1
-        target_colls[src_coll.name] = src_coll
+        target_colls[src_coll_name] = src_coll
 
-    return list(target_colls.values()), added, overwritten
+    return target_colls, added, overwritten

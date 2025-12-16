@@ -12,11 +12,11 @@ def test_project():
     """Create a test project with sample categories."""
     return Project(
         name="test-project",
-        categories=[
-            Category(name="docs", dir="docs", patterns=["*.md"]),
-            Category(name="api", dir="api", patterns=["*.py"]),
-            Category(name="tests", dir="tests", patterns=["test_*.py"]),
-        ],
+        categories={
+            "docs": Category(dir="docs", patterns=["*.md"]),
+            "api": Category(dir="api", patterns=["*.py"]),
+            "tests": Category(dir="tests", patterns=["test_*.py"]),
+        },
     )
 
 
@@ -41,7 +41,7 @@ class TestValidateCategoryExists:
 
     def test_no_categories_defined_raises_error(self):
         """No categories defined on the project should still raise a clear ArgValidationError."""
-        empty_project = Project(name="empty-project", categories=[])
+        empty_project = Project(name="empty-project", categories={})
 
         with pytest.raises(ArgValidationError) as exc_info:
             validate_category_exists(empty_project, "any-category")
@@ -92,12 +92,12 @@ class TestValidateCategoriesExist:
 
     def test_empty_project_empty_list_no_error(self):
         """Empty project with empty category list should not raise error."""
-        empty_project = Project(name="empty-project", categories=[])
+        empty_project = Project(name="empty-project", categories={})
         validate_categories_exist(empty_project, [])
 
     def test_empty_project_nonempty_list_raises_error(self):
         """Empty project with non-empty category list should raise error."""
-        empty_project = Project(name="empty-project", categories=[])
+        empty_project = Project(name="empty-project", categories={})
 
         with pytest.raises(ArgValidationError) as exc_info:
             validate_categories_exist(empty_project, ["docs", "api"])
