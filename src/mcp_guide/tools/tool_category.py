@@ -457,10 +457,16 @@ async def category_update(args: CategoryUpdateArgs, ctx: Optional[Context] = Non
 async def _extract_frontmatter_description(file_path: Path) -> str | None:
     """Extract description from YAML front-matter if present."""
     try:
+        import logging
+
         import aiofiles
 
+        # Read only first 4KB to check for front-matter efficiently
         async with aiofiles.open(file_path, "r", encoding="utf-8") as f:
-            content = await f.read()
+            content = await f.read(4096)
+
+        # Normalize line endings to handle both \r\n and \n
+        content = content.replace("\r\n", "\n").replace("\r", "\n")
 
         # Check if file starts with front-matter
         if not content.startswith("---\n"):
@@ -474,15 +480,24 @@ async def _extract_frontmatter_description(file_path: Path) -> str | None:
         # Extract front-matter content
         frontmatter_content = content[4:end_marker]
 
-        # Simple parsing for Description field
+        # Case-insensitive parsing for Description field
         for line in frontmatter_content.split("\n"):
             line = line.strip()
-            if line.startswith("Description:"):
-                description = line[12:].strip()  # Remove 'Description:' prefix
-                return description if description else None
+            if line.lower().startswith("description:"):
+                # Find the colon and extract everything after it
+                colon_pos = line.find(":")
+                if colon_pos != -1:
+                    description = line[colon_pos + 1 :].strip()
+                    return description if description else None
 
         return None
-    except Exception:
+    except (OSError, UnicodeDecodeError) as e:
+        # Log specific I/O and encoding errors but don't fail completely
+        logging.debug(f"Could not read front-matter from {file_path}: {e}")
+        return None
+    except Exception as e:
+        # Log unexpected errors but still return None
+        logging.warning(f"Unexpected error parsing front-matter from {file_path}: {e}")
         return None
 
 
