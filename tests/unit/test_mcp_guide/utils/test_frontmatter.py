@@ -1,6 +1,5 @@
 """Tests for frontmatter parsing utilities."""
 
-
 import pytest
 
 from mcp_guide.utils.frontmatter import extract_frontmatter, get_frontmatter_description
@@ -24,11 +23,7 @@ author: Test Author
 
         metadata, length = await extract_frontmatter(file_path)
 
-        assert metadata == {
-            "title": "Test Document",
-            "description": "A test document",
-            "author": "Test Author"
-        }
+        assert metadata == {"title": "Test Document", "description": "A test document", "author": "Test Author"}
         assert length == 78  # Actual length of frontmatter including delimiters
 
     @pytest.mark.asyncio
@@ -126,7 +121,7 @@ description: No closing delimiter
         content = "---\r\ntitle: Test\r\ndescription: Windows line endings\r\n---\r\n# Content"
 
         file_path = tmp_path / "test.md"
-        file_path.write_text(content, newline='')  # Preserve exact line endings
+        file_path.write_text(content, newline="")  # Preserve exact line endings
 
         metadata, length = await extract_frontmatter(file_path)
 
