@@ -76,4 +76,12 @@ async def get_frontmatter_description(file_path: Path) -> Optional[str]:
         Description string or None if not found
     """
     metadata, _ = await extract_frontmatter(file_path)
-    return metadata.get("description") if metadata else None
+    if not metadata:
+        return None
+
+    # Case-insensitive lookup for backward compatibility
+    for key, value in metadata.items():
+        if key.lower() == "description":
+            return str(value) if value is not None else None
+
+    return None

@@ -24,6 +24,7 @@ from mcp_guide.tools.tool_constants import (
 from mcp_guide.utils.content_utils import create_file_read_error_result, read_and_render_file_contents, resolve_patterns
 from mcp_guide.utils.file_discovery import discover_category_files
 from mcp_guide.utils.formatter_selection import get_formatter
+from mcp_guide.utils.frontmatter import get_frontmatter_description
 from mcp_guide.utils.template_context_cache import get_template_context_if_needed
 
 try:
@@ -452,9 +453,6 @@ async def category_update(args: CategoryUpdateArgs, ctx: Optional[Context] = Non
         return Result.failure(f"Failed to save project configuration: {e}", error_type=ERROR_SAVE).to_json_str()
 
     return Result.ok(f"Category '{args.name}' patterns updated successfully").to_json_str()
-
-
-from mcp_guide.utils.frontmatter import get_frontmatter_description
 
 
 @tools.tool(CategoryListFilesArgs)
