@@ -14,12 +14,12 @@ async def extract_frontmatter(file_path: Path, max_read_size: int = 4096) -> Tup
 
     Args:
         file_path: Path to the file to read
-        max_read_size: Maximum bytes to read for front-matter detection
+        max_read_size: Maximum characters to read for front-matter detection
 
     Returns:
         Tuple of (metadata_dict, frontmatter_length)
         - metadata_dict: Parsed YAML as dict, or None if no front-matter
-        - frontmatter_length: Length of front-matter section including delimiters, or 0
+        - frontmatter_length: Length of front-matter section including delimiters, in characters, or 0
     """
     try:
         # Read only first portion to check for front-matter efficiently
