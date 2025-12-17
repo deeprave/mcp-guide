@@ -48,7 +48,7 @@ class ExtMcpPromptDecorator:
                 final_name = f"{self.prefix}_{final_name}"
 
             # Build description
-            if args_class:
+            if args_class is not None and description is None:
                 final_description = args_class.build_description(func)
             else:
                 final_description = description or func.__doc__ or ""

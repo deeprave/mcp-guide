@@ -30,19 +30,19 @@ Always separate testing of happy and error paths.
 ### Loops
 
 Use of loops in tests can:
-- lead to tigher dependency between code and the test
+- lead to tighter dependency between code and the test
 - introduce the possibility of reducing the isolation between tests and loops in a test
-- obscures the result by not pinpointing which iteration causes a failure
-- introduces a risk of skipping certain test cases
+- obscure the result by not pinpointing which iteration causes a failure
+- introduce a risk of skipping certain test cases
 - making debugging more complex, must take into account the loop logic
 
 ### Mocks
 
 Avoid using mocks if possible, especially avoid testing mock behaviour.
 Mocks:
-- simiulate behaviour, which may not accurately reflect the real system.
-- bypass test dependencie, so they do not fully test integration
-- usually rely on implementation detail, increasing coupling between code and test.
+- simulate behaviour, which may not accurately reflect the real system
+- bypass test dependencies, so they do not fully test integration
+- usually rely on implementation detail, increasing coupling between code and test
 
 Prefer running real code, using real objects, classes and results where possible.
 The exceptions are fairly obvious:

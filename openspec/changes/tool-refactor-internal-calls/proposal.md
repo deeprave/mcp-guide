@@ -13,7 +13,7 @@ Refactor all MCP tools to follow a two-layer pattern:
 
 ### Layer 1: Internal Functions
 - Private functions (e.g., `_get_content`) that contain business logic
-- Take Arguments subclass as input
+- Take an Arguments subclass as input
 - Return `Result[T]` for structured error handling
 - Can be safely called by other system components
 

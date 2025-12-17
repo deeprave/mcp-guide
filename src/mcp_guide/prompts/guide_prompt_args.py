@@ -2,6 +2,8 @@
 
 from typing import List, Optional
 
+from pydantic import Field
+
 from mcp_core.arguments import Arguments
 
 
@@ -15,5 +17,5 @@ class GuidePromptArguments(Arguments):
     command: Optional[str] = None
     """Category or pattern to retrieve content for (e.g., 'guide', 'lang/python')"""
 
-    arguments: List[str] = []
+    arguments: List[str] = Field(default_factory=list)
     """Additional arguments reserved for future use"""
