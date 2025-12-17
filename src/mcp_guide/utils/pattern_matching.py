@@ -172,20 +172,20 @@ def safe_glob_search(search_dir: Path, patterns: List[str]) -> List[Path]:
             if _process_match(match_path, search_dir, seen_files, matched_files):
                 matches_found = True
 
-        # If no matches and pattern has no extension, try with .md
+        # If no matches and pattern has no extension, try with .* wildcard
         if not matches_found and "." not in Path(pattern).name:
-            md_pattern = f"{pattern}.md"
+            wildcard_pattern = f"{pattern}.*"
 
             try:
-                candidate_paths = _walk_with_depth_limit(search_dir, md_pattern)
+                candidate_paths = _walk_with_depth_limit(search_dir, wildcard_pattern)
             except Exception as e:
-                logger.warning(f"Pattern '{md_pattern}' failed: {e}")
+                logger.warning(f"Pattern '{wildcard_pattern}' failed: {e}")
                 continue
 
             for match_path in candidate_paths:
                 if len(matched_files) >= MAX_DOCUMENTS_PER_GLOB:
                     logger.warning(
-                        f"Reached maximum document limit ({MAX_DOCUMENTS_PER_GLOB}) for glob search (.md fallback)"
+                        f"Reached maximum document limit ({MAX_DOCUMENTS_PER_GLOB}) for glob search (.* fallback)"
                     )
                     break
 
