@@ -88,4 +88,5 @@ dev = [
     "types-chevron>=0.14.2.20250103",
     "watchdog>=6.0.0",
     "bandit>=1.9.2",
+    "ty>=0.0.2",
 ]
