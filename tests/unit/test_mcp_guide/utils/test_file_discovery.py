@@ -15,7 +15,7 @@ def test_fileinfo_has_category_field():
         path=Path("test.md"),
         size=100,
         mtime=datetime.now(),
-        basename="test.md",
+        name="test.md",
     )
     assert hasattr(file_info, "category")
     assert file_info.category is None
@@ -29,7 +29,7 @@ def test_fileinfo_has_collection_field():
         path=Path("test.md"),
         size=100,
         mtime=datetime.now(),
-        basename="test.md",
+        name="test.md",
     )
     assert hasattr(file_info, "collection")
     assert file_info.collection is None
@@ -43,7 +43,7 @@ def test_fileinfo_category_can_be_set():
         path=Path("test.md"),
         size=100,
         mtime=datetime.now(),
-        basename="test.md",
+        name="test.md",
         category="docs",
     )
     assert file_info.category == "docs"
@@ -57,7 +57,7 @@ def test_fileinfo_collection_can_be_set():
         path=Path("test.md"),
         size=100,
         mtime=datetime.now(),
-        basename="test.md",
+        name="test.md",
         collection="all",
     )
     assert file_info.collection == "all"
@@ -71,7 +71,7 @@ def test_fileinfo_both_fields_can_be_set():
         path=Path("test.md"),
         size=100,
         mtime=datetime.now(),
-        basename="test.md",
+        name="test.md",
         category="docs",
         collection="all",
     )
@@ -118,7 +118,7 @@ async def test_discover_single_file(tmp_path):
 
     assert len(result) == 1
     assert result[0].path == Path("test.md")
-    assert result[0].basename == "test.md"
+    assert result[0].name == "test.md"
     assert result[0].size > 0
 
 
@@ -172,7 +172,7 @@ async def test_discover_template_file(tmp_path):
 
     assert len(result) == 1
     assert result[0].path == Path("doc.md.mustache")
-    assert result[0].basename == "doc.md"
+    assert result[0].name == "doc.md"
 
 
 @pytest.mark.asyncio
@@ -185,7 +185,7 @@ async def test_prefer_non_template_over_template(tmp_path):
 
     assert len(result) == 1
     assert result[0].path == Path("doc.md")
-    assert result[0].basename == "doc.md"
+    assert result[0].name == "doc.md"
 
 
 @pytest.mark.asyncio
@@ -277,8 +277,10 @@ async def test_same_filename_different_directories(tmp_path):
     assert len(result) == 2
     paths = {r.path for r in result}
     assert paths == {Path("subdir1/doc.md"), Path("subdir2/doc.md")}
-    # Both should have same basename
-    assert all(r.basename == "doc.md" for r in result)
+    # Each should have their relative path as name
+    names = [r.name for r in result]
+    assert "subdir1/doc.md" in names
+    assert "subdir2/doc.md" in names
 
 
 @pytest.mark.asyncio
@@ -296,7 +298,7 @@ async def test_template_deduplication_in_subdirectory(tmp_path):
     # Should only return non-template version
     assert len(result) == 1
     assert result[0].path == Path("subdir/doc.md")
-    assert result[0].basename == "doc.md"
+    assert result[0].name == "subdir/doc.md"
 
 
 @pytest.mark.asyncio

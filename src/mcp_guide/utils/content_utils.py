@@ -74,7 +74,7 @@ async def read_and_render_file_contents(
             if has_templates and is_template_file(file_info):
                 # Enhanced validation of template context
                 if not isinstance(template_context, TemplateContext):
-                    error_path = f"{category_prefix}/{file_info.basename}" if category_prefix else file_info.basename
+                    error_path = f"{category_prefix}/{file_info.name}" if category_prefix else file_info.name
                     file_read_errors.append(f"'{error_path}': Invalid template context type")
                     continue
 
@@ -83,14 +83,14 @@ async def read_and_render_file_contents(
                     # Test context access to catch corrupted internal state
                     _ = dict(template_context)
                 except (TypeError, ValueError) as e:
-                    error_path = f"{category_prefix}/{file_info.basename}" if category_prefix else file_info.basename
+                    error_path = f"{category_prefix}/{file_info.name}" if category_prefix else file_info.name
                     file_read_errors.append(f"'{error_path}': Invalid template context data: {str(e)}")
                     continue
 
                 render_result = render_file_content(file_info, template_context)
                 if render_result.is_failure():
                     # Skip file on template error for consistency with other validation failures
-                    error_path = f"{category_prefix}/{file_info.basename}" if category_prefix else file_info.basename
+                    error_path = f"{category_prefix}/{file_info.name}" if category_prefix else file_info.name
                     file_read_errors.append(f"'{error_path}' template error: {render_result.error}")
                     continue
                 else:
@@ -99,10 +99,10 @@ async def read_and_render_file_contents(
 
             # Apply category prefix
             if category_prefix:
-                file_info.basename = f"{category_prefix}/{file_info.basename}"
+                file_info.name = f"{category_prefix}/{file_info.name}"
 
         except (FileNotFoundError, PermissionError, UnicodeDecodeError) as e:
-            error_path = f"{category_prefix}/{file_info.basename}" if category_prefix else file_info.basename
+            error_path = f"{category_prefix}/{file_info.name}" if category_prefix else file_info.name
             file_read_errors.append(f"'{error_path}': {e}")
 
     return file_read_errors

@@ -193,7 +193,7 @@ def add_file_context(base_context: TemplateContext, file_info: "FileInfo") -> Te
     """
     # Extract template-safe data directly from FileInfo
     file_data = {
-        "path": file_info.basename,  # Rendered file path (without .mustache)
+        "path": file_info.name,  # Rendered file path (without .mustache)
         "size": file_info.size,
     }
 
@@ -204,7 +204,7 @@ def add_file_context(base_context: TemplateContext, file_info: "FileInfo") -> Te
         logger.warning(
             "Failed to convert file mtime to ISO format: %s",
             str(e),
-            extra={"file_path": file_info.basename, "mtime_value": file_info.mtime, "component": "template_context"},
+            extra={"file_path": file_info.name, "mtime_value": file_info.mtime, "component": "template_context"},
         )
         file_data["mtime"] = ""
 
@@ -221,7 +221,7 @@ def add_file_context(base_context: TemplateContext, file_info: "FileInfo") -> Te
                 "Failed to convert file ctime to ISO format: %s",
                 str(e),
                 extra={
-                    "file_path": file_info.basename,
+                    "file_path": file_info.name,
                     "ctime_value": file_info.ctime,
                     "component": "template_context",
                 },

@@ -41,7 +41,7 @@ class MimeFormatter:
         content = file_info.content or ""
 
         # Detect Content-Type
-        mime_type, _ = mimetypes.guess_type(file_info.basename)
+        mime_type, _ = mimetypes.guess_type(file_info.name)
         content_type = mime_type or "text/plain"
 
         # Build Content-Location
@@ -79,7 +79,7 @@ class MimeFormatter:
             content = file_info.content or ""
 
             # Detect Content-Type
-            mime_type, _ = mimetypes.guess_type(file_info.basename)
+            mime_type, _ = mimetypes.guess_type(file_info.name)
             content_type = mime_type or "text/plain"
 
             # Build Content-Location

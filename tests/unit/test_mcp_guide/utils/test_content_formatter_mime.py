@@ -54,7 +54,7 @@ async def test_format_single_file_delegates():
     formatter = MimeFormatter()
     file_info = FileInfo(
         path=Path("test.md"),
-        basename="test.md",
+        name="test.md",
         size=100,
         mtime=datetime.now(),
         content="test content",
@@ -73,7 +73,7 @@ async def test_format_single_markdown_file():
     content = "# Test\n\nThis is test content."
     file_info = FileInfo(
         path=Path("docs/test.md"),
-        basename="test.md",
+        name="test.md",
         size=len(content.encode("utf-8")),
         mtime=datetime.now(),
         content=content,
@@ -98,7 +98,7 @@ async def test_format_single_text_file():
     content = "Plain text content"
     file_info = FileInfo(
         path=Path("notes.txt"),
-        basename="notes.txt",
+        name="notes.txt",
         size=len(content.encode("utf-8")),
         mtime=datetime.now(),
         content=content,
@@ -117,7 +117,7 @@ async def test_format_single_unknown_extension():
     content = "Unknown file type"
     file_info = FileInfo(
         path=Path("file.unknownext123"),
-        basename="file.unknownext123",
+        name="file.unknownext123",
         size=len(content.encode("utf-8")),
         mtime=datetime.now(),
         content=content,
@@ -135,7 +135,7 @@ async def test_format_single_utf8_content():
     content = "Hello 世界 🌍"  # Multi-byte characters
     file_info = FileInfo(
         path=Path("unicode.txt"),
-        basename="unicode.txt",
+        name="unicode.txt",
         size=len(content.encode("utf-8")),
         mtime=datetime.now(),
         content=content,
@@ -155,14 +155,14 @@ async def test_format_multiple_main_header():
     files = [
         FileInfo(
             path=Path("file1.md"),
-            basename="file1.md",
+            name="file1.md",
             size=10,
             mtime=datetime.now(),
             content="Content 1",
         ),
         FileInfo(
             path=Path("file2.md"),
-            basename="file2.md",
+            name="file2.md",
             size=10,
             mtime=datetime.now(),
             content="Content 2",
@@ -184,14 +184,14 @@ async def test_format_multiple_boundary_format():
     files = [
         FileInfo(
             path=Path("file1.md"),
-            basename="file1.md",
+            name="file1.md",
             size=10,
             mtime=datetime.now(),
             content="Content 1",
         ),
         FileInfo(
             path=Path("file2.md"),
-            basename="file2.md",
+            name="file2.md",
             size=10,
             mtime=datetime.now(),
             content="Content 2",
@@ -222,14 +222,14 @@ async def test_format_multiple_part_headers():
     files = [
         FileInfo(
             path=Path("docs/file1.md"),
-            basename="file1.md",
+            name="file1.md",
             size=10,
             mtime=datetime.now(),
             content="Content 1",
         ),
         FileInfo(
             path=Path("docs/file2.txt"),
-            basename="file2.txt",
+            name="file2.txt",
             size=10,
             mtime=datetime.now(),
             content="Content 2",
@@ -256,14 +256,14 @@ async def test_format_multiple_crlf_line_endings():
     files = [
         FileInfo(
             path=Path("file1.md"),
-            basename="file1.md",
+            name="file1.md",
             size=10,
             mtime=datetime.now(),
             content="Content 1",
         ),
         FileInfo(
             path=Path("file2.md"),
-            basename="file2.md",
+            name="file2.md",
             size=10,
             mtime=datetime.now(),
             content="Content 2",
@@ -289,14 +289,14 @@ async def test_format_multiple_content_preserved():
     files = [
         FileInfo(
             path=Path("file1.md"),
-            basename="file1.md",
+            name="file1.md",
             size=len(content1),
             mtime=datetime.now(),
             content=content1,
         ),
         FileInfo(
             path=Path("file2.md"),
-            basename="file2.md",
+            name="file2.md",
             size=len(content2),
             mtime=datetime.now(),
             content=content2,

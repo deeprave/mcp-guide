@@ -498,9 +498,9 @@ async def category_list_files(args: CategoryListFilesArgs, ctx: Optional[Context
         description = await get_frontmatter_description(full_path)
 
         file_info = {
-            "path": str(file.path),
+            "path": file.name,
             "size": file.size,
-            "basename": file.basename,
+            "basename": Path(file.name).name,
         }
 
         # Only add description if it exists

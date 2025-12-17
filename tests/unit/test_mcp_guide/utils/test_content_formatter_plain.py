@@ -55,7 +55,7 @@ async def test_format_single_file_returns_content():
     content = "# Test\n\nThis is test content."
     file_info = FileInfo(
         path=Path("test.md"),
-        basename="test.md",
+        name="test.md",
         size=len(content.encode("utf-8")),
         mtime=datetime.now(),
         content=content,
@@ -72,7 +72,7 @@ async def test_format_single_preserves_line_endings():
     content = "Line 1\nLine 2\r\nLine 3\n"
     file_info = FileInfo(
         path=Path("test.txt"),
-        basename="test.txt",
+        name="test.txt",
         size=len(content.encode("utf-8")),
         mtime=datetime.now(),
         content=content,
@@ -89,7 +89,7 @@ async def test_format_single_preserves_whitespace():
     content = "  Leading spaces\n\tTabs\n  Trailing  "
     file_info = FileInfo(
         path=Path("test.txt"),
-        basename="test.txt",
+        name="test.txt",
         size=len(content.encode("utf-8")),
         mtime=datetime.now(),
         content=content,
@@ -106,7 +106,7 @@ async def test_format_single_no_headers():
     content = "Plain content"
     file_info = FileInfo(
         path=Path("test.md"),
-        basename="test.md",
+        name="test.md",
         size=len(content.encode("utf-8")),
         mtime=datetime.now(),
         content=content,
@@ -127,7 +127,7 @@ async def test_format_single_empty_file():
     formatter = PlainFormatter()
     file_info = FileInfo(
         path=Path("empty.txt"),
-        basename="empty.txt",
+        name="empty.txt",
         size=0,
         mtime=datetime.now(),
         content="",
@@ -143,7 +143,7 @@ async def test_format_single_none_content():
     formatter = PlainFormatter()
     file_info = FileInfo(
         path=Path("test.txt"),
-        basename="test.txt",
+        name="test.txt",
         size=0,
         mtime=datetime.now(),
         content=None,
@@ -159,14 +159,14 @@ async def test_format_multiple_two_files():
     formatter = PlainFormatter()
     file1 = FileInfo(
         path=Path("docs/file1.md"),
-        basename="file1.md",
+        name="file1.md",
         size=10,
         mtime=datetime.now(),
         content="Content 1",
     )
     file2 = FileInfo(
         path=Path("docs/file2.md"),
-        basename="file2.md",
+        name="file2.md",
         size=10,
         mtime=datetime.now(),
         content="Content 2",
@@ -185,7 +185,7 @@ async def test_format_multiple_three_files():
     files = [
         FileInfo(
             path=Path(f"file{i}.md"),
-            basename=f"file{i}.md",
+            name=f"file{i}.md",
             size=10,
             mtime=datetime.now(),
             content=f"Content {i}",
@@ -205,14 +205,14 @@ async def test_format_multiple_uses_basename():
     formatter = PlainFormatter()
     file1 = FileInfo(
         path=Path("docs/subdir/file.md"),
-        basename="file.md",
+        name="file.md",
         size=10,
         mtime=datetime.now(),
         content="Content",
     )
     file2 = FileInfo(
         path=Path("other/path/test.md"),
-        basename="test.md",
+        name="test.md",
         size=10,
         mtime=datetime.now(),
         content="Test",
@@ -235,14 +235,14 @@ async def test_format_multiple_preserves_content():
 
     file1 = FileInfo(
         path=Path("file1.md"),
-        basename="file1.md",
+        name="file1.md",
         size=len(content1),
         mtime=datetime.now(),
         content=content1,
     )
     file2 = FileInfo(
         path=Path("file2.md"),
-        basename="file2.md",
+        name="file2.md",
         size=len(content2),
         mtime=datetime.now(),
         content=content2,

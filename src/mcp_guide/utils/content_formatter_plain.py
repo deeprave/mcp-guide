@@ -48,7 +48,7 @@ class PlainFormatter:
         """
         parts = []
         for file_info in file_infos:
-            separator = f"--- {file_info.basename} ---\n"
+            separator = f"--- {file_info.name} ---\n"
             content = file_info.content or ""
             parts.append(separator + content)
         return "\n".join(parts)

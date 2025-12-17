@@ -20,7 +20,7 @@ class FileInfo:
         path: Relative path to file from category directory
         size: File size in bytes
         mtime: File modification time
-        basename: File basename (without template extension if applicable)
+        name: Relative path without template extension (for agent display)
         content: File content (populated after reading)
         category: Category name where file was discovered (for templating)
         collection: Collection name where file was discovered (for templating)
@@ -30,7 +30,7 @@ class FileInfo:
     path: Path
     size: int
     mtime: datetime
-    basename: str
+    name: str
     content: str | None = None
     category: str | None = None
     collection: str | None = None
@@ -108,16 +108,16 @@ async def discover_category_files(
         stat_result = await aiofiles.os.stat(matched_path)
         relative_path = matched_path.relative_to(category_dir_resolved)
 
-        # Calculate basename (just filename without template extension)
-        basename = relative_path.name
-        if basename.endswith(TEMPLATE_EXTENSION):
-            basename = basename[: -len(TEMPLATE_EXTENSION)]
+        # Calculate name (full relative path without template extension)
+        name = relative_path.as_posix()
+        if name.endswith(TEMPLATE_EXTENSION):
+            name = name[: -len(TEMPLATE_EXTENSION)]
 
         file_info = FileInfo(
             path=relative_path,
             size=stat_result.st_size,
             mtime=datetime.fromtimestamp(stat_result.st_mtime),
-            basename=basename,
+            name=name,
             ctime=datetime.fromtimestamp(stat_result.st_ctime),
         )
         results.append(file_info)
