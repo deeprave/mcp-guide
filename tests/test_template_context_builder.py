@@ -21,7 +21,7 @@ class MockFileInfo:
     path: Path
     size: int
     mtime: datetime
-    basename: str
+    name: str
     content: str | None = None
     category: str | None = None
     collection: str | None = None
@@ -104,7 +104,7 @@ class TestBuildTemplateContext:
             path=Path("test/file.txt.mustache"),  # Actual template path
             size=1024,
             mtime=datetime(2024, 1, 1, 12, 0, 0),
-            basename="test/file.txt",  # Rendered path (template extension removed)
+            name="test/file.txt",  # Rendered path (template extension removed)
             category="docs",
             collection="main",
         )
@@ -236,7 +236,7 @@ class TestBuildTemplateContext:
             path=Path("test/file.txt.mustache"),
             size=1024,
             mtime="invalid_datetime",  # Invalid datetime object
-            basename="test/file.txt",
+            name="test/file.txt",
             category="docs",
             ctime="invalid_ctime",  # Invalid ctime object
         )

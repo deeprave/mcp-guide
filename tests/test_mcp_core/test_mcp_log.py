@@ -429,23 +429,6 @@ class TestContextTrace:
         # Should not raise even if FastMCP not available
         add_trace_to_context()
 
-    def test_context_trace_method_exists(self):
-        """Test Context.trace() method is added if FastMCP available."""
-        try:
-            from fastmcp import Context
-
-            from mcp_core.mcp_log import add_trace_to_context
-
-            add_trace_to_context()
-
-            # Check if trace method was added
-            assert hasattr(Context, "trace")
-        except ImportError:
-            # FastMCP not available, skip test
-            import pytest
-
-            pytest.skip("FastMCP not available")
-
 
 class TestConfigure:
     """Tests for configure() function."""

@@ -20,13 +20,13 @@ class TestTemplateDetection:
 
     def test_is_template_file_with_mustache_extension(self):
         """Test template detection for .mustache files."""
-        file_info = FileInfo(path=Path("test.md.mustache"), size=100, mtime=datetime.now(), basename="test.md")
+        file_info = FileInfo(path=Path("test.md.mustache"), size=100, mtime=datetime.now(), name="test.md")
 
         assert is_template_file(file_info) is True
 
     def test_is_template_file_without_mustache_extension(self):
         """Test template detection for non-template files."""
-        file_info = FileInfo(path=Path("test.md"), size=100, mtime=datetime.now(), basename="test.md")
+        file_info = FileInfo(path=Path("test.md"), size=100, mtime=datetime.now(), name="test.md")
 
         assert is_template_file(file_info) is False
 
@@ -132,7 +132,7 @@ class TestFileContentRendering:
     def test_render_file_content_non_template(self):
         """Test rendering non-template file content."""
         file_info = FileInfo(
-            path=Path("test.md"), size=100, mtime=datetime.now(), basename="test.md", content="# Hello World"
+            path=Path("test.md"), size=100, mtime=datetime.now(), name="test.md", content="# Hello World"
         )
         context = TemplateContext({"name": "World"})
 
@@ -144,7 +144,7 @@ class TestFileContentRendering:
     def test_render_file_content_template_without_context(self):
         """Test rendering template file without context."""
         file_info = FileInfo(
-            path=Path("test.md.mustache"), size=100, mtime=datetime.now(), basename="test.md", content="Hello {{name}}!"
+            path=Path("test.md.mustache"), size=100, mtime=datetime.now(), name="test.md", content="Hello {{name}}!"
         )
 
         result = render_file_content(file_info, None)
@@ -155,7 +155,7 @@ class TestFileContentRendering:
     def test_render_file_content_template_with_context(self):
         """Test rendering template file with context."""
         file_info = FileInfo(
-            path=Path("test.md.mustache"), size=100, mtime=datetime.now(), basename="test.md", content="Hello {{name}}!"
+            path=Path("test.md.mustache"), size=100, mtime=datetime.now(), name="test.md", content="Hello {{name}}!"
         )
         context = TemplateContext({"name": "World"})
 
@@ -169,7 +169,7 @@ class TestFileContentRendering:
     def test_render_file_content_accepts_template_context(self):
         """Test that render_file_content accepts TemplateContext."""
         file_info = FileInfo(
-            path=Path("test.md.mustache"), size=100, mtime=datetime.now(), basename="test.md", content="Hello {{name}}!"
+            path=Path("test.md.mustache"), size=100, mtime=datetime.now(), name="test.md", content="Hello {{name}}!"
         )
         context = TemplateContext({"name": "World"})
 
@@ -180,7 +180,7 @@ class TestFileContentRendering:
 
     def test_render_file_content_no_content_loaded(self):
         """Test rendering file with no content loaded."""
-        file_info = FileInfo(path=Path("test.md"), size=100, mtime=datetime.now(), basename="test.md", content=None)
+        file_info = FileInfo(path=Path("test.md"), size=100, mtime=datetime.now(), name="test.md", content=None)
         context = TemplateContext({"name": "World"})
 
         result = render_file_content(file_info, context)
@@ -195,7 +195,7 @@ class TestFileContentRendering:
             path=Path("test.md.mustache"),
             size=100,
             mtime=datetime.now(),
-            basename="test.md",
+            name="test.md",
             content="Hello {{#unclosed}}!",
         )
         context = TemplateContext({"name": "World"})
@@ -264,7 +264,7 @@ class TestFileContextIsolation:
             path=Path("/test/docs/readme.md"),
             size=1024,
             mtime=datetime(2023, 12, 25, 10, 30, 45),
-            basename="readme",
+            name="readme",
             content="# Test",
         )
 
@@ -272,7 +272,7 @@ class TestFileContextIsolation:
 
         assert "file" in context
         assert context["file"]["path"] == "/test/docs/readme.md"
-        assert context["file"]["basename"] == "readme"
+        assert context["file"]["name"] == "readme"
         assert context["file"]["size"] == 1024
         assert context["file"]["extension"] == ".md"
         assert context["file"]["is_template"] is False
@@ -284,7 +284,7 @@ class TestFileContextIsolation:
             path=Path("/test/templates/page.md.mustache"),
             size=512,
             mtime=datetime(2023, 12, 25),
-            basename="page.md",
+            name="page.md",
             content="Hello {{name}}",
         )
 
@@ -292,15 +292,15 @@ class TestFileContextIsolation:
 
         assert context["file"]["is_template"] is True
         assert context["file"]["extension"] == ".mustache"
-        assert context["file"]["basename"] == "page.md"
+        assert context["file"]["name"] == "page.md"
 
     def test_file_context_isolation_using_new_child(self) -> None:
         """Test that file contexts are isolated using new_child()."""
         base_context = TemplateContext({"shared": "value"})
 
-        file1_info = FileInfo(path=Path("/test/file1.md"), size=100, mtime=datetime(2023, 12, 25), basename="file1")
+        file1_info = FileInfo(path=Path("/test/file1.md"), size=100, mtime=datetime(2023, 12, 25), name="file1")
 
-        file2_info = FileInfo(path=Path("/test/file2.md"), size=200, mtime=datetime(2023, 12, 26), basename="file2")
+        file2_info = FileInfo(path=Path("/test/file2.md"), size=200, mtime=datetime(2023, 12, 26), name="file2")
 
         # Build file contexts
         file1_context = _build_file_context(file1_info)
@@ -311,8 +311,8 @@ class TestFileContextIsolation:
         isolated2 = file2_context.new_child(base_context)
 
         # Verify isolation
-        assert isolated1["file"]["basename"] == "file1"
-        assert isolated2["file"]["basename"] == "file2"
+        assert isolated1["file"]["name"] == "file1"
+        assert isolated2["file"]["name"] == "file2"
         assert isolated1["shared"] == "value"
         assert isolated2["shared"] == "value"
 
@@ -321,9 +321,9 @@ class TestFileContextIsolation:
 
     async def test_render_template_with_context_chain_includes_file_context(self) -> None:
         """Test that wrapper includes file context when FileInfo provided."""
-        content = "File: {{file.basename}} ({{file.size}} bytes)"
+        content = "File: {{file.name}} ({{file.size}} bytes)"
 
-        file_info = FileInfo(path=Path("/test/readme.md"), size=1024, mtime=datetime(2023, 12, 25), basename="readme")
+        file_info = FileInfo(path=Path("/test/readme.md"), size=1024, mtime=datetime(2023, 12, 25), name="readme")
 
         # Mock base context
         base_context = TemplateContext({"project": {"name": "test-project"}})

@@ -29,8 +29,8 @@ class TestContentToolsTemplateIntegration:
 
             # Create FileInfo objects
             files = [
-                FileInfo(path=Path("test.md.mustache"), size=100, mtime=datetime.now(), basename="test.md"),
-                FileInfo(path=Path("regular.md"), size=50, mtime=datetime.now(), basename="regular"),
+                FileInfo(path=Path("test.md.mustache"), size=100, mtime=datetime.now(), name="test.md"),
+                FileInfo(path=Path("regular.md"), size=50, mtime=datetime.now(), name="regular"),
             ]
 
             # Create template context
@@ -58,7 +58,7 @@ class TestContentToolsTemplateIntegration:
             template_file = temp_path / "broken.md.mustache"
             template_file.write_text("Hello {{#unclosed_section}}!")
 
-            files = [FileInfo(path=Path("broken.md.mustache"), size=100, mtime=datetime.now(), basename="broken.md")]
+            files = [FileInfo(path=Path("broken.md.mustache"), size=100, mtime=datetime.now(), name="broken.md")]
 
             context = TemplateContext({"name": "World"})
 
@@ -83,7 +83,7 @@ class TestContentToolsTemplateIntegration:
             template_file = temp_path / "test.md.mustache"
             template_file.write_text("Hello {{name}}!")
 
-            files = [FileInfo(path=Path("test.md.mustache"), size=100, mtime=datetime.now(), basename="test.md")]
+            files = [FileInfo(path=Path("test.md.mustache"), size=100, mtime=datetime.now(), name="test.md")]
 
             # Pass invalid context (not TemplateContext)
             invalid_context = {"name": "World"}  # Plain dict instead of TemplateContext

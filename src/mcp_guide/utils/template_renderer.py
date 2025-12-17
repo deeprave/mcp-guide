@@ -143,7 +143,7 @@ def _build_file_context(file_info: FileInfo) -> TemplateContext:
     file_vars = {
         "file": {
             "path": str(file_info.path),
-            "basename": file_info.basename,
+            "name": file_info.name,
             "size": file_info.size,
             "mtime": file_info.mtime.strftime("%Y-%m-%d %H:%M:%S"),
             "extension": file_info.path.suffix,

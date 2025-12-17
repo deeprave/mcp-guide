@@ -27,7 +27,13 @@ def is_valid_file(path: Path) -> bool:
         return False
 
     # Check if any parent directory starts with . or __ (hidden or special directories)
-    return not any(part in (".", "..") or part.startswith("__") or part.startswith(".") for part in path.parts)
+    # Skip absolute path prefixes to avoid rejecting ~/.config paths
+    parts = path.parts
+    for part in parts:
+        if part.startswith("__") or (part.startswith(".") and part not in (".", "..")):
+            return False
+
+    return True
 
 
 def _process_match(
