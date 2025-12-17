@@ -55,13 +55,13 @@ class TestLoggingConfiguration:
         # Verify config is stored for later use
         assert server_module._pending_log_config is config
 
-    def test_configure_logging_with_file_handler(self) -> None:
+    def test_configure_logging_with_file_handler(self, tmp_path) -> None:
         """Test logging configuration stores config with file path."""
         import mcp_guide.server as server_module
         from mcp_guide.cli import ServerConfig
         from mcp_guide.main import _configure_logging
 
-        log_path = "server.log"
+        log_path = str(tmp_path / "server.log")
         config = ServerConfig(log_file=log_path, log_json=True)
         _configure_logging(config)
 
