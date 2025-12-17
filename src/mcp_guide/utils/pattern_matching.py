@@ -26,11 +26,10 @@ def is_valid_file(path: Path) -> bool:
     if name.startswith("__") or name.endswith(METADATA_SUFFIX) or name.startswith("."):
         return False
 
-    # Check if any parent directory starts with . or __ (hidden or special directories)
-    # Skip absolute path prefixes to avoid rejecting ~/.config paths
-    parts = path.parts
-    for part in parts:
-        if part.startswith("__") or (part.startswith(".") and part not in (".", "..")):
+    # Check parent directories for __pycache__ style directories and reject . and .. segments
+    # IMPORTANT: Hidden directories (starting with .) in path are perfectly OK - do not reject them
+    for part in path.parts[:-1]:  # Exclude filename from check
+        if part.startswith("__") or part in (".", ".."):
             return False
 
     return True

@@ -144,8 +144,8 @@ class TestHiddenFileExclusion:
         assert len(results) == 1
         assert results[0].name == "file.md"
 
-    def test_exclude_hidden_parent_directory(self, temp_project_dir):
-        """Test files under hidden parent directories are excluded."""
+    def test_allow_hidden_parent_directory(self, temp_project_dir):
+        """Test files under hidden parent directories are allowed."""
         # Arrange
         test_dir = temp_project_dir / "test_hidden_parent"
         test_dir.mkdir()
@@ -158,8 +158,10 @@ class TestHiddenFileExclusion:
         results = safe_glob_search(test_dir, ["**/*.md"])
 
         # Assert
-        assert len(results) == 1
-        assert results[0].name == "visible.md"
+        assert len(results) == 2
+        names = [r.name for r in results]
+        assert "visible.md" in names
+        assert "file.md" in names
 
     def test_exclude_dunder_parent_directory(self, temp_project_dir):
         """Test files under dunder parent directories are excluded."""
