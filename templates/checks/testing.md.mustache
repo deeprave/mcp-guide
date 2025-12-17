@@ -1,3 +1,7 @@
+---
+Type: agent/instructions
+Description: General guidelines around testing
+---
 # Testing Guidelines
 
 These are the guidelines to follow for general code and quality testing.
@@ -5,38 +9,37 @@ These are the guidelines to follow for general code and quality testing.
 ## Instructions for Testing
 
 - Do not use conditionals in tests
-- Avoid loops
-- Prefer not using mocks
+- Avoid loops in tests
+- Prefer not using mocks, and use only when necessary to avoid side-effects
 - Test the API not the implementation
 - Test that a feature works
 
 NEVER use "coverage" in module, class, function, method or variable names.
 Always use names that describe what is being tested.
+Coverage is a statistic that indicates how complete the testing is within the codebase.
+It is not an end in itself.
 
 ### Conditionals
 
-Use of conditionals:
-
+Avoid use of conditionals in tests:
 - obfuscates the intent of a test.
-- introduce a risk of introducing subtle bugs, including false positives and negatives.
+- introduces a risk of introducing subtle bugs, including false positives and negatives.
 
 Always separate testing of happy and error paths.
 
 ### Loops
 
 Use of loops in tests can:
-
-- lead to tigher dependency between code and the test.
-- introduce the possibility of reduecing the isolation between tests.
-- obscure the result by not pinpointing which iteration causes a failure.
-- introduce a risk of skipping certain test cases
-- making debugging more complex, must take into account the loop logic.
+- lead to tigher dependency between code and the test
+- introduce the possibility of reducing the isolation between tests and loops in a test
+- obscures the result by not pinpointing which iteration causes a failure
+- introduces a risk of skipping certain test cases
+- making debugging more complex, must take into account the loop logic
 
 ### Mocks
 
 Avoid using mocks if possible, especially avoid testing mock behaviour.
 Mocks:
-
 - simiulate behaviour, which may not accurately reflect the real system.
 - bypass test dependencie, so they do not fully test integration
 - usually rely on implementation detail, increasing coupling between code and test.
