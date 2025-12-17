@@ -1,38 +1,38 @@
-"""Tests for ToolArguments base class."""
+"""Tests for Arguments base class."""
 
 from typing import Literal
 
 import pytest
 from pydantic import ValidationError
 
-from mcp_core.tool_arguments import ToolArguments
+from mcp_core.arguments import Arguments
 
 
-class SimpleArgs(ToolArguments):
+class SimpleArgs(Arguments):
     """Simple test arguments."""
 
     name: str
     count: int = 5
 
 
-class LiteralArgs(ToolArguments):
+class LiteralArgs(Arguments):
     """Arguments with Literal type."""
 
     action: Literal["create", "update", "delete"]
     target: str
 
 
-class TestToolArgumentsValidation:
+class TestArgumentsValidation:
     """Tests for Pydantic validation."""
 
     def test_base_model_inheritance_and_validation(self):
-        """ToolArguments should inherit from BaseModel and validate fields."""
+        """Arguments should inherit from BaseModel and validate fields."""
         args = SimpleArgs(name="test", count=10)
         assert args.name == "test"
         assert args.count == 10
 
     def test_extra_forbid_rejects_unknown_fields(self):
-        """ToolArguments should reject unknown fields with extra='forbid'."""
+        """Arguments should reject unknown fields with extra='forbid'."""
         with pytest.raises(ValidationError) as exc_info:
             SimpleArgs(name="test", unknown_field="value")
 
@@ -61,14 +61,42 @@ class TestSchemaGeneration:
         assert "update" in schema
         assert "delete" in schema
 
-    def test_build_tool_description_combines_docstring_and_schema(self):
-        """build_tool_description() should combine function docstring with schema."""
+    def test_build_description_combines_docstring_and_schema(self):
+        """build_description() should combine function docstring with schema."""
 
-        def example_tool(args: SimpleArgs) -> dict:
-            """This is a test tool."""
+        def example_function(args: SimpleArgs) -> dict:
+            """This is a test function."""
             return {}
 
-        description = ToolArguments.build_tool_description(example_tool)
+        description = Arguments.build_description(example_function)
 
-        assert "This is a test tool." in description
+        assert "This is a test function." in description
         assert "## Arguments" in description
+
+
+class TestAliases:
+    """Tests for package aliases."""
+
+    def test_toolarguments_alias(self):
+        """ToolArguments alias should work for existing code."""
+        from mcp_core.tool_arguments import ToolArguments
+
+        assert ToolArguments is Arguments
+
+        class TestArgs(ToolArguments):
+            value: str = "test"
+
+        args = TestArgs()
+        assert args.value == "test"
+
+    def test_promptarguments_alias(self):
+        """PromptArguments alias should work for prompt code."""
+        from mcp_guide.prompts import PromptArguments
+
+        assert PromptArguments is Arguments
+
+        class TestPromptArgs(PromptArguments):
+            command: str = "test"
+
+        args = TestPromptArgs()
+        assert args.command == "test"

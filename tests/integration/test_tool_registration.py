@@ -95,7 +95,7 @@ async def test_auto_generated_description():
     from mcp_core.tool_arguments import ToolArguments
     from mcp_guide.tools.tool_category import category_list
 
-    description = ToolArguments.build_tool_description(category_list)
+    description = ToolArguments.build_description(category_list)
 
     # Should include docstring
     assert "List all categories" in description

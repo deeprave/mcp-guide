@@ -72,10 +72,8 @@ class ExtMcpToolDecorator:
 
             # Auto-generate description from args_class if provided
             final_description = description
-            if args_class is not None and description is None:
-                from mcp_core.tool_arguments import ToolArguments
-
-                final_description = ToolArguments.build_tool_description(func)
+            if args_class is not None and description is None and hasattr(args_class, "build_description"):
+                final_description = args_class.build_description(func)
 
             # Determine prefix
             tool_prefix = prefix if prefix is not None else os.environ.get("MCP_TOOL_PREFIX", "")

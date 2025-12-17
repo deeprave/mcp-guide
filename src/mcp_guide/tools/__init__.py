@@ -20,3 +20,8 @@ All tools should follow this pattern for session access:
 
 Note: Actual tool implementations will be added in separate changes.
 """
+
+# Import Arguments as ToolArguments for backward compatibility
+from mcp_core.arguments import Arguments as ToolArguments
+
+__all__ = ["ToolArguments"]
