@@ -25,6 +25,8 @@ try:
 except ImportError:
     Context = None  # type: ignore[misc, assignment]
 
+__all__ = ["internal_get_content"]
+
 
 class ContentArgs(ToolArguments):
     """Arguments for get_content tool.
@@ -45,11 +47,10 @@ class ContentArgs(ToolArguments):
     )
 
 
-@tools.tool(ContentArgs)
-async def get_content(
+async def internal_get_content(
     args: ContentArgs,
     ctx: Optional[Context] = None,  # type: ignore[type-arg]
-) -> str:
+) -> Result[str]:
     """Get content from collections and categories (unified access).
 
     Searches collections first, then categories. Aggregates and de-duplicates
@@ -60,13 +61,13 @@ async def get_content(
         ctx: MCP Context (auto-injected by FastMCP)
 
     Returns:
-        JSON string with Result containing formatted content or error
+        Result containing formatted content or error
     """
     # Get session
     try:
         session = await get_or_create_session(ctx)
     except ValueError as e:
-        return Result.failure(str(e), error_type=ERROR_NO_PROJECT).to_json_str()
+        return Result.failure(str(e), error_type=ERROR_NO_PROJECT)
 
     # Get project
     project = await session.get_project()
@@ -153,14 +154,34 @@ async def get_content(
                 "content",
                 ERROR_FILE_READ,
                 INSTRUCTION_FILE_ERROR,
-            ).to_json_str()
+            )
 
         # 5. Format and return content
         formatter = get_formatter()
         content = await formatter.format(final_files, args.category_or_collection)
-        return Result.ok(content).to_json_str()
+        return Result.ok(content)
 
     # No files found
     return Result.ok(
         f"No matching content found for '{args.category_or_collection}'", instruction=INSTRUCTION_PATTERN_ERROR
-    ).to_json_str()
+    )
+
+
+@tools.tool(ContentArgs)
+async def get_content(
+    args: ContentArgs,
+    ctx: Optional[Context] = None,  # type: ignore[type-arg]
+) -> str:
+    """Get content from collections and categories (unified access).
+
+    Searches collections first, then categories. Aggregates and de-duplicates
+    results from all matches.
+
+    Args:
+        args: Tool arguments with name and optional pattern
+        ctx: MCP Context (auto-injected by FastMCP)
+
+    Returns:
+        Result containing formatted content or error
+    """
+    return (await internal_get_content(args, ctx)).to_json_str()
