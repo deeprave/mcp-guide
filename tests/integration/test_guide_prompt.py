@@ -86,7 +86,7 @@ class TestGuidePromptIntegration:
         with patch(
             "mcp_guide.prompts.guide_prompt.internal_get_content", new=AsyncMock(return_value=mock_result)
         ) as mock_get_content:
-            await guide("first", argA="second", ctx=mock_ctx)  # arg1 should be processed, not argA
+            await guide("first", arg2="second", ctx=mock_ctx)  # arg1 should be processed, not arg2
 
             args_call, _ = mock_get_content.call_args
             content_args = args_call[0]
