@@ -7,6 +7,11 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 from urllib.parse import urlparse
 
+try:
+    from mcp.server.fastmcp import Context
+except ImportError:
+    Context = None  # type: ignore
+
 if TYPE_CHECKING:
     from mcp_guide.agent_detection import AgentInfo
 
@@ -28,7 +33,7 @@ class CachedMcpContext:
 cached_mcp_context: ContextVar[Optional[CachedMcpContext]] = ContextVar("cached_mcp_context", default=None)
 
 
-async def cache_mcp_globals(ctx: Optional[Any] = None) -> bool:
+async def cache_mcp_globals(ctx: Optional["Context"] = None) -> bool:  # type: ignore[type-arg]
     """Cache MCP globals (roots, agent info, client params) if context available.
 
     Args:

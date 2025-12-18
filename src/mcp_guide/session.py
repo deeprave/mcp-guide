@@ -5,6 +5,11 @@ from contextvars import ContextVar
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
+try:
+    from mcp.server.fastmcp import Context
+except ImportError:
+    Context = None  # type: ignore
+
 if TYPE_CHECKING:
     from mcp_guide.feature_flags.protocol import FeatureFlags
     from mcp_guide.session_listener import SessionListener
@@ -160,7 +165,7 @@ active_sessions: ContextVar[dict[str, Session]] = ContextVar("active_sessions")
 
 
 async def get_or_create_session(
-    ctx: Optional[Any] = None,
+    ctx: Optional["Context"] = None,  # type: ignore[type-arg]
     project_name: Optional[str] = None,
     _config_dir_for_tests: Optional[str] = None,
 ) -> Session:
@@ -259,7 +264,7 @@ def remove_current_session(project_name: str) -> None:
     active_sessions.set(sessions)
 
 
-async def set_project(project_name: str, ctx: Optional["Context"] = None) -> Result[Project]:  # type: ignore[name-defined]
+async def set_project(project_name: str, ctx: Optional["Context"] = None) -> Result[Project]:  # type: ignore[type-arg]
     """Set/load project by name.
 
     Args:

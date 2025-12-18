@@ -1,42 +1,42 @@
 ## 1. Core Infrastructure
-- [ ] 1.1 Define standard Result data types for each tool category
-- [ ] 1.2 Create conversion utilities for Result → JSON string (if needed beyond to_json_str())
-- [ ] 1.3 Establish naming convention: `internal_*` for internal functions, `__all__` exports
+- [x] 1.1 Define standard Result data types for each tool category
+- [x] 1.2 Create conversion utilities for Result → JSON string (if needed beyond to_json_str())
+- [x] 1.3 Establish naming convention: `internal_*` for internal functions, `__all__` exports
 
 ## 2. Content Tools Refactor
-- [ ] 2.1 Refactor `get_content` → `internal_get_content` + wrapper
-- [ ] 2.2 Define `ContentData` result type
-- [ ] 2.3 Update guide prompt to use `internal_get_content`
-- [ ] 2.4 Export `internal_get_content` via `__all__`
+- [x] 2.1 Refactor `get_content` → `internal_get_content` + wrapper
+- [x] 2.2 Define `ContentData` result type
+- [x] 2.3 Update guide prompt to use `internal_get_content`
+- [x] 2.4 Export `internal_get_content` via `__all__`
 
 ## 3. Project Tools Refactor
-- [ ] 3.1 Refactor `get_project` → `internal_get_project` + wrapper
-- [ ] 3.2 Refactor `set_project` → `internal_set_project` + wrapper
-- [ ] 3.3 Define project result types
-- [ ] 3.4 Export internal functions via `__all__`
+- [x] 3.1 Refactor `get_project` → `internal_get_project` + wrapper
+- [x] 3.2 Refactor `set_project` → `internal_set_project` + wrapper
+- [x] 3.3 Define project result types
+- [x] 3.4 Export internal functions via `__all__`
 
 ## 4. Category Tools Refactor
-- [ ] 4.1 Refactor category list tools → `internal_*` + wrappers
-- [ ] 4.2 Refactor category management tools → `internal_*` + wrappers
-- [ ] 4.3 Define category result types
-- [ ] 4.4 Export internal functions via `__all__`
+- [x] 4.1 Refactor category list tools → `internal_*` + wrappers
+- [x] 4.2 Refactor category management tools → `internal_*` + wrappers
+- [x] 4.3 Define category result types
+- [x] 4.4 Export internal functions via `__all__`
 
 ## 5. Collection Tools Refactor
-- [ ] 5.1 Refactor collection list tools → `internal_*` + wrappers
-- [ ] 5.2 Refactor collection management tools → `internal_*` + wrappers
-- [ ] 5.3 Define collection result types
-- [ ] 5.4 Export internal functions via `__all__`
+- [x] 5.1 Refactor collection list tools → `internal_*` + wrappers
+- [x] 5.2 Refactor collection management tools → `internal_*` + wrappers
+- [x] 5.3 Define collection result types
+- [x] 5.4 Export internal functions via `__all__`
 
 ## 6. Utility Tools Refactor
-- [ ] 6.1 Refactor utility tools → `internal_*` + wrappers
-- [ ] 6.2 Define utility result types
-- [ ] 6.3 Export internal functions via `__all__`
+- [x] 6.1 Refactor utility tools → `internal_*` + wrappers
+- [x] 6.2 Define utility result types
+- [x] 6.3 Export internal functions via `__all__`
 
 ## 7. Testing & Validation
-- [ ] 7.1 Update all tool tests to test both internal and MCP functions
-- [ ] 7.2 Add integration tests for internal function usage
-- [ ] 7.3 Verify MCP protocol compliance unchanged
-- [ ] 7.4 Update cross-module imports to use `internal_*` functions
+- [x] 7.1 Update all tool tests to test both internal and MCP functions
+- [x] 7.2 Add integration tests for internal function usage
+- [x] 7.3 Verify MCP protocol compliance unchanged
+- [x] 7.4 Update cross-module imports to use `internal_*` functions
 
 ## Implementation Notes
 
