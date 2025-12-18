@@ -27,9 +27,12 @@ class TestGuidePromptIntegration:
             result = await guide(args, mock_ctx)
 
             # Should call internal_get_content with correct arguments
-            mock_get_content.assert_called_once()
-            call_args = mock_get_content.call_args[0][0]  # First positional arg (ContentArgs)
-            assert call_args.category_or_collection == "test_category"
+            mock_get_content.assert_awaited_once()
+            args_call, kwargs_call = mock_get_content.call_args
+            content_args = args_call[0]  # First positional arg (ContentArgs)
+            ctx_arg = args_call[1]  # Second positional arg (ctx)
+            assert content_args.category_or_collection == "test_category"
+            assert ctx_arg is mock_ctx
 
             # Should return the content
             assert result == "Test content from category"

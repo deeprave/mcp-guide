@@ -33,7 +33,15 @@ except ImportError:
     Context = None  # type: ignore
 
 
-__all__ = ["internal_category_list", "internal_category_add", "internal_category_remove", "internal_category_change", "internal_category_update", "internal_category_content", "internal_category_list_files"]
+__all__ = [
+    "internal_category_list",
+    "internal_category_add",
+    "internal_category_remove",
+    "internal_category_change",
+    "internal_category_update",
+    "internal_category_content",
+    "internal_category_list_files",
+]
 
 
 class CategoryListArgs(ToolArguments):
@@ -314,17 +322,14 @@ async def internal_category_change(args: CategoryChangeArgs, ctx: Optional[Conte
     existing_category = project.categories[args.name]
 
     if args.new_name is None and args.new_dir is None and args.new_patterns is None and args.new_description is None:
-        return (
-            ArgValidationError(
-                [
-                    {
-                        "field": "changes",
-                        "message": "At least one change must be provided (new_name, new_dir, new_patterns, or new_description)",
-                    }
-                ]
-            )
-            .to_result()
-        )
+        return ArgValidationError(
+            [
+                {
+                    "field": "changes",
+                    "message": "At least one change must be provided (new_name, new_dir, new_patterns, or new_description)",
+                }
+            ]
+        ).to_result()
 
     try:
         if args.new_name is not None:
@@ -467,17 +472,14 @@ async def internal_category_update(args: CategoryUpdateArgs, ctx: Optional[Conte
         return Result.failure(f"Category '{args.name}' does not exist", error_type=ERROR_NOT_FOUND)
 
     if args.add_patterns is None and args.remove_patterns is None:
-        return (
-            ArgValidationError(
-                [
-                    {
-                        "field": "operations",
-                        "message": "At least one operation must be provided (add_patterns or remove_patterns)",
-                    }
-                ]
-            )
-            .to_result()
-        )
+        return ArgValidationError(
+            [
+                {
+                    "field": "operations",
+                    "message": "At least one operation must be provided (add_patterns or remove_patterns)",
+                }
+            ]
+        ).to_result()
 
     try:
         if args.add_patterns:
@@ -530,7 +532,9 @@ async def category_update(args: CategoryUpdateArgs, ctx: Optional[Context] = Non
     return result.to_json_str()
 
 
-async def internal_category_list_files(args: CategoryListFilesArgs, ctx: Optional[Context] = None) -> Result[list[dict[str, Any]]]:  # type: ignore
+async def internal_category_list_files(
+    args: CategoryListFilesArgs, ctx: Optional[Context] = None  # type: ignore[type-arg]
+) -> Result[list[dict[str, Any]]]:
     """List all files in a category directory.
 
     Args:
@@ -686,4 +690,3 @@ async def category_content(
     """
     result = await internal_category_content(args, ctx)
     return result.to_json_str()
-
