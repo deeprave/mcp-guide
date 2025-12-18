@@ -32,7 +32,14 @@ try:
 except ImportError:
     Context = None  # type: ignore
 
-__all__ = ["internal_collection_list", "internal_collection_add", "internal_collection_remove", "internal_collection_change", "internal_collection_update", "internal_collection_content"]
+__all__ = [
+    "internal_collection_list",
+    "internal_collection_add",
+    "internal_collection_remove",
+    "internal_collection_change",
+    "internal_collection_update",
+    "internal_collection_content",
+]
 
 
 class CollectionListArgs(ToolArguments):
@@ -262,19 +269,14 @@ async def internal_collection_change(args: CollectionChangeArgs, ctx: Optional[C
         return Result.failure(f"Collection '{args.name}' does not exist", error_type=ERROR_NOT_FOUND)
 
     if args.new_name is None and args.new_description is None and args.new_categories is None:
-        return (
-            ArgValidationError(
-                [
-                    {
-                        "field": "changes",
-                        "message": (
-                            "At least one change must be provided (new_name, new_description, or new_categories)"
-                        ),
-                    }
-                ]
-            )
-            .to_result()
-        )
+        return ArgValidationError(
+            [
+                {
+                    "field": "changes",
+                    "message": ("At least one change must be provided (new_name, new_description, or new_categories)"),
+                }
+            ]
+        ).to_result()
 
     try:
         if args.new_name is not None:
@@ -396,21 +398,18 @@ async def internal_collection_update(args: CollectionUpdateArgs, ctx: Optional[C
         return Result.failure(f"Collection '{args.name}' does not exist", error_type=ERROR_NOT_FOUND)
 
     if args.add_categories is None and args.remove_categories is None:
-        return (
-            ArgValidationError(
-                [
-                    {
-                        "field": "add_categories",
-                        "message": "At least one operation must be provided (add_categories or remove_categories)",
-                    },
-                    {
-                        "field": "remove_categories",
-                        "message": "At least one operation must be provided (add_categories or remove_categories)",
-                    },
-                ]
-            )
-            .to_result()
-        )
+        return ArgValidationError(
+            [
+                {
+                    "field": "add_categories",
+                    "message": "At least one operation must be provided (add_categories or remove_categories)",
+                },
+                {
+                    "field": "remove_categories",
+                    "message": "At least one operation must be provided (add_categories or remove_categories)",
+                },
+            ]
+        ).to_result()
 
     try:
         if args.add_categories:

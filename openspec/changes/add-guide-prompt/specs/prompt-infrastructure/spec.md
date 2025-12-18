@@ -1,31 +1,34 @@
 ## ADDED Requirements
 
-### Requirement: PromptArguments Protocol
-The system SHALL provide a PromptArguments protocol in mcp_core for prompt argument validation.
+### Requirement: Direct Function Parameter Prompts
+The system SHALL support MCP prompts using direct function parameters instead of complex argument classes.
 
-#### Scenario: PromptArguments protocol definition
-- **WHEN** prompt arguments need type safety
-- **THEN** PromptArguments protocol provides base interface
-- **AND** follows same patterns as ToolArguments
+#### Scenario: Variable argument support via fixed parameters
+- **WHEN** prompts need variable arguments
+- **THEN** use fixed optional parameters: arg1 through argF (15 total)
+- **AND** parameters are Optional[str] = None
+- **AND** parsing stops at first None value
 
-#### Scenario: GuidePromptArguments implementation
-- **WHEN** guide prompt needs argument structure
-- **THEN** GuidePromptArguments implements PromptArguments
-- **AND** provides command: Optional[str] field
-- **AND** provides arguments: List[str] field
+#### Scenario: Argv-style argument parsing
+- **WHEN** prompt function receives arguments
+- **THEN** builds argv list: ["guide", arg1, arg2, ...]
+- **AND** stops adding arguments at first None
+- **AND** provides command-line style interface
 
-#### Scenario: Prompt schema generation
-- **WHEN** prompt decorator processes PromptArguments class
-- **THEN** automatically generates JSON schema for FastMCP
-- **AND** agents receive schema information for proper invocation
+#### Scenario: MCP argument compatibility
+- **WHEN** MCP clients send space-separated arguments
+- **THEN** each argument maps to individual function parameter
+- **AND** no complex argument classes needed
+- **AND** FastMCP handles parameter validation automatically
 
 ### Requirement: Prompt Decorator Infrastructure
 The system SHALL provide prompt decorator infrastructure for FastMCP prompt registration.
 
-#### Scenario: Prompt decorator creation
+#### Scenario: Direct function decoration
 - **WHEN** prompt functions need registration
-- **THEN** prompt decorator handles FastMCP registration
-- **AND** supports argument validation and schema generation
+- **THEN** @mcp.prompt decorator handles FastMCP registration
+- **AND** uses function signature for argument schema
+- **AND** no custom argument classes required
 
 #### Scenario: Prompt proxy pattern
 - **WHEN** server initialization needs deferred prompt registration

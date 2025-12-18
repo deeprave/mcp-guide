@@ -30,7 +30,7 @@ __all__ = [
     "internal_set_project",
     "internal_list_projects",
     "internal_list_project",
-    "internal_clone_project"
+    "internal_clone_project",
 ]
 
 
@@ -123,7 +123,7 @@ async def get_project(args: GetCurrentProjectArgs, ctx: Optional[Context] = None
     return (await internal_get_project(args, ctx)).to_json_str()
 
 
-async def internal_set_project(args: SetCurrentProjectArgs, ctx: Optional[Context] = None) -> Result[dict]:  # type: ignore[type-arg]
+async def internal_set_project(args: SetCurrentProjectArgs, ctx: Optional[Context] = None) -> Result[dict[str, Any]]:  # type: ignore[type-arg]
     """Switch to a different project by name.
 
     Creates new project with default categories if it doesn't exist. Use verbose=True
@@ -136,10 +136,10 @@ async def internal_set_project(args: SetCurrentProjectArgs, ctx: Optional[Contex
     Returns:
         Result containing switch confirmation and optional project details
     """
-    result = await session_set_project(args.name, ctx)
+    set_result: Result[Project] = await session_set_project(args.name, ctx)
 
-    if result.is_ok():
-        project = result.value
+    if set_result.is_ok():
+        project = set_result.value
         assert project is not None  # is_ok() guarantees value is set
 
         response = format_project_data(project, verbose=args.verbose)
@@ -148,11 +148,12 @@ async def internal_set_project(args: SetCurrentProjectArgs, ctx: Optional[Contex
 
         return Result.ok(response, message=f"Switched to project '{project.name}'")
 
-    # Convert Result[Project] error to Result[dict] error
+    # Convert Result[Project] error to Result[dict] error while preserving metadata
     return Result.failure(
-        result.error or "Unknown error",
-        error_type=result.error_type or "unknown_error",
-        instruction=result.instruction
+        set_result.error or "Unknown error",
+        error_type=set_result.error_type or "unknown_error",
+        instruction=set_result.instruction,
+        message=set_result.message
     )
 
 

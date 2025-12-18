@@ -22,7 +22,14 @@ try:
 except ImportError:
     Context = None  # type: ignore
 
-__all__ = ["internal_get_project_flag", "internal_set_project_flag", "internal_list_project_flags", "internal_get_feature_flag", "internal_set_feature_flag", "internal_list_feature_flags"]
+__all__ = [
+    "internal_get_project_flag",
+    "internal_set_project_flag",
+    "internal_list_project_flags",
+    "internal_get_feature_flag",
+    "internal_set_feature_flag",
+    "internal_list_feature_flags",
+]
 
 
 class ListFlagsArgs(ToolArguments):
@@ -65,7 +72,9 @@ class ListFeatureFlagsArgs(ToolArguments):
     active: bool = Field(True, description="Include resolved flags (True) or project-only (False)")
 
 
-async def internal_list_project_flags(args: ListFlagsArgs, ctx: Optional[Context] = None) -> Result[FeatureValue | dict[str, FeatureValue] | None]:  # type: ignore[type-arg]
+async def internal_list_project_flags(
+    args: ListFlagsArgs, ctx: Optional[Context] = None  # type: ignore[type-arg]
+) -> Result[FeatureValue | dict[str, FeatureValue] | None]:
     """List project feature flags based on project context and parameters."""
     from mcp_guide.session import get_or_create_session
 
@@ -247,7 +256,9 @@ async def set_feature_flag(args: SetFeatureFlagArgs, ctx: Optional[Context] = No
     return (await internal_set_feature_flag(args, ctx)).to_json_str()
 
 
-async def internal_get_feature_flag(args: GetFeatureFlagArgs, ctx: Optional[Context] = None) -> Result[FeatureValue | None]:  # type: ignore[type-arg]
+async def internal_get_feature_flag(
+    args: GetFeatureFlagArgs, ctx: Optional[Context] = None  # type: ignore[type-arg]
+) -> Result[FeatureValue | None]:
     """Get a global feature flag value."""
     from mcp_guide.session import get_or_create_session
 
@@ -279,7 +290,9 @@ async def get_feature_flag(args: GetFeatureFlagArgs, ctx: Optional[Context] = No
     return (await internal_get_feature_flag(args, ctx)).to_json_str()
 
 
-async def internal_list_feature_flags(args: ListFeatureFlagsArgs, ctx: Optional[Context] = None) -> Result[FeatureValue | dict[str, FeatureValue] | None]:  # type: ignore[type-arg]
+async def internal_list_feature_flags(
+    args: ListFeatureFlagsArgs, ctx: Optional[Context] = None  # type: ignore[type-arg]
+) -> Result[FeatureValue | dict[str, FeatureValue] | None]:
     """List global feature flags."""
     from mcp_guide.session import get_or_create_session
 
