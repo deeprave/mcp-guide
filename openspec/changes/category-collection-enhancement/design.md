@@ -63,6 +63,74 @@ Result.ok(message="No content found")
 - Update prompt handlers to display advisory messages appropriately
 - Ensure consistent behavior across categories, collections, and unified content access
 
+### Content Path Parsing Enhancement
+
+**Decision**: Support category/pattern syntax in content access functions
+
+**Current Limitation:**
+- `get_content("checks/python")` fails because it treats entire string as category name
+- Users must use separate parameters: `get_content("checks", "python")`
+- No support for comma-separated patterns
+
+**New Behavior:**
+```python
+# Category/pattern parsing (first / is delimiter)
+get_content("checks/python")           # → category="checks", pattern="python"
+get_content("checks/python/advanced")  # → category="checks", pattern="python/advanced"
+
+# Multiple patterns in same category (+ separator)
+get_content("lang/python+java")        # → category="lang", pattern="python+java"
+
+# Multiple category/pattern pairs (, separator)
+get_content("lang/python,guidelines,context/openspec")
+# → Equivalent to:
+#   get_content("lang", "python") +
+#   get_content("guidelines", None) +
+#   get_content("context", "openspec")
+
+# Combined syntax
+get_content("lang/python+java,guidelines,context/openspec+tutorial")
+# → Equivalent to:
+#   get_content("lang", "python+java") +
+#   get_content("guidelines", None) +
+#   get_content("context", "openspec+tutorial")
+```
+
+**Implementation:**
+- Parse `category_or_collection` parameter in `internal_get_content`
+- Split on first `/` if present: `category, pattern = input.split('/', 1)`
+- Override explicit pattern parameter if parsing extracts pattern
+- Maintain backward compatibility with existing separate parameter usage
+
+**Parsing Rules:**
+1. **No `/`**: Use entire string as category/collection name
+2. **Contains `/`**: Split on first `/` only
+   - Before first `/` → category/collection name
+   - After first `/` → pattern (may contain additional `/` characters)
+3. **Comma (`,`) support**: Multiple category/pattern pairs
+4. **Plus (`+`) support**: Multiple patterns within same category
+
+**Parsing Hierarchy:**
+1. **Comma (`,`)**: Separates different category/pattern pairs
+2. **Slash (`/`)**: Separates category from pattern(s) within each pair
+3. **Plus (`+`)**: Separates multiple patterns within same category
+
+**Examples:**
+```python
+get_content("checks")                    # category="checks", pattern=None
+get_content("checks/python")             # category="checks", pattern="python"
+get_content("lang/python+java")          # category="lang", pattern="python+java"
+get_content("lang/python,guidelines")    # lang/python + guidelines
+get_content("docs/api/v1/auth")          # category="docs", pattern="api/v1/auth"
+get_content("lang/python+java,context/openspec+tutorial,guidelines")
+# → lang/(python+java) + context/(openspec+tutorial) + guidelines
+```
+
+**Backward Compatibility:**
+- Existing `get_content(category, pattern)` usage unchanged
+- New syntax is additive enhancement
+- No breaking changes to current API
+
 ## Risks / Trade-offs
 
 - Risk: Existing code expecting failure results may need updates

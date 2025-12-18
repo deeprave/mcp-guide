@@ -4,7 +4,7 @@
 
 - [x] 0. Fix dict-based configuration compatibility issues
   - [x] 0.1 Fix category lookup in tool_category.py to use dict access
-  - [x] 0.2 Fix category lookup in tool_content.py to use dict access  
+  - [x] 0.2 Fix category lookup in tool_content.py to use dict access
   - [x] 0.3 Fix category lookup in tool_collection.py to use dict access
   - [x] 0.4 Fix category lookup in tool_project.py clone functionality
   - [x] 0.5 Fix pattern expansion to support basename with extensions

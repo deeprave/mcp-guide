@@ -13,7 +13,7 @@ class Category:
     patterns: list[str]
     description: Optional[str] = None
 
-@dataclass  
+@dataclass
 class Project:
     categories: list[Category]  # Linear search required
     collections: list[Collection]
@@ -25,7 +25,7 @@ class Project:
 class Category:
     # name removed - becomes dict key
     dir: str
-    patterns: list[str] 
+    patterns: list[str]
     description: Optional[str] = None
 
 @dataclass
@@ -70,7 +70,7 @@ def load_project_config(data: dict) -> Project:
     # Detect old format
     if isinstance(data.get("categories"), list):
         data = migrate_list_to_dict_format(data)
-    
+
     # Parse as new format
     return Project.from_dict(data)
 
@@ -82,7 +82,7 @@ def migrate_list_to_dict_format(data: dict) -> dict:
             name = cat.pop("name")  # Remove name field
             categories_dict[name] = cat  # Use as key
         data["categories"] = categories_dict
-    
+
     # Same for collections
     # ...
 ```
