@@ -1,141 +1,183 @@
-"""Integration tests for @guide prompt."""
+"""Integration tests for guide prompt functionality."""
 
+import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from mcp_core.result import Result
 from mcp_guide.prompts.guide_prompt import guide
-from mcp_guide.prompts.guide_prompt_args import GuidePromptArguments
+from mcp_guide.tools.tool_constants import INSTRUCTION_DISPLAY_ONLY
 
 
 class TestGuidePromptIntegration:
-    """Integration tests for @guide prompt functionality."""
+    """Integration tests for @guide prompt."""
 
     @pytest.mark.asyncio
-    async def test_guide_prompt_with_command(self):
+    async def test_guide_prompt_with_command(self) -> None:
         """@guide prompt should call internal_get_content with command parameter."""
-        args = GuidePromptArguments(command="test_category")
         mock_ctx = MagicMock()
-
-        # Mock the internal_get_content function to return Result
         mock_result = Result.ok("Test content from category")
 
         with patch(
             "mcp_guide.prompts.guide_prompt.internal_get_content", new=AsyncMock(return_value=mock_result)
         ) as mock_get_content:
-            result = await guide(args, mock_ctx)
+            result_str = await guide("test_category", ctx=mock_ctx)
 
-            # Should call internal_get_content with correct arguments
-            mock_get_content.assert_awaited_once()
-            args_call, kwargs_call = mock_get_content.call_args
-            content_args = args_call[0]  # First positional arg (ContentArgs)
-            ctx_arg = args_call[1]  # Second positional arg (ctx)
+            mock_get_content.assert_called_once()
+            args_call, _ = mock_get_content.call_args
+            content_args = args_call[0]
             assert content_args.category_or_collection == "test_category"
-            assert ctx_arg is mock_ctx
+            assert content_args.pattern is None
 
-            # Should return the content
-            assert result == "Test content from category"
+            result = json.loads(result_str)
+            assert result["success"] is True
+            assert result["value"] == "Test content from category"
+            assert result["instruction"] == INSTRUCTION_DISPLAY_ONLY
 
     @pytest.mark.asyncio
-    async def test_guide_prompt_with_error(self):
+    async def test_guide_prompt_with_error(self) -> None:
         """@guide prompt should handle internal_get_content errors gracefully."""
-        args = GuidePromptArguments(command="nonexistent")
         mock_ctx = MagicMock()
-
-        # Mock the internal_get_content function to return error Result
-        mock_result = Result.failure("Category not found")
+        mock_result: Result[str] = Result.failure("Category not found")
 
         with patch("mcp_guide.prompts.guide_prompt.internal_get_content", new=AsyncMock(return_value=mock_result)):
-            result = await guide(args, mock_ctx)
+            result_str = await guide("nonexistent", ctx=mock_ctx)
 
-            # Should return error message
-            assert result == "Error: Category not found"
-
-    @pytest.mark.asyncio
-    async def test_guide_prompt_without_command(self):
-        """@guide prompt should provide help when no command given."""
-        args = GuidePromptArguments()  # command=None
-        mock_ctx = MagicMock()
-
-        result = await guide(args, mock_ctx)
-
-        # Should return help message
-        assert "Guide prompt usage" in result
-        assert "@guide <category_or_pattern>" in result
-        assert "Examples:" in result
+            result = json.loads(result_str)
+            assert result["success"] is False
+            assert result["error"] == "Category not found"
+            assert result["instruction"] == INSTRUCTION_DISPLAY_ONLY
 
     @pytest.mark.asyncio
-    async def test_guide_prompt_with_empty_command(self):
-        """@guide prompt should provide help when command is empty string."""
-        args = GuidePromptArguments(command="")
+    async def test_guide_prompt_without_command(self) -> None:
+        """@guide prompt should return usage error when no arguments given."""
         mock_ctx = MagicMock()
 
-        result = await guide(args, mock_ctx)
+        result_str = await guide(ctx=mock_ctx)
 
-        # Should return help message
-        assert "Guide prompt usage" in result
+        result = json.loads(result_str)
+        assert result["success"] is False
+        assert result["error"] == "Requires 1 or more arguments"
+        assert result["error_type"] == "validation"
+        assert result["instruction"] == INSTRUCTION_DISPLAY_ONLY
 
     @pytest.mark.asyncio
-    async def test_guide_prompt_with_arguments_reserved(self):
-        """@guide prompt should accept arguments but not use them in MVP."""
-        args = GuidePromptArguments(command="test", arguments=["arg1", "arg2"])
+    async def test_argv_parsing_none_termination(self) -> None:
+        """Argv parsing should stop at first None value."""
         mock_ctx = MagicMock()
-
-        # Mock successful internal_get_content
         mock_result = Result.ok("Test content")
 
         with patch(
             "mcp_guide.prompts.guide_prompt.internal_get_content", new=AsyncMock(return_value=mock_result)
         ) as mock_get_content:
-            result = await guide(args, mock_ctx)
+            await guide("a", arg3="c", ctx=mock_ctx)  # arg2 is None, so should stop at "a"
 
-            # Should only use command, ignore arguments for MVP
-            call_args = mock_get_content.call_args[0][0]
-            assert call_args.category_or_collection == "test"
-            assert result == "Test content"
+            args_call, _ = mock_get_content.call_args
+            content_args = args_call[0]
+            assert content_args.category_or_collection == "a"
 
     @pytest.mark.asyncio
-    async def test_guide_prompt_invalid_json(self):
-        """@guide prompt should handle Result objects directly (no JSON parsing needed)."""
-        args = GuidePromptArguments(command="test")
+    async def test_argv_parsing_argument_ordering(self) -> None:
+        """Argv parsing should maintain correct argument order."""
+        mock_ctx = MagicMock()
+        mock_result = Result.ok("Test content")
+
+        with patch(
+            "mcp_guide.prompts.guide_prompt.internal_get_content", new=AsyncMock(return_value=mock_result)
+        ) as mock_get_content:
+            await guide("first", argA="second", ctx=mock_ctx)  # arg1 should be processed, not argA
+
+            args_call, _ = mock_get_content.call_args
+            content_args = args_call[0]
+            assert content_args.category_or_collection == "first"
+
+    @pytest.mark.asyncio
+    async def test_argv_parsing_multiple_arguments(self) -> None:
+        """Argv parsing should handle multiple arguments correctly."""
+        mock_ctx = MagicMock()
+        mock_result = Result.ok("Test content")
+
+        with patch(
+            "mcp_guide.prompts.guide_prompt.internal_get_content", new=AsyncMock(return_value=mock_result)
+        ) as mock_get_content:
+            await guide("lang/python", "advanced", "tutorial", ctx=mock_ctx)
+
+            args_call, _ = mock_get_content.call_args
+            content_args = args_call[0]
+            assert content_args.category_or_collection == "lang/python"
+
+    @pytest.mark.asyncio
+    async def test_argv_parsing_maximum_arguments(self) -> None:
+        """Argv parsing should handle all 15 arguments."""
+        mock_ctx = MagicMock()
+        mock_result = Result.ok("Test content")
+
+        with patch(
+            "mcp_guide.prompts.guide_prompt.internal_get_content", new=AsyncMock(return_value=mock_result)
+        ) as mock_get_content:
+            await guide("1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B", "C", "D", "E", "F", ctx=mock_ctx)
+
+            args_call, _ = mock_get_content.call_args
+            content_args = args_call[0]
+            assert content_args.category_or_collection == "1"
+
+    @pytest.mark.asyncio
+    async def test_guide_prompt_with_empty_command(self) -> None:
+        """@guide prompt should return usage error when command is empty string."""
         mock_ctx = MagicMock()
 
-        # Mock Result with string content
-        mock_result = Result.ok("Direct string response")
+        result_str = await guide("", ctx=mock_ctx)
+
+        result = json.loads(result_str)
+        assert result["success"] is False
+        assert result["error"] == "Requires 1 or more arguments"
+        assert result["instruction"] == INSTRUCTION_DISPLAY_ONLY
+
+    @pytest.mark.asyncio
+    async def test_guide_prompt_with_arguments_reserved(self) -> None:
+        """@guide prompt should use first argument for content access."""
+        mock_ctx = MagicMock()
+        mock_result = Result.ok("Test content")
+
+        with patch(
+            "mcp_guide.prompts.guide_prompt.internal_get_content", new=AsyncMock(return_value=mock_result)
+        ) as mock_get_content:
+            result_str = await guide("test", "arg1", "arg2", ctx=mock_ctx)
+
+            args_call, _ = mock_get_content.call_args
+            content_args = args_call[0]
+            assert content_args.category_or_collection == "test"
+
+            result = json.loads(result_str)
+            assert result["success"] is True
+            assert result["value"] == "Test content"
+            assert result["instruction"] == INSTRUCTION_DISPLAY_ONLY
+
+    @pytest.mark.asyncio
+    async def test_guide_prompt_with_content_result(self) -> None:
+        """@guide prompt should handle Result objects directly."""
+        mock_ctx = MagicMock()
+        mock_result = Result.ok("Plain text content, not JSON")
 
         with patch("mcp_guide.prompts.guide_prompt.internal_get_content", new=AsyncMock(return_value=mock_result)):
-            result = await guide(args, mock_ctx)
+            result_str = await guide("test", ctx=mock_ctx)
 
-            # Should return the string directly from Result
-            assert result == "Direct string response"
+            result = json.loads(result_str)
+            assert result["success"] is True
+            assert result["value"] == "Plain text content, not JSON"
+            assert result["instruction"] == INSTRUCTION_DISPLAY_ONLY
 
     @pytest.mark.asyncio
-    async def test_guide_prompt_missing_data_field(self):
+    async def test_guide_prompt_with_empty_content(self) -> None:
         """@guide prompt should handle empty content in successful Result."""
-        args = GuidePromptArguments(command="test")
         mock_ctx = MagicMock()
-
-        # Mock Result with empty content
         mock_result = Result.ok("")
 
         with patch("mcp_guide.prompts.guide_prompt.internal_get_content", new=AsyncMock(return_value=mock_result)):
-            result = await guide(args, mock_ctx)
+            result_str = await guide("test", ctx=mock_ctx)
 
-            # Should return empty string when content is empty
-            assert result == ""
-
-    @pytest.mark.asyncio
-    async def test_guide_prompt_missing_error_field(self):
-        """@guide prompt should handle Result failure with error message."""
-        args = GuidePromptArguments(command="test")
-        mock_ctx = MagicMock()
-
-        # Mock Result with failure and error message
-        mock_result = Result.failure("Something went wrong")
-
-        with patch("mcp_guide.prompts.guide_prompt.internal_get_content", new=AsyncMock(return_value=mock_result)):
-            result = await guide(args, mock_ctx)
-
-            # Should return error message
-            assert result == "Error: Something went wrong"
+            result = json.loads(result_str)
+            assert result["success"] is True
+            assert result["value"] == ""
+            assert result["instruction"] == INSTRUCTION_DISPLAY_ONLY

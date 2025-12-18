@@ -533,7 +533,8 @@ async def category_update(args: CategoryUpdateArgs, ctx: Optional[Context] = Non
 
 
 async def internal_category_list_files(
-    args: CategoryListFilesArgs, ctx: Optional[Context] = None  # type: ignore[type-arg]
+    args: CategoryListFilesArgs,
+    ctx: Optional[Context] = None,  # type: ignore[type-arg]
 ) -> Result[list[dict[str, Any]]]:
     """List all files in a category directory.
 

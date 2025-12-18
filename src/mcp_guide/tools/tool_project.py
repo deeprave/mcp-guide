@@ -153,7 +153,7 @@ async def internal_set_project(args: SetCurrentProjectArgs, ctx: Optional[Contex
         set_result.error or "Unknown error",
         error_type=set_result.error_type or "unknown_error",
         instruction=set_result.instruction,
-        message=set_result.message
+        message=set_result.message,
     )
 
 
