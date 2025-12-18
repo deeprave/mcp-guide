@@ -59,12 +59,22 @@ class TestProjectFlags:
         mock_project.project_flags = {}
         mock_session.get_project.return_value = mock_project
 
-        # Test getting missing flag with default
+        # Test getting missing flag with truthy defaults
         result = await project_flags.get("missing_flag", True)
         assert result is True
 
         result = await project_flags.get("missing_flag", "default_value")
         assert result == "default_value"
+
+        # Test getting missing flag with falsy defaults
+        result = await project_flags.get("missing_flag", False)
+        assert result is False
+
+        result = await project_flags.get("missing_flag", 0)
+        assert result == 0
+
+        result = await project_flags.get("missing_flag", "")
+        assert result == ""
 
     @pytest.mark.asyncio
     async def test_get_existing_flag_ignores_default(self, project_flags, mock_session):
@@ -124,12 +134,22 @@ class TestGlobalFlags:
         # Setup mock config manager with empty flags
         mock_config_manager.get_feature_flags.return_value = {}
 
-        # Test getting missing flag with default
+        # Test getting missing flag with truthy defaults
         result = await global_flags.get("missing_flag", True)
         assert result is True
 
         result = await global_flags.get("missing_flag", "default_value")
         assert result == "default_value"
+
+        # Test getting missing flag with falsy defaults
+        result = await global_flags.get("missing_flag", False)
+        assert result is False
+
+        result = await global_flags.get("missing_flag", 0)
+        assert result == 0
+
+        result = await global_flags.get("missing_flag", "")
+        assert result == ""
 
     @pytest.mark.asyncio
     async def test_get_existing_flag_ignores_default(self, global_flags, mock_config_manager):
