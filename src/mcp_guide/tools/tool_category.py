@@ -2,7 +2,7 @@
 
 from dataclasses import replace
 from pathlib import Path
-from typing import Optional, Union
+from typing import Any, Optional, Union
 
 from pydantic import Field
 
@@ -33,6 +33,9 @@ except ImportError:
     Context = None  # type: ignore
 
 
+__all__ = ["internal_category_list", "internal_category_add", "internal_category_remove", "internal_category_change", "internal_category_update", "internal_category_content", "internal_category_list_files"]
+
+
 class CategoryListArgs(ToolArguments):
     """Arguments for category_list tool."""
 
@@ -54,8 +57,7 @@ class CategoryListFilesArgs(ToolArguments):
     name: str = Field(description="Name of the category to list files from")
 
 
-@tools.tool(CategoryListArgs)
-async def category_list(args: CategoryListArgs, ctx: Optional[Context] = None) -> str:  # type: ignore
+async def internal_category_list(args: CategoryListArgs, ctx: Optional[Context] = None) -> Result[list]:  # type: ignore
     """List all categories in the current project.
 
     Args:
@@ -63,7 +65,7 @@ async def category_list(args: CategoryListArgs, ctx: Optional[Context] = None) -
         ctx: MCP Context (auto-injected by FastMCP)
 
     Returns:
-        JSON string with Result containing:
+        Result containing:
         - If verbose=True: list of category dictionaries with name, dir, patterns, description
         - If verbose=False: list of category names only
     """
@@ -72,7 +74,7 @@ async def category_list(args: CategoryListArgs, ctx: Optional[Context] = None) -
     try:
         session = await get_or_create_session(ctx)
     except ValueError as e:
-        return Result.failure(str(e), error_type=ERROR_NO_PROJECT).to_json_str()
+        return Result.failure(str(e), error_type=ERROR_NO_PROJECT)
 
     project = await session.get_project()
 
@@ -90,7 +92,23 @@ async def category_list(args: CategoryListArgs, ctx: Optional[Context] = None) -
     else:
         categories = list(project.categories.keys())  # Use dict.keys()
 
-    return Result.ok(categories).to_json_str()
+    return Result.ok(categories)
+
+
+@tools.tool(CategoryListArgs)
+async def category_list(args: CategoryListArgs, ctx: Optional[Context] = None) -> str:  # type: ignore
+    """List all categories in the current project.
+
+    Args:
+        args: Tool arguments with verbose flag
+        ctx: MCP Context (auto-injected by FastMCP)
+
+    Returns:
+        Result containing:
+        - If verbose=True: list of category dictionaries with name, dir, patterns, description
+        - If verbose=False: list of category names only
+    """
+    return (await internal_category_list(args, ctx)).to_json_str()
 
 
 class CategoryAddArgs(ToolArguments):
@@ -102,8 +120,7 @@ class CategoryAddArgs(ToolArguments):
     description: Optional[str] = None
 
 
-@tools.tool(CategoryAddArgs)
-async def category_add(args: CategoryAddArgs, ctx: Optional[Context] = None) -> str:  # type: ignore
+async def internal_category_add(args: CategoryAddArgs, ctx: Optional[Context] = None) -> Result[str]:  # type: ignore
     """Add a new category to the current project.
 
     Args:
@@ -111,14 +128,14 @@ async def category_add(args: CategoryAddArgs, ctx: Optional[Context] = None) -> 
         ctx: MCP Context (auto-injected by FastMCP)
 
     Returns:
-        JSON string with Result containing success message
+        Result containing success message
     """
     from mcp_guide.session import get_or_create_session
 
     try:
         session = await get_or_create_session(ctx)
     except ValueError as e:
-        return Result.failure(str(e), error_type=ERROR_NO_PROJECT).to_json_str()
+        return Result.failure(str(e), error_type=ERROR_NO_PROJECT)
 
     project = await session.get_project()
 
@@ -148,13 +165,13 @@ async def category_add(args: CategoryAddArgs, ctx: Optional[Context] = None) -> 
             validate_pattern(pattern)
 
     except ArgValidationError as e:
-        return e.to_result().to_json_str()
+        return e.to_result()
 
     try:
         # Create category without name field (name becomes dict key)
         category = Category(dir=validated_dir, patterns=args.patterns, description=validated_description)
     except ValueError as e:
-        return ArgValidationError([{"field": "name", "message": str(e)}]).to_result().to_json_str()
+        return ArgValidationError([{"field": "name", "message": str(e)}]).to_result()
 
     # Create the directory if it doesn't exist
     try:
@@ -170,15 +187,75 @@ async def category_add(args: CategoryAddArgs, ctx: Optional[Context] = None) -> 
         # Use new dict-based with_category method
         await session.update_config(lambda p: p.with_category(args.name, category))
     except Exception as e:
-        return Result.failure(f"Failed to save project configuration: {e}", error_type=ERROR_SAVE).to_json_str()
+        return Result.failure(f"Failed to save project configuration: {e}", error_type=ERROR_SAVE)
 
-    return Result.ok(f"Category '{args.name}' added successfully").to_json_str()
+    return Result.ok(f"Category '{args.name}' added successfully")
+
+
+@tools.tool(CategoryAddArgs)
+async def category_add(args: CategoryAddArgs, ctx: Optional[Context] = None) -> str:  # type: ignore
+    """Add a new category to the current project.
+
+    Args:
+        args: Tool arguments with name, dir, patterns, and description
+        ctx: MCP Context (auto-injected by FastMCP)
+
+    Returns:
+        Result containing success message
+    """
+    return (await internal_category_add(args, ctx)).to_json_str()
 
 
 class CategoryRemoveArgs(ToolArguments):
     """Arguments for category_remove tool."""
 
     name: str
+
+
+async def internal_category_remove(args: CategoryRemoveArgs, ctx: Optional[Context] = None) -> Result[str]:  # type: ignore
+    """Remove a category from the current project.
+
+    Removes the specified category and automatically removes it from all collections.
+    Changes are saved to the project configuration immediately.
+
+    Args:
+        args: Tool arguments with category name
+        ctx: MCP Context (auto-injected by FastMCP)
+
+    Returns:
+        Result containing success message
+
+    Examples:
+        >>> category_remove(name="docs")
+    """
+    from mcp_guide.session import get_or_create_session
+
+    try:
+        session = await get_or_create_session(ctx)
+    except ValueError as e:
+        return Result.failure(str(e), error_type=ERROR_NO_PROJECT)
+
+    project = await session.get_project()
+
+    # Use dict lookup for O(1) existence check
+    if args.name not in project.categories:
+        return Result.failure(f"Category '{args.name}' does not exist", error_type=ERROR_NOT_FOUND)
+
+    def remove_category_and_update_collections(p: Project) -> Project:
+        p_without_cat = p.without_category(args.name)
+        # Update collections to use dict operations
+        updated_collections = {
+            name: replace(col, categories=[c for c in col.categories if c != args.name])
+            for name, col in p_without_cat.collections.items()
+        }
+        return replace(p_without_cat, collections=updated_collections)
+
+    try:
+        await session.update_config(remove_category_and_update_collections)
+    except Exception as e:
+        return Result.failure(f"Failed to save project configuration: {e}", error_type=ERROR_SAVE)
+
+    return Result.ok(f"Category '{args.name}' removed successfully")
 
 
 @tools.tool(CategoryRemoveArgs)
@@ -193,39 +270,12 @@ async def category_remove(args: CategoryRemoveArgs, ctx: Optional[Context] = Non
         ctx: MCP Context (auto-injected by FastMCP)
 
     Returns:
-        JSON string with Result containing success message
+        Result containing success message
 
     Examples:
         >>> category_remove(name="docs")
     """
-    from mcp_guide.session import get_or_create_session
-
-    try:
-        session = await get_or_create_session(ctx)
-    except ValueError as e:
-        return Result.failure(str(e), error_type=ERROR_NO_PROJECT).to_json_str()
-
-    project = await session.get_project()
-
-    # Use dict lookup for O(1) existence check
-    if args.name not in project.categories:
-        return Result.failure(f"Category '{args.name}' does not exist", error_type=ERROR_NOT_FOUND).to_json_str()
-
-    def remove_category_and_update_collections(p: Project) -> Project:
-        p_without_cat = p.without_category(args.name)
-        # Update collections to use dict operations
-        updated_collections = {
-            name: replace(col, categories=[c for c in col.categories if c != args.name])
-            for name, col in p_without_cat.collections.items()
-        }
-        return replace(p_without_cat, collections=updated_collections)
-
-    try:
-        await session.update_config(remove_category_and_update_collections)
-    except Exception as e:
-        return Result.failure(f"Failed to save project configuration: {e}", error_type=ERROR_SAVE).to_json_str()
-
-    return Result.ok(f"Category '{args.name}' removed successfully").to_json_str()
+    return (await internal_category_remove(args, ctx)).to_json_str()
 
 
 class CategoryChangeArgs(ToolArguments):
@@ -238,8 +288,7 @@ class CategoryChangeArgs(ToolArguments):
     new_description: Optional[str] = None
 
 
-@tools.tool(CategoryChangeArgs)
-async def category_change(args: CategoryChangeArgs, ctx: Optional[Context] = None) -> str:  # type: ignore
+async def internal_category_change(args: CategoryChangeArgs, ctx: Optional[Context] = None) -> Result[str]:  # type: ignore
     """Change properties of an existing category.
 
     Args:
@@ -247,20 +296,20 @@ async def category_change(args: CategoryChangeArgs, ctx: Optional[Context] = Non
         ctx: MCP Context (auto-injected by FastMCP)
 
     Returns:
-        JSON string with Result containing success message
+        Result containing success message
     """
     from mcp_guide.session import get_or_create_session
 
     try:
         session = await get_or_create_session(ctx)
     except ValueError as e:
-        return Result.failure(str(e), error_type=ERROR_NO_PROJECT).to_json_str()
+        return Result.failure(str(e), error_type=ERROR_NO_PROJECT)
 
     project = await session.get_project()
 
     # Use dict lookup for O(1) existence check
     if args.name not in project.categories:
-        return Result.failure(f"Category '{args.name}' does not exist", error_type=ERROR_NOT_FOUND).to_json_str()
+        return Result.failure(f"Category '{args.name}' does not exist", error_type=ERROR_NOT_FOUND)
 
     existing_category = project.categories[args.name]
 
@@ -275,7 +324,6 @@ async def category_change(args: CategoryChangeArgs, ctx: Optional[Context] = Non
                 ]
             )
             .to_result()
-            .to_json_str()
         )
 
     try:
@@ -314,7 +362,7 @@ async def category_change(args: CategoryChangeArgs, ctx: Optional[Context] = Non
                 validate_pattern(pattern)
 
     except ArgValidationError as e:
-        return e.to_result().to_json_str()
+        return e.to_result()
 
     if args.new_description == "":
         final_description = None
@@ -330,7 +378,7 @@ async def category_change(args: CategoryChangeArgs, ctx: Optional[Context] = Non
             description=final_description,
         )
     except ValueError as e:
-        return ArgValidationError([{"field": "new_name", "message": str(e)}]).to_result().to_json_str()
+        return ArgValidationError([{"field": "new_name", "message": str(e)}]).to_result()
 
     # Create the directory if it's being updated
     if args.new_dir is not None:
@@ -364,13 +412,27 @@ async def category_change(args: CategoryChangeArgs, ctx: Optional[Context] = Non
     try:
         await session.update_config(update_category_and_collections)
     except Exception as e:
-        return Result.failure(f"Failed to save project configuration: {e}", error_type=ERROR_SAVE).to_json_str()
+        return Result.failure(f"Failed to save project configuration: {e}", error_type=ERROR_SAVE)
 
     change_msg = f"Category '{args.name}' updated successfully"
     if args.new_name is not None and args.new_name != args.name:
         change_msg = f"Category '{args.name}' renamed to '{args.new_name}' successfully"
 
-    return Result.ok(change_msg).to_json_str()
+    return Result.ok(change_msg)
+
+
+@tools.tool(CategoryChangeArgs)
+async def category_change(args: CategoryChangeArgs, ctx: Optional[Context] = None) -> str:  # type: ignore
+    """Change properties of an existing category.
+
+    Args:
+        args: Tool arguments with name and optional new values
+        ctx: MCP Context (auto-injected by FastMCP)
+
+    Returns:
+        Result containing success message
+    """
+    return (await internal_category_change(args, ctx)).to_json_str()
 
 
 class CategoryUpdateArgs(ToolArguments):
@@ -381,8 +443,7 @@ class CategoryUpdateArgs(ToolArguments):
     remove_patterns: Optional[list[str]] = None
 
 
-@tools.tool(CategoryUpdateArgs)
-async def category_update(args: CategoryUpdateArgs, ctx: Optional[Context] = None) -> str:  # type: ignore
+async def internal_category_update(args: CategoryUpdateArgs, ctx: Optional[Context] = None) -> Result[str]:  # type: ignore
     """Update category patterns incrementally.
 
     Args:
@@ -390,20 +451,20 @@ async def category_update(args: CategoryUpdateArgs, ctx: Optional[Context] = Non
         ctx: MCP Context (auto-injected by FastMCP)
 
     Returns:
-        JSON string with Result containing success message
+        Result containing success message
     """
     from mcp_guide.session import get_or_create_session
 
     try:
         session = await get_or_create_session(ctx)
     except ValueError as e:
-        return Result.failure(str(e), error_type=ERROR_NO_PROJECT).to_json_str()
+        return Result.failure(str(e), error_type=ERROR_NO_PROJECT)
 
     project = await session.get_project()
 
     existing_category = project.categories.get(args.name)
     if existing_category is None:
-        return Result.failure(f"Category '{args.name}' does not exist", error_type=ERROR_NOT_FOUND).to_json_str()
+        return Result.failure(f"Category '{args.name}' does not exist", error_type=ERROR_NOT_FOUND)
 
     if args.add_patterns is None and args.remove_patterns is None:
         return (
@@ -416,7 +477,6 @@ async def category_update(args: CategoryUpdateArgs, ctx: Optional[Context] = Non
                 ]
             )
             .to_result()
-            .to_json_str()
         )
 
     try:
@@ -427,7 +487,7 @@ async def category_update(args: CategoryUpdateArgs, ctx: Optional[Context] = Non
             for pattern in args.remove_patterns:
                 validate_pattern(pattern)
     except ArgValidationError as e:
-        return e.to_result().to_json_str()
+        return e.to_result()
 
     current_patterns = list(existing_category.patterns)
 
@@ -450,13 +510,27 @@ async def category_update(args: CategoryUpdateArgs, ctx: Optional[Context] = Non
     try:
         await session.update_config(update_category_patterns)
     except Exception as e:
-        return Result.failure(f"Failed to save project configuration: {e}", error_type=ERROR_SAVE).to_json_str()
+        return Result.failure(f"Failed to save project configuration: {e}", error_type=ERROR_SAVE)
 
-    return Result.ok(f"Category '{args.name}' patterns updated successfully").to_json_str()
+    return Result.ok(f"Category '{args.name}' patterns updated successfully")
 
 
-@tools.tool(CategoryListFilesArgs)
-async def category_list_files(args: CategoryListFilesArgs, ctx: Optional[Context] = None) -> str:  # type: ignore
+@tools.tool(CategoryUpdateArgs)
+async def category_update(args: CategoryUpdateArgs, ctx: Optional[Context] = None) -> str:  # type: ignore
+    """Update category patterns incrementally.
+
+    Args:
+        args: Tool arguments with name and pattern changes
+        ctx: MCP Context (auto-injected by FastMCP)
+
+    Returns:
+        Result containing success message
+    """
+    result = await internal_category_update(args, ctx)
+    return result.to_json_str()
+
+
+async def internal_category_list_files(args: CategoryListFilesArgs, ctx: Optional[Context] = None) -> Result[list[dict[str, Any]]]:  # type: ignore
     """List all files in a category directory.
 
     Args:
@@ -464,13 +538,13 @@ async def category_list_files(args: CategoryListFilesArgs, ctx: Optional[Context
         ctx: MCP Context (auto-injected by FastMCP)
 
     Returns:
-        JSON string with Result containing list of file information
+        Result containing list of file information
     """
     # Get session
     try:
         session = await get_or_create_session(ctx)
     except ValueError as e:
-        return Result.failure(str(e), error_type=ERROR_NO_PROJECT).to_json_str()
+        return Result.failure(str(e), error_type=ERROR_NO_PROJECT)
 
     # Get project
     project = await session.get_project()
@@ -478,12 +552,12 @@ async def category_list_files(args: CategoryListFilesArgs, ctx: Optional[Context
     # Resolve category
     category = project.categories.get(args.name)
     if category is None:
-        result: Result[str] = Result.failure(
+        result: Result[list[dict[str, Any]]] = Result.failure(
             f"Category '{args.name}' not found in project",
             error_type=ERROR_NOT_FOUND,
             instruction=INSTRUCTION_NOTFOUND_ERROR,
         )
-        return result.to_json_str()
+        return result
 
     # Discover files using **/* pattern to get all files
     docroot = Path(session.get_docroot())
@@ -509,14 +583,28 @@ async def category_list_files(args: CategoryListFilesArgs, ctx: Optional[Context
 
         file_list.append(file_info)
 
-    return Result.ok(file_list).to_json_str()
+    return Result.ok(file_list)
 
 
-@tools.tool(CategoryContentArgs)
-async def category_content(
+@tools.tool(CategoryListFilesArgs)
+async def category_list_files(args: CategoryListFilesArgs, ctx: Optional[Context] = None) -> str:  # type: ignore
+    """List all files in a category directory.
+
+    Args:
+        args: Tool arguments with category name
+        ctx: MCP Context (auto-injected by FastMCP)
+
+    Returns:
+        Result containing list of file information
+    """
+    result = await internal_category_list_files(args, ctx)
+    return result.to_json_str()
+
+
+async def internal_category_content(
     args: CategoryContentArgs,
     ctx: Optional[Context] = None,  # type: ignore[type-arg]
-) -> str:
+) -> Result[str]:
     """Get content from a category.
 
     Args:
@@ -524,13 +612,13 @@ async def category_content(
         ctx: MCP Context (auto-injected by FastMCP)
 
     Returns:
-        JSON string with Result containing formatted content or error
+        Result containing formatted content or error
     """
     # Get session
     try:
         session = await get_or_create_session(ctx)
     except ValueError as e:
-        return Result.failure(str(e), error_type=ERROR_NO_PROJECT).to_json_str()
+        return Result.failure(str(e), error_type=ERROR_NO_PROJECT)
 
     # Get project
     project = await session.get_project()
@@ -543,7 +631,7 @@ async def category_content(
             error_type=ERROR_NOT_FOUND,
             instruction=INSTRUCTION_NOTFOUND_ERROR,
         )
-        return result.to_json_str()
+        return result
 
     # Get patterns
     patterns = resolve_patterns(args.pattern, category.patterns)
@@ -564,7 +652,7 @@ async def category_content(
             if args.pattern
             else f"No files found in category '{args.category}'"
         )
-        return Result.ok(message, instruction=INSTRUCTION_PATTERN_ERROR).to_json_str()
+        return Result.ok(message, instruction=INSTRUCTION_PATTERN_ERROR)
 
     # Read file content with template rendering, collecting any failures
     template_context = await get_template_context_if_needed(files, args.category)
@@ -573,10 +661,29 @@ async def category_content(
     if file_read_errors:
         return create_file_read_error_result(
             file_read_errors, args.category, "category", ERROR_FILE_READ, INSTRUCTION_FILE_ERROR
-        ).to_json_str()
+        )
 
     # Format content
     formatter = get_formatter()
     content = await formatter.format(files, args.category)
 
-    return Result.ok(content).to_json_str()
+    return Result.ok(content)
+
+
+@tools.tool(CategoryContentArgs)
+async def category_content(
+    args: CategoryContentArgs,
+    ctx: Optional[Context] = None,  # type: ignore[type-arg]
+) -> str:
+    """Get content from a category.
+
+    Args:
+        args: Tool arguments with category name and optional pattern
+        ctx: MCP Context (auto-injected by FastMCP)
+
+    Returns:
+        Result containing formatted content or error
+    """
+    result = await internal_category_content(args, ctx)
+    return result.to_json_str()
+

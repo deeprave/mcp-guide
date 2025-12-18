@@ -1,6 +1,6 @@
 """Project management tools."""
 
-from typing import Optional
+from typing import Any, Optional
 
 from pydantic import Field
 
@@ -23,6 +23,15 @@ try:
     from mcp.server.fastmcp import Context
 except ImportError:
     Context = None  # type: ignore
+
+
+__all__ = [
+    "internal_get_project",
+    "internal_set_project",
+    "internal_list_projects",
+    "internal_list_project",
+    "internal_clone_project"
+]
 
 
 class GetCurrentProjectArgs(ToolArguments):
@@ -66,6 +75,37 @@ class CloneProjectArgs(ToolArguments):
     force: bool = Field(default=False, description="If True, bypass safeguards")
 
 
+async def internal_get_project(args: GetCurrentProjectArgs, ctx: Optional[Context] = None) -> Result[dict]:  # type: ignore[type-arg]
+    """Get information about the currently active project.
+
+    Returns project name, collections, and categories. Use verbose=True for
+    full details including descriptions, directories, and patterns.
+
+    Args:
+        args: Tool arguments with verbose flag
+        ctx: MCP Context (auto-injected by FastMCP)
+
+    Returns:
+        Result containing project information
+    """
+    try:
+        session = await get_or_create_session(ctx)
+    except ValueError as e:
+        return Result.failure(
+            str(e),
+            error_type=ERROR_NO_PROJECT,
+            instruction=INSTRUCTION_NO_PROJECT,
+        )
+
+    project = await session.get_project()
+
+    result_dict = format_project_data(project, verbose=args.verbose)
+    # Include project name in response for single project operations
+    result_dict["project"] = project.name
+
+    return Result.ok(result_dict)
+
+
 @tools.tool(GetCurrentProjectArgs)
 async def get_project(args: GetCurrentProjectArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
     """Get information about the currently active project.
@@ -78,24 +118,42 @@ async def get_project(args: GetCurrentProjectArgs, ctx: Optional[Context] = None
         ctx: MCP Context (auto-injected by FastMCP)
 
     Returns:
-        JSON string with Result containing project information
+        Result containing project information
     """
-    try:
-        session = await get_or_create_session(ctx)
-    except ValueError as e:
-        return Result.failure(
-            str(e),
-            error_type=ERROR_NO_PROJECT,
-            instruction=INSTRUCTION_NO_PROJECT,
-        ).to_json_str()
+    return (await internal_get_project(args, ctx)).to_json_str()
 
-    project = await session.get_project()
 
-    result_dict = format_project_data(project, verbose=args.verbose)
-    # Include project name in response for single project operations
-    result_dict["project"] = project.name
+async def internal_set_project(args: SetCurrentProjectArgs, ctx: Optional[Context] = None) -> Result[dict]:  # type: ignore[type-arg]
+    """Switch to a different project by name.
 
-    return Result.ok(result_dict).to_json_str()
+    Creates new project with default categories if it doesn't exist. Use verbose=True
+    for full project details after switching.
+
+    Args:
+        args: Tool arguments with name and verbose flag
+        ctx: MCP Context (auto-injected by FastMCP)
+
+    Returns:
+        Result containing switch confirmation and optional project details
+    """
+    result = await session_set_project(args.name, ctx)
+
+    if result.is_ok():
+        project = result.value
+        assert project is not None  # is_ok() guarantees value is set
+
+        response = format_project_data(project, verbose=args.verbose)
+        # Include project name in response for single project operations
+        response["project"] = project.name
+
+        return Result.ok(response, message=f"Switched to project '{project.name}'")
+
+    # Convert Result[Project] error to Result[dict] error
+    return Result.failure(
+        result.error or "Unknown error",
+        error_type=result.error_type or "unknown_error",
+        instruction=result.instruction
+    )
 
 
 @tools.tool(SetCurrentProjectArgs)
@@ -110,21 +168,26 @@ async def set_project(args: SetCurrentProjectArgs, ctx: Optional[Context] = None
         ctx: MCP Context (auto-injected by FastMCP)
 
     Returns:
-        JSON string with Result containing switch confirmation and optional project details
+        Result containing switch confirmation and optional project details
     """
-    result = await session_set_project(args.name, ctx)
+    return (await internal_set_project(args, ctx)).to_json_str()
 
-    if result.is_ok():
-        project = result.value
-        assert project is not None  # is_ok() guarantees value is set
 
-        response = format_project_data(project, verbose=args.verbose)
-        # Include project name in response for single project operations
-        response["project"] = project.name
+async def internal_list_projects(args: ListProjectsArgs, ctx: Optional[Context] = None) -> Result[dict]:  # type: ignore[type-arg]
+    """List all available projects.
 
-        return Result.ok(response, message=f"Switched to project '{project.name}'").to_json_str()
+    Returns project names (non-verbose) or full project details (verbose).
+    Does not require a current project context.
 
-    return result.to_json_str()
+    Args:
+        args: Tool arguments with verbose flag
+        ctx: MCP Context (auto-injected by FastMCP)
+
+    Returns:
+        Result containing projects list or dict
+    """
+    result = await list_all_projects(verbose=args.verbose)
+    return result
 
 
 @tools.tool(ListProjectsArgs)
@@ -139,10 +202,28 @@ async def list_projects(args: ListProjectsArgs, ctx: Optional[Context] = None) -
         ctx: MCP Context (auto-injected by FastMCP)
 
     Returns:
-        JSON string with Result containing projects list or dict
+        Result containing projects list or dict
     """
-    result = await list_all_projects(verbose=args.verbose)
-    return result.to_json_str()
+    return (await internal_list_projects(args, ctx)).to_json_str()
+
+
+async def internal_list_project(args: ListProjectArgs, ctx: Optional[Context] = None) -> Result[dict[str, Any]]:  # type: ignore[type-arg]
+    """Get information about a specific project by name.
+
+    Returns project details without switching the current project.
+    If no name provided, returns current project information.
+
+    Args:
+        args: Tool arguments with name and verbose flag
+        ctx: MCP Context (auto-injected by FastMCP)
+
+    Returns:
+        Result containing project data
+    """
+    from mcp_guide.session import get_project_info
+
+    result = await get_project_info(name=args.name, verbose=args.verbose)
+    return result
 
 
 @tools.tool(ListProjectArgs)
@@ -157,16 +238,12 @@ async def list_project(args: ListProjectArgs, ctx: Optional[Context] = None) -> 
         ctx: MCP Context (auto-injected by FastMCP)
 
     Returns:
-        JSON string with Result containing project data
+        Result containing project data
     """
-    from mcp_guide.session import get_project_info
-
-    result = await get_project_info(name=args.name, verbose=args.verbose)
-    return result.to_json_str()
+    return (await internal_list_project(args, ctx)).to_json_str()
 
 
-@tools.tool(CloneProjectArgs)
-async def clone_project(args: CloneProjectArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
+async def internal_clone_project(args: CloneProjectArgs, ctx: Optional[Context] = None) -> Result[dict]:  # type: ignore[type-arg]
     """Copy project configuration from one project to another.
 
     Clones categories and collections from source project to target project.
@@ -177,21 +254,21 @@ async def clone_project(args: CloneProjectArgs, ctx: Optional[Context] = None) -
         ctx: MCP Context (auto-injected by FastMCP)
 
     Returns:
-        JSON string with Result containing clone statistics and warnings
+        Result containing clone statistics and warnings
     """
     # Validate source project name
     if not args.from_project or not _NAME_REGEX.match(args.from_project):
         return Result.failure(
             f"Invalid source project name '{args.from_project}'",
             error_type=ERROR_INVALID_NAME,
-        ).to_json_str()
+        )
 
     # Validate target project name if provided
     if args.to_project is not None and (not args.to_project or not _NAME_REGEX.match(args.to_project)):
         return Result.failure(
             f"Invalid target project name '{args.to_project}'",
             error_type=ERROR_INVALID_NAME,
-        ).to_json_str()
+        )
 
     # Get session to access configuration
     try:
@@ -201,7 +278,7 @@ async def clone_project(args: CloneProjectArgs, ctx: Optional[Context] = None) -
         # for 2-arg mode where we're not using current project
         if args.to_project is None:
             # 1-arg mode requires current project
-            return Result.failure(str(e), error_type=ERROR_NO_PROJECT, instruction=INSTRUCTION_NO_PROJECT).to_json_str()
+            return Result.failure(str(e), error_type=ERROR_NO_PROJECT, instruction=INSTRUCTION_NO_PROJECT)
         # For 2-arg mode, we'll create a temporary session later
         session = None
 
@@ -215,7 +292,7 @@ async def clone_project(args: CloneProjectArgs, ctx: Optional[Context] = None) -
             all_projects = await temp_session.get_all_projects()
             session = temp_session
     except Exception as e:
-        return Result.failure(f"Failed to read configuration: {e}", error_type="config_read_error").to_json_str()
+        return Result.failure(f"Failed to read configuration: {e}", error_type="config_read_error")
 
     # Check source project exists
     if args.from_project not in all_projects:
@@ -223,7 +300,7 @@ async def clone_project(args: CloneProjectArgs, ctx: Optional[Context] = None) -
             f"Source project '{args.from_project}' not found",
             error_type=ERROR_NOT_FOUND,
             instruction=INSTRUCTION_NOTFOUND_ERROR,
-        ).to_json_str()
+        )
 
     source_project = all_projects[args.from_project]
 
@@ -238,7 +315,7 @@ async def clone_project(args: CloneProjectArgs, ctx: Optional[Context] = None) -
             target_project = current_project
             is_current_project = True
         except ValueError as e:
-            return Result.failure(str(e), error_type=ERROR_NO_PROJECT, instruction=INSTRUCTION_NO_PROJECT).to_json_str()
+            return Result.failure(str(e), error_type=ERROR_NO_PROJECT, instruction=INSTRUCTION_NO_PROJECT)
     else:
         # 2-arg mode: clone to specified project
         target_name = args.to_project
@@ -263,7 +340,7 @@ async def clone_project(args: CloneProjectArgs, ctx: Optional[Context] = None) -
                 f"Target project '{target_name}' has existing configuration. Use force=True to override or merge=True to merge.",
                 error_type=ERROR_SAFEGUARD,
                 instruction="Do not retry without explicit user approval for force=True",
-            ).to_json_str()
+            )
 
     # Detect conflicts and build warnings
     warnings: list[str] = []
@@ -297,7 +374,7 @@ async def clone_project(args: CloneProjectArgs, ctx: Optional[Context] = None) -
     try:
         await session.save_project(updated_project)
     except OSError as e:
-        return Result.failure(f"Failed to save configuration: {e}", error_type="config_write_error").to_json_str()
+        return Result.failure(f"Failed to save configuration: {e}", error_type="config_write_error")
 
     # Invalidate cache if current project was modified
     if is_current_project:
@@ -318,7 +395,24 @@ async def clone_project(args: CloneProjectArgs, ctx: Optional[Context] = None) -
         "warnings": warnings,
     }
 
-    return Result.ok(result_dict, message=f"Cloned project '{args.from_project}' to '{target_name}'").to_json_str()
+    return Result.ok(result_dict, message=f"Cloned project '{args.from_project}' to '{target_name}'")
+
+
+@tools.tool(CloneProjectArgs)
+async def clone_project(args: CloneProjectArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
+    """Copy project configuration from one project to another.
+
+    Clones categories and collections from source project to target project.
+    Supports merge (combine configs) or replace (overwrite) modes with safeguards.
+
+    Args:
+        args: Tool arguments with from_project, to_project, merge, and force flags
+        ctx: MCP Context (auto-injected by FastMCP)
+
+    Returns:
+        Result containing clone statistics and warnings
+    """
+    return (await internal_clone_project(args, ctx)).to_json_str()
 
 
 def _detect_conflicts(source: Project, target: Project) -> tuple[list[str], list[str]]:

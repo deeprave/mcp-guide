@@ -22,24 +22,7 @@ try:
 except ImportError:
     Context = None  # type: ignore
 
-
-def _validate_flag_args(feature_name: str, value: Optional[FeatureValue]) -> Optional[str]:
-    """Validate flag arguments. Returns error JSON string if invalid, None if valid."""
-    if not validate_flag_name(feature_name):
-        return Result.failure(
-            f"Invalid flag name '{feature_name}'. Flag names must contain only alphanumeric characters, hyphens, and underscores (no periods).",
-            error_type="validation_error",
-            instruction=INSTRUCTION_VALIDATION_ERROR,
-        ).to_json_str()
-
-    if value is not None and not validate_flag_value(value):
-        return Result.failure(
-            f"Invalid flag value type. Must be bool, str, list[str], or dict[str, str].",
-            error_type="validation_error",
-            instruction=INSTRUCTION_VALIDATION_ERROR,
-        ).to_json_str()
-
-    return None
+__all__ = ["internal_get_project_flag", "internal_set_project_flag", "internal_list_project_flags", "internal_get_feature_flag", "internal_set_feature_flag", "internal_list_feature_flags"]
 
 
 class ListFlagsArgs(ToolArguments):
@@ -82,15 +65,14 @@ class ListFeatureFlagsArgs(ToolArguments):
     active: bool = Field(True, description="Include resolved flags (True) or project-only (False)")
 
 
-@tools.tool(ListFlagsArgs)
-async def list_project_flags(args: ListFlagsArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
+async def internal_list_project_flags(args: ListFlagsArgs, ctx: Optional[Context] = None) -> Result[FeatureValue | dict[str, FeatureValue] | None]:  # type: ignore[type-arg]
     """List project feature flags based on project context and parameters."""
     from mcp_guide.session import get_or_create_session
 
     try:
         session = await get_or_create_session(ctx)
     except ValueError as e:
-        return Result.failure(str(e), error_type=ERROR_NO_PROJECT, instruction=INSTRUCTION_NO_PROJECT).to_json_str()
+        return Result.failure(str(e), error_type=ERROR_NO_PROJECT, instruction=INSTRUCTION_NO_PROJECT)
 
     try:
         if args.active:
@@ -107,67 +89,87 @@ async def list_project_flags(args: ListFlagsArgs, ctx: Optional[Context] = None)
 
         if args.feature_name:
             # Return single flag value
-            return Result.ok(flags.get(args.feature_name)).to_json_str()
+            return Result.ok(flags.get(args.feature_name))
         else:
             # Return all flags
-            return Result.ok(flags).to_json_str()
+            return Result.ok(flags)
 
     except OSError as e:
-        return Result.failure(f"Failed to read configuration: {e}", error_type="config_read_error").to_json_str()
+        return Result.failure(f"Failed to read configuration: {e}", error_type="config_read_error")
 
     except Exception as e:
         return Result.failure(
             f"Failed to list flags: {e}",
             error_type="unexpected_error",
             instruction=INSTRUCTION_DISPLAY_ONLY,
-        ).to_json_str()
+        )
 
 
-@tools.tool(SetFlagArgs)
-async def set_project_flag(args: SetFlagArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
+@tools.tool(ListFlagsArgs)
+async def list_project_flags(args: ListFlagsArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
+    """List project feature flags based on project context and parameters."""
+    return (await internal_list_project_flags(args, ctx)).to_json_str()
+
+
+async def internal_set_project_flag(args: SetFlagArgs, ctx: Optional[Context] = None) -> Result[str]:  # type: ignore[type-arg]
     """Set or remove a project feature flag."""
     # Validate flag arguments
-    validation_error = _validate_flag_args(args.feature_name, args.value)
-    if validation_error:
-        return validation_error
+    if not validate_flag_name(args.feature_name):
+        return Result.failure(
+            f"Invalid flag name '{args.feature_name}'. Flag names must contain only alphanumeric characters, hyphens, and underscores (no periods).",
+            error_type="validation_error",
+            instruction=INSTRUCTION_VALIDATION_ERROR,
+        )
+
+    if args.value is not None and not validate_flag_value(args.value):
+        return Result.failure(
+            f"Invalid flag value type. Must be bool, str, list[str], or dict[str, str].",
+            error_type="validation_error",
+            instruction=INSTRUCTION_VALIDATION_ERROR,
+        )
 
     from mcp_guide.session import get_or_create_session
 
     try:
         session = await get_or_create_session(ctx)
     except ValueError as e:
-        return Result.failure(str(e), error_type=ERROR_NO_PROJECT, instruction=INSTRUCTION_NO_PROJECT).to_json_str()
+        return Result.failure(str(e), error_type=ERROR_NO_PROJECT, instruction=INSTRUCTION_NO_PROJECT)
 
     try:
         if args.value is None:
             # Remove flag
             flags_proxy = session.project_flags()
             await flags_proxy.remove(args.feature_name)
-            return Result.ok(f"Flag '{args.feature_name}' removed").to_json_str()
+            return Result.ok(f"Flag '{args.feature_name}' removed")
         else:
             # Set flag
             flags_proxy = session.project_flags()
             await flags_proxy.set(args.feature_name, args.value)
-            return Result.ok(f"Flag '{args.feature_name}' set to {repr(args.value)}").to_json_str()
+            return Result.ok(f"Flag '{args.feature_name}' set to {repr(args.value)}")
 
     except OSError as e:
-        return Result.failure(f"Failed to save configuration: {e}", error_type="config_write_error").to_json_str()
+        return Result.failure(f"Failed to save configuration: {e}", error_type="config_write_error")
 
     except Exception as e:
         return Result.failure(
             f"Failed to set flag: {e}", error_type="unexpected_error", instruction=INSTRUCTION_DISPLAY_ONLY
-        ).to_json_str()
+        )
 
 
-@tools.tool(GetFlagArgs)
-async def get_project_flag(args: GetFlagArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
+@tools.tool(SetFlagArgs)
+async def set_project_flag(args: SetFlagArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
+    """Set or remove a project feature flag."""
+    return (await internal_set_project_flag(args, ctx)).to_json_str()
+
+
+async def internal_get_project_flag(args: GetFlagArgs, ctx: Optional[Context] = None) -> Result[FeatureValue | None]:  # type: ignore[type-arg]
     """Get a project feature flag value with resolution hierarchy."""
     from mcp_guide.session import get_or_create_session
 
     try:
         session = await get_or_create_session(ctx)
     except ValueError as e:
-        return Result.failure(str(e), error_type=ERROR_NO_PROJECT, instruction=INSTRUCTION_NO_PROJECT).to_json_str()
+        return Result.failure(str(e), error_type=ERROR_NO_PROJECT, instruction=INSTRUCTION_NO_PROJECT)
 
     try:
         # Use resolution hierarchy: project → global → None
@@ -177,62 +179,82 @@ async def get_project_flag(args: GetFlagArgs, ctx: Optional[Context] = None) -> 
         global_flags = await global_proxy.list()
         value = resolve_flag(args.feature_name, project_flags, global_flags)
 
-        return Result.ok(value).to_json_str()
+        return Result.ok(value)
 
     except OSError as e:
-        return Result.failure(f"Failed to read configuration: {e}", error_type="config_read_error").to_json_str()
+        return Result.failure(f"Failed to read configuration: {e}", error_type="config_read_error")
 
     except Exception as e:
         return Result.failure(
             f"Failed to get flag: {e}", error_type="unexpected_error", instruction=INSTRUCTION_DISPLAY_ONLY
-        ).to_json_str()
+        )
 
 
-@tools.tool(SetFeatureFlagArgs)
-async def set_feature_flag(args: SetFeatureFlagArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
+@tools.tool(GetFlagArgs)
+async def get_project_flag(args: GetFlagArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
+    """Get a project feature flag value with resolution hierarchy."""
+    return (await internal_get_project_flag(args, ctx)).to_json_str()
+
+
+async def internal_set_feature_flag(args: SetFeatureFlagArgs, ctx: Optional[Context] = None) -> Result[str]:  # type: ignore[type-arg]
     """Set or remove a global feature flag."""
     # Validate flag arguments
-    validation_error = _validate_flag_args(args.feature_name, args.value)
-    if validation_error:
-        return validation_error
+    if not validate_flag_name(args.feature_name):
+        return Result.failure(
+            f"Invalid flag name '{args.feature_name}'. Flag names must contain only alphanumeric characters, hyphens, and underscores (no periods).",
+            error_type="validation_error",
+            instruction=INSTRUCTION_VALIDATION_ERROR,
+        )
+
+    if args.value is not None and not validate_flag_value(args.value):
+        return Result.failure(
+            f"Invalid flag value type. Must be bool, str, list[str], or dict[str, str].",
+            error_type="validation_error",
+            instruction=INSTRUCTION_VALIDATION_ERROR,
+        )
 
     from mcp_guide.session import get_or_create_session
 
     try:
         session = await get_or_create_session(ctx)
     except ValueError as e:
-        return Result.failure(str(e), error_type=ERROR_NO_PROJECT, instruction=INSTRUCTION_NO_PROJECT).to_json_str()
+        return Result.failure(str(e), error_type=ERROR_NO_PROJECT, instruction=INSTRUCTION_NO_PROJECT)
 
     try:
         if args.value is None:
             # Remove flag
             flags_proxy = session.feature_flags()
             await flags_proxy.remove(args.feature_name)
-            return Result.ok(f"Global flag '{args.feature_name}' removed").to_json_str()
+            return Result.ok(f"Global flag '{args.feature_name}' removed")
         else:
             # Set flag
             flags_proxy = session.feature_flags()
             await flags_proxy.set(args.feature_name, args.value)
-            return Result.ok(f"Global flag '{args.feature_name}' set to {repr(args.value)}").to_json_str()
+            return Result.ok(f"Global flag '{args.feature_name}' set to {repr(args.value)}")
 
     except OSError as e:
-        return Result.failure(f"Failed to save configuration: {e}", error_type="config_write_error").to_json_str()
+        return Result.failure(f"Failed to save configuration: {e}", error_type="config_write_error")
 
     except Exception as e:
         return Result.failure(
             f"Failed to set global flag: {e}", error_type="unexpected_error", instruction=INSTRUCTION_DISPLAY_ONLY
-        ).to_json_str()
+        )
 
 
-@tools.tool(GetFeatureFlagArgs)
-async def get_feature_flag(args: GetFeatureFlagArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
+@tools.tool(SetFeatureFlagArgs)
+async def set_feature_flag(args: SetFeatureFlagArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
+    """Set or remove a global feature flag."""
+    return (await internal_set_feature_flag(args, ctx)).to_json_str()
+
+
+async def internal_get_feature_flag(args: GetFeatureFlagArgs, ctx: Optional[Context] = None) -> Result[FeatureValue | None]:  # type: ignore[type-arg]
     """Get a global feature flag value."""
     from mcp_guide.session import get_or_create_session
 
     try:
         session = await get_or_create_session(ctx)
     except ValueError as e:
-        return Result.failure(str(e), error_type=ERROR_NO_PROJECT, instruction=INSTRUCTION_NO_PROJECT).to_json_str()
+        return Result.failure(str(e), error_type=ERROR_NO_PROJECT, instruction=INSTRUCTION_NO_PROJECT)
 
     try:
         # Use global flags only, no resolution hierarchy
@@ -240,26 +262,31 @@ async def get_feature_flag(args: GetFeatureFlagArgs, ctx: Optional[Context] = No
         global_flags = await global_proxy.list()
         value = global_flags.get(args.feature_name)
 
-        return Result.ok(value).to_json_str()
+        return Result.ok(value)
 
     except OSError as e:
-        return Result.failure(f"Failed to read configuration: {e}", error_type="config_read_error").to_json_str()
+        return Result.failure(f"Failed to read configuration: {e}", error_type="config_read_error")
 
     except Exception as e:
         return Result.failure(
             f"Failed to get global flag: {e}", error_type="unexpected_error", instruction=INSTRUCTION_DISPLAY_ONLY
-        ).to_json_str()
+        )
 
 
-@tools.tool(ListFeatureFlagsArgs)
-async def list_feature_flags(args: ListFeatureFlagsArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
+@tools.tool(GetFeatureFlagArgs)
+async def get_feature_flag(args: GetFeatureFlagArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
+    """Get a global feature flag value."""
+    return (await internal_get_feature_flag(args, ctx)).to_json_str()
+
+
+async def internal_list_feature_flags(args: ListFeatureFlagsArgs, ctx: Optional[Context] = None) -> Result[FeatureValue | dict[str, FeatureValue] | None]:  # type: ignore[type-arg]
     """List global feature flags."""
     from mcp_guide.session import get_or_create_session
 
     try:
         session = await get_or_create_session(ctx)
     except ValueError as e:
-        return Result.failure(str(e), error_type=ERROR_NO_PROJECT, instruction=INSTRUCTION_NO_PROJECT).to_json_str()
+        return Result.failure(str(e), error_type=ERROR_NO_PROJECT, instruction=INSTRUCTION_NO_PROJECT)
 
     try:
         # Global flags only, no merging with project flags
@@ -268,17 +295,23 @@ async def list_feature_flags(args: ListFeatureFlagsArgs, ctx: Optional[Context] 
 
         if args.feature_name:
             # Return single flag value
-            return Result.ok(flags.get(args.feature_name)).to_json_str()
+            return Result.ok(flags.get(args.feature_name))
         else:
             # Return all flags
-            return Result.ok(flags).to_json_str()
+            return Result.ok(flags)
 
     except OSError as e:
-        return Result.failure(f"Failed to read configuration: {e}", error_type="config_read_error").to_json_str()
+        return Result.failure(f"Failed to read configuration: {e}", error_type="config_read_error")
 
     except Exception as e:
         return Result.failure(
             f"Failed to list global flags: {e}",
             error_type="unexpected_error",
             instruction=INSTRUCTION_DISPLAY_ONLY,
-        ).to_json_str()
+        )
+
+
+@tools.tool(ListFeatureFlagsArgs)
+async def list_feature_flags(args: ListFeatureFlagsArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
+    """List global feature flags."""
+    return (await internal_list_feature_flags(args, ctx)).to_json_str()

@@ -32,6 +32,8 @@ try:
 except ImportError:
     Context = None  # type: ignore
 
+__all__ = ["internal_collection_list", "internal_collection_add", "internal_collection_remove", "internal_collection_change", "internal_collection_update", "internal_collection_content"]
+
 
 class CollectionListArgs(ToolArguments):
     """Arguments for collection_list tool."""
@@ -39,8 +41,7 @@ class CollectionListArgs(ToolArguments):
     verbose: bool = True
 
 
-@tools.tool(CollectionListArgs)
-async def collection_list(args: CollectionListArgs, ctx: Optional[Context] = None) -> str:  # type: ignore
+async def internal_collection_list(args: CollectionListArgs, ctx: Optional[Context] = None) -> Result[list]:  # type: ignore
     """List all collections in the current project.
 
     Args:
@@ -48,14 +49,14 @@ async def collection_list(args: CollectionListArgs, ctx: Optional[Context] = Non
         ctx: MCP Context (auto-injected by FastMCP)
 
     Returns:
-        JSON string with Result containing:
+        Result containing:
         - If verbose=True: list of collection dictionaries with name, categories, description
         - If verbose=False: list of collection names only
     """
     try:
         session = await get_or_create_session(ctx)
     except ValueError as e:
-        return Result.failure(str(e), error_type=ERROR_NO_PROJECT).to_json_str()
+        return Result.failure(str(e), error_type=ERROR_NO_PROJECT)
 
     project = await session.get_project()
 
@@ -72,7 +73,24 @@ async def collection_list(args: CollectionListArgs, ctx: Optional[Context] = Non
     else:
         collections = list(project.collections.keys())  # Use dict.keys()
 
-    return Result.ok(collections).to_json_str()
+    return Result.ok(collections)
+
+
+@tools.tool(CollectionListArgs)
+async def collection_list(args: CollectionListArgs, ctx: Optional[Context] = None) -> str:  # type: ignore
+    """List all collections in the current project.
+
+    Args:
+        args: Tool arguments with verbose flag
+        ctx: MCP Context (auto-injected by FastMCP)
+
+    Returns:
+        Result containing:
+        - If verbose=True: list of collection dictionaries with name, categories, description
+        - If verbose=False: list of collection names only
+    """
+    result = await internal_collection_list(args, ctx)
+    return result.to_json_str()
 
 
 class CollectionAddArgs(ToolArguments):
@@ -83,8 +101,7 @@ class CollectionAddArgs(ToolArguments):
     categories: list[str] = Field(default_factory=list)
 
 
-@tools.tool(CollectionAddArgs)
-async def collection_add(args: CollectionAddArgs, ctx: Optional[Context] = None) -> str:  # type: ignore
+async def internal_collection_add(args: CollectionAddArgs, ctx: Optional[Context] = None) -> Result[str]:  # type: ignore
     """Add a new collection to the current project.
 
     Args:
@@ -92,7 +109,7 @@ async def collection_add(args: CollectionAddArgs, ctx: Optional[Context] = None)
         ctx: MCP Context (auto-injected by FastMCP)
 
     Returns:
-        JSON string with Result containing success message
+        Result containing success message
     """
     # Deduplicate while preserving order
     categories = list(dict.fromkeys(args.categories))
@@ -100,7 +117,7 @@ async def collection_add(args: CollectionAddArgs, ctx: Optional[Context] = None)
     try:
         session = await get_or_create_session(ctx)
     except ValueError as e:
-        return Result.failure(str(e), error_type=ERROR_NO_PROJECT).to_json_str()
+        return Result.failure(str(e), error_type=ERROR_NO_PROJECT)
 
     project = await session.get_project()
 
@@ -128,27 +145,71 @@ async def collection_add(args: CollectionAddArgs, ctx: Optional[Context] = None)
         if categories:
             validate_categories_exist(project, categories)
     except ArgValidationError as e:
-        return e.to_result().to_json_str()
+        return e.to_result()
 
     try:
         # Create collection without name field (name becomes dict key)
         collection = Collection(categories=categories, description=validated_description)
     except ValueError as e:
-        return ArgValidationError([{"field": "name", "message": str(e)}]).to_result().to_json_str()
+        return ArgValidationError([{"field": "name", "message": str(e)}]).to_result()
 
     try:
         # Use new dict-based with_collection method
         await session.update_config(lambda p: p.with_collection(args.name, collection))
     except Exception as e:
-        return Result.failure(f"Failed to save project configuration: {e}", error_type=ERROR_SAVE).to_json_str()
+        return Result.failure(f"Failed to save project configuration: {e}", error_type=ERROR_SAVE)
 
-    return Result.ok(f"Collection '{args.name}' added successfully").to_json_str()
+    return Result.ok(f"Collection '{args.name}' added successfully")
+
+
+@tools.tool(CollectionAddArgs)
+async def collection_add(args: CollectionAddArgs, ctx: Optional[Context] = None) -> str:  # type: ignore
+    """Add a new collection to the current project.
+
+    Args:
+        args: Tool arguments with name, description, and categories
+        ctx: MCP Context (auto-injected by FastMCP)
+
+    Returns:
+        Result containing success message
+    """
+    result = await internal_collection_add(args, ctx)
+    return result.to_json_str()
 
 
 class CollectionRemoveArgs(ToolArguments):
     """Arguments for collection_remove tool."""
 
     name: str
+
+
+async def internal_collection_remove(args: CollectionRemoveArgs, ctx: Optional[Context] = None) -> Result[str]:  # type: ignore
+    """Remove a collection from the current project.
+
+    Args:
+        args: Tool arguments with collection name
+        ctx: MCP Context (auto-injected by FastMCP)
+
+    Returns:
+        Result containing success message
+    """
+    try:
+        session = await get_or_create_session(ctx)
+    except ValueError as e:
+        return Result.failure(str(e), error_type=ERROR_NO_PROJECT)
+
+    project = await session.get_project()
+
+    # Use dict lookup for O(1) existence check
+    if args.name not in project.collections:
+        return Result.failure(f"Collection '{args.name}' does not exist", error_type=ERROR_NOT_FOUND)
+
+    try:
+        await session.update_config(lambda p: p.without_collection(args.name))
+    except Exception as e:
+        return Result.failure(f"Failed to save project configuration: {e}", error_type=ERROR_SAVE)
+
+    return Result.ok(f"Collection '{args.name}' removed successfully")
 
 
 @tools.tool(CollectionRemoveArgs)
@@ -160,25 +221,10 @@ async def collection_remove(args: CollectionRemoveArgs, ctx: Optional[Context] =
         ctx: MCP Context (auto-injected by FastMCP)
 
     Returns:
-        JSON string with Result containing success message
+        Result containing success message
     """
-    try:
-        session = await get_or_create_session(ctx)
-    except ValueError as e:
-        return Result.failure(str(e), error_type=ERROR_NO_PROJECT).to_json_str()
-
-    project = await session.get_project()
-
-    # Use dict lookup for O(1) existence check
-    if args.name not in project.collections:
-        return Result.failure(f"Collection '{args.name}' does not exist", error_type=ERROR_NOT_FOUND).to_json_str()
-
-    try:
-        await session.update_config(lambda p: p.without_collection(args.name))
-    except Exception as e:
-        return Result.failure(f"Failed to save project configuration: {e}", error_type=ERROR_SAVE).to_json_str()
-
-    return Result.ok(f"Collection '{args.name}' removed successfully").to_json_str()
+    result = await internal_collection_remove(args, ctx)
+    return result.to_json_str()
 
 
 class CollectionChangeArgs(ToolArguments):
@@ -190,8 +236,7 @@ class CollectionChangeArgs(ToolArguments):
     new_categories: Optional[list[str]] = None
 
 
-@tools.tool(CollectionChangeArgs)
-async def collection_change(args: CollectionChangeArgs, ctx: Optional[Context] = None) -> str:  # type: ignore
+async def internal_collection_change(args: CollectionChangeArgs, ctx: Optional[Context] = None) -> Result[str]:  # type: ignore
     """Change properties of an existing collection.
 
     Can change name, description, or categories.
@@ -203,18 +248,18 @@ async def collection_change(args: CollectionChangeArgs, ctx: Optional[Context] =
         ctx: MCP Context (auto-injected by FastMCP)
 
     Returns:
-        JSON string with Result containing success message
+        Result containing success message
     """
     try:
         session = await get_or_create_session(ctx)
     except ValueError as e:
-        return Result.failure(str(e), error_type=ERROR_NO_PROJECT).to_json_str()
+        return Result.failure(str(e), error_type=ERROR_NO_PROJECT)
 
     project = await session.get_project()
 
     existing_collection = project.collections.get(args.name)
     if existing_collection is None:
-        return Result.failure(f"Collection '{args.name}' does not exist", error_type=ERROR_NOT_FOUND).to_json_str()
+        return Result.failure(f"Collection '{args.name}' does not exist", error_type=ERROR_NOT_FOUND)
 
     if args.new_name is None and args.new_description is None and args.new_categories is None:
         return (
@@ -229,7 +274,6 @@ async def collection_change(args: CollectionChangeArgs, ctx: Optional[Context] =
                 ]
             )
             .to_result()
-            .to_json_str()
         )
 
     try:
@@ -264,7 +308,7 @@ async def collection_change(args: CollectionChangeArgs, ctx: Optional[Context] =
             if deduplicated_categories:
                 validate_categories_exist(project, deduplicated_categories)
     except ArgValidationError as e:
-        return e.to_result().to_json_str()
+        return e.to_result()
 
     if args.new_description == "":
         final_description = None
@@ -283,7 +327,7 @@ async def collection_change(args: CollectionChangeArgs, ctx: Optional[Context] =
             description=final_description,
         )
     except ValueError as e:
-        return ArgValidationError([{"field": "new_name", "message": str(e)}]).to_result().to_json_str()
+        return ArgValidationError([{"field": "new_name", "message": str(e)}]).to_result()
 
     try:
         final_name = args.new_name if args.new_name is not None else args.name
@@ -291,13 +335,32 @@ async def collection_change(args: CollectionChangeArgs, ctx: Optional[Context] =
             lambda p: p.without_collection(args.name).with_collection(final_name, updated_collection)
         )
     except Exception as e:
-        return Result.failure(f"Failed to save project configuration: {e}", error_type=ERROR_SAVE).to_json_str()
+        return Result.failure(f"Failed to save project configuration: {e}", error_type=ERROR_SAVE)
 
     change_msg = f"Collection '{args.name}' updated successfully"
     if args.new_name is not None and args.new_name != args.name:
         change_msg = f"Collection '{args.name}' renamed to '{args.new_name}' successfully"
 
-    return Result.ok(change_msg).to_json_str()
+    return Result.ok(change_msg)
+
+
+@tools.tool(CollectionChangeArgs)
+async def collection_change(args: CollectionChangeArgs, ctx: Optional[Context] = None) -> str:  # type: ignore
+    """Change properties of an existing collection.
+
+    Can change name, description, or categories.
+    At least one new value must be provided.
+    Changes are saved to the project configuration immediately.
+
+    Args:
+        args: Tool arguments with collection name and optional new values
+        ctx: MCP Context (auto-injected by FastMCP)
+
+    Returns:
+        Result containing success message
+    """
+    result = await internal_collection_change(args, ctx)
+    return result.to_json_str()
 
 
 class CollectionUpdateArgs(ToolArguments):
@@ -308,8 +371,7 @@ class CollectionUpdateArgs(ToolArguments):
     remove_categories: Optional[list[str]] = None
 
 
-@tools.tool(CollectionUpdateArgs)
-async def collection_update(args: CollectionUpdateArgs, ctx: Optional[Context] = None) -> str:  # type: ignore
+async def internal_collection_update(args: CollectionUpdateArgs, ctx: Optional[Context] = None) -> Result[str]:  # type: ignore
     """Update collection categories incrementally.
 
     Add or remove categories from a collection without replacing the entire list.
@@ -320,18 +382,18 @@ async def collection_update(args: CollectionUpdateArgs, ctx: Optional[Context] =
         ctx: MCP Context (auto-injected by FastMCP)
 
     Returns:
-        JSON string with Result containing success message
+        Result containing success message
     """
     try:
         session = await get_or_create_session(ctx)
     except ValueError as e:
-        return Result.failure(str(e), error_type=ERROR_NO_PROJECT).to_json_str()
+        return Result.failure(str(e), error_type=ERROR_NO_PROJECT)
 
     project = await session.get_project()
 
     existing_collection = project.collections.get(args.name)
     if existing_collection is None:
-        return Result.failure(f"Collection '{args.name}' does not exist", error_type=ERROR_NOT_FOUND).to_json_str()
+        return Result.failure(f"Collection '{args.name}' does not exist", error_type=ERROR_NOT_FOUND)
 
     if args.add_categories is None and args.remove_categories is None:
         return (
@@ -348,14 +410,13 @@ async def collection_update(args: CollectionUpdateArgs, ctx: Optional[Context] =
                 ]
             )
             .to_result()
-            .to_json_str()
         )
 
     try:
         if args.add_categories:
             validate_categories_exist(project, args.add_categories)
     except ArgValidationError as e:
-        return e.to_result().to_json_str()
+        return e.to_result()
 
     current_categories = list(existing_collection.categories)
 
@@ -377,9 +438,27 @@ async def collection_update(args: CollectionUpdateArgs, ctx: Optional[Context] =
             lambda p: p.without_collection(args.name).with_collection(args.name, updated_collection)
         )
     except Exception as e:
-        return Result.failure(f"Failed to save project configuration: {e}", error_type=ERROR_SAVE).to_json_str()
+        return Result.failure(f"Failed to save project configuration: {e}", error_type=ERROR_SAVE)
 
-    return Result.ok(f"Collection '{args.name}' categories updated successfully").to_json_str()
+    return Result.ok(f"Collection '{args.name}' categories updated successfully")
+
+
+@tools.tool(CollectionUpdateArgs)
+async def collection_update(args: CollectionUpdateArgs, ctx: Optional[Context] = None) -> str:  # type: ignore
+    """Update collection categories incrementally.
+
+    Add or remove categories from a collection without replacing the entire list.
+    Categories are removed first, then added (avoiding duplicates).
+
+    Args:
+        args: Tool arguments with name and optional add/remove lists
+        ctx: MCP Context (auto-injected by FastMCP)
+
+    Returns:
+        Result containing success message
+    """
+    result = await internal_collection_update(args, ctx)
+    return result.to_json_str()
 
 
 class CollectionContentArgs(ToolArguments):
@@ -391,11 +470,10 @@ class CollectionContentArgs(ToolArguments):
     )
 
 
-@tools.tool(CollectionContentArgs)
-async def collection_content(
+async def internal_collection_content(
     args: CollectionContentArgs,
     ctx: Optional[Context] = None,  # type: ignore[type-arg]
-) -> str:
+) -> Result[str]:
     """Get aggregated content from all categories in a collection.
 
     Args:
@@ -403,13 +481,13 @@ async def collection_content(
         ctx: MCP Context (auto-injected by FastMCP)
 
     Returns:
-        JSON string with Result containing formatted content or error
+        Result containing formatted content or error
     """
     # Get session
     try:
         session = await get_or_create_session(ctx)
     except ValueError as e:
-        return Result.failure(str(e), error_type=ERROR_NO_PROJECT).to_json_str()
+        return Result.failure(str(e), error_type=ERROR_NO_PROJECT)
 
     # Get project
     project = await session.get_project()
@@ -422,7 +500,7 @@ async def collection_content(
             error_type=ERROR_NOT_FOUND,
             instruction=INSTRUCTION_NOTFOUND_ERROR,
         )
-        return result.to_json_str()
+        return result
 
     # Validate all categories exist
     for category_name in collection.categories:
@@ -433,7 +511,7 @@ async def collection_content(
                 error_type=ERROR_NOT_FOUND,
                 instruction=INSTRUCTION_NOTFOUND_ERROR,
             )
-            return result.to_json_str()
+            return result
 
     # Aggregate files from all categories
     all_files: list[FileInfo] = []
@@ -471,16 +549,34 @@ async def collection_content(
     if file_read_errors:
         return create_file_read_error_result(
             file_read_errors, args.collection, "collection", ERROR_FILE_READ, INSTRUCTION_FILE_ERROR
-        ).to_json_str()
+        )
 
     # Check if any files found
     if not all_files:
         return Result.ok(
             f"No matching content found in collection '{args.collection}'", instruction=INSTRUCTION_PATTERN_ERROR
-        ).to_json_str()
+        )
 
     # Format content
     formatter = get_formatter()
     content = await formatter.format(all_files, args.collection)
 
-    return Result.ok(content).to_json_str()
+    return Result.ok(content)
+
+
+@tools.tool(CollectionContentArgs)
+async def collection_content(
+    args: CollectionContentArgs,
+    ctx: Optional[Context] = None,  # type: ignore[type-arg]
+) -> str:
+    """Get aggregated content from all categories in a collection.
+
+    Args:
+        args: Tool arguments with collection name and optional pattern
+        ctx: MCP Context (auto-injected by FastMCP)
+
+    Returns:
+        Result containing formatted content or error
+    """
+    result = await internal_collection_content(args, ctx)
+    return result.to_json_str()

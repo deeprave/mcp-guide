@@ -272,6 +272,23 @@ This document tracks dependencies between OpenSpec change proposals to ensure co
 - ⏳ Template integration complete
 - ⏳ MCP resources queryable
 
+#### 5c. hook-uri-templates
+**Status:** 📋 Proposed (0% complete)
+**Requires:** add-guide-uri-scheme, template-support, add-feature-flags
+**Priority:** MEDIUM - Dynamic hook content support
+
+**Features:**
+- Template-enabled hook instructions via URI references
+- Dynamic content based on workflow mode and feature flags
+- Agent-followable guide:// URIs with template variables
+- Context-aware guidance and instructions
+
+**Validation:**
+- ⏳ Hook scripts output URI instructions with template variables
+- ⏳ Agents resolve template variables in guide:// URIs
+- ⏳ Template content supports feature flags and context variables
+- ⏳ Backward compatibility with existing static hook scripts
+
 ---
 
 ## Dependency Graph
@@ -303,6 +320,7 @@ Phase 4: Advanced Features
     📋 template-support (5a) ← depends on add-feature-flags
         ↓
     📋 add-openspec-support (5b) ← depends on add-feature-flags + template-support
+    📋 hook-uri-templates (5c) ← depends on add-guide-uri-scheme + template-support + add-feature-flags
 ```
 
 **Critical Path:**
@@ -311,6 +329,7 @@ Phase 4: Advanced Features
 3. 📋 tool-conventions (blocks remaining tools)
 4. 📋 template-support (after add-feature-flags)
 5. 📋 add-openspec-support (after template-support)
+6. 📋 hook-uri-templates (after add-guide-uri-scheme + template-support + add-feature-flags)
 
 ---
 
@@ -439,6 +458,7 @@ Phase 4: Advanced Features
 - collections-with-patterns (needs tool-conventions)
 - template-support (needs add-feature-flags)
 - add-openspec-support (needs add-feature-flags + template-support)
+- hook-uri-templates (needs add-guide-uri-scheme + template-support + add-feature-flags)
 
 **Total Progress:** 149/280+ tasks complete (53%)
 

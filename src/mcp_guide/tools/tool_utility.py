@@ -19,6 +19,8 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+__all__ = ["internal_client_info"]
+
 
 class GetClientInfoArgs(ToolArguments):
     """Arguments for client_info tool."""
@@ -26,8 +28,7 @@ class GetClientInfoArgs(ToolArguments):
     verbose: bool = Field(default=False, description="Unused parameter for compatibility")
 
 
-@tools.tool(GetClientInfoArgs)
-async def client_info(args: GetClientInfoArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
+async def internal_client_info(args: GetClientInfoArgs, ctx: Optional[Context] = None) -> Result[dict]:  # type: ignore[type-arg]
     """Get information about the MCP client/agent.
 
     Captures agent name, version, and prompt prefix from the MCP session.
@@ -40,15 +41,15 @@ async def client_info(args: GetClientInfoArgs, ctx: Optional[Context] = None) ->
         ctx: MCP Context (auto-injected by FastMCP)
 
     Returns:
-        JSON string with Result containing agent information
+        Result containing agent information
     """
     try:
         if ctx is None:
-            return Result.failure("Context not available").to_json_str()
+            return Result.failure("Context not available")
 
         # Verify we have a GuideMCP instance
         if not isinstance(ctx.fastmcp, GuideMCP):
-            return Result.failure("Server must be GuideMCP instance").to_json_str()
+            return Result.failure("Server must be GuideMCP instance")
 
         mcp = ctx.fastmcp
 
@@ -58,7 +59,7 @@ async def client_info(args: GetClientInfoArgs, ctx: Optional[Context] = None) ->
         else:
             # Detect and cache
             if ctx.session.client_params is None:
-                return Result.failure("No client information available").to_json_str()
+                return Result.failure("No client information available")
 
             agent_info = detect_agent(ctx.session.client_params)
             mcp.agent_info = agent_info
@@ -81,7 +82,26 @@ async def client_info(args: GetClientInfoArgs, ctx: Optional[Context] = None) ->
         result = Result.ok(data)
         result.message = markdown
         result.instruction = INSTRUCTION_DISPLAY_ONLY
-        return result.to_json_str()
+        return result
     except (AttributeError, KeyError, TypeError) as e:
         logger.exception("Error retrieving client info")
-        return Result.failure(f"Error retrieving client info: {str(e)}").to_json_str()
+        return Result.failure(f"Error retrieving client info: {str(e)}")
+
+
+@tools.tool(GetClientInfoArgs)
+async def client_info(args: GetClientInfoArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
+    """Get information about the MCP client/agent.
+
+    Captures agent name, version, and prompt prefix from the MCP session.
+    Caches the result in GuideMCP for subsequent calls.
+
+    Returns formatted agent information with explicit display instruction.
+
+    Args:
+        args: Tool arguments (verbose parameter is ignored)
+        ctx: MCP Context (auto-injected by FastMCP)
+
+    Returns:
+        Result containing agent information
+    """
+    return (await internal_client_info(args, ctx)).to_json_str()

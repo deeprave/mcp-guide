@@ -318,6 +318,23 @@ Enhanced `ExtMcpToolDecorator` to preserve Pydantic Field descriptions in MCP sc
 - ⏳ Template integration complete
 - ⏳ MCP resources queryable
 
+### hook-uri-templates
+**Status:** 📋 Proposed (0% complete)
+**Requires:** add-guide-uri-scheme, template-support, add-feature-flags
+**Priority:** MEDIUM - Dynamic hook content support
+
+**Features:**
+- Template-enabled hook instructions via URI references
+- Dynamic content based on workflow mode and feature flags
+- Agent-followable guide:// URIs with template variables
+- Context-aware guidance and instructions
+
+**Success Criteria:**
+- ⏳ Hook scripts output URI instructions with template variables
+- ⏳ Agents resolve template variables in guide:// URIs
+- ⏳ Template content supports feature flags and context variables
+- ⏳ Backward compatibility with existing static hook scripts
+
 ---
 
 ## Implementation Notes
@@ -330,7 +347,7 @@ Enhanced `ExtMcpToolDecorator` to preserve Pydantic Field descriptions in MCP sc
 - ✅ add-guide-project-tools (34 tasks)
 - ✅ add-content-tools (28 tasks)
 
-**Proposed/Ready (8):**
+**Proposed/Ready (9):**
 - 📋 add-feature-flags (NEW - blocks advanced features)
 - 📋 tool-conventions (ready to start)
 - 📋 add-guide-uri-scheme (ready after tool-conventions)
@@ -339,6 +356,7 @@ Enhanced `ExtMcpToolDecorator` to preserve Pydantic Field descriptions in MCP sc
 - 📋 collections-with-patterns
 - 📋 template-support (blocked by add-feature-flags)
 - 📋 add-openspec-support (blocked by add-feature-flags, template-support)
+- 📋 hook-uri-templates (blocked by add-guide-uri-scheme, template-support, add-feature-flags)
 
 **Total Progress:** 149/280+ tasks complete (53%)
 

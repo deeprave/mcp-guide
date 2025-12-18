@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from mcp_core.result import Result
 from mcp_guide.prompts.guide_prompt import guide
 from mcp_guide.prompts.guide_prompt_args import GuidePromptArguments
 
@@ -13,19 +14,19 @@ class TestGuidePromptIntegration:
 
     @pytest.mark.asyncio
     async def test_guide_prompt_with_command(self):
-        """@guide prompt should call get_content with command parameter."""
+        """@guide prompt should call internal_get_content with command parameter."""
         args = GuidePromptArguments(command="test_category")
         mock_ctx = MagicMock()
 
-        # Mock the get_content function to return JSON string
-        mock_result_json = '{"success": true, "data": "Test content from category"}'
+        # Mock the internal_get_content function to return Result
+        mock_result = Result.ok("Test content from category")
 
         with patch(
-            "mcp_guide.prompts.guide_prompt.get_content", new=AsyncMock(return_value=mock_result_json)
+            "mcp_guide.prompts.guide_prompt.internal_get_content", new=AsyncMock(return_value=mock_result)
         ) as mock_get_content:
             result = await guide(args, mock_ctx)
 
-            # Should call _get_content with correct arguments
+            # Should call internal_get_content with correct arguments
             mock_get_content.assert_called_once()
             call_args = mock_get_content.call_args[0][0]  # First positional arg (ContentArgs)
             assert call_args.category_or_collection == "test_category"
@@ -35,14 +36,14 @@ class TestGuidePromptIntegration:
 
     @pytest.mark.asyncio
     async def test_guide_prompt_with_error(self):
-        """@guide prompt should handle get_content errors gracefully."""
+        """@guide prompt should handle internal_get_content errors gracefully."""
         args = GuidePromptArguments(command="nonexistent")
         mock_ctx = MagicMock()
 
-        # Mock the get_content function to return error JSON
-        mock_result_json = '{"success": false, "error": "Category not found"}'
+        # Mock the internal_get_content function to return error Result
+        mock_result = Result.failure("Category not found")
 
-        with patch("mcp_guide.prompts.guide_prompt.get_content", new=AsyncMock(return_value=mock_result_json)):
+        with patch("mcp_guide.prompts.guide_prompt.internal_get_content", new=AsyncMock(return_value=mock_result)):
             result = await guide(args, mock_ctx)
 
             # Should return error message
@@ -78,11 +79,11 @@ class TestGuidePromptIntegration:
         args = GuidePromptArguments(command="test", arguments=["arg1", "arg2"])
         mock_ctx = MagicMock()
 
-        # Mock successful get_content
-        mock_result_json = '{"success": true, "data": "Test content"}'
+        # Mock successful internal_get_content
+        mock_result = Result.ok("Test content")
 
         with patch(
-            "mcp_guide.prompts.guide_prompt.get_content", new=AsyncMock(return_value=mock_result_json)
+            "mcp_guide.prompts.guide_prompt.internal_get_content", new=AsyncMock(return_value=mock_result)
         ) as mock_get_content:
             result = await guide(args, mock_ctx)
 
@@ -93,45 +94,45 @@ class TestGuidePromptIntegration:
 
     @pytest.mark.asyncio
     async def test_guide_prompt_invalid_json(self):
-        """@guide prompt should handle invalid JSON from get_content."""
+        """@guide prompt should handle Result objects directly (no JSON parsing needed)."""
         args = GuidePromptArguments(command="test")
         mock_ctx = MagicMock()
 
-        # Mock invalid JSON response
-        mock_result_json = "Invalid JSON response"
+        # Mock Result with string content
+        mock_result = Result.ok("Direct string response")
 
-        with patch("mcp_guide.prompts.guide_prompt.get_content", new=AsyncMock(return_value=mock_result_json)):
+        with patch("mcp_guide.prompts.guide_prompt.internal_get_content", new=AsyncMock(return_value=mock_result)):
             result = await guide(args, mock_ctx)
 
-            # Should return the raw string when JSON parsing fails
-            assert result == "Invalid JSON response"
+            # Should return the string directly from Result
+            assert result == "Direct string response"
 
     @pytest.mark.asyncio
     async def test_guide_prompt_missing_data_field(self):
-        """@guide prompt should handle missing data field in successful response."""
+        """@guide prompt should handle empty content in successful Result."""
         args = GuidePromptArguments(command="test")
         mock_ctx = MagicMock()
 
-        # Mock response with success but no data field
-        mock_result_json = '{"success": true}'
+        # Mock Result with empty content
+        mock_result = Result.ok("")
 
-        with patch("mcp_guide.prompts.guide_prompt.get_content", new=AsyncMock(return_value=mock_result_json)):
+        with patch("mcp_guide.prompts.guide_prompt.internal_get_content", new=AsyncMock(return_value=mock_result)):
             result = await guide(args, mock_ctx)
 
-            # Should return empty string when data field is missing
+            # Should return empty string when content is empty
             assert result == ""
 
     @pytest.mark.asyncio
     async def test_guide_prompt_missing_error_field(self):
-        """@guide prompt should handle missing error field in failure response."""
+        """@guide prompt should handle Result failure with error message."""
         args = GuidePromptArguments(command="test")
         mock_ctx = MagicMock()
 
-        # Mock response with failure but no error field
-        mock_result_json = '{"success": false}'
+        # Mock Result with failure and error message
+        mock_result = Result.failure("Something went wrong")
 
-        with patch("mcp_guide.prompts.guide_prompt.get_content", new=AsyncMock(return_value=mock_result_json)):
+        with patch("mcp_guide.prompts.guide_prompt.internal_get_content", new=AsyncMock(return_value=mock_result)):
             result = await guide(args, mock_ctx)
 
-            # Should return default error message when error field is missing
-            assert result == "Error: Unknown error"
+            # Should return error message
+            assert result == "Error: Something went wrong"
