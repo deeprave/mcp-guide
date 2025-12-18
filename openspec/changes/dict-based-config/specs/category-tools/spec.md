@@ -8,7 +8,7 @@ All category tools SHALL use dictionary-based operations for improved performanc
 
 **Lookup Operations:**
 - Category existence: `name in project.categories` (O(1))
-- Category retrieval: `project.categories[name]` (O(1))  
+- Category retrieval: `project.categories[name]` (O(1))
 - Category iteration: `project.categories.values()` or `.items()`
 
 **Modification Operations:**
@@ -50,6 +50,6 @@ Category tools SHALL use simplified validation logic enabled by dictionary-based
 - **WHEN** removing category
 - **THEN** verify existence with `name in project.categories`
 
-#### Scenario: Change category validation  
+#### Scenario: Change category validation
 - **WHEN** changing category name
 - **THEN** check new name not in `project.categories` (except current)

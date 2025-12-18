@@ -1,7 +1,7 @@
 # Guided Workflow State Tracking
 
-**Created**: 2025-12-16T21:52:24+11:00  
-**Status**: Idea  
+**Created**: 2025-12-16T21:52:24+11:00
+**Status**: Idea
 **Category**: Development Workflow
 
 ## Overview
@@ -11,7 +11,7 @@ A resumable state tracking system for guided workflows with five phases: discuss
 ## Workflow Phases
 
 1. **Discussion** - Alignment and requirements gathering (no code changes)
-2. **Planning** - Create implementation plans (no code changes)  
+2. **Planning** - Create implementation plans (no code changes)
 3. **Implementation** - Update production code and tests
 4. **Check** - Run tests and code quality tools
 5. **Review** - Wait for and address user review
@@ -24,7 +24,7 @@ A resumable state tracking system for guided workflows with five phases: discuss
 # Workflow State: {feature-name}
 
 ## Current Phase: IMPLEMENTATION
-- **Status**: In Progress  
+- **Status**: In Progress
 - **Started**: 2025-12-16T20:30:00+11:00
 - **OpenSpec Feature**: list-category-files
 - **Description**: Implementing category file listing tool
@@ -141,7 +141,7 @@ The user-defined workflows idea provides the foundation for flexible phase manag
 
 **Phase Definition**: Instead of hardcoded phases (discussion, planning, implementation, check, review), workflows can be defined per-project:
 - Simple: `plan → implement → review`
-- Standard: `discuss → plan → implement → check → review`  
+- Standard: `discuss → plan → implement → check → review`
 - Complex: `research → design → prototype → implement → test → review → deploy`
 
 **State File Coordination**: Both systems use state files but serve different purposes:
@@ -173,7 +173,7 @@ docroot/
 ├── _commands/
 │   └── workflow/
 │       ├── status.mustache     # :workflow/status
-│       ├── transition.mustache # :workflow/transition  
+│       ├── transition.mustache # :workflow/transition
 │       └── checkpoint.mustache # :workflow/checkpoint
 ├── .guide                      # Current phase (user-defined workflows)
 └── .todo/

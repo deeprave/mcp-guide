@@ -20,10 +20,10 @@ class ProjectFlags:
         project = await self._session.get_project()
         return project.project_flags
 
-    async def get(self, flag_name: str) -> Optional[FeatureValue]:
+    async def get(self, flag_name: str, default: Optional[FeatureValue] = None) -> Optional[FeatureValue]:
         """Get a specific project flag value."""
         flags = await self.list()
-        return flags.get(flag_name)
+        return flags.get(flag_name, default)
 
     async def set(self, flag_name: str, value: FeatureValue) -> None:
         """Set a project flag value."""

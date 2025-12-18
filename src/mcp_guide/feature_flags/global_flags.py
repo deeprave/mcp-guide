@@ -18,10 +18,10 @@ class GlobalFlags:
         """List all global flags."""
         return await self._config_manager.get_feature_flags()
 
-    async def get(self, flag_name: str) -> Optional[FeatureValue]:
+    async def get(self, flag_name: str, default: Optional[FeatureValue] = None) -> Optional[FeatureValue]:
         """Get a specific global flag value."""
         flags = await self.list()
-        return flags.get(flag_name)
+        return flags.get(flag_name, default)
 
     async def set(self, flag_name: str, value: FeatureValue) -> None:
         """Set a global flag value."""

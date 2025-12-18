@@ -8,7 +8,7 @@ The system SHALL use dictionary-based storage for categories and collections ins
 
 **Data Models:**
 - `Project.categories` SHALL be `dict[str, Category]` where keys are category names
-- `Project.collections` SHALL be `dict[str, Collection]` where keys are collection names  
+- `Project.collections` SHALL be `dict[str, Collection]` where keys are collection names
 - `Category` model SHALL NOT include `name` field (name becomes dict key)
 - `Collection` model SHALL NOT include `name` field (name becomes dict key)
 
@@ -34,7 +34,7 @@ collections:
 - **WHEN** accessing category by name
 - **THEN** use `project.categories[name]` for O(1) lookup
 
-#### Scenario: Dictionary-based collection access  
+#### Scenario: Dictionary-based collection access
 - **WHEN** accessing collection by name
 - **THEN** use `project.collections[name]` for O(1) lookup
 
@@ -43,7 +43,7 @@ collections:
 - **THEN** use `project.categories.items()` to get (name, category) pairs
 
 #### Scenario: Collection iteration
-- **WHEN** iterating over collections  
+- **WHEN** iterating over collections
 - **THEN** use `project.collections.items()` to get (name, collection) pairs
 
 #### Scenario: Duplicate prevention
@@ -87,7 +87,7 @@ The system SHALL inject category and collection names into template contexts sin
 - **THEN** inject category name from dictionary key as `name` field
 
 #### Scenario: Collection name in template context
-- **WHEN** building collection template context  
+- **WHEN** building collection template context
 - **THEN** inject collection name from dictionary key as `name` field
 
 #### Scenario: Template backward compatibility

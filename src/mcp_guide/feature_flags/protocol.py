@@ -28,7 +28,7 @@ class FeatureFlags(Protocol):
         """List all flags."""
         ...
 
-    async def get(self, flag_name: str) -> Optional[FeatureValue]:
+    async def get(self, flag_name: str, default: Optional[FeatureValue] = None) -> Optional[FeatureValue]:
         """Get a specific flag value."""
         ...
 
