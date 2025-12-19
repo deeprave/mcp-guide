@@ -197,9 +197,8 @@ q.json
 # Project configuration
 q.chat
 q.json
-.consent
-.issue
-.osvcheck_cache
+.guide
+.*_cache
 
 .hook_log
 .amazonq

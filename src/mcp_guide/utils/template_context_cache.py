@@ -73,17 +73,20 @@ class TemplateContextCache(SessionListener):
 
         # Extract project information from current session using public API
         project_name = ""
+        project_flags = {}
         try:
             session = get_current_session()
             if session:
                 project = await session.get_project()
                 project_name = project.name
+                project_flags = project.project_flags or {}
         except (AttributeError, ValueError, RuntimeError) as e:
             logger.debug(f"Failed to get project from session: {e}")
 
         project_vars = {
             "project": {
                 "name": project_name,
+                "flags": project_flags,
             }
         }
 

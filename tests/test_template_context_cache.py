@@ -70,6 +70,57 @@ class TestTemplateContextCache:
             assert "project" in context
             assert context["project"]["name"] == ""
 
+    async def test_build_project_context_includes_project_flags(self) -> None:
+        """Test that _build_project_context includes project flags in context."""
+        from unittest.mock import patch
+
+        from mcp_guide.models import Project
+
+        cache = TemplateContextCache()
+
+        # Mock get_current_session to return session with project that has flags
+        mock_session = Mock()
+        mock_project = Project(
+            name="test-project", 
+            categories={}, 
+            collections={},
+            project_flags={"phase-tracking": True, "debug-mode": False}
+        )
+        mock_session.get_project = AsyncMock(return_value=mock_project)
+
+        with patch("mcp_guide.session.get_current_session", return_value=mock_session):
+            # Get project context
+            context = await cache._build_project_context()
+
+            # Verify project flags are in context under project.flags
+            assert "project" in context
+            assert "flags" in context["project"]
+            assert context["project"]["flags"]["phase-tracking"] is True
+            assert context["project"]["flags"]["debug-mode"] is False
+
+    async def test_build_project_context_handles_missing_flags(self) -> None:
+        """Test that _build_project_context handles projects without flags gracefully."""
+        from unittest.mock import patch
+
+        from mcp_guide.models import Project
+
+        cache = TemplateContextCache()
+
+        # Mock get_current_session to return session with project without flags
+        mock_session = Mock()
+        mock_project = Project(name="test-project", categories={}, collections={})
+        # No project_flags attribute set
+        mock_session.get_project = AsyncMock(return_value=mock_project)
+
+        with patch("mcp_guide.session.get_current_session", return_value=mock_session):
+            # Get project context
+            context = await cache._build_project_context()
+
+            # Verify empty flags dict is provided
+            assert "project" in context
+            assert "flags" in context["project"]
+            assert context["project"]["flags"] == {}
+
     async def test_build_project_context_handles_expected_exception(self) -> None:
         """Test that _build_project_context swallows expected exceptions and returns empty project context."""
         from unittest.mock import patch
