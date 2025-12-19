@@ -7,12 +7,15 @@ from pydantic import Field
 
 from mcp_core.result import Result
 from mcp_core.tool_arguments import ToolArguments
+from mcp_guide.models import CategoryNotFoundError, CollectionNotFoundError, ExpressionParseError, FileReadError
 from mcp_guide.server import tools
 from mcp_guide.session import get_or_create_session
 from mcp_guide.tools.tool_constants import (
     ERROR_FILE_READ,
     ERROR_NO_PROJECT,
+    ERROR_NOT_FOUND,
     INSTRUCTION_FILE_ERROR,
+    INSTRUCTION_NOTFOUND_ERROR,
     INSTRUCTION_PATTERN_ERROR,
 )
 from mcp_guide.utils.content_common import gather_content
@@ -136,8 +139,12 @@ async def internal_get_content(
         content = await formatter.format(final_files, args.category_or_collection)
         return Result.ok(content)
 
-    except ValueError as e:
+    except ExpressionParseError as e:
         return Result.failure(str(e), error_type=ERROR_NO_PROJECT)
+    except (CategoryNotFoundError, CollectionNotFoundError) as e:
+        return Result.failure(str(e), error_type=ERROR_NOT_FOUND, instruction=INSTRUCTION_NOTFOUND_ERROR)
+    except FileReadError as e:
+        return Result.failure(str(e), error_type=ERROR_FILE_READ, instruction=INSTRUCTION_FILE_ERROR)
 
 
 @tools.tool(ContentArgs)

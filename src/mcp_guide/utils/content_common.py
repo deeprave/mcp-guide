@@ -3,7 +3,14 @@
 from pathlib import Path
 from typing import Optional
 
-from mcp_guide.models import DocumentExpression, Project
+from mcp_guide.models import (
+    CategoryNotFoundError,
+    CollectionNotFoundError,
+    DocumentExpression,
+    ExpressionParseError,
+    FileReadError,
+    Project,
+)
 from mcp_guide.session import Session
 from mcp_guide.utils.content_utils import read_and_render_file_contents, resolve_patterns
 from mcp_guide.utils.file_discovery import FileInfo, discover_category_files
@@ -21,10 +28,10 @@ def parse_expression(expression: str) -> list[DocumentExpression]:
         List of DocumentExpression objects
 
     Raises:
-        ValueError: If expression is malformed
+        ExpressionParseError: If expression is malformed
     """
     if not expression or expression.isspace():
-        raise ValueError("Expression cannot be empty")
+        raise ExpressionParseError("Expression cannot be empty")
 
     expressions = []
 
@@ -41,7 +48,7 @@ def parse_expression(expression: str) -> list[DocumentExpression]:
             pattern_part = parts[1].strip() if len(parts) > 1 else ""
 
             if not name:
-                raise ValueError(f"Empty category/collection name in expression: '{sub_expr}'")
+                raise ExpressionParseError(f"Empty category/collection name in expression: '{sub_expr}'")
 
             if pattern_part:
                 # Split patterns by + for multi-pattern support
@@ -60,12 +67,12 @@ def parse_expression(expression: str) -> list[DocumentExpression]:
             patterns = None
 
             if not name:
-                raise ValueError(f"Empty category/collection name in expression: '{sub_expr}'")
+                raise ExpressionParseError(f"Empty category/collection name in expression: '{sub_expr}'")
 
         expressions.append(DocumentExpression(raw_input=sub_expr, name=name, patterns=patterns))
 
     if not expressions:
-        raise ValueError("No valid expressions found")
+        raise ExpressionParseError("No valid expressions found")
 
     return expressions
 
@@ -84,37 +91,53 @@ async def gather_content(
 
     Returns:
         List of FileInfo objects from all matched categories/collections
+
+    Raises:
+        ExpressionParseError: If expression parsing fails
+        CategoryNotFoundError: If a referenced category doesn't exist
+        CollectionNotFoundError: If a referenced collection doesn't exist
     """
     expressions = parse_expression(expression)
     all_files = []
-    processed_categories = set()  # Track categories we've already processed to avoid duplicates
+    # Track processed (category_name, patterns) combinations to allow multiple pattern sets per category
+    processed_combinations = set()
 
     for expr in expressions:
         if expr.name in project.collections:
             # Handle collection - expand to its categories
             collection = project.collections[expr.name]
             for category_name in collection.categories:
-                if category_name not in processed_categories:
+                # Create combination key for deduplication
+                patterns_key = tuple(sorted(expr.patterns)) if expr.patterns else None
+                combination_key = (category_name, patterns_key)
+
+                if combination_key not in processed_combinations:
                     try:
                         files = await gather_category_fileinfos(session, project, category_name, expr.patterns)
                         # Set collection field on files
                         for file in files:
                             file.collection = expr.name
                         all_files.extend(files)
-                        processed_categories.add(category_name)
-                    except ValueError:
-                        # Category doesn't exist, skip
-                        continue
+                        processed_combinations.add(combination_key)
+                    except CategoryNotFoundError:
+                        # Re-raise with context about which collection referenced the missing category
+                        raise CategoryNotFoundError(f"{category_name} (referenced by collection '{expr.name}')")
 
-        elif expr.name in project.categories and expr.name not in processed_categories:
+        elif expr.name in project.categories:
             # Handle category - use gather_category_fileinfos
-            try:
+            patterns_key = tuple(sorted(expr.patterns)) if expr.patterns else None
+            combination_key = (expr.name, patterns_key)
+
+            if combination_key not in processed_combinations:
                 files = await gather_category_fileinfos(session, project, expr.name, expr.patterns)
                 all_files.extend(files)
-                processed_categories.add(expr.name)
-            except ValueError:
-                # Category doesn't exist, skip
-                continue
+                processed_combinations.add(combination_key)
+        else:
+            # Neither collection nor category found - raise specific error
+            if expr.name in project.collections:
+                raise CollectionNotFoundError(expr.name)
+            else:
+                raise CategoryNotFoundError(expr.name)
 
     # De-duplicate by absolute path
     seen_paths = set()
@@ -155,12 +178,12 @@ async def gather_category_fileinfos(
         List of FileInfo objects for the category
 
     Raises:
-        ValueError: If category doesn't exist
+        CategoryNotFoundError: If category doesn't exist
     """
     # Resolve category
     category = project.categories.get(category_name)
     if category is None:
-        raise ValueError(f"Category '{category_name}' not found in project")
+        raise CategoryNotFoundError(category_name)
 
     # Resolve patterns with three-tier priority:
     # 1. Explicit patterns parameter (highest)
@@ -201,7 +224,7 @@ async def render_fileinfos(
         Formatted content string
 
     Raises:
-        ValueError: If file reading fails
+        FileReadError: If file reading fails
     """
     if not files:
         return f"No content found for '{context_name}'"
@@ -211,7 +234,7 @@ async def render_fileinfos(
     file_read_errors = await read_and_render_file_contents(files, category_dir, template_context)
 
     if file_read_errors:
-        raise ValueError(f"Failed to read files: {'; '.join(file_read_errors)}")
+        raise FileReadError(f"Failed to read files: {'; '.join(file_read_errors)}")
 
     # Format content
     formatter = get_formatter()
