@@ -81,10 +81,10 @@ class TestTemplateContextCache:
         # Mock get_current_session to return session with project that has flags
         mock_session = Mock()
         mock_project = Project(
-            name="test-project", 
-            categories={}, 
+            name="test-project",
+            categories={},
             collections={},
-            project_flags={"phase-tracking": True, "debug-mode": False}
+            project_flags={"phase-tracking": True, "debug-mode": False},
         )
         mock_session.get_project = AsyncMock(return_value=mock_project)
 

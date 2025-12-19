@@ -19,10 +19,7 @@ Phase tracking is enabled!
 
         # Mock project with phase-tracking flag enabled
         mock_project = Project(
-            name="test-project",
-            categories={},
-            collections={},
-            project_flags={"phase-tracking": True}
+            name="test-project", categories={}, collections={}, project_flags={"phase-tracking": True}
         )
 
         # Mock session
@@ -32,7 +29,7 @@ Phase tracking is enabled!
         with patch("mcp_guide.session.get_current_session", return_value=mock_session):
             # Get template context with project flags
             context = await get_template_contexts()
-            
+
             # Render template
             result = render_template_content(template_content, context)
 
@@ -50,10 +47,7 @@ Phase tracking is enabled!
 
         # Mock project with phase-tracking flag disabled
         mock_project = Project(
-            name="test-project",
-            categories={},
-            collections={},
-            project_flags={"phase-tracking": False}
+            name="test-project", categories={}, collections={}, project_flags={"phase-tracking": False}
         )
 
         # Mock session
@@ -63,7 +57,7 @@ Phase tracking is enabled!
         with patch("mcp_guide.session.get_current_session", return_value=mock_session):
             # Get template context with project flags
             context = await get_template_contexts()
-            
+
             # Render template
             result = render_template_content(template_content, context)
 
@@ -86,7 +80,7 @@ Phase tracking is enabled!
             name="test-project",
             categories={},
             collections={},
-            project_flags={}  # No flags
+            project_flags={},  # No flags
         )
 
         # Mock session
@@ -96,7 +90,7 @@ Phase tracking is enabled!
         with patch("mcp_guide.session.get_current_session", return_value=mock_session):
             # Get template context with project flags
             context = await get_template_contexts()
-            
+
             # Render template
             result = render_template_content(template_content, context)
 
