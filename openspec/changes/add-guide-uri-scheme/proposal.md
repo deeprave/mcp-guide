@@ -11,14 +11,22 @@ MCP servers can expose resources via the `resources/list` and `resources/read` p
 
 ## What Changes
 
-- Implement MCP `resources/list` handler returning guide:// URIs and templates
-- Implement MCP `resources/read` handler for guide:// URI resolution
-- Define guide:// URI scheme patterns for categories, collections, documents, and help
-- Map URI patterns to existing content retrieval logic (deferred to content tools implementation)
+- Implement MCP resource handler for guide:// URI scheme
+- Single URI pattern: `guide://collection/document`
+- Direct delegation to existing `internal_get_content` function
+- Simple text/markdown responses (no MIME multipart)
 
 ## Impact
 
 - Affected specs: New capability `mcp-resources-guide-scheme`
 - Affected code: MCP server initialization, resource handlers
-- Dependencies: Content retrieval implementation (to be defined separately)
+- Dependencies: Existing `internal_get_content` from content tools
 - No breaking changes - additive feature only
+
+## Design Simplifications
+
+The implementation was simplified from the original proposal:
+- Single URI pattern instead of multiple resource types
+- No guide://help resource
+- No MIME multipart formatting
+- Direct delegation to existing content system
