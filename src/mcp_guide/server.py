@@ -204,4 +204,9 @@ def create_server() -> GuideMCP:
     # Import prompt modules - decorators register immediately
     from mcp_guide.prompts import guide_prompt  # noqa: F401
 
+    # Register resource handlers
+    from mcp_guide.resources import register_resource_handlers
+
+    register_resource_handlers(mcp)
+
     return mcp

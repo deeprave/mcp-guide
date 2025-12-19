@@ -6,186 +6,78 @@
 
 The MCP server SHALL support the guide:// URI scheme for accessing guide content through MCP resources protocol.
 
-#### Scenario: Resource discovery
+#### Scenario: Resource template advertised
 - **WHEN** client calls `resources/list`
-- **THEN** server returns list of guide:// resources and templates
-
-#### Scenario: Resource templates advertised
-- **WHEN** client calls `resources/list`
-- **THEN** response includes resourceTemplates with guide:// URI patterns
+- **THEN** response includes resourceTemplates with guide:// URI pattern
 
 ### Requirement: URI Pattern Structure
 
-The guide:// URI scheme SHALL support the following patterns:
+The guide:// URI scheme SHALL support the following pattern:
 
-- `guide://help` - Usage information and URI pattern documentation
-- `guide://collection/{id}` - Collection content by identifier
-- `guide://category/{name}` - Category content by name
-- `guide://category/{name}/{docId}` - Document or pattern match within category
-- `guide://document/{context}/{docId}` - Document from category or collection context
+- `guide://{collection}/{document}` - Collection/category content with optional document pattern
 
-All patterns SHALL return content as text/markdown or multipart/mixed MIME type.
-
-#### Scenario: Help resource access
-- **WHEN** client reads `guide://help`
-- **THEN** server returns markdown documentation of URI patterns and usage
+The URI SHALL be parsed as:
+- Collection/category name: path segment after scheme
+- Document pattern: optional second path segment
 
 #### Scenario: Collection access
-- **WHEN** client reads `guide://collection/all`
-- **THEN** server returns content from collection "all"
+- **WHEN** client reads `guide://lang`
+- **THEN** server returns content from collection/category "lang" using default patterns
 
-#### Scenario: Category access
-- **WHEN** client reads `guide://category/examples`
-- **THEN** server returns content matching category "examples" default patterns
+#### Scenario: Collection with document access
+- **WHEN** client reads `guide://lang/python`
+- **THEN** server returns content from collection/category "lang" matching pattern "python"
 
-#### Scenario: Category document access
-- **WHEN** client reads `guide://category/examples/intro`
-- **THEN** server returns document "intro" and/or pattern matches for "intro" from category "examples"
+### Requirement: Resource Handler Registration
 
-#### Scenario: Document-only access
-- **WHEN** client reads `guide://document/examples/intro.md`
-- **THEN** server returns only document "intro.md" from context "examples" (no pattern matching)
+The MCP server SHALL register a resource handler for the guide:// URI template pattern.
 
-### Requirement: Resource List Response
+The handler SHALL be registered using FastMCP resource decorator with URI template `guide://{collection}/{document}`.
 
-The `resources/list` handler SHALL return both concrete resources and URI templates.
+#### Scenario: Handler registration
+- **WHEN** server initializes
+- **THEN** guide:// resource handler is registered with MCP server
 
-Concrete resources SHALL include:
-- `guide://help` with name "Guide URI Help" and mimeType "text/markdown"
+### Requirement: Content Delegation
 
-Resource templates SHALL include:
-- `guide://collection/{id}` for collection access
-- `guide://category/{name}` for category access
-- `guide://category/{name}/{docId}` for category document/pattern access
-- `guide://document/{context}/{docId}` for document-only access
+The resource handler SHALL delegate to `internal_get_content` function for content retrieval.
 
-#### Scenario: Static resources listed
-- **WHEN** client calls `resources/list`
-- **THEN** response includes `guide://help` in resources array
-
-#### Scenario: Templates listed
-- **WHEN** client calls `resources/list`
-- **THEN** response includes all guide:// patterns in resourceTemplates array
-
-### Requirement: Resource Read Handler
-
-The `resources/read` handler SHALL parse guide:// URIs and return appropriate content.
-
-URI parsing SHALL extract:
-- Scheme (must be "guide")
-- Resource type (help, collection, category, document)
-- Parameters (id, name, docId, context)
-
-Content retrieval SHALL delegate to content tools implementation.
-
-#### Scenario: URI parsing success
-- **WHEN** client reads valid guide:// URI
-- **THEN** server parses URI components correctly
-
-#### Scenario: Invalid scheme rejected
-- **WHEN** client reads URI with non-guide scheme
-- **THEN** server returns error "Invalid URI scheme"
+URI parameters SHALL be mapped to ContentArgs:
+- collection → category_or_collection
+- document → pattern (None if empty)
 
 #### Scenario: Content delegation
-- **WHEN** URI is parsed successfully
-- **THEN** server delegates to content retrieval logic
+- **WHEN** guide:// URI is accessed
+- **THEN** handler calls `internal_get_content` with appropriate ContentArgs
 
-### Requirement: Category Document Semantics
+#### Scenario: Parameter mapping
+- **WHEN** URI is `guide://docs/readme`
+- **THEN** ContentArgs has category_or_collection="docs" and pattern="readme"
 
-The pattern `guide://category/{name}/{docId}` SHALL search for both documents and pattern matches.
+#### Scenario: Empty document parameter
+- **WHEN** URI is `guide://docs`
+- **THEN** ContentArgs has category_or_collection="docs" and pattern=None
 
-Search order SHALL be:
-1. Exact document match for {docId}
-2. Pattern match using {docId} as glob pattern
-3. Return combined results if both match
+### Requirement: Response Format
 
-#### Scenario: Document and pattern both match
-- **WHEN** {docId} matches both a document name and a pattern
-- **THEN** server returns both results combined
+Successful content retrieval SHALL return plain text content.
 
-#### Scenario: Only document matches
-- **WHEN** {docId} matches only a document
-- **THEN** server returns single document content
+Failed content retrieval SHALL return error message as plain text.
 
-#### Scenario: Only pattern matches
-- **WHEN** {docId} matches only as a pattern
-- **THEN** server returns pattern-matched content
+#### Scenario: Successful retrieval
+- **WHEN** content is found
+- **THEN** handler returns content text as string
 
-### Requirement: Document-Only Semantics
-
-The pattern `guide://document/{context}/{docId}` SHALL search only for documents, not patterns.
-
-Context resolution SHALL try:
-1. Category with name {context}
-2. Collection with id {context}
-3. Return first match found
-
-#### Scenario: Document found in category
-- **WHEN** {context} is a category name and {docId} exists
-- **THEN** server returns document from category
-
-#### Scenario: Document found in collection
-- **WHEN** {context} is a collection id and {docId} exists
-- **THEN** server returns document from collection
-
-#### Scenario: Context not found
-- **WHEN** {context} matches neither category nor collection
-- **THEN** server returns error "Context not found"
-
-### Requirement: Content Format
-
-Single document matches SHALL return:
-- mimeType: "text/markdown"
-- text: plain markdown content
-
-Multiple document matches SHALL return:
-- mimeType: "multipart/mixed; boundary=\"guide-boundary\""
-- text: MIME multipart format with metadata per part
-
-#### Scenario: Single document response
-- **WHEN** URI resolves to one document
-- **THEN** response has mimeType "text/markdown" and plain content
-
-#### Scenario: Multiple documents response
-- **WHEN** URI resolves to multiple documents
-- **THEN** response has mimeType "multipart/mixed" and MIME-formatted content
-
-### Requirement: Help Content
-
-The `guide://help` resource SHALL provide:
-- Overview of guide:// URI scheme
-- List of supported URI patterns with examples
-- Usage instructions for each pattern
-- Common use cases and examples
-
-Content SHALL be generated dynamically and supplemented by markdown documentation.
-
-#### Scenario: Help content structure
-- **WHEN** client reads `guide://help`
-- **THEN** response includes URI pattern documentation and examples
-
-#### Scenario: Help includes all patterns
-- **WHEN** client reads `guide://help`
-- **THEN** response documents all supported URI patterns
+#### Scenario: Content error
+- **WHEN** content retrieval fails
+- **THEN** handler returns error message as string
 
 ### Requirement: Error Handling
 
-Resource read errors SHALL return appropriate MCP error responses.
+The resource handler SHALL handle exceptions gracefully.
 
-Error types SHALL include:
-- Invalid URI scheme
-- Resource not found
-- Context not found
-- Content retrieval failure
+Unexpected exceptions SHALL be caught and returned as error messages.
 
-#### Scenario: Invalid URI format
-- **WHEN** URI cannot be parsed
-- **THEN** server returns error with clear message
-
-#### Scenario: Resource not found
-- **WHEN** URI is valid but resource doesn't exist
-- **THEN** server returns "not found" error
-
-#### Scenario: Content retrieval error
-- **WHEN** content retrieval fails
-- **THEN** server returns error from content layer
+#### Scenario: Exception handling
+- **WHEN** unexpected exception occurs
+- **THEN** handler returns "Unexpected error: {message}" string

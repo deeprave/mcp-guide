@@ -44,8 +44,8 @@ Add to your Claude Desktop configuration file:
 {
   "mcpServers": {
     "mcp-guide": {
-      "command": "uv",
-      "args": ["run", "mcp-guide"]
+      "command": "uvx",
+      "args": ["mcp-guide"]
     }
   }
 }
@@ -70,6 +70,18 @@ Once configured, your AI agent can access mcp-guide's tools and prompts to:
 - Retrieve project context and documentation
 - Follow structured development workflows
 
+### Resource Access
+
+mcp-guide supports MCP resources via the `guide://` URI scheme:
+
+```
+guide://collection/document
+```
+
+Example: `guide://lang/python` retrieves Python language guidelines.
+
+For details, see `guide://docs/guide-uri-scheme.md`
+
 *(Note: Tools and prompts are currently under development)*
 
 ## Logging
@@ -86,43 +98,24 @@ MG_LOG_LEVEL=DEBUG MG_LOG_FILE=/tmp/debug.log mcp-guide
 
 Available log levels: TRACE, DEBUG, INFO, WARN, ERROR
 
-## Tool Development
-
-mcp-guide follows standardized conventions for tool implementation. See [Tool Implementation Guide](docs/tool-implementation.md) for details.
-
-### Tool Conventions
-
-- **Result Pattern**: All tools return `Result[T]` for rich error handling
-- **ToolArguments**: Pydantic-based argument validation with automatic schema generation
-- **Tool Decorator**: Automatic registration with logging and prefixing
-- **Instruction Field**: Guide agent behavior through result instructions
-
-### Environment Variables
+## Environment Variables
 
 **MCP_TOOL_PREFIX** - Tool name prefix (default: "guide")
 ```bash
 export MCP_TOOL_PREFIX="guide"  # Tools named: guide_tool_name
 ```
 
+**MCP_PROMPT_PREFIX** - Guide prompt prefix (default: None)
+```bash
+export MCP_PROMPT_PREFIX="g"  # Prompt named: g_guide
+```
+
+Using these renaming conventions avoids naming collisions in tools (common) and prompts (much less likely).
+In agents that already prefix tools with the mcp names such as Claude Code, the MCP_TOOL_PREFIX should be set to an empty value (not unset).
+
 **MCP_INCLUDE_EXAMPLE_TOOLS** - Include example tools (default: false)
 ```bash
 export MCP_INCLUDE_EXAMPLE_TOOLS="true"  # For development
-```
-
-### References
-
-- [ADR-008: Tool Definition Conventions](docs/adr/008-tool-definition-conventions.md)
-- [ADR-003: Result Pattern](docs/adr/003-result-pattern.md)
-- [Tool Implementation Guide](docs/tool-implementation.md)
-
-## Project Structure
-
-```
-mcp-guide/
-├── guide/          # Project guidelines
-├── lang/           # Language-specific rules
-├── context/        # Project context
-└── prompt/         # Prompt templates
 ```
 
 ## Development

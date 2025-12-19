@@ -7,150 +7,111 @@ MCP protocol supports resource discovery and access through `resources/list` and
 ## Goals
 
 - Enable resource-based access to guide content
-- Provide clear URI patterns for different content types
+- Provide simple URI pattern for content access
 - Maintain consistency with existing tool-based access
-- Support both static resources and dynamic templates
+- Delegate to existing content retrieval system
 
 ## Non-Goals
 
 - Replacing tool-based access (both approaches coexist)
-- Implementing content retrieval logic (delegated to content tools)
-- Supporting URI schemes other than guide://
+- Complex URI patterns or resource types
+- MIME multipart formatting
+- Help resource generation
 
 ## Decisions
 
 ### URI Pattern Design
 
-**Decision:** Use hierarchical URI structure with clear resource type prefixes
-
-Patterns:
-```
-guide://help
-guide://collection/{id}
-guide://category/{name}
-guide://category/{name}/{docId}
-guide://document/{context}/{docId}
-```
+**Decision:** Use single URI pattern `guide://collection/document`
 
 **Rationale:**
-- Clear resource type identification
-- Natural hierarchy (category → document)
-- Consistent with REST-like patterns
+- Simple and clear
+- Maps directly to existing content system
 - Easy to parse and validate
+- Consistent with tool-based access
 
 **Alternatives considered:**
-- Flat structure (guide://{type}/{id}) - Less intuitive hierarchy
-- Query parameters (guide://category?name=x) - More complex parsing
-- Path-only (guide://category/name/doc) - Ambiguous resource types
+- Multiple resource types (help, category, document) - Added complexity without clear benefit
+- Query parameters - More complex parsing
+- Hierarchical patterns - Unnecessary for current use cases
 
-### Category vs Document Semantics
+### Content Delegation
 
-**Decision:** `guide://category/{name}/{docId}` searches both documents and patterns, while `guide://document/{context}/{docId}` searches only documents.
+**Decision:** Direct delegation to `internal_get_content` function
 
 **Rationale:**
-- Category access is exploratory (user may want patterns)
-- Document access is specific (user knows what they want)
-- Provides both broad and narrow search options
-- Matches existing tool behavior
+- Reuses existing, tested content retrieval logic
+- Maintains consistency between tools and resources
+- No duplication of content handling code
+- Simple error propagation
 
 ### Content Format
 
-**Decision:** Single matches return plain markdown, multiple matches return MIME multipart.
+**Decision:** Plain text/markdown responses only
 
 **Rationale:**
-- Simple case stays simple (plain markdown)
-- Complex case has proper structure (MIME multipart)
-- Standard format for aggregated content
-- Metadata preserved per part
+- Simple implementation
+- Matches existing tool behavior
+- No need for complex MIME formatting
+- Easy for agents to consume
 
 **Alternatives considered:**
-- Always use MIME multipart - Adds overhead for single files
-- Custom separator format - Non-standard, harder to parse
-- JSON array of content - Loses markdown formatting
+- MIME multipart for multiple documents - Added complexity without clear benefit
+- JSON formatting - Loses markdown structure
+- Custom separators - Non-standard approach
 
-### Resource vs Template
-
-**Decision:** Static resources for fixed URIs (help), templates for parameterized URIs (collections, categories).
-
-**Rationale:**
-- Follows MCP protocol design
-- Enables agent discovery of available patterns
-- Reduces resource list size
-- Clear distinction between concrete and dynamic resources
-
-## Implementation Notes
+## Implementation
 
 ### URI Parsing
 
 ```python
-def parse_guide_uri(uri: str) -> dict:
-    """Parse guide:// URI into components."""
-    # Validate scheme
-    # Extract resource type
-    # Extract parameters
-    # Return structured dict
+@dataclass
+class GuideUri:
+    collection: str
+    document: Optional[str] = None
+
+def parse_guide_uri(uri: str) -> GuideUri:
+    # Parse guide://collection/document format
+    # Validate scheme and extract components
 ```
 
-### Resource List Response
+### Resource Handler
 
 ```python
-{
-    "resources": [
-        {
-            "uri": "guide://help",
-            "name": "Guide URI Help",
-            "mimeType": "text/markdown"
-        }
-    ],
-    "resourceTemplates": [
-        {
-            "uriTemplate": "guide://collection/{id}",
-            "name": "Collection by ID",
-            "mimeType": "text/markdown"
-        },
-        # ... more templates
-    ]
-}
+@mcp_server.resource("guide://{collection}/{document}")
+async def guide_resource(collection: str, document: str = "", ctx=None) -> str:
+    # Create ContentArgs and delegate to internal_get_content
+    # Return content text or error message
 ```
 
-### Content Delegation
+### Server Integration
 
-Resource read handler delegates to content retrieval:
-1. Parse URI
-2. Extract parameters
-3. Call appropriate content function
-4. Format response based on result count
+Resource handler registered via FastMCP decorator pattern during server initialization.
 
 ## Dependencies
 
-- Content retrieval implementation (separate change)
-- Result pattern for error handling (ADR-003)
-- Existing category/collection models
+- Existing `internal_get_content` function
+- FastMCP resource decorator support
+- ContentArgs model from content tools
 
 ## Risks / Trade-offs
 
-**Risk:** MIME multipart format may not be parsed by all agents
-- **Mitigation:** Format is still readable as text if not parsed
-- **Mitigation:** Document format in guide://help
+**Trade-off:** Simplified design may not support all future use cases
+- **Benefit:** Faster implementation and testing
+- **Benefit:** Easier to understand and maintain
+- **Mitigation:** Can extend pattern in future if needed
 
-**Risk:** URI pattern ambiguity between category and collection names
-- **Mitigation:** Document-only pattern uses explicit context resolution
-- **Mitigation:** Clear error messages for ambiguous cases
-
-**Trade-off:** Two access methods (tools vs resources) increases complexity
-- **Benefit:** Flexibility for different agent workflows
-- **Benefit:** Standard MCP resource pattern support
+**Risk:** Single URI pattern may be limiting
+- **Mitigation:** Pattern supports both collection-only and collection/document access
+- **Mitigation:** Existing tool-based access provides full functionality
 
 ## Migration Plan
 
 No migration needed - additive feature only.
 
-Deployment steps:
-1. Implement resource handlers
-2. Test with MCP inspector
-3. Document in README
-4. Update examples
-
-## Open Questions
-
-None - deferred content retrieval details to separate change.
+Implementation completed:
+1. ✅ URI parser implementation
+2. ✅ Resource handler implementation
+3. ✅ Server integration
+4. ✅ Unit and integration tests
+5. ✅ Code quality checks
