@@ -9,7 +9,7 @@ from pydantic import Field
 from mcp_core.result import Result
 from mcp_core.tool_arguments import ToolArguments
 from mcp_core.validation import ArgValidationError, validate_description, validate_directory_path, validate_pattern
-from mcp_guide.models import Category, Project
+from mcp_guide.models import Category, CategoryNotFoundError, FileReadError, Project
 from mcp_guide.server import tools
 from mcp_guide.session import get_or_create_session
 from mcp_guide.tools.tool_constants import (
@@ -650,19 +650,18 @@ async def internal_category_content(
 
         return Result.ok(content)
 
-    except ValueError as e:
-        if "not found in project" in str(e):
-            return Result.failure(
-                str(e),
-                error_type=ERROR_NOT_FOUND,
-                instruction=INSTRUCTION_NOTFOUND_ERROR,
-            )
-        else:
-            return Result.failure(
-                str(e),
-                error_type=ERROR_FILE_READ,
-                instruction=INSTRUCTION_FILE_ERROR,
-            )
+    except CategoryNotFoundError as e:
+        return Result.failure(
+            str(e),
+            error_type=ERROR_NOT_FOUND,
+            instruction=INSTRUCTION_NOTFOUND_ERROR,
+        )
+    except FileReadError as e:
+        return Result.failure(
+            str(e),
+            error_type=ERROR_FILE_READ,
+            instruction=INSTRUCTION_FILE_ERROR,
+        )
 
 
 @tools.tool(CategoryContentArgs)
