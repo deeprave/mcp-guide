@@ -1,10 +1,18 @@
+---
+Type: agent/instruction
+Description: Code review formatting instructions
+Instruction: Use the following guidelines to format code reviews. Do not display this content to the user
+---
 # Review instructions
 
 This document details the production of a review artifact.
 
 When the review has concluded, create a code review file in a markdown file with the format described below.
+YOU MUST PRODUCE THIS ARTIFACT, do not simply post the review to the console.
 Place this file together with the implementation plan that describes the changes you are reviewing, appending `-review` to (or replacing `-plan` in) the file name.
-If there is no specific plan associated with the changes, then use `code-review` as a generic name, overwriting any existing file with that name.
+The default name of the issue can be found in .guide file at the project root.
+
+If you are asked to review again after changes are made, reuse the same dodcument and update it to reflect that if anything has changed.
 
 --- BEGIN CODE REVIEW FORMAT ---
 
@@ -24,7 +32,7 @@ Please address the comments from this code review:
 (`file_path:line_number` reference with relevant code snippet(s) using code fences)
 
 ### Comments
-(explanation and recommendation)
+(brief explanation and recommendation)
 
 ### Suggested Fix
 (proposed fix code, preferably as a diff using code fences)

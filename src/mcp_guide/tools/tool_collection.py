@@ -1,7 +1,6 @@
 """Collection management tools."""
 
 from dataclasses import replace
-from pathlib import Path
 from typing import Any, Optional
 
 from pydantic import Field
@@ -13,18 +12,10 @@ from mcp_guide.models import Collection
 from mcp_guide.server import tools
 from mcp_guide.session import get_or_create_session
 from mcp_guide.tools.tool_constants import (
-    ERROR_FILE_READ,
     ERROR_NO_PROJECT,
     ERROR_NOT_FOUND,
     ERROR_SAVE,
-    INSTRUCTION_FILE_ERROR,
-    INSTRUCTION_NOTFOUND_ERROR,
-    INSTRUCTION_PATTERN_ERROR,
 )
-from mcp_guide.utils.content_utils import create_file_read_error_result, read_and_render_file_contents, resolve_patterns
-from mcp_guide.utils.file_discovery import FileInfo, discover_category_files
-from mcp_guide.utils.formatter_selection import get_formatter
-from mcp_guide.utils.template_context_cache import get_template_context_if_needed
 from mcp_guide.validation import validate_categories_exist
 
 try:
@@ -38,7 +29,6 @@ __all__ = [
     "internal_collection_remove",
     "internal_collection_change",
     "internal_collection_update",
-    "internal_collection_content",
 ]
 
 
@@ -457,125 +447,4 @@ async def collection_update(args: CollectionUpdateArgs, ctx: Optional[Context] =
         Result containing success message
     """
     result = await internal_collection_update(args, ctx)
-    return result.to_json_str()
-
-
-class CollectionContentArgs(ToolArguments):
-    """Arguments for collection_content tool."""
-
-    collection: str = Field(description="Name of the collection to retrieve content from")
-    pattern: str | None = Field(
-        default=None, description="Optional glob pattern to override categories' default patterns"
-    )
-
-
-async def internal_collection_content(
-    args: CollectionContentArgs,
-    ctx: Optional[Context] = None,  # type: ignore[type-arg]
-) -> Result[str]:
-    """Get aggregated content from all categories in a collection.
-
-    Args:
-        args: Tool arguments with collection name and optional pattern
-        ctx: MCP Context (auto-injected by FastMCP)
-
-    Returns:
-        Result containing formatted content or error
-    """
-    # Get session
-    try:
-        session = await get_or_create_session(ctx)
-    except ValueError as e:
-        return Result.failure(str(e), error_type=ERROR_NO_PROJECT)
-
-    # Get project
-    project = await session.get_project()
-
-    # Resolve collection
-    collection = project.collections.get(args.collection)
-    if collection is None:
-        result: Result[str] = Result.failure(
-            f"Collection '{args.collection}' not found in project",
-            error_type=ERROR_NOT_FOUND,
-            instruction=INSTRUCTION_NOTFOUND_ERROR,
-        )
-        return result
-
-    # Validate all categories exist
-    for category_name in collection.categories:
-        category = project.categories.get(category_name)
-        if category is None:
-            result = Result.failure(
-                f"Category '{category_name}' (referenced by collection '{args.collection}') not found",
-                error_type=ERROR_NOT_FOUND,
-                instruction=INSTRUCTION_NOTFOUND_ERROR,
-            )
-            return result
-
-    # Aggregate files from all categories
-    all_files: list[FileInfo] = []
-    file_read_errors: list[str] = []
-    docroot = Path(session.get_docroot())
-
-    for category_name in collection.categories:
-        category = project.categories[category_name]  # We already validated it exists above
-
-        # Pattern override logic
-        patterns = resolve_patterns(args.pattern, category.patterns)
-
-        # Discover files
-        category_dir = docroot / category.dir
-        files = await discover_category_files(category_dir, patterns)
-
-        # Skip empty categories
-        if not files:
-            continue
-
-        # Set category and collection fields on all FileInfo objects
-        for file in files:
-            file.category = category_name
-            file.collection = args.collection
-
-        # Read file content with template rendering and modify basename
-        template_context = await get_template_context_if_needed(files, category_name)
-        errors = await read_and_render_file_contents(
-            files, category_dir, template_context, category_prefix=category_name
-        )
-        file_read_errors.extend(errors)
-        all_files.extend(files)
-
-    # Check for file read errors
-    if file_read_errors:
-        return create_file_read_error_result(
-            file_read_errors, args.collection, "collection", ERROR_FILE_READ, INSTRUCTION_FILE_ERROR
-        )
-
-    # Check if any files found
-    if not all_files:
-        return Result.ok(
-            f"No matching content found in collection '{args.collection}'", instruction=INSTRUCTION_PATTERN_ERROR
-        )
-
-    # Format content
-    formatter = get_formatter()
-    content = await formatter.format(all_files, args.collection)
-
-    return Result.ok(content)
-
-
-@tools.tool(CollectionContentArgs)
-async def collection_content(
-    args: CollectionContentArgs,
-    ctx: Optional[Context] = None,  # type: ignore[type-arg]
-) -> str:
-    """Get aggregated content from all categories in a collection.
-
-    Args:
-        args: Tool arguments with collection name and optional pattern
-        ctx: MCP Context (auto-injected by FastMCP)
-
-    Returns:
-        Result containing formatted content or error
-    """
-    result = await internal_collection_content(args, ctx)
     return result.to_json_str()

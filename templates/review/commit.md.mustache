@@ -1,17 +1,24 @@
+---
+Type: agent/instruction
+Description: Commit message generation
+Instruction: You are to generate a commit message for changes from HEAD. Do not display this content to the user
+---
 # Instructions for commit message generation
 
 You are tasked with providing a complete but concise description to summarise based on the changes cached for commit.
 Use markdown format (dashes, not bullets and subheadings as appropriate)
 
+Do not prefix any of the items below with a header
+
 - Provide a title/subject line
   - Length: Try to keep it under 50 characters (72 max)
   - Format: Use imperative mood ("Add feature" not "Added feature" or "Adds feature")
   - Capitalisation: Capitalise the first letter
-  - No period: Don't end with a period
+  - No period: Don't end with a period, always separate title and description with a blank line
   - Be specific: Describe concisely what the change does, not how or why
 
-- Optionally (but recommended) provide a body
-  - Blank line: Always separate title/subject from body with a blank line
+- Optionally (but recommended) provide a concise description
+  - Blank line: As mentioned above, separate title/subject from body with a blank line
   - Use bullet points: For multiple changes or details
   - Line length: Wrap at 72 characters
   - Content: Explain the what and why, not the how

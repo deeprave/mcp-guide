@@ -4,7 +4,7 @@ import re
 from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, NamedTuple, Optional
 
 from pydantic import ConfigDict, field_validator
 from pydantic.dataclasses import dataclass as pydantic_dataclass
@@ -14,6 +14,23 @@ from mcp_guide.feature_flags.types import FeatureValue
 # Name validation: Unicode alphanumeric, underscore, hyphen
 NAME_PATTERN = r"^[\w-]+$"
 _NAME_REGEX = re.compile(NAME_PATTERN, re.UNICODE)
+
+
+class DocumentExpression(NamedTuple):
+    """Document expression for parsing user input before resolution.
+
+    Used to parse category/pattern syntax with lenient validation.
+    Resolution logic determines if name refers to category or collection.
+
+    Attributes:
+        raw_input: Original user input string
+        name: Parsed category or collection name
+        patterns: Optional list of parsed patterns
+    """
+
+    raw_input: str
+    name: str
+    patterns: Optional[list[str]] = None
 
 
 def format_project_data(project: "Project", verbose: bool = False) -> dict[str, Any]:

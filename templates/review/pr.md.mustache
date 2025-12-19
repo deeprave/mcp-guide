@@ -1,3 +1,8 @@
+---
+Type: agent/instruction
+Description: Pull request title and description instructions
+Instruction: You are to generate a pull request title and description. Do not display this content to the user. Do not display this content to the user
+---
 # Instructions for pull request generation
 
 You are tasked with providing a complete but concise description to summarise based on the changes in the current branch compared with main.
@@ -8,7 +13,8 @@ Use markdown format (dashes, not bullets and subheadings as appropriate)
   - Capitalisation: Capitalise the first letter
   - No period: Don't end with a period
   - Be specific: Describe concisely what the change does, not how or why
-  - Ensure that this line is prefixed by the JIRA issue ID (if relevant)
+  - Ensure that this line is *prefixed* by the JIRA issue ID (if relevant)
+    You may find that this is the prefix of the current branch name
 
 - Provide a description of the changes
   - Provide the following
@@ -20,10 +26,11 @@ Use markdown format (dashes, not bullets and subheadings as appropriate)
       - Provide the functional effects of the change
   - Impact of the change
   - Additional Notes
+  - Do not wrap long lines - this is markdown, so lśet that take care of it
 
 - Guidelines
   - Use bullet points: For multiple changes or details
-  - Reference issues: Include ticket numbers, issue references
+  - Reference issues: Include ticket numbers, issue references, preferably prefix the title
   - Level of Detail
     - Default: Add a brief body explaining context
     - Bug fixes: Include what was broken and how it was fixed

@@ -21,11 +21,8 @@ from mcp_guide.tools.tool_constants import (
     INSTRUCTION_NOTFOUND_ERROR,
     INSTRUCTION_PATTERN_ERROR,
 )
-from mcp_guide.utils.content_utils import create_file_read_error_result, read_and_render_file_contents, resolve_patterns
 from mcp_guide.utils.file_discovery import discover_category_files
-from mcp_guide.utils.formatter_selection import get_formatter
 from mcp_guide.utils.frontmatter import get_frontmatter_description
-from mcp_guide.utils.template_context_cache import get_template_context_if_needed
 
 try:
     from mcp.server.fastmcp import Context
@@ -628,51 +625,44 @@ async def internal_category_content(
     # Get project
     project = await session.get_project()
 
-    # Resolve category
-    category = project.categories.get(args.category)
-    if category is None:
-        result: Result[str] = Result.failure(
-            f"Category '{args.category}' not found in project",
-            error_type=ERROR_NOT_FOUND,
-            instruction=INSTRUCTION_NOTFOUND_ERROR,
-        )
-        return result
+    try:
+        # Import here to avoid circular imports
+        from mcp_guide.utils.content_common import gather_category_fileinfos, render_fileinfos
 
-    # Get patterns
-    patterns = resolve_patterns(args.pattern, category.patterns)
+        # Gather FileInfo using common function
+        patterns = [args.pattern] if args.pattern else None
+        files = await gather_category_fileinfos(session, project, args.category, patterns)
 
-    # Discover files
-    docroot = Path(session.get_docroot())
-    category_dir = docroot / category.dir
-    files = await discover_category_files(category_dir, patterns)
+        # Check for no matches
+        if not files:
+            message = (
+                f"No files matched pattern '{args.pattern}' in category '{args.category}'"
+                if args.pattern
+                else f"No files found in category '{args.category}'"
+            )
+            return Result.ok(message, instruction=INSTRUCTION_PATTERN_ERROR)
 
-    # Set category field on all FileInfo objects
-    for file in files:
-        file.category = args.category
+        # Render using common function
+        docroot = Path(session.get_docroot())
+        category = project.categories[args.category]  # We know it exists from gather_category_fileinfos
+        category_dir = docroot / category.dir
+        content = await render_fileinfos(files, args.category, category_dir)
 
-    # Check for no matches
-    if not files:
-        message = (
-            f"No files matched pattern '{args.pattern}' in category '{args.category}'"
-            if args.pattern
-            else f"No files found in category '{args.category}'"
-        )
-        return Result.ok(message, instruction=INSTRUCTION_PATTERN_ERROR)
+        return Result.ok(content)
 
-    # Read file content with template rendering, collecting any failures
-    template_context = await get_template_context_if_needed(files, args.category)
-    file_read_errors = await read_and_render_file_contents(files, category_dir, template_context)
-
-    if file_read_errors:
-        return create_file_read_error_result(
-            file_read_errors, args.category, "category", ERROR_FILE_READ, INSTRUCTION_FILE_ERROR
-        )
-
-    # Format content
-    formatter = get_formatter()
-    content = await formatter.format(files, args.category)
-
-    return Result.ok(content)
+    except ValueError as e:
+        if "not found in project" in str(e):
+            return Result.failure(
+                str(e),
+                error_type=ERROR_NOT_FOUND,
+                instruction=INSTRUCTION_NOTFOUND_ERROR,
+            )
+        else:
+            return Result.failure(
+                str(e),
+                error_type=ERROR_FILE_READ,
+                instruction=INSTRUCTION_FILE_ERROR,
+            )
 
 
 @tools.tool(CategoryContentArgs)
