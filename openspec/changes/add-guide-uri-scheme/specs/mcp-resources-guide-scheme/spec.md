@@ -14,15 +14,15 @@ The MCP server SHALL support the guide:// URI scheme for accessing guide content
 
 The guide:// URI scheme SHALL support the following pattern:
 
-- `guide://{collection}/{document}` - Collection/category content with optional document pattern
+- `guide://{collection}[/{document}]` - Collection/category content with optional document pattern
 
 The URI SHALL be parsed as:
-- Collection/category name: path segment after scheme
-- Document pattern: optional second path segment
+- Collection/category name: path segment after scheme (required)
+- Document pattern: optional second path segment (defaults to empty if omitted)
 
 #### Scenario: Collection access
 - **WHEN** client reads `guide://lang`
-- **THEN** server returns content from collection/category "lang" using default patterns
+- **THEN** server returns content from collection/category "lang" using default patterns (document parameter is empty)
 
 #### Scenario: Collection with document access
 - **WHEN** client reads `guide://lang/python`
