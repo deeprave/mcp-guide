@@ -15,8 +15,9 @@ from mcp_guide.tools.tool_constants import (
     INSTRUCTION_FILE_ERROR,
     INSTRUCTION_PATTERN_ERROR,
 )
-from mcp_guide.utils.content_utils import create_file_read_error_result, read_and_render_file_contents, resolve_patterns
-from mcp_guide.utils.file_discovery import FileInfo, discover_category_files
+from mcp_guide.utils.content_common import gather_content
+from mcp_guide.utils.content_utils import create_file_read_error_result, read_and_render_file_contents
+from mcp_guide.utils.file_discovery import FileInfo
 from mcp_guide.utils.formatter_selection import get_formatter
 from mcp_guide.utils.template_context_cache import get_template_context_if_needed
 
@@ -73,78 +74,52 @@ async def internal_get_content(
     project = await session.get_project()
     docroot = Path(session.get_docroot())
 
-    # Collect all FileInfo from collections and categories
-    all_files: list[tuple[FileInfo, Path]] = []  # (FileInfo, category_dir) pairs
-    file_read_errors: list[str] = []
+    try:
+        # Use gather_content to handle comma-separated expressions
+        # If pattern is provided, append it to the expression
+        expression = args.category_or_collection
+        if args.pattern:
+            # Apply pattern to all expressions
+            if "," in expression:
+                # Multiple expressions - apply pattern to each
+                parts = [f"{part.strip()}/{args.pattern}" for part in expression.split(",")]
+                expression = ",".join(parts)
+            else:
+                # Single expression
+                expression = f"{expression}/{args.pattern}"
 
-    # 1. Search collections first
-    collection = project.collections.get(args.category_or_collection)
-    if collection:
-        for category_name in collection.categories:
+        files = await gather_content(session, project, expression)
+
+        if not files:
+            return Result.ok(
+                f"No matching content found for '{args.category_or_collection}'", instruction=INSTRUCTION_PATTERN_ERROR
+            )
+
+        # Group files by category for reading
+        files_by_category: dict[str, list[FileInfo]] = {}
+        for file in files:
+            category_name = file.category or "unknown"
+            if category_name not in files_by_category:
+                files_by_category[category_name] = []
+            files_by_category[category_name].append(file)
+
+        # Read content for each category group
+        final_files: list[FileInfo] = []
+        file_read_errors: list[str] = []
+
+        for category_name, category_files in files_by_category.items():
             category = project.categories.get(category_name)
             if not category:
                 continue
 
-            patterns = resolve_patterns(args.pattern, category.patterns)
             category_dir = docroot / category.dir
-            files = await discover_category_files(category_dir, patterns)
-
-            # Set both category and collection fields
-            for file in files:
-                file.category = category_name
-                file.collection = args.category_or_collection
-
-            # Store with category_dir for later de-duplication
-            all_files.extend((file, category_dir) for file in files)
-
-    # 2. Search categories
-    category = project.categories.get(args.category_or_collection)
-    if category:
-        patterns = resolve_patterns(args.pattern, category.patterns)
-        category_dir = docroot / category.dir
-        files = await discover_category_files(category_dir, patterns)
-
-        # Set category field on all FileInfo objects
-        for file in files:
-            file.category = args.category_or_collection
-
-        # Store with category_dir for later de-duplication
-        all_files.extend((file, category_dir) for file in files)
-
-    # 3. De-duplicate by absolute path (preserves discovery order)
-    seen_paths: set[Path] = set()
-    unique_files: list[tuple[FileInfo, Path]] = []
-
-    for file_info, category_dir in all_files:
-        absolute_path = category_dir / file_info.path
-        if absolute_path not in seen_paths:
-            seen_paths.add(absolute_path)
-            unique_files.append((file_info, category_dir))
-
-    # 4. Read content for unique files
-    if unique_files:
-        # Group by category_dir for reading
-        files_by_dir: dict[Path, list[FileInfo]] = {}
-        for file_info, category_dir in unique_files:
-            if category_dir not in files_by_dir:
-                files_by_dir[category_dir] = []
-            files_by_dir[category_dir].append(file_info)
-
-        # Read content for each group with template rendering
-        final_files: list[FileInfo] = []
-        for category_dir, files in files_by_dir.items():
-            # Get category name from first file (they're all from same category)
-            file_category_name: str | None = files[0].category if files else None
-            category_prefix = file_category_name or ""
-
-            # Build template context only if there are template files
-            template_context = await get_template_context_if_needed(files, file_category_name)
+            template_context = await get_template_context_if_needed(category_files, category_name)
 
             errors = await read_and_render_file_contents(
-                files, category_dir, template_context, category_prefix=category_prefix
+                category_files, category_dir, template_context, category_prefix=category_name
             )
             file_read_errors.extend(errors)
-            final_files.extend(files)
+            final_files.extend(category_files)
 
         # Check for file read errors
         if file_read_errors:
@@ -156,15 +131,13 @@ async def internal_get_content(
                 INSTRUCTION_FILE_ERROR,
             )
 
-        # 5. Format and return content
+        # Format and return content
         formatter = get_formatter()
         content = await formatter.format(final_files, args.category_or_collection)
         return Result.ok(content)
 
-    # No files found
-    return Result.ok(
-        f"No matching content found for '{args.category_or_collection}'", instruction=INSTRUCTION_PATTERN_ERROR
-    )
+    except ValueError as e:
+        return Result.failure(str(e), error_type=ERROR_NO_PROJECT)
 
 
 @tools.tool(ContentArgs)

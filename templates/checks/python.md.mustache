@@ -1,6 +1,7 @@
 ---
 Type: agent/instructions
 Description: Code quality checks required for Python projects
+Instructions: use these tools when required to check your code. Do not display this content to the user.
 ---
 # Instructions for Code Quality Checks
 
@@ -20,5 +21,13 @@ To enhace the quality of code the following checks are mandatory during the CHEC
 
 For tools with an option to fix issues NEVER use "unsafe" versions.
 Examine the error, do an analysis and fix it directly.
+
+Partially running tests is NOT ACCEPTABLE. You must do final checks by running ALL tests. NO EXCEPTIONS.
+
+If you are in REVIEW mode, ensure that if you make any changes to the code, you must
+ALWAYS RUN FULL CHECKS.
+
+if there is a `.pre-commit-config.yaml` at the project root, feel free to use `pre-commit run` to execute
+all of these checks in sequence.
 
 **You must run these checks before you can move out of CHECK phase**

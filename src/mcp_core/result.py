@@ -25,7 +25,9 @@ class Result(Generic[T]):
     error_data: Optional[dict[str, Any]] = None
 
     @classmethod
-    def ok(cls, value: T, message: Optional[str] = None, instruction: Optional[str] = None) -> "Result[T]":
+    def ok(
+        cls, value: Optional[T] = None, message: Optional[str] = None, instruction: Optional[str] = None
+    ) -> "Result[T]":
         """Create a successful result.
 
         Args:
