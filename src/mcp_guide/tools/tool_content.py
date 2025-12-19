@@ -113,7 +113,7 @@ async def internal_get_content(
         for category_name, category_files in files_by_category.items():
             category = project.categories.get(category_name)
             if not category:
-                continue
+                raise CategoryNotFoundError(f"Invalid category '{category_name}' found in FileInfo object")
 
             category_dir = docroot / category.dir
             template_context = await get_template_context_if_needed(category_files, category_name)
