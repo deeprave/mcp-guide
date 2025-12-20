@@ -218,7 +218,26 @@ This document tracks dependencies between OpenSpec change proposals to ensure co
 - ⏳ Useful metadata included
 - ⏳ Helps agents discover capabilities
 
-#### 4h. collections-with-patterns
+#### 4h. tool-descriptions
+**Status:** ✅ Complete (2025-12-20)
+**Requires:** tool-conventions
+**Priority:** HIGH - Documentation standards
+
+**Features:**
+- 4-section documentation format for tools and prompts
+- Field description completeness for Pydantic models
+- 50-character first line guideline for docstrings
+- Reference comments linking to documentation templates
+
+**Validation:**
+- ✅ Tools README template with 4-section format created
+- ✅ Prompts README template with varargs handling created
+- ✅ All Field descriptions added to tool argument models
+- ✅ Tool docstrings follow 50-character guideline
+- ✅ Reference comments added to all modules
+- ✅ Specification updated with new requirements
+
+#### 4i. collections-with-patterns
 **Status:** 📋 Proposed (0% complete)
 **Requires:** add-collection-tools
 **Priority:** LOW - Enhancement
@@ -440,12 +459,13 @@ Phase 4: Advanced Features
 
 ## Current Status Summary (2025-12-10)
 
-**✅ Completed (5 changes):**
+**✅ Completed (6 changes):**
 - logging-implementation
 - add-category-tools
 - add-collection-tools
 - add-content-tools
 - add-guide-project-tools
+- tool-descriptions
 
 **📋 Ready to Start (2 changes):**
 - add-feature-flags (no dependencies)
@@ -460,7 +480,7 @@ Phase 4: Advanced Features
 - add-openspec-support (needs add-feature-flags + template-support)
 - hook-uri-templates (needs add-guide-uri-scheme + template-support + add-feature-flags)
 
-**Total Progress:** 149/280+ tasks complete (53%)
+**Total Progress:** 159/290+ tasks complete (55%)
 
 ---
 

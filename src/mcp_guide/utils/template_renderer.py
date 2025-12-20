@@ -8,7 +8,7 @@ from chevron import ChevronError
 
 from mcp_core.result import Result
 from mcp_guide.tools.tool_constants import INSTRUCTION_FILE_ERROR, INSTRUCTION_VALIDATION_ERROR
-from mcp_guide.utils.file_discovery import TEMPLATE_EXTENSION, FileInfo
+from mcp_guide.utils.file_discovery import TEMPLATE_EXTENSIONS, FileInfo
 from mcp_guide.utils.template_context import TemplateContext
 from mcp_guide.utils.template_context_cache import get_template_contexts
 from mcp_guide.utils.template_functions import TemplateFunctions
@@ -21,9 +21,9 @@ def is_template_file(file_info: FileInfo) -> bool:
         file_info: FileInfo to check
 
     Returns:
-        True if file has .mustache extension
+        True if file has template extension
     """
-    return str(file_info.path).endswith(TEMPLATE_EXTENSION)
+    return str(file_info.path).endswith(TEMPLATE_EXTENSIONS)
 
 
 def _safe_lambda(func: Callable[..., str]) -> Callable[..., str]:
