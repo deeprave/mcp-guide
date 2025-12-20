@@ -31,7 +31,11 @@ def _setup_remote_debugging() -> None:
         )
         return
 
-    debug_port = int(os.environ.get("MG_DEBUG_PORT", "5678"))
+    try:
+        debug_port = int(os.environ.get("MG_DEBUG_PORT", "5678"))
+    except ValueError:
+        print(f"Warning: Invalid MG_DEBUG_PORT value '{os.environ.get('MG_DEBUG_PORT')}', using default 5678")
+        debug_port = 5678
     debug_wait = os.environ.get("MG_DEBUG_WAIT", "").lower() in ("true", "1", "yes")
 
     # Start debug server

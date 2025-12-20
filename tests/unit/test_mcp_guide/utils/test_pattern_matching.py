@@ -1,5 +1,7 @@
 """Tests for pattern matching utilities."""
 
+from pathlib import Path
+
 from mcp_guide.constants import MAX_DOCUMENTS_PER_GLOB, MAX_GLOB_DEPTH
 from mcp_guide.utils.pattern_matching import safe_glob_search
 
@@ -147,6 +149,46 @@ class TestHiddenFileExclusion:
         names = [r.name for r in results]
         assert "visible.md" in names
         assert "file.md" in names
+
+    def test_safe_glob_search_expands_tilde_in_search_dir(self, temp_project_dir, monkeypatch):
+        """Ensure search_dir using ~ is expanded via LazyPath."""
+        monkeypatch.setenv("HOME", str(temp_project_dir))
+
+        docs_dir = temp_project_dir / "home-docs"
+        nested_dir = docs_dir / "nested"
+        nested_dir.mkdir(parents=True)
+
+        (docs_dir / "root.md").write_text("# root doc")
+        (nested_dir / "nested.md").write_text("# nested doc")
+
+        # Non-recursive pattern
+        search_dir = Path("~/home-docs")
+        non_recursive_results = safe_glob_search(search_dir, ["*.md"])
+        assert sorted(p.name for p in non_recursive_results) == ["root.md"]
+
+        # Recursive pattern
+        recursive_results = safe_glob_search(search_dir, ["**/*.md"])
+        assert sorted(p.name for p in recursive_results) == ["nested.md", "root.md"]
+
+    def test_safe_glob_search_expands_env_var_in_search_dir(self, temp_project_dir, monkeypatch):
+        """Ensure search_dir using ${VAR} is expanded via LazyPath."""
+        monkeypatch.setenv("DOCROOT", str(temp_project_dir))
+
+        docs_dir = temp_project_dir / "env-docs"
+        nested_dir = docs_dir / "nested"
+        nested_dir.mkdir(parents=True)
+
+        (docs_dir / "env-root.md").write_text("# env root doc")
+        (nested_dir / "env-nested.md").write_text("# env nested doc")
+
+        # Non-recursive glob
+        search_dir = Path("${DOCROOT}") / "env-docs"
+        non_recursive_results = safe_glob_search(search_dir, ["*.md"])
+        assert sorted(p.name for p in non_recursive_results) == ["env-root.md"]
+
+        # Recursive glob
+        recursive_results = safe_glob_search(search_dir, ["**/*.md"])
+        assert sorted(p.name for p in recursive_results) == ["env-nested.md", "env-root.md"]
 
     def test_exclude_dunder_parent_directory(self, temp_project_dir):
         """Test files under dunder parent directories are excluded."""

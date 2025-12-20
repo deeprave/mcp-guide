@@ -37,57 +37,7 @@ async def guide(
     argF: Optional[str] = None,
     ctx: Optional["Context"] = None,  # type: ignore[type-arg]
 ) -> str:
-    """Direct access to guide content.
-
-    Retrieves content from categories and collections without
-    agent interpretation. Supports flexible argument patterns
-    for content discovery and access.
-
-    ## Conceptual Schema
-
-    ```python
-    def guide(*args: str) -> str:
-        \"\"\"
-        Args:
-            *args: Variable string arguments for content specification
-                  - Category names (e.g., 'docs', 'examples')
-                  - Collection names (e.g., 'getting-started')
-                  - Pattern specifications (e.g., 'docs/*.md')
-
-        Returns:
-            JSON string with formatted content results
-        \"\"\"
-    ```
-
-    ## Usage Instructions
-
-    ```bash
-    # Single category
-    @guide docs
-
-    # Multiple categories
-    @guide docs examples
-
-    # Pattern filtering
-    @guide docs/*.md
-    ```
-
-    ## Concrete Examples
-
-    ```bash
-    # Example 1: Get documentation content
-    @guide docs
-    # Returns: All content from docs category
-
-    # Example 2: Multiple categories
-    @guide docs examples tutorials
-    # Returns: Combined content from all specified categories
-
-    # Example 3: Pattern-based filtering
-    @guide review/*.md
-    # Returns: Only markdown files from review category
-    ```
-    """
+    """Access guide functionality."""
     # Build argv list (stop at first None)
     argv = ["guide"]
     for arg in [arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, argA, argB, argC, argD, argE, argF]:
