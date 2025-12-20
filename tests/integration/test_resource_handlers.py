@@ -91,9 +91,7 @@ class TestResourceHandlers:
         """guide:// resource should handle ValueError specifically."""
         mock_ctx = MagicMock()
 
-        with patch(
-            "mcp_guide.resources.internal_get_content", new=AsyncMock(side_effect=ValueError("Invalid value"))
-        ):
+        with patch("mcp_guide.resources.internal_get_content", new=AsyncMock(side_effect=ValueError("Invalid value"))):
             from mcp_guide.resources import guide_resource
 
             result = await guide_resource("docs", "readme", mock_ctx)
@@ -159,9 +157,7 @@ class TestResourceHandlers:
         # Server parameters - run mcp-guide server
         env = os.environ.copy()
         env["MCP_GUIDE_CONFIG_DIR"] = str(tmp_path)
-        server_params = StdioServerParameters(
-            command=sys.executable, args=["-m", "mcp_guide.main"], env=env
-        )
+        server_params = StdioServerParameters(command=sys.executable, args=["-m", "mcp_guide.main"], env=env)
 
         try:
             async with stdio_client(server_params) as (read, write):
@@ -179,6 +175,8 @@ class TestResourceHandlers:
 
                     # Should specifically have our template
                     expected_template = "guide://{collection}/{document}"
-                    assert expected_template in template_uris, f"Expected {expected_template} not found in {template_uris}"
+                    assert expected_template in template_uris, (
+                        f"Expected {expected_template} not found in {template_uris}"
+                    )
         except (asyncio.TimeoutError, OSError) as e:
             pytest.skip(f"End-to-end MCP test skipped due to subprocess/timeout issue: {e}")
