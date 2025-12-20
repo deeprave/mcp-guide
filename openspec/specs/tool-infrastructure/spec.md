@@ -222,7 +222,7 @@ The system SHALL enforce standardized 4-section documentation format for all MCP
 #### Scenario: Field description completeness
 - **WHEN** tool argument models are defined
 - **THEN** all Pydantic fields include Field(description=...) parameters
-- **AND** descriptions are clear, concise, and follow established patterns
+- **AND** descriptions are clear, concise, and consistent with established patterns
 - **AND** schema generation includes all field descriptions
 
 #### Scenario: Documentation template references
