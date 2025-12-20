@@ -341,11 +341,12 @@ Enhanced `ExtMcpToolDecorator` to preserve Pydantic Field descriptions in MCP sc
 
 ### Current Progress (2025-12-10)
 
-**Completed Changes (4):**
+**Completed Changes (5):**
 - ✅ add-category-tools (44 tasks)
 - ✅ add-collection-tools (43 tasks)
 - ✅ add-guide-project-tools (34 tasks)
 - ✅ add-content-tools (28 tasks)
+- ✅ tool-descriptions (10 tasks)
 
 **Proposed/Ready (9):**
 - 📋 add-feature-flags (NEW - blocks advanced features)
@@ -358,7 +359,7 @@ Enhanced `ExtMcpToolDecorator` to preserve Pydantic Field descriptions in MCP sc
 - 📋 add-openspec-support (blocked by add-feature-flags, template-support)
 - 📋 hook-uri-templates (blocked by add-guide-uri-scheme, template-support, add-feature-flags)
 
-**Total Progress:** 149/280+ tasks complete (53%)
+**Total Progress:** 159/290+ tasks complete (55%)
 
 ### Critical Path Changes
 

@@ -98,7 +98,7 @@ async def test_relative_path_raises_error():
 @pytest.mark.asyncio
 async def test_mustache_pattern_raises_error(tmp_path):
     """Test that pattern with .mustache extension raises ValueError."""
-    with pytest.raises(ValueError, match="should not include .mustache"):
+    with pytest.raises(ValueError, match="should not include template extensions"):
         await discover_category_files(tmp_path, ["*.md.mustache"])
 
 

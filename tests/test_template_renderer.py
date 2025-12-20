@@ -24,6 +24,24 @@ class TestTemplateDetection:
 
         assert is_template_file(file_info) is True
 
+    def test_is_template_file_with_hbs_extension(self):
+        """Test template detection for .hbs files."""
+        file_info = FileInfo(path=Path("test.md.hbs"), size=100, mtime=datetime.now(), name="test.md")
+
+        assert is_template_file(file_info) is True
+
+    def test_is_template_file_with_handlebars_extension(self):
+        """Test template detection for .handlebars files."""
+        file_info = FileInfo(path=Path("test.md.handlebars"), size=100, mtime=datetime.now(), name="test.md")
+
+        assert is_template_file(file_info) is True
+
+    def test_is_template_file_with_chevron_extension(self):
+        """Test template detection for .chevron files."""
+        file_info = FileInfo(path=Path("test.md.chevron"), size=100, mtime=datetime.now(), name="test.md")
+
+        assert is_template_file(file_info) is True
+
     def test_is_template_file_without_mustache_extension(self):
         """Test template detection for non-template files."""
         file_info = FileInfo(path=Path("test.md"), size=100, mtime=datetime.now(), name="test.md")

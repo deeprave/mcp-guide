@@ -8,8 +8,8 @@ import aiofiles.os
 
 from mcp_guide.utils.pattern_matching import safe_glob_search
 
-# Template file extension
-TEMPLATE_EXTENSION = ".mustache"
+# Template file extensions
+TEMPLATE_EXTENSIONS = (".mustache", ".hbs", ".handlebars", ".chevron")
 
 
 @dataclass
@@ -61,11 +61,11 @@ async def discover_category_files(
     if not category_dir.exists() or not category_dir.is_dir():
         raise FileNotFoundError(f"Category directory not found: {category_dir}")
 
-    # Validate patterns don't include template extension
+    # Validate patterns don't include template extensions
     for pattern in patterns:
-        if pattern.endswith(TEMPLATE_EXTENSION):
+        if any(pattern.endswith(ext) for ext in TEMPLATE_EXTENSIONS):
             raise ValueError(
-                f"Patterns should not include {TEMPLATE_EXTENSION} extension: {pattern}. "
+                f"Patterns should not include template extensions {TEMPLATE_EXTENSIONS}: {pattern}. "
                 "Template files are automatically discovered."
             )
 
@@ -76,9 +76,10 @@ async def discover_category_files(
         expanded_patterns.append(pattern)
         # Add pattern with any extension (e.g., "general.*")
         expanded_patterns.append(f"{pattern}.*")
-        # Add template variants
-        expanded_patterns.append(f"{pattern}{TEMPLATE_EXTENSION}")
-        expanded_patterns.append(f"{pattern}.*{TEMPLATE_EXTENSION}")
+        # Add template variants for all supported extensions
+        for ext in TEMPLATE_EXTENSIONS:
+            expanded_patterns.append(f"{pattern}{ext}")
+            expanded_patterns.append(f"{pattern}.*{ext}")
 
     matched_paths = safe_glob_search(category_dir, expanded_patterns)
 
@@ -93,10 +94,12 @@ async def discover_category_files(
 
         # Calculate the key: full relative path without template extension
         path_str = str(relative_path)
-        if path_str.endswith(TEMPLATE_EXTENSION):
-            key = path_str[: -len(TEMPLATE_EXTENSION)]
-        else:
-            key = path_str
+        key = path_str
+        # Remove any template extension to get the base name
+        for ext in TEMPLATE_EXTENSIONS:
+            if path_str.endswith(ext):
+                key = path_str[: -len(ext)]
+                break
 
         # Add if not seen (first occurrence wins, which is non-template due to sorting)
         if key not in files_by_path:
@@ -110,8 +113,11 @@ async def discover_category_files(
 
         # Calculate name (full relative path without template extension)
         name = relative_path.as_posix()
-        if name.endswith(TEMPLATE_EXTENSION):
-            name = name[: -len(TEMPLATE_EXTENSION)]
+        # Remove any template extension to get the display name
+        for ext in TEMPLATE_EXTENSIONS:
+            if name.endswith(ext):
+                name = name[: -len(ext)]
+                break
 
         file_info = FileInfo(
             path=relative_path,

@@ -22,7 +22,6 @@
 
 ## Documentation Phase
 - [ ] Update code comments to reflect multiple extension support
-- [ ] Update any user-facing documentation about template file naming
 - [ ] Add examples of supported extensions
 
 ## Check Phase
