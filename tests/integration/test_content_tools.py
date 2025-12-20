@@ -40,7 +40,7 @@ async def test_get_content_category_only(mcp_server, tmp_path, monkeypatch):
     generate_test_files(docroot)
 
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
-        args = ContentArgs(category_or_collection="guide")
+        args = ContentArgs(expression="guide")
         result = await call_mcp_tool(client, "get_content", args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
 
@@ -70,7 +70,7 @@ async def test_get_content_collection_only(mcp_server, tmp_path, monkeypatch):
     generate_test_files(docroot)
 
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
-        args = ContentArgs(category_or_collection="all")
+        args = ContentArgs(expression="all")
         result = await call_mcp_tool(client, "get_content", args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
 
@@ -101,7 +101,7 @@ async def test_get_content_both_match_deduplicates(mcp_server, tmp_path, monkeyp
     generate_test_files(docroot)
 
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
-        args = ContentArgs(category_or_collection="guide")
+        args = ContentArgs(expression="guide")
         result = await call_mcp_tool(client, "get_content", args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
 
@@ -135,7 +135,7 @@ async def test_get_content_pattern_override(mcp_server, tmp_path, monkeypatch):
 
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
         # Call with pattern override to only get .md files
-        args = ContentArgs(category_or_collection="context", pattern="*.md")
+        args = ContentArgs(expression="context", pattern="*.md")
         result = await call_mcp_tool(client, "get_content", args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
 
@@ -162,7 +162,7 @@ async def test_get_content_empty_result(mcp_server, tmp_path, monkeypatch):
     empty_dir.mkdir(parents=True, exist_ok=True)
 
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
-        args = ContentArgs(category_or_collection="empty")
+        args = ContentArgs(expression="empty")
         result = await call_mcp_tool(client, "get_content", args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
 

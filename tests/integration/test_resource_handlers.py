@@ -34,7 +34,7 @@ class TestResourceHandlers:
             mock_get_content.assert_called_once()
             args_call, _ = mock_get_content.call_args
             content_args = args_call[0]
-            assert content_args.category_or_collection == "docs"
+            assert content_args.expression == "docs"
             assert content_args.pattern == "readme"
             assert result == "Test content from collection"
 
@@ -55,7 +55,7 @@ class TestResourceHandlers:
             mock_get_content.assert_called_once()
             args_call, _ = mock_get_content.call_args
             content_args = args_call[0]
-            assert content_args.category_or_collection == "docs"
+            assert content_args.expression == "docs"
             assert content_args.pattern is None
             assert result == "All docs content"
 

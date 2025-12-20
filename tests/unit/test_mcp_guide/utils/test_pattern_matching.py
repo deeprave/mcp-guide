@@ -129,21 +129,6 @@ class TestHiddenFileExclusion:
         assert len(results) == 1
         assert results[0].name == "normal.md"
 
-    def test_exclude_metadata_files(self, temp_project_dir):
-        """Test metadata files are excluded."""
-        # Arrange
-        test_dir = temp_project_dir / "test_metadata"
-        test_dir.mkdir()
-        (test_dir / "file.md").write_text("content1")
-        (test_dir / "file.md_.json").write_text("{}")
-
-        # Act
-        results = safe_glob_search(test_dir, ["*"])
-
-        # Assert
-        assert len(results) == 1
-        assert results[0].name == "file.md"
-
     def test_allow_hidden_parent_directory(self, temp_project_dir):
         """Test files under hidden parent directories are allowed."""
         # Arrange

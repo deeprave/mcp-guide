@@ -103,7 +103,7 @@ async def guide(
 
     # Use first argument as category/pattern
     category = argv[1]
-    content_args = ContentArgs(category_or_collection=category, pattern=None)
+    content_args = ContentArgs(expression=category, pattern=None)
     content_result = await internal_get_content(content_args, ctx)
 
     # Set instruction and return as JSON

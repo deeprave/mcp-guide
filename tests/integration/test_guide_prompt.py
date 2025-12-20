@@ -27,7 +27,7 @@ class TestGuidePromptIntegration:
             mock_get_content.assert_called_once()
             args_call, _ = mock_get_content.call_args
             content_args = args_call[0]
-            assert content_args.category_or_collection == "test_category"
+            assert content_args.expression == "test_category"
             assert content_args.pattern is None
 
             result = json.loads(result_str)
@@ -75,7 +75,7 @@ class TestGuidePromptIntegration:
 
             args_call, _ = mock_get_content.call_args
             content_args = args_call[0]
-            assert content_args.category_or_collection == "a"
+            assert content_args.expression == "a"
 
     @pytest.mark.asyncio
     async def test_argv_parsing_argument_ordering(self) -> None:
@@ -90,7 +90,7 @@ class TestGuidePromptIntegration:
 
             args_call, _ = mock_get_content.call_args
             content_args = args_call[0]
-            assert content_args.category_or_collection == "first"
+            assert content_args.expression == "first"
 
     @pytest.mark.asyncio
     async def test_argv_parsing_multiple_arguments(self) -> None:
@@ -105,7 +105,7 @@ class TestGuidePromptIntegration:
 
             args_call, _ = mock_get_content.call_args
             content_args = args_call[0]
-            assert content_args.category_or_collection == "lang/python"
+            assert content_args.expression == "lang/python"
 
     @pytest.mark.asyncio
     async def test_argv_parsing_maximum_arguments(self) -> None:
@@ -120,7 +120,7 @@ class TestGuidePromptIntegration:
 
             args_call, _ = mock_get_content.call_args
             content_args = args_call[0]
-            assert content_args.category_or_collection == "1"
+            assert content_args.expression == "1"
 
     @pytest.mark.asyncio
     async def test_guide_prompt_with_empty_command(self) -> None:
@@ -147,7 +147,7 @@ class TestGuidePromptIntegration:
 
             args_call, _ = mock_get_content.call_args
             content_args = args_call[0]
-            assert content_args.category_or_collection == "test"
+            assert content_args.expression == "test"
 
             result = json.loads(result_str)
             assert result["success"] is True

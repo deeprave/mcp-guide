@@ -20,22 +20,22 @@ def test_content_args_inherits_from_tool_arguments():
     assert issubclass(ContentArgs, ToolArguments)
 
 
-def test_category_or_collection_field_is_required():
-    """Test that category_or_collection field is required."""
+def test_expression_field_is_required():
+    """Test that expression field is required."""
     with pytest.raises(ValidationError):
         ContentArgs()
 
 
 def test_pattern_field_is_optional():
     """Test that pattern field is optional."""
-    args = ContentArgs(category_or_collection="test")
+    args = ContentArgs(expression="test")
     assert args.pattern is None
 
 
 def test_schema_validates_correctly():
     """Test that schema validates correctly."""
-    args = ContentArgs(category_or_collection="test", pattern="*.md")
-    assert args.category_or_collection == "test"
+    args = ContentArgs(expression="test", pattern="*.md")
+    assert args.expression == "test"
     assert args.pattern == "*.md"
 
 
@@ -64,7 +64,7 @@ async def test_get_content_collection_only(tmp_path, monkeypatch):
     monkeypatch.setattr("mcp_guide.tools.tool_content.get_or_create_session", mock_get_session)
 
     # Call tool
-    args = ContentArgs(category_or_collection="all")
+    args = ContentArgs(expression="all")
     result_json = await get_content(args)
 
     # Parse result
@@ -97,7 +97,7 @@ async def test_get_content_category_only(tmp_path, monkeypatch):
     monkeypatch.setattr("mcp_guide.tools.tool_content.get_or_create_session", mock_get_session)
 
     # Call tool
-    args = ContentArgs(category_or_collection="guide")
+    args = ContentArgs(expression="guide")
     result_json = await get_content(args)
 
     # Parse result
@@ -130,7 +130,7 @@ async def test_get_content_deduplicates(tmp_path, monkeypatch):
     monkeypatch.setattr("mcp_guide.tools.tool_content.get_or_create_session", mock_get_session)
 
     # Call tool
-    args = ContentArgs(category_or_collection="guide")
+    args = ContentArgs(expression="guide")
     result_json = await get_content(args)
 
     # Parse result
@@ -164,7 +164,7 @@ async def test_get_content_empty_result(tmp_path, monkeypatch):
     monkeypatch.setattr("mcp_guide.tools.tool_content.get_or_create_session", mock_get_session)
 
     # Call tool
-    args = ContentArgs(category_or_collection="empty")
+    args = ContentArgs(expression="empty")
     result_json = await get_content(args)
 
     # Parse result
@@ -200,7 +200,7 @@ async def test_get_content_pattern_override(tmp_path, monkeypatch):
     monkeypatch.setattr("mcp_guide.tools.tool_content.get_or_create_session", mock_get_session)
 
     # Call tool with pattern override to only get .md files
-    args = ContentArgs(category_or_collection="docs", pattern="*.md")
+    args = ContentArgs(expression="docs", pattern="*.md")
     result_json = await get_content(args)
 
     # Parse result
@@ -236,7 +236,7 @@ async def test_get_content_category_sets_metadata(tmp_path, monkeypatch):
     monkeypatch.setattr("mcp_guide.tools.tool_content.get_or_create_session", mock_get_session)
 
     # Call tool
-    args = ContentArgs(category_or_collection="docs")
+    args = ContentArgs(expression="docs")
     result_json = await get_content(args)
 
     # Verify success - the bug would cause issues in future template rendering
@@ -271,7 +271,7 @@ async def test_get_content_collection_sets_metadata(tmp_path, monkeypatch):
     monkeypatch.setattr("mcp_guide.tools.tool_content.get_or_create_session", mock_get_session)
 
     # Call tool
-    args = ContentArgs(category_or_collection="all")
+    args = ContentArgs(expression="all")
     result_json = await get_content(args)
 
     # Verify success - both category and collection fields should be set

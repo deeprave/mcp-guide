@@ -7,7 +7,8 @@ import os
 from pathlib import Path
 from typing import List, Set
 
-from mcp_guide.constants import MAX_DOCUMENTS_PER_GLOB, MAX_GLOB_DEPTH, METADATA_SUFFIX
+from mcp_guide.constants import MAX_DOCUMENTS_PER_GLOB, MAX_GLOB_DEPTH
+from mcp_guide.mcp_core.lazy_path import LazyPath
 
 logger = logging.getLogger(__name__)
 
@@ -21,9 +22,9 @@ def is_valid_file(path: Path) -> bool:
     Returns:
         True if file is valid, False if should be excluded
     """
-    # Check filename - exclude metadata files, __pycache__ style names, and hidden files
+    # Check filename - exclude __pycache__ style names, and hidden files
     name = path.name
-    if name.startswith("__") or name.endswith(METADATA_SUFFIX) or name.startswith("."):
+    if name.startswith("__") or name.startswith("."):
         return False
 
     # Check parent directories for __pycache__ style directories and reject . and .. segments
@@ -85,14 +86,13 @@ def _walk_with_depth_limit(search_dir: Path, pattern: str) -> List[Path]:
     Only traverses up to MAX_GLOB_DEPTH levels.
     """
     matched_paths: List[Path] = []
-    search_dir_resolved = search_dir.resolve()
+    search_dir_resolved = search_dir  # Already resolved by caller
 
     # Check if pattern contains ** (recursive)
     if "**" not in pattern:
         # Non-recursive: use glob directly (safe, only checks one level)
-        pattern_path = search_dir / pattern
-        for match_str in glob.iglob(str(pattern_path), recursive=False):
-            matched_paths.append(Path(match_str))
+        for match_str in glob.iglob(pattern, root_dir=search_dir_resolved, recursive=False):
+            matched_paths.append(search_dir_resolved / match_str)
         return matched_paths
 
     # Recursive pattern: use os.walk with depth limit
@@ -114,7 +114,7 @@ def _walk_with_depth_limit(search_dir: Path, pattern: str) -> List[Path]:
         prefix = ""
         file_pattern = "*"
 
-    start_dir = search_dir / prefix if prefix else search_dir
+    start_dir = search_dir_resolved / prefix if prefix else search_dir_resolved
 
     if not start_dir.exists():
         return matched_paths
@@ -152,6 +152,9 @@ def safe_glob_search(search_dir: Path, patterns: List[str]) -> List[Path]:
     Returns:
         List of Path objects matching patterns, limited to MAX_DOCUMENTS_PER_GLOB
     """
+    # Resolve search_dir once to handle ~ and ${VAR} expansion
+    search_dir_resolved = LazyPath(search_dir).resolve()
+
     matched_files: List[Path] = []
     seen_files: Set[Path] = set()
 
@@ -164,7 +167,7 @@ def safe_glob_search(search_dir: Path, patterns: List[str]) -> List[Path]:
 
         # Use depth-limited walk for safety
         try:
-            candidate_paths = _walk_with_depth_limit(search_dir, pattern)
+            candidate_paths = _walk_with_depth_limit(search_dir_resolved, pattern)
         except Exception as e:
             logger.warning(f"Pattern '{pattern}' failed: {e}")
             continue
@@ -174,7 +177,7 @@ def safe_glob_search(search_dir: Path, patterns: List[str]) -> List[Path]:
                 logger.warning(f"Reached maximum document limit ({MAX_DOCUMENTS_PER_GLOB}) for glob search")
                 break
 
-            if _process_match(match_path, search_dir, seen_files, matched_files):
+            if _process_match(match_path, search_dir_resolved, seen_files, matched_files):
                 matches_found = True
 
         # If no matches and pattern has no extension, try with .* wildcard
@@ -182,7 +185,7 @@ def safe_glob_search(search_dir: Path, patterns: List[str]) -> List[Path]:
             wildcard_pattern = f"{pattern}.*"
 
             try:
-                candidate_paths = _walk_with_depth_limit(search_dir, wildcard_pattern)
+                candidate_paths = _walk_with_depth_limit(search_dir_resolved, wildcard_pattern)
             except Exception as e:
                 logger.warning(f"Pattern '{wildcard_pattern}' failed: {e}")
                 continue
@@ -194,6 +197,6 @@ def safe_glob_search(search_dir: Path, patterns: List[str]) -> List[Path]:
                     )
                     break
 
-                _process_match(match_path, search_dir, seen_files, matched_files)
+                _process_match(match_path, search_dir_resolved, seen_files, matched_files)
 
     return matched_files

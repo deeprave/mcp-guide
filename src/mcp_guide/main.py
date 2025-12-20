@@ -9,6 +9,44 @@ from mcp_guide.cli import ServerConfig, parse_args
 from mcp_guide.config import DocrootError
 
 
+def _setup_remote_debugging() -> None:
+    """Set up remote debugging if enabled via environment variables.
+
+    Environment variables:
+        MG_DEBUG: Set to 'true' to enable remote debugging
+        MG_DEBUG_PORT: Port number for debug server (default: 5678)
+        MG_DEBUG_WAIT: Set to 'true' to wait for debugger to attach
+    """
+    if os.environ.get("MG_DEBUG", "").lower() not in ("true", "1", "yes"):
+        return
+
+    try:
+        import debugpy  # type: ignore
+    except ImportError:
+        print(
+            "WARNING: MG_DEBUG is set but debugpy is not installed.\n"
+            "Install with: pip install debugpy\n"
+            "Or use: uvx --with debugpy mcp-guide",
+            file=sys.stderr,
+        )
+        return
+
+    debug_port = int(os.environ.get("MG_DEBUG_PORT", "5678"))
+    debug_wait = os.environ.get("MG_DEBUG_WAIT", "").lower() in ("true", "1", "yes")
+
+    # Start debug server
+    try:
+        debugpy.listen(("localhost", debug_port))
+        print(f"Debug server listening on port {debug_port}", file=sys.stderr)
+
+        if debug_wait:
+            print("Waiting for debugger to attach...", file=sys.stderr)
+            debugpy.wait_for_client()
+            print("Debugger attached!", file=sys.stderr)
+    except Exception as e:
+        print(f"WARNING: Failed to start debug server: {e}", file=sys.stderr)
+
+
 def _configure_environment(config: ServerConfig) -> None:
     """Configure environment variables from config.
 
@@ -69,6 +107,9 @@ def main() -> None:
     # Exit immediately for help/version (before logging setup)
     if config.should_exit and not config.cli_error:
         sys.exit(0)
+
+    # Set up remote debugging before anything else
+    _setup_remote_debugging()
 
     _configure_environment(config)
     _configure_logging(config)

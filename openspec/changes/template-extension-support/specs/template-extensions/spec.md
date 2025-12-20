@@ -8,7 +8,7 @@ The system SHALL support multiple template file extensions for Mustache/Handleba
 #### Scenario: Supported Extensions
 - WHEN a template file uses `.mustache` extension
 - THEN it SHALL be recognized and processed as a template
-- WHEN a template file uses `.hbs` extension  
+- WHEN a template file uses `.hbs` extension
 - THEN it SHALL be recognized and processed as a template
 - WHEN a template file uses `.handlebars` extension
 - THEN it SHALL be recognized and processed as a template
