@@ -1,3 +1,5 @@
+# See src/mcp_guide/tools/README.md for tool documentation standards
+
 """Project management tools."""
 
 from typing import Any, Optional
@@ -113,12 +115,41 @@ async def get_project(args: GetCurrentProjectArgs, ctx: Optional[Context] = None
     Returns project name, collections, and categories. Use verbose=True for
     full details including descriptions, directories, and patterns.
 
-    Args:
-        args: Tool arguments with verbose flag
-        ctx: MCP Context (auto-injected by FastMCP)
+    ## JSON Schema
 
-    Returns:
-        Result containing project information
+    ```json
+    {
+      "type": "object",
+      "properties": {
+        "verbose": {
+          "type": "boolean",
+          "description": "If True, return full details; if False, return names only"
+        }
+      }
+    }
+    ```
+
+    ## Usage Instructions
+
+    ```python
+    # Get basic project information
+    await get_project(GetCurrentProjectArgs(verbose=False))
+
+    # Get detailed project configuration
+    await get_project(GetCurrentProjectArgs(verbose=True))
+    ```
+
+    ## Concrete Examples
+
+    ```python
+    # Example 1: Get project overview
+    result = await get_project(GetCurrentProjectArgs(verbose=False))
+    # Returns: {"project": "my-project", "categories": ["docs", "examples"], "collections": ["all"]}
+
+    # Example 2: Get complete project details
+    result = await get_project(GetCurrentProjectArgs(verbose=True))
+    # Returns: Full project configuration with category directories, patterns, and descriptions
+    ```
     """
     return (await internal_get_project(args, ctx)).to_json_str()
 

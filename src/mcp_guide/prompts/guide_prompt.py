@@ -1,3 +1,5 @@
+# See src/mcp_guide/prompts/README.md for prompt documentation standards
+
 """Guide prompt implementation for direct content access."""
 
 from typing import Optional
@@ -35,25 +37,56 @@ async def guide(
     argF: Optional[str] = None,
     ctx: Optional["Context"] = None,  # type: ignore[type-arg]
 ) -> str:
-    """Direct access to guide content without agent interpretation.
+    """Direct access to guide content.
 
-    Uses direct function parameters for MCP compatibility. Arguments are
-    parsed into argv-style list: ["guide", arg1, arg2, ...] stopping at
-    first None value.
+    Retrieves content from categories and collections without
+    agent interpretation. Supports flexible argument patterns
+    for content discovery and access.
 
-    MCP clients send space-separated arguments:
-    - @guide lang/python → arg1="lang/python"
-    - @guide lang/python advanced → arg1="lang/python", arg2="advanced"
+    ## Conceptual Schema
 
-    Note: Uses MAX_PROMPT_ARGS (15) parameters due to MCP/FastMCP limitations
-    with variable arguments (*args not supported for prompts).
+    ```python
+    def guide(*args: str) -> str:
+        \"\"\"
+        Args:
+            *args: Variable string arguments for content specification
+                  - Category names (e.g., 'docs', 'examples')
+                  - Collection names (e.g., 'getting-started')
+                  - Pattern specifications (e.g., 'docs/*.md')
 
-    Args:
-        arg1-argF: Optional string arguments (MAX_PROMPT_ARGS total)
-        ctx: MCP context (auto-injected)
+        Returns:
+            JSON string with formatted content results
+        \"\"\"
+    ```
 
-    Returns:
-        JSON string with Result data
+    ## Usage Instructions
+
+    ```bash
+    # Single category
+    @guide docs
+
+    # Multiple categories
+    @guide docs examples
+
+    # Pattern filtering
+    @guide docs/*.md
+    ```
+
+    ## Concrete Examples
+
+    ```bash
+    # Example 1: Get documentation content
+    @guide docs
+    # Returns: All content from docs category
+
+    # Example 2: Multiple categories
+    @guide docs examples tutorials
+    # Returns: Combined content from all specified categories
+
+    # Example 3: Pattern-based filtering
+    @guide review/*.md
+    # Returns: Only markdown files from review category
+    ```
     """
     # Build argv list (stop at first None)
     argv = ["guide"]

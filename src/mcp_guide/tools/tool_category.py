@@ -1,3 +1,5 @@
+# See src/mcp_guide/tools/README.md for tool documentation standards
+
 """Category management tools."""
 
 from dataclasses import replace
@@ -44,7 +46,7 @@ __all__ = [
 class CategoryListArgs(ToolArguments):
     """Arguments for category_list tool."""
 
-    verbose: bool = True
+    verbose: bool = Field(default=True, description="If True, return full details; if False, return names only")
 
 
 class CategoryContentArgs(ToolArguments):
@@ -104,14 +106,44 @@ async def internal_category_list(args: CategoryListArgs, ctx: Optional[Context] 
 async def category_list(args: CategoryListArgs, ctx: Optional[Context] = None) -> str:  # type: ignore
     """List all categories in the current project.
 
-    Args:
-        args: Tool arguments with verbose flag
-        ctx: MCP Context (auto-injected by FastMCP)
+    Retrieves category information from the current project configuration.
+    Useful for discovering available categories before accessing content.
 
-    Returns:
-        Result containing:
-        - If verbose=True: list of category dictionaries with name, dir, patterns, description
-        - If verbose=False: list of category names only
+    ## JSON Schema
+
+    ```json
+    {
+      "type": "object",
+      "properties": {
+        "verbose": {
+          "type": "boolean",
+          "description": "If True, return full details; if False, return names only"
+        }
+      }
+    }
+    ```
+
+    ## Usage Instructions
+
+    ```python
+    # List category names only
+    await category_list(CategoryListArgs(verbose=False))
+
+    # List full category details
+    await category_list(CategoryListArgs(verbose=True))
+    ```
+
+    ## Concrete Examples
+
+    ```python
+    # Example 1: Get category names for overview
+    result = await category_list(CategoryListArgs(verbose=False))
+    # Returns: ["docs", "examples", "tests"]
+
+    # Example 2: Get full category information
+    result = await category_list(CategoryListArgs(verbose=True))
+    # Returns: [{"name": "docs", "dir": "docs", "patterns": ["*.md"], "description": "Documentation files"}]
+    ```
     """
     return (await internal_category_list(args, ctx)).to_json_str()
 
@@ -119,10 +151,10 @@ async def category_list(args: CategoryListArgs, ctx: Optional[Context] = None) -
 class CategoryAddArgs(ToolArguments):
     """Arguments for category_add tool."""
 
-    name: str
-    dir: Optional[str] = None
-    patterns: list[str] = Field(default_factory=list)
-    description: Optional[str] = None
+    name: str = Field(..., description="Name of the category to create")
+    dir: Optional[str] = Field(None, description="Directory path relative to docroot (defaults to category name)")
+    patterns: list[str] = Field(default_factory=list, description="File patterns to match (e.g., ['*.md', '*.txt'])")
+    description: Optional[str] = Field(None, description="Optional description of the category's purpose")
 
 
 async def internal_category_add(args: CategoryAddArgs, ctx: Optional[Context] = None) -> Result[str]:  # type: ignore
@@ -201,12 +233,67 @@ async def internal_category_add(args: CategoryAddArgs, ctx: Optional[Context] = 
 async def category_add(args: CategoryAddArgs, ctx: Optional[Context] = None) -> str:  # type: ignore
     """Add a new category to the current project.
 
-    Args:
-        args: Tool arguments with name, dir, patterns, and description
-        ctx: MCP Context (auto-injected by FastMCP)
+    Creates a new category with specified configuration including name,
+    directory path, file patterns, and optional description.
 
-    Returns:
-        Result containing success message
+    ## JSON Schema
+
+    ```json
+    {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name of the category to create"
+        },
+        "dir": {
+          "type": "string",
+          "description": "Directory path relative to docroot (defaults to category name)"
+        },
+        "patterns": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "File patterns to match (e.g., ['*.md', '*.txt'])"
+        },
+        "description": {
+          "type": "string",
+          "description": "Optional description of the category's purpose"
+        }
+      },
+      "required": ["name"]
+    }
+    ```
+
+    ## Usage Instructions
+
+    ```python
+    # Basic category creation
+    await category_add(CategoryAddArgs(name="docs"))
+
+    # Category with custom directory and patterns
+    await category_add(CategoryAddArgs(
+        name="api-docs",
+        dir="documentation/api",
+        patterns=["*.md", "*.yaml"]
+    ))
+    ```
+
+    ## Concrete Examples
+
+    ```python
+    # Example 1: Create simple documentation category
+    result = await category_add(CategoryAddArgs(name="docs"))
+    # Creates category "docs" using directory "docs" with default patterns
+
+    # Example 2: Create specialized category with custom configuration
+    result = await category_add(CategoryAddArgs(
+        name="tutorials",
+        dir="content/tutorials",
+        patterns=["*.md", "*.rst"],
+        description="Step-by-step tutorial content"
+    ))
+    # Creates category with custom directory and file patterns
+    ```
     """
     return (await internal_category_add(args, ctx)).to_json_str()
 
@@ -214,7 +301,7 @@ async def category_add(args: CategoryAddArgs, ctx: Optional[Context] = None) -> 
 class CategoryRemoveArgs(ToolArguments):
     """Arguments for category_remove tool."""
 
-    name: str
+    name: str = Field(..., description="Name of the category to remove")
 
 
 async def internal_category_remove(args: CategoryRemoveArgs, ctx: Optional[Context] = None) -> Result[str]:  # type: ignore
@@ -286,11 +373,11 @@ async def category_remove(args: CategoryRemoveArgs, ctx: Optional[Context] = Non
 class CategoryChangeArgs(ToolArguments):
     """Arguments for category_change tool."""
 
-    name: str
-    new_name: Optional[str] = None
-    new_dir: Optional[str] = None
-    new_patterns: Optional[list[str]] = None
-    new_description: Optional[str] = None
+    name: str = Field(..., description="Name of the category to modify")
+    new_name: Optional[str] = Field(None, description="New name for the category")
+    new_dir: Optional[str] = Field(None, description="New directory path for the category")
+    new_patterns: Optional[list[str]] = Field(None, description="New file patterns to replace existing ones")
+    new_description: Optional[str] = Field(None, description="New description for the category")
 
 
 async def internal_category_change(args: CategoryChangeArgs, ctx: Optional[Context] = None) -> Result[str]:  # type: ignore
@@ -440,9 +527,9 @@ async def category_change(args: CategoryChangeArgs, ctx: Optional[Context] = Non
 class CategoryUpdateArgs(ToolArguments):
     """Arguments for category_update tool."""
 
-    name: str
-    add_patterns: Optional[list[str]] = None
-    remove_patterns: Optional[list[str]] = None
+    name: str = Field(..., description="Name of the category to update")
+    add_patterns: Optional[list[str]] = Field(None, description="File patterns to add to the category")
+    remove_patterns: Optional[list[str]] = Field(None, description="File patterns to remove from the category")
 
 
 async def internal_category_update(args: CategoryUpdateArgs, ctx: Optional[Context] = None) -> Result[str]:  # type: ignore

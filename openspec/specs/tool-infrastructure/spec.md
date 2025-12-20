@@ -202,3 +202,38 @@ The system SHALL provide explicitly named tools for global flag operations.
 - **AND** no resolution hierarchy or project flag merging occurs
 - **AND** operations are isolated to global scope only
 
+### Requirement: Tool and Prompt Description Standards
+The system SHALL enforce standardized 4-section documentation format for all MCP tools and prompts.
+
+#### Scenario: Tool documentation format
+- **WHEN** tool documentation is written
+- **THEN** docstring includes Description section (≤50 chars first line if possible)
+- **AND** docstring includes JSON Schema section with Pydantic-generated schema
+- **AND** docstring includes Usage Instructions section with code examples
+- **AND** docstring includes Concrete Examples section with real scenarios
+
+#### Scenario: Prompt documentation format
+- **WHEN** prompt documentation is written
+- **THEN** docstring includes Description section (≤50 chars first line if possible)
+- **AND** docstring includes Conceptual Schema section using *args interface
+- **AND** docstring includes Usage Instructions section with @prompt_name syntax
+- **AND** docstring includes Concrete Examples section with real invocations
+
+#### Scenario: Field description completeness
+- **WHEN** tool argument models are defined
+- **THEN** all Pydantic fields include Field(description=...) parameters
+- **AND** descriptions are clear, concise, and follow established patterns
+- **AND** schema generation includes all field descriptions
+
+#### Scenario: Documentation template references
+- **WHEN** tool or prompt modules are created
+- **THEN** module includes reference comment to appropriate README template
+- **AND** tools reference src/mcp_guide/tools/README.md
+- **AND** prompts reference src/mcp_guide/prompts/README.md
+
+#### Scenario: Prompt varargs documentation
+- **WHEN** prompt uses arg1...argF implementation pattern
+- **THEN** documentation shows conceptual *args interface
+- **AND** implementation details (arg1, arg2, etc.) are hidden from users
+- **AND** examples use clean @prompt_name syntax
+

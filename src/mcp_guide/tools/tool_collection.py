@@ -1,3 +1,5 @@
+# See src/mcp_guide/tools/README.md for tool documentation standards
+
 """Collection management tools."""
 
 from dataclasses import replace
@@ -35,7 +37,7 @@ __all__ = [
 class CollectionListArgs(ToolArguments):
     """Arguments for collection_list tool."""
 
-    verbose: bool = True
+    verbose: bool = Field(default=True, description="If True, return full details; if False, return names only")
 
 
 async def internal_collection_list(args: CollectionListArgs, ctx: Optional[Context] = None) -> Result[list]:  # type: ignore
@@ -77,14 +79,44 @@ async def internal_collection_list(args: CollectionListArgs, ctx: Optional[Conte
 async def collection_list(args: CollectionListArgs, ctx: Optional[Context] = None) -> str:  # type: ignore
     """List all collections in the current project.
 
-    Args:
-        args: Tool arguments with verbose flag
-        ctx: MCP Context (auto-injected by FastMCP)
+    Retrieves collection information from the current project configuration.
+    Useful for discovering available collections before accessing content.
 
-    Returns:
-        Result containing:
-        - If verbose=True: list of collection dictionaries with name, categories, description
-        - If verbose=False: list of collection names only
+    ## JSON Schema
+
+    ```json
+    {
+      "type": "object",
+      "properties": {
+        "verbose": {
+          "type": "boolean",
+          "description": "If True, return full details; if False, return names only"
+        }
+      }
+    }
+    ```
+
+    ## Usage Instructions
+
+    ```python
+    # List collection names only
+    await collection_list(CollectionListArgs(verbose=False))
+
+    # List full collection details
+    await collection_list(CollectionListArgs(verbose=True))
+    ```
+
+    ## Concrete Examples
+
+    ```python
+    # Example 1: Get collection names for overview
+    result = await collection_list(CollectionListArgs(verbose=False))
+    # Returns: ["getting-started", "advanced", "reference"]
+
+    # Example 2: Get full collection information
+    result = await collection_list(CollectionListArgs(verbose=True))
+    # Returns: [{"name": "getting-started", "categories": ["docs", "examples"], "description": "Beginner content"}]
+    ```
     """
     result = await internal_collection_list(args, ctx)
     return result.to_json_str()
@@ -93,9 +125,11 @@ async def collection_list(args: CollectionListArgs, ctx: Optional[Context] = Non
 class CollectionAddArgs(ToolArguments):
     """Arguments for collection_add tool."""
 
-    name: str
-    description: Optional[str] = None
-    categories: list[str] = Field(default_factory=list)
+    name: str = Field(..., description="Name of the collection to create")
+    description: Optional[str] = Field(None, description="Optional description of the collection's purpose")
+    categories: list[str] = Field(
+        default_factory=list, description="List of category names to include in the collection"
+    )
 
 
 async def internal_collection_add(args: CollectionAddArgs, ctx: Optional[Context] = None) -> Result[str]:  # type: ignore
@@ -177,7 +211,7 @@ async def collection_add(args: CollectionAddArgs, ctx: Optional[Context] = None)
 class CollectionRemoveArgs(ToolArguments):
     """Arguments for collection_remove tool."""
 
-    name: str
+    name: str = Field(..., description="Name of the collection to remove")
 
 
 async def internal_collection_remove(args: CollectionRemoveArgs, ctx: Optional[Context] = None) -> Result[str]:  # type: ignore
@@ -227,10 +261,10 @@ async def collection_remove(args: CollectionRemoveArgs, ctx: Optional[Context] =
 class CollectionChangeArgs(ToolArguments):
     """Arguments for collection_change tool."""
 
-    name: str
-    new_name: Optional[str] = None
-    new_description: Optional[str] = None
-    new_categories: Optional[list[str]] = None
+    name: str = Field(..., description="Name of the collection to modify")
+    new_name: Optional[str] = Field(None, description="New name for the collection")
+    new_description: Optional[str] = Field(None, description="New description for the collection")
+    new_categories: Optional[list[str]] = Field(None, description="New list of categories to replace existing ones")
 
 
 async def internal_collection_change(args: CollectionChangeArgs, ctx: Optional[Context] = None) -> Result[str]:  # type: ignore
@@ -358,9 +392,9 @@ async def collection_change(args: CollectionChangeArgs, ctx: Optional[Context] =
 class CollectionUpdateArgs(ToolArguments):
     """Arguments for collection_update tool."""
 
-    name: str
-    add_categories: Optional[list[str]] = None
-    remove_categories: Optional[list[str]] = None
+    name: str = Field(..., description="Name of the collection to update")
+    add_categories: Optional[list[str]] = Field(None, description="Category names to add to the collection")
+    remove_categories: Optional[list[str]] = Field(None, description="Category names to remove from the collection")
 
 
 async def internal_collection_update(args: CollectionUpdateArgs, ctx: Optional[Context] = None) -> Result[str]:  # type: ignore
