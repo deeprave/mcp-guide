@@ -47,6 +47,10 @@ addopts = [
     "--cov=src/mcp_guide",
     "--cov-report=term-missing",
 ]
+markers = [
+    "e2e: marks tests as end-to-end tests",
+    "slow: marks tests as slow running",
+]
 
 [tool.ruff]
 src = ["src"]
