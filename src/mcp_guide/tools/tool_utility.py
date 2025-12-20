@@ -1,3 +1,5 @@
+# See src/mcp_guide/tools/README.md for tool documentation standards
+
 """Utility tools for server information."""
 
 import logging
@@ -95,13 +97,40 @@ async def client_info(args: GetClientInfoArgs, ctx: Optional[Context] = None) ->
     Captures agent name, version, and prompt prefix from the MCP session.
     Caches the result in GuideMCP for subsequent calls.
 
-    Returns formatted agent information with explicit display instruction.
+    ## JSON Schema
 
-    Args:
-        args: Tool arguments (verbose parameter is ignored)
-        ctx: MCP Context (auto-injected by FastMCP)
+    ```json
+    {
+      "type": "object",
+      "properties": {
+        "verbose": {
+          "type": "boolean",
+          "description": "Unused parameter for compatibility"
+        }
+      }
+    }
+    ```
 
-    Returns:
-        Result containing agent information
+    ## Usage Instructions
+
+    ```python
+    # Get client information
+    await client_info(GetClientInfoArgs())
+
+    # With verbose parameter (ignored)
+    await client_info(GetClientInfoArgs(verbose=True))
+    ```
+
+    ## Concrete Examples
+
+    ```python
+    # Example 1: Get MCP client details
+    result = await client_info(GetClientInfoArgs())
+    # Returns: {"agent_name": "Claude", "version": "3.5", "prompt_prefix": "guide"}
+
+    # Example 2: Use for debugging or logging
+    result = await client_info(GetClientInfoArgs(verbose=True))
+    # Returns: Same information, verbose parameter is ignored for compatibility
+    ```
     """
     return (await internal_client_info(args, ctx)).to_json_str()

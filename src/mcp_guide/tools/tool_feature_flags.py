@@ -1,3 +1,5 @@
+# See src/mcp_guide/tools/README.md for tool documentation standards
+
 """Feature flags management tools."""
 
 from typing import Optional

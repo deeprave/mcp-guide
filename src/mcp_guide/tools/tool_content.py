@@ -1,3 +1,5 @@
+# See src/mcp_guide/tools/README.md for tool documentation standards
+
 """Unified content access tool - get_content."""
 
 from pathlib import Path
@@ -152,16 +154,60 @@ async def get_content(
     args: ContentArgs,
     ctx: Optional[Context] = None,  # type: ignore[type-arg]
 ) -> str:
-    """Get content from collections and categories (unified access).
+    """Get content from collections and categories.
 
     Searches collections first, then categories. Aggregates and de-duplicates
-    results from all matches.
+    results from all matches. Supports pattern filtering for selective content retrieval.
 
-    Args:
-        args: Tool arguments with name and optional pattern
-        ctx: MCP Context (auto-injected by FastMCP)
+    ## JSON Schema
 
-    Returns:
-        Result containing formatted content or error
+    ```json
+    {
+      "type": "object",
+      "properties": {
+        "category_or_collection": {
+          "type": "string",
+          "description": "Name to match against collections and categories. Searches collections first, then categories. Aggregates and de-duplicates results from all matches."
+        },
+        "pattern": {
+          "type": "string",
+          "description": "Optional glob pattern to filter files (e.g., '*.md'). Overrides default patterns for all matched categories."
+        }
+      },
+      "required": ["category_or_collection"]
+    }
+    ```
+
+    ## Usage Instructions
+
+    ```python
+    # Get all content from a category or collection
+    await get_content(ContentArgs(category_or_collection="docs"))
+
+    # Filter content with pattern
+    await get_content(ContentArgs(
+        category_or_collection="docs",
+        pattern="*.md"
+    ))
+    ```
+
+    ## Concrete Examples
+
+    ```python
+    # Example 1: Get all documentation content
+    result = await get_content(ContentArgs(category_or_collection="docs"))
+    # Returns: All files from docs category with default patterns
+
+    # Example 2: Get only markdown files from examples
+    result = await get_content(ContentArgs(
+        category_or_collection="examples",
+        pattern="*.md"
+    ))
+    # Returns: Only .md files from examples category
+
+    # Example 3: Get content from a collection
+    result = await get_content(ContentArgs(category_or_collection="getting-started"))
+    # Returns: Combined content from all categories in the collection
+    ```
     """
     return (await internal_get_content(args, ctx)).to_json_str()
