@@ -40,6 +40,7 @@ async def guide_resource(collection: str, document: str = "", ctx: Optional["Con
     except Exception as e:
         # Log unexpected exceptions for debugging while still handling them
         import logging
+
         logger = logging.getLogger(__name__)
         logger.error(f"Unexpected error in guide_resource: {type(e).__name__}: {str(e)}", exc_info=True)
         return f"Unexpected error: {str(e)}"
