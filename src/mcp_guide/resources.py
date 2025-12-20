@@ -1,5 +1,6 @@
 """MCP resource handlers for guide:// URI scheme."""
 
+import logging
 from typing import Any, Optional
 
 try:
@@ -9,6 +10,8 @@ except ImportError:
 
 from mcp_guide.server import resources
 from mcp_guide.tools.tool_content import ContentArgs, internal_get_content
+
+logger = logging.getLogger(__name__)
 
 
 @resources.resource("guide://{collection}/{document}")
@@ -39,8 +42,5 @@ async def guide_resource(collection: str, document: str = "", ctx: Optional["Con
         return f"Error: {str(e)}"
     except Exception as e:
         # Log unexpected exceptions for debugging while still handling them
-        import logging
-
-        logger = logging.getLogger(__name__)
         logger.error(f"Unexpected error in guide_resource: {type(e).__name__}: {str(e)}", exc_info=True)
         return f"Unexpected error: {str(e)}"
