@@ -40,7 +40,7 @@ class ContentArgs(ToolArguments):
     Provides unified access to content by searching both collections and categories.
     """
 
-    category_or_collection: str = Field(
+    expression: str = Field(
         ...,
         description="Name to match against collections and categories. "
         "Searches collections first, then categories. "
@@ -82,7 +82,7 @@ async def internal_get_content(
     try:
         # Use gather_content to handle comma-separated expressions
         # If pattern is provided, append it to the expression
-        expression = args.category_or_collection
+        expression = args.expression
         if args.pattern:
             # Apply pattern to all expressions
             if "," in expression:
@@ -97,7 +97,7 @@ async def internal_get_content(
 
         if not files:
             return Result.ok(
-                f"No matching content found for '{args.category_or_collection}'", instruction=INSTRUCTION_PATTERN_ERROR
+                f"No matching content found for '{args.expression}'", instruction=INSTRUCTION_PATTERN_ERROR
             )
 
         # Group files by category for reading
@@ -130,7 +130,7 @@ async def internal_get_content(
         if file_read_errors:
             return create_file_read_error_result(
                 file_read_errors,
-                args.category_or_collection,
+                args.expression,
                 "content",
                 ERROR_FILE_READ,
                 INSTRUCTION_FILE_ERROR,
@@ -138,7 +138,7 @@ async def internal_get_content(
 
         # Format and return content
         formatter = get_formatter()
-        content = await formatter.format(final_files, args.category_or_collection)
+        content = await formatter.format(final_files, args.expression)
         return Result.ok(content)
 
     except ExpressionParseError as e:
@@ -165,7 +165,7 @@ async def get_content(
     {
       "type": "object",
       "properties": {
-        "category_or_collection": {
+        "expression": {
           "type": "string",
           "description": "Name to match against collections and categories. Searches collections first, then categories. Aggregates and de-duplicates results from all matches."
         },
@@ -174,7 +174,7 @@ async def get_content(
           "description": "Optional glob pattern to filter files (e.g., '*.md'). Overrides default patterns for all matched categories."
         }
       },
-      "required": ["category_or_collection"]
+      "required": ["expression"]
     }
     ```
 
@@ -182,11 +182,11 @@ async def get_content(
 
     ```python
     # Get all content from a category or collection
-    await get_content(ContentArgs(category_or_collection="docs"))
+    await get_content(ContentArgs(expression="docs"))
 
     # Filter content with pattern
     await get_content(ContentArgs(
-        category_or_collection="docs",
+        expression="docs",
         pattern="*.md"
     ))
     ```
@@ -195,18 +195,18 @@ async def get_content(
 
     ```python
     # Example 1: Get all documentation content
-    result = await get_content(ContentArgs(category_or_collection="docs"))
+    result = await get_content(ContentArgs(expression="docs"))
     # Returns: All files from docs category with default patterns
 
     # Example 2: Get only markdown files from examples
     result = await get_content(ContentArgs(
-        category_or_collection="examples",
+        expression="examples",
         pattern="*.md"
     ))
     # Returns: Only .md files from examples category
 
     # Example 3: Get content from a collection
-    result = await get_content(ContentArgs(category_or_collection="getting-started"))
+    result = await get_content(ContentArgs(expression="getting-started"))
     # Returns: Combined content from all categories in the collection
     ```
     """

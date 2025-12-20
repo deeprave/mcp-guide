@@ -28,7 +28,7 @@ async def guide_resource(collection: str, document: str = "", ctx: Optional["Con
     """
     try:
         # Create ContentArgs for internal_get_content
-        content_args = ContentArgs(category_or_collection=collection, pattern=document if document else None)
+        content_args = ContentArgs(expression=collection, pattern=document if document else None)
 
         # Delegate to internal content retrieval
         result = await internal_get_content(content_args, ctx)
