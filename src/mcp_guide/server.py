@@ -3,6 +3,11 @@
 import os
 from typing import Any, Callable, Optional
 
+try:
+    from mcp.server.fastmcp import Context
+except ImportError:
+    Context = None  # type: ignore
+
 from mcp_core.prompt_decorator import ExtMcpPromptDecorator
 from mcp_core.tool_decorator import ExtMcpToolDecorator
 from mcp_guide.guide import GuideMCP
@@ -44,6 +49,42 @@ class _ToolsProxy:
         return self._instance.tool(*args, **kwargs)
 
 
+class _ResourcesProxy:
+    """Proxy that defers to actual resource decorator when available."""
+
+    _instance: Optional[Any] = None
+
+    @classmethod
+    def set_instance(cls, instance: Any) -> None:
+        """Set the actual server instance.
+
+        Args:
+            instance: FastMCP server instance to delegate to
+        """
+        cls._instance = instance
+
+    def resource(self, *args: Any, **kwargs: Any) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+        """Decorate a resource function.
+
+        If instance is set, delegates to actual decorator.
+        Otherwise returns no-op decorator.
+
+        Args:
+            *args: Positional arguments for decorator
+            **kwargs: Keyword arguments for decorator
+
+        Returns:
+            Decorator function
+        """
+        if self._instance is None:
+            # Before server init - return no-op decorator
+            def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+                return func
+
+            return decorator
+        return self._instance.resource(*args, **kwargs)  # type: ignore[no-any-return]
+
+
 class _PromptsProxy:
     """Proxy that defers to actual prompt decorator when available."""
 
@@ -82,6 +123,7 @@ class _PromptsProxy:
 
 # Module-level instances for imports
 tools = _ToolsProxy()
+resources = _ResourcesProxy()
 prompts = _PromptsProxy()
 
 # Pending log config set by main.py before server creation
@@ -187,6 +229,7 @@ def create_server() -> GuideMCP:
     prompt_decorator = ExtMcpPromptDecorator(mcp)
     tools.set_instance(tool_decorator)
     prompts.set_instance(prompt_decorator)
+    resources.set_instance(mcp)
 
     # Import tool modules - decorators register immediately
     from mcp_guide.tools import (  # noqa: F401
@@ -202,11 +245,8 @@ def create_server() -> GuideMCP:
         from mcp_guide.tools import tool_example  # noqa: F401
 
     # Import prompt modules - decorators register immediately
+    # Import resource modules - decorators register immediately
+    from mcp_guide import resources as resource_module  # noqa: F401
     from mcp_guide.prompts import guide_prompt  # noqa: F401
-
-    # Register resource handlers
-    from mcp_guide.resources import register_resource_handlers
-
-    register_resource_handlers(mcp)
 
     return mcp

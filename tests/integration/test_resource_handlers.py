@@ -26,26 +26,10 @@ class TestResourceHandlers:
         with patch(
             "mcp_guide.resources.internal_get_content", new=AsyncMock(return_value=mock_result)
         ) as mock_get_content:
-            # Access the registered resource handler
-            from mcp_guide.resources import register_resource_handlers
+            # Access the registered resource handler directly
+            from mcp_guide.resources import guide_resource
 
-            # Create a temporary server to get the handler
-            temp_handlers: dict[str, Callable[..., Any]] = {}
-
-            class MockServer:
-                def resource(self, uri_template: str) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
-                    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
-                        temp_handlers[uri_template] = func
-                        return func
-
-                    return decorator
-
-            mock_server = MockServer()
-            register_resource_handlers(mock_server)
-
-            # Get the handler and test it
-            handler = temp_handlers["guide://{collection}/{document}"]
-            result = await handler("docs", "readme", mock_ctx)
+            result = await guide_resource("docs", "readme", mock_ctx)
 
             mock_get_content.assert_called_once()
             args_call, _ = mock_get_content.call_args
@@ -64,23 +48,9 @@ class TestResourceHandlers:
             "mcp_guide.resources.internal_get_content", new=AsyncMock(return_value=mock_result)
         ) as mock_get_content:
             # Access the registered resource handler
-            from mcp_guide.resources import register_resource_handlers
+            from mcp_guide.resources import guide_resource
 
-            temp_handlers: dict[str, Callable[..., Any]] = {}
-
-            class MockServer:
-                def resource(self, uri_template: str) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
-                    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
-                        temp_handlers[uri_template] = func
-                        return func
-
-                    return decorator
-
-            mock_server = MockServer()
-            register_resource_handlers(mock_server)
-
-            handler = temp_handlers["guide://{collection}/{document}"]
-            result = await handler("docs", "", mock_ctx)
+            result = await guide_resource("docs", "", mock_ctx)
 
             mock_get_content.assert_called_once()
             args_call, _ = mock_get_content.call_args
@@ -96,23 +66,9 @@ class TestResourceHandlers:
         mock_result: Result[str] = Result.failure("Collection not found")
 
         with patch("mcp_guide.resources.internal_get_content", new=AsyncMock(return_value=mock_result)):
-            from mcp_guide.resources import register_resource_handlers
+            from mcp_guide.resources import guide_resource
 
-            temp_handlers: dict[str, Callable[..., Any]] = {}
-
-            class MockServer:
-                def resource(self, uri_template: str) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
-                    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
-                        temp_handlers[uri_template] = func
-                        return func
-
-                    return decorator
-
-            mock_server = MockServer()
-            register_resource_handlers(mock_server)
-
-            handler = temp_handlers["guide://{collection}/{document}"]
-            result = await handler("nonexistent", "", mock_ctx)
+            result = await guide_resource("nonexistent", "", mock_ctx)
 
             assert result == "Collection not found"
 
@@ -124,23 +80,9 @@ class TestResourceHandlers:
         with patch(
             "mcp_guide.resources.internal_get_content", new=AsyncMock(side_effect=Exception("Unexpected error"))
         ):
-            from mcp_guide.resources import register_resource_handlers
+            from mcp_guide.resources import guide_resource
 
-            temp_handlers: dict[str, Callable[..., Any]] = {}
-
-            class MockServer:
-                def resource(self, uri_template: str) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
-                    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
-                        temp_handlers[uri_template] = func
-                        return func
-
-                    return decorator
-
-            mock_server = MockServer()
-            register_resource_handlers(mock_server)
-
-            handler = temp_handlers["guide://{collection}/{document}"]
-            result = await handler("docs", "readme", mock_ctx)
+            result = await guide_resource("docs", "readme", mock_ctx)
 
             assert "Unexpected error: Unexpected error" in result
 
@@ -151,22 +93,39 @@ class TestResourceHandlers:
         mock_result = Result.ok(None)
 
         with patch("mcp_guide.resources.internal_get_content", new=AsyncMock(return_value=mock_result)):
-            from mcp_guide.resources import register_resource_handlers
+            from mcp_guide.resources import guide_resource
 
-            temp_handlers: dict[str, Callable[..., Any]] = {}
-
-            class MockServer:
-                def resource(self, uri_template: str) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
-                    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
-                        temp_handlers[uri_template] = func
-                        return func
-
-                    return decorator
-
-            mock_server = MockServer()
-            register_resource_handlers(mock_server)
-
-            handler = temp_handlers["guide://{collection}/{document}"]
-            result = await handler("docs", "readme", mock_ctx)
+            result = await guide_resource("docs", "readme", mock_ctx)
 
             assert result == ""
+
+    @pytest.mark.asyncio
+    async def test_mcp_client_can_list_resources(self, tmp_path: Any) -> None:
+        """Test that MCP client can list guide:// resources."""
+        import asyncio
+        import sys
+
+        from mcp import ClientSession, StdioServerParameters
+        from mcp.client.stdio import stdio_client
+
+        # Server parameters - run mcp-guide server
+        server_params = StdioServerParameters(
+            command=sys.executable, args=["-m", "mcp_guide.main"], env={"MCP_GUIDE_CONFIG_DIR": str(tmp_path)}
+        )
+
+        async with stdio_client(server_params) as (read, write):
+            async with ClientSession(read, write) as session:
+                # Initialize with timeout
+                await asyncio.wait_for(session.initialize(), timeout=5.0)
+
+                # List resource templates - verify guide:// URIs are registered
+                templates_result = await asyncio.wait_for(session.list_resource_templates(), timeout=5.0)
+                template_uris = [template.uriTemplate for template in templates_result.resourceTemplates]
+
+                # Should contain guide:// URI template
+                guide_templates = [uri for uri in template_uris if uri.startswith("guide://")]
+                assert len(guide_templates) > 0, f"No guide:// templates found. Available: {template_uris}"
+
+                # Should specifically have our template
+                expected_template = "guide://{collection}/{document}"
+                assert expected_template in template_uris, f"Expected {expected_template} not found in {template_uris}"
