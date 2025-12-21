@@ -4,21 +4,28 @@
 TBD - created by archiving change add-guide-project-tools. Update Purpose after archive.
 ## Requirements
 ### Requirement: Get Current Project Information
-The system SHALL provide a tool to retrieve information about the currently active project.
+The `guide_get_project` tool SHALL return complete project configuration including categories, collections, and resolved project flags.
 
-#### Scenario: Get current project with names only
-- **WHEN** user calls `get_current_project` with `verbose=False`
-- **THEN** return project name, collection names, and category names
+#### Scenario: Get complete project configuration
+- GIVEN a project with categories, collections, and flags configured
+- WHEN `guide_get_project(verbose=true)` is called
+- THEN the response SHALL include:
+  - Project name
+  - Categories with their configuration
+  - Collections with their configuration
+  - Resolved project flags (global + project-specific)
 
-#### Scenario: Get current project with full details
-- **WHEN** user calls `get_current_project` with `verbose=True`
-- **THEN** return project name, collections with descriptions and categories, and categories with dirs, patterns, and descriptions
+#### Scenario: Get basic project information
+- GIVEN a project configuration
+- WHEN `guide_get_project(verbose=false)` is called
+- THEN the response SHALL include project name and basic structure
+- AND flags MAY be omitted for brevity
 
-#### Scenario: No project context available
-- **WHEN** user calls `get_current_project` without a valid project context
-- **THEN** return error with type `no_project` and instruction to call `set_project()`
-
----
+#### Scenario: Flag resolution
+- GIVEN global feature flags and project-specific flags
+- WHEN project flags are requested
+- THEN the response SHALL include fully resolved flags
+- AND project-specific flags SHALL override global flags where conflicts exist
 
 ### Requirement: Switch Current Project
 The system SHALL provide a tool to switch to a different project by name.
