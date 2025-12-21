@@ -174,12 +174,14 @@ async def internal_set_project(args: SetCurrentProjectArgs, ctx: Optional[Contex
         assert project is not None  # is_ok() guarantees value is set
 
         # Get session for flag resolution
+        session = None
         try:
             session = await get_or_create_session(ctx)
-            response = await format_project_data(project, verbose=args.verbose, session=session)
         except ValueError:
-            # Fallback without session if unavailable
-            response = await format_project_data(project, verbose=args.verbose)
+            # Continue with session=None, which will include empty flags
+            pass
+
+        response = await format_project_data(project, verbose=args.verbose, session=session)
 
         # Include project name in response for single project operations
         response["project"] = project.name
@@ -225,7 +227,16 @@ async def internal_list_projects(args: ListProjectsArgs, ctx: Optional[Context] 
     Returns:
         Result containing projects list or dict
     """
-    result = await list_all_projects(verbose=args.verbose)
+    session = None
+    if args.verbose:
+        # Only get session for verbose output to include flags
+        try:
+            session = await get_or_create_session(ctx)
+        except Exception:
+            # If session creation fails, continue without it
+            pass
+
+    result = await list_all_projects(verbose=args.verbose, session=session)
     return result
 
 
@@ -261,7 +272,16 @@ async def internal_list_project(args: ListProjectArgs, ctx: Optional[Context] = 
     """
     from mcp_guide.session import get_project_info
 
-    result = await get_project_info(name=args.name, verbose=args.verbose)
+    session = None
+    if args.verbose:
+        # Only get session for verbose output to include flags
+        try:
+            session = await get_or_create_session(ctx)
+        except Exception:
+            # If session creation fails, continue without it
+            pass
+
+    result = await get_project_info(name=args.name, verbose=args.verbose, session=session)
     return result
 
 
