@@ -153,23 +153,6 @@ class ConfigManager:
             if name in projects:
                 project_data = projects[name]
 
-                # Migrate legacy list-based configuration to dict-based format
-                if "categories" in project_data and isinstance(project_data["categories"], list):
-                    categories_dict = {}
-                    for category in project_data["categories"]:
-                        if isinstance(category, dict) and "name" in category:
-                            name_key = category.pop("name")
-                            categories_dict[name_key] = category
-                    project_data["categories"] = categories_dict
-
-                if "collections" in project_data and isinstance(project_data["collections"], list):
-                    collections_dict = {}
-                    for collection in project_data["collections"]:
-                        if isinstance(collection, dict) and "name" in collection:
-                            name_key = collection.pop("name")
-                            collections_dict[name_key] = collection
-                    project_data["collections"] = collections_dict
-
                 # Add name from key since it's not stored in the value
                 try:
                     return Project(name=name, **project_data)
