@@ -2,7 +2,7 @@
 
 ## MODIFIED Requirements
 
-### Requirement: Project Information Retrieval
+### Requirement: Get Current Project Information
 The `guide_get_project` tool SHALL return complete project configuration including categories, collections, and resolved project flags.
 
 #### Scenario: Get complete project configuration
@@ -25,12 +25,3 @@ The `guide_get_project` tool SHALL return complete project configuration includi
 - WHEN project flags are requested
 - THEN the response SHALL include fully resolved flags
 - AND project-specific flags SHALL override global flags where conflicts exist
-
-### Requirement: Response Structure
-The project information response SHALL include a `flags` field containing the resolved flag values as key-value pairs.
-
-#### Scenario: Flags field format
-- GIVEN resolved project flags
-- WHEN flags are included in response
-- THEN flags SHALL be formatted as `{"flag_name": boolean_value}`
-- AND all flag values SHALL be resolved to their final boolean state
