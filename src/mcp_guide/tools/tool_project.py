@@ -101,7 +101,7 @@ async def internal_get_project(args: GetCurrentProjectArgs, ctx: Optional[Contex
 
     project = await session.get_project()
 
-    result_dict = format_project_data(project, verbose=args.verbose)
+    result_dict = await format_project_data(project, verbose=args.verbose, session=session)
     # Include project name in response for single project operations
     result_dict["project"] = project.name
 
@@ -173,7 +173,14 @@ async def internal_set_project(args: SetCurrentProjectArgs, ctx: Optional[Contex
         project = set_result.value
         assert project is not None  # is_ok() guarantees value is set
 
-        response = format_project_data(project, verbose=args.verbose)
+        # Get session for flag resolution
+        try:
+            session = await get_or_create_session(ctx)
+            response = await format_project_data(project, verbose=args.verbose, session=session)
+        except ValueError:
+            # Fallback without session if unavailable
+            response = await format_project_data(project, verbose=args.verbose)
+
         # Include project name in response for single project operations
         response["project"] = project.name
 
