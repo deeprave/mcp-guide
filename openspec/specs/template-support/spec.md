@@ -339,32 +339,17 @@ Collection context SHALL be None when file is accessed directly via category.
 - **WHEN** file accessed directly via category (not through collection)
 - **THEN** collection context is None and collection variables render as empty
 
-### Requirement: Agent Context Variables
+### Requirement: Template Context Variables
+Added `tool_prefix` variable to agent context for dynamic MCP tool references.
 
-The system SHALL provide agent-level context variables from MCP session.
+### Requirement: Dynamic Tool References
+Templates SHALL support dynamic tool name construction using the tool_prefix variable.
 
-Agent context SHALL include:
-- `@`: Agent prompt character (string, short variable name)
-- `agent.name`: Agent name (string or None)
-- `agent.version`: Agent version (string or None)
-- `agent.prompt_prefix`: Agent prompt prefix (string or None)
-- All other available agent information fields
-
-#### Scenario: Agent prompt character access
-- **WHEN** template uses `{{@}}`
-- **THEN** substitute with agent's prompt character (e.g., "guide", "/", "@")
-
-#### Scenario: Agent name access
-- **WHEN** template uses `{{agent.name}}`
-- **THEN** substitute with agent name from session
-
-#### Scenario: Missing agent info
-- **WHEN** agent information not available in session
-- **THEN** agent variables render as empty strings
-
-#### Scenario: Agent prompt rendering
-- **WHEN** template uses `{{@}}guide`
-- **THEN** render as agent's prompt character + "guide" (e.g., "@guide", "/guide")
+#### Scenario: Portable tool references
+- GIVEN a template references `{{tool_prefix}}tool_name`
+- WHEN rendered with different MCP_TOOL_PREFIX values
+- THEN the tool reference SHALL adapt to the configured prefix
+- AND maintain correct underscore separation
 
 ### Requirement: System Context Variables
 
