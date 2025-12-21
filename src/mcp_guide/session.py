@@ -293,13 +293,14 @@ async def set_project(project_name: str, ctx: Optional["Context"] = None) -> Res
         return Result.failure(str(e), error_type="project_load_error")
 
 
-async def list_all_projects(verbose: bool = False) -> Result[dict[str, Any]]:
+async def list_all_projects(verbose: bool = False, session: Optional["Session"] = None) -> Result[dict[str, Any]]:
     """List all available projects.
 
     This is a read-only operation that returns a snapshot of all projects.
 
     Args:
         verbose: If True, return full project details; if False, return names only
+        session: Session for flag resolution (optional)
 
     Returns:
         Result with projects dict
@@ -320,7 +321,7 @@ async def list_all_projects(verbose: bool = False) -> Result[dict[str, Any]]:
         all_projects = await config_manager.get_all_project_configs()
         projects_data = {}
         for name in sorted(all_projects.keys()):
-            projects_data[name] = await format_project_data(all_projects[name], verbose=True)
+            projects_data[name] = await format_project_data(all_projects[name], verbose=True, session=session)
 
         return Result.ok({"projects": projects_data})
     except OSError as e:
@@ -332,7 +333,9 @@ async def list_all_projects(verbose: bool = False) -> Result[dict[str, Any]]:
         return Result.failure(f"Error listing projects: {e}", error_type="unexpected_error")
 
 
-async def get_project_info(name: Optional[str] = None, verbose: bool = False) -> Result[dict[str, Any]]:
+async def get_project_info(
+    name: Optional[str] = None, verbose: bool = False, session: Optional["Session"] = None
+) -> Result[dict[str, Any]]:
     """Get information about a specific project by name.
 
     This is a read-only operation that retrieves project data without side effects.
@@ -340,6 +343,7 @@ async def get_project_info(name: Optional[str] = None, verbose: bool = False) ->
     Args:
         name: Project name to retrieve. If None, uses current project.
         verbose: If True, include full details; if False, basic info only
+        session: Session for flag resolution (optional)
 
     Returns:
         Result with project data or error:
@@ -362,7 +366,8 @@ async def get_project_info(name: Optional[str] = None, verbose: bool = False) ->
         if name is None:
             # Get current project from session
             try:
-                session = await get_or_create_session(None)
+                if session is None:
+                    session = await get_or_create_session(None)
                 project = await session.get_project()
                 name = project.name
             except ValueError:
@@ -372,6 +377,13 @@ async def get_project_info(name: Optional[str] = None, verbose: bool = False) ->
                     error_type=ERROR_NO_PROJECT,
                     instruction=INSTRUCTION_NO_PROJECT,
                 )
+        elif session is None and verbose:
+            # Create session for flag resolution in verbose mode
+            try:
+                session = await get_or_create_session(None)
+            except Exception:
+                # If session creation fails, continue without it
+                pass
 
         # Get all projects in one atomic read
         all_projects = await config_manager.get_all_project_configs()
@@ -385,7 +397,7 @@ async def get_project_info(name: Optional[str] = None, verbose: bool = False) ->
             )
 
         # Format and return the requested project
-        project_data = await format_project_data(all_projects[name], verbose=verbose)
+        project_data = await format_project_data(all_projects[name], verbose=verbose, session=session)
         # Include project name in response for single project operations
         project_data["project"] = name
         return Result.ok(project_data)

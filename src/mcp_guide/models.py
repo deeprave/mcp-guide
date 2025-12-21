@@ -81,6 +81,11 @@ def _format_categories_and_collections(project: "Project", verbose: bool) -> tup
     Returns:
         Tuple of (collections, categories) formatted data
     """
+    from typing import Union
+
+    collections: Union[list[dict[str, Any]], list[str]]
+    categories: Union[list[dict[str, Any]], list[str]]
+
     if verbose:
         collections = [
             {"name": name, "description": c.description, "categories": c.categories}
@@ -91,8 +96,8 @@ def _format_categories_and_collections(project: "Project", verbose: bool) -> tup
             for name, c in project.categories.items()
         ]
     else:
-        collections = list(project.collections.keys())  # type: ignore[arg-type]
-        categories = list(project.categories.keys())  # type: ignore[arg-type]
+        collections = list(project.collections.keys())
+        categories = list(project.categories.keys())
 
     return collections, categories
 
@@ -148,9 +153,12 @@ async def _resolve_all_flags(session: "Session") -> dict[str, Any]:
                 resolved[name] = value
 
         return resolved
-    except Exception:
-        # If flag resolution fails, return empty dict to allow project data to still be returned
-        # The error is silently swallowed since flags are supplementary data
+    except Exception as e:
+        # Log unexpected errors for debugging, but continue with empty flags
+        # since flags are supplementary data
+        import logging
+
+        logging.getLogger(__name__).debug(f"Flag resolution failed: {e}")
         return {}
 
 
