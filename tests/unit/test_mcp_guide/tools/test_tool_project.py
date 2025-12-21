@@ -175,6 +175,133 @@ class TestGetProject:
         finally:
             remove_current_session("empty-project")
 
+    @pytest.mark.asyncio
+    async def test_flags_included_verbose_mode(self, tmp_path: Path, monkeypatch):
+        """Test get_project includes flags with values in verbose mode."""
+        monkeypatch.setenv("PWD", "/fake/path/test-project")
+
+        manager = ConfigManager(config_dir=str(tmp_path))
+        session = Session(_config_manager=manager, project_name="test-project")
+
+        # Create project with flags
+        project = Project(
+            name="test-project",
+            categories={"docs": Category(dir="docs/", patterns=["*.md"])},
+            collections={},
+            project_flags={"debug": True, "env": "test"},
+        )
+        session._cached_project = project
+        set_current_session(session)
+
+        # Mock both project and global flags
+        project_flags_mock = AsyncMock()
+        project_flags_mock.list = AsyncMock(return_value={"debug": True, "env": "test"})
+
+        global_flags_mock = AsyncMock()
+        global_flags_mock.list = AsyncMock(return_value={"global_flag": "value"})
+
+        with (
+            patch.object(session, "project_flags", return_value=project_flags_mock),
+            patch.object(session, "feature_flags", return_value=global_flags_mock),
+        ):
+            try:
+                args = GetCurrentProjectArgs(verbose=True)
+                result_str = await get_project(args)
+                result = json.loads(result_str)
+
+                assert result["success"] is True
+
+                # Check flags are included with values
+                flags = result["value"]["flags"]
+                assert isinstance(flags, dict)
+                assert flags["debug"] is True
+                assert flags["env"] == "test"
+                assert flags["global_flag"] == "value"
+            finally:
+                remove_current_session("test-project")
+
+    @pytest.mark.asyncio
+    async def test_flags_included_non_verbose_mode(self, tmp_path: Path, monkeypatch):
+        """Test get_project includes flag names only in non-verbose mode."""
+        monkeypatch.setenv("PWD", "/fake/path/test-project")
+
+        manager = ConfigManager(config_dir=str(tmp_path))
+        session = Session(_config_manager=manager, project_name="test-project")
+
+        # Create project with flags
+        project = Project(
+            name="test-project",
+            categories={"docs": Category(dir="docs/", patterns=["*.md"])},
+            collections={},
+            project_flags={"debug": True, "env": "test"},
+        )
+        session._cached_project = project
+        set_current_session(session)
+
+        # Mock both project and global flags
+        project_flags_mock = AsyncMock()
+        project_flags_mock.list = AsyncMock(return_value={"debug": True, "env": "test"})
+
+        global_flags_mock = AsyncMock()
+        global_flags_mock.list = AsyncMock(return_value={"global_flag": "value"})
+
+        with (
+            patch.object(session, "project_flags", return_value=project_flags_mock),
+            patch.object(session, "feature_flags", return_value=global_flags_mock),
+        ):
+            try:
+                args = GetCurrentProjectArgs(verbose=False)
+                result_str = await get_project(args)
+                result = json.loads(result_str)
+
+                assert result["success"] is True
+
+                # Check flags are included as names only
+                flags = result["value"]["flags"]
+                assert isinstance(flags, list)
+                assert set(flags) == {"debug", "env", "global_flag"}
+            finally:
+                remove_current_session("test-project")
+
+    @pytest.mark.asyncio
+    async def test_project_flags_override_global_flags(self, tmp_path: Path, monkeypatch):
+        """Test project flags take precedence over global flags."""
+        monkeypatch.setenv("PWD", "/fake/path/test-project")
+
+        manager = ConfigManager(config_dir=str(tmp_path))
+        session = Session(_config_manager=manager, project_name="test-project")
+
+        # Create project with flags that override global ones
+        project = Project(
+            name="test-project", categories={}, collections={}, project_flags={"shared_flag": "project_value"}
+        )
+        session._cached_project = project
+        set_current_session(session)
+
+        # Mock both project and global flags with same name
+        project_flags_mock = AsyncMock()
+        project_flags_mock.list = AsyncMock(return_value={"shared_flag": "project_value"})
+
+        global_flags_mock = AsyncMock()
+        global_flags_mock.list = AsyncMock(return_value={"shared_flag": "global_value"})
+
+        with (
+            patch.object(session, "project_flags", return_value=project_flags_mock),
+            patch.object(session, "feature_flags", return_value=global_flags_mock),
+        ):
+            try:
+                args = GetCurrentProjectArgs(verbose=True)
+                result_str = await get_project(args)
+                result = json.loads(result_str)
+
+                assert result["success"] is True
+
+                # Check project flag overrides global flag
+                flags = result["value"]["flags"]
+                assert flags["shared_flag"] == "project_value"
+            finally:
+                remove_current_session("test-project")
+
 
 class TestSetProject:
     """Tests for set_project tool."""

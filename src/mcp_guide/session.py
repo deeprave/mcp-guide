@@ -320,7 +320,7 @@ async def list_all_projects(verbose: bool = False) -> Result[dict[str, Any]]:
         all_projects = await config_manager.get_all_project_configs()
         projects_data = {}
         for name in sorted(all_projects.keys()):
-            projects_data[name] = format_project_data(all_projects[name], verbose=True)
+            projects_data[name] = await format_project_data(all_projects[name], verbose=True)
 
         return Result.ok({"projects": projects_data})
     except OSError as e:
@@ -385,7 +385,7 @@ async def get_project_info(name: Optional[str] = None, verbose: bool = False) ->
             )
 
         # Format and return the requested project
-        project_data = format_project_data(all_projects[name], verbose=verbose)
+        project_data = await format_project_data(all_projects[name], verbose=verbose)
         # Include project name in response for single project operations
         project_data["project"] = name
         return Result.ok(project_data)

@@ -4,10 +4,13 @@ import re
 from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 from datetime import datetime
-from typing import Any, NamedTuple, Optional
+from typing import TYPE_CHECKING, Any, NamedTuple, Optional
 
 from pydantic import ConfigDict, field_validator
 from pydantic.dataclasses import dataclass as pydantic_dataclass
+
+if TYPE_CHECKING:
+    from mcp_guide.session import Session
 
 from mcp_guide.feature_flags.types import FeatureValue
 
@@ -68,19 +71,16 @@ class DocumentExpression(NamedTuple):
     patterns: Optional[list[str]] = None
 
 
-def format_project_data(project: "Project", verbose: bool = False) -> dict[str, Any]:
-    """Format project data for tool responses.
+def _format_categories_and_collections(project: "Project", verbose: bool) -> tuple[Any, Any]:
+    """Format categories and collections for tool responses.
 
     Args:
         project: Project to format
         verbose: If True, include full details; if False, names only
 
     Returns:
-        Formatted project data dictionary
+        Tuple of (collections, categories) formatted data
     """
-    collections: list[dict[str, str | list[str] | None]] | list[str]
-    categories: list[dict[str, str | list[str] | None]] | list[str]
-
     if verbose:
         collections = [
             {"name": name, "description": c.description, "categories": c.categories}
@@ -91,10 +91,67 @@ def format_project_data(project: "Project", verbose: bool = False) -> dict[str, 
             for name, c in project.categories.items()
         ]
     else:
-        collections = list(project.collections.keys())
-        categories = list(project.categories.keys())
+        collections = list(project.collections.keys())  # type: ignore[arg-type]
+        categories = list(project.categories.keys())  # type: ignore[arg-type]
 
-    return {"collections": collections, "categories": categories}
+    return collections, categories
+
+
+async def format_project_data(
+    project: "Project", verbose: bool = False, session: Optional["Session"] = None
+) -> dict[str, Any]:
+    """Format project data for tool responses.
+
+    Args:
+        project: Project to format
+        verbose: If True, include full details; if False, names only
+        session: Session for flag resolution (optional)
+
+    Returns:
+        Formatted project data dictionary
+    """
+    collections, categories = _format_categories_and_collections(project, verbose)
+    result: dict[str, Any] = {"collections": collections, "categories": categories}
+
+    # Add resolved flags if session is available
+    if session is not None:
+        flags = await _resolve_all_flags(session)
+        if verbose:
+            result["flags"] = flags
+        else:
+            result["flags"] = list(flags.keys())
+
+    return result
+
+
+async def _resolve_all_flags(session: "Session") -> dict[str, Any]:
+    """Resolve all flags by merging project and global flags.
+
+    Returns:
+        Resolved flags dictionary, or empty dict if resolution fails
+    """
+    from mcp_guide.feature_flags.resolution import resolve_flag
+
+    try:
+        # Get all flags
+        project_flags = await session.project_flags().list()
+        global_flags = await session.feature_flags().list()
+
+        # Get all unique flag names
+        all_flag_names = set(project_flags.keys()) | set(global_flags.keys())
+
+        # Resolve each flag
+        resolved = {}
+        for name in all_flag_names:
+            value = resolve_flag(name, project_flags, global_flags)
+            if value is not None:
+                resolved[name] = value
+
+        return resolved
+    except Exception:
+        # If flag resolution fails, return empty dict to allow project data to still be returned
+        # The error is silently swallowed since flags are supplementary data
+        return {}
 
 
 @pydantic_dataclass(frozen=True)

@@ -9,6 +9,7 @@ if TYPE_CHECKING:
     pass
 
 import yaml
+from anyio import Path as AsyncPath
 
 from mcp_core.file_reader import read_file_content
 from mcp_guide.file_lock import lock_update
@@ -68,7 +69,7 @@ class ConfigManager:
                     self.config_file.parent.mkdir(parents=True, exist_ok=True)
                     if not self.config_file.exists():
                         default_docroot = str(get_docroot(self._config_dir))
-                        self.config_file.write_text(f"docroot: {default_docroot}\nprojects: {{}}\n")
+                        await AsyncPath(self.config_file).write_text(f"docroot: {default_docroot}\nprojects: {{}}\n")
                         self._docroot = default_docroot
                     else:
                         # Read docroot from existing config
@@ -165,7 +166,7 @@ class ConfigManager:
             data["projects"] = projects
 
             try:
-                file_path.write_text(yaml.dump(data))
+                await AsyncPath(file_path).write_text(yaml.dump(data))
             except OSError as e:
                 raise OSError(f"Failed to write config file {file_path}: {e}") from e
 
@@ -244,7 +245,7 @@ class ConfigManager:
             data["projects"] = projects
 
             try:
-                file_path.write_text(yaml.dump(data))
+                await AsyncPath(file_path).write_text(yaml.dump(data))
             except OSError as e:
                 raise OSError(f"Failed to write config file {file_path}: {e}") from e
 
@@ -304,7 +305,7 @@ class ConfigManager:
             data["projects"] = projects
 
             try:
-                file_path.write_text(yaml.dump(data))
+                await AsyncPath(file_path).write_text(yaml.dump(data))
             except OSError as e:
                 raise OSError(f"Failed to write config file {file_path}: {e}") from e
 
@@ -333,7 +334,7 @@ class ConfigManager:
             data["projects"] = projects
 
             try:
-                file_path.write_text(yaml.dump(data))
+                await AsyncPath(file_path).write_text(yaml.dump(data))
             except OSError as e:
                 raise OSError(f"Failed to write config file {file_path}: {e}") from e
 
@@ -433,7 +434,7 @@ class ConfigManager:
             data["feature_flags"] = feature_flags
 
             try:
-                file_path.write_text(yaml.dump(data))
+                await AsyncPath(file_path).write_text(yaml.dump(data))
             except OSError as e:
                 raise OSError(f"Failed to write config file {file_path}: {e}") from e
 
@@ -470,7 +471,7 @@ class ConfigManager:
                 data["feature_flags"] = feature_flags
 
                 try:
-                    file_path.write_text(yaml.dump(data))
+                    await AsyncPath(file_path).write_text(yaml.dump(data))
                 except OSError as e:
                     raise OSError(f"Failed to write config file {file_path}: {e}") from e
 
@@ -546,7 +547,7 @@ class ConfigManager:
             data["projects"] = projects
 
             try:
-                file_path.write_text(yaml.dump(data))
+                await AsyncPath(file_path).write_text(yaml.dump(data))
             except OSError as e:
                 raise OSError(f"Failed to write config file {file_path}: {e}") from e
 
@@ -588,7 +589,7 @@ class ConfigManager:
                     data["projects"] = projects
 
                     try:
-                        file_path.write_text(yaml.dump(data))
+                        await AsyncPath(file_path).write_text(yaml.dump(data))
                     except OSError as e:
                         raise OSError(f"Failed to write config file {file_path}: {e}") from e
 
