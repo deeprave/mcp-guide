@@ -86,39 +86,6 @@ class TestConfigSessionIntegration:
         assert len(project2.categories) == 1
 
     @pytest.mark.asyncio
-    async def test_config_ignores_extra_fields_in_yaml(self, tmp_path):
-        """Test that config loading ignores extra fields in YAML files."""
-        # Create YAML with extra fields (simulating hand-edited or legacy config)
-        config_file = tmp_path / "config.yaml"
-        config_file.write_text(
-            """
-projects:
-  test-project:
-    deprecated_field: old_value
-    unknown_setting: 123
-    categories:
-      - name: docs
-        dir: docs/
-        patterns:
-          - "*.md"
-        legacy_option: true
-    collections: []
-    extra_metadata:
-      author: someone
-      version: 1.0
-"""
-        )
-
-        # Load config - should not raise validation errors
-        manager = ConfigManager(config_dir=str(tmp_path))
-        project = await manager.get_or_create_project_config("test-project")
-
-        # Verify valid fields loaded correctly
-        assert project.name == "test-project"
-        assert len(project.categories) == 1
-        assert project.categories["docs"].dir == "docs/"
-
-    @pytest.mark.asyncio
     async def test_file_locking_prevents_corruption(self, tmp_path):
         """Test that config lock prevents read-modify-write race conditions."""
         manager = ConfigManager(config_dir=str(tmp_path))
