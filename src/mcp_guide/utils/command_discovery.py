@@ -47,6 +47,7 @@ async def discover_commands(commands_dir: Path) -> List[Dict[str, Any]]:
                 if cached_mtime >= effective_mtime:
                     return cached_commands
         except OSError:
+            # Directory access failed, skip cache check and proceed with discovery
             pass
 
         # Discover all files in commands directory
@@ -107,6 +108,7 @@ async def discover_commands(commands_dir: Path) -> List[Dict[str, Any]]:
             try:
                 _command_cache[cache_key] = (effective_mtime, commands)
             except OSError:
+                # Cache write failed, continue without caching
                 pass
 
     return commands
