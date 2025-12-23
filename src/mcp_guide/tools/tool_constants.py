@@ -23,4 +23,4 @@ INSTRUCTION_NO_PROJECT = "To fix: Call set_project with the basename of the curr
 INSTRUCTION_TEMPLATE_ERROR = "Check template syntax and available context variables"
 
 # Display instructions
-INSTRUCTION_DISPLAY_ONLY = "Display this information to the user."
+INSTRUCTION_DISPLAY_ONLY = "Display this information to the user. Take no further action."

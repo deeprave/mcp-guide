@@ -98,7 +98,7 @@ class TemplateContextCache(SessionListener):
             if session:
                 project = await session.get_project()
                 project_name = project.name
-                project_key = project.key or project_name  # Fallback for legacy projects
+                project_key = project.key if project.key is not None else project_name  # Fallback for legacy projects
                 project_hash = project.hash or ""  # Fallback for legacy projects
                 project_flags = project.project_flags or {}
 
