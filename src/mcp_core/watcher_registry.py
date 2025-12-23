@@ -1,5 +1,6 @@
 """Watcher registry for managing PathWatcher instances."""
 import asyncio
+from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Optional
 from weakref import WeakValueDictionary
 
@@ -14,21 +15,29 @@ class WatcherRegistry:
         self._watchers: WeakValueDictionary[str, "PathWatcher"] = WeakValueDictionary()
         self._lock = asyncio.Lock()
 
+    def _normalize_path(self, path: str) -> str:
+        """Normalize path to avoid duplicate keys."""
+        return str(Path(path).resolve())
+
     async def register(self, path: str, watcher: "PathWatcher") -> None:
         """Register a watcher for the given path."""
+        normalized_path = self._normalize_path(path)
         async with self._lock:
-            if path in self._watchers:
+            if normalized_path in self._watchers:
                 raise ValueError(f"PathWatcher already exists for path: {path}")
-            self._watchers[path] = watcher
+            self._watchers[normalized_path] = watcher
 
-    def get(self, path: str) -> Optional["PathWatcher"]:
+    async def get(self, path: str) -> Optional["PathWatcher"]:
         """Get existing watcher for path, or None if not found."""
-        return self._watchers.get(path)
+        normalized_path = self._normalize_path(path)
+        async with self._lock:
+            return self._watchers.get(normalized_path)
 
     async def unregister(self, path: str) -> None:
         """Remove watcher for the given path."""
+        normalized_path = self._normalize_path(path)
         async with self._lock:
-            self._watchers.pop(path, None)
+            self._watchers.pop(normalized_path, None)
 
     async def get_or_create(self, path: str, factory_func: Callable[[], "PathWatcher"]) -> "PathWatcher":
         """Get existing watcher or create new one if it doesn't exist.
@@ -40,12 +49,13 @@ class WatcherRegistry:
         Returns:
             PathWatcher instance for the path
         """
+        normalized_path = self._normalize_path(path)
         async with self._lock:
-            if path in self._watchers:
-                return self._watchers[path]
+            if normalized_path in self._watchers:
+                return self._watchers[normalized_path]
 
             watcher = factory_func()
-            self._watchers[path] = watcher
+            self._watchers[normalized_path] = watcher
             return watcher
 
     async def cleanup_stopped(self) -> None:

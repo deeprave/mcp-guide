@@ -16,10 +16,10 @@ the name being used is the correct one.
 
 The problem then:
 - We don't want to use the hash as the project key, and this makes the configuration non-portable.
-- how to disambiuate the same-named projects in the config file. Since they are used as keys.
-  Do we change the key slightly, perhaps adding some portion of the hash do it?
+- how to disambiguate the same-named projects in the config file. Since they are used as keys.
+  Do we change the key slightly, perhaps adding some portion of the hash to it?
   Do we convert the projects dictionary to a list?
-- We may need to ask the user if they have moved the project or are adopting they project from elsewhere if the hash does not agree.
+- We may need to ask the user if they have moved the project or are adopting the project from elsewhere if the hash does not agree.
   Assuming that we make projects a list, then our project search becomes
     look for project using the basename
     if there is only 1, check the hash.

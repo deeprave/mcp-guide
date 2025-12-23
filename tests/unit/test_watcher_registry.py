@@ -40,8 +40,8 @@ class TestWatcherRegistry:
             await registry.register(tmp_file2.name, watcher2)
 
             # Both should be registered successfully
-            assert registry.get(tmp_file1.name) is watcher1
-            assert registry.get(tmp_file2.name) is watcher2
+            assert await registry.get(tmp_file1.name) is watcher1
+            assert await registry.get(tmp_file2.name) is watcher2
 
     @pytest.mark.asyncio
     async def test_registry_get_returns_existing_watcher(self):
@@ -52,7 +52,7 @@ class TestWatcherRegistry:
             watcher = PathWatcher(tmp_file.name)
             await registry.register(tmp_file.name, watcher)
 
-            retrieved = registry.get(tmp_file.name)
+            retrieved = await registry.get(tmp_file.name)
             assert retrieved is watcher
 
     @pytest.mark.asyncio
@@ -60,7 +60,7 @@ class TestWatcherRegistry:
         """Registry get() returns None for nonexistent path."""
         registry = WatcherRegistry()
 
-        result = registry.get("/nonexistent/path")
+        result = await registry.get("/nonexistent/path")
         assert result is None
 
     @pytest.mark.asyncio
@@ -73,11 +73,11 @@ class TestWatcherRegistry:
             await registry.register(tmp_file.name, watcher)
 
             # Verify it's registered
-            assert registry.get(tmp_file.name) is watcher
+            assert await registry.get(tmp_file.name) is watcher
 
             # Unregister and verify it's gone
             await registry.unregister(tmp_file.name)
-            assert registry.get(tmp_file.name) is None
+            assert await registry.get(tmp_file.name) is None
 
     @pytest.mark.asyncio
     async def test_registry_cleanup_stopped_removes_inactive_watchers(self):
@@ -99,8 +99,8 @@ class TestWatcherRegistry:
             await registry.cleanup_stopped()
 
             # Running watcher should remain, stopped one should be removed
-            assert registry.get(tmp_file1.name) is watcher1
-            assert registry.get(tmp_file2.name) is None
+            assert await registry.get(tmp_file1.name) is watcher1
+            assert await registry.get(tmp_file2.name) is None
 
             # Clean up
             await watcher1.stop()
@@ -122,7 +122,7 @@ class TestWatcherRegistry:
 
             assert factory_called is True
             assert isinstance(watcher, PathWatcher)
-            assert registry.get(tmp_file.name) is watcher
+            assert await registry.get(tmp_file.name) is watcher
 
     @pytest.mark.asyncio
     async def test_get_or_create_returns_existing_watcher(self):

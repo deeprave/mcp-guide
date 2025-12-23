@@ -43,34 +43,6 @@ class TestPathWatcherBasic:
             assert watcher._last_mtime == stat.st_mtime
             assert watcher._last_inode == stat.st_ino
 
-    def test_directory_watching_cross_platform_behavior(self):
-        """Test directory watching behavior across platforms."""
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            watcher = PathWatcher(tmp_dir)
-            initial_mtime = watcher._last_mtime
-
-            # Test 1: Create a file in the directory - this should change directory mtime
-            test_file = os.path.join(tmp_dir, "test.txt")
-            time.sleep(0.1)  # Ensure time difference
-            with open(test_file, "w") as f:
-                f.write("test content")
-
-            # Check if directory mtime changed
-            new_stat = os.stat(tmp_dir)
-            print(f"After file creation - Initial: {initial_mtime}, New: {new_stat.st_mtime}")
-            print(f"Directory mtime changed on file creation: {new_stat.st_mtime != initial_mtime}")
-
-            # Test 2: Modify existing file content - this should NOT change directory mtime
-            modify_mtime = new_stat.st_mtime
-            time.sleep(0.1)  # Ensure time difference
-            with open(test_file, "w") as f:
-                f.write("modified content - much longer text")
-
-            # Check if directory mtime changed after content modification
-            final_stat = os.stat(tmp_dir)
-            print(f"After file modification - Before: {modify_mtime}, After: {final_stat.st_mtime}")
-            print(f"Directory mtime changed on file modification: {final_stat.st_mtime != modify_mtime}")
-
 
 class TestPathWatcherChangeDetection:
     """Test PathWatcher change detection functionality."""
@@ -399,8 +371,8 @@ class TestPathWatcherSingleInstanceManagement:
             await registry.register(tmp_file2.name, watcher2)
 
             # Verify both are tracked
-            assert registry.get(tmp_file1.name) is watcher1
-            assert registry.get(tmp_file2.name) is watcher2
+            assert await registry.get(tmp_file1.name) is watcher1
+            assert await registry.get(tmp_file2.name) is watcher2
 
             # Clean up
             await registry.unregister(tmp_file1.name)
@@ -420,14 +392,14 @@ class TestPathWatcherSingleInstanceManagement:
             await watcher.start()
 
             # Verify it's tracked
-            assert registry.get(tmp_file.name) is watcher
+            assert await registry.get(tmp_file.name) is watcher
 
             # Stop watcher and cleanup
             await watcher.stop()
             await registry.cleanup_stopped()
 
             # Should be removed from registry
-            assert registry.get(tmp_file.name) is None
+            assert await registry.get(tmp_file.name) is None
 
     """Test PathWatcher task lifecycle management."""
 
