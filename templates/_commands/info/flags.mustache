@@ -1,0 +1,21 @@
+---
+description: Shows feature flags and project flags
+category: "info"
+usage: ":info/flags"
+examples:
+  - ":info/flags"
+---
+# Feature Flags
+
+## Project Flags ({{project.name}})
+{{#project.flags}}
+**{{key}}**: {{value}}
+{{/project.flags}}
+
+## Global Flags
+{{#global_flags}}
+**{{key}}**: {{value}}
+{{/global_flags}}
+{{^global_flags}}
+None configured
+{{/global_flags}}

@@ -142,7 +142,7 @@ async def gather_content(
     # De-duplicate by absolute path
     seen_paths = set()
     unique_files = []
-    docroot = Path(session.get_docroot())
+    docroot = Path(await session.get_docroot())
 
     for file in all_files:
         # Get category to determine directory
@@ -197,7 +197,7 @@ async def gather_category_fileinfos(
         resolved_patterns = resolve_patterns(None, category.patterns)
 
     # Discover files
-    docroot = Path(session.get_docroot())
+    docroot = Path(await session.get_docroot())
     category_dir = docroot / category.dir
     files = await discover_category_files(category_dir, resolved_patterns)
 

@@ -1,0 +1,29 @@
+---
+description: Shows system status and current project information
+usage: ":status"
+examples:
+  - ":status"
+---
+# System Status
+
+**Current Project:** {{project.name}}
+**Agent:** {{#agent}}{{agent.name}}{{#agent.version}} v{{agent.version}}{{/agent.version}}{{/agent}}{{^agent}}Not detected{{/agent}}
+**Command Prefix:** {{#agent}}{{agent.prefix}}{{/agent}}{{^agent}}{{@}}{{/agent}}
+
+## Project Details
+
+### Categories
+{{#project.categories}}
+- **{{name}}**: `{{dir}}`{{#patterns_str}} ({{patterns_str}}){{/patterns_str}}
+{{/project.categories}}
+{{^project.categories}}
+None configured
+{{/project.categories}}
+
+### Collections
+{{#project.collections}}
+- **{{name}}**{{#description}}: {{description}}{{/description}}{{#categories_str}} ({{categories_str}}){{/categories_str}}
+{{/project.collections}}
+{{^project.collections}}
+None configured
+{{/project.collections}}

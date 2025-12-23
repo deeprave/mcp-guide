@@ -118,7 +118,7 @@ def test_detect_agent_claude():
     assert agent.name == "Claude Desktop"
     assert agent.normalized_name == "claude"
     assert agent.version == "2.0.0"
-    assert agent.prompt_prefix == "/{mcp_name}:"
+    assert agent.prompt_prefix == "/"
 
 
 def test_detect_agent_no_version():

@@ -27,7 +27,7 @@ AGENT_PATTERNS = [
 AGENT_PREFIX_MAP = {
     "q-dev": "@",
     "kiro": "@",
-    "claude": "/{mcp_name}:",
+    "claude": "/",
     "copilot": "/",
     "gemini": "/",
     "windsurf": "/",

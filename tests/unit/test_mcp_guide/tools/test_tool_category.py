@@ -1472,7 +1472,11 @@ class TestCategoryListFiles:
         # Mock docroot to point to empty directory
         docs_dir = tmp_path / "docs"
         docs_dir.mkdir()
-        monkeypatch.setattr(session, "get_docroot", lambda: str(tmp_path))
+
+        async def mock_get_docroot():
+            return str(tmp_path)
+
+        monkeypatch.setattr(session, "get_docroot", mock_get_docroot)
 
         args = CategoryListFilesArgs(name="docs")
         result_str = await category_list_files(args)
@@ -1497,7 +1501,10 @@ class TestCategoryListFiles:
         (docs_dir / "readme.md").write_text("# README")
         (docs_dir / "guide.md.mustache").write_text("# Guide {{name}}")
 
-        monkeypatch.setattr(session, "get_docroot", lambda: str(tmp_path))
+        async def mock_get_docroot():
+            return str(tmp_path)
+
+        monkeypatch.setattr(session, "get_docroot", mock_get_docroot)
 
         args = CategoryListFilesArgs(name="docs")
         result_str = await category_list_files(args)

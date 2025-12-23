@@ -1,0 +1,27 @@
+---
+description: Show help information
+category: "system"
+aliases:
+  - "?"
+  - "h"
+usage: ":help [command]"
+examples:
+  - ":help"
+  - ":? create"
+  - ":h list"
+---
+# Help
+
+{{#args}}
+Help for command: {{.}}
+{{/args}}
+
+{{^args}}
+{{#command_categories}}
+## {{title}}
+{{#commands}}
+- **{{@}}guide :{{name}}** {{#aliases}}({{@}}guide :{{.}}){{/aliases}} - {{description}}
+{{/commands}}
+
+{{/command_categories}}
+{{/args}}

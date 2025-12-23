@@ -152,9 +152,9 @@ class TestProjectNameDetection:
         mock_ctx = MagicMock()
         mock_ctx.session.list_roots = AsyncMock(side_effect=Exception("Client error"))
 
-        # Should fall back to PWD
+        # Should still cache successfully (agent info can be cached even if roots fail)
         cached = await mcp_guide.mcp_context.cache_mcp_globals(mock_ctx)
-        assert cached is False
+        assert cached is True
 
         project_name = await mcp_guide.mcp_context.resolve_project_name()
         assert project_name == "fallback-project"

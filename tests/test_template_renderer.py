@@ -81,7 +81,8 @@ class TestTemplateRendering:
 
         assert result.is_failure()
         assert result.error_type == "template_error"
-        assert "Template rendering failed" in result.error
+        assert "Template syntax error" in result.error
+        assert ">>>    1 |" in result.error  # Check for line context
 
     def test_template_context_integration_in_pipeline(self):
         """Test that TemplateContext is properly integrated in rendering pipeline."""
@@ -222,7 +223,8 @@ class TestFileContentRendering:
 
         assert result.is_failure()
         assert result.error_type == "template_error"
-        assert "Template rendering failed" in result.error
+        assert "Template syntax error" in result.error
+        assert ">>>    1 |" in result.error  # Check for line context
 
 
 class TestContextChainRendering:

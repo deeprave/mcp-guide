@@ -1,0 +1,27 @@
+---
+description: Shows current project information and configuration
+category: "info"
+usage: ":info/project"
+examples:
+  - ":info/project"
+---
+# Project Information
+
+**Name:** {{project.name}}
+**Root Directory:** {{project.root}}
+
+## Categories
+{{#project.categories}}
+- **{{name}}**: `{{dir}}`{{#patterns_str}} ({{patterns_str}}){{/patterns_str}}
+{{/project.categories}}
+{{^project.categories}}
+None configured
+{{/project.categories}}
+
+## Collections
+{{#project.collections}}
+- **{{name}}**{{#description}}: {{description}}{{/description}}{{#categories_str}} ({{categories_str}}){{/categories_str}}
+{{/project.collections}}
+{{^project.collections}}
+None configured
+{{/project.collections}}

@@ -1,0 +1,15 @@
+---
+description: List all collections in the current project
+category: "list"
+usage: ":list/collections"
+examples:
+  - ":list/collections"
+---
+# Collections
+
+{{#project.collections}}
+- **{{name}}**{{#description}}: {{description}}{{/description}} ({{categories_str}})
+{{/project.collections}}
+{{^project.collections}}
+None configured
+{{/project.collections}}

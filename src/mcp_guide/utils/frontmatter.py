@@ -8,6 +8,40 @@ import aiofiles
 import yaml
 
 
+def parse_frontmatter_content(content: str) -> Tuple[Optional[Dict[str, Any]], str]:
+    """Parse YAML front matter from content string.
+
+    Args:
+        content: File content string
+
+    Returns:
+        Tuple of (metadata_dict, remaining_content)
+    """
+    if not content.startswith("---\n"):
+        return None, content
+
+    # Find the closing ---
+    lines = content.split("\n")
+    end_idx = None
+    for i, line in enumerate(lines[1:], 1):
+        if line.strip() == "---":
+            end_idx = i
+            break
+
+    if end_idx is None:
+        return None, content
+
+    # Extract and parse YAML
+    yaml_content = "\n".join(lines[1:end_idx])
+    remaining_content = "\n".join(lines[end_idx + 1 :])
+
+    try:
+        metadata = yaml.safe_load(yaml_content)
+        return metadata, remaining_content
+    except yaml.YAMLError:
+        return None, content
+
+
 async def extract_frontmatter(file_path: Path, max_read_size: int = 4096) -> Tuple[Optional[Dict[str, Any]], int]:
     """
     Extract YAML front-matter from a file.

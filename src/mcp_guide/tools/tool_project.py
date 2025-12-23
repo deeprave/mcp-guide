@@ -227,17 +227,8 @@ async def internal_list_projects(args: ListProjectsArgs, ctx: Optional[Context] 
     Returns:
         Result containing projects list or dict
     """
-    session = None
-    if args.verbose:
-        # Only get session for verbose output to include flags
-        try:
-            session = await get_or_create_session(ctx)
-        except Exception:
-            # If session creation fails, continue without it
-            pass
-
-    result = await list_all_projects(verbose=args.verbose, session=session)
-    return result
+    session = await get_or_create_session(ctx)
+    return await list_all_projects(verbose=args.verbose, session=session)
 
 
 @tools.tool(ListProjectsArgs)

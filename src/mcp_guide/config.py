@@ -97,17 +97,16 @@ class ConfigManager:
         """Invalidate the global flags cache."""
         self._cached_global_flags = None
 
-    def get_docroot(self) -> str:
+    async def get_docroot(self) -> str:
         """Get cached docroot value.
 
         Returns:
             Docroot path as string (may contain ~ or ${VAR})
 
         Raises:
-            RuntimeError: If called before initialization
+            ValueError: If initialization fails
         """
-        if not self._initialized:
-            raise RuntimeError("ConfigManager not initialized")
+        await self._ensure_initialized()
         return self._docroot or ""
 
     async def get_or_create_project_config(self, name: str) -> Project:
@@ -618,5 +617,5 @@ async def get_config_manager() -> ConfigManager:
     return _config_manager
 
 
-# Public API
-__all__ = ["ConfigManager", "get_config_manager"]
+# Public API (none)
+__all__ = ()

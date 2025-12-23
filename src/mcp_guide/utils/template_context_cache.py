@@ -64,11 +64,14 @@ class TemplateContextCache(SessionListener):
             cached_context = cached_mcp_context.get()
             if cached_context and cached_context.agent_info:
                 agent_info = cached_context.agent_info
+                # Resolve the prompt prefix template with actual MCP name
+                resolved_prefix = agent_info.prompt_prefix.replace("{mcp_name}", "guide")
+                agent_vars["@"] = resolved_prefix  # Set @ to the resolved prefix
                 agent_vars["agent"] = {
                     "name": agent_info.name,
                     "class": agent_info.normalized_name,  # agent.class for canonical form
                     "version": agent_info.version or "",
-                    "prefix": agent_info.prompt_prefix or "",
+                    "prefix": resolved_prefix,
                 }
         except (AttributeError, KeyError, ValueError) as e:
             # Agent detection failed - log and use @ symbol only
@@ -84,20 +87,106 @@ class TemplateContextCache(SessionListener):
         # Extract project information from current session using public API
         project_name = ""
         project_flags = {}
+        categories_list: list[dict[str, Any]] = []
+        collections_list: list[dict[str, Any]] = []
+        flags_list: list[dict[str, Any]] = []
+
         try:
             session = get_current_session()
             if session:
                 project = await session.get_project()
                 project_name = project.name
                 project_flags = project.project_flags or {}
+
+                # Convert categories dict to list format with pre-formatted patterns
+                categories_list = [
+                    {
+                        "name": cat_name,
+                        "dir": cat.dir,
+                        "patterns": cat.patterns,
+                        "patterns_str": ", ".join(f"`{p}`" for p in cat.patterns) if cat.patterns else "",
+                        "description": cat.description,
+                    }
+                    for cat_name, cat in project.categories.items()
+                ]
+
+                # Convert collections dict to list format with pre-formatted categories
+                collections_list = [
+                    {
+                        "name": col_name,
+                        "description": col.description,
+                        "categories": col.categories,
+                        "categories_str": ", ".join(f"`{c}`" for c in col.categories) if col.categories else "",
+                    }
+                    for col_name, col in project.collections.items()
+                ]
         except (AttributeError, ValueError, RuntimeError) as e:
             logger.debug(f"Failed to get project from session: {e}")
+
+        # Get global flags for template context
+        global_flags_dict = {}
+        global_flags_list = []
+        try:
+            if session:
+                global_flags_dict = await session.feature_flags().list()
+                global_flags_list = [{"key": k, "value": v} for k, v in global_flags_dict.items()]
+        except Exception as e:
+            logger.debug(f"Failed to get global flags: {e}")
+
+        # Get projects list for template context
+        projects_data: dict[str, Any] = {}
+        projects_count = 0
+        try:
+            if session:
+                from mcp_guide.session import list_all_projects
+
+                projects_result = await list_all_projects(session, verbose=True)
+                if projects_result.success and projects_result.value:
+                    projects_dict = projects_result.value.get("projects", {})
+                    # Convert to array format for Mustache iteration with current project marking
+                    current_project = project_name
+                    projects_list: list[dict[str, Any]] = []
+                    for name, data in projects_dict.items():
+                        # Format categories with patterns_str
+                        categories = []
+                        for cat in data.get("categories", []):
+                            patterns = cat.get("patterns", [])
+                            patterns_str = ", ".join(f"`{p}`" for p in patterns) if patterns else ""
+                            categories.append({**cat, "patterns_str": patterns_str})
+
+                        # Format collections with categories_str
+                        collections = []
+                        for col in data.get("collections", []):
+                            col_categories = col.get("categories", [])
+                            categories_str = ", ".join(f"`{c}`" for c in col_categories) if col_categories else ""
+                            collections.append({**col, "categories_str": categories_str})
+
+                        projects_list.append(
+                            {
+                                "key": name,
+                                "value": {**data, "categories": categories, "collections": collections},
+                                "current": name == current_project,
+                            }
+                        )
+                    projects_count = len(projects_dict)
+                    projects_data = {"projects": projects_list}
+        except Exception as e:
+            logger.debug(f"Failed to get projects list: {e}")
 
         project_vars = {
             "project": {
                 "name": project_name,
-                "flags": project_flags,
-            }
+                "project_flags": project_flags,  # Dict format for conditionals
+                "project_flag_values": [
+                    {"key": k, "value": v} for k, v in project_flags.items()
+                ],  # List format for iteration
+                "categories": categories_list,
+                "collections": collections_list,
+            },
+            "feature_flags": global_flags_dict,  # Dict format for conditionals
+            "feature_flag_values": global_flags_list,  # List format for iteration
+            "projects": projects_data,
+            "projects_count": projects_count,
         }
 
         return TemplateContext(project_vars)
