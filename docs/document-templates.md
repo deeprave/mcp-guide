@@ -172,12 +172,13 @@ description: "Project overview generated on {{now.date}}"
 # {{project.name}} Project
 
 **Generated:** {{now.datetime}}
-**Categories:** {{project.categories.length}}
-**Collections:** {{project.collections.length}}
+**Categories:** {{#project.categories}}{{.}}{{^@last}}, {{/@last}}{{/project.categories}}
+**Collections:** {{#project.collections}}{{.}}{{^@last}}, {{/@last}}{{/project.collections}}
 
 ## Categories
 {{#project.categories}}
-- **{{.}}** - {{category.description}}
+- **{{.}}**
+{{/project.categories}}
 {{/project.categories}}
 
 ## Recent Activity
@@ -210,10 +211,6 @@ Use the following MCP tools in your workflow:
 - **Path:** `{{file.path}}`
 - **Size:** {{file.size}} bytes
 - **Modified:** {{#format_date}}%B %d, %Y{{file.mtime}}{{/format_date}}
-
-{{#file.description}}
-{{file.description}}
-{{/file.description}}
 
 ---
 {{/files}}
@@ -263,7 +260,7 @@ API Version: {{flags.api_version}}
 {{/flags.api_version}}
 
 {{#flags.custom_branding}}
-![Custom Logo]({{project.logo_url}})
+![Custom Logo](assets/logo.png)
 {{/flags.custom_branding}}
 {{/flags.enable_advanced_features}}
 

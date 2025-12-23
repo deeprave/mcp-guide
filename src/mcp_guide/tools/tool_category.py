@@ -181,6 +181,12 @@ async def internal_category_add(args: CategoryAddArgs, ctx: Optional[Context] = 
         if not args.name or not args.name.strip():
             raise ArgValidationError([{"field": "name", "message": "Category name cannot be empty"}])
 
+        # Validate name doesn't start with underscore (reserved for system categories)
+        if args.name.startswith("_"):
+            raise ArgValidationError(
+                [{"field": "name", "message": "Category names cannot start with underscore (reserved for system use)"}]
+            )
+
         # Validate name doesn't contain invalid characters
         if "/" in args.name or "\\" in args.name or " " in args.name or "!" in args.name:
             raise ArgValidationError(
@@ -212,7 +218,7 @@ async def internal_category_add(args: CategoryAddArgs, ctx: Optional[Context] = 
 
     # Create the directory if it doesn't exist
     try:
-        docroot = Path(session.get_docroot())
+        docroot = Path(await session.get_docroot())
         category_dir = docroot / validated_dir
         category_dir.mkdir(parents=True, exist_ok=True)
     except Exception:
@@ -421,6 +427,17 @@ async def internal_category_change(args: CategoryChangeArgs, ctx: Optional[Conte
             if not args.new_name or not args.new_name.strip():
                 raise ArgValidationError([{"field": "new_name", "message": "Category name cannot be empty"}])
 
+            # Validate new name doesn't start with underscore (reserved for system categories)
+            if args.new_name.startswith("_"):
+                raise ArgValidationError(
+                    [
+                        {
+                            "field": "new_name",
+                            "message": "Category names cannot start with underscore (reserved for system use)",
+                        }
+                    ]
+                )
+
             # Validate new name doesn't contain invalid characters
             if "/" in args.new_name or "\\" in args.new_name or " " in args.new_name or "!" in args.new_name:
                 raise ArgValidationError(
@@ -441,6 +458,8 @@ async def internal_category_change(args: CategoryChangeArgs, ctx: Optional[Conte
         if args.new_dir is not None:
             if args.new_dir == "":
                 raise ArgValidationError([{"field": "new_dir", "message": "Directory path cannot be empty"}])
+            if args.new_dir.startswith("_"):
+                raise ArgValidationError([{"field": "new_dir", "message": "Directory cannot start with underscore"}])
             validate_directory_path(args.new_dir, default=args.new_dir)
 
         if args.new_description is not None and args.new_description != "":
@@ -472,7 +491,7 @@ async def internal_category_change(args: CategoryChangeArgs, ctx: Optional[Conte
     # Create the directory if it's being updated
     if args.new_dir is not None:
         try:
-            docroot = Path(session.get_docroot())
+            docroot = Path(await session.get_docroot())
             category_dir = docroot / args.new_dir
             category_dir.mkdir(parents=True, exist_ok=True)
         except Exception:
@@ -649,7 +668,7 @@ async def internal_category_list_files(
         return result
 
     # Discover files using **/* pattern to get all files
-    docroot = Path(session.get_docroot())
+    docroot = Path(await session.get_docroot())
     category_dir = docroot / category.dir
     files = await discover_category_files(category_dir, ["**/*"])
 
@@ -730,7 +749,7 @@ async def internal_category_content(
             return Result.ok(message, instruction=INSTRUCTION_PATTERN_ERROR)
 
         # Render using common function
-        docroot = Path(session.get_docroot())
+        docroot = Path(await session.get_docroot())
         category = project.categories[args.category]  # We know it exists from gather_category_fileinfos
         category_dir = docroot / category.dir
         content = await render_fileinfos(files, args.category, category_dir)

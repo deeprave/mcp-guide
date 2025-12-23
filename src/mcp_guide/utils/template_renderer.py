@@ -73,6 +73,7 @@ def render_template_content(
                 "format_date": _safe_lambda(functions.format_date),
                 "truncate": _safe_lambda(functions.truncate),
                 "highlight_code": _safe_lambda(functions.highlight_code),
+                "pad_right": _safe_lambda(functions.pad_right),
             }
         )
 
@@ -81,16 +82,20 @@ def render_template_content(
         return Result.ok(rendered)
 
     except ChevronError as e:
-        # Enhanced Chevron-specific error handling - use ERROR level for syntax errors
-        logging.error(f"Template syntax error in {file_path}: {str(e)}")
+        # Enhanced Chevron-specific error handling with line context
+        error_msg = str(e)
+        line_context = _extract_line_context(content, error_msg)
+        full_error = f"Template syntax error in {file_path}: {error_msg}\n{line_context}"
+
+        logging.error(full_error)
         return Result.failure(
-            error=f"Template rendering failed for {file_path}: {str(e)}",
+            error=full_error,
             error_type="template_error",
             exception=e,
             instruction=f"Fix template syntax in {file_path}. Check for unclosed sections, mismatched tags, or invalid mustache syntax.",
         )
     except Exception as e:
-        # General error handling for other exceptions - use WARNING level for rendering failures
+        # General error handling for other exceptions
         logging.warning(f"Template rendering error in {file_path}: {str(e)}")
         return Result.failure(
             error=f"Template rendering failed for {file_path}: {str(e)}",
@@ -98,6 +103,33 @@ def render_template_content(
             exception=e,
             instruction=INSTRUCTION_VALIDATION_ERROR,
         )
+
+
+def _extract_line_context(content: str, error_msg: str) -> str:
+    """Extract line context from template content based on error message."""
+    import re
+
+    # Try to extract line number from error message
+    line_match = re.search(r"line (\d+)", error_msg, re.IGNORECASE)
+    if not line_match:
+        return ""
+
+    line_num = int(line_match.group(1))
+    lines = content.split("\n")
+
+    if line_num < 1 or line_num > len(lines):
+        return ""
+
+    # Show context: 2 lines before, error line, 2 lines after
+    start = max(0, line_num - 3)
+    end = min(len(lines), line_num + 2)
+
+    context_lines = []
+    for i in range(start, end):
+        prefix = ">>> " if i == line_num - 1 else "    "
+        context_lines.append(f"{prefix}{i + 1:4d} | {lines[i]}")
+
+    return "\n" + "\n".join(context_lines)
 
 
 def render_file_content(file_info: FileInfo, context: TemplateContext | None = None) -> Result[str]:

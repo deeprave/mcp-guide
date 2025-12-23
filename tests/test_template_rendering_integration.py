@@ -12,10 +12,10 @@ class TestTemplateRenderingWithFlags:
 
     async def test_template_renders_with_phase_tracking_flag_true(self) -> None:
         """Test that template content renders when phase-tracking flag is true."""
-        # Create a simple template with conditional content
-        template_content = """{{#project.flags.phase-tracking}}
+        # Create a simple template with conditional content using dict format
+        template_content = """{{#project.project_flags.phase-tracking}}
 Phase tracking is enabled!
-{{/project.flags.phase-tracking}}"""
+{{/project.project_flags.phase-tracking}}"""
 
         # Mock project with phase-tracking flag enabled
         mock_project = Project(

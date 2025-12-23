@@ -96,13 +96,13 @@ class Session:
         """Get mutable session state."""
         return self._state
 
-    def get_docroot(self) -> str:
+    async def get_docroot(self) -> str:
         """Get document root path for the project.
 
         Returns:
             Absolute path to the document root directory
         """
-        return self._config_manager.get_docroot()
+        return await self._config_manager.get_docroot()
 
     async def get_all_projects(self) -> dict[str, Project]:
         """Get all project configurations atomically.
@@ -293,14 +293,14 @@ async def set_project(project_name: str, ctx: Optional["Context"] = None) -> Res
         return Result.failure(str(e), error_type="project_load_error")
 
 
-async def list_all_projects(verbose: bool = False, session: Optional["Session"] = None) -> Result[dict[str, Any]]:
+async def list_all_projects(session: "Session", verbose: bool = False) -> Result[dict[str, Any]]:
     """List all available projects.
 
     This is a read-only operation that returns a snapshot of all projects.
 
     Args:
         verbose: If True, return full project details; if False, return names only
-        session: Session for flag resolution (optional)
+        session: Session for flag resolution
 
     Returns:
         Result with projects dict
@@ -308,21 +308,15 @@ async def list_all_projects(verbose: bool = False, session: Optional["Session"] 
     from mcp_guide.models import format_project_data
     from mcp_guide.tools.tool_constants import ERROR_INVALID_NAME
 
-    config_manager = ConfigManager()
-
     try:
-        if not verbose:
-            # Non-verbose: just return sorted project names
-            project_names = await config_manager.list_projects()
-            project_names.sort()
-            return Result.ok({"projects": project_names})
-
         # Verbose: get all project configs in one atomic read
-        all_projects = await config_manager.get_all_project_configs()
+        all_projects = await session.get_all_projects()
+        if not verbose:
+            project_names = sorted(all_projects.keys())
+            return Result.ok({"projects": project_names})
         projects_data = {}
         for name in sorted(all_projects.keys()):
             projects_data[name] = await format_project_data(all_projects[name], verbose=True, session=session)
-
         return Result.ok({"projects": projects_data})
     except OSError as e:
         return Result.failure(f"Failed to read configuration: {e}", error_type="config_read_error")

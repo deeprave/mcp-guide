@@ -57,7 +57,7 @@ async def test_server_starts_and_registers_tools(test_session):
 
     # Verify server was created
     assert server is not None
-    assert server.name == "mcp-guide"
+    assert server.name == "guide"
 
     # Server should have tools registered (FastMCP internal)
     # We can't directly inspect FastMCP's tool registry, but if
@@ -75,7 +75,7 @@ async def test_tool_registration_with_fastmcp():
 
     # Verify server was created
     assert server is not None
-    assert server.name == "mcp-guide"
+    assert server.name == "guide"
 
     # FastMCP should have tools registered
     # Note: FastMCP doesn't expose a direct way to list tools,

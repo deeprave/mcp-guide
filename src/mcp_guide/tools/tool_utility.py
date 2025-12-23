@@ -68,7 +68,12 @@ async def internal_client_info(args: GetClientInfoArgs, ctx: Optional[Context] =
 
         # Build structured data
         mcp_name = mcp.name if mcp.name else "guide"
-        prompt_prefix = agent_info.prompt_prefix.replace("{mcp_name}", mcp_name)
+
+        # For Claude: if mcp_name is "guide" (default), use "/" instead of "/guide:"
+        if agent_info.normalized_name == "claude" and mcp_name == "guide":
+            prompt_prefix = "/"
+        else:
+            prompt_prefix = agent_info.prompt_prefix.replace("{mcp_name}", mcp_name)
 
         data = {
             "agent": agent_info.name,

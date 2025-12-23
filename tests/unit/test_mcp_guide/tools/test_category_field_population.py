@@ -27,7 +27,7 @@ async def test_category_field_set_on_fileinfo(tmp_path: Path, monkeypatch: Monke
                 collections={},
             )
 
-        def get_docroot(self):
+        async def get_docroot(self):
             return str(tmp_path)
 
     async def mock_get_session(ctx=None):

@@ -16,7 +16,7 @@ def test_server_has_correct_name() -> None:
     from mcp_guide.server import create_server
 
     server = create_server()
-    assert server.name == "mcp-guide"
+    assert server.name == "guide"
 
 
 def test_server_has_instructions() -> None:

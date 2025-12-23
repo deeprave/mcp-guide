@@ -110,7 +110,7 @@ async def test_tool_returns_result_ok_on_success(tmp_path, monkeypatch):
 
     # Mock session
     class MockConfigManager:
-        def get_docroot(self):
+        async def get_docroot(self):
             return str(tmp_path)
 
     class MockSession:
@@ -120,7 +120,7 @@ async def test_tool_returns_result_ok_on_success(tmp_path, monkeypatch):
         async def get_project(self):
             return project
 
-        def get_docroot(self):
+        async def get_docroot(self):
             return str(tmp_path)
 
     # Mock get_or_create_session
@@ -160,7 +160,7 @@ async def test_tool_formats_with_active_formatter(tmp_path, monkeypatch):
 
     # Mock session
     class MockConfigManager:
-        def get_docroot(self):
+        async def get_docroot(self):
             return str(tmp_path)
 
     class MockSession:
@@ -170,7 +170,7 @@ async def test_tool_formats_with_active_formatter(tmp_path, monkeypatch):
         async def get_project(self):
             return project
 
-        def get_docroot(self):
+        async def get_docroot(self):
             return str(tmp_path)
 
     async def mock_get_session(ctx=None):
@@ -208,7 +208,7 @@ async def test_category_not_found_returns_failure(tmp_path, monkeypatch):
 
     # Mock session
     class MockConfigManager:
-        def get_docroot(self):
+        async def get_docroot(self):
             return str(tmp_path)
 
     class MockSession:
@@ -218,7 +218,7 @@ async def test_category_not_found_returns_failure(tmp_path, monkeypatch):
         async def get_project(self):
             return project
 
-        def get_docroot(self):
+        async def get_docroot(self):
             return str(tmp_path)
 
     async def mock_get_session(ctx=None):
@@ -254,7 +254,7 @@ async def test_no_matches_returns_failure(tmp_path, monkeypatch):
 
     # Mock session (no files created in tmp_path)
     class MockConfigManager:
-        def get_docroot(self):
+        async def get_docroot(self):
             return str(tmp_path)
 
     class MockSession:
@@ -264,7 +264,7 @@ async def test_no_matches_returns_failure(tmp_path, monkeypatch):
         async def get_project(self):
             return project
 
-        def get_docroot(self):
+        async def get_docroot(self):
             return str(tmp_path)
 
     async def mock_get_session(ctx=None):
@@ -310,7 +310,7 @@ async def test_file_read_error_single_file(tmp_path, monkeypatch):
 
     # Mock session
     class MockConfigManager:
-        def get_docroot(self):
+        async def get_docroot(self):
             return str(tmp_path)
 
     class MockSession:
@@ -320,7 +320,7 @@ async def test_file_read_error_single_file(tmp_path, monkeypatch):
         async def get_project(self):
             return project
 
-        def get_docroot(self):
+        async def get_docroot(self):
             return str(tmp_path)
 
     async def mock_get_session(ctx=None):
@@ -368,7 +368,7 @@ async def test_file_read_error_multiple_files(tmp_path, monkeypatch):
 
     # Mock session
     class MockConfigManager:
-        def get_docroot(self):
+        async def get_docroot(self):
             return str(tmp_path)
 
     class MockSession:
@@ -378,7 +378,7 @@ async def test_file_read_error_multiple_files(tmp_path, monkeypatch):
         async def get_project(self):
             return project
 
-        def get_docroot(self):
+        async def get_docroot(self):
             return str(tmp_path)
 
     async def mock_get_session(ctx=None):
@@ -432,7 +432,7 @@ async def test_error_responses_include_all_fields(tmp_path, monkeypatch):
 
     # Mock session
     class MockConfigManager:
-        def get_docroot(self):
+        async def get_docroot(self):
             return str(tmp_path)
 
     class MockSession:
@@ -442,7 +442,7 @@ async def test_error_responses_include_all_fields(tmp_path, monkeypatch):
         async def get_project(self):
             return project
 
-        def get_docroot(self):
+        async def get_docroot(self):
             return str(tmp_path)
 
     async def mock_get_session(ctx=None):

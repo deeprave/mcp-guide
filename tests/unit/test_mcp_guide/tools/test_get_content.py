@@ -55,7 +55,7 @@ async def test_get_content_collection_only(tmp_path, monkeypatch):
                 collections={"all": Collection(categories=["guide"])},
             )
 
-        def get_docroot(self):
+        async def get_docroot(self):
             return str(tmp_path)
 
     async def mock_get_session(ctx=None):
@@ -88,7 +88,7 @@ async def test_get_content_category_only(tmp_path, monkeypatch):
                 collections={},
             )
 
-        def get_docroot(self):
+        async def get_docroot(self):
             return str(tmp_path)
 
     async def mock_get_session(ctx=None):
@@ -121,7 +121,7 @@ async def test_get_content_deduplicates(tmp_path, monkeypatch):
                 collections={"guide": Collection(categories=["guide"])},
             )
 
-        def get_docroot(self):
+        async def get_docroot(self):
             return str(tmp_path)
 
     async def mock_get_session(ctx=None):
@@ -155,7 +155,7 @@ async def test_get_content_empty_result(tmp_path, monkeypatch):
                 collections={},
             )
 
-        def get_docroot(self):
+        async def get_docroot(self):
             return str(tmp_path)
 
     async def mock_get_session(ctx=None):
@@ -191,7 +191,7 @@ async def test_get_content_pattern_override(tmp_path, monkeypatch):
                 collections={},
             )
 
-        def get_docroot(self):
+        async def get_docroot(self):
             return str(tmp_path)
 
     async def mock_get_session(ctx=None):
@@ -227,7 +227,7 @@ async def test_get_content_category_sets_metadata(tmp_path, monkeypatch):
                 collections={},
             )
 
-        def get_docroot(self):
+        async def get_docroot(self):
             return str(tmp_path)
 
     async def mock_get_session(ctx=None):
@@ -262,7 +262,7 @@ async def test_get_content_collection_sets_metadata(tmp_path, monkeypatch):
                 collections={"all": Collection(categories=["docs"])},
             )
 
-        def get_docroot(self):
+        async def get_docroot(self):
             return str(tmp_path)
 
     async def mock_get_session(ctx=None):

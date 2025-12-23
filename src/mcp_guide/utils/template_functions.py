@@ -46,7 +46,7 @@ class TemplateFunctions:
 
         if not var_name:
             raise ValueError(f"Missing variable name in template: {text}")
-        if not var_name.replace("_", "").replace("-", "").replace(".", "").isalnum():
+        if var_name != "@" and not var_name.replace("_", "").replace("-", "").replace(".", "").isalnum():
             raise ValueError(f"Invalid variable name: {var_name}")
 
         return arg_part, var_name
@@ -94,3 +94,17 @@ class TemplateFunctions:
 
         code = str(self.context[var_name])
         return f"```{language}\n{code}\n```"
+
+    def pad_right(self, text: str, render: Optional[Any] = None) -> str:
+        """Pad string to fixed width: {{#pad_right}}20{{command_name}}{{/pad_right}}"""
+        try:
+            width_str, var_name = self._parse_template_args(text)
+            width = int(width_str.strip())
+
+            if var_name not in self.context:
+                raise KeyError(f"Variable not found in context: {var_name}")
+
+            value = str(self.context[var_name])
+            return value.ljust(width)
+        except ValueError as e:
+            return f"[Pad Error: {e}]"

@@ -1,0 +1,10 @@
+---
+description: Create a new collection with specified categories
+category: "project"
+usage: ":create/collection [--description <text>] <name> [categories...]"
+examples:
+  - ":create/collection docs"
+  - ":create/collection api-docs code examples"
+  - ":create/collection --description 'Getting started content' beginner docs examples"
+instruction: "Use the collection_add tool to create a new collection with name '{{args.0}}'{{#kwargs.description}} and description '{{kwargs.description}}'{{/kwargs.description}}{{#args.1}} and categories {{args}}{{/args.1}}."
+---

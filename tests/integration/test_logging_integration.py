@@ -27,7 +27,7 @@ async def test_server_starts_with_trace_logging(tmp_path: Path) -> None:
         async with ClientSession(read, write) as session:
             result = await session.initialize()
 
-            assert result.serverInfo.name == "mcp-guide"
+            assert result.serverInfo.name == "guide"
             assert log_file.exists(), "Log file should be created"
 
             log_content = log_file.read_text()
@@ -55,7 +55,7 @@ async def test_server_starts_with_json_logging(tmp_path: Path) -> None:
         async with ClientSession(read, write) as session:
             result = await session.initialize()
 
-            assert result.serverInfo.name == "mcp-guide"
+            assert result.serverInfo.name == "guide"
             assert log_file.exists(), "Log file should be created"
 
             log_content = log_file.read_text()
@@ -76,7 +76,7 @@ async def test_server_starts_without_logging() -> None:
     async with stdio_client(server_params) as (read, write):
         async with ClientSession(read, write) as session:
             result = await session.initialize()
-            assert result.serverInfo.name == "mcp-guide"
+            assert result.serverInfo.name == "guide"
 
 
 @pytest.mark.asyncio

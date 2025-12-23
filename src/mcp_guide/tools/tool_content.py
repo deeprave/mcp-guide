@@ -77,7 +77,7 @@ async def internal_get_content(
 
     # Get project
     project = await session.get_project()
-    docroot = Path(session.get_docroot())
+    docroot = Path(await session.get_docroot())
 
     try:
         # Use gather_content to handle comma-separated expressions

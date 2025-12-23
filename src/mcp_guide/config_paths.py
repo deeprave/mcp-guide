@@ -58,7 +58,7 @@ def get_docroot(config_dir: Optional[str] = None) -> Path:
     return get_config_file(config_dir).parent / "docs"
 
 
-def get_docroot_from_config(config_dir: Optional[str] = None) -> "LazyPath":
+async def get_docroot_from_config(config_dir: Optional[str] = None) -> "LazyPath":
     """Get configured docroot as LazyPath.
 
     Args:
@@ -71,4 +71,4 @@ def get_docroot_from_config(config_dir: Optional[str] = None) -> "LazyPath":
     from mcp_guide.mcp_core.lazy_path import LazyPath
 
     manager = ConfigManager(config_dir)
-    return LazyPath(manager.get_docroot())
+    return LazyPath(await manager.get_docroot())

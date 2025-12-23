@@ -1,0 +1,15 @@
+---
+description: Shows information about the current MCP agent/client
+category: "info"
+usage: ":info/agent"
+examples:
+  - ":info/agent"
+---
+# Agent Information
+
+**Name:** {{agent.name}}
+{{#agent.version}}
+**Version:** {{agent.version}}
+{{/agent.version}}
+**Normalised Name:** {{agent.class}}
+**Command Prefix:** {{agent.prefix}}

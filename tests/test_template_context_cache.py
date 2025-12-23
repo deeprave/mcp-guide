@@ -92,11 +92,21 @@ class TestTemplateContextCache:
             # Get project context
             context = await cache._build_project_context()
 
-            # Verify project flags are in context under project.flags
+            # Verify project flags are in context under project.project_flag_values as key-value pairs
             assert "project" in context
-            assert "flags" in context["project"]
-            assert context["project"]["flags"]["phase-tracking"] is True
-            assert context["project"]["flags"]["debug-mode"] is False
+            assert "project_flag_values" in context["project"]
+            flags_list = context["project"]["project_flag_values"]
+            assert isinstance(flags_list, list)
+
+            # Convert back to dict for easier testing
+            flags_dict = {item["key"]: item["value"] for item in flags_list}
+            assert flags_dict["phase-tracking"] is True
+            assert flags_dict["debug-mode"] is False
+
+            # Also verify dict format is available
+            assert "project_flags" in context["project"]
+            assert context["project"]["project_flags"]["phase-tracking"] is True
+            assert context["project"]["project_flags"]["debug-mode"] is False
 
     async def test_build_project_context_handles_missing_flags(self) -> None:
         """Test that _build_project_context handles projects without flags gracefully."""
@@ -116,10 +126,12 @@ class TestTemplateContextCache:
             # Get project context
             context = await cache._build_project_context()
 
-            # Verify empty flags dict is provided
+            # Verify empty flags list and dict are provided
             assert "project" in context
-            assert "flags" in context["project"]
-            assert context["project"]["flags"] == {}
+            assert "project_flag_values" in context["project"]
+            assert context["project"]["project_flag_values"] == []
+            assert "project_flags" in context["project"]
+            assert context["project"]["project_flags"] == {}
 
     async def test_build_project_context_handles_expected_exception(self) -> None:
         """Test that _build_project_context swallows expected exceptions and returns empty project context."""

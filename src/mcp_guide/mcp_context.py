@@ -55,22 +55,31 @@ async def cache_mcp_globals(ctx: Optional["Context"] = None) -> bool:  # type: i
     client_params = None
 
     try:
-        # Extract client params first
-        if hasattr(ctx, "client_params") and ctx.client_params:
+        # Extract client params - try both paths
+        if hasattr(ctx, "session") and hasattr(ctx.session, "client_params") and ctx.session.client_params:
+            client_params = ctx.session.client_params
+        elif hasattr(ctx, "client_params") and ctx.client_params:
             client_params = ctx.client_params
-            # Try to detect agent info from client params
+
+        # Try to detect agent info from client params
+        if client_params:
             try:
                 agent_info = detect_agent(client_params)
-            except Exception:
-                pass
+                logger.debug(f"Agent info detected: {agent_info.name if agent_info else 'None'}")
+            except Exception as agent_e:
+                logger.debug(f"Agent detection failed: {agent_e}")
 
-        # Extract roots
-        if hasattr(ctx, "session") and hasattr(ctx.session, "list_roots"):
-            roots_result = await ctx.session.list_roots()
-            if roots_result.roots:
-                roots = list(roots_result.roots)
+        # Try to extract roots (this may fail for CLI agents)
+        try:
+            if hasattr(ctx, "session") and hasattr(ctx.session, "list_roots"):
+                roots_result = await ctx.session.list_roots()
+                if roots_result.roots:
+                    roots = list(roots_result.roots)
+        except Exception as roots_e:
+            logger.debug(f"Failed to get roots (expected for CLI agents): {roots_e}")
+            # Continue - we can still cache agent info
 
-        # Cache MCP context (without project name - that's resolved separately)
+        # Cache MCP context (even if roots failed)
         cached_mcp_context.set(
             CachedMcpContext(
                 roots=roots,
@@ -83,7 +92,23 @@ async def cache_mcp_globals(ctx: Optional["Context"] = None) -> bool:  # type: i
         return True
 
     except AttributeError:
-        # Client doesn't support roots - expected
+        # Client doesn't support basic context - try to cache just agent info
+        try:
+            if hasattr(ctx, "session") and hasattr(ctx.session, "client_params") and ctx.session.client_params:
+                client_params = ctx.session.client_params
+                agent_info = detect_agent(client_params)
+                cached_mcp_context.set(
+                    CachedMcpContext(
+                        roots=[],
+                        project_name="",
+                        agent_info=agent_info,
+                        client_params=client_params,
+                        timestamp=time(),
+                    )
+                )
+                return True
+        except Exception:
+            pass
         return False
     except Exception as e:
         logger.debug(f"Failed to cache MCP globals: {e}")

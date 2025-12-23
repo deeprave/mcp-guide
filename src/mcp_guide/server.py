@@ -216,8 +216,10 @@ def create_server() -> GuideMCP:
     Returns:
         Configured GuideMCP instance
     """
+    # Use MCP_GUIDE_NAME env var if set, otherwise use generic name
+    server_name = os.getenv("MCP_GUIDE_NAME", "guide")
     mcp = GuideMCP(
-        name="mcp-guide",
+        name=server_name,
         instructions="MCP server for project documentation and development guidance",
     )
 
