@@ -114,12 +114,13 @@ class PathWatcher:
 
     async def _monitor_loop(self) -> None:
         """Internal monitoring loop that polls for changes."""
-        try:
-            while True:
+        while True:
+            try:
                 self.has_changed()
                 await asyncio.sleep(self.poll_interval)
-        except asyncio.CancelledError:
-            raise
-        except Exception as e:
-            # Handle other exceptions gracefully - don't crash the task
-            logger.exception(f"Error in monitor loop for {self.path}: {e}")
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                # Handle other exceptions gracefully - keep running after logging
+                logger.exception(f"Error in monitor loop for {self.path}: {e}")
+                await asyncio.sleep(self.poll_interval)

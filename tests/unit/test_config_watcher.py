@@ -25,16 +25,16 @@ class TestConfigWatcher:
         config_file.write_text("initial: value")
 
         callback = Mock()
-        watcher = ConfigWatcher(str(config_file), callback)
+        watcher = ConfigWatcher(str(config_file), callback, poll_interval=0.05)
 
         await watcher.start()
 
         # Modify file
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0.05)
         config_file.write_text("modified: value")
 
-        # Wait for detection
-        await asyncio.sleep(1.2)
+        # Wait for detection (a few poll intervals)
+        await asyncio.sleep(0.2)
 
         await watcher.stop()
 
@@ -78,8 +78,8 @@ class TestConfigWatcher:
         new_content = watcher.get_cached_content()
         assert new_content == "modified: content"
 
-    def test_cache_handles_file_read_errors(self, tmp_path):
-        """Cache handles file read errors gracefully."""
+    def test_cache_handles_file_read_errors(self, tmp_path, monkeypatch):
+        """Cache handles file read errors gracefully (missing file and read errors)."""
         config_file = tmp_path / "config.yaml"
         config_file.write_text("test: content")
 
@@ -92,6 +92,22 @@ class TestConfigWatcher:
         content = watcher.get_cached_content()
         assert content is None
 
+        # Recreate the file to simulate a read error scenario
+        config_file.write_text("test: new content")
+
+        # Simulate an IOError during file read
+        def _raising_open(*args, **kwargs):
+            raise IOError("simulated read error")
+
+        monkeypatch.setattr("builtins.open", _raising_open)
+
+        # Invalidate cache so that the watcher attempts to reload content
+        watcher.invalidate_cache()
+
+        # Should handle read errors gracefully and not raise
+        content = watcher.get_cached_content()
+        assert content is None
+
     @pytest.mark.asyncio
     async def test_multiple_callbacks_receive_notifications(self, tmp_path):
         """Multiple callbacks can be registered and all receive notifications."""
@@ -101,17 +117,17 @@ class TestConfigWatcher:
         callback1 = Mock()
         callback2 = Mock()
 
-        watcher = ConfigWatcher(str(config_file), callback1)
+        watcher = ConfigWatcher(str(config_file), callback1, poll_interval=0.05)
         watcher.add_callback(callback2)
 
         await watcher.start()
 
         # Modify file
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0.05)
         config_file.write_text("modified: value")
 
-        # Wait for detection
-        await asyncio.sleep(1.2)
+        # Wait for detection (a few poll intervals)
+        await asyncio.sleep(0.2)
 
         await watcher.stop()
 
@@ -130,17 +146,17 @@ class TestConfigWatcher:
 
         good_callback = Mock()
 
-        watcher = ConfigWatcher(str(config_file), failing_callback)
+        watcher = ConfigWatcher(str(config_file), failing_callback, poll_interval=0.05)
         watcher.add_callback(good_callback)
 
         await watcher.start()
 
         # Modify file
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0.05)
         config_file.write_text("modified: value")
 
-        # Wait for detection
-        await asyncio.sleep(1.2)
+        # Wait for detection (a few poll intervals)
+        await asyncio.sleep(0.2)
 
         await watcher.stop()
 
@@ -176,7 +192,7 @@ class TestConfigWatcher:
             nonlocal cache_invalidated
             cache_invalidated = True
 
-        watcher = ConfigWatcher(str(config_file), callback)
+        watcher = ConfigWatcher(str(config_file), callback, poll_interval=0.05)
 
         # Load initial content
         initial_content = watcher.get_cached_content()
@@ -185,11 +201,11 @@ class TestConfigWatcher:
         await watcher.start()
 
         # Modify file
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0.05)
         config_file.write_text("modified: content")
 
-        # Wait for detection
-        await asyncio.sleep(1.2)
+        # Wait for detection (a few poll intervals)
+        await asyncio.sleep(0.2)
 
         await watcher.stop()
 
