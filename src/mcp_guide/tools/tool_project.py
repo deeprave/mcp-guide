@@ -8,7 +8,7 @@ from pydantic import Field
 
 from mcp_core.result import Result
 from mcp_core.tool_arguments import ToolArguments
-from mcp_guide.models import _NAME_REGEX, Category, Collection, Project, format_project_data
+from mcp_guide.models import Category, Collection, Project, format_project_data
 from mcp_guide.server import tools
 from mcp_guide.session import get_or_create_session, list_all_projects
 from mcp_guide.session import set_project as session_set_project
@@ -306,15 +306,15 @@ async def internal_clone_project(args: CloneProjectArgs, ctx: Optional[Context] 
     Returns:
         Result containing clone statistics and warnings
     """
-    # Validate source project name
-    if not args.from_project or not _NAME_REGEX.match(args.from_project):
+    # Basic validation for obviously invalid project names
+    if not args.from_project or ".." in args.from_project or "/" in args.from_project:
         return Result.failure(
             f"Invalid source project name '{args.from_project}'",
             error_type=ERROR_INVALID_NAME,
         )
 
     # Validate target project name if provided
-    if args.to_project is not None and (not args.to_project or not _NAME_REGEX.match(args.to_project)):
+    if args.to_project is not None and (not args.to_project or ".." in args.to_project or "/" in args.to_project):
         return Result.failure(
             f"Invalid target project name '{args.to_project}'",
             error_type=ERROR_INVALID_NAME,
@@ -344,15 +344,48 @@ async def internal_clone_project(args: CloneProjectArgs, ctx: Optional[Context] 
     except Exception as e:
         return Result.failure(f"Failed to read configuration: {e}", error_type="config_read_error")
 
-    # Check source project exists
-    if args.from_project not in all_projects:
-        return Result.failure(
-            f"Source project '{args.from_project}' not found",
-            error_type=ERROR_NOT_FOUND,
-            instruction=INSTRUCTION_NOTFOUND_ERROR,
-        )
+    # Resolve source project
+    try:
+        all_projects = await session.get_all_projects()
 
-    source_project = all_projects[args.from_project]
+        # Check if it's an exact key match (hash-suffixed key)
+        if args.from_project in all_projects:
+            from mcp_guide.utils.project_hash import extract_name_from_key
+
+            if args.from_project != extract_name_from_key(args.from_project):
+                # This is a hash-suffixed key, use it
+                source_project = all_projects[args.from_project]
+            else:
+                # Check for multiple projects with same display name
+                matching_projects = [proj for proj in all_projects.values() if proj.name == args.from_project]
+                if len(matching_projects) > 1:
+                    return Result.failure(
+                        f"Multiple projects found with name '{args.from_project}'. Please specify the project key: {', '.join([key for key, proj in all_projects.items() if proj.name == args.from_project])}",
+                        error_type=ERROR_NOT_FOUND,
+                        instruction=INSTRUCTION_NOTFOUND_ERROR,
+                    )
+                source_project = all_projects[args.from_project]
+        else:
+            # Try to find by display name
+            matching_projects = [proj for key, proj in all_projects.items() if proj.name == args.from_project]
+            if len(matching_projects) == 0:
+                return Result.failure(
+                    f"Source project '{args.from_project}' not found",
+                    error_type=ERROR_NOT_FOUND,
+                    instruction=INSTRUCTION_NOTFOUND_ERROR,
+                )
+            elif len(matching_projects) == 1:
+                source_project = matching_projects[0]
+            else:
+                # Multiple matches - user must specify the key
+                keys = [key for key, proj in all_projects.items() if proj.name == args.from_project]
+                return Result.failure(
+                    f"Multiple projects found with name '{args.from_project}'. Please specify the project key: {', '.join(keys)}",
+                    error_type=ERROR_NOT_FOUND,
+                    instruction=INSTRUCTION_NOTFOUND_ERROR,
+                )
+    except Exception as e:
+        return Result.failure(f"Failed to read configuration: {e}", error_type="config_read_error")
 
     # Determine target project
     is_current_project = False
@@ -369,12 +402,41 @@ async def internal_clone_project(args: CloneProjectArgs, ctx: Optional[Context] 
     else:
         # 2-arg mode: clone to specified project
         target_name = args.to_project
-        target_project_maybe = all_projects.get(target_name)
-        if target_project_maybe is None:
-            # Create new empty project
-            target_project = Project(name=target_name, categories={}, collections={})
+
+        # Check if it's an exact key match (hash-suffixed key)
+        if target_name in all_projects:
+            from mcp_guide.utils.project_hash import extract_name_from_key
+
+            if target_name != extract_name_from_key(target_name):
+                # This is a hash-suffixed key, use it
+                target_project = all_projects[target_name]
+            else:
+                # Check for multiple projects with same display name
+                matching_projects = [proj for proj in all_projects.values() if proj.name == target_name]
+                if len(matching_projects) > 1:
+                    return Result.failure(
+                        f"Multiple projects found with name '{target_name}'. Please specify the project key: {', '.join([key for key, proj in all_projects.items() if proj.name == target_name])}",
+                        error_type=ERROR_NOT_FOUND,
+                        instruction=INSTRUCTION_NOTFOUND_ERROR,
+                    )
+                target_project = all_projects[target_name]
         else:
-            target_project = target_project_maybe
+            # Try to find by display name
+            matching_projects = [proj for key, proj in all_projects.items() if proj.name == target_name]
+            if len(matching_projects) == 0:
+                # Create new empty project
+                target_project = Project(name=target_name, key=target_name, categories={}, collections={})
+            elif len(matching_projects) == 1:
+                target_project = matching_projects[0]
+            else:
+                # Multiple matches - user must specify the key
+                keys = [key for key, proj in all_projects.items() if proj.name == target_name]
+                return Result.failure(
+                    f"Multiple projects found with name '{target_name}'. Please specify the project key: {', '.join(keys)}",
+                    error_type=ERROR_NOT_FOUND,
+                    instruction=INSTRUCTION_NOTFOUND_ERROR,
+                )
+
         # Check if target is current project
         try:
             session = await get_or_create_session(ctx)
@@ -419,7 +481,9 @@ async def internal_clone_project(args: CloneProjectArgs, ctx: Optional[Context] 
         colls_overwritten = 0
 
     # Create updated project and save
-    updated_project = Project(name=target_name, categories=merged_cats, collections=merged_colls)
+    updated_project = Project(
+        name=target_name, key=target_project.key, categories=merged_cats, collections=merged_colls
+    )
 
     try:
         await session.save_project(updated_project)

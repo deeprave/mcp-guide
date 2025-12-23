@@ -209,7 +209,8 @@ class Project:
     """Immutable project configuration.
 
     Attributes:
-        name: Project name (alphanumeric, hyphens, underscores, 1-50 chars)
+        name: Project display name (alphanumeric, hyphens, underscores, 1-50 chars)
+        hash: SHA256 hash of project path for unique identification
         categories: Dictionary of category configurations (name -> Category)
         collections: Dictionary of collection configurations (name -> Collection)
         created_at: Timestamp when project was created
@@ -224,6 +225,8 @@ class Project:
     model_config = ConfigDict(extra="ignore")
 
     name: str
+    key: Optional[str] = None  # Project key (for disambiguation)
+    hash: Optional[str] = None  # Optional for backward compatibility
     categories: dict[str, Category] = field(default_factory=dict)
     collections: dict[str, Collection] = field(default_factory=dict)
     created_at: datetime = field(default_factory=datetime.now)

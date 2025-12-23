@@ -158,3 +158,30 @@ async def resolve_project_name() -> str:
         return Path(pwd).name
 
     raise ValueError("Project context not available. Call set_project() with the basename of your current directory.")
+
+
+async def resolve_project_path() -> str:
+    """Resolve full project path for hash calculation.
+
+    Returns:
+        Full absolute project path
+
+    Raises:
+        ValueError: If no project context is available
+    """
+    import os
+
+    # Priority 1: Client roots from cached context
+    cached = cached_mcp_context.get()
+    if cached and cached.roots:
+        first_root = cached.roots[0]
+        if str(first_root.uri).startswith("file://"):
+            parsed = urlparse(str(first_root.uri))
+            return str(Path(parsed.path).resolve())
+
+    # Priority 2: PWD environment variable
+    pwd = os.environ.get("PWD")
+    if pwd and Path(pwd).is_absolute():
+        return str(Path(pwd).resolve())
+
+    raise ValueError("Project context not available. Cannot determine project path.")
