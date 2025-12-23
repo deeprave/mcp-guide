@@ -237,7 +237,7 @@ class TestGuidePromptIntegration:
         with patch(
             "mcp_guide.prompts.guide_prompt.handle_command", new=AsyncMock(return_value=mock_result)
         ) as mock_handle_command:
-            result_str = await guide(";status", ctx=mock_ctx)
+            await guide(";status", ctx=mock_ctx)
 
             mock_handle_command.assert_called_once()
             args = mock_handle_command.call_args[0]
@@ -256,7 +256,7 @@ class TestGuidePromptIntegration:
         with patch(
             "mcp_guide.prompts.guide_prompt.handle_command", new=AsyncMock(return_value=mock_result)
         ) as mock_handle_command:
-            result_str = await guide(":create/category", ctx=mock_ctx)
+            await guide(":create/category", ctx=mock_ctx)
 
             mock_handle_command.assert_called_once()
             args = mock_handle_command.call_args[0]

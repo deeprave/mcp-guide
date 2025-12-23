@@ -108,6 +108,7 @@ async def cache_mcp_globals(ctx: Optional["Context"] = None) -> bool:  # type: i
                 )
                 return True
         except Exception:
+            # Cache write failed, continue without caching
             pass
         return False
     except Exception as e:
