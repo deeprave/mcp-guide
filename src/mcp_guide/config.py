@@ -14,6 +14,11 @@ from anyio import Path as AsyncPath
 from mcp_core.file_reader import read_file_content
 from mcp_guide.file_lock import lock_update
 from mcp_guide.models import _NAME_REGEX, Project
+from mcp_guide.utils.project_hash import (
+    calculate_project_hash,
+    extract_name_from_key,
+    generate_project_key,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -150,18 +155,34 @@ class ConfigManager:
 
             projects = data.get("projects", {})
 
-            if name in projects:
-                project_data = projects[name]
+            # Search for project by display name (not key)
+            found_project = None
+            found_key = None
 
-                # Add name from key since it's not stored in the value
+            for key, project_data in projects.items():
+                # Check if this project matches the requested name
+                project_name = project_data.get("name", extract_name_from_key(key))
+                if project_name == name:
+                    found_project = project_data
+                    found_key = key
+                    break
+
+            if found_project:
                 try:
-                    return Project(name=name, **project_data)
+                    # Don't pass name as kwarg since it's already in the data
+                    return Project(**found_project)
                 except Exception as e:
                     raise ValueError(f"Invalid project data for '{name}' in {file_path}: {e}") from e
 
             # Create new project
-            project = Project(name=name)
-            projects[name] = self._project_to_dict(project)
+            # Calculate hash for current directory
+            current_path = str(file_path.parent.resolve())
+            project_hash = calculate_project_hash(current_path)
+
+            # Create project with hash and key
+            project_key = generate_project_key(name, project_hash)
+            project = Project(name=name, key=project_key, hash=project_hash)
+            projects[project_key] = self._project_to_dict(project)
             data["projects"] = projects
 
             try:
@@ -203,9 +224,39 @@ class ConfigManager:
             projects_data = data.get("projects", {})
             projects: dict[str, Project] = {}
 
+            # Check if migration is needed (legacy format detection)
+            needs_migration = self._needs_migration(projects_data)
+
+            if needs_migration:
+                # Migrate legacy format to hash-based keys
+                projects_data = await self._migrate_projects(projects_data, file_path)
+                # Update the data dict for saving
+                data["projects"] = projects_data
+
+                # Save immediately to avoid data loss if subsequent processing fails
+                try:
+                    await AsyncPath(file_path).write_text(yaml.dump(data))
+                    logger.info(f"Configuration migrated to hash-based format at {file_path}")
+                except OSError as e:
+                    raise OSError(f"Failed to write migrated config file {file_path}: {e}") from e
+
             for name, project_data in projects_data.items():
                 try:
-                    projects[name] = Project(name=name, **project_data)
+                    # Extract display name from potentially hash-suffixed key
+                    display_name = extract_name_from_key(name)
+
+                    # Create project data with correct name and key
+                    project_data_copy = dict(project_data)
+                    project_data_copy["name"] = display_name  # Ensure name matches display name
+                    project_data_copy["key"] = name  # Set the project key
+
+                    # Use display name as key, but if there's a conflict, use the hash-suffixed key
+                    key_to_use = display_name
+                    if display_name in projects:
+                        # There's already a project with this display name, use the hash-suffixed key
+                        key_to_use = name
+
+                    projects[key_to_use] = Project(**project_data_copy)
                 except Exception as e:
                     raise ValueError(f"Invalid project data for '{name}': {e}") from e
 
@@ -240,7 +291,34 @@ class ConfigManager:
                 raise yaml.YAMLError(f"Invalid YAML in config file {file_path}: {e}") from e
 
             projects = data.get("projects", {})
-            projects[project.name] = self._project_to_dict(project)
+
+            # Generate hash-based key for the project
+            # Calculate hash if not present
+            if not project.hash:
+                current_path = str(file_path.parent.resolve())
+                project_hash = calculate_project_hash(current_path)
+                # Create updated project with hash
+                from dataclasses import replace
+
+                project_with_hash = replace(project, hash=project_hash)
+            else:
+                project_with_hash = project
+                project_hash = project.hash
+
+            # Generate hash-based key
+            project_key = generate_project_key(project.name, project_hash)
+
+            # Remove old entries with same display name but different hash
+            keys_to_remove = []
+            for key in projects.keys():
+                if extract_name_from_key(key) == project.name and key != project_key:
+                    keys_to_remove.append(key)
+
+            for key in keys_to_remove:
+                del projects[key]
+
+            # Save with hash-based key
+            projects[project_key] = self._project_to_dict(project_with_hash)
             data["projects"] = projects
 
             try:
@@ -265,7 +343,16 @@ class ConfigManager:
             except yaml.YAMLError as e:
                 raise yaml.YAMLError(f"Invalid YAML in config file {file_path}: {e}") from e
 
-            return list(data.get("projects", {}).keys())
+            projects = data.get("projects", {})
+
+            # Extract display names from project data
+            project_names = []
+            for key, project_data in projects.items():
+                # Get name from project data if available, otherwise extract from key
+                name = project_data.get("name", extract_name_from_key(key))
+                project_names.append(name)
+
+            return project_names
 
         return await lock_update(self.config_file, _list)
 
@@ -294,14 +381,43 @@ class ConfigManager:
                 raise yaml.YAMLError(f"Invalid YAML in config file {file_path}: {e}") from e
 
             projects = data.get("projects", {})
-            if old_name not in projects:
-                raise ValueError(f"Project not found: {old_name}")
-            if new_name in projects:
-                raise ValueError(f"Project already exists: {new_name}")
 
-            projects[new_name] = projects.pop(old_name)
-            projects[new_name]["name"] = new_name
-            data["projects"] = projects
+            # Find project by display name
+            old_key = None
+            old_project_data = None
+
+            for key, project_data in projects.items():
+                project_name = project_data.get("name", extract_name_from_key(key))
+                if project_name == old_name:
+                    old_key = key
+                    old_project_data = project_data
+                    break
+
+            if not old_key:
+                raise ValueError(f"Project not found: {old_name}")
+
+            # Check if new name already exists
+            for key, project_data in projects.items():
+                project_name = project_data.get("name", extract_name_from_key(key))
+                if project_name == new_name:
+                    raise ValueError(f"Project already exists: {new_name}")
+
+            # Update project data with new name
+            if old_project_data is not None:
+                old_project_data["name"] = new_name
+
+                # Generate new key with same hash but new name
+                project_hash = old_project_data.get("hash")
+                if project_hash:
+                    new_key = generate_project_key(new_name, project_hash)
+                else:
+                    # Fallback for legacy projects without hash
+                    new_key = new_name
+
+                # Remove old entry and add new one
+                del projects[old_key]
+                projects[new_key] = old_project_data
+                data["projects"] = projects
 
             try:
                 await AsyncPath(file_path).write_text(yaml.dump(data))
@@ -326,10 +442,19 @@ class ConfigManager:
                 raise yaml.YAMLError(f"Invalid YAML in config file {file_path}: {e}") from e
 
             projects = data.get("projects", {})
-            if name not in projects:
+
+            # Find project by display name
+            key_to_delete = None
+            for key, project_data in projects.items():
+                project_name = project_data.get("name", extract_name_from_key(key))
+                if project_name == name:
+                    key_to_delete = key
+                    break
+
+            if not key_to_delete:
                 raise ValueError(f"Project not found: {name}")
 
-            del projects[name]
+            del projects[key_to_delete]
             data["projects"] = projects
 
             try:
@@ -342,6 +467,7 @@ class ConfigManager:
     def _project_to_dict(self, project: Project) -> dict[str, object]:
         """Convert Project to dict for YAML serialization."""
         result: dict[str, object] = {
+            "name": project.name,
             "categories": {
                 name: {
                     k: v
@@ -365,6 +491,10 @@ class ConfigManager:
             "created_at": project.created_at.isoformat(),
             "updated_at": project.updated_at.isoformat(),
         }
+
+        # Add hash if present
+        if project.hash:
+            result["hash"] = project.hash
 
         # Add project_flags if not empty
         if project.project_flags:
@@ -593,6 +723,68 @@ class ConfigManager:
                         raise OSError(f"Failed to write config file {file_path}: {e}") from e
 
         await lock_update(self.config_file, _remove_flag)
+
+    def _needs_migration(self, projects_data: dict[str, Any]) -> bool:
+        """Check if projects data needs migration from legacy format.
+
+        Args:
+            projects_data: Raw projects data from config file
+
+        Returns:
+            True if migration is needed (legacy format detected)
+        """
+        for key, project_data in projects_data.items():
+            # Check if key has hash suffix (new format)
+            if key != extract_name_from_key(key):
+                continue  # Already new format
+
+            # Check if project data has hash field
+            if not project_data.get("hash"):
+                return True  # Legacy format detected
+
+        return False
+
+    async def _migrate_projects(self, projects_data: dict[str, Any], file_path: Path) -> dict[str, Any]:
+        """Migrate projects from legacy format to hash-based keys.
+
+        Args:
+            projects_data: Raw projects data from config file
+            file_path: Config file path for current directory detection
+
+        Returns:
+            Migrated projects data with hash-based keys
+        """
+
+        migrated_data = {}
+        # NOTE: During migration, we use the config file's parent directory as the project path.
+        # This assumes the config file is in the project root. The hash will be verified and
+        # updated when the project is next accessed from its actual working directory.
+        current_path = str(file_path.parent.resolve())
+
+        for old_key, project_data in projects_data.items():
+            # Skip if already migrated (has hash suffix and hash field)
+            if old_key != extract_name_from_key(old_key) and project_data.get("hash"):
+                migrated_data[old_key] = project_data
+                continue
+
+            # Calculate hash for current path
+            project_hash = calculate_project_hash(current_path)
+
+            # Extract display name (handles both legacy and partially migrated keys)
+            display_name = extract_name_from_key(old_key)
+
+            # Generate new key with hash suffix
+            new_key = generate_project_key(display_name, project_hash)
+
+            # Add required fields to project data
+            project_data = dict(project_data)  # Copy to avoid mutation
+            project_data["hash"] = project_hash
+            project_data["name"] = display_name  # Ensure name field exists
+
+            migrated_data[new_key] = project_data
+            logger.info(f"Migrated project '{old_key}' to '{new_key}' with hash {project_hash[:8]}")
+
+        return migrated_data
 
 
 # Module-level singleton instance (lazy initialization)

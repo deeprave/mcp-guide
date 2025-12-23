@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 
 from mcp_core.result import Result
 from mcp_guide.config import ConfigManager
-from mcp_guide.mcp_context import resolve_project_name
+from mcp_guide.mcp_context import resolve_project_name, resolve_project_path
 from mcp_guide.models import _NAME_REGEX, Project, SessionState
 
 logger = logging.getLogger(__name__)
@@ -164,6 +164,69 @@ class Session:
 active_sessions: ContextVar[dict[str, Session]] = ContextVar("active_sessions")
 
 
+async def resolve_project_by_name(project_name: str, config_manager: ConfigManager) -> str:
+    """Resolve project configuration key by display name or project key.
+
+    Args:
+        project_name: Display name or project key
+        config_manager: Configuration manager for project lookup
+
+    Returns:
+        Project display name (for consistency with existing code)
+
+    Note:
+        This function handles both display names and project keys.
+        If project_name is a project key, uses it directly.
+        If project_name is a display name with multiple matches, uses current path hash to select.
+        If no matching project exists, the name is returned as-is for creation.
+    """
+    try:
+        # Get all projects to check what we're dealing with
+        all_projects = await config_manager.get_all_project_configs()
+
+        # Check if it's an exact key match (hash-suffixed key)
+        if project_name in all_projects:
+            # If it's a hash-suffixed key, use it directly
+            from mcp_guide.utils.project_hash import extract_name_from_key
+
+            if project_name != extract_name_from_key(project_name):
+                # This is a hash-suffixed key, use it
+                return all_projects[project_name].name
+
+        # Find by display name
+        matching_projects = [proj for proj in all_projects.values() if proj.name == project_name]
+
+        if len(matching_projects) == 0:
+            # No existing project, return name for creation
+            return project_name
+        elif len(matching_projects) == 1:
+            # Single match, use it
+            return project_name
+        else:
+            # Multiple matches, verify hash
+            try:
+                current_path = await resolve_project_path()
+                from mcp_guide.utils.project_hash import calculate_project_hash
+
+                current_hash = calculate_project_hash(current_path)
+
+                # Find project with matching hash
+                for project in matching_projects:
+                    if project.hash == current_hash:
+                        return project_name
+
+                # No hash match, return name for new project creation
+                return project_name
+
+            except ValueError:
+                # Cannot determine current path, use first match
+                return project_name
+
+    except Exception:
+        # Fallback to original name if resolution fails
+        return project_name
+
+
 async def get_or_create_session(
     ctx: Optional["Context"] = None,  # type: ignore[type-arg]
     project_name: Optional[str] = None,
@@ -197,14 +260,17 @@ async def get_or_create_session(
             await cache_mcp_globals(ctx)
         project_name = await resolve_project_name()
 
+    # Resolve project with hash verification
+    config_manager = ConfigManager(config_dir=_config_dir_for_tests)
+    resolved_project_name = await resolve_project_by_name(project_name, config_manager)
+
     # Check if session already exists for this project
-    existing_session = get_current_session(project_name)
+    existing_session = get_current_session(resolved_project_name)
     if existing_session is not None:
         return existing_session
 
     # Create new session
-    config_manager = ConfigManager(config_dir=_config_dir_for_tests)
-    session = Session(_config_manager=config_manager, project_name=project_name)
+    session = Session(_config_manager=config_manager, project_name=resolved_project_name)
 
     # Register template context cache as listener
     from mcp_guide.utils.template_context_cache import template_context_cache
@@ -312,8 +378,26 @@ async def list_all_projects(session: "Session", verbose: bool = False) -> Result
         # Verbose: get all project configs in one atomic read
         all_projects = await session.get_all_projects()
         if not verbose:
-            project_names = sorted(all_projects.keys())
-            return Result.ok({"projects": project_names})
+            # For non-verbose, show project keys when there are name conflicts
+            project_list = []
+            name_counts: dict[str, int] = {}
+
+            # Count occurrences of each display name
+            for key, project in all_projects.items():
+                name_counts[project.name] = name_counts.get(project.name, 0) + 1
+
+            # Build the list with disambiguation
+            for key in sorted(all_projects.keys()):
+                project = all_projects[key]
+                if name_counts[project.name] > 1:
+                    # Multiple projects with same name - show key for disambiguation
+                    project_list.append(f"{project.name} ({key})")
+                else:
+                    # Unique name - show just the display name
+                    project_list.append(project.name)
+
+            return Result.ok({"projects": project_list})
+
         projects_data = {}
         for name in sorted(all_projects.keys()):
             projects_data[name] = await format_project_data(all_projects[name], verbose=True, session=session)
@@ -325,6 +409,41 @@ async def list_all_projects(session: "Session", verbose: bool = False) -> Result
     except Exception as e:
         logger.exception("Unexpected error listing projects")
         return Result.failure(f"Error listing projects: {e}", error_type="unexpected_error")
+
+
+async def resolve_project_name_to_key(name: str, config_manager: "ConfigManager") -> tuple[str, str]:
+    """Resolve a project name (display name or key) to the actual project key.
+
+    Args:
+        name: Either a display name or a project key
+        config_manager: Configuration manager instance
+
+    Returns:
+        Tuple of (project_key, display_name)
+
+    Raises:
+        ValueError: If project not found or name is ambiguous
+    """
+    all_projects = await config_manager.get_all_project_configs()
+
+    # First, check if it's an exact key match
+    if name in all_projects:
+        return name, all_projects[name].name
+
+    # If not a key, try to find by display name
+    matching_projects = [(key, proj) for key, proj in all_projects.items() if proj.name == name]
+
+    if len(matching_projects) == 0:
+        raise ValueError(f"Project '{name}' not found")
+    elif len(matching_projects) == 1:
+        key, project = matching_projects[0]
+        return key, project.name
+    else:
+        # Multiple projects with same display name - user must specify the key
+        keys = [key for key, _ in matching_projects]
+        raise ValueError(
+            f"Multiple projects found with name '{name}'. Please specify the project key: {', '.join(keys)}"
+        )
 
 
 async def get_project_info(
@@ -353,7 +472,11 @@ async def get_project_info(
         INSTRUCTION_NOTFOUND_ERROR,
     )
 
-    config_manager = ConfigManager()
+    # Get config manager from session if available, otherwise create default
+    if session is not None:
+        config_manager = session._config_manager
+    else:
+        config_manager = ConfigManager()
 
     try:
         # Default to current project if no name provided
@@ -382,18 +505,20 @@ async def get_project_info(
         # Get all projects in one atomic read
         all_projects = await config_manager.get_all_project_configs()
 
-        # Check if requested project exists
-        if name not in all_projects:
+        # Resolve the project name to a key
+        try:
+            project_key, display_name = await resolve_project_name_to_key(name, config_manager)
+        except ValueError as e:
             return Result.failure(
-                f"Project '{name}' not found",
+                str(e),
                 error_type=ERROR_NOT_FOUND,
                 instruction=INSTRUCTION_NOTFOUND_ERROR,
             )
 
         # Format and return the requested project
-        project_data = await format_project_data(all_projects[name], verbose=verbose, session=session)
+        project_data = await format_project_data(all_projects[project_key], verbose=verbose, session=session)
         # Include project name in response for single project operations
-        project_data["project"] = name
+        project_data["project"] = display_name
         return Result.ok(project_data)
     except OSError as e:
         return Result.failure(f"Failed to read project configuration: {e}", error_type="config_read_error")

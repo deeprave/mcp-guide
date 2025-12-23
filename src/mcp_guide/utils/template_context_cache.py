@@ -86,6 +86,8 @@ class TemplateContextCache(SessionListener):
 
         # Extract project information from current session using public API
         project_name = ""
+        project_key = ""
+        project_hash = ""
         project_flags = {}
         categories_list: list[dict[str, Any]] = []
         collections_list: list[dict[str, Any]] = []
@@ -96,6 +98,8 @@ class TemplateContextCache(SessionListener):
             if session:
                 project = await session.get_project()
                 project_name = project.name
+                project_key = project.key or project_name  # Fallback for legacy projects
+                project_hash = project.hash or ""  # Fallback for legacy projects
                 project_flags = project.project_flags or {}
 
                 # Convert categories dict to list format with pre-formatted patterns
@@ -176,6 +180,8 @@ class TemplateContextCache(SessionListener):
         project_vars = {
             "project": {
                 "name": project_name,
+                "key": project_key,
+                "hash": project_hash,
                 "project_flags": project_flags,  # Dict format for conditionals
                 "project_flag_values": [
                     {"key": k, "value": v} for k, v in project_flags.items()
