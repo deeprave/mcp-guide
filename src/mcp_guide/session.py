@@ -222,8 +222,9 @@ async def resolve_project_by_name(project_name: str, config_manager: ConfigManag
                 # Cannot determine current path, use first match
                 return project_name
 
-    except Exception:
-        # Fallback to original name if resolution fails
+    except (ValueError, OSError) as e:
+        # Log the error but fallback to original name for robustness
+        logger.warning(f"Project resolution failed: {e}")
         return project_name
 
 

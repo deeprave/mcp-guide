@@ -306,19 +306,39 @@ async def internal_clone_project(args: CloneProjectArgs, ctx: Optional[Context] 
     Returns:
         Result containing clone statistics and warnings
     """
-    # Basic validation for obviously invalid project names
-    if not args.from_project or ".." in args.from_project or "/" in args.from_project:
+    # Validate source project name (allow hash-suffixed keys or valid display names)
+    if not args.from_project:
+        return Result.failure(
+            f"Invalid source project name '{args.from_project}'",
+            error_type=ERROR_INVALID_NAME,
+        )
+
+    # Check if it's a hash-suffixed key or validate as display name
+    from mcp_guide.models import _NAME_REGEX
+    from mcp_guide.utils.project_hash import extract_name_from_key
+
+    display_name = extract_name_from_key(args.from_project)
+    if not _NAME_REGEX.match(display_name):
         return Result.failure(
             f"Invalid source project name '{args.from_project}'",
             error_type=ERROR_INVALID_NAME,
         )
 
     # Validate target project name if provided
-    if args.to_project is not None and (not args.to_project or ".." in args.to_project or "/" in args.to_project):
-        return Result.failure(
-            f"Invalid target project name '{args.to_project}'",
-            error_type=ERROR_INVALID_NAME,
-        )
+    if args.to_project is not None:
+        if not args.to_project:
+            return Result.failure(
+                f"Invalid target project name '{args.to_project}'",
+                error_type=ERROR_INVALID_NAME,
+            )
+
+        # Check if it's a hash-suffixed key or validate as display name
+        target_display_name = extract_name_from_key(args.to_project)
+        if not _NAME_REGEX.match(target_display_name):
+            return Result.failure(
+                f"Invalid target project name '{args.to_project}'",
+                error_type=ERROR_INVALID_NAME,
+            )
 
     # Get session to access configuration
     try:
@@ -346,8 +366,6 @@ async def internal_clone_project(args: CloneProjectArgs, ctx: Optional[Context] 
 
     # Resolve source project
     try:
-        all_projects = await session.get_all_projects()
-
         # Check if it's an exact key match (hash-suffixed key)
         if args.from_project in all_projects:
             from mcp_guide.utils.project_hash import extract_name_from_key
@@ -424,8 +442,21 @@ async def internal_clone_project(args: CloneProjectArgs, ctx: Optional[Context] 
             # Try to find by display name
             matching_projects = [proj for key, proj in all_projects.items() if proj.name == target_name]
             if len(matching_projects) == 0:
-                # Create new empty project
-                target_project = Project(name=target_name, key=target_name, categories={}, collections={})
+                # Create new empty project with proper hash-based key
+                try:
+                    from mcp_guide.mcp_context import resolve_project_path
+
+                    current_path = await resolve_project_path()
+                    from mcp_guide.utils.project_hash import calculate_project_hash, generate_project_key
+
+                    project_hash = calculate_project_hash(current_path)
+                    project_key = generate_project_key(target_name, project_hash)
+                    target_project = Project(
+                        name=target_name, key=project_key, hash=project_hash, categories={}, collections={}
+                    )
+                except ValueError:
+                    # Fallback if path resolution fails
+                    target_project = Project(name=target_name, key=target_name, categories={}, collections={})
             elif len(matching_projects) == 1:
                 target_project = matching_projects[0]
             else:

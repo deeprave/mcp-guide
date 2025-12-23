@@ -46,7 +46,7 @@ async def verify_project_hash(project_hash: Optional[str], current_path: Optiona
         current_hash = calculate_project_hash(current_path)
         return project_hash == current_hash
 
-    except (ValueError, Exception):
+    except ValueError:
         # Cannot verify - assume mismatch
         return False
 

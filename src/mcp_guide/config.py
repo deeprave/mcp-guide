@@ -157,14 +157,12 @@ class ConfigManager:
 
             # Search for project by display name (not key)
             found_project = None
-            found_key = None
 
             for key, project_data in projects.items():
                 # Check if this project matches the requested name
                 project_name = project_data.get("name", extract_name_from_key(key))
                 if project_name == name:
                     found_project = project_data
-                    found_key = key
                     break
 
             if found_project:
@@ -175,8 +173,15 @@ class ConfigManager:
                     raise ValueError(f"Invalid project data for '{name}' in {file_path}: {e}") from e
 
             # Create new project
-            # Calculate hash for current directory
-            current_path = str(file_path.parent.resolve())
+            # Calculate hash for current project path
+            try:
+                from mcp_guide.mcp_context import resolve_project_path
+
+                current_path = await resolve_project_path()
+            except ValueError:
+                # Fallback to config file parent if project path unavailable
+                current_path = str(file_path.parent.resolve())
+
             project_hash = calculate_project_hash(current_path)
 
             # Create project with hash and key
@@ -197,8 +202,9 @@ class ConfigManager:
     async def get_all_project_configs(self) -> dict[str, Project]:
         """Get all project configurations as a snapshot.
 
-        This is a read-only operation that returns all projects at a point in time.
-        Does not create any projects. Uses file locking to ensure consistency.
+        This operation returns all projects at a point in time and does not create
+        any projects. Uses file locking to ensure consistency. May write to the
+        configuration file during legacy format migration.
 
         Returns:
             Dictionary mapping project names to Project objects
@@ -250,13 +256,8 @@ class ConfigManager:
                     project_data_copy["name"] = display_name  # Ensure name matches display name
                     project_data_copy["key"] = name  # Set the project key
 
-                    # Use display name as key, but if there's a conflict, use the hash-suffixed key
-                    key_to_use = display_name
-                    if display_name in projects:
-                        # There's already a project with this display name, use the hash-suffixed key
-                        key_to_use = name
-
-                    projects[key_to_use] = Project(**project_data_copy)
+                    # Use original key to preserve all projects (including duplicates by name)
+                    projects[name] = Project(**project_data_copy)
                 except Exception as e:
                     raise ValueError(f"Invalid project data for '{name}': {e}") from e
 
