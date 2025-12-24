@@ -157,6 +157,7 @@ class TestAllowedPathsSerialization:
         # Read raw YAML and parse it to check structure
         content = manager.config_file.read_text()
         import yaml
+
         config_data = yaml.safe_load(content)
 
         # Check that allowed_paths is not in the project data
@@ -178,6 +179,7 @@ class TestAllowedPathsSerialization:
         # Read raw YAML and parse it to check structure
         content = manager.config_file.read_text()
         import yaml
+
         config_data = yaml.safe_load(content)
 
         # Check that allowed_paths is in the project data
