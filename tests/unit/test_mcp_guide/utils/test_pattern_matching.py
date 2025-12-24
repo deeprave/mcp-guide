@@ -2,6 +2,8 @@
 
 from pathlib import Path
 
+import pytest
+
 from mcp_guide.constants import MAX_DOCUMENTS_PER_GLOB, MAX_GLOB_DEPTH
 from mcp_guide.utils.pattern_matching import safe_glob_search
 
@@ -9,7 +11,8 @@ from mcp_guide.utils.pattern_matching import safe_glob_search
 class TestBasicPatternMatching:
     """Tests for basic glob pattern matching."""
 
-    def test_simple_wildcard_pattern(self, temp_project_dir):
+    @pytest.mark.asyncio
+    async def test_simple_wildcard_pattern(self, temp_project_dir):
         """Test simple wildcard pattern matches correct files."""
         # Arrange
         test_dir = temp_project_dir / "test_simple"
@@ -19,14 +22,15 @@ class TestBasicPatternMatching:
         (test_dir / "file.txt").write_text("content3")
 
         # Act
-        results = safe_glob_search(test_dir, ["*.md"])
+        results = await safe_glob_search(test_dir, ["*.md"])
 
         # Assert
         assert len(results) == 2
         result_names = {p.name for p in results}
         assert result_names == {"file1.md", "file2.md"}
 
-    def test_no_matches_empty_list(self, temp_project_dir):
+    @pytest.mark.asyncio
+    async def test_no_matches_empty_list(self, temp_project_dir):
         """Test no matches returns empty list."""
         # Arrange
         test_dir = temp_project_dir / "test_no_matches"
@@ -34,12 +38,13 @@ class TestBasicPatternMatching:
         (test_dir / "file.txt").write_text("content")
 
         # Act
-        results = safe_glob_search(test_dir, ["*.md"])
+        results = await safe_glob_search(test_dir, ["*.md"])
 
         # Assert
         assert results == []
 
-    def test_multiple_patterns(self, temp_project_dir):
+    @pytest.mark.asyncio
+    async def test_multiple_patterns(self, temp_project_dir):
         """Test multiple patterns combine results."""
         # Arrange
         test_dir = temp_project_dir / "test_multiple"
@@ -49,7 +54,7 @@ class TestBasicPatternMatching:
         (test_dir / "readme.rst").write_text("content3")
 
         # Act
-        results = safe_glob_search(test_dir, ["*.md", "*.txt"])
+        results = await safe_glob_search(test_dir, ["*.md", "*.txt"])
 
         # Assert
         assert len(results) == 2
@@ -60,7 +65,8 @@ class TestBasicPatternMatching:
 class TestRecursivePatterns:
     """Tests for recursive glob patterns."""
 
-    def test_non_recursive_default(self, temp_project_dir):
+    @pytest.mark.asyncio
+    async def test_non_recursive_default(self, temp_project_dir):
         """Test non-recursive pattern only matches top level."""
         # Arrange
         test_dir = temp_project_dir / "test_non_recursive"
@@ -71,13 +77,14 @@ class TestRecursivePatterns:
         (sub_dir / "nested.md").write_text("content2")
 
         # Act
-        results = safe_glob_search(test_dir, ["*.md"])
+        results = await safe_glob_search(test_dir, ["*.md"])
 
         # Assert
         assert len(results) == 1
         assert results[0].name == "file.md"
 
-    def test_recursive_with_doublestar(self, temp_project_dir):
+    @pytest.mark.asyncio
+    async def test_recursive_with_doublestar(self, temp_project_dir):
         """Test recursive pattern with ** matches nested files."""
         # Arrange
         test_dir = temp_project_dir / "test_recursive"
@@ -88,7 +95,7 @@ class TestRecursivePatterns:
         (sub_dir / "nested.md").write_text("content2")
 
         # Act
-        results = safe_glob_search(test_dir, ["**/*.md"])
+        results = await safe_glob_search(test_dir, ["**/*.md"])
 
         # Assert
         assert len(results) == 2
@@ -99,7 +106,8 @@ class TestRecursivePatterns:
 class TestHiddenFileExclusion:
     """Tests for hidden file and special directory exclusion."""
 
-    def test_exclude_dot_files(self, temp_project_dir):
+    @pytest.mark.asyncio
+    async def test_exclude_dot_files(self, temp_project_dir):
         """Test dot files are excluded."""
         # Arrange
         test_dir = temp_project_dir / "test_dot_files"
@@ -108,13 +116,14 @@ class TestHiddenFileExclusion:
         (test_dir / "visible.md").write_text("content2")
 
         # Act
-        results = safe_glob_search(test_dir, ["*.md"])
+        results = await safe_glob_search(test_dir, ["*.md"])
 
         # Assert
         assert len(results) == 1
         assert results[0].name == "visible.md"
 
-    def test_exclude_dunder_files(self, temp_project_dir):
+    @pytest.mark.asyncio
+    async def test_exclude_dunder_files(self, temp_project_dir):
         """Test dunder files/dirs are excluded."""
         # Arrange
         test_dir = temp_project_dir / "test_dunder"
@@ -125,13 +134,14 @@ class TestHiddenFileExclusion:
         (test_dir / "normal.md").write_text("content2")
 
         # Act
-        results = safe_glob_search(test_dir, ["**/*.md"])
+        results = await safe_glob_search(test_dir, ["**/*.md"])
 
         # Assert
         assert len(results) == 1
         assert results[0].name == "normal.md"
 
-    def test_allow_hidden_parent_directory(self, temp_project_dir):
+    @pytest.mark.asyncio
+    async def test_allow_hidden_parent_directory(self, temp_project_dir):
         """Test files under hidden parent directories are allowed."""
         # Arrange
         test_dir = temp_project_dir / "test_hidden_parent"
@@ -142,7 +152,7 @@ class TestHiddenFileExclusion:
         (test_dir / "visible.md").write_text("content")
 
         # Act
-        results = safe_glob_search(test_dir, ["**/*.md"])
+        results = await safe_glob_search(test_dir, ["**/*.md"])
 
         # Assert
         assert len(results) == 2
@@ -150,7 +160,8 @@ class TestHiddenFileExclusion:
         assert "visible.md" in names
         assert "file.md" in names
 
-    def test_safe_glob_search_expands_tilde_in_search_dir(self, temp_project_dir, monkeypatch):
+    @pytest.mark.asyncio
+    async def test_safe_glob_search_expands_tilde_in_search_dir(self, temp_project_dir, monkeypatch):
         """Ensure search_dir using ~ is expanded via LazyPath."""
         monkeypatch.setenv("HOME", str(temp_project_dir))
 
@@ -163,14 +174,15 @@ class TestHiddenFileExclusion:
 
         # Non-recursive pattern
         search_dir = Path("~/home-docs")
-        non_recursive_results = safe_glob_search(search_dir, ["*.md"])
+        non_recursive_results = await safe_glob_search(search_dir, ["*.md"])
         assert sorted(p.name for p in non_recursive_results) == ["root.md"]
 
         # Recursive pattern
-        recursive_results = safe_glob_search(search_dir, ["**/*.md"])
+        recursive_results = await safe_glob_search(search_dir, ["**/*.md"])
         assert sorted(p.name for p in recursive_results) == ["nested.md", "root.md"]
 
-    def test_safe_glob_search_expands_env_var_in_search_dir(self, temp_project_dir, monkeypatch):
+    @pytest.mark.asyncio
+    async def test_safe_glob_search_expands_env_var_in_search_dir(self, temp_project_dir, monkeypatch):
         """Ensure search_dir using ${VAR} is expanded via LazyPath."""
         monkeypatch.setenv("DOCROOT", str(temp_project_dir))
 
@@ -183,14 +195,15 @@ class TestHiddenFileExclusion:
 
         # Non-recursive glob
         search_dir = Path("${DOCROOT}") / "env-docs"
-        non_recursive_results = safe_glob_search(search_dir, ["*.md"])
+        non_recursive_results = await safe_glob_search(search_dir, ["*.md"])
         assert sorted(p.name for p in non_recursive_results) == ["env-root.md"]
 
         # Recursive glob
-        recursive_results = safe_glob_search(search_dir, ["**/*.md"])
+        recursive_results = await safe_glob_search(search_dir, ["**/*.md"])
         assert sorted(p.name for p in recursive_results) == ["env-nested.md", "env-root.md"]
 
-    def test_exclude_dunder_parent_directory(self, temp_project_dir):
+    @pytest.mark.asyncio
+    async def test_exclude_dunder_parent_directory(self, temp_project_dir):
         """Test files under dunder parent directories are excluded."""
         # Arrange
         test_dir = temp_project_dir / "test_dunder_parent"
@@ -201,7 +214,7 @@ class TestHiddenFileExclusion:
         (test_dir / "normal.md").write_text("content")
 
         # Act
-        results = safe_glob_search(test_dir, ["**/*.md"])
+        results = await safe_glob_search(test_dir, ["**/*.md"])
 
         # Assert
         assert len(results) == 1
@@ -211,7 +224,8 @@ class TestHiddenFileExclusion:
 class TestExtensionlessFallback:
     """Tests for extensionless pattern fallback to .md."""
 
-    def test_extensionless_exact_match(self, temp_project_dir):
+    @pytest.mark.asyncio
+    async def test_extensionless_exact_match(self, temp_project_dir):
         """Test extensionless pattern prefers exact match."""
         # Arrange
         test_dir = temp_project_dir / "test_exact"
@@ -220,13 +234,14 @@ class TestExtensionlessFallback:
         (test_dir / "intro.md").write_text("content2")
 
         # Act
-        results = safe_glob_search(test_dir, ["intro"])
+        results = await safe_glob_search(test_dir, ["intro"])
 
         # Assert
         assert len(results) == 1
         assert results[0].name == "intro"
 
-    def test_extensionless_fallback_md(self, temp_project_dir):
+    @pytest.mark.asyncio
+    async def test_extensionless_fallback_md(self, temp_project_dir):
         """Test extensionless pattern falls back to .md."""
         # Arrange
         test_dir = temp_project_dir / "test_fallback"
@@ -234,13 +249,14 @@ class TestExtensionlessFallback:
         (test_dir / "intro.md").write_text("content")
 
         # Act
-        results = safe_glob_search(test_dir, ["intro"])
+        results = await safe_glob_search(test_dir, ["intro"])
 
         # Assert
         assert len(results) == 1
         assert results[0].name == "intro.md"
 
-    def test_pattern_with_extension_no_fallback(self, temp_project_dir):
+    @pytest.mark.asyncio
+    async def test_pattern_with_extension_no_fallback(self, temp_project_dir):
         """Test pattern with extension doesn't use fallback."""
         # Arrange
         test_dir = temp_project_dir / "test_no_fallback"
@@ -249,7 +265,7 @@ class TestExtensionlessFallback:
         (test_dir / "intro.txt").write_text("content2")
 
         # Act
-        results = safe_glob_search(test_dir, ["intro.txt"])
+        results = await safe_glob_search(test_dir, ["intro.txt"])
 
         # Assert
         assert len(results) == 1
@@ -259,7 +275,8 @@ class TestExtensionlessFallback:
 class TestSymlinkAndBoundaryBehavior:
     """Tests for symlink resolution, deduplication, and boundary checks."""
 
-    def test_symlink_inside_search_dir_is_deduplicated(self, temp_project_dir):
+    @pytest.mark.asyncio
+    async def test_symlink_inside_search_dir_is_deduplicated(self, temp_project_dir):
         """A symlink to a file inside search_dir should appear only once."""
         # Arrange
         search_dir = temp_project_dir / "search"
@@ -272,14 +289,15 @@ class TestSymlinkAndBoundaryBehavior:
         symlink.symlink_to(real_file)
 
         # Act
-        matches = safe_glob_search(search_dir, ["**/*.txt"])
+        matches = await safe_glob_search(search_dir, ["**/*.txt"])
 
         # Assert
         assert real_file.resolve() in [p.resolve() for p in matches]
         resolved_paths = [p.resolve() for p in matches]
         assert len(resolved_paths) == len(set(resolved_paths))
 
-    def test_symlink_pointing_outside_search_dir_is_skipped(self, temp_project_dir):
+    @pytest.mark.asyncio
+    async def test_symlink_pointing_outside_search_dir_is_skipped(self, temp_project_dir):
         """A symlink inside search_dir pointing outside it should be ignored."""
         # Arrange
         search_dir = temp_project_dir / "search"
@@ -294,7 +312,7 @@ class TestSymlinkAndBoundaryBehavior:
         bad_symlink.symlink_to(outside_file)
 
         # Act
-        matches = safe_glob_search(search_dir, ["**/*.txt"])
+        matches = await safe_glob_search(search_dir, ["**/*.txt"])
 
         # Assert
         assert matches == []
@@ -303,7 +321,8 @@ class TestSymlinkAndBoundaryBehavior:
 class TestDepthLimit:
     """Tests for MAX_GLOB_DEPTH enforcement."""
 
-    def test_respect_max_depth(self, temp_project_dir):
+    @pytest.mark.asyncio
+    async def test_respect_max_depth(self, temp_project_dir):
         """Test files beyond MAX_GLOB_DEPTH are excluded."""
         # Arrange
         test_dir = temp_project_dir / "test_depth"
@@ -325,7 +344,7 @@ class TestDepthLimit:
                 excluded_files.append(file_path)
 
         # Act
-        results = safe_glob_search(test_dir, ["**/*.txt"])
+        results = await safe_glob_search(test_dir, ["**/*.txt"])
         result_paths = {p.resolve() for p in results}
 
         # Assert: all files at depth <= MAX_GLOB_DEPTH are included
@@ -340,7 +359,8 @@ class TestDepthLimit:
 class TestDocumentLimit:
     """Tests for MAX_DOCUMENTS_PER_GLOB enforcement."""
 
-    def test_stop_at_max_documents(self, temp_project_dir):
+    @pytest.mark.asyncio
+    async def test_stop_at_max_documents(self, temp_project_dir):
         """Ensure a single pattern is truncated at MAX_DOCUMENTS_PER_GLOB."""
         # Arrange
         test_dir = temp_project_dir / "test_limit"
@@ -351,12 +371,13 @@ class TestDocumentLimit:
             (test_dir / f"file{i:03d}.md").write_text(f"content{i}")
 
         # Act
-        results = safe_glob_search(test_dir, ["*.md"])
+        results = await safe_glob_search(test_dir, ["*.md"])
 
         # Assert
         assert len(results) == MAX_DOCUMENTS_PER_GLOB
 
-    def test_combined_patterns_respects_global_limit(self, temp_project_dir):
+    @pytest.mark.asyncio
+    async def test_combined_patterns_respects_global_limit(self, temp_project_dir):
         """Ensure MAX_DOCUMENTS_PER_GLOB is applied across all patterns."""
         # Arrange
         test_dir = temp_project_dir / "test_combined"
@@ -368,7 +389,7 @@ class TestDocumentLimit:
             (test_dir / f"note_{i}.txt").write_text("text")
 
         # Act
-        results = safe_glob_search(test_dir, ["*.md", "*.txt"])
+        results = await safe_glob_search(test_dir, ["*.md", "*.txt"])
 
         # Assert
         assert len(results) <= MAX_DOCUMENTS_PER_GLOB

@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Awaitable, Callable, Coroutine, List, Optional, Protocol, Union
 
 import aiofiles
+from anyio import Path as AsyncPath
 
 from mcp_core.result import Result
 
@@ -256,7 +257,7 @@ async def _execute_command(
         return Result.failure(str(e), error_type="context")
 
     commands_dir = docroot / COMMANDS_DIR
-    if not commands_dir.exists():
+    if not await AsyncPath(commands_dir).exists():
         return Result.failure(f"Commands directory not found: {COMMANDS_DIR}", error_type="not_found")
 
     # Discover commands and resolve aliases

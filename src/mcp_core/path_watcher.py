@@ -2,9 +2,10 @@
 
 import asyncio
 import logging
-import os
 from pathlib import Path
 from typing import Callable, List, Optional, Union
+
+from anyio import Path as AsyncPath
 
 logger = logging.getLogger(__name__)
 
@@ -23,14 +24,10 @@ class PathWatcher:
             poll_interval: Polling interval in seconds (default: 1.0)
 
         Raises:
-            FileNotFoundError: If the path does not exist
+            FileNotFoundError: If the path does not exist (checked on first start)
         """
         self.path = str(path)
         self.poll_interval = poll_interval
-
-        # Validate path exists
-        if not os.path.exists(self.path):
-            raise FileNotFoundError(f"Path does not exist: {self.path}")
 
         # Initialize callback system
         self._callbacks: List[Callable[[str], None]] = []
@@ -41,10 +38,10 @@ class PathWatcher:
         self._task: Optional[asyncio.Task[None]] = None
         self._start_lock = asyncio.Lock()
 
-        # Track file stats for change detection
-        stat = os.stat(self.path)
-        self._last_mtime = stat.st_mtime
-        self._last_inode = stat.st_ino
+        # Track file stats for change detection (initialized on first start)
+        self._last_mtime: Optional[float] = None
+        self._last_inode: Optional[int] = None
+        self._initialized = False
 
     def add_callback(self, callback: Callable[[str], None]) -> None:
         """Add a callback to be invoked when changes are detected."""
@@ -59,10 +56,32 @@ class PathWatcher:
                 # Callback exceptions should not crash the watcher
                 logger.exception(f"Error in callback for path {self.path}: {e}")
 
-    def has_changed(self) -> bool:
+    async def has_changed(self) -> bool:
         """Check if the path has changed since last check."""
+        async_path = AsyncPath(self.path)
+
+        # Initialize on first call
+        if not self._initialized:
+            if not await async_path.exists():
+                raise FileNotFoundError(f"Path does not exist: {self.path}")
+
+            try:
+                stat = await async_path.stat()
+                self._last_mtime = stat.st_mtime
+                self._last_inode = stat.st_ino
+                self._initialized = True
+                return False
+            except (OSError, FileNotFoundError) as e:
+                raise FileNotFoundError(f"Path does not exist: {self.path}") from e
+
+        # Check if path still exists
         try:
-            stat = os.stat(self.path)
+            if not await async_path.exists():
+                # File was deleted - trigger callback
+                self._invoke_callbacks()
+                return True
+
+            stat = await async_path.stat()
             current_mtime = stat.st_mtime
             current_inode = stat.st_ino
 
@@ -82,7 +101,7 @@ class PathWatcher:
 
             return False
         except (OSError, FileNotFoundError):
-            # File was deleted or became inaccessible
+            # File was deleted or became inaccessible after initialization
             self._invoke_callbacks()
             return True
 
@@ -116,7 +135,7 @@ class PathWatcher:
         """Internal monitoring loop that polls for changes."""
         while True:
             try:
-                self.has_changed()
+                await self.has_changed()
                 await asyncio.sleep(self.poll_interval)
             except asyncio.CancelledError:
                 raise

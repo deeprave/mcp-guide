@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
 import aiofiles
+from anyio import Path as AsyncPath
 
 from mcp_guide.utils.file_discovery import discover_category_files
 from mcp_guide.utils.frontmatter import parse_frontmatter_content
@@ -26,7 +27,7 @@ async def discover_commands(commands_dir: Path) -> List[Dict[str, Any]]:
     Returns:
         List of command dictionaries with name, description, usage, examples, etc.
     """
-    if not commands_dir.exists():
+    if not await AsyncPath(commands_dir).exists():
         return []
 
     cache_key = str(commands_dir)
@@ -35,7 +36,7 @@ async def discover_commands(commands_dir: Path) -> List[Dict[str, Any]]:
     async with _cache_lock:
         try:
             # Check both directory mtime AND max file mtime
-            current_mtime = commands_dir.stat().st_mtime
+            current_mtime = (await AsyncPath(commands_dir).stat()).st_mtime
             max_file_mtime = max(
                 (f.stat().st_mtime for f in commands_dir.rglob("*") if f.is_file()),
                 default=current_mtime,

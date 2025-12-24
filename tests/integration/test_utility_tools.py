@@ -28,7 +28,7 @@ async def test_session(tmp_path: Path):
     """Create test session with isolated config."""
     session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
     yield session
-    remove_current_session("test")
+    await remove_current_session("test")
 
 
 @pytest.mark.anyio

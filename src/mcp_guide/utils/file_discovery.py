@@ -5,6 +5,7 @@ from datetime import datetime
 from pathlib import Path
 
 import aiofiles.os
+from anyio import Path as AsyncPath
 
 from mcp_guide.utils.pattern_matching import safe_glob_search
 
@@ -58,7 +59,7 @@ async def discover_category_files(
     if not category_dir.is_absolute():
         raise ValueError(f"Category directory must be absolute: {category_dir}")
 
-    if not category_dir.exists() or not category_dir.is_dir():
+    if not await AsyncPath(category_dir).exists() or not await AsyncPath(category_dir).is_dir():
         raise FileNotFoundError(f"Category directory not found: {category_dir}")
 
     # Validate patterns don't include template extensions
@@ -81,7 +82,7 @@ async def discover_category_files(
             expanded_patterns.append(f"{pattern}{ext}")
             expanded_patterns.append(f"{pattern}.*{ext}")
 
-    matched_paths = safe_glob_search(category_dir, expanded_patterns)
+    matched_paths = await safe_glob_search(category_dir, expanded_patterns)
 
     # Resolve category_dir for consistent path calculations
     category_dir_resolved = category_dir.resolve()

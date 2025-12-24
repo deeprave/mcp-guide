@@ -1,5 +1,6 @@
 """Session management for per-project runtime state."""
 
+import asyncio
 import logging
 from contextvars import ContextVar
 from dataclasses import dataclass, field
@@ -18,6 +19,7 @@ from mcp_core.result import Result
 from mcp_guide.config import ConfigManager
 from mcp_guide.mcp_context import resolve_project_name, resolve_project_path
 from mcp_guide.models import _NAME_REGEX, Project, SessionState
+from mcp_guide.watchers.config_watcher import ConfigWatcher
 
 logger = logging.getLogger(__name__)
 
@@ -31,9 +33,11 @@ class Session:
     _state: SessionState = field(default_factory=SessionState, init=False)
     _cached_project: Optional[Project] = field(default=None, init=False)
     _listeners: list["SessionListener"] = field(default_factory=list, init=False, repr=False)
+    _config_watcher: Optional[ConfigWatcher] = field(default=None, init=False, repr=False)
+    _watcher_task: Optional["asyncio.Task[None]"] = field(default=None, init=False, repr=False)
 
     def __post_init__(self) -> None:
-        """Validate project name immediately."""
+        """Validate project name and setup config watcher."""
         from mcp_guide.validation import InvalidProjectNameError
 
         if not self.project_name or not self.project_name.strip():
@@ -42,6 +46,45 @@ class Session:
             raise InvalidProjectNameError(
                 f"Project name '{self.project_name}' must contain only alphanumeric characters, underscores, and hyphens"
             )
+
+        # Setup config file watcher
+        self._setup_config_watcher()
+
+    def _setup_config_watcher(self) -> None:
+        """Setup config file watcher for automatic reload on external changes."""
+        try:
+            config_file_path = str(self._config_manager.config_file)
+            self._config_watcher = ConfigWatcher(
+                config_path=config_file_path, callback=self._on_config_file_changed, poll_interval=1.0
+            )
+            # Watcher will be started lazily when first accessed
+            self._watcher_task = None
+        except (FileNotFoundError, asyncio.InvalidStateError) as e:
+            logger.debug(f"Could not setup config watcher for {self.project_name}: {e}")
+        except (PermissionError, OSError, AttributeError) as e:
+            logger.warning(f"System error setting up config watcher for {self.project_name}: {e}")
+        except Exception as e:
+            logger.error(f"Unexpected error setting up config watcher for {self.project_name}: {e}")
+            # Re-raise unexpected errors for proper debugging
+            raise
+
+    async def _ensure_watcher_started(self) -> None:
+        """Ensure config watcher is started."""
+        if self._config_watcher and (self._watcher_task is None or self._watcher_task.done()):
+            self._watcher_task = asyncio.create_task(self._config_watcher.start())
+
+    def _on_config_file_changed(self, file_path: str) -> None:
+        """Handle config file changes by invalidating cache and notifying sessions."""
+        if self._cached_project is None:
+            return  # Already invalidated
+
+        logger.warning(f"Configuration file changed externally: {file_path} - reloading session {self.project_name}")
+
+        # Invalidate cached project
+        self._cached_project = None
+
+        # Notify all listeners of the change
+        self._notify_listeners()
 
     def add_listener(self, listener: "SessionListener") -> None:
         """Add a session change listener."""
@@ -61,6 +104,23 @@ class Session:
             except Exception as e:
                 logger.debug(f"Listener notification failed: {e}")
 
+    async def cleanup(self) -> None:
+        """Cleanup session resources including config watcher."""
+        if self._watcher_task and not self._watcher_task.done():
+            self._watcher_task.cancel()
+            try:
+                await self._watcher_task
+            except asyncio.CancelledError:
+                pass
+            self._watcher_task = None
+
+        if self._config_watcher:
+            try:
+                await self._config_watcher.stop()
+            except Exception as e:
+                logger.debug(f"Error stopping config watcher: {e}")
+            self._config_watcher = None
+
     async def get_project(self) -> Project:
         """Get project configuration (lazy loaded and cached).
 
@@ -72,6 +132,7 @@ class Session:
             Subsequent calls return the cached value.
             Use update_config() to modify and persist changes.
         """
+        await self._ensure_watcher_started()
         if self._cached_project is None:
             self._cached_project = await self._config_manager.get_or_create_project_config(self.project_name)
         return self._cached_project
@@ -323,11 +384,16 @@ def set_current_session(session: Session) -> None:
     active_sessions.set(sessions)
 
 
-def remove_current_session(project_name: str) -> None:
-    """Remove session from ContextVar."""
+async def remove_current_session(project_name: str) -> None:
+    """Remove session from ContextVar and cleanup its resources."""
     # Copy to avoid mutating parent context's dict
     sessions = dict(active_sessions.get({}))
-    sessions.pop(project_name, None)
+    session = sessions.pop(project_name, None)
+
+    # Cleanup session resources if it exists
+    if session:
+        await session.cleanup()
+
     active_sessions.set(sessions)
 
 
