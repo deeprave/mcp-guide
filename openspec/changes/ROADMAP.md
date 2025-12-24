@@ -35,7 +35,6 @@ This roadmap tracks the phased implementation of mcp-guide, organized by functio
 - ✅ TRACE level functional
 - ✅ File logging with JSON works
 - ✅ Logger hierarchy prevents duplication
-- ✅ >80% test coverage achieved (92%)
 
 ---
 
@@ -44,7 +43,7 @@ This roadmap tracks the phased implementation of mcp-guide, organized by functio
 **Goal:** Establish feature flags and tool conventions for extensible configuration
 
 ### add-feature-flags
-**Status:** 📋 Proposed (0% complete)
+**Status:** ✅ Complete
 **Requires:** ✅ logging-implementation (Complete)
 **Blocks:** template-support, add-openspec-support
 **Priority:** HIGH - Required for advanced features
@@ -57,14 +56,14 @@ This roadmap tracks the phased implementation of mcp-guide, organized by functio
 - Configuration validation and persistence
 
 **Success Criteria:**
-- ⏳ Feature flags stored in configuration models
-- ⏳ MCP tools provide complete flag management
-- ⏳ Resolution hierarchy works correctly
-- ⏳ Immediate persistence on flag changes
-- ⏳ Validation prevents invalid flag names/values
+- ✅ Feature flags stored in configuration models
+- ✅ MCP tools provide complete flag management
+- ✅ Resolution hierarchy works correctly
+- ✅ Immediate persistence on flag changes
+- ✅ Validation prevents invalid flag names/values
 
 ### tool-conventions
-**Status:** 📋 Proposed (0% complete)
+**Status:** ✅ Complete
 **ADR:** 008-tool-definition-conventions
 **Requires:** ✅ logging-implementation (Complete)
 **Blocks:** All tool implementations (Phase 3)
@@ -78,11 +77,11 @@ This roadmap tracks the phased implementation of mcp-guide, organized by functio
 - Documentation and tests
 
 **Success Criteria:**
-- ⏳ Decorator supports prefix configuration
-- ⏳ Automatic TRACE logging on tool calls
-- ⏳ Result[T] with instruction field
-- ⏳ Pydantic validation working
-- ⏳ Example tool demonstrating all patterns
+- ✅ Decorator supports prefix configuration
+- ✅ Automatic TRACE logging on tool calls
+- ✅ Result[T] with instruction field
+- ✅ Pydantic validation working
+- ✅ Example tool demonstrating all patterns
 
 ---
 
@@ -93,8 +92,8 @@ This roadmap tracks the phased implementation of mcp-guide, organized by functio
 **Note:** Phase 3 groups can proceed in parallel after Phase 2 completes. However, within guide-content-tools, category/collection/document operations should be implemented together as they are foundational.
 
 ### Phase 3a: Content and Configuration Tools (FOUNDATIONAL)
-**Status:** ✅ Mostly Complete (3/4 changes complete)
-**Requires:** tool-conventions
+**Status:** ✅ Complete (4/4 changes complete)
+**Requires:** ✅ tool-conventions (Complete)
 **Priority:** HIGH - Core functionality
 
 **Rationale:** Content retrieval and configuration management are the cornerstone of mcp-guide. All other tools depend on this foundation.
@@ -172,8 +171,8 @@ This roadmap tracks the phased implementation of mcp-guide, organized by functio
 - ✅ Integration tests cover workflows
 
 #### add-guide-uri-scheme (17 tasks)
-**Status:** 📋 Proposed (0% complete)
-**Requires:** tool-conventions, add-content-tools
+**Status:** ✅ Complete
+**Requires:** ✅ tool-conventions (Complete), ✅ add-content-tools (Complete)
 
 **Features:**
 - MCP `resources/list` handler with guide:// URIs
@@ -182,22 +181,22 @@ This roadmap tracks the phased implementation of mcp-guide, organized by functio
 - Delegates to content tools for retrieval
 
 **Success Criteria:**
-- ⏳ Resources list returns templates
-- ⏳ URI parsing works correctly
-- ⏳ Content delegation functional
-- ⏳ guide://help provides documentation
+- ✅ Resources list returns templates
+- ✅ URI parsing works correctly
+- ✅ Content delegation functional
+- ✅ guide://help provides documentation
 
 **Implementation Order:**
 1. ✅ add-category-tools (category management)
 2. ✅ add-collection-tools (collection management, depends on categories)
 3. ✅ add-content-tools (content retrieval, depends on both)
-4. 📋 add-guide-uri-scheme (resources layer, depends on content tools) - READY TO START
+4. ✅ add-guide-uri-scheme (resources layer, depends on content tools)
 
 ---
 
 ### Phase 3b: Project, Utility, and Discovery Tools
-**Status:** ✅ Partially Complete (1/3 changes complete)
-**Requires:** tool-conventions, add-category-tools, add-collection-tools
+**Status:** ✅ Complete (3/3 changes complete)
+**Requires:** ✅ tool-conventions (Complete), ✅ add-category-tools (Complete), ✅ add-collection-tools (Complete)
 **Priority:** MEDIUM - Supporting functionality
 
 **Changes:**
@@ -232,19 +231,19 @@ This roadmap tracks the phased implementation of mcp-guide, organized by functio
 Enhanced `ExtMcpToolDecorator` to preserve Pydantic Field descriptions in MCP schemas by passing models as single `args` parameter. This improvement benefits all tools in mcp-guide.
 
 #### add-guide-utility-tools
-**Status:** 📋 Proposed (0% complete)
-**Requires:** tool-conventions, add-category-tools, add-collection-tools
+**Status:** ✅ Complete
+**Requires:** ✅ tool-conventions (Complete), ✅ add-category-tools (Complete), ✅ add-collection-tools (Complete)
 
 **Tools:**
 - `get_agent_info` - Returns information about agent/client
 
 **Success Criteria:**
-- ⏳ Agent info captured correctly
-- ⏳ Useful for debugging and logging
+- ✅ Agent info captured correctly
+- ✅ Useful for debugging and logging
 
 #### add-mcp-discovery-tools
-**Status:** 📋 Proposed (0% complete)
-**Requires:** tool-conventions, add-category-tools, add-collection-tools
+**Status:** ✅ Complete
+**Requires:** ✅ tool-conventions (Complete), ✅ add-category-tools (Complete), ✅ add-collection-tools (Complete)
 
 **Tools:**
 - `list_prompts` - Enumerate available prompts
@@ -252,21 +251,21 @@ Enhanced `ExtMcpToolDecorator` to preserve Pydantic Field descriptions in MCP sc
 - `list_tools` - Enumerate available tools
 
 **Success Criteria:**
-- ⏳ Complete tool/prompt/resource enumeration
-- ⏳ Useful metadata included
-- ⏳ Helps agents discover capabilities
+- ✅ Complete tool/prompt/resource enumeration
+- ✅ Useful metadata included
+- ✅ Helps agents discover capabilities
 
 ---
 
 ### Phase 3c: Feature Enhancements
-**Status:** 📋 Proposed
+**Status:** ✅ Complete
 **Priority:** LOW - Nice to have
 
 **Changes:**
 
 #### collections-with-patterns
-**Status:** 📋 Proposed (0% complete)
-**Requires:** add-collection-tools
+**Status:** ✅ Complete
+**Requires:** ✅ add-collection-tools (Complete)
 
 **Features:**
 - Allow collections to override category patterns
@@ -274,19 +273,40 @@ Enhanced `ExtMcpToolDecorator` to preserve Pydantic Field descriptions in MCP sc
 - Backward compatibility with existing collections
 
 **Success Criteria:**
-- ⏳ Collections can specify custom patterns
-- ⏳ Pattern override works correctly
-- ⏳ Existing collections unaffected
+- ✅ Collections can specify custom patterns
+- ✅ Pattern override works correctly
+- ✅ Existing collections unaffected
 
 ---
 
 ## Phase 4: Advanced Features
 
-**Goal:** Implement template rendering and OpenSpec integration
+**Goal:** Implement filesystem interaction, template rendering, and OpenSpec integration
+
+### agent-server-filesystem-interaction
+**Status:** 📋 Proposed (0% complete)
+**Requires:** ✅ logging-implementation (Complete)
+**Blocks:** add-openspec-support
+**Priority:** HIGH - Filesystem interaction infrastructure
+
+**Deliverables:**
+- Sampling-based file operations (directory listing, file reading)
+- Path validation and security fencing
+- Server-side file caching with LRU eviction
+- MCP tools: guide_cache_file, guide_list_directory, guide_read_file
+- OpenSpec filesystem integration
+
+**Success Criteria:**
+- ⏳ Directory listing via sampling requests works
+- ⏳ File reading via sampling requests works
+- ⏳ Path security fencing prevents unauthorized access
+- ⏳ File cache performs efficiently
+- ⏳ OpenSpec tools use filesystem interaction
 
 ### template-support
-**Status:** 📋 Proposed (0% complete)
-**Requires:** add-feature-flags
+**Status:** ✅ Complete
+**Requires:** ✅ add-feature-flags (Complete)
+**Blocks:** add-openspec-support
 **Priority:** HIGH - Template rendering system
 
 **Features:**
@@ -296,14 +316,14 @@ Enhanced `ExtMcpToolDecorator` to preserve Pydantic Field descriptions in MCP sc
 - Integration with feature flags for conditional rendering
 
 **Success Criteria:**
-- ⏳ Template discovery works
-- ⏳ Context hierarchy resolves correctly
-- ⏳ Chevron rendering functional
-- ⏳ Feature flag integration complete
+- ✅ Template discovery works
+- ✅ Context hierarchy resolves correctly
+- ✅ Chevron rendering functional
+- ✅ Feature flag integration complete
 
 ### add-openspec-support
 **Status:** 📋 Proposed (0% complete)
-**Requires:** add-feature-flags, template-support
+**Requires:** add-feature-flags, template-support, agent-server-filesystem-interaction
 **Priority:** MEDIUM - OpenSpec workflow integration
 
 **Features:**
@@ -311,12 +331,14 @@ Enhanced `ExtMcpToolDecorator` to preserve Pydantic Field descriptions in MCP sc
 - MCP tools for OpenSpec workflows
 - MCP resources for OpenSpec project state
 - Template context integration
+- Dynamic file discovery and validation
 
 **Success Criteria:**
 - ⏳ Feature flag conditional activation
 - ⏳ OpenSpec workflow tools functional
 - ⏳ Template integration complete
 - ⏳ MCP resources queryable
+- ⏳ Filesystem interaction enables dynamic change discovery
 
 ### hook-uri-templates
 **Status:** 📋 Proposed (0% complete)
@@ -339,45 +361,52 @@ Enhanced `ExtMcpToolDecorator` to preserve Pydantic Field descriptions in MCP sc
 
 ## Implementation Notes
 
-### Current Progress (2025-12-10)
+### Current Progress (2025-12-24)
 
-**Completed Changes (5):**
+**Completed Changes (13):**
+- ✅ logging-implementation
+- ✅ add-feature-flags
+- ✅ tool-conventions
 - ✅ add-category-tools (44 tasks)
 - ✅ add-collection-tools (43 tasks)
-- ✅ add-guide-project-tools (34 tasks)
 - ✅ add-content-tools (28 tasks)
+- ✅ add-guide-uri-scheme (17 tasks)
+- ✅ add-guide-project-tools (34 tasks)
+- ✅ add-guide-utility-tools
+- ✅ add-mcp-discovery-tools
 - ✅ tool-descriptions (10 tasks)
+- ✅ collections-with-patterns
+- ✅ template-support
 
-**Proposed/Ready (9):**
-- 📋 add-feature-flags (NEW - blocks advanced features)
-- 📋 tool-conventions (ready to start)
-- 📋 add-guide-uri-scheme (ready after tool-conventions)
-- 📋 add-guide-utility-tools
-- 📋 add-mcp-discovery-tools
-- 📋 collections-with-patterns
-- 📋 template-support (blocked by add-feature-flags)
-- 📋 add-openspec-support (blocked by add-feature-flags, template-support)
-- 📋 hook-uri-templates (blocked by add-guide-uri-scheme, template-support, add-feature-flags)
+**Proposed/Ready (3):**
+- 📋 agent-server-filesystem-interaction (ready to start - blocks add-openspec-support)
+- 📋 add-openspec-support (blocked by agent-server-filesystem-interaction)
+- 📋 hook-uri-templates (blocked by add-feature-flags, template-support, add-guide-uri-scheme)
 
-**Total Progress:** 159/290+ tasks complete (55%)
+**Total Progress:** 13/16 changes complete (81%)
 
 ### Critical Path Changes
 
 **Immediate Priority:**
-1. **add-feature-flags** - Unblocks template-support and add-openspec-support
-2. **tool-conventions** - Unblocks remaining tool implementations
+1. **agent-server-filesystem-interaction** - Enables filesystem access for OpenSpec workflows
 
 **Next Priority:**
-3. **add-guide-uri-scheme** - Completes core content functionality
-4. **template-support** - Enables advanced template features
-5. **add-openspec-support** - Enables OpenSpec workflow integration
+2. **add-openspec-support** - Enables OpenSpec workflow integration (depends on agent-server-filesystem-interaction)
+3. **hook-uri-templates** - Dynamic hook content support (optional enhancement)
 
 ### Parallel Work Opportunities
 
-After Phase 2 completes:
-- Phase 3a: add-guide-uri-scheme can proceed
-- Phase 3b: utility and discovery tools can proceed in parallel
-- Phase 4: template-support can proceed after add-feature-flags
+**All major parallel work complete!**
+- ✅ Phase 2: add-feature-flags and tool-conventions - Complete
+- ✅ Phase 3a: All content and configuration tools - Complete
+- ✅ Phase 3b: All utility and discovery tools - Complete
+- ✅ Phase 3c: collections-with-patterns - Complete
+- ✅ Phase 4: template-support - Complete
+
+**Remaining work is sequential:**
+- agent-server-filesystem-interaction (foundation for OpenSpec)
+- add-openspec-support (depends on filesystem interaction)
+- hook-uri-templates (optional enhancement)
 
 ### Key Achievements
 

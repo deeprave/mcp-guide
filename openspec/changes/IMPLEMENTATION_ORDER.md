@@ -41,7 +41,7 @@ This document tracks dependencies between OpenSpec change proposals to ensure co
 ### Phase 2: Configuration and Infrastructure
 
 #### 2. add-feature-flags
-**Status:** 📋 Proposed (0% complete)
+**Status:** ✅ Complete
 **Requires:** ✅ logging-implementation (Complete)
 **Blocks:** template-support, add-openspec-support
 **Priority:** HIGH - Required for advanced features
@@ -54,14 +54,14 @@ This document tracks dependencies between OpenSpec change proposals to ensure co
 - Configuration validation and persistence
 
 **Validation:**
-- ⏳ Feature flags stored in configuration models
-- ⏳ MCP tools provide complete flag management
-- ⏳ Resolution hierarchy works correctly
-- ⏳ Immediate persistence on flag changes
-- ⏳ Validation prevents invalid flag names/values
+- ✅ Feature flags stored in configuration models
+- ✅ MCP tools provide complete flag management
+- ✅ Resolution hierarchy works correctly
+- ✅ Immediate persistence on flag changes
+- ✅ Validation prevents invalid flag names/values
 
 #### 3. tool-conventions
-**Status:** 📋 Proposed (0% complete)
+**Status:** ✅ Complete
 **ADR:** 008-tool-definition-conventions
 **Requires:** ✅ logging-implementation (Complete)
 **Blocks:** All tool implementations (Phase 3)
@@ -73,10 +73,10 @@ This document tracks dependencies between OpenSpec change proposals to ensure co
 - Explicit use pattern with Literal types
 
 **Validation:**
-- ⏳ Decorator supports prefix configuration
-- ⏳ Automatic TRACE logging on tool calls
-- ⏳ Result[T] with instruction field works
-- ⏳ Example tool demonstrates all patterns
+- ✅ Decorator supports prefix configuration
+- ✅ Automatic TRACE logging on tool calls
+- ✅ Result[T] with instruction field works
+- ✅ Example tool demonstrates all patterns
 
 ---
 
@@ -157,8 +157,8 @@ This document tracks dependencies between OpenSpec change proposals to ensure co
 - ✅ Integration tests pass
 
 #### 4d. add-guide-uri-scheme
-**Status:** 📋 Proposed (0% complete)
-**Requires:** tool-conventions, add-content-tools
+**Status:** ✅ Complete
+**Requires:** ✅ tool-conventions (Complete), ✅ add-content-tools (Complete)
 **Priority:** MEDIUM - Resource layer
 
 **Features:**
@@ -168,10 +168,10 @@ This document tracks dependencies between OpenSpec change proposals to ensure co
 - Delegates to content tools for retrieval
 
 **Validation:**
-- ⏳ Resources list returns templates
-- ⏳ URI parsing works correctly
-- ⏳ Content delegation functional
-- ⏳ guide://help provides documentation
+- ✅ Resources list returns templates
+- ✅ URI parsing works correctly
+- ✅ Content delegation functional
+- ✅ guide://help provides documentation
 
 #### 4e. add-guide-project-tools
 **Status:** ✅ Complete (2025-12-08)
@@ -192,20 +192,20 @@ This document tracks dependencies between OpenSpec change proposals to ensure co
 - ✅ 641 tests passing, 90% coverage
 
 #### 4f. add-guide-utility-tools
-**Status:** 📋 Proposed (0% complete)
-**Requires:** tool-conventions
+**Status:** ✅ Complete
+**Requires:** ✅ tool-conventions (Complete)
 **Priority:** LOW - Utilities
 
 **Tools:**
 - get_agent_info - Returns information about agent/client
 
 **Validation:**
-- ⏳ Agent info captured correctly
-- ⏳ Useful for debugging and logging
+- ✅ Agent info captured correctly
+- ✅ Useful for debugging and logging
 
 #### 4g. add-mcp-discovery-tools
-**Status:** 📋 Proposed (0% complete)
-**Requires:** tool-conventions
+**Status:** ✅ Complete
+**Requires:** ✅ tool-conventions (Complete)
 **Priority:** LOW - Introspection
 
 **Tools:**
@@ -214,9 +214,9 @@ This document tracks dependencies between OpenSpec change proposals to ensure co
 - list_tools - Enumerate available tools
 
 **Validation:**
-- ⏳ Complete tool/prompt/resource enumeration
-- ⏳ Useful metadata included
-- ⏳ Helps agents discover capabilities
+- ✅ Complete tool/prompt/resource enumeration
+- ✅ Useful metadata included
+- ✅ Helps agents discover capabilities
 
 #### 4h. tool-descriptions
 **Status:** ✅ Complete (2025-12-20)
@@ -238,8 +238,8 @@ This document tracks dependencies between OpenSpec change proposals to ensure co
 - ✅ Specification updated with new requirements
 
 #### 4i. collections-with-patterns
-**Status:** 📋 Proposed (0% complete)
-**Requires:** add-collection-tools
+**Status:** ✅ Complete
+**Requires:** ✅ add-collection-tools (Complete)
 **Priority:** LOW - Enhancement
 
 **Features:**
@@ -248,17 +248,37 @@ This document tracks dependencies between OpenSpec change proposals to ensure co
 - Backward compatibility with existing collections
 
 **Validation:**
-- ⏳ Collections can specify custom patterns
-- ⏳ Pattern override works correctly
-- ⏳ Existing collections unaffected
+- ✅ Collections can specify custom patterns
+- ✅ Pattern override works correctly
+- ✅ Existing collections unaffected
 
 ---
 
 ### Phase 4: Advanced Features
 
-#### 5a. template-support
+#### 5a. agent-server-filesystem-interaction
 **Status:** 📋 Proposed (0% complete)
-**Requires:** add-feature-flags
+**Requires:** ✅ logging-implementation (Complete)
+**Blocks:** add-openspec-support
+**Priority:** HIGH - Filesystem interaction infrastructure
+
+**Deliverables:**
+- Sampling-based file operations (directory listing, file reading)
+- Path validation and security fencing
+- Server-side file caching with LRU eviction
+- MCP tools: guide_cache_file, guide_list_directory, guide_read_file
+- OpenSpec filesystem integration
+
+**Validation:**
+- ⏳ Directory listing via sampling requests works
+- ⏳ File reading via sampling requests works
+- ⏳ Path security fencing prevents unauthorized access
+- ⏳ File cache performs efficiently
+- ⏳ OpenSpec tools use filesystem interaction
+
+#### 5b. template-support
+**Status:** ✅ Complete
+**Requires:** ✅ add-feature-flags (Complete)
 **Blocks:** add-openspec-support
 **Priority:** HIGH - Template rendering system
 
@@ -269,14 +289,14 @@ This document tracks dependencies between OpenSpec change proposals to ensure co
 - Integration with feature flags for conditional rendering
 
 **Validation:**
-- ⏳ Template discovery works
-- ⏳ Context hierarchy resolves correctly
-- ⏳ Chevron rendering functional
-- ⏳ Feature flag integration complete
+- ✅ Template discovery works
+- ✅ Context hierarchy resolves correctly
+- ✅ Chevron rendering functional
+- ✅ Feature flag integration complete
 
-#### 5b. add-openspec-support
+#### 5c. add-openspec-support
 **Status:** 📋 Proposed (0% complete)
-**Requires:** add-feature-flags, template-support
+**Requires:** add-feature-flags, template-support, agent-server-filesystem-interaction
 **Priority:** MEDIUM - OpenSpec workflow integration
 
 **Features:**
@@ -284,14 +304,16 @@ This document tracks dependencies between OpenSpec change proposals to ensure co
 - MCP tools for OpenSpec workflows
 - MCP resources for OpenSpec project state
 - Template context integration
+- Dynamic file discovery and validation
 
 **Validation:**
 - ⏳ Feature flag conditional activation
 - ⏳ OpenSpec workflow tools functional
 - ⏳ Template integration complete
 - ⏳ MCP resources queryable
+- ⏳ Filesystem interaction enables dynamic change discovery
 
-#### 5c. hook-uri-templates
+#### 5d. hook-uri-templates
 **Status:** 📋 Proposed (0% complete)
 **Requires:** add-guide-uri-scheme, template-support, add-feature-flags
 **Priority:** MEDIUM - Dynamic hook content support
@@ -317,8 +339,8 @@ Phase 1: Foundation
     ✅ logging-implementation (ADR-004) - COMPLETE
         ↓
 Phase 2: Configuration and Infrastructure
-    📋 add-feature-flags (NEW)
-    📋 tool-conventions (ADR-008)
+    ✅ add-feature-flags - COMPLETE
+    ✅ tool-conventions (ADR-008) - COMPLETE
         ↓
 Phase 3: Tool Implementations
     ✅ add-category-tools (4a) - COMPLETE
@@ -327,28 +349,31 @@ Phase 3: Tool Implementations
         ↓
     ✅ add-content-tools (4c) - COMPLETE
         ↓
-    📋 add-guide-uri-scheme (4d) - READY TO START
+    ✅ add-guide-uri-scheme (4d) - COMPLETE
 
     Parallel (depend on tool-conventions only):
     ✅ add-guide-project-tools (4e) - COMPLETE
-    📋 add-guide-utility-tools (4f)
-    📋 add-mcp-discovery-tools (4g)
-    📋 collections-with-patterns (4h) - depends on add-collection-tools
+    ✅ add-guide-utility-tools (4f) - COMPLETE
+    ✅ add-mcp-discovery-tools (4g) - COMPLETE
+    ✅ tool-descriptions (4h) - COMPLETE
+    ✅ collections-with-patterns (4i) - COMPLETE
 
 Phase 4: Advanced Features
-    📋 template-support (5a) ← depends on add-feature-flags
+    📋 agent-server-filesystem-interaction (5a) ← depends on logging-implementation (Complete) - READY TO START
+    ✅ template-support (5b) - COMPLETE
         ↓
-    📋 add-openspec-support (5b) ← depends on add-feature-flags + template-support
-    📋 hook-uri-templates (5c) ← depends on add-guide-uri-scheme + template-support + add-feature-flags
+    📋 add-openspec-support (5c) ← depends on template-support + agent-server-filesystem-interaction
+    📋 hook-uri-templates (5d) ← depends on add-guide-uri-scheme + template-support
 ```
 
 **Critical Path:**
 1. ✅ logging-implementation (Complete)
-2. 📋 add-feature-flags (NEW - blocks advanced features)
-3. 📋 tool-conventions (blocks remaining tools)
-4. 📋 template-support (after add-feature-flags)
-5. 📋 add-openspec-support (after template-support)
-6. 📋 hook-uri-templates (after add-guide-uri-scheme + template-support + add-feature-flags)
+2. ✅ add-feature-flags (Complete)
+3. ✅ tool-conventions (Complete)
+4. ✅ template-support (Complete)
+5. 📋 agent-server-filesystem-interaction (enables OpenSpec filesystem access) - READY TO START
+6. 📋 add-openspec-support (after agent-server-filesystem-interaction)
+7. 📋 hook-uri-templates (optional enhancement)
 
 ---
 
@@ -363,6 +388,11 @@ Phase 4: Advanced Features
 **Reason:** Both features require feature flag conditional activation
 **Impact:** Cannot implement advanced features without feature flag system
 **Validation:** Feature flag resolution and MCP tools must work before proceeding
+
+### agent-server-filesystem-interaction → add-openspec-support
+**Reason:** OpenSpec integration requires dynamic file discovery and validation
+**Impact:** Cannot implement interactive OpenSpec workflows without filesystem access
+**Validation:** Sampling-based file operations and caching must work before OpenSpec integration
 
 ### template-support → add-openspec-support
 **Reason:** OpenSpec integration uses template context hierarchy
@@ -388,15 +418,27 @@ Phase 4: Advanced Features
 
 ## Parallel Work Opportunities
 
-### ✅ After Phase 1 (logging-implementation) - COMPLETE
-- Both add-feature-flags and tool-conventions can start
-- Documentation for mcp_core logging ✅
-- Integration tests for logging in mcp_guide ✅
+### ✅ All Phases Complete Except Phase 4 Final Items
 
-### After Phase 2 (add-feature-flags, tool-conventions)
-- **Sequential**: add-category-tools → add-collection-tools → add-content-tools → add-guide-uri-scheme
-- **Parallel**: add-guide-utility-tools, add-mcp-discovery-tools can start after tool-conventions
-- **Advanced**: template-support can start after add-feature-flags
+**Phase 1: Foundation** ✅ COMPLETE
+- logging-implementation
+
+**Phase 2: Configuration and Infrastructure** ✅ COMPLETE
+- add-feature-flags
+- tool-conventions
+
+**Phase 3: Tool Implementations** ✅ COMPLETE
+- All content and configuration tools (4a-4c)
+- add-guide-uri-scheme (4d)
+- All utility and discovery tools (4e-4g)
+- tool-descriptions (4h)
+- collections-with-patterns (4i)
+
+**Phase 4: Advanced Features** - IN PROGRESS
+- ✅ template-support (5b) - COMPLETE
+- 📋 agent-server-filesystem-interaction (5a) - READY TO START
+- 📋 add-openspec-support (5c) - Waiting for agent-server-filesystem-interaction
+- 📋 hook-uri-templates (5d) - Optional enhancement
 
 ### Within Changes
 - **add-category-tools**: Four tools can be implemented in parallel (share validation) ✅
@@ -450,37 +492,42 @@ Phase 4: Advanced Features
 - ✅ Content formatting correct (single vs multiple matches)
 
 ### Phase 4: Advanced Features
+- ⏳ Sampling-based filesystem operations work correctly
+- ⏳ Path security fencing prevents unauthorized access
+- ⏳ File cache performs efficiently with LRU eviction
 - ⏳ Template discovery and rendering works
 - ⏳ Feature flag integration functional
 - ⏳ OpenSpec conditional activation works
+- ⏳ OpenSpec dynamic file discovery functional
 - ⏳ Template context hierarchy resolves correctly
 
 ---
 
-## Current Status Summary (2025-12-10)
+## Current Status Summary (2025-12-24)
 
-**✅ Completed (6 changes):**
+**✅ Completed (13 changes):**
 - logging-implementation
+- add-feature-flags
+- tool-conventions
 - add-category-tools
 - add-collection-tools
 - add-content-tools
+- add-guide-uri-scheme
 - add-guide-project-tools
+- add-guide-utility-tools
+- add-mcp-discovery-tools
 - tool-descriptions
+- collections-with-patterns
+- template-support
 
-**📋 Ready to Start (2 changes):**
-- add-feature-flags (no dependencies)
-- tool-conventions (no dependencies)
+**📋 Ready to Start (1 change):**
+- agent-server-filesystem-interaction (depends on logging-implementation, which is complete)
 
-**📋 Blocked but Proposed (6 changes):**
-- add-guide-uri-scheme (needs tool-conventions)
-- add-guide-utility-tools (needs tool-conventions)
-- add-mcp-discovery-tools (needs tool-conventions)
-- collections-with-patterns (needs tool-conventions)
-- template-support (needs add-feature-flags)
-- add-openspec-support (needs add-feature-flags + template-support)
-- hook-uri-templates (needs add-guide-uri-scheme + template-support + add-feature-flags)
+**📋 Blocked but Proposed (2 changes):**
+- add-openspec-support (needs agent-server-filesystem-interaction + template-support - template-support is complete)
+- hook-uri-templates (optional enhancement - all dependencies complete)
 
-**Total Progress:** 159/290+ tasks complete (55%)
+**Total Progress:** 13/16 changes complete (81%)
 
 ---
 

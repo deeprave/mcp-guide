@@ -91,20 +91,23 @@ def is_absolute_path(path: str) -> bool:
     return True if path.startswith("\\\\") else Path(path).is_absolute()
 
 
-def validate_directory_path(path: Optional[str], default: str) -> str:
+def validate_directory_path(path: Optional[str], default: Optional[str] = None) -> str:
     """Validate directory path for safety.
 
     Args:
         path: Directory path to validate (or None/empty for default)
-        default: Default value if path is None/empty
+        default: Default value if path is None/empty (optional)
 
     Returns:
         Validated path
 
     Raises:
         ArgValidationError: If path is invalid
+        ValueError: If path is None/empty and no default provided
     """
     if not path:
+        if default is None:
+            raise ValueError("Path cannot be empty and no default provided")
         return default
 
     if is_absolute_path(path):

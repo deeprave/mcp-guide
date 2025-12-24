@@ -8,10 +8,27 @@ from typing import TYPE_CHECKING, Any, NamedTuple, Optional
 from pydantic import ConfigDict, field_validator
 from pydantic.dataclasses import dataclass as pydantic_dataclass
 
+from mcp_core.validation import validate_directory_path
+
 if TYPE_CHECKING:
     from mcp_guide.session import Session
 
 from mcp_guide.feature_flags.types import FeatureValue
+
+# Default allowed filesystem paths for projects.
+# These paths are relative to the project root and must have trailing slashes.
+# Used by the filesystem interaction feature for security fencing.
+# See: openspec/changes/agent-server-filesystem-interaction/specs/filesystem-interaction/spec.md
+DEFAULT_ALLOWED_PATHS: list[str] = [
+    "openspec/",
+    "memory/",
+    "specs/",
+    "templates/",
+    "tasks/",
+    "docs/",
+    ".todo/",
+    ".issues/",
+]
 
 # Name validation: Unicode alphanumeric, underscore, hyphen
 NAME_PATTERN = r"^[\w-]+$"
@@ -212,6 +229,7 @@ class Project:
         hash: SHA256 hash of project path for unique identification
         categories: Dictionary of category configurations (name -> Category)
         collections: Dictionary of collection configurations (name -> Collection)
+        allowed_paths: List of allowed filesystem paths (must end with '/')
 
     Note:
         Instances are immutable (frozen=True).
@@ -227,6 +245,7 @@ class Project:
     categories: dict[str, Category] = field(default_factory=dict)
     collections: dict[str, Collection] = field(default_factory=dict)
     project_flags: dict[str, FeatureValue] = field(default_factory=dict)
+    allowed_paths: list[str] = field(default_factory=lambda: DEFAULT_ALLOWED_PATHS.copy())
 
     @field_validator("name")
     @classmethod
@@ -235,6 +254,21 @@ class Project:
             raise ValueError("Project name must be between 1 and 50 characters")
         if not _NAME_REGEX.match(v):
             raise ValueError("Project name must contain only alphanumeric characters, underscores, and hyphens")
+        return v
+
+    @field_validator("allowed_paths")
+    @classmethod
+    def validate_allowed_paths(cls, v: list[str]) -> list[str]:
+        """Validate that all allowed paths are safe and consistent."""
+        for path in v:
+            if not path:
+                raise ValueError("Allowed path cannot be empty")
+
+            # Use existing validation for security checks
+            validate_directory_path(path)
+
+            if not path.endswith("/"):
+                raise ValueError(f"Allowed path '{path}' must end with trailing slash. Use '{path}/' instead.")
         return v
 
     @field_validator("project_flags")

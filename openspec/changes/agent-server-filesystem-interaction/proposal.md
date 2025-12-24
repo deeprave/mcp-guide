@@ -8,7 +8,7 @@
 
 MCP servers currently lack direct access to the agent's filesystem, creating significant challenges for interactive, file-based workflows. This limitation affects:
 
-1. **Discovery**: Servers cannot discover files in project directories (e.g., `openspec/changes/`, `.adr/`)
+1. **Discovery**: Servers cannot discover files in project directories (e.g., `openspec/changes/`, `.todo/`, `docs/`)
 2. **Content Access**: Servers cannot read file contents from the agent's environment
 3. **State Synchronization**: Project state between agent and server cannot be synchronized
 4. **Interactive Workflows**: File-based workflows are limited to passive document instructions rather than active, interactive operations
@@ -62,7 +62,7 @@ This change introduces a secure, bidirectional filesystem interaction pattern us
 
 1. **Security Configuration**
    - Define allowed filesystem paths in project configuration
-   - Default allowed paths: `openspec/`, `.adr/`, `specs/`, `templates/`
+   - Default allowed paths: `openspec/`, `memory/`, `specs/`, `templates/`, `tasks/`, `docs/`, `.todo/`, `.issues/`
    - Per-project path customization
 
 ## Technical Approach
