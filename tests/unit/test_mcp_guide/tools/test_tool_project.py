@@ -92,7 +92,7 @@ class TestGetProject:
             assert all(isinstance(c, str) for c in result["value"]["collections"])
             assert all(isinstance(c, str) for c in result["value"]["categories"])
         finally:
-            remove_current_session("test-project")
+            await remove_current_session("test-project")
 
     @pytest.mark.asyncio
     async def test_verbose_output(self, tmp_path: Path, monkeypatch):
@@ -141,7 +141,7 @@ class TestGetProject:
                 assert "description" in category
                 assert isinstance(category["patterns"], list)
         finally:
-            remove_current_session("test-project")
+            await remove_current_session("test-project")
 
     @pytest.mark.asyncio
     async def test_empty_project(self, tmp_path: Path, monkeypatch):
@@ -173,7 +173,7 @@ class TestGetProject:
             assert result["value"]["collections"] == []
             assert result["value"]["categories"] == []
         finally:
-            remove_current_session("empty-project")
+            await remove_current_session("empty-project")
 
     @pytest.mark.asyncio
     async def test_flags_included_verbose_mode(self, tmp_path: Path, monkeypatch):
@@ -218,7 +218,7 @@ class TestGetProject:
                 assert flags["env"] == "test"
                 assert flags["global_flag"] == "value"
             finally:
-                remove_current_session("test-project")
+                await remove_current_session("test-project")
 
     @pytest.mark.asyncio
     async def test_flags_included_non_verbose_mode(self, tmp_path: Path, monkeypatch):
@@ -261,7 +261,7 @@ class TestGetProject:
                 assert isinstance(flags, list)
                 assert set(flags) == {"debug", "env", "global_flag"}
             finally:
-                remove_current_session("test-project")
+                await remove_current_session("test-project")
 
     @pytest.mark.asyncio
     async def test_project_flags_override_global_flags(self, tmp_path: Path, monkeypatch):
@@ -300,7 +300,7 @@ class TestGetProject:
                 flags = result["value"]["flags"]
                 assert flags["shared_flag"] == "project_value"
             finally:
-                remove_current_session("test-project")
+                await remove_current_session("test-project")
 
 
 class TestSetProject:

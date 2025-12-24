@@ -26,19 +26,26 @@ class TestPathWatcherBasic:
             watcher = PathWatcher(tmp_dir)
             assert watcher.path == tmp_dir
 
-    def test_path_watcher_raises_error_for_non_existent_paths(self):
-        """PathWatcher raises error for non-existent paths."""
+    @pytest.mark.asyncio
+    async def test_path_watcher_raises_error_for_non_existent_paths(self):
+        """PathWatcher raises error for non-existent paths on first check."""
         non_existent_path = "/this/path/does/not/exist"
-        with pytest.raises(FileNotFoundError):
-            PathWatcher(non_existent_path)
+        watcher = PathWatcher(non_existent_path)
 
-    def test_path_watcher_tracks_initial_mtime_and_inode(self):
-        """PathWatcher tracks initial mtime and inode."""
+        with pytest.raises(FileNotFoundError):
+            await watcher.has_changed()
+
+    @pytest.mark.asyncio
+    async def test_path_watcher_tracks_initial_mtime_and_inode(self):
+        """PathWatcher tracks initial mtime and inode after first check."""
         with tempfile.NamedTemporaryFile() as tmp_file:
             watcher = PathWatcher(tmp_file.name)
 
             # Get actual file stats
             stat = os.stat(tmp_file.name)
+
+            # Initialize by calling has_changed
+            await watcher.has_changed()
 
             assert watcher._last_mtime == stat.st_mtime
             assert watcher._last_inode == stat.st_ino
@@ -47,7 +54,8 @@ class TestPathWatcherBasic:
 class TestPathWatcherChangeDetection:
     """Test PathWatcher change detection functionality."""
 
-    def test_path_watcher_detects_file_mtime_changes(self):
+    @pytest.mark.asyncio
+    async def test_path_watcher_detects_file_mtime_changes(self):
         """PathWatcher detects file mtime changes."""
         with tempfile.NamedTemporaryFile(mode="w", delete=False) as tmp_file:
             tmp_file.write("initial content")
@@ -55,19 +63,23 @@ class TestPathWatcherChangeDetection:
 
             watcher = PathWatcher(tmp_file.name)
 
+            # Initialize
+            await watcher.has_changed()
+
             # Modify file content
             time.sleep(0.1)  # Ensure time difference
             with open(tmp_file.name, "w") as f:
                 f.write("modified content")
 
             # Check if change is detected
-            has_changed = watcher.has_changed()
+            has_changed = await watcher.has_changed()
             assert has_changed is True
 
             # Clean up
             os.unlink(tmp_file.name)
 
-    def test_path_watcher_detects_file_inode_changes(self):
+    @pytest.mark.asyncio
+    async def test_path_watcher_detects_file_inode_changes(self):
         """PathWatcher detects file inode changes (rename/replace)."""
         with tempfile.NamedTemporaryFile(mode="w", delete=False) as tmp_file:
             tmp_file.write("initial content")
@@ -75,6 +87,9 @@ class TestPathWatcherChangeDetection:
             original_name = tmp_file.name
 
             watcher = PathWatcher(original_name)
+
+            # Initialize
+            await watcher.has_changed()
 
             # Create new file and replace original (simulates editor save behavior)
             temp_name = original_name + ".tmp"
@@ -85,16 +100,20 @@ class TestPathWatcherChangeDetection:
             os.rename(temp_name, original_name)
 
             # Check if change is detected
-            has_changed = watcher.has_changed()
+            has_changed = await watcher.has_changed()
             assert has_changed is True
 
             # Clean up
             os.unlink(original_name)
 
-    def test_path_watcher_detects_directory_mtime_changes(self):
+    @pytest.mark.asyncio
+    async def test_path_watcher_detects_directory_mtime_changes(self):
         """PathWatcher detects directory mtime changes."""
         with tempfile.TemporaryDirectory() as tmp_dir:
             watcher = PathWatcher(tmp_dir)
+
+            # Initialize
+            await watcher.has_changed()
 
             # Add a file to the directory
             time.sleep(0.1)  # Ensure time difference
@@ -103,18 +122,19 @@ class TestPathWatcherChangeDetection:
                 f.write("new file content")
 
             # Check if change is detected
-            has_changed = watcher.has_changed()
+            has_changed = await watcher.has_changed()
             assert has_changed is True
 
-    def test_path_watcher_ignores_unchanged_files(self):
+    @pytest.mark.asyncio
+    async def test_path_watcher_ignores_unchanged_files(self):
         """PathWatcher ignores unchanged files."""
         with tempfile.NamedTemporaryFile() as tmp_file:
             watcher = PathWatcher(tmp_file.name)
 
             # Check multiple times without changes
-            assert watcher.has_changed() is False
-            assert watcher.has_changed() is False
-            assert watcher.has_changed() is False
+            assert await watcher.has_changed() is False  # First call initializes
+            assert await watcher.has_changed() is False
+            assert await watcher.has_changed() is False
 
 
 class TestPathWatcherCallbackSystem:
@@ -128,7 +148,8 @@ class TestPathWatcherCallbackSystem:
             watcher = PathWatcher(tmp_file.name, callback=callback)
             assert callback in watcher._callbacks
 
-    def test_callback_is_invoked_when_changes_are_detected(self):
+    @pytest.mark.asyncio
+    async def test_callback_is_invoked_when_changes_are_detected(self):
         """Callback is invoked when changes are detected."""
         callback = Mock()
 
@@ -138,13 +159,16 @@ class TestPathWatcherCallbackSystem:
 
             watcher = PathWatcher(tmp_file.name, callback=callback)
 
+            # Initialize
+            await watcher.has_changed()
+
             # Modify file content
             time.sleep(0.1)  # Ensure time difference
             with open(tmp_file.name, "w") as f:
                 f.write("modified content")
 
             # Check for changes (should trigger callback)
-            watcher.has_changed()
+            await watcher.has_changed()
 
             # Verify callback was called
             callback.assert_called_once_with(tmp_file.name)
@@ -152,7 +176,8 @@ class TestPathWatcherCallbackSystem:
             # Clean up
             os.unlink(tmp_file.name)
 
-    def test_callback_receives_path_as_parameter(self):
+    @pytest.mark.asyncio
+    async def test_callback_receives_path_as_parameter(self):
         """Callback receives path as parameter."""
         callback = Mock()
 
@@ -163,6 +188,9 @@ class TestPathWatcherCallbackSystem:
 
             watcher = PathWatcher(original_name, callback=callback)
 
+            # Initialize
+            await watcher.has_changed()
+
             # Create new file and replace original (inode change)
             temp_name = original_name + ".tmp"
             with open(temp_name, "w") as f:
@@ -172,7 +200,7 @@ class TestPathWatcherCallbackSystem:
             os.rename(temp_name, original_name)
 
             # Check for changes (should trigger callback)
-            watcher.has_changed()
+            await watcher.has_changed()
 
             # Verify callback was called with correct parameters
             callback.assert_called_once_with(original_name)
@@ -180,7 +208,8 @@ class TestPathWatcherCallbackSystem:
             # Clean up
             os.unlink(original_name)
 
-    def test_multiple_callbacks_can_be_registered(self):
+    @pytest.mark.asyncio
+    async def test_multiple_callbacks_can_be_registered(self):
         """Multiple callbacks can be registered."""
         callback1 = Mock()
         callback2 = Mock()
@@ -192,13 +221,16 @@ class TestPathWatcherCallbackSystem:
             watcher = PathWatcher(tmp_file.name, callback=callback1)
             watcher.add_callback(callback2)
 
+            # Initialize
+            await watcher.has_changed()
+
             # Modify file content
             time.sleep(0.1)  # Ensure time difference
             with open(tmp_file.name, "w") as f:
                 f.write("modified content")
 
             # Check for changes (should trigger both callbacks)
-            watcher.has_changed()
+            await watcher.has_changed()
 
             # Verify both callbacks were called
             callback1.assert_called_once_with(tmp_file.name)
@@ -207,7 +239,8 @@ class TestPathWatcherCallbackSystem:
             # Clean up
             os.unlink(tmp_file.name)
 
-    def test_callback_exceptions_dont_crash_watcher(self):
+    @pytest.mark.asyncio
+    async def test_callback_exceptions_dont_crash_watcher(self):
         """Callback exceptions don't crash watcher."""
 
         def failing_callback(path):
@@ -219,13 +252,16 @@ class TestPathWatcherCallbackSystem:
 
             watcher = PathWatcher(tmp_file.name, callback=failing_callback)
 
+            # Initialize
+            await watcher.has_changed()
+
             # Modify file content
             time.sleep(0.1)  # Ensure time difference
             with open(tmp_file.name, "w") as f:
                 f.write("modified content")
 
             # Check for changes (callback should fail but not crash)
-            has_changed = watcher.has_changed()
+            has_changed = await watcher.has_changed()
             assert has_changed is True  # Change should still be detected
 
             # Clean up

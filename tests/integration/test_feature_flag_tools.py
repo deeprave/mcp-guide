@@ -6,6 +6,7 @@ Tests feature flag tools through MCP protocol with real session management.
 import json
 
 import pytest
+import pytest_asyncio
 from mcp.shared.memory import create_connected_server_and_client_session
 
 from mcp_guide.config import ConfigManager
@@ -27,8 +28,8 @@ def mcp_server(mcp_server_factory):
     return mcp_server_factory(["tool_feature_flags"])
 
 
-@pytest.fixture
-def test_session(tmp_path):
+@pytest_asyncio.fixture
+async def test_session(tmp_path):
     """Create test session with sample project."""
     manager = ConfigManager(config_dir=str(tmp_path))
     session = Session(_config_manager=manager, project_name="test")
@@ -39,7 +40,8 @@ def test_session(tmp_path):
 
     set_current_session(session)
     yield session
-    remove_current_session("test")
+    # Properly cleanup async session
+    await remove_current_session("test")
 
 
 @pytest.mark.anyio

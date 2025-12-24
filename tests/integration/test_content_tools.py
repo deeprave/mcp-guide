@@ -47,7 +47,7 @@ async def test_get_content_category_only(mcp_server, tmp_path, monkeypatch):
         assert response["success"] is True
         assert "Project Guidelines" in response["value"]
 
-    remove_current_session("test")
+    await remove_current_session("test")
 
 
 @pytest.mark.anyio
@@ -78,7 +78,7 @@ async def test_get_content_collection_only(mcp_server, tmp_path, monkeypatch):
         assert "Project Guidelines" in response["value"]
         assert "Python Guide" in response["value"]
 
-    remove_current_session("test")
+    await remove_current_session("test")
 
 
 @pytest.mark.anyio
@@ -113,7 +113,7 @@ async def test_get_content_both_match_deduplicates(mcp_server, tmp_path, monkeyp
         # If not de-duplicated, would appear 4 times
         assert content.count("guidelines.md") <= 3  # Allow for MIME headers
 
-    remove_current_session("test")
+    await remove_current_session("test")
 
 
 @pytest.mark.anyio
@@ -143,7 +143,7 @@ async def test_get_content_pattern_override(mcp_server, tmp_path, monkeypatch):
         assert "Jira Integration" in response["value"]
         assert "jira-settings.yaml" not in response["value"]  # YAML file should be excluded
 
-    remove_current_session("test")
+    await remove_current_session("test")
 
 
 @pytest.mark.anyio
@@ -170,4 +170,4 @@ async def test_get_content_empty_result(mcp_server, tmp_path, monkeypatch):
         assert "No matching content found" in response["value"]
         assert "instruction" in response
 
-    remove_current_session("test")
+    await remove_current_session("test")

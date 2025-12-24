@@ -51,7 +51,7 @@ async def test_session(tmp_path: Path):
     )
 
     yield session
-    remove_current_session("test")
+    await remove_current_session("test")
 
 
 # Phase 2: Collection Management Workflow Tests
@@ -257,13 +257,13 @@ async def test_collection_persists_after_add(mcp_server, tmp_path, monkeypatch):
         args = CollectionAddArgs(name="backend", categories=["api"])
         await call_mcp_tool(client, "collection_add", args)
 
-    remove_current_session("test")
+    await remove_current_session("test")
 
     # Reload session and verify
     session2 = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
     project = await session2.get_project()
     assert len(project.collections) == 1
-    remove_current_session("test")
+    await remove_current_session("test")
 
 
 @pytest.mark.anyio
@@ -286,14 +286,14 @@ async def test_collection_persists_after_update(mcp_server, tmp_path, monkeypatc
         args2 = CollectionUpdateArgs(name="backend", add_categories=["docs"])
         await call_mcp_tool(client, "collection_update", args2)
 
-    remove_current_session("test")
+    await remove_current_session("test")
 
     # Reload and verify
     session2 = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
     project = await session2.get_project()
     assert len(project.collections) == 1
     assert "docs" in project.collections["backend"].categories
-    remove_current_session("test")
+    await remove_current_session("test")
 
 
 @pytest.mark.anyio
@@ -312,13 +312,13 @@ async def test_collection_removed_persists(mcp_server, tmp_path, monkeypatch):
         args2 = CollectionRemoveArgs(name="backend")
         await call_mcp_tool(client, "collection_remove", args2)
 
-    remove_current_session("test")
+    await remove_current_session("test")
 
     # Reload and verify removed
     session2 = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
     project = await session2.get_project()
     assert len(project.collections) == 0
-    remove_current_session("test")
+    await remove_current_session("test")
 
 
 @pytest.mark.anyio
@@ -345,14 +345,14 @@ async def test_multiple_operations_persist(mcp_server, tmp_path, monkeypatch):
         args4 = CollectionRemoveArgs(name="frontend")
         await call_mcp_tool(client, "collection_remove", args4)
 
-    remove_current_session("test")
+    await remove_current_session("test")
 
     # Reload and verify
     session2 = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
     project = await session2.get_project()
     assert len(project.collections) == 1
     assert set(project.collections["backend"].categories) == {"api", "docs"}
-    remove_current_session("test")
+    await remove_current_session("test")
 
 
 # Phase 5: Error Cases Tests
@@ -452,7 +452,7 @@ async def test_collection_removal_preserves_categories(mcp_server, tmp_path, mon
         args2 = CollectionRemoveArgs(name="backend")
         await call_mcp_tool(client, "collection_remove", args2)
 
-    remove_current_session("test")
+    await remove_current_session("test")
 
     # Reload and verify categories still exist
     session2 = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
@@ -460,7 +460,7 @@ async def test_collection_removal_preserves_categories(mcp_server, tmp_path, mon
     assert len(project.collections) == 0
     assert len(project.categories) == 1
     assert "api" in project.categories
-    remove_current_session("test")
+    await remove_current_session("test")
 
 
 # Collection content functionality is now handled by the unified get_content tool

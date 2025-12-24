@@ -6,6 +6,7 @@ Tests that tools are correctly registered and invocable through MCP protocol.
 import json
 
 import pytest
+import pytest_asyncio
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
@@ -23,8 +24,8 @@ def production_mode():
     enable_test_mode()  # Restore test mode for other tests
 
 
-@pytest.fixture
-def test_session(tmp_path):
+@pytest_asyncio.fixture
+async def test_session(tmp_path):
     """Create test session with sample project."""
     manager = ConfigManager(config_dir=str(tmp_path))
     session = Session(_config_manager=manager, project_name="test")
@@ -38,7 +39,7 @@ def test_session(tmp_path):
 
     set_current_session(session)
     yield session
-    remove_current_session("test")
+    await remove_current_session("test")
 
 
 @pytest.mark.asyncio

@@ -7,6 +7,8 @@ import os
 from pathlib import Path
 from typing import List, Set
 
+from anyio import Path as AsyncPath
+
 from mcp_guide.constants import MAX_DOCUMENTS_PER_GLOB, MAX_GLOB_DEPTH
 from mcp_guide.mcp_core.lazy_path import LazyPath
 
@@ -36,7 +38,7 @@ def is_valid_file(path: Path) -> bool:
     return True
 
 
-def _process_match(
+async def _process_match(
     match_path: Path,
     search_dir: Path,
     seen_files: Set[Path],
@@ -47,7 +49,7 @@ def _process_match(
     Returns:
         True if file was added, False otherwise
     """
-    if not match_path.is_file():
+    if not await AsyncPath(match_path).is_file():
         return False
 
     if not is_valid_file(match_path):
@@ -79,7 +81,7 @@ def _process_match(
     return True
 
 
-def _walk_with_depth_limit(search_dir: Path, pattern: str) -> List[Path]:
+async def _walk_with_depth_limit(search_dir: Path, pattern: str) -> List[Path]:
     """Walk directory tree with depth limit, matching pattern.
 
     Uses os.walk() with manual depth tracking to prevent DOS from deep traversal.
@@ -116,7 +118,7 @@ def _walk_with_depth_limit(search_dir: Path, pattern: str) -> List[Path]:
 
     start_dir = search_dir_resolved / prefix if prefix else search_dir_resolved
 
-    if not start_dir.exists():
+    if not await AsyncPath(start_dir).exists():
         return matched_paths
 
     for root, dirs, files in os.walk(start_dir):
@@ -142,7 +144,7 @@ def _walk_with_depth_limit(search_dir: Path, pattern: str) -> List[Path]:
     return matched_paths
 
 
-def safe_glob_search(search_dir: Path, patterns: List[str]) -> List[Path]:
+async def safe_glob_search(search_dir: Path, patterns: List[str]) -> List[Path]:
     """Safely search for files using glob patterns with safety limits.
 
     Args:
@@ -167,7 +169,7 @@ def safe_glob_search(search_dir: Path, patterns: List[str]) -> List[Path]:
 
         # Use depth-limited walk for safety
         try:
-            candidate_paths = _walk_with_depth_limit(search_dir_resolved, pattern)
+            candidate_paths = await _walk_with_depth_limit(search_dir_resolved, pattern)
         except Exception as e:
             logger.warning(f"Pattern '{pattern}' failed: {e}")
             continue
@@ -177,7 +179,7 @@ def safe_glob_search(search_dir: Path, patterns: List[str]) -> List[Path]:
                 logger.warning(f"Reached maximum document limit ({MAX_DOCUMENTS_PER_GLOB}) for glob search")
                 break
 
-            if _process_match(match_path, search_dir_resolved, seen_files, matched_files):
+            if await _process_match(match_path, search_dir_resolved, seen_files, matched_files):
                 matches_found = True
 
         # If no matches and pattern has no extension, try with .* wildcard
@@ -185,7 +187,7 @@ def safe_glob_search(search_dir: Path, patterns: List[str]) -> List[Path]:
             wildcard_pattern = f"{pattern}.*"
 
             try:
-                candidate_paths = _walk_with_depth_limit(search_dir_resolved, wildcard_pattern)
+                candidate_paths = await _walk_with_depth_limit(search_dir_resolved, wildcard_pattern)
             except Exception as e:
                 logger.warning(f"Pattern '{wildcard_pattern}' failed: {e}")
                 continue
@@ -197,6 +199,6 @@ def safe_glob_search(search_dir: Path, patterns: List[str]) -> List[Path]:
                     )
                     break
 
-                _process_match(match_path, search_dir_resolved, seen_files, matched_files)
+                await _process_match(match_path, search_dir_resolved, seen_files, matched_files)
 
     return matched_files

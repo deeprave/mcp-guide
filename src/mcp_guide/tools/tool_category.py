@@ -6,6 +6,7 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any, Optional, Union
 
+from anyio import Path as AsyncPath
 from pydantic import Field
 
 from mcp_core.result import Result
@@ -220,7 +221,7 @@ async def internal_category_add(args: CategoryAddArgs, ctx: Optional[Context] = 
     try:
         docroot = Path(await session.get_docroot())
         category_dir = docroot / validated_dir
-        category_dir.mkdir(parents=True, exist_ok=True)
+        await AsyncPath(category_dir).mkdir(parents=True, exist_ok=True)
     except Exception:
         # Directory creation failed (e.g., in test environment) - continue anyway
         # The directory will be created when actually needed for file operations
@@ -493,7 +494,7 @@ async def internal_category_change(args: CategoryChangeArgs, ctx: Optional[Conte
         try:
             docroot = Path(await session.get_docroot())
             category_dir = docroot / args.new_dir
-            category_dir.mkdir(parents=True, exist_ok=True)
+            await AsyncPath(category_dir).mkdir(parents=True, exist_ok=True)
         except Exception:
             # Directory creation failed (e.g., in test environment) - continue anyway
             # The directory will be created when actually needed for file operations
