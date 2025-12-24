@@ -489,8 +489,6 @@ class ConfigManager:
                 }
                 for name, collection in project.collections.items()
             },
-            "created_at": project.created_at.isoformat(),
-            "updated_at": project.updated_at.isoformat(),
         }
 
         # Add hash if present

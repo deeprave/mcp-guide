@@ -1,4 +1,4 @@
-{{#project.flags.phase-tracking}}
+{{#project.project_flags.phase-tracking}}
 ---
 Type: agent/instruction
 Description: Provides information about tracking the development workflow using a .guide file
@@ -42,4 +42,7 @@ Transitions between phases occur when:
 - You can update or make changes to openspec and .todo/ documentation at any time in any phase at the user's request.
 - You **MOST NOT MAKE CHANGES** to production code or test in discussion and planning phases
 - You MAY make changes to production code and tests during implementation, check and review phases
-{{/project.flags.phase-tracking}}
+{{/project.project_flags.phase-tracking}}
+{{^project.project_flags.phase-tracking}}
+Phase tracking is not currently enabled.
+{{/project.project_flags.phase-tracking}}

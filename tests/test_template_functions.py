@@ -24,10 +24,10 @@ class TestTemplateFunctions:
     def test_format_date_lambda(self):
         """Test format_date lambda function."""
         test_date = datetime(2023, 12, 25, 14, 30, 0)
-        context = ChainMap({"created_at": test_date})
+        context = ChainMap({"event_date": test_date})
         functions = TemplateFunctions(context)
 
-        result = functions.format_date("%Y-%m-%d{{created_at}}")
+        result = functions.format_date("%Y-%m-%d{{event_date}}")
         assert result == "2023-12-25"
 
     def test_truncate_lambda(self):
@@ -65,18 +65,18 @@ class TestTemplateFunctionsSecurity:
 
     def test_format_date_invalid_template_format(self):
         """Test format_date with invalid template format."""
-        context = ChainMap({"created_at": datetime(2023, 12, 25)})
+        context = ChainMap({"event_date": datetime(2023, 12, 25)})
         functions = TemplateFunctions(context)
 
         with pytest.raises(ValueError, match="Invalid template format"):
             functions.format_date("no_braces")
 
         with pytest.raises(ValueError, match="Invalid template format"):
-            functions.format_date("missing_close{{created_at")
+            functions.format_date("missing_close{{event_date")
 
     def test_format_date_invalid_variable_name(self):
         """Test format_date with invalid variable names."""
-        context = ChainMap({"created_at": datetime(2023, 12, 25)})
+        context = ChainMap({"event_date": datetime(2023, 12, 25)})
         functions = TemplateFunctions(context)
 
         with pytest.raises(ValueError, match="Missing variable name"):
@@ -204,7 +204,7 @@ class TestSafeLambdaWrapper:
         """Test complete template rendering pipeline with lambda functions."""
         # Template with multiple lambda functions
         template = """# Project Report
-Created: {{#format_date}}%B %d, %Y{{created_at}}{{/format_date}}
+Created: {{#format_date}}%B %d, %Y{{event_date}}{{/format_date}}
 Description: {{#truncate}}50{{description}}{{/truncate}}
 
 ## Code Sample
@@ -213,7 +213,7 @@ Description: {{#truncate}}50{{description}}{{/truncate}}
         # Context with data and lambda functions
         base_context = ChainMap(
             {
-                "created_at": datetime(2023, 12, 25, 14, 30, 0),
+                "event_date": datetime(2023, 12, 25, 14, 30, 0),
                 "description": "This is a very long project description that should be truncated for display",
                 "code_snippet": 'def main():\n    print("Hello World")',
             }

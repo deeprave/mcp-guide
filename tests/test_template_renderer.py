@@ -64,8 +64,8 @@ class TestTemplateRendering:
 
     def test_render_template_content_with_lambda_functions(self):
         """Test template rendering with lambda functions."""
-        content = "Created: {{#format_date}}%Y-%m-%d{{created_at}}{{/format_date}}"
-        context = TemplateContext({"created_at": datetime(2023, 12, 25)})
+        content = "Created: {{#format_date}}%Y-%m-%d{{event_date}}{{/format_date}}"
+        context = TemplateContext({"event_date": datetime(2023, 12, 25)})
 
         result = render_template_content(content, context)
 
@@ -100,8 +100,8 @@ class TestTemplateRendering:
 
         test_cases = [
             (
-                "Date: {{#format_date}}%Y-%m-%d{{created_at}}{{/format_date}}",
-                {"created_at": datetime(2023, 12, 25)},
+                "Date: {{#format_date}}%Y-%m-%d{{event_date}}{{/format_date}}",
+                {"event_date": datetime(2023, 12, 25)},
                 "Date: 2023-12-25",
             ),
             (

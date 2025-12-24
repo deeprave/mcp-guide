@@ -11,6 +11,9 @@ examples:
 {{#project.flags}}
 **{{key}}**: {{value}}
 {{/project.flags}}
+{{^project.flags}}
+None configured
+{{/project.flags}}
 
 ## Global Flags
 {{#global_flags}}

@@ -134,21 +134,21 @@ class TestConfigMigration:
                     },
                     "collections": {"all": {"categories": ["docs", "examples"]}, "docs-only": {"categories": ["docs"]}},
                     "project_flags": {"feature_x": True, "debug_mode": False},
-                    "created_at": "2024-01-01T00:00:00",
-                    "updated_at": "2024-01-02T00:00:00",
                 }
             }
 
             migrated_data = await config_manager._migrate_projects(legacy_data, config_file)
             migrated_project = list(migrated_data.values())[0]
 
-            # Verify all fields preserved
+            # Verify all fields preserved (except timestamps which are ignored)
             original = legacy_data["complex-project"]
             assert migrated_project["categories"] == original["categories"]
             assert migrated_project["collections"] == original["collections"]
             assert migrated_project["project_flags"] == original["project_flags"]
-            assert migrated_project["created_at"] == original["created_at"]
-            assert migrated_project["updated_at"] == original["updated_at"]
+
+            # Timestamp fields should not be present in migrated data
+            assert "created_at" not in migrated_project
+            assert "updated_at" not in migrated_project
 
             # Plus new hash field
             assert "hash" in migrated_project

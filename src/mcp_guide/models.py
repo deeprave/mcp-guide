@@ -3,7 +3,6 @@
 import re
 from collections.abc import Callable
 from dataclasses import dataclass, field, replace
-from datetime import datetime
 from typing import TYPE_CHECKING, Any, NamedTuple, Optional
 
 from pydantic import ConfigDict, field_validator
@@ -213,8 +212,6 @@ class Project:
         hash: SHA256 hash of project path for unique identification
         categories: Dictionary of category configurations (name -> Category)
         collections: Dictionary of collection configurations (name -> Collection)
-        created_at: Timestamp when project was created
-        updated_at: Timestamp when project was last updated
 
     Note:
         Instances are immutable (frozen=True).
@@ -229,8 +226,6 @@ class Project:
     hash: Optional[str] = None  # Optional for backward compatibility
     categories: dict[str, Category] = field(default_factory=dict)
     collections: dict[str, Collection] = field(default_factory=dict)
-    created_at: datetime = field(default_factory=datetime.now)
-    updated_at: datetime = field(default_factory=datetime.now)
     project_flags: dict[str, FeatureValue] = field(default_factory=dict)
 
     @field_validator("name")
@@ -257,22 +252,22 @@ class Project:
     def with_category(self, name: str, category: Category) -> "Project":
         """Return new Project with category added."""
         new_categories = {**self.categories, name: category}
-        return replace(self, categories=new_categories, updated_at=datetime.now())
+        return replace(self, categories=new_categories)
 
     def without_category(self, name: str) -> "Project":
         """Return new Project with category removed."""
         new_categories = {k: v for k, v in self.categories.items() if k != name}
-        return replace(self, categories=new_categories, updated_at=datetime.now())
+        return replace(self, categories=new_categories)
 
     def with_collection(self, name: str, collection: Collection) -> "Project":
         """Return new Project with collection added."""
         new_collections = {**self.collections, name: collection}
-        return replace(self, collections=new_collections, updated_at=datetime.now())
+        return replace(self, collections=new_collections)
 
     def without_collection(self, name: str) -> "Project":
         """Return new Project with collection removed."""
         new_collections = {k: v for k, v in self.collections.items() if k != name}
-        return replace(self, collections=new_collections, updated_at=datetime.now())
+        return replace(self, collections=new_collections)
 
     def update_category(self, name: str, updater: Callable[[Category], Category]) -> "Project":
         """Return new Project with category updated."""
@@ -280,7 +275,7 @@ class Project:
             raise KeyError(f"Category '{name}' not found")
         updated_category = updater(self.categories[name])
         new_categories = {**self.categories, name: updated_category}
-        return replace(self, categories=new_categories, updated_at=datetime.now())
+        return replace(self, categories=new_categories)
 
     def update_collection(self, name: str, updater: Callable[[Collection], Collection]) -> "Project":
         """Return new Project with collection updated."""
@@ -288,7 +283,7 @@ class Project:
             raise KeyError(f"Collection '{name}' not found")
         updated_collection = updater(self.collections[name])
         new_collections = {**self.collections, name: updated_collection}
-        return replace(self, collections=new_collections, updated_at=datetime.now())
+        return replace(self, collections=new_collections)
 
 
 @pydantic_dataclass(frozen=True)
