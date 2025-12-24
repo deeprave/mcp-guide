@@ -137,7 +137,7 @@ class TestBuildTemplateContext:
         """Test type conversion for template-safe values."""
         # Test datetime and Path conversion
         test_data = {
-            "created_at": datetime(2024, 1, 1, 12, 0, 0),
+            "event_date": datetime(2024, 1, 1, 12, 0, 0),
             "file_path": Path("/test/path"),
             "count": 42,
             "active": True,
@@ -147,7 +147,7 @@ class TestBuildTemplateContext:
         context = build_template_context(system_data=test_data)
 
         # Should convert to strings
-        assert isinstance(context["created_at"], str)
+        assert isinstance(context["event_date"], str)
         assert isinstance(context["file_path"], str)
         # Should preserve simple types
         assert context["count"] == 42

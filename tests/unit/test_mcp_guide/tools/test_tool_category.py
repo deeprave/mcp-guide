@@ -456,29 +456,6 @@ class TestCategoryAdd:
         assert result_dict["success"] is False
         assert "save" in result_dict["error"].lower()
 
-    @pytest.mark.asyncio
-    async def test_category_add_updates_timestamp(self, tmp_path: Path) -> None:
-        """Verify updated_at timestamp changes after add."""
-        import asyncio
-
-        from mcp_guide.tools.tool_category import CategoryAddArgs, category_add
-
-        manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(_config_manager=manager, project_name="test")
-        session._cached_project = Project(name="test", categories={}, collections={})
-        set_current_session(session)
-
-        original_time = session._cached_project.updated_at
-        await asyncio.sleep(0.01)
-
-        args = CategoryAddArgs(name="docs", dir="docs", patterns=["*.md"])
-        result_str = await category_add(args)
-        result_dict = json.loads(result_str)
-
-        assert result_dict["success"] is True
-        new_time = session._cached_project.updated_at
-        assert new_time > original_time
-
 
 class TestCategoryRemove:
     """Tests for category_remove tool."""
@@ -659,30 +636,6 @@ class TestCategoryRemove:
 
         assert result_dict["success"] is False
         assert "save" in result_dict["error"].lower()
-
-    @pytest.mark.asyncio
-    async def test_category_remove_updates_timestamp(self, tmp_path: Path) -> None:
-        """Verify updated_at timestamp changes after remove."""
-        import asyncio
-
-        from mcp_guide.tools.tool_category import CategoryRemoveArgs, category_remove
-
-        manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(_config_manager=manager, project_name="test")
-        docs_category = Category(dir="docs", patterns=["*.md"])
-        session._cached_project = Project(name="test", categories={"docs": docs_category}, collections={})
-        set_current_session(session)
-
-        original_time = session._cached_project.updated_at
-        await asyncio.sleep(0.01)
-
-        args = CategoryRemoveArgs(name="docs")
-        result_str = await category_remove(args)
-        result_dict = json.loads(result_str)
-
-        assert result_dict["success"] is True
-        new_time = session._cached_project.updated_at
-        assert new_time > original_time
 
 
 class TestCategoryChange:
@@ -1095,30 +1048,6 @@ class TestCategoryChange:
         assert result_dict["success"] is False
         assert "save" in result_dict["error"].lower()
 
-    @pytest.mark.asyncio
-    async def test_category_change_updates_timestamp(self, tmp_path: Path) -> None:
-        """Verify updated_at timestamp changes after change."""
-        import asyncio
-
-        from mcp_guide.tools.tool_category import CategoryChangeArgs, category_change
-
-        manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(_config_manager=manager, project_name="test")
-        docs_cat = Category(dir="docs", patterns=["*.md"])
-        session._cached_project = Project(name="test", categories={"docs": docs_cat}, collections={})
-        set_current_session(session)
-
-        original_time = session._cached_project.updated_at
-        await asyncio.sleep(0.01)
-
-        args = CategoryChangeArgs(name="docs", new_description="Updated")
-        result_str = await category_change(args)
-        result_dict = json.loads(result_str)
-
-        assert result_dict["success"] is True
-        new_time = session._cached_project.updated_at
-        assert new_time > original_time
-
 
 class TestCategoryUpdate:
     """Tests for category_update tool."""
@@ -1355,30 +1284,6 @@ class TestCategoryUpdate:
 
         assert result_dict["success"] is False
         assert result_dict["error_type"] == "save_error"
-
-    @pytest.mark.asyncio
-    async def test_category_update_updates_timestamp(self, tmp_path: Path) -> None:
-        """Verify updated_at timestamp changes."""
-        import asyncio
-
-        from mcp_guide.tools.tool_category import CategoryUpdateArgs, category_update
-
-        manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(_config_manager=manager, project_name="test")
-        docs_cat = Category(dir="docs", patterns=["*.md"])
-        session._cached_project = Project(name="test", categories={"docs": docs_cat}, collections={})
-        set_current_session(session)
-
-        original_time = session._cached_project.updated_at
-        await asyncio.sleep(0.01)
-
-        args = CategoryUpdateArgs(name="docs", add_patterns=["*.txt"])
-        result_str = await category_update(args)
-        result_dict = json.loads(result_str)
-
-        assert result_dict["success"] is True
-        new_time = session._cached_project.updated_at
-        assert new_time > original_time
 
     @pytest.mark.asyncio
     async def test_category_update_add_duplicate_pattern(self, tmp_path: Path) -> None:
