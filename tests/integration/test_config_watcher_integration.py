@@ -23,7 +23,7 @@ async def test_config_watcher_integration(tmp_path: Path, caplog: pytest.LogCapt
     assert initial_project.name == "test-watcher"
 
     # Verify cache is populated
-    assert session._cached_project is not None
+    assert session.has_current_session()
 
     # Modify the config file externally to trigger watcher
     config_file = session._config_manager.config_file
@@ -39,7 +39,7 @@ async def test_config_watcher_integration(tmp_path: Path, caplog: pytest.LogCapt
     await asyncio.sleep(1.5)  # Longer than poll interval
 
     # Verify cache was invalidated
-    assert session._cached_project is None
+    assert not session.has_current_session()
 
     # Verify warning log was generated
     warning_logs = [record for record in caplog.records if record.levelno >= logging.WARNING]
@@ -62,7 +62,7 @@ async def test_config_watcher_cleanup(tmp_path: Path) -> None:
     session = await get_or_create_session(project_name="test-cleanup", _config_dir_for_tests=str(tmp_path))
 
     # Verify watcher was created
-    assert session._config_watcher is not None
+    assert session.is_watching_config()
 
     # Remove session (should trigger cleanup)
     await remove_current_session("test-cleanup")
@@ -71,4 +71,4 @@ async def test_config_watcher_cleanup(tmp_path: Path) -> None:
     await asyncio.sleep(0.1)
 
     # Verify watcher was cleaned up
-    assert session._config_watcher is None
+    assert not session.is_watching_config()

@@ -59,7 +59,8 @@ class Session:
             )
             # Watcher will be started lazily when first accessed
             self._watcher_task = None
-        except (FileNotFoundError, asyncio.InvalidStateError) as e:
+            self._watcher_lock = asyncio.Lock()
+        except asyncio.InvalidStateError as e:
             logger.debug(f"Could not setup config watcher for {self.project_name}: {e}")
         except (PermissionError, OSError, AttributeError) as e:
             logger.warning(f"System error setting up config watcher for {self.project_name}: {e}")
@@ -70,8 +71,10 @@ class Session:
 
     async def _ensure_watcher_started(self) -> None:
         """Ensure config watcher is started."""
-        if self._config_watcher and (self._watcher_task is None or self._watcher_task.done()):
-            self._watcher_task = asyncio.create_task(self._config_watcher.start())
+        if self._config_watcher:
+            async with self._watcher_lock:
+                if self._watcher_task is None or self._watcher_task.done():
+                    self._watcher_task = asyncio.create_task(self._config_watcher.start())
 
     def _on_config_file_changed(self, file_path: str) -> None:
         """Handle config file changes by invalidating cache and notifying sessions."""
@@ -111,6 +114,7 @@ class Session:
             try:
                 await self._watcher_task
             except asyncio.CancelledError:
+                # Expected when task is cancelled during cleanup
                 pass
             self._watcher_task = None
 
@@ -136,6 +140,14 @@ class Session:
         if self._cached_project is None:
             self._cached_project = await self._config_manager.get_or_create_project_config(self.project_name)
         return self._cached_project
+
+    def has_current_session(self) -> bool:
+        """Check if session has a current project loaded."""
+        return self._cached_project is not None
+
+    def is_watching_config(self) -> bool:
+        """Check if session is actively watching config file changes."""
+        return self._config_watcher is not None
 
     async def update_config(self, updater: Callable[[Project], Project]) -> None:
         """Update project config using functional pattern.

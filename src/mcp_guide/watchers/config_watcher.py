@@ -6,13 +6,13 @@ from mcp_core.path_watcher import PathWatcher
 
 
 class ConfigWatcher(PathWatcher):
-    """Configuration-specific watcher that extends PathWatcher for config file monitoring."""
+    """Configuration file watcher with lazy path validation."""
 
     def __init__(self, config_path: str, callback: Optional[Callable[[str], None]] = None, poll_interval: float = 1.0):
         """Initialize ConfigWatcher.
 
         Args:
-            config_path: Path to configuration file (must exist)
+            config_path: Path to configuration file (validated when monitoring starts)
             callback: Optional callback for change notifications
             poll_interval: Polling interval in seconds
         """
