@@ -82,7 +82,7 @@ The system SHALL provide configurable security policy for filesystem access.
 
 #### Scenario: Default allowed paths
 - **WHEN** SecurityPolicy is initialized without configuration
-- **THEN** uses default allowed paths: openspec/, .adr/, specs/, templates/
+- **THEN** uses default allowed paths: openspec/, memory/, specs/, templates/, tasks/, docs/, .todo/, .issues/
 - **AND** all other paths are denied by default
 
 #### Scenario: Project-specific allowed paths

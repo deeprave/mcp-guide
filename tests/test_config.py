@@ -141,3 +141,47 @@ class TestConfigManager:
 
         with pytest.raises(ValueError, match="cannot be empty"):
             await manager.get_or_create_project_config("")
+
+
+class TestAllowedPathsSerialization:
+    """Tests for allowed_paths serialization behavior."""
+
+    @pytest.mark.asyncio
+    async def test_default_allowed_paths_not_serialized(self, tmp_path):
+        """allowed_paths should not be in YAML when using defaults."""
+        manager = ConfigManager(config_dir=str(tmp_path))
+        project = await manager.get_or_create_project_config("test")
+
+        await manager.save_project_config(project)
+
+        # Read raw YAML and parse it to check structure
+        content = manager.config_file.read_text()
+        import yaml
+        config_data = yaml.safe_load(content)
+
+        # Check that allowed_paths is not in the project data
+        project_key = next(iter(config_data["projects"].keys()))
+        project_data = config_data["projects"][project_key]
+        assert "allowed_paths" not in project_data
+
+    @pytest.mark.asyncio
+    async def test_custom_allowed_paths_serialized(self, tmp_path):
+        """allowed_paths should be in YAML when different from defaults."""
+        from dataclasses import replace
+
+        manager = ConfigManager(config_dir=str(tmp_path))
+        project = await manager.get_or_create_project_config("test")
+        project = replace(project, allowed_paths=["custom/"])
+
+        await manager.save_project_config(project)
+
+        # Read raw YAML and parse it to check structure
+        content = manager.config_file.read_text()
+        import yaml
+        config_data = yaml.safe_load(content)
+
+        # Check that allowed_paths is in the project data
+        project_key = next(iter(config_data["projects"].keys()))
+        project_data = config_data["projects"][project_key]
+        assert "allowed_paths" in project_data
+        assert project_data["allowed_paths"] == ["custom/"]

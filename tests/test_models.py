@@ -185,6 +185,39 @@ class TestProject:
         assert "docs" not in new_project.categories
 
 
+class TestAllowedPaths:
+    """Tests for Project.allowed_paths field."""
+
+    def test_project_has_default_allowed_paths(self):
+        """Project should have default allowed_paths when created."""
+        from mcp_guide.models import DEFAULT_ALLOWED_PATHS
+
+        project = Project(name="test")
+        assert project.allowed_paths == DEFAULT_ALLOWED_PATHS
+        assert project.allowed_paths is not DEFAULT_ALLOWED_PATHS  # Should be a copy
+
+    def test_project_with_custom_allowed_paths(self):
+        """Project can be created with custom allowed_paths."""
+        custom_paths = ["custom/", "other/"]
+        project = Project(name="test", allowed_paths=custom_paths)
+        assert project.allowed_paths == custom_paths
+
+    def test_allowed_paths_requires_trailing_slash(self):
+        """Allowed paths must have trailing slashes."""
+        with pytest.raises(ValueError, match="trailing slash"):
+            Project(name="test", allowed_paths=["docs"])
+
+    def test_allowed_paths_preserved_on_modification(self):
+        """with_category and without_category should preserve allowed_paths."""
+        custom_paths = ["custom/"]
+        project = Project(name="test", allowed_paths=custom_paths)
+
+        category = Category(dir="docs/", patterns=["*.md"])
+        new_project = project.with_category("docs", category)
+
+        assert new_project.allowed_paths == custom_paths
+
+
 class TestExtraFieldHandling:
     """Tests for models ignoring extra fields in config."""
 
