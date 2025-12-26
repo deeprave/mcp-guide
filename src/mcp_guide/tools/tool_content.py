@@ -139,7 +139,13 @@ async def internal_get_content(
         # Format and return content
         formatter = get_formatter()
         content = await formatter.format(final_files, args.expression)
-        return Result.ok(content)
+
+        # Extract instructions from frontmatter
+        from mcp_guide.utils.content_utils import extract_and_deduplicate_instructions
+
+        instruction = extract_and_deduplicate_instructions(final_files)
+
+        return Result.ok(content, instruction=instruction)
 
     except ExpressionParseError as e:
         return Result.failure(str(e), error_type=ERROR_NO_PROJECT)

@@ -188,6 +188,7 @@ class TestCommandErrorHandling:
                 FileInfo(
                     path=Path("broken.mustache"),
                     size=100,
+                    content_size=100,
                     mtime=1234567890,
                     name="broken.mustache",
                     content="",
@@ -251,6 +252,7 @@ class TestCommandErrorHandling:
                 FileInfo(
                     path=Path("restricted.mustache"),
                     size=100,
+                    content_size=100,
                     mtime=1234567890,
                     name="restricted.mustache",
                     content="",

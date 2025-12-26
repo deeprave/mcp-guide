@@ -4,12 +4,16 @@ This guide explains how to create custom commands using templates with frontmatt
 
 ## Command Structure
 
-Commands are Mustache templates with YAML frontmatter located in the `_commands/` directory:
+Commands are Mustache templates with YAML frontmatter located in the `_commands/` directory under the configured `docroot` (the default location is `~/.config/mcp-guide/docs`):
+
+Each document is prefixed by a "frontmatter" yaml data dictionary, surrounded by three-dashes before and after the yaml part.
+The front-matter provides a description of the command, aliases, examples as explained below.
+Note that all frontmatter fields are available as context variables within the template.
 
 ```mustache
 ---
 description: Brief description of what the command does
-category: "system" | "project" | "general"
+category: "system" | "project" | "info" | "list" | "general"
 aliases:
   - "shortcut1"
   - "shortcut2"
@@ -77,7 +81,6 @@ examples:
 {{#kwargs.verbose}}
 ## Detailed Status
 {{/kwargs.verbose}}
-
 {{^kwargs.verbose}}
 ## Quick Status
 {{/kwargs.verbose}}

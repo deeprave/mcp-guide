@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from typing import Any, Dict, Optional
 
 import aiofiles.os
 from anyio import Path as AsyncPath
@@ -19,7 +20,8 @@ class FileInfo:
 
     Attributes:
         path: Relative path to file from category directory
-        size: File size in bytes
+        size: File size in bytes including frontmatter
+        content_size: Content size in bytes excluding frontmatter
         mtime: File modification time
         name: Relative path without template extension (for agent display)
         content: File content (populated after reading)
@@ -30,9 +32,11 @@ class FileInfo:
 
     path: Path
     size: int
+    content_size: int
     mtime: datetime
     name: str
     content: str | None = None
+    frontmatter: Optional[Dict[str, Any]] = None
     category: str | None = None
     collection: str | None = None
     # Platform-dependent metadata change time (Unix: inode change time, Windows: creation time)
@@ -123,6 +127,7 @@ async def discover_category_files(
         file_info = FileInfo(
             path=relative_path,
             size=stat_result.st_size,
+            content_size=stat_result.st_size,  # Initially same as size, updated after frontmatter processing
             mtime=datetime.fromtimestamp(stat_result.st_mtime),
             name=name,
             ctime=datetime.fromtimestamp(stat_result.st_ctime),

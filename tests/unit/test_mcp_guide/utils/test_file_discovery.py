@@ -14,6 +14,7 @@ def test_fileinfo_has_category_field():
     file_info = FileInfo(
         path=Path("test.md"),
         size=100,
+        content_size=100,
         mtime=datetime.now(),
         name="test.md",
     )
@@ -28,6 +29,7 @@ def test_fileinfo_has_collection_field():
     file_info = FileInfo(
         path=Path("test.md"),
         size=100,
+        content_size=100,
         mtime=datetime.now(),
         name="test.md",
     )
@@ -42,6 +44,7 @@ def test_fileinfo_category_can_be_set():
     file_info = FileInfo(
         path=Path("test.md"),
         size=100,
+        content_size=100,
         mtime=datetime.now(),
         name="test.md",
         category="docs",
@@ -56,6 +59,7 @@ def test_fileinfo_collection_can_be_set():
     file_info = FileInfo(
         path=Path("test.md"),
         size=100,
+        content_size=100,
         mtime=datetime.now(),
         name="test.md",
         collection="all",
@@ -70,6 +74,7 @@ def test_fileinfo_both_fields_can_be_set():
     file_info = FileInfo(
         path=Path("test.md"),
         size=100,
+        content_size=100,
         mtime=datetime.now(),
         name="test.md",
         category="docs",
