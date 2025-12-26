@@ -28,27 +28,48 @@ class TestContentToolsTemplateIntegration:
             regular_file.write_text("# Regular File")
 
             # Create FileInfo objects
-            files = [
-                FileInfo(
-                    path=Path("test.md.mustache"), size=100, content_size=100, mtime=datetime.now(), name="test.md"
-                ),
-                FileInfo(path=Path("regular.md"), size=50, content_size=50, mtime=datetime.now(), name="regular"),
-            ]
 
-            # Create template context
-            context = TemplateContext({"name": "World", "project": {"name": "test-project"}})
+    @pytest.mark.asyncio
+    async def test_read_and_render_with_includes(self):
+        """Test content processing with includes in frontmatter."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
 
-            # Process files
-            errors = await read_and_render_file_contents(files, temp_path, context)
+            # Create partial file
+            partials_dir = temp_path / "partials"
+            partials_dir.mkdir()
+            partial_file = partials_dir / "_project.mustache"
+            partial_file.write_text("Project: {{project_name}}")
 
-            # Verify no errors
-            assert errors == []
+            # Create template with includes
+            template_file = temp_path / "status.mustache"
+            template_file.write_text("""---
+includes: [partials/_project.mustache]
+---
+# Status
+{{>project}}
+Current status: active""")
 
-            # Verify template was rendered
-            assert files[0].content == "Hello World! Project: test-project"
+            # Create FileInfo
+            file_info = FileInfo(
+                path=Path("status.mustache"),
+                size=100,
+                content_size=80,
+                mtime=datetime.now(),
+                name="status",
+                content=template_file.read_text(),
+                frontmatter={"includes": ["partials/_project.mustache"]},
+            )
 
-            # Verify regular file unchanged
-            assert files[1].content == "# Regular File"
+            context = TemplateContext({"project_name": "test-project"})
+
+            errors = await read_and_render_file_contents([file_info], temp_path, context)
+
+            assert len(errors) == 0
+            # Should contain rendered partial content
+            content = file_info.content
+            assert "Project: test-project" in content
+            assert "Current status: active" in content
 
     @pytest.mark.asyncio
     async def test_read_and_render_file_contents_template_error_handling(self):

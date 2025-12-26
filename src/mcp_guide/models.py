@@ -138,11 +138,7 @@ async def format_project_data(
     # Add resolved flags if session is available
     if session is not None:
         flags = await _resolve_all_flags(session)
-        if verbose:
-            result["flags"] = flags
-        else:
-            result["flags"] = list(flags.keys())
-
+        result["flags"] = flags if verbose else list(flags.keys())
     return result
 
 

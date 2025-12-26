@@ -1,7 +1,8 @@
 """Template rendering utilities for Mustache templates."""
 
 import logging
-from typing import Any, Callable, Optional
+from pathlib import Path
+from typing import Any, Callable, Dict, Optional
 
 import chevron
 from chevron import ChevronError
@@ -50,6 +51,7 @@ def render_template_content(
     context: TemplateContext,
     file_path: str = "<template>",
     transient_fn: Optional[Callable[[TemplateContext], TemplateContext]] = None,
+    partials: Optional[Dict[str, str]] = None,
 ) -> Result[str]:
     """Render template content with context.
 
@@ -58,6 +60,7 @@ def render_template_content(
         context: Template context data
         file_path: File path for error reporting
         transient_fn: Optional function to add transient data to context
+        partials: Optional dictionary of partial templates
 
     Returns:
         Result with rendered content or error
@@ -78,7 +81,7 @@ def render_template_content(
         )
 
         # Render template with Chevron (TemplateContext works as ChainMap)
-        rendered = chevron.render(content, template_context)  # type: ignore[arg-type]
+        rendered = chevron.render(content, template_context, partials_dict=partials or {})  # type: ignore[arg-type]
         return Result.ok(rendered)
 
     except ChevronError as e:
@@ -132,12 +135,15 @@ def _extract_line_context(content: str, error_msg: str) -> str:
     return "\n" + "\n".join(context_lines)
 
 
-def render_file_content(file_info: FileInfo, context: TemplateContext | None = None) -> Result[str]:
+def render_file_content(
+    file_info: FileInfo, context: TemplateContext | None = None, base_dir: Path | None = None
+) -> Result[str]:
     """Render file content, applying template rendering if needed.
 
     Args:
         file_info: FileInfo with content to render
         context: Template context (if None, pass through content unchanged)
+        base_dir: Base directory for resolving partial paths
 
     Returns:
         Result with rendered content or original content
@@ -153,8 +159,44 @@ def render_file_content(file_info: FileInfo, context: TemplateContext | None = N
     if not is_template_file(file_info) or context is None:
         return Result.ok(file_info.content)
 
-    # Render template files
-    result = render_template_content(file_info.content, context, str(file_info.path))
+    # Process includes from frontmatter
+    partials = {}
+    if file_info.frontmatter:
+        from pathlib import Path
+
+        from mcp_guide.utils.frontmatter import get_frontmatter_includes
+        from mcp_guide.utils.template_partials import load_partial_content, resolve_partial_paths
+
+        includes = get_frontmatter_includes(file_info.frontmatter)
+        if includes:
+            try:
+                # Determine template directory for partial resolution
+                if base_dir:
+                    # Use base_dir to resolve the actual template location
+                    template_path = base_dir / file_info.path
+                else:
+                    # Fallback to file_info path
+                    template_path = file_info.path
+
+                # Resolve partial paths relative to template directory
+                partial_paths = resolve_partial_paths(template_path, includes)
+
+                # Load partial content
+                for i, partial_path in enumerate(partial_paths):
+                    # Extract partial name from include path (remove directory and extension)
+                    include_path = includes[i]
+                    partial_name = Path(include_path).stem.lstrip("_")  # Remove underscore prefix
+                    partials[partial_name] = load_partial_content(partial_path)
+
+            except Exception as e:
+                return Result.failure(
+                    error=f"Failed to load partials for {file_info.path}: {str(e)}",
+                    error_type="partial_error",
+                    instruction=f"Check that partial files exist and are readable: {includes}",
+                )
+
+    # Render template files with partials
+    result = render_template_content(file_info.content, context, str(file_info.path), partials=partials)
 
     # Update file size if rendering succeeded
     if result.is_ok() and result.value is not None:

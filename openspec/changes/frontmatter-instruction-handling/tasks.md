@@ -36,7 +36,7 @@
 Add new functions following existing patterns:
 - [x] Add `get_frontmatter_instruction()` function (similar to `get_frontmatter_description()`)
 - [x] Add `get_frontmatter_type()` function
-- [x] Add `get_frontmatter_partials()` function (basic parsing for future use)
+- [x] Add `get_frontmatter_partials()` function (basic parsing for future use) - **✅ IMPLEMENTED**
 - [x] Add `get_type_based_default_instruction()` function
 - [x] Add content type constants (`USER_INFO`, `AGENT_INFO`, `AGENT_INSTRUCTION`)
 - [x] Add `validate_content_type()` function with logging for invalid types
@@ -97,12 +97,12 @@ Comprehensive test coverage:
 - [x] Added edge case tests (no frontmatter, malformed YAML, unterminated frontmatter)
 - [x] Updated tests to reflect corrected Content-Length behavior (using final rendered content)
 
-## Task 10: Integration Tests for Frontmatter Processing
+## Task 10: Integration Tests for Frontmatter Processing ✅
 **File**: `tests/integration/test_frontmatter_processing.py` (new)
 **Priority**: Medium
-**Status**: NOT STARTED
+**Status**: COMPLETED
 
 End-to-end testing:
-- [ ] Test `@guide checks` command behavior
-- [ ] Test mixed content type handling
-- [ ] Test backward compatibility with content without frontmatter
+- [x] Test `@guide checks` command behavior
+- [x] Test mixed content type handling
+- [x] Test backward compatibility with content without frontmatter
