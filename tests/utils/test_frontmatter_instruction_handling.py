@@ -10,8 +10,8 @@ from mcp_guide.utils.frontmatter import (
     AGENT_INFO,
     AGENT_INSTRUCTION,
     USER_INFO,
+    get_frontmatter_includes,
     get_frontmatter_instruction,
-    get_frontmatter_partials,
     get_frontmatter_type,
     get_type_based_default_instruction,
     parse_frontmatter_content,
@@ -75,16 +75,27 @@ class TestFrontmatterExtraction(unittest.TestCase):
         assert get_frontmatter_type({}) == "user/information"
         assert get_frontmatter_type(None) == "user/information"
 
-    def test_get_frontmatter_partials(self):
-        """Test partials extraction from frontmatter."""
-        frontmatter = {"partials": {"header": "templates/partials/header.md", "footer": "templates/partials/footer.md"}}
-        partials = get_frontmatter_partials(frontmatter)
-        assert partials["header"] == "templates/partials/header.md"
-        assert partials["footer"] == "templates/partials/footer.md"
+    def test_get_frontmatter_includes(self):
+        """Test includes extraction from frontmatter."""
+        frontmatter = {"includes": ["partials/_project.mustache", "partials/_header.mustache"]}
+        includes = get_frontmatter_includes(frontmatter)
+        assert includes == ["partials/_project.mustache", "partials/_header.mustache"]
 
-        # Test missing partials
-        assert get_frontmatter_partials({}) == {}
-        assert get_frontmatter_partials(None) == {}
+        # Test missing includes
+        assert get_frontmatter_includes({}) == []
+        assert get_frontmatter_includes(None) == []
+
+    def test_get_frontmatter_includes_single_string(self):
+        """Test single string format for includes."""
+        frontmatter = {"includes": "partials/_project.mustache"}
+        includes = get_frontmatter_includes(frontmatter)
+        assert includes == ["partials/_project.mustache"]
+
+    def test_partials_keyword_not_supported(self):
+        """Test that old 'partials' keyword is not processed."""
+        frontmatter = {"partials": {"header": "path/to/header.mustache"}}
+        includes = get_frontmatter_includes(frontmatter)
+        assert includes == []  # Should not process old format
 
 
 class TestTypeBasedInstructions:

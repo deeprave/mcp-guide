@@ -4,16 +4,11 @@ category: "info"
 usage: ":info/flags"
 examples:
   - ":info/flags"
+includes: [../partials/_project.mustache]
 ---
 # Feature Flags
 
-## Project Flags ({{project.name}})
-{{#project.flags}}
-**{{key}}**: {{value}}
-{{/project.flags}}
-{{^project.flags}}
-None configured
-{{/project.flags}}
+{{>project}}
 
 ## Global Flags
 {{#global_flags}}

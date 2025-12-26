@@ -157,7 +157,7 @@ async def read_and_render_file_contents(
                     file_read_errors.append(f"'{error_path}': Invalid template context data: {str(e)}")
                     continue
 
-                render_result = render_file_content(file_info, template_context)
+                render_result = render_file_content(file_info, template_context, base_dir)
                 if render_result.is_failure():
                     # Skip file on template error for consistency with other validation failures
                     error_path = f"{category_prefix}/{file_info.name}" if category_prefix else file_info.name

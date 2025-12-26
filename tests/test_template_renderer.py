@@ -28,6 +28,33 @@ class TestTemplateDetection:
 
     def test_is_template_file_with_hbs_extension(self):
         """Test template detection for .hbs files."""
+
+
+class TestTemplatePartials:
+    """Test template rendering with partials."""
+
+    def test_render_template_with_partials(self):
+        """Test template rendering with partials."""
+        content = "{{>project}}"
+        context = TemplateContext({"project_name": "test-project"})
+        partials = {"project": "Project: {{project_name}}"}
+
+        result = render_template_content(content, context, partials=partials)
+
+        assert result.is_ok()
+        assert result.value == "Project: test-project"
+
+    def test_render_template_missing_partial(self):
+        """Test template rendering with missing partial."""
+        content = "{{>missing}}"
+        context = TemplateContext({})
+        partials = {}
+
+        result = render_template_content(content, context, partials=partials)
+
+        # Chevron silently ignores missing partials and renders empty string
+        assert result.is_ok()
+        assert result.value == ""
         file_info = FileInfo(path=Path("test.md.hbs"), size=100, content_size=100, mtime=datetime.now(), name="test.md")
 
         assert is_template_file(file_info) is True

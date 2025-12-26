@@ -2,7 +2,7 @@
 
 import logging
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import aiofiles
 import yaml
@@ -180,21 +180,23 @@ def get_frontmatter_type(frontmatter: Optional[Dict[str, Any]]) -> str:
     return content_type
 
 
-def get_frontmatter_partials(frontmatter: Optional[Dict[str, Any]]) -> Dict[str, str]:
-    """Extract partials field from frontmatter metadata.
+def get_frontmatter_includes(frontmatter: Optional[Dict[str, Any]]) -> List[str]:
+    """Extract includes field from frontmatter metadata.
 
     Args:
         frontmatter: Parsed frontmatter dictionary
 
     Returns:
-        Dictionary of partial name to path mappings, empty dict if not found
+        List of include paths, empty list if not found
     """
     if not frontmatter:
-        return {}
-    partials = frontmatter.get("partials", {})
-    if isinstance(partials, dict):
-        return {str(k): str(v) for k, v in partials.items()}
-    return {}
+        return []
+    includes = frontmatter.get("includes", [])
+    if isinstance(includes, str):
+        return [includes]
+    elif isinstance(includes, list):
+        return [str(item) for item in includes]
+    return []
 
 
 def get_type_based_default_instruction(content_type: str) -> Optional[str]:

@@ -4,6 +4,7 @@ category: "fs"
 usage: ":fs/show"
 examples:
   - ":fs/show"
+includes: [../partials/_project.mustache]
 ---
 # Filesystem Configuration
 
@@ -11,21 +12,7 @@ Display the current filesystem access configuration for the project.
 
 ## Current Configuration
 
-**Allowed Write Paths (read/write):**
-{{#allowed_write_paths}}
-  • {{.}}
-{{/allowed_write_paths}}
-{{^allowed_write_paths}}
-  • No write paths configured
-{{/allowed_write_paths}}
-
-**Additional Read Paths (read-only):**
-{{#additional_read_paths}}
-  • {{.}}
-{{/additional_read_paths}}
-{{^additional_read_paths}}
-  • No additional read paths configured
-{{/additional_read_paths}}
+{{>project}}
 
 {{#security_status}}
 **Security Status:** {{security_status}}
