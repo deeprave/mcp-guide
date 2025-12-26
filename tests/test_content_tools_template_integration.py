@@ -30,19 +30,21 @@ class TestContentToolsTemplateIntegration:
             # Create FileInfo objects
 
     @pytest.mark.asyncio
-    async def test_read_and_render_with_includes(self):
+    async def test_read_and_render_with_includes(self, tmp_path):
         """Test content processing with includes in frontmatter."""
-        # Create partials directory in current working directory (docroot)
-        partials_dir = Path("test_partials")
+        # Create partials directory in a temporary working directory (docroot)
+        partials_dir = tmp_path / "test_partials"
         partials_dir.mkdir(exist_ok=True)
 
+        partial_file = None
+        template_file = None
         try:
             # Create partial file
             partial_file = partials_dir / "_project.mustache"
             partial_file.write_text("Project: {{project_name}}")
 
             # Create template file that actually exists
-            template_file = Path("test_status.mustache")
+            template_file = tmp_path / "test_status.mustache"
             template_file.write_text("""---
 includes: [test_partials/_project.mustache]
 ---
@@ -50,37 +52,33 @@ includes: [test_partials/_project.mustache]
 {{>project}}
 Current status: active""")
 
-            try:
-                # Create FileInfo with includes
-                file_info = FileInfo(
-                    path=Path("test_status.mustache"),
-                    size=100,
-                    content_size=80,
-                    mtime=datetime.now(),
-                    name="test_status",
-                    content=template_file.read_text(),
-                    frontmatter={"includes": ["test_partials/_project.mustache"]},
-                )
+            # Create FileInfo with includes
+            file_info = FileInfo(
+                path=Path("test_status.mustache"),
+                size=100,
+                content_size=80,
+                mtime=datetime.now(),
+                name="test_status",
+                content=template_file.read_text(),
+                frontmatter={"includes": ["test_partials/_project.mustache"]},
+            )
 
-                context = TemplateContext({"project_name": "test-project"})
+            context = TemplateContext({"project_name": "test-project"})
 
-                errors = await read_and_render_file_contents([file_info], Path.cwd(), context)
+            errors = await read_and_render_file_contents([file_info], tmp_path, context)
 
-                assert len(errors) == 0
-                # Should contain rendered partial content
-                content = file_info.content
-                assert "Project: test-project" in content
-                assert "Current status: active" in content
-
-            finally:
-                # Clean up template file
-                if template_file.exists():
-                    template_file.unlink()
+            assert len(errors) == 0
+            # Should contain rendered partial content
+            content = file_info.content
+            assert "Project: test-project" in content
+            assert "Current status: active" in content
 
         finally:
-            # Clean up partials
-            if partial_file.exists():
+            # Clean up files
+            if partial_file is not None and partial_file.exists():
                 partial_file.unlink()
+            if template_file is not None and template_file.exists():
+                template_file.unlink()
             if partials_dir.exists():
                 partials_dir.rmdir()
 

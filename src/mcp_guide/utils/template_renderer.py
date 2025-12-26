@@ -17,6 +17,20 @@ from mcp_guide.utils.template_functions import TemplateFunctions
 from mcp_guide.utils.template_partials import load_partial_content, resolve_partial_paths
 
 
+def get_partial_name(include_path: str | Path) -> str:
+    """Extract partial name from include path.
+
+    Args:
+        include_path: Path to the partial file
+
+    Returns:
+        Partial name with leading underscore removed if present
+    """
+    path = Path(include_path)
+    stem = path.stem
+    return stem[1:] if stem.startswith("_") else stem
+
+
 def is_template_file(file_info: FileInfo) -> bool:
     """Check if FileInfo represents a template file.
 
@@ -195,16 +209,13 @@ def render_file_content(
                     template_path = file_info.path
 
                 # Resolve partial paths relative to template directory
-                partial_paths = resolve_partial_paths(template_path, includes)
+                partial_paths = resolve_partial_paths(template_path, includes, base_dir)
 
                 # Load partial content
                 for i, partial_path in enumerate(partial_paths):
                     # Extract partial name from include path
                     include_path = includes[i]
-                    partial_name = Path(include_path).stem
-                    # Remove leading underscore if present (partial naming convention)
-                    if partial_name.startswith("_"):
-                        partial_name = partial_name[1:]
+                    partial_name = get_partial_name(include_path)
                     partials[partial_name] = load_partial_content(partial_path)
 
             except Exception as e:

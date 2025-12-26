@@ -89,8 +89,10 @@ class TestTemplatePartials:
         assert "Circular include detected" in result.error
 
     def test_partial_name_extraction_logic(self):
-        """Test partial name extraction logic directly."""
+        """Test partial name extraction logic via the public helper."""
         from pathlib import Path
+
+        from mcp_guide.utils.template_renderer import get_partial_name
 
         # Test cases for partial name extraction
         test_cases = [
@@ -103,12 +105,8 @@ class TestTemplatePartials:
         ]
 
         for include_path, expected_name in test_cases:
-            partial_name = Path(include_path).stem
-            if partial_name.startswith("_"):
-                partial_name = partial_name[1:]
-
-            assert partial_name == expected_name, (
-                f"Failed for {include_path}: expected {expected_name}, got {partial_name}"
+            assert get_partial_name(include_path) == expected_name, (
+                f"Failed for {include_path}: expected {expected_name}, got {get_partial_name(include_path)}"
             )
         file_info = FileInfo(path=Path("test.md.hbs"), size=100, content_size=100, mtime=datetime.now(), name="test.md")
 

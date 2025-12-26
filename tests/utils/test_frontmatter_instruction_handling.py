@@ -97,6 +97,23 @@ class TestFrontmatterExtraction(unittest.TestCase):
         includes = get_frontmatter_includes(frontmatter)
         assert includes == []  # Should not process old format
 
+    def test_get_frontmatter_includes_invalid_types(self):
+        """Test handling of invalid types for includes field."""
+        # Test numeric value
+        frontmatter = {"includes": 123}
+        includes = get_frontmatter_includes(frontmatter)
+        assert includes == []
+
+        # Test dict value
+        frontmatter = {"includes": {"foo": "bar"}}
+        includes = get_frontmatter_includes(frontmatter)
+        assert includes == []
+
+        # Test mixed-type list (should coerce to strings)
+        frontmatter = {"includes": ["partials/_project.mustache", 42]}
+        includes = get_frontmatter_includes(frontmatter)
+        assert includes == ["partials/_project.mustache", "42"]
+
 
 class TestTypeBasedInstructions:
     """Test type-based default instruction logic."""
