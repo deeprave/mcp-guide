@@ -10,12 +10,13 @@ class PartialNotFoundError(Exception):
     pass
 
 
-def resolve_partial_paths(template_path: Path, includes: List[str]) -> List[Path]:
+def resolve_partial_paths(template_path: Path, includes: List[str], docroot: Path | None = None) -> List[Path]:
     """Resolve partial paths relative to template file.
 
     Args:
         template_path: Path to the template file
         includes: List of partial paths to resolve
+        docroot: Root directory for security validation (defaults to current working directory)
 
     Returns:
         List of resolved absolute paths to partial files
@@ -24,6 +25,9 @@ def resolve_partial_paths(template_path: Path, includes: List[str]) -> List[Path
         PartialNotFoundError: If partial path is outside docroot or invalid
     """
     template_dir = template_path.parent
+    if docroot is None:
+        docroot = Path.cwd()
+    docroot = docroot.resolve()
     resolved_paths = []
 
     for include in includes:
@@ -34,8 +38,7 @@ def resolve_partial_paths(template_path: Path, includes: List[str]) -> List[Path
         # Resolve path relative to template directory
         partial_path = (template_dir / include).resolve()
 
-        # Ensure resolved path is within docroot (current working directory or below)
-        docroot = Path.cwd().resolve()
+        # Ensure resolved path is within docroot
         try:
             partial_path.relative_to(docroot)
         except ValueError:

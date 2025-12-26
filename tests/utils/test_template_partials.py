@@ -90,3 +90,16 @@ class TestPartialLoading:
             load_partial_content(partial_path)
 
         assert "nonexistent/_partial.mustache" in str(exc_info.value)
+
+    def test_load_partial_content_success(self, tmp_path):
+        """Test successfully loading an existing partial file."""
+        # Create a temporary partial file with known content
+        partial_file = tmp_path / "_partial.mustache"
+        expected_content = "Hello {{name}}!"
+        partial_file.write_text(expected_content, encoding="utf-8")
+
+        # Load the content
+        actual_content = load_partial_content(partial_file)
+
+        # Verify content matches exactly
+        assert actual_content == expected_content
