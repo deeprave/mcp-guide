@@ -10,7 +10,7 @@ from typing import List, Set
 from anyio import Path as AsyncPath
 
 from mcp_guide.constants import MAX_DOCUMENTS_PER_GLOB, MAX_GLOB_DEPTH
-from mcp_guide.mcp_core.lazy_path import LazyPath
+from mcp_guide.lazy_path import LazyPath
 
 logger = logging.getLogger(__name__)
 

@@ -13,7 +13,7 @@ from anyio import Path as AsyncPath
 
 from mcp_core.file_reader import read_file_content
 from mcp_guide.file_lock import lock_update
-from mcp_guide.models import _NAME_REGEX, DEFAULT_ALLOWED_PATHS, Project
+from mcp_guide.models import _NAME_REGEX, DEFAULT_ALLOWED_WRITE_PATHS, Project
 from mcp_guide.utils.project_hash import (
     calculate_project_hash,
     extract_name_from_key,
@@ -499,9 +499,13 @@ class ConfigManager:
         if project.project_flags:
             result["project_flags"] = project.project_flags
 
-        # Add allowed_paths if different from defaults
-        if project.allowed_paths != DEFAULT_ALLOWED_PATHS:
-            result["allowed_paths"] = project.allowed_paths
+        # Add allowed_write_paths if different from defaults
+        if project.allowed_write_paths != DEFAULT_ALLOWED_WRITE_PATHS:
+            result["allowed_write_paths"] = project.allowed_write_paths
+
+        # Add additional_read_paths if configured
+        if project.additional_read_paths:
+            result["additional_read_paths"] = project.additional_read_paths
 
         return result
 

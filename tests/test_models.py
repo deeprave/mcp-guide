@@ -189,33 +189,33 @@ class TestAllowedPaths:
     """Tests for Project.allowed_paths field."""
 
     def test_project_has_default_allowed_paths(self):
-        """Project should have default allowed_paths when created."""
-        from mcp_guide.models import DEFAULT_ALLOWED_PATHS
+        """Project should have default allowed_write_paths when created."""
+        from mcp_guide.models import DEFAULT_ALLOWED_WRITE_PATHS
 
         project = Project(name="test")
-        assert project.allowed_paths == DEFAULT_ALLOWED_PATHS
-        assert project.allowed_paths is not DEFAULT_ALLOWED_PATHS  # Should be a copy
+        assert project.allowed_write_paths == DEFAULT_ALLOWED_WRITE_PATHS
+        assert project.allowed_write_paths is not DEFAULT_ALLOWED_WRITE_PATHS  # Should be a copy
 
     def test_project_with_custom_allowed_paths(self):
-        """Project can be created with custom allowed_paths."""
+        """Project can be created with custom allowed_write_paths."""
         custom_paths = ["custom/", "other/"]
-        project = Project(name="test", allowed_paths=custom_paths)
-        assert project.allowed_paths == custom_paths
+        project = Project(name="test", allowed_write_paths=custom_paths)
+        assert project.allowed_write_paths == custom_paths
 
     def test_allowed_paths_requires_trailing_slash(self):
-        """Allowed paths must have trailing slashes."""
+        """Allowed write paths must have trailing slashes."""
         with pytest.raises(ValueError, match="trailing slash"):
-            Project(name="test", allowed_paths=["docs"])
+            Project(name="test", allowed_write_paths=["docs"])
 
     def test_allowed_paths_preserved_on_modification(self):
-        """with_category and without_category should preserve allowed_paths."""
+        """with_category and without_category should preserve allowed_write_paths."""
         custom_paths = ["custom/"]
-        project = Project(name="test", allowed_paths=custom_paths)
+        project = Project(name="test", allowed_write_paths=custom_paths)
 
         category = Category(dir="docs/", patterns=["*.md"])
         new_project = project.with_category("docs", category)
 
-        assert new_project.allowed_paths == custom_paths
+        assert new_project.allowed_write_paths == custom_paths
 
 
 class TestExtraFieldHandling:

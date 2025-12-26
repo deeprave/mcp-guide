@@ -172,7 +172,7 @@ class TestAllowedPathsSerialization:
 
         manager = ConfigManager(config_dir=str(tmp_path))
         project = await manager.get_or_create_project_config("test")
-        project = replace(project, allowed_paths=["custom/"])
+        project = replace(project, allowed_write_paths=["custom/"])
 
         await manager.save_project_config(project)
 
@@ -182,8 +182,8 @@ class TestAllowedPathsSerialization:
 
         config_data = yaml.safe_load(content)
 
-        # Check that allowed_paths is in the project data
+        # Check that allowed_write_paths is in the project data
         project_key = next(iter(config_data["projects"].keys()))
         project_data = config_data["projects"][project_key]
-        assert "allowed_paths" in project_data
-        assert project_data["allowed_paths"] == ["custom/"]
+        assert "allowed_write_paths" in project_data
+        assert project_data["allowed_write_paths"] == ["custom/"]

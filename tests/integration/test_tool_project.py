@@ -20,7 +20,7 @@ from mcp_guide.tools.tool_project import (
     ListProjectsArgs,
     SetCurrentProjectArgs,
 )
-from tests.conftest import call_mcp_tool
+from tests.conftest import assert_tool_registered, call_mcp_tool
 
 # Module-level patches
 _config_file_patch = None
@@ -70,7 +70,7 @@ async def test_get_project_registered(mcp_server):
     """Test that get_project is registered in MCP."""
     tools = await mcp_server.list_tools()
     tool_names = [tool.name for tool in tools]
-    assert "get_project" in tool_names
+    assert_tool_registered(tool_names, "get_project")
 
 
 @pytest.mark.anyio
@@ -78,7 +78,7 @@ async def test_set_project_registered(mcp_server):
     """Test that set_project is registered in MCP."""
     tools = await mcp_server.list_tools()
     tool_names = [tool.name for tool in tools]
-    assert "set_project" in tool_names
+    assert_tool_registered(tool_names, "set_project")
 
 
 @pytest.mark.anyio
@@ -86,7 +86,7 @@ async def test_list_projects_registered(mcp_server):
     """Test that list_projects is registered in MCP."""
     tools = await mcp_server.list_tools()
     tool_names = [tool.name for tool in tools]
-    assert "list_projects" in tool_names
+    assert_tool_registered(tool_names, "list_projects")
 
 
 @pytest.mark.anyio
@@ -94,7 +94,7 @@ async def test_list_project_registered(mcp_server):
     """Test that list_project is registered in MCP."""
     tools = await mcp_server.list_tools()
     tool_names = [tool.name for tool in tools]
-    assert "list_project" in tool_names
+    assert_tool_registered(tool_names, "list_project")
 
 
 @pytest.mark.anyio
@@ -102,7 +102,7 @@ async def test_clone_project_registered(mcp_server):
     """Test that clone_project is registered in MCP."""
     tools = await mcp_server.list_tools()
     tool_names = [tool.name for tool in tools]
-    assert "clone_project" in tool_names
+    assert_tool_registered(tool_names, "clone_project")
 
 
 # Read-Only Operations

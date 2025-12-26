@@ -239,6 +239,8 @@ def create_server() -> GuideMCP:
         tool_collection,
         tool_content,
         tool_feature_flags,
+        tool_filesystem,
+        tool_filesystem_test,
         tool_project,
         tool_utility,
     )

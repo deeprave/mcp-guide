@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from mcp_guide.mcp_core.lazy_path import LazyPath
+from mcp_guide.lazy_path import LazyPath
 
 
 async def test_lazypath_with_tilde():

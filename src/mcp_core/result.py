@@ -21,24 +21,30 @@ class Result(Generic[T]):
     error_type: Optional[str] = None
     exception: Optional[Exception] = field(default=None, repr=False, compare=False)
     message: Optional[str] = None
+    arguments: Optional[str] = None
     instruction: Optional[str] = None
     error_data: Optional[dict[str, Any]] = None
 
     @classmethod
     def ok(
-        cls, value: Optional[T] = None, message: Optional[str] = None, instruction: Optional[str] = None
+        cls,
+        value: Optional[T] = None,
+        message: Optional[str] = None,
+        arguments: Optional[str] = None,
+        instruction: Optional[str] = None,
     ) -> "Result[T]":
         """Create a successful result.
 
         Args:
             value: Result value (can be None)
             message: Optional message
+            arguments: Optional arguments for agent
             instruction: Optional instruction for agent
 
         Returns:
             Result with success=True
         """
-        return cls(success=True, value=value, message=message, instruction=instruction)
+        return cls(success=True, value=value, message=message, arguments=arguments, instruction=instruction)
 
     @classmethod
     def failure(
@@ -111,6 +117,8 @@ class Result(Generic[T]):
 
         if self.message:
             result["message"] = self.message
+        if self.arguments:
+            result["arguments"] = self.arguments
         if self.instruction:
             result["instruction"] = self.instruction
 
