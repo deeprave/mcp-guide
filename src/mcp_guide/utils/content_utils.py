@@ -8,7 +8,12 @@ from mcp_core.file_reader import read_file_content
 from mcp_core.path_security import resolve_safe_path
 from mcp_core.result import Result
 from mcp_guide.utils.file_discovery import FileInfo
-from mcp_guide.utils.frontmatter import parse_frontmatter_content
+from mcp_guide.utils.frontmatter import (
+    get_frontmatter_instruction,
+    get_frontmatter_type,
+    get_type_based_default_instruction,
+    parse_frontmatter_content,
+)
 from mcp_guide.utils.template_context import TemplateContext
 from mcp_guide.utils.template_renderer import is_template_file, render_file_content
 
@@ -26,12 +31,6 @@ def extract_and_deduplicate_instructions(files: list[FileInfo]) -> Optional[str]
         Combined instruction string or None if no instructions found.
         Important instructions (starting with "!") override regular instructions.
     """
-    from mcp_guide.utils.frontmatter import (
-        get_frontmatter_instruction,
-        get_frontmatter_type,
-        get_type_based_default_instruction,
-    )
-
     regular_instructions = []  # Regular instructions
     important_instructions = []  # Important instructions (override regular)
     regular_seen = set()
@@ -43,14 +42,17 @@ def extract_and_deduplicate_instructions(files: list[FileInfo]) -> Optional[str]
 
         # Get explicit instruction from frontmatter
         explicit_instruction = get_frontmatter_instruction(file_info.frontmatter)
-        if explicit_instruction:
+        if explicit_instruction and explicit_instruction.strip():
             # Check if instruction is marked as important
             if explicit_instruction.startswith("!"):
                 # Remove the "!" and any following whitespace
-                clean_instruction = IMPORTANT_PREFIX_PATTERN.sub("", explicit_instruction)
-                if clean_instruction not in important_seen:
-                    important_instructions.append(clean_instruction)
-                    important_seen.add(clean_instruction)
+                clean_instruction = IMPORTANT_PREFIX_PATTERN.sub("", explicit_instruction).strip()
+                # Validate that we have actual content after removing the prefix
+                if clean_instruction:
+                    if clean_instruction not in important_seen:
+                        important_instructions.append(clean_instruction)
+                        important_seen.add(clean_instruction)
+                # If empty after removing prefix, ignore completely (no fallback)
             else:
                 if explicit_instruction not in regular_seen:
                     regular_instructions.append(explicit_instruction)
@@ -137,8 +139,6 @@ async def read_and_render_file_contents(
             metadata, content = parse_frontmatter_content(raw_content)
             file_info.content = content
             file_info.frontmatter = metadata
-            # Update content_size to reflect size without frontmatter
-            file_info.content_size = len(content.encode("utf-8"))
 
             # Render templates if context provided and file is a template
             if has_templates and is_template_file(file_info):
@@ -166,6 +166,10 @@ async def read_and_render_file_contents(
                 else:
                     # Update content with rendered version
                     file_info.content = render_result.value
+
+            # Update content_size to reflect final content size after all processing
+            content = file_info.content or ""
+            file_info.content_size = len(content.encode("utf-8"))
 
             # Apply category prefix
             if category_prefix:

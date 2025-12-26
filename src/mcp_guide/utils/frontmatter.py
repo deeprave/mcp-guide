@@ -38,13 +38,14 @@ def parse_frontmatter_content(content: str) -> Tuple[Optional[Dict[str, Any]], s
 
     # Extract and parse YAML
     yaml_content = "\n".join(lines[1:end_idx])
-    content = "\n".join(lines[end_idx + 1 :])
+    clean_content = "\n".join(lines[end_idx + 1 :])
 
     try:
         metadata = yaml.safe_load(yaml_content)
-        return metadata, content
+        return metadata, clean_content
     except yaml.YAMLError:
-        return None, content
+        # Even with malformed YAML, strip the frontmatter section
+        return None, clean_content
 
 
 async def extract_frontmatter(file_path: Path, max_read_size: int = 4096) -> Tuple[Optional[Dict[str, Any]], int]:

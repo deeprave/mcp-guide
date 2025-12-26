@@ -100,17 +100,17 @@ Configure allowed paths in your project's `.guide-config.json`:
 
 ### Adding Paths via Commands
 
-Use the built-in commands to safely add paths to your project configuration:
+Use the built-in guide commands to safely add paths to your project configuration:
 
 ```bash
 # Add a directory to allowed write paths
-kiro-cli /add-write-path "new-module/"
+@guide :fs/add-write "new-module/"
 
 # Add a directory to additional read paths
-kiro-cli /add-read-path "external-deps/"
+@guide :fs/add-read "external-deps/"
 
 # List current filesystem configuration
-kiro-cli /show-filesystem-config
+@guide :fs/show
 ```
 
 These commands automatically:
