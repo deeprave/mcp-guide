@@ -55,17 +55,15 @@ async def test_mime_formatter_uses_content_size_multiple_files():
     formatter = MimeFormatter()
     result = await formatter.format(files, "test")
 
-    # Should use content_size values
-    assert "Content-Length: 50" in result
-    assert "Content-Length: 75" in result
+    # Should use actual content length after rendering
+    assert f"Content-Length: {len('File 1 content'.encode('utf-8'))}" in result
+    assert f"Content-Length: {len('File 2 content'.encode('utf-8'))}" in result
 
-    # Should NOT use original sizes
+    # Should NOT use content_size or original sizes
+    assert "Content-Length: 50" not in result
+    assert "Content-Length: 75" not in result
     assert "Content-Length: 200" not in result
     assert "Content-Length: 300" not in result
-
-    # Should NOT calculate from actual content
-    assert f"Content-Length: {len('File 1 content'.encode('utf-8'))}" not in result
-    assert f"Content-Length: {len('File 2 content'.encode('utf-8'))}" not in result
 
 
 async def test_content_size_equals_size_when_no_frontmatter():
@@ -108,7 +106,8 @@ async def test_content_size_different_from_calculated_length():
     formatter = MimeFormatter()
     result = await formatter.format_single(file_info, "test")
 
-    # Should use content_size field, not calculate from content
-    assert f"Content-Length: {content_size}" in result
-    assert f"Content-Length: {len(content.encode('utf-8'))}" not in result
+    # Should use actual content length, not content_size field
+    # This is correct behavior after template rendering
+    assert f"Content-Length: {len(content.encode('utf-8'))}" in result
+    assert f"Content-Length: {content_size}" not in result
     assert content in result

@@ -126,20 +126,6 @@ async def get_frontmatter_description(file_path: Path) -> Optional[str]:
     return None
 
 
-def validate_content_type(content_type: Optional[str]) -> bool:
-    """Validate if content type is one of the supported types.
-
-    Args:
-        content_type: Content type string to validate
-
-    Returns:
-        True if valid, False otherwise
-    """
-    if not content_type:
-        return False
-    return content_type in (USER_INFO, AGENT_INFO, AGENT_INSTRUCTION)
-
-
 def get_frontmatter_instruction(frontmatter: Optional[Dict[str, Any]]) -> Optional[str]:
     """Extract instruction field from frontmatter metadata.
 
@@ -154,6 +140,20 @@ def get_frontmatter_instruction(frontmatter: Optional[Dict[str, Any]]) -> Option
     return frontmatter.get("instruction")
 
 
+def validate_content_type(content_type: Optional[str]) -> bool:
+    """Validate if content type is one of the supported types.
+
+    Args:
+        content_type: Content type string to validate
+
+    Returns:
+        True if valid, False otherwise
+    """
+    if not content_type:
+        return False
+    return content_type in (USER_INFO, AGENT_INFO, AGENT_INSTRUCTION)
+
+
 def get_frontmatter_type(frontmatter: Optional[Dict[str, Any]]) -> str:
     """Extract content type from frontmatter metadata.
 
@@ -166,7 +166,17 @@ def get_frontmatter_type(frontmatter: Optional[Dict[str, Any]]) -> str:
     if not frontmatter:
         return USER_INFO
     type_value = frontmatter.get("type", USER_INFO)
-    return str(type_value) if type_value is not None else USER_INFO
+    content_type = str(type_value) if type_value is not None else USER_INFO
+
+    # Validate and warn about unexpected content types
+    if not validate_content_type(content_type):
+        import logging
+
+        logger = logging.getLogger(__name__)
+        logger.warning(f"Unknown content type '{content_type}', falling back to '{USER_INFO}'")
+        return USER_INFO
+
+    return content_type
 
 
 def get_frontmatter_partials(frontmatter: Optional[Dict[str, Any]]) -> Dict[str, str]:

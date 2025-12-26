@@ -1,5 +1,6 @@
 """Tests for frontmatter instruction handling functionality."""
 
+import unittest
 from datetime import datetime
 from pathlib import Path
 
@@ -40,7 +41,7 @@ class TestContentTypeConstants:
         assert validate_content_type("") is False
 
 
-class TestFrontmatterExtraction:
+class TestFrontmatterExtraction(unittest.TestCase):
     """Test frontmatter extraction functions."""
 
     def test_get_frontmatter_instruction(self):
@@ -51,6 +52,19 @@ class TestFrontmatterExtraction:
         # Test missing instruction
         assert get_frontmatter_instruction({}) is None
         assert get_frontmatter_instruction(None) is None
+
+    def test_get_frontmatter_type_with_validation(self):
+        """Test that get_frontmatter_type validates and warns about invalid types."""
+        # Test valid type
+        frontmatter = {"type": "agent/instruction"}
+        assert get_frontmatter_type(frontmatter) == "agent/instruction"
+
+        # Test invalid type with warning
+        with self.assertLogs("mcp_guide.utils.frontmatter", level="WARNING") as log:
+            frontmatter = {"type": "invalid/type"}
+            result = get_frontmatter_type(frontmatter)
+            assert result == "user/information"  # Falls back to default
+            assert "Unknown content type 'invalid/type'" in log.output[0]
 
     def test_get_frontmatter_type(self):
         """Test content type extraction from frontmatter."""
@@ -112,6 +126,47 @@ This is the actual content."""
         # Metadata should contain frontmatter
         assert metadata["type"] == "agent/instruction"
         assert metadata["instruction"] == "Process this carefully"
+
+    def test_parse_frontmatter_content_no_frontmatter(self):
+        """Test content without frontmatter."""
+        content = """# Main Content
+This is content without frontmatter."""
+
+        metadata, clean_content = parse_frontmatter_content(content)
+
+        # Should return None metadata and unchanged content
+        assert metadata is None
+        assert clean_content == content
+
+    def test_parse_frontmatter_content_unterminated_frontmatter(self):
+        """Test content with unterminated frontmatter."""
+        content = """---
+type: agent/instruction
+instruction: "Missing closing delimiter"
+# Main Content
+This content has unterminated frontmatter."""
+
+        metadata, clean_content = parse_frontmatter_content(content)
+
+        # Should return None metadata and unchanged content
+        assert metadata is None
+        assert clean_content == content
+
+    def test_parse_frontmatter_content_malformed_yaml(self):
+        """Test content with malformed YAML frontmatter."""
+        content = """---
+type: agent/instruction
+instruction: "Missing quote
+invalid: yaml: structure
+---
+# Main Content
+This content has malformed YAML."""
+
+        metadata, clean_content = parse_frontmatter_content(content)
+
+        # Should return None metadata but still strip the malformed frontmatter section
+        assert metadata is None
+        assert clean_content == "# Main Content\nThis content has malformed YAML."
 
 
 class TestInstructionExtraction:

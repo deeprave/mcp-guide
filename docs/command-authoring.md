@@ -6,7 +6,7 @@ This guide explains how to create custom commands using templates with frontmatt
 
 Commands are Mustache templates with YAML frontmatter located in the `_commands/` directory under the configured `docroot` (the default location is `~/.config/mcp-guide/docs`):
 
-Each document is prefixed by a "frontmatter" yaml data dictionary, surrounded by three-dashes before and after the yaml part.
+Each document is prefixed by a "frontmatter" YAML data dictionary, surrounded by three dashes (---) before and after the YAML portion.
 The front-matter provides a description of the command, aliases, examples as explained below.
 Note that all frontmatter fields are available as context variables within the template.
 
