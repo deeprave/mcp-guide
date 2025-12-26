@@ -47,8 +47,8 @@ class MimeFormatter:
         # Build Content-Location
         content_location = f"guide://category/{category_name}/{file_info.path}"
 
-        # Calculate Content-Length
-        content_length = file_info.content_size
+        # Calculate Content-Length from final rendered content
+        content_length = len(content.encode("utf-8"))
 
         # Build headers
         headers = f"Content-Type: {content_type}\r\n"
@@ -85,8 +85,8 @@ class MimeFormatter:
             # Build Content-Location
             content_location = f"guide://category/{category_name}/{file_info.path}"
 
-            # Calculate Content-Length
-            content_length = file_info.content_size
+            # Calculate Content-Length from final rendered content
+            content_length = len(content.encode("utf-8"))
 
             # Add boundary and headers for this part
             result += f"--{boundary}\r\n"
