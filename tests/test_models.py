@@ -196,6 +196,34 @@ class TestAllowedPaths:
         assert project.allowed_write_paths == DEFAULT_ALLOWED_WRITE_PATHS
         assert project.allowed_write_paths is not DEFAULT_ALLOWED_WRITE_PATHS  # Should be a copy
 
+    def test_additional_read_paths_accepts_valid_absolute_path(self, tmp_path):
+        """Valid absolute, non-system additional_read_paths should be accepted."""
+        valid_path = tmp_path / "data" / "files"
+        valid_path.mkdir(parents=True, exist_ok=True)
+
+        project = Project(name="test", additional_read_paths=[str(valid_path)])
+        # Should not raise and should preserve the provided path
+        assert str(valid_path) in project.additional_read_paths
+
+    def test_additional_read_paths_rejects_relative_path(self):
+        """Relative paths should raise ValueError for additional_read_paths."""
+        with pytest.raises(ValueError):
+            Project(name="test", additional_read_paths=["relative/path"])
+
+    def test_additional_read_paths_rejects_system_directory_with_message(self):
+        """System directories (e.g. /etc) should raise ValidationError with expected message."""
+        from pydantic import ValidationError
+
+        system_path = "/etc"
+
+        with pytest.raises(ValidationError, match="System directory not allowed"):
+            Project(name="test", additional_read_paths=[system_path])
+
+    def test_additional_read_paths_rejects_empty_string(self):
+        """Empty-string additional_read_paths entries should raise ValueError."""
+        with pytest.raises(ValueError):
+            Project(name="test", additional_read_paths=[""])
+
     def test_project_with_custom_allowed_paths(self):
         """Project can be created with custom allowed_write_paths."""
         custom_paths = ["custom/", "other/"]

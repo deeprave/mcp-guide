@@ -38,12 +38,17 @@ Configure allowed paths in your project's `.guide-config.json`:
 ```json
 {
   "filesystem": {
-    "allowed_paths": [
+    "allowed_write_paths": [
       "src/",
       "docs/",
       "tests/",
       "config/",
       "custom-directory/"
+    ],
+    "additional_read_paths": [
+      "node_modules/",
+      "vendor/",
+      "build/"
     ]
   }
 }

@@ -113,6 +113,24 @@ class TestReadWriteSecurityPolicy:
             policy.validate_read_path("/etc/passwd")
         assert policy.get_violation_count() == 2
 
+    def test_write_prefix_security_vulnerability_prevention(self):
+        """Should prevent writes to directories with similar prefixes."""
+        policy = ReadWriteSecurityPolicy(write_allowed_paths=["specs/"], additional_read_paths=[])
+
+        # Should allow writes to specs/ directory
+        result = policy.validate_write_path("specs/test.md")
+        assert result == "specs/test.md"
+
+        # Should NOT allow writes to specs2/ directory (security vulnerability)
+        with pytest.raises(SecurityError) as exc_info:
+            policy.validate_write_path("specs2/test.md")
+        assert "outside allowed write directories" in str(exc_info.value)
+
+        # Should NOT allow writes to specsheet/ directory
+        with pytest.raises(SecurityError) as exc_info:
+            policy.validate_write_path("specsheet/test.md")
+        assert "outside allowed write directories" in str(exc_info.value)
+
     def test_empty_paths_handling(self):
         """Test handling of empty or None paths."""
         policy = ReadWriteSecurityPolicy()

@@ -231,11 +231,11 @@ async def call_mcp_tool(client, tool_name: str, args_model=None, **kwargs):
         result = await call_mcp_tool(client, "collection_add",
                                      name="backend", categories=["api"])
     """
-    # Auto-add the guide_ prefix if not already present
-    if not tool_name.startswith("guide_"):
-        prefixed_tool_name = f"guide_{tool_name}"
-    else:
-        prefixed_tool_name = tool_name
+    from mcp_core.tool_decorator import get_tool_prefix
+
+    # Always use the configured prefix
+    prefix = get_tool_prefix().rstrip("_")
+    prefixed_tool_name = f"{prefix}_{tool_name}"
 
     if args_model is not None:
         # Convert Pydantic model to dict and wrap in "args"
@@ -262,10 +262,10 @@ def assert_tool_registered(tool_names, tool_name):
         tool_names: List of registered tool names from server
         tool_name: Tool name to check (without prefix)
     """
-    # Auto-add the guide_ prefix if not already present
-    if not tool_name.startswith("guide_"):
-        prefixed_tool_name = f"guide_{tool_name}"
-    else:
-        prefixed_tool_name = tool_name
+    from mcp_core.tool_decorator import get_tool_prefix
+
+    # Always use the configured prefix
+    prefix = get_tool_prefix().rstrip("_")
+    prefixed_tool_name = f"{prefix}_{tool_name}"
 
     assert prefixed_tool_name in tool_names, f"Tool '{prefixed_tool_name}' not found in registered tools: {tool_names}"
