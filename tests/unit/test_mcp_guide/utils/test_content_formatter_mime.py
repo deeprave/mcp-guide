@@ -283,8 +283,13 @@ async def test_format_multiple_part_headers():
     assert f"Content-Length: {len(files[1].content.encode('utf-8'))}" in result
 
 
-async def test_format_multiple_uses_content_size():
-    """Test that multiple files use content_size for Content-Length."""
+async def test_format_multiple_uses_actual_content_length():
+    """Test that multiple files use actual content length for Content-Length headers.
+
+    This simulates a realistic scenario where content_size represents the size
+    after frontmatter removal, but the MIME formatter correctly uses the final
+    rendered content length for HTTP headers.
+    """
     from mcp_guide.utils.content_formatter_mime import MimeFormatter
 
     formatter = MimeFormatter()
@@ -292,27 +297,30 @@ async def test_format_multiple_uses_content_size():
         FileInfo(
             path=Path("file1.txt"),
             name="file1.txt",
-            size=100,  # Original size
-            content_size=25,  # Content size after frontmatter removal
+            size=150,  # Original file size (with frontmatter)
+            content_size=50,  # Size after frontmatter removal (before rendering)
             mtime=datetime.now(),
-            content="Content 1",
+            content="Content 1",  # Final rendered content (9 bytes)
         ),
         FileInfo(
             path=Path("file2.txt"),
             name="file2.txt",
-            size=200,  # Original size
-            content_size=35,  # Content size after frontmatter removal
+            size=200,  # Original file size (with frontmatter)
+            content_size=75,  # Size after frontmatter removal (before rendering)
             mtime=datetime.now(),
-            content="Content 2",
+            content="Content 2",  # Final rendered content (9 bytes)
         ),
     ]
     result = await formatter.format(files, "test")
 
-    # Should use actual content length, not content_size
+    # Should use actual final content length for HTTP headers
     assert f"Content-Length: {len('Content 1'.encode('utf-8'))}" in result
     assert f"Content-Length: {len('Content 2'.encode('utf-8'))}" in result
-    assert "Content-Length: 25" not in result
-    assert "Content-Length: 35" not in result
+    # Should NOT use content_size or original file size
+    assert "Content-Length: 50" not in result
+    assert "Content-Length: 75" not in result
+    assert "Content-Length: 150" not in result
+    assert "Content-Length: 200" not in result
 
 
 async def test_format_multiple_crlf_line_endings():

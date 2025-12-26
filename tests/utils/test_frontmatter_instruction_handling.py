@@ -169,7 +169,7 @@ This content has malformed YAML."""
         assert clean_content == "# Main Content\nThis content has malformed YAML."
 
 
-class TestInstructionExtraction:
+class TestInstructionExtraction(unittest.TestCase):
     """Test instruction extraction and deduplication."""
 
     def test_instruction_extraction_single_document(self):
@@ -304,3 +304,77 @@ class TestInstructionExtraction:
 
         instruction = extract_and_deduplicate_instructions([file_info])
         assert instruction == "Instruction with spaces"
+
+    def test_important_instruction_edge_cases(self):
+        """Test edge cases for important instruction handling."""
+        # Test empty important instruction (just "!")
+        empty_file = FileInfo(
+            path=Path("empty.md"),
+            size=100,
+            content_size=100,
+            mtime=datetime.now(),
+            name="empty.md",
+            frontmatter={"instruction": "!"},
+        )
+
+        # Test whitespace-only important instruction ("! ")
+        whitespace_file = FileInfo(
+            path=Path("whitespace.md"),
+            size=100,
+            content_size=100,
+            mtime=datetime.now(),
+            name="whitespace.md",
+            frontmatter={"instruction": "!   "},
+        )
+
+        # Test regular file with valid instruction
+        valid_file = FileInfo(
+            path=Path("valid.md"),
+            size=100,
+            content_size=100,
+            mtime=datetime.now(),
+            name="valid.md",
+            frontmatter={"instruction": "Valid instruction"},
+        )
+
+        # Empty/blank instructions should be ignored completely
+        instruction = extract_and_deduplicate_instructions([empty_file, whitespace_file, valid_file])
+        # Should only include the valid instruction
+        assert instruction == "Valid instruction"
+
+    def test_blank_regular_instructions_ignored(self):
+        """Test that blank regular instructions are also ignored."""
+        # Test empty regular instruction
+        empty_regular = FileInfo(
+            path=Path("empty_regular.md"),
+            size=100,
+            content_size=100,
+            mtime=datetime.now(),
+            name="empty_regular.md",
+            frontmatter={"instruction": ""},
+        )
+
+        # Test whitespace-only regular instruction
+        whitespace_regular = FileInfo(
+            path=Path("whitespace_regular.md"),
+            size=100,
+            content_size=100,
+            mtime=datetime.now(),
+            name="whitespace_regular.md",
+            frontmatter={"instruction": "   "},
+        )
+
+        # Test valid regular instruction
+        valid_regular = FileInfo(
+            path=Path("valid_regular.md"),
+            size=100,
+            content_size=100,
+            mtime=datetime.now(),
+            name="valid_regular.md",
+            frontmatter={"instruction": "Valid regular instruction"},
+        )
+
+        # Blank instructions should be ignored, but files without instructions get type-based defaults
+        instruction = extract_and_deduplicate_instructions([empty_regular, whitespace_regular, valid_regular])
+        # Should include the type-based default for files without explicit instructions plus the valid instruction
+        assert instruction == "Display this information to the user\nValid regular instruction"
