@@ -10,9 +10,11 @@ from chevron import ChevronError
 from mcp_core.result import Result
 from mcp_guide.tools.tool_constants import INSTRUCTION_FILE_ERROR, INSTRUCTION_VALIDATION_ERROR
 from mcp_guide.utils.file_discovery import TEMPLATE_EXTENSIONS, FileInfo
+from mcp_guide.utils.frontmatter import get_frontmatter_includes
 from mcp_guide.utils.template_context import TemplateContext
 from mcp_guide.utils.template_context_cache import get_template_contexts
 from mcp_guide.utils.template_functions import TemplateFunctions
+from mcp_guide.utils.template_partials import load_partial_content, resolve_partial_paths
 
 
 def is_template_file(file_info: FileInfo) -> bool:
@@ -136,7 +138,10 @@ def _extract_line_context(content: str, error_msg: str) -> str:
 
 
 def render_file_content(
-    file_info: FileInfo, context: TemplateContext | None = None, base_dir: Path | None = None
+    file_info: FileInfo,
+    context: TemplateContext | None = None,
+    base_dir: Path | None = None,
+    _include_chain: set[Path] | None = None,
 ) -> Result[str]:
     """Render file content, applying template rendering if needed.
 
@@ -144,10 +149,26 @@ def render_file_content(
         file_info: FileInfo with content to render
         context: Template context (if None, pass through content unchanged)
         base_dir: Base directory for resolving partial paths
+        _include_chain: Internal parameter to track circular includes
 
     Returns:
         Result with rendered content or original content
     """
+    # Initialize include chain tracking
+    if _include_chain is None:
+        _include_chain = set()
+
+    # Check for circular includes
+    current_path = base_dir / file_info.path if base_dir else file_info.path
+    if current_path in _include_chain:
+        return Result.failure(
+            error=f"Circular include detected: {current_path}",
+            error_type="circular_include",
+            instruction="Remove circular dependencies in template includes",
+        )
+
+    _include_chain.add(current_path)
+
     if file_info.content is None:
         return Result.failure(
             error=f"File content not loaded: {file_info.path}",
@@ -162,11 +183,6 @@ def render_file_content(
     # Process includes from frontmatter
     partials = {}
     if file_info.frontmatter:
-        from pathlib import Path
-
-        from mcp_guide.utils.frontmatter import get_frontmatter_includes
-        from mcp_guide.utils.template_partials import load_partial_content, resolve_partial_paths
-
         includes = get_frontmatter_includes(file_info.frontmatter)
         if includes:
             try:
@@ -183,9 +199,12 @@ def render_file_content(
 
                 # Load partial content
                 for i, partial_path in enumerate(partial_paths):
-                    # Extract partial name from include path (remove directory and extension)
+                    # Extract partial name from include path
                     include_path = includes[i]
-                    partial_name = Path(include_path).stem.lstrip("_")  # Remove underscore prefix
+                    partial_name = Path(include_path).stem
+                    # Remove leading underscore if present (partial naming convention)
+                    if partial_name.startswith("_"):
+                        partial_name = partial_name[1:]
                     partials[partial_name] = load_partial_content(partial_path)
 
             except Exception as e:

@@ -19,12 +19,28 @@ def resolve_partial_paths(template_path: Path, includes: List[str]) -> List[Path
 
     Returns:
         List of resolved absolute paths to partial files
+
+    Raises:
+        PartialNotFoundError: If partial path is outside docroot or invalid
     """
     template_dir = template_path.parent
     resolved_paths = []
 
     for include in includes:
+        # Reject absolute paths
+        if include.startswith("/"):
+            raise PartialNotFoundError(f"Absolute paths not allowed: {include}")
+
+        # Resolve path relative to template directory
         partial_path = (template_dir / include).resolve()
+
+        # Ensure resolved path is within docroot (current working directory or below)
+        docroot = Path.cwd().resolve()
+        try:
+            partial_path.relative_to(docroot)
+        except ValueError:
+            raise PartialNotFoundError(f"Partial path outside docroot: {include}")
+
         resolved_paths.append(partial_path)
 
     return resolved_paths
