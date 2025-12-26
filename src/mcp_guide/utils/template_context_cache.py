@@ -42,7 +42,6 @@ class TemplateContextCache(SessionListener):
 
     async def _build_agent_context(self) -> "TemplateContext":
         """Build agent context with @ symbol default and agent info if available."""
-        import os
 
         from mcp_guide.mcp_context import cached_mcp_context
         from mcp_guide.utils.template_context import TemplateContext
@@ -52,11 +51,9 @@ class TemplateContextCache(SessionListener):
         }
 
         # Add tool_prefix from MCP_TOOL_PREFIX environment variable
-        mcp_tool_prefix = os.environ.get("MCP_TOOL_PREFIX", "guide")
-        if mcp_tool_prefix == "guide" or not mcp_tool_prefix:
-            tool_prefix = "guide_"
-        else:
-            tool_prefix = f"{mcp_tool_prefix}_"
+        from mcp_core.tool_decorator import get_tool_prefix
+
+        tool_prefix = get_tool_prefix()
         agent_vars["tool_prefix"] = tool_prefix
 
         # Try to get agent information from global ContextVar

@@ -77,7 +77,7 @@ async def test_list_categories_via_mcp(mcp_server, test_session, monkeypatch):
         await call_mcp_tool(client, "category_add", args2)
 
         args = CategoryListArgs(verbose=False)
-        result = await call_mcp_tool(client, "category_list", args)
+        result = await call_mcp_tool(client, "guide_category_list", args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
 
         assert response["success"] is True
@@ -141,7 +141,7 @@ async def test_category_management_workflow(mcp_server, test_session, monkeypatc
 
         # List categories
         args = CategoryListArgs(verbose=True)
-        result = await call_mcp_tool(client, "category_list", args)
+        result = await call_mcp_tool(client, "guide_category_list", args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
         assert response["success"] is True
         assert len(response["value"]) == 1
@@ -155,7 +155,7 @@ async def test_category_management_workflow(mcp_server, test_session, monkeypatc
 
         # Verify removal
         args = CategoryListArgs(verbose=True)
-        result = await call_mcp_tool(client, "category_list", args)
+        result = await call_mcp_tool(client, "guide_category_list", args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
         assert len(response["value"]) == 0
 

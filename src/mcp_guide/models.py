@@ -1,5 +1,6 @@
 """Immutable data models for project configuration."""
 
+import os
 import re
 from collections.abc import Callable
 from dataclasses import dataclass, field, replace
@@ -19,7 +20,7 @@ from mcp_guide.feature_flags.types import FeatureValue
 # These paths are relative to the project root and must have trailing slashes.
 # Used by the filesystem interaction feature for security fencing.
 # See: openspec/changes/agent-server-filesystem-interaction/specs/filesystem-interaction/spec.md
-DEFAULT_ALLOWED_PATHS: list[str] = [
+DEFAULT_ALLOWED_WRITE_PATHS: list[str] = [
     "openspec/",
     "memory/",
     "specs/",
@@ -245,7 +246,8 @@ class Project:
     categories: dict[str, Category] = field(default_factory=dict)
     collections: dict[str, Collection] = field(default_factory=dict)
     project_flags: dict[str, FeatureValue] = field(default_factory=dict)
-    allowed_paths: list[str] = field(default_factory=lambda: DEFAULT_ALLOWED_PATHS.copy())
+    allowed_write_paths: list[str] = field(default_factory=lambda: DEFAULT_ALLOWED_WRITE_PATHS.copy())
+    additional_read_paths: list[str] = field(default_factory=list)
 
     @field_validator("name")
     @classmethod
@@ -256,20 +258,44 @@ class Project:
             raise ValueError("Project name must contain only alphanumeric characters, underscores, and hyphens")
         return v
 
-    @field_validator("allowed_paths")
+    @field_validator("allowed_write_paths")
     @classmethod
-    def validate_allowed_paths(cls, v: list[str]) -> list[str]:
-        """Validate that all allowed paths are safe and consistent."""
+    def validate_allowed_write_paths(cls, v: list[str]) -> list[str]:
+        """Validate that all allowed write paths are safe, consistent, and relative."""
         for path in v:
             if not path:
-                raise ValueError("Allowed path cannot be empty")
+                raise ValueError("Allowed write path cannot be empty")
+
+            # Check that path is relative
+            if os.path.isabs(path):
+                raise ValueError(f"Write allowed path must be relative: {path}")
 
             # Use existing validation for security checks
             validate_directory_path(path)
 
             if not path.endswith("/"):
-                raise ValueError(f"Allowed path '{path}' must end with trailing slash. Use '{path}/' instead.")
+                raise ValueError(f"Allowed write path '{path}' must end with trailing slash. Use '{path}/' instead.")
         return v
+
+    @field_validator("additional_read_paths")
+    @classmethod
+    def validate_additional_read_paths(cls, v: list[str]) -> list[str]:
+        """Validate additional read paths are absolute and not system directories."""
+        from mcp_guide.filesystem.system_directories import is_system_directory
+
+        validated = []
+        for path in v:
+            if not path:
+                raise ValueError("Additional read path cannot be empty")
+
+            if not os.path.isabs(path):
+                raise ValueError(f"Additional read path must be absolute: {path}")
+
+            if is_system_directory(path):
+                raise ValueError(f"System directory not allowed: {path}")
+
+            validated.append(path)
+        return validated
 
     @field_validator("project_flags")
     @classmethod

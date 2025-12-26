@@ -42,18 +42,22 @@ This change introduces a secure, bidirectional filesystem interaction pattern us
    - Memory-efficient cache storage
 
 4. **New MCP Tools**
-   - `guide_cache_file` - Agent provides file content for server caching
-   - `guide_list_directory` - Request directory listing from agent
-   - `guide_read_file` - Request file content from agent
+   - `send_file_content` - Agent provides file content for server caching
+   - `send_directory_listing` - Agent provides directory listing to server
+   - `send_command_location` - Agent provides command location information
+   - `send_working_directory` - Agent provides working directory information
+   - `send_project_detection` - Agent provides project detection results
 
-### Modified Components
+### Future Integration Opportunities
 
-1. **OpenSpec Tools** (`src/mcp_guide/tools/openspec/`)
-   - Integrate filesystem interaction for change discovery
-   - Use cached file contents for validation
+The filesystem interaction system provides a foundation for future enhancements:
+
+1. **OpenSpec Integration** (separate component)
+   - Use filesystem interaction for change discovery
+   - Cache file contents for validation
    - Enable interactive file-based workflows
 
-2. **Resource Handlers**
+2. **Resource Handlers** (future enhancement)
    - Update resource providers to use filesystem interaction
    - Cache frequently accessed files
    - Improve performance for file-based resources

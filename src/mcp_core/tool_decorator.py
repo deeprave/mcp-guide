@@ -4,7 +4,7 @@ import inspect
 import logging
 import os
 from contextvars import ContextVar
-from functools import wraps
+from functools import cache, wraps
 from typing import Any, Callable, Coroutine, Optional, Union
 
 from mcp_guide.tools.tool_constants import INSTRUCTION_VALIDATION_ERROR
@@ -18,6 +18,18 @@ logger = logging.getLogger(__name__)
 
 # Internal test mode control - not exposed to external manipulation
 _test_mode: ContextVar[bool] = ContextVar("tool_test_mode", default=False)
+
+
+@cache
+def get_tool_prefix() -> str:
+    """Get the tool prefix from environment variable.
+
+    Returns:
+        Tool prefix with trailing underscore if non-blank, empty string if blank.
+        Uses "guide" as default if MCP_TOOL_PREFIX is not set.
+    """
+    tool_prefix = os.environ.get("MCP_TOOL_PREFIX", "guide")
+    return f"{tool_prefix}_" if tool_prefix else ""
 
 
 def enable_test_mode() -> None:
@@ -76,7 +88,7 @@ class ExtMcpToolDecorator:
                 final_description = args_class.build_description(func)
 
             # Determine prefix
-            tool_prefix = prefix if prefix is not None else os.environ.get("MCP_TOOL_PREFIX", "")
+            tool_prefix = prefix if prefix is not None else get_tool_prefix().rstrip("_")
 
             # Build tool name
             tool_name = f"{tool_prefix}_{func.__name__}" if tool_prefix else func.__name__

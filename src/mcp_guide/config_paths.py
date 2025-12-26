@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
-    from mcp_guide.mcp_core.lazy_path import LazyPath
+    from mcp_guide.lazy_path import LazyPath
 
 
 def get_config_dir(config_dir: Optional[str] = None) -> Path:
@@ -68,7 +68,7 @@ async def get_docroot_from_config(config_dir: Optional[str] = None) -> "LazyPath
         LazyPath with configured docroot (lazy evaluation)
     """
     from mcp_guide.config import ConfigManager
-    from mcp_guide.mcp_core.lazy_path import LazyPath
+    from mcp_guide.lazy_path import LazyPath
 
     manager = ConfigManager(config_dir)
     return LazyPath(await manager.get_docroot())
