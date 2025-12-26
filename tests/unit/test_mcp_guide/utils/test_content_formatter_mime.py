@@ -56,6 +56,7 @@ async def test_format_single_file_delegates():
         path=Path("test.md"),
         name="test.md",
         size=100,
+        content_size=100,
         mtime=datetime.now(),
         content="test content",
     )
@@ -75,6 +76,7 @@ async def test_format_single_markdown_file():
         path=Path("docs/test.md"),
         name="test.md",
         size=len(content.encode("utf-8")),
+        content_size=len(content.encode("utf-8")),
         mtime=datetime.now(),
         content=content,
     )
@@ -100,6 +102,7 @@ async def test_format_single_text_file():
         path=Path("notes.txt"),
         name="notes.txt",
         size=len(content.encode("utf-8")),
+        content_size=len(content.encode("utf-8")),
         mtime=datetime.now(),
         content=content,
     )
@@ -119,6 +122,7 @@ async def test_format_single_unknown_extension():
         path=Path("file.unknownext123"),
         name="file.unknownext123",
         size=len(content.encode("utf-8")),
+        content_size=len(content.encode("utf-8")),
         mtime=datetime.now(),
         content=content,
     )
@@ -137,6 +141,7 @@ async def test_format_single_utf8_content():
         path=Path("unicode.txt"),
         name="unicode.txt",
         size=len(content.encode("utf-8")),
+        content_size=len(content.encode("utf-8")),
         mtime=datetime.now(),
         content=content,
     )
@@ -145,6 +150,29 @@ async def test_format_single_utf8_content():
     byte_count = len(content.encode("utf-8"))
     assert f"Content-Length: {byte_count}" in result
     assert byte_count > len(content)  # Verify multi-byte counting
+
+
+async def test_format_single_uses_content_size_not_content_length():
+    """Test that Content-Length uses content_size field, not calculated length."""
+    from mcp_guide.utils.content_formatter_mime import MimeFormatter
+
+    formatter = MimeFormatter()
+    content = "Test content"
+
+    # Set content_size different from actual content length to verify it's used
+    file_info = FileInfo(
+        path=Path("test.txt"),
+        name="test.txt",
+        size=200,  # Original file size
+        content_size=50,  # Different from len(content.encode("utf-8"))
+        mtime=datetime.now(),
+        content=content,
+    )
+    result = await formatter.format_single(file_info, "test")
+
+    # Should use content_size (50), not len(content.encode("utf-8")) (12)
+    assert "Content-Length: 50" in result
+    assert f"Content-Length: {len(content.encode('utf-8'))}" not in result
 
 
 async def test_format_multiple_main_header():
@@ -157,6 +185,7 @@ async def test_format_multiple_main_header():
             path=Path("file1.md"),
             name="file1.md",
             size=10,
+            content_size=10,
             mtime=datetime.now(),
             content="Content 1",
         ),
@@ -164,6 +193,7 @@ async def test_format_multiple_main_header():
             path=Path("file2.md"),
             name="file2.md",
             size=10,
+            content_size=10,
             mtime=datetime.now(),
             content="Content 2",
         ),
@@ -186,6 +216,7 @@ async def test_format_multiple_boundary_format():
             path=Path("file1.md"),
             name="file1.md",
             size=10,
+            content_size=10,
             mtime=datetime.now(),
             content="Content 1",
         ),
@@ -193,6 +224,7 @@ async def test_format_multiple_boundary_format():
             path=Path("file2.md"),
             name="file2.md",
             size=10,
+            content_size=10,
             mtime=datetime.now(),
             content="Content 2",
         ),
@@ -224,6 +256,7 @@ async def test_format_multiple_part_headers():
             path=Path("docs/file1.md"),
             name="file1.md",
             size=10,
+            content_size=10,
             mtime=datetime.now(),
             content="Content 1",
         ),
@@ -231,6 +264,7 @@ async def test_format_multiple_part_headers():
             path=Path("docs/file2.txt"),
             name="file2.txt",
             size=10,
+            content_size=10,
             mtime=datetime.now(),
             content="Content 2",
         ),
@@ -240,12 +274,44 @@ async def test_format_multiple_part_headers():
     # Check first part headers
     assert "Content-Type: text/markdown" in result
     assert "Content-Location: guide://category/test/docs/file1.md" in result
-    assert f"Content-Length: {len('Content 1'.encode('utf-8'))}" in result
+    assert f"Content-Length: {files[0].content_size}" in result
 
     # Check second part headers
     assert "Content-Type: text/plain" in result
     assert "Content-Location: guide://category/test/docs/file2.txt" in result
-    assert f"Content-Length: {len('Content 2'.encode('utf-8'))}" in result
+    assert f"Content-Length: {files[1].content_size}" in result
+
+
+async def test_format_multiple_uses_content_size():
+    """Test that multiple files use content_size for Content-Length."""
+    from mcp_guide.utils.content_formatter_mime import MimeFormatter
+
+    formatter = MimeFormatter()
+    files = [
+        FileInfo(
+            path=Path("file1.txt"),
+            name="file1.txt",
+            size=100,  # Original size
+            content_size=25,  # Content size after frontmatter removal
+            mtime=datetime.now(),
+            content="Content 1",
+        ),
+        FileInfo(
+            path=Path("file2.txt"),
+            name="file2.txt",
+            size=200,  # Original size
+            content_size=35,  # Content size after frontmatter removal
+            mtime=datetime.now(),
+            content="Content 2",
+        ),
+    ]
+    result = await formatter.format(files, "test")
+
+    # Should use content_size, not calculated from content
+    assert "Content-Length: 25" in result
+    assert "Content-Length: 35" in result
+    assert f"Content-Length: {len('Content 1'.encode('utf-8'))}" not in result
+    assert f"Content-Length: {len('Content 2'.encode('utf-8'))}" not in result
 
 
 async def test_format_multiple_crlf_line_endings():
@@ -258,6 +324,7 @@ async def test_format_multiple_crlf_line_endings():
             path=Path("file1.md"),
             name="file1.md",
             size=10,
+            content_size=10,
             mtime=datetime.now(),
             content="Content 1",
         ),
@@ -265,6 +332,7 @@ async def test_format_multiple_crlf_line_endings():
             path=Path("file2.md"),
             name="file2.md",
             size=10,
+            content_size=10,
             mtime=datetime.now(),
             content="Content 2",
         ),
@@ -291,6 +359,7 @@ async def test_format_multiple_content_preserved():
             path=Path("file1.md"),
             name="file1.md",
             size=len(content1),
+            content_size=len(content1),
             mtime=datetime.now(),
             content=content1,
         ),
@@ -298,6 +367,7 @@ async def test_format_multiple_content_preserved():
             path=Path("file2.md"),
             name="file2.md",
             size=len(content2),
+            content_size=len(content2),
             mtime=datetime.now(),
             content=content2,
         ),

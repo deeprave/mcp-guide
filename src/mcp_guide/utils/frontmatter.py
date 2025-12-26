@@ -7,6 +7,11 @@ from typing import Any, Dict, Optional, Tuple
 import aiofiles
 import yaml
 
+# Content type constants
+USER_INFO = "user/information"
+AGENT_INFO = "agent/information"
+AGENT_INSTRUCTION = "agent/instruction"
+
 
 def parse_frontmatter_content(content: str) -> Tuple[Optional[Dict[str, Any]], str]:
     """Parse YAML front matter from content string.
@@ -15,7 +20,7 @@ def parse_frontmatter_content(content: str) -> Tuple[Optional[Dict[str, Any]], s
         content: File content string
 
     Returns:
-        Tuple of (metadata_dict, remaining_content)
+        Tuple of (metadata_dict, content)
     """
     if not content.startswith("---\n"):
         return None, content
@@ -33,11 +38,11 @@ def parse_frontmatter_content(content: str) -> Tuple[Optional[Dict[str, Any]], s
 
     # Extract and parse YAML
     yaml_content = "\n".join(lines[1:end_idx])
-    remaining_content = "\n".join(lines[end_idx + 1 :])
+    content = "\n".join(lines[end_idx + 1 :])
 
     try:
         metadata = yaml.safe_load(yaml_content)
-        return metadata, remaining_content
+        return metadata, content
     except yaml.YAMLError:
         return None, content
 
@@ -119,3 +124,83 @@ async def get_frontmatter_description(file_path: Path) -> Optional[str]:
             return str(value) if value is not None else None
 
     return None
+
+
+def validate_content_type(content_type: Optional[str]) -> bool:
+    """Validate if content type is one of the supported types.
+
+    Args:
+        content_type: Content type string to validate
+
+    Returns:
+        True if valid, False otherwise
+    """
+    if not content_type:
+        return False
+    return content_type in (USER_INFO, AGENT_INFO, AGENT_INSTRUCTION)
+
+
+def get_frontmatter_instruction(frontmatter: Optional[Dict[str, Any]]) -> Optional[str]:
+    """Extract instruction field from frontmatter metadata.
+
+    Args:
+        frontmatter: Parsed frontmatter dictionary
+
+    Returns:
+        Instruction string or None if not found
+    """
+    if not frontmatter:
+        return None
+    return frontmatter.get("instruction")
+
+
+def get_frontmatter_type(frontmatter: Optional[Dict[str, Any]]) -> str:
+    """Extract content type from frontmatter metadata.
+
+    Args:
+        frontmatter: Parsed frontmatter dictionary
+
+    Returns:
+        Content type string, defaults to USER_INFO if not found
+    """
+    if not frontmatter:
+        return USER_INFO
+    type_value = frontmatter.get("type", USER_INFO)
+    return str(type_value) if type_value is not None else USER_INFO
+
+
+def get_frontmatter_partials(frontmatter: Optional[Dict[str, Any]]) -> Dict[str, str]:
+    """Extract partials field from frontmatter metadata.
+
+    Args:
+        frontmatter: Parsed frontmatter dictionary
+
+    Returns:
+        Dictionary of partial name to path mappings, empty dict if not found
+    """
+    if not frontmatter:
+        return {}
+    partials = frontmatter.get("partials", {})
+    if isinstance(partials, dict):
+        return {str(k): str(v) for k, v in partials.items()}
+    return {}
+
+
+def get_type_based_default_instruction(content_type: str) -> Optional[str]:
+    """Get default instruction based on content type.
+
+    Args:
+        content_type: Content type string
+
+    Returns:
+        Default instruction string or None for agent/instruction type
+    """
+    if content_type == USER_INFO:
+        return "Display this information to the user"
+    elif content_type == AGENT_INFO:
+        return "For your information and use. Do not display this content to the user."
+    elif content_type == AGENT_INSTRUCTION:
+        return None  # Should use explicit instruction from frontmatter
+    else:
+        # Unknown type defaults to user/information behavior
+        return "Display this information to the user"

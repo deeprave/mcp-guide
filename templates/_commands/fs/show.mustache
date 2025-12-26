@@ -1,0 +1,44 @@
+---
+description: Shows filesystem configuration information
+category: "fs"
+usage: ":fs/show"
+examples:
+  - ":fs/show"
+---
+# Filesystem Configuration
+
+Display the current filesystem access configuration for the project.
+
+## Current Configuration
+
+**Allowed Write Paths (read/write):**
+{{#allowed_write_paths}}
+  • {{.}}
+{{/allowed_write_paths}}
+{{^allowed_write_paths}}
+  • No write paths configured
+{{/allowed_write_paths}}
+
+**Additional Read Paths (read-only):**
+{{#additional_read_paths}}
+  • {{.}}
+{{/additional_read_paths}}
+{{^additional_read_paths}}
+  • No additional read paths configured
+{{/additional_read_paths}}
+
+{{#security_status}}
+**Security Status:** {{security_status}}
+{{/security_status}}
+{{#cache_status}}
+**Cache Status:** {{cache_status}}
+{{/cache_status}}
+{{#recent_activity}}
+**Recent Activity:** {{recent_activity}}
+{{/recent_activity}}
+
+## Related Commands
+- `:fs/add-write` - Add read/write access path
+- `:fs/add-read` - Add read-only access path
+- `:fs/remove-write` - Remove a write path
+- `:fs/remove-read` - Remove a read path

@@ -1,0 +1,23 @@
+---
+description: Remove a directory from the allowed write paths for filesystem access
+category: "fs"
+usage: ":fs/remove-write <directory-path>"
+examples:
+  - ":fs/remove-write src/"
+  - ":fs/remove-write docs/"
+---
+# Remove Write Path
+
+Remove a directory from the allowed write paths for filesystem access.
+
+## Usage
+```
+:fs/remove-write <directory-path>
+```
+
+## Parameters
+- `<directory-path>` - The directory path to remove from write access
+
+## Related Commands
+- `:fs/add-write` - Add read/write access path
+- `:fs/show` - Show current filesystem configuration

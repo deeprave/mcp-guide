@@ -1,5 +1,6 @@
 """Shared utilities for content retrieval tools."""
 
+import re
 from pathlib import Path
 from typing import Optional
 
@@ -7,8 +8,70 @@ from mcp_core.file_reader import read_file_content
 from mcp_core.path_security import resolve_safe_path
 from mcp_core.result import Result
 from mcp_guide.utils.file_discovery import FileInfo
+from mcp_guide.utils.frontmatter import parse_frontmatter_content
 from mcp_guide.utils.template_context import TemplateContext
 from mcp_guide.utils.template_renderer import is_template_file, render_file_content
+
+# Pre-compile regex for better performance
+IMPORTANT_PREFIX_PATTERN = re.compile(r"^!\s*")
+
+
+def extract_and_deduplicate_instructions(files: list[FileInfo]) -> Optional[str]:
+    """Extract instructions from frontmatter and deduplicate them.
+
+    Args:
+        files: List of FileInfo objects with frontmatter
+
+    Returns:
+        Combined instruction string or None if no instructions found.
+        Important instructions (starting with "!") override regular instructions.
+    """
+    from mcp_guide.utils.frontmatter import (
+        get_frontmatter_instruction,
+        get_frontmatter_type,
+        get_type_based_default_instruction,
+    )
+
+    regular_instructions = []  # Regular instructions
+    important_instructions = []  # Important instructions (override regular)
+    regular_seen = set()
+    important_seen = set()
+
+    for file_info in files:
+        if not file_info.frontmatter:
+            continue
+
+        # Get explicit instruction from frontmatter
+        explicit_instruction = get_frontmatter_instruction(file_info.frontmatter)
+        if explicit_instruction:
+            # Check if instruction is marked as important
+            if explicit_instruction.startswith("!"):
+                # Remove the "!" and any following whitespace
+                clean_instruction = IMPORTANT_PREFIX_PATTERN.sub("", explicit_instruction)
+                if clean_instruction not in important_seen:
+                    important_instructions.append(clean_instruction)
+                    important_seen.add(clean_instruction)
+            else:
+                if explicit_instruction not in regular_seen:
+                    regular_instructions.append(explicit_instruction)
+                    regular_seen.add(explicit_instruction)
+        else:
+            # Get type-based default instruction
+            content_type = get_frontmatter_type(file_info.frontmatter)
+            default_instruction = get_type_based_default_instruction(content_type)
+            if default_instruction and default_instruction not in regular_seen:
+                regular_instructions.append(default_instruction)
+                regular_seen.add(default_instruction)
+
+    # If we have important instructions, use only those (ignore regular)
+    if important_instructions:
+        return "\n".join(important_instructions)
+
+    # Otherwise use regular instructions
+    if regular_instructions:
+        return "\n".join(regular_instructions)
+
+    return None
 
 
 def resolve_patterns(override_pattern: Optional[str], default_patterns: list[str]) -> list[str]:
@@ -68,7 +131,14 @@ async def read_and_render_file_contents(
         try:
             # Read file content
             file_path = resolve_safe_path(base_dir, file_info.path)
-            file_info.content = await read_file_content(file_path)
+            raw_content = await read_file_content(file_path)
+
+            # Parse frontmatter and strip it from content
+            metadata, content = parse_frontmatter_content(raw_content)
+            file_info.content = content
+            file_info.frontmatter = metadata
+            # Update content_size to reflect size without frontmatter
+            file_info.content_size = len(content.encode("utf-8"))
 
             # Render templates if context provided and file is a template
             if has_templates and is_template_file(file_info):

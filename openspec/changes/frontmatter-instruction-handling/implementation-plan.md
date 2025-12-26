@@ -1,76 +1,65 @@
 # Implementation Plan: Frontmatter Instruction Handling
 
-## Phase 1: Frontmatter Processing Enhancement
+## Overview
+Fix the core issue where `@guide checks` shows raw frontmatter instead of clean content and ignores frontmatter instructions.
 
-### 1.1 Extend Existing Frontmatter Utilities
-- **File**: `src/mcp_guide/utils/frontmatter.py`
-- **Changes** (leveraging existing `extract_frontmatter()` and `parse_frontmatter_content()`):
-  - Add `get_frontmatter_instruction()` function (similar to existing `get_frontmatter_description()`)
-  - Add `get_frontmatter_type()` function
-  - Add `get_type_based_default_instruction()` function
+## Implementation Strategy
 
-### 1.2 Content Type Constants and Validation
-- **File**: `src/mcp_guide/utils/frontmatter.py`
-- **Changes**:
-  - Add content type constants (`USER_INFO`, `AGENT_INFO`, `AGENT_INSTRUCTION`)
-  - Add `validate_content_type()` function
-  - Add fallback logic for unknown types
+### Phase 1: Extend Frontmatter Utilities (30 min)
+**File**: `src/mcp_guide/utils/frontmatter.py`
 
-## Phase 2: Content Processing Updates
+Add minimal functions following existing patterns:
+```python
+def get_frontmatter_instruction(frontmatter: dict) -> str | None:
+    return frontmatter.get("instruction")
 
-### 2.1 Content Formatter Enhancement
-- **File**: `src/mcp_guide/utils/content_formatter_*.py`
-- **Changes**:
-  - Strip frontmatter from content output
-  - Extract and process frontmatter metadata
-  - Apply type-based instruction logic
+def get_frontmatter_type(frontmatter: dict) -> str:
+    return frontmatter.get("type", "user/information")
 
-### 2.2 Content Common Updates
-- **File**: `src/mcp_guide/utils/content_common.py`
-- **Changes**:
-  - Update `read_and_render_file_contents()` to use existing `parse_frontmatter_content()`
-  - Strip frontmatter from content using existing parsing logic
-  - Add instruction extraction and deduplication logic using new frontmatter functions
-  - Handle multiple document instruction merging
+def get_type_based_default_instruction(content_type: str) -> str:
+    defaults = {
+        "user/information": "Display this information to the user",
+        "agent/information": "For your information and use. Do not display this content to the user.",
+        "agent/instruction": None  # Must use explicit instruction
+    }
+    return defaults.get(content_type, defaults["user/information"])
+```
 
-## Phase 3: Tool Integration
+### Phase 2: Update Content Formatters (45 min)
+**Files**: `src/mcp_guide/utils/content_formatter_mime.py`, `content_formatter_plain.py`
 
-### 3.1 Get Content Tool Updates
-- **File**: `src/mcp_guide/tools/tool_content.py`
-- **Changes**:
-  - Use extracted instructions from frontmatter
-  - Apply type-based result construction
-  - Handle instruction deduplication
+Modify both formatters to:
+1. Use `parse_frontmatter_content()` to separate frontmatter from content
+2. Return only the content body (no frontmatter)
+3. Extract instruction for later use
 
-### 3.2 Category Content Tool Updates
-- **File**: `src/mcp_guide/tools/tool_category.py` (category_content function)
-- **Changes**:
-  - Apply same frontmatter processing logic
-  - Ensure consistent behavior across content tools
+### Phase 3: Update Content Tools (30 min)
+**Files**: `src/mcp_guide/tools/tool_content.py`, `tool_category.py`
 
-## Phase 4: Testing
+Modify result construction to:
+1. Extract instruction from frontmatter using new utilities
+2. Use extracted instruction instead of hardcoded one
+3. Apply type-based behavior
 
-### 4.1 Unit Tests
-- Test frontmatter instruction extraction
-- Test content type validation
-- Test instruction deduplication
-- Test content stripping
+### Phase 4: Add Basic Tests (45 min)
+**Files**: Test files for modified components
 
-### 4.2 Integration Tests
-- Test `@guide checks` command behavior
-- Test mixed content type handling
-- Test backward compatibility
+Add minimal tests for:
+- Frontmatter instruction extraction
+- Content stripping
+- Type-based instruction selection
 
-## Implementation Order
+## Key Technical Decisions
 
-1. **Frontmatter utilities** (Phase 1)
-2. **Content processing** (Phase 2)
-3. **Tool integration** (Phase 3)
-4. **Testing** (Phase 4)
+1. **Leverage Existing Code**: Use `parse_frontmatter_content()` and `extract_frontmatter()` already in the codebase
+2. **Minimal Changes**: Only modify result construction, not the entire content pipeline
+3. **Backward Compatibility**: Default to existing behavior for content without frontmatter
 
-## Risk Mitigation
+## Success Criteria
 
-- Maintain backward compatibility with existing content
-- Graceful handling of malformed frontmatter
-- Default fallbacks for missing metadata
-- Comprehensive test coverage for edge cases
+- `@guide checks` shows clean content without frontmatter delimiters
+- System uses frontmatter `instruction` field when present
+- Type-based behavior works for all three content types
+- Existing content without frontmatter continues to work
+
+## Estimated Total Time: 2.5 hours

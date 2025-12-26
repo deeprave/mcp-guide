@@ -29,6 +29,7 @@ class TestCommandDiscovery:
                 FileInfo(
                     path=Path("help.md"),  # Relative path
                     size=100,
+                    content_size=100,
                     mtime=1234567890,
                     name="help.md",
                     content="",
@@ -39,6 +40,7 @@ class TestCommandDiscovery:
                 FileInfo(
                     path=Path("status.mustache"),  # Relative path
                     size=150,
+                    content_size=150,
                     mtime=1234567890,
                     name="status.mustache",
                     content="",
@@ -76,6 +78,7 @@ class TestCommandDiscovery:
                 FileInfo(
                     path=Path("create/category.md"),  # Relative path
                     size=100,
+                    content_size=100,
                     mtime=1234567890,
                     name="create/category.md",
                     content="",
@@ -86,6 +89,7 @@ class TestCommandDiscovery:
                 FileInfo(
                     path=Path("create/collection.mustache"),  # Relative path
                     size=150,
+                    content_size=150,
                     mtime=1234567890,
                     name="create/collection.mustache",
                     content="",
@@ -131,6 +135,7 @@ This command shows all available commands.
                 FileInfo(
                     path=Path("help.md"),  # Relative path
                     size=len(help_content),
+                    content_size=len(help_content),
                     mtime=1234567890,
                     name="help.md",
                     content=help_content,
@@ -168,6 +173,7 @@ This command shows all available commands.
                 FileInfo(
                     path=Path("simple.md"),  # Relative path
                     size=100,
+                    content_size=100,
                     mtime=1234567890,
                     name="simple.md",
                     content="# Simple Command\nJust a simple command.",

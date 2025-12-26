@@ -57,6 +57,7 @@ async def test_format_single_file_returns_content():
         path=Path("test.md"),
         name="test.md",
         size=len(content.encode("utf-8")),
+        content_size=len(content.encode("utf-8")),
         mtime=datetime.now(),
         content=content,
     )
@@ -74,6 +75,7 @@ async def test_format_single_preserves_line_endings():
         path=Path("test.txt"),
         name="test.txt",
         size=len(content.encode("utf-8")),
+        content_size=len(content.encode("utf-8")),
         mtime=datetime.now(),
         content=content,
     )
@@ -91,6 +93,7 @@ async def test_format_single_preserves_whitespace():
         path=Path("test.txt"),
         name="test.txt",
         size=len(content.encode("utf-8")),
+        content_size=len(content.encode("utf-8")),
         mtime=datetime.now(),
         content=content,
     )
@@ -108,6 +111,7 @@ async def test_format_single_no_headers():
         path=Path("test.md"),
         name="test.md",
         size=len(content.encode("utf-8")),
+        content_size=len(content.encode("utf-8")),
         mtime=datetime.now(),
         content=content,
     )
@@ -129,6 +133,7 @@ async def test_format_single_empty_file():
         path=Path("empty.txt"),
         name="empty.txt",
         size=0,
+        content_size=0,
         mtime=datetime.now(),
         content="",
     )
@@ -145,6 +150,7 @@ async def test_format_single_none_content():
         path=Path("test.txt"),
         name="test.txt",
         size=0,
+        content_size=0,
         mtime=datetime.now(),
         content=None,
     )
@@ -161,6 +167,7 @@ async def test_format_multiple_two_files():
         path=Path("docs/file1.md"),
         name="file1.md",
         size=10,
+        content_size=10,
         mtime=datetime.now(),
         content="Content 1",
     )
@@ -168,6 +175,7 @@ async def test_format_multiple_two_files():
         path=Path("docs/file2.md"),
         name="file2.md",
         size=10,
+        content_size=10,
         mtime=datetime.now(),
         content="Content 2",
     )
@@ -187,6 +195,7 @@ async def test_format_multiple_three_files():
             path=Path(f"file{i}.md"),
             name=f"file{i}.md",
             size=10,
+            content_size=10,
             mtime=datetime.now(),
             content=f"Content {i}",
         )
@@ -207,6 +216,7 @@ async def test_format_multiple_uses_basename():
         path=Path("docs/subdir/file.md"),
         name="file.md",
         size=10,
+        content_size=10,
         mtime=datetime.now(),
         content="Content",
     )
@@ -214,6 +224,7 @@ async def test_format_multiple_uses_basename():
         path=Path("other/path/test.md"),
         name="test.md",
         size=10,
+        content_size=10,
         mtime=datetime.now(),
         content="Test",
     )
@@ -237,6 +248,7 @@ async def test_format_multiple_preserves_content():
         path=Path("file1.md"),
         name="file1.md",
         size=len(content1),
+        content_size=len(content1),
         mtime=datetime.now(),
         content=content1,
     )
@@ -244,6 +256,7 @@ async def test_format_multiple_preserves_content():
         path=Path("file2.md"),
         name="file2.md",
         size=len(content2),
+        content_size=len(content2),
         mtime=datetime.now(),
         content=content2,
     )
