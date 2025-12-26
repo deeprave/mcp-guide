@@ -105,14 +105,7 @@ class FilesystemBridge:
         from mcp_guide.filesystem.tools import send_file_content
 
         # Make sampling request to agent with tools
-        try:
-            response = await self.mcp_context.sample(prompt, tools=[send_file_content])
-        except Exception:
-            # Fallback: retry with binary mode for encoding issues
-            binary_prompt = (
-                f"Please read the content of file '{validated_path}' from your filesystem as binary (base64 encoded)"
-            )
-            response = await self.mcp_context.sample(binary_prompt, tools=[send_file_content])
+        response = await self.mcp_context.sample(prompt, tools=[send_file_content])
 
         # For testing: if response is a string, return it directly
         if isinstance(response, str):

@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from mcp_guide.filesystem.filesystem_bridge import FilesystemBridge
+from mcp_guide.filesystem.read_write_security import SecurityError
 
 
 class TestFilesystemBridge:
@@ -57,11 +58,31 @@ class TestFilesystemBridge:
     @pytest.mark.asyncio
     async def test_path_validation_before_operations(self, bridge):
         """FilesystemBridge should validate paths before operations."""
-        with pytest.raises(Exception):  # SecurityError from PathValidator
+        # list_directory should reject unsafe paths with a SecurityError
+        with pytest.raises(SecurityError):
             await bridge.list_directory("../etc/")
 
-        with pytest.raises(Exception):  # SecurityError from PathValidator
+        # read_file should also reject unsafe paths with a SecurityError
+        with pytest.raises(SecurityError):
             await bridge.read_file("../etc/passwd")
+
+    @pytest.mark.asyncio
+    async def test_exception_handling_comprehensive(self, bridge, mock_mcp_context):
+        """FilesystemBridge should handle various exception types correctly."""
+        # Test UnicodeDecodeError propagation for binary files
+        mock_mcp_context.sample.side_effect = UnicodeDecodeError("utf-8", b"", 0, 1, "invalid start byte")
+        with pytest.raises(UnicodeDecodeError):
+            await bridge.read_file("docs/binary-file.bin")
+
+        # Test FileNotFoundError propagation
+        mock_mcp_context.sample.side_effect = FileNotFoundError("File not found")
+        with pytest.raises(FileNotFoundError):
+            await bridge.read_file("docs/missing.txt")
+
+        # Test PermissionError propagation
+        mock_mcp_context.sample.side_effect = PermissionError("Permission denied")
+        with pytest.raises(PermissionError):
+            await bridge.read_file("docs/restricted.txt")
 
     @pytest.mark.asyncio
     async def test_list_directory_with_filter(self, bridge, mock_mcp_context):
@@ -92,18 +113,13 @@ class TestFilesystemBridge:
         assert result == "SGVsbG8gV29ybGQ="
 
     @pytest.mark.asyncio
-    async def test_read_file_encoding_fallback(self, bridge, mock_mcp_context):
-        """FilesystemBridge should handle encoding errors gracefully."""
-        # First call fails with encoding error, second succeeds with fallback
-        mock_mcp_context.sample.side_effect = [
-            Exception("UnicodeDecodeError"),
-            "Content with fallback encoding",
-        ]
+    async def test_read_file_encoding_error_propagation(self, bridge, mock_mcp_context):
+        """FilesystemBridge should propagate encoding errors for non-text files."""
+        # Mock sampling request to raise UnicodeDecodeError
+        mock_mcp_context.sample.side_effect = UnicodeDecodeError("utf-8", b"", 0, 1, "invalid start byte")
 
-        result = await bridge.read_file("docs/file.txt", encoding="utf-8")
-
-        assert result == "Content with fallback encoding"
-        assert mock_mcp_context.sample.call_count == 2
+        with pytest.raises(UnicodeDecodeError):
+            await bridge.read_file("docs/binary-file.bin", encoding="utf-8")
 
     @pytest.mark.asyncio
     async def test_discover_directories(self, bridge, mock_mcp_context):

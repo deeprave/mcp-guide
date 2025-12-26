@@ -140,7 +140,8 @@ class ReadWriteSecurityPolicy:
 
         # Check if path is within allowed write directories
         for allowed in self.write_allowed_paths:
-            if normalized.startswith(allowed.rstrip("/")):
+            allowed_prefix = allowed.rstrip("/") + "/"
+            if normalized.startswith(allowed_prefix):
                 logger.debug(f"Write allowed for path {path} -> {normalized}")
                 return normalized
 
