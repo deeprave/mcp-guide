@@ -45,6 +45,40 @@ class TestPartialPathResolution:
         assert "local" in str(resolved[1])
 
 
+class TestPartialSecurity:
+    """Test security validation for partial paths."""
+
+    def test_reject_absolute_paths(self):
+        """Test that absolute paths are rejected."""
+        template_path = Path("templates/status.mustache")
+        includes = ["/etc/passwd"]
+
+        with pytest.raises(PartialNotFoundError) as exc_info:
+            resolve_partial_paths(template_path, includes)
+
+        assert "Absolute paths not allowed" in str(exc_info.value)
+
+    def test_reject_paths_outside_docroot(self):
+        """Test that paths outside docroot are rejected."""
+        template_path = Path("templates/status.mustache")
+        includes = ["../../../etc/passwd"]
+
+        with pytest.raises(PartialNotFoundError) as exc_info:
+            resolve_partial_paths(template_path, includes)
+
+        assert "outside docroot" in str(exc_info.value)
+
+    def test_allow_relative_paths_within_docroot(self):
+        """Test that relative paths within docroot are allowed."""
+        template_path = Path("templates/subdir/status.mustache")
+        includes = ["../partials/_project.mustache"]
+
+        # This should work as it resolves to templates/partials/_project.mustache
+        resolved = resolve_partial_paths(template_path, includes)
+        assert len(resolved) == 1
+        assert resolved[0].name == "_project.mustache"
+
+
 class TestPartialLoading:
     """Test partial content loading."""
 

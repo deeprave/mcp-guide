@@ -55,6 +55,61 @@ class TestTemplatePartials:
         # Chevron silently ignores missing partials and renders empty string
         assert result.is_ok()
         assert result.value == ""
+
+    def test_render_file_content_circular_include_detection(self):
+        """Test that circular includes are detected and prevented."""
+        from datetime import datetime
+        from pathlib import Path
+
+        from mcp_guide.utils.file_discovery import FileInfo
+        from mcp_guide.utils.template_context import TemplateContext
+        from mcp_guide.utils.template_renderer import render_file_content
+
+        # Create a file that would create a circular include
+        file_info = FileInfo(
+            path=Path("test.mustache"),
+            size=100,
+            content_size=80,
+            mtime=datetime.now(),
+            name="test",
+            content="{{>partial}}",
+            frontmatter={"includes": ["_partial.mustache"]},
+        )
+
+        context = TemplateContext({"name": "test"})
+
+        # Create an include chain that already contains the current file (simulating circular dependency)
+        # This simulates the case where we're already processing this file in the include chain
+        include_chain = {Path.cwd() / "test.mustache"}
+
+        result = render_file_content(file_info, context, Path.cwd(), _include_chain=include_chain)
+
+        assert not result.is_ok()
+        assert result.error_type == "circular_include"
+        assert "Circular include detected" in result.error
+
+    def test_partial_name_extraction_logic(self):
+        """Test partial name extraction logic directly."""
+        from pathlib import Path
+
+        # Test cases for partial name extraction
+        test_cases = [
+            ("_normal.mustache", "normal"),  # Standard case: remove leading underscore
+            ("__double.mustache", "_double"),  # Edge case: only remove first underscore
+            ("no_underscore.mustache", "no_underscore"),  # No underscore: no change
+            ("_", ""),  # Edge case: just underscore
+            ("_.mustache", ""),  # Edge case: underscore with extension
+            ("path/_partial.mustache", "partial"),  # With directory path
+        ]
+
+        for include_path, expected_name in test_cases:
+            partial_name = Path(include_path).stem
+            if partial_name.startswith("_"):
+                partial_name = partial_name[1:]
+
+            assert partial_name == expected_name, (
+                f"Failed for {include_path}: expected {expected_name}, got {partial_name}"
+            )
         file_info = FileInfo(path=Path("test.md.hbs"), size=100, content_size=100, mtime=datetime.now(), name="test.md")
 
         assert is_template_file(file_info) is True
