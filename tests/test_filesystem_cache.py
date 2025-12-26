@@ -154,6 +154,7 @@ class TestFileCache:
         cache.get("file.txt")
         cache.get("file.txt")
 
-        # Access count should be tracked in the entry
-        entry = cache._cache["file.txt"]
-        assert entry.access_count == 3
+        # Verify access behavior through public stats API
+        stats = cache.get_stats()
+        assert stats["hits"] == 3
+        assert stats["misses"] == 0
