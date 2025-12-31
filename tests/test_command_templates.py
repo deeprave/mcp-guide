@@ -19,7 +19,7 @@ class TestCommandTemplates:
 
         # Mock template rendering to return formatted status
         with patch("mcp_guide.prompts.guide_prompt.handle_command", new=AsyncMock()) as mock_handle:
-            from mcp_core.result import Result
+            from mcp_guide.result import Result
 
             status_content = """# System Status
 
@@ -60,7 +60,7 @@ class TestCommandTemplates:
         mock_ctx.session.project_root = "/test/project"
 
         with patch("mcp_guide.prompts.guide_prompt.handle_command", new=AsyncMock()) as mock_handle:
-            from mcp_core.result import Result
+            from mcp_guide.result import Result
 
             create_content = """# Create Collection: my-docs
 
@@ -92,7 +92,7 @@ Collection created successfully!"""
         mock_ctx.session.project_root = "/test/project"
 
         with patch("mcp_guide.prompts.guide_prompt.handle_command", new=AsyncMock()) as mock_handle:
-            from mcp_core.result import Result
+            from mcp_guide.result import Result
 
             mock_handle.return_value = Result.failure(
                 "Template rendering failed: Invalid syntax", error_type="template_error"

@@ -1,27 +1,39 @@
 ---
+type: user/information
 description: Show help information
 category: "system"
 aliases:
   - "?"
   - "h"
-usage: ":help [command]"
+usage: ":help [command] [--table|-t]"
 examples:
   - ":help"
   - ":? create"
   - ":h list"
+  - ":help --table"
+instruction: Display this information to the user. Take no further action.
 ---
-# Help
-
+{{h1}}ℹ️  Command Help
 {{#args}}
 Help for command: {{.}}
 {{/args}}
-
 {{^args}}
 {{#command_categories}}
-## {{title}}
+{{#kwargs.table}}
+**{{title}}**
+| Command | Description |
+|---------|-------------|
 {{#commands}}
-- **{{@}}guide :{{name}}** {{#aliases}}({{@}}guide :{{.}}){{/aliases}} - {{description}}
+| `{{@}}guide :{{name}}`{{#aliases}} (:{{.}}){{/aliases}} | {{description}} |
 {{/commands}}
 
+{{/kwargs.table}}
+{{^kwargs.table}}
+{{h2}}{{title}}
+{{#commands}}
+- `{{@}}guide :{{name}}` {{#aliases}}(:{{.}}){{/aliases}} - {{description}}
+{{/commands}}
+
+{{/kwargs.table}}
 {{/command_categories}}
 {{/args}}

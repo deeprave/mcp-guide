@@ -9,7 +9,10 @@ from typing import TYPE_CHECKING, Any, NamedTuple, Optional
 from pydantic import ConfigDict, field_validator
 from pydantic.dataclasses import dataclass as pydantic_dataclass
 
+from mcp_core.mcp_log import get_logger
 from mcp_core.validation import validate_directory_path
+
+logger = get_logger(__name__)
 
 if TYPE_CHECKING:
     from mcp_guide.session import Session
@@ -169,9 +172,7 @@ async def _resolve_all_flags(session: "Session") -> dict[str, Any]:
     except Exception as e:
         # Log unexpected errors for debugging, but continue with empty flags
         # since flags are supplementary data
-        import logging
-
-        logging.getLogger(__name__).debug(f"Flag resolution failed: {e}")
+        logger.debug(f"Flag resolution failed: {e}")
         return {}
 
 
@@ -237,8 +238,8 @@ class Project:
     model_config = ConfigDict(extra="ignore")
 
     name: str
-    key: Optional[str] = None  # Project key (for disambiguation)
-    hash: Optional[str] = None  # Optional for backward compatibility
+    key: Optional[str] = None  # Project key from config (for disambiguation)
+    hash: Optional[str] = None
     categories: dict[str, Category] = field(default_factory=dict)
     collections: dict[str, Collection] = field(default_factory=dict)
     project_flags: dict[str, FeatureValue] = field(default_factory=dict)

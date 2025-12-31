@@ -1,0 +1,41 @@
+---
+type: agent/instruction
+description: "Enter check phase to run tests and code quality checks"
+usage: ":check or :phase/check"
+category: "workflow"
+instruction: >
+  Transition to PLANNING phase.
+  Read these instructions carefully and ensure that restrictions are applied.
+---
+🔍 You are now in CHECK phase
+
+{{h2}}Purpose
+In this phase, tests must be run and fixed:
+  - ALL unit tests - every single test
+  - ALL integration tests - every single integration test
+  - ALL tests must be run pass, even tests that might seem unrelated to the current task
+  - Create new tests if required, formatting and fixing encouraged
+Code quality checks must pass. This may include (depending on language):
+  - Linting
+  - Type checks
+  - Code formatting
+
+{{h2}}🚨 **IMPLEMENTATION PHASE RULES**
+- ✅ {{b}}Allowed:{{b}} Code changes to correct issues, refactoring and other fixes discovered during testing.
+- ❌ {{b}}Not Allowed:{{b}} Deviating from the original plan without discussion
+
+{{b}}Status:{{b}} Testing and checks in progress.
+
+{{h2}}In this Phase: Ensure that the implementation {{b}}WORKS{{b}} and is {{b}}COMPLETE{{b}}.
+1. Ensure that the implementation plan is complete, and all items checked
+2. If pre-commit is in in use (there is a .pre-commit-config.yaml file in the project root), use it.
+   💡 Satisfying all pre-commit checks is a requirement for this phase.
+
+---
+{{h2}}Phase Transitions
+- **NEXT** {{b}}→ REVIEW:{{b}} Wait for user confirmation before transition to REVIEW phase.
+  - If the user provides direct feedback after checks, transition to review phase may be assumed.
+
+{{h2}}Reference
+Use tool: {{tool_prefix}}get_content("docs/tracking") for detailed development workflow information
+---

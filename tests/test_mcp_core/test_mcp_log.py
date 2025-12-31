@@ -37,18 +37,18 @@ class TestLoggerTraceMethod:
 
     def test_logger_has_trace_method(self):
         """Test logger has trace() method."""
-        import mcp_core.mcp_log  # noqa: F401 - Import to initialize TRACE level
+        from mcp_core.mcp_log import get_logger
 
-        logger = logging.getLogger("test_trace_method")
+        logger = get_logger("test_trace_method")
 
         assert hasattr(logger, "trace")
         assert callable(logger.trace)
 
     def test_trace_method_logs_at_trace_level(self, caplog):
         """Test trace() method logs at TRACE level."""
-        from mcp_core.mcp_log import TRACE_LEVEL
+        from mcp_core.mcp_log import TRACE_LEVEL, get_logger
 
-        logger = logging.getLogger("test_trace_logging")
+        logger = get_logger("test_trace_logging")
         logger.setLevel(TRACE_LEVEL)
 
         with caplog.at_level(TRACE_LEVEL):
@@ -60,9 +60,9 @@ class TestLoggerTraceMethod:
 
     def test_trace_method_filtered_when_level_higher(self, caplog):
         """Test trace() messages filtered when level is DEBUG."""
-        from mcp_core.mcp_log import TRACE_LEVEL
+        from mcp_core.mcp_log import TRACE_LEVEL, get_logger
 
-        logger = logging.getLogger("test_trace_filter_method")
+        logger = get_logger("test_trace_filter_method")
         logger.setLevel(logging.DEBUG)
 
         with caplog.at_level(TRACE_LEVEL):

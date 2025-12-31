@@ -6,13 +6,10 @@ from typing import Any, Optional
 
 from pydantic import Field
 
-from mcp_core.result import Result
 from mcp_core.tool_arguments import ToolArguments
 from mcp_guide.models import Category, Collection, Project, format_project_data
-from mcp_guide.server import tools
-from mcp_guide.session import get_or_create_session, list_all_projects
-from mcp_guide.session import set_project as session_set_project
-from mcp_guide.tools.tool_constants import (
+from mcp_guide.result import Result
+from mcp_guide.result_constants import (
     ERROR_INVALID_NAME,
     ERROR_NO_PROJECT,
     ERROR_NOT_FOUND,
@@ -20,6 +17,9 @@ from mcp_guide.tools.tool_constants import (
     INSTRUCTION_NO_PROJECT,
     INSTRUCTION_NOTFOUND_ERROR,
 )
+from mcp_guide.server import tools
+from mcp_guide.session import get_or_create_session, list_all_projects
+from mcp_guide.session import set_project as session_set_project
 
 try:
     from mcp.server.fastmcp import Context

@@ -5,8 +5,7 @@ from pathlib import Path
 from typing import Optional
 
 from mcp_core.file_reader import read_file_content
-from mcp_core.path_security import resolve_safe_path
-from mcp_core.result import Result
+from mcp_guide.result import Result
 from mcp_guide.utils.file_discovery import FileInfo
 from mcp_guide.utils.frontmatter import (
     get_frontmatter_instruction,
@@ -92,6 +91,7 @@ def resolve_patterns(override_pattern: Optional[str], default_patterns: list[str
 async def read_file_contents(
     files: list[FileInfo],
     base_dir: Path,
+    docroot: Path,
     category_prefix: Optional[str] = None,
 ) -> list[str]:
     """Read content for FileInfo objects and optionally prefix basenames.
@@ -99,17 +99,19 @@ async def read_file_contents(
     Args:
         files: List of FileInfo objects to read
         base_dir: Base directory for resolving file paths
+        docroot: Document root for security validation
         category_prefix: Optional prefix to add to basenames (e.g., "category")
 
     Returns:
         List of error messages for files that failed to read
     """
-    return await read_and_render_file_contents(files, base_dir, None, category_prefix)
+    return await read_and_render_file_contents(files, base_dir, docroot, None, category_prefix)
 
 
 async def read_and_render_file_contents(
     files: list[FileInfo],
     base_dir: Path,
+    docroot: Path,
     template_context: Optional[TemplateContext] = None,
     category_prefix: Optional[str] = None,
 ) -> list[str]:
@@ -118,6 +120,7 @@ async def read_and_render_file_contents(
     Args:
         files: List of FileInfo objects to read and render
         base_dir: Base directory for resolving file paths
+        docroot: Document root for security validation
         template_context: Optional template context for rendering
         category_prefix: Optional prefix to add to basenames (e.g., "category")
 
@@ -131,9 +134,9 @@ async def read_and_render_file_contents(
 
     for file_info in files:
         try:
-            # Read file content
-            file_path = resolve_safe_path(base_dir, file_info.path)
-            raw_content = await read_file_content(file_path)
+            # Resolve file path with security validation
+            file_info.resolve(base_dir, docroot)
+            raw_content = await read_file_content(file_info.path)
 
             # Parse frontmatter and strip it from content
             metadata, content = parse_frontmatter_content(raw_content)
@@ -157,7 +160,7 @@ async def read_and_render_file_contents(
                     file_read_errors.append(f"'{error_path}': Invalid template context data: {str(e)}")
                     continue
 
-                render_result = render_file_content(file_info, template_context, base_dir)
+                render_result = await render_file_content(file_info, template_context, base_dir, docroot)
                 if render_result.is_failure():
                     # Skip file on template error for consistency with other validation failures
                     error_path = f"{category_prefix}/{file_info.name}" if category_prefix else file_info.name

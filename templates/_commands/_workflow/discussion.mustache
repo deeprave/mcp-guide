@@ -1,0 +1,41 @@
+---
+type: agent/instruction
+description: "Enter discussion phase for alignment between user and AI agent"
+usage: ":discuss or :phase/discussion"
+category: "workflow"
+includes:
+  - guide://workflow/00-discussion
+instruction: >
+  You MUST transition to DISCUSSION phase - you have explicit concent to do so.
+  Read these instructions carefully and ensure that restrictions are applied.
+---
+🗣️ You are now in DISCUSSION phase.
+
+{{h2}}🚨 DISCUSSION PHASE RULES
+- ✅ {{b}}Allowed:{{b}} Discussion, clarification, requirements gathering, problem analysis
+- ❌ {{b}}Not Allowed:{{b}} Code changes, creating and editing project files, implementation, testing
+- You MUST NOT create, edit, rename or delete project files!
+  {{b}}Exceptions:{{b}}
+  - Discussion briefs, analysis documents, specifications and plans
+  - Documents in specs/, openspec/, .todo/, or similar write-allowed folders.
+  - if `.guide` file exists, provide a brief list of tasks queued for development
+    - The user may wish to remove completed tasks
+    - But you MUST wait for the user's explicit instruction
+    - Ensure that the most recently completed component tasks have been marked as completed
+
+{{b}}Purpose of this phase:{{b}} Decide WHAT needs to be done.
+
+{{h2}}Automatic Transitions
+- {{b}}→ PLANNING:{{b}} Automatically transitions to planning phase when ready to create an implementation plan.
+
+{{h2}}Workflow
+1. Discuss requirements and approach
+2. Clarify any ambiguities
+3. Reach alignment on the problem and solution approach
+4. Create implementation plan (triggers automatic transition to planning)
+---
+{{b}}Status:{{b}} Ready for discussion and requirements gathering.
+
+{{h2}}Reference
+Use tool: {{tool_prefix}}get_content("docs/tracking") - Detailed development workflow information
+

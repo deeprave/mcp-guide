@@ -1,10 +1,14 @@
 ---
+type: agent/instruction
 description: Create a new project category
 category: "project"
 usage: ":create/category [--dir <path>] [--patterns <pattern>...] [--description <text>] <name>"
 examples:
   - ":create/category docs"
-  - ":create/category --dir documentation --patterns '*.md' '*.rst' api-docs"
+  - ":create/category --dir documentation --patterns '{{*}}.md' '{{*}}.rst' api-docs"
   - ":create/category --description 'Test files' tests"
-instruction: "Use the category_add tool to create a new category with name '{{args.0}}'{{#kwargs.dir}} and directory '{{kwargs.dir}}'{{/kwargs.dir}}{{#kwargs.patterns}} and patterns {{kwargs.patterns}}{{/kwargs.patterns}}{{#kwargs.description}} and description '{{kwargs.description}}'{{/kwargs.description}}."
+instruction: >
+  Use the category_add tool to create a new category with name '{{args.0}}'{{#kwargs.dir}} and directory '{{kwargs.dir}}'{{/kwargs.dir}}
+  {{#kwargs.patterns}} and patterns {{kwargs.patterns}}{{/kwargs.patterns}}
+  {{#kwargs.description}} and description '{{kwargs.description}}'{{/kwargs.description}}.
 ---

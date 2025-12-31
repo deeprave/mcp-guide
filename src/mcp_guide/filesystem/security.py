@@ -1,11 +1,12 @@
 """Security policy for filesystem operations."""
 
-import logging
 from typing import List, Optional
+
+from mcp_core.mcp_log import get_logger
 
 from .path_validator import PathValidator, SecurityError
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class SecurityPolicy:

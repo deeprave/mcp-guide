@@ -8,9 +8,12 @@ try:
 except ImportError:
     Context = None  # type: ignore
 
+from mcp_core.mcp_log import get_logger
 from mcp_core.prompt_decorator import ExtMcpPromptDecorator
 from mcp_core.tool_decorator import ExtMcpToolDecorator
 from mcp_guide.guide import GuideMCP
+
+logger = get_logger(__name__)
 
 
 class _ToolsProxy:
@@ -143,12 +146,10 @@ def _configure_logging_after_fastmcp() -> None:
         create_file_handler,
         create_formatter,
         get_log_level,
-        initialize_trace_level,
         register_cleanup_handlers,
     )
 
-    # Always initialize TRACE level and context
-    initialize_trace_level()
+    # Always add trace to context
     add_trace_to_context()
 
     if _pending_log_config is None:
@@ -205,7 +206,6 @@ def _configure_logging_after_fastmcp() -> None:
     register_cleanup_handlers()
 
     # Log startup message
-    logger = logging.getLogger(__name__)
     logger.info("Starting mcp-guide server")
     logger.debug(f"Log level: {config.log_level}, File: {config.log_file or 'none'}, JSON: {config.log_json}")
 

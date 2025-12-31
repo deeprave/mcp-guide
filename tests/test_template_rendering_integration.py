@@ -31,7 +31,7 @@ Phase tracking is enabled!
             context = await get_template_contexts()
 
             # Render template
-            result = render_template_content(template_content, context)
+            result = await render_template_content(template_content, context)
 
             # Verify content is rendered
             assert result.success
@@ -59,7 +59,7 @@ Phase tracking is enabled!
             context = await get_template_contexts()
 
             # Render template
-            result = render_template_content(template_content, context)
+            result = await render_template_content(template_content, context)
 
             # Verify content is not rendered
             assert result.success
@@ -92,7 +92,7 @@ Phase tracking is enabled!
             context = await get_template_contexts()
 
             # Render template
-            result = render_template_content(template_content, context)
+            result = await render_template_content(template_content, context)
 
             # Verify content is not rendered
             assert result.success

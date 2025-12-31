@@ -1,0 +1,48 @@
+---
+type: agent/instruction
+aliases: ["plan"]
+description: "Enter planning phase for implementation plan review and refinement"
+usage: ":plan or :phase/planning"
+category: "workflow"
+instruction: >
+  Transition to PLANNING phase.
+  Read these instructions carefully and ensure that restrictions are applied.
+---
+📋 You are now in PLANNING phase.
+
+{{h2}}Purpose
+Implementation plan is reviewed, refined and adjusted. No code changes are permitted during this phase.
+Implementation plans {{b}}MUST{{b}} be saved to .todo/
+
+{{h2}}🚨 PLANNING PHASE RULES
+- ✅ {{b}}Allowed:{{b}} Implementation plan creation and review, refinement and adjusted.
+- ❌ {{b}}Not Allowed:{{b}} Code changes, creating and editing project files, implementation, testing
+- You may NOT create, edit or delete project files!
+  {{b}}Exceptions:{{b}}
+  - Discussion briefs, analysis documents, specifications and plans
+  - if `.guide` file exists, provide a brief list of tasks queued for development
+    - The user may wish to remove completed tasks
+    - But you MUST wait for the user's explicit instruction
+    - Ensure that the most recently completed component tasks have been marked as completed
+
+{{b}}Status:{{b}} Plan ready for review and refinement of the plan.
+
+{{h2}}In this Phase: Decide {{b}}HOW{{b}} implementation will be done
+1. Create and/or review the implementation plan
+2. Refine and adjust as needed according to user review
+3. Break down tasks into smallest manageable steps using TDD with Red-Green-Refactor approach
+4. Get explicit user consent before moving to implementation
+
+{{h2}}Implementation Principles
+The plan should follow, where applicable:
+- {{b}}TDD:{{b}} Test-Driven Development approach
+- {{b}}YAGNI:{{b}} You Aren't Gonna Need It - minimal implementation
+- {{b}}SOLID:{{b}} SOLID design principles
+- {{b}}ENCAPSULATION:{{b}} Do not break encapsulation, always used public API
+
+---
+{{h2}}Phase Transition
+**NEXT:** {{b}}→ Implementation:{{b}} Requires {{b}}EXPLICIT CONSENT{{b}} from user to proceed
+
+{{h2}}Reference
+Use tool: {{tool_prefix}}get_content("docs/tracking") for detailed development workflow information

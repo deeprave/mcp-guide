@@ -7,17 +7,17 @@ from typing import Any, Optional
 
 from pydantic import Field
 
-from mcp_core.result import Result
 from mcp_core.tool_arguments import ToolArguments
 from mcp_core.validation import ArgValidationError, validate_description
 from mcp_guide.models import Collection
-from mcp_guide.server import tools
-from mcp_guide.session import get_or_create_session
-from mcp_guide.tools.tool_constants import (
+from mcp_guide.result import Result
+from mcp_guide.result_constants import (
     ERROR_NO_PROJECT,
     ERROR_NOT_FOUND,
     ERROR_SAVE,
 )
+from mcp_guide.server import tools
+from mcp_guide.session import get_or_create_session
 from mcp_guide.validation import validate_categories_exist
 
 try:

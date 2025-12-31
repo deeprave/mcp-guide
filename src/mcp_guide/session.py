@@ -1,10 +1,12 @@
 """Session management for per-project runtime state."""
 
 import asyncio
-import logging
+import contextlib
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Callable, Optional
+
+from mcp_core.mcp_log import get_logger
 
 try:
     from mcp.server.fastmcp import Context
@@ -15,13 +17,13 @@ if TYPE_CHECKING:
     from mcp_guide.feature_flags.protocol import FeatureFlags
     from mcp_guide.session_listener import SessionListener
 
-from mcp_core.result import Result
 from mcp_guide.config import ConfigManager
 from mcp_guide.mcp_context import resolve_project_name, resolve_project_path
 from mcp_guide.models import _NAME_REGEX, Project, SessionState
+from mcp_guide.result import Result
 from mcp_guide.watchers.config_watcher import ConfigWatcher
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass
@@ -111,11 +113,8 @@ class Session:
         """Cleanup session resources including config watcher."""
         if self._watcher_task and not self._watcher_task.done():
             self._watcher_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._watcher_task
-            except asyncio.CancelledError:
-                # Expected when task is cancelled during cleanup
-                pass
             self._watcher_task = None
 
         if self._config_watcher:
@@ -400,10 +399,7 @@ async def remove_current_session(project_name: str) -> None:
     """Remove session from ContextVar and cleanup its resources."""
     # Copy to avoid mutating parent context's dict
     sessions = dict(active_sessions.get({}))
-    session = sessions.pop(project_name, None)
-
-    # Cleanup session resources if it exists
-    if session:
+    if session := sessions.pop(project_name, None):
         await session.cleanup()
 
     active_sessions.set(sessions)
@@ -423,17 +419,15 @@ async def set_project(project_name: str, ctx: Optional["Context"] = None) -> Res
         Creates or loads project configuration.
         Use when project cannot be auto-detected from context.
     """
-    from mcp_guide.tools.tool_constants import ERROR_INVALID_NAME
+    from mcp_guide.result_constants import ERROR_INVALID_NAME
     from mcp_guide.validation import InvalidProjectNameError
 
     try:
         session = await get_or_create_session(ctx=ctx, project_name=project_name)
         project = await session.get_project()
         return Result.ok(project)
-    except InvalidProjectNameError as e:
+    except (InvalidProjectNameError, ValueError) as e:
         return Result.failure(str(e), error_type=ERROR_INVALID_NAME)
-    except ValueError as e:
-        return Result.failure(str(e), error_type="project_load_error")
     except Exception as e:
         return Result.failure(str(e), error_type="project_load_error")
 
@@ -451,7 +445,7 @@ async def list_all_projects(session: "Session", verbose: bool = False) -> Result
         Result with projects dict
     """
     from mcp_guide.models import format_project_data
-    from mcp_guide.tools.tool_constants import ERROR_INVALID_NAME
+    from mcp_guide.result_constants import ERROR_INVALID_NAME
 
     try:
         # Verbose: get all project configs in one atomic read
@@ -512,7 +506,7 @@ async def resolve_project_name_to_key(name: str, config_manager: "ConfigManager"
     # If not a key, try to find by display name
     matching_projects = [(key, proj) for key, proj in all_projects.items() if proj.name == name]
 
-    if len(matching_projects) == 0:
+    if not matching_projects:
         raise ValueError(f"Project '{name}' not found")
     elif len(matching_projects) == 1:
         key, project = matching_projects[0]
@@ -543,7 +537,7 @@ async def get_project_info(
         - ERROR_NOT_FOUND if specified project doesn't exist
     """
     from mcp_guide.models import format_project_data
-    from mcp_guide.tools.tool_constants import (
+    from mcp_guide.result_constants import (
         ERROR_INVALID_NAME,
         ERROR_NO_PROJECT,
         ERROR_NOT_FOUND,
@@ -575,12 +569,8 @@ async def get_project_info(
                 )
         elif session is None and verbose:
             # Create session for flag resolution in verbose mode
-            try:
+            with contextlib.suppress(Exception):
                 session = await get_or_create_session(None)
-            except Exception:
-                # If session creation fails, continue without it
-                pass
-
         # Get all projects in one atomic read
         all_projects = await config_manager.get_all_project_configs()
 

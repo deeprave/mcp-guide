@@ -1,0 +1,35 @@
+---
+type: agent/instruction
+description: "Enter discussion phase for alignment between user and AI agent"
+instruction: >
+  You MUST transition to DISCUSSION phase - you have explicit consent.
+  Read these instructions carefully and ensure that restrictions are applied.
+---
+🗣️ You are now in DISCUSSION phase.
+
+{{h2}}🚨 DISCUSSION PHASE RULES
+- ✅ {{b}}Allowed:{{b}} Discussion, clarification, requirements gathering, problem analysis
+- ❌ {{b}}Not Allowed:{{b}} Code changes, creating and editing project files, implementation, testing
+- You may NOT create, edit or delete project files!
+  {{b}}Exceptions:{{b}}
+  - Discussion briefs, analysis documents, specifications and plans
+  - if `.guide` file exists, provide a brief list of tasks queued for development
+    - The user may wish to remove completed tasks
+    - But you MUST wait for the user's explicit instruction
+    - Ensure that the most recently completed component tasks have been marked as completed
+
+{{b}}Status:{{b}} Ready for discussion and requirements gathering.
+
+{{h2}}In this Phase: Decide {{b}}WHAT{{b}} needs to be done.
+1. Discuss requirements and approach
+2. Clarify any ambiguities
+3. Reach alignment on the problem and solution approach
+4. Create implementation plan (triggers automatic transition to planning)
+
+---
+{{h2}}Phase Transition
+**NEXT:** {{b}}→ PLANNING{{b}} phase
+- Automatically transition to planning phase when discussion is concluded and you are ready to create an implementation plan.
+
+{{h2}}Reference
+Use tool: {{tool_prefix}}get_content("docs/tracking") for detailed development workflow information

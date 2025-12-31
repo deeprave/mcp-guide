@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from mcp_core.result import Result
+from mcp_guide.result import Result
 
 
 @pytest.fixture(scope="module")

@@ -1,0 +1,39 @@
+---
+type: agent/instruction
+description: Remove permission to write files or directories
+category: "permissions"
+usage: ":perm/write-del <path1> [<path2> ...]"
+examples:
+  - ":perm/write-del src/"
+  - ":perm/write-del docs/ config.json"
+---
+{{#if args}}
+{{h1}}Remove Write Permission
+
+Please remove write permission for the following path(s):
+{{#each args}}
+- `{{this}}`
+{{/each}}
+
+Use the `permission_write_remove` tool with these paths as arguments.
+{{else}}
+{{h1}}Remove Write Permission
+
+Remove permission to create, remove, read, write or update files or directories.
+
+{{h2}}Usage
+```
+:perm/write-del <path1> [<path2> ...]
+```
+
+{{h2}}Examples
+```
+:perm/write-del src/
+:perm/write-del docs/ config.json
+```
+
+{{h2}}Related Commands
+- `:perm/write-add` - Add write permission
+- `:perm` - Show current permissions
+- `:perm/read-del` - Remove read permission
+{{/if}}

@@ -1,21 +1,29 @@
 """Command discovery utilities for finding and parsing commands in _commands directory."""
 
 import asyncio
-import logging
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
 import aiofiles
 from anyio import Path as AsyncPath
 
+from mcp_core.mcp_log import get_logger
 from mcp_guide.utils.file_discovery import discover_category_files
 from mcp_guide.utils.frontmatter import parse_frontmatter_content
+from mcp_guide.utils.pattern_matching import is_valid_command
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Simple in-memory cache with thread safety
 _command_cache: Dict[str, Tuple[float, List[Dict[str, Any]]]] = {}
 _cache_lock = asyncio.Lock()
+
+
+async def discover_command_files(commands_dir: Path, patterns: List[str]) -> List[Any]:
+    """Discover command files, filtering out underscore-prefixed files and directories."""
+    all_files = await discover_category_files(commands_dir, patterns)
+    # Filter to only include valid command files
+    return [file_info for file_info in all_files if is_valid_command(file_info.path)]
 
 
 async def discover_commands(commands_dir: Path) -> List[Dict[str, Any]]:
@@ -51,8 +59,8 @@ async def discover_commands(commands_dir: Path) -> List[Dict[str, Any]]:
             # Directory access failed, skip cache check and proceed with discovery
             pass
 
-        # Discover all files in commands directory
-        files = await discover_category_files(commands_dir, ["**/*"])
+        # Discover command files (excluding underscore-prefixed files)
+        files = await discover_command_files(commands_dir, ["**/*"])
 
         commands = []
         error_files = []

@@ -1,10 +1,10 @@
 """Main entry point for mcp-guide MCP server."""
 
 import asyncio
-import logging
 import os
 import sys
 
+from mcp_core.mcp_log import get_logger
 from mcp_guide.cli import ServerConfig, parse_args
 from mcp_guide.config import DocrootError
 
@@ -83,7 +83,7 @@ def _handle_cli_error(config: ServerConfig) -> None:
     if not config.cli_error:
         return
 
-    logger = logging.getLogger(__name__)
+    logger = get_logger(__name__)
 
     if config.should_exit:
         # Ctrl+C
@@ -122,7 +122,7 @@ def main() -> None:
     try:
         asyncio.run(async_main())
     except DocrootError as e:
-        logger = logging.getLogger(__name__)
+        logger = get_logger(__name__)
         logger.error(f"FATAL: {e}")
         logger.error("MCP server cannot function without a valid docroot. Exiting.")
         sys.exit(1)

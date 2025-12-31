@@ -4,12 +4,18 @@ import unittest
 from datetime import datetime
 from pathlib import Path
 
+from mcp_guide.result_constants import (
+    AGENT_INFO,
+    AGENT_INSTRUCTION,
+    AGENT_REQUIREMENTS,
+    INSTRUCTION_AGENT_INFO,
+    INSTRUCTION_AGENT_INSTRUCTIONS,
+    INSTRUCTION_DISPLAY_ONLY,
+    USER_INFO,
+)
 from mcp_guide.utils.content_utils import extract_and_deduplicate_instructions
 from mcp_guide.utils.file_discovery import FileInfo
 from mcp_guide.utils.frontmatter import (
-    AGENT_INFO,
-    AGENT_INSTRUCTION,
-    USER_INFO,
     get_frontmatter_includes,
     get_frontmatter_instruction,
     get_frontmatter_type,
@@ -27,6 +33,7 @@ class TestContentTypeConstants:
         assert USER_INFO == "user/information"
         assert AGENT_INFO == "agent/information"
         assert AGENT_INSTRUCTION == "agent/instruction"
+        assert AGENT_REQUIREMENTS == "agent/requirements"
 
     def test_validate_content_type(self):
         """Test content type validation."""
@@ -34,6 +41,7 @@ class TestContentTypeConstants:
         assert validate_content_type("user/information") is True
         assert validate_content_type("agent/information") is True
         assert validate_content_type("agent/instruction") is True
+        assert validate_content_type("agent/requirements") is True
 
         # Test invalid types
         assert validate_content_type("invalid/type") is False
@@ -120,15 +128,12 @@ class TestTypeBasedInstructions:
 
     def test_get_type_based_default_instruction(self):
         """Test default instructions for different content types."""
-        assert get_type_based_default_instruction("user/information") == "Display this information to the user"
-        assert (
-            get_type_based_default_instruction("agent/information")
-            == "For your information and use. Do not display this content to the user."
-        )
-        assert get_type_based_default_instruction("agent/instruction") is None  # Should use explicit instruction
+        assert get_type_based_default_instruction("user/information") == INSTRUCTION_DISPLAY_ONLY
+        assert get_type_based_default_instruction("agent/information") == INSTRUCTION_AGENT_INFO
+        assert get_type_based_default_instruction("agent/instruction") == INSTRUCTION_AGENT_INSTRUCTIONS
 
         # Test unknown type defaults to user/information
-        assert get_type_based_default_instruction("unknown/type") == "Display this information to the user"
+        assert get_type_based_default_instruction("unknown/type") == INSTRUCTION_DISPLAY_ONLY
 
 
 class TestContentStripping:
@@ -261,7 +266,7 @@ class TestInstructionExtraction(unittest.TestCase):
         # Should combine instructions in insertion order (user first, then agent)
         assert (
             instruction
-            == "Display this information to the user\nFor your information and use. Do not display this content to the user."
+            == "Display this information to the user. Take no further action.\nThis information is for your information and use. Do not display this content to the user."
         )
 
     def test_no_frontmatter_files(self):
@@ -405,4 +410,4 @@ class TestInstructionExtraction(unittest.TestCase):
         # Blank instructions should be ignored, but files without instructions get type-based defaults
         instruction = extract_and_deduplicate_instructions([empty_regular, whitespace_regular, valid_regular])
         # Should include the type-based default for files without explicit instructions plus the valid instruction
-        assert instruction == "Display this information to the user\nValid regular instruction"
+        assert instruction == "Display this information to the user. Take no further action.\nValid regular instruction"

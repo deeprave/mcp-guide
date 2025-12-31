@@ -1,13 +1,14 @@
 """Generic path watcher for monitoring file and directory changes."""
 
 import asyncio
-import logging
 from pathlib import Path
 from typing import Callable, List, Optional, Union
 
 from anyio import Path as AsyncPath
 
-logger = logging.getLogger(__name__)
+from mcp_core.mcp_log import get_logger
+
+logger = get_logger(__name__)
 
 
 class PathWatcher:

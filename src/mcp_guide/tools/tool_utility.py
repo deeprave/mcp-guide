@@ -2,24 +2,24 @@
 
 """Utility tools for server information."""
 
-import logging
 from typing import Optional
 
 from pydantic import Field
 
-from mcp_core.result import Result
+from mcp_core.mcp_log import get_logger
 from mcp_core.tool_arguments import ToolArguments
 from mcp_guide.agent_detection import detect_agent, format_agent_info
 from mcp_guide.guide import GuideMCP
+from mcp_guide.result import Result
+from mcp_guide.result_constants import INSTRUCTION_DISPLAY_ONLY
 from mcp_guide.server import tools
-from mcp_guide.tools.tool_constants import INSTRUCTION_DISPLAY_ONLY
 
 try:
     from mcp.server.fastmcp import Context
 except ImportError:
     Context = None  # type: ignore
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 __all__ = ["internal_client_info"]
 

@@ -35,6 +35,12 @@ def parse_command_arguments(
     if short_flag_map is None:
         short_flag_map = {}
 
+    # Add common short flag mappings
+    common_mappings = {"v": "verbose", "h": "help", "q": "quiet", "f": "force", "d": "debug", "t": "table"}
+    for short, long in common_mappings.items():
+        if short not in short_flag_map:
+            short_flag_map[short] = long
+
     # Auto-generate short mappings for long flags found in argv, but don't overwrite explicit mappings
     for arg in argv[1:]:
         if arg.startswith("--") and "=" in arg:
@@ -54,6 +60,12 @@ def parse_command_arguments(
         """Resolve short flag to long form, with fallback to the short flag itself."""
         return short_flag_map.get(short_flag, short_flag)
 
+    def process_flag(flag_name: str, value: str | bool | None = None) -> tuple[str, bool | str]:
+        """Process flag name and value, handling no- prefix and normalization."""
+        if flag_name.startswith("no-") and len(flag_name) > 3:
+            return flag_name[3:].replace("-", "_"), False
+        return flag_name.replace("-", "_"), value if value is not None else True
+
     # Skip the command itself (first argument)
     for arg in argv[1:]:
         if arg.startswith("--"):
@@ -67,25 +79,16 @@ def parse_command_arguments(
                 if not value_part:
                     parse_errors.append(f"Invalid flag: --{key_part}= (empty value)")
                     continue
-                # Convert hyphens to underscores and add underscore prefix for flags
-                key = "_" + key_part.replace("-", "_")
-                kwargs[key] = value_part
+                key, value = process_flag(key_part, value_part)
+                kwargs[key] = value
             else:
                 # --flag or --no-flag format
                 flag_name = arg[2:]  # Remove --
                 if not flag_name:
                     parse_errors.append("Invalid flag: -- (empty flag name)")
                     continue
-
-                if flag_name.startswith("no-") and len(flag_name) > 3:
-                    # --no-flag format (negation)
-                    actual_flag = flag_name[3:]  # Remove "no-"
-                    key = "_" + actual_flag.replace("-", "_")
-                    kwargs[key] = False
-                else:
-                    # --flag format
-                    key = "_" + flag_name.replace("-", "_")
-                    kwargs[key] = True
+                key, value = process_flag(flag_name)
+                kwargs[key] = value
         elif arg.startswith("-") and len(arg) > 1 and not arg.startswith("--"):
             # Handle single-dash short flags like -v, -f, -abc (combined)
             flags = arg[1:]  # Remove -
@@ -100,8 +103,8 @@ def parse_command_arguments(
                     continue
                 # Single letter flag with value - resolve through mapping
                 long_form = resolve_short_flag(key_part)
-                key = "_" + long_form
-                kwargs[key] = value_part
+                key, value = process_flag(long_form, value_part)
+                kwargs[key] = value
             else:
                 # -v or -abc (combined flags)
                 for flag_char in flags:
@@ -110,8 +113,8 @@ def parse_command_arguments(
                         continue
                     # Resolve short flag to long form
                     long_form = resolve_short_flag(flag_char)
-                    key = "_" + long_form
-                    kwargs[key] = True
+                    key, value = process_flag(long_form)
+                    kwargs[key] = value
         elif "=" in arg and not arg.startswith("="):
             # Handle key=value format (no dashes)
             key_part, value_part = arg.split("=", 1)

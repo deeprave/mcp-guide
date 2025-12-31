@@ -43,8 +43,8 @@ class TestTemplateContextCache:
 
         cache = TemplateContextCache()
 
-        # Mock get_current_session to return None
-        with patch("mcp_guide.session.get_current_session", return_value=None):
+        # Mock get_or_create_session to return None
+        with patch("mcp_guide.session.get_or_create_session", return_value=None):
             # Should not raise exception
             context = await cache._build_project_context()
 

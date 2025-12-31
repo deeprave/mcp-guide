@@ -1,7 +1,8 @@
 """MCP resource handlers for guide:// URI scheme."""
 
-import logging
 from typing import Any, Optional
+
+from mcp_core.mcp_log import get_logger
 
 try:
     from mcp.server.fastmcp import Context
@@ -11,7 +12,7 @@ except ImportError:
 from mcp_guide.server import resources
 from mcp_guide.tools.tool_content import ContentArgs, internal_get_content
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @resources.resource("guide://{collection}/{document}")

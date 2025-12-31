@@ -1,11 +1,13 @@
 ---
+type: user/information
 description: Shows current project information and configuration
 category: "info"
-usage: ":info/project"
-examples:
-  - ":info/project"
-includes: [../partials/_project.mustache]
+usage: ":info/project [--verbose|-v]"
+aliases: ["project"]
+includes:
+  - ../_partials/project
+  - ../_partials/security
 ---
-# Project Information
+{{h1}}Project Information
 
 {{>project}}

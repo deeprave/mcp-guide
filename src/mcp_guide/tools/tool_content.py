@@ -7,12 +7,10 @@ from typing import Optional
 
 from pydantic import Field
 
-from mcp_core.result import Result
 from mcp_core.tool_arguments import ToolArguments
 from mcp_guide.models import CategoryNotFoundError, CollectionNotFoundError, ExpressionParseError, FileReadError
-from mcp_guide.server import tools
-from mcp_guide.session import get_or_create_session
-from mcp_guide.tools.tool_constants import (
+from mcp_guide.result import Result
+from mcp_guide.result_constants import (
     ERROR_FILE_READ,
     ERROR_NO_PROJECT,
     ERROR_NOT_FOUND,
@@ -20,6 +18,8 @@ from mcp_guide.tools.tool_constants import (
     INSTRUCTION_NOTFOUND_ERROR,
     INSTRUCTION_PATTERN_ERROR,
 )
+from mcp_guide.server import tools
+from mcp_guide.session import get_or_create_session
 from mcp_guide.utils.content_common import gather_content
 from mcp_guide.utils.content_utils import create_file_read_error_result, read_and_render_file_contents
 from mcp_guide.utils.file_discovery import FileInfo
@@ -121,7 +121,7 @@ async def internal_get_content(
             template_context = await get_template_context_if_needed(category_files, category_name)
 
             errors = await read_and_render_file_contents(
-                category_files, category_dir, template_context, category_prefix=category_name
+                category_files, category_dir, docroot, template_context, category_prefix=category_name
             )
             file_read_errors.extend(errors)
             final_files.extend(category_files)

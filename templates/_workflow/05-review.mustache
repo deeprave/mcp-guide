@@ -1,0 +1,58 @@
+---
+type: agent/instruction
+aliases: ["review"]
+description: "Enter review phase for user review and code adjustments"
+usage: ":review or :phase/review"
+category: "workflow"
+instruction: >
+  Transition to REVIEW phase.
+  Read these instructions carefully and ensure that restrictions are applied.
+---
+👀 You are now in REVIEW phase
+---
+{{h1}}Review Phase
+
+{{b}}Current Phase:{{b}} Review
+
+{{h2}}Purpose
+Enable user review and implement fixes and adjustments based on review feedback. All quality standards must be maintained.
+
+{{h2}}Phase Rules
+- ✅ {{b}}Allowed:{{b}} Code changes based on review feedback, quality improvements, address fixes as required
+- ❌ {{b}}Not Allowed:{{b}} Changes that break quality standards
+
+{{b}}Status:{{b}} Ready for user review and feedback. Quality standards will be maintained.
+
+{{h2}}Quality Maintenance
+- {{b}}Tests must continue to pass{{b}} after any changes
+- {{b}}Code quality checks must pass{{b}} after any changes
+- {{b}}All changes must be validated{{b}} with full test and quality check runs
+
+{{h2}}Workflow
+1. Receive and analyze feedback
+2. Make code adjustments based on feedback
+3. Run tests and quality checks after each change
+4. Ensure all standards continue to be met
+5. Iterate until user is satisfied
+
+{{h2}}Review Checklist
+- [ ] Implementation meets requirements
+- [ ] Coverage maintained or increased
+- [ ] Code quality is maintained
+- [ ] Tests pass after changes
+- [ ] User feedback addressed
+
+{{h2}}Quality Validation Required
+After any code changes during review:
+1. Run full test suite
+2. Execute all quality checks
+3. Verify coverage requirements
+4. Confirm no regressions introduced
+
+---
+{{h2}}Phase Transitions
+- **NEXT** {{b}}→ REVIEW:{{b}} **USER CONFIRMATION REQUIRED** before transitioning from REVIEW phase.
+
+{{h2}}Reference
+Use tool: {{tool_prefix}}get_content("docs/tracking") for detailed development workflow information
+---

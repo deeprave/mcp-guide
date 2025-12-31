@@ -9,13 +9,11 @@ from typing import Any, Optional, Union
 from anyio import Path as AsyncPath
 from pydantic import Field
 
-from mcp_core.result import Result
 from mcp_core.tool_arguments import ToolArguments
 from mcp_core.validation import ArgValidationError, validate_description, validate_directory_path, validate_pattern
 from mcp_guide.models import Category, CategoryNotFoundError, FileReadError, Project
-from mcp_guide.server import tools
-from mcp_guide.session import get_or_create_session
-from mcp_guide.tools.tool_constants import (
+from mcp_guide.result import Result
+from mcp_guide.result_constants import (
     ERROR_FILE_READ,
     ERROR_NO_PROJECT,
     ERROR_NOT_FOUND,
@@ -24,6 +22,8 @@ from mcp_guide.tools.tool_constants import (
     INSTRUCTION_NOTFOUND_ERROR,
     INSTRUCTION_PATTERN_ERROR,
 )
+from mcp_guide.server import tools
+from mcp_guide.session import get_or_create_session
 from mcp_guide.utils.file_discovery import discover_category_files
 from mcp_guide.utils.frontmatter import get_frontmatter_description
 
@@ -753,7 +753,7 @@ async def internal_category_content(
         docroot = Path(await session.get_docroot())
         category = project.categories[args.category]  # We know it exists from gather_category_fileinfos
         category_dir = docroot / category.dir
-        content = await render_fileinfos(files, args.category, category_dir)
+        content = await render_fileinfos(files, args.category, category_dir, docroot)
 
         return Result.ok(content)
 

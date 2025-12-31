@@ -18,7 +18,6 @@ class TestConfigureLoggingAfterFastmcp:
         server_module._pending_log_config = config
 
         with (
-            patch("mcp_core.mcp_log.initialize_trace_level") as mock_init_trace,
             patch("mcp_core.mcp_log.add_trace_to_context") as mock_add_trace,
             patch("mcp_core.mcp_log.register_cleanup_handlers") as mock_register,
             patch("mcp_core.mcp_log.get_log_level", return_value=10),
@@ -38,7 +37,6 @@ class TestConfigureLoggingAfterFastmcp:
             _configure_logging_after_fastmcp()
 
         # Assert trace helpers were called
-        mock_init_trace.assert_called_once()
         mock_add_trace.assert_called_once()
         mock_register.assert_called_once()
 
@@ -50,7 +48,6 @@ class TestConfigureLoggingAfterFastmcp:
         server_module._pending_log_config = config
 
         with (
-            patch("mcp_core.mcp_log.initialize_trace_level"),
             patch("mcp_core.mcp_log.add_trace_to_context"),
             patch("mcp_core.mcp_log.register_cleanup_handlers"),
             patch("mcp_core.mcp_log.get_log_level", return_value=10) as mock_get_level,
@@ -86,7 +83,6 @@ class TestConfigureLoggingAfterFastmcp:
         server_module._pending_log_config = config
 
         with (
-            patch("mcp_core.mcp_log.initialize_trace_level"),
             patch("mcp_core.mcp_log.add_trace_to_context"),
             patch("mcp_core.mcp_log.register_cleanup_handlers"),
             patch("mcp_core.mcp_log.get_log_level", return_value=20),
@@ -111,14 +107,12 @@ class TestConfigureLoggingAfterFastmcp:
         server_module._pending_log_config = None
 
         with (
-            patch("mcp_core.mcp_log.initialize_trace_level") as mock_init_trace,
             patch("mcp_core.mcp_log.add_trace_to_context") as mock_add_trace,
             patch("mcp_core.mcp_log.get_log_level") as mock_get_level,
         ):
             _configure_logging_after_fastmcp()
 
         # Assert trace helpers still called
-        mock_init_trace.assert_called_once()
         mock_add_trace.assert_called_once()
 
         # Assert no log level configuration attempted
@@ -142,7 +136,6 @@ class TestConfigureLoggingAfterFastmcp:
         mock_placeholder = MagicMock()
 
         with (
-            patch("mcp_core.mcp_log.initialize_trace_level"),
             patch("mcp_core.mcp_log.add_trace_to_context"),
             patch("mcp_core.mcp_log.register_cleanup_handlers"),
             patch("mcp_core.mcp_log.get_log_level", return_value=30),  # WARNING

@@ -2,16 +2,17 @@
 
 """Guide prompt implementation for direct content access."""
 
-import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Awaitable, Callable, Coroutine, List, Optional, Protocol, Union
 
-import aiofiles
 from anyio import Path as AsyncPath
 
-from mcp_core.result import Result
+from mcp_core.mcp_log import get_logger
+from mcp_guide.result import Result
+from mcp_guide.session import get_or_create_session
+from mcp_guide.utils.template_context import TemplateContext
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class CommandMiddleware(Protocol):
@@ -38,51 +39,50 @@ else:
     except ImportError:
         Context = None  # type: ignore
 
-from mcp_guide.constants import COMMANDS_DIR
+from mcp_guide.config_constants import COMMANDS_DIR
 from mcp_guide.prompts.command_parser import parse_command_arguments
+from mcp_guide.result_constants import INSTRUCTION_DISPLAY_ONLY
 from mcp_guide.server import prompts
-from mcp_guide.tools.tool_constants import INSTRUCTION_DISPLAY_ONLY
 from mcp_guide.tools.tool_content import ContentArgs, internal_get_content
 from mcp_guide.utils.command_discovery import discover_commands
 from mcp_guide.utils.file_discovery import FileInfo, discover_category_files
-from mcp_guide.utils.frontmatter import parse_frontmatter_content
+from mcp_guide.utils.frontmatter import (
+    get_frontmatter_type,
+    get_type_based_default_instruction,
+)
 from mcp_guide.utils.template_context_cache import get_template_contexts
-from mcp_guide.utils.template_renderer import render_template_content
+from mcp_guide.utils.template_renderer import render_file_content, render_template_content
 
 
-async def get_command_help(command_path: str, ctx: Optional["Context[Any, Any, Any]"]) -> Result[str]:
-    """Get help information for a command."""
-    from mcp_guide.session import get_or_create_session
+async def get_command_help(command_path: str, command_context: dict, ctx: Optional[Context]) -> Result[str]:  # type: ignore
+    """Get help information for a command using template rendering."""
+    from mcp_guide.utils.template_renderer import render_template_content
 
     try:
+        # Use the help template with the pre-built command_context
+        # The help template will handle --table flag via {{#kwargs._table}}
+        from mcp_guide.session import get_or_create_session
+
         session = await get_or_create_session(ctx)
         docroot = Path(await session.get_docroot())
         commands_dir = docroot / COMMANDS_DIR
+        help_template_path = commands_dir / "help.mustache"
 
-        # Discover commands to get metadata
-        commands = await discover_commands(commands_dir)
+        if await AsyncPath(help_template_path).exists():
+            help_template_content = await AsyncPath(help_template_path).read_text()
+        else:
+            return Result.failure("Help template not found", error_type="not_found")
 
-        # Find the command
-        for cmd in commands:
-            if cmd["name"] == command_path or command_path in cmd.get("aliases", []):
-                help_text = f"# {cmd['name']}\n\n"
-                if cmd.get("description"):
-                    help_text += f"{cmd['description']}\n\n"
-                if cmd.get("usage"):
-                    help_text += f"**Usage:** {cmd['usage']}\n\n"
-                if cmd.get("aliases"):
-                    help_text += f"**Aliases:** {', '.join(cmd['aliases'])}\n\n"
-                if cmd.get("examples"):
-                    help_text += "**Examples:**\n"
-                    for example in cmd["examples"]:
-                        help_text += f"- {example}\n"
+        # Render the template with the command_context
+        rendered_result = await render_template_content(help_template_content, TemplateContext(command_context))
+        if not rendered_result.success:
+            return rendered_result
 
-                result = Result.ok(help_text)
-                result.instruction = INSTRUCTION_DISPLAY_ONLY
-                return result
+        result = Result.ok(rendered_result.value)
+        result.instruction = command_context.get("instruction", INSTRUCTION_DISPLAY_ONLY)
+        return result
 
-        return Result.failure(f"Command not found: {command_path}", error_type="not_found")
-    except ValueError as e:
+    except Exception as e:
         return Result.failure(str(e), error_type="context")
 
 
@@ -94,7 +94,7 @@ async def handle_command(
     command_path: str,
     kwargs: dict[str, Union[str, bool, int]],
     args: list[str],
-    ctx: Optional["Context[Any, Any, Any]"],
+    ctx: Optional[Context],  # type: ignore
     middleware: Optional[List[CommandMiddleware]] = None,
 ) -> Result[Any]:
     """Handle command execution with direct file discovery.
@@ -171,39 +171,38 @@ def _build_command_context(
     commands: list[dict[str, Any]],
 ) -> Any:
     """Build template context for command execution."""
-    template_kwargs = {}
-    for key, value in kwargs.items():
-        if key.startswith("_"):
-            clean_key = key[1:]
-            template_kwargs[clean_key] = value
-        else:
-            template_kwargs[key] = value
+    # Use kwargs directly without underscore manipulation
+    template_kwargs = kwargs.copy()
 
-    # Group commands by category dynamically
+    # Group commands by category dynamically, filtering out underscore-prefixed commands
     categories: dict[str, list[dict[str, Any]]] = {}
     for cmd in commands:
+        # Skip commands in directories starting with underscore
+        path_parts = cmd.get("name", "").split("/")
+        if any(part.startswith("_") for part in path_parts):
+            continue
         category = cmd.get("category", "general")
         if category not in categories:
             categories[category] = []
         categories[category].append(cmd)
 
     # Convert to sorted list with title-case names
-    command_categories = []
-    for category_name in sorted(categories.keys()):
-        command_categories.append(
-            {
-                "name": category_name,
-                "title": category_name.replace("_", " ").title() + " Commands",
-                "commands": categories[category_name],
-            }
-        )
-
+    command_categories: list[dict[str, Any]] = []
+    command_categories.extend(
+        {
+            "name": category_name,
+            "title": category_name.replace("_", " ").title() + " Commands",
+            "commands": categories[category_name],
+        }
+        for category_name in sorted(categories.keys())
+    )
     return base_context.new_child(
         {
             "kwargs": template_kwargs,
             "raw_kwargs": kwargs,
             "args": args,
             "command": {"name": command_path, "path": str(file_info.path)},
+            "executed_command": command_path,
             "commands": commands,
             "command_categories": command_categories,
         }
@@ -236,18 +235,35 @@ def _validate_command_arguments(
     return None
 
 
+async def _is_help_command(command_path: str, ctx: Optional[Context]) -> bool:  # type: ignore
+    """Check if command_path is a help command or alias."""
+    try:
+        session = await get_or_create_session(ctx)
+        docroot = Path(await session.get_docroot())
+        commands_dir = docroot / COMMANDS_DIR
+        commands = await discover_commands(commands_dir)
+
+        # Find help command and its aliases
+        help_aliases = ["help"]  # Always include base name
+        for cmd in commands:
+            if cmd["name"] == "help":
+                help_aliases.extend(cmd.get("aliases", []))
+                break
+
+        return command_path in help_aliases
+    except Exception:
+        # Fallback to hardcoded aliases if discovery fails
+        return command_path in {"help", "h", "?"}
+
+
 async def _execute_command(
     command_path: str,
     kwargs: dict[str, Union[str, bool, int]],
     args: list[str],
-    ctx: Optional["Context[Any, Any, Any]"],
+    ctx: Optional[Context],  # type: ignore
 ) -> Result[Any]:
     """Execute command without middleware."""
     from mcp_guide.session import get_or_create_session
-
-    # Check for help flag first
-    if kwargs.get("_help"):
-        return await get_command_help(command_path, ctx)
 
     # Initialize session and get paths
     try:
@@ -260,17 +276,28 @@ async def _execute_command(
     if not await AsyncPath(commands_dir).exists():
         return Result.failure(f"Commands directory not found: {COMMANDS_DIR}", error_type="not_found")
 
-    # Discover commands and resolve aliases
+    # Discover commands and try direct template file first (higher precedence)
     commands = await discover_commands(commands_dir)
-    resolved_path = _resolve_command_alias(command_path, commands)
 
-    # Discover command file
-    file_result = await _discover_command_file(commands_dir, resolved_path)
+    # First try to find command file directly (template files have higher precedence)
+    file_result = await _discover_command_file(commands_dir, command_path)
+    resolved_path = command_path
+
+    # If no direct template file found, try alias resolution
+    if not file_result.success:
+        resolved_path = _resolve_command_alias(command_path, commands)
+        if resolved_path != command_path:  # Only retry if alias was found
+            file_result = await _discover_command_file(commands_dir, resolved_path)
+
+    # If still no file found, return the error
     if not file_result.success:
         return file_result
     file_info = file_result.value
     if not file_info:
         return Result.failure("No file info returned", error_type="file_error")
+
+    # Set base path for content loading
+    file_info.resolve(commands_dir, docroot)
 
     # Cache MCP context if available
     if ctx:
@@ -285,50 +312,53 @@ async def _execute_command(
     base_context = await get_template_contexts()
     command_context = _build_command_context(base_context, command_path, file_info, kwargs, args, commands)
 
-    # Read and render template
+    # Check for help flag or help command with args (after context building)
+    if kwargs.get("_help"):
+        return await get_command_help(command_path, command_context, ctx)
+    if await _is_help_command(command_path, ctx) and args:
+        return await get_command_help(args[0], command_context, ctx)
+
+    # Get content and frontmatter using accessors
     try:
-        absolute_path = commands_dir / file_info.path
-        async with aiofiles.open(absolute_path, "r", encoding="utf-8") as f:
-            content = await f.read()
+        front_matter = await file_info.get_frontmatter() or {}
+        template_content = await file_info.get_content() or ""
+    except (OSError, PermissionError, FileNotFoundError) as e:
+        return Result.failure(
+            error=f"Error reading file {file_info.path}: {str(e)}",
+            error_type="file_error",
+            instruction="Check file permissions and ensure the file exists and is readable",
+        )
 
-        front_matter, template_content = parse_frontmatter_content(content)
-        front_matter = front_matter or {}
+    # Validate arguments against front matter
+    if front_matter:
+        if validation_error := _validate_command_arguments(front_matter, kwargs, args):
+            return validation_error
 
-        # Validate arguments against front matter
-        if front_matter:
-            if validation_error := _validate_command_arguments(front_matter, kwargs, args):
-                return validation_error
+    # Render template with partial support
+    render_result = await render_file_content(file_info, command_context, commands_dir, docroot)
+    if render_result.success:
+        result = Result.ok(render_result.value)
 
-        # Render template
-        render_result = render_template_content(template_content, command_context, str(file_info.path))
-        if render_result.success:
-            result = Result.ok(render_result.value)
-
-            # Set instruction from frontmatter or default
-            if front_matter and "instruction" in front_matter:
-                instruction_result = render_template_content(
-                    front_matter["instruction"], command_context, str(file_info.path)
-                )
-                result.instruction = (
-                    instruction_result.value if instruction_result.success else INSTRUCTION_DISPLAY_ONLY
-                )
-            else:
-                result.instruction = INSTRUCTION_DISPLAY_ONLY
-
-            return result
-        else:
-            from mcp_guide.tools.tool_constants import ERROR_TEMPLATE, INSTRUCTION_TEMPLATE_ERROR
-
-            return Result.failure(
-                f"Template rendering failed: {render_result.error}",
-                error_type=ERROR_TEMPLATE,
-                instruction=INSTRUCTION_TEMPLATE_ERROR,
+        # Set instruction from frontmatter or default
+        if front_matter and "instruction" in front_matter:
+            instruction_result = await render_template_content(
+                front_matter["instruction"], command_context, str(file_info.path)
             )
+            result.instruction = instruction_result.value if instruction_result.success else INSTRUCTION_DISPLAY_ONLY
+        else:
+            content_type = get_frontmatter_type(front_matter)
+            default_instruction = get_type_based_default_instruction(content_type)
+            result.instruction = default_instruction or INSTRUCTION_DISPLAY_ONLY
 
-    except Exception as e:
-        from mcp_guide.tools.tool_constants import ERROR_FILE_ERROR
+        return result
+    else:
+        from mcp_guide.result_constants import ERROR_TEMPLATE, INSTRUCTION_TEMPLATE_ERROR
 
-        return Result.failure(f"Error reading command file: {e}", error_type=ERROR_FILE_ERROR)
+        return Result.failure(
+            f"Template rendering failed: {render_result.error}",
+            error_type=ERROR_TEMPLATE,
+            instruction=INSTRUCTION_TEMPLATE_ERROR,
+        )
 
 
 async def _handle_command_request(argv: list[str], ctx: Optional["Context[Any, Any, Any]"]) -> Result[Any]:
@@ -369,10 +399,53 @@ async def _handle_command_request(argv: list[str], ctx: Optional["Context[Any, A
 
 async def _handle_content_request(argv: list[str], ctx: Optional["Context[Any, Any, Any]"]) -> Result[Any]:
     """Handle content-mode request."""
-    category = ",".join(argv[1:])
-    content_args = ContentArgs(expression=category, pattern=None)
-    content_result = await internal_get_content(content_args, ctx)
-    content_result.instruction = INSTRUCTION_DISPLAY_ONLY
+    # Separate flags from content arguments
+    content_args = []
+    flags = []
+
+    for arg in argv[1:]:
+        if arg.startswith("-"):
+            flags.append(arg)
+        else:
+            content_args.append(arg)
+
+    # Parse flags only
+    kwargs, _, parse_errors = parse_command_arguments(flags)
+    if parse_errors:
+        error_msg = "; ".join(parse_errors)
+        result: Result[str] = Result.failure(f"Flag parsing failed: {error_msg}", error_type="validation")
+        result.instruction = INSTRUCTION_DISPLAY_ONLY
+        return result
+
+    # Join content args as category expression
+    category = ",".join(content_args) if content_args else ""
+
+    # Handle --help flag for content requests
+    if kwargs.get("help"):
+        help_text = f"""# Content Help
+
+Usage: @guide <category|collection> [--verbose] [--help]
+
+Examples:
+  @guide docs                    # Get docs category content
+  @guide docs --verbose          # Get docs with verbose output
+  @guide code-review             # Get code-review collection content
+  @guide docs,examples           # Get multiple categories
+
+Available flags:
+  --help, -h     Show this help message
+  --verbose, -v  Enable verbose output
+"""
+        result = Result.ok(help_text)
+        result.instruction = INSTRUCTION_DISPLAY_ONLY
+        return result
+
+    # Create content args with pattern support
+    pattern = kwargs.get("pattern")
+    if isinstance(pattern, int):
+        pattern = str(pattern)
+    content_args_obj = ContentArgs(expression=category, pattern=pattern)
+    content_result = await internal_get_content(content_args_obj, ctx)
     return content_result
 
 
@@ -405,18 +478,18 @@ async def guide(
     arg7: Optional[str] = None,
     arg8: Optional[str] = None,
     arg9: Optional[str] = None,
-    argA: Optional[str] = None,
-    argB: Optional[str] = None,
-    argC: Optional[str] = None,
-    argD: Optional[str] = None,
-    argE: Optional[str] = None,
-    argF: Optional[str] = None,
+    arga: Optional[str] = None,
+    argb: Optional[str] = None,
+    argc: Optional[str] = None,
+    argd: Optional[str] = None,
+    arge: Optional[str] = None,
+    argf: Optional[str] = None,
     ctx: Optional["Context"] = None,  # type: ignore[type-arg]
 ) -> str:
     """Access guide functionality."""
     # Build argv list (MCP protocol requirement)
     argv = ["guide"]
-    for arg in [arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, argA, argB, argC, argD, argE, argF]:
+    for arg in [arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arga, argb, argc, argd, arge, argf]:
         if arg is None:
             break
         argv.append(arg)

@@ -1,0 +1,23 @@
+---
+type: user/information
+description: Show filesystem permissions information
+category: "permissions"
+usage: ":perms/show"
+examples:
+  - ":perms/show"
+includes:
+  - _partials/_security.mustache
+---
+{{h1}}Permissions Configuration
+
+Displays the current filesystem permissions configuration for the project.
+
+{{b}}Project{{b}}: {{project.name}}
+
+{{> security}}
+
+{{h2}}Related Commands
+- `:perms/add-write` - Add read/write access path
+- `:perms/add-read` - Add read-only access path
+- `:perms/remove-write` - Remove a write path
+- `:perms/remove-read` - Remove a read path

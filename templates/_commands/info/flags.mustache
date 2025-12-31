@@ -1,19 +1,28 @@
 ---
+type: user/information
 description: Shows feature flags and project flags
 category: "info"
+aliases:
+  - flags
 usage: ":info/flags"
 examples:
   - ":info/flags"
-includes: [../partials/_project.mustache]
+instruction: Display this information to the user. Take no further action.
 ---
-# Feature Flags
+{{h1}}Feature Flags
 
-{{>project}}
-
-## Global Flags
-{{#global_flags}}
-**{{key}}**: {{value}}
-{{/global_flags}}
-{{^global_flags}}
+{{h2}}Feature Flags
+{{#feature_flag_values}}
+{{b}}{{key}}{{b}}: {{value}}
+{{/feature_flag_values}}
+{{^feature_flag_values}}
 None configured
-{{/global_flags}}
+{{/feature_flag_values}}
+
+{{h2}}Project Flags for {{project.name}}
+{{#project.project_flag_values}}
+{{b}}{{key}}{{b}}: {{value}}
+{{/project.project_flag_values}}
+{{^project.project_flag_values}}
+None configured
+{{/project.project_flag_values}}

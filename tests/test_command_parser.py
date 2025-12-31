@@ -11,7 +11,7 @@ class TestCommandArgumentParser:
         argv = [":help", "--verbose", "--dry-run"]
         kwargs, args, errors = parse_command_arguments(argv)
 
-        assert kwargs == {"_verbose": True, "_dry_run": True}
+        assert kwargs == {"verbose": True, "dry_run": True}
         assert args == []
         assert errors == []
 
@@ -20,7 +20,7 @@ class TestCommandArgumentParser:
         argv = [":command", "--no-verbose", "--no-dry-run"]
         kwargs, args, errors = parse_command_arguments(argv)
 
-        assert kwargs == {"_verbose": False, "_dry_run": False}
+        assert kwargs == {"verbose": False, "dry_run": False}
         assert args == []
         assert errors == []
 
@@ -29,7 +29,7 @@ class TestCommandArgumentParser:
         argv = [":command", "--type=docs", "--name=test-category"]
         kwargs, args, errors = parse_command_arguments(argv)
 
-        assert kwargs == {"_type": "docs", "_name": "test-category"}
+        assert kwargs == {"type": "docs", "name": "test-category"}
         assert args == []
         assert errors == []
 
@@ -56,7 +56,7 @@ class TestCommandArgumentParser:
         argv = [":create/collection", "--dry-run", "--type=docs", "description=test", "my-collection", "category1"]
         kwargs, args, errors = parse_command_arguments(argv)
 
-        assert kwargs == {"_dry_run": True, "_type": "docs", "description": "test"}
+        assert kwargs == {"dry_run": True, "type": "docs", "description": "test"}
         assert args == ["my-collection", "category1"]
         assert errors == []
 
@@ -101,7 +101,7 @@ class TestCommandArgumentParser:
         argv = [":command", "--dry-run-mode", "--no-verbose-output"]
         kwargs, args, errors = parse_command_arguments(argv)
 
-        assert kwargs == {"_dry_run_mode": True, "_verbose_output": False}
+        assert kwargs == {"dry_run_mode": True, "verbose_output": False}
         assert args == []
         assert errors == []
 
@@ -119,7 +119,7 @@ class TestCommandArgumentParser:
         argv = [":command", "-v", "-f"]
         kwargs, args, errors = parse_command_arguments(argv)
 
-        assert kwargs == {"_v": True, "_f": True}
+        assert kwargs == {"verbose": True, "force": True}
         assert args == []
         assert errors == []
 
@@ -129,7 +129,7 @@ class TestCommandArgumentParser:
         short_flag_map = {"v": "verbose", "d": "dry_run", "x": "debug"}
         kwargs, args, errors = parse_command_arguments(argv, short_flag_map)
 
-        assert kwargs == {"_verbose": True, "_dry_run": True, "_debug": True}
+        assert kwargs == {"verbose": True, "dry_run": True, "debug": True}
         assert args == []
         assert errors == []
 
@@ -139,7 +139,7 @@ class TestCommandArgumentParser:
         short_flag_map = {"t": "type", "n": "name"}
         kwargs, args, errors = parse_command_arguments(argv, short_flag_map)
 
-        assert kwargs == {"_type": "docs", "_name": "test"}
+        assert kwargs == {"type": "docs", "name": "test"}
         assert args == []
         assert errors == []
 
@@ -149,7 +149,7 @@ class TestCommandArgumentParser:
         short_flag_map = {"v": "verbose", "d": "dry_run", "f": "force"}
         kwargs, args, errors = parse_command_arguments(argv, short_flag_map)
 
-        assert kwargs == {"_verbose": True, "_dry_run": True, "_force": True}
+        assert kwargs == {"verbose": True, "dry_run": True, "force": True}
         assert args == []
         assert errors == []
 
@@ -159,7 +159,7 @@ class TestCommandArgumentParser:
         short_flag_map = {"v": "verbose", "f": "force"}  # x not mapped
         kwargs, args, errors = parse_command_arguments(argv, short_flag_map)
 
-        assert kwargs == {"_verbose": True, "_x": True, "_force": True}
+        assert kwargs == {"verbose": True, "x": True, "force": True}
         assert args == []
         assert errors == []
 
@@ -177,6 +177,6 @@ class TestCommandArgumentParser:
         argv = [":command", "-v@f"]
         kwargs, args, errors = parse_command_arguments(argv)
 
-        assert kwargs == {"_v": True, "_f": True}  # Valid chars still processed
+        assert kwargs == {"verbose": True, "force": True}  # Valid chars still processed
         assert args == []
         assert errors == ["Invalid flag character: -@"]

@@ -1,0 +1,39 @@
+---
+type: agent/instruction
+description: Add permission to write files or directories
+category: "permissions"
+usage: ":perm/write-add <path1> [<path2> ...]"
+examples:
+  - ":perm/write-add src/"
+  - ":perm/write-add docs/ config.json"
+---
+{{#if args}}
+{{h1}}Add Write Permission
+
+Please add write permission for the following path(s):
+{{#each args}}
+- `{{this}}`
+{{/each}}
+
+Use the `permission_write_add` tool with these paths as arguments.
+{{else}}
+{{h1}}Add Write Permission
+
+Add permission to create, remove, read, write or update files or directories.
+
+{{h2}}Usage
+```
+:perm/write-add <path1> [<path2> ...]
+```
+
+{{h2}}Examples
+```
+:perm/write-add src/
+:perm/write-add docs/ config.json
+```
+
+{{h2}}Related Commands
+- `:perm/read-add` - Add read permission
+- `:perm` - Show current permissions
+- `:perm/write-del` - Remove write permission
+{{/if}}

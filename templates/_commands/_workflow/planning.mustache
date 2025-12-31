@@ -1,0 +1,45 @@
+---
+type: agent/instruction
+description: "Enter planning phase for implementation plan review and refinement"
+usage: ":plan or :phase/planning"
+category: "workflow"
+---
+{{h1}}Planning Phase
+
+{{b}}Current Phase:{{b}} Planning
+
+{{h2}}Purpose
+Implementation plan is reviewed, refined and adjusted. No code changes are permitted during this phase.
+
+{{h2}}Phase Rules
+- ✅ {{b}}Allowed:{{b}} Plan review, refinement, adjustment, task breakdown
+- ❌ {{b}}Not Allowed:{{b}} Code changes, implementation, testing
+
+{{h2}}Transition Requirements
+- {{b}}→ Implementation:{{b}} Requires {{b}}explicit consent{{b}} from user to proceed
+
+{{h2}}Available Commands
+- `:implement` - Move to implementation phase ({{b}}requires explicit consent{{b}})
+- `:discuss` - Return to discussion phase
+- `:plan` - Stay in planning phase
+
+{{h2}}Workflow
+1. Review the implementation plan
+2. Refine and adjust as needed
+3. Break down tasks into manageable steps
+4. Get explicit user consent before moving to implementation
+
+{{h2}}Implementation Principles
+The plan should follow:
+- {{b}}TDD:{{b}} Test-Driven Development approach
+- {{b}}YAGNI:{{b}} You Aren't Gonna Need It - minimal implementation
+- {{b}}SOLID:{{b}} SOLID design principles
+
+---
+{{b}}Status:{{b}} Plan ready for review and refinement. Implementation requires explicit consent.
+
+{{h2}}Reference
+{{tool_prefix}}get_content("docs/tracking") - Detailed development workflow information
+
+{{h2}}Reference
+See `docs/tracking.md` for detailed development workflow information.

@@ -2,9 +2,9 @@
 
 from pydantic import Field
 
-from mcp_core.result import Result
 from mcp_core.tool_arguments import ToolArguments
 from mcp_core.tool_decorator import get_tool_prefix
+from mcp_guide.result import Result
 from mcp_guide.server import tools
 
 

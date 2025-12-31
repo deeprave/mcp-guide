@@ -1,15 +1,20 @@
 ---
+type: user/information
 description: Shows information about the current MCP agent/client
 category: "info"
 usage: ":info/agent"
+aliases:
+  - agent
 examples:
   - ":info/agent"
+instruction: Display this information to the user. Take no further action.
 ---
-# Agent Information
+{{h1}}Agent Information
 
-**Name:** {{agent.name}}
+{{b}}Name:{{b}} {{agent.name}}
 {{#agent.version}}
-**Version:** {{agent.version}}
+{{b}}Version:{{b}} {{agent.version}}
 {{/agent.version}}
-**Normalised Name:** {{agent.class}}
-**Command Prefix:** {{agent.prefix}}
+{{b}}Normalised Name:{{b}} {{agent.class}}
+{{b}}Command Prefix:{{b}} {{agent.prefix}}
+{{b}}Tool Prefix:{{b}} {{tool_prefix}}

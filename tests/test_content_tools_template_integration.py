@@ -65,7 +65,7 @@ Current status: active""")
 
             context = TemplateContext({"project_name": "test-project"})
 
-            errors = await read_and_render_file_contents([file_info], tmp_path, context)
+            errors = await read_and_render_file_contents([file_info], tmp_path, tmp_path, context)
 
             assert len(errors) == 0
             # Should contain rendered partial content
@@ -101,7 +101,7 @@ Current status: active""")
             context = TemplateContext({"name": "World"})
 
             # Process files
-            errors = await read_and_render_file_contents(files, temp_path, context)
+            errors = await read_and_render_file_contents(files, temp_path, temp_path, context)
 
             # Verify template error was captured
             assert len(errors) == 1
@@ -131,7 +131,7 @@ Current status: active""")
             invalid_context = {"name": "World"}  # Plain dict instead of TemplateContext
 
             # Process files
-            errors = await read_and_render_file_contents(files, temp_path, invalid_context)
+            errors = await read_and_render_file_contents(files, temp_path, temp_path, invalid_context)
 
             # Verify validation error was captured
             assert len(errors) == 1

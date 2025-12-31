@@ -67,7 +67,7 @@ Test command executed successfully!
 
             # Test content routing (should use get_content)
             with patch("mcp_guide.prompts.guide_prompt.internal_get_content") as mock_get_content:
-                from mcp_core.result import Result
+                from mcp_guide.result import Result
 
                 mock_get_content.return_value = Result.ok("Regular content")
 
@@ -163,7 +163,7 @@ Available commands:
     async def test_multiple_expressions_regression(self, mock_ctx):
         """Test that multiple expressions still work for content."""
         with patch("mcp_guide.prompts.guide_prompt.internal_get_content") as mock_get_content:
-            from mcp_core.result import Result
+            from mcp_guide.result import Result
 
             mock_get_content.return_value = Result.ok("Combined content")
 

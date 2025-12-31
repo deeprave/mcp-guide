@@ -1,0 +1,39 @@
+---
+type: agent/instruction
+description: Remove permission to read external directories
+category: "permissions"
+usage: ":perm/read-del <path1> [<path2> ...]"
+examples:
+  - ":perm/read-del node_modules/"
+  - ":perm/read-del vendor/ tmp/"
+---
+{{#if args}}
+{{h1}}Remove Read Permission
+
+Please remove read permission for the following path(s):
+{{#each args}}
+- `{{this}}`
+{{/each}}
+
+Use the `permission_read_remove` tool with these paths as arguments.
+{{else}}
+{{h1}}Remove Read Permission
+
+Remove permission to read from external directories.
+
+{{h2}}Usage
+```
+:perm/read-del <path1> [<path2> ...]
+```
+
+{{h2}}Examples
+```
+:perm/read-del node_modules/
+:perm/read-del vendor/ tmp/
+```
+
+{{h2}}Related Commands
+- `:perm/read-add` - Add read permission
+- `:perm` - Show current permissions
+- `:perm/write-del` - Remove write permission
+{{/if}}

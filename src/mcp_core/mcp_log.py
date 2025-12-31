@@ -10,8 +10,18 @@ from mcp_core.mcp_log_filter import get_redaction_function
 
 # Custom TRACE level (below DEBUG=10)
 TRACE_LEVEL = 5
+TRACE = TRACE_LEVEL
 
-# Track if TRACE level has been initialized
+# Register TRACE level with logging module
+logging.addLevelName(TRACE_LEVEL, "TRACE")
+
+# Re-export standard logging levels
+DEBUG = logging.DEBUG
+INFO = logging.INFO
+WARNING = logging.WARNING
+ERROR = logging.ERROR
+CRITICAL = logging.CRITICAL
+
 # Track if TRACE level has been initialized
 _trace_initialized = False
 
@@ -135,26 +145,23 @@ def get_log_level(level_name: str) -> int:
     return getattr(logging, level_upper, logging.INFO)
 
 
-def initialize_trace_level() -> None:
-    """Initialize TRACE level in logging module.
+class LoggerWithTrace(logging.Logger):
+    """Logger subclass that includes the trace method."""
 
-    This must be called before using TRACE level logging.
-    Safe to call multiple times.
-    """
-    global _trace_initialized
-    if _trace_initialized:
-        return
-
-    logging.addLevelName(TRACE_LEVEL, "TRACE")
-
-    def trace(self: logging.Logger, message: Any, *args: Any, **kwargs: Any) -> None:
-        """Log message at TRACE level."""
+    def trace(self, message: Any, *args: Any, **kwargs: Any) -> None:
+        """Log a message with severity 'TRACE'."""
         if self.isEnabledFor(TRACE_LEVEL):
             sanitized_message = _sanitize_log_message(message)
             self._log(TRACE_LEVEL, sanitized_message, args, **kwargs)
 
-    logging.Logger.trace = trace  # type: ignore
-    _trace_initialized = True
+
+# Set our custom logger class as the default for all loggers
+logging.setLoggerClass(LoggerWithTrace)
+
+
+def get_logger(name: str) -> LoggerWithTrace:
+    """Get a logger with trace method support."""
+    return logging.getLogger(name)  # type: ignore[return-value]
 
 
 def configure_logger_hierarchy(app_name: str) -> None:
@@ -342,7 +349,6 @@ def configure(
         json_format: Use JSON formatting if True
         app_name: Application name for logger hierarchy (e.g., 'mcp_guide')
     """
-    initialize_trace_level()
     add_trace_to_context()
 
     if file_path:
@@ -356,7 +362,3 @@ def configure(
 
     if app_name:
         configure_logger_hierarchy(app_name)
-
-
-# Initialize TRACE level on module import
-initialize_trace_level()

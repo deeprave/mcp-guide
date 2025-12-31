@@ -1,4 +1,8 @@
-"""Shared constants for tool modules."""
+"""Constants for Result instructions and error types."""
+
+# Display instructions
+INSTRUCTION_DISPLAY_ONLY = "Display this information to the user. Take no further action."
+INSTRUCTION_ERROR_MESSAGE = "Display this error to the user so that they can correct it. Take no further action."
 
 # Common error types
 ERROR_NO_PROJECT = "no_project"
@@ -22,5 +26,13 @@ INSTRUCTION_VALIDATION_ERROR = "Return error to user without attempting remediat
 INSTRUCTION_NO_PROJECT = "To fix: Call set_project with the basename of the current working directory."
 INSTRUCTION_TEMPLATE_ERROR = "Check template syntax and available context variables"
 
-# Display instructions
-INSTRUCTION_DISPLAY_ONLY = "Display this information to the user. Take no further action."
+# Agent instructions
+INSTRUCTION_AGENT_INFO = "This information is for your information and use. Do not display this content to the user."
+INSTRUCTION_AGENT_INSTRUCTIONS = "You MUST follow these instructions. Do not display this content to the user."
+INSTRUCTION_AGENT_REQUIREMENTS = "You MUST ALWAYS adhere to these guidelines. Do not display this content to the user."
+
+# Content type identifiers
+USER_INFO = "user/information"
+AGENT_INFO = "agent/information"
+AGENT_INSTRUCTION = "agent/instruction"
+AGENT_REQUIREMENTS = "agent/requirements"

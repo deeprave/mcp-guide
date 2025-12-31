@@ -2,17 +2,17 @@
 
 import fnmatch
 import glob
-import logging
 import os
 from pathlib import Path
 from typing import List, Set
 
 from anyio import Path as AsyncPath
 
-from mcp_guide.constants import MAX_DOCUMENTS_PER_GLOB, MAX_GLOB_DEPTH
+from mcp_core.mcp_log import get_logger
+from mcp_guide.config_constants import COMMANDS_DIR, MAX_DOCUMENTS_PER_GLOB, MAX_GLOB_DEPTH
 from mcp_guide.lazy_path import LazyPath
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def is_valid_file(path: Path) -> bool:
@@ -36,6 +36,48 @@ def is_valid_file(path: Path) -> bool:
             return False
 
     return True
+
+
+def is_valid_command(path: Path) -> bool:
+    """Check if file should be considered a valid command.
+
+    Args:
+        path: File path to check
+
+    Returns:
+        True if file is a valid command, False if should be excluded
+    """
+    # First apply general file validity rules
+    if not is_valid_file(path):
+        return False
+
+    # Command-specific rules: exclude underscore-prefixed files
+    name = path.name
+    if name.startswith("_"):
+        return False
+
+    # Check path components for underscore prefixes, but allow _commands directory
+    for i, part in enumerate(path.parts[:-1]):  # Exclude filename from check
+        if part.startswith("_"):
+            # Allow _commands as the first underscore directory (official commands dir)
+            if part == COMMANDS_DIR:
+                continue
+            return False
+
+    return True
+
+
+def is_valid_partial(path: Path) -> bool:
+    """Check if file should be considered a valid partial.
+
+    Args:
+        path: File path to check
+
+    Returns:
+        True if file is a valid partial, False if should be excluded
+    """
+    # Apply general file validity rules
+    return is_valid_file(path)
 
 
 async def _process_match(

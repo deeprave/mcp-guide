@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from mcp_guide.constants import MAX_DOCUMENTS_PER_GLOB, MAX_GLOB_DEPTH
+from mcp_guide.config_constants import MAX_DOCUMENTS_PER_GLOB, MAX_GLOB_DEPTH
 from mcp_guide.utils.pattern_matching import safe_glob_search
 
 
@@ -396,3 +396,90 @@ class TestDocumentLimit:
         assert results  # Sanity check we got some results
         suffixes = {path.suffix for path in results}
         assert suffixes & {".md", ".txt"}
+
+
+class TestUnderscoreFiltering:
+    """Tests for underscore filtering behavior in commands vs partials."""
+
+    @pytest.mark.asyncio
+    async def test_general_files_allow_underscore_prefixes(self, temp_project_dir):
+        """Test that general file discovery allows underscore-prefixed files (for partials)."""
+        # Arrange
+        test_dir = temp_project_dir / "test_underscore_files"
+        test_dir.mkdir()
+        (test_dir / "normal.md").write_text("normal content")
+        (test_dir / "_partial.md").write_text("partial content")
+        (test_dir / "_helper.txt").write_text("helper content")
+
+        # Act
+        results = await safe_glob_search(test_dir, ["*.md", "*.txt"])
+
+        # Assert - all files should be included for general file discovery
+        assert len(results) == 3
+        names = {p.name for p in results}
+        assert names == {"normal.md", "_partial.md", "_helper.txt"}
+
+    @pytest.mark.asyncio
+    async def test_command_validation_excludes_underscore_files(self, temp_project_dir):
+        """Test that command validation excludes underscore-prefixed files."""
+        from mcp_guide.utils.pattern_matching import is_valid_command
+
+        # Arrange
+        test_dir = temp_project_dir / "test_commands"
+        test_dir.mkdir()
+
+        normal_file = test_dir / "review.md"
+        underscore_file = test_dir / "_private.md"
+
+        # Act & Assert
+        assert is_valid_command(normal_file) is True
+        assert is_valid_command(underscore_file) is False
+
+    @pytest.mark.asyncio
+    async def test_command_validation_excludes_underscore_directories(self, temp_project_dir):
+        """Test that command validation excludes files in underscore directories."""
+        from mcp_guide.utils.pattern_matching import is_valid_command
+
+        # Arrange
+        test_dir = temp_project_dir / "test_commands"
+        test_dir.mkdir()
+
+        normal_path = test_dir / "public" / "review.md"
+        underscore_path = test_dir / "_private" / "secret.md"
+
+        # Act & Assert
+        assert is_valid_command(normal_path) is True
+        assert is_valid_command(underscore_path) is False
+
+    @pytest.mark.asyncio
+    async def test_partial_validation_allows_underscore_files(self, temp_project_dir):
+        """Test that partial validation allows underscore-prefixed files."""
+        from mcp_guide.utils.pattern_matching import is_valid_partial
+
+        # Arrange
+        test_dir = temp_project_dir / "test_partials"
+        test_dir.mkdir()
+
+        normal_file = test_dir / "header.md"
+        underscore_file = test_dir / "_footer.md"
+
+        # Act & Assert
+        assert is_valid_partial(normal_file) is True
+        assert is_valid_partial(underscore_file) is True
+
+    @pytest.mark.asyncio
+    async def test_allow_underscore_in_middle_of_names(self, temp_project_dir):
+        """Test that underscores in middle of names are allowed."""
+        # Arrange
+        test_dir = temp_project_dir / "test_underscore_middle"
+        test_dir.mkdir()
+        (test_dir / "my_file.md").write_text("content with underscore")
+        (test_dir / "another_name.txt").write_text("another file")
+
+        # Act
+        results = await safe_glob_search(test_dir, ["*.md", "*.txt"])
+
+        # Assert
+        assert len(results) == 2
+        names = {p.name for p in results}
+        assert names == {"my_file.md", "another_name.txt"}

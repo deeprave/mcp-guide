@@ -5,9 +5,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from mcp_core.result import Result
 from mcp_guide.prompts.guide_prompt import guide
-from mcp_guide.tools.tool_constants import INSTRUCTION_DISPLAY_ONLY
+from mcp_guide.result import Result
+from mcp_guide.result_constants import INSTRUCTION_DISPLAY_ONLY, INSTRUCTION_ERROR_MESSAGE
 
 
 class TestGuidePromptIntegration:
@@ -47,7 +47,7 @@ class TestGuidePromptIntegration:
             result = json.loads(result_str)
             assert result["success"] is False
             assert result["error"] == "Category not found"
-            assert result["instruction"] == INSTRUCTION_DISPLAY_ONLY
+            assert result["instruction"] == INSTRUCTION_ERROR_MESSAGE
 
     @pytest.mark.asyncio
     async def test_guide_prompt_without_command(self) -> None:

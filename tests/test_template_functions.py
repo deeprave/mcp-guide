@@ -170,32 +170,32 @@ class TestTemplateFunctionsSecurity:
 class TestSafeLambdaWrapper:
     """Test safe lambda wrapper functionality."""
 
-    def test_safe_lambda_error_handling(self):
+    async def test_safe_lambda_error_handling(self):
         """Test that safe lambda wrapper catches and formats errors."""
         context = ChainMap({"invalid_date": "not_a_date"})
 
-        result = render_template_content("Date: {{#format_date}}%Y-{{invalid_date}}{{/format_date}}", context)
+        result = await render_template_content("Date: {{#format_date}}%Y-{{invalid_date}}{{/format_date}}", context)
 
         assert result.is_ok()
         assert "[Template Error (" in result.value
         assert "not a datetime object" in result.value
 
-    def test_safe_lambda_error_handling_truncate(self):
+    async def test_safe_lambda_error_handling_truncate(self):
         """Test that safe lambda wrapper catches and formats errors for truncate."""
         # Negative length should trigger a validation error inside truncate
         context = ChainMap({"text": "Some example content"})
 
-        result = render_template_content("{{#truncate}}-5{{text}}{{/truncate}}", context)
+        result = await render_template_content("{{#truncate}}-5{{text}}{{/truncate}}", context)
 
         assert result.is_ok()
         assert "[Template Error (" in result.value
 
-    def test_safe_lambda_error_handling_highlight_code(self):
+    async def test_safe_lambda_error_handling_highlight_code(self):
         """Test that safe lambda wrapper catches and formats errors for highlight_code."""
         # Invalid language name (contains invalid characters) should trigger a validation error
         context = ChainMap({"code": "print('hello')"})
 
-        result = render_template_content("{{#highlight_code}}py@thon{{code}}{{/highlight_code}}", context)
+        result = await render_template_content("{{#highlight_code}}py@thon{{code}}{{/highlight_code}}", context)
 
         assert result.is_ok()
         assert "[Template Error (" in result.value

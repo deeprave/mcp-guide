@@ -1,20 +1,20 @@
 """Extended MCP tool decorator with logging and prefixing."""
 
 import inspect
-import logging
 import os
 from contextvars import ContextVar
 from functools import cache, wraps
 from typing import Any, Callable, Coroutine, Optional, Union
 
-from mcp_guide.tools.tool_constants import INSTRUCTION_VALIDATION_ERROR
+from mcp_core.mcp_log import get_logger
+from mcp_guide.result_constants import INSTRUCTION_VALIDATION_ERROR
 
 try:
     from mcp.server.fastmcp import Context
 except ImportError:
     Context = None  # type: ignore
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Internal test mode control - not exposed to external manipulation
 _test_mode: ContextVar[bool] = ContextVar("tool_test_mode", default=False)
@@ -101,7 +101,7 @@ class ExtMcpToolDecorator:
                     # Use Pydantic model as single parameter to preserve Field descriptions
                     @wraps(func)
                     async def async_wrapper(args: args_class, ctx: Optional[Context] = None) -> Any:  # type: ignore
-                        logger.trace(f"Invoking async tool: {tool_name}")  # type: ignore[attr-defined]
+                        logger.debug(f"Invoking async tool: {tool_name}")
                         try:
                             # FastMCP validates and constructs args, we just pass it through
                             result = await func(args, ctx)
@@ -136,7 +136,7 @@ class ExtMcpToolDecorator:
                     # No args_class - use explicit ctx parameter
                     @wraps(func)
                     async def async_wrapper(ctx: Optional[Context] = None) -> Any:  # type: ignore[type-arg]
-                        logger.trace(f"Invoking async tool: {tool_name}")  # type: ignore[attr-defined]
+                        logger.debug(f"Invoking async tool: {tool_name}")
                         try:
                             result = await func(ctx=ctx)
                             logger.debug(f"Tool {tool_name} completed successfully")

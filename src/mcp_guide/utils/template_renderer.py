@@ -1,20 +1,22 @@
 """Template rendering utilities for Mustache templates."""
 
-import logging
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
 import chevron
 from chevron import ChevronError
 
-from mcp_core.result import Result
-from mcp_guide.tools.tool_constants import INSTRUCTION_FILE_ERROR, INSTRUCTION_VALIDATION_ERROR
+from mcp_core.mcp_log import get_logger
+from mcp_guide.result import Result
+from mcp_guide.result_constants import INSTRUCTION_FILE_ERROR, INSTRUCTION_VALIDATION_ERROR
 from mcp_guide.utils.file_discovery import TEMPLATE_EXTENSIONS, FileInfo
 from mcp_guide.utils.frontmatter import get_frontmatter_includes
 from mcp_guide.utils.template_context import TemplateContext
 from mcp_guide.utils.template_context_cache import get_template_contexts
 from mcp_guide.utils.template_functions import TemplateFunctions
-from mcp_guide.utils.template_partials import load_partial_content, resolve_partial_paths
+from mcp_guide.utils.template_partials import PartialNotFoundError, load_partial_content
+
+logger = get_logger(__name__)
 
 
 def get_partial_name(include_path: str | Path) -> str:
@@ -55,19 +57,21 @@ def _safe_lambda(func: Callable[..., str]) -> Callable[..., str]:
             return func(*args, **kwargs)
         except Exception as e:
             # Log full traceback for diagnostics
-            logging.exception("Error while evaluating template lambda")
+            logger.exception("Error while evaluating template lambda", exc_info=True)
             # Return a user-friendly error string with exception type preserved
             return f"[Template Error ({type(e).__name__}): {e}]"
 
     return wrapper
 
 
-def render_template_content(
+async def render_template_content(
     content: str,
     context: TemplateContext,
     file_path: str = "<template>",
     transient_fn: Optional[Callable[[TemplateContext], TemplateContext]] = None,
     partials: Optional[Dict[str, str]] = None,
+    metadata: Optional[Dict[str, Any]] = None,
+    base_dir: Optional[Path] = None,
 ) -> Result[str]:
     """Render template content with context.
 
@@ -77,17 +81,64 @@ def render_template_content(
         file_path: File path for error reporting
         transient_fn: Optional function to add transient data to context
         partials: Optional dictionary of partial templates
+        metadata: Optional frontmatter metadata to merge into context
 
     Returns:
         Result with rendered content or error
     """
     try:
+        # Process metadata (frontmatter) if provided
+        render_context = context
+        processed_partials = partials or {}
+
+        if metadata:
+            # Add frontmatter data to context
+            metadata_context = TemplateContext(metadata)
+            render_context = metadata_context.new_child(context)
+            logger.trace(f"Added frontmatter context for {file_path}: {metadata}")
+
+            # Extract partials from frontmatter includes
+            if includes := get_frontmatter_includes(metadata):
+                logger.trace(f"Processing includes for template {file_path}: {includes}")
+                try:
+                    # Process includes and merge with existing partials
+                    for include_path in includes:
+                        partial_name = Path(include_path).stem
+                        if partial_name.startswith("_"):
+                            partial_name = partial_name[1:]
+
+                        # Construct proper partial path with _ prefix
+                        include_dir = Path(include_path).parent
+                        partial_filename = f"_{partial_name}"
+                        full_include_path = include_dir / partial_filename
+
+                        # Load partial content using base directory
+                        try:
+                            if base_dir:
+                                partial_content = await load_partial_content(full_include_path, base_dir)
+                            else:
+                                # Fallback to file path parent if no base_dir provided
+                                file_parent = Path(file_path).parent if file_path != "<template>" else Path.cwd()
+                                partial_content = await load_partial_content(full_include_path, file_parent)
+
+                            processed_partials[partial_name] = partial_content
+                            logger.trace(f"Loaded partial '{partial_name}' from {include_path}")
+                        except PartialNotFoundError as e:
+                            logger.error(f"Partial template not found: {include_path} - {e}")
+                        except (OSError, PermissionError) as e:
+                            logger.error(f"Failed to read partial file {include_path}: {e}")
+                        except ValueError as e:
+                            logger.error(f"Invalid partial path {include_path}: {e}")
+
+                except Exception as e:
+                    logger.error(f"Error processing includes for {file_path}: {e}")
+
         # Apply transient function if provided
-        render_context = transient_fn(context) if transient_fn else context
+        final_context = transient_fn(render_context) if transient_fn else render_context
 
         # Create template functions and inject into context with error handling
-        functions = TemplateFunctions(render_context)
-        template_context = render_context.new_child(
+        functions = TemplateFunctions(final_context)
+        template_context = final_context.new_child(
             {
                 "format_date": _safe_lambda(functions.format_date),
                 "truncate": _safe_lambda(functions.truncate),
@@ -97,7 +148,9 @@ def render_template_content(
         )
 
         # Render template with Chevron (TemplateContext works as ChainMap)
-        rendered = chevron.render(content, template_context, partials_dict=partials or {})  # type: ignore[arg-type]
+        logger.trace(f"Rendering template {file_path} with partials: {list(processed_partials.keys())}")
+        rendered = chevron.render(content, template_context, partials_dict=processed_partials)  # type: ignore[arg-type]
+        logger.trace(f"Template {file_path} rendered successfully ({len(rendered)} chars)")
         return Result.ok(rendered)
 
     except ChevronError as e:
@@ -106,7 +159,7 @@ def render_template_content(
         line_context = _extract_line_context(content, error_msg)
         full_error = f"Template syntax error in {file_path}: {error_msg}\n{line_context}"
 
-        logging.error(full_error)
+        logger.error(full_error)
         return Result.failure(
             error=full_error,
             error_type="template_error",
@@ -115,7 +168,7 @@ def render_template_content(
         )
     except Exception as e:
         # General error handling for other exceptions
-        logging.warning(f"Template rendering error in {file_path}: {str(e)}")
+        logger.warning(f"Template rendering error in {file_path}: {str(e)}")
         return Result.failure(
             error=f"Template rendering failed for {file_path}: {str(e)}",
             error_type="template_error",
@@ -151,10 +204,11 @@ def _extract_line_context(content: str, error_msg: str) -> str:
     return "\n" + "\n".join(context_lines)
 
 
-def render_file_content(
+async def render_file_content(
     file_info: FileInfo,
     context: TemplateContext | None = None,
     base_dir: Path | None = None,
+    docroot: Path | None = None,
     _include_chain: set[Path] | None = None,
 ) -> Result[str]:
     """Render file content, applying template rendering if needed.
@@ -183,50 +237,35 @@ def render_file_content(
 
     _include_chain.add(current_path)
 
-    if file_info.content is None:
+    # Resolve FileInfo path to absolute using base directory with security validation
+    # Only resolve if the path is not already absolute and we have a docroot for validation
+    if not file_info.path.is_absolute() and docroot is not None and base_dir is not None:
+        file_info.resolve(base_dir, docroot)
+
+    # Get content/frontmatter using accessors
+    content = await file_info.get_content()
+    frontmatter = await file_info.get_frontmatter()
+
+    if content is None:
         return Result.failure(
             error=f"File content not loaded: {file_info.path}",
             error_type="content_error",
             instruction=INSTRUCTION_FILE_ERROR,
         )
 
+    # Add logging to debug frontmatter parsing
+    logger.trace(f"Raw file content for {file_info.path} ({len(content)} chars): {content[:200]}...")
+    logger.trace(f"File frontmatter for {file_info.path}: {frontmatter}")
+
     # Pass through non-template files unchanged
     if not is_template_file(file_info) or context is None:
-        return Result.ok(file_info.content)
+        return Result.ok(content)
 
-    # Process includes from frontmatter
-    partials = {}
-    if file_info.frontmatter:
-        includes = get_frontmatter_includes(file_info.frontmatter)
-        if includes:
-            try:
-                # Determine template directory for partial resolution
-                if base_dir:
-                    # Use base_dir to resolve the actual template location
-                    template_path = base_dir / file_info.path
-                else:
-                    # Fallback to file_info path
-                    template_path = file_info.path
-
-                # Resolve partial paths relative to template directory
-                partial_paths = resolve_partial_paths(template_path, includes, base_dir)
-
-                # Load partial content
-                for i, partial_path in enumerate(partial_paths):
-                    # Extract partial name from include path
-                    include_path = includes[i]
-                    partial_name = get_partial_name(include_path)
-                    partials[partial_name] = load_partial_content(partial_path)
-
-            except Exception as e:
-                return Result.failure(
-                    error=f"Failed to load partials for {file_info.path}: {str(e)}",
-                    error_type="partial_error",
-                    instruction=f"Check that partial files exist and are readable: {includes}",
-                )
-
-    # Render template files with partials
-    result = render_template_content(file_info.content, context, str(file_info.path), partials=partials)
+    # Render template files with frontmatter metadata
+    result = await render_template_content(
+        content, context, str(file_info.path), metadata=frontmatter, base_dir=file_info.path.parent
+    )
+    logger.trace(f"Template rendering result for {file_info.path}: success={result.is_ok()}")
 
     # Update file size if rendering succeeded
     if result.is_ok() and result.value is not None:
@@ -297,7 +336,7 @@ async def render_template_with_context_chain(
         full_context = transient_context.new_child(base_context)
 
         # Render using the core renderer
-        return render_template_content(content, full_context, file_path)
+        return await render_template_content(content, full_context, file_path)
 
     except Exception as e:
         return Result.failure(

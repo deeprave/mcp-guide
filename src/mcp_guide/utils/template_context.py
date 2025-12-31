@@ -1,6 +1,5 @@
 """Template context management with type-safe ChainMap extension."""
 
-import logging
 import time
 from collections import ChainMap
 from collections.abc import MutableMapping
@@ -8,10 +7,12 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, Generator, Optional, Tuple, Union
 
+from mcp_core.mcp_log import get_logger
+
 if TYPE_CHECKING:
     from mcp_guide.utils.file_discovery import FileInfo
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # Sentinel object for soft deletion masking

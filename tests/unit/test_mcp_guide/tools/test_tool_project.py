@@ -6,11 +6,11 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
-from mcp_core.result import Result
 from mcp_guide.config import ConfigManager
 from mcp_guide.models import Category, Collection, Project
+from mcp_guide.result import Result
+from mcp_guide.result_constants import ERROR_SAFEGUARD
 from mcp_guide.session import Session, remove_current_session, set_current_session
-from mcp_guide.tools.tool_constants import ERROR_SAFEGUARD
 from mcp_guide.tools.tool_project import (
     CloneProjectArgs,
     GetCurrentProjectArgs,

@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
-from mcp_core.result import Result
+from mcp_guide.result import Result
 from mcp_guide.tools.tool_feature_flags import (
     GetFlagArgs,
     ListFlagsArgs,

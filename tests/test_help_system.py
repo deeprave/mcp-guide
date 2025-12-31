@@ -19,7 +19,7 @@ class TestHelpSystem:
 
         # Mock the command handler to return help content
         with patch("mcp_guide.prompts.guide_prompt.handle_command", new=AsyncMock()) as mock_handle:
-            from mcp_core.result import Result
+            from mcp_guide.result import Result
 
             mock_handle.return_value = Result.ok("# Available Commands\n\n## help\nShows available commands")
 

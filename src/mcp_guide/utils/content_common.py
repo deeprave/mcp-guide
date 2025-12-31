@@ -5,7 +5,6 @@ from typing import Optional
 
 from mcp_guide.models import (
     CategoryNotFoundError,
-    CollectionNotFoundError,
     DocumentExpression,
     ExpressionParseError,
     FileReadError,
@@ -54,12 +53,11 @@ def parse_expression(expression: str) -> list[DocumentExpression]:
                 # Split patterns by + for multi-pattern support
                 pattern_list: list[str] = []
                 for p in pattern_part.split("+"):
-                    p = p.strip()
-                    if p:  # Skip empty patterns
+                    if p := p.strip():
                         pattern_list.append(p)
 
                 # If no valid patterns after filtering, treat as None
-                patterns: Optional[list[str]] = pattern_list if pattern_list else None
+                patterns: Optional[list[str]] = pattern_list or None
             else:
                 patterns = None
         else:
@@ -107,21 +105,21 @@ async def gather_content(
             # Handle collection - expand to its categories
             collection = project.collections[expr.name]
             for category_name in collection.categories:
-                # Create combination key for deduplication
+                # Create a combination key for deduplication
                 patterns_key = tuple(sorted(expr.patterns)) if expr.patterns else None
                 combination_key = (category_name, patterns_key)
 
                 if combination_key not in processed_combinations:
                     try:
                         files = await gather_category_fileinfos(session, project, category_name, expr.patterns)
-                        # Set collection field on files
+                        # Set the collection field on files
                         for file in files:
                             file.collection = expr.name
                         all_files.extend(files)
                         processed_combinations.add(combination_key)
-                    except CategoryNotFoundError:
+                    except CategoryNotFoundError as e:
                         # Re-raise with context about which collection referenced the missing category
-                        raise CategoryNotFoundError(f"{category_name} (referenced by collection '{expr.name}')")
+                        raise CategoryNotFoundError(f"{category_name} (referenced by collection '{expr.name}')") from e
 
         elif expr.name in project.categories:
             # Handle category - use gather_category_fileinfos
@@ -133,11 +131,7 @@ async def gather_content(
                 all_files.extend(files)
                 processed_combinations.add(combination_key)
         else:
-            # Neither collection nor category found - raise specific error
-            if expr.name in project.collections:
-                raise CollectionNotFoundError(expr.name)
-            else:
-                raise CategoryNotFoundError(expr.name)
+            raise CategoryNotFoundError(expr.name)
 
     # De-duplicate by absolute path
     seen_paths = set()
@@ -149,7 +143,7 @@ async def gather_content(
         if file.category and file.category in project.categories:
             category = project.categories[file.category]
             category_dir = docroot / category.dir
-            absolute_path = category_dir / file.path
+            absolute_path = file.path
 
             if absolute_path not in seen_paths:
                 seen_paths.add(absolute_path)
@@ -212,6 +206,7 @@ async def render_fileinfos(
     files: list[FileInfo],
     context_name: str,
     category_dir: Path,
+    docroot: Path,
 ) -> str:
     """Common function to render FileInfo list to formatted content.
 
@@ -219,6 +214,7 @@ async def render_fileinfos(
         files: List of FileInfo objects to render
         context_name: Name for context (category or expression)
         category_dir: Directory path for reading files
+        docroot: Document root for security validation
 
     Returns:
         Formatted content string
@@ -231,13 +227,11 @@ async def render_fileinfos(
 
     # Read file content with template rendering
     template_context = await get_template_context_if_needed(files, context_name)
-    file_read_errors = await read_and_render_file_contents(files, category_dir, template_context)
+    file_read_errors = await read_and_render_file_contents(files, category_dir, docroot, template_context)
 
     if file_read_errors:
         raise FileReadError(f"Failed to read files: {'; '.join(file_read_errors)}")
 
     # Format content
     formatter = get_formatter()
-    content = await formatter.format(files, context_name)
-
-    return content
+    return await formatter.format(files, context_name)

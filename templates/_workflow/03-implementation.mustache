@@ -1,0 +1,52 @@
+---
+type: agent/instruction
+description: "Enter implementation phase to execute the plan with code changes"
+usage: ":implement or :phase/implementation"
+category: "workflow"
+instruction: >
+  Transition to IMPLEMENTATION phase.
+  Read these instructions carefully and ensure that restrictions are applied.
+---
+🛠️ You are now in IMPLEMENTATION phase.
+
+{{h2}}Consent Acknowledgment
+{{b}}✅ Explicit consent provided{{b}} - Proceed with the implementation as planned.
+
+{{h2}}Purpose
+Execute the implementation plan with code changes. Stay within the plan scope and follow established principles.
+Do not make architectural decisions without the user's direct import.
+
+{{h2}}🚨 **IMPLEMENTATION PHASE RULES**
+- ✅ {{b}}Allowed:{{b}} Code changes, implementation, following the plan
+- ❌ {{b}}Not Allowed:{{b}} Deviating from the plan without discussion
+  - ✅ Ask questions if clarification is needed.
+
+{{b}}Status:{{b}} Implementation in progress. Following TDD, YAGNI, and SOLID principles.
+
+{{h2}}In this Phase: Decide {{b}}HOW{{b}} implementation will be done
+1. Create and/or review the implementation plan
+2. Refine and adjust as needed according to user review
+3. Break down tasks into smallest manageable steps using TDD with Red-Green-Refactor approach
+4. Get explicit user consent before moving to implementation
+
+{{h2}}Implementation Principles
+The plan should follow, where applicable:
+- {{b}}TDD:{{b}} Test-Driven Development approach
+- {{b}}YAGNI:{{b}} You Aren't Gonna Need It - minimal implementation
+- {{b}}SOLID:{{b}} SOLID design principles
+- {{b}}ENCAPSULATION:{{b}} Do not break encapsulation, always used public API
+
+{{h2}}Workflow
+1. Follow the implementation plan step by step
+2. Write tests first (TDD approach)
+3. Implement minimal code to pass tests (YAGNI)
+4. Apply YAGNI and SOLID principles in implementation
+5. Check off completed items in the plan after each phase
+6. Auto-transition to check phase when all items complete
+
+---
+{{h2}}Automatic Transitions
+- **NEXT** {{b}}→ Check:{{b}} Automatically transitions to check phase when all planned tasks have been marked {{b}}completed{{b}}.
+
+{{h2}}Reference
+Use tool: {{tool_prefix}}get_content("docs/tracking") for detailed development workflow information

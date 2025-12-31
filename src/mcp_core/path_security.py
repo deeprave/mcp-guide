@@ -2,41 +2,51 @@
 
 from pathlib import Path
 
+# System paths that should be blocked for security
+SENSITIVE_SYSTEM_PATHS = {"/etc", "/proc", "/sys", "/dev", "/root", "/boot", "/var/log", "/usr/bin", "/bin", "/sbin"}
 
-def resolve_safe_path(base_dir: Path, relative_path: str | Path) -> Path:
+
+def resolve_safe_path(docroot: Path, path: str | Path) -> Path:
     """
-    Resolve relative path within base directory with security validation.
+    Resolve path within docroot with security validation.
 
     Args:
-        base_dir: Base directory (must be absolute)
-        relative_path: Relative path to resolve
+        docroot: Document root directory (must be absolute)
+        path: Path to resolve (relative or absolute within docroot)
 
     Returns:
-        Resolved absolute path within base_dir
+        Resolved absolute path within docroot
 
     Raises:
-        ValueError: If base_dir is not absolute
-        ValueError: If relative_path is absolute
-        ValueError: If resolved path escapes base_dir
+        ValueError: If docroot is not absolute
+        ValueError: If path is absolute but not within docroot
+        ValueError: If resolved path escapes docroot
     """
-    # Validate base_dir is absolute
-    if not base_dir.is_absolute():
-        raise ValueError(f"Base directory must be absolute: {base_dir}")
+    # Validate docroot is absolute
+    if not docroot.is_absolute():
+        raise ValueError(f"Document root must be absolute: {docroot}")
 
     # Convert string to Path
-    if isinstance(relative_path, str):
-        relative_path = Path(relative_path)
+    if isinstance(path, str):
+        path = Path(path)
 
-    # Reject absolute paths
-    if relative_path.is_absolute():
-        raise ValueError(f"Path must be relative: {relative_path}")
+    # Handle absolute paths - check if within docroot
+    if path.is_absolute():
+        # Additional validation for sensitive system paths
+        path_str = str(path).lower()
+        if any(path_str.startswith(sensitive) for sensitive in SENSITIVE_SYSTEM_PATHS):
+            raise ValueError(f"Access to system path denied: {path}")
 
-    # Resolve path (handles ., .., symlinks, //)
-    resolved = (base_dir / relative_path).resolve()
+        if not is_path_within_directory(path, docroot):
+            raise ValueError(f"Absolute path must be within docroot: {path}")
+        resolved = path.resolve()
+    else:
+        # Resolve relative path against docroot
+        resolved = (docroot / path).resolve()
 
-    # Validate within bounds
-    if not is_path_within_directory(resolved, base_dir):
-        raise ValueError(f"Path escapes base directory: {relative_path}")
+    # Final validation within bounds
+    if not is_path_within_directory(resolved, docroot):
+        raise ValueError(f"Path escapes docroot: {path}")
 
     return resolved
 

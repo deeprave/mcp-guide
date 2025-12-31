@@ -2,9 +2,12 @@
 
 import json
 from dataclasses import dataclass, field
-from typing import Any, Generic, Optional, TypeVar
+from typing import Any, ClassVar, Generic, Optional, TypeVar
 
 T = TypeVar("T")
+
+
+__all__ = ("Result",)
 
 
 @dataclass
@@ -25,6 +28,17 @@ class Result(Generic[T]):
     instruction: Optional[str] = None
     error_data: Optional[dict[str, Any]] = None
 
+    default_success_instruction: ClassVar[Optional[str]] = None
+    default_failure_instruction: ClassVar[Optional[str]] = None
+
+    @classmethod
+    def success_instruction(cls) -> Optional[str]:
+        return cls.default_success_instruction
+
+    @classmethod
+    def failure_instruction(cls) -> Optional[str]:
+        return cls.default_failure_instruction
+
     @classmethod
     def ok(
         cls,
@@ -44,7 +58,13 @@ class Result(Generic[T]):
         Returns:
             Result with success=True
         """
-        return cls(success=True, value=value, message=message, arguments=arguments, instruction=instruction)
+        return cls(
+            success=True,
+            value=value,
+            message=message,
+            arguments=arguments,
+            instruction=instruction if instruction is not None else cls.default_success_instruction,
+        )
 
     @classmethod
     def failure(
@@ -73,7 +93,7 @@ class Result(Generic[T]):
             error_type=error_type,
             exception=exception,
             message=message,
-            instruction=instruction,
+            instruction=instruction if instruction is not None else cls.default_failure_instruction,
         )
 
     def is_ok(self) -> bool:

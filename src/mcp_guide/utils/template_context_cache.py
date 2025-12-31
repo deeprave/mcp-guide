@@ -1,8 +1,10 @@
 """Template context cache with session listener for decoupled context management."""
 
-import logging
 from contextvars import ContextVar
 from typing import TYPE_CHECKING, Any, Optional
+
+from mcp_core.mcp_log import get_logger
+from mcp_guide.feature_flags.resolution import resolve_flag
 
 if TYPE_CHECKING:
     from mcp_guide.utils.file_discovery import FileInfo
@@ -10,7 +12,7 @@ if TYPE_CHECKING:
 
 from mcp_guide.session_listener import SessionListener
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # ContextVar for thread-safe template context cache
 _template_contexts: ContextVar[Optional["TemplateContext"]] = ContextVar("template_contexts", default=None)
@@ -74,55 +76,97 @@ class TemplateContextCache(SessionListener):
             # Agent detection failed - log and use @ symbol only
             logger.debug(f"Agent detection failed: {e}")
 
+        # Add template styling variables based on template-styling feature flag
+
+        # Get current project and feature flags for resolution
+        try:
+            from mcp_guide.session import get_or_create_session
+
+            session = await get_or_create_session(None)
+            if session is not None:
+                project_flags = await session.project_flags().list()
+                feature_flags = await session.feature_flags().list()
+                styling = resolve_flag("template-styling", project_flags, feature_flags)
+            else:
+                styling = "plain"
+        except (ConnectionError, TimeoutError) as e:
+            logger.warning(f"Session connection failed, using default styling: {e}")
+            styling = "plain"
+        except (KeyError, AttributeError) as e:
+            logger.warning(f"Flag resolution failed, using default styling: {e}")
+            styling = "plain"
+        except Exception as e:
+            logger.error(f"Unexpected error resolving template-styling flag: {e}")
+            styling = "plain"
+
+        # Default to "plain" if not set or invalid
+        if styling not in ["plain", "headings", "full"]:
+            styling = "plain"
+
+        # Set formatting variables based on styling mode
+        formatting_vars = {f: "" for f in ["b", "i", "h1", "h2", "h3", "h4", "h5", "h6"]}
+        if styling != "plain":
+            formatting_vars.update(
+                {"h1": "# ", "h2": "## ", "h3": "### ", "h4": "#### ", "h5": "##### ", "h6": "###### "}
+            )
+            if styling == "full":
+                formatting_vars.update({"b": "**", "i": "*"})
+
+        agent_vars.update(formatting_vars)
+
         return TemplateContext(agent_vars)
 
     async def _build_project_context(self) -> "TemplateContext":
         """Build project context with current project data."""
-        from mcp_guide.session import get_current_session
+        from mcp_guide.session import get_or_create_session
         from mcp_guide.utils.template_context import TemplateContext
 
         # Extract project information from current session using public API
         project_name = ""
         project_key = ""
         project_hash = ""
-        project_flags = {}
+        project_flags: dict[str, Any] = {}
         categories_list: list[dict[str, Any]] = []
         collections_list: list[dict[str, Any]] = []
         flags_list: list[dict[str, Any]] = []
+        project = None
+        project_flag_values = []
 
         try:
-            session = get_current_session()
+            session = await get_or_create_session(None)
+            logger.debug(f"Template context: session = {session}")
             if session:
                 project = await session.get_project()
-                project_name = project.name
-                project_key = project.key if project.key is not None else project_name  # Fallback for legacy projects
-                project_hash = project.hash or ""  # Fallback for legacy projects
-                project_flags = project.project_flags or {}
+                logger.debug(f"Template context: project = {project}")
 
-                # Convert categories dict to list format with pre-formatted patterns
-                categories_list = [
-                    {
-                        "name": cat_name,
-                        "dir": cat.dir,
-                        "patterns": cat.patterns,
-                        "patterns_str": ", ".join(f"`{p}`" for p in cat.patterns) if cat.patterns else "",
-                        "description": cat.description,
-                    }
-                    for cat_name, cat in project.categories.items()
-                ]
+                if project:
+                    # Convert categories dict to list format with pre-formatted patterns
+                    categories_list = [
+                        {
+                            "name": cat_name,
+                            "dir": cat.dir,
+                            "patterns": cat.patterns,
+                            "patterns_str": ", ".join(f"`{p}`" for p in cat.patterns) if cat.patterns else "",
+                            "description": cat.description,
+                        }
+                        for cat_name, cat in project.categories.items()
+                    ]
 
-                # Convert collections dict to list format with pre-formatted categories
-                collections_list = [
-                    {
-                        "name": col_name,
-                        "description": col.description,
-                        "categories": col.categories,
-                        "categories_str": ", ".join(f"`{c}`" for c in col.categories) if col.categories else "",
-                    }
-                    for col_name, col in project.collections.items()
-                ]
+                    # Convert collections dict to list format with pre-formatted categories
+                    collections_list = [
+                        {
+                            "name": col_name,
+                            "description": col.description,
+                            "categories": col.categories,
+                            "categories_str": ", ".join(f"`{c}`" for c in col.categories) if col.categories else "",
+                        }
+                        for col_name, col in project.collections.items()
+                    ]
+
+                    # Convert project flags dict to list format for iteration
+                    project_flag_values = [{"key": k, "value": v} for k, v in (project.project_flags or {}).items()]
         except (AttributeError, ValueError, RuntimeError) as e:
-            logger.debug(f"Failed to get project from session: {e}")
+            logger.error(f"Failed to get project from session: {e}", exc_info=True)
 
         # Get global flags for template context
         global_flags_dict = {}
@@ -174,35 +218,45 @@ class TemplateContextCache(SessionListener):
         except Exception as e:
             logger.debug(f"Failed to get projects list: {e}")
 
+        # Get client working directory for template context
+        client_working_dir = ""
+        try:
+            from mcp_guide.mcp_context import resolve_project_path
+
+            client_working_dir = await resolve_project_path()
+        except Exception as e:
+            logger.debug(f"Failed to get client working directory: {e}")
+
         project_vars = {
             "project": {
-                "name": project_name,
-                "key": project_key,
-                "hash": project_hash,
-                "project_flags": project_flags,  # Dict format for conditionals
-                "project_flag_values": [
-                    {"key": k, "value": v} for k, v in project_flags.items()
-                ],  # List format for iteration
-                "categories": categories_list,
+                "name": "",  # Default empty name
+                "categories": [],  # Default empty categories
+                "collections": [],  # Default empty collections
+                "project_flag_values": [],  # Default empty flags
+                **(project.__dict__ if project else {}),  # Override with actual project data if available
+                "categories": categories_list,  # Always use our formatted lists
                 "collections": collections_list,
+                "project_flag_values": project_flag_values,
             },
+            "client_working_dir": client_working_dir,
             "feature_flags": global_flags_dict,  # Dict format for conditionals
             "feature_flag_values": global_flags_list,  # List format for iteration
             "projects": projects_data,
             "projects_count": projects_count,
         }
 
+        logger.debug(f"Template context: project_flag_values = {project_vars['project']['project_flag_values']}")  # type: ignore[index]
         return TemplateContext(project_vars)
 
     async def _build_category_context(self, category_name: str) -> "TemplateContext":
         """Build category context with category data (not cached)."""
-        from mcp_guide.session import get_current_session
+        from mcp_guide.session import get_or_create_session
         from mcp_guide.utils.template_context import TemplateContext
 
         # Extract category information from current session's project
         category_data = {"name": "", "dir": "", "patterns": [], "description": ""}
         try:
-            session = get_current_session()
+            session = await get_or_create_session(None)
             if session:
                 project = await session.get_project()
                 # Find category by name using dict lookup
@@ -222,13 +276,13 @@ class TemplateContextCache(SessionListener):
 
     async def _build_collection_context(self, collection_name: str) -> "TemplateContext":
         """Build collection context with collection data (not cached)."""
-        from mcp_guide.session import get_current_session
+        from mcp_guide.session import get_or_create_session
         from mcp_guide.utils.template_context import TemplateContext
 
         # Extract collection information from current session's project
         collection_data = {"name": "", "categories": [], "description": ""}
         try:
-            session = get_current_session()
+            session = await get_or_create_session(None)
             if session:
                 project = await session.get_project()
                 # Find collection by name using dict lookup

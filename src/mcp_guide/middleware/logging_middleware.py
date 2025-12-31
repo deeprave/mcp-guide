@@ -1,11 +1,11 @@
 """Logging middleware for command execution."""
 
-import logging
 from typing import Awaitable, Callable, Union
 
-from mcp_core.result import Result
+from mcp_core.mcp_log import get_logger
+from mcp_guide.result import Result
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 async def logging_middleware(

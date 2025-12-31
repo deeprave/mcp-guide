@@ -1,11 +1,12 @@
 """MCP context data structures and management."""
 
-import logging
 from contextvars import ContextVar
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 from urllib.parse import urlparse
+
+from mcp_core.mcp_log import get_logger
 
 try:
     from mcp.server.fastmcp import Context
@@ -15,7 +16,7 @@ except ImportError:
 if TYPE_CHECKING:
     from mcp_guide.agent_detection import AgentInfo
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass

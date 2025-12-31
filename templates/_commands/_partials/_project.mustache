@@ -1,0 +1,39 @@
+---
+type: agent/information
+---
+
+{{b}}Project: {{project.name}}{{b}}
+
+{{h2}}Collections
+
+{{#project.collections}}
+- {{b}}{{name}}{{b}}: {{description}}
+{{#kwargs.verbose}}
+{{#categories}}
+  - {{.}}
+{{/categories}}
+{{/kwargs.verbose}}
+{{/project.collections}}
+
+{{h2}}Categories
+
+{{#project.categories}}
+- {{b}}{{name}}{{b}}: {{description}}
+{{#kwargs.verbose}}
+{{#patterns}}
+  - {{.}}
+{{/patterns}}
+{{/kwargs.verbose}}
+{{/project.categories}}
+
+{{b}}Project Flags:{{b}}
+{{#project.project_flag_values}}
+- {{key}}: {{value}}
+{{/project.project_flag_values}}
+
+{{#kwargs.verbose}}
+{{b}}Project Key:{{b}} {{project.key}}
+{{b}}Project Hash:{{b}} {{project.hash}}
+
+{{> security}}
+{{/kwargs.verbose}}

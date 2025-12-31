@@ -87,7 +87,7 @@ class TestCommandSecurity:
 
         # Mock the command handler to return success for valid commands
         with patch("mcp_guide.prompts.guide_prompt.handle_command", new=AsyncMock()) as mock_handle:
-            from mcp_core.result import Result
+            from mcp_guide.result import Result
 
             mock_handle.return_value = Result.ok("Command executed")
 
@@ -162,14 +162,14 @@ class TestCommandErrorHandling:
             patch("mcp_guide.utils.command_discovery.discover_commands", new=AsyncMock()) as mock_discover,
             patch("mcp_guide.prompts.guide_prompt.discover_category_files", new=AsyncMock()) as mock_files,
             patch("mcp_guide.prompts.guide_prompt.get_template_contexts", new=AsyncMock()) as mock_context,
-            patch("mcp_guide.prompts.guide_prompt.render_template_content") as mock_render,
+            patch("mcp_guide.prompts.guide_prompt.render_file_content", new=AsyncMock()) as mock_render,
         ):
             # Mock session methods
             mock_session_obj = AsyncMock()
             mock_session_obj.get_project = AsyncMock()
             mock_session_obj.get_docroot = AsyncMock(return_value="/test/project")
             mock_session.return_value = mock_session_obj
-            from mcp_core.result import Result
+            from mcp_guide.result import Result
             from mcp_guide.utils.file_discovery import FileInfo
             from mcp_guide.utils.template_context import TemplateContext
 
@@ -255,7 +255,6 @@ class TestCommandErrorHandling:
                     content_size=100,
                     mtime=1234567890,
                     name="restricted.mustache",
-                    content="",
                     category="",
                     collection="",
                     ctime=1234567890,
@@ -263,7 +262,7 @@ class TestCommandErrorHandling:
             ]
 
             # Mock file reading to raise permission error
-            with patch("builtins.open", side_effect=PermissionError("Permission denied")):
+            with patch("mcp_core.file_reader.aiofiles.open", side_effect=PermissionError("Permission denied")):
                 result_str = await guide(":restricted", ctx=mock_ctx)
                 result = json.loads(result_str)
 

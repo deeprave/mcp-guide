@@ -1,4 +1,4 @@
-"""Project-wide constants."""
+"""Configuration constants for the guide application."""
 
 # Directory for command templates
 COMMANDS_DIR = "_commands"

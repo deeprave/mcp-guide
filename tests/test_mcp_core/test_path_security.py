@@ -28,7 +28,7 @@ def test_resolve_safe_path_requires_absolute_base(tmp_path: Path) -> None:
     """Test that base_dir must be absolute."""
     relative_base = Path("relative/path")
 
-    with pytest.raises(ValueError, match="Base directory must be absolute"):
+    with pytest.raises(ValueError, match="Document root must be absolute"):
         resolve_safe_path(relative_base, "file.txt")
 
 
@@ -37,7 +37,7 @@ def test_resolve_safe_path_rejects_absolute_input(tmp_path: Path) -> None:
     base_dir = tmp_path / "base"
     base_dir.mkdir()
 
-    with pytest.raises(ValueError, match="Path must be relative"):
+    with pytest.raises(ValueError, match="Access to system path denied"):
         resolve_safe_path(base_dir, "/etc/passwd")
 
 
@@ -46,7 +46,7 @@ def test_resolve_safe_path_rejects_parent_traversal(tmp_path: Path) -> None:
     base_dir = tmp_path / "base"
     base_dir.mkdir()
 
-    with pytest.raises(ValueError, match="Path escapes base directory"):
+    with pytest.raises(ValueError, match="Path escapes docroot"):
         resolve_safe_path(base_dir, "../etc/passwd")
 
 
@@ -57,7 +57,7 @@ def test_resolve_safe_path_rejects_nested_traversal(tmp_path: Path) -> None:
     subdir = base_dir / "subdir"
     subdir.mkdir()
 
-    with pytest.raises(ValueError, match="Path escapes base directory"):
+    with pytest.raises(ValueError, match="Path escapes docroot"):
         resolve_safe_path(base_dir, "subdir/../../etc/passwd")
 
 
@@ -98,7 +98,7 @@ def test_resolve_safe_path_rejects_symlink_escape(tmp_path: Path) -> None:
     symlink = base_dir / "link"
     symlink.symlink_to(outside_file)
 
-    with pytest.raises(ValueError, match="Path escapes base directory"):
+    with pytest.raises(ValueError, match="Path escapes docroot"):
         resolve_safe_path(base_dir, "link")
 
 

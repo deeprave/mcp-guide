@@ -1,15 +1,11 @@
 ---
+type: user/information
 description: Shows system status and current project information
 usage: ":status"
-examples:
-  - ":status"
-includes: [partials/_project.mustache]
 ---
-# System Status
+{{h1}}System Status
 
-**Agent:** {{#agent}}{{agent.name}}{{#agent.version}} v{{agent.version}}{{/agent.version}}{{/agent}}{{^agent}}Not detected{{/agent}}
-**Command Prefix:** {{#agent}}{{agent.prefix}}{{/agent}}{{^agent}}{{@}}{{/agent}}
-
-## Project Details
-
-{{>project}}
+{{b}}Agent:{{b}} {{#agent}}{{agent.name}}{{#agent.version}} v{{agent.version}}{{/agent.version}}{{/agent}}{{^agent}}Not detected{{/agent}}
+{{b}}Command Prefix:{{b}} {{#agent}}{{agent.prefix}}{{/agent}}{{^agent}}{{@}}{{/agent}}
+{{b}}Tool Prefix:{{b}} {{#tool_prefix}}{{tool_prefix}}{{/tool_prefix}}{{^tool_prefix}}None{{/tool_prefix}}
+{{b}}Project:{{b}} {{project.name}}

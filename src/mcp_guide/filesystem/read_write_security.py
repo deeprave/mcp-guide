@@ -1,13 +1,14 @@
 """Read/Write security policy for filesystem operations."""
 
-import logging
 from pathlib import Path, PurePath
 from typing import List, Optional
+
+from mcp_core.mcp_log import get_logger
 
 from .system_directories import is_system_directory
 from .temp_directories import is_safe_temp_path
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class SecurityError(Exception):

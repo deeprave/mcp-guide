@@ -1,17 +1,14 @@
 """Project configuration management."""
 
 import asyncio
-import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional
-
-if TYPE_CHECKING:
-    pass
+from typing import Any, Optional
 
 import yaml
 from anyio import Path as AsyncPath
 
 from mcp_core.file_reader import read_file_content
+from mcp_core.mcp_log import get_logger
 from mcp_guide.file_lock import lock_update
 from mcp_guide.models import _NAME_REGEX, DEFAULT_ALLOWED_WRITE_PATHS, Project
 from mcp_guide.utils.project_hash import (
@@ -20,7 +17,7 @@ from mcp_guide.utils.project_hash import (
     generate_project_key,
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class DocrootError(RuntimeError):
@@ -167,8 +164,10 @@ class ConfigManager:
 
             if found_project:
                 try:
-                    # Don't pass name as kwarg since it's already in the data
-                    return Project(**found_project)
+                    # Add the project key to the data before creating Project object
+                    project_data_copy = dict(found_project)
+                    project_data_copy["key"] = key  # Set the project key from config
+                    return Project(**project_data_copy)
                 except Exception as e:
                     raise ValueError(f"Invalid project data for '{name}' in {file_path}: {e}") from e
 
@@ -246,20 +245,20 @@ class ConfigManager:
                 except OSError as e:
                     raise OSError(f"Failed to write migrated config file {file_path}: {e}") from e
 
-            for name, project_data in projects_data.items():
+            for project_key, project_data in projects_data.items():
                 try:
                     # Extract display name from potentially hash-suffixed key
-                    display_name = extract_name_from_key(name)
+                    name = extract_name_from_key(project_key)
 
                     # Create project data with correct name and key
                     project_data_copy = dict(project_data)
-                    project_data_copy["name"] = display_name  # Ensure name matches display name
-                    project_data_copy["key"] = name  # Set the project key
+                    project_data_copy["name"] = name  # Ensure name matches display name
+                    project_data_copy["key"] = project_key  # Set the project key
 
                     # Use original key to preserve all projects (including duplicates by name)
-                    projects[name] = Project(**project_data_copy)
+                    projects[project_key] = Project(**project_data_copy)
                 except Exception as e:
-                    raise ValueError(f"Invalid project data for '{name}': {e}") from e
+                    raise ValueError(f"Invalid project data for '{project_key}': {e}") from e
 
             return projects
 

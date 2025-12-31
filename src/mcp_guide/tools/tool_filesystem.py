@@ -5,13 +5,13 @@ from typing import Any, Dict, Optional
 from mcp.server.fastmcp import Context
 from pydantic import Field
 
-from mcp_core.result import Result
 from mcp_core.tool_arguments import ToolArguments
 from mcp_guide.filesystem.path_validator import SecurityError
 from mcp_guide.filesystem.tools import send_command_location as fs_send_command_location
 from mcp_guide.filesystem.tools import send_directory_listing as fs_send_directory_listing
 from mcp_guide.filesystem.tools import send_file_content as fs_send_file_content
 from mcp_guide.filesystem.tools import send_working_directory as fs_send_working_directory
+from mcp_guide.result import Result
 from mcp_guide.server import tools
 
 

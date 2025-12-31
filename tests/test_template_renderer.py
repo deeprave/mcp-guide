@@ -33,30 +33,30 @@ class TestTemplateDetection:
 class TestTemplatePartials:
     """Test template rendering with partials."""
 
-    def test_render_template_with_partials(self):
+    async def test_render_template_with_partials(self):
         """Test template rendering with partials."""
         content = "{{>project}}"
         context = TemplateContext({"project_name": "test-project"})
         partials = {"project": "Project: {{project_name}}"}
 
-        result = render_template_content(content, context, partials=partials)
+        result = await render_template_content(content, context, partials=partials)
 
         assert result.is_ok()
         assert result.value == "Project: test-project"
 
-    def test_render_template_missing_partial(self):
+    async def test_render_template_missing_partial(self):
         """Test template rendering with missing partial."""
         content = "{{>missing}}"
         context = TemplateContext({})
         partials = {}
 
-        result = render_template_content(content, context, partials=partials)
+        result = await render_template_content(content, context, partials=partials)
 
         # Chevron silently ignores missing partials and renders empty string
         assert result.is_ok()
         assert result.value == ""
 
-    def test_render_file_content_circular_include_detection(self):
+    async def test_render_file_content_circular_include_detection(self):
         """Test that circular includes are detected and prevented."""
         from datetime import datetime
         from pathlib import Path
@@ -82,7 +82,7 @@ class TestTemplatePartials:
         # This simulates the case where we're already processing this file in the include chain
         include_chain = {Path.cwd() / "test.mustache"}
 
-        result = render_file_content(file_info, context, Path.cwd(), _include_chain=include_chain)
+        result = await render_file_content(file_info, context, Path.cwd(), _include_chain=include_chain)
 
         assert not result.is_ok()
         assert result.error_type == "circular_include"
@@ -138,49 +138,49 @@ class TestTemplatePartials:
 class TestTemplateRendering:
     """Test template content rendering."""
 
-    def test_render_template_content_success(self):
+    async def test_render_template_content_success(self):
         """Test successful template rendering."""
         content = "Hello {{name}}!"
         context = TemplateContext({"name": "World"})
 
-        result = render_template_content(content, context)
+        result = await render_template_content(content, context)
 
         assert result.is_ok()
         assert result.value == "Hello World!"
 
-    def test_render_template_content_with_lambda_functions(self):
+    async def test_render_template_content_with_lambda_functions(self):
         """Test template rendering with lambda functions."""
         content = "Created: {{#format_date}}%Y-%m-%d{{event_date}}{{/format_date}}"
         context = TemplateContext({"event_date": datetime(2023, 12, 25)})
 
-        result = render_template_content(content, context)
+        result = await render_template_content(content, context)
 
         assert result.is_ok()
         assert "2023-12-25" in result.value
 
-    def test_render_template_content_syntax_error(self):
+    async def test_render_template_content_syntax_error(self):
         """Test template rendering with syntax error."""
         content = "Hello {{#unclosed_section}}!"
         context = TemplateContext({"name": "World"})
 
-        result = render_template_content(content, context)
+        result = await render_template_content(content, context)
 
         assert result.is_failure()
         assert result.error_type == "template_error"
         assert "Template syntax error" in result.error
         assert ">>>    1 |" in result.error  # Check for line context
 
-    def test_template_context_integration_in_pipeline(self):
+    async def test_template_context_integration_in_pipeline(self):
         """Test that TemplateContext is properly integrated in rendering pipeline."""
         content = "Hello {{name}}! Project: {{project.name}}"
         context = TemplateContext({"name": "World", "project": {"name": "test-project"}})
 
-        result = render_template_content(content, context)
+        result = await render_template_content(content, context)
 
         assert result.is_ok()
         assert result.value == "Hello World! Project: test-project"
 
-    def test_lambda_functions_injection_in_pipeline(self):
+    async def test_lambda_functions_injection_in_pipeline(self):
         """Test that lambda functions are properly injected and work in pipeline."""
         from datetime import datetime
 
@@ -204,28 +204,28 @@ class TestTemplateRendering:
 
         for content, context_data, expected in test_cases:
             context = TemplateContext(context_data)
-            result = render_template_content(content, context)
+            result = await render_template_content(content, context)
 
             assert result.is_ok(), f"Failed for: {content}"
             assert result.value == expected, f"Expected '{expected}', got '{result.value}'"
 
-    def test_render_template_content_missing_variable(self):
+    async def test_render_template_content_missing_variable(self):
         """Test template rendering with missing variable."""
         content = "Hello {{missing_var}}!"
         context = TemplateContext({"name": "World"})
 
-        result = render_template_content(content, context)
+        result = await render_template_content(content, context)
 
         # Chevron renders missing variables as empty string
         assert result.is_ok()
         assert result.value == "Hello !"
 
-    def test_render_template_content_accepts_template_context(self):
+    async def test_render_template_content_accepts_template_context(self):
         """Test that render_template_content accepts TemplateContext."""
         content = "Hello {{name}}!"
         context = TemplateContext({"name": "World"})
 
-        result = render_template_content(content, context)
+        result = await render_template_content(content, context)
 
         assert result.is_ok()
         assert result.value == "Hello World!"
@@ -234,7 +234,7 @@ class TestTemplateRendering:
 class TestFileContentRendering:
     """Test file content rendering."""
 
-    def test_render_file_content_non_template(self):
+    async def test_render_file_content_non_template(self):
         """Test rendering non-template file content."""
         file_info = FileInfo(
             path=Path("test.md"),
@@ -246,12 +246,12 @@ class TestFileContentRendering:
         )
         context = TemplateContext({"name": "World"})
 
-        result = render_file_content(file_info, context)
+        result = await render_file_content(file_info, context)
 
         assert result.is_ok()
         assert result.value == "# Hello World"
 
-    def test_render_file_content_template_without_context(self):
+    async def test_render_file_content_template_without_context(self):
         """Test rendering template file without context."""
         file_info = FileInfo(
             path=Path("test.md.mustache"),
@@ -262,12 +262,12 @@ class TestFileContentRendering:
             content="Hello {{name}}!",
         )
 
-        result = render_file_content(file_info, None)
+        result = await render_file_content(file_info, None)
 
         assert result.is_ok()
         assert result.value == "Hello {{name}}!"
 
-    def test_render_file_content_template_with_context(self):
+    async def test_render_file_content_template_with_context(self):
         """Test rendering template file with context."""
         file_info = FileInfo(
             path=Path("test.md.mustache"),
@@ -279,14 +279,14 @@ class TestFileContentRendering:
         )
         context = TemplateContext({"name": "World"})
 
-        result = render_file_content(file_info, context)
+        result = await render_file_content(file_info, context)
 
         assert result.is_ok()
         assert result.value == "Hello World!"
         # Check that file size was updated
         assert file_info.size == len("Hello World!")
 
-    def test_render_file_content_accepts_template_context(self):
+    async def test_render_file_content_accepts_template_context(self):
         """Test that render_file_content accepts TemplateContext."""
         file_info = FileInfo(
             path=Path("test.md.mustache"),
@@ -298,25 +298,25 @@ class TestFileContentRendering:
         )
         context = TemplateContext({"name": "World"})
 
-        result = render_file_content(file_info, context)
+        result = await render_file_content(file_info, context)
 
         assert result.is_ok()
         assert result.value == "Hello World!"
 
-    def test_render_file_content_no_content_loaded(self):
+    async def test_render_file_content_no_content_loaded(self):
         """Test rendering file with no content loaded."""
         file_info = FileInfo(
             path=Path("test.md"), size=100, content_size=100, mtime=datetime.now(), name="test.md", content=None
         )
         context = TemplateContext({"name": "World"})
 
-        result = render_file_content(file_info, context)
+        result = await render_file_content(file_info, context)
 
         assert result.is_failure()
         assert result.error_type == "content_error"
         assert "File content not loaded" in result.error
 
-    def test_render_file_content_template_error(self):
+    async def test_render_file_content_template_error(self):
         """Test rendering template file with syntax error."""
         file_info = FileInfo(
             path=Path("test.md.mustache"),
@@ -328,7 +328,7 @@ class TestFileContentRendering:
         )
         context = TemplateContext({"name": "World"})
 
-        result = render_file_content(file_info, context)
+        result = await render_file_content(file_info, context)
 
         assert result.is_failure()
         assert result.error_type == "template_error"

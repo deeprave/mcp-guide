@@ -1,0 +1,56 @@
+---
+type: agent/instruction
+description: "Enter check phase to run tests and code quality checks"
+usage: ":check or :phase/check"
+category: "workflow"
+---
+{{h1}}Check Phase
+
+{{b}}Current Phase:{{b}} Check
+
+{{h2}}Purpose
+Run tests, make code adjustments, and execute all code quality checks. All tests must pass without warnings.
+
+{{h2}}Phase Rules
+- ✅ {{b}}Allowed:{{b}} Running tests, code quality checks, minor adjustments to fix issues
+- ❌ {{b}}Not Allowed:{{b}} Major code changes, new features
+
+{{h2}}Quality Requirements
+- {{b}}All tests must pass{{b}} without warnings or errors
+- {{b}}All code quality checks{{b}} must pass:
+  - Linting (ruff check)
+  - Type checking (mypy)
+  - Code formatting (ruff format)
+  - Test coverage requirements
+
+{{h2}}Automatic Transitions
+- {{b}}→ Review:{{b}} Automatically transitions to review phase once all tests complete and pass
+
+{{h2}}Available Commands
+- `:review` - Move to review phase (when all checks pass)
+- `:implement` - Return to implementation if major fixes needed
+- `:check` - Stay in check phase
+
+{{h2}}Workflow
+1. Run all tests and ensure they pass
+2. Execute code quality checks:
+   - `ruff check` - linting
+   - `mypy` - type checking
+   - `ruff format` - formatting
+   - Test coverage analysis
+3. Make minor adjustments to fix any issues
+4. Re-run checks until all pass
+5. Auto-transition to review phase when complete
+
+{{h2}}Check Status
+- [ ] All tests passing
+- [ ] Linting checks pass
+- [ ] Type checking passes
+- [ ] Code formatting correct
+- [ ] Coverage requirements met
+
+---
+{{b}}Status:{{b}} Running tests and quality checks. All must pass before review.
+
+{{h2}}Reference
+{{tool_prefix}}get_content("docs/tracking") - Detailed development workflow information

@@ -1,16 +1,24 @@
 """Front-matter parsing utilities for YAML metadata extraction."""
 
-import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import aiofiles
 import yaml
 
-# Content type constants
-USER_INFO = "user/information"
-AGENT_INFO = "agent/information"
-AGENT_INSTRUCTION = "agent/instruction"
+from mcp_core.mcp_log import get_logger
+from mcp_guide.result_constants import (
+    AGENT_INFO,
+    AGENT_INSTRUCTION,
+    AGENT_REQUIREMENTS,
+    INSTRUCTION_AGENT_INFO,
+    INSTRUCTION_AGENT_INSTRUCTIONS,
+    INSTRUCTION_AGENT_REQUIREMENTS,
+    INSTRUCTION_DISPLAY_ONLY,
+    USER_INFO,
+)
+
+logger = get_logger(__name__)
 
 
 def parse_frontmatter_content(content: str) -> Tuple[Optional[Dict[str, Any]], str]:
@@ -93,15 +101,15 @@ async def extract_frontmatter(file_path: Path, max_read_size: int = 4096) -> Tup
 
     except (OSError, UnicodeDecodeError) as e:
         # Log specific I/O and encoding errors but don't fail completely
-        logging.debug(f"Could not read front-matter from {file_path}: {e}")
+        logger.debug(f"Could not read front-matter from {file_path}: {e}")
         return None, 0
     except yaml.YAMLError as e:
         # Log YAML parsing errors
-        logging.debug(f"Could not parse YAML front-matter from {file_path}: {e}")
+        logger.debug(f"Could not parse YAML front-matter from {file_path}: {e}")
         return None, 0
     except Exception as e:
         # Log unexpected errors but still return None
-        logging.warning(f"Unexpected error parsing front-matter from {file_path}: {e}")
+        logger.warning(f"Unexpected error parsing front-matter from {file_path}: {e}")
         return None, 0
 
 
@@ -119,12 +127,10 @@ async def get_frontmatter_description(file_path: Path) -> Optional[str]:
     if not metadata:
         return None
 
-    # Case-insensitive lookup for backward compatibility
-    for key, value in metadata.items():
-        if key.lower() == "description":
-            return str(value) if value is not None else None
-
-    return None
+    return next(
+        (str(value) if value is not None else None for key, value in metadata.items() if key.lower() == "description"),
+        None,
+    )
 
 
 def get_frontmatter_instruction(frontmatter: Optional[Dict[str, Any]]) -> Optional[str]:
@@ -136,9 +142,7 @@ def get_frontmatter_instruction(frontmatter: Optional[Dict[str, Any]]) -> Option
     Returns:
         Instruction string or None if not found
     """
-    if not frontmatter:
-        return None
-    return frontmatter.get("instruction")
+    return frontmatter.get("instruction") if frontmatter else None
 
 
 def validate_content_type(content_type: Optional[str]) -> bool:
@@ -152,7 +156,7 @@ def validate_content_type(content_type: Optional[str]) -> bool:
     """
     if not content_type:
         return False
-    return content_type in (USER_INFO, AGENT_INFO, AGENT_INSTRUCTION)
+    return content_type in (USER_INFO, AGENT_INFO, AGENT_INSTRUCTION, AGENT_REQUIREMENTS)
 
 
 def get_frontmatter_type(frontmatter: Optional[Dict[str, Any]]) -> str:
@@ -171,9 +175,6 @@ def get_frontmatter_type(frontmatter: Optional[Dict[str, Any]]) -> str:
 
     # Validate and warn about unexpected content types
     if not validate_content_type(content_type):
-        import logging
-
-        logger = logging.getLogger(__name__)
         logger.warning(f"Unknown content type '{content_type}', falling back to '{USER_INFO}'")
         return USER_INFO
 
@@ -189,13 +190,21 @@ def get_frontmatter_includes(frontmatter: Optional[Dict[str, Any]]) -> List[str]
     Returns:
         List of include paths, empty list if not found
     """
+
     if not frontmatter:
+        logger.debug("No frontmatter provided, returning empty includes")
         return []
     includes = frontmatter.get("includes", [])
+    logger.log(5, f"Frontmatter includes detected: {includes}")
     if isinstance(includes, str):
-        return [includes]
+        result = [includes]
+        logger.debug(f"Converted string include to list: {result}")
+        return result
     elif isinstance(includes, list):
-        return [str(item) for item in includes]
+        result = [str(item) for item in includes]
+        logger.debug(f"Converted list includes to strings: {result}")
+        return result
+    logger.debug("No valid includes found, returning empty list")
     return []
 
 
@@ -208,12 +217,12 @@ def get_type_based_default_instruction(content_type: str) -> Optional[str]:
     Returns:
         Default instruction string or None for agent/instruction type
     """
-    if content_type == USER_INFO:
-        return "Display this information to the user"
-    elif content_type == AGENT_INFO:
-        return "For your information and use. Do not display this content to the user."
-    elif content_type == AGENT_INSTRUCTION:
-        return None  # Should use explicit instruction from frontmatter
-    else:
-        # Unknown type defaults to user/information behavior
-        return "Display this information to the user"
+
+    type_instructions = {
+        USER_INFO: INSTRUCTION_DISPLAY_ONLY,
+        AGENT_INFO: INSTRUCTION_AGENT_INFO,
+        AGENT_INSTRUCTION: INSTRUCTION_AGENT_INSTRUCTIONS,
+        AGENT_REQUIREMENTS: INSTRUCTION_AGENT_REQUIREMENTS,
+    }
+
+    return type_instructions.get(content_type, INSTRUCTION_DISPLAY_ONLY)

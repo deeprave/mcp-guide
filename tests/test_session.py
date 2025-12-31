@@ -30,7 +30,7 @@ class TestSetProject:
     @pytest.mark.asyncio
     async def test_set_project_with_invalid_name(self, tmp_path, monkeypatch):
         """set_project returns error for invalid project name."""
-        from mcp_guide.tools.tool_constants import ERROR_INVALID_NAME
+        from mcp_guide.result_constants import ERROR_INVALID_NAME
 
         monkeypatch.setattr(
             "mcp_guide.session.ConfigManager", lambda config_dir=None: ConfigManager(config_dir=str(tmp_path))

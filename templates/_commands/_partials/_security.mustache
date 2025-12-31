@@ -1,0 +1,16 @@
+---
+type: agent/information
+---
+
+{{h3}}Read Folder Permissions
+{{#read_paths}}
+- {{.}}
+{{/read_paths}}
+{{^read_paths}}
+- {{client_working_dir}}
+{{/read_paths}}
+
+{{h3}}Write Folder Permissions
+{{#project.allowed_write_paths}}
+- {{.}}
+{{/project.allowed_write_paths}}

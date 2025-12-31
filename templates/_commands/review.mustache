@@ -1,13 +1,21 @@
 ---
-description: Delegate code review to guide-review agent
+type: agent/instruction
+Description: Delegate a review to guide-review agent
 usage: ":review"
 examples:
   - ":review"
-instruction: "Use the use_subagent tool with command 'InvokeSubagents' and content containing a subagent with agent_name 'guide-review' and query 'Perform a comprehensive code review of the current project changes. Read the .guide file to understand the current issue context, then use get_content(\"code-review\") to access review guidelines. Analyze recent changes and create or update the review artifact following the established format.' and relevant_context 'This is a code review request for the current project. The .guide file contains the current issue context including the issue name and phase. Use this information to create an appropriately named review document in the .todo/ directory with the format \"<issue-name>-review.md\".'."
+instruction: >
+  Use the use_subagent tool with command 'InvokeSubagents' and content containing a subagent with agent_name 'guide-review'.
+  Query:
+   'Perform a code review of the current project changes.
+    Read the .guide file to understand the current issue context, then use get_content("code-review") to access review guidelines.
+    Analyze recent changes and create or update the review artifact following the established format and relevant_context.'
+  This is a code review request for the current project.
+  Use this information to create an appropriately named review document in the .todo/ directory with the format "<issue-name>-review.md".
 ---
-# Code Review Delegation
+{{h1}}Code Review Delegation
 
-Delegating comprehensive code review to the **guide-review** agent.
+Delegating comprehensive code review to the {{b}}guide-review{{b}} agent.
 
 The review agent will:
 - Read the `.guide` file to understand the current issue context
