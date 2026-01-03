@@ -64,6 +64,10 @@ def validate_flag_with_registered(flag_name: str, value: FeatureValue, is_projec
     Raises:
         ValidationError: If validation fails
     """
+    # None values are used for deletion and should skip validation
+    if value is None:
+        return
+
     validator = _FLAG_VALIDATORS.get(flag_name)
     if validator and not validator(value, is_project):
         flag_type = "project" if is_project else "global"

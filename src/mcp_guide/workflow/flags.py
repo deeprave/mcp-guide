@@ -6,7 +6,23 @@ from typing import List, Optional, Union
 from mcp_guide.feature_flags.types import WORKFLOW_FILE_FLAG, WORKFLOW_FLAG, FeatureValue
 from mcp_guide.feature_flags.validators import register_flag_validator
 from mcp_guide.filesystem.read_write_security import ReadWriteSecurityPolicy, SecurityError
-from mcp_guide.workflow.constants import DEFAULT_WORKFLOW_PHASES, VALID_PHASES
+from mcp_guide.workflow.constants import (
+    DEFAULT_WORKFLOW_PHASES,
+    PHASE_CHECK,
+    PHASE_DISCUSSION,
+    PHASE_IMPLEMENTATION,
+    PHASE_PLANNING,
+    PHASE_REVIEW,
+)
+
+# Valid phase names for validation
+VALID_PHASES = {
+    PHASE_DISCUSSION,
+    PHASE_PLANNING,
+    PHASE_IMPLEMENTATION,
+    PHASE_CHECK,
+    PHASE_REVIEW,
+}
 
 
 @dataclass

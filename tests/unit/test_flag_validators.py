@@ -65,3 +65,16 @@ class TestValidationRegistration:
         # Invalid workflow-file flag should raise
         with pytest.raises(ValidationError):
             validate_flag_with_registered(WORKFLOW_FILE_FLAG, "", is_project=True)
+
+    def test_none_value_skips_validation(self):
+        """Test that None values skip validation (used for deletion)."""
+
+        def strict_validator(value, is_project):
+            # This validator would reject everything
+            return False
+
+        register_flag_validator("strict-flag", strict_validator)
+
+        # None should not trigger validation
+        validate_flag_with_registered("strict-flag", None, is_project=True)
+        validate_flag_with_registered("strict-flag", None, is_project=False)

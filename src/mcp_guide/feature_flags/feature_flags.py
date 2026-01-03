@@ -27,6 +27,9 @@ class FeatureFlags:
 
     async def set(self, flag_name: str, value: FeatureValue) -> None:
         """Set a global flag value."""
+        if value is None:
+            await self.remove(flag_name)
+            return
         validate_flag_with_registered(flag_name, value, is_project=False)
         await self._session.set_feature_flag(flag_name, value)
 
