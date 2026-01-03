@@ -1,6 +1,9 @@
 """Project feature flags implementation."""
 
+from dataclasses import replace
 from typing import TYPE_CHECKING, Optional
+
+from mcp_guide.feature_flags.validators import validate_flag_with_registered
 
 if TYPE_CHECKING:
     from mcp_guide.models import Project
@@ -27,7 +30,7 @@ class ProjectFlags:
 
     async def set(self, flag_name: str, value: FeatureValue) -> None:
         """Set a project flag value."""
-        from dataclasses import replace
+        validate_flag_with_registered(flag_name, value, is_project=True)
 
         def updater(project: "Project") -> "Project":
             new_flags = {**project.project_flags, flag_name: value}
@@ -37,7 +40,6 @@ class ProjectFlags:
 
     async def remove(self, flag_name: str) -> None:
         """Remove a project flag."""
-        from dataclasses import replace
 
         def updater(project: "Project") -> "Project":
             new_flags = {k: v for k, v in project.project_flags.items() if k != flag_name}

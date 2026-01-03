@@ -28,6 +28,27 @@ The system SHALL support a configurable workflow state file via the `workflow-fi
 - **AND** indicate that flag must be corrected for workflow tracking to work
 - **AND** perform this validation before any agent requests
 
+### Requirement: Flag Validation Registration
+The system SHALL support registration of flag-specific validators for semantic validation during flag setting operations.
+
+#### Scenario: Validator registration
+- **WHEN** a module needs to validate specific flag values
+- **THEN** register a validator function for that flag name
+- **AND** validator function receives flag value and returns boolean validity
+
+#### Scenario: Semantic validation on flag setting
+- **WHEN** setting a flag value through any flag setting operation
+- **THEN** check if a validator is registered for that flag
+- **AND** call the registered validator before setting the value
+- **AND** raise ValidationError with clear message if validation fails
+
+#### Scenario: Workflow flag semantic validation
+- **WHEN** setting `workflow` flag with list of phase names
+- **THEN** validate each phase name is in the allowed set
+- **AND** provide specific error message for invalid phase names
+- **WHEN** setting `workflow-file` flag
+- **THEN** validate path security and format requirements
+
 ### Requirement: Security Policy Consolidation
 The system SHOULD consolidate overlapping filesystem security implementations into a unified security policy class.
 

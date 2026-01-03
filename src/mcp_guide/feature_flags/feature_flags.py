@@ -2,6 +2,8 @@
 
 from typing import TYPE_CHECKING, Optional
 
+from mcp_guide.feature_flags.validators import validate_flag_with_registered
+
 if TYPE_CHECKING:
     from mcp_guide.session import Session
 
@@ -25,6 +27,7 @@ class FeatureFlags:
 
     async def set(self, flag_name: str, value: FeatureValue) -> None:
         """Set a global flag value."""
+        validate_flag_with_registered(flag_name, value, is_project=False)
         await self._session.set_feature_flag(flag_name, value)
 
     async def remove(self, flag_name: str) -> None:
