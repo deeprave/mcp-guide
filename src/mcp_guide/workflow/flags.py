@@ -1,7 +1,7 @@
 """Workflow flag parsing and validation."""
 
 from dataclasses import dataclass
-from typing import List, Optional, Union
+from typing import Optional, Union
 
 from mcp_guide.feature_flags.types import WORKFLOW_FILE_FLAG, WORKFLOW_FLAG, FeatureValue
 from mcp_guide.feature_flags.validators import register_flag_validator
@@ -30,7 +30,7 @@ class WorkflowConfig:
     """Workflow configuration parsed from flags."""
 
     enabled: bool
-    phases: List[str]
+    phases: list[str]
 
 
 def extract_phase_name(phase_with_markers: str) -> str:
@@ -89,7 +89,7 @@ def substitute_variables(
     return result
 
 
-def parse_workflow_phases(workflow_flag: Union[bool, List[str]]) -> WorkflowConfig:
+def parse_workflow_phases(workflow_flag: Union[bool, list[str]]) -> WorkflowConfig:
     """Parse workflow flag into configuration.
 
     Args:
@@ -121,7 +121,7 @@ def parse_workflow_phases(workflow_flag: Union[bool, List[str]]) -> WorkflowConf
     return WorkflowConfig(enabled=True, phases=validated_phases)
 
 
-def validate_workflow_file_path(workflow_file: str, allowed_write_paths: List[str]) -> str:
+def validate_workflow_file_path(workflow_file: str, allowed_write_paths: list[str]) -> str:
     """Validate workflow file path against security policy.
 
     Args:

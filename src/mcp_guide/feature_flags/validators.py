@@ -12,13 +12,14 @@ __all__ = [
     "register_flag_validator",
     "validate_flag_with_registered",
     "clear_validators",
+    "FlagValidationError",
 ]
 
 # Registry for flag-specific validators
 _FLAG_VALIDATORS: Dict[str, Callable[[FeatureValue, bool], bool]] = {}
 
 
-class ValidationError(Exception):
+class FlagValidationError(Exception):
     """Raised when flag validation fails."""
 
     pass
@@ -62,7 +63,7 @@ def validate_flag_with_registered(flag_name: str, value: FeatureValue, is_projec
         is_project: True if this is a project flag, False if global
 
     Raises:
-        ValidationError: If validation fails
+        FlagValidationError: If validation fails
     """
     # None values are used for deletion and should skip validation
     if value is None:
@@ -71,7 +72,7 @@ def validate_flag_with_registered(flag_name: str, value: FeatureValue, is_projec
     validator = _FLAG_VALIDATORS.get(flag_name)
     if validator and not validator(value, is_project):
         flag_type = "project" if is_project else "global"
-        raise ValidationError(f"Invalid {flag_type} flag '{flag_name}' value: {value}")
+        raise FlagValidationError(f"Invalid {flag_type} flag '{flag_name}' value: {value}")
 
 
 def clear_validators() -> None:

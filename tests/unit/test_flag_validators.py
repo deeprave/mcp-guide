@@ -4,7 +4,7 @@ import pytest
 
 from mcp_guide.feature_flags.types import WORKFLOW_FILE_FLAG, WORKFLOW_FLAG
 from mcp_guide.feature_flags.validators import (
-    ValidationError,
+    FlagValidationError,
     clear_validators,
     register_flag_validator,
     validate_flag_with_registered,
@@ -36,10 +36,10 @@ class TestValidationRegistration:
         validate_flag_with_registered("test-flag", "valid-value", is_project=True)
 
         # Invalid value should raise
-        with pytest.raises(ValidationError, match="Invalid project flag 'test-flag' value"):
+        with pytest.raises(FlagValidationError, match="Invalid project flag 'test-flag' value"):
             validate_flag_with_registered("test-flag", "invalid-value", is_project=True)
 
-        with pytest.raises(ValidationError, match="Invalid global flag 'test-flag' value"):
+        with pytest.raises(FlagValidationError, match="Invalid global flag 'test-flag' value"):
             validate_flag_with_registered("test-flag", "invalid-value", is_project=False)
 
     def test_workflow_validators_registered(self):
@@ -56,14 +56,14 @@ class TestValidationRegistration:
         validate_flag_with_registered(WORKFLOW_FLAG, ["discussion", "planning"], is_project=True)
 
         # Invalid workflow flag should raise
-        with pytest.raises(ValidationError):
+        with pytest.raises(FlagValidationError):
             validate_flag_with_registered(WORKFLOW_FLAG, ["invalid-phase"], is_project=True)
 
         # Valid workflow-file flag should not raise
         validate_flag_with_registered(WORKFLOW_FILE_FLAG, ".guide.yaml", is_project=True)
 
         # Invalid workflow-file flag should raise
-        with pytest.raises(ValidationError):
+        with pytest.raises(FlagValidationError):
             validate_flag_with_registered(WORKFLOW_FILE_FLAG, "", is_project=True)
 
     def test_none_value_skips_validation(self):
