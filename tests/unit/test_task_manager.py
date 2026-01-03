@@ -62,6 +62,7 @@ class TestTaskManagerInstantiation:
 class TestSingleActiveTaskConstraint:
     """Test single active task constraint enforcement."""
 
+    @pytest.mark.asyncio
     async def test_single_active_task_constraint(self):
         """TaskManager should reject new active tasks when one is already active."""
         manager = TaskManager()
@@ -75,6 +76,8 @@ class TestSingleActiveTaskConstraint:
         with pytest.raises(RuntimeError, match="Cannot register task: another task is already active"):
             await manager.register_task(task2)
 
+    @pytest.mark.asyncio
+    @pytest.mark.asyncio
     async def test_task_registration_after_completion(self):
         """TaskManager should allow new tasks after completing the active one."""
         manager = TaskManager()
@@ -92,6 +95,7 @@ class TestSingleActiveTaskConstraint:
 class TestScheduledTaskPauseLogic:
     """Test scheduled task pause/resume logic."""
 
+    @pytest.mark.asyncio
     async def test_scheduled_tasks_paused_when_active_task_starts(self):
         """Scheduled tasks should be paused when active task starts."""
         manager = TaskManager()
@@ -106,6 +110,7 @@ class TestScheduledTaskPauseLogic:
         await manager.register_task(active_task)
         assert scheduled_task.paused
 
+    @pytest.mark.asyncio
     async def test_scheduled_tasks_resumed_when_active_task_completes(self):
         """Scheduled tasks should be resumed when active task completes."""
         manager = TaskManager()
@@ -123,6 +128,8 @@ class TestScheduledTaskPauseLogic:
         await asyncio.sleep(0.01)
         assert not scheduled_task.paused
 
+    @pytest.mark.asyncio
+    @pytest.mark.asyncio
     async def test_multiple_scheduled_tasks_coordination(self):
         """Multiple scheduled tasks should all be paused/resumed together."""
         manager = TaskManager()
@@ -151,6 +158,7 @@ class TestScheduledTaskPauseLogic:
 class TestTaskStateManagement:
     """Test task state management and lifecycle coordination."""
 
+    @pytest.mark.asyncio
     async def test_task_state_transitions_processed(self):
         """TaskManager should process task state transitions."""
         manager = TaskManager()
@@ -160,6 +168,7 @@ class TestTaskStateManagement:
         await manager.register_task(task)
         assert manager._active_task == task
 
+    @pytest.mark.asyncio
     async def test_task_completion_state_processed(self):
         """TaskManager should process task completion states."""
         manager = TaskManager()
@@ -180,6 +189,7 @@ class TestTaskStateManagement:
         assert len(manager._pending_instructions) == 1
         assert manager._pending_instructions[0] == "Task completed"
 
+    @pytest.mark.asyncio
     async def test_timeout_state_processed(self):
         """TaskManager should process timeout state transitions."""
         manager = TaskManager()
@@ -200,6 +210,8 @@ class TestTaskStateManagement:
         assert len(manager._pending_instructions) == 1
         assert manager._pending_instructions[0] == "Task timed out"
 
+    @pytest.mark.asyncio
+    @pytest.mark.asyncio
     async def test_task_response_state_processed(self):
         """TaskManager should process task response state changes."""
         manager = TaskManager()
@@ -239,7 +251,7 @@ class TestTimeoutHandling:
 
     @pytest.mark.asyncio
     async def test_task_with_timeout_creates_timeout_task(self):
-        """TaskManager should create timeout task for tasks with timeout."""
+        """TaskManager should create timeout task for tasks with positive timeout."""
         manager = TaskManager()
         task = MockTask(timeout=1.0)
 
@@ -254,6 +266,30 @@ class TestTimeoutHandling:
         manager.complete_task(task)
         assert task not in manager._timeout_tasks
 
+    @pytest.mark.asyncio
+    async def test_task_with_zero_timeout_does_not_create_timeout_task(self):
+        """Tasks with zero timeout should not have a timeout task scheduled."""
+        manager = TaskManager()
+        task = MockTask(timeout=0)
+
+        await manager.register_task(task)
+
+        # Should not have created a timeout task
+        assert task not in manager._timeout_tasks
+        assert len(manager._timeout_tasks) == 0
+
+    @pytest.mark.asyncio
+    async def test_task_with_negative_timeout_does_not_create_timeout_task(self):
+        """Tasks with negative timeout should not have a timeout task scheduled."""
+        manager = TaskManager()
+        task = MockTask(timeout=-1.0)
+
+        await manager.register_task(task)
+
+        # Should not have created a timeout task
+        assert task not in manager._timeout_tasks
+        assert len(manager._timeout_tasks) == 0
+
 
 class TestResultEnhancement:
     """Test Result class has additional_instruction field."""
@@ -264,6 +300,14 @@ class TestResultEnhancement:
 
         assert hasattr(result, "additional_instruction")
         assert result.additional_instruction == "Please check file status"
+
+    def test_failure_result_has_additional_instruction_field(self):
+        """Failure Result should also support additional_instruction for side-band communication."""
+        result = Result.failure("error", additional_instruction="Check logs")
+
+        assert hasattr(result, "additional_instruction")
+        assert result.additional_instruction == "Check logs"
+        assert not result.success
 
 
 class TestAgentDataInterception:
@@ -290,11 +334,13 @@ class TestAgentDataInterception:
         assert task_manager._registrations[0].task == mock_task
         assert task_manager._registrations[0].flags == DataType.FILE_CONTENT
 
+    @pytest.mark.asyncio
     async def test_handle_agent_data_no_interest(self, task_manager):
         """Test handling data with no interested tasks."""
         result = await task_manager.handle_agent_data(DataType.FILE_CONTENT, {"path": "test.txt"})
         assert result == {"status": "acknowledged"}
 
+    @pytest.mark.asyncio
     async def test_handle_agent_data_with_interest(self, task_manager, mock_task):
         """Test handling data with interested task."""
         callback = lambda dt, data: data.get("path") == "test.txt"
@@ -305,6 +351,7 @@ class TestAgentDataInterception:
         assert result == {"status": "processed"}
         mock_task.process_data.assert_called_once_with(DataType.FILE_CONTENT, {"path": "test.txt", "content": "data"})
 
+    @pytest.mark.asyncio
     async def test_bit_flag_filtering(self, task_manager, mock_task):
         """Test bit-flag pre-filtering."""
         callback = lambda dt, data: True  # Always interested
@@ -316,6 +363,21 @@ class TestAgentDataInterception:
         assert result == {"status": "acknowledged"}
         mock_task.process_data.assert_not_called()
 
+    @pytest.mark.asyncio
+    async def test_callback_returns_false_after_bit_flag_match(self, task_manager, mock_task):
+        """Test that callback returning False prevents processing even when bit-flags match."""
+        callback = lambda dt, data: False  # Never interested
+        task_manager.register_interest(mock_task, DataType.FILE_CONTENT, callback)
+
+        result = await task_manager.handle_agent_data(DataType.FILE_CONTENT, {"path": "test.txt"})
+
+        assert result == {"status": "acknowledged"}
+        mock_task.process_data.assert_not_called()
+        # Registration should not be expired since no processing occurred
+        assert len(task_manager._registrations) == 1
+
+    @pytest.mark.asyncio
+    @pytest.mark.asyncio
     async def test_ephemeral_registration_expiry(self, task_manager, mock_task):
         """Test registration expires after handling."""
         callback = lambda dt, data: True

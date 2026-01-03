@@ -38,11 +38,41 @@ class TestWorkflowMonitorTask:
         result = monitor_task.check_workflow_file_interest(DataType.DIRECTORY_LISTING, data)
         assert result is False
 
+    @pytest.mark.asyncio
     async def test_process_data_caches_content(self, monitor_task):
         """Test process_data caches workflow file content."""
         data = {"path": "/project/workflow-state.json", "content": "{}", "mtime": 1234567890}
         await monitor_task.process_data(DataType.FILE_CONTENT, data)
 
+        assert monitor_task._cached_content == "{}"
+        assert monitor_task._cached_mtime == 1234567890
+        assert monitor_task.state == TaskState.ACTIVE
+
+    @pytest.mark.asyncio
+    async def test_process_data_skips_when_paused(self, monitor_task):
+        """Test process_data skips processing when task is paused."""
+        await monitor_task.pause()
+        assert monitor_task._paused
+
+        data = {"path": "/project/workflow-state.json", "content": "{}", "mtime": 1234567890}
+        await monitor_task.process_data(DataType.FILE_CONTENT, data)
+
+        # Should not have cached content when paused
+        assert monitor_task._cached_content is None
+        assert monitor_task._cached_mtime is None
+        assert monitor_task.state == TaskState.IDLE
+
+    @pytest.mark.asyncio
+    async def test_process_data_resumes_after_unpause(self, monitor_task):
+        """Test process_data works after resume."""
+        await monitor_task.pause()
+        await monitor_task.resume()
+        assert not monitor_task._paused
+
+        data = {"path": "/project/workflow-state.json", "content": "{}", "mtime": 1234567890}
+        await monitor_task.process_data(DataType.FILE_CONTENT, data)
+
+        # Should cache content after resume
         assert monitor_task._cached_content == "{}"
         assert monitor_task._cached_mtime == 1234567890
         assert monitor_task.state == TaskState.ACTIVE
@@ -83,11 +113,42 @@ class TestWorkflowUpdateTask:
         assert update_task._task_completion_data == data
         assert update_task.state == TaskState.COMPLETED
 
+    @pytest.mark.asyncio
     async def test_process_data_rejects_incomplete(self, update_task):
         """Test process_data rejects incomplete tasks."""
         data = {"path": "openspec/changes/test-component/tasks.md", "content": "- [ ] Incomplete task"}
         await update_task.process_data(DataType.FILE_CONTENT, data)
 
+        assert update_task._task_completion_data is None
+        assert update_task.state == TaskState.IDLE
+
+    @pytest.mark.asyncio
+    async def test_process_data_rejects_empty_content(self, update_task):
+        """Test process_data rejects empty or whitespace-only content."""
+        # Test empty string
+        data = {"path": "openspec/changes/test-component/tasks.md", "content": ""}
+        await update_task.process_data(DataType.FILE_CONTENT, data)
+        assert update_task._task_completion_data is None
+        assert update_task.state == TaskState.IDLE
+
+        # Test whitespace-only
+        data = {"path": "openspec/changes/test-component/tasks.md", "content": "   \n\t  "}
+        await update_task.process_data(DataType.FILE_CONTENT, data)
+        assert update_task._task_completion_data is None
+        assert update_task.state == TaskState.IDLE
+
+    @pytest.mark.asyncio
+    async def test_process_data_rejects_non_string_content(self, update_task):
+        """Test process_data rejects non-string content."""
+        # Test None content
+        data = {"path": "openspec/changes/test-component/tasks.md", "content": None}
+        await update_task.process_data(DataType.FILE_CONTENT, data)
+        assert update_task._task_completion_data is None
+        assert update_task.state == TaskState.IDLE
+
+        # Test dict content
+        data = {"path": "openspec/changes/test-component/tasks.md", "content": {"tasks": []}}
+        await update_task.process_data(DataType.FILE_CONTENT, data)
         assert update_task._task_completion_data is None
         assert update_task.state == TaskState.IDLE
 
