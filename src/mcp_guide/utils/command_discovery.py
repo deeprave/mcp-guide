@@ -9,7 +9,7 @@ from anyio import Path as AsyncPath
 
 from mcp_core.mcp_log import get_logger
 from mcp_guide.utils.file_discovery import discover_category_files
-from mcp_guide.utils.frontmatter import parse_frontmatter_content
+from mcp_guide.utils.frontmatter import parse_content_with_frontmatter
 from mcp_guide.utils.pattern_matching import is_valid_command
 
 logger = get_logger(__name__)
@@ -82,7 +82,8 @@ async def discover_commands(commands_dir: Path) -> List[Dict[str, Any]]:
                 async with aiofiles.open(file_path, "r", encoding="utf-8") as f:
                     content = await f.read()
 
-                front_matter, _ = parse_frontmatter_content(content)
+                parsed = parse_content_with_frontmatter(content)
+                front_matter = parsed.frontmatter
                 if front_matter:
                     description = front_matter.get("description", "")
                     usage = front_matter.get("usage", "")

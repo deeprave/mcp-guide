@@ -261,19 +261,43 @@ async def internal_list_project(args: ListProjectArgs, ctx: Optional[Context] = 
     Returns:
         Result containing project data
     """
-    from mcp_guide.session import get_project_info
+    try:
+        import dataclasses
 
-    session = None
-    if args.verbose:
-        # Only get session for verbose output to include flags
-        try:
+        from mcp_guide.session import Session
+
+        if args.name is None:
+            # Get current project - always need session
             session = await get_or_create_session(ctx)
-        except Exception:
-            # If session creation fails, continue without it
-            pass
+            project = await session.get_project()
+            project_name = session.project_name
+        else:
+            # Get specific project by name
+            project = await Session.get_project_config(args.name)
+            project_name = args.name
+            session = None
+            if args.verbose:
+                try:
+                    session = await get_or_create_session(ctx)
+                except Exception:
+                    pass
 
-    result = await get_project_info(name=args.name, verbose=args.verbose, session=session)
-    return result
+        # Convert to dict
+        data = dataclasses.asdict(project)
+        data["project"] = project_name
+
+        # Add flags if verbose and session available
+        if args.verbose and session is not None:
+            try:
+                flags = await session.project_flags().list()
+                if flags:
+                    data["flags"] = flags
+            except Exception:
+                pass
+
+        return Result.ok(data)
+    except Exception as e:
+        return Result.failure(str(e), error_type="project_error")
 
 
 @tools.tool(ListProjectArgs)

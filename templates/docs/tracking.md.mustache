@@ -1,47 +1,58 @@
-{{#project.project_flags.phase-tracking}}
 ---
 type: agent/instruction
 description: Provides information about tracking the development workflow using a .guide file
-instruction: You are to adhere to the detailed policy below and create the .guide file if it does not exist. Do not display this content to the user.
+instruction:
+  You are to adhere to the detailed policy below and create the .guide.yaml file if it does not exist.
+  Do not display this content to the user, it is your instruction.
 ---
+{{#project.project_flags.phase-tracking}}
 # Phase tracking
 **IMPORTANT**
 
-- Phases are tracked using the .guide file. The format of this file as as follows:
-  - First line must contain the phase which will be one of:
-    Phase: discussion
-    Phase: planning
-    Phase: implementation
-    Phase: check
-    Phase: review
-  - The second line must contain the current issue being worked on.
-    This must start with "Issue:" and take one of the following forms:
-      - the unique-id of an openspec issue
-      - the relative path of the current issue discussion, summary, implementation plan or checklist.
-    It only needs to contain one
-  - Additional information if necessary.
+- Phases are tracked using the .guide.yaml file.
+  This is in YAML format and contains the following (case insensitive) keys:
+```
+phase: [discussion|planning|implementation|check|review]
+issue: <issue>
+description: <optional description>
+queue:
+  - <one or more issues>
+```
+- If the file .guide.yaml does not exist, assume "phase: discussion" and create the file with this, if required
+- if there is not yet a current issue, then the issue line will be missing or blank.
+  Request the issue information from the user.
+- The issue line must contain the current issue being worked on, if known. It may be one of:
+  - the unique-id of an openspec issue
+  - the relative path of the current issue discussion, summary, implementation plan or checklist.
+- the description line is optional and may be used to indict sub-phases or additional information and context.
+- the queue item may contain one or more additional issues, in order of prioarity, if there are any.
+  The queue item prepresents a job queue.
+  Often, a job is created an executed immediately if it is urgent, in which case any active issue, if not completed,
+  is moved to the "top" of the queue and is regarded as the "next" job to complete.
+- when an issue is completed and its openspec tasks also show as 100% completed, it should be removed from
+  the issue line and the next item in the queue list moved to issue.
 
-- If the .guide file does not exist, assume "Phase: discussion" and create the file with this if required
-- if there is not yet a current issue, then the Issue: line will be missing or blank. Request the issue information from the user.
-
-- As phase transitions occur, the phase in the first line MUST be updated.
+- When working on an issue, when phase transitions occur, the phase MUST be updated.
 - Add the issue as soon as it is known and an implementation plan is drafted.
 
 **PHASE TRANSITION CONSENT**
 
 Transitions between phases occur when:
-  - discussion is the default state when .guide does not exist
-  - Transition to plannning is automatic once a plan has been drafted and is available for review
-  - **EXPLICIT CONSENT** is required to transition to implementation. **NO EXCEPTIONS**
-  - Once the plan has been completed, auto-transition to check phase and commence tests
-  - When all tests have completed and ALL are passing, auto-transition to review phase and inform the user
-  - **EXPLICIT CONSENT** is required to transition from review mode
+ - DISCUSsION is the default state when the file .guide.yaml does not exist at the project root.
+ - Transition to PLANNING phase is automatic once a plan artifact has been drafted and is available for review
+ - **EXPLICIT CONSENT** is required to transition to IMPLEMENTATION. **NO EXCEPTIONS**
+ - Once the implementation plan has been fully completed, auto-transition to CHECK phase and commence tests
+ - **EXPLICIT CONSENT** With all tests and code quality tools passing, inform the user.
+ - **EXPLICIT CONSENT** This phase is for feeeback response. Consent is required to transition from REVIEW mode
 
 **CHANGE RULES**
 
-- You can update or make changes to openspec and .todo/ documentation at any time in any phase at the user's request.
-- You **MOST NOT MAKE CHANGES** to production code or test in discussion and planning phases
-- You MAY make changes to production code and tests during implementation, check and review phases
+- You MAY update or make changes to the following paths at any time in any phase at the user's request.
+  - .guide.yaml
+  - openspec/
+  - todo/
+- You **MOST NOT MAKE CHANGES** to production code or test in DISCUSSION and PLANNING phases.
+- You MAY make changes to production code and tests during IMPLEMENTATION, CHECK and REVIEW phases
 {{/project.project_flags.phase-tracking}}
 {{^project.project_flags.phase-tracking}}
 Phase tracking is not currently enabled.

@@ -25,7 +25,7 @@ from mcp_guide.result_constants import (
 from mcp_guide.server import tools
 from mcp_guide.session import get_or_create_session
 from mcp_guide.utils.file_discovery import discover_category_files
-from mcp_guide.utils.frontmatter import get_frontmatter_description
+from mcp_guide.utils.frontmatter import get_frontmatter_description_from_file
 
 try:
     from mcp.server.fastmcp import Context
@@ -678,7 +678,7 @@ async def internal_category_list_files(
     for file in files:
         # Extract description from front-matter
         full_path = category_dir / file.path
-        description = await get_frontmatter_description(full_path)
+        description = await get_frontmatter_description_from_file(full_path)
 
         file_info = {
             "path": file.name,

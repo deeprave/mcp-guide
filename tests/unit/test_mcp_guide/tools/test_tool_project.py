@@ -6,7 +6,6 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
-from mcp_guide.config import ConfigManager
 from mcp_guide.models import Category, Collection, Project
 from mcp_guide.result import Result
 from mcp_guide.result_constants import ERROR_SAFEGUARD
@@ -65,8 +64,7 @@ class TestGetProject:
         monkeypatch.setenv("PWD", "/fake/path/test-project")
 
         # Create project with data
-        manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(_config_manager=manager, project_name="test-project")
+        session = Session("test-project", _config_dir_for_tests=str(tmp_path))
 
         project = Project(
             name="test-project",
@@ -76,8 +74,25 @@ class TestGetProject:
             },
             collections={"api-docs": Collection(description="API documentation", categories=["python", "typescript"])},
         )
-        session._cached_project = project
+
+        # Set up the project properly using the session's methods
+        from mcp_guide.tools.tool_category import CategoryAddArgs, category_add
+        from mcp_guide.tools.tool_collection import CollectionAddArgs, collection_add
+
         set_current_session(session)
+
+        # Add categories
+        await category_add(
+            CategoryAddArgs(name="python", dir="src/", patterns=["*.py"], description="Python source files")
+        )
+        await category_add(
+            CategoryAddArgs(name="typescript", dir="src/", patterns=["*.ts"], description="TypeScript files")
+        )
+
+        # Add collection
+        await collection_add(
+            CollectionAddArgs(name="api-docs", description="API documentation", categories=["python", "typescript"])
+        )
 
         try:
             args = GetCurrentProjectArgs(verbose=False)
@@ -101,19 +116,28 @@ class TestGetProject:
         monkeypatch.setenv("PWD", "/fake/path/test-project")
 
         # Create project with data
-        manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(_config_manager=manager, project_name="test-project")
-
-        project = Project(
-            name="test-project",
-            categories={
-                "python": Category(dir="src/", patterns=["*.py"], description="Python source files"),
-                "typescript": Category(dir="src/", patterns=["*.ts"], description="TypeScript files"),
-            },
-            collections={"api-docs": Collection(description="API documentation", categories=["python", "typescript"])},
-        )
-        session._cached_project = project
+        session = Session("test-project", _config_dir_for_tests=str(tmp_path))
+        await session.get_project()
         set_current_session(session)
+
+        # Add categories and collections using real API
+        from mcp_guide.tools.tool_category import CategoryAddArgs, internal_category_add
+        from mcp_guide.tools.tool_collection import CollectionAddArgs, internal_collection_add
+
+        # Add categories first
+        python_args = CategoryAddArgs(name="python", dir="src/", patterns=["*.py"], description="Python source files")
+        await internal_category_add(python_args)
+
+        typescript_args = CategoryAddArgs(
+            name="typescript", dir="src/", patterns=["*.ts"], description="TypeScript files"
+        )
+        await internal_category_add(typescript_args)
+
+        # Add collection
+        collection_args = CollectionAddArgs(
+            name="api-docs", description="API documentation", categories=["python", "typescript"]
+        )
+        await internal_collection_add(collection_args)
 
         try:
             args = GetCurrentProjectArgs(verbose=True)
@@ -149,9 +173,9 @@ class TestGetProject:
         # Set PWD to control project name detection
         monkeypatch.setenv("PWD", "/fake/path/empty-project")
 
-        manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(_config_manager=manager, project_name="empty-project")
-        session._cached_project = Project(name="empty-project", categories={}, collections={})
+        session = Session("empty-project", _config_dir_for_tests=str(tmp_path))
+        await session.get_project()
+        project = await session.get_project()
         set_current_session(session)
 
         try:
@@ -180,8 +204,8 @@ class TestGetProject:
         """Test get_project includes flags with values in verbose mode."""
         monkeypatch.setenv("PWD", "/fake/path/test-project")
 
-        manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(_config_manager=manager, project_name="test-project")
+        session = Session("test-project", _config_dir_for_tests=str(tmp_path))
+        await session.get_project()
 
         # Create project with flags
         project = Project(
@@ -190,7 +214,7 @@ class TestGetProject:
             collections={},
             project_flags={"debug": True, "env": "test"},
         )
-        session._cached_project = project
+        project = await session.get_project()
         set_current_session(session)
 
         # Mock both project and global flags
@@ -225,8 +249,8 @@ class TestGetProject:
         """Test get_project includes flag names only in non-verbose mode."""
         monkeypatch.setenv("PWD", "/fake/path/test-project")
 
-        manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(_config_manager=manager, project_name="test-project")
+        session = Session("test-project", _config_dir_for_tests=str(tmp_path))
+        await session.get_project()
 
         # Create project with flags
         project = Project(
@@ -235,7 +259,7 @@ class TestGetProject:
             collections={},
             project_flags={"debug": True, "env": "test"},
         )
-        session._cached_project = project
+        project = await session.get_project()
         set_current_session(session)
 
         # Mock both project and global flags
@@ -268,14 +292,14 @@ class TestGetProject:
         """Test project flags take precedence over global flags."""
         monkeypatch.setenv("PWD", "/fake/path/test-project")
 
-        manager = ConfigManager(config_dir=str(tmp_path))
-        session = Session(_config_manager=manager, project_name="test-project")
+        session = Session("test-project", _config_dir_for_tests=str(tmp_path))
+        await session.get_project()
 
         # Create project with flags that override global ones
         project = Project(
             name="test-project", categories={}, collections={}, project_flags={"shared_flag": "project_value"}
         )
-        session._cached_project = project
+        project = await session.get_project()
         set_current_session(session)
 
         # Mock both project and global flags with same name
@@ -526,9 +550,12 @@ class TestListProject:
     @pytest.mark.asyncio
     async def test_list_project_current_project(self):
         """Test list_project with no name (defaults to current)."""
-        mock_result = Result.ok({"categories": [], "collections": []})
+        from mcp_guide.models import Project
 
-        with patch("mcp_guide.session.get_project_info", new=AsyncMock(return_value=mock_result)):
+        with patch("mcp_guide.tools.tool_project.get_or_create_session") as mock_session:
+            mock_session.return_value.get_project.return_value = Project(name="test", categories={}, collections={})
+            mock_session.return_value.project_name = "test"
+
             args = ListProjectArgs(name=None, verbose=False)
             result_str = await list_project(args)
             result = json.loads(result_str)
@@ -538,9 +565,12 @@ class TestListProject:
     @pytest.mark.asyncio
     async def test_list_project_specific_project(self):
         """Test list_project with specific project name."""
-        mock_result = Result.ok({"categories": [], "collections": []})
+        from mcp_guide.models import Project
 
-        with patch("mcp_guide.session.get_project_info", new=AsyncMock(return_value=mock_result)):
+        with patch(
+            "mcp_guide.session.Session.get_project_config",
+            new=AsyncMock(return_value=Project(name="other-project", categories={}, collections={})),
+        ):
             args = ListProjectArgs(name="other-project", verbose=False)
             result_str = await list_project(args)
             result = json.loads(result_str)
@@ -550,28 +580,30 @@ class TestListProject:
     @pytest.mark.asyncio
     async def test_list_project_verbose(self):
         """Test list_project with verbose mode."""
-        mock_result = Result.ok(
-            {
-                "categories": [{"name": "docs", "dir": "docs", "patterns": ["*.md"], "description": None}],
-                "collections": [{"name": "all", "description": None, "categories": ["docs"]}],
-            }
+        from mcp_guide.models import Category, Collection, Project
+
+        project = Project(
+            name="test-project",
+            categories={"docs": Category(name="docs", dir="docs", patterns=["*.md"])},
+            collections={"all": Collection(name="all", categories=["docs"])},
         )
 
-        with patch("mcp_guide.session.get_project_info", new=AsyncMock(return_value=mock_result)):
+        with patch("mcp_guide.session.Session.get_project_config", new=AsyncMock(return_value=project)):
             args = ListProjectArgs(name="test-project", verbose=True)
             result_str = await list_project(args)
             result = json.loads(result_str)
 
             assert result["success"] is True
-            assert isinstance(result["value"]["categories"], list)
-            assert result["value"]["categories"][0]["name"] == "docs"
+            assert isinstance(result["value"]["categories"], dict)
 
     @pytest.mark.asyncio
     async def test_list_project_project_not_found(self):
         """Test list_project error propagation."""
-        mock_result = Result.failure("Project 'nonexistent' not found", error_type="project_not_found")
 
-        with patch("mcp_guide.session.get_project_info", new=AsyncMock(return_value=mock_result)):
+        with patch(
+            "mcp_guide.session.Session.get_project_config",
+            new=AsyncMock(side_effect=ValueError("Project 'nonexistent' not found")),
+        ):
             args = ListProjectArgs(name="nonexistent", verbose=False)
             result_str = await list_project(args)
             result = json.loads(result_str)

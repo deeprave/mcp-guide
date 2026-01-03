@@ -195,9 +195,11 @@ class FileInfo:
         if self._frontmatter is not None or self._content is None:
             return
 
-        from mcp_guide.utils.frontmatter import parse_frontmatter_content
+        from mcp_guide.utils.frontmatter import parse_content_with_frontmatter
 
-        self._frontmatter, self._content = parse_frontmatter_content(self._content)
+        parsed = parse_content_with_frontmatter(self._content)
+        self._frontmatter = parsed.frontmatter
+        self._content = parsed.content
         if self._content is not None:
             self.content_size = len(self._content)
 

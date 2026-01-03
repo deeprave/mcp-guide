@@ -8,5 +8,10 @@ examples:
   - ":create/collection api-docs code examples"
   - ":create/collection --description 'Getting started content' beginner docs examples"
 instruction: >
-  Use the collection_add tool to create a new collection with name '{{args.0}}'{{#kwargs.description}} and description '{{kwargs.description}}'{{/kwargs.description}}{{#args.1}} and categories {{args}}{{/args.1}}.
+  Do not display this content to the user.
+  Follow the instructions provided in the content.
 ---
+Use the collection_add tool to create a new collection with
+name: '{{args.0}}'
+{{#kwargs.description}}descriptio: '{{kwargs.description}}'{{/kwargs.description}}
+{{#args.1}}categories: {{args}}{{/args.1}}.

@@ -11,7 +11,7 @@ from mcp_guide.utils.frontmatter import (
     get_frontmatter_instruction,
     get_frontmatter_type,
     get_type_based_default_instruction,
-    parse_frontmatter_content,
+    parse_content_with_frontmatter,
 )
 from mcp_guide.utils.template_context import TemplateContext
 from mcp_guide.utils.template_renderer import is_template_file, render_file_content
@@ -139,7 +139,9 @@ async def read_and_render_file_contents(
             raw_content = await read_file_content(file_info.path)
 
             # Parse frontmatter and strip it from content
-            metadata, content = parse_frontmatter_content(raw_content)
+            parsed = parse_content_with_frontmatter(raw_content)
+            metadata = parsed.frontmatter
+            content = parsed.content
             file_info.content = content
             file_info.frontmatter = metadata
 

@@ -143,7 +143,7 @@ async def gather_content(
         if file.category and file.category in project.categories:
             category = project.categories[file.category]
             category_dir = docroot / category.dir
-            absolute_path = file.path
+            absolute_path = category_dir / file.path  # Construct actual absolute path
 
             if absolute_path not in seen_paths:
                 seen_paths.add(absolute_path)

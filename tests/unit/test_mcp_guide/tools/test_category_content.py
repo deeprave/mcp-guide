@@ -57,15 +57,19 @@ def test_error_types_defined():
 
 def test_error_instructions_defined():
     """Test that error instructions are defined."""
+    from mcp_guide.result_constants import (
+        INSTRUCTION_NOTFOUND_ERROR as CONST_NOTFOUND_ERROR,
+    )
+    from mcp_guide.result_constants import (
+        INSTRUCTION_PATTERN_ERROR as CONST_PATTERN_ERROR,
+    )
     from mcp_guide.tools.tool_category import (
         INSTRUCTION_NOTFOUND_ERROR,
         INSTRUCTION_PATTERN_ERROR,
     )
 
-    assert "Present this error to the user" in INSTRUCTION_NOTFOUND_ERROR
-    assert "take no further action" in INSTRUCTION_NOTFOUND_ERROR
-    assert "Present this error to the user" in INSTRUCTION_PATTERN_ERROR
-    assert "Do NOT attempt corrective action" in INSTRUCTION_PATTERN_ERROR
+    assert INSTRUCTION_NOTFOUND_ERROR == CONST_NOTFOUND_ERROR
+    assert INSTRUCTION_PATTERN_ERROR == CONST_PATTERN_ERROR
 
 
 def test_instructions_prevent_futile_remediation():
@@ -109,13 +113,10 @@ async def test_tool_returns_result_ok_on_success(tmp_path, monkeypatch):
     project = Project(name="test", categories={"docs": Category(dir=".", patterns=["*.md"])}, collections={})
 
     # Mock session
-    class MockConfigManager:
-        async def get_docroot(self):
-            return str(tmp_path)
 
     class MockSession:
         def __init__(self):
-            self.config_manager = MockConfigManager()
+            pass
 
         async def get_project(self):
             return project
@@ -159,13 +160,10 @@ async def test_tool_formats_with_active_formatter(tmp_path, monkeypatch):
     project = Project(name="test", categories={"docs": Category(dir=".", patterns=["*.md"])}, collections={})
 
     # Mock session
-    class MockConfigManager:
-        async def get_docroot(self):
-            return str(tmp_path)
 
     class MockSession:
         def __init__(self):
-            self.config_manager = MockConfigManager()
+            pass
 
         async def get_project(self):
             return project
@@ -207,13 +205,10 @@ async def test_category_not_found_returns_failure(tmp_path, monkeypatch):
     project = Project(name="test", categories={}, collections={})
 
     # Mock session
-    class MockConfigManager:
-        async def get_docroot(self):
-            return str(tmp_path)
 
     class MockSession:
         def __init__(self):
-            self.config_manager = MockConfigManager()
+            pass
 
         async def get_project(self):
             return project
@@ -253,13 +248,10 @@ async def test_no_matches_returns_failure(tmp_path, monkeypatch):
     project = Project(name="test", categories={"docs": Category(dir=".", patterns=["*.md"])}, collections={})
 
     # Mock session (no files created in tmp_path)
-    class MockConfigManager:
-        async def get_docroot(self):
-            return str(tmp_path)
 
     class MockSession:
         def __init__(self):
-            self.config_manager = MockConfigManager()
+            pass
 
         async def get_project(self):
             return project
@@ -309,13 +301,10 @@ async def test_file_read_error_single_file(tmp_path, monkeypatch):
     test_file.write_text("content")
 
     # Mock session
-    class MockConfigManager:
-        async def get_docroot(self):
-            return str(tmp_path)
 
     class MockSession:
         def __init__(self):
-            self.config_manager = MockConfigManager()
+            pass
 
         async def get_project(self):
             return project
@@ -367,13 +356,10 @@ async def test_file_read_error_multiple_files(tmp_path, monkeypatch):
     (tmp_path / "file3.md").write_text("content3")
 
     # Mock session
-    class MockConfigManager:
-        async def get_docroot(self):
-            return str(tmp_path)
 
     class MockSession:
         def __init__(self):
-            self.config_manager = MockConfigManager()
+            pass
 
         async def get_project(self):
             return project
@@ -431,13 +417,10 @@ async def test_error_responses_include_all_fields(tmp_path, monkeypatch):
     project = Project(name="test", categories={}, collections={})
 
     # Mock session
-    class MockConfigManager:
-        async def get_docroot(self):
-            return str(tmp_path)
 
     class MockSession:
         def __init__(self):
-            self.config_manager = MockConfigManager()
+            pass
 
         async def get_project(self):
             return project

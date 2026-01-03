@@ -36,7 +36,9 @@ async def test_client_info_no_cache():
     assert "kiro" in result["message"]
     assert "@" in result["message"]
 
-    assert result["instruction"] == "Display this information to the user. Take no further action."
+    from mcp_guide.result_constants import INSTRUCTION_DISPLAY_ONLY
+
+    assert result["instruction"] == INSTRUCTION_DISPLAY_ONLY
 
     # Verify caching
     assert ctx.fastmcp.agent_info is not None

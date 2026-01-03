@@ -11,8 +11,6 @@ from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
 from mcp_core.tool_decorator import disable_test_mode, enable_test_mode
-from mcp_guide.config import ConfigManager
-from mcp_guide.models import Category, Project
 from mcp_guide.session import Session, remove_current_session, set_current_session
 
 
@@ -27,17 +25,16 @@ def production_mode():
 @pytest_asyncio.fixture
 async def test_session(tmp_path):
     """Create test session with sample project."""
-    manager = ConfigManager(config_dir=str(tmp_path))
-    session = Session(_config_manager=manager, project_name="test")
+    from mcp_guide.tools.tool_category import CategoryAddArgs, internal_category_add
 
-    # Create sample project with categories
-    category = Category(
-        dir="documentation",
-        patterns=["*.md", "*.txt"],
-    )
-    session._cached_project = Project(name="test", categories={"docs": category}, collections={})
-
+    session = Session("test", _config_dir_for_tests=str(tmp_path))
+    await session.get_project()
     set_current_session(session)
+
+    # Add a category using the internal API
+    args = CategoryAddArgs(name="docs", dir="documentation", patterns=["*.md", "*.txt"])
+    await internal_category_add(args)
+
     yield session
     await remove_current_session("test")
 

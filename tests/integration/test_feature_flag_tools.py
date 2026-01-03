@@ -9,8 +9,6 @@ import pytest
 import pytest_asyncio
 from mcp.shared.memory import create_connected_server_and_client_session
 
-from mcp_guide.config import ConfigManager
-from mcp_guide.models import Category, Project
 from mcp_guide.session import Session, remove_current_session, set_current_session
 from mcp_guide.tools.tool_feature_flags import GetFlagArgs, ListFlagsArgs, SetFlagArgs
 from tests.conftest import call_mcp_tool
@@ -31,12 +29,10 @@ def mcp_server(mcp_server_factory):
 @pytest_asyncio.fixture
 async def test_session(tmp_path):
     """Create test session with sample project."""
-    manager = ConfigManager(config_dir=str(tmp_path))
-    session = Session(_config_manager=manager, project_name="test")
+    session = Session("test", _config_dir_for_tests=str(tmp_path))
 
-    # Create sample project with categories in dict format
-    category = Category(dir="documentation", patterns=["*.md", "*.txt"])
-    session._cached_project = Project(name="test", categories={"docs": category}, collections={})
+    # Initialize project properly to set _project_key
+    await session.get_project()
 
     set_current_session(session)
     yield session

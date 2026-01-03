@@ -6,7 +6,7 @@ import sys
 
 from mcp_core.mcp_log import get_logger
 from mcp_guide.cli import ServerConfig, parse_args
-from mcp_guide.config import DocrootError
+from mcp_guide.session import DocrootError
 
 
 def _setup_remote_debugging() -> None:

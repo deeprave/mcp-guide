@@ -1,7 +1,8 @@
 """Front-matter parsing utilities for YAML metadata extraction."""
 
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 import aiofiles
 import yaml
@@ -21,17 +22,27 @@ from mcp_guide.result_constants import (
 logger = get_logger(__name__)
 
 
-def parse_frontmatter_content(content: str) -> Tuple[Optional[Dict[str, Any]], str]:
-    """Parse YAML front matter from content string.
+@dataclass
+class Content:
+    """Represents parsed content with frontmatter."""
+
+    frontmatter: Dict[str, Any]
+    frontmatter_length: int
+    content: str
+    content_length: int
+
+
+def parse_content_with_frontmatter(content: str) -> Content:
+    """Parse content string and extract frontmatter.
 
     Args:
-        content: File content string
+        content: Raw content string
 
     Returns:
-        Tuple of (metadata_dict, content)
+        Content object with parsed frontmatter and clean content
     """
     if not content.startswith("---\n"):
-        return None, content
+        return Content(frontmatter={}, frontmatter_length=0, content=content, content_length=len(content))
 
     # Find the closing ---
     lines = content.split("\n")
@@ -42,95 +53,48 @@ def parse_frontmatter_content(content: str) -> Tuple[Optional[Dict[str, Any]], s
             break
 
     if end_idx is None:
-        return None, content
+        return Content(frontmatter={}, frontmatter_length=0, content=content, content_length=len(content))
 
     # Extract and parse YAML
     yaml_content = "\n".join(lines[1:end_idx])
     clean_content = "\n".join(lines[end_idx + 1 :])
+    frontmatter_length = len("\n".join(lines[: end_idx + 1])) + 1  # +1 for final newline
 
     try:
         metadata = yaml.safe_load(yaml_content)
-        return metadata, clean_content
-    except yaml.YAMLError:
-        # Even with malformed YAML, strip the frontmatter section
-        return None, clean_content
+        # Lowercase all keys for case-insensitive access
+        if isinstance(metadata, dict):
+            metadata = {k.lower(): v for k, v in metadata.items()}
+        else:
+            metadata = {}
+    except yaml.YAMLError as e:
+        logger.warning(f"Invalid YAML in frontmatter: {e}")
+        metadata = {}
+
+    return Content(
+        frontmatter=metadata,
+        frontmatter_length=frontmatter_length,
+        content=clean_content,
+        content_length=len(clean_content),
+    )
 
 
-async def extract_frontmatter(file_path: Path, max_read_size: int = 4096) -> Tuple[Optional[Dict[str, Any]], int]:
-    """
-    Extract YAML front-matter from a file.
+async def read_content_with_frontmatter(file_path: Path) -> Content:
+    """Read file and parse frontmatter.
 
     Args:
-        file_path: Path to the file to read
-        max_read_size: Maximum characters to read for front-matter detection
+        file_path: Path to file to read
 
     Returns:
-        Tuple of (metadata_dict, frontmatter_length)
-        - metadata_dict: Parsed YAML as dict, or None if no front-matter
-        - frontmatter_length: Length of front-matter section including delimiters, in characters, or 0
+        Content object with parsed frontmatter and clean content
     """
     try:
-        # Read only first portion to check for front-matter efficiently
         async with aiofiles.open(file_path, "r", encoding="utf-8") as f:
-            content = await f.read(max_read_size)
-
-        # Normalize line endings to handle both \r\n and \n
-        content = content.replace("\r\n", "\n").replace("\r", "\n")
-
-        # Check if file starts with front-matter
-        if not content.startswith("---\n"):
-            return None, 0
-
-        # Find the end of front-matter
-        end_marker = content.find("\n---\n", 4)
-        if end_marker == -1:
-            return None, 0
-
-        # Extract front-matter content (without delimiters)
-        frontmatter_content = content[4:end_marker]
-
-        # Calculate total length including delimiters
-        frontmatter_length = end_marker + 5  # "---\n" + content + "\n---\n"
-
-        # Parse YAML front-matter
-        metadata = yaml.safe_load(frontmatter_content)
-        if not isinstance(metadata, dict):
-            return None, 0
-
-        return metadata, frontmatter_length
-
+            raw_content = await f.read()
+        return parse_content_with_frontmatter(raw_content)
     except (OSError, UnicodeDecodeError) as e:
-        # Log specific I/O and encoding errors but don't fail completely
-        logger.debug(f"Could not read front-matter from {file_path}: {e}")
-        return None, 0
-    except yaml.YAMLError as e:
-        # Log YAML parsing errors
-        logger.debug(f"Could not parse YAML front-matter from {file_path}: {e}")
-        return None, 0
-    except Exception as e:
-        # Log unexpected errors but still return None
-        logger.warning(f"Unexpected error parsing front-matter from {file_path}: {e}")
-        return None, 0
-
-
-async def get_frontmatter_description(file_path: Path) -> Optional[str]:
-    """
-    Extract description field from YAML front-matter.
-
-    Args:
-        file_path: Path to the file to read
-
-    Returns:
-        Description string or None if not found
-    """
-    metadata, _ = await extract_frontmatter(file_path)
-    if not metadata:
-        return None
-
-    return next(
-        (str(value) if value is not None else None for key, value in metadata.items() if key.lower() == "description"),
-        None,
-    )
+        logger.error(f"Could not read file {file_path}: {e}")
+        return Content(frontmatter={}, frontmatter_length=0, content="", content_length=0)
 
 
 def get_frontmatter_instruction(frontmatter: Optional[Dict[str, Any]]) -> Optional[str]:
@@ -145,6 +109,67 @@ def get_frontmatter_instruction(frontmatter: Optional[Dict[str, Any]]) -> Option
     return frontmatter.get("instruction") if frontmatter else None
 
 
+def get_frontmatter_type(frontmatter: Optional[Dict[str, Any]]) -> Optional[str]:
+    """Extract type field from frontmatter metadata.
+
+    Args:
+        frontmatter: Parsed frontmatter dictionary
+
+    Returns:
+        Type string or None if not found
+    """
+    return frontmatter.get("type") if frontmatter else None
+
+
+def get_frontmatter_description(frontmatter: Optional[Dict[str, Any]]) -> Optional[str]:
+    """Extract description field from frontmatter metadata.
+
+    Args:
+        frontmatter: Parsed frontmatter dictionary
+
+    Returns:
+        Description string or None if not found
+    """
+    return frontmatter.get("description") if frontmatter else None
+
+
+def get_frontmatter_includes(frontmatter: Optional[Dict[str, Any]]) -> Optional[List[str]]:
+    """Extract includes field from frontmatter metadata.
+
+    Args:
+        frontmatter: Parsed frontmatter dictionary
+
+    Returns:
+        Includes list or None if not found
+    """
+    return frontmatter.get("includes") if frontmatter else None
+
+
+def get_type_based_default_instruction(content_type: Optional[str]) -> str:
+    """Get default instruction based on content type.
+
+    Args:
+        content_type: Content type from frontmatter
+
+    Returns:
+        Default instruction string
+    """
+    return get_default_instruction_for_type(content_type)
+
+
+async def get_frontmatter_description_from_file(file_path: Path) -> Optional[str]:
+    """Extract description from file's frontmatter.
+
+    Args:
+        file_path: Path to file to read
+
+    Returns:
+        Description string or None if not found
+    """
+    content = await read_content_with_frontmatter(file_path)
+    return content.frontmatter.get("description")
+
+
 def validate_content_type(content_type: Optional[str]) -> bool:
     """Validate if content type is one of the supported types.
 
@@ -156,63 +181,16 @@ def validate_content_type(content_type: Optional[str]) -> bool:
     """
     if not content_type:
         return False
-    return content_type in (USER_INFO, AGENT_INFO, AGENT_INSTRUCTION, AGENT_REQUIREMENTS)
+
+    valid_types = {USER_INFO, AGENT_INFO, AGENT_INSTRUCTION, AGENT_REQUIREMENTS}
+    return content_type in valid_types
 
 
-def get_frontmatter_type(frontmatter: Optional[Dict[str, Any]]) -> str:
-    """Extract content type from frontmatter metadata.
-
-    Args:
-        frontmatter: Parsed frontmatter dictionary
-
-    Returns:
-        Content type string, defaults to USER_INFO if not found
-    """
-    if not frontmatter:
-        return USER_INFO
-    type_value = frontmatter.get("type", USER_INFO)
-    content_type = str(type_value) if type_value is not None else USER_INFO
-
-    # Validate and warn about unexpected content types
-    if not validate_content_type(content_type):
-        logger.warning(f"Unknown content type '{content_type}', falling back to '{USER_INFO}'")
-        return USER_INFO
-
-    return content_type
-
-
-def get_frontmatter_includes(frontmatter: Optional[Dict[str, Any]]) -> List[str]:
-    """Extract includes field from frontmatter metadata.
-
-    Args:
-        frontmatter: Parsed frontmatter dictionary
-
-    Returns:
-        List of include paths, empty list if not found
-    """
-
-    if not frontmatter:
-        logger.debug("No frontmatter provided, returning empty includes")
-        return []
-    includes = frontmatter.get("includes", [])
-    logger.log(5, f"Frontmatter includes detected: {includes}")
-    if isinstance(includes, str):
-        result = [includes]
-        logger.debug(f"Converted string include to list: {result}")
-        return result
-    elif isinstance(includes, list):
-        result = [str(item) for item in includes]
-        logger.debug(f"Converted list includes to strings: {result}")
-        return result
-    logger.debug("No valid includes found, returning empty list")
-    return []
-
-
-def get_type_based_default_instruction(content_type: str) -> Optional[str]:
+def get_default_instruction_for_type(content_type: Optional[str]) -> str:
     """Get default instruction based on content type.
 
     Args:
-        content_type: Content type string
+        content_type: Content type from frontmatter
 
     Returns:
         Default instruction string or None for agent/instruction type
@@ -225,4 +203,4 @@ def get_type_based_default_instruction(content_type: str) -> Optional[str]:
         AGENT_REQUIREMENTS: INSTRUCTION_AGENT_REQUIREMENTS,
     }
 
-    return type_instructions.get(content_type, INSTRUCTION_DISPLAY_ONLY)
+    return type_instructions.get(content_type or "", INSTRUCTION_DISPLAY_ONLY)

@@ -1,11 +1,6 @@
----
-type: agent/information
----
-
 {{b}}Project: {{project.name}}{{b}}
 
 {{h2}}Collections
-
 {{#project.collections}}
 - {{b}}{{name}}{{b}}: {{description}}
 {{#kwargs.verbose}}
@@ -16,14 +11,8 @@ type: agent/information
 {{/project.collections}}
 
 {{h2}}Categories
-
 {{#project.categories}}
-- {{b}}{{name}}{{b}}: {{description}}
-{{#kwargs.verbose}}
-{{#patterns}}
-  - {{.}}
-{{/patterns}}
-{{/kwargs.verbose}}
+- {{b}}{{name}}{{b}}: {{#kwargs.verbose}}dir=`{{dir}}` [ {{#patterns}}{{.}} {{/patterns}}] {{/kwargs.verbose}}{{description}}
 {{/project.categories}}
 
 {{b}}Project Flags:{{b}}

@@ -8,7 +8,11 @@ examples:
   - ":create/category --dir documentation --patterns '{{*}}.md' '{{*}}.rst' api-docs"
   - ":create/category --description 'Test files' tests"
 instruction: >
-  Use the category_add tool to create a new category with name '{{args.0}}'{{#kwargs.dir}} and directory '{{kwargs.dir}}'{{/kwargs.dir}}
-  {{#kwargs.patterns}} and patterns {{kwargs.patterns}}{{/kwargs.patterns}}
-  {{#kwargs.description}} and description '{{kwargs.description}}'{{/kwargs.description}}.
+  Do not display this content to the user.
+  Follow the instructions provided in the content.
 ---
+Use the category_add tool to create a new category with:
+name: '{{args.0}}'
+{{#kwargs.dir}}directory: '{{kwargs.dir}}'{{/kwargs.dir}}
+{{#kwargs.patterns}}patterns: {{kwargs.patterns}}{{/kwargs.patterns}}
+{{#kwargs.description}}description: '{{kwargs.description}}'{{/kwargs.description}}.

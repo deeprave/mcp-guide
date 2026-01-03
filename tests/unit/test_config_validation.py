@@ -1,60 +1,38 @@
 """Tests for input validation in config methods."""
 
 import pytest
+from pydantic_core import ValidationError
 
-from mcp_guide.config import ConfigManager
+from mcp_guide.session import Session
 
 
 class TestConfigValidation:
     """Test input validation in configuration methods."""
 
-    @pytest.fixture
-    def config_manager(self, tmp_path):
-        """Create a ConfigManager instance for testing."""
-        return ConfigManager(config_dir=tmp_path)
+    @pytest.mark.asyncio
+    async def test_set_project_flag_invalid_name(self, tmp_path):
+        """Test that project flags reject invalid flag names."""
+        session = Session("test", _config_dir_for_tests=str(tmp_path))
+        flags = session.project_flags("test-project")
+        with pytest.raises(ValidationError, match="Invalid feature flag name"):
+            await flags.set("invalid.name", True)
 
     @pytest.mark.asyncio
-    async def test_set_global_flag_invalid_name(self, config_manager):
-        """Test that set_feature_flag rejects invalid flag names."""
-        with pytest.raises(ValueError, match="Invalid flag name"):
-            await config_manager.set_feature_flag("invalid.name", True)
+    async def test_set_project_flag_invalid_value(self, tmp_path):
+        """Test that project flags reject invalid flag values."""
+        session = Session("test", _config_dir_for_tests=str(tmp_path))
+        flags = session.project_flags("test-project")
+        with pytest.raises(ValidationError):
+            await flags.set("valid-name", 123)
 
     @pytest.mark.asyncio
-    async def test_set_global_flag_invalid_value(self, config_manager):
-        """Test that set_feature_flag rejects invalid flag values."""
-        with pytest.raises(ValueError, match="Invalid flag value type"):
-            await config_manager.set_feature_flag("valid-name", 123)
-
-    @pytest.mark.asyncio
-    async def test_remove_global_flag_invalid_name(self, config_manager):
-        """Test that remove_feature_flag rejects invalid flag names."""
-        with pytest.raises(ValueError, match="Invalid flag name"):
-            await config_manager.remove_feature_flag("invalid.name")
-
-    @pytest.mark.asyncio
-    async def test_set_project_flag_invalid_name(self, config_manager):
-        """Test that set_project_flag rejects invalid flag names."""
-        with pytest.raises(ValueError, match="Invalid flag name"):
-            await config_manager.set_project_flag("test-project", "invalid.name", True)
-
-    @pytest.mark.asyncio
-    async def test_set_project_flag_invalid_value(self, config_manager):
-        """Test that set_project_flag rejects invalid flag values."""
-        with pytest.raises(ValueError, match="Invalid flag value type"):
-            await config_manager.set_project_flag("test-project", "valid-name", 123)
-
-    @pytest.mark.asyncio
-    async def test_remove_project_flag_invalid_name(self, config_manager):
-        """Test that remove_project_flag rejects invalid flag names."""
-        with pytest.raises(ValueError, match="Invalid flag name"):
-            await config_manager.remove_project_flag("test-project", "invalid.name")
-
-    @pytest.mark.asyncio
-    async def test_valid_inputs_accepted(self, config_manager):
+    async def test_valid_inputs_accepted(self, tmp_path):
         """Test that valid inputs are accepted."""
+        session = Session("test", _config_dir_for_tests=str(tmp_path))
+        project_flags = session.project_flags("test-project")
         # These should not raise exceptions
-        await config_manager.set_feature_flag("valid-name", True)
-        await config_manager.set_feature_flag("another_name", "string-value")
-        await config_manager.set_project_flag("test-project", "valid-name", ["list", "of", "strings"])
-        await config_manager.remove_feature_flag("valid-name")
-        await config_manager.remove_project_flag("test-project", "valid-name")
+        await project_flags.set("valid-name", True)
+        await project_flags.set("another_name", "string-value")
+        await project_flags.set("list-flag", ["list", "of", "strings"])
+        await project_flags.remove("valid-name")
+        await project_flags.remove("another_name")

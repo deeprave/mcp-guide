@@ -1,284 +1,167 @@
-"""Tests for frontmatter parsing utilities."""
+"""Tests for unified frontmatter parsing utilities."""
 
 import pytest
 
-from mcp_guide.utils.frontmatter import extract_frontmatter, get_frontmatter_description
+from mcp_guide.utils.frontmatter import (
+    Content,
+    get_frontmatter_instruction,
+    parse_content_with_frontmatter,
+    read_content_with_frontmatter,
+)
 
 
-class TestExtractFrontmatter:
-    """Test extract_frontmatter function."""
+class TestParseContentWithFrontmatter:
+    """Test parse_content_with_frontmatter function."""
 
-    @pytest.mark.asyncio
-    async def test_valid_frontmatter(self, tmp_path):
-        """Test parsing valid YAML frontmatter."""
+    def test_no_frontmatter(self):
+        """Test content without frontmatter."""
+        content = "# Hello\nThis is content"
+        result = parse_content_with_frontmatter(content)
+
+        assert result.frontmatter == {}
+        assert result.frontmatter_length == 0
+        assert result.content == content
+        assert result.content_length == len(content)
+
+    def test_valid_frontmatter(self):
+        """Test content with valid frontmatter."""
         content = """---
-title: Test Document
-description: A test document
-author: Test Author
+title: Test
+description: A test file
 ---
-# Content here"""
+# Hello
+This is content"""
 
-        file_path = tmp_path / "test.md"
-        file_path.write_text(content)
+        result = parse_content_with_frontmatter(content)
 
-        metadata, length = await extract_frontmatter(file_path)
+        assert result.frontmatter == {"title": "Test", "description": "A test file"}
+        assert result.frontmatter_length == 45  # Length of frontmatter block
+        assert result.content == "# Hello\nThis is content"
+        assert result.content_length == 23
 
-        assert metadata == {"title": "Test Document", "description": "A test document", "author": "Test Author"}
-        assert length == 78  # Actual length of frontmatter including delimiters
-
-    @pytest.mark.asyncio
-    async def test_no_frontmatter(self, tmp_path):
-        """Test file without frontmatter."""
-        content = "# Just content\nNo frontmatter here"
-
-        file_path = tmp_path / "test.md"
-        file_path.write_text(content)
-
-        metadata, length = await extract_frontmatter(file_path)
-
-        assert metadata is None
-        assert length == 0
-
-    @pytest.mark.asyncio
-    async def test_empty_frontmatter(self, tmp_path):
-        """Test empty frontmatter block."""
+    def test_case_insensitive_keys(self):
+        """Test that frontmatter keys are normalized to lowercase."""
         content = """---
+Title: Test
+DESCRIPTION: A test file
+Instruction: Do something
 ---
-# Content"""
+Content here"""
 
-        file_path = tmp_path / "test.md"
-        file_path.write_text(content)
+        result = parse_content_with_frontmatter(content)
 
-        metadata, length = await extract_frontmatter(file_path)
+        assert result.frontmatter == {"title": "Test", "description": "A test file", "instruction": "Do something"}
 
-        assert metadata is None  # Empty YAML returns None from yaml.safe_load
-        assert length == 0
-
-    @pytest.mark.asyncio
-    async def test_malformed_yaml(self, tmp_path):
-        """Test malformed YAML in frontmatter."""
+    def test_invalid_yaml(self):
+        """Test handling of invalid YAML in frontmatter."""
         content = """---
 title: Test
 invalid: [unclosed
 ---
-# Content"""
+Content here"""
 
-        file_path = tmp_path / "test.md"
-        file_path.write_text(content)
+        result = parse_content_with_frontmatter(content)
 
-        metadata, length = await extract_frontmatter(file_path)
+        assert result.frontmatter == {}
+        assert result.content == "Content here"
 
-        assert metadata is None
-        assert length == 0
-
-    @pytest.mark.asyncio
-    async def test_incomplete_frontmatter(self, tmp_path):
-        """Test frontmatter without closing delimiter."""
+    def test_incomplete_frontmatter(self):
+        """Test content with incomplete frontmatter (no closing ---)."""
         content = """---
 title: Test
 description: No closing delimiter
-# Content"""
+Content here"""
 
-        file_path = tmp_path / "test.md"
-        file_path.write_text(content)
+        result = parse_content_with_frontmatter(content)
 
-        metadata, length = await extract_frontmatter(file_path)
+        assert result.frontmatter == {}
+        assert result.frontmatter_length == 0
+        assert result.content == content
+        assert result.content_length == len(content)
 
-        assert metadata is None
-        assert length == 0
-
-    @pytest.mark.asyncio
-    async def test_max_read_size_boundary(self, tmp_path):
-        """Test frontmatter at max_read_size boundary."""
-        # Create frontmatter that's exactly at the boundary
-        frontmatter = "---\ntitle: Test\n---\n"
-        content = frontmatter + "x" * 4000  # Total > 4096 chars
-
-        file_path = tmp_path / "test.md"
-        file_path.write_text(content)
-
-        metadata, length = await extract_frontmatter(file_path, max_read_size=20)
-
-        assert metadata == {"title": "Test"}
-        assert length == len(frontmatter)
-
-    @pytest.mark.asyncio
-    async def test_frontmatter_beyond_max_read_size(self, tmp_path):
-        """Test frontmatter that extends beyond max_read_size."""
-        content = "---\ntitle: Test\n" + "x" * 100 + "\n---\n# Content"
-
-        file_path = tmp_path / "test.md"
-        file_path.write_text(content)
-
-        metadata, length = await extract_frontmatter(file_path, max_read_size=20)
-
-        assert metadata is None
-        assert length == 0
-
-    @pytest.mark.asyncio
-    async def test_different_line_endings(self, tmp_path):
-        """Test frontmatter with different line endings."""
-        content = "---\r\ntitle: Test\r\ndescription: Windows line endings\r\n---\r\n# Content"
-
-        file_path = tmp_path / "test.md"
-        file_path.write_text(content, newline="")  # Preserve exact line endings
-
-        metadata, length = await extract_frontmatter(file_path)
-
-        assert metadata == {"title": "Test", "description": "Windows line endings"}
-        assert length > 0
-
-    @pytest.mark.asyncio
-    async def test_non_dict_yaml(self, tmp_path):
-        """Test YAML that doesn't parse to a dict."""
+    def test_empty_frontmatter(self):
+        """Test content with empty frontmatter."""
         content = """---
-- item1
-- item2
 ---
-# Content"""
+Content here"""
 
-        file_path = tmp_path / "test.md"
-        file_path.write_text(content)
+        result = parse_content_with_frontmatter(content)
 
-        metadata, length = await extract_frontmatter(file_path)
-
-        assert metadata is None
-        assert length == 0
-
-    @pytest.mark.asyncio
-    async def test_file_not_found(self, tmp_path):
-        """Test handling of non-existent file."""
-        file_path = tmp_path / "nonexistent.md"
-
-        metadata, length = await extract_frontmatter(file_path)
-
-        assert metadata is None
-        assert length == 0
+        assert result.frontmatter == {}
+        assert result.frontmatter_length == 8  # "---\n---\n"
+        assert result.content == "Content here"
 
 
-class TestGetFrontmatterDescription:
-    """Test get_frontmatter_description function."""
+class TestReadContentWithFrontmatter:
+    """Test read_content_with_frontmatter function."""
 
     @pytest.mark.asyncio
-    async def test_lowercase_description(self, tmp_path):
-        """Test extracting lowercase description field."""
+    async def test_read_valid_file(self, tmp_path):
+        """Test reading a file with frontmatter."""
+        test_file = tmp_path / "test.md"
         content = """---
-title: Test
-description: Test description
+title: Test File
+type: user/information
 ---
-# Content"""
+# Test Content
+This is a test."""
 
-        file_path = tmp_path / "test.md"
-        file_path.write_text(content)
+        test_file.write_text(content)
 
-        description = await get_frontmatter_description(file_path)
+        result = await read_content_with_frontmatter(test_file)
 
-        assert description == "Test description"
+        assert result.frontmatter == {"title": "Test File", "type": "user/information"}
+        assert result.content == "# Test Content\nThis is a test."
 
     @pytest.mark.asyncio
-    async def test_uppercase_description(self, tmp_path):
-        """Test extracting uppercase description field (case-insensitive)."""
-        content = """---
-title: Test
-DESCRIPTION: Test description uppercase
----
-# Content"""
+    async def test_read_nonexistent_file(self, tmp_path):
+        """Test reading a nonexistent file."""
+        nonexistent = tmp_path / "nonexistent.md"
 
-        file_path = tmp_path / "test.md"
-        file_path.write_text(content)
+        result = await read_content_with_frontmatter(nonexistent)
 
-        description = await get_frontmatter_description(file_path)
+        assert result.frontmatter == {}
+        assert result.frontmatter_length == 0
+        assert result.content == ""
+        assert result.content_length == 0
 
-        assert description == "Test description uppercase"
 
-    @pytest.mark.asyncio
-    async def test_mixed_case_description(self, tmp_path):
-        """Test extracting mixed case description field."""
-        content = """---
-title: Test
-Description: Test description mixed case
----
-# Content"""
+class TestGetFrontmatterInstruction:
+    """Test get_frontmatter_instruction function."""
 
-        file_path = tmp_path / "test.md"
-        file_path.write_text(content)
+    def test_with_instruction(self):
+        """Test extracting instruction from frontmatter."""
+        frontmatter = {"instruction": "Do something", "title": "Test"}
+        result = get_frontmatter_instruction(frontmatter)
+        assert result == "Do something"
 
-        description = await get_frontmatter_description(file_path)
+    def test_without_instruction(self):
+        """Test frontmatter without instruction."""
+        frontmatter = {"title": "Test", "description": "A test"}
+        result = get_frontmatter_instruction(frontmatter)
+        assert result is None
 
-        assert description == "Test description mixed case"
+    def test_none_frontmatter(self):
+        """Test with None frontmatter."""
+        result = get_frontmatter_instruction(None)
+        assert result is None
 
-    @pytest.mark.asyncio
-    async def test_no_description_field(self, tmp_path):
-        """Test file with frontmatter but no description field."""
-        content = """---
-title: Test
-author: Test Author
----
-# Content"""
+    def test_empty_frontmatter(self):
+        """Test with empty frontmatter."""
+        result = get_frontmatter_instruction({})
+        assert result is None
 
-        file_path = tmp_path / "test.md"
-        file_path.write_text(content)
 
-        description = await get_frontmatter_description(file_path)
+class TestContentDataclass:
+    """Test Content dataclass."""
 
-        assert description is None
+    def test_content_creation(self):
+        """Test creating Content object."""
+        content = Content(
+            frontmatter={"title": "Test"}, frontmatter_length=20, content="Hello world", content_length=11
+        )
 
-    @pytest.mark.asyncio
-    async def test_null_description_value(self, tmp_path):
-        """Test description field with null value."""
-        content = """---
-title: Test
-description: null
----
-# Content"""
-
-        file_path = tmp_path / "test.md"
-        file_path.write_text(content)
-
-        description = await get_frontmatter_description(file_path)
-
-        assert description is None
-
-    @pytest.mark.asyncio
-    async def test_empty_description_value(self, tmp_path):
-        """Test description field with empty string value."""
-        content = """---
-title: Test
-description: ""
----
-# Content"""
-
-        file_path = tmp_path / "test.md"
-        file_path.write_text(content)
-
-        description = await get_frontmatter_description(file_path)
-
-        assert description == ""
-
-    @pytest.mark.asyncio
-    async def test_numeric_description_value(self, tmp_path):
-        """Test description field with numeric value (converted to string)."""
-        content = """---
-title: Test
-description: 123
----
-# Content"""
-
-        file_path = tmp_path / "test.md"
-        file_path.write_text(content)
-
-        description = await get_frontmatter_description(file_path)
-
-        assert description == "123"
-
-    @pytest.mark.asyncio
-    async def test_no_frontmatter_returns_none(self, tmp_path):
-        """Test file without frontmatter returns None."""
-        content = "# Just content\nNo frontmatter here"
-
-        file_path = tmp_path / "test.md"
-        file_path.write_text(content)
-
-        description = await get_frontmatter_description(file_path)
-
-        assert description is None
+        assert content.frontmatter == {"title": "Test"}
+        assert content.frontmatter_length == 20
+        assert content.content == "Hello world"
+        assert content.content_length == 11

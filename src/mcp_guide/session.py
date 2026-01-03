@@ -2,11 +2,24 @@
 
 import asyncio
 import contextlib
+import dataclasses
 from contextvars import ContextVar
-from dataclasses import dataclass, field
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
+import yaml
+from anyio import Path as AsyncPath
+
+from mcp_core.file_reader import read_file_content
 from mcp_core.mcp_log import get_logger
+from mcp_guide.file_lock import lock_update
+from mcp_guide.mcp_context import cache_mcp_globals
+from mcp_guide.models import _NAME_REGEX, Project, SessionState
+from mcp_guide.utils.project_hash import (
+    calculate_project_hash,
+    extract_name_from_key,
+    generate_project_key,
+)
 
 try:
     from mcp.server.fastmcp import Context
@@ -17,76 +30,413 @@ if TYPE_CHECKING:
     from mcp_guide.feature_flags.protocol import FeatureFlags
     from mcp_guide.session_listener import SessionListener
 
-from mcp_guide.config import ConfigManager
+# Keep old import for compatibility during transition
 from mcp_guide.mcp_context import resolve_project_name, resolve_project_path
-from mcp_guide.models import _NAME_REGEX, Project, SessionState
 from mcp_guide.result import Result
 from mcp_guide.watchers.config_watcher import ConfigWatcher
 
 logger = get_logger(__name__)
 
 
-@dataclass
+class DocrootError(RuntimeError):
+    """Raised when `docroot` cannot be created or is invalid."""
+
+    pass
+
+
 class Session:
-    """Per-project runtime session (non-singleton)."""
+    """Per-project runtime session with encapsulated configuration management."""
 
-    _config_manager: ConfigManager = field(repr=False)
-    project_name: str
-    _state: SessionState = field(default_factory=SessionState, init=False)
-    _cached_project: Optional[Project] = field(default=None, init=False)
-    _listeners: list["SessionListener"] = field(default_factory=list, init=False, repr=False)
-    _config_watcher: Optional[ConfigWatcher] = field(default=None, init=False, repr=False)
-    _watcher_task: Optional["asyncio.Task[None]"] = field(default=None, init=False, repr=False)
+    @classmethod
+    def _get_config_manager(cls, config_dir: Optional[str] = None) -> "Session._ConfigManager":
+        """Get or create the singleton ConfigManager instance."""
+        if not hasattr(cls, "_config_manager"):
+            setattr(cls, "_config_manager", cls._ConfigManager(config_dir=config_dir))
+        elif config_dir is not None:
+            getattr(cls, "_config_manager").reconfigure(config_dir=config_dir)
+        return getattr(cls, "_config_manager")  # type: ignore[no-any-return]
 
-    def __post_init__(self) -> None:
-        """Validate project name and setup config watcher."""
+    class _ConfigManager:
+        """Private ConfigManager implementation."""
+
+        def __init__(self, config_dir: Optional[str] = None) -> None:
+            """Initialize config manager."""
+            self.__config_dir = config_dir
+            self.__initialized = False
+            self.__docroot: Optional[str] = None
+            self.__feature_flags: Optional[dict[str, Any]] = None
+
+        def reconfigure(self, config_dir: Optional[str] = None) -> None:
+            """Reconfigure existing ConfigManager for different config directory."""
+            self.__config_dir = config_dir
+            self.__initialized = False
+            self.__docroot = None
+            self.__feature_flags = None
+
+        async def _ensure_initialized(self) -> None:
+            """Initialize the config manager (only once)."""
+            if self.__initialized:
+                return
+            from mcp_guide.config_paths import get_config_file, get_docroot
+
+            self.config_file = get_config_file(self.__config_dir)
+            self.config_file.parent.mkdir(parents=True, exist_ok=True)
+            if not self.config_file.exists():
+                default_docroot = str(get_docroot(self.__config_dir))
+                await AsyncPath(self.config_file).write_text(f"docroot: {default_docroot}\nprojects: {{}}\n")
+                self.__docroot = default_docroot
+            else:
+                # Read docroot from existing config
+                content = await read_file_content(self.config_file)
+                data = yaml.safe_load(content)
+                self.__docroot = data.get("docroot", str(get_docroot(self.__config_dir)))
+
+            # Validate and create docroot
+            docroot_path = Path(self.__docroot).expanduser()
+
+            if not docroot_path.exists():
+                try:
+                    docroot_path.mkdir(parents=True, exist_ok=True)
+                    logger.info(f"Created docroot directory: {docroot_path}")
+                except OSError as e:
+                    logger.error(f"FATAL: Failed to create docroot directory '{docroot_path}': {e}")
+                    raise DocrootError(f"Failed to create docroot directory '{docroot_path}': {e}") from e
+            elif not docroot_path.is_dir():
+                logger.error(f"FATAL: Docroot path exists but is not a directory: {docroot_path}")
+                raise DocrootError(f"Docroot path exists but is not a directory: {docroot_path}")
+
+            self.__initialized = True
+
+        def _invalidate_feature_flags(self) -> None:
+            """Invalidate the feature flags cache."""
+            self.__feature_flags = None
+
+        async def get_docroot(self) -> str:
+            """Get cached docroot value."""
+            await self._ensure_initialized()
+            return self.__docroot or ""
+
+        async def get_feature_flags(self) -> dict[str, Any]:
+            """Get feature flags."""
+            await self._ensure_initialized()
+            if self.__feature_flags is None:
+
+                async def _get_flags(file_path: Path) -> dict[str, Any]:
+                    content = await read_file_content(file_path)
+                    data = yaml.safe_load(content)
+                    return data.get("feature_flags", {}) if data else {}
+
+                self.__feature_flags = await lock_update(self.config_file, _get_flags)
+            return self.__feature_flags
+
+        async def set_feature_flag(self, flag_name: str, value: Any) -> None:
+            """Set a feature flag."""
+            await self._ensure_initialized()
+
+            async def _set_flag(file_path: Path) -> None:
+                content = await read_file_content(file_path)
+                data = yaml.safe_load(content)
+                if "feature_flags" not in data:
+                    data["feature_flags"] = {}
+                data["feature_flags"][flag_name] = value
+                await AsyncPath(file_path).write_text(yaml.dump(data))
+
+            await lock_update(self.config_file, _set_flag)
+            self._invalidate_feature_flags()
+
+        async def remove_feature_flag(self, flag_name: str) -> None:
+            """Remove a feature flag."""
+            await self._ensure_initialized()
+
+            async def _remove_flag(file_path: Path) -> None:
+                content = await read_file_content(file_path)
+                data = yaml.safe_load(content)
+                if "feature_flags" in data and flag_name in data["feature_flags"]:
+                    del data["feature_flags"][flag_name]
+                    await AsyncPath(file_path).write_text(yaml.dump(data))
+
+            await lock_update(self.config_file, _remove_flag)
+            self._invalidate_feature_flags()
+
+        @staticmethod
+        def _is_legacy_format(projects: dict[str, Any]) -> bool:
+            """Check if projects dict uses legacy format."""
+            for key, project_data in projects.items():
+                if not isinstance(project_data, dict):
+                    continue
+                # Legacy format lacks hash field
+                if "hash" not in project_data:
+                    return True
+            return False
+
+        @staticmethod
+        def _project_to_dict(project: Project) -> dict[str, Any]:
+            """Convert Project to dictionary for YAML storage."""
+            return dataclasses.asdict(project)
+
+        async def get_or_create_project_config(self, name: str) -> tuple[str, Project]:
+            """Get project config or create if it doesn't exist.
+
+            Returns:
+                Tuple of (project_key, project) where project_key includes hash suffix
+            """
+            # Validate project name
+            if not name or not name.strip():
+                raise ValueError("Project name cannot be empty")
+            if not _NAME_REGEX.match(name):
+                raise ValueError(
+                    f"Invalid project name '{name}': must contain only alphanumeric characters, underscores, and hyphens"
+                )
+
+            await self._ensure_initialized()
+
+            async def _get_or_create(file_path: Path) -> tuple[str, Project]:
+                try:
+                    content = await read_file_content(file_path)
+                except OSError as e:
+                    raise OSError(f"Failed to read config file {file_path}: {e}") from e
+
+                try:
+                    data = yaml.safe_load(content)
+                except yaml.YAMLError as e:
+                    raise yaml.YAMLError(f"Invalid YAML in config file {file_path}: {e}") from e
+
+                projects = data.get("projects", {})
+                original_data = yaml.dump(data)
+
+                # Early legacy detection
+                if self._is_legacy_format(projects):
+                    result = await self._migrate_and_load_project(name, file_path, data)
+                else:
+                    # Hash-based project resolution for non-legacy projects
+                    with contextlib.suppress(ValueError, RuntimeError):
+                        current_path = await resolve_project_path()
+                        current_hash = calculate_project_hash(current_path)
+                        expected_key = generate_project_key(name, current_hash)
+
+                        # First try exact key match (most efficient)
+                        if expected_key in projects:
+                            project_data = projects[expected_key]
+                            project_data_copy = dict(project_data)
+                            project_data_copy["key"] = expected_key
+                            return expected_key, Project(**project_data_copy)
+
+                        # Then try hash-based matching for projects with same name
+                        for key, project_data in projects.items():
+                            project_name = project_data.get("name", extract_name_from_key(key))
+                            project_hash = project_data.get("hash")
+                            if project_name == name and project_hash == current_hash:
+                                project_data_copy = dict(project_data)
+                                project_data_copy["key"] = key
+                                return key, Project(**project_data_copy)
+
+                    # Optimized non-legacy loading (name-only fallback)
+                    result = await self._load_existing_project(name, projects, file_path, data)
+
+                # Write back if data was modified
+                if yaml.dump(data) != original_data:
+                    try:
+                        await AsyncPath(file_path).write_text(yaml.dump(data))
+                    except OSError as e:
+                        raise OSError(f"Failed to write config file {file_path}: {e}") from e
+
+                return result
+
+            return await lock_update(self.config_file, _get_or_create)
+
+        async def _migrate_and_load_project(
+            self, name: str, file_path: Path, data: dict[str, Any]
+        ) -> tuple[str, Project]:
+            """Handle legacy project migration once."""
+            projects = data.get("projects", {})
+
+            # Find and migrate legacy project
+            for key, project_data in projects.items():
+                project_name = project_data.get("name", extract_name_from_key(key))
+                if project_name == name:
+                    # Calculate hash and create new key
+                    try:
+                        current_path = await resolve_project_path()
+                    except ValueError:
+                        current_path = str(file_path.parent.resolve())
+
+                    project_hash = calculate_project_hash(current_path)
+                    new_key = generate_project_key(name, project_hash)
+
+                    # Update project data
+                    project_data["hash"] = project_hash
+                    projects[new_key] = project_data
+                    if new_key != key:
+                        del projects[key]
+
+                    # Update data structure - file write handled by caller's lock_update
+                    data["projects"] = projects
+
+                    project_data_copy = dict(project_data)
+                    project_data_copy["key"] = new_key
+                    return new_key, Project(**project_data_copy)
+
+            # Create new project if not found
+            return await self._create_new_project(name, file_path, data)
+
+        async def _load_existing_project(
+            self, name: str, projects: dict[str, Any], file_path: Path, data: dict[str, Any]
+        ) -> tuple[str, Project]:
+            """Load existing non-legacy project."""
+            # Search for project by display name
+            for key, project_data in projects.items():
+                project_name = project_data.get("name", extract_name_from_key(key))
+                if project_name == name:
+                    try:
+                        project_data_copy = dict(project_data)
+                        project_data_copy["key"] = key
+                        return key, Project(**project_data_copy)
+                    except Exception as e:
+                        raise ValueError(f"Invalid project data for '{name}' in {file_path}: {e}") from e
+
+            # Create a new project if not found
+            return await self._create_new_project(name, file_path, data)
+
+        async def _create_new_project(self, name: str, file_path: Path, data: dict[str, Any]) -> tuple[str, Project]:
+            """Create a new project with hash."""
+            # Calculate hash for the current project path
+            try:
+                current_path = await resolve_project_path()
+            except (ValueError, RuntimeError):
+                current_path = str(file_path.parent.resolve())
+
+            project_hash = calculate_project_hash(current_path)
+            project_key = generate_project_key(name, project_hash)
+            project = Project(name=name, key=project_key, hash=project_hash)
+
+            projects = data.get("projects", {})
+            projects[project_key] = self._project_to_dict(project)
+            data["projects"] = projects
+
+            # Data structure updated - file write handled by caller's lock_update
+            return project_key, project
+
+        # Add other ConfigManager methods here (abbreviated for space)
+        async def get_all_project_configs(self) -> dict[str, Project]:
+            """Get all project configurations as a snapshot."""
+            await self._ensure_initialized()
+
+            async def _read_all_projects(file_path: Path) -> dict[str, Project]:
+                try:
+                    content = await read_file_content(file_path)
+                except OSError as e:
+                    raise OSError(f"Failed to read config file {file_path}: {e}") from e
+
+                try:
+                    data = yaml.safe_load(content) or {}
+                except yaml.YAMLError as e:
+                    raise yaml.YAMLError(f"Invalid YAML in config file {file_path}: {e}") from e
+
+                projects_data = data.get("projects", {})
+                projects: dict[str, Project] = {}
+
+                for project_key, project_data in projects_data.items():
+                    try:
+                        name = extract_name_from_key(project_key)
+                        project_data_copy = dict(project_data)
+                        project_data_copy["name"] = name
+                        project_data_copy["key"] = project_key
+                        projects[project_key] = Project(**project_data_copy)
+                    except Exception as e:
+                        raise ValueError(f"Invalid project data for '{project_key}': {e}") from e
+
+                return projects
+
+            return await lock_update(self.config_file, _read_all_projects)
+
+        async def save_project_config(self, project_key: str, project: Project) -> None:
+            """Save project config using provided project key."""
+            await self._ensure_initialized()
+
+            async def _save(file_path: Path) -> None:
+                try:
+                    content = await read_file_content(file_path)
+                except OSError as e:
+                    raise OSError(f"Failed to read config file {file_path}: {e}") from e
+
+                try:
+                    data = yaml.safe_load(content)
+                except yaml.YAMLError as e:
+                    raise yaml.YAMLError(f"Invalid YAML in config file {file_path}: {e}") from e
+
+                projects = data.get("projects", {})
+                projects[project_key] = self._project_to_dict(project)
+                data["projects"] = projects
+
+                try:
+                    await AsyncPath(file_path).write_text(yaml.dump(data))
+                except OSError as e:
+                    raise OSError(f"Failed to write config file {file_path}: {e}") from e
+
+            await lock_update(self.config_file, _save)
+
+    def __init__(self, project_name: str, *, _config_dir_for_tests: Optional[str] = None):
+        """Initialise a new session with the project name and optional test config directory."""
         from mcp_guide.validation import InvalidProjectNameError
 
-        if not self.project_name or not self.project_name.strip():
+        if not project_name or not project_name.strip():
             raise InvalidProjectNameError("Project name cannot be empty")
-        if not _NAME_REGEX.match(self.project_name):
+        if not _NAME_REGEX.match(project_name):
             raise InvalidProjectNameError(
-                f"Project name '{self.project_name}' must contain only alphanumeric characters, underscores, and hyphens"
+                f"Project name '{project_name}' must contain only alphanumeric characters, underscores, and hyphens"
             )
 
-        # Setup config file watcher
-        self._setup_config_watcher()
+        self.project_name = project_name
+        self._project_key: Optional[str] = None  # Track project key with hash
+        self._state = SessionState()
+        self._listeners: list["SessionListener"] = []
+        self._config_watcher: Optional[ConfigWatcher] = None
+        self._watcher_task: Optional["asyncio.Task[None]"] = None
+        self.__project: Optional[Project] = None
+
+        # Initialize config manager with test directory if provided
+        if _config_dir_for_tests is not None:
+            self._get_config_manager(_config_dir_for_tests)
 
     def _setup_config_watcher(self) -> None:
         """Setup config file watcher for automatic reload on external changes."""
         try:
-            config_file_path = str(self._config_manager.config_file)
-            self._config_watcher = ConfigWatcher(
-                config_path=config_file_path, callback=self._on_config_file_changed, poll_interval=1.0
-            )
-            # Watcher will be started lazily when first accessed
-            self._watcher_task = None
-            self._watcher_lock = asyncio.Lock()
-        except asyncio.InvalidStateError as e:
-            logger.debug(f"Could not setup config watcher for {self.project_name}: {e}")
-        except (PermissionError, OSError, AttributeError) as e:
-            logger.warning(f"System error setting up config watcher for {self.project_name}: {e}")
+            # Wait for ConfigManager to be initialized
+            async def _setup_watcher() -> None:
+                config_manager = self._get_config_manager()
+                if config_manager:
+                    await config_manager._ensure_initialized()
+                    config_file_path = str(config_manager.config_file)
+                    self._config_watcher = ConfigWatcher(
+                        config_path=config_file_path, callback=self._on_config_file_changed, poll_interval=1.0
+                    )
+                    self._watcher_task = None
+                    self._watcher_lock = asyncio.Lock()
+
+            asyncio.create_task(_setup_watcher())
+        except (asyncio.InvalidStateError, OSError, AttributeError) as e:
+            logger.warning(f"Could not setup config watcher for {self.project_name}: {e}")
         except Exception as e:
             logger.error(f"Unexpected error setting up config watcher for {self.project_name}: {e}")
-            # Re-raise unexpected errors for proper debugging
             raise
 
     async def _ensure_watcher_started(self) -> None:
         """Ensure config watcher is started."""
-        if self._config_watcher:
+        if self._config_watcher and hasattr(self, "_watcher_lock"):
             async with self._watcher_lock:
                 if self._watcher_task is None or self._watcher_task.done():
                     self._watcher_task = asyncio.create_task(self._config_watcher.start())
 
     def _on_config_file_changed(self, file_path: str) -> None:
         """Handle config file changes by invalidating cache and notifying sessions."""
-        if self._cached_project is None:
+        if self.__project is None:
             return  # Already invalidated
 
         logger.warning(f"Configuration file changed externally: {file_path} - reloading session {self.project_name}")
 
-        # Invalidate cached project
-        self._cached_project = None
+        # Invalidate cached project and project key
+        self.__project = None
+        self._project_key = None
 
         # Notify all listeners of the change
         self._notify_listeners()
@@ -125,184 +475,120 @@ class Session:
             self._config_watcher = None
 
     async def get_project(self) -> Project:
-        """Get project configuration (lazy loaded and cached).
-
-        Returns:
-            Project configuration
-
-        Note:
-            The project config is loaded on first access and cached.
-            Subsequent calls return the cached value.
-            Use update_config() to modify and persist changes.
-        """
+        """Get project configuration and track project key."""
         await self._ensure_watcher_started()
-        if self._cached_project is None:
-            self._cached_project = await self._config_manager.get_or_create_project_config(self.project_name)
-        return self._cached_project
+        if self.__project is None:
+            config_manager = self._get_config_manager()
+            await config_manager._ensure_initialized()
+
+            project_key, project_data = await config_manager.get_or_create_project_config(self.project_name)
+            self._project_key = project_key
+            self.__project = project_data
+        return self.__project
 
     def has_current_session(self) -> bool:
         """Check if session has a current project loaded."""
-        return self._cached_project is not None
+        return self.__project is not None
 
     def is_watching_config(self) -> bool:
         """Check if session is actively watching config file changes."""
         return self._config_watcher is not None
 
     async def update_config(self, updater: Callable[[Project], Project]) -> None:
-        """Update project config using functional pattern.
-
-        Args:
-            updater: Function that takes current Project and returns updated Project
-
-        Note:
-            The updater function receives the current project config and must
-            return a new Project instance (immutable pattern).
-            The new config is saved to disk and the cache is updated.
-        """
+        """Update project config using functional pattern."""
         project = await self.get_project()
         updated_project = updater(project)
-        await self._config_manager.save_project_config(updated_project)
-        self._cached_project = updated_project
+
+        if self._project_key is None:
+            raise ValueError("Project key not available - call get_project() first")
+
+        config_manager = self._get_config_manager()
+        await config_manager.save_project_config(self._project_key, updated_project)
+        self.__project = updated_project
 
     def get_state(self) -> SessionState:
         """Get mutable session state."""
         return self._state
 
     async def get_docroot(self) -> str:
-        """Get document root path for the project.
-
-        Returns:
-            Absolute path to the document root directory
-        """
-        return await self._config_manager.get_docroot()
+        """Get document root path for the project."""
+        config_manager = self._get_config_manager()
+        await config_manager._ensure_initialized()
+        return await config_manager.get_docroot()
 
     async def get_all_projects(self) -> dict[str, Project]:
-        """Get all project configurations atomically.
-
-        Returns:
-            Dictionary mapping project names to Project objects
-
-        Note:
-            This is a read-only operation that returns all projects at a point in time.
-            Uses file locking to ensure consistency.
-        """
-        return await self._config_manager.get_all_project_configs()
+        """Get all project configurations atomically."""
+        config_manager = self._get_config_manager()
+        await config_manager._ensure_initialized()
+        return await config_manager.get_all_project_configs()
 
     async def save_project(self, project: Project) -> None:
-        """Save project configuration to disk.
+        """Save project configuration using tracked project key."""
+        if self._project_key is None:
+            raise ValueError("Project key not available - call get_project() first")
 
-        Args:
-            project: Project configuration to save
-
-        Note:
-            This operation is atomic and async-safe due to file locking.
-            If saving the current project, cache is NOT automatically invalidated.
-        """
-        await self._config_manager.save_project_config(project)
+        config_manager = self._get_config_manager()
+        await config_manager._ensure_initialized()
+        await config_manager.save_project_config(self._project_key, project)
 
     def invalidate_cache(self) -> None:
-        """Invalidate the cached project configuration.
+        """Invalidate the cached project configuration."""
+        self.__project = None
+        self._project_key = None
 
-        Forces the next call to get_project() to reload from disk.
-        Use this when the project configuration has been modified externally.
-        """
-        self._cached_project = None
+        # Setup config file watcher
+        self._setup_config_watcher()
+
+    async def get_feature_flags(self) -> dict[str, Any]:
+        """Get global feature flags."""
+        config_manager = self._get_config_manager()
+        return await config_manager.get_feature_flags()
+
+    async def set_feature_flag(self, flag_name: str, value: Any) -> None:
+        """Set a global feature flag."""
+        config_manager = self._get_config_manager()
+        await config_manager.set_feature_flag(flag_name, value)
+
+    async def remove_feature_flag(self, flag_name: str) -> None:
+        """Remove a global feature flag."""
+        config_manager = self._get_config_manager()
+        await config_manager.remove_feature_flag(flag_name)
 
     def feature_flags(self) -> "FeatureFlags":
-        """Get global feature flags proxy.
+        """Get feature flags proxy."""
+        from mcp_guide.feature_flags.feature_flags import FeatureFlags
 
-        Returns:
-            GlobalFlags implementation for global flags
-        """
-        from mcp_guide.feature_flags.global_flags import GlobalFlags
-
-        return GlobalFlags(self._config_manager)
+        return FeatureFlags(self)
 
     def project_flags(self, project: Optional[str] = None) -> "FeatureFlags":
-        """Get project feature flags proxy.
-
-        Args:
-            project: Project name (ignored - always uses current session project)
-
-        Returns:
-            ProjectFlags implementation for current project flags
-        """
+        """Get project feature flags proxy."""
         from mcp_guide.feature_flags.project_flags import ProjectFlags
 
         return ProjectFlags(self)
+
+    @staticmethod
+    async def get_project_config(name: str) -> Project:
+        """Get project configuration by name.
+
+        Args:
+            name: Project name
+
+        Returns:
+            Project configuration
+        """
+        config_manager = Session._get_config_manager()
+        _, project = await config_manager.get_or_create_project_config(name)
+        return project
 
 
 # ContextVar for async task-local session tracking
 active_sessions: ContextVar[dict[str, Session]] = ContextVar("active_sessions")
 
 
-async def resolve_project_by_name(project_name: str, config_manager: ConfigManager) -> str:
-    """Resolve project configuration key by display name or project key.
-
-    Args:
-        project_name: Display name or project key
-        config_manager: Configuration manager for project lookup
-
-    Returns:
-        Project display name (for consistency with existing code)
-
-    Note:
-        This function handles both display names and project keys.
-        If project_name is a project key, uses it directly.
-        If project_name is a display name with multiple matches, uses current path hash to select.
-        If no matching project exists, the name is returned as-is for creation.
-    """
-    try:
-        # Get all projects to check what we're dealing with
-        all_projects = await config_manager.get_all_project_configs()
-
-        # Check if it's an exact key match (hash-suffixed key)
-        if project_name in all_projects:
-            # If it's a hash-suffixed key, use it directly
-            from mcp_guide.utils.project_hash import extract_name_from_key
-
-            if project_name != extract_name_from_key(project_name):
-                # This is a hash-suffixed key, use it
-                return all_projects[project_name].name
-
-        # Find by display name
-        matching_projects = [proj for proj in all_projects.values() if proj.name == project_name]
-
-        if len(matching_projects) == 0:
-            # No existing project, return name for creation
-            return project_name
-        elif len(matching_projects) == 1:
-            # Single match, use it
-            return project_name
-        else:
-            # Multiple matches, verify hash
-            try:
-                current_path = await resolve_project_path()
-                from mcp_guide.utils.project_hash import calculate_project_hash
-
-                current_hash = calculate_project_hash(current_path)
-
-                # Find project with matching hash
-                for project in matching_projects:
-                    if project.hash == current_hash:
-                        return project_name
-
-                # No hash match, return name for new project creation
-                return project_name
-
-            except ValueError:
-                # Cannot determine current path, use first match
-                return project_name
-
-    except (ValueError, OSError) as e:
-        # Log the error but fallback to original name for robustness
-        logger.warning(f"Project resolution failed: {e}")
-        return project_name
-
-
 async def get_or_create_session(
     ctx: Optional["Context"] = None,  # type: ignore[type-arg]
     project_name: Optional[str] = None,
+    *,
     _config_dir_for_tests: Optional[str] = None,
 ) -> Session:
     """Get or create session for project.
@@ -310,40 +596,28 @@ async def get_or_create_session(
     Args:
         ctx: Optional MCP Context (for roots detection)
         project_name: Optional explicit project name (for set_project calls)
-        _config_dir_for_tests: Optional config directory for test isolation (internal use only)
+        _config_dir_for_tests: Optional config directory for test isolation (keyword-only)
 
     Returns:
         Session for the project
 
     Raises:
         ValueError: If project name cannot be determined
-
-    Note:
-        - If project_name provided: use it directly
-        - Else: detect from ctx (checks roots on every call)
-        - Creates new session if none exists or project changed
-        - Session.get_project() loads full Project from config
     """
     # Determine project name
     if project_name is None:
         # Cache MCP globals if context provided
         if ctx:
-            from mcp_guide.mcp_context import cache_mcp_globals
-
             await cache_mcp_globals(ctx)
         project_name = await resolve_project_name()
 
-    # Resolve project with hash verification
-    config_manager = ConfigManager(config_dir=_config_dir_for_tests)
-    resolved_project_name = await resolve_project_by_name(project_name, config_manager)
-
     # Check if session already exists for this project
-    existing_session = get_current_session(resolved_project_name)
+    existing_session = get_current_session(project_name)
     if existing_session is not None:
         return existing_session
 
     # Create new session
-    session = Session(_config_manager=config_manager, project_name=resolved_project_name)
+    session = Session(project_name, _config_dir_for_tests=_config_dir_for_tests)
 
     # Register template context cache as listener
     from mcp_guide.utils.template_context_cache import template_context_cache
@@ -380,10 +654,10 @@ def get_current_session(project_name: Optional[str] = None) -> Optional[Session]
 
 
 def set_current_session(session: Session) -> None:
-    """Set current session in ContextVar.
+    """Set the current session in ContextVar.
 
     Args:
-        session: Session to store in current async context
+        session: Session to store in the current async context
 
     Note:
         Creates a copy of the session dict to avoid mutating parent context.
@@ -406,10 +680,10 @@ async def remove_current_session(project_name: str) -> None:
 
 
 async def set_project(project_name: str, ctx: Optional["Context"] = None) -> Result[Project]:  # type: ignore[type-arg]
-    """Set/load project by name.
+    """Set/load a project by name.
 
     Args:
-        project_name: Name of project to set/load
+        project_name: Name of the project to set/load
         ctx: Optional MCP Context for roots detection
 
     Returns:
@@ -482,117 +756,3 @@ async def list_all_projects(session: "Session", verbose: bool = False) -> Result
     except Exception as e:
         logger.exception("Unexpected error listing projects")
         return Result.failure(f"Error listing projects: {e}", error_type="unexpected_error")
-
-
-async def resolve_project_name_to_key(name: str, config_manager: "ConfigManager") -> tuple[str, str]:
-    """Resolve a project name (display name or key) to the actual project key.
-
-    Args:
-        name: Either a display name or a project key
-        config_manager: Configuration manager instance
-
-    Returns:
-        Tuple of (project_key, display_name)
-
-    Raises:
-        ValueError: If project not found or name is ambiguous
-    """
-    all_projects = await config_manager.get_all_project_configs()
-
-    # First, check if it's an exact key match
-    if name in all_projects:
-        return name, all_projects[name].name
-
-    # If not a key, try to find by display name
-    matching_projects = [(key, proj) for key, proj in all_projects.items() if proj.name == name]
-
-    if not matching_projects:
-        raise ValueError(f"Project '{name}' not found")
-    elif len(matching_projects) == 1:
-        key, project = matching_projects[0]
-        return key, project.name
-    else:
-        # Multiple projects with same display name - user must specify the key
-        keys = [key for key, _ in matching_projects]
-        raise ValueError(
-            f"Multiple projects found with name '{name}'. Please specify the project key: {', '.join(keys)}"
-        )
-
-
-async def get_project_info(
-    name: Optional[str] = None, verbose: bool = False, session: Optional["Session"] = None
-) -> Result[dict[str, Any]]:
-    """Get information about a specific project by name.
-
-    This is a read-only operation that retrieves project data without side effects.
-
-    Args:
-        name: Project name to retrieve. If None, uses current project.
-        verbose: If True, include full details; if False, basic info only
-        session: Session for flag resolution (optional)
-
-    Returns:
-        Result with project data or error:
-        - ERROR_NO_PROJECT if no current project and name not provided
-        - ERROR_NOT_FOUND if specified project doesn't exist
-    """
-    from mcp_guide.models import format_project_data
-    from mcp_guide.result_constants import (
-        ERROR_INVALID_NAME,
-        ERROR_NO_PROJECT,
-        ERROR_NOT_FOUND,
-        INSTRUCTION_NO_PROJECT,
-        INSTRUCTION_NOTFOUND_ERROR,
-    )
-
-    # Get config manager from session if available, otherwise create default
-    if session is not None:
-        config_manager = session._config_manager
-    else:
-        config_manager = ConfigManager()
-
-    try:
-        # Default to current project if no name provided
-        if name is None:
-            # Get current project from session
-            try:
-                if session is None:
-                    session = await get_or_create_session(None)
-                project = await session.get_project()
-                name = project.name
-            except ValueError:
-                # No current project set
-                return Result.failure(
-                    "No current project set. Please specify a project name.",
-                    error_type=ERROR_NO_PROJECT,
-                    instruction=INSTRUCTION_NO_PROJECT,
-                )
-        elif session is None and verbose:
-            # Create session for flag resolution in verbose mode
-            with contextlib.suppress(Exception):
-                session = await get_or_create_session(None)
-        # Get all projects in one atomic read
-        all_projects = await config_manager.get_all_project_configs()
-
-        # Resolve the project name to a key
-        try:
-            project_key, display_name = await resolve_project_name_to_key(name, config_manager)
-        except ValueError as e:
-            return Result.failure(
-                str(e),
-                error_type=ERROR_NOT_FOUND,
-                instruction=INSTRUCTION_NOTFOUND_ERROR,
-            )
-
-        # Format and return the requested project
-        project_data = await format_project_data(all_projects[project_key], verbose=verbose, session=session)
-        # Include project name in response for single project operations
-        project_data["project"] = display_name
-        return Result.ok(project_data)
-    except OSError as e:
-        return Result.failure(f"Failed to read project configuration: {e}", error_type="config_read_error")
-    except ValueError as e:
-        return Result.failure(str(e), error_type=ERROR_INVALID_NAME)
-    except Exception as e:
-        logger.exception("Unexpected error getting project info")
-        return Result.failure(f"Error retrieving project: {e}", error_type="unexpected_error")

@@ -5,8 +5,8 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 import mcp_guide.session
-from mcp_guide.config import ConfigManager
 from mcp_guide.session import (
+    Session,
     get_or_create_session,
     set_project,
 )
@@ -18,9 +18,13 @@ class TestSetProject:
     @pytest.mark.asyncio
     async def test_set_project_creates_and_loads(self, tmp_path, monkeypatch):
         """set_project creates/loads project successfully."""
-        monkeypatch.setattr(
-            "mcp_guide.session.ConfigManager", lambda config_dir=None: ConfigManager(config_dir=str(tmp_path))
-        )
+        # Mock the session creation to use test directory
+        original_session_init = Session.__init__
+
+        def mock_session_init(self, project_name, *, _config_dir_for_tests=None):
+            return original_session_init(self, project_name, _config_dir_for_tests=str(tmp_path))
+
+        monkeypatch.setattr(Session, "__init__", mock_session_init)
 
         result = await set_project("new-project")
 
@@ -32,9 +36,13 @@ class TestSetProject:
         """set_project returns error for invalid project name."""
         from mcp_guide.result_constants import ERROR_INVALID_NAME
 
-        monkeypatch.setattr(
-            "mcp_guide.session.ConfigManager", lambda config_dir=None: ConfigManager(config_dir=str(tmp_path))
-        )
+        # Mock the session creation to use test directory
+        original_session_init = Session.__init__
+
+        def mock_session_init(self, project_name, *, _config_dir_for_tests=None):
+            return original_session_init(self, project_name, _config_dir_for_tests=str(tmp_path))
+
+        monkeypatch.setattr(Session, "__init__", mock_session_init)
 
         result = await set_project("invalid@name")
 
@@ -48,9 +56,13 @@ class TestGetOrCreateSession:
     @pytest.mark.asyncio
     async def test_creates_session_with_explicit_name(self, tmp_path, monkeypatch):
         """Creates session when explicit project_name provided."""
-        monkeypatch.setattr(
-            "mcp_guide.session.ConfigManager", lambda config_dir=None: ConfigManager(config_dir=str(tmp_path))
-        )
+        # Mock the session creation to use test directory
+        original_session_init = Session.__init__
+
+        def mock_session_init(self, project_name, *, _config_dir_for_tests=None):
+            return original_session_init(self, project_name, _config_dir_for_tests=str(tmp_path))
+
+        monkeypatch.setattr(Session, "__init__", mock_session_init)
 
         session = await get_or_create_session(project_name="explicit-project", _config_dir_for_tests=str(tmp_path))
         assert session.project_name == "explicit-project"
@@ -58,9 +70,13 @@ class TestGetOrCreateSession:
     @pytest.mark.asyncio
     async def test_creates_session_from_context(self, tmp_path, monkeypatch):
         """Creates session by detecting name from context."""
-        monkeypatch.setattr(
-            "mcp_guide.session.ConfigManager", lambda config_dir=None: ConfigManager(config_dir=str(tmp_path))
-        )
+        # Mock the session creation to use test directory
+        original_session_init = Session.__init__
+
+        def mock_session_init(self, project_name, *, _config_dir_for_tests=None):
+            return original_session_init(self, project_name, _config_dir_for_tests=str(tmp_path))
+
+        monkeypatch.setattr(Session, "__init__", mock_session_init)
 
         mock_ctx = MagicMock()
         mock_root = MagicMock()
@@ -73,9 +89,13 @@ class TestGetOrCreateSession:
     @pytest.mark.asyncio
     async def test_returns_existing_session(self, tmp_path, monkeypatch):
         """Returns existing session if already created."""
-        monkeypatch.setattr(
-            "mcp_guide.session.ConfigManager", lambda config_dir=None: ConfigManager(config_dir=str(tmp_path))
-        )
+        # Mock the session creation to use test directory
+        original_session_init = Session.__init__
+
+        def mock_session_init(self, project_name, *, _config_dir_for_tests=None):
+            return original_session_init(self, project_name, _config_dir_for_tests=str(tmp_path))
+
+        monkeypatch.setattr(Session, "__init__", mock_session_init)
 
         session1 = await get_or_create_session(project_name="same-project")
         session2 = await get_or_create_session(project_name="same-project")
@@ -85,9 +105,13 @@ class TestGetOrCreateSession:
     @pytest.mark.asyncio
     async def test_creates_different_sessions_for_different_projects(self, tmp_path, monkeypatch):
         """Creates separate sessions for different projects."""
-        monkeypatch.setattr(
-            "mcp_guide.session.ConfigManager", lambda config_dir=None: ConfigManager(config_dir=str(tmp_path))
-        )
+        # Mock the session creation to use test directory
+        original_session_init = Session.__init__
+
+        def mock_session_init(self, project_name, *, _config_dir_for_tests=None):
+            return original_session_init(self, project_name, _config_dir_for_tests=str(tmp_path))
+
+        monkeypatch.setattr(Session, "__init__", mock_session_init)
 
         session1 = await get_or_create_session(project_name="project1")
         session2 = await get_or_create_session(project_name="project2")

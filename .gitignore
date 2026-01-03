@@ -197,7 +197,7 @@ q.json
 # Project configuration
 q.chat
 q.json
-.guide
+.guide*
 .*_cache
 
 .hook_log

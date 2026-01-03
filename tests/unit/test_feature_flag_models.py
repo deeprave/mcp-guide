@@ -16,7 +16,7 @@ class TestProjectFeatureFlags:
 
     def test_project_flags_default_empty_dict(self):
         """Test that project_flags defaults to empty dict."""
-        project = Project(name="test", categories={}, collections={})
+        project = Project(name="test")
         assert project.project_flags == {}
         assert isinstance(project.project_flags, dict)
 
@@ -28,5 +28,5 @@ class TestProjectFeatureFlags:
             "list_flag": ["x", "y"],
             "dict_flag": {"project": "value"},
         }
-        project = Project(name="test", categories={}, collections={}, project_flags=project_flags)
+        project = Project(name="test", project_flags=project_flags)
         assert project.project_flags == project_flags
