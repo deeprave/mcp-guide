@@ -7,15 +7,6 @@ PHASE_IMPLEMENTATION = "implementation"
 PHASE_CHECK = "check"
 PHASE_REVIEW = "review"
 
-# Valid phase names for validation
-VALID_PHASES = {
-    PHASE_DISCUSSION,
-    PHASE_PLANNING,
-    PHASE_IMPLEMENTATION,
-    PHASE_CHECK,
-    PHASE_REVIEW,
-}
-
 # Default workflow file
 DEFAULT_WORKFLOW_FILE = ".guide.yaml"
 
