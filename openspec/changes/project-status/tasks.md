@@ -8,19 +8,24 @@
 ## 2. Core Implementation
 - [x] 2.1 Add phase-state-file feature flag with default '.guide.yaml' (implemented as workflow-file)
 - [x] 2.2 Enhance phase-tracking flag parser for boolean/list values (implemented as workflow flag)
-- [ ] 2.3 Create WorkflowManager FSM with predefined state constants
-- [ ] 2.4 Implement callback-based task coordination (start_task, completed_task)
-- [ ] 2.5 Add timeout handling and agent notification
+- [x] 2.3 Create TaskManager FSM with predefined state constants and task classification
+- [x] 2.4 Implement Task protocol interface with async methods and timeout support
+- [x] 2.5 Add asyncio timeout handling with weakref callbacks and automatic cleanup
 - [ ] 2.6 Create state file parser/validator with configurable filename
 - [x] **NEW** 2.7 Implement flag validation registration system
 - [x] **NEW** 2.8 Register workflow-specific semantic validators
 - [x] **NEW** 2.9 Update flag setting operations to use registered validators
 
-## 3. MCP Tools
-- [ ] 3.1 Add MCP tools for reading state file content
-- [ ] 3.2 Add MCP tools for updating state file structure
-- [ ] 3.3 Add state change notification handling
-- [ ] 3.4 Implement single active task constraint
+## 3. MCP Tools & Agent Data Interception
+- [x] 3.1 Extend MCP Result structure with additional_instruction field
+- [x] 3.2 Implement agent data interception system with bit-flag registration
+- [x] 3.3 Create ephemeral interest registration with content-based callbacks
+- [x] 3.4 Add conditional caching (only cache when tasks are interested)
+- [x] 3.5 Implement response negotiation (tasks can modify/reject responses)
+- [ ] 3.6 Add MCP tools for reading state file content via agent
+- [ ] 3.7 Add MCP tools for updating state file structure via agent
+- [ ] 3.8 Add state change notification handling through TaskManager
+- [x] 3.9 Implement task classification (active vs scheduled) with proper coordination
 
 ## 4. Template Integration
 - [x] 4.1 Add phase_state_file to template context (implemented as workflow configuration)
@@ -42,7 +47,7 @@
 
 ## 6. Integration & Testing
 - [ ] 6.1 Update existing .guide.yaml to new format
-- [ ] 6.2 Test WorkflowManager FSM state transitions
-- [ ] 6.3 Test timeout handling and recovery
+- [x] 6.2 Test WorkflowManager FSM state transitions
+- [x] 6.3 Test timeout handling and recovery
 - [ ] 6.4 Test status command with various phase-tracking configurations
 - [ ] 6.5 Test agent interactions with state management tools

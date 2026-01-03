@@ -19,6 +19,9 @@ logger = get_logger(__name__)
 # Internal test mode control - not exposed to external manipulation
 _test_mode: ContextVar[bool] = ContextVar("tool_test_mode", default=False)
 
+# Global TaskManager instance for result processing
+_task_manager: Optional[Any] = None
+
 
 @cache
 def get_tool_prefix() -> str:
@@ -40,6 +43,37 @@ def enable_test_mode() -> None:
 def disable_test_mode() -> None:
     """Disable test mode."""
     _test_mode.set(False)
+
+
+def set_task_manager(task_manager: Any) -> None:
+    """Set the global TaskManager instance for result processing."""
+    global _task_manager
+    _task_manager = task_manager
+
+
+def _process_tool_result(result: Any, tool_name: str) -> Any:
+    """Process tool result through TaskManager and convert to JSON."""
+    from mcp_core.result import Result
+
+    # If result is already a JSON string, return as-is
+    if isinstance(result, str):
+        return result
+
+    # If result is a Result object, process it
+    if isinstance(result, Result):
+        # Process through TaskManager if available
+        if _task_manager is not None:
+            try:
+                result = _task_manager.process_result(result)
+                logger.trace(f"Tool {tool_name} result processed through TaskManager", extra={"result": result})
+            except Exception as e:
+                logger.error(f"TaskManager processing failed for tool {tool_name}: {e}")
+
+        # Convert to JSON string
+        return result.to_json_str()
+
+    # For other types, return as-is (shouldn't happen in normal operation)
+    return result
 
 
 class ExtMcpToolDecorator:
@@ -106,7 +140,7 @@ class ExtMcpToolDecorator:
                             # FastMCP validates and constructs args, we just pass it through
                             result = await func(args, ctx)
                             logger.debug(f"Tool {tool_name} completed successfully")
-                            return result
+                            return _process_tool_result(result, tool_name)
                         except Exception as e:
                             # Defense-in-depth: catch validation errors that might slip through
                             from pydantic import ValidationError as PydanticValidationError
@@ -128,7 +162,7 @@ class ExtMcpToolDecorator:
                                 )
                                 error_result.error_data = {"validation_errors": error_details}
                                 logger.error(f"Tool {tool_name} argument validation failed: {error_details}")
-                                return error_result.to_json_str()
+                                return _process_tool_result(error_result, tool_name)
 
                             logger.error(f"Tool {tool_name} failed: {e}")
                             raise
@@ -140,7 +174,7 @@ class ExtMcpToolDecorator:
                         try:
                             result = await func(ctx=ctx)
                             logger.debug(f"Tool {tool_name} completed successfully")
-                            return result
+                            return _process_tool_result(result, tool_name)
                         except Exception as e:
                             logger.error(f"Tool {tool_name} failed: {e}")
                             raise
@@ -159,11 +193,12 @@ class ExtMcpToolDecorator:
                     # Return error result immediately
                     from mcp_core.result import Result
 
-                    return Result.failure(
+                    error_result: Result[Any] = Result.failure(
                         "Tool implementation error: synchronous tools are not supported. "
                         "All MCP tools must be async to handle Context parameter.",
                         error_type="sync_tool_not_supported",
-                    ).to_json_str()
+                    )
+                    return _process_tool_result(error_result, tool_name)
 
                 wrapped = sync_wrapper
 
