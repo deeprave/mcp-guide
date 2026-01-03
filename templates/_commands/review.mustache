@@ -8,7 +8,7 @@ instruction: >
   Use the use_subagent tool with command 'InvokeSubagents' and content containing a subagent with agent_name 'guide-review'.
   Query:
    'Perform a code review of  project changes.
-    Read the .guide file to understand the current issue context, then use get_content("code-review") to access review guidelines.
+    Read the `.guide.yaml` file to understand the current issue context, then use get_content("code-review") to access review guidelines.
     Analyze recent changes and create or update the review artifact following the established format and relevant_context.'
   This is a code review request for the current project.
   Use this information to create an appropriately named review document in the .todo/ directory with the format "<issue-name>-review.md".
@@ -18,7 +18,7 @@ instruction: >
 Delegating comprehensive code review to the {{b}}guide-review{{b}} agent.
 
 The review agent will:
-- Read the `.guide` file to understand the current issue context
+- Read the `.guide.yaml` file to understand the current issue context
 - Load code review guidelines from the "code-review" collection
 - Analyze recent changes in the context of the current issue
 - Create or update the review artifact in `.todo/` directory
