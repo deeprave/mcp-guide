@@ -1,18 +1,18 @@
 # Change: Project Status Tracking
 
 ## Why
-The `:status` command currently shows minimal information and doesn't reflect the actual project workflow state. We need a formalized way to track project phases and issue queues through the `.guide` file, making the development workflow visible to both users and agents.
+The `:status` command currently shows minimal information and doesn't reflect the actual project workflow state. We need a formalized way to track project phases and issue queues, making the development workflow visible to both users and agents.
 
 ## What Changes
-- Formalize `.guide` file format as structured YAML
-- Add project status capability to track phases and issue queues
-- Update `:status` command to show real workflow information
-- Add MCP tools for agents to read and manage `.guide` file
-- Make status display conditional on `phase-tracking` project flag
+This change is split into multiple sub-specifications for manageable implementation:
+
+1. **workflow-flags**: Rename and enhance project flags for workflow management
+2. **workflow-context**: Add workflow variables to template context
+3. **workflow-fsm**: Implement WorkflowManager FSM for agent coordination
+4. **workflow-templates**: Add frontmatter conditional rendering
+5. **workflow-monitoring**: Add automatic state file monitoring
 
 ## Impact
-- Affected specs: New `project-status` capability
-- Affected code:
-  - `templates/_commands/status.mustache` - Enhanced status display
-  - New MCP tools for `.guide` file management
-  - Template context for status information
+- Affected specs: Multiple new workflow-related capabilities
+- Affected code: Template system, MCP tools, project flags, status display
+- Breaking changes: Flag names changed from `phase-*` to `workflow-*`

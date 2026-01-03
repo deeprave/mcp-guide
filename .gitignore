@@ -197,8 +197,8 @@ q.json
 # Project configuration
 q.chat
 q.json
-.guide*
 .*_cache
+.guide*
 
 .hook_log
 .amazonq
