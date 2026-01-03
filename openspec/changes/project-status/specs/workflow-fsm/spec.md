@@ -1,50 +1,84 @@
 ## ADDED Requirements
 
-### Requirement: WorkflowManager State Machine
-The system SHALL provide a WorkflowManager FSM for coordinating agent communication with callback-based task handling.
+### Requirement: TaskManager State Machine
+The system SHALL provide a TaskManager FSM for coordinating agent communication with callback-based task handling.
 
 #### Scenario: Single active task constraint
-- **WHEN** a task is already active
-- **THEN** reject new task requests until current task completes
+- **WHEN** an active task is already running
+- **THEN** reject new active task requests until current task completes
 
-#### Scenario: Task initiation with callback
-- **WHEN** starting a new task via `start_task(callback)`
-- **THEN** transition to appropriate state and return agent instructions
+#### Scenario: Scheduled task management
+- **WHEN** an active task is running
+- **THEN** pause all scheduled tasks until active task completes
+
+#### Scenario: Task initiation with protocol
+- **WHEN** starting a new task via TaskManager.register_task()
+- **THEN** immediately call task.task_start() and set up timeout handling
 
 #### Scenario: Task completion handling
 - **WHEN** agent responds via MCP tools
-- **THEN** invoke callback with received content to determine next state
+- **THEN** invoke task.response() method to determine next state
 
-#### Scenario: Task timeout handling
-- **WHEN** task exceeds timeout period
-- **THEN** notify agent and reset to idle state
+#### Scenario: Asyncio timeout handling
+- **WHEN** task exceeds its configured timeout period
+- **THEN** call task.timeout_expired() and clean up timeout coroutine
+
+#### Scenario: Early task completion
+- **WHEN** task completes before timeout expires
+- **THEN** cancel the timeout coroutine and clean up resources
+
+### Requirement: Task Protocol Interface
+The system SHALL define a Task protocol for standardized task lifecycle management.
+
+#### Scenario: Task protocol methods
+- **WHEN** implementing a Task
+- **THEN** provide async methods: task_start, response, timeout_expired, completed
+
+#### Scenario: Task timeout configuration
+- **WHEN** creating a Task
+- **THEN** optionally set timeout attribute for automatic timeout handling
+
+#### Scenario: Task state management
+- **WHEN** Task methods are called
+- **THEN** return tuple of (next_state, optional_instruction) for coordination
+
+### Requirement: MCP Result Enhancement
+The system SHALL extend MCP Result objects to support side-band agent communication.
+
+#### Scenario: Additional instruction field
+- **WHEN** returning MCP tool results
+- **THEN** optionally include additional_instruction field for agent requests
+
+#### Scenario: Side-band communication
+- **WHEN** TaskManager needs to request agent action
+- **THEN** piggyback instruction onto next MCP tool response
 
 ### Requirement: Agent Communication Tools
-The system SHALL provide MCP tools for agents to send workflow state information.
+The system SHALL provide MCP tools for agents to send workflow state information with task interception.
 
-#### Scenario: Agent sends file information
-- **WHEN** agent requests information about workflow file path
-- **THEN** provide tools to send file metadata (mtime, size, existence)
+#### Scenario: Agent sends file information with interception
+- **WHEN** agent sends file metadata via MCP tools
+- **THEN** route through TaskManager for interested task processing
 
-#### Scenario: Agent sends file content
-- **WHEN** agent requests workflow file content
-- **THEN** provide tools to send file content via MCP
+#### Scenario: Agent sends file content with interception
+- **WHEN** agent sends file content via MCP tools
+- **THEN** allow interested tasks to process and potentially modify response
 
-#### Scenario: Agent updates workflow state
-- **WHEN** agent needs to modify workflow state file
-- **THEN** provide tools to safely update workflow structure
+#### Scenario: Agent updates workflow state with validation
+- **WHEN** agent attempts to modify workflow state file
+- **THEN** validate through interested tasks before accepting changes
 
-### Requirement: Minimal User Interaction
-The system SHALL minimize user interaction for workflow state monitoring.
+### Requirement: Generic Task Coordination
+The system SHALL provide TaskManager as a generic coordination system not tied to workflow.
 
-#### Scenario: Automatic state monitoring
+#### Scenario: Reusable task management
+- **WHEN** implementing coordination for any feature
+- **THEN** use TaskManager for consistent task lifecycle management
+
+#### Scenario: Workflow integration
 - **WHEN** workflow tracking is enabled
-- **THEN** automatically request state updates from agent with minimal user prompts
+- **THEN** use TaskManager for workflow-specific task coordination
 
-#### Scenario: Guide prompt integration
-- **WHEN** guide prompt is available
-- **THEN** include workflow monitoring instructions in guide content
-
-#### Scenario: Proactive state requests
-- **WHEN** workflow operations are needed
-- **THEN** issue agent instructions through available channels with minimal user interaction
+#### Scenario: Future extensibility
+- **WHEN** implementing openspec integration or other coordination needs
+- **THEN** reuse TaskManager infrastructure

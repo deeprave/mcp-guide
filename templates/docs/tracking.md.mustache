@@ -14,6 +14,7 @@ instruction:
 ```
 phase: [discussion|planning|implementation|check|review]
 issue: <issue>
+tracking: <tracker> <tracker-id>
 description: <optional description>
 queue:
   - <one or more issues>
@@ -24,6 +25,9 @@ queue:
 - The issue line must contain the current issue being worked on, if known. It may be one of:
   - the unique-id of an openspec issue
   - the relative path of the current issue discussion, summary, implementation plan or checklist.
+- the tracking item is optional, but when used contains:
+  <tracker>    method of tracking be used; e.g. YouTrack, JIRA, Trello, Redmine, Asana etc.
+  <tracker-id> the id for that tracker; e.g. JIRA, YT issue id PK-12345 etc.
 - the description line is optional and may be used to indict sub-phases or additional information and context.
 - the queue item may contain one or more additional issues, in order of prioarity, if there are any.
   The queue item prepresents a job queue.
@@ -38,7 +42,7 @@ queue:
 **PHASE TRANSITION CONSENT**
 
 Transitions between phases occur when:
- - DISCUSsION is the default state when the file .guide.yaml does not exist at the project root.
+ - DISCUSSION is the default state when the file .guide.yaml does not exist at the project root.
  - Transition to PLANNING phase is automatic once a plan artifact has been drafted and is available for review
  - **EXPLICIT CONSENT** is required to transition to IMPLEMENTATION. **NO EXCEPTIONS**
  - Once the implementation plan has been fully completed, auto-transition to CHECK phase and commence tests
