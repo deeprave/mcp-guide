@@ -1,6 +1,6 @@
 """Tests for feature flag validation functions."""
 
-from mcp_guide.feature_flags.validation import validate_flag_name, validate_flag_value
+from mcp_guide.feature_flags.validators import validate_flag_name, validate_flag_value
 
 
 class TestFlagNameValidation:

@@ -250,8 +250,8 @@ class TemplateContextCache(SessionListener):
                     workflow_file = substitute_variables(
                         workflow_file_flag,
                         project_name=project.name,
-                        project_key=project.name,  # Use name as key for now
-                        project_hash=str(hash(project.name))[:8] if project.name else None,
+                        project_key=project.key,
+                        project_hash=project.hash,
                     )
                     workflow_config["file"] = workflow_file
         except Exception as e:

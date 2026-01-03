@@ -3,6 +3,8 @@
 from dataclasses import dataclass
 from typing import List, Optional, Union
 
+from mcp_guide.feature_flags.types import WORKFLOW_FILE_FLAG, WORKFLOW_FLAG, FeatureValue
+from mcp_guide.feature_flags.validators import register_flag_validator
 from mcp_guide.filesystem.read_write_security import ReadWriteSecurityPolicy, SecurityError
 from mcp_guide.workflow.constants import DEFAULT_WORKFLOW_PHASES, VALID_PHASES
 
@@ -126,3 +128,32 @@ def validate_workflow_file_path(workflow_file: str, allowed_write_paths: List[st
     except (TypeError, ValueError) as e:
         # ReadWriteSecurityPolicy constructor validation errors
         raise ValueError(f"workflow-file flag validation failed due to configuration error: {e}") from e
+
+
+def _validate_workflow_flag(value: FeatureValue, is_project: bool) -> bool:
+    """Validate workflow flag value with semantic checks."""
+    if not isinstance(value, (bool, list)):
+        return False
+
+    if isinstance(value, bool):
+        return True
+
+    if isinstance(value, list):
+        return all(isinstance(phase, str) and validate_phase_name(phase) for phase in value)
+
+    return False
+
+
+def _validate_workflow_file_flag(value: FeatureValue, is_project: bool) -> bool:
+    """Validate workflow-file flag value."""
+    if not isinstance(value, str) or not value.strip():
+        return False
+
+    # Basic validation - detailed security validation happens at use time
+    # when we have access to project's allowed_write_paths
+    return True
+
+
+# Register validators at module import
+register_flag_validator(WORKFLOW_FLAG, _validate_workflow_flag)
+register_flag_validator(WORKFLOW_FILE_FLAG, _validate_workflow_file_flag)

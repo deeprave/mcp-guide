@@ -9,7 +9,7 @@ from pydantic import Field
 from mcp_core.tool_arguments import ToolArguments
 from mcp_guide.feature_flags.resolution import resolve_flag
 from mcp_guide.feature_flags.types import FeatureValue
-from mcp_guide.feature_flags.validation import validate_flag_name, validate_flag_value
+from mcp_guide.feature_flags.validators import validate_flag_name, validate_flag_value
 from mcp_guide.result import Result
 from mcp_guide.result_constants import (
     ERROR_NO_PROJECT,

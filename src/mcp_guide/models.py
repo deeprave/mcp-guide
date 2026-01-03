@@ -297,7 +297,7 @@ class Project:
     @field_validator("project_flags")
     @classmethod
     def validate_project_flags(cls, v: dict[str, FeatureValue]) -> dict[str, FeatureValue]:
-        from mcp_guide.feature_flags.validation import validate_flag_name, validate_flag_value
+        from mcp_guide.feature_flags.validators import validate_flag_name, validate_flag_value
 
         for flag_name, flag_value in v.items():
             if not validate_flag_name(flag_name):
@@ -365,7 +365,7 @@ class GlobalConfig:
     @field_validator("feature_flags")
     @classmethod
     def validate_feature_flags(cls, v: dict[str, FeatureValue]) -> dict[str, FeatureValue]:
-        from mcp_guide.feature_flags.validation import validate_flag_name, validate_flag_value
+        from mcp_guide.feature_flags.validators import validate_flag_name, validate_flag_value
 
         for flag_name, flag_value in v.items():
             if not validate_flag_name(flag_name):

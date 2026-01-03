@@ -6,12 +6,15 @@
 - [ ] 1.5 Define MCP tool interfaces for state management
 
 ## 2. Core Implementation
-- [ ] 2.1 Add phase-state-file feature flag with default '.guide.yaml'
-- [ ] 2.2 Enhance phase-tracking flag parser for boolean/list values
+- [x] 2.1 Add phase-state-file feature flag with default '.guide.yaml' (implemented as workflow-file)
+- [x] 2.2 Enhance phase-tracking flag parser for boolean/list values (implemented as workflow flag)
 - [ ] 2.3 Create WorkflowManager FSM with predefined state constants
 - [ ] 2.4 Implement callback-based task coordination (start_task, completed_task)
 - [ ] 2.5 Add timeout handling and agent notification
 - [ ] 2.6 Create state file parser/validator with configurable filename
+- [x] **NEW** 2.7 Implement flag validation registration system
+- [x] **NEW** 2.8 Register workflow-specific semantic validators
+- [x] **NEW** 2.9 Update flag setting operations to use registered validators
 
 ## 3. MCP Tools
 - [ ] 3.1 Add MCP tools for reading state file content
@@ -20,7 +23,7 @@
 - [ ] 3.4 Implement single active task constraint
 
 ## 4. Template Integration
-- [ ] 4.1 Add phase_state_file to template context
+- [x] 4.1 Add phase_state_file to template context (implemented as workflow configuration)
 - [ ] 4.2 Update status template to show workflow information
 - [ ] 4.3 Make status display conditional on phase-tracking configuration
 - [ ] 4.4 Add phase-specific instruction inclusion
@@ -29,10 +32,10 @@
 - [ ] 4.7 Add template suppression when requirements not met
 
 ## 5. Security & Validation
-- [ ] 5.1 Enforce state file location within allowed write paths
-- [ ] 5.2 Add upfront validation before any agent requests
-- [ ] 5.3 Return clear error messages for invalid phase-state-file flag
-- [ ] 5.4 Validate state file path resolution security
+- [x] 5.1 Enforce state file location within allowed write paths (implemented in workflow flags)
+- [x] 5.2 Add upfront validation before any agent requests (implemented via flag validators)
+- [x] 5.3 Return clear error messages for invalid phase-state-file flag (implemented as ValidationError)
+- [x] 5.4 Validate state file path resolution security (implemented in workflow file validation)
 - [ ] 5.5 Implement automatic state file change detection
 - [ ] 5.6 Add proactive agent notification for state changes
 - [ ] 5.7 Handle state file monitoring without sampling support
