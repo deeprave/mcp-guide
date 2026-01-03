@@ -4,7 +4,10 @@ import inspect
 import os
 from contextvars import ContextVar
 from functools import cache, wraps
-from typing import Any, Callable, Coroutine, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Coroutine, Optional, Union
+
+if TYPE_CHECKING:
+    from mcp_guide.task_manager import TaskManager
 
 from mcp_core.mcp_log import get_logger
 from mcp_guide.result_constants import INSTRUCTION_VALIDATION_ERROR
@@ -20,7 +23,7 @@ logger = get_logger(__name__)
 _test_mode: ContextVar[bool] = ContextVar("tool_test_mode", default=False)
 
 # Global TaskManager instance for result processing
-_task_manager: Optional[Any] = None
+_task_manager: Optional["TaskManager"] = None
 
 
 @cache
@@ -45,8 +48,12 @@ def disable_test_mode() -> None:
     _test_mode.set(False)
 
 
-def set_task_manager(task_manager: Any) -> None:
-    """Set the global TaskManager instance for result processing."""
+def set_task_manager(task_manager: Optional["TaskManager"]) -> None:
+    """Set the global TaskManager instance for result processing.
+
+    Args:
+        task_manager: TaskManager instance or None to clear
+    """
     global _task_manager
     _task_manager = task_manager
 

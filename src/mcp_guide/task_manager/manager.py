@@ -57,7 +57,8 @@ class TaskManager:
                 self._active_task = task
                 await self._pause_scheduled_tasks()
             elif task.task_type == TaskType.SCHEDULED:
-                self._scheduled_tasks.append(task)
+                if task not in self._scheduled_tasks:
+                    self._scheduled_tasks.append(task)
         elif new_state == TaskState.COMPLETED:
             await self._handle_task_completion(task)
         elif new_state == TaskState.IDLE:
@@ -74,6 +75,13 @@ class TaskManager:
 
         # Process the completion state
         if state == TaskState.IDLE:
+            if task == self._active_task:
+                self._active_task = None
+                await self._resume_scheduled_tasks()
+            elif task in self._scheduled_tasks:
+                self._scheduled_tasks.remove(task)
+        elif state == TaskState.COMPLETED:
+            # Handle COMPLETED state same as IDLE for task cleanup
             if task == self._active_task:
                 self._active_task = None
                 await self._resume_scheduled_tasks()
@@ -122,8 +130,12 @@ class TaskManager:
         if not self._pending_instructions:
             return result
 
-        # Get the next pending instruction
+        # Get the next pending instruction (FIFO)
         instruction = self._pending_instructions.pop(0)
+
+        # Only set additional_instruction if not already set
+        if result.additional_instruction is not None:
+            return result  # Don't overwrite existing additional_instruction
 
         # Create new result with additional instruction
         from mcp_core.result import Result
