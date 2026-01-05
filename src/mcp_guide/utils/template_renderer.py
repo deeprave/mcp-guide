@@ -114,12 +114,17 @@ async def render_template_content(
 
                         # Load partial content using base directory
                         try:
+                            # Build context for frontmatter requirements checking
+                            context_dict = dict(render_context) if render_context else {}
+
                             if base_dir:
-                                partial_content = await load_partial_content(full_include_path, base_dir)
+                                partial_content = await load_partial_content(full_include_path, base_dir, context_dict)
                             else:
                                 # Fallback to file path parent if no base_dir provided
                                 file_parent = Path(file_path).parent if file_path != "<template>" else Path.cwd()
-                                partial_content = await load_partial_content(full_include_path, file_parent)
+                                partial_content = await load_partial_content(
+                                    full_include_path, file_parent, context_dict
+                                )
 
                             processed_partials[partial_name] = partial_content
                             logger.trace(f"Loaded partial '{partial_name}' from {include_path}")

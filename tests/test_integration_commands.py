@@ -41,7 +41,7 @@ optional_kwargs: [verbose]
 ---
 Test command executed successfully!
 {{#kwargs.verbose}}Verbose mode enabled.{{/kwargs.verbose}}
-{{#args}}{{.}} {{/args}}
+{{#args}}{{value}} {{/args}}
 """)
 
         return commands_dir
@@ -247,7 +247,7 @@ optional_args: []
 required_kwargs: [type]
 optional_kwargs: []
 ---
-Hello {{args.0}}, type: {{kwargs.type}}
+Hello {{args.0.value}}, type: {{kwargs.type}}
 """)
 
         with (

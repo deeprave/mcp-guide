@@ -20,6 +20,7 @@ class TaskManager:
         self._pending_instructions: List[str] = []
         self._active_task: Optional[Task] = None
         self._scheduled_tasks: List[Task] = []
+        self._cache: Dict[str, Any] = {}  # Keyed storage for task data
 
     async def register_task(self, task: Task) -> None:
         """Register and start a task."""
@@ -175,3 +176,15 @@ class TaskManager:
         """Resume all scheduled tasks."""
         for task in self._scheduled_tasks:
             await task.resume()
+
+    def get_cached_data(self, key: str) -> Any:
+        """Get cached data by key."""
+        return self._cache.get(key)
+
+    def set_cached_data(self, key: str, value: Any) -> None:
+        """Set cached data by key."""
+        self._cache[key] = value
+
+    def clear_cached_data(self, key: str) -> None:
+        """Clear cached data by key."""
+        self._cache.pop(key, None)

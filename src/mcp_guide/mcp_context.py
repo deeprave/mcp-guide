@@ -19,6 +19,32 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
+def instrument_mcp_context_for_responses(ctx: Any) -> None:
+    """Instrument MCP context to process responses for additional instructions.
+
+    Args:
+        ctx: MCP Context to instrument
+    """
+    try:
+        from mcp_guide.response_processor import create_instrumented_sample_function
+
+        # Check if context has sample method and it's not already instrumented
+        if hasattr(ctx, "sample") and not hasattr(ctx.sample, "_instrumented"):
+            original_sample = ctx.sample
+            # Note: TaskManager will be resolved at runtime when needed
+            instrumented_sample = create_instrumented_sample_function(original_sample, None)
+
+            # Mark as instrumented to avoid double-wrapping
+            instrumented_sample._instrumented = True  # type: ignore
+
+            # Replace the sample method
+            ctx.sample = instrumented_sample
+            logger.debug("MCP context instrumented for response processing")
+
+    except Exception as e:
+        logger.debug(f"Failed to instrument MCP context: {e}")
+
+
 @dataclass
 class CachedMcpContext:
     """Comprehensive MCP context cache."""
@@ -49,6 +75,9 @@ async def cache_mcp_globals(ctx: Optional["Context"] = None) -> bool:  # type: i
     from time import time
 
     from mcp_guide.agent_detection import detect_agent
+
+    # Instrument context for response processing
+    instrument_mcp_context_for_responses(ctx)
 
     # Initialize variables for comprehensive context
     roots = []

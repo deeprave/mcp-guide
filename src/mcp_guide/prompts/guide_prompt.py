@@ -10,7 +10,8 @@ from anyio import Path as AsyncPath
 from mcp_core.mcp_log import get_logger
 from mcp_guide.result import Result
 from mcp_guide.session import get_or_create_session
-from mcp_guide.utils.template_context import TemplateContext
+from mcp_guide.utils.command_formatting import format_args_string
+from mcp_guide.utils.template_context import TemplateContext, convert_lists_to_indexed
 
 logger = get_logger(__name__)
 
@@ -171,8 +172,9 @@ def _build_command_context(
     commands: list[dict[str, Any]],
 ) -> Any:
     """Build template context for command execution."""
+
     # Use kwargs directly without underscore manipulation
-    template_kwargs = kwargs.copy()
+    template_kwargs = convert_lists_to_indexed(kwargs.copy())
 
     # Group commands by category dynamically, filtering out underscore-prefixed commands
     categories: dict[str, list[dict[str, Any]]] = {}
@@ -196,16 +198,22 @@ def _build_command_context(
         }
         for category_name in sorted(categories.keys())
     )
+
+    args_string = format_args_string(args)
+
     return base_context.new_child(
-        {
-            "kwargs": template_kwargs,
-            "raw_kwargs": kwargs,
-            "args": args,
-            "command": {"name": command_path, "path": str(file_info.path)},
-            "executed_command": command_path,
-            "commands": commands,
-            "command_categories": command_categories,
-        }
+        convert_lists_to_indexed(
+            {
+                "kwargs": template_kwargs,
+                "raw_kwargs": kwargs,
+                "args": args,
+                "args_str": args_string,
+                "command": {"name": command_path, "path": str(file_info.path)},
+                "executed_command": command_path,
+                "commands": commands,
+                "command_categories": command_categories,
+            }
+        )
     )
 
 

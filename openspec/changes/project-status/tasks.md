@@ -29,21 +29,25 @@
 
 ## 4. Template Integration
 - [x] 4.1 Add phase_state_file to template context (implemented as workflow configuration)
-- [ ] 4.2 Update status template to show workflow information
-- [ ] 4.3 Make status display conditional on phase-tracking configuration
-- [ ] 4.4 Add phase-specific instruction inclusion
-- [ ] 4.5 Implement frontmatter conditional rendering for feature flags
-- [ ] 4.6 Add frontmatter phase requirement matching (requires-phase-tracking)
-- [ ] 4.7 Add template suppression when requirements not met
+- [x] 4.2 Implement workflow state monitoring and caching system
+- [x] 4.3 Create separate workflow context with independent lifecycle
+- [x] 4.4 Add workflow template variables (workflow.phase, workflow.issue, etc.)
+- [x] 4.5 Implement agent instruction system with _workflow directory
+- [x] 4.6 Extend response processing for global additional_instruction injection
+- [x] 4.7 Enhance partial support with frontmatter conditions
+- [x] 4.8 Update status template to show workflow information conditionally
+- [x] 4.9 Integrate workflow commands into existing command templates
+- [x] 4.10 Make workflow commands configuration-aware and state-sensitive
 
 ## 5. Security & Validation
 - [x] 5.1 Enforce state file location within allowed write paths (implemented in workflow flags)
 - [x] 5.2 Add upfront validation before any agent requests (implemented via flag validators)
 - [x] 5.3 Return clear error messages for invalid phase-state-file flag (implemented as ValidationError)
 - [x] 5.4 Validate state file path resolution security (implemented in workflow file validation)
-- [ ] 5.5 Implement automatic state file change detection
-- [ ] 5.6 Add proactive agent notification for state changes
-- [ ] 5.7 Handle state file monitoring without sampling support
+- [x] 5.5 Implement workflow state file change detection and monitoring
+- [x] 5.6 Add proactive agent notification system for state changes
+- [x] 5.7 Validate workflow instruction templates and frontmatter processing
+- [x] 5.8 Ensure secure access to _workflow instruction directory
 
 ## 6. Integration & Testing
 - [ ] 6.1 Update existing .guide.yaml to new format

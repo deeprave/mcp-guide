@@ -22,6 +22,42 @@ from mcp_guide.result_constants import (
 logger = get_logger(__name__)
 
 
+def check_frontmatter_requirements(frontmatter: Dict[str, Any], context: Dict[str, Any]) -> bool:
+    """Check if frontmatter requirements are satisfied by context.
+
+    Args:
+        frontmatter: Parsed frontmatter dictionary
+        context: Context dictionary (e.g., project flags, workflow state)
+
+    Returns:
+        True if requirements are satisfied, False if content should be suppressed
+    """
+    for key, required_value in frontmatter.items():
+        if not key.startswith("requires-"):
+            continue
+
+        flag_name = key[9:]  # Remove "requires-" prefix
+
+        # Get actual value from context
+        actual_value = context.get(flag_name)
+
+        # Handle different requirement types
+        if isinstance(required_value, bool):
+            # Simple boolean requirement
+            if bool(actual_value) != required_value:
+                return False
+        elif isinstance(required_value, list):
+            # Must match one of the values in list
+            if actual_value not in required_value:
+                return False
+        else:
+            # Exact match requirement
+            if actual_value != required_value:
+                return False
+
+    return True
+
+
 @dataclass
 class Content:
     """Represents parsed content with frontmatter."""

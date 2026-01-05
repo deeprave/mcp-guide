@@ -24,14 +24,14 @@ Help for command: {{.}}
 | Command | Description |
 |---------|-------------|
 {{#commands}}
-| `{{@}}guide :{{name}}`{{#aliases}} (:{{.}}){{/aliases}} | {{description}} |
+| `{{@}}guide :{{name}}`{{#aliases}} (:`{{value}}`){{/aliases}} | {{description}} |
 {{/commands}}
 
 {{/kwargs.table}}
 {{^kwargs.table}}
 {{h2}}{{title}}
 {{#commands}}
-- `{{@}}guide :{{name}}` {{#aliases}}(:{{.}}){{/aliases}} - {{description}}
+- `{{@}}guide :{{name}}` {{#aliases}}{{#first}}({{/first}}:`{{value}}`{{#last}}){{/last}}{{^last}}, {{/last}}{{/aliases}} - {{description}}
 {{/commands}}
 
 {{/kwargs.table}}

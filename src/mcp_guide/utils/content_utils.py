@@ -2,7 +2,7 @@
 
 import re
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 from mcp_core.file_reader import read_file_content
 from mcp_guide.result import Result
@@ -127,11 +127,23 @@ async def read_and_render_file_contents(
     Returns:
         List of error messages for files that failed to read or render
     """
+    from mcp_guide.utils.frontmatter import check_frontmatter_requirements
+
     file_read_errors: list[str] = []
 
     # Check if any files are templates to avoid unnecessary context validation
     has_templates = template_context is not None and any(is_template_file(f) for f in files)
 
+    # Build context for requirements checking
+    requirements_context: dict[str, Any] = {}
+    if template_context:
+        # Add project flags to context
+        if hasattr(template_context, "project") and template_context.project:
+            project_flags = getattr(template_context.project, "project_flags", {})
+            requirements_context.update(project_flags)
+
+    # Filter files based on frontmatter requirements
+    filtered_files = []
     for file_info in files:
         try:
             # Resolve file path with security validation
@@ -142,9 +154,22 @@ async def read_and_render_file_contents(
             parsed = parse_content_with_frontmatter(raw_content)
             metadata = parsed.frontmatter
             content = parsed.content
+
+            # Check frontmatter requirements - skip file if not satisfied
+            if metadata and not check_frontmatter_requirements(metadata, requirements_context):
+                continue  # Skip this file entirely
+
             file_info.content = content
             file_info.frontmatter = metadata
+            filtered_files.append(file_info)
 
+        except Exception as e:
+            file_read_errors.append(f"Failed to read {file_info.path}: {e}")
+            continue
+
+    # Process filtered files for template rendering
+    for file_info in filtered_files:
+        try:
             # Render templates if context provided and file is a template
             if has_templates and is_template_file(file_info):
                 # Enhanced validation of template context
@@ -183,6 +208,10 @@ async def read_and_render_file_contents(
         except (FileNotFoundError, PermissionError, UnicodeDecodeError) as e:
             error_path = f"{category_prefix}/{file_info.name}" if category_prefix else file_info.name
             file_read_errors.append(f"'{error_path}': {e}")
+
+    # Update the original files list to only contain filtered files
+    files.clear()
+    files.extend(filtered_files)
 
     return file_read_errors
 

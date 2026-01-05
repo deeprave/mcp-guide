@@ -1,0 +1,24 @@
+---
+type: agent/instruction
+description: Initial workflow monitoring setup
+requires-workflow: true
+---
+# Workflow Monitoring Active
+
+Workflow tracking is enabled for this project.
+
+## State File
+- **Location**: `{{workflow.file}}`
+- **Current Phase**: {{workflow.phase}}
+
+## Your Role
+- Monitor the workflow state file for changes
+- Send file content when it's modified
+- Follow phase-specific rules and permissions
+- Use `get_content("docs/tracking")` for detailed workflow guidance
+
+## File Change Detection
+When `{{workflow.file}}` is modified:
+1. Read the updated content
+2. Send it using appropriate filesystem tools
+3. Follow any phase transition instructions

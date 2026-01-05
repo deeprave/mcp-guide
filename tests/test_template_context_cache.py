@@ -252,7 +252,7 @@ class TestTemplateContextCache:
             assert "category" in context
             assert context["category"]["name"] == "docs"
             assert context["category"]["dir"] == "./docs"
-            assert context["category"]["patterns"] == ["*.md"]
+            assert context["category"]["patterns"][0]["value"] == "*.md"
 
     async def test_build_category_context_handles_missing_category(self) -> None:
         """Test that _build_category_context handles missing category gracefully."""

@@ -1,0 +1,23 @@
+---
+type: agent/instruction
+description: Workflow state file format and monitoring setup
+requires-workflow: true
+---
+# Workflow State File Setup
+
+**File**: `{{workflow.file}}`
+
+## Format
+```yaml
+phase: [discussion|planning|implementation|check|review]
+issue: <current-issue-id>
+tracking: <tracker> <tracker-id>
+description: <optional-context>
+queue:
+  - <queued-issues>
+```
+
+## Instructions
+- Update this file whenever workflow state changes
+- Send file content using filesystem tools when modified
+- Ensure phase transitions follow project workflow rules
