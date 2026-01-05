@@ -1,0 +1,18 @@
+---
+type: agent/instruction
+description: Workflow phase transition notification
+requires-workflow: true
+---
+# Phase Changed: {{workflow.phase}}
+
+{{#workflow.issue}}**Current Issue**: {{workflow.issue}}{{/workflow.issue}}
+{{#workflow.description}}**Context**: {{workflow.description}}{{/workflow.description}}
+
+## Phase Rules
+Use `get_content("docs/tracking")` to review current phase permissions and transition requirements.
+
+## Next Steps
+{{#workflow.queue}}
+**Queued Issues**: {{#workflow.queue}}{{.}}{{^last}}, {{/last}}{{/workflow.queue}}
+{{/workflow.queue}}
+{{^workflow.queue}}No queued issues.{{/workflow.queue}}

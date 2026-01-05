@@ -19,15 +19,56 @@ logger = get_logger(__name__)
 _SOFT_DELETE_SENTINEL = object()
 
 
+def convert_lists_to_indexed(obj: Any) -> Any:
+    """Recursively convert lists to IndexedList for both iteration and indexed access."""
+    if isinstance(obj, list):
+        return IndexedList([convert_lists_to_indexed(item) for item in obj])
+    elif isinstance(obj, dict):
+        return {k: convert_lists_to_indexed(v) for k, v in obj.items()}
+    else:
+        return obj
+
+
+class IndexedList(list[Any]):
+    """List that supports both iteration and indexed access via attributes."""
+
+    def __init__(self, items: Any) -> None:
+        super().__init__()
+        # Process items and add first/last flags
+        processed_items = []
+        for i, item in enumerate(items):
+            if isinstance(item, dict):
+                # Add first/last flags to dict items
+                enhanced_item = item.copy()
+                enhanced_item["first"] = i == 0
+                enhanced_item["last"] = i == len(items) - 1
+                processed_items.append(enhanced_item)
+            else:
+                # For non-dict items, wrap in a dict with the value and flags
+                processed_items.append({"value": item, "first": (i == 0), "last": (i == len(items) - 1)})
+
+        # Add to list
+        self.extend(processed_items)
+
+        # Add indexed access
+        for i, item in enumerate(processed_items):
+            setattr(self, str(i), item)
+        # Add length
+        setattr(self, "length", len(processed_items))
+
+
 class TemplateContext(ChainMap[str, Any]):
     """Type-safe template context extending ChainMap for scope chaining."""
 
     def __init__(self, *maps: dict[str, Any]) -> None:
         """Initialize TemplateContext with optional initial mappings."""
-        # Validate all keys in initial mappings
-        for mapping in maps:
+        # Convert lists to IndexedList in all mappings
+        converted_maps = [convert_lists_to_indexed(mapping) for mapping in maps]
+
+        # Validate all keys in converted mappings
+        for mapping in converted_maps:
             self._validate_mapping(mapping)
-        super().__init__(*maps)
+        super().__init__(*converted_maps)
 
     def _validate_mapping(self, mapping: dict[str, Any]) -> None:
         """Validate that all keys are strings."""

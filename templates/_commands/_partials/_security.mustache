@@ -1,12 +1,12 @@
-{{h3}}Read Folder Permissions
+{{h3}}Read Permissions
 {{#read_paths}}
-- {{.}}
+- {{value}}
 {{/read_paths}}
 {{^read_paths}}
 - {{client_working_dir}}
 {{/read_paths}}
 
-{{h3}}Write Folder Permissions
+{{h3}}Write Permissions
 {{#project.allowed_write_paths}}
-- {{.}}
+- {{value}}
 {{/project.allowed_write_paths}}

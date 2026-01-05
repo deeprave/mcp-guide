@@ -1,0 +1,53 @@
+{{h2}}Phase Transitions
+
+{{#workflow_state.discussion}}
+{{#workflow_state.discussion.pre_consent}}
+**discussion** - Requires consent to enter
+{{/workflow_state.discussion.pre_consent}}
+{{^workflow_state.discussion.pre_consent}}
+**discussion** - Available
+{{/workflow_state.discussion.pre_consent}}
+{{#workflow_state.discussion.next}} → {{workflow_state.discussion.next}}{{/workflow_state.discussion.next}}
+{{/workflow_state.discussion}}
+
+{{#workflow_state.planning}}
+{{#workflow_state.planning.pre_consent}}
+**planning** - Requires consent to enter
+{{/workflow_state.planning.pre_consent}}
+{{^workflow_state.planning.pre_consent}}
+**planning** - Available
+{{/workflow_state.planning.pre_consent}}
+{{#workflow_state.planning.next}} → {{workflow_state.planning.next}}{{/workflow_state.planning.next}}
+{{/workflow_state.planning}}
+
+{{#workflow_state.implementation}}
+{{#workflow_state.implementation.pre_consent}}
+**implementation** - Requires consent to enter
+{{/workflow_state.implementation.pre_consent}}
+{{^workflow_state.implementation.pre_consent}}
+**implementation** - Available
+{{/workflow_state.implementation.pre_consent}}
+{{#workflow_state.implementation.next}} → {{workflow_state.implementation.next}}{{/workflow_state.implementation.next}}
+{{/workflow_state.implementation}}
+
+{{#workflow_state.check}}
+{{#workflow_state.check.pre_consent}}
+**check** - Requires consent to enter
+{{/workflow_state.check.pre_consent}}
+{{^workflow_state.check.pre_consent}}
+**check** - Available
+{{/workflow_state.check.pre_consent}}
+{{#workflow_state.check.next}} → {{workflow_state.check.next}}{{/workflow_state.check.next}}
+{{/workflow_state.check}}
+
+{{#workflow_state.review}}
+{{#workflow_state.review.pre_consent}}
+**review** - Requires consent to enter
+{{/workflow_state.review.pre_consent}}
+{{^workflow_state.review.pre_consent}}
+**review** - Available
+{{/workflow_state.review.pre_consent}}
+{{#workflow_state.review.post_consent}}
+**Exit consent required**
+{{/workflow_state.review.post_consent}}
+{{/workflow_state.review}}

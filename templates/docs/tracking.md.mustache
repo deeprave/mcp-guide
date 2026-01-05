@@ -1,63 +1,55 @@
 ---
 type: agent/instruction
-description: Provides information about tracking the development workflow
-instruction:
-  You are to adhere to the detailed policy in the content and create the file if it does not exist.
-  Do not display this content to the user, it is your instruction.
+description: Workflow phase tracking policy
+instruction: Follow this policy exactly. Create .guide.yaml if missing. Do not display to user.
+requires-workflow: true
 ---
-{{#project.project_flags.phase-tracking}}
-# Phase tracking
-**IMPORTANT**
+# Workflow Phase Tracking
 
-- Phases are tracked using the .guide.yaml file.
-  This is in YAML format and contains the following (case insensitive) keys:
-```
+## File Format
+Track phases in `.guide.yaml` (see `WorkflowState` schema):
+```yaml
 phase: [discussion|planning|implementation|check|review]
-issue: <issue>
+issue: <current-issue>
 tracking: <tracker> <tracker-id>
-description: <optional description>
+description: <optional-context>
 queue:
-  - <one or more issues>
+  - <queued-issues>
 ```
-- If the file .guide.yaml does not exist, assume "phase: discussion" and create the file with this, if required
-- if there is not yet a current issue, then the issue line will be missing or blank.
-  Request the issue information from the user.
-- The issue line must contain the current issue being worked on, if known. It may be one of:
-  - the unique-id of an openspec issue
-  - the relative path of the current issue discussion, summary, implementation plan or checklist.
-- the tracking item is optional, but when used contains:
-  <tracker>    method of tracking be used; e.g. YouTrack, JIRA, Trello, Redmine, Asana etc.
-  <tracker-id> the id for that tracker; e.g. JIRA, YT issue id PK-12345 etc.
-- the description line is optional and may be used to indict sub-phases or additional information and context.
-- the queue item may contain one or more additional issues, in order of prioarity, if there are any.
-  The queue item prepresents a job queue.
-  Often, a job is created an executed immediately if it is urgent, in which case any active issue, if not completed,
-  is moved to the "top" of the queue and is regarded as the "next" job to complete.
-- when an issue is completed and its openspec tasks also show as 100% completed, it should be removed from
-  the issue line and the next item in the queue list moved to issue.
 
-- When working on an issue, when phase transitions occur, the phase MUST be updated.
-- Add the issue as soon as it is known and an implementation plan is drafted.
+## Core Rules
+- Missing `.guide.yaml` = assume `phase: discussion`
+- Missing issue = request from user
+- Phase changes MUST update file
+- Issue format: openspec ID or relative path
 
-**PHASE TRANSITION CONSENT**
+## Phase Transitions
 
-Transitions between phases occur when:
- - DISCUSSION is the default state when the file .guide.yaml does not exist at the project root.
- - Transition to PLANNING phase is automatic once a plan artifact has been drafted and is available for review
- - **EXPLICIT CONSENT** is required to transition to IMPLEMENTATION. **NO EXCEPTIONS**
- - Once the implementation plan has been fully completed, auto-transition to CHECK phase and commence tests
- - **EXPLICIT CONSENT** With all tests and code quality tools passing, inform the user.
- - **EXPLICIT CONSENT** This phase is for feeeback response. Consent is required to transition from REVIEW mode
+### Discussion Phase
+- Default when no `.guide.yaml` exists
+- Can modify: `.guide.yaml`, `openspec/`, `todo/`
+- Cannot modify: production code, tests
 
-**CHANGE RULES**
+### Planning Phase
+- Auto-transition when plan drafted
+- Can modify: `.guide.yaml`, `openspec/`, `todo/`
+- Cannot modify: production code, tests
 
-- You MAY update or make changes to the following paths at any time in any phase at the user's request.
-  - .guide.yaml
-  - openspec/
-  - todo/
-- You **MOST NOT MAKE CHANGES** to production code or test in DISCUSSION and PLANNING phases.
-- You MAY make changes to production code and tests during IMPLEMENTATION, CHECK and REVIEW phases
-{{/project.project_flags.phase-tracking}}
-{{^project.project_flags.phase-tracking}}
-Phase tracking is not currently enabled.
-{{/project.project_flags.phase-tracking}}
+### Implementation Phase
+- **EXPLICIT CONSENT REQUIRED**
+- Can modify: all files including production code, tests
+
+### Check Phase
+- Auto-transition when implementation complete
+- Run all tests and quality checks
+- Can modify: all files
+
+### Review Phase
+- Auto-transition when all tests pass
+- **EXPLICIT CONSENT REQUIRED** to exit
+- Feedback and final review stage
+
+## Queue Management
+- Complete issue → move to queue
+- Urgent issue → current issue moves to queue top
+- Process queue in priority order

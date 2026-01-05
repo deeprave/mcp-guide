@@ -7,11 +7,11 @@ examples:
 instruction: >
   Use the use_subagent tool with command 'InvokeSubagents' and content containing a subagent with agent_name 'guide-review'.
   Query:
-   'Perform a code review of  project changes.
-    Read the `.guide.yaml` file to understand the current issue context, then use get_content("code-review") to access review guidelines.
-    Analyze recent changes and create or update the review artifact following the established format and relevant_context.'
+   'Perform a code review of project changes.
+    Read the {{workflow.file}} file to understand the current issue context, then use get_content("code-review") to access code review guidelines.
+    Analyse recent changes and create or update the review artifact following the established format and context.'
   This is a code review request for the current project.
-  Use this information to create an appropriately named review document in the .todo/ directory with the format "<issue-name>-review.md".
+  Use this information to create an appropriately named review document as `.todo/<issue-name>-review.md`.
 ---
 {{h1}}Code Review Delegation
 

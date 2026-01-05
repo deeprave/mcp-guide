@@ -1,0 +1,15 @@
+---
+type: agent/instruction
+aliases: ["phase"]
+description: "Transition to a specific workflow phase"
+usage: ":phase <phase-name>"
+category: "project-workflow"
+requires-workflow: true
+includes:
+  - "../_partials/workflow-status"
+  - "../_partials/phase-transitions"
+instruction: >
+  {{#args.0.value}}Update the phase field in {{workflow.file}} according to the instructions provided to `{{args.0.value}}`.{{/args.0.value}}{{^args.0.value}}Display the current value of the phase field in {{workflow.file}}.{{/args.0.value}}
+---
+{{>workflow-status}}
+{{>phase-transitions}}
