@@ -13,6 +13,6 @@ Use `get_content("docs/tracking")` to review current phase permissions and trans
 
 ## Next Steps
 {{#workflow.queue}}
-**Queued Issues**: {{#workflow.queue}}{{.}}{{^last}}, {{/last}}{{/workflow.queue}}
+**Queued Issues**: {{#workflow.queue}}{{value}}{{^last}}, {{/last}}{{/workflow.queue}}
 {{/workflow.queue}}
 {{^workflow.queue}}No queued issues.{{/workflow.queue}}

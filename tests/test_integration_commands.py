@@ -41,7 +41,8 @@ optional_kwargs: [verbose]
 ---
 Test command executed successfully!
 {{#kwargs.verbose}}Verbose mode enabled.{{/kwargs.verbose}}
-{{#args}}{{value}} {{/args}}
+Args: {{#args}}{{value}} {{/args}}
+Indexed args: {{#args}}{{#first}}FIRST: {{/first}}{{value}}{{^last}} {{/last}}{{#last}} LAST{{/last}}{{/args}}
 """)
 
         return commands_dir
@@ -90,13 +91,14 @@ Test command executed successfully!
             mock_context.return_value = TemplateContext({})
 
             # Test with flags and arguments
-            result_str = await guide(":test", "--verbose", "arg1", "arg2", ctx=mock_ctx)
+            result_str = await guide(":test", "--verbose", "arg1", "arg2", "arg3", ctx=mock_ctx)
             result = json.loads(result_str)
 
             assert result["success"] is True
             assert "Test command executed successfully!" in result["value"]
             assert "Verbose mode enabled." in result["value"]
-            assert "arg1 arg2" in result["value"]
+            assert "Args: arg1 arg2 arg3" in result["value"]
+            assert "Indexed args: FIRST: arg1 arg2 arg3 LAST" in result["value"]
 
     @pytest.mark.asyncio
     async def test_security_validation_integration(self, mock_ctx):
@@ -247,7 +249,9 @@ optional_args: []
 required_kwargs: [type]
 optional_kwargs: []
 ---
-Hello {{args.0.value}}, type: {{kwargs.type}}
+Indexed arg: {{args.0.value}}
+Iterated args: {{#args}}{{value}} {{/args}}
+Type: {{kwargs.type}}
 """)
 
         with (
@@ -267,7 +271,9 @@ Hello {{args.0.value}}, type: {{kwargs.type}}
             assert "missing required" in result["error"].lower()
 
             # Test with required arguments - should succeed
-            result_str = await guide(":strict", "--type=user", "John", ctx=mock_ctx)
+            result_str = await guide(":strict", "--type=user", "John", "Doe", ctx=mock_ctx)
             result = json.loads(result_str)
             assert result["success"] is True
-            assert "Hello John, type: user" in result["value"]
+            assert "Indexed arg: John" in result["value"]
+            assert "Iterated args: John Doe" in result["value"]
+            assert "Type: user" in result["value"]
