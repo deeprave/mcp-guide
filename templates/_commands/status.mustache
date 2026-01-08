@@ -7,8 +7,8 @@ includes:
 ---
 {{h1}}System Status
 
-{{b}}Agent:{{b}} {{#agent}}{{agent.name}}{{#agent.version}} v{{agent.version}}{{/agent.version}}{{/agent}}{{^agent}}Not detected{{/agent}}
-{{b}}Command Prefix:{{b}} {{#agent}}{{agent.prefix}}{{/agent}}{{^agent}}{{@}}{{/agent}}
-{{b}}Tool Prefix:{{b}} {{#tool_prefix}}{{tool_prefix}}{{/tool_prefix}}{{^tool_prefix}}None{{/tool_prefix}}
-{{b}}Project:{{b}} {{project.name}}
+{{b}}Agent:{{b}} `{{#agent}}{{agent.name}}{{#agent.version}} v{{agent.version}}{{/agent.version}}{{/agent}}{{^agent}}Not detected{{/agent}}`
+{{b}}Command Prefix:{{b}} `{{#agent}}{{agent.prefix}}{{/agent}}{{^agent}}{{@}}{{/agent}}`
+{{b}}Tool Prefix:{{b}} `{{#tool_prefix}}{{tool_prefix}}{{/tool_prefix}}{{^tool_prefix}}None{{/tool_prefix}}`
+{{b}}Project:{{b}} `{{project.name}}`
 {{#workflow}}{{>workflow-status}}{{/workflow}}

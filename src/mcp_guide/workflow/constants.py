@@ -10,6 +10,9 @@ PHASE_REVIEW = "review"
 # Default workflow file
 DEFAULT_WORKFLOW_FILE = ".guide.yaml"
 
+# Workflow directory name
+WORKFLOW_DIR = "_workflow"
+
 
 # Helper functions for transition control markers
 def require_entry_consent(phase: str) -> str:

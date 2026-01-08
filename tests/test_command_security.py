@@ -6,14 +6,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from mcp_guide.prompts.guide_prompt import guide
-
 
 class TestCommandSecurity:
     """Test command security validation."""
 
     @pytest.mark.asyncio
-    async def test_directory_traversal_prevention(self) -> None:
+    async def test_directory_traversal_prevention(self, guide_function) -> None:
         """Should prevent directory traversal attacks."""
         mock_ctx = MagicMock()
         mock_ctx.session.project_root = "/test/project"
@@ -29,14 +27,14 @@ class TestCommandSecurity:
         ]
 
         for dangerous_cmd in dangerous_commands:
-            result_str = await guide(dangerous_cmd, ctx=mock_ctx)
+            result_str = await guide_function(dangerous_cmd, ctx=mock_ctx)
             result = json.loads(result_str)
 
             assert result["success"] is False
             assert "security" in result["error"].lower() or "invalid" in result["error"].lower()
 
     @pytest.mark.asyncio
-    async def test_absolute_path_prevention(self) -> None:
+    async def test_absolute_path_prevention(self, guide_function) -> None:
         """Should prevent absolute path commands."""
         mock_ctx = MagicMock()
         mock_ctx.session.project_root = "/test/project"
@@ -49,14 +47,14 @@ class TestCommandSecurity:
         ]
 
         for dangerous_cmd in dangerous_commands:
-            result_str = await guide(dangerous_cmd, ctx=mock_ctx)
+            result_str = await guide_function(dangerous_cmd, ctx=mock_ctx)
             result = json.loads(result_str)
 
             assert result["success"] is False
             assert "security" in result["error"].lower() or "invalid" in result["error"].lower()
 
     @pytest.mark.asyncio
-    async def test_special_character_validation(self) -> None:
+    async def test_special_character_validation(self, guide_function) -> None:
         """Should reject commands with dangerous special characters."""
         mock_ctx = MagicMock()
         mock_ctx.session.project_root = "/test/project"
@@ -73,14 +71,14 @@ class TestCommandSecurity:
         ]
 
         for dangerous_cmd in dangerous_commands:
-            result_str = await guide(dangerous_cmd, ctx=mock_ctx)
+            result_str = await guide_function(dangerous_cmd, ctx=mock_ctx)
             result = json.loads(result_str)
 
             assert result["success"] is False
             assert "security" in result["error"].lower() or "invalid" in result["error"].lower()
 
     @pytest.mark.asyncio
-    async def test_valid_command_names_allowed(self) -> None:
+    async def test_valid_command_names_allowed(self, guide_function) -> None:
         """Should allow valid command names."""
         mock_ctx = MagicMock()
         mock_ctx.session.project_root = "/test/project"
@@ -104,7 +102,7 @@ class TestCommandSecurity:
             ]
 
             for valid_cmd in valid_commands:
-                result_str = await guide(valid_cmd, ctx=mock_ctx)
+                result_str = await guide_function(valid_cmd, ctx=mock_ctx)
                 result = json.loads(result_str)
 
                 # Should not be rejected for security reasons
@@ -116,19 +114,19 @@ class TestCommandErrorHandling:
     """Test comprehensive error handling."""
 
     @pytest.mark.asyncio
-    async def test_missing_commands_directory(self) -> None:
+    async def test_missing_commands_directory(self, guide_function) -> None:
         """Should handle missing _commands directory gracefully."""
         mock_ctx = MagicMock()
         mock_ctx.session.project_root = "/nonexistent/project"
 
-        result_str = await guide(":help", ctx=mock_ctx)
+        result_str = await guide_function(":help", ctx=mock_ctx)
         result = json.loads(result_str)
 
         assert result["success"] is False
         assert "not found" in result["error"].lower() or "directory" in result["error"].lower()
 
     @pytest.mark.asyncio
-    async def test_missing_command_file(self) -> None:
+    async def test_missing_command_file(self, guide_function) -> None:
         """Should handle missing command files with helpful error."""
         mock_ctx = MagicMock()
         mock_ctx.session.project_root = "/test/project"
@@ -140,7 +138,7 @@ class TestCommandErrorHandling:
             patch("pathlib.Path.is_dir", return_value=True),
             patch("mcp_guide.utils.command_discovery.discover_commands", new=AsyncMock(return_value=[])),
         ):
-            result_str = await guide(":nonexistent", ctx=mock_ctx)
+            result_str = await guide_function(":nonexistent", ctx=mock_ctx)
             result = json.loads(result_str)
 
             assert result["success"] is False
@@ -148,7 +146,7 @@ class TestCommandErrorHandling:
             assert "nonexistent" in result["error"]
 
     @pytest.mark.asyncio
-    async def test_template_rendering_errors(self) -> None:
+    async def test_template_rendering_errors(self, guide_function) -> None:
         """Should handle template rendering errors gracefully."""
         mock_ctx = MagicMock()
         mock_ctx.session.project_root = "/test/project"
@@ -216,14 +214,14 @@ class TestCommandErrorHandling:
                     return None
 
             with patch("aiofiles.open", return_value=MockAsyncFile()):
-                result_str = await guide(":broken", ctx=mock_ctx)
+                result_str = await guide_function(":broken", ctx=mock_ctx)
                 result = json.loads(result_str)
 
                 assert result["success"] is False
                 assert "template" in result["error"].lower()
 
     @pytest.mark.asyncio
-    async def test_file_permission_errors(self) -> None:
+    async def test_file_permission_errors(self, guide_function) -> None:
         """Should handle file permission errors gracefully."""
         mock_ctx = MagicMock()
         mock_ctx.session.project_root = "/test/project"
@@ -263,14 +261,14 @@ class TestCommandErrorHandling:
 
             # Mock file reading to raise permission error
             with patch("mcp_core.file_reader.aiofiles.open", side_effect=PermissionError("Permission denied")):
-                result_str = await guide(":restricted", ctx=mock_ctx)
+                result_str = await guide_function(":restricted", ctx=mock_ctx)
                 result = json.loads(result_str)
 
                 assert result["success"] is False
                 assert "error reading" in result["error"].lower() or "permission" in result["error"].lower()
 
     @pytest.mark.asyncio
-    async def test_malformed_argument_edge_cases(self) -> None:
+    async def test_malformed_argument_edge_cases(self, guide_function) -> None:
         """Should handle malformed arguments gracefully."""
         mock_ctx = MagicMock()
         mock_ctx.session.project_root = "/test/project"
@@ -287,7 +285,7 @@ class TestCommandErrorHandling:
             patch("mcp_guide.prompts.guide_prompt.discover_commands", new=AsyncMock(return_value=[])),
         ):
             for malformed_cmd in malformed_commands:
-                result_str = await guide(malformed_cmd, ctx=mock_ctx)
+                result_str = await guide_function(malformed_cmd, ctx=mock_ctx)
                 result = json.loads(result_str)
 
                 # Should either succeed (if parser handles it) or fail with clear error

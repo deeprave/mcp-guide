@@ -1,4 +1,4 @@
-"""Response processing extension for global additional_instruction injection."""
+"""Response processing extension for global additional_agent_instructions injection."""
 
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
@@ -18,7 +18,7 @@ def process_response_for_instructions(response: Any, task_manager: Optional["Tas
         task_manager: TaskManager instance for instruction processing
 
     Returns:
-        Response with potential additional_instruction injection
+        Response with potential additional_agent_instructions injection
     """
     if task_manager is None:
         return response
@@ -34,18 +34,28 @@ def process_response_for_instructions(response: Any, task_manager: Optional["Tas
     instruction = task_manager._pending_instructions.pop(0)
 
     # Try to inject instruction into response
-    if isinstance(response, dict):
-        # If response is a dict, add additional_instruction
-        if "additional_instruction" not in response or response["additional_instruction"] is None:
-            response["additional_instruction"] = instruction
-            logger.debug(f"Injected instruction into response: {instruction}")
-    elif isinstance(response, str):
-        # If response is a string, append instruction
-        response = f"{response}\n\n[Additional instruction: {instruction}]"
-        logger.debug(f"Appended instruction to string response: {instruction}")
-    else:
-        # For other response types, log that we couldn't inject
-        logger.debug(f"Could not inject instruction into response type {type(response)}: {instruction}")
+    try:
+        if isinstance(response, dict):
+            # Create a copy to avoid modifying the original
+            response_copy = response.copy()
+            if (
+                "additional_agent_instructions" not in response_copy
+                or response_copy["additional_agent_instructions"] is None
+            ):
+                response_copy["additional_agent_instructions"] = instruction
+                logger.debug(f"Injected instruction into response: {instruction}")
+                return response_copy
+        elif isinstance(response, str):
+            # If response is a string, append instruction
+            response = f"{response}\n\n[Additional instruction: {instruction}]"
+            logger.debug(f"Appended instruction to string response: {instruction}")
+        else:
+            # For other response types, log that we couldn't inject
+            logger.debug(f"Could not inject instruction into response type {type(response)}: {instruction}")
+            # Put instruction back for next response
+            task_manager._pending_instructions.insert(0, instruction)
+    except Exception as e:
+        logger.warning(f"Failed to inject instruction, returning original response: {e}")
         # Put instruction back for next response
         task_manager._pending_instructions.insert(0, instruction)
 

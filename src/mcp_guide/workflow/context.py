@@ -3,6 +3,7 @@
 from typing import TYPE_CHECKING, Any, Optional
 
 from mcp_core.mcp_log import get_logger
+from mcp_guide.workflow.constants import DEFAULT_WORKFLOW_FILE
 
 if TYPE_CHECKING:
     from mcp_guide.task_manager import TaskManager
@@ -52,7 +53,7 @@ class WorkflowContextCache:
                     "tracking": workflow_state.tracking,
                     "description": workflow_state.description,
                     "queue": workflow_state.queue,
-                    "file": self.task_manager.get_cached_data("workflow_file_path") or ".guide.yaml",
+                    "file": self.task_manager.get_cached_data("workflow_file_path") or DEFAULT_WORKFLOW_FILE,
                     "phases": list(workflow_state_dict.keys()),
                 },
                 "workflow_state": workflow_state_dict,
@@ -66,7 +67,7 @@ class WorkflowContextCache:
                     "tracking": None,
                     "description": None,
                     "queue": [],
-                    "file": ".guide.yaml",
+                    "file": DEFAULT_WORKFLOW_FILE,
                     "phases": [],
                 },
                 "workflow_state": {},

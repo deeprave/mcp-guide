@@ -7,8 +7,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from mcp_guide.prompts.guide_prompt import guide
-
 
 class TestCommandIntegration:
     """Test complete command system integration."""
@@ -48,7 +46,7 @@ Indexed args: {{#args}}{{#first}}FIRST: {{/first}}{{value}}{{^last}} {{/last}}{{
         return commands_dir
 
     @pytest.mark.asyncio
-    async def test_command_vs_content_routing(self, mock_ctx, commands_setup):
+    async def test_command_vs_content_routing(self, mock_ctx, commands_setup, guide_function):
         """Test that commands and content are routed correctly."""
         with (
             patch("mcp_guide.prompts.guide_prompt.get_template_contexts", new=AsyncMock()) as mock_context,
@@ -61,7 +59,7 @@ Indexed args: {{#args}}{{#first}}FIRST: {{/first}}{{value}}{{^last}} {{/last}}{{
             mock_context.return_value = TemplateContext({})
 
             # Test command routing (should use command handler)
-            result_str = await guide(":test", ctx=mock_ctx)
+            result_str = await guide_function(":test", ctx=mock_ctx)
             result = json.loads(result_str)
             assert result["success"] is True
             assert "Test command executed successfully!" in result["value"]
@@ -72,13 +70,13 @@ Indexed args: {{#args}}{{#first}}FIRST: {{/first}}{{value}}{{^last}} {{/last}}{{
 
                 mock_get_content.return_value = Result.ok("Regular content")
 
-                result_str = await guide("docs", ctx=mock_ctx)
+                result_str = await guide_function("docs", ctx=mock_ctx)
                 result = json.loads(result_str)
                 assert result["success"] is True
                 mock_get_content.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_argument_parsing_integration(self, mock_ctx, commands_setup):
+    async def test_argument_parsing_integration(self, mock_ctx, commands_setup, guide_function):
         """Test argument parsing with real command execution."""
         with (
             patch("mcp_guide.prompts.guide_prompt.get_template_contexts", new=AsyncMock()) as mock_context,
@@ -91,7 +89,7 @@ Indexed args: {{#args}}{{#first}}FIRST: {{/first}}{{value}}{{^last}} {{/last}}{{
             mock_context.return_value = TemplateContext({})
 
             # Test with flags and arguments
-            result_str = await guide(":test", "--verbose", "arg1", "arg2", "arg3", ctx=mock_ctx)
+            result_str = await guide_function(":test", "--verbose", "arg1", "arg2", "arg3", ctx=mock_ctx)
             result = json.loads(result_str)
 
             assert result["success"] is True
@@ -101,22 +99,22 @@ Indexed args: {{#args}}{{#first}}FIRST: {{/first}}{{value}}{{^last}} {{/last}}{{
             assert "Indexed args: FIRST: arg1 arg2 arg3 LAST" in result["value"]
 
     @pytest.mark.asyncio
-    async def test_security_validation_integration(self, mock_ctx):
+    async def test_security_validation_integration(self, mock_ctx, guide_function):
         """Test security validation in real command flow."""
         # Test directory traversal prevention
-        result_str = await guide(":../../../etc/passwd", ctx=mock_ctx)
+        result_str = await guide_function(":../../../etc/passwd", ctx=mock_ctx)
         result = json.loads(result_str)
         assert result["success"] is False
         assert "security validation failed" in result["error"].lower()
 
         # Test command injection prevention
-        result_str = await guide(":test;rm", ctx=mock_ctx)
+        result_str = await guide_function(":test;rm", ctx=mock_ctx)
         result = json.loads(result_str)
         assert result["success"] is False
         assert "security validation failed" in result["error"].lower()
 
     @pytest.mark.asyncio
-    async def test_help_system_integration(self, mock_ctx, commands_setup):
+    async def test_help_system_integration(self, mock_ctx, commands_setup, guide_function):
         """Test help system with real command discovery."""
         with (
             patch("mcp_guide.prompts.guide_prompt.get_template_contexts", new=AsyncMock()) as mock_context,
@@ -144,7 +142,7 @@ Available commands:
 {{/commands}}
 """)
 
-            result_str = await guide(":help", ctx=mock_ctx)
+            result_str = await guide_function(":help", ctx=mock_ctx)
             result = json.loads(result_str)
 
             assert result["success"] is True
@@ -153,23 +151,23 @@ Available commands:
             assert "help: Show help information" in result["value"]
 
     @pytest.mark.asyncio
-    async def test_error_handling_integration(self, mock_ctx):
+    async def test_error_handling_integration(self, mock_ctx, guide_function):
         """Test error handling in complete flow."""
         # Test missing commands directory
-        result_str = await guide(":nonexistent", ctx=mock_ctx)
+        result_str = await guide_function(":nonexistent", ctx=mock_ctx)
         result = json.loads(result_str)
         assert result["success"] is False
         assert "commands directory not found" in result["error"].lower()
 
     @pytest.mark.asyncio
-    async def test_multiple_expressions_regression(self, mock_ctx):
+    async def test_multiple_expressions_regression(self, mock_ctx, guide_function):
         """Test that multiple expressions still work for content."""
         with patch("mcp_guide.prompts.guide_prompt.internal_get_content") as mock_get_content:
             from mcp_guide.result import Result
 
             mock_get_content.return_value = Result.ok("Combined content")
 
-            result_str = await guide("docs", "examples", "tests", ctx=mock_ctx)
+            result_str = await guide_function("docs", "examples", "tests", ctx=mock_ctx)
             result = json.loads(result_str)
 
             assert result["success"] is True
@@ -179,7 +177,7 @@ Available commands:
             assert "docs,examples,tests" in str(call_args)
 
     @pytest.mark.asyncio
-    async def test_subcommand_integration(self, mock_ctx, commands_setup):
+    async def test_subcommand_integration(self, mock_ctx, commands_setup, guide_function):
         """Test subcommand routing and execution."""
         # Create subcommand directory and template
         info_dir = commands_setup / "info"
@@ -208,7 +206,7 @@ Current project: {{project.name}}
 
             mock_context.return_value = TemplateContext({"project": {"name": "test-project"}})
 
-            result_str = await guide(":info/project", ctx=mock_ctx)
+            result_str = await guide_function(":info/project", ctx=mock_ctx)
             result = json.loads(result_str)
 
             assert result["success"] is True
@@ -216,7 +214,7 @@ Current project: {{project.name}}
             assert "Current project: test-project" in result["value"]
 
     @pytest.mark.asyncio
-    async def test_semicolon_prefix_integration(self, mock_ctx, commands_setup):
+    async def test_semicolon_prefix_integration(self, mock_ctx, commands_setup, guide_function):
         """Test semicolon prefix works the same as colon."""
         with (
             patch("mcp_guide.prompts.guide_prompt.get_template_contexts", new=AsyncMock()) as mock_context,
@@ -229,7 +227,7 @@ Current project: {{project.name}}
             mock_context.return_value = TemplateContext({})
 
             # Test semicolon prefix
-            result_str = await guide(";test", "--verbose", ctx=mock_ctx)
+            result_str = await guide_function(";test", "--verbose", ctx=mock_ctx)
             result = json.loads(result_str)
 
             assert result["success"] is True
@@ -237,7 +235,7 @@ Current project: {{project.name}}
             assert "Verbose mode enabled." in result["value"]
 
     @pytest.mark.asyncio
-    async def test_front_matter_validation_integration(self, mock_ctx, commands_setup):
+    async def test_front_matter_validation_integration(self, mock_ctx, commands_setup, guide_function):
         """Test front matter validation with real templates."""
         # Create command with required arguments
         strict_template = commands_setup / "strict.mustache"
@@ -265,13 +263,13 @@ Type: {{kwargs.type}}
             mock_context.return_value = TemplateContext({})
 
             # Test missing required arguments - should fail validation
-            result_str = await guide(":strict", ctx=mock_ctx)
+            result_str = await guide_function(":strict", ctx=mock_ctx)
             result = json.loads(result_str)
             assert result["success"] is False
             assert "missing required" in result["error"].lower()
 
             # Test with required arguments - should succeed
-            result_str = await guide(":strict", "--type=user", "John", "Doe", ctx=mock_ctx)
+            result_str = await guide_function(":strict", "--type=user", "John", "Doe", ctx=mock_ctx)
             result = json.loads(result_str)
             assert result["success"] is True
             assert "Indexed arg: John" in result["value"]

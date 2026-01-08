@@ -95,7 +95,6 @@ async def render_template_content(
             # Add frontmatter data to context
             metadata_context = TemplateContext(metadata)
             render_context = metadata_context.new_child(context)
-            logger.trace(f"Added frontmatter context for {file_path}: {metadata}")
 
             # Extract partials from frontmatter includes
             if includes := get_frontmatter_includes(metadata):
@@ -155,7 +154,7 @@ async def render_template_content(
         # Render template with Chevron (TemplateContext works as ChainMap)
         logger.trace(f"Rendering template {file_path} with partials: {list(processed_partials.keys())}")
         rendered = chevron.render(content, template_context, partials_dict=processed_partials)  # type: ignore[arg-type]
-        logger.trace(f"Template {file_path} rendered successfully ({len(rendered)} chars)")
+        logger.trace(f"Template {file_path} rendered content ({len(rendered)} chars): {rendered[:1024]}")
         return Result.ok(rendered)
 
     except ChevronError as e:
@@ -259,8 +258,6 @@ async def render_file_content(
         )
 
     # Add logging to debug frontmatter parsing
-    logger.trace(f"Raw file content for {file_info.path} ({len(content)} chars): {content[:200]}...")
-    logger.trace(f"File frontmatter for {file_info.path}: {frontmatter}")
 
     # Pass through non-template files unchanged
     if not is_template_file(file_info) or context is None:

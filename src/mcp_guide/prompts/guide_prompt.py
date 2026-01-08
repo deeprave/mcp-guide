@@ -43,7 +43,7 @@ else:
 from mcp_guide.config_constants import COMMANDS_DIR
 from mcp_guide.prompts.command_parser import parse_command_arguments
 from mcp_guide.result_constants import INSTRUCTION_DISPLAY_ONLY
-from mcp_guide.server import prompts
+from mcp_guide.server import mcp
 from mcp_guide.tools.tool_content import ContentArgs, internal_get_content
 from mcp_guide.utils.command_discovery import discover_commands
 from mcp_guide.utils.file_discovery import FileInfo, discover_category_files
@@ -354,9 +354,17 @@ async def _execute_command(
             )
             result.instruction = instruction_result.value if instruction_result.success else INSTRUCTION_DISPLAY_ONLY
         else:
+            # Check if instruction needs to be overridden with type-based default
             content_type = get_frontmatter_type(front_matter)
             default_instruction = get_type_based_default_instruction(content_type)
-            result.instruction = default_instruction or INSTRUCTION_DISPLAY_ONLY
+
+            # Override if instruction is None OR matches default instructions
+            if (
+                result.instruction is None
+                or result.instruction == Result.success_instruction()
+                or result.instruction == Result.failure_instruction()
+            ):
+                result.instruction = default_instruction or INSTRUCTION_DISPLAY_ONLY
 
         return result
     else:
@@ -473,7 +481,7 @@ async def _route_guide_request(argv: list[str], ctx: Optional["Context[Any, Any,
         return await _handle_content_request(argv, ctx)
 
 
-@prompts.prompt()
+@mcp.prompt() if mcp is not None else lambda f: f
 async def guide(
     # MCP prompt handlers require explicit parameters - *args not supported
     # MAX_PROMPT_ARGS defined to match MCP protocol limit
@@ -504,4 +512,22 @@ async def guide(
 
     # Route request
     result = await _route_guide_request(argv, ctx)
+
+    # Manage workflow tasks first to queue any instructions
+    from mcp_core.tool_decorator import _manage_workflow_task, _task_manager
+
+    try:
+        await _manage_workflow_task()
+    except Exception as e:
+        logger.error(f"Workflow task management failed after prompt: {e}")
+
+    # Process result through task manager to pick up any queued instructions
+    if _task_manager is not None:
+        try:
+            result = await _task_manager.process_result(result)
+        except Exception as e:
+            logger.error(f"TaskManager processing failed for prompt: {e}")
+
+    # Log the result before returning
+    logger.trace("RESULT: Prompt guide returning result", extra=result.to_json())
     return result.to_json_str()

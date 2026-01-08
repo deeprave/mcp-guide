@@ -142,7 +142,10 @@ def get_frontmatter_instruction(frontmatter: Optional[Dict[str, Any]]) -> Option
     Returns:
         Instruction string or None if not found
     """
-    return frontmatter.get("instruction") if frontmatter else None
+    if not frontmatter:
+        return None
+    instruction = frontmatter.get("instruction")
+    return instruction if isinstance(instruction, str) else None
 
 
 def get_frontmatter_type(frontmatter: Optional[Dict[str, Any]]) -> Optional[str]:
@@ -154,7 +157,10 @@ def get_frontmatter_type(frontmatter: Optional[Dict[str, Any]]) -> Optional[str]
     Returns:
         Type string or None if not found
     """
-    return frontmatter.get("type") if frontmatter else None
+    if not frontmatter:
+        return None
+    type_value = frontmatter.get("type")
+    return type_value if isinstance(type_value, str) else None
 
 
 def get_frontmatter_description(frontmatter: Optional[Dict[str, Any]]) -> Optional[str]:
@@ -166,7 +172,10 @@ def get_frontmatter_description(frontmatter: Optional[Dict[str, Any]]) -> Option
     Returns:
         Description string or None if not found
     """
-    return frontmatter.get("description") if frontmatter else None
+    if not frontmatter:
+        return None
+    description = frontmatter.get("description")
+    return description if isinstance(description, str) else None
 
 
 def get_frontmatter_includes(frontmatter: Optional[Dict[str, Any]]) -> Optional[List[str]]:
@@ -178,7 +187,10 @@ def get_frontmatter_includes(frontmatter: Optional[Dict[str, Any]]) -> Optional[
     Returns:
         Includes list or None if not found
     """
-    return frontmatter.get("includes") if frontmatter else None
+    if not frontmatter:
+        return None
+    includes = frontmatter.get("includes")
+    return includes if isinstance(includes, list) and all(isinstance(x, str) for x in includes) else None
 
 
 def get_type_based_default_instruction(content_type: Optional[str]) -> str:
@@ -203,7 +215,10 @@ async def get_frontmatter_description_from_file(file_path: Path) -> Optional[str
         Description string or None if not found
     """
     content = await read_content_with_frontmatter(file_path)
-    return content.frontmatter.get("description")
+    if not content.frontmatter:
+        return None
+    description = content.frontmatter.get("description")
+    return description if isinstance(description, str) else None
 
 
 def validate_content_type(content_type: Optional[str]) -> bool:

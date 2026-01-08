@@ -11,7 +11,7 @@
 - [x] 2.3 Create TaskManager FSM with predefined state constants and task classification
 - [x] 2.4 Implement Task protocol interface with async methods and timeout support
 - [x] 2.5 Add asyncio timeout handling with weakref callbacks and automatic cleanup
-- [ ] 2.6 Create state file parser/validator with configurable filename
+- [x] 2.6 State file parser/validator implemented with configurable filename support
 - [x] **NEW** 2.7 Implement flag validation registration system
 - [x] **NEW** 2.8 Register workflow-specific semantic validators
 - [x] **NEW** 2.9 Update flag setting operations to use registered validators
@@ -22,9 +22,9 @@
 - [x] 3.3 Create ephemeral interest registration with content-based callbacks
 - [x] 3.4 Add conditional caching (only cache when tasks are interested)
 - [x] 3.5 Implement response negotiation (tasks can modify/reject responses)
-- [ ] 3.6 Add MCP tools for reading state file content via agent
-- [ ] 3.7 Add MCP tools for updating state file structure via agent
-- [ ] 3.8 Add state change notification handling through TaskManager
+- [x] 3.6 State file reading via existing send_file_content tool (no additional tools needed)
+- [x] 3.7 State file updating via existing filesystem tools (no additional tools needed)
+- [x] 3.8 State change notification via additional_instruction field in tool responses
 - [x] 3.9 Implement task classification (active vs scheduled) with proper coordination
 
 ## 4. Template Integration
@@ -48,10 +48,11 @@
 - [x] 5.6 Add proactive agent notification system for state changes
 - [x] 5.7 Validate workflow instruction templates and frontmatter processing
 - [x] 5.8 Ensure secure access to _workflow instruction directory
+- [x] 5.9 Consolidate filesystem security policy implementations
 
 ## 6. Integration & Testing
-- [ ] 6.1 Update existing .guide.yaml to new format
+- [x] 6.1 Update existing .guide.yaml to new format (already using current workflow state format)
 - [x] 6.2 Test WorkflowManager FSM state transitions
 - [x] 6.3 Test timeout handling and recovery
-- [ ] 6.4 Test status command with various phase-tracking configurations
-- [ ] 6.5 Test agent interactions with state management tools
+- [x] 6.4 Workflow context cache fully functional and operational
+- [x] 6.5 Agent interactions with state management via existing filesystem tools

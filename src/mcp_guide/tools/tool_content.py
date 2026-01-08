@@ -5,6 +5,7 @@
 from pathlib import Path
 from typing import Optional
 
+from mcp.server.fastmcp import Context
 from pydantic import Field
 
 from mcp_core.tool_arguments import ToolArguments
@@ -25,11 +26,6 @@ from mcp_guide.utils.content_utils import create_file_read_error_result, read_an
 from mcp_guide.utils.file_discovery import FileInfo
 from mcp_guide.utils.formatter_selection import get_formatter
 from mcp_guide.utils.template_context_cache import get_template_context_if_needed
-
-try:
-    from mcp.server.fastmcp import Context
-except ImportError:
-    Context = None  # type: ignore[misc, assignment]
 
 __all__ = ["internal_get_content"]
 
