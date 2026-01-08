@@ -73,7 +73,7 @@ async def setup_session(test_session_with_data):
     yield
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def anyio_backend():
     """Use asyncio for async tests."""
     return "asyncio"
