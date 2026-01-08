@@ -131,8 +131,6 @@ class RedactedFormatter(logging.Formatter):
 
         formatted = super().format(record)
         if extra_data:
-            import json
-
             formatted += f" - extra: {json.dumps(extra_data)}"
 
         return self._redaction_func(formatted)

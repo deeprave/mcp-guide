@@ -301,9 +301,7 @@ class TestGuidePromptIntegration:
                 [],  # parse_errors
             )
 
-            result_str = await guide_function(
-                ":create/collection", "--verbose", "description=test", "arg1", "arg2", ctx=mock_ctx
-            )
+            await guide_function(":create/collection", "--verbose", "description=test", "arg1", "arg2", ctx=mock_ctx)
 
             # Verify parser was called with correct arguments
             mock_parse.assert_called_once_with([":create/collection", "--verbose", "description=test", "arg1", "arg2"])
