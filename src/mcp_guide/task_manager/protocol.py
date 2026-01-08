@@ -4,7 +4,9 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any, Optional, Protocol
 
 if TYPE_CHECKING:
-    from .interception import DataType
+    from mcp_core.result import Result
+
+    from .interception import FSEventType
 
 
 class TaskState(Enum):
@@ -44,8 +46,12 @@ class Task(Protocol):
         """Handle task completion."""
         ...
 
-    async def process_data(self, data_type: "DataType", data: dict[str, Any]) -> None:
+    async def process_data(self, data_type: "FSEventType", data: dict[str, Any]) -> None:
         """Process agent data and update task state."""
+        ...
+
+    async def process_result(self, result: "Result[Any]") -> "Result[Any]":
+        """Process result data and return modified result."""
         ...
 
     async def pause(self) -> None:

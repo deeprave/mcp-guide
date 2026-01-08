@@ -77,6 +77,7 @@ class Session:
             """Initialize the config manager (only once)."""
             if self.__initialized:
                 return
+            # Import here to avoid circular dependency with config_paths module
             from mcp_guide.config_paths import get_config_file, get_docroot
 
             self.config_file = get_config_file(self.__config_dir)
@@ -377,6 +378,7 @@ class Session:
 
     def __init__(self, project_name: str, *, _config_dir_for_tests: Optional[str] = None):
         """Initialise a new session with the project name and optional test config directory."""
+        # Import here to avoid circular dependency with validation module
         from mcp_guide.validation import InvalidProjectNameError
 
         if not project_name or not project_name.strip():

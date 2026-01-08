@@ -10,8 +10,13 @@ except ImportError:
 
 from mcp_core.mcp_log import get_logger
 from mcp_core.prompt_decorator import ExtMcpPromptDecorator
-from mcp_core.tool_decorator import ExtMcpToolDecorator
+from mcp_core.prompt_decorator import set_task_manager as set_prompt_task_manager
+from mcp_core.prompt_decorator import set_workflow_task_manager as set_prompt_workflow_manager
+from mcp_core.tool_decorator import ExtMcpToolDecorator, set_task_manager
+from mcp_core.tool_decorator import set_workflow_task_manager as set_tool_workflow_manager
 from mcp_guide.guide import GuideMCP
+from mcp_guide.task_manager import TaskManager
+from mcp_guide.workflow.task_manager import WorkflowTaskManager
 
 logger = get_logger(__name__)
 
@@ -92,6 +97,7 @@ class _PromptsProxy:
     """Proxy that defers to actual prompt decorator when available."""
 
     _instance: Optional[ExtMcpPromptDecorator] = None
+    _deferred_functions: list[tuple[Callable[..., Any], tuple[Any, ...], dict[str, Any]]] = []
 
     @classmethod
     def set_instance(cls, instance: ExtMcpPromptDecorator) -> None:
@@ -102,11 +108,24 @@ class _PromptsProxy:
         """
         cls._instance = instance
 
+        # Apply deferred decorators
+        for func, args, kwargs in cls._deferred_functions:
+            decorated = instance.prompt(*args, **kwargs)(func)
+            # Replace the function in its module
+            import sys
+
+            for module in sys.modules.values():
+                if hasattr(module, "__dict__"):
+                    for name, obj in module.__dict__.items():
+                        if obj is func:
+                            setattr(module, name, decorated)
+        cls._deferred_functions.clear()
+
     def prompt(self, *args: Any, **kwargs: Any) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
         """Decorate a prompt function.
 
         If instance is set, delegates to actual decorator.
-        Otherwise returns no-op decorator.
+        Otherwise stores function for later decoration.
 
         Args:
             *args: Positional arguments for decorator
@@ -116,8 +135,9 @@ class _PromptsProxy:
             Decorator function
         """
         if self._instance is None:
-            # Before server init - return no-op decorator
+            # Store for later decoration
             def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+                self._deferred_functions.append((func, args, kwargs))
                 return func
 
             return decorator
@@ -128,6 +148,9 @@ class _PromptsProxy:
 tools = _ToolsProxy()
 resources = _ResourcesProxy()
 prompts = _PromptsProxy()
+
+# Export mcp instance for direct import
+mcp: Optional[GuideMCP] = None
 
 # Pending log config set by main.py before server creation
 _pending_log_config: Any = None
@@ -216,6 +239,8 @@ def create_server() -> GuideMCP:
     Returns:
         Configured GuideMCP instance
     """
+    global mcp
+
     # Use MCP_GUIDE_NAME env var if set, otherwise use generic name
     server_name = os.getenv("MCP_GUIDE_NAME", "guide")
     mcp = GuideMCP(
@@ -225,6 +250,16 @@ def create_server() -> GuideMCP:
 
     # Configure logging after FastMCP init
     _configure_logging_after_fastmcp()
+
+    # Initialize and set TaskManager
+    task_manager = TaskManager()
+    set_task_manager(task_manager)
+    set_prompt_task_manager(task_manager)
+
+    # Initialize and set WorkflowTaskManager
+    workflow_task_manager = WorkflowTaskManager(task_manager)
+    set_prompt_workflow_manager(workflow_task_manager)
+    set_tool_workflow_manager(workflow_task_manager)
 
     # Create decorators and set proxy instances
     tool_decorator = ExtMcpToolDecorator(mcp)
@@ -240,7 +275,6 @@ def create_server() -> GuideMCP:
         tool_content,
         tool_feature_flags,
         tool_filesystem,
-        tool_filesystem_test,
         tool_project,
         tool_utility,
     )

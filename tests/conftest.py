@@ -269,3 +269,21 @@ def assert_tool_registered(tool_names, tool_name):
     prefixed_tool_name = f"{prefix}_{tool_name}"
 
     assert prefixed_tool_name in tool_names, f"Tool '{prefixed_tool_name}' not found in registered tools: {tool_names}"
+
+
+@pytest.fixture(scope="function")
+def guide_function():
+    """Import guide function with server initialization.
+
+    Creates a temporary server instance to enable guide function import.
+    Use this fixture in any test that needs to call the guide prompt.
+    """
+    from mcp_guide.server import create_server
+
+    # Initialize server to set up mcp instance
+    create_server()
+
+    # Import guide function after server is initialized
+    from mcp_guide.prompts.guide_prompt import guide
+
+    return guide

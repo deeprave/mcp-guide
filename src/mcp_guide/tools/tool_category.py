@@ -4,7 +4,7 @@
 
 from dataclasses import replace
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any, Optional, Union, cast
 
 from anyio import Path as AsyncPath
 from pydantic import Field
@@ -86,17 +86,20 @@ async def internal_category_list(args: CategoryListArgs, ctx: Optional[Context] 
 
     project = await session.get_project()
 
-    categories: Union[list[dict[str, str | list[str] | None]], list[str]]
+    categories: Union[list[dict[str, Union[str, list[str], None]]], list[str]]
     if args.verbose:
-        categories = [
-            {
-                "name": name,  # Inject name from dict key
-                "dir": category.dir,
-                "patterns": list(category.patterns),
-                "description": category.description,
-            }
-            for name, category in project.categories.items()  # Use dict.items()
-        ]
+        categories = cast(
+            list[dict[str, Union[str, list[str], None]]],
+            [
+                {
+                    "name": name,  # Inject name from dict key
+                    "dir": category.dir,
+                    "patterns": list(category.patterns),  # Convert to list[str]
+                    "description": category.description,
+                }
+                for name, category in project.categories.items()  # Use dict.items()
+            ],
+        )
     else:
         categories = list(project.categories.keys())  # Use dict.keys()
 

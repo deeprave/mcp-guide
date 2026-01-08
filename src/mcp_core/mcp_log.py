@@ -1,9 +1,11 @@
 """Reusable MCP logging module with FastMCP integration."""
 
 import atexit
+import json
 import logging
 import signal
 import sys
+from datetime import datetime
 from typing import Any, Callable
 
 from mcp_core.mcp_log_filter import get_redaction_function
@@ -98,7 +100,41 @@ class RedactedFormatter(logging.Formatter):
 
     def format(self, record: logging.LogRecord) -> str:
         """Format log record with redaction."""
+        # Add extra fields to the message if present
+        extra_data = {}
+        for key, value in record.__dict__.items():
+            if key not in {
+                "name",
+                "msg",
+                "args",
+                "levelname",
+                "levelno",
+                "pathname",
+                "filename",
+                "module",
+                "lineno",
+                "funcName",
+                "created",
+                "msecs",
+                "relativeCreated",
+                "thread",
+                "threadName",
+                "processName",
+                "process",
+                "getMessage",
+                "exc_info",
+                "exc_text",
+                "stack_info",
+                "message",
+            }:
+                extra_data[key] = value
+
         formatted = super().format(record)
+        if extra_data:
+            import json
+
+            formatted += f" - extra: {json.dumps(extra_data)}"
+
         return self._redaction_func(formatted)
 
 
@@ -112,9 +148,6 @@ class StructuredJSONFormatter(logging.Formatter):
 
     def format(self, record: logging.LogRecord) -> str:
         """Format log record as JSON."""
-        import json
-        from datetime import datetime
-
         message = record.getMessage()
         message = self._redaction_func(message)
 
@@ -126,6 +159,34 @@ class StructuredJSONFormatter(logging.Formatter):
             "module": record.module,
             "function": record.funcName,
         }
+
+        # Add extra fields from the record
+        for key, value in record.__dict__.items():
+            if key not in {
+                "name",
+                "msg",
+                "args",
+                "levelname",
+                "levelno",
+                "pathname",
+                "filename",
+                "module",
+                "lineno",
+                "funcName",
+                "created",
+                "msecs",
+                "relativeCreated",
+                "thread",
+                "threadName",
+                "processName",
+                "process",
+                "getMessage",
+                "exc_info",
+                "exc_text",
+                "stack_info",
+                "message",
+            }:
+                log_entry[key] = value
 
         if record.exc_info:
             log_entry["exception"] = self.formatException(record.exc_info)
@@ -207,6 +268,7 @@ def configure_logger_hierarchy(app_name: str) -> None:
 def create_console_handler() -> logging.Handler:
     """Create console handler with RichHandler if available."""
     try:
+        # Import here as rich is an optional dependency
         from rich.console import Console
         from rich.logging import RichHandler
 

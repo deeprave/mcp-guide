@@ -6,7 +6,15 @@ from unittest.mock import AsyncMock
 import pytest
 
 from mcp_core.result import Result
-from mcp_guide.task_manager import DataType, TaskManager, TaskState, TaskType
+from mcp_guide.task_manager import FSEventType, TaskManager, TaskState, TaskType
+
+
+@pytest.fixture(autouse=True)
+def reset_task_manager():
+    """Reset TaskManager singleton before each test."""
+    TaskManager._reset_for_testing()
+    yield
+    TaskManager._reset_for_testing()
 
 
 class MockTask:
@@ -18,6 +26,8 @@ class MockTask:
         self.task_start_called = False
         self.timeout_expired_called = False
         self.paused = False
+        self.process_data = AsyncMock()
+        self.process_result = AsyncMock()
 
     async def task_start(self) -> tuple[TaskState, str | None]:
         """Start the task."""
@@ -45,9 +55,9 @@ class MockTask:
         """Handle task completion."""
         return (TaskState.IDLE, None)
 
-    async def process_data(self, data_type: DataType, data: dict) -> None:
-        """Process agent data."""
-        pass
+    def _is_workflow_file_result(self, result: "Result[Any]") -> bool:
+        """Check if result is a workflow file result."""
+        return True  # For testing, always return True
 
 
 class TestTaskManagerInstantiation:
@@ -292,21 +302,21 @@ class TestTimeoutHandling:
 
 
 class TestResultEnhancement:
-    """Test Result class has additional_instruction field."""
+    """Test Result class has additional_agent_instructions field."""
 
     def test_result_has_additional_instruction_field(self):
-        """Result should have additional_instruction field for side-band communication."""
-        result = Result.ok("test", additional_instruction="Please check file status")
+        """Result should have additional_agent_instructions field for side-band communication."""
+        result = Result.ok("test", additional_agent_instructions="Please check file status")
 
-        assert hasattr(result, "additional_instruction")
-        assert result.additional_instruction == "Please check file status"
+        assert hasattr(result, "additional_agent_instructions")
+        assert result.additional_agent_instructions == "Please check file status"
 
     def test_failure_result_has_additional_instruction_field(self):
-        """Failure Result should also support additional_instruction for side-band communication."""
-        result = Result.failure("error", additional_instruction="Check logs")
+        """Failure Result should also support additional_agent_instructions for side-band communication."""
+        result = Result.failure("error", additional_agent_instructions="Check logs")
 
-        assert hasattr(result, "additional_instruction")
-        assert result.additional_instruction == "Check logs"
+        assert hasattr(result, "additional_agent_instructions")
+        assert result.additional_agent_instructions == "Check logs"
         assert not result.success
 
 
@@ -328,37 +338,39 @@ class TestAgentDataInterception:
     def test_register_interest(self, task_manager, mock_task):
         """Test interest registration."""
         callback = lambda dt, data: True
-        task_manager.register_interest(mock_task, DataType.FILE_CONTENT, callback)
+        task_manager.register_interest(mock_task, FSEventType.FILE_CONTENT, callback)
 
         assert len(task_manager._registrations) == 1
         assert task_manager._registrations[0].task == mock_task
-        assert task_manager._registrations[0].flags == DataType.FILE_CONTENT
+        assert task_manager._registrations[0].flags == FSEventType.FILE_CONTENT
 
     @pytest.mark.asyncio
     async def test_handle_agent_data_no_interest(self, task_manager):
         """Test handling data with no interested tasks."""
-        result = await task_manager.handle_agent_data(DataType.FILE_CONTENT, {"path": "test.txt"})
+        result = await task_manager.handle_agent_data(FSEventType.FILE_CONTENT, {"path": "test.txt"})
         assert result == {"status": "acknowledged"}
 
     @pytest.mark.asyncio
     async def test_handle_agent_data_with_interest(self, task_manager, mock_task):
         """Test handling data with interested task."""
         callback = lambda dt, data: data.get("path") == "test.txt"
-        task_manager.register_interest(mock_task, DataType.FILE_CONTENT, callback)
+        task_manager.register_interest(mock_task, FSEventType.FILE_CONTENT, callback)
 
-        result = await task_manager.handle_agent_data(DataType.FILE_CONTENT, {"path": "test.txt", "content": "data"})
+        result = await task_manager.handle_agent_data(FSEventType.FILE_CONTENT, {"path": "test.txt", "content": "data"})
 
         assert result == {"status": "processed"}
-        mock_task.process_data.assert_called_once_with(DataType.FILE_CONTENT, {"path": "test.txt", "content": "data"})
+        mock_task.process_data.assert_called_once_with(
+            FSEventType.FILE_CONTENT, {"path": "test.txt", "content": "data"}
+        )
 
     @pytest.mark.asyncio
     async def test_bit_flag_filtering(self, task_manager, mock_task):
         """Test bit-flag pre-filtering."""
         callback = lambda dt, data: True  # Always interested
-        task_manager.register_interest(mock_task, DataType.FILE_CONTENT, callback)
+        task_manager.register_interest(mock_task, FSEventType.FILE_CONTENT, callback)
 
         # Send different data type - should not call callback
-        result = await task_manager.handle_agent_data(DataType.DIRECTORY_LISTING, {"entries": []})
+        result = await task_manager.handle_agent_data(FSEventType.DIRECTORY_LISTING, {"entries": []})
 
         assert result == {"status": "acknowledged"}
         mock_task.process_data.assert_not_called()
@@ -367,9 +379,9 @@ class TestAgentDataInterception:
     async def test_callback_returns_false_after_bit_flag_match(self, task_manager, mock_task):
         """Test that callback returning False prevents processing even when bit-flags match."""
         callback = lambda dt, data: False  # Never interested
-        task_manager.register_interest(mock_task, DataType.FILE_CONTENT, callback)
+        task_manager.register_interest(mock_task, FSEventType.FILE_CONTENT, callback)
 
-        result = await task_manager.handle_agent_data(DataType.FILE_CONTENT, {"path": "test.txt"})
+        result = await task_manager.handle_agent_data(FSEventType.FILE_CONTENT, {"path": "test.txt"})
 
         assert result == {"status": "acknowledged"}
         mock_task.process_data.assert_not_called()
@@ -377,17 +389,16 @@ class TestAgentDataInterception:
         assert len(task_manager._registrations) == 1
 
     @pytest.mark.asyncio
-    @pytest.mark.asyncio
-    async def test_ephemeral_registration_expiry(self, task_manager, mock_task):
-        """Test registration expires after handling."""
+    async def test_persistent_registration_behavior(self, task_manager, mock_task):
+        """Test registration persists after handling."""
         callback = lambda dt, data: True
-        task_manager.register_interest(mock_task, DataType.FILE_CONTENT, callback)
+        task_manager.register_interest(mock_task, FSEventType.FILE_CONTENT, callback)
 
         # Process data
-        await task_manager.handle_agent_data(DataType.FILE_CONTENT, {"path": "test.txt"})
+        await task_manager.handle_agent_data(FSEventType.FILE_CONTENT, {"path": "test.txt"})
 
-        # Registration should be expired
-        assert len(task_manager._registrations) == 0
+        # Registration should persist
+        assert len(task_manager._registrations) == 1
 
 
 class TestResultProcessing:
@@ -404,41 +415,41 @@ class TestResultProcessing:
         assert len(task_manager._pending_instructions) == 1
         assert task_manager._pending_instructions[0] == "Please check file status"
 
-    def test_process_result_no_instructions(self, task_manager):
+    async def test_process_result_no_instructions(self, task_manager):
         """Test processing result with no pending instructions."""
         from mcp_core.result import Result
 
         original_result = Result.ok("test data")
 
-        processed_result = task_manager.process_result(original_result)
+        processed_result = await task_manager.process_result(original_result)
 
         assert processed_result == original_result
-        assert processed_result.additional_instruction is None
+        assert processed_result.additional_agent_instructions is None
 
-    def test_process_result_with_instruction(self, task_manager):
+    async def test_process_result_with_instruction(self, task_manager):
         """Test processing result with pending instruction."""
         from mcp_core.result import Result
 
         original_result = Result.ok("test data")
         task_manager.queue_instruction("Please check file status")
 
-        processed_result = task_manager.process_result(original_result)
+        processed_result = await task_manager.process_result(original_result)
 
         assert processed_result.success == original_result.success
         assert processed_result.value == original_result.value
-        assert processed_result.additional_instruction == "Please check file status"
+        assert processed_result.additional_agent_instructions == "Please check file status"
         assert len(task_manager._pending_instructions) == 0  # Should be consumed
 
-    def test_process_result_fifo_order(self, task_manager):
+    async def test_process_result_fifo_order(self, task_manager):
         """Test instructions are processed in FIFO order."""
         from mcp_core.result import Result
 
         task_manager.queue_instruction("First instruction")
         task_manager.queue_instruction("Second instruction")
 
-        result1 = task_manager.process_result(Result.ok("data1"))
-        result2 = task_manager.process_result(Result.ok("data2"))
+        result1 = await task_manager.process_result(Result.ok("data1"))
+        result2 = await task_manager.process_result(Result.ok("data2"))
 
-        assert result1.additional_instruction == "First instruction"
-        assert result2.additional_instruction == "Second instruction"
+        assert result1.additional_agent_instructions == "First instruction"
+        assert result2.additional_agent_instructions == "Second instruction"
         assert len(task_manager._pending_instructions) == 0

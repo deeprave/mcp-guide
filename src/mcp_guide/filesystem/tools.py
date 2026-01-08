@@ -3,9 +3,11 @@
 import time
 from typing import Any, Dict, Optional
 
+from mcp_core.result import Result
 from mcp_guide.filesystem.cache import FileCache
 from mcp_guide.filesystem.filesystem_bridge import FilesystemBridge
 from mcp_guide.filesystem.read_write_security import ReadWriteSecurityPolicy
+from mcp_guide.session import get_or_create_session
 
 # Global cache instance for server-side caching
 _file_cache = FileCache()
@@ -13,7 +15,7 @@ _file_cache = FileCache()
 
 async def send_file_content(
     context: Any, path: str, content: str, mtime: Optional[float] = None, encoding: str = "utf-8"
-) -> Dict[str, Any]:
+) -> "Result[dict[str, Any]]":
     """Agent tool to send file content from its filesystem to the server.
 
     This tool is called by the agent when the server requests file content via sampling.
@@ -28,11 +30,9 @@ async def send_file_content(
         encoding: File encoding
 
     Returns:
-        Result dictionary with success status
+        Result with cached file metadata
     """
     try:
-        from mcp_guide.session import get_or_create_session
-
         session = await get_or_create_session(context)
         project = await session.get_project()
 
@@ -48,16 +48,19 @@ async def send_file_content(
 
         _file_cache.put(validated_path, content, mtime)
 
-        return {
-            "success": True,
-            "message": f"File content cached for {validated_path}",
-            "path": validated_path,
-            "size": len(content.encode(encoding)),
-            "metadata": {"mtime": mtime, "encoding": encoding, "cached_at": time.time()},
-        }
+        return Result.ok(
+            value={
+                "path": validated_path,
+                "content": content,
+                "mtime": mtime,
+                "encoding": encoding,
+            },
+            message=f"File content cached for {validated_path}",
+            instruction="",
+        )
 
     except Exception as e:
-        return {"success": False, "error": f"Failed to cache file content: {str(e)}"}
+        return Result.failure(error=f"Failed to cache file content: {str(e)}", error_type="cache_failure")
 
 
 async def send_directory_listing(
@@ -80,8 +83,6 @@ async def send_directory_listing(
         Result dictionary with success status
     """
     try:
-        from mcp_guide.session import get_or_create_session
-
         session = await get_or_create_session(context)
         project = await session.get_project()
 
@@ -231,8 +232,6 @@ async def request_file_content(
         Result dictionary with file content or error
     """
     try:
-        from mcp_guide.session import get_or_create_session
-
         session = await get_or_create_session(context)
         project = await session.get_project()
 
@@ -270,8 +269,6 @@ async def request_directory_listing(
         Result dictionary with directory listing or error
     """
     try:
-        from mcp_guide.session import get_or_create_session
-
         session = await get_or_create_session(context)
         project = await session.get_project()
 

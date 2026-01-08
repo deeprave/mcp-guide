@@ -78,6 +78,10 @@ ignore_missing_imports = true
 module = "uuid_extensions"
 ignore_missing_imports = true
 
+[[tool.mypy.overrides]]
+module = "debugpy"
+ignore_missing_imports = true
+
 [dependency-groups]
 dev = [
     "pytest>=8.4.2",
@@ -92,7 +96,6 @@ dev = [
     "types-chevron>=0.14.2.20250103",
     "watchdog>=6.0.0",
     "bandit>=1.9.2",
-    "ty>=0.0.2",
     "pyright>=1.1.407",
 ]
 debug = [

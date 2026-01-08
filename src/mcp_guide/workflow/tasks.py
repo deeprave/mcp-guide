@@ -2,13 +2,12 @@
 
 from typing import TYPE_CHECKING, Any, Optional
 
-from pydantic import ValidationError
-
 from mcp_core.mcp_log import get_logger
-from mcp_guide.task_manager import DataType, TaskState, TaskType
+from mcp_guide.task_manager import TaskState, TaskType
 
 if TYPE_CHECKING:
-    from mcp_guide.task_manager import TaskManager
+    from mcp_core.result import Result
+    from mcp_guide.task_manager import FSEventType, TaskManager
 
 logger = get_logger(__name__)
 
@@ -16,12 +15,30 @@ logger = get_logger(__name__)
 class WorkflowMonitorTask:
     """Scheduled background monitoring task for workflow state changes."""
 
-    def __init__(self, workflow_file_path: str, task_manager: Optional["TaskManager"] = None):
-        self.workflow_file_path = workflow_file_path
+    def __init__(
+        self,
+        workflow_file_path: str,
+        task_manager: Optional["TaskManager"] = None,
+        allowed_write_paths: Optional[list[str]] = None,
+    ):
+        # Validate path before storing if security context is available
+        if allowed_write_paths:
+            from mcp_guide.workflow.flags import validate_workflow_file_path
+
+            self.workflow_file_path = validate_workflow_file_path(workflow_file_path, allowed_write_paths)
+        else:
+            self.workflow_file_path = workflow_file_path
         self.timeout: Optional[float] = None
         self.task_type = TaskType.SCHEDULED
         self.state = TaskState.IDLE
-        self.task_manager = task_manager
+
+        # TaskManager is a singleton, so get it if not provided
+        if task_manager is None:
+            from mcp_guide.task_manager import get_task_manager
+
+            task_manager = get_task_manager()
+        self.task_manager: "TaskManager" = task_manager
+
         self._cached_content: Optional[str] = None
         self._cached_mtime: Optional[float] = None
         self._paused = False
@@ -29,6 +46,18 @@ class WorkflowMonitorTask:
     async def task_start(self) -> tuple[TaskState, Optional[str]]:
         """Start monitoring workflow file."""
         self.state = TaskState.ACTIVE
+
+        # Register interest in file content events for our workflow file
+        from mcp_guide.task_manager.interception import FSEventType
+
+        def is_workflow_file(data_type: "FSEventType", data: dict[str, Any]) -> bool:
+            """Check if the file content is for our workflow file."""
+            path = data.get("path")
+            return isinstance(path, str) and path == self.workflow_file_path
+
+        self.task_manager.register_interest(self, FSEventType.FILE_CONTENT, is_workflow_file)
+        logger.trace(f"WorkflowMonitorTask registered interest in file content for: {self.workflow_file_path}")
+
         return (TaskState.ACTIVE, None)
 
     async def response(self, data: Any) -> tuple[TaskState, Optional[str]]:
@@ -36,7 +65,7 @@ class WorkflowMonitorTask:
         return (TaskState.COMPLETED, None)
 
     async def timeout_expired(self) -> tuple[TaskState, Optional[str]]:
-        """Handle timeout expiry."""
+        """Handle timeout expiry (not used since timeout is None)."""
         return (TaskState.IDLE, None)
 
     async def completed(self) -> tuple[TaskState, Optional[str]]:
@@ -51,129 +80,101 @@ class WorkflowMonitorTask:
         """Resume the scheduled task."""
         self._paused = False
 
-    async def process_data(self, data_type: DataType, data: dict[str, Any]) -> None:
-        """Process workflow file data and update cached state."""
+    async def process_data(self, data_type: "FSEventType", data: dict[str, Any]) -> None:
+        """Process agent data and update task state."""
         if self._paused:
-            return  # Skip processing when paused
+            return
 
-        if data_type == DataType.FILE_CONTENT:
-            current_mtime = data.get("mtime")
+        logger.trace(f"WorkflowMonitorTask processing data: {data_type}, path={data.get('path')}")
+
+        # Process workflow file content
+        from mcp_guide.task_manager.interception import FSEventType
+
+        if data_type == FSEventType.FILE_CONTENT and data.get("path") == self.workflow_file_path:
             content = data.get("content", "")
+            logger.trace(f"Processing workflow file content: {len(content)} chars")
+            await self._process_workflow_content(content)
 
-            # Cache content and mtime on the task instance
-            self._cached_content = content
-            self._cached_mtime = current_mtime
+    async def _process_workflow_content(self, content: str) -> None:
+        """Process workflow file content and update cached state."""
+        try:
+            from mcp_guide.workflow.parser import parse_workflow_state
 
-            # Only process if file has changed
-            cached_mtime = self.task_manager.get_cached_data("workflow_state_mtime") if self.task_manager else None
-            if current_mtime != cached_mtime:
-                if content.strip():
-                    try:
-                        import yaml
+            # Parse the workflow state
+            workflow_state = parse_workflow_state(content)
+            if workflow_state:
+                logger.trace(f"Parsed workflow state: phase={workflow_state.phase}, issue={workflow_state.issue}")
 
-                        from mcp_guide.workflow.schema import WorkflowState
+                # Cache the workflow state in TaskManager
+                self.task_manager.set_cached_data("workflow_state", workflow_state)
+            logger.trace("Workflow state cached in TaskManager")
 
-                        # Parse YAML content into WorkflowState model
-                        yaml_data = yaml.safe_load(content)
-                        workflow_state = WorkflowState.model_validate(yaml_data)
+            # Always queue monitoring reminder instruction when workflow content is processed
+            from mcp_guide.workflow.task_manager import WorkflowTaskManager
 
-                        # Cache the parsed state and mtime
-                        if self.task_manager:
-                            self.task_manager.set_cached_data("workflow_state", workflow_state)
-                            self.task_manager.set_cached_data("workflow_state_mtime", current_mtime)
+            await WorkflowTaskManager.queue_workflow_instruction(self.task_manager, "monitoring-result")
+            logger.trace("Workflow monitoring reminder instruction queued")
 
-                            # Queue instruction for state change
-                            self.task_manager.queue_instruction(
-                                f"Workflow phase changed to {workflow_state.phase}. "
-                                f"Use get_content tool to review current phase rules."
-                            )
+        except Exception as e:
+            logger.warning(f"Failed to process workflow content: {e}")
+            import traceback
 
-                        self.state = TaskState.ACTIVE
-                    except yaml.YAMLError as e:
-                        logger.warning(f"Invalid YAML in workflow state file: {e}")
-                        # Keep existing state, don't update cache
-                        return
-                    except ValidationError as e:
-                        logger.warning(f"Invalid workflow state format: {e}")
-                        # Keep existing state, don't update cache
-                        return
-                    except Exception as e:
-                        logger.error(f"Unexpected error parsing workflow state: {e}")
-                        # Keep existing state, don't update cache
-                        return
-                else:
-                    # Empty content - clear cache
-                    if self.task_manager:
-                        self.task_manager.clear_cached_data("workflow_state")
-                        self.task_manager.clear_cached_data("workflow_state_mtime")
+            logger.warning(f"Workflow content processing traceback: {traceback.format_exc()}")
 
-    def check_workflow_file_interest(self, data_type: DataType, data: dict[str, Any]) -> bool:
-        """Check if data is for our workflow file."""
-        if data_type != DataType.FILE_CONTENT:
+    async def process_result(self, result: "Result[Any]") -> "Result[Any]":
+        """Process workflow file result and update cached state."""
+        if self._paused or not result.success:
+            return result
+
+        if not self._is_workflow_file_result(result):
+            return result
+
+        await self._update_workflow_state(result)
+        return result
+
+    def _is_workflow_file_result(self, result: "Result[Any]") -> bool:
+        """Check if result is for our workflow file."""
+        if not result.value or not isinstance(result.value, dict):
             return False
-        path = data.get("path", "")
+        path = result.value.get("path", "")
         return isinstance(path, str) and path.endswith(self.workflow_file_path)
 
+    async def _update_workflow_state(self, result: "Result[Any]") -> None:
+        """Update workflow state from file content."""
+        if not result.value or not isinstance(result.value, dict):
+            return
 
-class WorkflowUpdateTask:
-    """Active task for handling workflow state changes."""
+        data = result.value
+        current_mtime = data.get("mtime")
+        content = data.get("content", "")
 
-    def __init__(self, component_path: str, task_manager: Optional["TaskManager"] = None):
-        self.component_path = component_path
-        self.task_type = TaskType.ACTIVE
-        self.timeout: Optional[float] = 30.0
-        self.state = TaskState.IDLE
-        self.task_manager = task_manager
-        self._task_completion_data: Optional[dict[str, Any]] = None
+        # Cache content and mtime on the task instance
+        self._cached_content = content
+        self._cached_mtime = current_mtime
 
-    async def task_start(self) -> tuple[TaskState, Optional[str]]:
-        """Start workflow update task."""
-        self.state = TaskState.ACTIVE
-        instruction = "Please provide task completion data"
-        if self.task_manager:
-            self.task_manager.queue_instruction(instruction)
-        return (TaskState.ACTIVE, instruction)
+        # Only process if file has changed
+        cached_mtime = self.task_manager.get_cached_data("workflow_state_mtime")
+        if current_mtime != cached_mtime:
+            if content.strip():
+                from mcp_guide.workflow.parser import parse_workflow_state
 
-    async def response(self, data: Any) -> tuple[TaskState, Optional[str]]:
-        """Handle response data."""
-        return (TaskState.COMPLETED, None)
+                workflow_state = parse_workflow_state(content)
+                if workflow_state:
+                    # Cache the parsed state and mtime
+                    self.task_manager.set_cached_data("workflow_state", workflow_state)
+                    self.task_manager.set_cached_data("workflow_state_mtime", current_mtime)
 
-    async def timeout_expired(self) -> tuple[TaskState, Optional[str]]:
-        """Handle timeout expiry."""
-        self.state = TaskState.IDLE
-        return (TaskState.IDLE, "Workflow update timed out")
+                    # Render monitoring-result template
+                    await self._queue_monitoring_result_instruction()
 
-    async def completed(self) -> tuple[TaskState, Optional[str]]:
-        """Handle task completion."""
-        self.state = TaskState.COMPLETED
-        return (TaskState.COMPLETED, None)
+                self.state = TaskState.ACTIVE
+            else:
+                # Empty content - clear cache
+                self.task_manager.clear_cached_data("workflow_state")
+                self.task_manager.clear_cached_data("workflow_state_mtime")
 
-    async def pause(self) -> None:
-        """Pause the task (no-op for active tasks)."""
-        pass
+    async def _queue_monitoring_result_instruction(self) -> None:
+        """Queue monitoring result instruction using template rendering."""
+        from mcp_guide.workflow.task_manager import WorkflowTaskManager
 
-    async def resume(self) -> None:
-        """Resume the task (no-op for active tasks)."""
-        pass
-
-    async def process_data(self, data_type: DataType, data: dict[str, Any]) -> None:
-        """Process task completion data and validate."""
-        if data_type == DataType.FILE_CONTENT:
-            # Validate task completion data
-            content = data.get("content", "")
-            if self._validate_task_completion(content):
-                self._task_completion_data = data
-                self.state = TaskState.COMPLETED
-
-    def check_task_file_interest(self, data_type: DataType, data: dict[str, Any]) -> bool:
-        """Check if data is for component task files."""
-        if data_type != DataType.FILE_CONTENT:
-            return False
-        path = data.get("path", "")
-        return isinstance(path, str) and self.component_path in path and path.endswith("tasks.md")
-
-    def _validate_task_completion(self, content: str) -> bool:
-        """Validate task completion format."""
-        if not isinstance(content, str) or not content.strip():
-            return False
-        return "- [x]" in content
+        await WorkflowTaskManager.queue_workflow_instruction(self.task_manager, "monitoring-result")

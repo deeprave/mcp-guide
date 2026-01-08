@@ -6,7 +6,6 @@ from mcp.server.fastmcp import Context
 from pydantic import Field
 
 from mcp_core.tool_arguments import ToolArguments
-from mcp_guide.filesystem.path_validator import SecurityError
 from mcp_guide.filesystem.tools import send_command_location as fs_send_command_location
 from mcp_guide.filesystem.tools import send_directory_listing as fs_send_directory_listing
 from mcp_guide.filesystem.tools import send_file_content as fs_send_file_content
@@ -47,37 +46,15 @@ class SendWorkingDirectoryArgs(ToolArguments):
 async def internal_send_file_content(
     args: SendFileContentArgs,
     ctx: Optional[Context] = None,  # type: ignore[type-arg]
-) -> Result[Dict[str, Any]]:
+) -> "Result[dict[str, Any]]":
     """Internal function to send file content from agent filesystem to server."""
-    try:
-        result = await fs_send_file_content(
-            context=ctx,
-            path=args.path,
-            content=args.content,
-            mtime=args.mtime,
-            encoding=args.encoding,
-        )
-        return Result.ok(result)
-    except FileNotFoundError as e:
-        return Result.failure(error=f"File not found: {str(e)}", error_type="file_not_found")
-    except PermissionError as e:
-        return Result.failure(error=f"Permission denied: {str(e)}", error_type="permission_denied")
-    except SecurityError as e:
-        return Result.failure(error=f"Security violation: Path not allowed - {str(e)}", error_type="security_violation")
-    except ConnectionError as e:
-        return Result.failure(error=f"Communication error: {str(e)}", error_type="sampling_failure")
-    except NotImplementedError as e:
-        return Result.failure(
-            error=f"Operation not supported: {str(e)}",
-            error_type="unsupported_operation",
-            instruction="Please upgrade your MCP client to support this feature",
-        )
-    except MemoryError as e:
-        return Result.failure(error=f"Memory error: {str(e)}", error_type="resource_exhausted")
-    except OSError as e:
-        return Result.failure(error=f"Cache error: {str(e)}", error_type="cache_failure")
-    except Exception as e:
-        return Result.failure(error=f"Error processing file content: {str(e)}", error_type="unknown")
+    return await fs_send_file_content(
+        context=ctx,
+        path=args.path,
+        content=args.content,
+        mtime=args.mtime,
+        encoding=args.encoding,
+    )
 
 
 async def internal_send_directory_listing(
@@ -129,9 +106,18 @@ async def internal_send_working_directory(
 
 
 @tools.tool(SendFileContentArgs)
-async def send_file_content(args: SendFileContentArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
+async def send_file_content(args: SendFileContentArgs, ctx: Optional[Context] = None) -> str:  # type: ignore
     """Send file content from agent filesystem to server."""
     result = await internal_send_file_content(args, ctx)
+
+    # Process through TaskManager before converting to JSON
+    # Import here to avoid circular dependency with tool_decorator module
+    from mcp_core.tool_decorator import _task_manager
+    from mcp_guide.task_manager.interception import FSEventType
+
+    if _task_manager is not None:
+        result = await _task_manager.process_result(result, FSEventType.FILE_CONTENT)
+
     return result.to_json_str()
 
 
@@ -139,6 +125,14 @@ async def send_file_content(args: SendFileContentArgs, ctx: Optional[Context] = 
 async def send_directory_listing(args: SendDirectoryListingArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
     """Send directory listing from agent filesystem to server."""
     result = await internal_send_directory_listing(args, ctx)
+
+    # Process through TaskManager before converting to JSON
+    from mcp_core.tool_decorator import _task_manager
+    from mcp_guide.task_manager.interception import FSEventType
+
+    if _task_manager is not None:
+        result = await _task_manager.process_result(result, FSEventType.DIRECTORY_LISTING)
+
     return result.to_json_str()
 
 
@@ -146,6 +140,14 @@ async def send_directory_listing(args: SendDirectoryListingArgs, ctx: Optional[C
 async def send_command_location(args: SendCommandLocationArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
     """Send command location from agent filesystem to server."""
     result = await internal_send_command_location(args, ctx)
+
+    # Process through TaskManager before converting to JSON
+    from mcp_core.tool_decorator import _task_manager
+    from mcp_guide.task_manager.interception import FSEventType
+
+    if _task_manager is not None:
+        result = await _task_manager.process_result(result, FSEventType.COMMAND_LOCATION)
+
     return result.to_json_str()
 
 
@@ -153,4 +155,12 @@ async def send_command_location(args: SendCommandLocationArgs, ctx: Optional[Con
 async def send_working_directory(args: SendWorkingDirectoryArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
     """Send working directory from agent filesystem to server."""
     result = await internal_send_working_directory(args, ctx)
+
+    # Process through TaskManager before converting to JSON
+    from mcp_core.tool_decorator import _task_manager
+    from mcp_guide.task_manager.interception import FSEventType
+
+    if _task_manager is not None:
+        result = await _task_manager.process_result(result, FSEventType.WORKING_DIRECTORY)
+
     return result.to_json_str()

@@ -26,7 +26,7 @@ class Result(Generic[T]):
     message: Optional[str] = None
     arguments: Optional[str] = None
     instruction: Optional[str] = None
-    additional_instruction: Optional[str] = None
+    additional_agent_instructions: Optional[str] = None
     error_data: Optional[dict[str, Any]] = None
 
     default_success_instruction: ClassVar[Optional[str]] = None
@@ -47,7 +47,7 @@ class Result(Generic[T]):
         message: Optional[str] = None,
         arguments: Optional[str] = None,
         instruction: Optional[str] = None,
-        additional_instruction: Optional[str] = None,
+        additional_agent_instructions: Optional[str] = None,
     ) -> "Result[T]":
         """Create a successful result.
 
@@ -56,7 +56,7 @@ class Result(Generic[T]):
             message: Optional message
             arguments: Optional arguments for agent
             instruction: Optional instruction for agent
-            additional_instruction: Optional side-band instruction for agent
+            additional_agent_instructions: Optional side-band instruction for agent
 
         Returns:
             Result with success=True
@@ -67,7 +67,7 @@ class Result(Generic[T]):
             message=message,
             arguments=arguments,
             instruction=instruction if instruction is not None else cls.default_success_instruction,
-            additional_instruction=additional_instruction,
+            additional_agent_instructions=additional_agent_instructions,
         )
 
     @classmethod
@@ -78,7 +78,7 @@ class Result(Generic[T]):
         exception: Optional[Exception] = None,
         message: Optional[str] = None,
         instruction: Optional[str] = None,
-        additional_instruction: Optional[str] = None,
+        additional_agent_instructions: Optional[str] = None,
     ) -> "Result[T]":
         """Create a failure result with error information.
 
@@ -88,7 +88,7 @@ class Result(Generic[T]):
             exception: Original exception (optional)
             message: Optional message
             instruction: Optional instruction for agent
-            additional_instruction: Optional side-band instruction for agent
+            additional_agent_instructions: Optional side-band instruction for agent
 
         Returns:
             Result with success=False
@@ -100,7 +100,7 @@ class Result(Generic[T]):
             exception=exception,
             message=message,
             instruction=instruction if instruction is not None else cls.default_failure_instruction,
-            additional_instruction=additional_instruction,
+            additional_agent_instructions=additional_agent_instructions,
         )
 
     def is_ok(self) -> bool:
@@ -148,8 +148,8 @@ class Result(Generic[T]):
             result["arguments"] = self.arguments
         if self.instruction:
             result["instruction"] = self.instruction
-        if self.additional_instruction:
-            result["additional_instruction"] = self.additional_instruction
+        if self.additional_agent_instructions:
+            result["additional_agent_instructions"] = self.additional_agent_instructions
 
         return result
 

@@ -5,14 +5,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from mcp_guide.prompts.guide_prompt import guide
-
 
 class TestCommandTemplates:
     """Test command template rendering and functionality."""
 
     @pytest.mark.asyncio
-    async def test_status_command_template(self) -> None:
+    async def test_status_command_template(self, guide_function) -> None:
         """Should render status command template with system information."""
         mock_ctx = MagicMock()
         mock_ctx.session.project_root = "/test/project"
@@ -37,7 +35,7 @@ class TestCommandTemplates:
 
             mock_handle.return_value = Result.ok(status_content)
 
-            result_str = await guide(":status", ctx=mock_ctx)
+            result_str = await guide_function(":status", ctx=mock_ctx)
 
             mock_handle.assert_called_once()
             args = mock_handle.call_args[0]
@@ -54,7 +52,7 @@ class TestCommandTemplates:
             assert "Available Commands" in result["value"]
 
     @pytest.mark.asyncio
-    async def test_create_collection_command_with_args(self) -> None:
+    async def test_create_collection_command_with_args(self, guide_function) -> None:
         """Should handle create/collection command with arguments."""
         mock_ctx = MagicMock()
         mock_ctx.session.project_root = "/test/project"
@@ -70,7 +68,7 @@ Collection created successfully!"""
 
             mock_handle.return_value = Result.ok(create_content)
 
-            result_str = await guide(":create/collection", "my-docs", "docs", "examples", ctx=mock_ctx)
+            result_str = await guide_function(":create/collection", "my-docs", "docs", "examples", ctx=mock_ctx)
 
             mock_handle.assert_called_once()
             args = mock_handle.call_args[0]
@@ -86,7 +84,7 @@ Collection created successfully!"""
             assert "docs, examples" in result["value"]
 
     @pytest.mark.asyncio
-    async def test_template_rendering_error(self) -> None:
+    async def test_template_rendering_error(self, guide_function) -> None:
         """Should handle template rendering errors gracefully."""
         mock_ctx = MagicMock()
         mock_ctx.session.project_root = "/test/project"
@@ -98,7 +96,7 @@ Collection created successfully!"""
                 "Template rendering failed: Invalid syntax", error_type="template_error"
             )
 
-            result_str = await guide(":broken-template", ctx=mock_ctx)
+            result_str = await guide_function(":broken-template", ctx=mock_ctx)
 
             result = json.loads(result_str)
             assert result["success"] is False

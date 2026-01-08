@@ -8,8 +8,10 @@ from typing import TYPE_CHECKING, Any, Callable, Coroutine, Optional, Union
 
 if TYPE_CHECKING:
     from mcp_guide.task_manager import TaskManager
+    from mcp_guide.workflow.task_manager import WorkflowTaskManager
 
 from mcp_core.mcp_log import get_logger
+from mcp_core.result import Result
 from mcp_guide.result_constants import INSTRUCTION_VALIDATION_ERROR
 
 try:
@@ -19,11 +21,28 @@ except ImportError:
 
 logger = get_logger(__name__)
 
+
+def _log_tool_result(tool_name: str, result: Any) -> None:
+    """Log tool result for debugging."""
+    if isinstance(result, Result):
+        logger.trace(
+            f"RESULT: Tool {tool_name} returning result",
+            extra={"message": "Returning result", "result": result.to_json()},
+        )
+
+
 # Internal test mode control - not exposed to external manipulation
 _test_mode: ContextVar[bool] = ContextVar("tool_test_mode", default=False)
 
 # Global TaskManager instance for result processing
 _task_manager: Optional["TaskManager"] = None
+_workflow_task_manager: Optional["WorkflowTaskManager"] = None
+
+
+def set_workflow_task_manager(workflow_task_manager: "WorkflowTaskManager") -> None:
+    """Set the global WorkflowTaskManager instance."""
+    global _workflow_task_manager
+    _workflow_task_manager = workflow_task_manager
 
 
 @cache
@@ -54,14 +73,29 @@ def set_task_manager(task_manager: Optional["TaskManager"]) -> None:
     Args:
         task_manager: TaskManager instance or None to clear
     """
-    global _task_manager
-    _task_manager = task_manager
+    global _task_manager, _workflow_task_manager
+    # Import here to avoid circular dependency with task_manager module
+    from mcp_guide.task_manager import get_task_manager
+
+    _task_manager = get_task_manager() if task_manager is not None else None
+
+    if task_manager:
+        # Import here to avoid circular dependency with workflow.task_manager module
+        from mcp_guide.workflow.task_manager import WorkflowTaskManager
+
+        _workflow_task_manager = WorkflowTaskManager(task_manager)
+    else:
+        _workflow_task_manager = None
 
 
-def _process_tool_result(result: Any, tool_name: str) -> Any:
+async def _manage_workflow_task() -> None:
+    """Delegate workflow management to dedicated manager."""
+    if _workflow_task_manager:
+        await _workflow_task_manager.manage_workflow_task()
+
+
+async def _process_tool_result(result: Any, tool_name: str) -> Any:
     """Process tool result through TaskManager and convert to JSON."""
-    from mcp_core.result import Result
-
     # If result is already a JSON string, return as-is
     if isinstance(result, str):
         return result
@@ -71,12 +105,18 @@ def _process_tool_result(result: Any, tool_name: str) -> Any:
         # Process through TaskManager if available
         if _task_manager is not None:
             try:
-                result = _task_manager.process_result(result)
-                logger.trace(f"Tool {tool_name} result processed through TaskManager", extra={"result": result})
+                result = await _task_manager.process_result(result)
             except Exception as e:
                 logger.error(f"TaskManager processing failed for tool {tool_name}: {e}")
 
-        # Convert to JSON string
+        # Manage workflow tasks after tool execution
+        try:
+            await _manage_workflow_task()
+        except Exception as e:
+            logger.error(f"Workflow task management failed after tool {tool_name}: {e}")
+
+        # Log final result and convert to JSON string
+        _log_tool_result(tool_name, result)
         return result.to_json_str()
 
     # For other types, return as-is (shouldn't happen in normal operation)
@@ -141,13 +181,14 @@ class ExtMcpToolDecorator:
                 if args_class is not None:
                     # Use Pydantic model as single parameter to preserve Field descriptions
                     @wraps(func)
-                    async def async_wrapper(args: args_class, ctx: Optional[Context] = None) -> Any:  # type: ignore
+                    async def async_wrapper(args: Any, ctx: Optional[Any] = None) -> str:  # Always str for FastMCP
                         logger.debug(f"Invoking async tool: {tool_name}")
+
                         try:
                             # FastMCP validates and constructs args, we just pass it through
                             result = await func(args, ctx)
                             logger.debug(f"Tool {tool_name} completed successfully")
-                            return _process_tool_result(result, tool_name)
+                            return await _process_tool_result(result, tool_name)  # type: ignore[no-any-return]
                         except Exception as e:
                             # Defense-in-depth: catch validation errors that might slip through
                             from pydantic import ValidationError as PydanticValidationError
@@ -169,45 +210,29 @@ class ExtMcpToolDecorator:
                                 )
                                 error_result.error_data = {"validation_errors": error_details}
                                 logger.error(f"Tool {tool_name} argument validation failed: {error_details}")
-                                return _process_tool_result(error_result, tool_name)
+                                return await _process_tool_result(error_result, tool_name)  # type: ignore[no-any-return]
 
                             logger.error(f"Tool {tool_name} failed: {e}")
                             raise
                 else:
                     # No args_class - use explicit ctx parameter
                     @wraps(func)
-                    async def async_wrapper(ctx: Optional[Context] = None) -> Any:  # type: ignore[type-arg]
+                    async def async_wrapper(ctx: Optional[Any] = None) -> str:  # Always str for FastMCP
                         logger.debug(f"Invoking async tool: {tool_name}")
                         try:
                             result = await func(ctx=ctx)
                             logger.debug(f"Tool {tool_name} completed successfully")
-                            return _process_tool_result(result, tool_name)
+                            return await _process_tool_result(result, tool_name)  # type: ignore[no-any-return]
                         except Exception as e:
                             logger.error(f"Tool {tool_name} failed: {e}")
                             raise
 
                 wrapped = async_wrapper
             else:
-                # Sync tools are not supported - create wrapper that returns error
-
-                @wraps(func)
-                def sync_wrapper(**kwargs: Any) -> Any:
-                    # Log error when sync tool is actually called
-                    logger.error(
-                        f"Sync tool {tool_name} called but sync tools are not supported. "
-                        "All MCP tools must be async to properly handle Context parameter."
-                    )
-                    # Return error result immediately
-                    from mcp_core.result import Result
-
-                    error_result: Result[Any] = Result.failure(
-                        "Tool implementation error: synchronous tools are not supported. "
-                        "All MCP tools must be async to handle Context parameter.",
-                        error_type="sync_tool_not_supported",
-                    )
-                    return _process_tool_result(error_result, tool_name)
-
-                wrapped = sync_wrapper
+                # Synchronous function - not supported in async-first architecture
+                raise TypeError(
+                    f"Tool {tool_name} must be async. Synchronous tools are not supported in async-first architecture."
+                )
 
             # Register with FastMCP
             self.mcp.tool(name=tool_name, description=final_description)(wrapped)

@@ -23,12 +23,15 @@ class TestSendFileContentTool:
     @patch("mcp_guide.tools.tool_filesystem.fs_send_file_content")
     async def test_send_file_content_success(self, mock_send):
         """internal_send_file_content should call underlying function."""
-        mock_send.return_value = {
-            "success": True,
-            "message": "File cached successfully",
-            "path": "docs/readme.md",
-            "size": 25,
-        }
+        from mcp_guide.result import Result
+
+        mock_send.return_value = Result.ok(
+            {
+                "message": "File cached successfully",
+                "path": "docs/readme.md",
+                "size": 25,
+            }
+        )
 
         args = SendFileContentArgs(path="docs/readme.md", content="# Hello World\nThis is a test file.")
 
@@ -51,7 +54,9 @@ class TestSendFileContentTool:
     @patch("mcp_guide.tools.tool_filesystem.fs_send_file_content")
     async def test_send_file_content_error(self, mock_send):
         """internal_send_file_content should handle errors."""
-        mock_send.side_effect = Exception("Test error")
+        from mcp_guide.result import Result
+
+        mock_send.return_value = Result.failure(error="Test error", error_type="unknown")
 
         args = SendFileContentArgs(path="docs/readme.md", content="content")
 

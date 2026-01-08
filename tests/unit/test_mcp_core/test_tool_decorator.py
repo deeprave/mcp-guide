@@ -88,7 +88,7 @@ class TestExtMcpToolDecorator:
         disable_test_mode()  # Ensure production mode
 
         @decorator.tool(args_class=TestArgs)
-        def test_func(args: TestArgs) -> Result:
+        async def test_func(args: TestArgs) -> Result:
             """Test function."""
             return Result.ok("test")
 
@@ -111,7 +111,7 @@ class TestExtMcpToolDecorator:
         manual_desc = "Manual description"
 
         @decorator.tool(args_class=TestArgs, description=manual_desc)
-        def test_func(args: TestArgs) -> Result:
+        async def test_func(args: TestArgs) -> Result:
             """Test function."""
             return Result.ok("test")
 
@@ -130,7 +130,7 @@ class TestExtMcpToolDecorator:
         enable_test_mode()  # Enable test mode
 
         @decorator.tool(args_class=TestArgs)
-        def test_func(args: TestArgs) -> Result:
+        async def test_func(args: TestArgs) -> Result:
             """Test function."""
             return Result.ok("test")
 
@@ -138,7 +138,9 @@ class TestExtMcpToolDecorator:
         assert not mock_mcp.tool.called
 
         # Function should still be callable (pass dict instead of args object for now)
-        result = test_func({"value": "test"})
+        import asyncio
+
+        result = asyncio.run(test_func({"value": "test"}))
         assert result.is_ok()
 
     def test_production_mode_registers_with_fastmcp(self):
@@ -153,7 +155,7 @@ class TestExtMcpToolDecorator:
         disable_test_mode()  # Ensure production mode
 
         @decorator.tool(args_class=TestArgs)
-        def test_func(args: TestArgs) -> Result:
+        async def test_func(args: TestArgs) -> Result:
             """Test function."""
             return Result.ok("test")
 
@@ -174,7 +176,7 @@ class TestExtMcpToolDecorator:
         disable_test_mode()  # Ensure production mode
 
         @decorator.tool(args_class=TestArgs)
-        def test_func(args: TestArgs) -> Result:
+        async def test_func(args: TestArgs) -> Result:
             """Test function docstring."""
             return Result.ok("test")
 

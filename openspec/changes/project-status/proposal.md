@@ -6,13 +6,20 @@ The `:status` command currently shows minimal information and doesn't reflect th
 ## What Changes
 This change is split into multiple sub-specifications for manageable implementation:
 
-1. **workflow-flags**: Rename and enhance project flags for workflow management
-2. **workflow-context**: Add workflow variables to template context
-3. **workflow-fsm**: Implement WorkflowManager FSM for agent coordination
-4. **workflow-templates**: Add frontmatter conditional rendering
-5. **workflow-monitoring**: Add automatic state file monitoring
+1. **workflow-flags**: ✅ COMPLETED - Rename and enhance project flags for workflow management
+2. **workflow-context**: ✅ COMPLETED - Add workflow variables to template context
+3. **workflow-fsm**: ✅ COMPLETED - Implement WorkflowManager FSM for agent coordination
+4. **workflow-templates**: ✅ COMPLETED - Add frontmatter conditional rendering
+5. **refactor-task-pubsub**: 🔄 IN PROGRESS - Replace ephemeral task interest registration with persistent pub/sub event system
 
 ## Impact
-- Affected specs: Multiple new workflow-related capabilities
-- Affected code: Template system, MCP tools, project flags, status display
-- Breaking changes: Flag names changed from `phase-*` to `workflow-*`
+- Affected specs: Multiple new workflow-related capabilities ✅ IMPLEMENTED
+- Affected code: Template system, MCP tools, project flags, status display ✅ IMPLEMENTED
+- Breaking changes: Flag names changed from `phase-*` to `workflow-*` ✅ COMPLETED
+
+## Implementation Status
+**Overall Progress: ~90% Complete**
+- Core workflow functionality is operational
+- State file monitoring and agent coordination working
+- Template system integration complete
+- Only pub/sub refactoring remains for improved event system reliability

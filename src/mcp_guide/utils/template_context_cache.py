@@ -83,6 +83,7 @@ class TemplateContextCache(SessionListener):
 
         # Get current project and feature flags for resolution
         try:
+            # Import here to avoid circular dependency with session module
             from mcp_guide.session import get_or_create_session
 
             session = await get_or_create_session(None)
@@ -137,10 +138,8 @@ class TemplateContextCache(SessionListener):
 
         try:
             session = await get_or_create_session(None)
-            logger.debug(f"Template context: session = {session}")
             if session:
                 project = await session.get_project()
-                logger.debug(f"Template context: project = {project}")
 
                 if project:
                     # Convert categories dict to list format with pre-formatted patterns
@@ -254,6 +253,23 @@ class TemplateContextCache(SessionListener):
                         project_hash=project.hash,
                     )
                     workflow_config["file"] = workflow_file
+
+                # Get workflow state from TaskManager cache
+                from mcp_guide.task_manager import get_task_manager
+
+                task_manager = get_task_manager()
+                workflow_state = task_manager.get_cached_data("workflow_state")
+                if workflow_state:
+                    # Add parsed workflow state to config
+                    workflow_config.update(
+                        {
+                            "phase": workflow_state.phase,
+                            "issue": workflow_state.issue,
+                            "tracking": workflow_state.tracking,
+                            "description": workflow_state.description,
+                            "queue": workflow_state.queue,
+                        }
+                    )
         except Exception as e:
             logger.debug(f"Failed to resolve workflow flags: {e}")
 
@@ -276,7 +292,6 @@ class TemplateContextCache(SessionListener):
             "workflow": workflow_config,  # Workflow configuration
         }
 
-        logger.debug(f"Template context: project_flag_values = {project_vars['project']['project_flag_values']}")  # type: ignore[index]
         return TemplateContext(project_vars)
 
     async def _build_category_context(self, category_name: str) -> "TemplateContext":
