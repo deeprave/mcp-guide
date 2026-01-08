@@ -40,19 +40,16 @@ def _setup_remote_debugging() -> None:
     debug_wait = os.environ.get("MG_DEBUG_WAIT", "").lower() in ("true", "1", "yes")
 
     # Start debug server
-    if debugpy is not None:
-        try:
-            debugpy.listen(("localhost", debug_port))
-            print(f"Debug server listening on port {debug_port}", file=sys.stderr)
+    try:
+        debugpy.listen(("localhost", debug_port))
+        print(f"Debug server listening on port {debug_port}", file=sys.stderr)
 
-            if debug_wait:
-                print("Waiting for debugger to attach...", file=sys.stderr)
-                debugpy.wait_for_client()
-                print("Debugger attached!", file=sys.stderr)
-        except Exception as e:
-            print(f"WARNING: Failed to start debug server: {e}", file=sys.stderr)
-    else:
-        print("WARNING: debugpy not available, debug server disabled", file=sys.stderr)
+        if debug_wait:
+            print("Waiting for debugger to attach...", file=sys.stderr)
+            debugpy.wait_for_client()
+            print("Debugger attached!", file=sys.stderr)
+    except Exception as e:
+        print(f"WARNING: Failed to start debug server: {e}", file=sys.stderr)
 
 
 def _configure_environment(config: ServerConfig) -> None:
