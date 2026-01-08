@@ -50,7 +50,7 @@ The system SHALL support registration of flag-specific validators for semantic v
 - **THEN** validate path security and format requirements
 
 ### Requirement: Security Policy Consolidation
-The system SHOULD consolidate overlapping filesystem security implementations into a unified security policy class.
+The system SHALL consolidate overlapping filesystem security implementations into a unified security policy class.
 
 #### Scenario: Unified security validation
 - **WHEN** validating workflow file paths

@@ -10,7 +10,7 @@ This change is split into multiple sub-specifications for manageable implementat
 2. **workflow-context**: ✅ COMPLETED - Add workflow variables to template context
 3. **workflow-fsm**: ✅ COMPLETED - Implement WorkflowManager FSM for agent coordination
 4. **workflow-templates**: ✅ COMPLETED - Add frontmatter conditional rendering
-5. **refactor-task-pubsub**: 🔄 IN PROGRESS - Replace ephemeral task interest registration with persistent pub/sub event system
+5. **refactor-task-pubsub**: 🔄 IN PROGRESS - Replace FSM callback registration with pub/sub system featuring EventType bitflags, timer events, and weak reference management
 
 ## Impact
 - Affected specs: Multiple new workflow-related capabilities ✅ IMPLEMENTED

@@ -56,3 +56,17 @@
 - [x] 6.3 Test timeout handling and recovery
 - [x] 6.4 Workflow context cache fully functional and operational
 - [x] 6.5 Agent interactions with state management via existing filesystem tools
+
+## 7. Task Pub/Sub Refactoring
+- [ ] 7.1 Rename FSEventType to EventType enumeration
+- [ ] 7.2 Implement EventType as bitflag system with timer event bit
+- [ ] 7.3 Replace register_interest() with subscribe() method
+- [ ] 7.4 Implement unsubscribe() method for complete cleanup
+- [ ] 7.5 Add timer event subscription with fractional second intervals
+- [ ] 7.6 Implement event dispatch with bitflag filtering and fan-out
+- [ ] 7.7 Create timer event scheduling system with asyncio loop
+- [ ] 7.8 Implement weak reference subscriber management
+- [ ] 7.9 Add automatic dead subscriber cleanup during dispatch
+- [ ] 7.10 Update subscriber callback interface to receive (event_type, payload)
+- [ ] 7.11 Implement timer event table with expiry timestamps
+- [ ] 7.12 Add timer event recalculation for recurring events
