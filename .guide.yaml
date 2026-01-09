@@ -1,0 +1,6 @@
+phase: review
+issue: content-delivery-format
+tracking: 
+description: Content delivery format implementation completed - all tests passing
+queue:
+  - add-openspec-support
