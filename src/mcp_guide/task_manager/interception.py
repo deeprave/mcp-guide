@@ -1,26 +1,22 @@
 """Agent data interception system with bit-flag registration."""
 
-from dataclasses import dataclass
 from enum import IntFlag
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from .protocol import Task
+    pass
 
 
-class FSEventType(IntFlag):
-    """Bit-flag filesystem event types for efficient agent data routing."""
+class EventType(IntFlag):
+    """Bit-flag event types for efficient agent data routing."""
 
-    FILE_CONTENT = 1
-    DIRECTORY_LISTING = 2
-    COMMAND_LOCATION = 4
-    WORKING_DIRECTORY = 8
+    FS_FILE_CONTENT = 1
+    FS_DIRECTORY = 2
+    FS_COMMAND = 4
+    FS_CWD = 8
+    TIMER = 65536  # 2^16
 
 
-@dataclass
-class InterestRegistration:
-    """Ephemeral interest registration for agent data."""
-
-    task: "Task"
-    flags: FSEventType
-    callback: Callable[["FSEventType", dict[str, Any]], bool]
+def is_timer_event(event_type: EventType) -> bool:
+    """Check if event type includes timer bit."""
+    return bool(event_type & EventType.TIMER)

@@ -58,10 +58,12 @@ class ReadWriteSecurityPolicy:
 
         # Handle absolute paths
         if path_obj.is_absolute():
-            # Check if it's in additional read paths
             path_posix = path_obj.as_posix()
+
+            # Check if it's in additional read paths
             for allowed_abs in self.additional_read_paths:
-                if path_posix.startswith(allowed_abs.rstrip("/") + "/") or path_posix == allowed_abs.rstrip("/"):
+                allowed_abs_clean = allowed_abs.rstrip("/")
+                if path_posix.startswith(allowed_abs_clean + "/") or path_posix == allowed_abs_clean:
                     # Check system directory blacklist
                     if is_system_directory(path):
                         self._violation_count += 1
@@ -71,8 +73,26 @@ class ReadWriteSecurityPolicy:
                         raise SecurityError(f"System directory access denied: {path}")
                     return str(path_obj)
 
-            # If project root is known, check if absolute path is within project
+            # If project root is known, check if absolute path is within project (default read path)
             if self.project_root:
+                project_root_posix = self.project_root.as_posix().rstrip("/")
+                if path_posix.startswith(project_root_posix + "/") or path_posix == project_root_posix:
+                    # Check system directory blacklist
+                    if is_system_directory(path):
+                        self._violation_count += 1
+                        logger.warning(
+                            f"Security violation #{self._violation_count}: read denied for system directory {path}"
+                        )
+                        raise SecurityError(f"System directory access denied: {path}")
+
+                    # Convert to relative path for consistency with existing behavior
+                    try:
+                        rel_path = path_obj.relative_to(self.project_root)
+                        return self._validate_relative_read_path(str(rel_path))
+                    except ValueError:
+                        return str(path_obj)
+
+                # Also try relative path resolution for paths within project
                 try:
                     rel_path = path_obj.relative_to(self.project_root)
                     return self._validate_relative_read_path(str(rel_path))

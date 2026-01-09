@@ -113,10 +113,10 @@ async def send_file_content(args: SendFileContentArgs, ctx: Optional[Context] = 
     # Process through TaskManager before converting to JSON
     # Import here to avoid circular dependency with tool_decorator module
     from mcp_core.tool_decorator import _task_manager
-    from mcp_guide.task_manager.interception import FSEventType
+    from mcp_guide.task_manager.interception import EventType
 
     if _task_manager is not None:
-        result = await _task_manager.process_result(result, FSEventType.FILE_CONTENT)
+        result = await _task_manager.process_result(result, EventType.FS_FILE_CONTENT)
 
     return result.to_json_str()
 
@@ -128,10 +128,10 @@ async def send_directory_listing(args: SendDirectoryListingArgs, ctx: Optional[C
 
     # Process through TaskManager before converting to JSON
     from mcp_core.tool_decorator import _task_manager
-    from mcp_guide.task_manager.interception import FSEventType
+    from mcp_guide.task_manager.interception import EventType
 
     if _task_manager is not None:
-        result = await _task_manager.process_result(result, FSEventType.DIRECTORY_LISTING)
+        result = await _task_manager.process_result(result, EventType.FS_DIRECTORY)
 
     return result.to_json_str()
 
@@ -143,10 +143,10 @@ async def send_command_location(args: SendCommandLocationArgs, ctx: Optional[Con
 
     # Process through TaskManager before converting to JSON
     from mcp_core.tool_decorator import _task_manager
-    from mcp_guide.task_manager.interception import FSEventType
+    from mcp_guide.task_manager.interception import EventType
 
     if _task_manager is not None:
-        result = await _task_manager.process_result(result, FSEventType.COMMAND_LOCATION)
+        result = await _task_manager.process_result(result, EventType.FS_COMMAND)
 
     return result.to_json_str()
 
@@ -158,9 +158,9 @@ async def send_working_directory(args: SendWorkingDirectoryArgs, ctx: Optional[C
 
     # Process through TaskManager before converting to JSON
     from mcp_core.tool_decorator import _task_manager
-    from mcp_guide.task_manager.interception import FSEventType
+    from mcp_guide.task_manager.interception import EventType
 
     if _task_manager is not None:
-        result = await _task_manager.process_result(result, FSEventType.WORKING_DIRECTORY)
+        result = await _task_manager.process_result(result, EventType.FS_CWD)
 
     return result.to_json_str()

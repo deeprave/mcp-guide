@@ -40,6 +40,13 @@ async def send_file_content(
         policy = ReadWriteSecurityPolicy(
             write_allowed_paths=project.allowed_write_paths, additional_read_paths=project.additional_read_paths
         )
+
+        # Set project root for default read access
+        from mcp_guide.mcp_context import resolve_project_path
+
+        project_root = await resolve_project_path()
+        policy.set_project_root(str(project_root))
+
         validated_path = policy.validate_read_path(path)
 
         # Cache the content provided by agent
@@ -90,6 +97,13 @@ async def send_directory_listing(
         policy = ReadWriteSecurityPolicy(
             write_allowed_paths=project.allowed_write_paths, additional_read_paths=project.additional_read_paths
         )
+
+        # Set project root for default read access
+        from mcp_guide.mcp_context import resolve_project_path
+
+        project_root = await resolve_project_path()
+        policy.set_project_root(str(project_root))
+
         validated_path = policy.validate_read_path(path)
 
         # Store directory listing (could be cached if needed)

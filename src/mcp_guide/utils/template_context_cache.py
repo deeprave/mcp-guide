@@ -225,7 +225,7 @@ class TemplateContextCache(SessionListener):
         try:
             from mcp_guide.mcp_context import resolve_project_path
 
-            client_working_dir = await resolve_project_path()
+            client_working_dir = str(await resolve_project_path())
         except Exception as e:
             logger.debug(f"Failed to get client working directory: {e}")
 

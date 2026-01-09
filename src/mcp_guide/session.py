@@ -212,7 +212,7 @@ class Session:
                     # Hash-based project resolution for non-legacy projects
                     with contextlib.suppress(ValueError, RuntimeError):
                         current_path = await resolve_project_path()
-                        current_hash = calculate_project_hash(current_path)
+                        current_hash = calculate_project_hash(str(current_path))
                         expected_key = generate_project_key(name, current_hash)
 
                         # First try exact key match (most efficient)
@@ -257,7 +257,8 @@ class Session:
                 if project_name == name:
                     # Calculate hash and create new key
                     try:
-                        current_path = await resolve_project_path()
+                        current_path_obj = await resolve_project_path()
+                        current_path = str(current_path_obj)
                     except ValueError:
                         current_path = str(file_path.parent.resolve())
 
@@ -302,7 +303,8 @@ class Session:
             """Create a new project with hash."""
             # Calculate hash for the current project path
             try:
-                current_path = await resolve_project_path()
+                current_path_obj = await resolve_project_path()
+                current_path = str(current_path_obj)
             except (ValueError, RuntimeError):
                 current_path = str(file_path.parent.resolve())
 

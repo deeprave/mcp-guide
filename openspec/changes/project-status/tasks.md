@@ -1,9 +1,9 @@
 ## 1. Specification
-- [ ] 1.1 Define project-status capability spec with configurable state file
-- [ ] 1.2 Define enhanced phase-tracking flag format (boolean/list with transition controls)
-- [ ] 1.3 Define state file YAML format and validation rules
-- [ ] 1.4 Define WorkflowManager FSM states and transitions
-- [ ] 1.5 Define MCP tool interfaces for state management
+- [x] 1.1 Define project-status capability spec with configurable state file (implemented in workflow-flags spec)
+- [x] 1.2 Define enhanced phase-tracking flag format (implemented as workflow-file flag with variable substitution)
+- [x] 1.3 Define state file YAML format and validation rules (implemented in workflow/schema.py)
+- [x] 1.4 Define WorkflowManager FSM states and transitions (implemented in workflow-fsm spec and task_manager)
+- [x] 1.5 Define MCP tool interfaces for state management (implemented using existing filesystem tools)
 
 ## 2. Core Implementation
 - [x] 2.1 Add phase-state-file feature flag with default '.guide.yaml' (implemented as workflow-file)
@@ -58,15 +58,15 @@
 - [x] 6.5 Agent interactions with state management via existing filesystem tools
 
 ## 7. Task Pub/Sub Refactoring
-- [ ] 7.1 Rename FSEventType to EventType enumeration
-- [ ] 7.2 Implement EventType as bitflag system with timer event bit
-- [ ] 7.3 Replace register_interest() with subscribe() method
-- [ ] 7.4 Implement unsubscribe() method for complete cleanup
-- [ ] 7.5 Add timer event subscription with fractional second intervals
-- [ ] 7.6 Implement event dispatch with bitflag filtering and fan-out
-- [ ] 7.7 Create timer event scheduling system with asyncio loop
-- [ ] 7.8 Implement weak reference subscriber management
-- [ ] 7.9 Add automatic dead subscriber cleanup during dispatch
-- [ ] 7.10 Update subscriber callback interface to receive (event_type, payload)
-- [ ] 7.11 Implement timer event table with expiry timestamps
-- [ ] 7.12 Add timer event recalculation for recurring events
+- [x] 7.1 Rename FSEventType to EventType enumeration
+- [x] 7.2 Implement EventType as bitflag system with timer event bit
+- [x] 7.3 Replace register_interest() with subscribe() method using TaskSubscriber protocol
+- [x] 7.4 Implement unsubscribe() method for complete cleanup
+- [x] 7.5 Add timer event subscription with fractional second intervals
+- [x] 7.6 Implement event dispatch with bitflag filtering and fan-out
+- [x] 7.7 Create timer event scheduling system with asyncio loop
+- [x] 7.8 Implement weak reference subscriber management
+- [x] 7.9 Add automatic dead subscriber cleanup during dispatch
+- [x] 7.10 Update subscriber interface to TaskSubscriber protocol with handle_event() method
+- [x] 7.11 Implement timer event table with expiry timestamps
+- [x] 7.12 Add timer event recalculation for recurring events
