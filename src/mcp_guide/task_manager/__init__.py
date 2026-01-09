@@ -1,7 +1,17 @@
 """Task manager module for coordinating agent communication."""
 
-from .interception import FSEventType, InterestRegistration
+from .interception import EventType
 from .manager import TaskManager, get_task_manager
-from .protocol import Task, TaskState, TaskType
+from .protocol import Task, TaskState, TaskSubscriber, TaskType
+from .subscription import Subscription
 
-__all__ = ["TaskManager", "Task", "TaskState", "TaskType", "FSEventType", "InterestRegistration", "get_task_manager"]
+__all__ = [
+    "TaskManager",
+    "Task",
+    "TaskState",
+    "TaskType",
+    "EventType",
+    "TaskSubscriber",
+    "Subscription",
+    "get_task_manager",
+]

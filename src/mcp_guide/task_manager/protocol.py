@@ -1,12 +1,12 @@
 """Task protocol and state definitions."""
 
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Optional, Protocol
+from typing import TYPE_CHECKING, Any, Optional, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
     from mcp_core.result import Result
 
-    from .interception import FSEventType
+from .interception import EventType
 
 
 class TaskState(Enum):
@@ -46,7 +46,7 @@ class Task(Protocol):
         """Handle task completion."""
         ...
 
-    async def process_data(self, data_type: "FSEventType", data: dict[str, Any]) -> None:
+    async def process_data(self, data_type: EventType, data: dict[str, Any]) -> None:
         """Process agent data and update task state."""
         ...
 
@@ -60,4 +60,21 @@ class Task(Protocol):
 
     async def resume(self) -> None:
         """Resume the task (for scheduled tasks)."""
+        ...
+
+
+@runtime_checkable
+class TaskSubscriber(Protocol):
+    """Protocol for objects that can subscribe to task manager events."""
+
+    async def handle_event(self, event_type: EventType, data: dict[str, Any]) -> bool:
+        """Handle an event from the task manager.
+
+        Args:
+            event_type: The type of event that occurred
+            data: Event data dictionary
+
+        Returns:
+            True if the event was handled, False otherwise
+        """
         ...

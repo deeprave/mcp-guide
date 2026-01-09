@@ -41,7 +41,8 @@ async def verify_project_hash(project_hash: Optional[str], current_path: Optiona
         if current_path is None:
             from mcp_guide.mcp_context import resolve_project_path
 
-            current_path = await resolve_project_path()
+            resolved_path = await resolve_project_path()
+            current_path = str(resolved_path)
 
         current_hash = calculate_project_hash(current_path)
         return project_hash == current_hash

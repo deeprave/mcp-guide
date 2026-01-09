@@ -38,7 +38,7 @@ class WorkflowTaskManager:
             logger.trace(f"Workflow configuration: file={workflow_file}, enabled={workflow_enabled}")
 
             # Check if workflow task is running
-            workflow_task = self._task_manager.find_task_by_type(WorkflowMonitorTask)
+            workflow_task = await self._task_manager.find_task_by_type(WorkflowMonitorTask)
             has_running_task = workflow_task is not None
 
             logger.trace(f"Existing workflow task: {workflow_task}, has_running_task={has_running_task}")
@@ -86,7 +86,7 @@ class WorkflowTaskManager:
             )
 
             if result.success and result.value:
-                task_manager.queue_instruction(result.value)
+                await task_manager.queue_instruction(result.value)
 
         except Exception as e:
             logger.warning(f"Failed to queue workflow instruction: {e}")

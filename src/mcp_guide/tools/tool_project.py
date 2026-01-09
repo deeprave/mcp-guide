@@ -473,7 +473,7 @@ async def internal_clone_project(args: CloneProjectArgs, ctx: Optional[Context] 
                     current_path = await resolve_project_path()
                     from mcp_guide.utils.project_hash import calculate_project_hash, generate_project_key
 
-                    project_hash = calculate_project_hash(current_path)
+                    project_hash = calculate_project_hash(str(current_path))
                     project_key = generate_project_key(target_name, project_hash)
                     target_project = Project(
                         name=target_name, key=project_key, hash=project_hash, categories={}, collections={}

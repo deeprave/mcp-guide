@@ -2,6 +2,8 @@
 
 from unittest.mock import MagicMock
 
+import pytest
+
 from mcp_core.result import Result
 from mcp_core.tool_decorator import _process_tool_result, set_task_manager
 from mcp_guide.task_manager import TaskManager
@@ -21,10 +23,11 @@ class TestToolDecoratorIntegration:
         assert isinstance(processed, str)
         assert "test data" in processed
 
+    @pytest.mark.asyncio
     async def test_process_tool_result_with_task_manager(self):
         """Test result processing with TaskManager."""
         task_manager = TaskManager()
-        task_manager.queue_instruction("Please check status")
+        await task_manager.queue_instruction("Please check status")
         set_task_manager(task_manager)
 
         result = Result.ok("test data")
