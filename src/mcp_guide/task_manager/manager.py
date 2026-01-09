@@ -53,6 +53,18 @@ class TaskManager:
     @classmethod
     def _reset_for_testing(cls) -> None:
         """Reset singleton for testing. DO NOT USE IN PRODUCTION."""
+        # Clean up existing instance resources before resetting
+        if cls._instance is not None:
+            import asyncio
+
+            try:
+                # Try to clean up in current event loop
+                loop = asyncio.get_running_loop()
+                loop.create_task(cls._instance.cleanup())
+            except RuntimeError:
+                # No running event loop, create one temporarily
+                asyncio.run(cls._instance.cleanup())
+
         cls._instance = None
         cls._initialized = False
 
@@ -306,7 +318,6 @@ class TaskManager:
 
     async def _timer_loop(self) -> None:
         """Main timer event loop - runs only while there are active timers."""
-        import time
 
         while True:
             # Get timer subscriptions

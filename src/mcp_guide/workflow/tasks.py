@@ -9,6 +9,9 @@ from mcp_guide.workflow.parser import parse_workflow_state
 if TYPE_CHECKING:
     from mcp_guide.task_manager import EventType, TaskManager
 
+    # Import WorkflowTaskManager only for type checking to avoid circular import:
+    # WorkflowTaskManager -> WorkflowMonitorTask -> WorkflowTaskManager
+
 logger = get_logger(__name__)
 
 # Workflow monitoring interval in seconds
@@ -60,9 +63,11 @@ class WorkflowMonitorTask:
 
     async def _handle_monitoring_reminder(self) -> None:
         """Handle timer events for monitoring reminders."""
-        # Queue a simple monitoring reminder message
-        reminder_message = "This is a reminder that you must send the content of .guide.yaml using the send_file_content tool whenever it is updated."
-        await self.task_manager.queue_instruction(reminder_message)
+        # Import at runtime to avoid circular import: WorkflowTaskManager -> WorkflowMonitorTask -> WorkflowTaskManager
+        from mcp_guide.workflow.task_manager import WorkflowTaskManager
+
+        # Use the existing workflow instruction system
+        await WorkflowTaskManager.queue_workflow_instruction(self.task_manager, "monitoring-reminder")
 
     async def _process_workflow_content(self, content: str) -> None:
         """Process workflow file content and update cached state."""
@@ -79,7 +84,7 @@ class WorkflowMonitorTask:
                 logger.trace("Workflow state cached in TaskManager")
 
                 # Always queue monitoring reminder instruction when workflow content is processed
-                # Function-level import to avoid circular import with WorkflowTaskManager
+                # Import at runtime to avoid circular import: WorkflowTaskManager -> WorkflowMonitorTask -> WorkflowTaskManager
                 from mcp_guide.workflow.task_manager import WorkflowTaskManager
 
                 logger.trace("About to queue monitoring-result instruction")

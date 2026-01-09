@@ -107,7 +107,7 @@ def test_subscription_hash():
     # But since they contain weakref, they may not be hashable
     # This test verifies the current behavior
     try:
-        subscription_set = {sub1, sub2}
+        {sub1, sub2}  # Test if subscriptions can be added to a set
         # If this works, they are hashable
         assert True
     except TypeError:
