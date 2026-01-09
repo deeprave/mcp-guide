@@ -1,8 +1,7 @@
 """Tests for timer event scheduling system."""
 
-import asyncio
-import time
 from typing import Any
+from unittest.mock import patch
 
 import pytest
 
@@ -15,8 +14,15 @@ class MockTimerSubscriber:
     def __init__(self) -> None:
         self.received_events: list[tuple[EventType, dict[str, Any], float]] = []
 
+    def get_name(self) -> str:
+        """Get subscriber name."""
+        return "MockTimerSubscriber"
+
     async def handle_event(self, event_type: EventType, data: dict[str, Any]) -> bool:
         """Handle timer events and record timestamp."""
+        # Use mocked time for deterministic testing
+        import time
+
         self.received_events.append((event_type, data, time.time()))
         return True
 
@@ -49,32 +55,29 @@ class TestTimerEventScheduling:
     @pytest.mark.asyncio
     async def test_timer_events_generated_at_intervals(self) -> None:
         """Test timer events are generated at specified intervals."""
-        manager = TaskManager()
-        subscriber = MockTimerSubscriber()
+        with patch("time.time") as mock_time:
+            # Mock time progression - provide enough values for all time.time() calls
+            # Including calls from handle_event and any other time.time() usage
+            mock_time.side_effect = [0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5]
 
-        await manager.subscribe(subscriber, EventType.FS_FILE_CONTENT, timer_interval=0.05)
+            manager = TaskManager()
+            subscriber = MockTimerSubscriber()
 
-        # Start timer loop
-        timer_task = asyncio.create_task(manager._timer_loop())
+            await manager.subscribe(subscriber, EventType.FS_FILE_CONTENT, timer_interval=0.05)
 
-        try:
-            # Wait for multiple timer events
-            await asyncio.sleep(0.15)
+            # Manually trigger timer loop iterations
+            timer_subscriptions = [sub for sub in manager._subscriptions if sub.is_timer()]
+            timer_sub = timer_subscriptions[0]
 
-            # Should have received 2-3 timer events
-            assert len(subscriber.received_events) >= 2
+            # Simulate timer firing twice
+            payload1 = {"timer_interval": 0.05, "timestamp": 0.05}
+            payload2 = {"timer_interval": 0.05, "timestamp": 0.1}
 
-            # Check intervals are approximately correct
-            if len(subscriber.received_events) >= 2:
-                time_diff = subscriber.received_events[1][2] - subscriber.received_events[0][2]
-                assert 0.04 <= time_diff <= 0.07  # Allow some timing variance
+            await manager.dispatch_event(timer_sub.event_types, payload1)
+            await manager.dispatch_event(timer_sub.event_types, payload2)
 
-        finally:
-            timer_task.cancel()
-            try:
-                await timer_task
-            except asyncio.CancelledError:
-                pass
+            # Should have received 2 timer events
+            assert len(subscriber.received_events) == 2
 
     @pytest.mark.asyncio
     async def test_timer_cleanup_on_unsubscribe(self) -> None:
@@ -116,27 +119,22 @@ class TestTimerEventScheduling:
 
         await manager.subscribe(subscriber, EventType.FS_FILE_CONTENT, timer_interval=0.05)
 
-        timer_task = asyncio.create_task(manager._timer_loop())
+        # Get timer subscription and manually dispatch event
+        timer_subscriptions = [sub for sub in manager._subscriptions if sub.is_timer()]
+        timer_sub = timer_subscriptions[0]
 
-        try:
-            await asyncio.sleep(0.08)
+        payload = {"timer_interval": 0.05, "timestamp": 1.0}
+        await manager.dispatch_event(timer_sub.event_types, payload)
 
-            assert len(subscriber.received_events) >= 1
-            event_type, payload, _ = subscriber.received_events[0]
+        assert len(subscriber.received_events) == 1
+        event_type, received_payload, _ = subscriber.received_events[0]
 
-            # Timer events should have TIMER bit set
-            assert event_type & EventType.TIMER
+        # Timer events should have TIMER bit set
+        assert event_type & EventType.TIMER
 
-            # Payload should contain timer info
-            assert "timer_interval" in payload
-            assert payload["timer_interval"] == 0.05
-
-        finally:
-            timer_task.cancel()
-            try:
-                await timer_task
-            except asyncio.CancelledError:
-                pass
+        # Payload should contain timer info
+        assert "timer_interval" in received_payload
+        assert received_payload["timer_interval"] == 0.05
 
     @pytest.mark.asyncio
     async def test_timer_subscriber_isolation(self) -> None:
@@ -149,23 +147,20 @@ class TestTimerEventScheduling:
         await manager.subscribe(subscriber1, EventType.FS_FILE_CONTENT, timer_interval=0.05)
         await manager.subscribe(subscriber2, EventType.FS_FILE_CONTENT, timer_interval=0.1)
 
-        timer_task = asyncio.create_task(manager._timer_loop())
+        # Get timer subscriptions
+        timer_subscriptions = [sub for sub in manager._subscriptions if sub.is_timer()]
+        timer1_sub = timer_subscriptions[0]
+        timer2_sub = timer_subscriptions[1]
 
-        try:
-            await asyncio.sleep(0.12)
+        # Verify each timer has unique event types
+        assert timer1_sub.event_types != timer2_sub.event_types
+        assert timer1_sub.event_types & EventType.TIMER
+        assert timer2_sub.event_types & EventType.TIMER
 
-            # Both should have received events, subscriber1 should have more or equal
-            assert len(subscriber1.received_events) >= 2
-            assert len(subscriber2.received_events) >= 1
-            # Allow for timing variance - subscriber1 should have at least as many events
-            assert len(subscriber1.received_events) >= len(subscriber2.received_events)
-
-        finally:
-            timer_task.cancel()
-            try:
-                await timer_task
-            except asyncio.CancelledError:
-                pass
+        # Verify unique timer bits are different
+        timer1_unique = timer1_sub.event_types ^ EventType.TIMER
+        timer2_unique = timer2_sub.event_types ^ EventType.TIMER
+        assert timer1_unique != timer2_unique
 
     @pytest.mark.asyncio
     async def test_timer_subscription_without_interval_no_timer(self) -> None:

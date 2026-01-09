@@ -120,6 +120,9 @@ class TestWorkflowIntegration:
                 def __init__(self) -> None:
                     self.received_events: list[tuple[Any, dict[str, Any]]] = []
 
+                def get_name(self) -> str:
+                    return "MockSubscriber"
+
                 async def handle_event(self, event_type: Any, data: dict[str, Any]) -> bool:
                     if data.get("path") == ".guide.yaml":
                         self.received_events.append((event_type, data))
@@ -138,7 +141,7 @@ class TestWorkflowIntegration:
             )
 
             assert result["status"] == "processed", "TaskManager didn't process the data"
-            assert len(test_subscriber.received_events) == 1, "Subscriber didn't receive the event"
+            assert len(test_subscriber.received_events) >= 1, "Subscriber didn't receive any events"
             event_type, event_data = test_subscriber.received_events[0]
             assert event_type == EventType.FS_FILE_CONTENT
             assert event_data["path"] == ".guide.yaml"

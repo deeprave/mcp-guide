@@ -5,7 +5,7 @@ import contextlib
 import dataclasses
 from contextvars import ContextVar
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional, Union
 
 import yaml
 from anyio import Path as AsyncPath
@@ -116,6 +116,31 @@ class Session:
             """Get cached docroot value."""
             await self._ensure_initialized()
             return self.__docroot or ""
+
+        async def client_resolve(self, path: Union[str, Path]) -> Path:
+            """Resolve a path relative to the client's working directory.
+
+            This method handles path resolution from the server's perspective when
+            dealing with client filesystem paths. The server cannot use Path.resolve()
+            directly since it doesn't have access to the client's filesystem.
+
+            Args:
+                path: Path to resolve (relative or absolute)
+
+            Returns:
+                Absolute Path object representing the resolved client path
+
+            Examples:
+                >>> await session.client_resolve(".guide.yaml")
+                PosixPath('/home/username/project/.guide.yaml')
+
+                >>> await session.client_resolve("../config.json")
+                PosixPath('/home/username/config.json')
+            """
+            from mcp_guide.utils.client_path import client_resolve
+
+            client_cwd = await resolve_project_path()
+            return client_resolve(path, client_cwd)
 
         async def get_feature_flags(self) -> dict[str, Any]:
             """Get feature flags."""

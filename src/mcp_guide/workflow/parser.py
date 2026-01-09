@@ -26,6 +26,22 @@ def parse_workflow_state(content: str) -> Optional[WorkflowState]:
 
     try:
         yaml_data = yaml.safe_load(content)
+        if not isinstance(yaml_data, dict):
+            logger.warning("Workflow content is not a valid YAML object")
+            return None
+
+        phase_value = next(
+            (yaml_data[key] for key in ["phase", "Phase"] if key in yaml_data),
+            None,
+        )
+        if phase_value is None:
+            logger.warning("Workflow content missing required 'phase' field")
+            return None
+
+        # Normalize phase to lowercase for validation
+        if isinstance(phase_value, str):
+            yaml_data["phase"] = phase_value.lower()
+
         return WorkflowState.model_validate(yaml_data)
     except yaml.YAMLError as e:
         logger.warning(f"Invalid YAML in workflow state: {e}")

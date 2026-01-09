@@ -3,7 +3,8 @@ type: user/information
 description: Shows system status and current project information
 usage: ":status"
 includes:
-  - "_partials/workflow-status"
+  - _partials/workflow-status
+  - _partials/taskmanager
 ---
 {{h1}}System Status
 
@@ -11,4 +12,4 @@ includes:
 {{b}}Command Prefix:{{b}} `{{#agent}}{{agent.prefix}}{{/agent}}{{^agent}}{{@}}{{/agent}}`
 {{b}}Tool Prefix:{{b}} `{{#tool_prefix}}{{tool_prefix}}{{/tool_prefix}}{{^tool_prefix}}None{{/tool_prefix}}`
 {{b}}Project:{{b}} `{{project.name}}`
-{{#workflow}}{{>workflow-status}}{{/workflow}}
+{{#workflow}}{{>workflow-status}}{{>taskmanager}}{{/workflow}}
