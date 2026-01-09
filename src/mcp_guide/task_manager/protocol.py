@@ -18,7 +18,7 @@ class TaskSubscriber(Protocol):
         Returns:
             A string name for the subscriber, defaults to class name with instance ID
         """
-        return f"{self.__class__.__name__}_{id(self)}"
+        ...
 
     async def handle_event(self, event_type: EventType, data: dict[str, Any]) -> bool:
         """Handle an event from the task manager.

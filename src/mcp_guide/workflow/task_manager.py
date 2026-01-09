@@ -41,7 +41,7 @@ class WorkflowTaskManager:
             has_running_task = any(
                 isinstance(sub.subscriber_ref(), WorkflowMonitorTask)
                 for sub in self._task_manager._subscriptions
-                if sub.subscriber_ref() is not None and EventType.TIMER in sub.event_types
+                if sub.subscriber_ref() is not None and sub.event_types & EventType.TIMER
             )
 
             logger.trace(f"Has running workflow task: {has_running_task}")

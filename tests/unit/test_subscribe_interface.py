@@ -16,7 +16,7 @@ class MockSubscriber:
         """Get subscriber name."""
         return self.name
 
-    def handle_event(self, event_type: EventType, data: dict) -> bool:
+    async def handle_event(self, event_type: EventType, data: dict) -> bool:
         """Handle events and record them."""
         self.received_events.append((event_type, data))
         return True
