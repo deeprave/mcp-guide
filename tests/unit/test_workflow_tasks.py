@@ -2,7 +2,7 @@
 
 import pytest
 
-from mcp_guide.task_manager import TaskState
+from mcp_guide.task_manager import EventType
 from mcp_guide.workflow.tasks import WorkflowMonitorTask
 
 
@@ -13,8 +13,15 @@ class TestWorkflowMonitorTask:
     def monitor_task(self):
         return WorkflowMonitorTask(".guide.yaml")
 
-    async def test_task_start(self, monitor_task):
-        """Test task start returns active state."""
-        state, instruction = await monitor_task.task_start()
-        assert state == TaskState.ACTIVE
-        assert instruction is None
+    def test_workflow_monitor_task_creation(self, monitor_task) -> None:
+        """Test WorkflowMonitorTask can be created."""
+        assert monitor_task.get_name() == "WorkflowMonitorTask"
+
+    @pytest.mark.asyncio
+    async def test_workflow_monitor_task_handles_events(self, monitor_task) -> None:
+        """Test WorkflowMonitorTask handles events correctly."""
+        # Test file content event handling
+        result = await monitor_task.handle_event(
+            EventType.FS_FILE_CONTENT, {"path": ".guide.yaml", "content": "phase: test\nissue: test-issue"}
+        )
+        assert result is True

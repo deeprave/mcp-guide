@@ -1,0 +1,27 @@
+---
+description: Task manager statistics display
+---
+
+{{h2}}Task Manager
+- **Active Tasks:** {{tasks.count}} (peak: {{tasks.peak_count}})
+- **Timer Events:** {{tasks.total_timer_runs}} total
+
+{{#kwargs.table}}
+| Task | Type | Runtime | Last Run | Details |
+|------|------|---------|----------|---------|
+{{#tasks.running}}
+| {{name}} | {{#interval}}Timer{{/interval}}{{^interval}}Regular{{/interval}} | {{runtime}} | {{#time_since_last}}{{time_since_last}} ago{{/time_since_last}}{{^time_since_last}}Never{{/time_since_last}} | {{#interval}}{{run_count}} runs, next in {{time_until_next}}{{/interval}}{{^interval}}-{{/interval}} |
+{{/tasks.running}}
+{{^tasks.running}}
+| No active tasks | - | - | - | - |
+{{/tasks.running}}
+{{/kwargs.table}}
+{{^kwargs.table}}
+{{#tasks.running}}
+  **Task** `{{name}}` ({{#interval}}timer, `{{interval}}s`{{/interval}}{{^interval}}`regular`{{/interval}})
+  - Running for `{{runtime}}`{{#time_since_last}} | Last `{{time_since_last}}`{{/time_since_last}}{{#interval}} | Runs `{{run_count}}` | Next in `{{time_until_next}}`{{/interval}}
+{{/tasks.running}}
+{{^tasks.running}}
+No active tasks
+{{/tasks.running}}
+{{/kwargs.table}}

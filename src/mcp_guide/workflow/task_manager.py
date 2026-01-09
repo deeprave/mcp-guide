@@ -5,11 +5,11 @@ from typing import Any, Optional
 
 from mcp_core.mcp_log import get_logger
 from mcp_guide.session import get_current_session
-from mcp_guide.task_manager import TaskManager, get_task_manager
+from mcp_guide.task_manager import EventType, TaskManager, get_task_manager
 from mcp_guide.utils.system_content import render_system_content
 from mcp_guide.utils.template_context_cache import get_template_contexts
 from mcp_guide.workflow.constants import DEFAULT_WORKFLOW_FILE, WORKFLOW_DIR
-from mcp_guide.workflow.tasks import WorkflowMonitorTask
+from mcp_guide.workflow.tasks import WORKFLOW_INTERVAL, WorkflowMonitorTask
 
 logger = get_logger(__name__)
 
@@ -37,11 +37,14 @@ class WorkflowTaskManager:
 
             logger.trace(f"Workflow configuration: file={workflow_file}, enabled={workflow_enabled}")
 
-            # Check if workflow task is running
-            workflow_task = await self._task_manager.find_task_by_type(WorkflowMonitorTask)
-            has_running_task = workflow_task is not None
+            # Check if workflow task is already subscribed
+            has_running_task = any(
+                isinstance(sub.subscriber_ref(), WorkflowMonitorTask)
+                for sub in self._task_manager._subscriptions
+                if sub.subscriber_ref() is not None and EventType.TIMER in sub.event_types
+            )
 
-            logger.trace(f"Existing workflow task: {workflow_task}, has_running_task={has_running_task}")
+            logger.trace(f"Has running workflow task: {has_running_task}")
 
             # Start task if no task is running and workflow is enabled
             start_new = not has_running_task and workflow_enabled and bool(workflow_file)
@@ -52,9 +55,9 @@ class WorkflowTaskManager:
                 logger.trace(f"Creating WorkflowMonitorTask for file: {workflow_file}")
                 # Start new workflow task
                 task = WorkflowMonitorTask(workflow_file, self._task_manager)
-                logger.trace(f"Registering WorkflowMonitorTask: {task}")
-                await self._task_manager.register_task(task)
-                logger.trace("WorkflowMonitorTask registered successfully")
+                logger.trace(f"Subscribing WorkflowMonitorTask: {task}")
+                await self._task_manager.subscribe(task, EventType.TIMER | EventType.FS_FILE_CONTENT, WORKFLOW_INTERVAL)
+                logger.trace("WorkflowMonitorTask subscribed successfully")
 
                 # Queue setup instruction
                 await self.queue_workflow_instruction(self._task_manager, "monitoring-setup")
@@ -69,24 +72,34 @@ class WorkflowTaskManager:
     @staticmethod
     async def queue_workflow_instruction(task_manager: "TaskManager", template_pattern: str) -> None:
         """Queue workflow instruction using system content rendering."""
+        logger.trace(f"queue_workflow_instruction called with template_pattern: {template_pattern}")
         try:
             session = get_current_session()
             if not session:
                 logger.warning("No session available for workflow instruction")
                 return
 
+            logger.trace(f"Session found, getting docroot")
             docroot = Path(await session.get_docroot())
             workflow_dir = docroot / WORKFLOW_DIR
 
             # Get template context for rendering
+            logger.trace("Getting template contexts")
             context = await get_template_contexts()
 
+            logger.trace(f"Rendering system content for pattern: {template_pattern}")
             result = await render_system_content(
                 system_dir=workflow_dir, pattern=template_pattern, context=context, docroot=docroot
             )
 
             if result.success and result.value:
+                logger.trace(f"System content rendered successfully: {len(result.value)} chars")
                 await task_manager.queue_instruction(result.value)
+                logger.trace("Instruction queued in task manager")
+            else:
+                logger.warning(
+                    f"Failed to render workflow instruction: {result.error if not result.success else 'Empty result'}"
+                )
 
         except Exception as e:
             logger.warning(f"Failed to queue workflow instruction: {e}")

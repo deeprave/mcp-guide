@@ -12,6 +12,10 @@ class MockSubscriber:
         self.name = name
         self.received_events = []
 
+    def get_name(self) -> str:
+        """Get subscriber name."""
+        return self.name
+
     def handle_event(self, event_type: EventType, data: dict) -> bool:
         """Handle events and record them."""
         self.received_events.append((event_type, data))
@@ -211,7 +215,11 @@ async def test_timer_bit_allocation_starts_at_2_16(task_manager):
 
     timer_subscriptions = [sub for sub in task_manager._subscriptions if sub.is_timer()]
     timer_event = timer_subscriptions[0].event_types
-    unique_bits = timer_event ^ EventType.TIMER  # Extract unique bits using XOR
+
+    # The timer event includes: original events + TIMER flag + unique timer bit
+    # For FS_FILE_CONTENT (1) + TIMER (65536) + unique bit (131072) = 196609
+    expected_base = EventType.FS_FILE_CONTENT | EventType.TIMER  # 65537
+    unique_bits = timer_event.value - expected_base.value  # Extract unique timer bit
 
     assert unique_bits >= 131072  # Must be 2^17 or higher
     assert unique_bits & (unique_bits - 1) == 0  # Must be power of 2
@@ -247,5 +255,7 @@ async def test_multiple_timer_unique_assignment(task_manager):
     timer_subscriptions = [sub for sub in task_manager._subscriptions if sub.is_timer()]
     for i, expected_bit in enumerate(expected_bits):
         timer_event = timer_subscriptions[i].event_types
-        unique_bits = timer_event ^ EventType.TIMER  # Extract unique bits using XOR
+        # Extract unique timer bit by subtracting base events
+        expected_base = EventType.FS_FILE_CONTENT | EventType.TIMER  # 65537
+        unique_bits = timer_event.value - expected_base.value
         assert unique_bits == expected_bit

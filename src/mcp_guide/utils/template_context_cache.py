@@ -103,6 +103,15 @@ class TemplateContextCache(SessionListener):
             logger.error(f"Unexpected error resolving template-styling flag: {e}")
             styling = "plain"
 
+        # Add task statistics
+        try:
+            from mcp_guide.task_manager import get_task_manager
+
+            task_manager = get_task_manager()
+            agent_vars["tasks"] = task_manager.get_task_statistics()
+        except Exception as e:
+            logger.debug(f"Failed to get task statistics: {e}")
+
         # Default to "plain" if not set or invalid
         if styling not in ["plain", "headings", "full"]:
             styling = "plain"

@@ -52,5 +52,4 @@ def test_workflow_task_creation():
 
     task = WorkflowMonitorTask(".guide.yaml")
     print(f"WorkflowMonitorTask created: {task}")
-    print(f"Task type: {task.task_type}")
-    print(f"Task state: {task.state}")
+    print(f"Task name: {task.get_name()}")

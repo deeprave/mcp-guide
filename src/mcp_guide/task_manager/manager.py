@@ -1,14 +1,14 @@
 """TaskManager for coordinating agent communication."""
 
 import asyncio
-import contextlib
 import threading
+import time
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 from mcp_core.mcp_log import get_logger
 
 from .interception import EventType
-from .protocol import Task, TaskState, TaskSubscriber, TaskType
+from .protocol import TaskSubscriber
 from .subscription import Subscription
 
 if TYPE_CHECKING:
@@ -36,11 +36,8 @@ class TaskManager:
         if self._initialized:
             return
         self._initialized = True
-        self._timeout_tasks: Dict[Task, asyncio.Task[None]] = {}
 
         self._pending_instructions: List[str] = []
-        self._active_task: Optional[Task] = None
-        self._scheduled_tasks: List[Task] = []
         self._cache: Dict[str, Any] = {}  # Keyed storage for task data
 
         # New pub/sub system
@@ -48,11 +45,20 @@ class TaskManager:
         self._next_timer_bit = 131072  # Start unique timer bits at 2^17
         self._timer_task: Optional[asyncio.Task[None]] = None
 
+        # Task statistics
+        self._task_stats: Dict[str, Dict[str, Any]] = {}
+        self._peak_task_count = 0
+        self._total_timer_runs = 0
+
     @classmethod
     def _reset_for_testing(cls) -> None:
         """Reset singleton for testing. DO NOT USE IN PRODUCTION."""
         cls._instance = None
         cls._initialized = False
+
+    def _get_subscriber_name(self, subscriber: TaskSubscriber) -> str:
+        """Get a readable name for the subscriber."""
+        return subscriber.get_name()
 
     async def subscribe(
         self,
@@ -65,20 +71,40 @@ class TaskManager:
         if timer_interval is not None and timer_interval <= 0:
             raise ValueError("Timer interval must be positive")
 
+        subscriber_name = self._get_subscriber_name(subscriber)
+        current_time = time.time()
+
         # Create appropriate subscription type
         if timer_interval is not None:
             # Always assign unique timer bit for internal tracking
+            if self._next_timer_bit > (1 << 30):  # Prevent overflow
+                raise RuntimeError("Maximum number of concurrent timer subscriptions exceeded")
+
             unique_timer_bit = self._next_timer_bit
             self._next_timer_bit <<= 1  # Next power of 2
 
-            # Create unique timer EventType (TIMER + unique bit)
+            # Create unique timer EventType (TIMER + unique bit) and combine with original events
             unique_timer_event = EventType.TIMER | unique_timer_bit
+            combined_event_types = event_types | unique_timer_event
 
-            subscription = Subscription(subscriber, unique_timer_event, timer_interval)
+            subscription = Subscription(subscriber, combined_event_types, timer_interval)
             subscription.original_event_types = event_types
             subscription.unique_timer_bit = unique_timer_bit
 
             self._subscriptions.append(subscription)
+
+            # Track timer statistics
+            task_id = f"{subscriber_name}_{id(subscriber)}"
+            self._task_stats[task_id] = {
+                "name": subscriber_name,
+                "type": "timer",
+                "started": current_time,
+                "last_data": current_time,
+                "interval": timer_interval,
+                "last_run": None,
+                "next_run": current_time + timer_interval,
+                "run_count": 0,
+            }
 
             # Start timer task immediately
             if self._timer_task is None or self._timer_task.done():
@@ -87,8 +113,25 @@ class TaskManager:
             regular_subscription = Subscription(subscriber, event_types)
             self._subscriptions.append(regular_subscription)
 
+            # Track regular task statistics
+            task_id = f"{subscriber_name}_{id(subscriber)}"
+            self._task_stats[task_id] = {
+                "name": subscriber_name,
+                "type": "regular",
+                "started": current_time,
+                "last_data": None,
+            }
+
+        # Update peak count
+        self._peak_task_count = max(self._peak_task_count, len(self._subscriptions))
+
     async def unsubscribe(self, subscriber: TaskSubscriber) -> None:
         """Remove all subscriptions for a subscriber."""
+        # Clean up statistics
+        subscriber_name = self._get_subscriber_name(subscriber)
+        task_id = f"{subscriber_name}_{id(subscriber)}"
+        self._task_stats.pop(task_id, None)
+
         # Remove all subscriptions for this subscriber
         self._subscriptions = [sub for sub in self._subscriptions if sub.subscriber_ref() is not subscriber]
 
@@ -115,90 +158,6 @@ class TaskManager:
                 pass
             self._timer_task = None
 
-        # Cancel timeout tasks
-        for timeout_task in self._timeout_tasks.values():
-            timeout_task.cancel()
-        self._timeout_tasks.clear()
-
-    async def register_task(self, task: Task) -> None:
-        """Register and start a task."""
-        # Enforce single active task constraint
-        if task.task_type == TaskType.ACTIVE and self._active_task is not None:
-            raise RuntimeError("Cannot register task: another task is already active")
-
-        state, instruction = await task.task_start()
-        await self._process_task_state_change(task, state, instruction)
-
-        if task.timeout and task.timeout > 0:
-            timeout_task = asyncio.create_task(self._handle_timeout_for_task(task.timeout, task))
-            self._timeout_tasks[task] = timeout_task
-
-    async def find_task_by_type(self, task_type: type) -> Optional[Task]:
-        """Find active or scheduled task by type."""
-        all_tasks = ([self._active_task] if self._active_task else []) + self._scheduled_tasks
-        for task in all_tasks:
-            if isinstance(task, task_type):
-                return task
-        return None
-
-    async def complete_task(self, task: Task) -> None:
-        """Complete a task and cancel its timeout."""
-        if task == self._active_task:
-            self._active_task = None
-            # Resume scheduled tasks when active task completes
-            await self._resume_scheduled_tasks()
-        elif task in self._scheduled_tasks:
-            self._scheduled_tasks.remove(task)
-
-        if task in self._timeout_tasks:
-            self._timeout_tasks[task].cancel()
-            try:
-                await self._timeout_tasks[task]
-            except asyncio.CancelledError:
-                pass
-            del self._timeout_tasks[task]
-
-    async def _process_task_state_change(self, task: Task, new_state: TaskState, instruction: Optional[str]) -> None:
-        """Process task state changes and manage lifecycle."""
-        if instruction:
-            await self.queue_instruction(instruction)
-
-        if new_state == TaskState.ACTIVE:
-            if task.task_type == TaskType.ACTIVE:
-                self._active_task = task
-                await self._pause_scheduled_tasks()
-            elif task.task_type == TaskType.SCHEDULED:
-                if task not in self._scheduled_tasks:
-                    self._scheduled_tasks.append(task)
-        elif new_state == TaskState.COMPLETED:
-            await self._handle_task_completion(task)
-        elif new_state == TaskState.IDLE:
-            # Task returned to idle state
-            if task == self._active_task:
-                self._active_task = None
-                await self._resume_scheduled_tasks()
-
-    async def _handle_task_completion(self, task: Task) -> None:
-        """Handle task completion."""
-        state, instruction = await task.completed()
-        if instruction:
-            await self.queue_instruction(instruction)
-
-        # Process the completion state
-        if state == TaskState.IDLE:
-            if task == self._active_task:
-                self._active_task = None
-                await self._resume_scheduled_tasks()
-            elif task in self._scheduled_tasks:
-                self._scheduled_tasks.remove(task)
-        elif state == TaskState.COMPLETED:
-            # Handle COMPLETED state same as IDLE for task cleanup
-            if task == self._active_task:
-                self._active_task = None
-                await self._resume_scheduled_tasks()
-            elif task in self._scheduled_tasks:
-                self._scheduled_tasks.remove(task)
-
     async def dispatch_event(self, data_type: EventType, data: "Union[dict[str, Any], Result[Any]]") -> dict[str, str]:
         """Handle agent data with task interception."""
 
@@ -212,17 +171,51 @@ class TaskManager:
             # It's already a dict
             actual_data = data if isinstance(data, dict) else {}
 
-        # Check regular subscriptions
+        logger.trace(f"Dispatching event {data_type} to {len(self._subscriptions)} subscriptions")
+
+        # Check regular subscriptions and clean up dead references
         processed_count = 0
+        current_time = time.time()
+        active_subscriptions = []
+
         for subscription in self._subscriptions:
-            # Fast bit-flag check first
-            if not (subscription.event_types & data_type):
+            subscriber = subscription.subscriber_ref()
+            if subscriber is None:
+                logger.trace("Subscription has dead weak reference, removing")
                 continue
 
-            # Use handle_event to determine interest and process
-            subscriber = subscription.subscriber_ref()
-            if subscriber and await subscriber.handle_event(data_type, actual_data):
-                processed_count += 1
+            active_subscriptions.append(subscription)
+            logger.trace(f"Checking subscription: {subscriber.get_name()} with event_types {subscription.event_types}")
+            if subscription.event_types & data_type:
+                logger.trace(
+                    f"Event {data_type} matches subscription {subscription.event_types}, dispatching to {subscriber.get_name()}"
+                )
+                try:
+                    handled = await subscriber.handle_event(data_type, actual_data)
+                    if handled:
+                        processed_count += 1
+                        logger.trace(f"Event handled by {subscriber.get_name()}")
+                    else:
+                        logger.trace(f"Event not handled by {subscriber.get_name()}")
+                except Exception as e:
+                    logger.warning(f"Error handling event in {subscriber.get_name()}: {e}")
+            else:
+                logger.trace(f"Event {data_type} does not match subscription {subscription.event_types}")
+
+        # Update subscriptions list with only active ones
+        self._subscriptions = active_subscriptions
+
+        logger.trace(f"Event {data_type} processed by {processed_count} subscribers")
+
+        # Update statistics for processed subscribers
+        for subscription in self._subscriptions:
+            if subscription.event_types & data_type:
+                subscriber = subscription.subscriber_ref()
+                if subscriber:
+                    subscriber_name = self._get_subscriber_name(subscriber)
+                    task_id = f"{subscriber_name}_{id(subscriber)}"
+                    if task_id in self._task_stats:
+                        self._task_stats[task_id]["last_data"] = current_time
 
         if processed_count == 0:
             return {"status": "acknowledged"}
@@ -251,27 +244,49 @@ class TaskManager:
 
         return result
 
-    async def _handle_timeout_for_task(self, delay: float, task: Task) -> None:
-        """Handle task timeout with state management."""
-        with contextlib.suppress(asyncio.CancelledError):
-            await asyncio.sleep(delay)
-            state, instruction = await task.timeout_expired()
-            await self._process_task_state_change(task, state, instruction)
+    def get_task_statistics(self) -> Dict[str, Any]:
+        """Get task statistics for template context."""
+        from mcp_guide.utils.duration_formatter import format_duration
 
-    async def handle_task_response(self, task: Task, data: Any) -> None:
-        """Handle task response and process state changes."""
-        state, instruction = await task.response(data)
-        await self._process_task_state_change(task, state, instruction)
+        current_time = time.time()
 
-    async def _pause_scheduled_tasks(self) -> None:
-        """Pause all scheduled tasks."""
-        for task in self._scheduled_tasks:
-            await task.pause()
+        running_tasks = []
+        timer_tasks = []
 
-    async def _resume_scheduled_tasks(self) -> None:
-        """Resume all scheduled tasks."""
-        for task in self._scheduled_tasks:
-            await task.resume()
+        for task_id, stats in self._task_stats.items():
+            runtime_seconds = current_time - stats["started"]
+            task_info = {
+                "name": stats["name"],
+                "started": stats["started"],
+                "last_data": stats.get("last_data"),
+                "runtime": format_duration(runtime_seconds),
+            }
+
+            if stats["type"] == "timer":
+                last_run_ago = current_time - stats["last_run"] if stats.get("last_run") else None
+                next_run_in = stats["next_run"] - current_time if stats.get("next_run") else None
+
+                task_info.update(
+                    {
+                        "interval": round(stats["interval"], 2),
+                        "last_run": stats.get("last_run"),
+                        "next_run": stats.get("next_run"),
+                        "run_count": stats["run_count"],
+                        "time_since_last": format_duration(last_run_ago) if last_run_ago else None,
+                        "time_until_next": format_duration(next_run_in) if next_run_in else None,
+                    }
+                )
+                timer_tasks.append(task_info)
+
+            running_tasks.append(task_info)
+
+        return {
+            "running": running_tasks,
+            "timers": timer_tasks,
+            "count": len(self._subscriptions),
+            "peak_count": self._peak_task_count,
+            "total_timer_runs": self._total_timer_runs,
+        }
 
     def get_cached_data(self, key: str) -> Any:
         """Get cached data by key."""
@@ -312,11 +327,24 @@ class TaskManager:
                     # Fire timer event through regular dispatch mechanism
                     payload = {"timer_interval": timer_sub.interval, "timestamp": current_time}
 
+                    # Update timer statistics
+                    subscriber_name = self._get_subscriber_name(subscriber)
+                    task_id = f"{subscriber_name}_{id(subscriber)}"
+                    if task_id in self._task_stats:
+                        stats = self._task_stats[task_id]
+                        stats["last_run"] = current_time
+                        stats["run_count"] += 1
+                        self._total_timer_runs += 1
+
                     # Dispatch timer event using the same mechanism as regular events
                     await self.dispatch_event(timer_sub.event_types, payload)
 
                     # Recalculate next fire time
                     timer_sub.update_next_fire_time()
+
+                    # Update next run time in statistics
+                    if task_id in self._task_stats:
+                        self._task_stats[task_id]["next_run"] = timer_sub.next_fire_time
 
                 # Track next fire time
                 if timer_sub.next_fire_time is not None:

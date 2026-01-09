@@ -1,7 +1,7 @@
 """Read/Write security policy for filesystem operations."""
 
 from pathlib import Path, PurePath
-from typing import List, Optional
+from typing import Callable, List, Optional, Union
 
 from mcp_core.mcp_log import get_logger
 
@@ -25,6 +25,7 @@ class ReadWriteSecurityPolicy:
         write_allowed_paths: Optional[List[str]] = None,
         additional_read_paths: Optional[List[str]] = None,
         project_root: Optional[str] = None,
+        client_resolve: Optional[Callable[[Union[str, Path]], Path]] = None,
     ):
         """Initialize security policy.
 
@@ -32,10 +33,12 @@ class ReadWriteSecurityPolicy:
             write_allowed_paths: Relative paths allowed for write operations
             additional_read_paths: Absolute paths allowed for read operations
             project_root: Optional project root for path resolution
+            client_resolve: Optional function to resolve client paths
         """
         self.write_allowed_paths = [path.rstrip("/") + "/" for path in (write_allowed_paths or [])]
         self.additional_read_paths = additional_read_paths or []
         self.project_root = Path(project_root) if project_root else None
+        self.client_resolve = client_resolve
         self._violation_count = 0
 
     def set_project_root(self, project_root: str) -> None:
@@ -75,22 +78,47 @@ class ReadWriteSecurityPolicy:
 
             # If project root is known, check if absolute path is within project (default read path)
             if self.project_root:
-                project_root_posix = self.project_root.as_posix().rstrip("/")
-                if path_posix.startswith(project_root_posix + "/") or path_posix == project_root_posix:
-                    # Check system directory blacklist
-                    if is_system_directory(path):
-                        self._violation_count += 1
-                        logger.warning(
-                            f"Security violation #{self._violation_count}: read denied for system directory {path}"
-                        )
-                        raise SecurityError(f"System directory access denied: {path}")
-
-                    # Convert to relative path for consistency with existing behavior
+                # Use client_resolve if available for proper path resolution
+                if self.client_resolve:
                     try:
-                        rel_path = path_obj.relative_to(self.project_root)
+                        # Resolve the path relative to client working directory
+                        resolved_path = self.client_resolve(path)
+
+                        # Check if resolved path is within project root
+                        resolved_path.relative_to(self.project_root)
+
+                        # Check system directory blacklist
+                        if is_system_directory(str(resolved_path)):
+                            self._violation_count += 1
+                            logger.warning(
+                                f"Security violation #{self._violation_count}: read denied for system directory {resolved_path}"
+                            )
+                            raise SecurityError(f"System directory access denied: {resolved_path}")
+
+                        # Convert to relative path for consistency with existing behavior
+                        rel_path = resolved_path.relative_to(self.project_root)
                         return self._validate_relative_read_path(str(rel_path))
                     except ValueError:
-                        return str(path_obj)
+                        # Path is not within project root, fall through to other checks
+                        pass
+                else:
+                    # Fallback to string-based checking when client_resolve not available
+                    project_root_posix = self.project_root.as_posix().rstrip("/")
+                    if path_posix.startswith(project_root_posix + "/") or path_posix == project_root_posix:
+                        # Check system directory blacklist
+                        if is_system_directory(path):
+                            self._violation_count += 1
+                            logger.warning(
+                                f"Security violation #{self._violation_count}: read denied for system directory {path}"
+                            )
+                            raise SecurityError(f"System directory access denied: {path}")
+
+                        # Convert to relative path for consistency with existing behavior
+                        try:
+                            rel_path = path_obj.relative_to(self.project_root)
+                            return self._validate_relative_read_path(str(rel_path))
+                        except ValueError:
+                            return str(path_obj)
 
                 # Also try relative path resolution for paths within project
                 try:
