@@ -14,7 +14,7 @@
 - **NEVER** use `sed`, `awk`, or `perl` for text transformations. NOT EVER, NOT UNDER ANY CIRCUMSTANCES.
 
   #### Why These Tools Are Prohibited
-  - Use of these tools are error-prone and very often create more work than making changes directly.
+  - Use of these tools is error-prone and very often creates more work than making changes directly.
   - When applied to multiple files, fixing their mistakes takes longer than editing files individually
   - They create subtle bugs that are hard to detect
   - They don't handle edge cases well (special characters, multiline patterns, etc.)
@@ -36,7 +36,7 @@
 - This is why we have tools like guide_send_file_content - the client sends content to server
 
 ### Code Organization
-- **ALWAYS** use module-level imports (PEP 8). In some circumstance this rule may be broken but **must be commented** as to the reason why
+- **ALWAYS** use module-level imports (PEP 8). In some circumstances this rule may be broken but **must be commented** as to the reason why
 - **NEVER** inline template code in Python files
 - **ALWAYS** use existing template infrastructure for rendering
 - **NEVER** hardcode paths like "templates" / "_workflow" - use proper discovery

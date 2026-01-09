@@ -32,6 +32,7 @@ class TestMonitoringReminder:
         assert "Test instruction" in manager._pending_instructions
         assert "Different instruction" in manager._pending_instructions
 
+    @pytest.mark.asyncio
     async def test_monitoring_reminder_timer_event(self) -> None:
         """Test that timer events trigger monitoring reminders."""
         manager = TaskManager()

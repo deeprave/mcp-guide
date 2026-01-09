@@ -4,16 +4,11 @@ import time
 from pathlib import Path
 from typing import Any, Dict, Optional, Union
 
-from mcp_core.mcp_log import get_logger
 from mcp_core.result import Result
 from mcp_guide.filesystem.cache import FileCache
 from mcp_guide.filesystem.filesystem_bridge import FilesystemBridge
 from mcp_guide.filesystem.read_write_security import ReadWriteSecurityPolicy
 from mcp_guide.session import get_or_create_session
-from mcp_guide.task_manager import get_task_manager
-from mcp_guide.task_manager.interception import EventType
-
-logger = get_logger(__name__)
 
 # Global cache instance for server-side caching
 _file_cache = FileCache()
@@ -48,8 +43,8 @@ async def send_file_content(
 
         project_root = await resolve_project_path()
 
-        # Create sync client_resolve function for security policy
-        def sync_client_resolve(path: Union[str, Path]) -> Path:
+        # Create client_resolve function for security policy
+        def client_resolve_func(path: Union[str, Path]) -> Path:
             from mcp_guide.utils.client_path import client_resolve
 
             return client_resolve(path, project_root)
@@ -58,7 +53,7 @@ async def send_file_content(
         policy = ReadWriteSecurityPolicy(
             write_allowed_paths=project.allowed_write_paths,
             additional_read_paths=project.additional_read_paths,
-            client_resolve=sync_client_resolve,
+            client_resolve=client_resolve_func,
         )
 
         # Set project root for default read access
@@ -71,22 +66,6 @@ async def send_file_content(
             mtime = time.time()
 
         _file_cache.put(validated_path, content, mtime)
-
-        # Dispatch file content event to task manager
-        logger.trace(f"Dispatching FS_FILE_CONTENT event for {validated_path}")
-        task_manager = get_task_manager()
-        logger.trace(f"Task manager has {len(task_manager._subscriptions)} active subscriptions")
-
-        await task_manager.dispatch_event(
-            EventType.FS_FILE_CONTENT,
-            {
-                "path": validated_path,
-                "content": content,
-                "mtime": mtime,
-                "encoding": encoding,
-            },
-        )
-        logger.trace(f"Successfully dispatched FS_FILE_CONTENT event for {validated_path}")
 
         return Result.ok(
             value={
@@ -131,8 +110,8 @@ async def send_directory_listing(
 
         project_root = await resolve_project_path()
 
-        # Create sync client_resolve function for security policy
-        def sync_client_resolve(path: Union[str, Path]) -> Path:
+        # Create client_resolve function for security policy
+        def client_resolve_func(path: Union[str, Path]) -> Path:
             from mcp_guide.utils.client_path import client_resolve
 
             return client_resolve(path, project_root)
@@ -141,7 +120,7 @@ async def send_directory_listing(
         policy = ReadWriteSecurityPolicy(
             write_allowed_paths=project.allowed_write_paths,
             additional_read_paths=project.additional_read_paths,
-            client_resolve=sync_client_resolve,
+            client_resolve=client_resolve_func,
         )
 
         # Set project root for default read access

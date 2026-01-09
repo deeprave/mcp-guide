@@ -58,7 +58,11 @@ class TaskManager:
 
     def _get_subscriber_name(self, subscriber: TaskSubscriber) -> str:
         """Get a readable name for the subscriber."""
-        return subscriber.get_name()
+        try:
+            return subscriber.get_name()
+        except (AttributeError, NotImplementedError):
+            # Fallback to default naming if get_name() not properly implemented
+            return f"{subscriber.__class__.__name__}_{id(subscriber)}"
 
     async def subscribe(
         self,
@@ -350,12 +354,13 @@ class TaskManager:
                 if timer_sub.next_fire_time is not None:
                     next_fire_time = min(next_fire_time, timer_sub.next_fire_time)
 
-            # Sleep until next timer or short interval
+            # Sleep until next timer
             if next_fire_time != float("inf"):
                 sleep_time = max(0.001, next_fire_time - current_time)
-                await asyncio.sleep(min(sleep_time, 0.01))  # Cap at 10ms for responsiveness
+                await asyncio.sleep(sleep_time)
             else:
-                await asyncio.sleep(0.01)
+                # No active timers, exit the loop
+                break
 
 
 def get_task_manager() -> TaskManager:
