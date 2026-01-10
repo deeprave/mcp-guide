@@ -19,7 +19,7 @@ description: Task manager statistics display
 {{^kwargs.table}}
 {{#tasks.running}}
   **Task** `{{name}}` ({{#interval}}timer, `{{interval}}s`{{/interval}}{{^interval}}`regular`{{/interval}})
-  - Running for `{{runtime}}`{{#time_since_last}} | Last `{{time_since_last}}`{{/time_since_last}}{{#interval}} | Runs `{{run_count}}` | Next in `{{time_until_next}}`{{/interval}}
+  - Running for `{{runtime}}`{{#time_since_last}} | Runs `{{run_count}}` | Last `{{time_since_last}}`{{/time_since_last}}{{#interval}} | Next in `{{time_until_next}}`{{/interval}}
 {{/tasks.running}}
 {{^tasks.running}}
 No active tasks

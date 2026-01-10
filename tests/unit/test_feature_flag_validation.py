@@ -1,6 +1,17 @@
 """Tests for feature flag validation functions."""
 
-from mcp_guide.feature_flags.validators import validate_flag_name, validate_flag_value
+import pytest
+
+from mcp_guide.feature_flags.validators import (
+    FlagValidationError,
+    clear_validators,
+    register_flag_validator,
+    validate_content_format_mime,
+    validate_flag_name,
+    validate_flag_value,
+    validate_flag_with_registered,
+    validate_template_styling,
+)
 
 
 class TestFlagNameValidation:
@@ -96,3 +107,63 @@ class TestFlagValueValidation:
         assert validate_flag_value(object()) is False
         assert validate_flag_value(set()) is False
         assert validate_flag_value(tuple()) is False
+
+
+class TestContentFormatMimeValidator:
+    """Test content-format-mime flag validator."""
+
+    def test_valid_values(self):
+        """Test validator accepts valid values."""
+        assert validate_content_format_mime(None, False) is True
+        assert validate_content_format_mime("none", False) is True
+        assert validate_content_format_mime("plain", False) is True
+        assert validate_content_format_mime("mime", False) is True
+
+    def test_invalid_values(self):
+        """Test validator rejects invalid values."""
+        assert validate_content_format_mime("invalid", False) is False
+        assert validate_content_format_mime(True, False) is False
+        assert validate_content_format_mime(123, False) is False
+        assert validate_content_format_mime([], False) is False
+
+
+class TestTemplateStylingValidator:
+    """Test template-styling flag validator."""
+
+    def test_valid_values(self):
+        """Test validator accepts valid values."""
+        assert validate_template_styling(None, False) is True
+        assert validate_template_styling("plain", False) is True
+        assert validate_template_styling("headings", False) is True
+        assert validate_template_styling("full", False) is True
+
+    def test_invalid_values(self):
+        """Test validator rejects invalid values."""
+        assert validate_template_styling("invalid", False) is False
+        assert validate_template_styling("none", False) is False  # "none" not valid for template-styling
+        assert validate_template_styling(True, False) is False
+        assert validate_template_styling(123, False) is False
+
+
+class TestValidatorRegistration:
+    """Test validator registration and usage."""
+
+    def teardown_method(self):
+        """Clean up after each test."""
+        clear_validators()
+        # Re-register the default validators
+        register_flag_validator("content-format-mime", validate_content_format_mime)
+        register_flag_validator("template-styling", validate_template_styling)
+
+    def test_registered_validators_work(self):
+        """Test that registered validators are used."""
+        # Should not raise for valid values
+        validate_flag_with_registered("content-format-mime", "plain", False)
+        validate_flag_with_registered("template-styling", "headings", False)
+
+        # Should raise for invalid values
+        with pytest.raises(FlagValidationError):
+            validate_flag_with_registered("content-format-mime", "invalid", False)
+
+        with pytest.raises(FlagValidationError):
+            validate_flag_with_registered("template-styling", "invalid", False)

@@ -1,6 +1,36 @@
 """Tests for category_content tool."""
 
 
+def create_mock_session(project, tmp_path):
+    """Create a mock session with required methods."""
+
+    class MockSession:
+        def __init__(self):
+            pass
+
+        async def get_project(self):
+            return project
+
+        async def get_docroot(self):
+            return str(tmp_path)
+
+        def project_flags(self):
+            class MockFlags:
+                async def list(self):
+                    return {}
+
+            return MockFlags()
+
+        def feature_flags(self):
+            class MockFlags:
+                async def list(self):
+                    return {}
+
+            return MockFlags()
+
+    return MockSession()
+
+
 def test_category_content_args_exists():
     """Test that CategoryContentArgs class exists."""
     from mcp_guide.tools.tool_category import CategoryContentArgs
@@ -112,21 +142,9 @@ async def test_tool_returns_result_ok_on_success(tmp_path, monkeypatch):
     # Create test project with category
     project = Project(name="test", categories={"docs": Category(dir=".", patterns=["*.md"])}, collections={})
 
-    # Mock session
-
-    class MockSession:
-        def __init__(self):
-            pass
-
-        async def get_project(self):
-            return project
-
-        async def get_docroot(self):
-            return str(tmp_path)
-
     # Mock get_or_create_session
     async def mock_get_session(ctx=None):
-        return MockSession()
+        return create_mock_session(project, tmp_path)
 
     monkeypatch.setattr("mcp_guide.tools.tool_category.get_or_create_session", mock_get_session)
 
@@ -139,54 +157,6 @@ async def test_tool_returns_result_ok_on_success(tmp_path, monkeypatch):
     assert result["success"] is True
     assert "value" in result
     assert "Test Content" in result["value"]
-
-
-async def test_tool_formats_with_active_formatter(tmp_path, monkeypatch):
-    """Test that tool uses active formatter."""
-    import json
-
-    from mcp_guide.models import Category, Project
-    from mcp_guide.tools.tool_category import (
-        CategoryContentArgs,
-        category_content,
-    )
-    from mcp_guide.utils.formatter_selection import set_formatter
-
-    # Create test files
-    test_file = tmp_path / "test.md"
-    test_file.write_text("Test")
-
-    # Create test project
-    project = Project(name="test", categories={"docs": Category(dir=".", patterns=["*.md"])}, collections={})
-
-    # Mock session
-
-    class MockSession:
-        def __init__(self):
-            pass
-
-        async def get_project(self):
-            return project
-
-        async def get_docroot(self):
-            return str(tmp_path)
-
-    async def mock_get_session(ctx=None):
-        return MockSession()
-
-    monkeypatch.setattr("mcp_guide.tools.tool_category.get_or_create_session", mock_get_session)
-
-    # Test with MIME formatter
-    set_formatter("mime")
-    args = CategoryContentArgs(category="docs")
-    result_json = await category_content(args)
-    result = json.loads(result_json)
-
-    # MIME format should have headers
-    assert "Content-Type:" in result["value"]
-
-    # Reset to plain
-    set_formatter("plain")
 
 
 async def test_category_not_found_returns_failure(tmp_path, monkeypatch):
@@ -204,20 +174,8 @@ async def test_category_not_found_returns_failure(tmp_path, monkeypatch):
     # Create test project with no categories
     project = Project(name="test", categories={}, collections={})
 
-    # Mock session
-
-    class MockSession:
-        def __init__(self):
-            pass
-
-        async def get_project(self):
-            return project
-
-        async def get_docroot(self):
-            return str(tmp_path)
-
     async def mock_get_session(ctx=None):
-        return MockSession()
+        return create_mock_session(project, tmp_path)
 
     monkeypatch.setattr("mcp_guide.tools.tool_category.get_or_create_session", mock_get_session)
 
@@ -247,20 +205,8 @@ async def test_no_matches_returns_failure(tmp_path, monkeypatch):
     # Create test project with category but no matching files
     project = Project(name="test", categories={"docs": Category(dir=".", patterns=["*.md"])}, collections={})
 
-    # Mock session (no files created in tmp_path)
-
-    class MockSession:
-        def __init__(self):
-            pass
-
-        async def get_project(self):
-            return project
-
-        async def get_docroot(self):
-            return str(tmp_path)
-
     async def mock_get_session(ctx=None):
-        return MockSession()
+        return create_mock_session(project, tmp_path)
 
     monkeypatch.setattr("mcp_guide.tools.tool_category.get_or_create_session", mock_get_session)
 
@@ -300,20 +246,8 @@ async def test_file_read_error_single_file(tmp_path, monkeypatch):
     test_file = tmp_path / "test.md"
     test_file.write_text("content")
 
-    # Mock session
-
-    class MockSession:
-        def __init__(self):
-            pass
-
-        async def get_project(self):
-            return project
-
-        async def get_docroot(self):
-            return str(tmp_path)
-
     async def mock_get_session(ctx=None):
-        return MockSession()
+        return create_mock_session(project, tmp_path)
 
     # Mock read_file_content to raise error
     async def mock_read_error(path):
@@ -355,20 +289,8 @@ async def test_file_read_error_multiple_files(tmp_path, monkeypatch):
     (tmp_path / "file2.md").write_text("content2")
     (tmp_path / "file3.md").write_text("content3")
 
-    # Mock session
-
-    class MockSession:
-        def __init__(self):
-            pass
-
-        async def get_project(self):
-            return project
-
-        async def get_docroot(self):
-            return str(tmp_path)
-
     async def mock_get_session(ctx=None):
-        return MockSession()
+        return create_mock_session(project, tmp_path)
 
     # Mock read_file_content to raise different errors for different files
     call_count = 0
@@ -416,20 +338,8 @@ async def test_error_responses_include_all_fields(tmp_path, monkeypatch):
     # Create test project with no categories
     project = Project(name="test", categories={}, collections={})
 
-    # Mock session
-
-    class MockSession:
-        def __init__(self):
-            pass
-
-        async def get_project(self):
-            return project
-
-        async def get_docroot(self):
-            return str(tmp_path)
-
     async def mock_get_session(ctx=None):
-        return MockSession()
+        return create_mock_session(project, tmp_path)
 
     monkeypatch.setattr("mcp_guide.tools.tool_category.get_or_create_session", mock_get_session)
 

@@ -756,7 +756,23 @@ async def internal_category_content(
         docroot = Path(await session.get_docroot())
         category = project.categories[args.category]  # We know it exists from gather_category_fileinfos
         category_dir = docroot / category.dir
-        content = await render_fileinfos(files, args.category, category_dir, docroot)
+
+        # Resolve content format flag
+        from mcp_guide.feature_flags.resolution import resolve_flag
+        from mcp_guide.utils.formatter_selection import ContentFormat
+
+        project_flags = await session.project_flags().list()
+        global_flags = await session.feature_flags().list()
+        flag_value = resolve_flag("content-format-mime", project_flags, global_flags)
+
+        if flag_value == "plain":
+            format_type = ContentFormat.PLAIN
+        elif flag_value == "mime":
+            format_type = ContentFormat.MIME
+        else:
+            format_type = ContentFormat.NONE
+
+        content = await render_fileinfos(files, args.category, category_dir, docroot, format_type)
 
         return Result.ok(content)
 

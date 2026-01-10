@@ -1,37 +1,38 @@
-# Content Delivery Format Toggle
+# Content Delivery Format Selection
 
 **Priority**: Medium
 **Complexity**: Low
 
 ## Why
 
-Currently, the content delivery format is hardcoded to use plain text format. Users have no way to switch to the available MIME-multipart format, which provides better structure for multiple files and integration with external tools.
-
-The system already supports both formats:
-- **Plain format**: Simple concatenated text output
-- **MIME-multipart format**: Structured format with boundaries and headers
-
-However, there's no user-configurable way to choose between them.
+Currently, the content delivery format is hardcoded. Users need flexible content formatting options for different use cases:
+- **Raw content stream**: For simple consumption without file boundaries
+- **Structured plain format**: For readable multi-file output with separators
+- **MIME-multipart format**: For structured integration with external tools
 
 ## What
 
-Implement a feature flag system to allow users to toggle between content delivery formats:
+Implement a feature flag system to allow users to select between content delivery formats:
 
-- **Feature flag**: `content-format-mime` (boolean)
-- **Default behavior**: Plain format (flag absent or false)
-- **Enabled behavior**: MIME-multipart format (flag set to true)
-- **Scope**: Global flag that affects all content delivery
+- **Feature flag**: `content-format-mime` (string)
+- **Format options**: 
+  - `None`/"none" (default): Raw content stream without file separators
+  - `"plain"`: Plain text format with file separators and headers
+  - `"mime"`: MIME-multipart format with boundaries and headers
+- **Scope**: Project and global flags with project precedence
 
 ## How
 
-1. **Feature flag integration**: Use existing feature flag system with `content-format-mime` flag
-2. **Format selection logic**: Check flag value to determine which formatter to use
-3. **Backward compatibility**: Default to plain format to maintain existing behavior
-4. **Project-level support**: Respect project-specific flag settings
+1. **Replace ContextVar system**: Remove existing ContextVar-based formatter selection
+2. **Feature flag integration**: Use string-based `content-format-mime` flag
+3. **Format enum**: Create ContentFormat enum for type safety
+4. **BaseFormatter**: Add new formatter for raw content stream (default)
+5. **Flag validators**: Add validation for content format and template styling flags
+6. **Project-level support**: Respect project-specific flag settings
 
 ## Success Criteria
 
-- Users can set `content-format-mime` flag to enable MIME format globally
-- Content tools respect the flag setting and use appropriate formatter
-- Default behavior remains unchanged (plain format)
-- Project-level flag overrides work correctly
+- Users can set `content-format-mime` flag to select format (none/plain/mime)
+- Default behavior provides raw content stream without separators
+- Content tools respect flag settings with project override capability
+- Feature flag validation prevents invalid format values

@@ -44,6 +44,32 @@ def validate_flag_name(name: str) -> bool:
     return bool(_NAME_REGEX.match(name))
 
 
+def validate_content_format_mime(value: FeatureValue, is_project: bool) -> bool:
+    """Validate content-format-mime flag value.
+
+    Args:
+        value: Flag value to validate
+        is_project: True if this is a project flag, False if global
+
+    Returns:
+        True if value is valid, False otherwise
+    """
+    return value in [None, "none", "plain", "mime"]
+
+
+def validate_template_styling(value: FeatureValue, is_project: bool) -> bool:
+    """Validate template-styling flag value.
+
+    Args:
+        value: Flag value to validate
+        is_project: True if this is a project flag, False if global
+
+    Returns:
+        True if value is valid, False otherwise
+    """
+    return value in [None, "plain", "headings", "full"]
+
+
 def register_flag_validator(flag_name: str, validator: Callable[[FeatureValue, bool], bool]) -> None:
     """Register a validator function for a specific flag.
 
@@ -78,3 +104,8 @@ def validate_flag_with_registered(flag_name: str, value: FeatureValue, is_projec
 def clear_validators() -> None:
     """Clear all registered validators. For testing only."""
     _FLAG_VALIDATORS.clear()
+
+
+# Register validators
+register_flag_validator("content-format-mime", validate_content_format_mime)
+register_flag_validator("template-styling", validate_template_styling)
