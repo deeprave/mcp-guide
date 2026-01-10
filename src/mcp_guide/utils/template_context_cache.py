@@ -90,18 +90,24 @@ class TemplateContextCache(SessionListener):
             if session is not None:
                 project_flags = await session.project_flags().list()
                 feature_flags = await session.feature_flags().list()
-                styling = resolve_flag("template-styling", project_flags, feature_flags)
+                styling_value = resolve_flag("template-styling", project_flags, feature_flags)
             else:
-                styling = "plain"
+                styling_value = "plain"
         except (ConnectionError, TimeoutError) as e:
             logger.warning(f"Session connection failed, using default styling: {e}")
-            styling = "plain"
+            styling_value = "plain"
         except (KeyError, AttributeError) as e:
             logger.warning(f"Flag resolution failed, using default styling: {e}")
-            styling = "plain"
+            styling_value = "plain"
         except Exception as e:
             logger.error(f"Unexpected error resolving template-styling flag: {e}")
-            styling = "plain"
+            styling_value = "plain"
+
+        # Convert to enum and get styling variables
+        from mcp_guide.utils.formatter_selection import TemplateStyling, get_styling_variables
+
+        styling = TemplateStyling.from_flag_value(styling_value)
+        formatting_vars = get_styling_variables(styling)
 
         # Add task statistics
         try:
@@ -112,18 +118,11 @@ class TemplateContextCache(SessionListener):
         except Exception as e:
             logger.debug(f"Failed to get task statistics: {e}")
 
-        # Default to "plain" if not set or invalid
-        if styling not in ["plain", "headings", "full"]:
-            styling = "plain"
+        # Convert to enum and get styling variables
+        from mcp_guide.utils.formatter_selection import TemplateStyling, get_styling_variables
 
-        # Set formatting variables based on styling mode
-        formatting_vars = {f: "" for f in ["b", "i", "h1", "h2", "h3", "h4", "h5", "h6"]}
-        if styling != "plain":
-            formatting_vars.update(
-                {"h1": "# ", "h2": "## ", "h3": "### ", "h4": "#### ", "h5": "##### ", "h6": "###### "}
-            )
-            if styling == "full":
-                formatting_vars.update({"b": "**", "i": "*"})
+        styling = TemplateStyling.from_flag_value(styling_value)
+        formatting_vars = get_styling_variables(styling)
 
         agent_vars.update(formatting_vars)
 
