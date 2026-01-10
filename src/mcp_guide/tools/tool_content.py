@@ -23,7 +23,11 @@ from mcp_guide.result_constants import (
 from mcp_guide.server import tools
 from mcp_guide.session import get_or_create_session
 from mcp_guide.utils.content_common import gather_content
-from mcp_guide.utils.content_utils import create_file_read_error_result, read_and_render_file_contents
+from mcp_guide.utils.content_utils import (
+    create_file_read_error_result,
+    extract_and_deduplicate_instructions,
+    read_and_render_file_contents,
+)
 from mcp_guide.utils.file_discovery import FileInfo
 from mcp_guide.utils.formatter_selection import ContentFormat, get_formatter_from_flag
 from mcp_guide.utils.template_context_cache import get_template_context_if_needed
@@ -150,8 +154,6 @@ async def internal_get_content(
         content = await formatter.format(final_files, args.expression)
 
         # Extract instructions from frontmatter
-        from mcp_guide.utils.content_utils import extract_and_deduplicate_instructions
-
         instruction = extract_and_deduplicate_instructions(final_files)
 
         return Result.ok(content, instruction=instruction)
