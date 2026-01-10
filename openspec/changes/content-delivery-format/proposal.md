@@ -15,7 +15,7 @@ Currently, the content delivery format is hardcoded. Users need flexible content
 Implement a feature flag system to allow users to select between content delivery formats:
 
 - **Feature flag**: `content-format-mime` (string)
-- **Format options**: 
+- **Format options**:
   - `None`/"none" (default): Raw content stream without file separators
   - `"plain"`: Plain text format with file separators and headers
   - `"mime"`: MIME-multipart format with boundaries and headers

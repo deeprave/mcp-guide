@@ -11,6 +11,7 @@ from pydantic import Field
 
 from mcp_core.tool_arguments import ToolArguments
 from mcp_core.validation import ArgValidationError, validate_description, validate_directory_path, validate_pattern
+from mcp_guide.feature_flags.resolution import resolve_flag
 from mcp_guide.models import Category, CategoryNotFoundError, FileReadError, Project
 from mcp_guide.result import Result
 from mcp_guide.result_constants import (
@@ -24,7 +25,9 @@ from mcp_guide.result_constants import (
 )
 from mcp_guide.server import tools
 from mcp_guide.session import get_or_create_session
+from mcp_guide.utils.content_common import gather_category_fileinfos, render_fileinfos
 from mcp_guide.utils.file_discovery import discover_category_files
+from mcp_guide.utils.formatter_selection import ContentFormat
 from mcp_guide.utils.frontmatter import get_frontmatter_description_from_file
 
 try:
@@ -77,8 +80,6 @@ async def internal_category_list(args: CategoryListArgs, ctx: Optional[Context] 
         - If verbose=True: list of category dictionaries with name, dir, patterns, description
         - If verbose=False: list of category names only
     """
-    from mcp_guide.session import get_or_create_session
-
     try:
         session = await get_or_create_session(ctx)
     except ValueError as e:
@@ -171,7 +172,6 @@ async def internal_category_add(args: CategoryAddArgs, ctx: Optional[Context] = 
     Returns:
         Result containing success message
     """
-    from mcp_guide.session import get_or_create_session
 
     try:
         session = await get_or_create_session(ctx)
@@ -330,7 +330,6 @@ async def internal_category_remove(args: CategoryRemoveArgs, ctx: Optional[Conte
     Examples:
         >>> category_remove(name="docs")
     """
-    from mcp_guide.session import get_or_create_session
 
     try:
         session = await get_or_create_session(ctx)
@@ -400,7 +399,6 @@ async def internal_category_change(args: CategoryChangeArgs, ctx: Optional[Conte
     Returns:
         Result containing success message
     """
-    from mcp_guide.session import get_or_create_session
 
     try:
         session = await get_or_create_session(ctx)
@@ -565,7 +563,6 @@ async def internal_category_update(args: CategoryUpdateArgs, ctx: Optional[Conte
     Returns:
         Result containing success message
     """
-    from mcp_guide.session import get_or_create_session
 
     try:
         session = await get_or_create_session(ctx)
@@ -736,9 +733,6 @@ async def internal_category_content(
     project = await session.get_project()
 
     try:
-        # Import here to avoid circular imports
-        from mcp_guide.utils.content_common import gather_category_fileinfos, render_fileinfos
-
         # Gather FileInfo using common function
         patterns = [args.pattern] if args.pattern else None
         files = await gather_category_fileinfos(session, project, args.category, patterns)
@@ -758,9 +752,6 @@ async def internal_category_content(
         category_dir = docroot / category.dir
 
         # Resolve content format flag
-        from mcp_guide.feature_flags.resolution import resolve_flag
-        from mcp_guide.utils.formatter_selection import ContentFormat
-
         project_flags = await session.project_flags().list()
         global_flags = await session.feature_flags().list()
         flag_value = resolve_flag("content-format-mime", project_flags, global_flags)
