@@ -6,7 +6,7 @@
 ## Why
 
 Currently, the content delivery format is hardcoded. Users need flexible content formatting options for different use cases:
-- **Raw content stream**: For simple consumption without file boundaries
+- **Newline-separated content**: For simple consumption with basic file separation
 - **Structured plain format**: For readable multi-file output with separators
 - **MIME-multipart format**: For structured integration with external tools
 
@@ -16,9 +16,9 @@ Implement a feature flag system to allow users to select between content deliver
 
 - **Feature flag**: `content-format-mime` (string)
 - **Format options**:
-  - `None`/"none" (default): Raw content stream without file separators
-  - `"plain"`: Plain text format with file separators and headers
-  - `"mime"`: MIME-multipart format with boundaries and headers
+  - None/"none" (default): Newline-separated content stream
+  - "plain": Plain text format with file separators and headers
+  - "mime": MIME-multipart format with boundaries and headers
 - **Scope**: Project and global flags with project precedence
 
 ## How
@@ -33,6 +33,6 @@ Implement a feature flag system to allow users to select between content deliver
 ## Success Criteria
 
 - Users can set `content-format-mime` flag to select format (none/plain/mime)
-- Default behavior provides raw content stream without separators
+- Default behavior provides newline-separated content stream
 - Content tools respect flag settings with project override capability
 - Feature flag validation prevents invalid format values

@@ -199,6 +199,7 @@ q.chat
 q.json
 .*_cache
 .guide*
+.guide.yaml
 
 .hook_log
 .amazonq

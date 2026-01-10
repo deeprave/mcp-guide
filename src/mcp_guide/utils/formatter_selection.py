@@ -1,12 +1,23 @@
 """Formatter selection using ContentFormat enum."""
 
 from enum import Enum
-from typing import Optional
+from typing import TYPE_CHECKING, Optional, Protocol
+
+if TYPE_CHECKING:
+    from mcp_guide.utils.file_discovery import FileInfo
 
 from mcp_guide.feature_flags.types import FeatureValue
 from mcp_guide.utils.content_formatter_base import BaseFormatter
 from mcp_guide.utils.content_formatter_mime import MimeFormatter
 from mcp_guide.utils.content_formatter_plain import PlainFormatter
+
+
+class ContentFormatter(Protocol):
+    """Protocol for content formatters."""
+
+    async def format(self, files: list["FileInfo"], context_name: str) -> str:
+        """Format files into a string representation."""
+        ...
 
 
 class ContentFormat(Enum):
@@ -55,7 +66,7 @@ class TemplateStyling(Enum):
         return cls.PLAIN
 
 
-def get_formatter_from_flag(format_type: ContentFormat) -> BaseFormatter | PlainFormatter | MimeFormatter:
+def get_formatter_from_flag(format_type: ContentFormat) -> ContentFormatter:
     """Get formatter instance based on ContentFormat enum.
 
     Args:
