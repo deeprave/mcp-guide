@@ -47,7 +47,7 @@ class TestBaseFormatter:
             ),
         ]
         result = await formatter.format(files, "test")
-        assert result == "FirstSecond"
+        assert result == "First\nSecond"
 
     @pytest.mark.asyncio
     async def test_format_with_none_content(self):
@@ -65,4 +65,4 @@ class TestBaseFormatter:
             ),
         ]
         result = await formatter.format(files, "test")
-        assert result == "FirstThird"
+        assert result == "First\n\nThird"
