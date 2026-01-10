@@ -66,3 +66,29 @@ class TestBaseFormatter:
         ]
         result = await formatter.format(files, "test")
         assert result == "First\n\nThird"
+
+    @pytest.mark.asyncio
+    async def test_format_with_trailing_newlines(self):
+        """Test format method with files that already have trailing newlines."""
+        formatter = BaseFormatter()
+        files = [
+            FileInfo(
+                path=Path("file1.txt"),
+                size=6,
+                content_size=6,
+                mtime=datetime.now(),
+                name="file1.txt",
+                content="First\n",
+            ),
+            FileInfo(
+                path=Path("file2.txt"),
+                size=7,
+                content_size=7,
+                mtime=datetime.now(),
+                name="file2.txt",
+                content="Second\n",
+            ),
+        ]
+        result = await formatter.format(files, "test")
+        # Files with trailing newlines will produce extra blank lines between files
+        assert result == "First\n\nSecond\n"

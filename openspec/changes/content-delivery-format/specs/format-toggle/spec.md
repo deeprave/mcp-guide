@@ -17,7 +17,7 @@ This specification defines how content delivery format selection works using the
 String (or None)
 
 ### Flag Values
-- **`None` or `"none"`**: Use BaseFormatter - raw content stream (default) ✅ **IMPLEMENTED**
+- **`None` or `"none"`**: Use BaseFormatter - newline-separated content (default) ✅ **IMPLEMENTED**
 - **`"plain"`**: Use PlainFormatter - text with file separators and headers ✅ **IMPLEMENTED**
 - **`"mime"`**: Use MimeFormatter - MIME-multipart format with boundaries ✅ **IMPLEMENTED**
 
@@ -67,9 +67,9 @@ ELSE use BaseFormatter (raw content stream)
 ## Format Specifications
 
 ### BaseFormatter (Default) ✅ **IMPLEMENTED**
-- **Behavior**: Raw content stream without file separators
+- **Behavior**: Newline-separated content stream
 - **Use case**: Simple content consumption, streaming
-- **Structure**: Concatenated file contents only
+- **Structure**: File contents joined with newlines
 - **File**: `src/mcp_guide/utils/content_formatter_base.py`
 
 ### PlainFormatter ✅ **IMPLEMENTED**
