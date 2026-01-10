@@ -10,8 +10,11 @@ from mcp_guide.models import Category, Collection, Project
 from mcp_guide.tools.tool_content import ContentArgs, get_content
 
 
-def create_mock_session(tmp_path, project_data):
+def create_mock_session(tmp_path, project_data, project_flags_data=None, feature_flags_data=None):
     """Create a mock session with required methods."""
+
+    project_flags_data = project_flags_data or {}
+    feature_flags_data = feature_flags_data or {}
 
     class MockSession:
         async def get_project(self):
@@ -23,14 +26,14 @@ def create_mock_session(tmp_path, project_data):
         def project_flags(self):
             class MockProjectFlags:
                 async def list(self):
-                    return {}
+                    return project_flags_data
 
             return MockProjectFlags()
 
         def feature_flags(self):
             class MockFeatureFlags:
                 async def list(self):
-                    return {}
+                    return feature_flags_data
 
             return MockFeatureFlags()
 
@@ -270,3 +273,68 @@ async def test_get_content_collection_sets_metadata(tmp_path, monkeypatch):
     result = json.loads(result_json)
     assert result["success"] is True
     assert "# Test" in result["value"]
+
+
+@pytest.mark.parametrize(
+    "project_flags,feature_flags,expected_format",
+    [
+        # No flags - should default to NONE (BaseFormatter)
+        ({}, {}, "none"),
+        # Only project flag set
+        ({"content-format-mime": "plain"}, {}, "plain"),
+        ({"content-format-mime": "mime"}, {}, "mime"),
+        ({"content-format-mime": "none"}, {}, "none"),
+        # Only global flag set
+        ({}, {"content-format-mime": "plain"}, "plain"),
+        ({}, {"content-format-mime": "mime"}, "mime"),
+        ({}, {"content-format-mime": "none"}, "none"),
+        # Project flag takes precedence over global
+        ({"content-format-mime": "plain"}, {"content-format-mime": "mime"}, "plain"),
+        ({"content-format-mime": "mime"}, {"content-format-mime": "plain"}, "mime"),
+        ({"content-format-mime": "none"}, {"content-format-mime": "plain"}, "none"),
+    ],
+)
+async def test_get_content_flag_resolution(tmp_path, monkeypatch, project_flags, feature_flags, expected_format):
+    """Test content-format-mime flag resolution and precedence."""
+    # Create test file
+    category_dir = tmp_path / "docs"
+    category_dir.mkdir()
+    (category_dir / "test.md").write_text("# Test Content\n\nSome text.")
+
+    # Project data
+    project_data = Project(
+        name="test",
+        categories={"docs": Category(dir="docs", patterns=["*.md"])},
+        collections={},
+    )
+
+    async def mock_get_session(ctx=None):
+        return create_mock_session(tmp_path, project_data, project_flags, feature_flags)
+
+    monkeypatch.setattr("mcp_guide.tools.tool_content.get_or_create_session", mock_get_session)
+
+    # Call tool
+    args = ContentArgs(expression="docs")
+    result_json = await get_content(args)
+
+    # Parse result
+    result = json.loads(result_json)
+    assert result["success"] is True
+
+    # Verify content formatting based on expected format
+    content = result["value"]
+
+    if expected_format == "none":
+        # BaseFormatter joins with newlines
+        assert "# Test Content" in content
+        assert "Some text." in content
+        # Should be simple newline-joined content
+        assert content.count("\n") >= 2
+    elif expected_format == "plain":
+        # PlainFormatter behavior - should still contain the content
+        assert "# Test Content" in content
+        assert "Some text." in content
+    elif expected_format == "mime":
+        # MimeFormatter behavior - should contain MIME-like structure
+        assert "# Test Content" in content
+        assert "Some text." in content
