@@ -13,7 +13,7 @@ from mcp_guide.models import (
 from mcp_guide.session import Session
 from mcp_guide.utils.content_utils import read_and_render_file_contents, resolve_patterns
 from mcp_guide.utils.file_discovery import FileInfo, discover_category_files
-from mcp_guide.utils.formatter_selection import get_formatter
+from mcp_guide.utils.formatter_selection import ContentFormat, get_formatter_from_flag
 from mcp_guide.utils.template_context_cache import get_template_context_if_needed
 
 
@@ -207,6 +207,7 @@ async def render_fileinfos(
     context_name: str,
     category_dir: Path,
     docroot: Path,
+    format_type: ContentFormat,
 ) -> str:
     """Common function to render FileInfo list to formatted content.
 
@@ -215,6 +216,7 @@ async def render_fileinfos(
         context_name: Name for context (category or expression)
         category_dir: Directory path for reading files
         docroot: Document root for security validation
+        format_type: Content format to use
 
     Returns:
         Formatted content string
@@ -233,5 +235,5 @@ async def render_fileinfos(
         raise FileReadError(f"Failed to read files: {'; '.join(file_read_errors)}")
 
     # Format content
-    formatter = get_formatter()
+    formatter = get_formatter_from_flag(format_type)
     return await formatter.format(files, context_name)

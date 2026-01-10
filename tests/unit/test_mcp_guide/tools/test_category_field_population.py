@@ -10,6 +10,33 @@ from mcp_guide.models import Category, Project
 from mcp_guide.tools.tool_category import CategoryContentArgs, category_content
 
 
+def create_mock_session(tmp_path, project_data):
+    """Create a mock session with required methods."""
+
+    class MockSession:
+        async def get_project(self):
+            return project_data
+
+        async def get_docroot(self):
+            return str(tmp_path)
+
+        def project_flags(self):
+            class MockProjectFlags:
+                async def list(self):
+                    return {}
+
+            return MockProjectFlags()
+
+        def feature_flags(self):
+            class MockFeatureFlags:
+                async def list(self):
+                    return {}
+
+            return MockFeatureFlags()
+
+    return MockSession()
+
+
 @pytest.mark.asyncio
 async def test_category_field_set_on_fileinfo(tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
     """Test that category field is set on FileInfo objects."""
@@ -18,20 +45,15 @@ async def test_category_field_set_on_fileinfo(tmp_path: Path, monkeypatch: Monke
     category_dir.mkdir()
     (category_dir / "test.md").write_text("# Test")
 
-    # Mock session
-    class MockSession:
-        async def get_project(self):
-            return Project(
-                name="test",
-                categories={"guide": Category(dir="guide", patterns=["*.md"])},
-                collections={},
-            )
-
-        async def get_docroot(self):
-            return str(tmp_path)
+    # Project data
+    project_data = Project(
+        name="test",
+        categories={"guide": Category(dir="guide", patterns=["*.md"])},
+        collections={},
+    )
 
     async def mock_get_session(ctx=None):
-        return MockSession()
+        return create_mock_session(tmp_path, project_data)
 
     # Patch to capture FileInfo objects
     captured_files = []

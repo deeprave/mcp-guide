@@ -1,35 +1,32 @@
-"""Formatter selection using ContextVar."""
+"""Formatter selection using ContentFormat enum."""
 
-from contextvars import ContextVar
-from typing import Literal
+from enum import Enum
 
+from mcp_guide.utils.content_formatter_base import BaseFormatter
 from mcp_guide.utils.content_formatter_mime import MimeFormatter
 from mcp_guide.utils.content_formatter_plain import PlainFormatter
 
-FormatterType = Literal["plain", "mime"]
 
-_FORMATTER_TYPE: ContextVar[FormatterType] = ContextVar("formatter_type", default="plain")
+class ContentFormat(Enum):
+    """Content format options."""
+
+    NONE = "none"
+    PLAIN = "plain"
+    MIME = "mime"
 
 
-def set_formatter(formatter_type: FormatterType) -> None:
-    """Set active formatter type.
+def get_formatter_from_flag(format_type: ContentFormat) -> BaseFormatter | PlainFormatter | MimeFormatter:
+    """Get formatter instance based on ContentFormat enum.
 
     Args:
-        formatter_type: Either 'plain' or 'mime'
-
-    Raises:
-        ValueError: If formatter_type is not 'plain' or 'mime'
-    """
-    if formatter_type not in ("plain", "mime"):
-        raise ValueError(f"Invalid formatter type: {formatter_type}")
-    _FORMATTER_TYPE.set(formatter_type)
-
-
-def get_formatter() -> PlainFormatter | MimeFormatter:
-    """Get active formatter instance.
+        format_type: ContentFormat enum value
 
     Returns:
-        PlainFormatter or MimeFormatter based on current context
+        Appropriate formatter instance
     """
-    formatter_type = _FORMATTER_TYPE.get()
-    return MimeFormatter() if formatter_type == "mime" else PlainFormatter()
+    if format_type == ContentFormat.PLAIN:
+        return PlainFormatter()
+    elif format_type == ContentFormat.MIME:
+        return MimeFormatter()
+    else:
+        return BaseFormatter()

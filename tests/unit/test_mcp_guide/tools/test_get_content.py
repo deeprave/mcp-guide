@@ -10,6 +10,33 @@ from mcp_guide.models import Category, Collection, Project
 from mcp_guide.tools.tool_content import ContentArgs, get_content
 
 
+def create_mock_session(tmp_path, project_data):
+    """Create a mock session with required methods."""
+
+    class MockSession:
+        async def get_project(self):
+            return project_data
+
+        async def get_docroot(self):
+            return str(tmp_path)
+
+        def project_flags(self):
+            class MockProjectFlags:
+                async def list(self):
+                    return {}
+
+            return MockProjectFlags()
+
+        def feature_flags(self):
+            class MockFeatureFlags:
+                async def list(self):
+                    return {}
+
+            return MockFeatureFlags()
+
+    return MockSession()
+
+
 def test_content_args_exists():
     """Test that ContentArgs class exists."""
     assert ContentArgs is not None
@@ -46,20 +73,15 @@ async def test_get_content_collection_only(tmp_path, monkeypatch):
     category_dir.mkdir()
     (category_dir / "test.md").write_text("# Test")
 
-    # Mock session
-    class MockSession:
-        async def get_project(self):
-            return Project(
-                name="test",
-                categories={"guide": Category(dir="guide", patterns=["*.md"])},
-                collections={"all": Collection(categories=["guide"])},
-            )
-
-        async def get_docroot(self):
-            return str(tmp_path)
+    # Project data
+    project_data = Project(
+        name="test",
+        categories={"guide": Category(dir="guide", patterns=["*.md"])},
+        collections={"all": Collection(categories=["guide"])},
+    )
 
     async def mock_get_session(ctx=None):
-        return MockSession()
+        return create_mock_session(tmp_path, project_data)
 
     monkeypatch.setattr("mcp_guide.tools.tool_content.get_or_create_session", mock_get_session)
 
@@ -79,20 +101,15 @@ async def test_get_content_category_only(tmp_path, monkeypatch):
     category_dir.mkdir()
     (category_dir / "test.md").write_text("# Test")
 
-    # Mock session
-    class MockSession:
-        async def get_project(self):
-            return Project(
-                name="test",
-                categories={"guide": Category(dir="guide", patterns=["*.md"])},
-                collections={},
-            )
-
-        async def get_docroot(self):
-            return str(tmp_path)
+    # Project data
+    project_data = Project(
+        name="test",
+        categories={"guide": Category(dir="guide", patterns=["*.md"])},
+        collections={},
+    )
 
     async def mock_get_session(ctx=None):
-        return MockSession()
+        return create_mock_session(tmp_path, project_data)
 
     monkeypatch.setattr("mcp_guide.tools.tool_content.get_or_create_session", mock_get_session)
 
@@ -112,20 +129,15 @@ async def test_get_content_deduplicates(tmp_path, monkeypatch):
     category_dir.mkdir()
     (category_dir / "test.md").write_text("# Test")
 
-    # Mock session - collection and category both named "guide"
-    class MockSession:
-        async def get_project(self):
-            return Project(
-                name="test",
-                categories={"guide": Category(dir="guide", patterns=["*.md"])},
-                collections={"guide": Collection(categories=["guide"])},
-            )
-
-        async def get_docroot(self):
-            return str(tmp_path)
+    # Project data - collection and category both named "guide"
+    project_data = Project(
+        name="test",
+        categories={"guide": Category(dir="guide", patterns=["*.md"])},
+        collections={"guide": Collection(categories=["guide"])},
+    )
 
     async def mock_get_session(ctx=None):
-        return MockSession()
+        return create_mock_session(tmp_path, project_data)
 
     monkeypatch.setattr("mcp_guide.tools.tool_content.get_or_create_session", mock_get_session)
 
@@ -146,20 +158,15 @@ async def test_get_content_empty_result(tmp_path, monkeypatch):
     category_dir = tmp_path / "empty"
     category_dir.mkdir()
 
-    # Mock session
-    class MockSession:
-        async def get_project(self):
-            return Project(
-                name="test",
-                categories={"empty": Category(dir="empty", patterns=["*.md"])},
-                collections={},
-            )
-
-        async def get_docroot(self):
-            return str(tmp_path)
+    # Project data
+    project_data = Project(
+        name="test",
+        categories={"empty": Category(dir="empty", patterns=["*.md"])},
+        collections={},
+    )
 
     async def mock_get_session(ctx=None):
-        return MockSession()
+        return create_mock_session(tmp_path, project_data)
 
     monkeypatch.setattr("mcp_guide.tools.tool_content.get_or_create_session", mock_get_session)
 
@@ -182,20 +189,15 @@ async def test_get_content_pattern_override(tmp_path, monkeypatch):
     (category_dir / "test.md").write_text("# Test")
     (category_dir / "test.txt").write_text("Test")
 
-    # Mock session - category accepts both .md and .txt
-    class MockSession:
-        async def get_project(self):
-            return Project(
-                name="test",
-                categories={"docs": Category(dir="docs", patterns=["*.md", "*.txt"])},
-                collections={},
-            )
-
-        async def get_docroot(self):
-            return str(tmp_path)
+    # Project data - category accepts both .md and .txt
+    project_data = Project(
+        name="test",
+        categories={"docs": Category(dir="docs", patterns=["*.md", "*.txt"])},
+        collections={},
+    )
 
     async def mock_get_session(ctx=None):
-        return MockSession()
+        return create_mock_session(tmp_path, project_data)
 
     monkeypatch.setattr("mcp_guide.tools.tool_content.get_or_create_session", mock_get_session)
 
@@ -218,20 +220,15 @@ async def test_get_content_category_sets_metadata(tmp_path, monkeypatch):
     category_dir.mkdir()
     (category_dir / "test.md").write_text("# Test")
 
-    # Mock session
-    class MockSession:
-        async def get_project(self):
-            return Project(
-                name="test",
-                categories={"docs": Category(dir="docs", patterns=["*.md"])},
-                collections={},
-            )
-
-        async def get_docroot(self):
-            return str(tmp_path)
+    # Project data
+    project_data = Project(
+        name="test",
+        categories={"docs": Category(dir="docs", patterns=["*.md"])},
+        collections={},
+    )
 
     async def mock_get_session(ctx=None):
-        return MockSession()
+        return create_mock_session(tmp_path, project_data)
 
     monkeypatch.setattr("mcp_guide.tools.tool_content.get_or_create_session", mock_get_session)
 
@@ -253,20 +250,15 @@ async def test_get_content_collection_sets_metadata(tmp_path, monkeypatch):
     category_dir.mkdir()
     (category_dir / "test.md").write_text("# Test")
 
-    # Mock session
-    class MockSession:
-        async def get_project(self):
-            return Project(
-                name="test",
-                categories={"docs": Category(dir="docs", patterns=["*.md"])},
-                collections={"all": Collection(categories=["docs"])},
-            )
-
-        async def get_docroot(self):
-            return str(tmp_path)
+    # Project data
+    project_data = Project(
+        name="test",
+        categories={"docs": Category(dir="docs", patterns=["*.md"])},
+        collections={"all": Collection(categories=["docs"])},
+    )
 
     async def mock_get_session(ctx=None):
-        return MockSession()
+        return create_mock_session(tmp_path, project_data)
 
     monkeypatch.setattr("mcp_guide.tools.tool_content.get_or_create_session", mock_get_session)
 

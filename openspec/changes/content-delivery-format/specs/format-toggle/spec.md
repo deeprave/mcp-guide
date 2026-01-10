@@ -2,7 +2,7 @@
 
 ## Overview
 
-This specification defines how content delivery format selection works using the `content-format-mime` feature flag.
+This specification defines how content delivery format selection works using the `content-format-mime` feature flag with string values.
 
 ## Feature Flag Definition
 
@@ -10,11 +10,12 @@ This specification defines how content delivery format selection works using the
 `content-format-mime`
 
 ### Flag Type
-Boolean
+String (or None)
 
-### Flag Behavior
-- **`false` or absent**: Use plain text format (default)
-- **`true`**: Use MIME-multipart format
+### Flag Values
+- **`None` or `"none"`**: Use BaseFormatter - raw content stream (default)
+- **`"plain"`**: Use PlainFormatter - text with file separators and headers
+- **`"mime"`**: Use MimeFormatter - MIME-multipart format with boundaries
 
 ### Flag Scope
 - **Global**: Can be set as global feature flag
@@ -25,41 +26,53 @@ Boolean
 
 ### Default Behavior
 ```
-IF content-format-mime flag is absent OR false
+IF content-format-mime flag is "plain"
 THEN use PlainFormatter
-ELSE use MimeFormatter
+ELSE IF content-format-mime flag is "mime"
+THEN use MimeFormatter
+ELSE use BaseFormatter (raw content stream)
 ```
 
 ### Flag Resolution Order
 1. **Project flag**: Check project-specific `content-format-mime` setting
 2. **Global flag**: Check global `content-format-mime` setting
-3. **Default**: Use plain format if no flags set
+3. **Default**: Use BaseFormatter if no flags set
 
 ## Implementation Requirements
 
-### Formatter Selection
+### ContentFormat Enum
 - **Location**: `src/mcp_guide/utils/formatter_selection.py`
-- **Function**: `get_active_formatter()`
-- **Logic**: Check feature flag and return appropriate formatter instance
+- **Values**: NONE, PLAIN, MIME
+- **String mapping**: "none" → NONE, "plain" → PLAIN, "mime" → MIME
+
+### Formatter Selection
+- **Function**: `get_formatter_from_flag(format: ContentFormat)`
+- **Logic**: Return appropriate formatter instance based on enum value
+- **Remove**: ContextVar-based selection entirely
 
 ### Feature Flag Integration
-- **Use existing**: Leverage current feature flag system
-- **Flag validation**: Ensure boolean type validation
-- **Flag resolution**: Use existing project/global resolution logic
+- **Validation**: String values only (None, "none", "plain", "mime")
+- **Resolution**: Use existing project/global resolution logic
+- **Additional**: Add template-styling flag validator
 
 ### Content Tool Integration
 - **Tools affected**: All content delivery tools (get_content, category_content)
-- **Integration point**: Use formatter selection utility
-- **Backward compatibility**: Maintain existing API
+- **Integration**: Resolve flag and pass format enum to render functions
+- **API changes**: Update render_fileinfos to accept format parameter
 
 ## Format Specifications
 
-### Plain Format
-- **Current behavior**: Concatenated text with file separators
-- **Use case**: Simple text output, terminal display
-- **Structure**: File headers + content blocks
+### BaseFormatter (Default)
+- **Behavior**: Raw content stream without file separators
+- **Use case**: Simple content consumption, streaming
+- **Structure**: Concatenated file contents only
 
-### MIME-multipart Format
+### PlainFormatter
+- **Behavior**: Text with file headers and separators
+- **Use case**: Readable multi-file output, terminal display
+- **Structure**: File headers + content blocks with separators
+
+### MimeFormatter
 - **Structure**: RFC-compliant multipart format with boundaries
 - **Use case**: Structured output, external tool integration
 - **Headers**: Content-Type, Content-Disposition per part
@@ -68,30 +81,45 @@ ELSE use MimeFormatter
 
 ### Global Flag Setting
 ```bash
-# Enable MIME format globally
-mcp-guide set-feature-flag content-format-mime true
+# Use raw content stream (default)
+mcp-guide set-feature-flag content-format-mime none
 
-# Disable MIME format (use plain)
-mcp-guide set-feature-flag content-format-mime false
+# Use plain format with separators
+mcp-guide set-feature-flag content-format-mime plain
+
+# Use MIME format
+mcp-guide set-feature-flag content-format-mime mime
 ```
 
 ### Project Flag Setting
 ```bash
-# Enable MIME format for current project
-mcp-guide set-project-flag content-format-mime true
+# Use plain format for current project
+mcp-guide set-project-flag content-format-mime plain
 
 # Use global setting for current project
 mcp-guide set-project-flag content-format-mime null
 ```
 
-## Backward Compatibility
+## Feature Flag Validation
 
-### Default Behavior
-- **No change**: Plain format remains default
-- **Existing tools**: Continue working without modification
-- **Flag absence**: Treated as false (plain format)
+### Content Format Validation
+- **Valid values**: None, "none", "plain", "mime"
+- **Invalid values**: Any other string, boolean, number, object
+- **Validator**: `validate_content_format_mime()`
 
-### Migration Path
-- **Opt-in**: Users must explicitly enable MIME format
-- **Gradual adoption**: Can test MIME format per project
-- **Rollback**: Can disable flag to return to plain format
+### Template Styling Validation
+- **Valid values**: None, "plain", "headings", "full"
+- **Invalid values**: Any other string, boolean, number, object
+- **Validator**: `validate_template_styling()`
+
+## Architecture Changes
+
+### Remove ContextVar System
+- **Delete**: All ContextVar-based formatter tracking
+- **Replace**: With direct format enum parameter passing
+- **Benefit**: Simpler, more explicit format control
+
+### Parameter Passing
+- **Approach**: Pass ContentFormat enum through call chain
+- **Functions**: render_fileinfos(format: ContentFormat)
+- **Tools**: Resolve flag once and pass format down

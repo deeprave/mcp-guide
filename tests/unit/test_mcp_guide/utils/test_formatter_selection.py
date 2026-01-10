@@ -1,47 +1,35 @@
-"""Tests for formatter selection."""
+"""Tests for formatter selection with ContentFormat enum."""
 
-import pytest
-
-
-def test_module_imports():
-    """Test that module can be imported."""
-    from mcp_guide.utils import formatter_selection
-
-    assert formatter_selection is not None
+from mcp_guide.utils.content_formatter_base import BaseFormatter
+from mcp_guide.utils.content_formatter_mime import MimeFormatter
+from mcp_guide.utils.content_formatter_plain import PlainFormatter
+from mcp_guide.utils.formatter_selection import ContentFormat, get_formatter_from_flag
 
 
-def test_default_formatter_is_plain():
-    """Test that default formatter is PlainFormatter."""
-    from mcp_guide.utils.content_formatter_plain import PlainFormatter
-    from mcp_guide.utils.formatter_selection import get_formatter
+class TestContentFormat:
+    """Test ContentFormat enum."""
 
-    formatter = get_formatter()
-    assert isinstance(formatter, PlainFormatter)
-
-
-def test_set_formatter_to_mime():
-    """Test switching to MimeFormatter."""
-    from mcp_guide.utils.content_formatter_mime import MimeFormatter
-    from mcp_guide.utils.formatter_selection import get_formatter, set_formatter
-
-    set_formatter("mime")
-    formatter = get_formatter()
-    assert isinstance(formatter, MimeFormatter)
+    def test_enum_values(self):
+        """Test ContentFormat enum has correct values."""
+        assert ContentFormat.NONE.value == "none"
+        assert ContentFormat.PLAIN.value == "plain"
+        assert ContentFormat.MIME.value == "mime"
 
 
-def test_set_formatter_to_plain():
-    """Test switching to PlainFormatter."""
-    from mcp_guide.utils.content_formatter_plain import PlainFormatter
-    from mcp_guide.utils.formatter_selection import get_formatter, set_formatter
+class TestFormatterSelection:
+    """Test formatter selection with enum."""
 
-    set_formatter("plain")
-    formatter = get_formatter()
-    assert isinstance(formatter, PlainFormatter)
+    def test_get_formatter_from_flag_none(self):
+        """Test get_formatter_from_flag returns BaseFormatter for NONE."""
+        formatter = get_formatter_from_flag(ContentFormat.NONE)
+        assert isinstance(formatter, BaseFormatter)
 
+    def test_get_formatter_from_flag_plain(self):
+        """Test get_formatter_from_flag returns PlainFormatter for PLAIN."""
+        formatter = get_formatter_from_flag(ContentFormat.PLAIN)
+        assert isinstance(formatter, PlainFormatter)
 
-def test_invalid_formatter_type_raises_error():
-    """Test that invalid formatter type raises ValueError."""
-    from mcp_guide.utils.formatter_selection import set_formatter
-
-    with pytest.raises(ValueError, match="Invalid formatter type"):
-        set_formatter("invalid")
+    def test_get_formatter_from_flag_mime(self):
+        """Test get_formatter_from_flag returns MimeFormatter for MIME."""
+        formatter = get_formatter_from_flag(ContentFormat.MIME)
+        assert isinstance(formatter, MimeFormatter)
