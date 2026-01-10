@@ -53,6 +53,20 @@
 - **AVOID** reimplementing functionality that already exists
 - **LEVERAGE** existing utilities for common operations
 
+### Data Structures and Control Flow
+- **PREFER** static dictionaries and enums over if/elif/else chains for mapping values
+- **USE** enums to conceptualize different states and options rather than string literals
+- **LEVERAGE** dictionary lookups, match/case statements, and iteration over enums instead of conditional chains
+- **CENTRALIZE** conversion logic in enum classmethods using simple iteration patterns
+- **AVOID** duplicating string-to-value mapping logic across multiple locations
+
+  #### Why This Approach Is Better
+  - **Maintainability**: Adding new options requires changes in only one place
+  - **Readability**: Intent is clearer with descriptive enum names and dictionary structures
+  - **Type Safety**: Enums provide compile-time checking and IDE support
+  - **Brevity**: Less code to write and maintain compared to long if/elif chains
+  - **Consistency**: Centralized conversion ensures uniform behavior across the codebase
+
 ### Private variables
 - **NEVER** access private variables of a foreign class or module
 - **ALWAYS** use the public API of that freign class or module ONLY
@@ -70,4 +84,5 @@
 8. **NEVER** hardcode instruction text - use existing template rendering infrastructure
 9. **NEVER** access private attributes
 10. **NEVER** use sed, awk, or perl for text transformations - use fs_write str_replace instead
+11. **NEVER** use long if/elif/else chains for value mapping - use enums and dictionaries instead
 
