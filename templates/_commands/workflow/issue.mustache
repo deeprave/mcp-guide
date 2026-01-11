@@ -2,10 +2,9 @@
 type: agent/instruction
 aliases: ["issue"]
 description: "Manage current workflow issue"
-usage: ":issue [--description='desc'] [--tracking='type id'] [--clear|--next|issue-id]"
+usage: ":issue [--issue='issue'] [--description='desc'] [--tracking='type id'] [--clear|--next|issue-id]"
 category: "project-workflow"
 requires-workflow: true
-requires-workflow-phase: [discussion, planning]
 includes:
   - "../_partials/workflow-status"
 instruction: >
@@ -16,21 +15,40 @@ instruction: >
 {{h2}}Issue Management
 
 **Arguments**
+- `--issue=issue-id` - Set new issue (openspec path or component)
 - `--description="text"` - Set issue description
 - `--tracking="TYPE ID"` - Set tracking (e.g. "JIRA GUIDE-123")
+- `--queue=issue-id` - Quaue an issue (openspec path or component)
 - `--clear` - Remove current issue
 - `--next` - Move next queued issue to current
-- `--issue=issue-id` - Set new issue (openspec path or component)
 
 > Only one of --clear, --next, or issue-id is valid.
 > --description and --tracking can be used anytime.
 > Validate phase restrictions before making changes.
 
 {{h2}}Examples
-- `:issue openspec/changes/new-feature`
+- `:issue --issue openspec/changes/new-feature`
 - `:issue --description="Fix validation bug"`
 - `:issue --tracking="JIRA PROJ-456"`
 - `:issue --clear`
 - `:issue --next`
 
-{{b}}Action:{{b}} Update {{workflow.file}} with specified changes.
+{{b}}Action:{{b}} Update {{workflow.file}} by:
+{{#kwargs.issue}}
+- Setting the current issue to: {{kwargs.issue}}
+{{/kwargs.issue}}
+{{#kwargs.queue}}
+- Adding the provided issue to the queue: {{kwargs.queue}}
+{{/kwargs.queue}}
+{{#kwargs.description}}
+- Setting the description to: {{kwargs.description}}
+{{/kwargs.description}}
+{{#kwargs.tracking}}
+- Setting the tracking to: {{kwargs.tracking}}
+{{/kwargs.tracking}}
+{{#kwargs.clear}}
+- Clearing the current issue
+{{/kwargs.clear}}
+{{#kwargs.next}}
+- Moving the next queued issue to current
+{{/kwargs.next}}

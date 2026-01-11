@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from mcp_core.mcp_log import get_logger
+from mcp_guide.models import FileReadError, NoProjectError
 from mcp_guide.session import get_current_session
 from mcp_guide.task_manager import EventType, TaskManager, get_task_manager
 from mcp_guide.utils.system_content import render_system_content
@@ -60,53 +61,52 @@ class WorkflowTaskManager:
                 logger.trace("WorkflowMonitorTask subscribed successfully")
 
                 # Queue setup instruction
-                await self.queue_workflow_instruction(self._task_manager, "monitoring-setup")
-                logger.trace("Workflow setup instruction queued")
+                try:
+                    content = await self.render_workflow_template("monitoring-setup")
+                    await self._task_manager.queue_instruction(content)
+                    logger.trace("Workflow setup instruction queued")
+                except Exception as e:
+                    logger.error(f"Failed to queue workflow setup instruction: {e}", exc_info=True)
 
         except Exception as e:
-            logger.warning(f"Workflow management failed: {e}")
-            import traceback
-
-            logger.warning(f"Workflow management traceback: {traceback.format_exc()}")
+            logger.error(f"Workflow management failed: {e}", exc_info=True)
 
     @staticmethod
-    async def queue_workflow_instruction(task_manager: "TaskManager", template_pattern: str) -> None:
-        """Queue workflow instruction using system content rendering."""
-        logger.trace(f"queue_workflow_instruction called with template_pattern: {template_pattern}")
-        try:
-            session = get_current_session()
-            if not session:
-                logger.warning("No session available for workflow instruction")
-                return
+    async def render_workflow_template(template_pattern: str) -> str:
+        """Render workflow template and return the content.
 
-            logger.trace(f"Session found, getting docroot")
-            docroot = Path(await session.get_docroot())
-            workflow_dir = docroot / WORKFLOW_DIR
+        Raises:
+            NoProjectError: If no session is available for workflow template rendering
+        """
+        logger.trace(f"render_workflow_template called with template_pattern: {template_pattern}")
+        session = get_current_session()
+        if not session:
+            raise NoProjectError("No session available for workflow template rendering")
 
-            # Get template context for rendering
-            logger.trace("Getting template contexts")
-            context = await get_template_contexts()
+        logger.trace("Session found, getting docroot")
+        docroot = Path(await session.get_docroot())
+        workflow_dir = docroot / WORKFLOW_DIR
 
-            logger.trace(f"Rendering system content for pattern: {template_pattern}")
-            result = await render_system_content(
-                system_dir=workflow_dir, pattern=template_pattern, context=context, docroot=docroot
-            )
+        # Get template context for rendering
+        logger.trace("Getting template contexts")
+        context = await get_template_contexts()
 
-            if result.success and result.value:
-                logger.trace(f"System content rendered successfully: {len(result.value)} chars")
-                await task_manager.queue_instruction(result.value)
-                logger.trace("Instruction queued in task manager")
-            else:
-                logger.warning(
-                    f"Failed to render workflow instruction: {result.error if not result.success else 'Empty result'}"
-                )
+        logger.trace(f"Rendering system content for pattern: {template_pattern}")
+        result = await render_system_content(
+            system_dir=workflow_dir, pattern=template_pattern, context=context, docroot=docroot
+        )
 
-        except Exception as e:
-            logger.warning(f"Failed to queue workflow instruction: {e}")
-            import traceback
+        if not result.success or not result.value:
+            error_msg = result.error if not result.success else "Empty result"
+            raise FileReadError(f"Failed to render workflow template: {error_msg}")
 
-            logger.warning(f"Workflow instruction traceback: {traceback.format_exc()}")
+        logger.trace(f"System content rendered successfully: {len(result.value)} chars")
+        return result.value
 
     async def _queue_workflow_setup_instruction(self, session: Any, workflow_file: str) -> None:
         """Queue workflow setup instruction using system content rendering."""
-        await self.queue_workflow_instruction(self._task_manager, "monitoring-setup")
+        try:
+            content = await self.render_workflow_template("monitoring-setup")
+            await self._task_manager.queue_instruction(content)
+        except Exception as e:
+            logger.error(f"Failed to queue workflow setup instruction: {e}", exc_info=True)

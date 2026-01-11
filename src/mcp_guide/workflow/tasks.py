@@ -4,6 +4,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 
 from mcp_core.mcp_log import get_logger
+from mcp_guide.workflow.change_detection import ChangeEvent, detect_workflow_changes
+from mcp_guide.workflow.instruction_generator import get_instruction_template_for_change
 from mcp_guide.workflow.parser import parse_workflow_state
 
 if TYPE_CHECKING:
@@ -21,6 +23,7 @@ WORKFLOW_INTERVAL = 120.0
 class WorkflowMonitorTask:
     """Scheduled background monitoring task for workflow state changes."""
 
+    # noinspection PyMethodMayBeStatic
     def get_name(self) -> str:
         """Get a readable name for the task."""
         return "WorkflowMonitorTask"
@@ -67,34 +70,83 @@ class WorkflowMonitorTask:
         from mcp_guide.workflow.task_manager import WorkflowTaskManager
 
         # Use the existing workflow instruction system
-        await WorkflowTaskManager.queue_workflow_instruction(self.task_manager, "monitoring-reminder")
+        try:
+            content = await WorkflowTaskManager.render_workflow_template("monitoring-reminder")
+            await self.task_manager.queue_instruction(content)
+        except Exception as e:
+            logger.error(f"Failed to queue monitoring reminder: {e}", exc_info=True)
 
     async def _process_workflow_content(self, content: str) -> None:
         """Process workflow file content and update cached state."""
-        logger.trace("_process_workflow_content ASYNC method called")
+        logger.trace("_process_workflow_content called")
         try:
-            # Parse the workflow state
-            logger.trace("About to parse workflow state")
-            if workflow_state := parse_workflow_state(content):
-                logger.trace(f"Parsed workflow state: phase={workflow_state.phase}, issue={workflow_state.issue}")
+            new_state = parse_workflow_state(content)
+            if not new_state:
+                logger.warning("Failed to parse workflow state - not processing changes")
+                return
 
-                # Cache the workflow state in TaskManager
-                logger.trace("About to cache workflow state")
-                self.task_manager.set_cached_data("workflow_state", workflow_state)
-                logger.trace("Workflow state cached in TaskManager")
+            logger.trace(f"Parsed new workflow state: phase={new_state.phase}, issue={new_state.issue}")
 
-                # Always queue monitoring reminder instruction when workflow content is processed
-                # Import at runtime to avoid circular import: WorkflowTaskManager -> WorkflowMonitorTask -> WorkflowTaskManager
-                from mcp_guide.workflow.task_manager import WorkflowTaskManager
+            # Get previous state from cache for comparison
+            old_state = self.task_manager.get_cached_data("workflow_state")
+            logger.trace(f"Retrieved old state from cache: {old_state is not None}")
 
-                logger.trace("About to queue monitoring-result instruction")
-                await WorkflowTaskManager.queue_workflow_instruction(self.task_manager, "monitoring-result")
-                logger.trace("Workflow monitoring reminder instruction queued")
-            else:
-                logger.warning("Failed to parse workflow state - not caching or queuing instructions")
+            # Detect semantic changes
+            changes = detect_workflow_changes(old_state, new_state)
+            logger.trace(f"Detected {len(changes)} workflow changes")
+
+            # Process each detected change and get rendered content for main response
+            if changes:
+                change_content = await self._process_workflow_changes(changes)
+                if change_content:
+                    # Store the change content to be used as the main response value
+                    self.task_manager.set_cached_data("workflow_change_content", change_content)
+
+            # Always queue monitoring instruction after successful parse (maintains original behaviour)
+            # This ensures the critical "MUST send file content" instruction is always provided
+            # Import at runtime to avoid circular import: WorkflowTaskManager -> WorkflowMonitorTask -> WorkflowTaskManager
+            from mcp_guide.workflow.task_manager import WorkflowTaskManager
+
+            try:
+                content = await WorkflowTaskManager.render_workflow_template("monitoring-result")
+                await self.task_manager.queue_instruction(content)
+            except Exception as e:
+                logger.error(f"Failed to queue monitoring result instruction: {e}", exc_info=True)
+
+            # Update cache with new state AFTER processing changes
+            self.task_manager.set_cached_data("workflow_state", new_state)
+            logger.trace("New workflow state cached in TaskManager")
 
         except Exception as e:
-            logger.warning(f"Failed to process workflow content: {e}")
-            import traceback
+            logger.error(f"Failed to process workflow content: {e}", exc_info=True)
 
-            logger.warning(f"Workflow content processing traceback: {traceback.format_exc()}")
+    @staticmethod
+    async def _process_workflow_changes(changes: list[ChangeEvent]) -> Optional[str]:
+        """Process detected workflow changes and return rendered content for main response.
+
+        Returns:
+            Rendered change content for main response, or None if no content to return
+        """
+        # Import at runtime to avoid circular import: WorkflowTaskManager -> WorkflowMonitorTask -> WorkflowTaskManager
+        from mcp_guide.workflow.task_manager import WorkflowTaskManager
+
+        # Process each change using existing workflow instruction system
+        rendered_contents = []
+        for change in changes:
+            logger.trace(f"Processing change: {change.change_type.value}")
+
+            # Get appropriate template pattern for this change
+            template_pattern = get_instruction_template_for_change(change)
+
+            # Render template content for main response
+            try:
+                content = await WorkflowTaskManager.render_workflow_template(template_pattern)
+                rendered_contents.append(content)
+                logger.trace(
+                    f"Rendered workflow content for {change.change_type.value} using pattern: {template_pattern}"
+                )
+            except Exception as e:
+                logger.error(f"Failed to render template {template_pattern}: {e}", exc_info=True)
+
+        # Combine all rendered content
+        return "\n".join(rendered_contents) if rendered_contents else None

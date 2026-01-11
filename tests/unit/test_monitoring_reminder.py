@@ -39,18 +39,18 @@ class TestMonitoringReminder:
         task = WorkflowMonitorTask(".guide.yaml", manager)
 
         # Mock the workflow instruction system to avoid session dependency
-        original_queue_workflow_instruction = None
+        original_render_workflow_template = None
 
-        async def mock_queue_workflow_instruction(task_manager, template_pattern):
-            # Simulate the instruction being queued
-            await task_manager.queue_instruction(f"Mock reminder for {template_pattern}")
+        async def mock_render_workflow_template(template_pattern):
+            # Simulate the template being rendered
+            return f"Mock reminder for {template_pattern}"
 
         # Patch the WorkflowTaskManager method
         from unittest.mock import patch
 
         with patch(
-            "mcp_guide.workflow.task_manager.WorkflowTaskManager.queue_workflow_instruction",
-            side_effect=mock_queue_workflow_instruction,
+            "mcp_guide.workflow.task_manager.WorkflowTaskManager.render_workflow_template",
+            side_effect=mock_render_workflow_template,
         ):
             # Simulate timer event
             result = await task.handle_event(EventType.TIMER, {"timer_interval": 300.0})
@@ -65,21 +65,21 @@ class TestMonitoringReminder:
         manager = TaskManager()
         task = WorkflowMonitorTask(".guide.yaml", manager)
 
-        # Mock the workflow instruction system to avoid session dependency
+        # Mock the workflow template rendering system to avoid session dependency
         call_count = 0
 
-        async def mock_queue_workflow_instruction(task_manager, template_pattern):
+        async def mock_render_workflow_template(template_pattern):
             nonlocal call_count
             call_count += 1
-            # Simulate the instruction being queued
-            await task_manager.queue_instruction(f"Mock reminder for {template_pattern}")
+            # Simulate the template being rendered
+            return f"Mock reminder for {template_pattern}"
 
         # Patch the WorkflowTaskManager method
         from unittest.mock import patch
 
         with patch(
-            "mcp_guide.workflow.task_manager.WorkflowTaskManager.queue_workflow_instruction",
-            side_effect=mock_queue_workflow_instruction,
+            "mcp_guide.workflow.task_manager.WorkflowTaskManager.render_workflow_template",
+            side_effect=mock_render_workflow_template,
         ):
             # Simulate multiple timer events
             await task.handle_event(EventType.TIMER, {"timer_interval": 300.0})
