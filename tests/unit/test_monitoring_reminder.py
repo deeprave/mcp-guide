@@ -39,7 +39,6 @@ class TestMonitoringReminder:
         task = WorkflowMonitorTask(".guide.yaml", manager)
 
         # Mock the workflow instruction system to avoid session dependency
-        original_render_workflow_template = None
 
         async def mock_render_workflow_template(template_pattern):
             # Simulate the template being rendered

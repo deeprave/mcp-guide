@@ -259,6 +259,8 @@ class TaskManager:
             from dataclasses import replace
 
             result = replace(result, value=workflow_change_content)
+            # When workflow_change_content is applied, skip pending instructions for this response
+            return result
 
         # Check for queued instructions from tasks (FIFO)
         if self._pending_instructions:

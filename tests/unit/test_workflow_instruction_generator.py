@@ -66,3 +66,10 @@ class TestInstructionGenerator:
 
         template_pattern = get_instruction_template_for_change(change)
         assert template_pattern == "*review"
+
+    def test_phase_change_with_none_to_value(self):
+        """Test phase change with None to_value falls back to monitoring-result."""
+        change = ChangeEvent(change_type=ChangeType.PHASE, from_value=WorkflowPhase.REVIEW, to_value=None)
+
+        template_pattern = get_instruction_template_for_change(change)
+        assert template_pattern == "monitoring-result"

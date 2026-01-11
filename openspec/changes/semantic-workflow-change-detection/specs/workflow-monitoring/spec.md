@@ -36,7 +36,7 @@ The system SHALL include relevant phase rules when phase transitions are detecte
 
 #### Scenario: Phase rule discovery
 - **WHEN** a phase transition is detected to "review" phase
-- **THEN** system SHALL discover the review phase template using glob pattern "*review*"
+- **THEN** system SHALL discover the review phase template using glob pattern "*review"
 - **AND** system SHALL render and include the phase rules in the response
 
 #### Scenario: Phase rule content
