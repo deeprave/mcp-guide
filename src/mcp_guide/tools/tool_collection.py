@@ -9,7 +9,7 @@ from pydantic import Field
 
 from mcp_core.tool_arguments import ToolArguments
 from mcp_core.validation import ArgValidationError, validate_description
-from mcp_guide.models import Collection
+from mcp_guide.models import Collection, NoProjectError
 from mcp_guide.result import Result
 from mcp_guide.result_constants import (
     ERROR_NO_PROJECT,
@@ -43,10 +43,10 @@ async def _get_session(ctx: Optional[Any] = None) -> Optional["Session"]:
 
 
 async def _get_session_or_fail(ctx: Optional[Any] = None) -> "Session":
-    """Get session or raise ValueError if not available."""
+    """Get session or raise NoProjectError if not available."""
     session = await _get_session(ctx)
     if session is None:
-        raise ValueError("No session available")
+        raise NoProjectError("No session available")
     return session
 
 

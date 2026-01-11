@@ -30,17 +30,26 @@ def parse_workflow_state(content: str) -> Optional[WorkflowState]:
             logger.warning("Workflow content is not a valid YAML object")
             return None
 
-        phase_value = next(
-            (yaml_data[key] for key in ["phase", "Phase"] if key in yaml_data),
-            None,
-        )
-        if phase_value is None:
+        # Handle case-insensitive field names for all fields
+        field_mappings = {
+            "Phase": "phase",
+            "Issue": "issue",
+            "Tracking": "tracking",
+            "Description": "description",
+            "Queue": "queue",
+        }
+
+        for cap_field, lower_field in field_mappings.items():
+            if cap_field in yaml_data and lower_field not in yaml_data:
+                yaml_data[lower_field] = yaml_data[cap_field]
+
+        if "phase" not in yaml_data:
             logger.warning("Workflow content missing required 'phase' field")
             return None
 
         # Normalize phase to lowercase for validation
-        if isinstance(phase_value, str):
-            yaml_data["phase"] = phase_value.lower()
+        if isinstance(yaml_data["phase"], str):
+            yaml_data["phase"] = yaml_data["phase"].lower()
 
         return WorkflowState.model_validate(yaml_data)
     except yaml.YAMLError as e:
