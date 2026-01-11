@@ -67,13 +67,19 @@ def detect_workflow_changes(old_state: Optional[WorkflowState], new_state: Workf
         )
 
     # Check queue changes
-    old_queue = set(old_state.queue)
-    new_queue = set(new_state.queue)
+    # Queue is always a list (never None) according to schema, but handle gracefully
+    old_queue_list = old_state.queue if old_state.queue is not None else []
+    new_queue_list = new_state.queue if new_state.queue is not None else []
 
-    added_items = sorted(new_queue - old_queue)
-    removed_items = sorted(old_queue - new_queue)
+    if old_queue_list != new_queue_list:
+        # Preserve order by using list operations instead of sets
+        old_queue_set = set(old_queue_list)
+        new_queue_set = set(new_queue_list)
 
-    if added_items or removed_items:
+        # Find added/removed items while preserving order from new/old lists
+        added_items = [item for item in new_queue_list if item not in old_queue_set]
+        removed_items = [item for item in old_queue_list if item not in new_queue_set]
+
         changes.append(
             ChangeEvent(
                 change_type=ChangeType.QUEUE,

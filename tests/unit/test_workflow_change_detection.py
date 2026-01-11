@@ -82,6 +82,30 @@ class TestWorkflowChangeDetection:
         assert changes[0].from_value == "PROJ-123"
         assert changes[0].to_value == "PROJ-456"
 
+    def test_tracking_cleared(self):
+        """Test tracking being cleared (set to None)."""
+        old_state = WorkflowState(tracking="PROJ-123")
+        new_state = WorkflowState(tracking=None)
+
+        changes = detect_workflow_changes(old_state, new_state)
+
+        assert len(changes) == 1
+        assert changes[0].change_type == ChangeType.TRACKING
+        assert changes[0].from_value == "PROJ-123"
+        assert changes[0].to_value is None
+
+    def test_tracking_set_from_none(self):
+        """Test tracking being set from None to a value."""
+        old_state = WorkflowState(tracking=None)
+        new_state = WorkflowState(tracking="PROJ-123")
+
+        changes = detect_workflow_changes(old_state, new_state)
+
+        assert len(changes) == 1
+        assert changes[0].change_type == ChangeType.TRACKING
+        assert changes[0].from_value is None
+        assert changes[0].to_value == "PROJ-123"
+
     def test_description_change_detected(self):
         """Test description change detection."""
         old_state = WorkflowState(description="Old description")
@@ -94,6 +118,30 @@ class TestWorkflowChangeDetection:
         assert changes[0].from_value == "Old description"
         assert changes[0].to_value == "New description"
 
+    def test_description_cleared(self):
+        """Test description being cleared (set to None)."""
+        old_state = WorkflowState(description="Some description")
+        new_state = WorkflowState(description=None)
+
+        changes = detect_workflow_changes(old_state, new_state)
+
+        assert len(changes) == 1
+        assert changes[0].change_type == ChangeType.DESCRIPTION
+        assert changes[0].from_value == "Some description"
+        assert changes[0].to_value is None
+
+    def test_description_set_from_none(self):
+        """Test description being set from None to a value."""
+        old_state = WorkflowState(description=None)
+        new_state = WorkflowState(description="Some description")
+
+        changes = detect_workflow_changes(old_state, new_state)
+
+        assert len(changes) == 1
+        assert changes[0].change_type == ChangeType.DESCRIPTION
+        assert changes[0].from_value is None
+        assert changes[0].to_value == "Some description"
+
     def test_queue_items_added(self):
         """Test queue item addition detection."""
         old_state = WorkflowState(queue=["item1"])
@@ -103,8 +151,36 @@ class TestWorkflowChangeDetection:
 
         assert len(changes) == 1
         assert changes[0].change_type == ChangeType.QUEUE
-        assert set(changes[0].added_items) == {"item2", "item3"}
+        assert changes[0].added_items == ["item2", "item3"]  # Preserves order
         assert changes[0].removed_items is None
+
+    def test_queue_empty_to_non_empty(self):
+        """Test queue transition from empty list to non-empty list."""
+        old_state = WorkflowState(queue=[])
+        new_state = WorkflowState(queue=["item1"])
+
+        changes = detect_workflow_changes(old_state, new_state)
+
+        assert len(changes) == 1
+        assert changes[0].change_type == ChangeType.QUEUE
+        assert changes[0].from_value == []
+        assert changes[0].to_value == ["item1"]
+        assert changes[0].added_items == ["item1"]
+        assert changes[0].removed_items is None
+
+    def test_queue_non_empty_to_empty(self):
+        """Test queue transition from non-empty list to empty list."""
+        old_state = WorkflowState(queue=["item1"])
+        new_state = WorkflowState(queue=[])
+
+        changes = detect_workflow_changes(old_state, new_state)
+
+        assert len(changes) == 1
+        assert changes[0].change_type == ChangeType.QUEUE
+        assert changes[0].from_value == ["item1"]
+        assert changes[0].to_value == []
+        assert changes[0].added_items is None
+        assert changes[0].removed_items == ["item1"]
 
     def test_queue_items_removed(self):
         """Test queue item removal detection."""
@@ -127,7 +203,7 @@ class TestWorkflowChangeDetection:
 
         assert len(changes) == 1
         assert changes[0].change_type == ChangeType.QUEUE
-        assert set(changes[0].added_items) == {"item3", "item4"}
+        assert changes[0].added_items == ["item3", "item4"]  # Preserves order from new list
         assert changes[0].removed_items == ["item2"]
 
     def test_multiple_changes_detected(self):

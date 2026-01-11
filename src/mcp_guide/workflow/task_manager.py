@@ -65,6 +65,10 @@ class WorkflowTaskManager:
                     content = await self.render_workflow_template("monitoring-setup")
                     await self._task_manager.queue_instruction(content)
                     logger.trace("Workflow setup instruction queued")
+                except (NoProjectError, FileReadError) as e:
+                    logger.warning(f"Workflow setup failed due to configuration issue: {e}")
+                    # Don't continue with workflow management if basic setup fails
+                    return
                 except Exception as e:
                     logger.error(f"Failed to queue workflow setup instruction: {e}", exc_info=True)
 
@@ -108,5 +112,7 @@ class WorkflowTaskManager:
         try:
             content = await self.render_workflow_template("monitoring-setup")
             await self._task_manager.queue_instruction(content)
+        except (NoProjectError, FileReadError) as e:
+            logger.warning(f"Workflow setup failed due to configuration issue: {e}")
         except Exception as e:
             logger.error(f"Failed to queue workflow setup instruction: {e}", exc_info=True)
