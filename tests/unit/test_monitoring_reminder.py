@@ -51,13 +51,16 @@ class TestMonitoringReminder:
         with patch(
             "mcp_guide.workflow.task_manager.WorkflowTaskManager.render_workflow_template",
             side_effect=mock_render_workflow_template,
-        ):
+        ) as mock_render:
             # Simulate timer event
             result = await task.handle_event(EventType.TIMER, {"timer_interval": 300.0})
 
         assert result is True
         assert len(manager._pending_instructions) == 1
         assert "reminder" in manager._pending_instructions[0].lower()
+
+        # Verify template rendering was called with correct pattern
+        mock_render.assert_called_once_with("monitoring-reminder")
 
     @pytest.mark.asyncio
     async def test_monitoring_reminder_no_duplicates(self) -> None:
@@ -66,11 +69,7 @@ class TestMonitoringReminder:
         task = WorkflowMonitorTask(".guide.yaml", manager)
 
         # Mock the workflow template rendering system to avoid session dependency
-        call_count = 0
-
         async def mock_render_workflow_template(template_pattern):
-            nonlocal call_count
-            call_count += 1
             # Simulate the template being rendered
             return f"Mock reminder for {template_pattern}"
 
@@ -80,14 +79,17 @@ class TestMonitoringReminder:
         with patch(
             "mcp_guide.workflow.task_manager.WorkflowTaskManager.render_workflow_template",
             side_effect=mock_render_workflow_template,
-        ):
+        ) as mock_render:
             # Simulate multiple timer events
             await task.handle_event(EventType.TIMER, {"timer_interval": 300.0})
             await task.handle_event(EventType.TIMER, {"timer_interval": 300.0})
             await task.handle_event(EventType.TIMER, {"timer_interval": 300.0})
 
         # Verify the workflow instruction was called multiple times
-        assert call_count == 3
+        assert mock_render.call_count == 3
+        # Verify all calls were with the correct template pattern
+        for call in mock_render.call_args_list:
+            assert call[0][0] == "monitoring-reminder"
         # But TaskManager should have duplicate prevention, so only one instruction
         assert len(manager._pending_instructions) == 1
         assert "reminder" in manager._pending_instructions[0].lower()

@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 
 from mcp_core.mcp_log import get_logger
+from mcp_guide.models import FileReadError, NoProjectError
 from mcp_guide.workflow.change_detection import ChangeEvent, detect_workflow_changes
 from mcp_guide.workflow.instruction_generator import get_instruction_template_for_change
 from mcp_guide.workflow.parser import parse_workflow_state
@@ -73,6 +74,8 @@ class WorkflowMonitorTask:
         try:
             content = await WorkflowTaskManager.render_workflow_template("monitoring-reminder")
             await self.task_manager.queue_instruction(content)
+        except (NoProjectError, FileReadError) as e:
+            logger.warning(f"Monitoring reminder failed due to configuration issue: {e}")
         except Exception as e:
             logger.error(f"Failed to queue monitoring reminder: {e}", exc_info=True)
 
@@ -110,6 +113,8 @@ class WorkflowMonitorTask:
             try:
                 content = await WorkflowTaskManager.render_workflow_template("monitoring-result")
                 await self.task_manager.queue_instruction(content)
+            except (NoProjectError, FileReadError) as e:
+                logger.warning(f"Monitoring result failed due to configuration issue: {e}")
             except Exception as e:
                 logger.error(f"Failed to queue monitoring result instruction: {e}", exc_info=True)
 
@@ -145,6 +150,8 @@ class WorkflowMonitorTask:
                 logger.trace(
                     f"Rendered workflow content for {change.change_type.value} using pattern: {template_pattern}"
                 )
+            except (NoProjectError, FileReadError) as e:
+                logger.warning(f"Template rendering failed for {template_pattern}: {e}")
             except Exception as e:
                 logger.error(f"Failed to render template {template_pattern}: {e}", exc_info=True)
 
