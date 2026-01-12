@@ -32,7 +32,6 @@ The template system SHALL provide a workflow.transitions variable containing per
   - `default`: boolean indicating if this is the starting phase
   - `pre`: boolean indicating if explicit consent required to enter
   - `post`: boolean indicating if explicit consent required to leave
-  - `transition`: string describing when transition should occur
 
 #### Scenario: Permission inheritance rules
 - **WHEN** transitioning from a phase ending with "*" to a phase starting with "*"

@@ -7,7 +7,6 @@ from typing import Optional
 from pydantic import Field
 
 from mcp_core.tool_arguments import ToolArguments
-from mcp_guide.feature_flags.resolution import resolve_flag
 from mcp_guide.feature_flags.types import FeatureValue
 from mcp_guide.feature_flags.validators import validate_flag_name, validate_flag_value
 from mcp_guide.result import Result
@@ -185,11 +184,9 @@ async def internal_get_project_flag(args: GetFlagArgs, ctx: Optional[Context] = 
 
     try:
         # Use resolution hierarchy: project → global → None
-        project_proxy = session.project_flags()
-        global_proxy = session.feature_flags()
-        project_flags = await project_proxy.list()
-        global_flags = await global_proxy.list()
-        value = resolve_flag(args.feature_name, project_flags, global_flags)
+        from mcp_guide.utils.flag_utils import get_resolved_flag_value
+
+        value = await get_resolved_flag_value(session, args.feature_name)
 
         return Result.ok(value)
 

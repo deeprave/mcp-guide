@@ -40,7 +40,7 @@ def detect_workflow_changes(old_state: Optional[WorkflowState], new_state: Workf
     """
     changes: list[ChangeEvent] = []
 
-    # Handle startup case (no previous state)
+    # No previous state means no changes to detect
     if old_state is None:
         return changes
 

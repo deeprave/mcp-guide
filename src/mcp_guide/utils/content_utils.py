@@ -137,10 +137,30 @@ async def read_and_render_file_contents(
     # Build context for requirements checking
     requirements_context: dict[str, Any] = {}
     if template_context:
-        # Add project flags to context
-        if hasattr(template_context, "project") and template_context.project:
+        # Add resolved flags (global + project) to context
+        if hasattr(template_context, "session") and template_context.session:
+            from mcp_guide.models import resolve_all_flags
+
+            try:
+                resolved_flags = await resolve_all_flags(template_context.session)
+                requirements_context.update(resolved_flags)
+            except Exception:
+                # Fallback to project flags if resolution fails
+                if hasattr(template_context, "project") and template_context.project:
+                    project_flags = getattr(template_context.project, "project_flags", {})
+                    requirements_context.update(project_flags)
+        elif hasattr(template_context, "project") and template_context.project:
+            # Fallback to just project flags if no session available
             project_flags = getattr(template_context.project, "project_flags", {})
             requirements_context.update(project_flags)
+
+        # Add workflow state to requirements context
+        if "workflow" in template_context:
+            workflow_data = template_context["workflow"]
+            requirements_context["workflow"] = workflow_data
+
+        # Also ensure workflow flag from resolved flags is available
+        # (The frontmatter logic will handle truthiness evaluation)
 
     # Filter files based on frontmatter requirements
     filtered_files = []
@@ -181,7 +201,7 @@ async def read_and_render_file_contents(
                 # Validate context data structure
                 try:
                     # Test context access to catch corrupted internal state
-                    _ = dict(template_context)
+                    context_dict = dict(template_context)
                 except (TypeError, ValueError) as e:
                     error_path = f"{category_prefix}/{file_info.name}" if category_prefix else file_info.name
                     file_read_errors.append(f"'{error_path}': Invalid template context data: {str(e)}")
