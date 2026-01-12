@@ -1,5 +1,5 @@
 """Workflow management module."""
 
-from .schema import WorkflowPhase, WorkflowState
+from .schema import WorkflowState
 
-__all__ = ["WorkflowPhase", "WorkflowState"]
+__all__ = ["WorkflowState"]

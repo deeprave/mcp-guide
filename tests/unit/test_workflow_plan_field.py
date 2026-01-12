@@ -1,13 +1,14 @@
 """Test plan field in workflow schema."""
 
-from mcp_guide.workflow.schema import WorkflowPhase, WorkflowState
+from mcp_guide.workflow.constants import PHASE_DISCUSSION, PHASE_IMPLEMENTATION, PHASE_PLANNING
+from mcp_guide.workflow.schema import WorkflowState
 
 
 def test_workflow_state_with_plan_field():
     """Test that WorkflowState correctly handles the plan field."""
     # Test with plan field
     state = WorkflowState(
-        phase=WorkflowPhase.IMPLEMENTATION,
+        phase=PHASE_IMPLEMENTATION,
         issue="test-issue",
         plan=".todo/test-plan.md",
         tracking="JIRA TEST-123",
@@ -15,7 +16,7 @@ def test_workflow_state_with_plan_field():
         queue=["item1", "item2"],
     )
 
-    assert state.phase == WorkflowPhase.IMPLEMENTATION
+    assert state.phase == PHASE_IMPLEMENTATION
     assert state.issue == "test-issue"
     assert state.plan == ".todo/test-plan.md"
     assert state.tracking == "JIRA TEST-123"
@@ -25,9 +26,9 @@ def test_workflow_state_with_plan_field():
 
 def test_workflow_state_without_plan_field():
     """Test that WorkflowState works without plan field (optional)."""
-    state = WorkflowState(phase=WorkflowPhase.DISCUSSION, issue="test-issue")
+    state = WorkflowState(phase=PHASE_DISCUSSION, issue="test-issue")
 
-    assert state.phase == WorkflowPhase.DISCUSSION
+    assert state.phase == PHASE_DISCUSSION
     assert state.issue == "test-issue"
     assert state.plan is None
     assert state.tracking is None
@@ -38,7 +39,7 @@ def test_workflow_state_without_plan_field():
 def test_workflow_state_plan_field_ordering():
     """Test that plan field appears in correct position in model dump."""
     state = WorkflowState(
-        phase=WorkflowPhase.PLANNING,
+        phase=PHASE_PLANNING,
         issue="test-issue",
         plan=".todo/test-plan.md",
         tracking="JIRA TEST-123",

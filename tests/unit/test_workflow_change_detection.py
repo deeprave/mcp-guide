@@ -1,7 +1,8 @@
 """Tests for workflow change detection functionality."""
 
 from mcp_guide.workflow.change_detection import ChangeType, detect_workflow_changes
-from mcp_guide.workflow.schema import WorkflowPhase, WorkflowState
+from mcp_guide.workflow.constants import PHASE_DISCUSSION, PHASE_PLANNING
+from mcp_guide.workflow.schema import WorkflowState
 
 
 class TestWorkflowChangeDetection:
@@ -10,14 +11,14 @@ class TestWorkflowChangeDetection:
     def test_no_changes_detected(self):
         """Test that identical states produce no changes."""
         old_state = WorkflowState(
-            phase=WorkflowPhase.DISCUSSION,
+            phase=PHASE_DISCUSSION,
             issue="test-issue",
             tracking="PROJ-123",
             description="Test description",
             queue=["item1", "item2"],
         )
         new_state = WorkflowState(
-            phase=WorkflowPhase.DISCUSSION,
+            phase=PHASE_DISCUSSION,
             issue="test-issue",
             tracking="PROJ-123",
             description="Test description",
@@ -29,22 +30,22 @@ class TestWorkflowChangeDetection:
 
     def test_startup_case_no_old_state(self):
         """Test that startup case (no old state) produces no changes."""
-        new_state = WorkflowState(phase=WorkflowPhase.DISCUSSION, issue="test-issue")
+        new_state = WorkflowState(phase=PHASE_DISCUSSION, issue="test-issue")
 
         changes = detect_workflow_changes(None, new_state)
         assert changes == []
 
     def test_phase_change_detected(self):
         """Test phase change detection."""
-        old_state = WorkflowState(phase=WorkflowPhase.DISCUSSION)
-        new_state = WorkflowState(phase=WorkflowPhase.PLANNING)
+        old_state = WorkflowState(phase=PHASE_DISCUSSION)
+        new_state = WorkflowState(phase=PHASE_PLANNING)
 
         changes = detect_workflow_changes(old_state, new_state)
 
         assert len(changes) == 1
         assert changes[0].change_type == ChangeType.PHASE
-        assert changes[0].from_value == WorkflowPhase.DISCUSSION
-        assert changes[0].to_value == WorkflowPhase.PLANNING
+        assert changes[0].from_value == PHASE_DISCUSSION
+        assert changes[0].to_value == PHASE_PLANNING
 
     def test_issue_change_detected(self):
         """Test issue change detection."""
@@ -209,10 +210,10 @@ class TestWorkflowChangeDetection:
     def test_multiple_changes_detected(self):
         """Test multiple simultaneous changes."""
         old_state = WorkflowState(
-            phase=WorkflowPhase.DISCUSSION, issue="old-issue", description="Old description", queue=["item1"]
+            phase=PHASE_DISCUSSION, issue="old-issue", description="Old description", queue=["item1"]
         )
         new_state = WorkflowState(
-            phase=WorkflowPhase.PLANNING, issue="new-issue", description="New description", queue=["item1", "item2"]
+            phase=PHASE_PLANNING, issue="new-issue", description="New description", queue=["item1", "item2"]
         )
 
         changes = detect_workflow_changes(old_state, new_state)

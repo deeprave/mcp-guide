@@ -1,8 +1,14 @@
 """Tests for workflow instruction generator functionality."""
 
 from mcp_guide.workflow.change_detection import ChangeEvent, ChangeType
+from mcp_guide.workflow.constants import (
+    PHASE_CHECK,
+    PHASE_DISCUSSION,
+    PHASE_IMPLEMENTATION,
+    PHASE_PLANNING,
+    PHASE_REVIEW,
+)
 from mcp_guide.workflow.instruction_generator import get_instruction_template_for_change
-from mcp_guide.workflow.schema import WorkflowPhase
 
 
 class TestInstructionGenerator:
@@ -10,9 +16,7 @@ class TestInstructionGenerator:
 
     def test_phase_change_template_selection(self):
         """Test that phase changes use phase-specific templates."""
-        change = ChangeEvent(
-            change_type=ChangeType.PHASE, from_value=WorkflowPhase.DISCUSSION, to_value=WorkflowPhase.PLANNING
-        )
+        change = ChangeEvent(change_type=ChangeType.PHASE, from_value=PHASE_DISCUSSION, to_value=PHASE_PLANNING)
 
         template_pattern = get_instruction_template_for_change(change)
         assert template_pattern == "*planning"
@@ -51,25 +55,21 @@ class TestInstructionGenerator:
 
     def test_phase_change_to_implementation(self):
         """Test phase change to implementation phase."""
-        change = ChangeEvent(
-            change_type=ChangeType.PHASE, from_value=WorkflowPhase.PLANNING, to_value=WorkflowPhase.IMPLEMENTATION
-        )
+        change = ChangeEvent(change_type=ChangeType.PHASE, from_value=PHASE_PLANNING, to_value=PHASE_IMPLEMENTATION)
 
         template_pattern = get_instruction_template_for_change(change)
         assert template_pattern == "*implementation"
 
     def test_phase_change_to_review(self):
         """Test phase change to review phase."""
-        change = ChangeEvent(
-            change_type=ChangeType.PHASE, from_value=WorkflowPhase.CHECK, to_value=WorkflowPhase.REVIEW
-        )
+        change = ChangeEvent(change_type=ChangeType.PHASE, from_value=PHASE_CHECK, to_value=PHASE_REVIEW)
 
         template_pattern = get_instruction_template_for_change(change)
         assert template_pattern == "*review"
 
     def test_phase_change_with_none_to_value(self):
         """Test phase change with None to_value falls back to monitoring-result."""
-        change = ChangeEvent(change_type=ChangeType.PHASE, from_value=WorkflowPhase.REVIEW, to_value=None)
+        change = ChangeEvent(change_type=ChangeType.PHASE, from_value=PHASE_REVIEW, to_value=None)
 
         template_pattern = get_instruction_template_for_change(change)
         assert template_pattern == "monitoring-result"
