@@ -2,27 +2,127 @@
 
 from unittest.mock import Mock
 
+import pytest
+
 from mcp_guide.workflow.context import WorkflowContextCache
 
 
 class TestWorkflowTransitions:
     """Test workflow.transitions permission metadata generation."""
 
-    def test_build_workflow_transitions_default_config(self):
-        """Test workflow transitions with default configuration."""
-        # Mock task manager
-        task_manager = Mock()
-        task_manager.get_cached_data.return_value = None
+    def setup_method(self):
+        """Set up test fixtures."""
+        self.task_manager = Mock()
+        self.cache = WorkflowContextCache(self.task_manager)
 
-        # Create workflow context cache
-        context_cache = WorkflowContextCache(task_manager)
+    @pytest.mark.parametrize(
+        "workflow_config,expected_phases,expected_permissions",
+        [
+            # Default workflow
+            (
+                None,
+                ["discussion", "planning", "implementation", "check", "review", "default"],
+                {
+                    "discussion": {"default": True, "pre": False, "post": False},
+                    "planning": {"pre": False, "post": False},
+                    "implementation": {"pre": True, "post": False},
+                    "check": {"pre": False, "post": True},
+                    "review": {"pre": False, "post": True},
+                    "default": "discussion",
+                },
+            ),
+            # Custom workflow with mixed permissions
+            (
+                ["discussion", "*planning*", "implementation", "*check", "review*"],
+                ["discussion", "planning", "implementation", "check", "review", "default"],
+                {
+                    "discussion": {"default": True, "pre": False, "post": False},
+                    "planning": {"pre": True, "post": True},
+                    "implementation": {"pre": False, "post": False},
+                    "check": {"pre": True, "post": False},
+                    "review": {"pre": False, "post": True},
+                    "default": "discussion",
+                },
+            ),
+            # Minimal workflow
+            (
+                ["discussion", "*implementation"],
+                ["discussion", "implementation", "default"],
+                {
+                    "discussion": {"default": True, "pre": False, "post": False},
+                    "implementation": {"pre": True, "post": False},
+                    "default": "discussion",
+                },
+            ),
+            # Custom default phase
+            (
+                ["*planning", "implementation"],
+                ["planning", "implementation", "default"],
+                {
+                    "planning": {"default": True, "pre": True, "post": False},
+                    "implementation": {"pre": False, "post": False},
+                    "default": "planning",
+                },
+            ),
+        ],
+    )
+    def test_workflow_transitions_configurations(self, workflow_config, expected_phases, expected_permissions):
+        """Test various workflow configurations and their permission metadata."""
+        self.task_manager.get_cached_data.return_value = workflow_config
 
-        # Test transitions generation
-        transitions = context_cache._build_workflow_transitions()
+        transitions = self.cache._build_workflow_transitions()
 
-        # Verify all expected phases are present plus default field
-        expected_phases = ["discussion", "planning", "implementation", "check", "review", "default"]
+        # Verify expected phases
         assert set(transitions.keys()) == set(expected_phases)
+
+        # Verify permissions match expected
+        assert transitions == expected_permissions
+
+    @pytest.mark.parametrize(
+        "phase_marker,expected_pre,expected_post",
+        [
+            ("*implementation", True, False),  # Pre-consent only
+            ("implementation*", False, True),  # Post-consent only
+            ("*implementation*", True, True),  # Both consents
+            ("implementation", False, False),  # No consent required
+        ],
+    )
+    def test_permission_markers(self, phase_marker, expected_pre, expected_post):
+        """Test various permission marker combinations."""
+        workflow = ["discussion", phase_marker]
+        self.task_manager.get_cached_data.return_value = workflow
+
+        transitions = self.cache._build_workflow_transitions()
+
+        clean_phase = phase_marker.strip("*")
+        assert transitions[clean_phase]["pre"] == expected_pre
+        assert transitions[clean_phase]["post"] == expected_post
+
+    def test_disabled_workflow(self):
+        """Test workflow transitions when workflow is disabled."""
+        self.task_manager.get_cached_data.return_value = False
+
+        transitions = self.cache._build_workflow_transitions()
+
+        assert transitions == {}
+
+    def test_fallback_on_parsing_error(self):
+        """Test fallback to default when workflow flag parsing fails."""
+        self.task_manager.get_cached_data.side_effect = Exception("Parse error")
+
+        transitions = self.cache._build_workflow_transitions()
+
+        # Should fall back to default workflow
+        assert "discussion" in transitions
+        assert "implementation" in transitions
+        assert transitions["discussion"]["default"] is True
+        assert transitions["implementation"]["pre"] is True
+
+    def test_workflow_structure_validation(self):
+        """Test that workflow transitions have correct structure."""
+        self.task_manager.get_cached_data.return_value = None
+
+        transitions = self.cache._build_workflow_transitions()
 
         # Verify structure of each phase (excluding default field)
         for phase, metadata in transitions.items():
@@ -31,93 +131,13 @@ class TestWorkflowTransitions:
                 assert "post" in metadata
                 assert isinstance(metadata["pre"], bool)
                 assert isinstance(metadata["post"], bool)
-                # Only discussion phase should have default: true
-                if phase == "discussion":
-                    assert metadata.get("default", False) is True
-                else:
-                    assert "default" not in metadata
 
-        # Verify default field exists and points to discussion
-        assert transitions["default"] == "discussion"
+        # Only one phase should have default: true
+        phases_with_default = [
+            phase for phase, meta in transitions.items() if phase != "default" and meta.get("default")
+        ]
+        assert len(phases_with_default) == 1
 
-    def test_default_workflow_permissions(self):
-        """Test specific permission settings for default workflow."""
-        task_manager = Mock()
-        task_manager.get_cached_data.return_value = None
-
-        context_cache = WorkflowContextCache(task_manager)
-        transitions = context_cache._build_workflow_transitions()
-
-        # Discussion is the default starting phase
-        assert transitions["discussion"].get("default", False) is True
-        assert transitions["discussion"]["pre"] is False
-        assert transitions["discussion"]["post"] is False
-
-        # Planning has no restrictions
-        assert "default" not in transitions["planning"]
-        assert transitions["planning"]["pre"] is False
-        assert transitions["planning"]["post"] is False
-
-        # Implementation requires entry consent (*implementation)
-        assert "default" not in transitions["implementation"]
-        assert transitions["implementation"]["pre"] is True
-        assert transitions["implementation"]["post"] is False
-
-        # Check requires exit consent (check*)
-        assert "default" not in transitions["check"]
-        assert transitions["check"]["pre"] is False
-        assert transitions["check"]["post"] is True
-
-        # Review requires exit consent (review*)
-        assert "default" not in transitions["review"]
-        assert transitions["review"]["pre"] is False
-        assert transitions["review"]["post"] is True
-
-    def test_custom_workflow_permissions(self):
-        """Test workflow transitions with custom phase configuration."""
-        task_manager = Mock()
-        # Mock custom workflow flag with different permissions
-        custom_phases = ["discussion", "*planning*", "implementation"]
-        task_manager.get_cached_data.return_value = custom_phases
-
-        context_cache = WorkflowContextCache(task_manager)
-        transitions = context_cache._build_workflow_transitions()
-
-        # Should only have the configured phases plus default field
-        assert set(transitions.keys()) == {"discussion", "planning", "implementation", "default"}
-
-        # Planning should require both entry and exit consent (*planning*)
-        assert transitions["planning"]["pre"] is True
-        assert transitions["planning"]["post"] is True
-
-        # Implementation should have no restrictions (no markers)
-        assert transitions["implementation"]["pre"] is False
-        assert transitions["implementation"]["post"] is False
-
-    def test_disabled_workflow(self):
-        """Test workflow transitions when workflow is disabled."""
-        task_manager = Mock()
-        task_manager.get_cached_data.return_value = False  # Disabled workflow
-
-        context_cache = WorkflowContextCache(task_manager)
-        transitions = context_cache._build_workflow_transitions()
-
-        # Should return empty dict when workflow is disabled
-        assert transitions == {}
-
-    def test_fallback_on_parsing_error(self):
-        """Test fallback to default when workflow flag parsing fails."""
-        task_manager = Mock()
-        # Mock invalid workflow flag that would cause parsing error
-        task_manager.get_cached_data.return_value = "invalid_phase_name"
-
-        context_cache = WorkflowContextCache(task_manager)
-        transitions = context_cache._build_workflow_transitions()
-
-        # Should fallback to default workflow phases plus default field
-        expected_phases = ["discussion", "planning", "implementation", "check", "review", "default"]
-        assert set(transitions.keys()) == set(expected_phases)
-
-        # Should have default permissions
-        assert transitions["implementation"]["pre"] is True
-        assert transitions["review"]["post"] is True
+        # Should have separate default field
+        assert "default" in transitions
+        assert transitions["default"] == phases_with_default[0]

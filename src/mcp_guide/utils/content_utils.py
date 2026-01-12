@@ -201,7 +201,7 @@ async def read_and_render_file_contents(
                 # Validate context data structure
                 try:
                     # Test context access to catch corrupted internal state
-                    context_dict = dict(template_context)
+                    _ = dict(template_context)
                 except (TypeError, ValueError) as e:
                     error_path = f"{category_prefix}/{file_info.name}" if category_prefix else file_info.name
                     file_read_errors.append(f"'{error_path}': Invalid template context data: {str(e)}")

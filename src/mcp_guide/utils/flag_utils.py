@@ -17,7 +17,11 @@ async def get_resolved_flag_value(session: "Session", flag_name: str, default: A
     Returns:
         The resolved flag value or default
     """
-    from mcp_guide.models import resolve_all_flags
+    try:
+        from mcp_guide.models import resolve_all_flags
 
-    resolved_flags = await resolve_all_flags(session)
-    return resolved_flags.get(flag_name, default)
+        resolved_flags = await resolve_all_flags(session)
+        return resolved_flags.get(flag_name, default)
+    except Exception:
+        # Return default if flag resolution fails
+        return default

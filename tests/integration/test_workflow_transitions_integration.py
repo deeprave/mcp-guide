@@ -4,8 +4,9 @@ from unittest.mock import Mock
 
 import pytest
 
+from mcp_guide.workflow.constants import PHASE_DISCUSSION
 from mcp_guide.workflow.context import WorkflowContextCache
-from mcp_guide.workflow.schema import WorkflowPhase, WorkflowState
+from mcp_guide.workflow.schema import WorkflowState
 
 
 class TestWorkflowTransitionsIntegration:
@@ -16,7 +17,7 @@ class TestWorkflowTransitionsIntegration:
         """Test that workflow.transitions is available in template context."""
         # Mock task manager with workflow state
         task_manager = Mock()
-        workflow_state = WorkflowState(phase=WorkflowPhase.DISCUSSION, issue="test-issue", tracking="JIRA TEST-123")
+        workflow_state = WorkflowState(phase=PHASE_DISCUSSION, issue="test-issue", tracking="JIRA TEST-123")
         task_manager.get_cached_data.side_effect = lambda key: {
             "workflow_state": workflow_state,
             "workflow_file_path": ".guide.yaml",
@@ -63,7 +64,7 @@ class TestWorkflowTransitionsIntegration:
         """Test workflow.transitions with custom phase configuration."""
         # Mock task manager with custom workflow flag
         task_manager = Mock()
-        workflow_state = WorkflowState(phase=WorkflowPhase.DISCUSSION)
+        workflow_state = WorkflowState(phase=PHASE_DISCUSSION)
         custom_phases = ["discussion", "*planning", "implementation*"]
 
         task_manager.get_cached_data.side_effect = lambda key: {

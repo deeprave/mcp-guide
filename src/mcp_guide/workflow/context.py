@@ -1,39 +1,25 @@
-"""Workflow context cache with separate lifecycle from project context."""
+"""Workflow context cache for template rendering."""
 
 from typing import TYPE_CHECKING, Any, Optional
 
 from mcp_core.mcp_log import get_logger
-from mcp_guide.workflow.constants import DEFAULT_WORKFLOW_FILE
+from mcp_guide.workflow.constants import DEFAULT_WORKFLOW_FILE, DEFAULT_WORKFLOW_PHASES
+from mcp_guide.workflow.flags import extract_phase_name, parse_workflow_phases
 
 if TYPE_CHECKING:
-    from mcp_guide.task_manager import TaskManager
     from mcp_guide.utils.template_context import TemplateContext
-    from mcp_guide.workflow.schema import WorkflowPhase, WorkflowState
-
-logger = get_logger(__name__)
+    from mcp_guide.workflow.schema import WorkflowState
 
 
 class WorkflowContextCache:
-    """Manages workflow-specific template context with independent lifecycle."""
+    """Cache for workflow context data used in template rendering."""
 
-    def __init__(self, task_manager: "TaskManager"):
+    def __init__(self, task_manager: Any) -> None:
+        """Initialize with task manager reference."""
         self.task_manager = task_manager
-        self._cached_context: Optional["TemplateContext"] = None
-        self._last_state_mtime: Optional[float] = None
+        self._cached_context = None
 
     async def get_workflow_context(self) -> "TemplateContext":
-        """Get workflow context, rebuilding if state has changed."""
-
-        # Check if we need to rebuild context
-        current_mtime = self.task_manager.get_cached_data("workflow_state_mtime")
-
-        if self._cached_context is None or current_mtime != self._last_state_mtime:
-            self._cached_context = await self._build_workflow_context()
-            self._last_state_mtime = current_mtime
-
-        return self._cached_context
-
-    async def _build_workflow_context(self) -> "TemplateContext":
         """Build workflow context from cached state."""
         from mcp_guide.utils.template_context import TemplateContext
 
@@ -41,11 +27,11 @@ class WorkflowContextCache:
         workflow_state: Optional["WorkflowState"] = self.task_manager.get_cached_data("workflow_state")
 
         if workflow_state:
-            # Build workflow_state dict for phase availability and consent rules
-            workflow_state_dict = self._build_workflow_state_dict(workflow_state)
-
             # Build workflow.transitions dict for permission metadata
             workflow_transitions = self._build_workflow_transitions()
+
+            # Build workflow.phases dict with next phase info
+            workflow_phases = self._build_workflow_phases()
 
             workflow_vars = {
                 "workflow": {
@@ -56,9 +42,8 @@ class WorkflowContextCache:
                     "description": workflow_state.description,
                     "queue": workflow_state.queue,
                     "file": self.task_manager.get_cached_data("workflow_file_path") or DEFAULT_WORKFLOW_FILE,
-                    "phase_list": list(workflow_state_dict.keys()),
-                    "phases": workflow_state_dict,
                     "transitions": workflow_transitions,
+                    "phases": workflow_phases,
                 },
             }
         else:
@@ -72,9 +57,8 @@ class WorkflowContextCache:
                     "description": None,
                     "queue": [],
                     "file": DEFAULT_WORKFLOW_FILE,
-                    "phase_list": [],
-                    "phases": {},
                     "transitions": {},
+                    "phases": {},
                 },
             }
 
@@ -82,126 +66,19 @@ class WorkflowContextCache:
         base_context = TemplateContext()
         return base_context.new_child(workflow_vars)
 
-    def _build_workflow_state_dict(self, workflow_state: "WorkflowState") -> dict[str, Any]:
-        """Build workflow_state dict with phase availability and consent rules."""
-        from mcp_guide.workflow.schema import WorkflowPhase
-
-        # Parse workflow flag to determine available phases
-        # Format: "discussion planning *implementation* check review"
-        # Asterisks indicate consent requirements
-
-        workflow_flag = getattr(workflow_state, "workflow", None)
-        if workflow_flag in (None, False):
-            # No workflow configured or disabled
-            return {}
-        elif workflow_flag is True:
-            # workflow = True enables default phases with consent markers
-            from mcp_guide.workflow.constants import DEFAULT_WORKFLOW_PHASES
-
-            workflow_flag = " ".join(DEFAULT_WORKFLOW_PHASES)
-        # Otherwise workflow_flag should be a string with phase names
-
-        # Ensure workflow_flag is a valid string before processing
-        if not isinstance(workflow_flag, str):
-            return {}
-
-        phases = workflow_flag.split()
-
-        state_dict: dict[str, Any | bool | str | None] = {}
-
-        for phase in WorkflowPhase:
-            phase_name = phase.value
-
-            # Check if phase is in workflow flag
-            phase_entry = None
-            for flag_phase in phases:
-                clean_phase = flag_phase.strip("*")
-                if clean_phase == phase_name:
-                    phase_entry = flag_phase
-                    break
-
-            if phase_entry:
-                # Determine consent requirements
-                pre_consent = phase_entry.startswith("*")
-                post_consent = phase_entry.endswith("*") and not phase_entry.startswith("*")
-                if phase_entry.startswith("*") and phase_entry.endswith("*"):
-                    post_consent = True
-
-                # Find next phase using match statement
-                next_phase = self._get_next_phase(phase, phases)
-
-                state_dict[phase_name] = {"pre_consent": pre_consent, "post_consent": post_consent, "next": next_phase}
-            else:
-                state_dict[phase_name] = None
-
-        return state_dict
-
-    def _get_next_phase(self, current_phase: "WorkflowPhase", available_phases: list[str]) -> Optional[str]:
-        """Get next available phase using match statement."""
-        from mcp_guide.workflow.schema import WorkflowPhase
-
-        # Get clean phase names from available phases
-        clean_phases = {p.strip("*") for p in available_phases}
-
-        match current_phase:
-            case WorkflowPhase.DISCUSSION:
-                if WorkflowPhase.PLANNING.value in clean_phases:
-                    return WorkflowPhase.PLANNING.value
-                elif WorkflowPhase.IMPLEMENTATION.value in clean_phases:
-                    return WorkflowPhase.IMPLEMENTATION.value
-                elif WorkflowPhase.CHECK.value in clean_phases:
-                    return WorkflowPhase.CHECK.value
-                elif WorkflowPhase.REVIEW.value in clean_phases:
-                    return WorkflowPhase.REVIEW.value
-            case WorkflowPhase.PLANNING:
-                if WorkflowPhase.IMPLEMENTATION.value in clean_phases:
-                    return WorkflowPhase.IMPLEMENTATION.value
-                elif WorkflowPhase.CHECK.value in clean_phases:
-                    return WorkflowPhase.CHECK.value
-                elif WorkflowPhase.REVIEW.value in clean_phases:
-                    return WorkflowPhase.REVIEW.value
-            case WorkflowPhase.IMPLEMENTATION:
-                if WorkflowPhase.CHECK.value in clean_phases:
-                    return WorkflowPhase.CHECK.value
-                elif WorkflowPhase.REVIEW.value in clean_phases:
-                    return WorkflowPhase.REVIEW.value
-            case WorkflowPhase.CHECK:
-                if WorkflowPhase.REVIEW.value in clean_phases:
-                    return WorkflowPhase.REVIEW.value
-            case WorkflowPhase.REVIEW:
-                return None
-            case _:
-                raise ValueError(f"Unknown workflow phase: {current_phase}")
-
-        return None
-
     def _build_workflow_transitions(self) -> dict[str, Any]:
-        """Build workflow.transitions dict with permission metadata for all phases.
-
-        Returns:
-            Dictionary mapping phase names to permission metadata
-        """
-        from mcp_core.mcp_log import get_logger
-        from mcp_guide.workflow.flags import extract_phase_name, parse_workflow_phases
-
+        """Build workflow.transitions dict with permission metadata for all phases."""
         logger = get_logger(__name__)
 
         # Get workflow configuration from feature flags
         try:
-            # Get workflow flag from task manager cache or use default
             workflow_flag = self.task_manager.get_cached_data("workflow_flag")
             if workflow_flag is None:
-                # Use default workflow phases
-                from mcp_guide.workflow.constants import DEFAULT_WORKFLOW_PHASES
-
                 workflow_config = parse_workflow_phases(DEFAULT_WORKFLOW_PHASES)
             else:
                 workflow_config = parse_workflow_phases(workflow_flag)
         except Exception as e:
-            # Fallback to default if parsing fails
             logger.warning(f"Failed to parse workflow configuration: {e}")
-            from mcp_guide.workflow.constants import DEFAULT_WORKFLOW_PHASES
-
             try:
                 workflow_config = parse_workflow_phases(DEFAULT_WORKFLOW_PHASES)
             except Exception as fallback_error:
@@ -249,10 +126,31 @@ class WorkflowContextCache:
 
         return transitions
 
+    def _build_workflow_phases(self) -> dict[str, Any]:
+        """Build workflow.phases dict with next phase info for templates."""
+        # Get the actual configured workflow phases
+        try:
+            workflow_flag = self.task_manager.get_cached_data("workflow_flag")
+            if workflow_flag is None:
+                workflow_config = parse_workflow_phases(DEFAULT_WORKFLOW_PHASES)
+            else:
+                workflow_config = parse_workflow_phases(workflow_flag)
+        except Exception:
+            return {}
+
+        if not workflow_config.enabled:
+            return {}
+
+        # Extract clean phase names from configured phases
+        configured_phases = [extract_phase_name(p) for p in workflow_config.phases]
+        phases = {}
+
+        for i, phase in enumerate(configured_phases):
+            next_phase = configured_phases[(i + 1) % len(configured_phases)]
+            phases[phase] = {"next": next_phase}
+
+        return phases
+
     def invalidate(self) -> None:
         """Invalidate cached workflow context."""
         self._cached_context = None
-        self._last_state_mtime = None
-        # Clear any related cached data in TaskManager
-        self.task_manager.clear_cached_data("workflow_context_cache")
-        logger.debug("Workflow context cache invalidated")
