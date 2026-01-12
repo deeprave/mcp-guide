@@ -31,28 +31,23 @@ workflow.transitions = {
   "discussion": {
     default: true,
     pre: false,
-    post: false,
-    transition: "When creating an implementation plan"
+    post: false
   },
   "planning": {
     pre: false,
-    post: false,
-    transition: "When user consents, requests or confirms implementation start"
+    post: false
   },
   "implementation": {
     pre: true,
-    post: false,
-    transition: "When implementation is fully complete and ready for verification"
+    post: false
   },
   "check": {
     pre: false,
-    post: true,
-    transition: "When user consents, requests or confirms review"
+    post: true
   },
   "review": {
     pre: false,
-    post: true,
-    transition: "When user consents, requests or confirms completion"
+    post: true
   }
 }
 ```
@@ -61,7 +56,6 @@ Where:
 - `default`: true for the starting phase (discussion)
 - `pre`: true if explicit consent required to enter this phase
 - `post`: true if explicit consent required to leave this phase
-- `transition`: descriptive text for when transition should occur
 
 ## Success Criteria
 

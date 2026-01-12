@@ -1,13 +1,13 @@
 ---
 type: agent/instruction
-description: Workflow phase tracking policy
-instruction: Follow this policy exactly. Create .guide.yaml if missing. Do not display to user.
 requires-workflow: true
+description: Workflow phase tracking policy
+instruction: Follow this policy exactly. If {{workflow.file}} missing, create it and enter {{workflow.transitions.default}}. Do not display this content to user.
 ---
-# Workflow Phase Tracking
+# Workflow Phases and Tracking
 
 ## File Format
-Track phases in `.guide.yaml` (see `WorkflowState` schema):
+Development phases are tracked in {{workflow.file}}
 ```yaml
 phase: [discussion|planning|implementation|check|review]
 issue: <current-issue>
@@ -23,33 +23,78 @@ queue:
 - Phase changes MUST update file
 - Issue format: openspec ID or relative path
 
+## MCP Communication Protocol
+**CRITICAL**: After ANY change to `{{workflow.file}}`:
+1. Update the file with the new content
+2. **IMMEDIATELY** call `send_file_content` with the complete updated content
+3. The MCP cannot detect file changes automatically - you MUST notify it on every change
+4. On phase transitions the MCP will respond with phase-specific instructions and restrictions
+5. Never assume the MCP knows about file changes unless you explicitly send them
+
 ## Phase Transitions
 
 ### Discussion Phase
-- Default when no `.guide.yaml` exists
-- Can modify: `.guide.yaml`, `openspec/`, `todo/`
+- Default when no `{{workflow.file}}` exists - discussion mode
+- Can modify: `{{workflow.file}}`, `openspec/`, `.todo/`
 - Cannot modify: production code, tests
+{{#workflow.transitions.discussion.post}}
+- **EXPLICIT CONSENT OR REQUEST REQUIRED** before transition to {{workflow.phases.discussion.next}} phase.
+{{/workflow.transitions.discussion.post}}
+{{#workflow.phases.planning}}
 
 ### Planning Phase
+{{#workflow.transitions.planning.pre}}
+- **EXPLICIT CONSENT OR REQUEST REQUIRED** before entering planning phase.
+{{/workflow.transitions.planning.pre}}
 - Auto-transition when plan drafted
-- Can modify: `.guide.yaml`, `openspec/`, `todo/`
+- Can modify: `{{workflow.file}}`, `openspec/`, `.todo/`
 - Cannot modify: production code, tests
+{{#workflow.transitions.planning.post}}
+- **EXPLICIT CONSENT OR REQUEST REQUIRED** before transition to {{workflow.phases.planning.next}} phase.
+{{/workflow.transitions.planning.post}}
+{{/workflow.phases.planning}}
 
 ### Implementation Phase
-- **EXPLICIT CONSENT REQUIRED**
+{{#workflow.transitions.implementation.pre}}
+- **EXPLICIT CONSENT OR REQUEST REQUIRED** before entering implementation phase.
+{{/workflow.transitions.implementation.pre}}
 - Can modify: all files including production code, tests
+{{#workflow.transitions.implementation.post}}
+- **EXPLICIT CONSENT OR REQUEST REQUIRED** before transition to {{workflow.phases.implementation.next}} phase.
+{{/workflow.transitions.implementation.post}}
+{{#workflow.phases.check}}
 
 ### Check Phase
+{{#workflow.transitions.check.pre}}
+- **EXPLICIT CONSENT OR REQUEST REQUIRED** before entering check phase.
+{{/workflow.transitions.check.pre}}
+{{^workflow.transitions.check.pre}}
 - Auto-transition when implementation complete
-- Run all tests and quality checks
+{{/workflow.transitions.check.pre}}
+- Run all tests and code quality checks across ALL files
 - Can modify: all files
+{{#workflow.transitions.check.post}}
+- **EXPLICIT CONSENT OR REQUEST REQUIRED** before transition to {{workflow.phases.check.next}} phase.
+{{/workflow.transitions.check.post}}
+{{/workflow.phases.check}}
+{{#workflow.phases.review}}
 
 ### Review Phase
-- Auto-transition when all tests pass
-- **EXPLICIT CONSENT REQUIRED** to exit
+{{#workflow.transitions.review.pre}}
+- **EXPLICIT CONSENT OR REQUEST REQUIRED** before entering review phase.
+{{/workflow.transitions.review.pre}}
+{{^workflow.transitions.review.pre}}
+- Auto-transition when all tests and code quality checks pass.
+{{/workflow.transitions.review.pre}}
 - Feedback and final review stage
+{{#workflow.transitions.review.post}}
+- **EXPLICIT CONSENT OR REQUEST REQUIRED** before transition from review phase.
+{{/workflow.transitions.review.post}}
+{{/workflow.phases.review}}
 
 ## Queue Management
-- Complete issue → move to queue
-- Urgent issue → current issue moves to queue top
-- Process queue in priority order
+- On transition to discussion phase confirm that the current issue can be marked completed.
+  - YES: remove issue, and fetch top issue from queue (if one exists)
+  - NO: retain issue
+- Urgent issue → current issue moves to top of queue
+- Queue is usually processed in priority order

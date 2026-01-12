@@ -11,7 +11,6 @@ from pydantic import Field
 
 from mcp_core.tool_arguments import ToolArguments
 from mcp_core.validation import ArgValidationError, validate_description, validate_directory_path, validate_pattern
-from mcp_guide.feature_flags.resolution import resolve_flag
 from mcp_guide.models import Category, CategoryNotFoundError, FileReadError, Project
 from mcp_guide.result import Result
 from mcp_guide.result_constants import (
@@ -752,9 +751,9 @@ async def internal_category_content(
         category_dir = docroot / category.dir
 
         # Resolve content format flag
-        project_flags = await session.project_flags().list()
-        global_flags = await session.feature_flags().list()
-        flag_value = resolve_flag("content-format-mime", project_flags, global_flags)
+        from mcp_guide.utils.flag_utils import get_resolved_flag_value
+
+        flag_value = await get_resolved_flag_value(session, "content-format-mime")
         format_type = ContentFormat.from_flag_value(flag_value)
 
         content = await render_fileinfos(files, args.category, category_dir, docroot, format_type)

@@ -17,7 +17,9 @@ def get_instruction_template_for_change(change: ChangeEvent) -> str:
     """
     if change.change_type == ChangeType.PHASE and change.to_value is not None:
         # For phase changes, use phase-specific template
-        return f"*{change.to_value.value}"
+        # Handle both string and enum values
+        phase_value = change.to_value.value if hasattr(change.to_value, "value") else str(change.to_value)
+        return f"*{phase_value}"
     else:
         # For other changes, use monitoring-result template
         return "monitoring-result"

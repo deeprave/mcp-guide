@@ -31,10 +31,21 @@ class WorkflowTaskManager:
                 return
 
             # Get workflow configuration
-            project_flags = session.project_flags()
-            workflow_file_flag = await project_flags.get("workflow-file")
+            from mcp_guide.feature_flags.types import WORKFLOW_FLAG
+            from mcp_guide.models import resolve_all_flags
+            from mcp_guide.workflow.flags import parse_workflow_phases
+
+            resolved_flags = await resolve_all_flags(session)
+            workflow_file_flag = resolved_flags.get("workflow-file")
             workflow_file = workflow_file_flag if isinstance(workflow_file_flag, str) else DEFAULT_WORKFLOW_FILE
-            workflow_enabled = True  # Always enabled, using default file if no explicit flag
+
+            # Check if workflow is actually enabled
+            workflow_flag = resolved_flags.get(WORKFLOW_FLAG)
+            if workflow_flag is not None and isinstance(workflow_flag, (bool, list)):
+                parsed_config = parse_workflow_phases(workflow_flag)
+                workflow_enabled = parsed_config.enabled
+            else:
+                workflow_enabled = False
 
             logger.trace(f"Workflow configuration: file={workflow_file}, enabled={workflow_enabled}")
 
@@ -101,7 +112,7 @@ class WorkflowTaskManager:
         )
 
         if not result.success or not result.value:
-            error_msg = result.error if not result.success else "Empty result"
+            error_msg = "Empty result" if result.success else result.error
             raise FileReadError(f"Failed to render workflow template: {error_msg}")
 
         logger.trace(f"System content rendered successfully: {len(result.value)} chars")

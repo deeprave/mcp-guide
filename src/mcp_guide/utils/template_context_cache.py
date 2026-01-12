@@ -4,7 +4,6 @@ from contextvars import ContextVar
 from typing import TYPE_CHECKING, Any, Optional
 
 from mcp_core.mcp_log import get_logger
-from mcp_guide.feature_flags.resolution import resolve_flag
 from mcp_guide.feature_flags.types import WORKFLOW_FILE_FLAG, WORKFLOW_FLAG
 from mcp_guide.workflow.constants import DEFAULT_WORKFLOW_FILE
 from mcp_guide.workflow.flags import parse_workflow_phases, substitute_variables
@@ -84,13 +83,13 @@ class TemplateContextCache(SessionListener):
         # Get current project and feature flags for resolution
         try:
             # Import here to avoid circular dependency with session module
+            from mcp_guide.models import resolve_all_flags
             from mcp_guide.session import get_or_create_session
 
             session = await get_or_create_session(None)
             if session is not None:
-                project_flags = await session.project_flags().list()
-                feature_flags = await session.feature_flags().list()
-                styling_value = resolve_flag("template-styling", project_flags, feature_flags)
+                resolved_flags = await resolve_all_flags(session)
+                styling_value = resolved_flags.get("template-styling", "plain")
             else:
                 styling_value = "plain"
         except (ConnectionError, TimeoutError) as e:
@@ -238,46 +237,52 @@ class TemplateContextCache(SessionListener):
             logger.debug(f"Failed to get client working directory: {e}")
 
         # Resolve workflow flags for template context
-        workflow_config = {"enabled": False, "phases": [], "file": DEFAULT_WORKFLOW_FILE}
+        workflow_config = None
         try:
             if session and project:
-                project_flags = project.project_flags or {}
+                from mcp_guide.models import resolve_all_flags
+
+                resolved_flags = await resolve_all_flags(session)
 
                 # Resolve workflow flag
-                workflow_flag = resolve_flag(WORKFLOW_FLAG, project_flags, global_flags_dict)
+                workflow_flag = resolved_flags.get(WORKFLOW_FLAG)
                 if workflow_flag is not None and isinstance(workflow_flag, (bool, list)):
                     parsed_config = parse_workflow_phases(workflow_flag)
-                    workflow_config["enabled"] = parsed_config.enabled
-                    workflow_config["phases"] = parsed_config.phases
-
-                # Resolve workflow-file flag
-                workflow_file_flag = resolve_flag(WORKFLOW_FILE_FLAG, project_flags, global_flags_dict)
-                if workflow_file_flag and isinstance(workflow_file_flag, str):
-                    # Substitute variables in workflow file path
-                    workflow_file = substitute_variables(
-                        workflow_file_flag,
-                        project_name=project.name,
-                        project_key=project.key,
-                        project_hash=project.hash,
-                    )
-                    workflow_config["file"] = workflow_file
-
-                # Get workflow state from TaskManager cache
-                from mcp_guide.task_manager import get_task_manager
-
-                task_manager = get_task_manager()
-                workflow_state = task_manager.get_cached_data("workflow_state")
-                if workflow_state:
-                    # Add parsed workflow state to config
-                    workflow_config.update(
-                        {
-                            "phase": workflow_state.phase,
-                            "issue": workflow_state.issue,
-                            "tracking": workflow_state.tracking,
-                            "description": workflow_state.description,
-                            "queue": workflow_state.queue,
+                    if parsed_config.enabled:
+                        workflow_config = {
+                            "enabled": True,
+                            "phases": parsed_config.phases,
+                            "file": DEFAULT_WORKFLOW_FILE,
                         }
-                    )
+
+                        # Resolve workflow-file flag
+                        workflow_file_flag = resolved_flags.get(WORKFLOW_FILE_FLAG)
+                        if workflow_file_flag and isinstance(workflow_file_flag, str):
+                            # Substitute variables in workflow file path
+                            workflow_file = substitute_variables(
+                                workflow_file_flag,
+                                project_name=project.name,
+                                project_key=project.key,
+                                project_hash=project.hash,
+                            )
+                            workflow_config["file"] = workflow_file
+
+                        # Get workflow state from TaskManager cache
+                        from mcp_guide.task_manager import get_task_manager
+
+                        task_manager = get_task_manager()
+                        workflow_state = task_manager.get_cached_data("workflow_state")
+                        if workflow_state:
+                            # Add parsed workflow state to config
+                            workflow_config.update(
+                                {
+                                    "phase": workflow_state.phase,
+                                    "issue": workflow_state.issue,
+                                    "tracking": workflow_state.tracking,
+                                    "description": workflow_state.description,
+                                    "queue": workflow_state.queue,
+                                }
+                            )
         except Exception as e:
             logger.debug(f"Failed to resolve workflow flags: {e}")
 
@@ -297,10 +302,15 @@ class TemplateContextCache(SessionListener):
             "feature_flag_values": global_flags_list,  # List format for iteration
             "projects": projects_data,
             "projects_count": projects_count,
-            "workflow": workflow_config,  # Workflow configuration
         }
 
-        return TemplateContext(project_vars)
+        # Create base context and add workflow configuration as child if enabled
+        base_context = TemplateContext(project_vars)
+        if workflow_config is not None:
+            workflow_vars = {"workflow": workflow_config}
+            return base_context.new_child(workflow_vars)
+        else:
+            return base_context
 
     async def _build_category_context(self, category_name: str) -> "TemplateContext":
         """Build category context with category data (not cached)."""

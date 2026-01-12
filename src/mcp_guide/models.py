@@ -140,12 +140,12 @@ async def format_project_data(
 
     # Add resolved flags if session is available
     if session is not None:
-        flags = await _resolve_all_flags(session)
+        flags = await resolve_all_flags(session)
         result["flags"] = flags if verbose else list(flags.keys())
     return result
 
 
-async def _resolve_all_flags(session: "Session") -> dict[str, Any]:
+async def resolve_all_flags(session: "Session") -> dict[str, Any]:
     """Resolve all flags by merging project and global flags.
 
     Returns:
