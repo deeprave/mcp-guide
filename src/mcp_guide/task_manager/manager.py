@@ -266,24 +266,22 @@ class TaskManager:
                 except Exception as e:
                     logger.warning(f"Error handling event in {subscriber.get_name()}: {e}")
 
-                # Check if this was a TIMER_ONCE event that was handled - remove the TIMER_ONCE flag
+                # Check if this was a TIMER_ONCE event that was handled - remove timer flags
                 if (data_type & EventType.TIMER_ONCE) and (subscription.event_types & EventType.TIMER_ONCE) and handled:
                     logger.trace(f"Removing TIMER_ONCE flag from {subscriber.get_name()}")
-                    subscription.event_types &= ~EventType.TIMER_ONCE  # Remove TIMER_ONCE flag
+                    subscription.event_types &= ~(EventType.TIMER_ONCE | EventType.TIMER)  # Remove both timer flags
                     subscription.interval = None  # Stop timer from firing again
                     subscription.next_fire_time = None
 
-                    # Update task stats - if no timer flags remain, change to regular task
+                    # Update task stats - change to regular task
                     subscriber_name = self._get_subscriber_name(subscriber)
                     task_id = f"{subscriber_name}_{id(subscriber)}"
                     if task_id in self._task_stats:
-                        remaining_timer_flags = subscription.event_types & (EventType.TIMER | EventType.TIMER_ONCE)
-                        if not remaining_timer_flags:
-                            self._task_stats[task_id]["type"] = "regular"
-                            self._task_stats[task_id].pop("interval", None)
-                            self._task_stats[task_id].pop("last_run", None)
-                            self._task_stats[task_id].pop("next_run", None)
-                            self._task_stats[task_id].pop("run_count", None)
+                        self._task_stats[task_id]["type"] = "regular"
+                        self._task_stats[task_id].pop("interval", None)
+                        self._task_stats[task_id].pop("last_run", None)
+                        self._task_stats[task_id].pop("next_run", None)
+                        self._task_stats[task_id].pop("run_count", None)
             else:
                 logger.trace(f"Event {data_type} does not match subscription {subscription.event_types}")
 
@@ -375,13 +373,10 @@ class TaskManager:
 
             running_tasks.append(task_info)
 
-        # Count unique tasks (not subscriptions)
-        unique_tasks = len(set(id(sub.subscriber) for sub in self._subscriptions))
-
         return {
             "running": running_tasks,
             "timers": timer_tasks,
-            "count": unique_tasks,
+            "count": len(running_tasks),
             "peak_count": self._peak_task_count,
             "total_timer_runs": self._total_timer_runs,
         }
