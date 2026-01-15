@@ -107,7 +107,7 @@ class TestClientContextManagerCreation:
 
         with patch("mcp_guide.session.get_current_session", return_value=mock_session):
             # Create ClientContextTask instance
-            task = ClientContextTask(task_manager=mock_task_manager)
+            ClientContextTask(task_manager=mock_task_manager)
 
             # Should have subscribed
             mock_task_manager.subscribe.assert_called_once()

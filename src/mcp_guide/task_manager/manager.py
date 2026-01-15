@@ -61,8 +61,6 @@ class TaskManager:
             pass  # Gracefully handle missing modules during testing
 
         # Start timer tasks
-        import asyncio
-
         try:
             loop = asyncio.get_running_loop()
             loop.create_task(self.start())
@@ -83,8 +81,6 @@ class TaskManager:
             cls._instance._task_stats = {}
             cls._instance._peak_task_count = 0
             cls._instance._total_timer_runs = 0
-
-            import asyncio
 
             try:
                 # Try to clean up in current event loop

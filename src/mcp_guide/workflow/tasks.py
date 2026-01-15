@@ -8,6 +8,7 @@ from mcp_guide.decorators import task_init
 from mcp_guide.models import FileReadError, NoProjectError
 from mcp_guide.task_manager import EventType, get_task_manager
 from mcp_guide.workflow.change_detection import ChangeEvent, detect_workflow_changes
+from mcp_guide.workflow.constants import DEFAULT_WORKFLOW_FILE
 from mcp_guide.workflow.instruction_generator import get_instruction_template_for_change
 from mcp_guide.workflow.parser import parse_workflow_state
 from mcp_guide.workflow.rendering import render_workflow_template
@@ -36,8 +37,6 @@ class WorkflowMonitorTask:
     ):
         # Use default workflow file if none provided
         if workflow_file_path is None:
-            from mcp_guide.workflow.constants import DEFAULT_WORKFLOW_FILE
-
             workflow_file_path = str(DEFAULT_WORKFLOW_FILE)
 
         self.workflow_file_path = workflow_file_path
