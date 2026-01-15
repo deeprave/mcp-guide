@@ -44,7 +44,7 @@ class TestTimerEventScheduling:
         manager = TaskManager()
         subscriber = MockTimerSubscriber()
 
-        await manager.subscribe(subscriber, EventType.FS_FILE_CONTENT, timer_interval=0.1)
+        manager.subscribe(subscriber, EventType.FS_FILE_CONTENT, timer_interval=0.1)
 
         timer_subscriptions = [sub for sub in manager._subscriptions if sub.is_timer()]
         assert len(timer_subscriptions) == 1
@@ -63,7 +63,7 @@ class TestTimerEventScheduling:
             manager = TaskManager()
             subscriber = MockTimerSubscriber()
 
-            await manager.subscribe(subscriber, EventType.FS_FILE_CONTENT, timer_interval=0.05)
+            manager.subscribe(subscriber, EventType.FS_FILE_CONTENT, timer_interval=0.05)
 
             # Manually trigger timer loop iterations
             timer_subscriptions = [sub for sub in manager._subscriptions if sub.is_timer()]
@@ -85,7 +85,7 @@ class TestTimerEventScheduling:
         manager = TaskManager()
         subscriber = MockTimerSubscriber()
 
-        await manager.subscribe(subscriber, EventType.FS_FILE_CONTENT, timer_interval=0.1)
+        manager.subscribe(subscriber, EventType.FS_FILE_CONTENT, timer_interval=0.1)
         timer_subscriptions = [sub for sub in manager._subscriptions if sub.is_timer()]
         assert len(timer_subscriptions) == 1
 
@@ -100,8 +100,8 @@ class TestTimerEventScheduling:
         subscriber1 = MockTimerSubscriber()
         subscriber2 = MockTimerSubscriber()
 
-        await manager.subscribe(subscriber1, EventType.FS_FILE_CONTENT, timer_interval=0.05)
-        await manager.subscribe(subscriber2, EventType.FS_FILE_CONTENT, timer_interval=0.1)
+        manager.subscribe(subscriber1, EventType.FS_FILE_CONTENT, timer_interval=0.05)
+        manager.subscribe(subscriber2, EventType.FS_FILE_CONTENT, timer_interval=0.1)
 
         timer_subscriptions = [sub for sub in manager._subscriptions if sub.is_timer()]
         assert len(timer_subscriptions) == 2
@@ -117,7 +117,7 @@ class TestTimerEventScheduling:
         manager = TaskManager()
         subscriber = MockTimerSubscriber()
 
-        await manager.subscribe(subscriber, EventType.FS_FILE_CONTENT, timer_interval=0.05)
+        manager.subscribe(subscriber, EventType.FS_FILE_CONTENT, timer_interval=0.05)
 
         # Get timer subscription and manually dispatch event
         timer_subscriptions = [sub for sub in manager._subscriptions if sub.is_timer()]
@@ -144,8 +144,8 @@ class TestTimerEventScheduling:
         subscriber2 = MockTimerSubscriber()
 
         # Subscribe with different timer intervals
-        await manager.subscribe(subscriber1, EventType.FS_FILE_CONTENT, timer_interval=0.05)
-        await manager.subscribe(subscriber2, EventType.FS_FILE_CONTENT, timer_interval=0.1)
+        manager.subscribe(subscriber1, EventType.FS_FILE_CONTENT, timer_interval=0.05)
+        manager.subscribe(subscriber2, EventType.FS_FILE_CONTENT, timer_interval=0.1)
 
         # Get timer subscriptions
         timer_subscriptions = [sub for sub in manager._subscriptions if sub.is_timer()]
@@ -168,7 +168,7 @@ class TestTimerEventScheduling:
         manager = TaskManager()
         subscriber = MockTimerSubscriber()
 
-        await manager.subscribe(subscriber, EventType.FS_FILE_CONTENT)
+        manager.subscribe(subscriber, EventType.FS_FILE_CONTENT)
 
         timer_subscriptions = [sub for sub in manager._subscriptions if sub.is_timer()]
         assert len(timer_subscriptions) == 0

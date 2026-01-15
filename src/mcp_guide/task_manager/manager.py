@@ -6,6 +6,7 @@ import time
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 from mcp_core.mcp_log import get_logger
+from mcp_guide.decorators import task_init
 
 from .interception import EventType
 from .protocol import TaskSubscriber
@@ -17,6 +18,7 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
+@task_init
 class TaskManager:
     """Generic task coordination system."""
 
@@ -42,7 +44,7 @@ class TaskManager:
 
         # New pub/sub system
         self._subscriptions: List[Subscription] = []
-        self._next_timer_bit = 131072  # Start unique timer bits at 2^17
+        self._next_timer_id = 1  # Simple counter for unique timer IDs
         self._timer_task: Optional[asyncio.Task[None]] = None
 
         # Task statistics
@@ -50,11 +52,38 @@ class TaskManager:
         self._peak_task_count = 0
         self._total_timer_runs = 0
 
+        # Register as task manager
+        try:
+            from mcp_core.tool_decorator import set_task_manager
+
+            set_task_manager(self)
+        except ImportError:
+            pass  # Gracefully handle missing modules during testing
+
+        # Start timer tasks
+        import asyncio
+
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(self.start())
+        except RuntimeError:
+            # No loop yet, will start when needed
+            pass
+
     @classmethod
     def _reset_for_testing(cls) -> None:
         """Reset singleton for testing. DO NOT USE IN PRODUCTION."""
         # Clean up existing instance resources before resetting
         if cls._instance is not None:
+            # Reset instance state
+            cls._instance._next_timer_id = 1
+            cls._instance._subscriptions = []
+            cls._instance._pending_instructions = []
+            cls._instance._cache = {}
+            cls._instance._task_stats = {}
+            cls._instance._peak_task_count = 0
+            cls._instance._total_timer_runs = 0
+
             import asyncio
 
             try:
@@ -76,13 +105,17 @@ class TaskManager:
             # Fallback to default naming if get_name() not properly implemented
             return f"{subscriber.__class__.__name__}_{id(subscriber)}"
 
-    async def subscribe(
+    def subscribe(
         self,
         subscriber: TaskSubscriber,
         event_types: EventType,
         timer_interval: Optional[float] = None,
     ) -> None:
         """Subscribe to events with optional timer support."""
+        logger.trace(
+            f"TaskManager.subscribe: {subscriber.get_name()} subscribing to {event_types}, interval={timer_interval}"
+        )
+
         # Parameter validation
         if timer_interval is not None and timer_interval <= 0:
             raise ValueError("Timer interval must be positive")
@@ -92,22 +125,21 @@ class TaskManager:
 
         # Create appropriate subscription type
         if timer_interval is not None:
-            # Always assign unique timer bit for internal tracking
-            if self._next_timer_bit > (1 << 30):  # Prevent overflow
-                raise RuntimeError("Maximum number of concurrent timer subscriptions exceeded")
+            # Assign unique timer bit for tracking
+            unique_timer_bit = self._next_timer_id << 17  # Shift above TIMER (2^16)
+            self._next_timer_id += 1
 
-            unique_timer_bit = self._next_timer_bit
-            self._next_timer_bit <<= 1  # Next power of 2
-
-            # Create unique timer EventType (TIMER + unique bit) and combine with original events
-            unique_timer_event = EventType.TIMER | unique_timer_bit
-            combined_event_types = event_types | unique_timer_event
+            # Add TIMER flag and unique bit to event_types
+            combined_event_types = event_types | EventType.TIMER | unique_timer_bit
 
             subscription = Subscription(subscriber, combined_event_types, timer_interval)
             subscription.original_event_types = event_types
             subscription.unique_timer_bit = unique_timer_bit
 
             self._subscriptions.append(subscription)
+            logger.trace(
+                f"TaskManager.subscribe: Added timer subscription for {subscriber_name}, total: {len(self._subscriptions)}"
+            )
 
             # Track timer statistics
             task_id = f"{subscriber_name}_{id(subscriber)}"
@@ -121,10 +153,6 @@ class TaskManager:
                 "next_run": current_time + timer_interval,
                 "run_count": 0,
             }
-
-            # Start timer task immediately
-            if self._timer_task is None or self._timer_task.done():
-                self._timer_task = asyncio.create_task(self._timer_loop())
         else:
             regular_subscription = Subscription(subscriber, event_types)
             self._subscriptions.append(regular_subscription)
@@ -141,6 +169,31 @@ class TaskManager:
         # Update peak count
         self._peak_task_count = max(self._peak_task_count, len(self._subscriptions))
 
+    async def start(self) -> None:
+        """Start all timer tasks for subscribed tasks."""
+        # Start timer task if any timer subscriptions exist
+        has_timer_subscriptions = any(sub.interval is not None for sub in self._subscriptions)
+
+        if has_timer_subscriptions and (self._timer_task is None or self._timer_task.done()):
+            self._timer_task = asyncio.create_task(self._timer_loop())
+
+    async def on_tool(self) -> None:
+        """Call on_tool for all subscribers after tool/prompt execution."""
+        # Ensure timer loop is started
+        await self.start()
+
+        logger.trace(f"TaskManager.on_tool called, {len(self._subscriptions)} subscriptions")
+        for i, subscription in enumerate(self._subscriptions):
+            subscriber = subscription.subscriber
+            logger.trace(f"Subscription {i}: subscriber is {subscriber}")
+            try:
+                subscriber_name = subscriber.get_name()
+                logger.trace(f"Calling on_tool for {subscriber_name}")
+                await subscriber.on_tool()
+                logger.trace(f"Completed on_tool for {subscriber_name}")
+            except Exception as e:
+                logger.warning(f"Error in on_tool for {subscriber.get_name()}: {e}")
+
     async def unsubscribe(self, subscriber: TaskSubscriber) -> None:
         """Remove all subscriptions for a subscriber."""
         # Clean up statistics
@@ -149,7 +202,7 @@ class TaskManager:
         self._task_stats.pop(task_id, None)
 
         # Remove all subscriptions for this subscriber
-        self._subscriptions = [sub for sub in self._subscriptions if sub.subscriber_ref() is not subscriber]
+        self._subscriptions = [sub for sub in self._subscriptions if sub.subscriber is not subscriber]
 
         # Check if any timer subscriptions remain
         has_timers = any(sub.is_timer() for sub in self._subscriptions)
@@ -195,7 +248,7 @@ class TaskManager:
         active_subscriptions = []
 
         for subscription in self._subscriptions:
-            subscriber = subscription.subscriber_ref()
+            subscriber = subscription.subscriber
             if subscriber is None:
                 logger.trace("Subscription has dead weak reference, removing")
                 continue
@@ -206,6 +259,7 @@ class TaskManager:
                 logger.trace(
                     f"Event {data_type} matches subscription {subscription.event_types}, dispatching to {subscriber.get_name()}"
                 )
+                handled = False
                 try:
                     handled = await subscriber.handle_event(data_type, actual_data)
                     if handled:
@@ -215,6 +269,25 @@ class TaskManager:
                         logger.trace(f"Event not handled by {subscriber.get_name()}")
                 except Exception as e:
                     logger.warning(f"Error handling event in {subscriber.get_name()}: {e}")
+
+                # Check if this was a TIMER_ONCE event that was handled - remove the TIMER_ONCE flag
+                if (data_type & EventType.TIMER_ONCE) and (subscription.event_types & EventType.TIMER_ONCE) and handled:
+                    logger.trace(f"Removing TIMER_ONCE flag from {subscriber.get_name()}")
+                    subscription.event_types &= ~EventType.TIMER_ONCE  # Remove TIMER_ONCE flag
+                    subscription.interval = None  # Stop timer from firing again
+                    subscription.next_fire_time = None
+
+                    # Update task stats - if no timer flags remain, change to regular task
+                    subscriber_name = self._get_subscriber_name(subscriber)
+                    task_id = f"{subscriber_name}_{id(subscriber)}"
+                    if task_id in self._task_stats:
+                        remaining_timer_flags = subscription.event_types & (EventType.TIMER | EventType.TIMER_ONCE)
+                        if not remaining_timer_flags:
+                            self._task_stats[task_id]["type"] = "regular"
+                            self._task_stats[task_id].pop("interval", None)
+                            self._task_stats[task_id].pop("last_run", None)
+                            self._task_stats[task_id].pop("next_run", None)
+                            self._task_stats[task_id].pop("run_count", None)
             else:
                 logger.trace(f"Event {data_type} does not match subscription {subscription.event_types}")
 
@@ -226,12 +299,12 @@ class TaskManager:
         # Update statistics for processed subscribers
         for subscription in self._subscriptions:
             if subscription.event_types & data_type:
-                subscriber = subscription.subscriber_ref()
-                if subscriber:
-                    subscriber_name = self._get_subscriber_name(subscriber)
-                    task_id = f"{subscriber_name}_{id(subscriber)}"
-                    if task_id in self._task_stats:
-                        self._task_stats[task_id]["last_data"] = current_time
+                subscriber = subscription.subscriber
+            if subscriber:
+                subscriber_name = self._get_subscriber_name(subscriber)
+                task_id = f"{subscriber_name}_{id(subscriber)}"
+                if task_id in self._task_stats:
+                    self._task_stats[task_id]["last_data"] = current_time
 
         if processed_count == 0:
             return {"status": "acknowledged"}
@@ -294,24 +367,25 @@ class TaskManager:
                 last_run_ago = current_time - stats["last_run"] if stats.get("last_run") else None
                 next_run_in = stats["next_run"] - current_time if stats.get("next_run") else None
 
-                task_info.update(
-                    {
-                        "interval": round(stats["interval"], 2),
-                        "last_run": stats.get("last_run"),
-                        "next_run": stats.get("next_run"),
-                        "run_count": stats["run_count"],
-                        "time_since_last": format_duration(last_run_ago) if last_run_ago else None,
-                        "time_until_next": format_duration(next_run_in) if next_run_in else None,
-                    }
-                )
+                task_info |= {
+                    "interval": round(stats["interval"], 2),
+                    "last_run": stats.get("last_run"),
+                    "next_run": stats.get("next_run"),
+                    "run_count": stats["run_count"],
+                    "time_since_last": (format_duration(last_run_ago) if last_run_ago else None),
+                    "time_until_next": (format_duration(next_run_in) if next_run_in else None),
+                }
                 timer_tasks.append(task_info)
 
             running_tasks.append(task_info)
 
+        # Count unique tasks (not subscriptions)
+        unique_tasks = len(set(id(sub.subscriber) for sub in self._subscriptions))
+
         return {
             "running": running_tasks,
             "timers": timer_tasks,
-            "count": len(self._subscriptions),
+            "count": unique_tasks,
             "peak_count": self._peak_task_count,
             "total_timer_runs": self._total_timer_runs,
         }
@@ -344,11 +418,7 @@ class TaskManager:
 
             # Check each timer subscription
             for timer_sub in timer_subscriptions[:]:  # Copy to avoid modification during iteration
-                subscriber = timer_sub.subscriber_ref()
-                if subscriber is None:
-                    # Dead subscriber, remove it
-                    self._subscriptions.remove(timer_sub)
-                    continue
+                subscriber = timer_sub.subscriber
 
                 if timer_sub.next_fire_time is not None and current_time >= timer_sub.next_fire_time:
                     # Fire timer event through regular dispatch mechanism

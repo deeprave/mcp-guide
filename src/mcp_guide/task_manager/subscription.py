@@ -1,7 +1,6 @@
 """Subscription data structures for pub/sub system."""
 
 import time
-import weakref
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Optional
 
@@ -13,9 +12,9 @@ if TYPE_CHECKING:
 
 @dataclass
 class Subscription:
-    """Subscription to events with weak reference to subscriber."""
+    """Subscription to events with strong reference to subscriber."""
 
-    subscriber_ref: weakref.ref["TaskSubscriber"]
+    subscriber: "TaskSubscriber"
     event_types: EventType
     interval: Optional[float] = None
     next_fire_time: Optional[float] = field(init=False, default=None)
@@ -23,9 +22,9 @@ class Subscription:
     unique_timer_bit: Optional[int] = None
 
     def __init__(self, subscriber: "TaskSubscriber", event_types: EventType, interval: Optional[float] = None):
-        """Initialize subscription with weak reference to subscriber."""
+        """Initialize subscription with strong reference to subscriber."""
         self.event_types = event_types
-        self.subscriber_ref = weakref.ref(subscriber)
+        self.subscriber = subscriber
         self.interval = interval
         self.next_fire_time = time.time() + interval if interval is not None else None
 

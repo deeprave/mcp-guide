@@ -213,14 +213,14 @@ class TestTemplateContextCache:
             # Get layered contexts
             context = await cache.get_template_contexts()
 
-            # Test precedence: project should override system values
-            # System context has "system" key, project should be accessible with higher precedence
+            # Test precedence: project should override server values
+            # Server context has "server" key, project should be accessible with higher precedence
             assert "project" in context
             assert context["project"]["name"] == "project-value"
 
-            # System context should still be accessible
-            assert "system" in context
-            assert "os" in context["system"]
+            # Server context should still be accessible
+            assert "server" in context
+            assert "os" in context["server"]
 
     async def test_build_category_context_method_exists(self) -> None:
         """Test that _build_category_context method exists."""
@@ -298,11 +298,11 @@ class TestTemplateContextCache:
             context = await cache.get_template_contexts()
 
             # Verify all context types are accessible
-            # System context
-            assert "system" in context
-            assert "os" in context["system"]
-            assert "platform" in context["system"]
-            assert "python_version" in context["system"]
+            # Server context
+            assert "server" in context
+            assert "os" in context["server"]
+            assert "platform" in context["server"]
+            assert "python_version" in context["server"]
 
             # Agent context (@ symbol)
             assert "@" in context

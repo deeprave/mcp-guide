@@ -20,6 +20,7 @@ The development cycle follows the following cycle:
   Ask for clarity about the architecture, identify gaps, known assumptions and non-functional requirements.
   Provide feedback once you understand the requirements and objectives to ensure that you have reached alignment with the user.
   You MUST NOT make changes to production code or tests during this phase.
+{{#workflow.phases.planning}}
 
 - **Planning**:
   During this phase you are to plan work that is to be carried out.
@@ -31,22 +32,25 @@ The development cycle follows the following cycle:
   Create a detailed implementation plan in the .todo/ directory. Unlike openspec files, these are transient in nature
   and only need to exist until the implementation has been complete.
   You MUST NOT make changes to production code or tests during this phase.
+{{/workflow.phases.planning}}
 
 - **Implementation**:
+{{#workflow.transitions.implementation.pre}}
   Before moving into this phase you require EXPLICIT confirmation that the user has agreed to start making changes.
+{{/workflow.transitions.implementation.pre}}
 
   **Pre-check**:
   Before starting, ensure that all code quality checks pass to establish the baseline.
 
   **Method**:
   Use TDD method, writing tests first, then the code to make them pass:
-    - You must implement tests individually, and the code to make it pass individually.
-    - You must not create more than a single test during each cycle.
-    You need not create individual steps documenting this proces - each step is its own red-green-refactor iteration.
-  Stick to the plan and attempt to complete as much of it as possible, and you MUST NOT leave parts of the implmentation
-    not done, and you MUST NOT leave "TODO" items instead of actually completing the implementation.
-  If you need an architectural decision, you MUST STOP AND CONSULT THE USER. ALWAYS.
-  You MUST make changes to production code or tests during this phase.
+    - You MUST implement tests individually - never in bulk - and then the code to make that test pass pass.
+    - You MUST NOT create more than a single test during each cycle.
+  In your implementation plan you need not create individual steps documenting this proces - each individual step is its own red-green-refactor iteration.
+  Stick to the plan and attempt to complete as much of it as possible, and you MUST NOT leave parts of the implmentation not done, and you MUST NOT leave "TODO" items instead of actually completing the implementation.
+
+  If you find youself with a need to make an architectural decision, you MUST STOP AND CONSULT THE USER. ALWAYS.
+  You may make changes to production code or tests during this phase.
 
   During implementation:
   - follow **SOLID Principles**, use clean and well-encapsulated architecture.
@@ -56,9 +60,15 @@ The development cycle follows the following cycle:
     * API documentation
     * IDE bookmarks
     * Clarify complex or ambiguous logic and algorithms
-
+{{#workflow.transitions.implementation.post}}
+  Before transitioning out of implemention you must obtain EXPLICIT confirmation or request from the user.
+{{/workflow.transitions.implementation.post}}
+{{#workflow.phases.check}}
 
 - **Check**:
+{{#workflow.transitions.check.pre}}
+  Before transitioning to this phase you require EXPLICIT confirmation or request from the user.
+{{/workflow.transitions.check.pre}}
   Once implemenation is complete according to the plan, you must stop and run all code quality checks that covers
   ALL files in the production code, not only the code that you have modified.
   This step ensures that the entire implementation is free of unexpected side-effects.
@@ -66,25 +76,37 @@ The development cycle follows the following cycle:
   If tests were passing at the start and are failing after the changes, then YOU ARE RESPONSIBLE FOR THOST CHANGES.
   Code quality tests require a 100% pass rate before tests are accepted into version control.
   You may still need to make changes to production code or tests during this phase to ensure that code quality tests pass.
+{{#workflow.transitions.check.post}}
+  Before transitioning out of checks you must obtain EXPLICIT confirmation or request from the user.
+{{/workflow.transitions.check.post}}
+{{/workflow.phases.check}}
+{{#workflow.phases.review}}
 
 - **Review**:
+{{#workflow.transitions.review.pre}}
+  Before transitioning to this phase you require EXPLICIT confirmation or request from the user.
+{{/workflow.transitions.review.pre}}
   When all tests are passing you are to prompt the user that the changes are available for review.
   YOU MUST NOT CONTINUE UNTIL THE USER EXPLICITLY CONFIRMS that reviews are done and pass.
   You may be presented with review comments and should build a todo list of issues you may need to address.
   If you need to make changes, switch back into **Implementation Phase**, apply fixes and when done, transition to
   **Check** phase again and run all code quality checks.
+{{#workflow.transitions.review.post}}
+  Before transitioning out of review you must obtain EXPLICIT confirmation or request from the user.
+{{/workflow.transitions.review.post}}
+{{/workflow.phases.review}}
 
 ### Definition of Done
 - At the completion of each cycle ensure that:
-   - All tests pass without warning - no exceptions, no excuses
+   - All tests pass without warning - NO exceptions, NO excuses - even if so-called "pre-existing" or "unrelated"
    - Resolve all linting and type checking issues.
-     * resolve means RESOLVE, not suppress unless with specific user consent.
+     * resolve means RESOLVE, never suppress unless with specific user consent.
    - Ensure that code is formatted according to the project standard
      This may involve using a language specific formatting tool.
    - Ensure that any text file created or edited has a terminating newline and has no lines with trailing whitespace
 
 ### Version Control
-- **NEVER** do any of the following git operations:
+- **NEVER** do any postentially destructive git operations, including:
   - `git add` or `git push` (without explicit request)
     The user must manage the composition of each commit
   - `git commit`
@@ -92,8 +114,7 @@ The development cycle follows the following cycle:
   - `git revert`, `git checkout`, `git reset`, `git restore`,
     `git rebase`, `git merge`, `git filter-branch`, `git stash`
     All of these are destructive to the working tree and are FORBIDDEN.
-    If you wish to fix an error or restore removed code, you must do this manually
-    or request the user's assistance. NO EXCEPTIONS
+    If you wish to fix an error or restore removed code, you must do this manually or request the user's assistance. NO EXCEPTIONS
   - On request, generate a concise commit messages the describes functional changes in the git commit cache.
     Include issue references for tracker association
 

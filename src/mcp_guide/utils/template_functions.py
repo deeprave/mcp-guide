@@ -108,3 +108,23 @@ class TemplateFunctions:
             return value.ljust(width)
         except ValueError as e:
             return f"[Pad Error: {e}]"
+
+    def equals(self, text: str, render: Optional[Any] = None) -> str:
+        """Compare values: {{#equals}}value{{variable}}{{/equals}}"""
+        expected, var_name = self._parse_template_args(text)
+
+        if var_name not in self.context:
+            return ""
+
+        actual = str(self.context[var_name])
+        return render(text) if render and actual == expected.strip() else ""
+
+    def contains(self, text: str, render: Optional[Any] = None) -> str:
+        """Check if value contains substring: {{#contains}}substring{{variable}}{{/contains}}"""
+        substring, var_name = self._parse_template_args(text)
+
+        if var_name not in self.context:
+            return ""
+
+        actual = str(self.context[var_name])
+        return render(text) if render and substring.strip() in actual else ""

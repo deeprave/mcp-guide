@@ -1,0 +1,140 @@
+---
+type: agent/information
+description: OpenSpec spec-driven development workflow for this project
+instruction: Use this information when working with OpenSpec. Do not display to users.
+---
+# OpenSpec Workflow
+{{#project.project_flags.openspec}}
+
+OpenSpec is a spec-driven development workflow that aligns humans and AI on what to build before writing code.
+
+## Directory Structure
+
+```
+openspec/
+├── project.md          # Project conventions
+├── specs/              # Source of truth
+│   └── <component>/spec.md
+└── changes/            # Proposed changes
+    └── <feature>/
+        ├── proposal.md # Why and what
+        ├── tasks.md    # Implementation checklist
+        └── specs/<component>/spec.md  # Deltas
+```
+
+## Workflow Phases
+
+### 1. Draft Proposal
+Create `openspec/changes/<feature>/` with:
+- `proposal.md` - Must include `## Why` and `## What Changes` headers
+- `tasks.md` - Implementation checklist
+- `specs/<component>/spec.md` - Deltas (ADDED/MODIFIED/REMOVED)
+
+**Critical**: Specs must be `specs/<name>/spec.md` (directory + spec.md), not `specs/<name>.md`
+
+### 2. Review & Align
+```bash
+openspec list                    # View active changes
+openspec show <feature>          # Review details
+openspec validate <feature>      # Check formatting
+```
+
+### 3. Implement
+Work through `tasks.md`, marking items complete as you go.
+
+### 4. Check
+- Run all automated checks (tests, types, linting)
+- Request user review explicitly
+- Address feedback
+- **Require explicit user approval** before archiving
+
+### 5. Archive
+```bash
+openspec archive <feature> --yes
+```
+Merges changes to `openspec/specs/` and moves to `openspec/archive/`.
+
+## Proposal Format
+
+```markdown
+# Feature Name
+
+**Status**: Proposed
+**Priority**: High/Medium/Low
+**Complexity**: High/Medium/Low
+
+## Why
+- Problem being solved
+- Importance and impact
+
+## What Changes
+- Components added/modified/removed
+- Dependencies changed
+
+## Technical Approach (Optional)
+Implementation details
+
+## Success Criteria (Optional)
+Verification steps
+```
+
+## Delta Format
+
+```markdown
+## ADDED Requirements
+### Requirement: New Feature
+The system SHALL provide capability.
+
+#### Scenario: Usage
+- WHEN condition
+- THEN behavior
+
+## MODIFIED Requirements
+### Requirement: Updated Feature
+(Complete updated text)
+
+## REMOVED Requirements
+### Requirement: Deprecated Feature
+(What's being removed)
+```
+
+## Commands
+
+```bash
+# Viewing
+openspec list [--changes|--specs]
+openspec view                    # Interactive dashboard
+openspec show <change> [--json]
+
+# Validation
+openspec validate <change> [--strict]  # REQUIRED before implementation
+
+# Management
+openspec archive <change> [--yes]
+openspec update                  # Refresh instructions
+```
+
+## Best Practices
+
+1. One change per feature - keep atomic
+2. Complete specs before implementation
+3. Use deltas - show only changes
+4. Validate with `--strict` before implementing (REQUIRED)
+5. Include Check phase in tasks.md
+6. Never archive without explicit user approval
+7. Archive promptly after approval
+
+## OpenSpec vs .todo
+
+- **OpenSpec**: Structured features with specs, formal workflow
+- **.todo**: Quick fixes, investigations, reviews without specs
+
+## Resources
+
+- **Documentation**: https://openspec.dev
+- **Agent Guide**: file://openspec/AGENTS.md
+
+{{/project.project_flags.openspec}}
+{{^project.project_flags.openspec}}
+OpenSpec is not enabled for this project.
+{{/project.project_flags.openspec}}

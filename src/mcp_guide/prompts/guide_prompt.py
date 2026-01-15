@@ -8,10 +8,34 @@ from typing import TYPE_CHECKING, Any, Awaitable, Callable, Coroutine, List, Opt
 from anyio import Path as AsyncPath
 
 from mcp_core.mcp_log import get_logger
+from mcp_guide.config_constants import COMMANDS_DIR
+from mcp_guide.prompts.command_parser import parse_command_arguments
 from mcp_guide.result import Result
+from mcp_guide.result_constants import INSTRUCTION_DISPLAY_ONLY
+from mcp_guide.server import mcp
 from mcp_guide.session import get_or_create_session
+from mcp_guide.tools.tool_content import ContentArgs, internal_get_content
+from mcp_guide.utils.command_discovery import discover_commands
 from mcp_guide.utils.command_formatting import format_args_string
+from mcp_guide.utils.file_discovery import FileInfo, discover_category_files
+from mcp_guide.utils.frontmatter import (
+    get_frontmatter_type,
+    get_type_based_default_instruction,
+)
 from mcp_guide.utils.template_context import TemplateContext, convert_lists_to_indexed
+from mcp_guide.utils.template_context_cache import get_template_contexts
+from mcp_guide.utils.template_renderer import render_file_content, render_template_content
+
+if TYPE_CHECKING:
+    from typing import Any
+
+    from mcp.server.fastmcp import Context
+else:
+    try:
+        from mcp.server.fastmcp import Context
+    except ImportError:
+        Context = None  # type: ignore
+
 
 logger = get_logger(__name__)
 
@@ -28,31 +52,6 @@ class CommandMiddleware(Protocol):
     ) -> Result[str]:
         """Execute middleware logic."""
         ...
-
-
-if TYPE_CHECKING:
-    from typing import Any
-
-    from mcp.server.fastmcp import Context
-else:
-    try:
-        from mcp.server.fastmcp import Context
-    except ImportError:
-        Context = None  # type: ignore
-
-from mcp_guide.config_constants import COMMANDS_DIR
-from mcp_guide.prompts.command_parser import parse_command_arguments
-from mcp_guide.result_constants import INSTRUCTION_DISPLAY_ONLY
-from mcp_guide.server import mcp
-from mcp_guide.tools.tool_content import ContentArgs, internal_get_content
-from mcp_guide.utils.command_discovery import discover_commands
-from mcp_guide.utils.file_discovery import FileInfo, discover_category_files
-from mcp_guide.utils.frontmatter import (
-    get_frontmatter_type,
-    get_type_based_default_instruction,
-)
-from mcp_guide.utils.template_context_cache import get_template_contexts
-from mcp_guide.utils.template_renderer import render_file_content, render_template_content
 
 
 async def get_command_help(command_path: str, command_context: dict, ctx: Optional[Context]) -> Result[str]:  # type: ignore
@@ -233,10 +232,8 @@ def _validate_command_arguments(
     required_kwargs_value = front_matter.get("required_kwargs", [])
     if isinstance(required_kwargs_value, list):
         required_kwargs = [str(kwarg) for kwarg in required_kwargs_value if isinstance(kwarg, (str, int, float))]
-        missing_kwargs = []
-        for k in required_kwargs:
-            if k not in kwargs and f"_{k}" not in kwargs:
-                missing_kwargs.append(k)
+        missing_kwargs: list[str] = []
+        missing_kwargs.extend(k for k in required_kwargs if k not in kwargs and f"_{k}" not in kwargs)
         if missing_kwargs:
             return Result.failure(f"Missing required options: {', '.join(missing_kwargs)}", error_type="validation")
 
@@ -377,7 +374,7 @@ async def _execute_command(
         )
 
 
-async def _handle_command_request(argv: list[str], ctx: Optional["Context[Any, Any, Any]"]) -> Result[Any]:
+async def _handle_command_request(argv: list[str], ctx: Optional["Context"]) -> Result[Any]:  # type: ignore[type-arg]
     """Handle command-mode request."""
     first_arg = argv[1]
     raw_command_path = first_arg[1:]  # Remove prefix
@@ -413,7 +410,7 @@ async def _handle_command_request(argv: list[str], ctx: Optional["Context[Any, A
     return await handle_command(command_path, kwargs, args, ctx)
 
 
-async def _handle_content_request(argv: list[str], ctx: Optional["Context[Any, Any, Any]"]) -> Result[Any]:
+async def _handle_content_request(argv: list[str], ctx: Optional["Context"]) -> Result[Any]:  # type: ignore[type-arg]
     """Handle content-mode request."""
     # Separate flags from content arguments
     content_args = []
@@ -438,19 +435,14 @@ async def _handle_content_request(argv: list[str], ctx: Optional["Context[Any, A
 
     # Handle --help flag for content requests
     if kwargs.get("help"):
-        help_text = f"""# Content Help
+        help_text = """# Content Help
 
-Usage: @guide <category|collection> [--verbose] [--help]
+Usage: @guide <category|collection>
 
 Examples:
   @guide docs                    # Get docs category content
-  @guide docs --verbose          # Get docs with verbose output
   @guide code-review             # Get code-review collection content
-  @guide docs,examples           # Get multiple categories
-
-Available flags:
-  --help, -h     Show this help message
-  --verbose, -v  Enable verbose output
+  @guide docs,examples           # Get multiple categories with default patterns
 """
         result = Result.ok(help_text)
         result.instruction = INSTRUCTION_DISPLAY_ONLY
@@ -461,11 +453,10 @@ Available flags:
     if isinstance(pattern, int):
         pattern = str(pattern)
     content_args_obj = ContentArgs(expression=category, pattern=pattern)
-    content_result = await internal_get_content(content_args_obj, ctx)
-    return content_result
+    return await internal_get_content(content_args_obj, ctx)
 
 
-async def _route_guide_request(argv: list[str], ctx: Optional["Context[Any, Any, Any]"]) -> Result[Any]:
+async def _route_guide_request(argv: list[str], ctx: Optional["Context"]) -> Result[Any]:  # type: ignore[type-arg]
     """Route guide request to command or content handler."""
     # Validate arguments
     if len(argv) == 1 or (len(argv) == 2 and argv[1] == ""):
@@ -503,6 +494,15 @@ async def guide(
     ctx: Optional["Context"] = None,  # type: ignore[type-arg]
 ) -> str:
     """Access guide functionality."""
+    # Call on_tool for all subscribers immediately
+    from mcp_guide.task_manager import get_task_manager
+
+    task_manager = get_task_manager()
+    try:
+        await task_manager.on_tool()
+    except Exception as e:
+        logger.error(f"on_tool failed at prompt start: {e}")
+
     # Build argv list (MCP protocol requirement)
     argv = ["guide"]
     for arg in [arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arga, argb, argc, argd, arge, argf]:
@@ -513,20 +513,11 @@ async def guide(
     # Route request
     result = await _route_guide_request(argv, ctx)
 
-    # Manage workflow tasks first to queue any instructions
-    from mcp_core.tool_decorator import _manage_workflow_task, _task_manager
-
-    try:
-        await _manage_workflow_task()
-    except Exception as e:
-        logger.error(f"Workflow task management failed after prompt: {e}")
-
     # Process result through task manager to pick up any queued instructions
-    if _task_manager is not None:
-        try:
-            result = await _task_manager.process_result(result)
-        except Exception as e:
-            logger.error(f"TaskManager processing failed for prompt: {e}")
+    try:
+        result = await task_manager.process_result(result)
+    except Exception as e:
+        logger.error(f"TaskManager processing failed for prompt: {e}")
 
     # Log the result before returning
     logger.trace("RESULT: Prompt guide returning result", extra=result.to_json())

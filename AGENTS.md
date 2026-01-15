@@ -17,6 +17,5 @@ Keep this managed block so 'openspec update' can refresh the instructions.
 
 <!-- OPENSPEC:END -->
 
-read INSTRUCTIONS.md and use the guide mcp to examine the following using the get_content tool:
-
-"guidelines,docs/openspec+tracking"
+Use the guide mcp to access the following resources for this project's strict guidelines:
+- `get_content("guidelines,checks/instructions")`

@@ -47,7 +47,7 @@ class TestAgentDataInterception:
     @pytest.mark.asyncio
     async def test_dispatch_event_with_interest(self, task_manager: TaskManager, mock_task: MockSubscriber) -> None:
         """Test handling data with interested task."""
-        await task_manager.subscribe(mock_task, EventType.FS_FILE_CONTENT)
+        task_manager.subscribe(mock_task, EventType.FS_FILE_CONTENT)
 
         result = await task_manager.dispatch_event(EventType.FS_FILE_CONTENT, {"path": "test.txt", "content": "data"})
 
@@ -61,7 +61,7 @@ class TestAgentDataInterception:
     @pytest.mark.asyncio
     async def test_bit_flag_filtering(self, task_manager: TaskManager, mock_task: MockSubscriber) -> None:
         """Test bit-flag pre-filtering."""
-        await task_manager.subscribe(mock_task, EventType.FS_FILE_CONTENT)
+        task_manager.subscribe(mock_task, EventType.FS_FILE_CONTENT)
 
         # Dispatch different event type - should not be handled
         result = await task_manager.dispatch_event(EventType.FS_DIRECTORY, {"path": "test_dir"})
@@ -75,8 +75,8 @@ class TestAgentDataInterception:
         subscriber1 = MockSubscriber("sub1")
         subscriber2 = MockSubscriber("sub2")
 
-        await task_manager.subscribe(subscriber1, EventType.FS_FILE_CONTENT)
-        await task_manager.subscribe(subscriber2, EventType.FS_FILE_CONTENT)
+        task_manager.subscribe(subscriber1, EventType.FS_FILE_CONTENT)
+        task_manager.subscribe(subscriber2, EventType.FS_FILE_CONTENT)
 
         result = await task_manager.dispatch_event(EventType.FS_FILE_CONTENT, {"path": "test.txt", "content": "data"})
 

@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING, Any, Callable, Coroutine, Optional, Union
 
 if TYPE_CHECKING:
     from mcp_guide.task_manager import TaskManager
-    from mcp_guide.workflow.task_manager import WorkflowTaskManager
 
 from mcp_core.mcp_log import get_logger
 from mcp_core.result import Result
@@ -36,13 +35,6 @@ _test_mode: ContextVar[bool] = ContextVar("tool_test_mode", default=False)
 
 # Global TaskManager instance for result processing
 _task_manager: Optional["TaskManager"] = None
-_workflow_task_manager: Optional["WorkflowTaskManager"] = None
-
-
-def set_workflow_task_manager(workflow_task_manager: "WorkflowTaskManager") -> None:
-    """Set the global WorkflowTaskManager instance."""
-    global _workflow_task_manager
-    _workflow_task_manager = workflow_task_manager
 
 
 @cache
@@ -73,29 +65,20 @@ def set_task_manager(task_manager: Optional["TaskManager"]) -> None:
     Args:
         task_manager: TaskManager instance or None to clear
     """
-    global _task_manager, _workflow_task_manager
-    # Import here to avoid circular dependency with task_manager module
-    from mcp_guide.task_manager import get_task_manager
-
-    _task_manager = get_task_manager() if task_manager is not None else None
-
-    if task_manager:
-        # Import here to avoid circular dependency with workflow.task_manager module
-        from mcp_guide.workflow.task_manager import WorkflowTaskManager
-
-        _workflow_task_manager = WorkflowTaskManager(task_manager)
-    else:
-        _workflow_task_manager = None
-
-
-async def _manage_workflow_task() -> None:
-    """Delegate workflow management to dedicated manager."""
-    if _workflow_task_manager:
-        await _workflow_task_manager.manage_workflow_task()
+    global _task_manager
+    _task_manager = task_manager
 
 
 async def _process_tool_result(result: Any, tool_name: str) -> Any:
     """Process tool result through TaskManager and convert to JSON."""
+    # Call on_tool immediately
+    if _task_manager is not None:
+        try:
+            logger.trace(f"Calling on_tool at start of {tool_name}")
+            await _task_manager.on_tool()
+        except Exception as e:
+            logger.error(f"on_tool execution failed at start of {tool_name}: {e}")
+
     # If result is already a JSON string, return as-is
     if isinstance(result, str):
         return result
@@ -108,12 +91,6 @@ async def _process_tool_result(result: Any, tool_name: str) -> Any:
                 result = await _task_manager.process_result(result)
             except Exception as e:
                 logger.error(f"TaskManager processing failed for tool {tool_name}: {e}")
-
-        # Manage workflow tasks after tool execution
-        try:
-            await _manage_workflow_task()
-        except Exception as e:
-            logger.error(f"Workflow task management failed after tool {tool_name}: {e}")
 
         # Log final result and convert to JSON string
         _log_tool_result(tool_name, result)
