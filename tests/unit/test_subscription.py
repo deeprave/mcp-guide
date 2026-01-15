@@ -14,30 +14,32 @@ class MockSubscriber:
 
 
 def test_subscription_creation():
-    """Test Subscription creation with weak reference."""
+    """Test Subscription creation with strong reference."""
     subscriber = MockSubscriber()
 
     sub = Subscription(subscriber, EventType.FS_FILE_CONTENT)
 
-    assert sub.subscriber_ref() is subscriber
+    assert sub.subscriber is subscriber
     assert sub.event_types == EventType.FS_FILE_CONTENT
     assert not sub.is_timer()
 
 
 def test_subscription_weak_reference():
-    """Test weak reference behavior."""
+    """Test strong reference behavior (changed from weak)."""
     subscriber = MockSubscriber()
 
     sub = Subscription(subscriber, EventType.FS_FILE_CONTENT)
 
     # Subscriber should be accessible
-    assert sub.subscriber_ref() is subscriber
+    assert sub.subscriber is subscriber
 
-    # Delete subscriber
+    # Delete subscriber - with strong references, subscription keeps it alive
+    subscriber_id = id(subscriber)
     del subscriber
 
-    # Weak reference should return None
-    assert sub.subscriber_ref() is None
+    # Strong reference keeps subscriber alive
+    assert sub.subscriber is not None
+    assert id(sub.subscriber) == subscriber_id
 
 
 def test_subscription_multiple_event_types():
@@ -116,16 +118,18 @@ def test_subscription_hash():
 
 
 def test_subscription_cleanup_callback():
-    """Test weak reference behavior when subscriber is deleted."""
+    """Test strong reference behavior when subscriber is deleted."""
     subscriber = MockSubscriber()
 
     sub = Subscription(subscriber, EventType.FS_FILE_CONTENT)
 
     # Subscriber should be accessible initially
-    assert sub.subscriber_ref() is subscriber
+    assert sub.subscriber is subscriber
 
-    # Delete subscriber to trigger cleanup
+    # Delete subscriber - strong reference keeps it alive
+    subscriber_id = id(subscriber)
     del subscriber
 
-    # Weak reference should return None after cleanup
-    assert sub.subscriber_ref() is None
+    # Strong reference keeps subscriber alive
+    assert sub.subscriber is not None
+    assert id(sub.subscriber) == subscriber_id

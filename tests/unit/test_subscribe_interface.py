@@ -34,11 +34,11 @@ async def test_subscribe_basic(task_manager):
     """Test basic event subscription."""
     subscriber = MockSubscriber()
 
-    await task_manager.subscribe(subscriber, EventType.FS_FILE_CONTENT)
+    task_manager.subscribe(subscriber, EventType.FS_FILE_CONTENT)
 
     assert len(task_manager._subscriptions) == 1
     subscription = task_manager._subscriptions[0]
-    assert subscription.subscriber_ref() is subscriber
+    assert subscription.subscriber is subscriber
     assert subscription.event_types == EventType.FS_FILE_CONTENT
 
 
@@ -49,7 +49,7 @@ async def test_subscribe_multiple_event_types(task_manager):
 
     event_types = EventType.FS_FILE_CONTENT | EventType.FS_DIRECTORY
 
-    await task_manager.subscribe(subscriber, event_types)
+    task_manager.subscribe(subscriber, event_types)
 
     assert len(task_manager._subscriptions) == 1
     subscription = task_manager._subscriptions[0]
@@ -61,12 +61,12 @@ async def test_subscribe_timer_event(task_manager):
     """Test timer event subscription."""
     subscriber = MockSubscriber()
 
-    await task_manager.subscribe(subscriber, EventType.TIMER, timer_interval=1.0)
+    task_manager.subscribe(subscriber, EventType.TIMER, timer_interval=1.0)
 
     timer_subscriptions = [sub for sub in task_manager._subscriptions if sub.is_timer()]
     assert len(timer_subscriptions) == 1
     timer_sub = timer_subscriptions[0]
-    assert timer_sub.subscriber_ref() is subscriber
+    assert timer_sub.subscriber is subscriber
     assert timer_sub.event_types & EventType.TIMER
     assert timer_sub.interval == 1.0
 
@@ -78,7 +78,7 @@ async def test_subscribe_timer_with_other_events(task_manager):
 
     event_types = EventType.TIMER | EventType.FS_FILE_CONTENT
 
-    await task_manager.subscribe(subscriber, event_types, timer_interval=0.5)
+    task_manager.subscribe(subscriber, event_types, timer_interval=0.5)
 
     timer_subscriptions = [sub for sub in task_manager._subscriptions if sub.is_timer()]
     assert len(timer_subscriptions) == 1
@@ -93,8 +93,8 @@ async def test_subscribe_multiple_subscribers(task_manager):
     subscriber1 = MockSubscriber("sub1")
     subscriber2 = MockSubscriber("sub2")
 
-    await task_manager.subscribe(subscriber1, EventType.FS_FILE_CONTENT)
-    await task_manager.subscribe(subscriber2, EventType.FS_FILE_CONTENT)
+    task_manager.subscribe(subscriber1, EventType.FS_FILE_CONTENT)
+    task_manager.subscribe(subscriber2, EventType.FS_FILE_CONTENT)
 
     assert len(task_manager._subscriptions) == 2
 
@@ -105,9 +105,9 @@ async def test_unsubscribe_all(task_manager):
     subscriber = MockSubscriber()
 
     # Subscribe to multiple events
-    await task_manager.subscribe(subscriber, EventType.FS_FILE_CONTENT)
-    await task_manager.subscribe(subscriber, EventType.FS_DIRECTORY)
-    await task_manager.subscribe(subscriber, EventType.TIMER, timer_interval=1.0)
+    task_manager.subscribe(subscriber, EventType.FS_FILE_CONTENT)
+    task_manager.subscribe(subscriber, EventType.FS_DIRECTORY)
+    task_manager.subscribe(subscriber, EventType.TIMER, timer_interval=1.0)
 
     assert len(task_manager._subscriptions) == 3
 
@@ -123,8 +123,8 @@ async def test_unsubscribe_specific_subscriber(task_manager):
     subscriber1 = MockSubscriber("sub1")
     subscriber2 = MockSubscriber("sub2")
 
-    await task_manager.subscribe(subscriber1, EventType.FS_FILE_CONTENT)
-    await task_manager.subscribe(subscriber2, EventType.FS_FILE_CONTENT)
+    task_manager.subscribe(subscriber1, EventType.FS_FILE_CONTENT)
+    task_manager.subscribe(subscriber2, EventType.FS_FILE_CONTENT)
 
     assert len(task_manager._subscriptions) == 2
 
@@ -133,23 +133,27 @@ async def test_unsubscribe_specific_subscriber(task_manager):
 
     assert len(task_manager._subscriptions) == 1
     remaining_sub = task_manager._subscriptions[0]
-    assert remaining_sub.subscriber_ref() is subscriber2
+    assert remaining_sub.subscriber is subscriber2
 
 
 @pytest.mark.asyncio
 async def test_subscribe_weak_reference_cleanup(task_manager):
-    """Test weak reference cleanup during subscription management."""
+    """Test strong reference behavior (changed from weak references)."""
     subscriber = MockSubscriber()
 
-    await task_manager.subscribe(subscriber, EventType.FS_FILE_CONTENT)
+    task_manager.subscribe(subscriber, EventType.FS_FILE_CONTENT)
     assert len(task_manager._subscriptions) == 1
 
-    # Delete subscriber
+    # Store subscriber id before deletion
+    subscriber_id = id(subscriber)
+
+    # Delete subscriber - strong reference keeps it alive
     del subscriber
 
-    # Subscription should still exist but with dead weak reference
+    # Subscription still exists and keeps subscriber alive
     assert len(task_manager._subscriptions) == 1
-    assert task_manager._subscriptions[0].subscriber_ref() is None
+    assert task_manager._subscriptions[0].subscriber is not None
+    assert id(task_manager._subscriptions[0].subscriber) == subscriber_id
 
 
 @pytest.mark.asyncio
@@ -158,7 +162,7 @@ async def test_subscribe_auto_timer_event_type(task_manager):
     subscriber = MockSubscriber()
 
     # Subscribe with timer interval but no timer event type
-    await task_manager.subscribe(subscriber, EventType.FS_FILE_CONTENT, timer_interval=1.0)
+    task_manager.subscribe(subscriber, EventType.FS_FILE_CONTENT, timer_interval=1.0)
 
     timer_subscriptions = [sub for sub in task_manager._subscriptions if sub.is_timer()]
     assert len(timer_subscriptions) == 1
@@ -177,10 +181,10 @@ async def test_subscribe_parameter_validation(task_manager):
 
     # Invalid timer interval
     with pytest.raises(ValueError, match="Timer interval must be positive"):
-        await task_manager.subscribe(subscriber, EventType.TIMER, timer_interval=0)
+        task_manager.subscribe(subscriber, EventType.TIMER, timer_interval=0)
 
     with pytest.raises(ValueError, match="Timer interval must be positive"):
-        await task_manager.subscribe(subscriber, EventType.TIMER, timer_interval=-1.0)
+        task_manager.subscribe(subscriber, EventType.TIMER, timer_interval=-1.0)
 
 
 @pytest.mark.asyncio
@@ -189,8 +193,8 @@ async def test_unique_timer_event_assignment(task_manager):
     subscriber1 = MockSubscriber("sub1")
     subscriber2 = MockSubscriber("sub2")
 
-    await task_manager.subscribe(subscriber1, EventType.FS_FILE_CONTENT, timer_interval=1.0)
-    await task_manager.subscribe(subscriber2, EventType.FS_FILE_CONTENT, timer_interval=2.0)
+    task_manager.subscribe(subscriber1, EventType.FS_FILE_CONTENT, timer_interval=1.0)
+    task_manager.subscribe(subscriber2, EventType.FS_FILE_CONTENT, timer_interval=2.0)
 
     timer_subscriptions = [sub for sub in task_manager._subscriptions if sub.is_timer()]
     timer1_event = timer_subscriptions[0].event_types
@@ -211,18 +215,16 @@ async def test_timer_bit_allocation_starts_at_2_16(task_manager):
     """Test timer unique bits start at 2^17 (131072)."""
     subscriber = MockSubscriber()
 
-    await task_manager.subscribe(subscriber, EventType.FS_FILE_CONTENT, timer_interval=1.0)
+    task_manager.subscribe(subscriber, EventType.FS_FILE_CONTENT, timer_interval=1.0)
 
     timer_subscriptions = [sub for sub in task_manager._subscriptions if sub.is_timer()]
     timer_event = timer_subscriptions[0].event_types
 
-    # The timer event includes: original events + TIMER flag + unique timer bit
-    # For FS_FILE_CONTENT (1) + TIMER (65536) + unique bit (131072) = 196609
-    expected_base = EventType.FS_FILE_CONTENT | EventType.TIMER  # 65537
-    unique_bits = timer_event.value - expected_base.value  # Extract unique timer bit
+    # The timer event includes: original events + unique timer bit (no TIMER flag added)
+    # For FS_FILE_CONTENT (1) + unique bit (131072) = 131073
+    unique_bits = timer_event.value - EventType.FS_FILE_CONTENT.value  # Extract unique timer bit
 
     assert unique_bits >= 131072  # Must be 2^17 or higher
-    assert unique_bits & (unique_bits - 1) == 0  # Must be power of 2
 
 
 @pytest.mark.asyncio
@@ -232,7 +234,7 @@ async def test_timer_original_event_types_preserved(task_manager):
 
     original_events = EventType.FS_FILE_CONTENT | EventType.FS_DIRECTORY
 
-    await task_manager.subscribe(subscriber, original_events, timer_interval=1.0)
+    task_manager.subscribe(subscriber, original_events, timer_interval=1.0)
 
     timer_subscriptions = [sub for sub in task_manager._subscriptions if sub.is_timer()]
     timer_sub = timer_subscriptions[0]
@@ -247,15 +249,15 @@ async def test_multiple_timer_unique_assignment(task_manager):
     # Create 3 timer subscriptions
     for i in range(3):
         subscriber = MockSubscriber(f"sub{i}")
-        await task_manager.subscribe(subscriber, EventType.FS_FILE_CONTENT, timer_interval=1.0)
+        task_manager.subscribe(subscriber, EventType.FS_FILE_CONTENT, timer_interval=1.0)
 
-    # Check they get sequential powers of 2 starting at 2^17
-    expected_bits = [131072, 262144, 524288]  # 2^17, 2^18, 2^19
+    # Check they get sequential counter values shifted left by 17
+    # Counter starts at 1: (1 << 17), (2 << 17), (3 << 17)
+    expected_bits = [131072, 262144, 393216]  # 1<<17, 2<<17, 3<<17
 
     timer_subscriptions = [sub for sub in task_manager._subscriptions if sub.is_timer()]
     for i, expected_bit in enumerate(expected_bits):
         timer_event = timer_subscriptions[i].event_types
-        # Extract unique timer bit by subtracting base events
-        expected_base = EventType.FS_FILE_CONTENT | EventType.TIMER  # 65537
-        unique_bits = timer_event.value - expected_base.value
+        # Extract unique timer bit by subtracting base events and TIMER flag
+        unique_bits = timer_event.value - EventType.FS_FILE_CONTENT.value - EventType.TIMER.value
         assert unique_bits == expected_bit

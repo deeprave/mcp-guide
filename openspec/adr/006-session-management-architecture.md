@@ -48,7 +48,7 @@ class ProjectConfigManager:
         if self._initialized:
             return
         self.config_file = Path.home() / ".config" / "mcp-guide" / "config.yaml"
-        self._file_lock = FileLock(self.config_file.with_suffix('.lock'))
+        self._file_lock = None  # Using lock_update function instead
         self._initialized = True
 
     def get_or_create_project_config(self, project_name: str) -> Project:
@@ -290,12 +290,11 @@ async def guide_get_category(name: str, ctx: Context) -> Result[dict]:
 ## Implementation Notes
 
 ### File Locking
-Use `filelock` package for portable file locking:
+Use custom `lock_update` function for network-friendly file locking:
 ```python
-from filelock import FileLock
+from mcp_guide.file_lock import lock_update
 
-with FileLock(config_file.with_suffix('.lock')):
-    # Atomic read/write operations
+await lock_update(config_file, update_function, *args, **kwargs)
 ```
 
 ### YAML Format

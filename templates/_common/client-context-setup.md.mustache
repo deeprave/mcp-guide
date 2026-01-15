@@ -1,0 +1,23 @@
+---
+type: agent/instruction
+description: Instructions for collecting basic client OS information
+---
+Please collect basic client OS information and send it using the {{tool_prefix}}send_file_content tool with path '.client-os.json':
+
+**Required JSON format:**
+```json
+{
+  "client": {
+    "os": "$(uname -s)",
+    "platform": "$(uname -m)",
+    "hostname": "$(hostname)"
+  }
+}
+```
+
+**Cross-platform commands:**
+- `uname -s` - OS name (Linux, Darwin, MINGW64_NT, etc.)
+- `uname -m` - Machine architecture
+- `hostname` - System hostname
+
+Send this data as JSON using: `{{tool_prefix}}send_file_content` with path `.client-os.json`

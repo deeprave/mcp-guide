@@ -70,6 +70,33 @@ def validate_template_styling(value: FeatureValue, is_project: bool) -> bool:
     return value in [None, "plain", "headings", "full"]
 
 
+def validate_allow_client_info(value: FeatureValue, is_project: bool) -> bool:
+    """Validate allow-client-info flag value.
+
+    This flag is global-only and cannot be set at project level.
+
+    Args:
+        value: Flag value to validate
+        is_project: True if this is a project flag, False if global
+
+    Returns:
+        True if value is valid, False otherwise
+    """
+    # Reject project-level setting
+    if is_project:
+        return False
+
+    # Accept enable values (will be normalized to True)
+    if value is True or value in ["true", "enabled", "on"]:
+        return True
+
+    # Accept disable values (will be normalized to None)
+    if value is False or value is None or value in ["false", "disabled", "off"]:
+        return True
+
+    return False
+
+
 def register_flag_validator(flag_name: str, validator: Callable[[FeatureValue, bool], bool]) -> None:
     """Register a validator function for a specific flag.
 
@@ -109,3 +136,4 @@ def clear_validators() -> None:
 # Register validators
 register_flag_validator("content-format-mime", validate_content_format_mime)
 register_flag_validator("template-styling", validate_template_styling)
+register_flag_validator("allow-client-info", validate_allow_client_info)

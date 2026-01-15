@@ -5,7 +5,7 @@ from collections import ChainMap
 from collections.abc import MutableMapping
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, Generator, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, Generator, Optional, Tuple
 
 from mcp_core.mcp_log import get_logger
 
@@ -154,10 +154,14 @@ class TemplateContext(ChainMap[str, Any]):
         self.maps[0].pop(key, None)
 
 
-def _convert_to_template_safe(value: Any) -> Union[str, int, float, bool]:
+def _convert_to_template_safe(value: Any) -> Any:
     """Convert value to template-safe representation."""
     if value is None:
         return ""
+    if isinstance(value, dict):
+        return {k: _convert_to_template_safe(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_convert_to_template_safe(item) for item in value]
     if isinstance(value, (datetime,)):
         return value.isoformat()
     if isinstance(value, Path):
@@ -202,10 +206,11 @@ def build_template_context(
     project_data: Optional[Dict[str, Any]] = None,
     collection_data: Optional[Dict[str, Any]] = None,
     category_data: Optional[Dict[str, Any]] = None,
+    client_data: Optional[Dict[str, Any]] = None,
 ) -> TemplateContext:
     """Build base template context with static data sources.
 
-    Priority order (highest to lowest): collection > category > project > agent > system
+    Priority order (highest to lowest): collection > category > project > agent > client > system
     Note: file_data is added per-file using new_child() during rendering loop
     """
     # Convert and validate all data sources
@@ -220,6 +225,8 @@ def build_template_context(
         layers.append(_validate_and_convert_data(project_data))
     if agent_data:
         layers.append(_validate_and_convert_data(agent_data))
+    if client_data:
+        layers.append(_validate_and_convert_data(client_data))
     if system_data:
         layers.append(_validate_and_convert_data(system_data))
 
@@ -284,3 +291,20 @@ def get_transient_context(base_context: TemplateContext) -> TemplateContext:
         "timestamp": int(time.time()),
     }
     return base_context.new_child(transient_data)
+
+
+def get_user_context() -> Dict[str, Any]:
+    """Collect user information for template context from client environment.
+
+    This function will be populated with data sent from the client via MCP tools.
+    For now, returns empty structure until client data is received.
+    """
+    return {
+        "name": "",
+        "fullname": "",
+        "firstname": "",
+        "lastname": "",
+        "uid": 0,
+        "gids": [],
+        "login_time": "",
+    }

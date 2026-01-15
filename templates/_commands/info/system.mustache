@@ -1,0 +1,46 @@
+---
+type: user/information
+description: Shows system information for both server and client
+category: "info"
+usage: ":info/system"
+aliases:
+  - system
+examples:
+  - ":info/system"
+---
+{{h1}}System Information
+
+{{h2}}Server System
+{{b}}OS:{{b}} {{server.os}}
+{{b}}Platform:{{b}} {{server.platform}}
+{{b}}Hostname:{{b}} {{server.hostname}}
+{{#server.python_version}}
+{{b}}Python:{{b}} {{server.python_version}}
+{{/server.python_version}}
+{{#server.cwd}}
+{{b}}Working Directory:{{b}} {{server.cwd}}
+{{/server.cwd}}
+
+{{h2}}Client System
+{{#agent.feature_flags.allow-client-info}}
+{{#client.os}}
+{{b}}OS:{{b}} {{client.os}}
+{{b}}Platform:{{b}} {{client.platform}}
+{{b}}Hostname:{{b}} {{client.hostname}}
+{{#user.name}}
+{{b}}User:{{b}} {{user.name}}
+{{/user.name}}
+{{#repo.remotes}}
+{{b}}Git Remote:{{b}} {{repo.origin.fetch_url}}
+{{/repo.remotes}}
+{{/client.os}}
+{{^client.os}}
+{{i}}Client information not yet available{{i}}
+{{/client.os}}
+{{/agent.feature_flags.allow-client-info}}
+{{^agent.feature_flags.allow-client-info}}
+{{i}}Client information collection is disabled{{i}}
+
+To enable client info collection:
+  guide_set_feature_flag with feature_name="allow-client-info" and value=true
+{{/agent.feature_flags.allow-client-info}}

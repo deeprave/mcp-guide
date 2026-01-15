@@ -4,16 +4,16 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 
 from mcp_core.mcp_log import get_logger
+from mcp_guide.decorators import task_init
 from mcp_guide.models import FileReadError, NoProjectError
+from mcp_guide.task_manager import EventType, get_task_manager
 from mcp_guide.workflow.change_detection import ChangeEvent, detect_workflow_changes
 from mcp_guide.workflow.instruction_generator import get_instruction_template_for_change
 from mcp_guide.workflow.parser import parse_workflow_state
+from mcp_guide.workflow.rendering import render_workflow_template
 
 if TYPE_CHECKING:
-    from mcp_guide.task_manager import EventType, TaskManager
-
-    # Import WorkflowTaskManager only for type checking to avoid circular import:
-    # WorkflowTaskManager -> WorkflowMonitorTask -> WorkflowTaskManager
+    from mcp_guide.task_manager import TaskManager
 
 logger = get_logger(__name__)
 
@@ -21,6 +21,7 @@ logger = get_logger(__name__)
 WORKFLOW_INTERVAL = 120.0
 
 
+@task_init
 class WorkflowMonitorTask:
     """Scheduled background monitoring task for workflow state changes."""
 
@@ -31,25 +32,40 @@ class WorkflowMonitorTask:
 
     def __init__(
         self,
-        workflow_file_path: str,
-        task_manager: Optional["TaskManager"] = None,
+        workflow_file_path: Optional[str] = None,
     ):
+        # Use default workflow file if none provided
+        if workflow_file_path is None:
+            from mcp_guide.workflow.constants import DEFAULT_WORKFLOW_FILE
+
+            workflow_file_path = str(DEFAULT_WORKFLOW_FILE)
+
         self.workflow_file_path = workflow_file_path
 
-        # TaskManager is a singleton, so get it if not provided
-        if task_manager is None:
-            from mcp_guide.task_manager import get_task_manager
-
-            task_manager = get_task_manager()
-        self.task_manager: "TaskManager" = task_manager
+        # Get the singleton TaskManager
+        self.task_manager: "TaskManager" = get_task_manager()
 
         self._cached_content: Optional[str] = None
         self._cached_mtime: Optional[float] = None
+        self._setup_done = False
+
+        # Subscribe self to task manager
+        self.task_manager.subscribe(self, EventType.TIMER | EventType.FS_FILE_CONTENT, WORKFLOW_INTERVAL)
+
+    async def on_tool(self) -> None:
+        """Called after tool/prompt execution."""
+        logger.trace(f"WorkflowMonitorTask.on_tool called, _setup_done={self._setup_done}")
+        if not self._setup_done:
+            try:
+                content = await render_workflow_template("monitoring-setup")
+                await self.task_manager.queue_instruction(content)
+                self._setup_done = True
+                logger.trace("WorkflowMonitorTask.on_tool: Queued setup instruction")
+            except Exception as e:
+                logger.warning(f"Failed to queue workflow setup: {e}")
 
     async def handle_event(self, event_type: "EventType", data: dict[str, Any]) -> bool:
         """Handle task manager events."""
-        from mcp_guide.task_manager.interception import EventType
-
         logger.trace(f"WorkflowMonitorTask received event: {event_type} for path: {data.get('path', 'unknown')}")
 
         # Handle timer events for monitoring reminders
@@ -67,12 +83,8 @@ class WorkflowMonitorTask:
 
     async def _handle_monitoring_reminder(self) -> None:
         """Handle timer events for monitoring reminders."""
-        # Import at runtime to avoid circular import: WorkflowTaskManager -> WorkflowMonitorTask -> WorkflowTaskManager
-        from mcp_guide.workflow.task_manager import WorkflowTaskManager
-
-        # Use the existing workflow instruction system
         try:
-            content = await WorkflowTaskManager.render_workflow_template("monitoring-reminder")
+            content = await render_workflow_template("monitoring-reminder")
             await self.task_manager.queue_instruction(content)
         except (NoProjectError, FileReadError) as e:
             logger.warning(f"Monitoring reminder failed due to configuration issue: {e}")
@@ -107,11 +119,8 @@ class WorkflowMonitorTask:
 
             # Always queue monitoring instruction after successful parse (maintains original behaviour)
             # This ensures the critical "MUST send file content" instruction is always provided
-            # Import at runtime to avoid circular import: WorkflowTaskManager -> WorkflowMonitorTask -> WorkflowTaskManager
-            from mcp_guide.workflow.task_manager import WorkflowTaskManager
-
             try:
-                content = await WorkflowTaskManager.render_workflow_template("monitoring-result")
+                content = await render_workflow_template("monitoring-result")
                 await self.task_manager.queue_instruction(content)
             except (NoProjectError, FileReadError) as e:
                 logger.warning(f"Monitoring result failed due to configuration issue: {e}")
@@ -132,9 +141,6 @@ class WorkflowMonitorTask:
         Returns:
             Rendered change content for main response, or None if no content to return
         """
-        # Import at runtime to avoid circular import: WorkflowTaskManager -> WorkflowMonitorTask -> WorkflowTaskManager
-        from mcp_guide.workflow.task_manager import WorkflowTaskManager
-
         # Process each change using existing workflow instruction system
         rendered_contents = []
         for change in changes:
@@ -145,7 +151,7 @@ class WorkflowMonitorTask:
 
             # Render template content for main response
             try:
-                content = await WorkflowTaskManager.render_workflow_template(template_pattern)
+                content = await render_workflow_template(template_pattern)
                 rendered_contents.append(content)
                 logger.trace(
                     f"Rendered workflow content for {change.change_type.value} using pattern: {template_pattern}"

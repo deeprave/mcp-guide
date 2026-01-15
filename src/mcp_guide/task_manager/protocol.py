@@ -31,3 +31,11 @@ class TaskSubscriber(Protocol):
             True if the event was handled, False otherwise
         """
         ...
+
+    async def on_tool(self) -> None:
+        """Called after every tool/prompt execution.
+
+        Tasks can implement this to perform actions after tool/prompt execution.
+        Default implementation does nothing.
+        """
+        ...

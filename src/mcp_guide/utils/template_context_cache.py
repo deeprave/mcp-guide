@@ -34,15 +34,35 @@ class TemplateContextCache(SessionListener):
 
         from mcp_guide.utils.template_context import TemplateContext
 
-        system_vars = {
-            "system": {
+        server_vars = {
+            "server": {
                 "os": platform.system(),
                 "platform": platform.platform(),
                 "python_version": platform.python_version(),
             }
         }
 
-        return TemplateContext(system_vars)
+        return TemplateContext(server_vars)
+
+    async def _build_client_context(self) -> "TemplateContext":
+        """Build client context from cached client data."""
+        from mcp_guide.task_manager import get_task_manager
+        from mcp_guide.utils.template_context import TemplateContext
+
+        task_manager = get_task_manager()
+        client_os_info = task_manager.get_cached_data("client_os_info") or {}
+        client_context_info = task_manager.get_cached_data("client_context_info") or {}
+
+        # Merge client data
+        client_vars: dict[str, Any] = {"client": {}}
+        if "client" in client_os_info:
+            client_vars["client"].update(client_os_info["client"])
+        if "user" in client_context_info:
+            client_vars["user"] = client_context_info["user"]
+        if "repo" in client_context_info:
+            client_vars["repo"] = client_context_info["repo"]
+
+        return TemplateContext(client_vars)
 
     async def _build_agent_context(self) -> "TemplateContext":
         """Build agent context with @ symbol default and agent info if available."""
@@ -116,12 +136,6 @@ class TemplateContextCache(SessionListener):
             agent_vars["tasks"] = task_manager.get_task_statistics()
         except Exception as e:
             logger.debug(f"Failed to get task statistics: {e}")
-
-        # Convert to enum and get styling variables
-        from mcp_guide.utils.formatter_selection import TemplateStyling, get_styling_variables
-
-        styling = TemplateStyling.from_flag_value(styling_value)
-        formatting_vars = get_styling_variables(styling)
 
         agent_vars.update(formatting_vars)
 
@@ -381,11 +395,12 @@ class TemplateContextCache(SessionListener):
 
         # Build contexts
         system_context = await self._build_system_context()
+        client_context = await self._build_client_context()
         agent_context = await self._build_agent_context()
         project_context = await self._build_project_context()
 
-        # Create layered context: project context with agent and system as parents
-        layered_context = project_context.new_child(agent_context.new_child(system_context))
+        # Create layered context: project → agent → client → system
+        layered_context = project_context.new_child(agent_context.new_child(client_context.new_child(system_context)))
 
         # Add category context if requested (not cached)
         if category_name is not None:
@@ -446,6 +461,12 @@ class TemplateContextCache(SessionListener):
 
 # Global instance for use across the application
 template_context_cache = TemplateContextCache()
+
+
+def invalidate_template_contexts() -> None:
+    """Invalidate the template context cache."""
+    _template_contexts.set(None)
+    logger.debug("Template context cache invalidated")
 
 
 async def get_template_context_if_needed(

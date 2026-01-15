@@ -229,8 +229,16 @@ async def internal_set_feature_flag(args: SetFeatureFlagArgs, ctx: Optional[Cont
     except ValueError as e:
         return Result.failure(str(e), error_type=ERROR_NO_PROJECT, instruction=INSTRUCTION_NO_PROJECT)
 
+    # Normalize allow-client-info flag values
+    normalized_value = args.value
+    if args.feature_name == "allow-client-info" and args.value is not None:
+        if args.value in [True, "true", "enabled", "on"]:
+            normalized_value = True
+        elif args.value in [False, "false", "disabled", "off"]:
+            normalized_value = None
+
     try:
-        if args.value is None:
+        if normalized_value is None:
             # Remove flag
             flags_proxy = session.feature_flags()
             await flags_proxy.remove(args.feature_name)
@@ -238,8 +246,8 @@ async def internal_set_feature_flag(args: SetFeatureFlagArgs, ctx: Optional[Cont
         else:
             # Set flag
             flags_proxy = session.feature_flags()
-            await flags_proxy.set(args.feature_name, args.value)
-            return Result.ok(f"Global flag '{args.feature_name}' set to {repr(args.value)}")
+            await flags_proxy.set(args.feature_name, normalized_value)
+            return Result.ok(f"Global flag '{args.feature_name}' set to {repr(normalized_value)}")
 
     except OSError as e:
         return Result.failure(f"Failed to save configuration: {e}", error_type="config_write_error")

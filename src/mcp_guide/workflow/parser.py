@@ -34,6 +34,7 @@ def parse_workflow_state(content: str) -> Optional[WorkflowState]:
         field_mappings = {
             "Phase": "phase",
             "Issue": "issue",
+            "Plan": "plan",
             "Tracking": "tracking",
             "Description": "description",
             "Queue": "queue",
