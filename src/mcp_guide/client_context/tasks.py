@@ -22,53 +22,45 @@ class ClientContextTask:
             task_manager = get_task_manager()
         self.task_manager = task_manager
         self._os_info_requested = False
-        self._enabled = False
+        self._flag_checked = False
 
-        # Check if allow-client-info flag is enabled
-        try:
-            from mcp_guide.session import get_current_session
-
-            session = get_current_session()
-            if session:
-                import asyncio
-
-                flags = asyncio.run(session.feature_flags().list())
-                self._enabled = flags.get("allow-client-info", False) is True
-        except (ImportError, AttributeError, RuntimeError) as e:
-            logger.debug(f"Failed to check allow-client-info flag: {e}")
-            self._enabled = False
-        except Exception as e:
-            logger.warning(f"Unexpected error checking allow-client-info flag: {e}")
-            self._enabled = False
-
-        if self._enabled:
-            # Subscribe with both TIMER_ONCE and FS_FILE_CONTENT
-            self.task_manager.subscribe(self, EventType.TIMER_ONCE | EventType.FS_FILE_CONTENT, 0.1)
-            logger.debug("ClientContextTask enabled - subscribed to events")
-        else:
-            logger.debug("ClientContextTask disabled - allow-client-info flag not set")
+        # Always subscribe - flag check happens in on_tool()
+        self.task_manager.subscribe(self, EventType.TIMER_ONCE | EventType.FS_FILE_CONTENT, 0.1)
 
     def get_name(self) -> str:
         """Get a readable name for the task."""
         return "ClientContextTask"
 
     async def on_tool(self) -> None:
-        """Called after tool/prompt execution. Do nothing."""
-        logger.trace("ClientContextTask.on_tool called (no-op)")
-        pass
+        """Check flag and unsubscribe if disabled."""
+        if self._flag_checked:
+            return
+
+        self._flag_checked = True
+
+        # Check if allow-client-info flag is enabled
+        try:
+            from mcp_guide.session import get_or_create_session
+
+            session = await get_or_create_session()
+            flags = await session.feature_flags().list()
+            enabled = flags.get("allow-client-info", False) is True
+
+            if not enabled:
+                # Unsubscribe if flag is not set
+                await self.task_manager.unsubscribe(self)
+                logger.debug("ClientContextTask disabled - allow-client-info flag not set")
+        except Exception as e:
+            logger.warning(f"Failed to check allow-client-info flag, unsubscribing: {e}")
+            await self.task_manager.unsubscribe(self)
 
     async def request_basic_os_info(self) -> None:
         """Request basic OS information from client."""
-        if not self._enabled:
-            return
         content = await render_common_template("client-context-setup")
         await self.task_manager.queue_instruction(content)
 
     async def handle_event(self, event_type: EventType, data: dict[str, Any]) -> bool:
         """Handle task manager events."""
-        if not self._enabled:
-            return False
-
         import json
         from pathlib import Path
 
@@ -125,8 +117,6 @@ class ClientContextTask:
 
     async def _request_detailed_context(self, os_info: dict[str, Any]) -> None:
         """Request detailed context based on OS info."""
-        if not self._enabled:
-            return
         client_data = os_info.get("client", {})
         content = await render_common_template("client-context-detailed", {"client": client_data})
         await self.task_manager.queue_instruction(content)
