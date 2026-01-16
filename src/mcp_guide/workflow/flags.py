@@ -3,7 +3,8 @@
 from dataclasses import dataclass
 from typing import Optional, Union
 
-from mcp_guide.feature_flags.types import WORKFLOW_FILE_FLAG, WORKFLOW_FLAG, FeatureValue
+from mcp_guide.feature_flags.constants import FLAG_WORKFLOW, FLAG_WORKFLOW_FILE
+from mcp_guide.feature_flags.types import FeatureValue
 from mcp_guide.feature_flags.validators import register_flag_validator
 from mcp_guide.filesystem.read_write_security import ReadWriteSecurityPolicy, SecurityError
 from mcp_guide.workflow.constants import (
@@ -171,5 +172,5 @@ def _validate_workflow_file_flag(value: FeatureValue, is_project: bool) -> bool:
 
 
 # Register validators at module import
-register_flag_validator(WORKFLOW_FLAG, _validate_workflow_flag)
-register_flag_validator(WORKFLOW_FILE_FLAG, _validate_workflow_file_flag)
+register_flag_validator(FLAG_WORKFLOW, _validate_workflow_flag)
+register_flag_validator(FLAG_WORKFLOW_FILE, _validate_workflow_file_flag)

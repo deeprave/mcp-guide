@@ -63,12 +63,11 @@ async def internal_send_directory_listing(
 ) -> Result[Dict[str, Any]]:
     """Internal function to send directory listing from agent filesystem to server."""
     try:
-        result = await fs_send_directory_listing(
+        return await fs_send_directory_listing(
             context=ctx,
             path=args.path,
             files=args.entries,
         )
-        return Result.ok(result)
     except Exception as e:
         return Result.failure(error=f"Error processing directory listing: {str(e)}", error_type="unknown")
 
@@ -79,13 +78,12 @@ async def internal_send_command_location(
 ) -> Result[Dict[str, Any]]:
     """Internal function to send command location from agent filesystem to server."""
     try:
-        result = await fs_send_command_location(
+        return await fs_send_command_location(
             context=ctx,
             command=args.command,
             path=args.location,
             found=args.location is not None,
         )
-        return Result.ok(result)
     except Exception as e:
         return Result.failure(error=f"Error processing command location: {str(e)}", error_type="unknown")
 
@@ -96,11 +94,10 @@ async def internal_send_working_directory(
 ) -> Result[Dict[str, Any]]:
     """Internal function to send working directory from agent filesystem to server."""
     try:
-        result = await fs_send_working_directory(
+        return await fs_send_working_directory(
             context=ctx,
             working_directory=args.path,
         )
-        return Result.ok(result)
     except Exception as e:
         return Result.failure(error=f"Error processing working directory: {str(e)}", error_type="unknown")
 

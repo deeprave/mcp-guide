@@ -14,6 +14,7 @@ class EventType(IntFlag):
     FS_DIRECTORY = 2
     FS_COMMAND = 4
     FS_CWD = 8
+    FS_FOUND_FILES = 16
     TIMER = 65536  # 2^16
     TIMER_ONCE = 32768  # 2^15 - Timer that fires once then auto-unsubscribes
 

@@ -2,6 +2,7 @@
 
 from typing import Callable, Dict
 
+from mcp_guide.feature_flags.constants import FLAG_ALLOW_CLIENT_INFO, FLAG_CONTENT_FORMAT_MIME
 from mcp_guide.feature_flags.types import FeatureValue
 from mcp_guide.feature_flags.types import validate_feature_value_type as validate_flag_value
 from mcp_guide.models import _NAME_REGEX
@@ -134,6 +135,6 @@ def clear_validators() -> None:
 
 
 # Register validators
-register_flag_validator("content-format-mime", validate_content_format_mime)
+register_flag_validator(FLAG_CONTENT_FORMAT_MIME, validate_content_format_mime)
 register_flag_validator("template-styling", validate_template_styling)
-register_flag_validator("allow-client-info", validate_allow_client_info)
+register_flag_validator(FLAG_ALLOW_CLIENT_INFO, validate_allow_client_info)

@@ -4,7 +4,7 @@ from contextvars import ContextVar
 from typing import TYPE_CHECKING, Any, Optional
 
 from mcp_guide.core.mcp_log import get_logger
-from mcp_guide.feature_flags.types import WORKFLOW_FILE_FLAG, WORKFLOW_FLAG
+from mcp_guide.feature_flags.constants import FLAG_WORKFLOW, FLAG_WORKFLOW_FILE
 from mcp_guide.workflow.constants import DEFAULT_WORKFLOW_FILE
 from mcp_guide.workflow.flags import parse_workflow_phases, substitute_variables
 
@@ -259,7 +259,7 @@ class TemplateContextCache(SessionListener):
                 resolved_flags = await resolve_all_flags(session)
 
                 # Resolve workflow flag
-                workflow_flag = resolved_flags.get(WORKFLOW_FLAG)
+                workflow_flag = resolved_flags.get(FLAG_WORKFLOW)
                 if workflow_flag is not None and isinstance(workflow_flag, (bool, list)):
                     parsed_config = parse_workflow_phases(workflow_flag)
                     if parsed_config.enabled:
@@ -270,7 +270,7 @@ class TemplateContextCache(SessionListener):
                         }
 
                         # Resolve workflow-file flag
-                        workflow_file_flag = resolved_flags.get(WORKFLOW_FILE_FLAG)
+                        workflow_file_flag = resolved_flags.get(FLAG_WORKFLOW_FILE)
                         if workflow_file_flag and isinstance(workflow_file_flag, str):
                             # Substitute variables in workflow file path
                             workflow_file = substitute_variables(

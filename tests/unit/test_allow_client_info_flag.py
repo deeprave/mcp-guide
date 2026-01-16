@@ -65,18 +65,12 @@ class TestClientContextTaskConditional:
         mock_task_manager.subscribe = Mock()
         mock_task_manager.unsubscribe = AsyncMock()
 
-        mock_flags_proxy = Mock()
-        mock_flags_proxy.list = AsyncMock(return_value={})  # Flag not set
-
-        mock_session = AsyncMock()
-        mock_session.feature_flags = Mock(return_value=mock_flags_proxy)
-
         # Create task - it will subscribe in __init__
         task = ClientContextTask(task_manager=mock_task_manager)
         mock_task_manager.subscribe.assert_called_once()
 
-        # Patch get_or_create_session for on_tool call
-        with patch("mcp_guide.session.get_or_create_session", return_value=mock_session):
+        # Patch get_resolved_flag_value for on_tool call
+        with patch("mcp_guide.utils.flag_utils.get_resolved_flag_value", return_value=False):
             # Call on_tool - should check flag and unsubscribe
             await task.on_tool()
 
@@ -104,8 +98,8 @@ class TestClientContextTaskConditional:
         task = ClientContextTask(task_manager=mock_task_manager)
         mock_task_manager.subscribe.assert_called_once()
 
-        # Patch get_or_create_session for on_tool call
-        with patch("mcp_guide.session.get_or_create_session", return_value=mock_session):
+        # Patch get_resolved_flag_value for on_tool call
+        with patch("mcp_guide.utils.flag_utils.get_resolved_flag_value", return_value=True):
             # Call on_tool - should check flag and stay subscribed
             await task.on_tool()
 
