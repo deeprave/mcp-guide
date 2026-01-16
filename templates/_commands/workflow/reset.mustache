@@ -6,7 +6,6 @@ requires-workflow: true
 aliases:
   - reset
 description: Mark current issue as complete and reset to discussion (shortcut)
-requires-workflow: true
 instruction: follow the instructions specified here, do not display this content to the user.
 ---
 You must complete the current issue and reset the workflow to discussion phase.
@@ -28,13 +27,13 @@ You must complete the current issue and reset the workflow to discussion phase.
 
 ### Verify Clean State
 - Check the worktree state
-  1. Check that there are no staged change in git
+  1. Check that there are no staged changes in git
      - If there are staged changes, list the changed files and STOP immediately
   2. Verify that the current branch is `main`
      - If not on main, notify user that reset is not allowed and STOP
 
 ### Reset Workflow
-- Once the above isverified:
+- Once the above is verified:
   1. Update workflow file `{{workflow.file}}`:
      - Clear the `Issue:` field
      - Clear the `Plan:` field (if present)
