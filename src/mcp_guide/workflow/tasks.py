@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 
-from mcp_core.mcp_log import get_logger
+from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.decorators import task_init
 from mcp_guide.models import FileReadError, NoProjectError
 from mcp_guide.task_manager import EventType, get_task_manager

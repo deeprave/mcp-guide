@@ -10,8 +10,8 @@ from typing import TYPE_CHECKING, Any, Callable, Optional, Union
 import yaml
 from anyio import Path as AsyncPath
 
-from mcp_core.file_reader import read_file_content
-from mcp_core.mcp_log import get_logger
+from mcp_guide.core.file_reader import read_file_content
+from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.file_lock import lock_update
 from mcp_guide.mcp_context import cache_mcp_globals
 from mcp_guide.models import _NAME_REGEX, Project, SessionState

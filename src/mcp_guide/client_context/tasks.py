@@ -2,7 +2,7 @@
 
 from typing import TYPE_CHECKING, Any, Optional
 
-from mcp_core.mcp_log import get_logger
+from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.decorators import task_init
 from mcp_guide.task_manager import EventType, get_task_manager
 from mcp_guide.workflow.rendering import render_common_template

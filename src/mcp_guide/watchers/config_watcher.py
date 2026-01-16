@@ -2,7 +2,7 @@
 
 from typing import Callable, Optional
 
-from mcp_core.path_watcher import PathWatcher
+from mcp_guide.core.path_watcher import PathWatcher
 
 
 class ConfigWatcher(PathWatcher):

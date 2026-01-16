@@ -6,7 +6,7 @@ This tool is for demonstration purposes only.
 
 from typing import Any, Literal, Optional
 
-from mcp_core.tool_arguments import ToolArguments
+from mcp_guide.core.tool_arguments import ToolArguments
 from mcp_guide.result import Result
 from mcp_guide.server import tools
 

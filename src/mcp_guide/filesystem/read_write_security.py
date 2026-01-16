@@ -3,7 +3,7 @@
 from pathlib import Path, PurePath
 from typing import Callable, List, Optional, Union
 
-from mcp_core.mcp_log import get_logger
+from mcp_guide.core.mcp_log import get_logger
 
 from .system_directories import is_system_directory
 from .temp_directories import is_safe_temp_path

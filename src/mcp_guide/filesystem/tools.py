@@ -4,7 +4,7 @@ import time
 from pathlib import Path
 from typing import Any, Dict, Optional, Union
 
-from mcp_core.result import Result
+from mcp_guide.core.result import Result
 from mcp_guide.filesystem.cache import FileCache
 from mcp_guide.filesystem.read_write_security import ReadWriteSecurityPolicy
 from mcp_guide.session import get_or_create_session

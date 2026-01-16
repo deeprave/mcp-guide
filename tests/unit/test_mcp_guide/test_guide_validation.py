@@ -2,7 +2,7 @@
 
 import pytest
 
-from mcp_core.validation import ArgValidationError
+from mcp_guide.core.validation import ArgValidationError
 from mcp_guide.models import Category, Project
 from mcp_guide.validation import validate_categories_exist, validate_category_exists
 

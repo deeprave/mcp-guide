@@ -4,7 +4,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from mcp_core.tool_decorator import ExtMcpToolDecorator
+from mcp_guide.core.tool_decorator import ExtMcpToolDecorator
 from mcp_guide.server import _ToolsProxy
 
 

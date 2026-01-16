@@ -5,7 +5,7 @@ import json
 import pytest
 from pydantic import ValidationError
 
-from mcp_core.tool_arguments import ToolArguments
+from mcp_guide.core.tool_arguments import ToolArguments
 from mcp_guide.models import Category, Collection, Project
 from mcp_guide.tools.tool_content import ContentArgs, get_content
 

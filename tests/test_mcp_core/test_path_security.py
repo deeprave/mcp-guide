@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from mcp_core.path_security import is_path_within_directory, resolve_safe_path
+from mcp_guide.core.path_security import is_path_within_directory, resolve_safe_path
 
 
 def test_resolve_safe_path_basic(tmp_path: Path) -> None:

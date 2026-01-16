@@ -1,4 +1,4 @@
-from mcp_core.result import Result
+from mcp_guide.core.result import Result
 from mcp_guide.result_constants import INSTRUCTION_DISPLAY_ONLY, INSTRUCTION_ERROR_MESSAGE
 
 __all__ = ("Result",)

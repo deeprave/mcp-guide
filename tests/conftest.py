@@ -231,7 +231,7 @@ async def call_mcp_tool(client, tool_name: str, args_model=None, **kwargs):
         result = await call_mcp_tool(client, "collection_add",
                                      name="backend", categories=["api"])
     """
-    from mcp_core.tool_decorator import get_tool_prefix
+    from mcp_guide.core.tool_decorator import get_tool_prefix
 
     # Always use the configured prefix
     prefix = get_tool_prefix().rstrip("_")
@@ -262,7 +262,7 @@ def assert_tool_registered(tool_names, tool_name):
         tool_names: List of registered tool names from server
         tool_name: Tool name to check (without prefix)
     """
-    from mcp_core.tool_decorator import get_tool_prefix
+    from mcp_guide.core.tool_decorator import get_tool_prefix
 
     # Always use the configured prefix
     prefix = get_tool_prefix().rstrip("_")

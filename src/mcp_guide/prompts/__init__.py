@@ -23,6 +23,6 @@ Note: Actual prompt implementations will be added as needed.
 """
 
 # Import Arguments as PromptArguments for semantic clarity
-from mcp_core.arguments import Arguments as PromptArguments
+from mcp_guide.core.arguments import Arguments as PromptArguments
 
 __all__ = ["PromptArguments"]

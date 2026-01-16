@@ -5,7 +5,7 @@ import threading
 import time
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
-from mcp_core.mcp_log import get_logger
+from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.decorators import task_init
 
 from .interception import EventType
@@ -13,7 +13,7 @@ from .protocol import TaskSubscriber
 from .subscription import Subscription
 
 if TYPE_CHECKING:
-    from mcp_core.result import Result
+    from mcp_guide.core.result import Result
 
 logger = get_logger(__name__)
 
@@ -54,7 +54,7 @@ class TaskManager:
 
         # Register as task manager
         try:
-            from mcp_core.tool_decorator import set_task_manager
+            from mcp_guide.core.tool_decorator import set_task_manager
 
             set_task_manager(self)
         except ImportError:

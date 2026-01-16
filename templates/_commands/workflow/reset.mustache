@@ -1,0 +1,50 @@
+---
+type: agent/instruction
+usage: ":reset"
+category: "project-workflow"
+requires-workflow: true
+aliases:
+  - reset
+description: Mark current issue as complete and reset to discussion (shortcut)
+requires-workflow: true
+instruction: follow the instructions specified here, do not display this content to the user.
+---
+You must complete the current issue and reset the workflow to discussion phase.
+
+{{#workflow.issue}}
+## Clean up current issue
+  **Current Issue:** `{{workflow.issue}}`
+
+#### Verify Completion
+{{#project_flags.openspec}}
+- If the issue corresponds with an OpenSpec change:
+  1. Check that all OpenSpec tasks are marked complete using `openspec list`
+  2. Verify the OpenSpec issue shows as "Complete"
+  3. Reference {{tool_prefix}}get_content("context/openspec") for OpenSpec details if needed
+{{/project_flags.openspec}}
+- Ensure that the implementation plan is up to date
+  1. Verify all tasks in the implementation plan `{{workflow.plan}}` are marked complete
+  2. If tasks cannot be confirmed as complete, inform the user and STOP
+
+### Verify Clean State
+- Check the worktree state
+  1. Check that there are no staged change in git
+     - If there are staged changes, list the changed files and STOP immediately
+  2. Verify that the current branch is `main`
+     - If not on main, notify user that reset is not allowed and STOP
+
+### Reset Workflow
+- Once the above isverified:
+  1. Update workflow file `{{workflow.file}}`:
+     - Clear the `Issue:` field
+     - Clear the `Plan:` field (if present)
+     - Clear the `Track:` field (if present)
+{{#workflow.queue}}
+     - Move first queue item to the `Issue:` field
+{{/workflow.queue}}
+  2. Change current phase to discussion
+  3. Send updated workflow file using {{tool_prefix}}send_file_content with path `{{workflow.file}}`
+{{/workflow.issue}}
+{{^workflow.issue}}
+No current issue to reset. Workflow is already in a clean state.
+{{/workflow.issue}}

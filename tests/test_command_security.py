@@ -260,7 +260,7 @@ class TestCommandErrorHandling:
             ]
 
             # Mock file reading to raise permission error
-            with patch("mcp_core.file_reader.aiofiles.open", side_effect=PermissionError("Permission denied")):
+            with patch("mcp_guide.core.file_reader.aiofiles.open", side_effect=PermissionError("Permission denied")):
                 result_str = await guide_function(":restricted", ctx=mock_ctx)
                 result = json.loads(result_str)
 

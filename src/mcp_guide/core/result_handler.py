@@ -5,8 +5,8 @@ from collections.abc import Awaitable, Callable
 from functools import wraps
 from typing import Optional, TypeVar
 
-from mcp_core.result import Result
-from mcp_core.validation import ArgValidationError
+from mcp_guide.core.result import Result
+from mcp_guide.core.validation import ArgValidationError
 
 T = TypeVar("T")
 

@@ -2,10 +2,10 @@
 
 
 def test_mcp_core_import() -> None:
-    """Test that mcp_core package can be imported."""
-    import mcp_core
+    """Test that mcp_guide.core package can be imported."""
+    import mcp_guide.core
 
-    assert mcp_core.__version__ == "0.5.0"
+    assert mcp_guide.core.__version__ == "0.5.0"
 
 
 def test_mcp_guide_import() -> None:

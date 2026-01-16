@@ -22,6 +22,6 @@ Note: Actual tool implementations will be added in separate changes.
 """
 
 # Import Arguments as ToolArguments for backward compatibility
-from mcp_core.arguments import Arguments as ToolArguments
+from mcp_guide.core.arguments import Arguments as ToolArguments
 
 __all__ = ["ToolArguments"]

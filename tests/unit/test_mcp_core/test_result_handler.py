@@ -2,8 +2,8 @@
 
 import pytest
 
-from mcp_core.result_handler import validate_result
-from mcp_core.validation import ArgValidationError
+from mcp_guide.core.result_handler import validate_result
+from mcp_guide.core.validation import ArgValidationError
 
 
 @pytest.mark.asyncio

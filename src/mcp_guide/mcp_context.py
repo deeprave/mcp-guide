@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 from urllib.parse import urlparse
 
-from mcp_core.mcp_log import get_logger
+from mcp_guide.core.mcp_log import get_logger
 
 try:
     from mcp.server.fastmcp import Context

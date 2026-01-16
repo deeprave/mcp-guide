@@ -7,8 +7,8 @@ from typing import TYPE_CHECKING, Any, Awaitable, Callable, Coroutine, List, Opt
 
 from anyio import Path as AsyncPath
 
-from mcp_core.mcp_log import get_logger
 from mcp_guide.config_constants import COMMANDS_DIR
+from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.prompts.command_parser import parse_command_arguments
 from mcp_guide.result import Result
 from mcp_guide.result_constants import INSTRUCTION_DISPLAY_ONLY

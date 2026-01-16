@@ -9,8 +9,8 @@ from typing import TYPE_CHECKING, Any, Callable, Coroutine, Optional, Union
 if TYPE_CHECKING:
     from mcp_guide.task_manager import TaskManager
 
-from mcp_core.mcp_log import get_logger
-from mcp_core.result import Result
+from mcp_guide.core.mcp_log import get_logger
+from mcp_guide.core.result import Result
 from mcp_guide.result_constants import INSTRUCTION_VALIDATION_ERROR
 
 try:
@@ -171,7 +171,7 @@ class ExtMcpToolDecorator:
                             from pydantic import ValidationError as PydanticValidationError
 
                             if isinstance(e, PydanticValidationError):
-                                from mcp_core.result import Result
+                                from mcp_guide.core.result import Result
 
                                 error_details = [
                                     {

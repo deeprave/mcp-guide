@@ -7,7 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, Generator, Optional, Tuple
 
-from mcp_core.mcp_log import get_logger
+from mcp_guide.core.mcp_log import get_logger
 
 if TYPE_CHECKING:
     from mcp_guide.utils.file_discovery import FileInfo

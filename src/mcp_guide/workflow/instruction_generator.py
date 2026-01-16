@@ -1,6 +1,6 @@
 """Instruction generation for workflow change events."""
 
-from mcp_core.mcp_log import get_logger
+from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.workflow.change_detection import ChangeEvent, ChangeType
 
 logger = get_logger(__name__)

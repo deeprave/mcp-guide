@@ -2,7 +2,7 @@
 
 from typing import Any, Optional
 
-from mcp_core.mcp_log import get_logger
+from mcp_guide.core.mcp_log import get_logger
 
 try:
     from mcp.server.fastmcp import Context

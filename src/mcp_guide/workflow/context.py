@@ -2,7 +2,7 @@
 
 from typing import TYPE_CHECKING, Any, Optional
 
-from mcp_core.mcp_log import get_logger
+from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.workflow.constants import DEFAULT_WORKFLOW_FILE, DEFAULT_WORKFLOW_PHASES
 from mcp_guide.workflow.flags import extract_phase_name, parse_workflow_phases
 

@@ -2,7 +2,7 @@
 
 from typing import List, Optional
 
-from mcp_core.mcp_log import get_logger
+from mcp_guide.core.mcp_log import get_logger
 
 from .path_validator import PathValidator, SecurityError
 

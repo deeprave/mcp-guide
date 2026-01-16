@@ -8,9 +8,9 @@ try:
 except ImportError:
     Context = None  # type: ignore
 
-from mcp_core.mcp_log import get_logger
-from mcp_core.tool_decorator import ExtMcpToolDecorator
 from mcp_guide.client_context.tasks import ClientContextTask  # noqa: F401
+from mcp_guide.core.mcp_log import get_logger
+from mcp_guide.core.tool_decorator import ExtMcpToolDecorator
 from mcp_guide.guide import GuideMCP
 
 # Import task managers early to trigger @task_init decorators
@@ -110,7 +110,7 @@ def _configure_logging_after_fastmcp() -> None:
     """
     import logging
 
-    from mcp_core.mcp_log import (
+    from mcp_guide.core.mcp_log import (
         add_trace_to_context,
         create_console_handler,
         create_file_handler,

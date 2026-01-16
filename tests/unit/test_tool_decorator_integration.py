@@ -4,8 +4,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from mcp_core.result import Result
-from mcp_core.tool_decorator import _process_tool_result, set_task_manager
+from mcp_guide.core.result import Result
+from mcp_guide.core.tool_decorator import _process_tool_result, set_task_manager
 from mcp_guide.task_manager import TaskManager
 
 

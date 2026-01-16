@@ -1,6 +1,6 @@
 """Validation functions for mcp_guide."""
 
-from mcp_core.validation import ArgValidationError
+from mcp_guide.core.validation import ArgValidationError
 from mcp_guide.models import Project
 
 

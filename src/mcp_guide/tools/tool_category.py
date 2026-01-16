@@ -9,8 +9,13 @@ from typing import Any, Optional, Union, cast
 from anyio import Path as AsyncPath
 from pydantic import Field
 
-from mcp_core.tool_arguments import ToolArguments
-from mcp_core.validation import ArgValidationError, validate_description, validate_directory_path, validate_pattern
+from mcp_guide.core.tool_arguments import ToolArguments
+from mcp_guide.core.validation import (
+    ArgValidationError,
+    validate_description,
+    validate_directory_path,
+    validate_pattern,
+)
 from mcp_guide.models import Category, CategoryNotFoundError, FileReadError, Project
 from mcp_guide.result import Result
 from mcp_guide.result_constants import (
