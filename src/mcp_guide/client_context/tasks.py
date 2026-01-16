@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Any, Optional
 
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.decorators import task_init
+from mcp_guide.feature_flags.constants import FLAG_ALLOW_CLIENT_INFO
 from mcp_guide.task_manager import EventType, get_task_manager
 from mcp_guide.workflow.rendering import render_common_template
 
@@ -25,7 +26,7 @@ class ClientContextTask:
         self._flag_checked = False
 
         # Always subscribe - flag check happens in on_tool()
-        self.task_manager.subscribe(self, EventType.TIMER_ONCE | EventType.FS_FILE_CONTENT, 0.1)
+        self.task_manager.subscribe(self, EventType.TIMER_ONCE | EventType.FS_FILE_CONTENT, 5.0)
 
     def get_name(self) -> str:
         """Get a readable name for the task."""
@@ -41,15 +42,15 @@ class ClientContextTask:
         # Check if allow-client-info flag is enabled
         try:
             from mcp_guide.session import get_or_create_session
+            from mcp_guide.utils.flag_utils import get_resolved_flag_value
 
             session = await get_or_create_session()
-            flags = await session.feature_flags().list()
-            enabled = flags.get("allow-client-info", False) is True
+            enabled = await get_resolved_flag_value(session, FLAG_ALLOW_CLIENT_INFO, False)
 
             if not enabled:
                 # Unsubscribe if flag is not set
                 await self.task_manager.unsubscribe(self)
-                logger.debug("ClientContextTask disabled - allow-client-info flag not set")
+                logger.debug(f"ClientContextTask disabled - {FLAG_ALLOW_CLIENT_INFO} flag not set")
         except Exception as e:
             logger.warning(f"Failed to check allow-client-info flag, unsubscribing: {e}")
             await self.task_manager.unsubscribe(self)
@@ -66,6 +67,10 @@ class ClientContextTask:
 
         # Handle TIMER_ONCE startup
         if event_type & EventType.TIMER_ONCE:
+            # Wait for flag check before proceeding
+            if not self._flag_checked:
+                return False  # Requeue until on_tool is called
+
             if not self._os_info_requested:
                 await self.request_basic_os_info()
                 self._os_info_requested = True

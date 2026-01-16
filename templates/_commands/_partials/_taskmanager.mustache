@@ -18,7 +18,7 @@ description: Task manager statistics display
 {{/kwargs.table}}
 {{^kwargs.table}}
 {{#tasks.running}}
-  **Task** `{{name}}` ({{#interval}}timer, `{{interval}}s`{{/interval}}{{^interval}}regular{{/interval}})
+  **Task** `{{name}}`{{#interval}} (timer, `{{interval}}s`){{/interval}}
   - Running for `{{runtime}}`{{#interval}} | Runs `{{run_count}}` | Last `{{time_since_last}}` | Next in `{{time_until_next}}`{{/interval}}
 {{/tasks.running}}
 {{^tasks.running}}

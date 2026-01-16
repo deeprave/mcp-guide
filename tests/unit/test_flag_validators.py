@@ -2,7 +2,7 @@
 
 import pytest
 
-from mcp_guide.feature_flags.types import WORKFLOW_FILE_FLAG, WORKFLOW_FLAG
+from mcp_guide.feature_flags.constants import FLAG_WORKFLOW, FLAG_WORKFLOW_FILE
 from mcp_guide.feature_flags.validators import (
     FlagValidationError,
     clear_validators,
@@ -52,19 +52,19 @@ class TestValidationRegistration:
         importlib.reload(flags)
 
         # Valid workflow flag values should not raise
-        validate_flag_with_registered(WORKFLOW_FLAG, True, is_project=True)
-        validate_flag_with_registered(WORKFLOW_FLAG, ["discussion", "planning"], is_project=True)
+        validate_flag_with_registered(FLAG_WORKFLOW, True, is_project=True)
+        validate_flag_with_registered(FLAG_WORKFLOW, ["discussion", "planning"], is_project=True)
 
         # Invalid workflow flag should raise
         with pytest.raises(FlagValidationError):
-            validate_flag_with_registered(WORKFLOW_FLAG, ["invalid-phase"], is_project=True)
+            validate_flag_with_registered(FLAG_WORKFLOW, ["invalid-phase"], is_project=True)
 
         # Valid workflow-file flag should not raise
-        validate_flag_with_registered(WORKFLOW_FILE_FLAG, ".guide.yaml", is_project=True)
+        validate_flag_with_registered(FLAG_WORKFLOW_FILE, ".guide.yaml", is_project=True)
 
         # Invalid workflow-file flag should raise
         with pytest.raises(FlagValidationError):
-            validate_flag_with_registered(WORKFLOW_FILE_FLAG, "", is_project=True)
+            validate_flag_with_registered(FLAG_WORKFLOW_FILE, "", is_project=True)
 
     def test_none_value_skips_validation(self):
         """Test that None values skip validation (used for deletion)."""

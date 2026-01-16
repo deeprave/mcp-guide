@@ -66,6 +66,20 @@ async def send_file_content(
 
         _file_cache.put(validated_path, content, mtime)
 
+        # Dispatch event to task manager
+        from mcp_guide.task_manager import EventType, get_task_manager
+
+        task_manager = get_task_manager()
+        await task_manager.dispatch_event(
+            EventType.FS_FILE_CONTENT,
+            {
+                "path": validated_path,
+                "content": content,
+                "mtime": mtime,
+                "encoding": encoding,
+            },
+        )
+
         return Result.ok(
             value={
                 "path": validated_path,
@@ -83,7 +97,7 @@ async def send_file_content(
 
 async def send_directory_listing(
     context: Any, path: str, files: list[Dict[str, Any]], pattern: Optional[str] = None, recursive: bool = False
-) -> Dict[str, Any]:
+) -> "Result[Dict[str, Any]]":
     """Agent tool to send directory listing from its filesystem to the server.
 
     This tool is called by the agent when the server requests directory listing via sampling.
@@ -98,7 +112,7 @@ async def send_directory_listing(
         recursive: Whether recursive listing was requested
 
     Returns:
-        Result dictionary with success status
+        Result with directory listing metadata
     """
     try:
         session = await get_or_create_session(context)
@@ -127,26 +141,38 @@ async def send_directory_listing(
 
         validated_path = policy.validate_read_path(path)
 
-        # Store directory listing (could be cached if needed)
-        # For now, just return success
+        # Dispatch event to task manager
+        from mcp_guide.task_manager import EventType, get_task_manager
 
-        return {
-            "success": True,
-            "message": f"Directory listing provided for {validated_path}",
-            "path": validated_path,
-            "files": files,
-            "pattern": pattern,
-            "recursive": recursive,
-            "count": len(files),
-        }
+        task_manager = get_task_manager()
+        await task_manager.dispatch_event(
+            EventType.FS_DIRECTORY,
+            {
+                "path": validated_path,
+                "files": files,
+                "pattern": pattern,
+                "recursive": recursive,
+                "count": len(files),
+            },
+        )
+
+        return Result.ok(
+            {
+                "path": validated_path,
+                "files": files,
+                "pattern": pattern,
+                "recursive": recursive,
+                "count": len(files),
+            }
+        )
 
     except Exception as e:
-        return {"success": False, "error": f"Failed to provide directory listing: {str(e)}"}
+        return Result.failure(error=f"Failed to provide directory listing: {str(e)}", error_type="unknown")
 
 
 async def send_command_location(
     context: Any, command: str, path: Optional[str] = None, found: bool = False
-) -> Dict[str, Any]:
+) -> "Result[Dict[str, Any]]":
     """Agent tool to send command location to server.
 
     Args:
@@ -156,22 +182,35 @@ async def send_command_location(
         found: Whether command was found
 
     Returns:
-        Result dictionary with success status
+        Result with command location metadata
     """
     try:
-        return {
-            "success": True,
-            "message": f"Command location provided for {command}",
-            "command": command,
-            "path": path,
-            "found": found,
-        }
+        # Dispatch event to task manager
+        from mcp_guide.task_manager import EventType, get_task_manager
+
+        task_manager = get_task_manager()
+        await task_manager.dispatch_event(
+            EventType.FS_COMMAND,
+            {
+                "command": command,
+                "path": path if path else "",
+                "found": found,
+            },
+        )
+
+        return Result.ok(
+            {
+                "command": command,
+                "path": path,
+                "found": found,
+            }
+        )
 
     except Exception as e:
-        return {"success": False, "error": f"Failed to provide command location: {str(e)}"}
+        return Result.failure(error=f"Failed to provide command location: {str(e)}", error_type="unknown")
 
 
-async def send_working_directory(context: Any, working_directory: str) -> Dict[str, Any]:
+async def send_working_directory(context: Any, working_directory: str) -> "Result[Dict[str, Any]]":
     """Agent tool to send current working directory to server.
 
     Args:
@@ -179,20 +218,33 @@ async def send_working_directory(context: Any, working_directory: str) -> Dict[s
         working_directory: Current working directory path
 
     Returns:
-        Result dictionary with success status
+        Result with working directory metadata
     """
     try:
-        return {
-            "success": True,
-            "message": f"Working directory provided: {working_directory}",
-            "working_directory": working_directory,
-        }
+        # Dispatch event to task manager
+        from mcp_guide.task_manager import EventType, get_task_manager
+
+        task_manager = get_task_manager()
+        await task_manager.dispatch_event(
+            EventType.FS_CWD,
+            {
+                "working_directory": working_directory,
+            },
+        )
+
+        return Result.ok(
+            {
+                "working_directory": working_directory,
+            }
+        )
 
     except Exception as e:
-        return {"success": False, "error": f"Failed to provide working directory: {str(e)}"}
+        return Result.failure(error=f"Failed to provide working directory: {str(e)}", error_type="unknown")
 
 
-async def send_found_files(context: Any, pattern: str, files: list[str], start_path: str = ".") -> Dict[str, Any]:
+async def send_found_files(
+    context: Any, pattern: str, files: list[str], start_path: str = "."
+) -> "Result[Dict[str, Any]]":
     """Agent tool to send found files to server.
 
     Args:
@@ -202,20 +254,34 @@ async def send_found_files(context: Any, pattern: str, files: list[str], start_p
         start_path: Directory search started from
 
     Returns:
-        Result dictionary with success status
+        Result with found files metadata
     """
     try:
-        return {
-            "success": True,
-            "message": f"Found {len(files)} files matching '{pattern}'",
-            "pattern": pattern,
-            "start_path": start_path,
-            "files": files,
-            "count": len(files),
-        }
+        # Dispatch event to task manager
+        from mcp_guide.task_manager import EventType, get_task_manager
+
+        task_manager = get_task_manager()
+        await task_manager.dispatch_event(
+            EventType.FS_FOUND_FILES,
+            {
+                "pattern": pattern,
+                "start_path": start_path,
+                "files": files,
+                "count": len(files),
+            },
+        )
+
+        return Result.ok(
+            {
+                "pattern": pattern,
+                "start_path": start_path,
+                "files": files,
+                "count": len(files),
+            }
+        )
 
     except Exception as e:
-        return {"success": False, "error": f"Failed to provide found files: {str(e)}"}
+        return Result.failure(error=f"Failed to provide found files: {str(e)}", error_type="unknown")
 
 
 async def set_filesystem_trust_mode(trust_all: bool) -> str:

@@ -7,6 +7,7 @@ from typing import Optional
 from pydantic import Field
 
 from mcp_guide.core.tool_arguments import ToolArguments
+from mcp_guide.feature_flags.constants import FLAG_ALLOW_CLIENT_INFO
 from mcp_guide.feature_flags.types import FeatureValue
 from mcp_guide.feature_flags.validators import validate_flag_name, validate_flag_value
 from mcp_guide.result import Result
@@ -231,7 +232,7 @@ async def internal_set_feature_flag(args: SetFeatureFlagArgs, ctx: Optional[Cont
 
     # Normalize allow-client-info flag values
     normalized_value = args.value
-    if args.feature_name == "allow-client-info" and args.value is not None:
+    if args.feature_name == FLAG_ALLOW_CLIENT_INFO and args.value is not None:
         if args.value in [True, "true", "enabled", "on"]:
             normalized_value = True
         elif args.value in [False, "false", "disabled", "off"]:
