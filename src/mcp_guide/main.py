@@ -4,8 +4,8 @@ import asyncio
 import os
 import sys
 
-from mcp_core.mcp_log import get_logger
 from mcp_guide.cli import ServerConfig, parse_args
+from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.session import DocrootError
 
 

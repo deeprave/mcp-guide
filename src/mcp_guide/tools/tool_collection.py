@@ -7,8 +7,8 @@ from typing import TYPE_CHECKING, Any, Optional
 
 from pydantic import Field
 
-from mcp_core.tool_arguments import ToolArguments
-from mcp_core.validation import ArgValidationError, validate_description
+from mcp_guide.core.tool_arguments import ToolArguments
+from mcp_guide.core.validation import ArgValidationError, validate_description
 from mcp_guide.models import Collection, NoProjectError
 from mcp_guide.result import Result
 from mcp_guide.result_constants import (

@@ -3,7 +3,7 @@
 from contextvars import ContextVar
 from typing import TYPE_CHECKING, Any, Optional
 
-from mcp_core.mcp_log import get_logger
+from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.feature_flags.types import WORKFLOW_FILE_FLAG, WORKFLOW_FLAG
 from mcp_guide.workflow.constants import DEFAULT_WORKFLOW_FILE
 from mcp_guide.workflow.flags import parse_workflow_phases, substitute_variables
@@ -75,7 +75,7 @@ class TemplateContextCache(SessionListener):
         }
 
         # Add tool_prefix from MCP_TOOL_PREFIX environment variable
-        from mcp_core.tool_decorator import get_tool_prefix
+        from mcp_guide.core.tool_decorator import get_tool_prefix
 
         tool_prefix = get_tool_prefix()
         agent_vars["tool_prefix"] = tool_prefix

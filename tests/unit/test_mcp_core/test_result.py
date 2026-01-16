@@ -2,7 +2,7 @@
 
 import json
 
-from mcp_core.result import Result
+from mcp_guide.core.result import Result
 
 
 class TestResultOk:

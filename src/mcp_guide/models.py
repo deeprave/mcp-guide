@@ -9,8 +9,8 @@ from typing import TYPE_CHECKING, Any, NamedTuple, Optional
 from pydantic import ConfigDict, field_validator
 from pydantic.dataclasses import dataclass as pydantic_dataclass
 
-from mcp_core.mcp_log import get_logger
-from mcp_core.validation import validate_directory_path
+from mcp_guide.core.mcp_log import get_logger
+from mcp_guide.core.validation import validate_directory_path
 
 logger = get_logger(__name__)
 

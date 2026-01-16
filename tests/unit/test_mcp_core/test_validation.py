@@ -2,7 +2,7 @@
 
 import pytest
 
-from mcp_core.validation import (
+from mcp_guide.core.validation import (
     DEFAULT_INSTRUCTION,
     ArgValidationError,
     is_absolute_path,

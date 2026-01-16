@@ -6,7 +6,7 @@ from typing import Any, Optional
 
 from pydantic import Field
 
-from mcp_core.tool_arguments import ToolArguments
+from mcp_guide.core.tool_arguments import ToolArguments
 from mcp_guide.models import Category, Collection, Project, format_project_data
 from mcp_guide.result import Result
 from mcp_guide.result_constants import (

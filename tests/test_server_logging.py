@@ -18,12 +18,12 @@ class TestConfigureLoggingAfterFastmcp:
         server_module._pending_log_config = config
 
         with (
-            patch("mcp_core.mcp_log.add_trace_to_context") as mock_add_trace,
-            patch("mcp_core.mcp_log.register_cleanup_handlers") as mock_register,
-            patch("mcp_core.mcp_log.get_log_level", return_value=10),
-            patch("mcp_core.mcp_log.create_console_handler") as mock_console,
-            patch("mcp_core.mcp_log.create_file_handler") as mock_file,
-            patch("mcp_core.mcp_log.create_formatter"),
+            patch("mcp_guide.core.mcp_log.add_trace_to_context") as mock_add_trace,
+            patch("mcp_guide.core.mcp_log.register_cleanup_handlers") as mock_register,
+            patch("mcp_guide.core.mcp_log.get_log_level", return_value=10),
+            patch("mcp_guide.core.mcp_log.create_console_handler") as mock_console,
+            patch("mcp_guide.core.mcp_log.create_file_handler") as mock_file,
+            patch("mcp_guide.core.mcp_log.create_formatter"),
         ):
             # Create handlers with proper level attribute
             console_handler = MagicMock()
@@ -48,12 +48,12 @@ class TestConfigureLoggingAfterFastmcp:
         server_module._pending_log_config = config
 
         with (
-            patch("mcp_core.mcp_log.add_trace_to_context"),
-            patch("mcp_core.mcp_log.register_cleanup_handlers"),
-            patch("mcp_core.mcp_log.get_log_level", return_value=10) as mock_get_level,
-            patch("mcp_core.mcp_log.create_console_handler") as mock_console,
-            patch("mcp_core.mcp_log.create_file_handler") as mock_file,
-            patch("mcp_core.mcp_log.create_formatter") as mock_formatter,
+            patch("mcp_guide.core.mcp_log.add_trace_to_context"),
+            patch("mcp_guide.core.mcp_log.register_cleanup_handlers"),
+            patch("mcp_guide.core.mcp_log.get_log_level", return_value=10) as mock_get_level,
+            patch("mcp_guide.core.mcp_log.create_console_handler") as mock_console,
+            patch("mcp_guide.core.mcp_log.create_file_handler") as mock_file,
+            patch("mcp_guide.core.mcp_log.create_formatter") as mock_formatter,
         ):
             # Create handlers with proper level attribute
             console_handler = MagicMock()
@@ -83,12 +83,12 @@ class TestConfigureLoggingAfterFastmcp:
         server_module._pending_log_config = config
 
         with (
-            patch("mcp_core.mcp_log.add_trace_to_context"),
-            patch("mcp_core.mcp_log.register_cleanup_handlers"),
-            patch("mcp_core.mcp_log.get_log_level", return_value=20),
-            patch("mcp_core.mcp_log.create_console_handler") as mock_console,
-            patch("mcp_core.mcp_log.create_file_handler") as mock_file,
-            patch("mcp_core.mcp_log.create_formatter"),
+            patch("mcp_guide.core.mcp_log.add_trace_to_context"),
+            patch("mcp_guide.core.mcp_log.register_cleanup_handlers"),
+            patch("mcp_guide.core.mcp_log.get_log_level", return_value=20),
+            patch("mcp_guide.core.mcp_log.create_console_handler") as mock_console,
+            patch("mcp_guide.core.mcp_log.create_file_handler") as mock_file,
+            patch("mcp_guide.core.mcp_log.create_formatter"),
         ):
             # Create handler with proper level attribute
             console_handler = MagicMock()
@@ -107,8 +107,8 @@ class TestConfigureLoggingAfterFastmcp:
         server_module._pending_log_config = None
 
         with (
-            patch("mcp_core.mcp_log.add_trace_to_context") as mock_add_trace,
-            patch("mcp_core.mcp_log.get_log_level") as mock_get_level,
+            patch("mcp_guide.core.mcp_log.add_trace_to_context") as mock_add_trace,
+            patch("mcp_guide.core.mcp_log.get_log_level") as mock_get_level,
         ):
             _configure_logging_after_fastmcp()
 
@@ -136,11 +136,11 @@ class TestConfigureLoggingAfterFastmcp:
         mock_placeholder = MagicMock()
 
         with (
-            patch("mcp_core.mcp_log.add_trace_to_context"),
-            patch("mcp_core.mcp_log.register_cleanup_handlers"),
-            patch("mcp_core.mcp_log.get_log_level", return_value=30),  # WARNING
-            patch("mcp_core.mcp_log.create_console_handler", return_value=MagicMock()),
-            patch("mcp_core.mcp_log.create_formatter", return_value=MagicMock()),
+            patch("mcp_guide.core.mcp_log.add_trace_to_context"),
+            patch("mcp_guide.core.mcp_log.register_cleanup_handlers"),
+            patch("mcp_guide.core.mcp_log.get_log_level", return_value=30),  # WARNING
+            patch("mcp_guide.core.mcp_log.create_console_handler", return_value=MagicMock()),
+            patch("mcp_guide.core.mcp_log.create_formatter", return_value=MagicMock()),
             patch("logging.Logger.manager") as mock_manager,
             patch("logging.getLogger") as mock_get_logger,
         ):

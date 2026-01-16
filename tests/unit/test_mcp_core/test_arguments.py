@@ -5,7 +5,7 @@ from typing import Literal
 import pytest
 from pydantic import ValidationError
 
-from mcp_core.arguments import Arguments
+from mcp_guide.core.arguments import Arguments
 
 
 class SimpleArgs(Arguments):
@@ -79,7 +79,7 @@ class TestAliases:
 
     def test_toolarguments_alias(self):
         """ToolArguments alias should work for existing code."""
-        from mcp_core.tool_arguments import ToolArguments
+        from mcp_guide.core.tool_arguments import ToolArguments
 
         assert ToolArguments is Arguments
 

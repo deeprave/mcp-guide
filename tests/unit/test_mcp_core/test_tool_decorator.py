@@ -2,9 +2,9 @@
 
 from unittest.mock import Mock
 
-from mcp_core.result import Result
-from mcp_core.tool_arguments import ToolArguments
-from mcp_core.tool_decorator import ExtMcpToolDecorator, disable_test_mode, enable_test_mode
+from mcp_guide.core.result import Result
+from mcp_guide.core.tool_arguments import ToolArguments
+from mcp_guide.core.tool_decorator import ExtMcpToolDecorator, disable_test_mode, enable_test_mode
 
 
 class TestTestModeControl:
@@ -12,14 +12,14 @@ class TestTestModeControl:
 
     def test_enable_test_mode_sets_context_var_to_true(self):
         """Test that enable_test_mode() sets ContextVar to True."""
-        from mcp_core.tool_decorator import _test_mode
+        from mcp_guide.core.tool_decorator import _test_mode
 
         enable_test_mode()
         assert _test_mode.get() is True
 
     def test_disable_test_mode_sets_context_var_to_false(self):
         """Test that disable_test_mode() sets ContextVar to False."""
-        from mcp_core.tool_decorator import _test_mode
+        from mcp_guide.core.tool_decorator import _test_mode
 
         enable_test_mode()  # First enable
         disable_test_mode()
@@ -30,7 +30,7 @@ class TestTestModeControl:
         # Reset to default by creating new context
         import contextvars
 
-        from mcp_core.tool_decorator import _test_mode
+        from mcp_guide.core.tool_decorator import _test_mode
 
         ctx = contextvars.copy_context()
         result = ctx.run(lambda: _test_mode.get())
@@ -40,7 +40,7 @@ class TestTestModeControl:
         """Test that ContextVar changes don't affect parent context."""
         import contextvars
 
-        from mcp_core.tool_decorator import _test_mode
+        from mcp_guide.core.tool_decorator import _test_mode
 
         # Set in current context
         enable_test_mode()

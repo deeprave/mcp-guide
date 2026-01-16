@@ -1,9 +1,9 @@
 """Core reusable functionality for MCP servers."""
 
-from mcp_core.file_reader import read_file_content
-from mcp_core.path_security import is_path_within_directory, resolve_safe_path
-from mcp_core.result_handler import validate_result
-from mcp_core.validation import (
+from mcp_guide.core.file_reader import read_file_content
+from mcp_guide.core.path_security import is_path_within_directory, resolve_safe_path
+from mcp_guide.core.result_handler import validate_result
+from mcp_guide.core.validation import (
     ArgValidationError,
     is_absolute_path,
     validate_description,

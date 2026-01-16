@@ -8,7 +8,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from mcp_core.path_watcher import PathWatcher
+from mcp_guide.core.path_watcher import PathWatcher
 
 
 class TestPathWatcherBasic:
@@ -354,7 +354,7 @@ class TestPathWatcherSingleInstanceManagement:
     @pytest.mark.asyncio
     async def test_only_one_path_watcher_per_path_allowed(self):
         """Only one PathWatcher per path is allowed."""
-        from mcp_core.watcher_registry import get_global_registry
+        from mcp_guide.core.watcher_registry import get_global_registry
 
         registry = get_global_registry()
 
@@ -374,7 +374,7 @@ class TestPathWatcherSingleInstanceManagement:
     @pytest.mark.asyncio
     async def test_attempting_duplicate_watcher_raises_appropriate_error(self):
         """Attempting duplicate watcher raises appropriate error."""
-        from mcp_core.watcher_registry import WatcherRegistry
+        from mcp_guide.core.watcher_registry import WatcherRegistry
 
         registry = WatcherRegistry()
 
@@ -394,7 +394,7 @@ class TestPathWatcherSingleInstanceManagement:
     @pytest.mark.asyncio
     async def test_watcher_registry_tracks_active_instances(self):
         """Watcher registry tracks active instances."""
-        from mcp_core.watcher_registry import WatcherRegistry
+        from mcp_guide.core.watcher_registry import WatcherRegistry
 
         registry = WatcherRegistry()
 
@@ -417,7 +417,7 @@ class TestPathWatcherSingleInstanceManagement:
     @pytest.mark.asyncio
     async def test_registry_cleanup_when_watchers_are_stopped(self):
         """Registry cleanup when watchers are stopped."""
-        from mcp_core.watcher_registry import WatcherRegistry
+        from mcp_guide.core.watcher_registry import WatcherRegistry
 
         registry = WatcherRegistry()
 

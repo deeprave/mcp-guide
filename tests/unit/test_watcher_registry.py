@@ -4,8 +4,8 @@ import tempfile
 
 import pytest
 
-from mcp_core.path_watcher import PathWatcher
-from mcp_core.watcher_registry import WatcherRegistry, get_global_registry
+from mcp_guide.core.path_watcher import PathWatcher
+from mcp_guide.core.watcher_registry import WatcherRegistry, get_global_registry
 
 
 class TestWatcherRegistry:

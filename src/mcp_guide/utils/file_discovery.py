@@ -149,7 +149,7 @@ class FileInfo:
             raise ValueError(f"Document root must be absolute: {docroot}")
 
         # Validate base_dir is within docroot
-        from mcp_core.path_security import is_path_within_directory
+        from mcp_guide.core.path_security import is_path_within_directory
 
         if not is_path_within_directory(base_dir, docroot):
             raise ValueError(f"Base directory must be within docroot: {base_dir}")
@@ -176,7 +176,7 @@ class FileInfo:
         if self._content is not None:
             return
 
-        from mcp_core import read_file_content
+        from mcp_guide.core import read_file_content
 
         file_path = self.path
 

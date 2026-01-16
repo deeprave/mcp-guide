@@ -6,9 +6,9 @@ from typing import Optional
 
 from pydantic import Field
 
-from mcp_core.mcp_log import get_logger
-from mcp_core.tool_arguments import ToolArguments
 from mcp_guide.agent_detection import detect_agent, format_agent_info
+from mcp_guide.core.mcp_log import get_logger
+from mcp_guide.core.tool_arguments import ToolArguments
 from mcp_guide.guide import GuideMCP
 from mcp_guide.result import Result
 from mcp_guide.result_constants import INSTRUCTION_DISPLAY_ONLY

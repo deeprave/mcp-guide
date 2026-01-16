@@ -8,8 +8,8 @@ from typing import List, Set
 
 from anyio import Path as AsyncPath
 
-from mcp_core.mcp_log import get_logger
 from mcp_guide.config_constants import COMMANDS_DIR, MAX_DOCUMENTS_PER_GLOB, MAX_GLOB_DEPTH
+from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.lazy_path import LazyPath
 
 logger = get_logger(__name__)

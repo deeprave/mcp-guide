@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from mcp_core.file_reader import read_file_content
+from mcp_guide.core.file_reader import read_file_content
 
 
 @pytest.mark.asyncio

@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional
 import aiofiles
 import yaml
 
-from mcp_core.mcp_log import get_logger
+from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.result_constants import (
     AGENT_INFO,
     AGENT_INSTRUCTION,

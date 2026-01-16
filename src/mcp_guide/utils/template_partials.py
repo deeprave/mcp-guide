@@ -5,7 +5,7 @@ from typing import Any, List
 
 from anyio import Path as AsyncPath
 
-from mcp_core.mcp_log import get_logger
+from mcp_guide.core.mcp_log import get_logger
 
 logger = get_logger(__name__)
 

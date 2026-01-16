@@ -6,7 +6,7 @@ from typing import Any, Callable, Dict, Optional
 import chevron
 from chevron import ChevronError
 
-from mcp_core.mcp_log import get_logger
+from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.result import Result
 from mcp_guide.result_constants import INSTRUCTION_FILE_ERROR, INSTRUCTION_VALIDATION_ERROR
 from mcp_guide.utils.file_discovery import TEMPLATE_EXTENSIONS, FileInfo

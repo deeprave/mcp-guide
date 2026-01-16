@@ -6,7 +6,7 @@ from typing import Callable, List, Optional, Union
 
 from anyio import Path as AsyncPath
 
-from mcp_core.mcp_log import get_logger
+from mcp_guide.core.mcp_log import get_logger
 
 logger = get_logger(__name__)
 

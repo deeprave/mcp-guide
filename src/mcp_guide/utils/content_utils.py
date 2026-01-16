@@ -4,7 +4,7 @@ import re
 from pathlib import Path
 from typing import Any, Optional
 
-from mcp_core.file_reader import read_file_content
+from mcp_guide.core.file_reader import read_file_content
 from mcp_guide.result import Result
 from mcp_guide.utils.file_discovery import FileInfo
 from mcp_guide.utils.frontmatter import (

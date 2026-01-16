@@ -10,7 +10,7 @@ import pytest_asyncio
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
-from mcp_core.tool_decorator import disable_test_mode, enable_test_mode
+from mcp_guide.core.tool_decorator import disable_test_mode, enable_test_mode
 from mcp_guide.session import Session, remove_current_session, set_current_session
 
 
@@ -90,7 +90,7 @@ async def test_auto_generated_description():
     server = create_server()
 
     # Verify description generation works
-    from mcp_core.tool_arguments import ToolArguments
+    from mcp_guide.core.tool_arguments import ToolArguments
     from mcp_guide.tools.tool_category import category_list
 
     description = ToolArguments.build_description(category_list)

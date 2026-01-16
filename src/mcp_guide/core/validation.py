@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import Any, Optional
 
-from mcp_core.result import Result
+from mcp_guide.core.result import Result
 
 # Error messages
 ERR_ABSOLUTE_PATH = "Absolute paths are not allowed"

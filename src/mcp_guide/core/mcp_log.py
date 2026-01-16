@@ -8,7 +8,7 @@ import sys
 from datetime import datetime
 from typing import Any, Callable
 
-from mcp_core.mcp_log_filter import get_redaction_function
+from mcp_guide.core.mcp_log_filter import get_redaction_function
 
 # Custom TRACE level (below DEBUG=10)
 TRACE_LEVEL = 5

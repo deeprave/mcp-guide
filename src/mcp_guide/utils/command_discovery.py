@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Tuple
 import aiofiles
 from anyio import Path as AsyncPath
 
-from mcp_core.mcp_log import get_logger
+from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.utils.file_discovery import discover_category_files
 from mcp_guide.utils.frontmatter import parse_content_with_frontmatter
 from mcp_guide.utils.pattern_matching import is_valid_command

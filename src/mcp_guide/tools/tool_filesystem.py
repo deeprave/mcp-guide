@@ -5,7 +5,7 @@ from typing import Any, Dict, Optional
 from mcp.server.fastmcp import Context
 from pydantic import Field
 
-from mcp_core.tool_arguments import ToolArguments
+from mcp_guide.core.tool_arguments import ToolArguments
 from mcp_guide.filesystem.tools import send_command_location as fs_send_command_location
 from mcp_guide.filesystem.tools import send_directory_listing as fs_send_directory_listing
 from mcp_guide.filesystem.tools import send_file_content as fs_send_file_content
@@ -112,7 +112,7 @@ async def send_file_content(args: SendFileContentArgs, ctx: Optional[Context] = 
 
     # Process through TaskManager before converting to JSON
     # Import here to avoid circular dependency with tool_decorator module
-    from mcp_core.tool_decorator import _task_manager
+    from mcp_guide.core.tool_decorator import _task_manager
     from mcp_guide.task_manager.interception import EventType
 
     if _task_manager is not None:
@@ -127,7 +127,7 @@ async def send_directory_listing(args: SendDirectoryListingArgs, ctx: Optional[C
     result = await internal_send_directory_listing(args, ctx)
 
     # Process through TaskManager before converting to JSON
-    from mcp_core.tool_decorator import _task_manager
+    from mcp_guide.core.tool_decorator import _task_manager
     from mcp_guide.task_manager.interception import EventType
 
     if _task_manager is not None:
@@ -142,7 +142,7 @@ async def send_command_location(args: SendCommandLocationArgs, ctx: Optional[Con
     result = await internal_send_command_location(args, ctx)
 
     # Process through TaskManager before converting to JSON
-    from mcp_core.tool_decorator import _task_manager
+    from mcp_guide.core.tool_decorator import _task_manager
     from mcp_guide.task_manager.interception import EventType
 
     if _task_manager is not None:
@@ -157,7 +157,7 @@ async def send_working_directory(args: SendWorkingDirectoryArgs, ctx: Optional[C
     result = await internal_send_working_directory(args, ctx)
 
     # Process through TaskManager before converting to JSON
-    from mcp_core.tool_decorator import _task_manager
+    from mcp_guide.core.tool_decorator import _task_manager
     from mcp_guide.task_manager.interception import EventType
 
     if _task_manager is not None:

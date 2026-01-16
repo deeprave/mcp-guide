@@ -5,7 +5,7 @@ from typing import Optional
 import yaml
 from pydantic import ValidationError
 
-from mcp_core.mcp_log import get_logger
+from mcp_guide.core.mcp_log import get_logger
 
 from .schema import WorkflowState
 
