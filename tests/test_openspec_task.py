@@ -52,14 +52,12 @@ class TestOpenSpecTask:
     @pytest.mark.asyncio
     async def test_on_tool_unsubscribes_when_flag_disabled(self, mock_task_manager):
         """Test that task unsubscribes when openspec flag is disabled."""
+        from unittest.mock import AsyncMock
+
         task = OpenSpecTask(mock_task_manager)
 
-        with patch("mcp_guide.session.get_or_create_session") as mock_get_session:
-            session = MagicMock()
-            flags_mock = MagicMock()
-            flags_mock.list = AsyncMock(return_value={"openspec": False})
-            session.feature_flags.return_value = flags_mock
-            mock_get_session.return_value = session
+        with patch("mcp_guide.utils.flag_utils.get_resolved_flag_value", new_callable=AsyncMock) as mock_get_flag:
+            mock_get_flag.return_value = False
 
             await task.on_tool()
 
@@ -68,9 +66,11 @@ class TestOpenSpecTask:
     @pytest.mark.asyncio
     async def test_on_tool_continues_when_flag_enabled(self, mock_task_manager):
         """Test that task continues when openspec flag is enabled."""
+        from unittest.mock import AsyncMock
+
         task = OpenSpecTask(mock_task_manager)
 
-        with patch("mcp_guide.utils.flag_utils.get_resolved_flag_value") as mock_get_flag:
+        with patch("mcp_guide.utils.flag_utils.get_resolved_flag_value", new_callable=AsyncMock) as mock_get_flag:
             mock_get_flag.return_value = True
 
             await task.on_tool()
@@ -81,6 +81,7 @@ class TestOpenSpecTask:
     async def test_handle_event_timer_once_requests_cli_check(self, mock_task_manager):
         """Test that TIMER_ONCE event requests CLI availability check."""
         task = OpenSpecTask(mock_task_manager)
+        task._flag_checked = True  # Simulate flag already checked
 
         with patch("mcp_guide.client_context.openspec_task.render_common_template") as mock_render:
             mock_render.return_value = "check cli instruction"
@@ -123,11 +124,12 @@ class TestOpenSpecTask:
         assert task.is_available() is None
 
     @pytest.mark.asyncio
-    async def test_handle_event_ignores_other_files(self, mock_task_manager):
-        """Test that task ignores file content events for other files."""
+    async def test_handle_event_ignores_unsubscribed_events(self, mock_task_manager):
+        """Test that task ignores events it doesn't subscribe to."""
         task = OpenSpecTask(mock_task_manager)
 
-        event_data = {"path": ".some-other-file.txt", "content": "content"}
+        # Task only subscribes to TIMER_ONCE and FS_COMMAND, not FS_FILE_CONTENT
+        event_data = {"path": ".some-file.txt", "content": "content"}
 
         result = await task.handle_event(EventType.FS_FILE_CONTENT, event_data)
 
