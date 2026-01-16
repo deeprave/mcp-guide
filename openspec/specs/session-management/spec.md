@@ -144,3 +144,16 @@ The system SHALL provide helper functions for tools to access sessions.
 - THEN clear error is raised
 - AND error message guides user to create session
 
+### Requirement: Test Configuration Isolation
+Tests SHALL achieve configuration isolation through Session constructor parameters rather than ConfigManager injection.
+
+#### Scenario: Integration test isolation
+- **WHEN** integration tests need isolated configuration environments
+- **THEN** tests SHALL create Session instances with `_config_dir_for_tests` keyword parameter
+- **AND** tests SHALL NOT create or inject ConfigManager instances directly
+
+#### Scenario: Concurrent test execution
+- **WHEN** multiple tests run concurrently with different configurations
+- **THEN** each test SHALL reconfigure the ConfigManager singleton appropriately
+- **AND** configuration isolation SHALL be maintained through proper async locking
+

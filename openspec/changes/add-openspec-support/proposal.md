@@ -1,17 +1,17 @@
-# Change: Add OpenSpec MCP Integration Support
+# Change: Add OpenSpec Integration Support
 
 ## Why
-Enable MCP-Guide to provide OpenSpec workflow capabilities through the Model Context Protocol, making spec-driven development accessible to any MCP-compatible AI assistant. This eliminates the need for tool-specific OpenSpec integrations and provides universal access to OpenSpec workflows across Claude.ai, GitHub Copilot, Amazon Q, and other MCP-enabled platforms.
+Enable MCP-Guide to integrate with OpenSpec CLI for spec-driven development workflows. This provides a guided interface to OpenSpec commands through the MCP protocol, making OpenSpec workflows more accessible while delegating all OpenSpec logic to the official CLI.
 
 ## What Changes
-- Add conditional OpenSpec detection and integration (requires feature-flags)
-- Implement MCP tools for OpenSpec workflow operations
-- Provide MCP resources for OpenSpec project state queries
-- Add MCP prompts for guided spec-driven development workflows
-- Integrate OpenSpec data into existing template context hierarchy
+- Add conditional OpenSpec detection via feature flag
+- Implement guide command templates that invoke OpenSpec CLI through the agent
+- Handle client-server filesystem separation for OpenSpec file access
+- Integrate OpenSpec project state into template context hierarchy
+- Provide guided workflows for common OpenSpec operations
 
 ## Impact
 - Affected specs: mcp-server, template-context
-- Affected code: MCP server implementation, template rendering system
+- Affected code: Template system, command infrastructure, client context tasks
 - **BREAKING**: None - feature is conditional and additive
-- Dependencies: Requires feature-flags implementation (currently in openspec/ideas)
+- Dependencies: OpenSpec CLI must be installed on client system

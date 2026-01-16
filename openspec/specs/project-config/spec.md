@@ -88,3 +88,35 @@ The project SHALL have complete metadata for PyPI distribution.
 - AND Python requirement is `>=3.13`
 - AND appropriate classifiers are set
 
+### Requirement: Project Configuration Structure
+The project configuration SHALL store projects using hash-suffixed keys with name and hash properties for disambiguation.
+
+#### Scenario: Configuration format
+- **WHEN** project configuration is saved
+- **THEN** projects are stored as dictionary with hash-suffixed keys
+- **AND** each project contains `name` property with display name
+- **AND** each project contains `hash` property with full SHA256 hash
+- **AND** existing categories and collections are preserved
+
+#### Scenario: Legacy configuration migration
+- **WHEN** loading configuration with legacy format (name-only keys)
+- **THEN** calculate hash for current project path
+- **AND** migrate to hash-suffixed key format
+- **AND** preserve all existing project data
+- **AND** save migrated configuration automatically
+
+### Requirement: Project Resolution by Name
+The system SHALL resolve projects by display name while using hash-suffixed keys internally.
+
+#### Scenario: Single project match
+- **WHEN** user specifies project name
+- **AND** only one project exists with that name
+- **THEN** resolve to that project regardless of hash suffix
+
+#### Scenario: Multiple project matches
+- **WHEN** user specifies project name
+- **AND** multiple projects exist with that name
+- **THEN** resolve using current path hash verification
+- **AND** select project with matching hash
+- **AND** create new project if no hash matches
+
