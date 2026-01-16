@@ -1,5 +1,8 @@
-## MODIFIED Requirements
+# content-processing Specification
 
+## Purpose
+TBD - created by archiving change fix-file-deduplication. Update Purpose after archive.
+## Requirements
 ### Requirement: File Deduplication in Collections
 The system SHALL deduplicate files based on their full relative path rather than basename when processing collections.
 
@@ -17,3 +20,4 @@ The system SHALL deduplicate files based on their full relative path rather than
 - **WHEN** processing collections with unique basenames across categories
 - **THEN** the system SHALL continue to work as before
 - **AND** no existing functionality SHALL be broken by the path-based deduplication
+

@@ -45,7 +45,7 @@ The system SHALL verify project hash matches current path during project resolut
 - **AND** continue using project (allow for project moves)
 - **AND** update hash on next configuration save
 
-## MODIFIED Requirements
+## ADDED Requirements
 
 ### Requirement: Project Configuration Structure
 The project configuration SHALL store projects using hash-suffixed keys with name and hash properties for disambiguation.

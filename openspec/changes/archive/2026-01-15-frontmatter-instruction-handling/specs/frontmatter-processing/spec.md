@@ -4,7 +4,7 @@
 
 This specification defines how the content system should process frontmatter to extract instructions and handle different content types appropriately.
 
-## MODIFIED Requirements
+## ADDED Requirements
 
 ### Requirement: Content-Size HTTP Headers
 The MIME formatter MUST use the `content_size` field from FileInfo for HTTP Content-Length headers instead of calculating content length manually.
@@ -23,8 +23,6 @@ The MIME formatter MUST use the `content_size` field from FileInfo for HTTP Cont
 - **WHEN** content has frontmatter that gets stripped during processing
 - **THEN** Content-Length header MUST reflect the size of processed content (without frontmatter)
 - **AND** Content-Length MUST NOT reflect the original file size
-
-## ADDED Requirements (Not Yet Implemented)
 
 ### Requirement: Frontmatter Content Stripping
 Frontmatter MUST be stripped from content output while metadata is processed separately.
@@ -68,7 +66,7 @@ The system MUST handle content types with appropriate behavior and default instr
 - **AND** frontmatter `Instruction` field MUST be used
 
 ### Requirement: Partial Template Support (Basic)
-Support basic parsing of `partials` field in frontmatter for future template composition.
+The system SHALL support basic parsing of `partials` field in frontmatter for future template composition.
 
 #### Scenario: Partials field parsing
 - **WHEN** frontmatter contains a `partials` field

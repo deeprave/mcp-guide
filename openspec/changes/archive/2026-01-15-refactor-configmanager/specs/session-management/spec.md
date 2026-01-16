@@ -1,4 +1,4 @@
-## MODIFIED Requirements
+## ADDED Requirements
 
 ### Requirement: Session Configuration Management
 The Session class SHALL fully encapsulate configuration management and provide controlled access to project configuration operations.
@@ -90,7 +90,7 @@ Session factory functions SHALL use keyword-only parameters for test configurati
 - **THEN** test-related parameters SHALL be keyword-only with underscore prefixes
 - **AND** ConfigManager reconfiguration SHALL be handled through the singleton pattern
 
-## MODIFIED Requirements
+## ADDED Requirements
 
 ### Requirement: Test Configuration Isolation
 Tests SHALL achieve configuration isolation through Session constructor parameters rather than ConfigManager injection.
