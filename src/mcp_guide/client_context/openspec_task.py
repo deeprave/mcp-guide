@@ -71,6 +71,10 @@ class OpenSpecTask:
         """Handle task manager events."""
         # Handle TIMER_ONCE startup
         if event_type & EventType.TIMER_ONCE:
+            # Wait for flag check before proceeding
+            if not self._flag_checked:
+                return False  # Requeue until on_tool is called
+
             if not self._cli_requested:
                 await self.request_cli_check()
                 self._cli_requested = True
