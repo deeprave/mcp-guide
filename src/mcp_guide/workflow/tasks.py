@@ -130,8 +130,28 @@ class WorkflowMonitorTask:
             self.task_manager.set_cached_data("workflow_state", new_state)
             logger.trace("New workflow state cached in TaskManager")
 
+            # Detect OpenSpec change
+            is_openspec = self._detect_openspec_change(new_state.issue)
+            self.task_manager.set_cached_data("openspec_current_change", is_openspec)
+            logger.trace(f"OpenSpec change detection: {is_openspec}")
+
         except Exception as e:
             logger.error(f"Failed to process workflow content: {e}", exc_info=True)
+
+    def _detect_openspec_change(self, issue_name: Optional[str]) -> bool:
+        """Check if issue matches OpenSpec change pattern.
+
+        Args:
+            issue_name: Current issue name from workflow state
+
+        Returns:
+            True if openspec/changes/<issue-name>/ directory exists
+        """
+        if not issue_name:
+            return False
+
+        change_dir = Path("openspec") / "changes" / issue_name
+        return change_dir.exists() and change_dir.is_dir()
 
     @staticmethod
     async def _process_workflow_changes(changes: list[ChangeEvent]) -> Optional[str]:

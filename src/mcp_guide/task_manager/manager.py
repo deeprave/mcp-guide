@@ -3,7 +3,7 @@
 import asyncio
 import threading
 import time
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, TypeVar, Union
 
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.decorators import task_init
@@ -16,6 +16,8 @@ if TYPE_CHECKING:
     from mcp_guide.core.result import Result
 
 logger = get_logger(__name__)
+
+T = TypeVar("T", bound=TaskSubscriber)
 
 
 @task_init
@@ -392,6 +394,20 @@ class TaskManager:
     def clear_cached_data(self, key: str) -> None:
         """Clear cached data by key."""
         self._cache.pop(key, None)
+
+    def get_task_by_type(self, task_type: type[T]) -> Optional[T]:
+        """Get a task instance by its type.
+
+        Args:
+            task_type: The class type of the task to find
+
+        Returns:
+            The task instance if found, None otherwise
+        """
+        for subscription in self._subscriptions:
+            if isinstance(subscription.subscriber, task_type):
+                return subscription.subscriber
+        return None
 
     async def _timer_loop(self) -> None:
         """Main timer event loop - runs only while there are active timers."""
