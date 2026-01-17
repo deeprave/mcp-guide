@@ -1,5 +1,7 @@
 """Workflow-specific task implementations."""
 
+import asyncio
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 
@@ -19,7 +21,17 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 # Workflow monitoring interval in seconds
-WORKFLOW_INTERVAL = 120.0
+WORKFLOW_INTERVAL = 600.0  # 10 minutes
+
+# OpenSpec monitoring interval in seconds
+OPENSPEC_INTERVAL = 3600.0  # 60 minutes
+
+# Cache TTL for openspec changes list (24 hours)
+OPENSPEC_CACHE_TTL = 86400.0  # 24 hours in seconds
+
+# OpenSpec directory structure
+OPENSPEC_DIR = "openspec"
+OPENSPEC_CHANGES_DIR = "changes"
 
 
 @task_init
@@ -47,9 +59,16 @@ class WorkflowMonitorTask:
         self._cached_content: Optional[str] = None
         self._cached_mtime: Optional[float] = None
         self._setup_done = False
+        self._last_openspec_reminder: float = 0.0
 
-        # Subscribe self to task manager
+        # Subscribe self to task manager for workflow monitoring
         self.task_manager.subscribe(self, EventType.TIMER | EventType.FS_FILE_CONTENT, WORKFLOW_INTERVAL)
+
+        # Subscribe for OpenSpec monitoring reminders
+        self.task_manager.subscribe(self, EventType.TIMER, OPENSPEC_INTERVAL)
+
+        # Subscribe for directory listing events
+        self.task_manager.subscribe(self, EventType.FS_DIRECTORY)
 
     async def on_tool(self) -> None:
         """Called after tool/prompt execution."""
@@ -67,10 +86,26 @@ class WorkflowMonitorTask:
         """Handle task manager events."""
         logger.trace(f"WorkflowMonitorTask received event: {event_type} for path: {data.get('path', 'unknown')}")
 
-        # Handle timer events for monitoring reminders
+        # Handle timer events
         if event_type & EventType.TIMER:
-            await self._handle_monitoring_reminder()
-            return True
+            interval = data.get("interval")
+
+            # OpenSpec monitoring reminder (60 min interval)
+            if interval == OPENSPEC_INTERVAL:
+                await self._handle_openspec_reminder()
+                return True
+
+            # Workflow monitoring reminder (2 min interval)
+            if interval == WORKFLOW_INTERVAL:
+                await self._handle_monitoring_reminder()
+                return True
+
+        # Handle directory listing for openspec/changes
+        if event_type & EventType.FS_DIRECTORY:
+            path = data.get("path", "")
+            if path == f"{OPENSPEC_DIR}/{OPENSPEC_CHANGES_DIR}":
+                self._handle_openspec_changes_listing(data.get("files", []))
+                return True
 
         # Check if the file content is for our workflow file (compare basenames)
         path = data.get("path")
@@ -81,7 +116,7 @@ class WorkflowMonitorTask:
         return False
 
     async def _handle_monitoring_reminder(self) -> None:
-        """Handle timer events for monitoring reminders."""
+        """Handle timer events for workflow monitoring reminders."""
         try:
             content = await render_workflow_template("monitoring-reminder")
             await self.task_manager.queue_instruction(content)
@@ -89,6 +124,30 @@ class WorkflowMonitorTask:
             logger.warning(f"Monitoring reminder failed due to configuration issue: {e}")
         except Exception as e:
             logger.error(f"Failed to queue monitoring reminder: {e}", exc_info=True)
+
+    async def _handle_openspec_reminder(self) -> None:
+        """Handle timer events for OpenSpec monitoring reminders."""
+        try:
+            content = await render_workflow_template("openspec-changes-check")
+            await self.task_manager.queue_instruction(content)
+            self._last_openspec_reminder = time.time()
+            logger.trace("Queued OpenSpec changes check reminder")
+        except (NoProjectError, FileReadError) as e:
+            logger.warning(f"OpenSpec reminder failed due to configuration issue: {e}")
+        except Exception as e:
+            logger.error(f"Failed to queue OpenSpec reminder: {e}", exc_info=True)
+
+    def _handle_openspec_changes_listing(self, entries: list[dict[str, Any]]) -> None:
+        """Handle openspec/changes directory listing from client.
+
+        Args:
+            entries: List of directory entries with 'name' and 'type' fields from send_directory_listing
+        """
+        # Extract directory names (filter out files)
+        changes_list = [entry["name"] for entry in entries if entry.get("type") == "directory"]
+        self.task_manager.set_cached_data("openspec_changes_list", changes_list)
+        self.task_manager.set_cached_data("openspec_changes_timestamp", time.time())
+        logger.trace(f"Cached {len(changes_list)} openspec changes: {changes_list}")
 
     async def _process_workflow_content(self, content: str) -> None:
         """Process workflow file content and update cached state."""
@@ -130,7 +189,12 @@ class WorkflowMonitorTask:
             self.task_manager.set_cached_data("workflow_state", new_state)
             logger.trace("New workflow state cached in TaskManager")
 
-            # Detect OpenSpec change
+            # Check if issue changed - if so, request fresh openspec changes listing
+            if old_state and old_state.issue != new_state.issue:
+                logger.trace(f"Issue changed from {old_state.issue} to {new_state.issue}, requesting openspec refresh")
+                asyncio.create_task(self._request_openspec_changes_listing())
+
+            # Detect OpenSpec change by checking cached directory listing
             is_openspec = self._detect_openspec_change(new_state.issue)
             self.task_manager.set_cached_data("openspec_current_change", is_openspec)
             logger.trace(f"OpenSpec change detection: {is_openspec}")
@@ -139,19 +203,44 @@ class WorkflowMonitorTask:
             logger.error(f"Failed to process workflow content: {e}", exc_info=True)
 
     def _detect_openspec_change(self, issue_name: Optional[str]) -> bool:
-        """Check if issue matches OpenSpec change pattern.
+        """Check if issue matches OpenSpec change by checking cached directory listing.
 
         Args:
             issue_name: Current issue name from workflow state
 
         Returns:
-            True if openspec/changes/<issue-name>/ directory exists
+            True if issue name exists in cached openspec/changes/ directory listing
         """
         if not issue_name:
             return False
 
-        change_dir = Path("openspec") / "changes" / issue_name
-        return change_dir.exists() and change_dir.is_dir()
+        # Get cached directory listing and timestamp
+        changes_list = self.task_manager.get_cached_data("openspec_changes_list")
+        cache_timestamp = self.task_manager.get_cached_data("openspec_changes_timestamp")
+
+        # Check if cache is expired (24 hours)
+        cache_expired = False
+        if cache_timestamp:
+            age = time.time() - cache_timestamp
+            cache_expired = age > OPENSPEC_CACHE_TTL
+            if cache_expired:
+                logger.trace(f"OpenSpec cache expired (age: {age:.0f}s)")
+
+        if not changes_list or cache_expired:
+            # Request directory listing if not cached or expired
+            asyncio.create_task(self._request_openspec_changes_listing())
+            return False
+
+        # Check if issue_name is in the cached list
+        return issue_name in changes_list
+
+    async def _request_openspec_changes_listing(self) -> None:
+        """Request openspec/changes directory listing from client."""
+        try:
+            content = await render_workflow_template("openspec-changes-check")
+            await self.task_manager.queue_instruction(content)
+        except Exception as e:
+            logger.warning(f"Failed to request openspec changes listing: {e}")
 
     @staticmethod
     async def _process_workflow_changes(changes: list[ChangeEvent]) -> Optional[str]:

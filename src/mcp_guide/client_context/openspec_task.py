@@ -134,7 +134,8 @@ class OpenSpecTask:
         if event_type & EventType.FS_DIRECTORY:
             path = data.get("path", "")
             if path.rstrip("/") == "openspec":
-                entries = data.get("entries", [])
+                # FS_DIRECTORY events use "files" key from send_directory_listing
+                entries = data.get("files", [])
                 self._check_project_structure(entries)
 
                 # If project enabled, request version
@@ -169,6 +170,7 @@ class OpenSpecTask:
         else:
             logger.warning(f"Failed to parse OpenSpec version from: {content}")
             self._version = None
+            self.task_manager.set_cached_data("openspec_version", None)
 
     def _check_project_structure(self, entries: list[dict[str, Any]]) -> None:
         """Check if OpenSpec project structure is valid.

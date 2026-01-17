@@ -96,3 +96,57 @@ def task_manager() -> TaskManager:
 def mock_task() -> MockSubscriber:
     """Create a mock task for testing."""
     return MockSubscriber()
+
+
+class TestGetTaskByType:
+    """Test get_task_by_type functionality."""
+
+    def test_get_task_by_type_returns_correct_instance(self, task_manager: TaskManager) -> None:
+        """Test get_task_by_type returns the correct subscriber instance."""
+        subscriber = MockSubscriber("test-subscriber")
+        task_manager.subscribe(subscriber, EventType.FS_FILE_CONTENT)
+
+        result = task_manager.get_task_by_type(MockSubscriber)
+
+        assert result is subscriber
+        assert result.name == "test-subscriber"
+
+    def test_get_task_by_type_returns_none_when_absent(self, task_manager: TaskManager) -> None:
+        """Test get_task_by_type returns None when task type not registered."""
+        result = task_manager.get_task_by_type(MockSubscriber)
+
+        assert result is None
+
+    def test_get_task_by_type_exact_match_only(self, task_manager: TaskManager) -> None:
+        """Test get_task_by_type uses exact type matching, not isinstance."""
+
+        class SubclassMock(MockSubscriber):
+            pass
+
+        base_subscriber = MockSubscriber("base")
+        subclass_subscriber = SubclassMock("subclass")
+
+        task_manager.subscribe(base_subscriber, EventType.FS_FILE_CONTENT)
+        task_manager.subscribe(subclass_subscriber, EventType.FS_FILE_CONTENT)
+
+        # Should return exact type match only
+        result_base = task_manager.get_task_by_type(MockSubscriber)
+        result_subclass = task_manager.get_task_by_type(SubclassMock)
+
+        assert result_base is base_subscriber
+        assert result_subclass is subclass_subscriber
+
+    def test_get_task_by_type_multiple_instances_returns_first(
+        self, task_manager: TaskManager, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Test get_task_by_type returns first instance and logs warning when multiple exist."""
+        subscriber1 = MockSubscriber("first")
+        subscriber2 = MockSubscriber("second")
+
+        task_manager.subscribe(subscriber1, EventType.FS_FILE_CONTENT)
+        task_manager.subscribe(subscriber2, EventType.FS_FILE_CONTENT)
+
+        result = task_manager.get_task_by_type(MockSubscriber)
+
+        assert result is subscriber1
+        assert "Multiple task subscribers found for type MockSubscriber" in caplog.text
