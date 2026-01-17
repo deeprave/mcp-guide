@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
+from mcp_guide.feature_flags.constants import FLAG_CONTENT_STYLE
 from mcp_guide.utils.template_context_cache import TemplateContextCache
 
 
@@ -17,14 +18,14 @@ class TestTemplateStylingFlag:
         return cache
 
     async def test_template_styling_plain_mode(self, template_cache):
-        """Test template-styling=plain suppresses all formatting."""
+        """Test content-style=plain suppresses all formatting."""
         # Mock session methods to return flags
         with patch("mcp_guide.session.get_current_session") as mock_get_session:
             mock_session = Mock()
 
             # Mock project_flags() to return an object with async list() method
             mock_project_flags_obj = Mock()
-            mock_project_flags_obj.list = AsyncMock(return_value={"template-styling": "plain"})
+            mock_project_flags_obj.list = AsyncMock(return_value={FLAG_CONTENT_STYLE: "plain"})
             mock_session.project_flags.return_value = mock_project_flags_obj
 
             # Mock feature_flags() to return an object with async list() method
@@ -47,12 +48,12 @@ class TestTemplateStylingFlag:
             assert context["h6"] == ""
 
     async def test_template_styling_headings_mode(self, template_cache):
-        """Test template-styling=headings shows headings but no bold/italic."""
+        """Test content-style=headings shows headings but no bold/italic."""
         with patch("mcp_guide.session.get_current_session") as mock_get_session:
             mock_session = Mock()
 
             mock_project_flags_obj = Mock()
-            mock_project_flags_obj.list = AsyncMock(return_value={"template-styling": "headings"})
+            mock_project_flags_obj.list = AsyncMock(return_value={FLAG_CONTENT_STYLE: "headings"})
             mock_session.project_flags.return_value = mock_project_flags_obj
 
             mock_feature_flags_obj = Mock()
@@ -76,12 +77,12 @@ class TestTemplateStylingFlag:
             assert context["h6"] == "###### "
 
     async def test_template_styling_full_mode(self, template_cache):
-        """Test template-styling=full enables all formatting."""
+        """Test content-style=full enables all formatting."""
         with patch("mcp_guide.session.get_current_session") as mock_get_session:
             mock_session = Mock()
 
             mock_project_flags_obj = Mock()
-            mock_project_flags_obj.list = AsyncMock(return_value={"template-styling": "full"})
+            mock_project_flags_obj.list = AsyncMock(return_value={FLAG_CONTENT_STYLE: "full"})
             mock_session.project_flags.return_value = mock_project_flags_obj
 
             mock_feature_flags_obj = Mock()
@@ -105,7 +106,7 @@ class TestTemplateStylingFlag:
             assert context["h6"] == "###### "
 
     async def test_template_styling_default_plain(self, template_cache):
-        """Test template-styling defaults to plain when flag not set."""
+        """Test content-style defaults to plain when flag not set."""
         with patch("mcp_guide.session.get_current_session") as mock_get_session:
             mock_session = Mock()
 
@@ -132,12 +133,12 @@ class TestTemplateStylingFlag:
             assert context["h6"] == ""
 
     async def test_template_styling_invalid_value_defaults_plain(self, template_cache):
-        """Test invalid template-styling value defaults to plain."""
+        """Test invalid content-style value defaults to plain."""
         with patch("mcp_guide.session.get_current_session") as mock_get_session:
             mock_session = Mock()
 
             mock_project_flags_obj = Mock()
-            mock_project_flags_obj.list = AsyncMock(return_value={"template-styling": "invalid"})
+            mock_project_flags_obj.list = AsyncMock(return_value={FLAG_CONTENT_STYLE: "invalid"})
             mock_session.project_flags.return_value = mock_project_flags_obj
 
             mock_feature_flags_obj = Mock()

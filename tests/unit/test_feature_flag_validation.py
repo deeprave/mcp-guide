@@ -2,6 +2,7 @@
 
 import pytest
 
+from mcp_guide.feature_flags.constants import FLAG_CONTENT_STYLE
 from mcp_guide.feature_flags.validators import (
     FlagValidationError,
     clear_validators,
@@ -128,7 +129,7 @@ class TestContentFormatMimeValidator:
 
 
 class TestTemplateStylingValidator:
-    """Test template-styling flag validator."""
+    """Test content-style flag validator."""
 
     def test_valid_values(self):
         """Test validator accepts valid values."""
@@ -140,7 +141,7 @@ class TestTemplateStylingValidator:
     def test_invalid_values(self):
         """Test validator rejects invalid values."""
         assert validate_template_styling("invalid", False) is False
-        assert validate_template_styling("none", False) is False  # "none" not valid for template-styling
+        assert validate_template_styling("none", False) is False  # "none" not valid for content-style
         assert validate_template_styling(True, False) is False
         assert validate_template_styling(123, False) is False
 
@@ -153,17 +154,17 @@ class TestValidatorRegistration:
         clear_validators()
         # Re-register the default validators
         register_flag_validator("content-format-mime", validate_content_format_mime)
-        register_flag_validator("template-styling", validate_template_styling)
+        register_flag_validator(FLAG_CONTENT_STYLE, validate_template_styling)
 
     def test_registered_validators_work(self):
         """Test that registered validators are used."""
         # Should not raise for valid values
         validate_flag_with_registered("content-format-mime", "plain", False)
-        validate_flag_with_registered("template-styling", "headings", False)
+        validate_flag_with_registered(FLAG_CONTENT_STYLE, "headings", False)
 
         # Should raise for invalid values
         with pytest.raises(FlagValidationError):
             validate_flag_with_registered("content-format-mime", "invalid", False)
 
         with pytest.raises(FlagValidationError):
-            validate_flag_with_registered("template-styling", "invalid", False)
+            validate_flag_with_registered(FLAG_CONTENT_STYLE, "invalid", False)

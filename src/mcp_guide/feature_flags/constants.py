@@ -10,3 +10,4 @@ FLAG_WORKFLOW_FILE = "workflow-file"
 
 # Content format flags
 FLAG_CONTENT_FORMAT_MIME = "content-format-mime"
+FLAG_CONTENT_STYLE = "content-style"

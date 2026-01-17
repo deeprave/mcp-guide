@@ -98,18 +98,19 @@ class TemplateContextCache(SessionListener):
             # Agent detection failed - log and use @ symbol only
             logger.debug(f"Agent detection failed: {e}")
 
-        # Add template styling variables based on template-styling feature flag
+        # Add template styling variables based on content-style feature flag
 
         # Get current project and feature flags for resolution
         try:
             # Import here to avoid circular dependency with session module
+            from mcp_guide.feature_flags.constants import FLAG_CONTENT_STYLE
             from mcp_guide.models import resolve_all_flags
             from mcp_guide.session import get_or_create_session
 
             session = await get_or_create_session(None)
             if session is not None:
                 resolved_flags = await resolve_all_flags(session)
-                styling_value = resolved_flags.get("template-styling", "plain")
+                styling_value = resolved_flags.get(FLAG_CONTENT_STYLE, "plain")
             else:
                 styling_value = "plain"
         except (ConnectionError, TimeoutError) as e:
@@ -119,7 +120,7 @@ class TemplateContextCache(SessionListener):
             logger.warning(f"Flag resolution failed, using default styling: {e}")
             styling_value = "plain"
         except Exception as e:
-            logger.error(f"Unexpected error resolving template-styling flag: {e}")
+            logger.error(f"Unexpected error resolving {FLAG_CONTENT_STYLE} flag: {e}")
             styling_value = "plain"
 
         # Convert to enum and get styling variables
