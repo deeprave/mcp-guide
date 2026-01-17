@@ -107,6 +107,24 @@ class TestOpenSpecTask:
             mock_request.assert_called_once()
 
     @pytest.mark.asyncio
+    async def test_handle_event_cli_not_found_no_project_check(self, mock_task_manager):
+        """Test CLI not found does not trigger project check."""
+        task = OpenSpecTask(mock_task_manager)
+
+        event_data = {"command": "openspec", "found": False}
+
+        assert task._project_requested is False
+
+        with patch.object(task, "request_project_check", new_callable=AsyncMock) as mock_request:
+            result = await task.handle_event(EventType.FS_COMMAND, event_data)
+
+            assert result is True
+            assert task.is_available() is False
+            mock_task_manager.set_cached_data.assert_called_once_with("openspec_available", False)
+            mock_request.assert_not_called()
+            assert task._project_requested is False
+
+    @pytest.mark.asyncio
     async def test_handle_event_cli_not_found(self, mock_task_manager):
         """Test handling CLI not found response."""
         task = OpenSpecTask(mock_task_manager)
@@ -145,7 +163,7 @@ class TestOpenSpecTask:
 
         event_data = {
             "path": "openspec",
-            "entries": [
+            "files": [
                 {"name": "project.md", "type": "file"},
                 {"name": "changes", "type": "directory"},
                 {"name": "specs", "type": "directory"},
@@ -166,7 +184,7 @@ class TestOpenSpecTask:
 
         event_data = {
             "path": "openspec",
-            "entries": [
+            "files": [
                 {"name": "project.md", "type": "file"},
                 # Missing changes and specs directories
             ],
@@ -185,7 +203,7 @@ class TestOpenSpecTask:
 
         event_data = {
             "path": "openspec",
-            "entries": [
+            "files": [
                 {"name": "changes", "type": "directory"},
                 {"name": "specs", "type": "directory"},
                 # Missing project.md
@@ -196,6 +214,7 @@ class TestOpenSpecTask:
 
         assert result is True
         assert task.is_project_enabled() is False
+        mock_task_manager.set_cached_data.assert_called_once_with("openspec_project_enabled", False)
 
     @pytest.mark.asyncio
     async def test_is_project_enabled_returns_none_before_check(self, mock_task_manager):
@@ -245,6 +264,7 @@ class TestOpenSpecTask:
 
         assert result is True
         assert task.get_version() is None
+        mock_task_manager.set_cached_data.assert_called_with("openspec_version", None)
 
     @pytest.mark.asyncio
     async def test_project_detection_triggers_version_check(self, mock_task_manager):
@@ -253,7 +273,7 @@ class TestOpenSpecTask:
 
         event_data = {
             "path": "openspec",
-            "entries": [
+            "files": [
                 {"name": "project.md", "type": "file"},
                 {"name": "changes", "type": "directory"},
                 {"name": "specs", "type": "directory"},

@@ -141,6 +141,7 @@ class TemplateContextCache(SessionListener):
         # Add OpenSpec context
         try:
             from mcp_guide.client_context.openspec_task import OpenSpecTask
+            from mcp_guide.task_manager import get_task_manager
 
             task_manager = get_task_manager()
             openspec_task_subscriber = task_manager.get_task_by_type(OpenSpecTask)

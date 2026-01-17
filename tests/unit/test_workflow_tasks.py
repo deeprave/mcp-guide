@@ -52,24 +52,32 @@ class TestWorkflowMonitorTask:
         final_state = copy.deepcopy(monitor_task.__dict__)
         assert final_state == initial_state
 
-    def test_detect_openspec_change_with_matching_directory(self, monitor_task, tmp_path) -> None:
-        """Test OpenSpec change detection with matching directory."""
-        import os
+    def test_detect_openspec_change_with_matching_directory(self, monitor_task) -> None:
+        """Test OpenSpec change detection with cached directory listing."""
+        monitor_task.task_manager.set_cached_data("openspec_changes_list", ["test-issue", "another-issue"])
+        assert monitor_task._detect_openspec_change("test-issue") is True
 
-        # Create openspec/changes/test-issue directory
-        (tmp_path / "openspec" / "changes" / "test-issue").mkdir(parents=True)
+    def test_detect_openspec_change_with_no_match(self, monitor_task) -> None:
+        """Test OpenSpec change detection with no match in cached listing."""
+        monitor_task.task_manager.set_cached_data("openspec_changes_list", ["other-issue"])
+        assert monitor_task._detect_openspec_change("test-issue") is False
 
-        old_cwd = os.getcwd()
-        try:
-            os.chdir(tmp_path)
-            assert monitor_task._detect_openspec_change("test-issue") is True
-        finally:
-            os.chdir(old_cwd)
-
-    def test_detect_openspec_change_with_no_directory(self, monitor_task) -> None:
-        """Test OpenSpec change detection with no matching directory."""
-        assert monitor_task._detect_openspec_change("nonexistent-issue") is False
+    def test_detect_openspec_change_with_no_cache(self, monitor_task) -> None:
+        """Test OpenSpec change detection with no cached listing."""
+        assert monitor_task._detect_openspec_change("test-issue") is False
 
     def test_detect_openspec_change_with_none_issue(self, monitor_task) -> None:
         """Test OpenSpec change detection with None issue name."""
         assert monitor_task._detect_openspec_change(None) is False
+
+    def test_handle_openspec_changes_listing(self, monitor_task) -> None:
+        """Test handling openspec/changes directory listing."""
+        entries = [
+            {"name": "test-issue", "type": "directory"},
+            {"name": "another-issue", "type": "directory"},
+            {"name": "IMPLEMENTATION_ORDER.md", "type": "file"},
+        ]
+        monitor_task._handle_openspec_changes_listing(entries)
+
+        cached = monitor_task.task_manager.get_cached_data("openspec_changes_list")
+        assert cached == ["test-issue", "another-issue"]

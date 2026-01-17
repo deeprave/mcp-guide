@@ -403,11 +403,29 @@ class TaskManager:
 
         Returns:
             The task instance if found, None otherwise
+
+        Notes:
+            This method performs an exact type match (no subclasses). If multiple
+            subscribers of the same type are registered, the first one will be
+            returned and a warning will be logged.
         """
-        for subscription in self._subscriptions:
-            if isinstance(subscription.subscriber, task_type):
-                return subscription.subscriber
-        return None
+        # Collect all exact-type matches to detect non-unique registrations
+        matches: list[T] = [
+            subscription.subscriber
+            for subscription in self._subscriptions
+            if type(subscription.subscriber) is task_type
+        ]
+
+        if not matches:
+            return None
+
+        if len(matches) > 1:
+            logger.warning(
+                "Multiple task subscribers found for type %s; returning first registered instance",
+                task_type.__name__,
+            )
+
+        return matches[0]
 
     async def _timer_loop(self) -> None:
         """Main timer event loop - runs only while there are active timers."""
