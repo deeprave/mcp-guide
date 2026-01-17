@@ -138,6 +138,34 @@ class TemplateContextCache(SessionListener):
         except Exception as e:
             logger.debug(f"Failed to get task statistics: {e}")
 
+        # Add OpenSpec context
+        try:
+            from mcp_guide.client_context.openspec_task import OpenSpecTask
+
+            task_manager = get_task_manager()
+            openspec_task_subscriber = task_manager.get_task_by_type(OpenSpecTask)
+
+            if openspec_task_subscriber:
+                agent_vars["openspec"] = {
+                    "available": openspec_task_subscriber.is_available(),
+                    "version": openspec_task_subscriber.get_version(),
+                    "enabled": openspec_task_subscriber.is_project_enabled(),
+                }
+            else:
+                # Task not registered (feature flag disabled)
+                agent_vars["openspec"] = {
+                    "available": False,
+                    "version": None,
+                    "enabled": False,
+                }
+        except Exception as e:
+            logger.debug(f"Failed to get OpenSpec context: {e}")
+            agent_vars["openspec"] = {
+                "available": False,
+                "version": None,
+                "enabled": False,
+            }
+
         agent_vars.update(formatting_vars)
 
         return TemplateContext(agent_vars)

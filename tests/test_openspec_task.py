@@ -98,11 +98,13 @@ class TestOpenSpecTask:
 
         event_data = {"command": "openspec", "path": "/usr/local/bin/openspec", "found": True}
 
-        result = await task.handle_event(EventType.FS_COMMAND, event_data)
+        with patch.object(task, "request_project_check", new_callable=AsyncMock) as mock_request:
+            result = await task.handle_event(EventType.FS_COMMAND, event_data)
 
-        assert result is True
-        assert task.is_available() is True
-        mock_task_manager.set_cached_data.assert_called_once_with("openspec_available", True)
+            assert result is True
+            assert task.is_available() is True
+            mock_task_manager.set_cached_data.assert_called_once_with("openspec_available", True)
+            mock_request.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_handle_event_cli_not_found(self, mock_task_manager):
@@ -128,10 +130,139 @@ class TestOpenSpecTask:
         """Test that task ignores events it doesn't subscribe to."""
         task = OpenSpecTask(mock_task_manager)
 
-        # Task only subscribes to TIMER_ONCE and FS_COMMAND, not FS_FILE_CONTENT
+        # Task only subscribes to TIMER_ONCE, FS_COMMAND, and FS_DIRECTORY, not FS_FILE_CONTENT
         event_data = {"path": ".some-file.txt", "content": "content"}
 
         result = await task.handle_event(EventType.FS_FILE_CONTENT, event_data)
 
         assert result is False
         mock_task_manager.set_cached_data.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_handle_event_project_structure_complete(self, mock_task_manager):
+        """Test handling complete OpenSpec project structure."""
+        task = OpenSpecTask(mock_task_manager)
+
+        event_data = {
+            "path": "openspec",
+            "entries": [
+                {"name": "project.md", "type": "file"},
+                {"name": "changes", "type": "directory"},
+                {"name": "specs", "type": "directory"},
+            ],
+        }
+
+        with patch.object(task, "request_version_check", new_callable=AsyncMock):
+            result = await task.handle_event(EventType.FS_DIRECTORY, event_data)
+
+            assert result is True
+            assert task.is_project_enabled() is True
+            mock_task_manager.set_cached_data.assert_called_once_with("openspec_project_enabled", True)
+
+    @pytest.mark.asyncio
+    async def test_handle_event_project_structure_incomplete(self, mock_task_manager):
+        """Test handling incomplete OpenSpec project structure."""
+        task = OpenSpecTask(mock_task_manager)
+
+        event_data = {
+            "path": "openspec",
+            "entries": [
+                {"name": "project.md", "type": "file"},
+                # Missing changes and specs directories
+            ],
+        }
+
+        result = await task.handle_event(EventType.FS_DIRECTORY, event_data)
+
+        assert result is True
+        assert task.is_project_enabled() is False
+        mock_task_manager.set_cached_data.assert_called_once_with("openspec_project_enabled", False)
+
+    @pytest.mark.asyncio
+    async def test_handle_event_project_missing_project_md(self, mock_task_manager):
+        """Test handling OpenSpec structure missing project.md."""
+        task = OpenSpecTask(mock_task_manager)
+
+        event_data = {
+            "path": "openspec",
+            "entries": [
+                {"name": "changes", "type": "directory"},
+                {"name": "specs", "type": "directory"},
+                # Missing project.md
+            ],
+        }
+
+        result = await task.handle_event(EventType.FS_DIRECTORY, event_data)
+
+        assert result is True
+        assert task.is_project_enabled() is False
+
+    @pytest.mark.asyncio
+    async def test_is_project_enabled_returns_none_before_check(self, mock_task_manager):
+        """Test that is_project_enabled returns None before project check completes."""
+        task = OpenSpecTask(mock_task_manager)
+        assert task.is_project_enabled() is None
+
+    @pytest.mark.asyncio
+    async def test_get_version_returns_none_initially(self, mock_task_manager):
+        """Test that get_version returns None initially."""
+        task = OpenSpecTask(mock_task_manager)
+        assert task.get_version() is None
+
+    @pytest.mark.asyncio
+    async def test_handle_event_version_parsing_valid(self, mock_task_manager):
+        """Test parsing valid semantic version."""
+        task = OpenSpecTask(mock_task_manager)
+
+        event_data = {"path": ".openspec-version.txt", "content": "openspec version 1.2.3"}
+
+        result = await task.handle_event(EventType.FS_FILE_CONTENT, event_data)
+
+        assert result is True
+        assert task.get_version() == "1.2.3"
+        mock_task_manager.set_cached_data.assert_called_once_with("openspec_version", "1.2.3")
+
+    @pytest.mark.asyncio
+    async def test_handle_event_version_parsing_with_v_prefix(self, mock_task_manager):
+        """Test parsing version with v prefix."""
+        task = OpenSpecTask(mock_task_manager)
+
+        event_data = {"path": ".openspec-version.txt", "content": "v2.0.1"}
+
+        result = await task.handle_event(EventType.FS_FILE_CONTENT, event_data)
+
+        assert result is True
+        assert task.get_version() == "2.0.1"
+
+    @pytest.mark.asyncio
+    async def test_handle_event_version_parsing_invalid(self, mock_task_manager):
+        """Test parsing invalid version format."""
+        task = OpenSpecTask(mock_task_manager)
+
+        event_data = {"path": ".openspec-version.txt", "content": "invalid version"}
+
+        result = await task.handle_event(EventType.FS_FILE_CONTENT, event_data)
+
+        assert result is True
+        assert task.get_version() is None
+
+    @pytest.mark.asyncio
+    async def test_project_detection_triggers_version_check(self, mock_task_manager):
+        """Test that project detection triggers version check."""
+        task = OpenSpecTask(mock_task_manager)
+
+        event_data = {
+            "path": "openspec",
+            "entries": [
+                {"name": "project.md", "type": "file"},
+                {"name": "changes", "type": "directory"},
+                {"name": "specs", "type": "directory"},
+            ],
+        }
+
+        with patch.object(task, "request_version_check", new_callable=AsyncMock) as mock_request:
+            result = await task.handle_event(EventType.FS_DIRECTORY, event_data)
+
+            assert result is True
+            assert task.is_project_enabled() is True
+            mock_request.assert_called_once()
