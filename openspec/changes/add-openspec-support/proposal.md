@@ -9,6 +9,7 @@ Enable MCP-Guide to integrate with OpenSpec CLI for spec-driven development work
 - Handle client-server filesystem separation for OpenSpec file access
 - Integrate OpenSpec project state into template context hierarchy
 - Provide guided workflows for common OpenSpec operations
+- Format OpenSpec command responses (JSON) into user-friendly markdown
 
 ## Impact
 - Affected specs: mcp-server, template-context

@@ -511,6 +511,11 @@ Agent handles path resolution (via PATH or explicit location).
 - **Question**: How to organize schema-specific templates?
 - **Recommendation**: `templates/_commands/openspec/<command>.mustache`
 
+### Response Formatting
+- **Question**: How to present OpenSpec command results to users?
+- **Decision**: Format JSON responses into markdown in OpenSpecTask
+- **Implementation**: Handle `.openspec-*.json` files in FS_FILE_CONTENT event, format and return as user/information
+
 ## Risks / Trade-offs
 
 ### Risk: CLI Availability

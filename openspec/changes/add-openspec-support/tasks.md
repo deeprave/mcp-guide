@@ -44,3 +44,14 @@
 - [ ] 7.3 Test feature flag conditional behavior
 - [ ] 7.4 Validate template context integration
 - [ ] 7.5 Test error handling for missing OpenSpec structures
+
+## 8. Response Formatting
+- [ ] 8.1 Add FS_FILE_CONTENT handler for `.openspec-status.json`
+- [ ] 8.2 Add FS_FILE_CONTENT handler for `.openspec-changes.json`
+- [ ] 8.3 Add FS_FILE_CONTENT handler for `.openspec-show.json`
+- [ ] 8.4 Format status response as markdown table
+- [ ] 8.5 Format changes list as markdown table
+- [ ] 8.6 Format show response as structured markdown
+- [ ] 8.7 Format CLI error responses as user-friendly markdown
+- [ ] 8.8 Return formatted responses as user/information type
+- [ ] 8.9 Add tests for response formatting including error cases

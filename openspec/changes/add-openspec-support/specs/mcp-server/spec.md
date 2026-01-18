@@ -83,3 +83,31 @@ The MCP server SHALL provide pre-written prompts for OpenSpec workflows.
 #### Scenario: Archive change prompt
 - **WHEN** @openspec archive-change prompt is requested
 - **THEN** return post-completion change archival workflow guidance
+
+### Requirement: OpenSpec Command Response Formatting
+The MCP server SHALL format OpenSpec CLI JSON responses into user-friendly markdown for display.
+
+#### Scenario: Format status response
+- **WHEN** `.openspec-status.json` is received via send_file_content
+- **THEN** format as markdown with change name, schema, completion status, and artifact table
+- **AND** return as user/information type
+
+#### Scenario: Format changes list response
+- **WHEN** `.openspec-changes.json` is received via send_file_content
+- **THEN** format as markdown table with change names, status, tasks completed, and last modified
+- **AND** return as user/information type
+
+#### Scenario: Format show response
+- **WHEN** `.openspec-show.json` is received via send_file_content
+- **THEN** format as structured markdown with change details, artifacts, and metadata
+- **AND** return as user/information type
+
+#### Scenario: Handle formatting errors
+- **WHEN** OpenSpec JSON response is malformed or missing expected fields
+- **THEN** return error message with raw JSON for debugging
+- **AND** log warning for investigation
+
+#### Scenario: Format CLI error responses
+- **WHEN** OpenSpec CLI returns error in JSON response (e.g., missing required options, invalid change name)
+- **THEN** format error as user-friendly markdown with error message and available options/suggestions
+- **AND** return as user/information type
