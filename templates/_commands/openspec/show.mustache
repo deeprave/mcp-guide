@@ -2,5 +2,6 @@
 type: agent/instruction
 description: Show details for a specific OpenSpec change
 category: "openspec"
+requires-openspec: true
 ---
 Run `openspec show {{change_id}} --json` and send the result using {{tool_prefix}}send_file_content with path `.openspec-show.json`

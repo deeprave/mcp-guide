@@ -1,0 +1,20 @@
+---
+type: user/information
+---
+## OpenSpec Status: {{changeName}}
+
+**Schema:** {{schemaName}}
+**Status:** {{#isComplete}}✅ Complete{{/isComplete}}{{^isComplete}}⏳ In Progress{{/isComplete}}
+
+{{#artifacts}}
+### Artifacts
+
+| Artifact | Path | Status |
+|----------|------|--------|
+{{#artifacts}}
+| {{id}} | `{{outputPath}}` | {{status}} |
+{{/artifacts}}
+{{/artifacts}}
+{{^artifacts}}
+*No artifacts defined*
+{{/artifacts}}

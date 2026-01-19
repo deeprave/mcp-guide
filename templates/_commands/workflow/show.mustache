@@ -1,0 +1,18 @@
+---
+type: user/information
+description: Show current workflow status and details
+category: "project-workflow"
+requires-workflow: true
+aliases:
+  - "show"
+usage: ":workflow/show"
+examples:
+  - ":workflow/show"
+  - ":show"
+includes:
+  - ../_partials/_workflow-status.mustache
+---
+{{#workflow}}{{>workflow-status}}{{/workflow}}
+{{^workflow}}
+Workflow is not enabled or `.guide.yaml` not found.
+{{/workflow}}

@@ -4,20 +4,20 @@ description: Instructions for collecting basic client OS information
 ---
 Please collect basic client OS information and send it using the {{tool_prefix}}send_file_content tool with path '.client-os.json':
 
-**Required JSON format:**
+Execute these commands to collect the data:
+1. Run `uname -s` to get OS name
+2. Run `uname -m` to get platform architecture
+3. Run `hostname` to get system hostname
+
+Then construct JSON in this format:
 ```json
 {
   "client": {
-    "os": "$(uname -s)",
-    "platform": "$(uname -m)",
-    "hostname": "$(hostname)"
+    "os": "<result from uname -s>",
+    "platform": "<result from uname -m>",
+    "hostname": "<result from hostname>"
   }
 }
 ```
-
-**Cross-platform commands:**
-- `uname -s` - OS name (Linux, Darwin, MINGW64_NT, etc.)
-- `uname -m` - Machine architecture
-- `hostname` - System hostname
 
 Send this data as JSON using: `{{tool_prefix}}send_file_content` with path `.client-os.json`

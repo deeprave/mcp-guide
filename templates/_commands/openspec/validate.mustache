@@ -2,5 +2,6 @@
 type: agent/instruction
 description: Validate a specific OpenSpec change
 category: "openspec"
+requires-openspec: true
 ---
 Run `openspec validate {{change_id}}` and send the result using {{tool_prefix}}send_file_content with path `.openspec-validate.txt`
