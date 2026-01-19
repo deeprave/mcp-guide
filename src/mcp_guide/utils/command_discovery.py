@@ -38,8 +38,8 @@ async def discover_commands(commands_dir: Path) -> List[Dict[str, Any]]:
     if not await AsyncPath(commands_dir).exists():
         return []
 
-    # Build cache key including relevant flags that affect command visibility
-    # Get context for cache key (lightweight - just flag values)
+    # Get context once for both cache key and requirements checking
+    context_data = None
     try:
         from mcp_guide.utils.template_context_cache import get_template_contexts
 
@@ -77,9 +77,6 @@ async def discover_commands(commands_dir: Path) -> List[Dict[str, Any]]:
         commands = []
         error_files = []
 
-        # Get context for requirements checking (only if needed)
-        requirements_context = None
-
         for file_info in files:
             # Extract command name from path (remove extension)
             # file_info.path is already relative to commands_dir
@@ -105,17 +102,17 @@ async def discover_commands(commands_dir: Path) -> List[Dict[str, Any]]:
                     has_requirements = any(key.startswith("requires-") for key in front_matter.keys())
 
                     if has_requirements:
-                        # Lazy load context only when needed
-                        if requirements_context is None:
+                        # Use context loaded earlier (reuse to avoid duplicate calls)
+                        if context_data is None:
+                            # Context wasn't loaded earlier, load it now
                             from mcp_guide.utils.template_context_cache import get_template_contexts
 
                             context_data = await get_template_contexts()
-                            requirements_context = dict(context_data)
 
                         # Check requirements - skip command if not met
                         from mcp_guide.utils.frontmatter import check_frontmatter_requirements
 
-                        if not check_frontmatter_requirements(front_matter, requirements_context):
+                        if not check_frontmatter_requirements(front_matter, dict(context_data)):
                             continue
 
                     description = front_matter.get("description", "")
