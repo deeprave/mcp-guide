@@ -30,11 +30,15 @@ class OpenSpecTask:
         self._project_enabled: Optional[bool] = None
         self._version_requested = False
         self._version: Optional[str] = None
+        self._changes_requested = False
 
         # Subscribe to startup and command events
         self.task_manager.subscribe(
             self, EventType.TIMER_ONCE | EventType.FS_COMMAND | EventType.FS_DIRECTORY | EventType.FS_FILE_CONTENT, 5.0
         )
+
+        # Subscribe to timer for periodic changes monitoring (60 min)
+        self.task_manager.subscribe(self, EventType.TIMER, 3600.0)
 
     def get_name(self) -> str:
         """Get a readable name for the task."""
@@ -108,10 +112,30 @@ class OpenSpecTask:
             if not self._flag_checked:
                 return False  # Requeue until on_tool is called
 
+            # Check if flag is enabled before requesting CLI check
+            try:
+                from mcp_guide.session import get_or_create_session
+                from mcp_guide.utils.flag_utils import get_resolved_flag_value
+
+                session = await get_or_create_session()
+                enabled = await get_resolved_flag_value(session, FLAG_OPENSPEC, False)
+
+                if not enabled:
+                    return True  # Stop TIMER_ONCE without requesting CLI
+            except Exception:
+                return True  # Stop on error
+
             if not self._cli_requested:
                 await self.request_cli_check()
                 self._cli_requested = True
             return True
+
+        # Handle timer events for changes monitoring
+        if event_type & EventType.TIMER:
+            interval = data.get("interval")
+            if interval == 3600.0:  # 60 min interval
+                await self._handle_changes_reminder()
+                return True
 
         # Handle command location events
         if event_type & EventType.FS_COMMAND:
@@ -130,30 +154,115 @@ class OpenSpecTask:
 
                 return True
 
-        # Handle directory listing events for project detection
+        # Handle directory listing events
         if event_type & EventType.FS_DIRECTORY:
             path = data.get("path", "")
+
+            # Project detection
             if path.rstrip("/") == "openspec":
                 # FS_DIRECTORY events use "files" key from send_directory_listing
                 entries = data.get("files", [])
                 self._check_project_structure(entries)
 
-                # If project enabled, request version
-                if self._project_enabled and not self._version_requested:
-                    self._version_requested = True
-                    await self.request_version_check()
+                # If project enabled, request version and changes
+                if self._project_enabled:
+                    if not self._version_requested:
+                        self._version_requested = True
+                        await self.request_version_check()
+                    if not self._changes_requested:
+                        self._changes_requested = True
+                        await self.request_changes_listing()
 
+                return True
+
+            # Changes monitoring
+            elif path.rstrip("/") == "openspec/changes":
+                entries = data.get("files", [])
+                self._handle_changes_listing(entries)
                 return True
 
         # Handle file content events for version detection
         if event_type & EventType.FS_FILE_CONTENT:
+            import json
+            from pathlib import Path
+
             path = data.get("path", "")
-            if path == ".openspec-version.txt":
+            path_name = Path(path).name
+
+            # Handle version detection
+            if path_name == ".openspec-version.txt":
                 content = data.get("content", "")
                 self._parse_version(content)
                 return True
 
+            # Handle OpenSpec command responses
+            content = data.get("content", "")
+
+            # Parse JSON responses
+            try:
+                json_data = json.loads(content)
+            except json.JSONDecodeError:
+                logger.debug(f"Non-JSON content in {path_name}, skipping")
+                return False
+
+            # Check for error responses first
+            if "error" in json_data:
+                formatted = await self._format_error_response(json_data)
+                await self.task_manager.queue_instruction(formatted)
+                return True
+
+            # Format specific OpenSpec responses
+            if path_name == ".openspec-status.json":
+                formatted = await self._format_status_response(json_data)
+                await self.task_manager.queue_instruction(formatted)
+                return True
+
+            elif path_name == ".openspec-changes.json":
+                formatted = await self._format_changes_list_response(json_data)
+                await self.task_manager.queue_instruction(formatted)
+                return True
+
+            elif path_name == ".openspec-show.json":
+                formatted = await self._format_show_response(json_data)
+                await self.task_manager.queue_instruction(formatted)
+                return True
+
         return False
+
+    async def request_changes_listing(self) -> None:
+        """Request listing of openspec/changes directory."""
+        content = await render_common_template("openspec-changes-check")
+        await self.task_manager.queue_instruction(content)
+
+    async def _handle_changes_reminder(self) -> None:
+        """Handle timer events for changes monitoring."""
+        if not self._project_enabled:
+            return
+
+        try:
+            await self.request_changes_listing()
+            logger.trace("Queued OpenSpec changes check reminder")
+        except Exception as e:
+            logger.warning(f"Failed to queue OpenSpec changes reminder: {e}")
+
+    def _handle_changes_listing(self, entries: list[dict[str, Any]]) -> None:
+        """Handle openspec/changes directory listing.
+
+        Args:
+            entries: List of directory entries from send_directory_listing
+        """
+        import time
+
+        # Extract directory names, filter out files and hidden entries
+        changes_list = [
+            entry["name"]
+            for entry in entries
+            if entry.get("type") == "directory" and not entry.get("name", "").startswith(".")
+        ]
+
+        self.task_manager.set_cached_data("openspec_changes_list", changes_list)
+        self.task_manager.set_cached_data("openspec_changes_timestamp", time.time())
+        logger.trace(f"Cached {len(changes_list)} openspec changes: {changes_list}")
 
     def _parse_version(self, content: str) -> None:
         """Parse OpenSpec version from command output.
@@ -197,3 +306,63 @@ class OpenSpecTask:
         self._project_enabled = has_project_md and has_changes_dir and has_specs_dir
         self.task_manager.set_cached_data("openspec_project_enabled", self._project_enabled)
         logger.info(f"OpenSpec project {'enabled' if self._project_enabled else 'not initialized'}")
+
+    async def _format_status_response(self, data: dict[str, Any]) -> str:
+        """Format OpenSpec status response using template.
+
+        Args:
+            data: Parsed JSON from openspec status command
+
+        Returns:
+            Formatted markdown string
+        """
+        return await render_common_template("_commands/openspec/_status-format", extra_context=data)
+
+    async def _format_changes_list_response(self, data: dict[str, Any]) -> str:
+        """Format OpenSpec changes list response using template.
+
+        Args:
+            data: Parsed JSON from openspec list command
+
+        Returns:
+            Formatted markdown string
+        """
+        changes = data.get("changes", [])
+
+        # Sort: in-progress first, then by last modified
+        sorted_changes = sorted(
+            changes, key=lambda c: (c.get("status") != "in-progress", c.get("lastModified", "")), reverse=True
+        )
+
+        # Add formatted fields for template
+        for change in sorted_changes:
+            completed = change.get("completedTasks", 0)
+            total = change.get("totalTasks", 0)
+            change["progress"] = f"{completed}/{total}" if total > 0 else "N/A"
+            last_mod = change.get("lastModified", "")
+            change["lastModified"] = last_mod[:10] if last_mod else "N/A"
+
+        context = {"has_changes": len(sorted_changes) > 0, "sorted_changes": sorted_changes}
+        return await render_common_template("_commands/openspec/_changes-format", extra_context=context)
+
+    async def _format_show_response(self, data: dict[str, Any]) -> str:
+        """Format OpenSpec show response using template.
+
+        Args:
+            data: Parsed JSON from openspec show command
+
+        Returns:
+            Formatted markdown string
+        """
+        return await render_common_template("_commands/openspec/_show-format", extra_context=data)
+
+    async def _format_error_response(self, data: dict[str, Any]) -> str:
+        """Format OpenSpec CLI error using template.
+
+        Args:
+            data: Parsed JSON with error fields
+
+        Returns:
+            Formatted markdown string
+        """
+        return await render_common_template("_commands/openspec/_error-format", extra_context=data)

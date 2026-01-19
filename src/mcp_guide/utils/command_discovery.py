@@ -38,7 +38,19 @@ async def discover_commands(commands_dir: Path) -> List[Dict[str, Any]]:
     if not await AsyncPath(commands_dir).exists():
         return []
 
-    cache_key = str(commands_dir)
+    # Build cache key including relevant flags that affect command visibility
+    # Get context for cache key (lightweight - just flag values)
+    try:
+        from mcp_guide.utils.template_context_cache import get_template_contexts
+
+        context_data = await get_template_contexts()
+        # Extract only flags that affect command requirements
+        relevant_flags = {k: v for k, v in context_data.items() if k in ("openspec", "workflow")}
+        cache_key = f"{commands_dir}:{hash(frozenset(relevant_flags.items()))}"
+    except Exception:
+        # Fallback to simple cache key if context unavailable
+        cache_key = str(commands_dir)
+
     effective_mtime: float = 0.0  # Initialize with default value
 
     async with _cache_lock:
@@ -64,6 +76,10 @@ async def discover_commands(commands_dir: Path) -> List[Dict[str, Any]]:
 
         commands = []
         error_files = []
+
+        # Get context for requirements checking (only if needed)
+        requirements_context = None
+
         for file_info in files:
             # Extract command name from path (remove extension)
             # file_info.path is already relative to commands_dir
@@ -85,6 +101,23 @@ async def discover_commands(commands_dir: Path) -> List[Dict[str, Any]]:
                 parsed = parse_content_with_frontmatter(content)
                 front_matter = parsed.frontmatter
                 if front_matter:
+                    # Check if any requires-* keys exist
+                    has_requirements = any(key.startswith("requires-") for key in front_matter.keys())
+
+                    if has_requirements:
+                        # Lazy load context only when needed
+                        if requirements_context is None:
+                            from mcp_guide.utils.template_context_cache import get_template_contexts
+
+                            context_data = await get_template_contexts()
+                            requirements_context = dict(context_data)
+
+                        # Check requirements - skip command if not met
+                        from mcp_guide.utils.frontmatter import check_frontmatter_requirements
+
+                        if not check_frontmatter_requirements(front_matter, requirements_context):
+                            continue
+
                     description = front_matter.get("description", "")
                     usage = front_matter.get("usage", "")
                     examples = front_matter.get("examples", [])

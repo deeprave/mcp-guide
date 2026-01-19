@@ -152,15 +152,19 @@ class TestCommandErrorHandling:
         mock_ctx.session.project_root = "/test/project"
         mock_ctx.session.get_docroot.return_value = "/test/project"
 
-        # Mock directory exists, command discovery, template context, and template rendering failure
+        # Mock directory exists, command discovery dependencies, template context, and template rendering failure
         with (
             patch("pathlib.Path.exists", return_value=True),
             patch("pathlib.Path.is_dir", return_value=True),
             patch("mcp_guide.session.get_or_create_session", new=AsyncMock()) as mock_session,
-            patch("mcp_guide.utils.command_discovery.discover_commands", new=AsyncMock()) as mock_discover,
+            patch("mcp_guide.utils.command_discovery.discover_command_files", new=AsyncMock()) as mock_discover_files,
             patch("mcp_guide.prompts.guide_prompt.discover_category_files", new=AsyncMock()) as mock_files,
             patch("mcp_guide.prompts.guide_prompt.get_template_contexts", new=AsyncMock()) as mock_context,
+            patch(
+                "mcp_guide.utils.template_context_cache.get_template_contexts", new=AsyncMock()
+            ) as mock_discover_context,
             patch("mcp_guide.prompts.guide_prompt.render_file_content", new=AsyncMock()) as mock_render,
+            patch("aiofiles.open") as mock_aiofiles,
         ):
             # Mock session methods
             mock_session_obj = AsyncMock()
@@ -171,17 +175,22 @@ class TestCommandErrorHandling:
             from mcp_guide.utils.file_discovery import FileInfo
             from mcp_guide.utils.template_context import TemplateContext
 
-            # Mock command discovery to return a command
-            mock_discover.return_value = [
-                {
-                    "name": "broken",
-                    "path": "broken.mustache",
-                    "description": "Broken command",
-                    "aliases": [],
-                }
+            # Mock command file discovery to return a file
+            mock_discover_files.return_value = [
+                FileInfo(
+                    path=Path("broken.mustache"),
+                    size=100,
+                    content_size=100,
+                    mtime=1234567890,
+                    name="broken.mustache",
+                    content="",
+                    category="",
+                    collection="",
+                    ctime=1234567890,
+                )
             ]
 
-            # Mock file discovery to return a file
+            # Mock file discovery to return a file (for content retrieval)
             mock_files.return_value = [
                 FileInfo(
                     path=Path("broken.mustache"),
@@ -199,10 +208,11 @@ class TestCommandErrorHandling:
             # Mock template context
             mock_base_context = TemplateContext({})
             mock_context.return_value = mock_base_context
+            mock_discover_context.return_value = mock_base_context
 
             mock_render.return_value = Result.failure("Invalid template syntax", error_type="template_error")
 
-            # Create proper async context manager mock
+            # Create proper async context manager mock for file reading
             class MockAsyncFile:
                 async def read(self):
                     return "{{invalid template}}"
@@ -213,12 +223,13 @@ class TestCommandErrorHandling:
                 async def __aexit__(self, exc_type, exc_val, exc_tb):
                     return None
 
-            with patch("aiofiles.open", return_value=MockAsyncFile()):
-                result_str = await guide_function(":broken", ctx=mock_ctx)
-                result = json.loads(result_str)
+            mock_aiofiles.return_value = MockAsyncFile()
 
-                assert result["success"] is False
-                assert "template" in result["error"].lower()
+            result_str = await guide_function(":broken", ctx=mock_ctx)
+            result = json.loads(result_str)
+
+            assert result["success"] is False
+            assert "template" in result["error"].lower()
 
     @pytest.mark.asyncio
     async def test_file_permission_errors(self, guide_function) -> None:

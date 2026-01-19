@@ -38,8 +38,12 @@ def check_frontmatter_requirements(frontmatter: Dict[str, Any], context: Dict[st
 
         flag_name = key[9:]  # Remove "requires-" prefix
 
-        # Get actual value from context
+        # Support nested keys (e.g., "openspec.enabled")
         actual_value = context.get(flag_name)
+
+        # If value is a dict and required_value is bool, check for 'enabled' key
+        if isinstance(actual_value, dict) and isinstance(required_value, bool):
+            actual_value = actual_value.get("enabled")
 
         # Handle different requirement types
         if isinstance(required_value, bool):
