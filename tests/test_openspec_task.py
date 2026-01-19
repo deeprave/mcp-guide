@@ -40,11 +40,12 @@ class TestOpenSpecTask:
 
         assert mock_task_manager.subscribe.call_count == 2
 
-        # First call: TIMER_ONCE and FS_COMMAND
+        # First call: TIMER_ONCE and FS_COMMAND with 5s interval
         first_call = mock_task_manager.subscribe.call_args_list[0]
         assert first_call[0][0] == task
         assert first_call[0][1] & EventType.TIMER_ONCE
         assert first_call[0][1] & EventType.FS_COMMAND
+        assert first_call[0][2] == 5.0
 
         # Second call: TIMER for changes monitoring
         second_call = mock_task_manager.subscribe.call_args_list[1]
@@ -307,6 +308,69 @@ class TestOpenSpecTask:
             mock_version.assert_called_once()
             mock_changes.assert_called_once()
 
+    @pytest.mark.asyncio
+    async def test_timer_event_calls_changes_reminder_when_enabled(self, mock_task_manager):
+        """Test TIMER event with 3600s interval calls changes reminder when project enabled."""
+        task = OpenSpecTask(mock_task_manager)
+        task._flag_checked = True
+        task._project_enabled = True
+
+        with patch.object(task, "_handle_changes_reminder", new_callable=AsyncMock) as mock_reminder:
+            result = await task.handle_event(EventType.TIMER, {"interval": 3600.0})
+
+            assert result is True
+            mock_reminder.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_timer_event_skips_reminder_when_disabled(self, mock_task_manager):
+        """Test TIMER event skips changes reminder when project not enabled."""
+        task = OpenSpecTask(mock_task_manager)
+        task._flag_checked = True
+        task._project_enabled = False
+
+        with patch.object(task, "request_changes_listing", new_callable=AsyncMock) as mock_request:
+            result = await task.handle_event(EventType.TIMER, {"interval": 3600.0})
+
+            assert result is True
+            mock_request.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_handle_changes_listing_caches_directories_only(self, mock_task_manager):
+        """Test _handle_changes_listing caches only directories and skips hidden files."""
+        task = OpenSpecTask(mock_task_manager)
+
+        entries = [
+            {"name": "change-1", "type": "directory"},
+            {"name": "change-2", "type": "directory"},
+            {"name": ".hidden", "type": "directory"},
+            {"name": "README.md", "type": "file"},
+            {"name": ".DS_Store", "type": "file"},
+        ]
+
+        task._handle_changes_listing(entries)
+
+        # Should cache only non-hidden directories
+        mock_task_manager.set_cached_data.assert_any_call("openspec_changes_list", ["change-1", "change-2"])
+        # Should also cache timestamp
+        assert any(
+            call[0][0] == "openspec_changes_timestamp" for call in mock_task_manager.set_cached_data.call_args_list
+        )
+
+    @pytest.mark.asyncio
+    async def test_directory_event_for_changes_path(self, mock_task_manager):
+        """Test FS_DIRECTORY event for openspec/changes invokes handler."""
+        task = OpenSpecTask(mock_task_manager)
+        task._flag_checked = True
+
+        entries = [{"name": "change-1", "type": "directory"}]
+        event_data = {"path": "openspec/changes", "files": entries}
+
+        with patch.object(task, "_handle_changes_listing") as mock_handler:
+            result = await task.handle_event(EventType.FS_DIRECTORY, event_data)
+
+            assert result is True
+            mock_handler.assert_called_once_with(entries)
+
 
 class TestOpenSpecResponseFormatting:
     """Test OpenSpec response formatting."""
@@ -372,7 +436,7 @@ class TestOpenSpecResponseFormatting:
 
     @pytest.mark.asyncio
     async def test_format_changes_list_response(self, mock_task_manager):
-        """Test formatting changes list response."""
+        """Test formatting changes list response including sorting and derived fields."""
         task = OpenSpecTask(mock_task_manager)
         task._flag_checked = True
 
@@ -383,14 +447,14 @@ class TestOpenSpecResponseFormatting:
                     "status": "complete",
                     "completedTasks": 10,
                     "totalTasks": 10,
-                    "lastModified": "2024-01-15T10:00:00Z",
+                    "lastModified": "2024-01-01T10:00:00Z",
                 },
                 {
                     "name": "change-2",
                     "status": "in-progress",
-                    "completedTasks": 5,
-                    "totalTasks": 10,
-                    "lastModified": "2024-01-16T10:00:00Z",
+                    "completedTasks": 0,
+                    "totalTasks": 0,
+                    "lastModified": "2024-01-02T12:00:00Z",
                 },
             ]
         }
@@ -398,7 +462,7 @@ class TestOpenSpecResponseFormatting:
         event_data = {"path": ".openspec-changes.json", "content": json.dumps(changes_data)}
 
         with patch("mcp_guide.client_context.openspec_task.render_common_template") as mock_render:
-            mock_render.return_value = "## OpenSpec Changes\n\n| change-2 | in-progress | 5/10 |"
+            mock_render.return_value = "## OpenSpec Changes\n\n| change-2 | in-progress | N/A |"
 
             result = await task.handle_event(EventType.FS_FILE_CONTENT, event_data)
 
@@ -407,8 +471,25 @@ class TestOpenSpecResponseFormatting:
             call_args = mock_render.call_args
             assert call_args[0][0] == "_commands/openspec/_changes-format"
             context = call_args[1]["extra_context"]
+
+            # Verify has_changes and count
             assert context["has_changes"] is True
             assert len(context["sorted_changes"]) == 2
+
+            # Verify sorting: in-progress first, then by lastModified descending
+            names_in_order = [c["name"] for c in context["sorted_changes"]]
+            assert names_in_order == ["change-2", "change-1"]
+
+            # Verify derived fields
+            change_2, change_1 = context["sorted_changes"]
+
+            assert change_2["status"] == "in-progress"
+            assert change_2["progress"] == "N/A"
+            assert change_2["lastModified"] == "2024-01-02"
+
+            assert change_1["status"] == "complete"
+            assert change_1["progress"] == "10/10"
+            assert change_1["lastModified"] == "2024-01-01"
 
     @pytest.mark.asyncio
     async def test_format_changes_list_empty(self, mock_task_manager):

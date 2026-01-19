@@ -329,10 +329,11 @@ class OpenSpecTask:
         """
         changes = data.get("changes", [])
 
-        # Sort: in-progress first, then by last modified
-        sorted_changes = sorted(
-            changes, key=lambda c: (c.get("status") != "in-progress", c.get("lastModified", "")), reverse=True
-        )
+        # Sort: in-progress first, then by last modified (newest first)
+        # Step 1: Sort by lastModified descending (newest first)
+        # Step 2: Stable sort by status to put in-progress first
+        sorted_changes = sorted(changes, key=lambda c: c.get("lastModified", ""), reverse=True)
+        sorted_changes = sorted(sorted_changes, key=lambda c: c.get("status") != "in-progress")
 
         # Add formatted fields for template
         for change in sorted_changes:
