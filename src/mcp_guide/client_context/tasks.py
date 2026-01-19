@@ -71,6 +71,20 @@ class ClientContextTask:
             if not self._flag_checked:
                 return False  # Requeue until on_tool is called
 
+            # Check flag value before requesting info
+            try:
+                from mcp_guide.session import get_or_create_session
+                from mcp_guide.utils.flag_utils import get_resolved_flag_value
+
+                session = await get_or_create_session()
+                enabled = await get_resolved_flag_value(session, FLAG_ALLOW_CLIENT_INFO, False)
+
+                if not enabled:
+                    logger.debug("ClientContextTask: allow-client-info disabled, skipping request")
+                    return True  # Stop TIMER_ONCE without requesting
+            except Exception:
+                return True  # Stop on error
+
             if not self._os_info_requested:
                 await self.request_basic_os_info()
                 self._os_info_requested = True

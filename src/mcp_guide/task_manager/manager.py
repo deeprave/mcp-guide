@@ -136,11 +136,12 @@ class TaskManager:
 
             self._subscriptions.append(subscription)
             logger.trace(
-                f"TaskManager.subscribe: Added timer subscription for {subscriber_name}, total: {len(self._subscriptions)}"
+                f"TaskManager.subscribe: Added timer subscription for {subscriber_name}, "
+                f"total: {len(self._subscriptions)}"
             )
 
-            # Track timer statistics
-            task_id = f"{subscriber_name}_{id(subscriber)}"
+            # Track timer statistics - include unique_timer_bit to avoid collisions
+            task_id = f"{subscriber_name}_{id(subscriber)}_{unique_timer_bit}"
             self._task_stats[task_id] = {
                 "name": subscriber_name,
                 "type": "timer",
@@ -194,10 +195,12 @@ class TaskManager:
 
     async def unsubscribe(self, subscriber: TaskSubscriber) -> None:
         """Remove all subscriptions for a subscriber."""
-        # Clean up statistics
+        # Clean up statistics - remove all entries for this subscriber
         subscriber_name = self._get_subscriber_name(subscriber)
-        task_id = f"{subscriber_name}_{id(subscriber)}"
-        self._task_stats.pop(task_id, None)
+        subscriber_id = id(subscriber)
+        keys_to_remove = [k for k in self._task_stats.keys() if k.startswith(f"{subscriber_name}_{subscriber_id}")]
+        for key in keys_to_remove:
+            self._task_stats.pop(key, None)
 
         # Remove all subscriptions for this subscriber
         self._subscriptions = [sub for sub in self._subscriptions if sub.subscriber is not subscriber]
@@ -255,7 +258,8 @@ class TaskManager:
             logger.trace(f"Checking subscription: {subscriber.get_name()} with event_types {subscription.event_types}")
             if subscription.event_types & data_type:
                 logger.trace(
-                    f"Event {data_type} matches subscription {subscription.event_types}, dispatching to {subscriber.get_name()}"
+                    f"Event {data_type} matches subscription {subscription.event_types}, "
+                    f"dispatching to {subscriber.get_name()}"
                 )
                 handled = False
                 try:
@@ -277,13 +281,15 @@ class TaskManager:
 
                     # Update task stats - change to regular task
                     subscriber_name = self._get_subscriber_name(subscriber)
-                    task_id = f"{subscriber_name}_{id(subscriber)}"
-                    if task_id in self._task_stats:
-                        self._task_stats[task_id]["type"] = "regular"
-                        self._task_stats[task_id].pop("interval", None)
-                        self._task_stats[task_id].pop("last_run", None)
-                        self._task_stats[task_id].pop("next_run", None)
-                        self._task_stats[task_id].pop("run_count", None)
+                    unique_bit = getattr(subscription, "unique_timer_bit", None)
+                    if unique_bit is not None:
+                        task_id = f"{subscriber_name}_{id(subscriber)}_{unique_bit}"
+                        if task_id in self._task_stats:
+                            self._task_stats[task_id]["type"] = "regular"
+                            self._task_stats[task_id].pop("interval", None)
+                            self._task_stats[task_id].pop("last_run", None)
+                            self._task_stats[task_id].pop("next_run", None)
+                            self._task_stats[task_id].pop("run_count", None)
             else:
                 logger.trace(f"Event {data_type} does not match subscription {subscription.event_types}")
 
@@ -296,11 +302,16 @@ class TaskManager:
         for subscription in self._subscriptions:
             if subscription.event_types & data_type:
                 subscriber = subscription.subscriber
-            if subscriber:
-                subscriber_name = self._get_subscriber_name(subscriber)
-                task_id = f"{subscriber_name}_{id(subscriber)}"
-                if task_id in self._task_stats:
-                    self._task_stats[task_id]["last_data"] = current_time
+                if subscriber:
+                    subscriber_name = self._get_subscriber_name(subscriber)
+                    # Use unique_timer_bit if this is a timer subscription
+                    unique_bit = getattr(subscription, "unique_timer_bit", None)
+                    if unique_bit is not None:
+                        task_id = f"{subscriber_name}_{id(subscriber)}_{unique_bit}"
+                    else:
+                        task_id = f"{subscriber_name}_{id(subscriber)}"
+                    if task_id in self._task_stats:
+                        self._task_stats[task_id]["last_data"] = current_time
 
         if processed_count == 0:
             return {"status": "acknowledged"}
@@ -451,7 +462,11 @@ class TaskManager:
 
                     # Update timer statistics
                     subscriber_name = self._get_subscriber_name(subscriber)
-                    task_id = f"{subscriber_name}_{id(subscriber)}"
+                    unique_bit = getattr(timer_sub, "unique_timer_bit", None)
+                    if unique_bit is not None:
+                        task_id = f"{subscriber_name}_{id(subscriber)}_{unique_bit}"
+                    else:
+                        task_id = f"{subscriber_name}_{id(subscriber)}"
                     if task_id in self._task_stats:
                         stats = self._task_stats[task_id]
                         stats["last_run"] = current_time
