@@ -15,10 +15,10 @@ Run `openspec validate {{workflow.issue}} --strict --no-interactive` and send th
 {{^workflow.issue}}
 **Error:** No change-id provided and no current workflow issue set.
 
-Usage: `@guide :openspec/validate <change-id>`
+Usage: `{{agent.prefix}}guide :openspec/validate <change-id>`
 
-Example: `@guide :openspec/validate add-client-documents`
+Example: `{{agent.prefix}}guide :openspec/validate add-client-documents`
 
-Or set a workflow issue first with `@guide :workflow/issue <change-id>`
+Or set a workflow issue first with `{{agent.prefix}}guide :workflow/issue <change-id>`
 {{/workflow.issue}}
 {{/args.0.value}}

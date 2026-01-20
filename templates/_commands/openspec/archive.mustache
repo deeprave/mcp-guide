@@ -3,5 +3,22 @@ type: agent/instruction
 description: Archive a completed OpenSpec change
 category: "openspec"
 requires-openspec: true
+instruction: Display errors to the user, otherwise follow the instructions to archive the change
 ---
-Run `openspec archive {{#args.0.value}}{{args.0.value}}{{/args.0.value}}{{^args.0.value}}{{workflow.issue}}{{/args.0.value}} --yes` and send the result using {{tool_prefix}}send_file_content with path `.openspec-archive.txt`
+{{#args.0.value}}
+Run `openspec archive {{args.0.value}} --yes` and send the result using {{tool_prefix}}send_file_content with path `.openspec-archive.txt`
+{{/args.0.value}}
+{{^args.0.value}}
+{{#workflow.issue}}
+Run `openspec archive {{workflow.issue}} --yes` and send the result using {{tool_prefix}}send_file_content with path `.openspec-archive.txt`
+{{/workflow.issue}}
+{{^workflow.issue}}
+**Error:** No change-id provided and no current workflow issue set.
+
+Usage: `{{agent.prefix}}guide :openspec/archive <change-id>`
+
+Example: `{{agent.prefix}}guide :openspec/archive add-client-documents`
+
+Or set a workflow issue first with `{{agent.prefix}}guide :workflow/issue <change-id>`
+{{/workflow.issue}}
+{{/args.0.value}}
