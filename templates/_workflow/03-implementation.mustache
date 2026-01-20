@@ -48,5 +48,34 @@ The plan should follow, where applicable:
 {{h2}}Automatic Transitions
 - **NEXT** {{b}}→ Check:{{b}} Automatically transitions to check phase when all planned tasks have been marked {{b}}completed{{b}}.
 
+{{#openspec}}
+{{h2}}⚠️ BEFORE TRANSITIONING TO CHECK PHASE
+{{b}}MUST UPDATE COMPLETION STATUS:{{b}}
+
+Before transitioning to check phase, you {{b}}MUST{{b}}:{{#workflow.issue}}
+- Update `openspec/changes/{{workflow.issue}}/tasks.md` marking all completed items{{/workflow.issue}}{{#workflow.plan}}
+- Update the current implementation plan ({{workflow.plan}}) marking all completed items{{/workflow.plan}}
+- Present a summary of:
+   - What has been completed
+   - What remains to be done
+   - Any blockers or issues discovered
+
+{{b}}Do not transition to check phase until completion status is updated and summary provided.{{b}}
+{{/openspec}}
+{{^openspec}}
+{{h2}}⚠️ BEFORE TRANSITIONING TO CHECK PHASE
+{{b}}MUST UPDATE COMPLETION STATUS:{{b}}
+
+Before transitioning to check phase, you {{b}}MUST{{b}}:{{#workflow.plan}}
+- Update the current implementation plan ({{workflow.plan}}) marking all completed items{{/workflow.plan}}
+- Present a summary of:
+   - What has been completed
+   - What remains to be done
+   - Any blockers or issues discovered
+
+{{b}}Do not transition to check phase until completion status is updated and summary provided.{{b}}
+{{/openspec}}
+
+---
 {{h2}}Reference
 Use tool: {{tool_prefix}}get_content("docs/tracking") for detailed development workflow information

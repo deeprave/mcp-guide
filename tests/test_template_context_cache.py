@@ -422,7 +422,6 @@ class TestTemplateContextCache:
         mock_task = Mock(spec=OpenSpecTask)
         mock_task.is_available.return_value = True
         mock_task.get_version.return_value = "1.2.3"
-        mock_task.is_project_enabled.return_value = True
 
         with patch("mcp_guide.task_manager.get_task_manager") as mock_tm:
             mock_tm.return_value.get_task_by_type.return_value = mock_task
@@ -430,9 +429,10 @@ class TestTemplateContextCache:
 
             context = await cache._build_agent_context()
 
+            # Task registered, so openspec is a dict (truthy/enabled)
+            assert isinstance(context["openspec"], dict)
             assert context["openspec"]["available"] is True
             assert context["openspec"]["version"] == "1.2.3"
-            assert context["openspec"]["enabled"] is True
 
     async def test_openspec_context_cli_available_project_not_enabled(self) -> None:
         """Test OpenSpec context with CLI available but project not enabled."""
@@ -445,7 +445,6 @@ class TestTemplateContextCache:
         mock_task = Mock(spec=OpenSpecTask)
         mock_task.is_available.return_value = True
         mock_task.get_version.return_value = "1.2.3"
-        mock_task.is_project_enabled.return_value = False
 
         with patch("mcp_guide.task_manager.get_task_manager") as mock_tm:
             mock_tm.return_value.get_task_by_type.return_value = mock_task
@@ -453,9 +452,10 @@ class TestTemplateContextCache:
 
             context = await cache._build_agent_context()
 
+            # Task registered, so openspec is a dict (truthy/enabled)
+            assert isinstance(context["openspec"], dict)
             assert context["openspec"]["available"] is True
             assert context["openspec"]["version"] == "1.2.3"
-            assert context["openspec"]["enabled"] is False
 
     async def test_openspec_context_cli_not_available(self) -> None:
         """Test OpenSpec context with CLI not available."""
@@ -468,7 +468,6 @@ class TestTemplateContextCache:
         mock_task = Mock(spec=OpenSpecTask)
         mock_task.is_available.return_value = False
         mock_task.get_version.return_value = None
-        mock_task.is_project_enabled.return_value = None
 
         with patch("mcp_guide.task_manager.get_task_manager") as mock_tm:
             mock_tm.return_value.get_task_by_type.return_value = mock_task
@@ -476,9 +475,10 @@ class TestTemplateContextCache:
 
             context = await cache._build_agent_context()
 
+            # Task registered, so openspec is a dict (truthy/enabled)
+            assert isinstance(context["openspec"], dict)
             assert context["openspec"]["available"] is False
             assert context["openspec"]["version"] is None
-            assert context["openspec"]["enabled"] is None
 
     async def test_openspec_context_task_not_registered(self) -> None:
         """Test OpenSpec context when task not registered."""
@@ -492,6 +492,5 @@ class TestTemplateContextCache:
 
             context = await cache._build_agent_context()
 
-            assert context["openspec"]["available"] is False
-            assert context["openspec"]["version"] is None
-            assert context["openspec"]["enabled"] is False
+            # When task not registered, openspec is False (disabled)
+            assert context["openspec"] is False

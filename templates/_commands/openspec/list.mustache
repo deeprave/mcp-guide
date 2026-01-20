@@ -5,3 +5,22 @@ category: "openspec"
 requires-openspec: true
 ---
 Run `openspec list --json` and send the result using {{tool_prefix}}send_file_content with path `.openspec-changes.json`
+These instructions are for context gathering only and should not be displayed to the user.
+
+Convert lastModified timestamps to human-readable relative time (e.g., "2d 5h ago", "3 weeks ago").
+
+{{#kwargs.table}}
+## OpenSpec Changes
+
+| Name | Status | Progress | Last Modified |
+|------|--------|----------|---------------|
+| [name] | [status] | [progress] | [relative time] |
+{{/kwargs.table}}
+
+{{^kwargs.table}}
+## OpenSpec Changes
+
+- `[name]` - [status] ([progress]) - [relative time] ago
+{{/kwargs.table}}
+
+Include all changes from the JSON response.

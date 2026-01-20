@@ -38,18 +38,19 @@ async def discover_commands(commands_dir: Path) -> List[Dict[str, Any]]:
     if not await AsyncPath(commands_dir).exists():
         return []
 
-    # Get context once for both cache key and requirements checking
+    # Simple cache key based only on directory path
+    # Context is loaded fresh for requirements checking, so no need to include flags in cache key
+    # This avoids brittleness from hardcoding specific flag names
+    cache_key = str(commands_dir)
+
+    # Load context once for requirements checking
     context_data = None
     try:
         from mcp_guide.utils.template_context_cache import get_template_contexts
 
         context_data = await get_template_contexts()
-        # Extract only flags that affect command requirements
-        relevant_flags = {k: v for k, v in context_data.items() if k in ("openspec", "workflow")}
-        cache_key = f"{commands_dir}:{hash(frozenset(relevant_flags.items()))}"
     except Exception:
-        # Fallback to simple cache key if context unavailable
-        cache_key = str(commands_dir)
+        pass  # Will load later if needed for requirements
 
     effective_mtime: float = 0.0  # Initialize with default value
 

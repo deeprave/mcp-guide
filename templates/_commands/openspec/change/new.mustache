@@ -3,12 +3,35 @@ type: agent/instruction
 description: Guide for creating a new OpenSpec change
 category: "openspec"
 requires-openspec: true
+instruction: Display errors to the user, otherwise follow the instructions and interact with the user to create a new openspec change
 ---
-To create a new OpenSpec change, please run:
+{{^args.0.value}}
+**Error:** Missing required change-id argument.
 
-`openspec change new`
+Usage: `{{agent.prefix}}guide :openspec/change/new <change-id>`
+Example: `{{agent.prefix}}guide :openspec/change/new add-user-authentication`
 
-Follow the interactive prompts to:
-1. Select a schema
-2. Provide change details
-3. Initialize change structure
+- The change-id should be kebab-case and verb-led (add-, update-, remove-, refactor-).
+
+{{/args.0.value}}
+
+{{#args.0.value}}
+# Creating Change: {{args.0.value}}
+
+**Instructions for Agent:**
+
+Read `openspec/AGENTS.md` section "Creating Change Proposals" for complete technical details on file structure, validation, and formatting requirements.
+
+**Your task:**
+
+Gather requirements from the user through conversation to understand:
+- What problem this solves or feature it adds
+- Whether there are breaking changes
+- Impact on architecture, performance, or security
+- Which specs are affected (check `openspec list --specs`)
+- Dependencies between specs if multiple are involved
+
+Once you have sufficient context, create the proposal following the structure documented in `openspec/AGENTS.md`.
+
+Keep it as a draft (no tasks.md) unless the user explicitly requests implementation planning.
+{{/args.0.value}}

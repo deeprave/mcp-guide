@@ -3,5 +3,22 @@ type: agent/instruction
 description: Validate a specific OpenSpec change
 category: "openspec"
 requires-openspec: true
+instruction: Display errors to the user, otherwise follow the instructions to validate the change
 ---
-Run `openspec validate {{change_id}}` and send the result using {{tool_prefix}}send_file_content with path `.openspec-validate.txt`
+{{#args.0.value}}
+Run `openspec validate {{args.0.value}} --strict --no-interactive` and send the result using {{tool_prefix}}send_file_content with path `.openspec-validate.txt`
+{{/args.0.value}}
+{{^args.0.value}}
+{{#workflow.issue}}
+Run `openspec validate {{workflow.issue}} --strict --no-interactive` and send the result using {{tool_prefix}}send_file_content with path `.openspec-validate.txt`
+{{/workflow.issue}}
+{{^workflow.issue}}
+**Error:** No change-id provided and no current workflow issue set.
+
+Usage: `@guide :openspec/validate <change-id>`
+
+Example: `@guide :openspec/validate add-client-documents`
+
+Or set a workflow issue first with `@guide :workflow/issue <change-id>`
+{{/workflow.issue}}
+{{/args.0.value}}

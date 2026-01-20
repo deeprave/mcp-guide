@@ -4,4 +4,4 @@ description: Show details for a specific OpenSpec change
 category: "openspec"
 requires-openspec: true
 ---
-Run `openspec show {{change_id}} --json` and send the result using {{tool_prefix}}send_file_content with path `.openspec-show.json`
+Run `openspec show {{#args.0.value}}{{args.0.value}}{{/args.0.value}}{{^args.0.value}}{{workflow.issue}}{{/args.0.value}} --json` and send the result using {{tool_prefix}}send_file_content with path `.openspec-show.json`

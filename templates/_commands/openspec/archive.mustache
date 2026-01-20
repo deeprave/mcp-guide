@@ -4,4 +4,4 @@ description: Archive a completed OpenSpec change
 category: "openspec"
 requires-openspec: true
 ---
-Run `openspec archive {{change_id}}` and send the result using {{tool_prefix}}send_file_content with path `.openspec-archive.txt`
+Run `openspec archive {{#args.0.value}}{{args.0.value}}{{/args.0.value}}{{^args.0.value}}{{workflow.issue}}{{/args.0.value}} --yes` and send the result using {{tool_prefix}}send_file_content with path `.openspec-archive.txt`

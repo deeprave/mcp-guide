@@ -4,4 +4,38 @@ description: Get status and completion percentage for an OpenSpec change
 category: "openspec"
 requires-openspec: true
 ---
-Run `openspec status --change {{#workflow.issue}}{{workflow.issue}}{{/workflow.issue}}{{^workflow.issue}}{{args.0}}{{/workflow.issue}} --json` and send the result using {{tool_prefix}}send_file_content with path `.openspec-status.json`
+Run `openspec status --change {{#args.0.value}}{{args.0.value}}{{/args.0.value}}{{^args.0.value}}{{workflow.issue}}{{/args.0.value}} --json` and send the result using {{tool_prefix}}send_file_content with path `.openspec-status.json`.
+This information need not be displayed to the user.
+
+For artifacts with glob patterns (like `specs/**/*.md`), expand them to show all matching files.
+
+{{#kwargs.table}}Use table format:
+
+## OpenSpec Status: [changeName]
+
+**Schema:** [schemaName]
+**Status:** ✅ Complete (if isComplete is true) or ⏳ In Progress (if false)
+
+### Artifacts
+
+| Artifact | Path | Status |
+|----------|------|--------|
+| [id] | `[outputPath]` (expanded if glob) | [status] |
+{{/kwargs.table}}
+
+{{^kwargs.table}}Use list format:
+
+## OpenSpec Status: [changeName]
+
+**Schema:** [schemaName]
+**Status:** ✅ Complete (if isComplete is true) or ⏳ In Progress (if false)
+
+**Artifacts:**
+- [id]: (if glob pattern, list all matching files)
+  - `[file1]` - [status]
+  - `[file2]` - [status]
+  Or if not a glob:
+  - `[outputPath]` - [status]
+{{/kwargs.table}}
+
+Include all artifacts from the JSON response.
