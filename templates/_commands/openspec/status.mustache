@@ -3,8 +3,25 @@ type: agent/instruction
 description: Get status and completion percentage for an OpenSpec change
 category: "openspec"
 requires-openspec: true
+instruction: Display errors to the user, otherwise follow the instructions to get status
 ---
-Run `openspec status --change {{#args.0.value}}{{args.0.value}}{{/args.0.value}}{{^args.0.value}}{{workflow.issue}}{{/args.0.value}} --json` and send the result using {{tool_prefix}}send_file_content with path `.openspec-status.json`.
+{{#args.0.value}}
+Run `openspec status --change {{args.0.value}} --json` and send the result using {{tool_prefix}}send_file_content with path `.openspec-status.json`.
+{{/args.0.value}}
+{{^args.0.value}}
+{{#workflow.issue}}
+Run `openspec status --change {{workflow.issue}} --json` and send the result using {{tool_prefix}}send_file_content with path `.openspec-status.json`.
+{{/workflow.issue}}
+{{^workflow.issue}}
+**Error:** No change-id provided and no current workflow issue set.
+
+Usage: `{{agent.prefix}}guide :openspec/status <change-id>`
+
+Example: `{{agent.prefix}}guide :openspec/status add-client-documents`
+
+Or set a workflow issue first with `{{agent.prefix}}guide :workflow/issue <change-id>`
+{{/workflow.issue}}
+{{/args.0.value}}
 This information need not be displayed to the user.
 
 For artifacts with glob patterns (like `specs/**/*.md`), expand them to show all matching files.
