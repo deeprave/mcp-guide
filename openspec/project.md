@@ -9,6 +9,8 @@ MCP Guide v2 is a clean reimplementation of mcp-server-guide with correct archit
 - **Pydantic** - Data validation and settings management
 - **asyncio** - Async/await for concurrent operations
 - **contextvars** - Context-aware concurrency for multi-project support
+- **Chevron** - Mustache template rendering
+- **OpenSpec CLI** - Change proposal and spec management
 
 ## Project Conventions
 
@@ -32,6 +34,10 @@ MCP Guide v2 is a clean reimplementation of mcp-server-guide with correct archit
 - **GuideSession** (Non-Singleton) - Runtime state for specific project
 - **ContextVar** - Tracks current session per async task (`Dict[str, GuideSession]`)
 - **Result[T]** - Error handling pattern for tool responses
+- **TemplateContextCache** - Hierarchical context for template rendering
+- **FeatureFlags** - Global and project-level feature flags with resolution hierarchy
+- **TaskManager** - Background tasks for OpenSpec monitoring and workflow tracking
+- **WorkflowState** - Phase-based workflow state (.guide.yaml)
 
 #### Session Management
 - Session name = project name (one session per project)
@@ -66,6 +72,36 @@ MCP Guide v2 is a clean reimplementation of mcp-server-guide with correct archit
 - Immutable Project objects returned from config manager
 - Functional updates: `project.with_category(category)` returns new Project
 - Atomic saves using lock file pattern for portability
+- Feature flags stored in global config and per-project overrides
+- Workflow state tracked in .guide.yaml (phase, issue, queue)
+
+### Template System
+- Mustache/Chevron templates for dynamic content generation
+- Hierarchical context with ChainMap (agent → workflow → formatting → openspec)
+- Template discovery from ~/.config/mcp-guide/docs/ directory
+- Frontmatter-based requirements checking (requires-openspec, requires-workflow)
+- Command templates for agent instructions
+
+### OpenSpec Integration
+- Change proposals tracked in openspec/changes/
+- Specs define capabilities in openspec/specs/
+- CLI integration via OpenSpecTask background monitoring
+- Template context provides openspec availability and version
+- Agent instructions for creating and managing changes
+
+### Workflow System
+- Phase-based workflow: discussion → planning → implementation → check → review
+- State tracked in .guide.yaml (phase, issue, queue)
+- WorkflowMonitorTask detects state changes
+- Template context provides workflow state to agent instructions
+- Automatic phase transitions based on completion
+
+### Client-Server Filesystem Interaction
+- Agent sends file content via send_file_content tool
+- Agent sends directory listings via send_directory_listing tool
+- Server caches client filesystem state for session duration
+- Security: Client validates paths against allowed_read_paths
+- Enables OpenSpec change discovery and validation
 
 ### Session Lifecycle
 1. **Creation** - Session created with project name, config loaded/created
@@ -91,5 +127,7 @@ MCP Guide v2 is a clean reimplementation of mcp-server-guide with correct archit
 - **FastMCP** - MCP server framework
 - **Pydantic** - Data validation
 - **PyYAML** - Configuration file format
+- **Chevron** - Mustache template rendering
 - **pytest** - Testing framework
 - **mypy** - Static type checking
+- **OpenSpec CLI** - Change and spec management (external tool)
