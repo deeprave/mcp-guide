@@ -4,53 +4,67 @@ description: Instructions for collecting detailed client context information for
 ---
 Please collect detailed client environment information and send it using the {{tool_prefix}}send_file_content tool with path '.client-context.json':
 
-**Required JSON format:**
+Execute these commands to collect the data:
+
+**User Information:**
+1. Run `whoami` to get username
+{{#equals}}Linux{{client.os}}
+2. Run `getent passwd $USER | cut -d: -f5 | cut -d, -f1` to get full name
+3. Run `id -u` to get user ID
+4. Run `id -G` to get group IDs
+5. Run `who am i | awk '{print $3 " " $4}'` to get login time
+{{/equals}}
+{{#equals}}Darwin{{client.os}}
+2. Run `dscl . -read /Users/$USER RealName | cut -d: -f2 | sed 's/^ *//'` to get full name
+3. Run `id -u` to get user ID
+4. Run `id -G` to get group IDs
+5. Run `who am i | awk '{print $3 " " $4}'` to get login time
+{{/equals}}
+{{#contains}}MINGW{{client.os}}
+2. Run `net user %USERNAME% | findstr /C:"Full Name" | cut -d: -f2 | sed 's/^ *//'` to get full name
+3. Set uid to 0
+4. Set gids to empty array
+5. Run `echo %DATE% %TIME%` to get login time
+{{/contains}}
+
+**System Information:**
+{{#equals}}Linux{{client.os}}
+6. Run `cat /proc/uptime | cut -d' ' -f1 | cut -d. -f1` to get uptime in seconds
+7. Run `uptime -p` to get human-readable uptime
+{{/equals}}
+{{#equals}}Darwin{{client.os}}
+6. Calculate uptime: `expr $(date +%s) - $(sysctl -n kern.boottime | awk '{print $4}' | sed 's/,//')`
+7. Run `uptime | sed 's/.*up //' | sed 's/, [0-9]* user.*//'` to get human-readable uptime
+{{/equals}}
+{{#contains}}MINGW{{client.os}}
+6. Set uptime to 0
+7. Run `systeminfo | findstr /C:"System Boot Time"` to get boot time
+{{/contains}}
+
+**Repository Information:**
+8. Run `git remote` to get list of remotes
+9. Run `git remote -v` to get remote URLs
+
+Then construct JSON in this format:
 ```json
 {
   "user": {
-    "name": "$(whoami)",
-{{#equals}}Linux{{client.os}}
-    "fullname": "$(getent passwd $USER | cut -d: -f5 | cut -d, -f1)",
-    "firstname": "$(getent passwd $USER | cut -d: -f5 | cut -d, -f1 | cut -d' ' -f1)",
-    "lastname": "$(getent passwd $USER | cut -d: -f5 | cut -d, -f1 | cut -d' ' -f2-)",
-    "uid": $(id -u),
-    "gids": [$(id -G | tr ' ' ',')],
-    "login_time": "$(who am i | awk '{print $3 " " $4}')"
-{{/equals}}
-{{#equals}}Darwin{{client.os}}
-    "fullname": "$(dscl . -read /Users/$USER RealName | cut -d: -f2 | sed 's/^ *//')",
-    "firstname": "$(dscl . -read /Users/$USER RealName | cut -d: -f2 | sed 's/^ *//' | cut -d' ' -f1)",
-    "lastname": "$(dscl . -read /Users/$USER RealName | cut -d: -f2 | sed 's/^ *//' | cut -d' ' -f2-)",
-    "uid": $(id -u),
-    "gids": [$(id -G | tr ' ' ',')],
-    "login_time": "$(who am i | awk '{print $3 " " $4}')"
-{{/equals}}
-{{#contains}}MINGW{{client.os}}
-    "fullname": "$(net user %USERNAME% | findstr /C:\"Full Name\" | cut -d: -f2 | sed 's/^ *//')",
-    "firstname": "$(net user %USERNAME% | findstr /C:\"Full Name\" | cut -d: -f2 | sed 's/^ *//' | cut -d' ' -f1)",
-    "lastname": "$(net user %USERNAME% | findstr /C:\"Full Name\" | cut -d: -f2 | sed 's/^ *//' | cut -d' ' -f2-)",
-    "uid": 0,
-    "gids": [],
-    "login_time": "$(echo %DATE% %TIME%)"
-{{/contains}}
+    "name": "<result from whoami>",
+    "fullname": "<result from full name command>",
+    "firstname": "<first word of fullname>",
+    "lastname": "<remaining words of fullname>",
+    "uid": <result from id -u>,
+    "gids": [<comma-separated results from id -G>],
+    "login_time": "<result from login time command>"
   },
   "system": {
-{{#equals}}Linux{{client.os}}
-    "uptime": $(cat /proc/uptime | cut -d' ' -f1 | cut -d. -f1),
-    "uptime_human": "$(uptime -p)"
-{{/equals}}
-{{#equals}}Darwin{{client.os}}
-    "uptime": $(sysctl -n kern.boottime | awk '{print $4}' | sed 's/,//' | xargs -I {} date -r {} +%s | xargs -I {} expr $(date +%s) - {}),
-    "uptime_human": "$(uptime | sed 's/.*up //' | sed 's/, [0-9]* user.*//')"
-{{/equals}}
-{{#contains}}MINGW{{client.os}}
-    "uptime": 0,
-    "uptime_human": "$(systeminfo | findstr /C:\"System Boot Time\")"
-{{/contains}}
+    "uptime": <uptime in seconds>,
+    "uptime_human": "<human-readable uptime>"
   },
   "repo": {
-    "remotes": [$(git remote 2>/dev/null | sed 's/.*/"&"/' | tr '\n' ',' | sed 's/,$//')],
-    $(git remote -v 2>/dev/null | awk '!seen[$1$2]++ {gsub(/\(fetch\)|\(push\)/,""); print "\"" $1 "\": {\"fetch_url\": \"" $2 "\", \"push_url\": \"" $2 "\"}"}' | tr '\n' ',' | sed 's/,$//')
+    "remotes": ["<remote1>", "<remote2>", ...],
+    "<remote1>": {"fetch_url": "<url>", "push_url": "<url>"},
+    "<remote2>": {"fetch_url": "<url>", "push_url": "<url>"}
   }
 }
 ```

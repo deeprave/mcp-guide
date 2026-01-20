@@ -150,22 +150,13 @@ class TemplateContextCache(SessionListener):
                 agent_vars["openspec"] = {
                     "available": openspec_task_subscriber.is_available(),
                     "version": openspec_task_subscriber.get_version(),
-                    "enabled": openspec_task_subscriber.is_project_enabled(),
                 }
             else:
-                # Task not registered (feature flag disabled)
-                agent_vars["openspec"] = {
-                    "available": False,
-                    "version": None,
-                    "enabled": False,
-                }
+                # Task not registered (feature flag disabled) - set to False
+                agent_vars["openspec"] = False
         except Exception as e:
             logger.debug(f"Failed to get OpenSpec context: {e}")
-            agent_vars["openspec"] = {
-                "available": False,
-                "version": None,
-                "enabled": False,
-            }
+            agent_vars["openspec"] = False
 
         agent_vars.update(formatting_vars)
 
