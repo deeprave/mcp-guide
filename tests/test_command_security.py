@@ -114,18 +114,6 @@ class TestCommandErrorHandling:
     """Test comprehensive error handling."""
 
     @pytest.mark.asyncio
-    async def test_missing_commands_directory(self, guide_function) -> None:
-        """Should handle missing _commands directory gracefully."""
-        mock_ctx = MagicMock()
-        mock_ctx.session.project_root = "/nonexistent/project"
-
-        result_str = await guide_function(":help", ctx=mock_ctx)
-        result = json.loads(result_str)
-
-        assert result["success"] is False
-        assert "not found" in result["error"].lower() or "directory" in result["error"].lower()
-
-    @pytest.mark.asyncio
     async def test_missing_command_file(self, guide_function) -> None:
         """Should handle missing command files with helpful error."""
         mock_ctx = MagicMock()

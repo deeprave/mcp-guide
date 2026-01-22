@@ -16,14 +16,13 @@ dependencies = [
     "chevron>=0.14.0",
     "click>=8.3.0",
     "uuid7>=0.1.0",
+    "patch-ng>=1.19.0",
 ]
 
 [project.scripts]
 mcp-guide = "mcp_guide.main:main"
+mcp-install = "scripts.mcp_guide_install:cli"
 osvcheck = "scripts.osvcheck:main"
-
-[tool.setuptools.package-data]
-"*" = ["templates/**/*"]
 
 [build-system]
 requires = ["uv_build"]
@@ -34,6 +33,14 @@ package = true
 
 [tool.uv.build-backend]
 module-name = ["mcp_guide"]
+source-exclude = [
+    ".DS_Store",
+    ".localized",
+]
+wheel-exclude = [
+    ".DS_Store",
+    ".localized",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -7,30 +7,35 @@ Instruction: >
 ---
 # Instructions for commit message generation
 
-You are tasked with providing a complete but concise description to summarise based on the changes cached for commit.
+You are required to provide a complete but concise description to summarise based on the changes to the codebase ready for commit.
+Ensure you consider ALL of the changes, not limited to recent work, both staged and unstaged.
 Use markdown format (dashes, not bullets and subheadings as appropriate)
 
 Do not prefix any of the items below with a header
 
-- Provide a title/subject line
-  - Length: Try to keep it under 50 characters (72 max)
-  - Format: Use imperative mood ("Add feature" not "Added feature" or "Adds feature")
-  - Capitalisation: Capitalise the first letter
-  - No period: Don't end with a period, always separate title and description with a blank line
-  - Be specific: Describe concisely what the change does, not how or why
+Provide:
+ - title/subject line
+ - body
 
+**Title/subject**:
+  - Keep it under 72 characters
+  - Use imperative mode ("Add feature" not "Added feature" or "Adds feature")
+  - Capitalise the first letter
+  - Don't end with a period, always separate title and description with a blank line
+  - Describe concisely what the code change does, not how or why
+  - If known, prefix with the tracking id associated with the change
+  - Describe the change type (refactor, feature, bugfix etc0
+
+**Body**
 - Optionally (but recommended) provide a concise description
-  - Blank line: As mentioned above, separate title/subject from body with a blank line
-  - Use bullet points: For multiple changes or details
-  - Line length: Wrap at 72 characters
-  - Content: Explain the what and why, not the how
-  - Reference issues: Include ticket numbers, issue references
+  - Separate title/subject from body with a single blank line, do not use headings
+  - Use bullet points for multiple changes or details
+  - Explain the what and why, not the how
+  - Do not be verbose:
+    - For small changes: Subject line only is often enough
+    - Medium size changes: Add a brief body explaining context
+    - Large changes: Detailed body with motivation, approach, and any breaking changes
+    - Bug fixes - include what was broken and how it was fixed
 
-- Level of Detail
-  - Small changes: Subject line only is often enough
-  - Medium changes: Add a brief body explaining context
-  - Large changes: Detailed body with motivation, approach, and any breaking changes
-  - Bug fixes: Include what was broken and how it was fixed
-  - Do not add information on tests, coverage or other details unless they are clearly the focus of this commit.
-  - Focus on CODE CHANGES, not documentation and do not comment at all on OpenSpec related changes
-  - If the tracking method and issue are known, use the issue as prefix to the title line
+You MUST NOT include information on tests (any statistics), coverage and other extraneous details unless they are clearly the focus of the commit.
+Focus on WHAT CHANGED, not documentation and effectively ignore all OpenSpec related changes which occur asynchronously to code changes.

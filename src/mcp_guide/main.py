@@ -84,10 +84,15 @@ def _handle_cli_error(config: ServerConfig) -> None:
         logger.warning("Continuing with default configuration due to CLI error")
 
 
-async def async_main() -> None:
-    """Async entry point - starts MCP server with STDIO transport."""
+async def async_main(config: ServerConfig) -> None:
+    """Async entry point - starts MCP server with STDIO transport.
+
+    Args:
+        config: Server configuration
+    """
     from mcp_guide.server import create_server
 
+    # Normal startup - first-run handled automatically by Session._ConfigManager
     mcp = create_server()
     await mcp.run_stdio_async()
 
@@ -108,7 +113,7 @@ def main() -> None:
     _handle_cli_error(config)
 
     try:
-        asyncio.run(async_main())
+        asyncio.run(async_main(config))
     except DocrootError as e:
         logger = get_logger(__name__)
         logger.error(f"FATAL: {e}")

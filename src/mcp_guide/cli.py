@@ -15,6 +15,8 @@ class ServerConfig:
     log_file: Optional[str] = None
     log_json: bool = False
     tool_prefix: str = "guide"
+    docroot: Optional[str] = None
+    configdir: Optional[str] = None
 
     # Error tracking for deferred logging
     cli_error: Optional[click.ClickException] = None
@@ -103,6 +105,20 @@ def parse_args() -> ServerConfig:
         is_flag=True,
         help="Disable tool prefix",
     )
+    @click.option(
+        "-d",
+        "--docroot",
+        envvar="MG_DOCROOT",
+        type=click.Path(),
+        help="Custom docroot path (env: MG_DOCROOT)",
+    )
+    @click.option(
+        "-c",
+        "--configdir",
+        envvar="MG_CONFIGDIR",
+        type=click.Path(),
+        help="Custom config directory (env: MG_CONFIGDIR)",
+    )
     @click.pass_context
     def cli(
         ctx: click.Context,
@@ -111,6 +127,8 @@ def parse_args() -> ServerConfig:
         log_json: bool,
         tool_prefix: Optional[str],
         no_tool_prefix: bool,
+        docroot: Optional[str],
+        configdir: Optional[str],
     ) -> None:
         """MCP Guide Server."""
         # Validate mutual exclusion using Click's context
@@ -123,6 +141,8 @@ def parse_args() -> ServerConfig:
         config.log_level = log_level.upper()
         config.log_file = log_file
         config.log_json = log_json
+        config.docroot = docroot
+        config.configdir = configdir
 
         # Tool prefix priority: --no-tool-prefix > --tool-prefix > envvar > default
         if no_tool_prefix:

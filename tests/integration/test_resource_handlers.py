@@ -157,7 +157,15 @@ class TestResourceHandlers:
         # Server parameters - run mcp-guide server
         env = os.environ.copy()
         env["MCP_GUIDE_CONFIG_DIR"] = str(tmp_path)
-        server_params = StdioServerParameters(command=sys.executable, args=["-m", "mcp_guide.main"], env=env)
+
+        # Create installer config to skip first-run
+        config_dir = tmp_path / "config"
+        config_dir.mkdir(exist_ok=True)
+        (config_dir / "installer.yaml").write_text("docroot: /tmp/test\n")
+
+        server_params = StdioServerParameters(
+            command=sys.executable, args=["-m", "mcp_guide.main", "--configdir", str(config_dir)], env=env
+        )
 
         try:
             async with stdio_client(server_params) as (read, write):
