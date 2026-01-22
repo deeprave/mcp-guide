@@ -153,6 +153,15 @@ def pytest_unconfigure(config):
         robust_cleanup(_session_temp_dir)
         _session_temp_dir = None
 
+    # Clean up MCP SDK artifacts
+    from pathlib import Path
+
+    project_root = Path(__file__).parent.parent
+    for artifact in ["API", "Event"]:
+        artifact_path = project_root / artifact
+        if artifact_path.exists():
+            artifact_path.unlink()
+
 
 def pytest_sessionfinish(session, exitstatus):
     """Close any remaining event loops after test session."""
@@ -278,12 +287,29 @@ def guide_function():
     Creates a temporary server instance to enable guide function import.
     Use this fixture in any test that needs to call the guide prompt.
     """
+    import logging
+
+    from mcp_guide.cli import ServerConfig
     from mcp_guide.server import create_server
 
     # Initialize server to set up mcp instance
-    create_server()
+    config = ServerConfig()
+    create_server(config)
 
     # Import guide function after server is initialized
     from mcp_guide.prompts.guide_prompt import guide
 
-    return guide
+    yield guide
+
+    # Clean up logging after test
+    root = logging.getLogger()
+    for handler in root.handlers[:]:
+        root.removeHandler(handler)
+        handler.close()
+    # Reset all loggers
+    for name in list(logging.Logger.manager.loggerDict.keys()):
+        logger = logging.getLogger(name)
+        logger.handlers = []
+        logger.propagate = True
+        logger.setLevel(logging.NOTSET)
+    root.setLevel(logging.WARNING)

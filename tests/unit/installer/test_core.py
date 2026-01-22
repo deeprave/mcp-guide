@@ -313,12 +313,12 @@ class TestSmartUpdate:
         # Assert
         assert result["action"] == "conflict"
         assert result["reason"] == "patch failed"
-        assert current.read_text() == "Line 1\nLine 2 user edit\nLine 3\n"  # Unchanged
+        # Current file is restored to original user content
+        assert current.read_text() == "Line 1\nLine 2 user edit\nLine 3\n"
 
-        # Verify backup was created
+        # No backup file created since current already has the user's content
         backup = tmp_path / "current.txt.orig"
-        assert backup.exists()
-        assert backup.read_text() == "Line 1\nLine 2 user edit\nLine 3\n"
+        assert not backup.exists()
 
     @pytest.mark.asyncio
     async def test_smart_update_replaces_when_original_missing(self, tmp_path: Path) -> None:

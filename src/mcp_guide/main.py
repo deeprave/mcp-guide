@@ -39,29 +39,6 @@ def _setup_remote_debugging() -> None:
         print("Debugger attached!", file=sys.stderr)
 
 
-def _configure_environment(config: ServerConfig) -> None:
-    """Configure environment variables from config.
-
-    Args:
-        config: Server configuration
-    """
-    os.environ["MCP_TOOL_PREFIX"] = config.tool_prefix
-
-
-def _configure_logging(config: ServerConfig) -> None:
-    """Store logging configuration for later initialization.
-
-    Logging is configured AFTER FastMCP initializes to avoid conflicts.
-
-    Args:
-        config: Server configuration
-    """
-    # Store config globally for server.py to use after FastMCP init
-    import mcp_guide.server as server_module
-
-    server_module._pending_log_config = config
-
-
 def _handle_cli_error(config: ServerConfig) -> None:
     """Handle CLI errors after logging is configured.
 
@@ -88,12 +65,17 @@ async def async_main(config: ServerConfig) -> None:
     """Async entry point - starts MCP server with STDIO transport.
 
     Args:
-        config: Server configuration
+        config: Server configuration including docroot and configdir
     """
     from mcp_guide.server import create_server
 
-    # Normal startup - first-run handled automatically by Session._ConfigManager
-    mcp = create_server()
+    # Create server (configures logging)
+    mcp = create_server(config)
+
+    # Handle CLI errors after logging is configured
+    _handle_cli_error(config)
+
+    # Start server
     await mcp.run_stdio_async()
 
 
@@ -107,10 +89,6 @@ def main() -> None:
 
     # Set up remote debugging before anything else
     _setup_remote_debugging()
-
-    _configure_environment(config)
-    _configure_logging(config)
-    _handle_cli_error(config)
 
     try:
         asyncio.run(async_main(config))

@@ -9,18 +9,13 @@ from mcp.client.stdio import StdioServerParameters, stdio_client
 
 
 @pytest.mark.asyncio
-async def test_server_starts_with_trace_logging(tmp_path: Path) -> None:
+async def test_server_starts_with_trace_logging(tmp_path: Path, installer_config: Path) -> None:
     """Test server starts successfully with TRACE logging enabled."""
     log_file = tmp_path / "test.log"
 
-    # Create config to skip first-run installation
-    config_dir = tmp_path / "config"
-    config_dir.mkdir()
-    (config_dir / "installer.yaml").write_text("docroot: /tmp/test\n")
-
     server_params = StdioServerParameters(
         command="uv",
-        args=["run", "mcp-guide", "--configdir", str(config_dir)],
+        args=["run", "mcp-guide", "--configdir", str(installer_config)],
         env={
             **os.environ,
             "MG_LOG_LEVEL": "TRACE",
@@ -41,18 +36,13 @@ async def test_server_starts_with_trace_logging(tmp_path: Path) -> None:
 
 
 @pytest.mark.asyncio
-async def test_server_starts_with_json_logging(tmp_path: Path) -> None:
+async def test_server_starts_with_json_logging(tmp_path: Path, installer_config: Path) -> None:
     """Test server starts with JSON logging format."""
     log_file = tmp_path / "test-json.log"
 
-    # Create config to skip first-run installation
-    config_dir = tmp_path / "config"
-    config_dir.mkdir()
-    (config_dir / "installer.yaml").write_text("docroot: /tmp/test\n")
-
     server_params = StdioServerParameters(
         command="uv",
-        args=["run", "mcp-guide", "--configdir", str(config_dir)],
+        args=["run", "mcp-guide", "--configdir", str(installer_config)],
         env={
             **os.environ,
             "MG_LOG_LEVEL": "INFO",
@@ -75,16 +65,11 @@ async def test_server_starts_with_json_logging(tmp_path: Path) -> None:
 
 
 @pytest.mark.asyncio
-async def test_server_starts_without_logging(tmp_path: Path) -> None:
+async def test_server_starts_without_logging(tmp_path: Path, installer_config: Path) -> None:
     """Test server starts successfully without file logging."""
-    # Create config to skip first-run installation
-    config_dir = tmp_path / "config"
-    config_dir.mkdir()
-    (config_dir / "installer.yaml").write_text("docroot: /tmp/test\n")
-
     server_params = StdioServerParameters(
         command="uv",
-        args=["run", "mcp-guide", "--configdir", str(config_dir)],
+        args=["run", "mcp-guide", "--configdir", str(installer_config)],
         env={**os.environ, "MG_LOG_LEVEL": "INFO"},
     )
 
@@ -95,19 +80,14 @@ async def test_server_starts_without_logging(tmp_path: Path) -> None:
 
 
 @pytest.mark.asyncio
-async def test_log_file_appends_on_multiple_starts(tmp_path: Path) -> None:
+async def test_log_file_appends_on_multiple_starts(tmp_path: Path, installer_config: Path) -> None:
     """Test log file is appended to on multiple server starts."""
     log_file = tmp_path / "append-test.log"
-
-    # Create config to skip first-run installation
-    config_dir = tmp_path / "config"
-    config_dir.mkdir()
-    (config_dir / "installer.yaml").write_text("docroot: /tmp/test\n")
 
     # First start
     server_params = StdioServerParameters(
         command="uv",
-        args=["run", "mcp-guide", "--configdir", str(config_dir)],
+        args=["run", "mcp-guide", "--configdir", str(installer_config)],
         env={
             **os.environ,
             "MG_LOG_LEVEL": "INFO",

@@ -1,7 +1,10 @@
 """MCP server creation and configuration."""
 
 import os
-from typing import Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
+
+if TYPE_CHECKING:
+    from mcp_guide.cli import ServerConfig
 
 try:
     from mcp.server.fastmcp import Context
@@ -100,14 +103,14 @@ resources = _ResourcesProxy()
 # Export mcp instance for direct import
 mcp: Optional[GuideMCP] = None
 
-# Pending log config set by main.py before server creation
-_pending_log_config: Any = None
 
-
-def _configure_logging_after_fastmcp() -> None:
+def _configure_logging_after_fastmcp(config: "ServerConfig") -> None:
     """Configure logging after FastMCP initialization.
 
     FastMCP reconfigures logging during init, so we apply our config after.
+
+    Args:
+        config: Server configuration with logging settings
     """
     import logging
 
@@ -122,11 +125,6 @@ def _configure_logging_after_fastmcp() -> None:
 
     # Always add trace to context
     add_trace_to_context()
-
-    if _pending_log_config is None:
-        return
-
-    config = _pending_log_config
 
     # Get desired log level
     log_level = get_log_level(config.log_level)
@@ -181,13 +179,27 @@ def _configure_logging_after_fastmcp() -> None:
     logger.debug(f"Log level: {config.log_level}, File: {config.log_file or 'none'}, JSON: {config.log_json}")
 
 
-def create_server() -> GuideMCP:
+def create_server(config: "ServerConfig") -> GuideMCP:
     """Create and configure the MCP Guide server.
+
+    Args:
+        config: Server configuration
 
     Returns:
         Configured GuideMCP instance
     """
     global mcp
+
+    # Set config overrides if provided from CLI
+    if config.configdir:
+        from mcp_guide.config_paths import set_config_dir
+
+        set_config_dir(config.configdir)
+
+    if config.docroot:
+        from mcp_guide.config_paths import set_docroot
+
+        set_docroot(config.docroot)
 
     # Use MCP_GUIDE_NAME env var if set, otherwise use generic name
     server_name = os.getenv("MCP_GUIDE_NAME", "guide")
@@ -197,7 +209,10 @@ def create_server() -> GuideMCP:
     )
 
     # Configure logging after FastMCP init
-    _configure_logging_after_fastmcp()
+    _configure_logging_after_fastmcp(config)
+
+    # Set tool prefix from config
+    os.environ["MCP_TOOL_PREFIX"] = config.tool_prefix
 
     # Task managers are automatically instantiated and registered via @task_init decorators
 
