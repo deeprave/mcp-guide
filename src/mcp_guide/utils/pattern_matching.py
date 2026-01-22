@@ -24,13 +24,12 @@ def is_valid_file(path: Path) -> bool:
     Returns:
         True if file is valid, False if should be excluded
     """
-    # Check filename - exclude __pycache__ style names, and hidden files
+    # Check filename - exclude __pycache__ style names, hidden files, and backup files
     name = path.name
-    if name.startswith("__") or name.startswith("."):
+    if name.startswith("__") or name.startswith(".") or name.endswith(".orig"):
         return False
 
     # Check parent directories for __pycache__ style directories and reject . and .. segments
-    # IMPORTANT: Hidden directories (starting with .) in path are perfectly OK - do not reject them
     for part in path.parts[:-1]:  # Exclude filename from check
         if part.startswith("__") or part in (".", ".."):
             return False

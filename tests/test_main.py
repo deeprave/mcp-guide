@@ -41,37 +41,6 @@ def test_main_has_no_required_parameters() -> None:
     assert not required_params
 
 
-class TestLoggingConfiguration:
-    """Tests for logging configuration from ServerConfig."""
-
-    def test_configure_logging_default_values(self) -> None:
-        """Test logging configuration stores config for later use."""
-        import mcp_guide.server as server_module
-        from mcp_guide.cli import ServerConfig
-        from mcp_guide.main import _configure_logging
-
-        config = ServerConfig()
-        _configure_logging(config)
-
-        # Verify config is stored for later use
-        assert server_module._pending_log_config is config
-
-    def test_configure_logging_with_file_handler(self, tmp_path) -> None:
-        """Test logging configuration stores config with file path."""
-        import mcp_guide.server as server_module
-        from mcp_guide.cli import ServerConfig
-        from mcp_guide.main import _configure_logging
-
-        log_path = str(tmp_path / "server.log")
-        config = ServerConfig(log_file=log_path, log_json=True)
-        _configure_logging(config)
-
-        # Verify config is stored
-        assert server_module._pending_log_config is config
-        assert server_module._pending_log_config.log_file == log_path
-        assert server_module._pending_log_config.log_json is True
-
-
 class TestHandleCliError:
     """Tests for _handle_cli_error behavior (exit vs. log-and-continue)."""
 

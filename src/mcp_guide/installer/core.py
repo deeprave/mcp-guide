@@ -7,6 +7,7 @@ from zipfile import ZipFile
 
 import aiofiles
 import patch_ng as patch  # type: ignore[import-untyped]
+from anyio import Path as AsyncPath
 
 # System files
 ORIGINAL_ARCHIVE = ".original.zip"
@@ -41,7 +42,11 @@ async def compare_files(file1: Path, file2: Path) -> bool:
         True if files are identical, False otherwise
     """
     # Quick size check first
-    if file1.stat().st_size != file2.stat().st_size:
+    afile1 = AsyncPath(file1)
+    afile2 = AsyncPath(file2)
+    stat1 = await afile1.stat()
+    stat2 = await afile2.stat()
+    if stat1.st_size != stat2.st_size:
         return False
 
     # Compute and compare hashes
@@ -211,8 +216,8 @@ async def smart_update(current: Path, new: Path, original: Path) -> dict[str, st
             await dst.write(backup_content)
         return {"action": "patched", "reason": "user changes preserved"}
 
-    # Patch failed - restore from backup
-    async with aiofiles.open(backup, "wb") as dst:
+    # Patch failed - restore current file from backup
+    async with aiofiles.open(current, "wb") as dst:
         await dst.write(backup_content)
     return {"action": "conflict", "reason": "patch failed"}
 
@@ -273,12 +278,15 @@ async def install_file(source: Path, dest: Path) -> bool:
         logger.warning(f"Skipping binary file: {source}")
         return False
 
-    dest.parent.mkdir(parents=True, exist_ok=True)
+    adest = AsyncPath(dest)
+    await adest.parent.mkdir(parents=True, exist_ok=True)
     async with aiofiles.open(source, "rb") as src:
         content = await src.read()
     async with aiofiles.open(dest, "wb") as dst:
         await dst.write(content)
-    dest.chmod(source.stat().st_mode)
+    asource = AsyncPath(source)
+    source_stat = await asource.stat()
+    dest.chmod(source_stat.st_mode)
     return True
 
 
@@ -289,7 +297,8 @@ async def install_directory(source: Path, dest: Path) -> None:
         source: Source directory
         dest: Destination directory
     """
-    dest.mkdir(parents=True, exist_ok=True)
+    adest = AsyncPath(dest)
+    await adest.mkdir(parents=True, exist_ok=True)
     for item in source.rglob("*"):
         if item.is_file():
             rel_path = item.relative_to(source)

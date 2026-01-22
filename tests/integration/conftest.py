@@ -40,7 +40,10 @@ def mcp_server_factory():
         _ToolsProxy._instance = None
 
         # Create new server instance
-        server = create_server()
+        from mcp_guide.cli import ServerConfig
+
+        config = ServerConfig()
+        server = create_server(config)
 
         # Reload tool modules to re-execute decorators with new server
         for module_name in tool_modules:

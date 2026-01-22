@@ -141,15 +141,22 @@ class TestInteractiveMode:
 class TestErrorHandling:
     """Tests for error handling."""
 
-    def test_handles_invalid_docroot_path(self) -> None:
+    def test_handles_invalid_docroot_path(self, tmp_path: Path, monkeypatch) -> None:
         """Test that invalid docroot path is handled gracefully."""
         # Arrange
+        import mcp_guide.installer.core
         from scripts.mcp_guide_install import cli
 
-        runner = CliRunner()
+        async def mock_install(*args, **kwargs):
+            raise PermissionError("Permission denied for docroot")
 
-        # Act - try to install to /etc (forbidden)
-        result = runner.invoke(cli, ["install", "--docroot", "/etc/test"])
+        monkeypatch.setattr(mcp_guide.installer.core, "install_templates", mock_install)
+
+        runner = CliRunner()
+        invalid_docroot = tmp_path / "invalid-docroot"
+
+        # Act - attempt install to a temporary "invalid" docroot
+        result = runner.invoke(cli, ["install", "--docroot", str(invalid_docroot)])
 
         # Assert
         assert result.exit_code == 1

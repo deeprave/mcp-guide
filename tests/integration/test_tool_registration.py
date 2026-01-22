@@ -48,10 +48,12 @@ async def test_server_starts_and_registers_tools(test_session):
     2. Tools are imported and decorated
     3. No errors during startup
     """
+    from mcp_guide.cli import ServerConfig
     from mcp_guide.server import create_server
 
     # Create server - this triggers tool registration
-    server = create_server()
+    config = ServerConfig()
+    server = create_server(config)
 
     # Verify server was created
     assert server is not None
@@ -66,10 +68,12 @@ async def test_server_starts_and_registers_tools(test_session):
 @pytest.mark.asyncio
 async def test_tool_registration_with_fastmcp():
     """Test that tools register correctly with FastMCP instance."""
+    from mcp_guide.cli import ServerConfig
     from mcp_guide.server import create_server
 
     # Create server
-    server = create_server()
+    config = ServerConfig()
+    server = create_server(config)
 
     # Verify server was created
     assert server is not None
@@ -84,10 +88,12 @@ async def test_tool_registration_with_fastmcp():
 @pytest.mark.asyncio
 async def test_auto_generated_description():
     """Test that tool descriptions are auto-generated from args class."""
+    from mcp_guide.cli import ServerConfig
     from mcp_guide.server import create_server
 
     # Create server (triggers registration)
-    server = create_server()
+    config = ServerConfig()
+    server = create_server(config)
 
     # Verify description generation works
     from mcp_guide.core.tool_arguments import ToolArguments
