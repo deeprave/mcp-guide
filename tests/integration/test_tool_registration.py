@@ -113,8 +113,15 @@ async def test_mcp_client_can_list_and_call_tools(test_session, tmp_path):
     import sys
 
     # Server parameters - run mcp-guide server
+    # Create installer config to skip first-run
+    config_dir = tmp_path / "config"
+    config_dir.mkdir(exist_ok=True)
+    (config_dir / "installer.yaml").write_text("docroot: /tmp/test\n")
+
     server_params = StdioServerParameters(
-        command=sys.executable, args=["-m", "mcp_guide.main"], env={"MCP_GUIDE_CONFIG_DIR": str(tmp_path)}
+        command=sys.executable,
+        args=["-m", "mcp_guide.main", "--configdir", str(config_dir)],
+        env={"MCP_GUIDE_CONFIG_DIR": str(tmp_path)},
     )
 
     async with stdio_client(server_params) as (read, write):

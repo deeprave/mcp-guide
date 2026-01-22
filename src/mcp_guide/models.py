@@ -344,8 +344,8 @@ class Project:
 
 
 @pydantic_dataclass(frozen=True)
-class GlobalConfig:
-    """Global configuration with feature flags.
+class ConfigFile:
+    """Configuration file structure with feature flags.
 
     Attributes:
         feature_flags: Dictionary of global feature flags with FeatureValue types

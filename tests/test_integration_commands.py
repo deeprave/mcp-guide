@@ -151,15 +151,6 @@ Available commands:
             assert "help: Show help information" in result["value"]
 
     @pytest.mark.asyncio
-    async def test_error_handling_integration(self, mock_ctx, guide_function):
-        """Test error handling in complete flow."""
-        # Test missing commands directory
-        result_str = await guide_function(":nonexistent", ctx=mock_ctx)
-        result = json.loads(result_str)
-        assert result["success"] is False
-        assert "commands directory not found" in result["error"].lower()
-
-    @pytest.mark.asyncio
     async def test_multiple_expressions_regression(self, mock_ctx, guide_function):
         """Test that multiple expressions still work for content."""
         with patch("mcp_guide.prompts.guide_prompt.internal_get_content") as mock_get_content:

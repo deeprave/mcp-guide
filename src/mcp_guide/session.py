@@ -62,60 +62,64 @@ class Session:
         def __init__(self, config_dir: Optional[str] = None) -> None:
             """Initialize config manager."""
             self.__config_dir = config_dir
-            self.__initialized = False
             self.__docroot: Optional[str] = None
             self.__feature_flags: Optional[dict[str, Any]] = None
+            # Import here to avoid circular dependency with config_paths module
+            from mcp_guide.config_paths import get_config_file
+
+            self.config_file = get_config_file(self.__config_dir)
 
         def reconfigure(self, config_dir: Optional[str] = None) -> None:
             """Reconfigure existing ConfigManager for different config directory."""
             self.__config_dir = config_dir
-            self.__initialized = False
             self.__docroot = None
             self.__feature_flags = None
-
-        async def _ensure_initialized(self) -> None:
-            """Initialize the config manager (only once)."""
-            if self.__initialized:
-                return
             # Import here to avoid circular dependency with config_paths module
-            from mcp_guide.config_paths import get_config_file, get_docroot
+            from mcp_guide.config_paths import get_config_file
 
             self.config_file = get_config_file(self.__config_dir)
-            self.config_file.parent.mkdir(parents=True, exist_ok=True)
-            if not self.config_file.exists():
-                default_docroot = str(get_docroot(self.__config_dir))
-                await AsyncPath(self.config_file).write_text(f"docroot: {default_docroot}\nprojects: {{}}\n")
-                self.__docroot = default_docroot
-            else:
-                # Read docroot from existing config
-                content = await read_file_content(self.config_file)
-                data = yaml.safe_load(content)
-                self.__docroot = data.get("docroot", str(get_docroot(self.__config_dir)))
-
-            # Validate and create docroot
-            docroot_path = Path(self.__docroot).expanduser()
-
-            if not docroot_path.exists():
-                try:
-                    docroot_path.mkdir(parents=True, exist_ok=True)
-                    logger.info(f"Created docroot directory: {docroot_path}")
-                except OSError as e:
-                    logger.error(f"FATAL: Failed to create docroot directory '{docroot_path}': {e}")
-                    raise DocrootError(f"Failed to create docroot directory '{docroot_path}': {e}") from e
-            elif not docroot_path.is_dir():
-                logger.error(f"FATAL: Docroot path exists but is not a directory: {docroot_path}")
-                raise DocrootError(f"Docroot path exists but is not a directory: {docroot_path}")
-
-            self.__initialized = True
 
         def _invalidate_feature_flags(self) -> None:
             """Invalidate the feature flags cache."""
             self.__feature_flags = None
 
+        async def get_or_create_config(self, file_path: Path) -> str:
+            """Read config, or install templates and create it on first run.
+
+            Args:
+                file_path: Path to config file
+
+            Returns:
+                Config file content as string
+
+            Raises:
+                PermissionError: Cannot read/write config file
+                Other OSError: File system errors (not FileNotFoundError)
+            """
+            try:
+                return await read_file_content(file_path)
+            except FileNotFoundError:
+                # First run - install templates and create config
+                # Import here to avoid loading installer code unless needed
+                from mcp_guide.installer.integration import install_and_create_config
+
+                await install_and_create_config(file_path)
+                return await read_file_content(file_path)
+
         async def get_docroot(self) -> str:
             """Get cached docroot value."""
-            await self._ensure_initialized()
-            return self.__docroot or ""
+            if self.__docroot is None:
+
+                async def _get_docroot(file_path: Path) -> str:
+                    from mcp_guide.config_paths import get_docroot as get_default_docroot
+
+                    content = await self.get_or_create_config(file_path)
+                    data = yaml.safe_load(content)
+                    docroot: str = data.get("docroot", str(get_default_docroot(self.__config_dir)))
+                    return docroot
+
+                self.__docroot = await lock_update(self.config_file, _get_docroot)
+            return self.__docroot
 
         async def client_resolve(self, path: Union[str, Path]) -> Path:
             """Resolve a path relative to the client's working directory.
@@ -144,11 +148,10 @@ class Session:
 
         async def get_feature_flags(self) -> dict[str, Any]:
             """Get feature flags."""
-            await self._ensure_initialized()
             if self.__feature_flags is None:
 
                 async def _get_flags(file_path: Path) -> dict[str, Any]:
-                    content = await read_file_content(file_path)
+                    content = await self.get_or_create_config(file_path)
                     data = yaml.safe_load(content)
                     return data.get("feature_flags", {}) if data else {}
 
@@ -157,10 +160,9 @@ class Session:
 
         async def set_feature_flag(self, flag_name: str, value: Any) -> None:
             """Set a feature flag."""
-            await self._ensure_initialized()
 
             async def _set_flag(file_path: Path) -> None:
-                content = await read_file_content(file_path)
+                content = await self.get_or_create_config(file_path)
                 data = yaml.safe_load(content)
                 if "feature_flags" not in data:
                     data["feature_flags"] = {}
@@ -172,10 +174,9 @@ class Session:
 
         async def remove_feature_flag(self, flag_name: str) -> None:
             """Remove a feature flag."""
-            await self._ensure_initialized()
 
             async def _remove_flag(file_path: Path) -> None:
-                content = await read_file_content(file_path)
+                content = await self.get_or_create_config(file_path)
                 data = yaml.safe_load(content)
                 if "feature_flags" in data and flag_name in data["feature_flags"]:
                     del data["feature_flags"][flag_name]
@@ -214,11 +215,9 @@ class Session:
                     f"Invalid project name '{name}': must contain only alphanumeric characters, underscores, and hyphens"
                 )
 
-            await self._ensure_initialized()
-
             async def _get_or_create(file_path: Path) -> tuple[str, Project]:
                 try:
-                    content = await read_file_content(file_path)
+                    content = await self.get_or_create_config(file_path)
                 except OSError as e:
                     raise OSError(f"Failed to read config file {file_path}: {e}") from e
 
@@ -347,11 +346,10 @@ class Session:
         # Add other ConfigManager methods here (abbreviated for space)
         async def get_all_project_configs(self) -> dict[str, Project]:
             """Get all project configurations as a snapshot."""
-            await self._ensure_initialized()
 
             async def _read_all_projects(file_path: Path) -> dict[str, Project]:
                 try:
-                    content = await read_file_content(file_path)
+                    content = await self.get_or_create_config(file_path)
                 except OSError as e:
                     raise OSError(f"Failed to read config file {file_path}: {e}") from e
 
@@ -379,11 +377,10 @@ class Session:
 
         async def save_project_config(self, project_key: str, project: Project) -> None:
             """Save project config using provided project key."""
-            await self._ensure_initialized()
 
             async def _save(file_path: Path) -> None:
                 try:
-                    content = await read_file_content(file_path)
+                    content = await self.get_or_create_config(file_path)
                 except OSError as e:
                     raise OSError(f"Failed to read config file {file_path}: {e}") from e
 
@@ -434,7 +431,6 @@ class Session:
             async def _setup_watcher() -> None:
                 config_manager = self._get_config_manager()
                 if config_manager:
-                    await config_manager._ensure_initialized()
                     config_file_path = str(config_manager.config_file)
                     self._config_watcher = ConfigWatcher(
                         config_path=config_file_path, callback=self._on_config_file_changed, poll_interval=1.0
@@ -508,7 +504,6 @@ class Session:
         await self._ensure_watcher_started()
         if self.__project is None:
             config_manager = self._get_config_manager()
-            await config_manager._ensure_initialized()
 
             project_key, project_data = await config_manager.get_or_create_project_config(self.project_name)
             self._project_key = project_key
@@ -542,13 +537,11 @@ class Session:
     async def get_docroot(self) -> str:
         """Get document root path for the project."""
         config_manager = self._get_config_manager()
-        await config_manager._ensure_initialized()
         return await config_manager.get_docroot()
 
     async def get_all_projects(self) -> dict[str, Project]:
         """Get all project configurations atomically."""
         config_manager = self._get_config_manager()
-        await config_manager._ensure_initialized()
         return await config_manager.get_all_project_configs()
 
     async def save_project(self, project: Project) -> None:
@@ -557,7 +550,6 @@ class Session:
             raise ValueError("Project key not available - call get_project() first")
 
         config_manager = self._get_config_manager()
-        await config_manager._ensure_initialized()
         await config_manager.save_project_config(self._project_key, project)
 
     def invalidate_cache(self) -> None:

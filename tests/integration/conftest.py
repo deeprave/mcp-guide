@@ -17,6 +17,7 @@ See README.md in this directory for usage examples and detailed explanation.
 
 import sys
 from importlib import reload
+from pathlib import Path
 
 import pytest
 
@@ -54,3 +55,16 @@ def mcp_server_factory():
 
     # Clean up after module
     _ToolsProxy._instance = None
+
+
+@pytest.fixture
+def installer_config(tmp_path: Path) -> Path:
+    """Create installer config to skip first-run installation.
+
+    Returns:
+        Path to config directory
+    """
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    (config_dir / "installer.yaml").write_text("docroot: /tmp/test\n")
+    return config_dir

@@ -15,12 +15,13 @@ async def test_async_main_exists() -> None:
 
 
 @pytest.mark.asyncio
-async def test_async_main_has_no_parameters() -> None:
-    """Test that async_main has no required parameters."""
+async def test_async_main_has_one_parameter() -> None:
+    """Test that async_main has one required parameter (config)."""
     from mcp_guide.main import async_main
 
     sig = inspect.signature(async_main)
-    assert len(sig.parameters) == 0
+    assert len(sig.parameters) == 1
+    assert "config" in sig.parameters
 
 
 def test_main_exists() -> None:
