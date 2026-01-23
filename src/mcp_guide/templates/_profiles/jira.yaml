@@ -2,19 +2,6 @@
 # Jira tracking documentation
 
 categories:
-  - name: issues
-    dir: tracking/issues/
+  - name: context
     patterns:
-      -
-    description: Issue documentation
-
-  - name: epics
-    dir: tracking/epics/
-    patterns:
-      -
-    description: Epic documentation
-
-collections:
-  - name: jira
-    description: Jira tracking
-    categories: [issues, epics]
+      - jira

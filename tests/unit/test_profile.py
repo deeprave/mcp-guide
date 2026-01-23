@@ -2,6 +2,7 @@
 
 import pytest
 
+import mcp_guide.models.profile as profile_module
 from mcp_guide.models.profile import Profile
 
 
@@ -101,15 +102,11 @@ class TestProfileLoad:
 
     async def test_load_nonexistent_profile(self, tmp_path):
         """Test loading a profile that doesn't exist."""
-        from mcp_guide.models.profile import Profile
-
         # Create empty profiles directory
         profiles_dir = tmp_path / "_profiles"
         profiles_dir.mkdir()
 
         # Mock get_profiles_dir to return our temp directory
-        import mcp_guide.models.profile as profile_module
-
         original_get_profiles_dir = profile_module.get_profiles_dir
 
         async def mock_get_profiles_dir():
@@ -139,8 +136,6 @@ categories:
 """)
 
         # Mock get_profiles_dir
-        import mcp_guide.models.profile as profile_module
-
         original_get_profiles_dir = profile_module.get_profiles_dir
 
         async def mock_get_profiles_dir():
@@ -167,8 +162,6 @@ class TestDiscoverProfiles:
         profiles_dir = tmp_path / "_profiles"
         profiles_dir.mkdir()
 
-        import mcp_guide.models.profile as profile_module
-
         original_get_profiles_dir = profile_module.get_profiles_dir
 
         async def mock_get_profiles_dir():
@@ -191,8 +184,6 @@ class TestDiscoverProfiles:
         (profiles_dir / "python.yaml").write_text("categories: []")
         (profiles_dir / "_default.yaml").write_text("categories: []")
         (profiles_dir / "rust.yaml").write_text("categories: []")
-
-        import mcp_guide.models.profile as profile_module
 
         original_get_profiles_dir = profile_module.get_profiles_dir
 
