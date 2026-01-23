@@ -3,14 +3,13 @@
 import pytest
 import pytest_asyncio
 
+import mcp_guide.session
 from mcp_guide.session import get_or_create_session, remove_current_session
 
 
 @pytest.fixture(scope="module")
 def enable_default_profile():
     """Enable default profile application for profile tests."""
-    import mcp_guide.session
-
     original = mcp_guide.session._enable_default_profile
     mcp_guide.session._enable_default_profile = True
     yield
@@ -173,14 +172,15 @@ categories:
             assert result1.success
             assert "Applied profile" in result1.value
 
-            # Apply profile second time
+            # Apply profile second time - should succeed (idempotent)
             result2 = await internal_use_project_profile(UseProjectProfileArgs(profile="test"), None)
             assert result2.success
-            assert "already applied" in result2.value
+            assert "Applied profile" in result2.value
 
-            # Verify profile only listed once
+            # Verify category exists and wasn't duplicated
             project = await test_session.get_project()
-            assert project.metadata.get("applied_profiles") == ["test"]
+            assert "docs" in project.categories
+            assert len([c for c in project.categories if c == "docs"]) == 1
         finally:
             profile_module.get_profiles_dir = original_get_profiles_dir
 
@@ -209,6 +209,6 @@ categories:
             # Try to apply non-existent profile
             result = await internal_use_project_profile(UseProjectProfileArgs(profile="nonexistent"), None)
             assert not result.success
-            assert "not" in result.error.lower() and "found" in result.message.lower()
+            assert "not" in result.message.lower() and "found" in result.message.lower()
         finally:
             profile_module.get_profiles_dir = original_get_profiles_dir

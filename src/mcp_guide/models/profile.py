@@ -6,10 +6,10 @@ from typing import TYPE_CHECKING
 
 import yaml
 
-from mcp_guide.models import ProfileCategory, ProfileCollection
+from mcp_guide.models.profile_config import ProfileCategory, ProfileCollection
 
 if TYPE_CHECKING:
-    from mcp_guide.models import Project
+    from mcp_guide.models.project import Project
 
 
 async def get_profiles_dir() -> Path:

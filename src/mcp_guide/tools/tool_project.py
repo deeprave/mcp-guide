@@ -703,12 +703,7 @@ async def internal_use_project_profile(args: UseProjectProfileArgs, ctx: Optiona
     except ValueError as e:
         return Result.failure(ERROR_INVALID_NAME, message=str(e))
 
-    # Check if profile already applied
-    applied_profiles = project.metadata.get("applied_profiles", [])
-    if args.profile in applied_profiles:
-        return Result.ok(f"Profile '{args.profile}' already applied to project '{project.name}'")
-
-    # Apply profile to project
+    # Apply profile to project (idempotent - won't duplicate existing categories/collections)
     project = profile.apply_to_project(project)
 
     # Save project
