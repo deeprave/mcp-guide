@@ -1,0 +1,6 @@
+# TypeScript Profile
+
+categories:
+  - name: lang
+    patterns:
+      - typescript

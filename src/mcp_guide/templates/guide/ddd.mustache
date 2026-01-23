@@ -1,0 +1,64 @@
+---
+title: Domain-Driven Design (DDD)
+description: Principles and patterns of Domain-Driven Design
+type: agent/instruction
+tags: [architecture, design, methodology, modeling]
+---
+
+# Domain-Driven Design (DDD)
+
+## Core Concepts
+
+- **Ubiquitous Language**: Shared vocabulary between developers and domain experts, used in code and conversation
+- **Bounded Context**: Explicit boundary where a model applies with its own ubiquitous language
+- **Context Mapping**: Document relationships and integration patterns between bounded contexts
+
+## Strategic Patterns
+
+### Bounded Context Relationships
+- **Partnership**: Close collaboration between contexts
+- **Shared Kernel**: Small shared model
+- **Customer-Supplier**: Downstream depends on upstream
+- **Anticorruption Layer**: Translate between contexts
+- **Conformist**: Downstream conforms to upstream
+
+## Tactical Patterns
+
+### Building Blocks
+
+- **Entity**: Object with unique identity that persists through lifecycle
+- **Value Object**: Immutable object defined by attributes, no unique identity
+- **Aggregate**: Cluster with single root entity, consistency boundary, external references only to root
+- **Repository**: Collection-like interface for accessing aggregates, one per aggregate root
+- **Domain Service**: Stateless operations that don't belong to entities/value objects
+- **Domain Event**: Immutable fact about past occurrence, enables loose coupling
+- **Factory**: Encapsulates complex object creation
+
+### Aggregate Design Rules
+1. Protect business invariants within boundaries
+2. Design small aggregates
+3. Reference other aggregates by identity only
+4. Update one aggregate per transaction
+
+## Layered Architecture
+
+```
+User Interface    → Presentation
+Application       → Use cases, orchestration (no business logic)
+Domain            → Business rules, state, behavior
+Infrastructure    → Persistence, messaging, external services
+```
+
+## Key Principles
+
+- Code reflects the domain model
+- Developers participate in modeling with domain experts
+- Domain understanding evolves, refactor as knowledge grows
+- Focus investment on core domain
+- Keep aggregates small and focused
+
+## When to Use DDD
+
+**Good Fit**: Complex business logic, domain experts available, long-lived systems, core competitive advantage
+
+**Poor Fit**: Simple CRUD, data-centric systems, no domain complexity, short-term projects

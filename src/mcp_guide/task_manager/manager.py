@@ -108,6 +108,7 @@ class TaskManager:
         subscriber: TaskSubscriber,
         event_types: EventType,
         timer_interval: Optional[float] = None,
+        initial_delay: Optional[float] = None,
     ) -> None:
         """Subscribe to events with optional timer support."""
         logger.trace(
@@ -130,7 +131,7 @@ class TaskManager:
             # Add TIMER flag and unique bit to event_types
             combined_event_types = event_types | EventType.TIMER | unique_timer_bit
 
-            subscription = Subscription(subscriber, combined_event_types, timer_interval)
+            subscription = Subscription(subscriber, combined_event_types, timer_interval, initial_delay)
             subscription.original_event_types = event_types
             subscription.unique_timer_bit = unique_timer_bit
 
@@ -142,6 +143,7 @@ class TaskManager:
 
             # Track timer statistics - include unique_timer_bit to avoid collisions
             task_id = f"{subscriber_name}_{id(subscriber)}_{unique_timer_bit}"
+            delay = initial_delay if initial_delay is not None else timer_interval
             self._task_stats[task_id] = {
                 "name": subscriber_name,
                 "type": "timer",
@@ -149,7 +151,7 @@ class TaskManager:
                 "last_data": current_time,
                 "interval": timer_interval,
                 "last_run": None,
-                "next_run": current_time + timer_interval,
+                "next_run": current_time + delay,
                 "run_count": 0,
             }
         else:

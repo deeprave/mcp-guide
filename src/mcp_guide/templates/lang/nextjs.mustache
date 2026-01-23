@@ -1,0 +1,56 @@
+---
+title: Next.js Best Practices
+type: agent/instruction
+tags: [nextjs, react, ssr]
+---
+
+# Next.js
+
+## Routing
+- File-based routing in `app/` directory
+- Dynamic routes: `[param]`
+- Route groups: `(group)` for organization
+- Implement loading and error states
+
+## Data Fetching
+- Server Components by default
+- Fetch where needed
+- `'use client'` only for interactivity
+- Implement error boundaries
+
+## Server Components
+- Default, no client JS
+- Direct backend access
+- Better performance and SEO
+- Can't use hooks or browser APIs
+
+## Client Components
+- Mark with `'use client'`
+- Keep small and leaf-level
+- Minimize client-side JS
+
+## Performance
+- `next/image` for optimization
+- `next/font` for fonts
+- Streaming and Suspense
+- Lazy load heavy components
+
+## Metadata
+- `metadata` export for SEO
+- `generateMetadata` for async
+- Include Open Graph tags
+
+## API Routes
+- Route Handlers in `app/api/`
+- Return `Response` objects
+- Use middleware for auth
+
+## Patterns
+- Server Actions for mutations
+- Optimistic updates
+- `revalidatePath`/`revalidateTag` for cache
+
+## Avoid
+- Don't over-use `'use client'`
+- Don't fetch in Client Components unnecessarily
+- Don't skip error/loading states

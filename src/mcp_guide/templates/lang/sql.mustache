@@ -1,0 +1,69 @@
+---
+title: SQL Best Practices
+type: agent/instruction
+tags: [sql, database]
+---
+
+# SQL
+
+## Queries
+- Explicit column names, not `SELECT *`
+- Meaningful aliases
+- Format for readability
+- Uppercase for keywords
+- Comment complex queries
+
+## Joins
+- Explicit JOIN syntax
+- Appropriate types (INNER, LEFT, RIGHT)
+- Avoid unnecessary joins
+- Consider join order
+
+## Indexes
+- Index WHERE, JOIN, ORDER BY columns
+- Composite indexes for multi-column
+- Don't over-index (impacts writes)
+- Monitor and maintain
+
+## Performance
+- WHERE to filter early
+- Avoid functions on indexed columns
+- EXISTS over IN for subqueries
+- LIMIT/TOP result sets
+- EXPLAIN/ANALYZE query plans
+
+## Transactions
+- Keep short
+- Appropriate isolation levels
+- Handle deadlocks
+- Commit or rollback explicitly
+
+## Integrity
+- Foreign keys for referential integrity
+- Constraints (NOT NULL, UNIQUE, CHECK)
+- Appropriate data types
+- Normalize to reduce redundancy
+
+## Security
+- Parameterized queries (prevent injection)
+- Minimum necessary privileges
+- Hash passwords
+- Audit sensitive operations
+
+## Schema
+- Meaningful names
+- Consistent naming conventions
+- Surrogate keys for primary keys
+- Version control changes
+
+## Patterns
+- CTEs for complex queries
+- Window functions for analytics
+- CASE for conditional logic
+- COALESCE for null handling
+
+## Avoid
+- Don't use SELECT * in production
+- Don't use cursors when sets work
+- Don't concatenate strings for queries
+- Don't use reserved words as identifiers

@@ -1,0 +1,77 @@
+---
+title: C++ Best Practices
+type: agent/instruction
+tags: [cpp, systems]
+---
+
+# C++
+
+## Modern C++
+- C++17 or later
+- Smart pointers over raw
+- RAII for resources
+- `auto` for type deduction
+- Range-based for loops
+
+## Memory
+- `std::unique_ptr` for exclusive ownership
+- `std::shared_ptr` for shared
+- `std::weak_ptr` to break cycles
+- Avoid manual new/delete
+- Containers over raw arrays
+
+## Const
+- Const for immutable data
+- Mark methods const appropriately
+- Const references for large parameters
+- `constexpr` for compile-time
+
+## Move Semantics
+- Implement move constructors/assignment
+- `std::move` for transferring ownership
+- Return by value (RVO/NRVO)
+- Mark move operations `noexcept`
+
+## Templates
+- Use for generic programming
+- Concepts (C++20) for constraints
+- Keep in headers
+- Avoid bloat
+
+## STL
+- STL containers over custom
+- Algorithms over raw loops
+- `std::optional` for optional values
+- `std::variant` for type-safe unions
+- `std::string_view` for parameters
+
+## Error Handling
+- Exceptions for exceptional conditions
+- Error codes for expected failures
+- RAII for cleanup
+- `noexcept` when appropriate
+
+## Performance
+- Don't optimize prematurely
+- Const references to avoid copies
+- Move for large objects
+- Reserve container capacity
+- Profile first
+
+## Concurrency
+- `std::thread` for threading
+- `std::mutex` for sync
+- `std::lock_guard`/`std::unique_lock`
+- `std::atomic` for lock-free
+
+## Best Practices
+- Rule of Zero/Three/Five
+- `nullptr` over NULL
+- `override` and `final`
+- `enum class` over enum
+
+## Avoid
+- Don't use raw pointers for ownership
+- Don't use C-style casts
+- Don't ignore warnings
+- Don't use `goto`

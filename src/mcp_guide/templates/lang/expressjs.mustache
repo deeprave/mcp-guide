@@ -1,0 +1,56 @@
+---
+title: Express.js Best Practices
+type: agent/instruction
+tags: [expressjs, nodejs, api]
+---
+
+# Express.js
+
+## Structure
+- Separate routes, controllers, logic
+- Use routers for modularity
+- Organize by feature
+- Environment-based config
+
+## Middleware
+- Order matters
+- Use `next()` to pass control
+- Error middleware: 4 parameters
+- `express.json()` for parsing
+- Log requests early
+
+## Error Handling
+- Async error middleware
+- Try/catch or wrapper for async
+- Custom error classes
+- Consistent error responses
+
+## Security
+- Use helmet
+- Rate limiting
+- Validate/sanitize input
+- CORS appropriately
+- No stack traces in production
+
+## Routing
+- Correct HTTP methods
+- Version API: `/api/v1/`
+- Proper status codes
+- `express.Router()` for grouping
+
+## Async
+- async/await with error handling
+- Wrap async handlers
+- Avoid callback hell
+
+## Performance
+- Gzip compression
+- Caching
+- Connection pooling
+- Clustering for multi-core
+
+## Avoid
+- Don't block event loop
+- Don't use sync functions in routes
+- Don't ignore errors
+- Don't trust user input

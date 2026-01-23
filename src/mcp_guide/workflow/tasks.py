@@ -48,8 +48,8 @@ class WorkflowMonitorTask:
         self._cached_mtime: Optional[float] = None
         self._setup_done = False
 
-        # Subscribe self to task manager for workflow monitoring
-        self.task_manager.subscribe(self, EventType.TIMER | EventType.FS_FILE_CONTENT, WORKFLOW_INTERVAL)
+        # Subscribe self to task manager for workflow monitoring with 15s initial delay
+        self.task_manager.subscribe(self, EventType.TIMER | EventType.FS_FILE_CONTENT, WORKFLOW_INTERVAL, 15.0)
 
     async def on_tool(self) -> None:
         """Called after tool/prompt execution."""

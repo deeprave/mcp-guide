@@ -49,6 +49,18 @@ _session_temp_dir: Path | None = None
 _REAL_HOME = Path.home()
 _REAL_XDG_CONFIG = os.environ.get("XDG_CONFIG_HOME", str(_REAL_HOME / ".config"))
 
+
+@pytest.fixture(scope="session", autouse=True)
+def disable_default_profile():
+    """Disable default profile application for all tests by default."""
+    import mcp_guide.session
+
+    original = mcp_guide.session._enable_default_profile
+    mcp_guide.session._enable_default_profile = False
+    yield
+    mcp_guide.session._enable_default_profile = original
+
+
 # Store real paths in a dictionary for easy access
 REAL_PATHS = {
     "home": _REAL_HOME,

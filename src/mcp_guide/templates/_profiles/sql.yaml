@@ -1,0 +1,6 @@
+# SQL Profile
+
+categories:
+  - name: lang
+    patterns:
+      - sql

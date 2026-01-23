@@ -1,0 +1,6 @@
+# PHP Profile
+
+categories:
+  - name: lang
+    patterns:
+      - php

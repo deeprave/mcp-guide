@@ -1,0 +1,66 @@
+---
+title: SOLID Principles
+description: Five principles of object-oriented design
+type: agent/instruction
+tags: [design, architecture, oop, principles]
+---
+
+# SOLID Principles
+
+## S - Single Responsibility Principle
+
+**Rule**: A class should have one, and only one, reason to change.
+
+- Each class has single, well-defined responsibility
+- Multiple responsibilities = multiple reasons to change
+- Changes to one responsibility shouldn't affect others
+
+## O - Open/Closed Principle
+
+**Rule**: Open for extension, closed for modification.
+
+- Add new behavior without changing existing code
+- Extend through inheritance, composition, or interfaces
+- Use strategy pattern, dependency injection, abstract classes
+
+## L - Liskov Substitution Principle
+
+**Rule**: Subtypes must be substitutable for their base types.
+
+- Subclasses must strengthen, not weaken, contracts
+- Don't throw unexpected exceptions in subclass
+- Don't require stronger preconditions
+- Don't provide weaker postconditions
+- Preserve invariants
+
+## I - Interface Segregation Principle
+
+**Rule**: Clients shouldn't depend on interfaces they don't use.
+
+- Many specific interfaces better than one general interface
+- Split large interfaces into smaller, focused ones
+- Clients depend only on methods they use
+- Reduces coupling and side effects
+
+## D - Dependency Inversion Principle
+
+**Rule**: Depend on abstractions, not concretions.
+
+- High-level modules don't depend on low-level modules
+- Both depend on abstractions
+- Abstractions don't depend on details
+- Use dependency injection and program to interfaces
+
+## Architectural Impact
+
+- **Modularity**: Clear boundaries between components
+- **Maintainability**: Localized, predictable changes
+- **Testability**: Small, focused classes; mockable dependencies
+- **Flexibility**: Easy extension without modification
+- **Scalability**: Independent components scale separately
+
+## Application Guidelines
+
+- Apply when complexity emerges, don't over-engineer early
+- Balance principles based on context
+- Watch for code smells: large classes (SRP), shotgun surgery (OCP), refused bequest (LSP), fat interfaces (ISP), tight coupling (DIP)

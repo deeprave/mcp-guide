@@ -1,0 +1,6 @@
+# Django Profile
+
+categories:
+  - name: lang
+    patterns:
+      - django

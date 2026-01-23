@@ -1,0 +1,40 @@
+---
+title: SolidJS Best Practices
+type: agent/instruction
+tags: [solidjs, reactivity]
+---
+
+# SolidJS
+
+## Reactivity
+- Signals are getters: `count()` not `count`
+- Memos cache derived values
+- Effects for side effects only
+- Reactivity tracks within scopes
+
+## Components
+- Run once, not reactive
+- Return JSX directly
+- Use `splitProps` for prop separation
+- Props are reactive, destructure carefully
+
+## Control Flow
+- `<Show>` over `&&`
+- `<For>` over `.map()`
+- `<Switch>/<Match>` for conditions
+- `<Index>` for primitive items
+
+## Stores
+- `createStore` for nested objects
+- Property-level tracking
+- `produce` for immutable updates
+
+## Patterns
+- `createResource` for async data
+- `createMemo` for expensive computations
+- `on` helper for explicit dependencies
+
+## Avoid
+- Don't destructure props at top level
+- Don't wrap JSX in functions
+- Don't use effects for derived state

@@ -1,0 +1,6 @@
+# C++ Profile
+
+categories:
+  - name: lang
+    patterns:
+      - c-plusplus

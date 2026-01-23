@@ -1,0 +1,9 @@
+# TDD Profile
+# Test documentation
+
+categories:
+  - name: guide
+    dir: guide/
+    patterns:
+      - bdd
+    description: Development Guidelines

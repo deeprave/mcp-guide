@@ -1,0 +1,60 @@
+---
+title: Flask Best Practices
+type: agent/instruction
+tags: [flask, python, web]
+---
+
+# Flask
+
+## Structure
+- Application factory pattern
+- Blueprints for modularity
+- Environment-based config
+- Views thin, logic in services
+
+## Configuration
+- `app.config.from_object()`
+- Secrets in environment variables
+- `python-dotenv` for local dev
+
+## Blueprints
+- Group related routes
+- URL prefixes for versioning
+- Register in factory
+- Blueprint-level error handlers
+
+## Request Handling
+- `request.get_json()` for JSON
+- Validate input
+- Proper HTTP status codes
+- `jsonify()` for responses
+
+## Database
+- Flask-SQLAlchemy for ORM
+- Migrations (Flask-Migrate)
+- Connection pooling
+- Avoid N+1 queries
+
+## Error Handling
+- Register error handlers
+- Consistent error responses
+- Handle 404 and 500
+
+## Security
+- Flask-Login for auth
+- CSRF protection
+- Validate input
+- Secure session cookies
+- HTTPS in production
+
+## Performance
+- Caching (Flask-Caching)
+- Pagination
+- Celery for background tasks
+- Gzip compression
+
+## Avoid
+- Don't use global state
+- Don't ignore app context
+- Don't skip validation
+- Don't use debug in production

@@ -39,6 +39,26 @@ NAME_PATTERN = r"^[\w-]+$"
 _NAME_REGEX = re.compile(NAME_PATTERN, re.UNICODE)
 
 
+# Configuration dataclasses for profiles
+@dataclass
+class ProfileCategory:
+    """Category configuration for profiles."""
+
+    name: str
+    patterns: list[str]
+    dir: Optional[str] = None
+    description: Optional[str] = None
+
+
+@dataclass
+class ProfileCollection:
+    """Collection configuration for profiles."""
+
+    name: str
+    categories: list[str]
+    description: Optional[str] = None
+
+
 # Custom exceptions for better error handling
 class NoProjectError(Exception):
     """Raised when no project or session is available."""
@@ -138,6 +158,11 @@ async def format_project_data(
     collections, categories = _format_categories_and_collections(project, verbose)
     result: dict[str, Any] = {"collections": collections, "categories": categories}
 
+    # Add applied profiles if any
+    applied_profiles = project.metadata.get("applied_profiles", [])
+    if applied_profiles:
+        result["applied_profiles"] = applied_profiles
+
     # Add resolved flags if session is available
     if session is not None:
         flags = await resolve_all_flags(session)
@@ -181,7 +206,7 @@ class Category:
     """Category configuration.
 
     Attributes:
-        dir: Directory path for category content
+        dir: Relative directory path for category content (must end with /)
         patterns: List of glob patterns (may be empty)
         description: Optional description of the category
 
@@ -189,6 +214,7 @@ class Category:
         Instances are immutable (frozen=True).
         Extra fields from config files are ignored.
         Name is stored as dict key in Project.categories.
+        The dir field is automatically normalized to end with / if missing.
     """
 
     model_config = ConfigDict(extra="ignore")
@@ -196,6 +222,11 @@ class Category:
     dir: str
     patterns: list[str]
     description: Optional[str] = None
+
+    def __post_init__(self) -> None:
+        """Normalize dir to ensure it ends with /."""
+        if not self.dir.endswith("/"):
+            object.__setattr__(self, "dir", self.dir + "/")
 
 
 @pydantic_dataclass(frozen=True)
@@ -228,6 +259,7 @@ class Project:
         categories: Dictionary of category configurations (name -> Category)
         collections: Dictionary of collection configurations (name -> Collection)
         allowed_paths: List of allowed filesystem paths (must end with '/')
+        metadata: Dictionary for storing additional project data (e.g., applied_profiles)
 
     Note:
         Instances are immutable (frozen=True).
@@ -245,6 +277,7 @@ class Project:
     project_flags: dict[str, FeatureValue] = field(default_factory=dict)
     allowed_write_paths: list[str] = field(default_factory=lambda: DEFAULT_ALLOWED_WRITE_PATHS.copy())
     additional_read_paths: list[str] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     @field_validator("name")
     @classmethod

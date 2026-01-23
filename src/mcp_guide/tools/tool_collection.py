@@ -167,8 +167,15 @@ async def internal_collection_add(args: CollectionAddArgs, ctx: Optional[Context
     Returns:
         Result containing success message
     """
+    # Split comma-separated expressions and flatten
+    expanded_categories = []
+    for cat in args.categories:
+        for part in cat.split(","):
+            if part := part.strip():
+                expanded_categories.append(part)
+
     # Deduplicate while preserving order
-    categories = list(dict.fromkeys(args.categories))
+    categories = list(dict.fromkeys(expanded_categories))
 
     try:
         session = await _get_session_or_fail(ctx)
@@ -460,9 +467,17 @@ async def internal_collection_update(args: CollectionUpdateArgs, ctx: Optional[C
             ]
         ).to_result()
 
+    # Split comma-separated expressions in add_categories
+    expanded_add = []
+    if args.add_categories:
+        for cat in args.add_categories:
+            for part in cat.split(","):
+                if part := part.strip():
+                    expanded_add.append(part)
+
     try:
-        if args.add_categories:
-            validate_categories_exist(project, args.add_categories)
+        if expanded_add:
+            validate_categories_exist(project, expanded_add)
     except ArgValidationError as e:
         return e.to_result()
 
@@ -471,8 +486,8 @@ async def internal_collection_update(args: CollectionUpdateArgs, ctx: Optional[C
     if args.remove_categories:
         current_categories = [c for c in current_categories if c not in args.remove_categories]
 
-    if args.add_categories:
-        for category in args.add_categories:
+    if expanded_add:
+        for category in expanded_add:
             if category not in current_categories:
                 current_categories.append(category)
 

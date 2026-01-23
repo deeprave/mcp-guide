@@ -1,0 +1,6 @@
+# Vue Profile
+
+categories:
+  - name: lang
+    patterns:
+      - vue

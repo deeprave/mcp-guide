@@ -33,6 +33,9 @@ __all__ = [
     "internal_list_projects",
     "internal_list_project",
     "internal_clone_project",
+    "internal_use_project_profile",
+    "internal_list_profiles",
+    "internal_show_profile",
 ]
 
 
@@ -664,3 +667,185 @@ def _merge_collections(source: Project, target: Project) -> tuple[dict[str, Coll
         target_colls[src_coll_name] = src_coll
 
     return target_colls, added, overwritten
+
+
+class UseProjectProfileArgs(ToolArguments):
+    """Arguments for use_project_profile tool."""
+
+    profile: str = Field(description="Name of the profile to apply (e.g., 'python', 'jira', 'tdd')")
+
+
+async def internal_use_project_profile(args: UseProjectProfileArgs, ctx: Optional[Context] = None) -> Result[str]:  # type: ignore[type-arg]
+    """Apply a profile to the current project.
+
+    Profiles are additive - they add categories and collections without removing existing ones.
+    Applying the same profile multiple times is idempotent (no effect after first application).
+
+    Args:
+        args: Profile arguments
+        ctx: MCP context
+
+    Returns:
+        Result with success message or error
+    """
+    from mcp_guide.models.profile import Profile
+
+    session = await get_or_create_session(ctx)
+
+    # Get current project
+    project = await session.get_project()
+
+    # Load profile
+    try:
+        profile = await Profile.load(args.profile)
+    except FileNotFoundError as e:
+        return Result.failure(ERROR_NOT_FOUND, message=str(e), instruction=INSTRUCTION_NOTFOUND_ERROR)
+    except ValueError as e:
+        return Result.failure(ERROR_INVALID_NAME, message=str(e))
+
+    # Check if profile already applied
+    applied_profiles = project.metadata.get("applied_profiles", [])
+    if args.profile in applied_profiles:
+        return Result.ok(f"Profile '{args.profile}' already applied to project '{project.name}'")
+
+    # Apply profile to project
+    project = profile.apply_to_project(project)
+
+    # Save project
+    await session.save_project(project)
+
+    return Result.ok(f"Applied profile '{args.profile}' to project '{project.name}'")
+
+
+@tools.tool(UseProjectProfileArgs)
+async def use_project_profile(args: UseProjectProfileArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
+    """Apply a profile to the current project.
+
+    Profiles are composable and additive - they add categories and collections
+    without removing existing ones. Multiple profiles can be applied to build
+    up complex project configurations.
+
+    Args:
+        args: Profile arguments
+        ctx: MCP context
+
+    Returns:
+        Success message or error
+    """
+    return (await internal_use_project_profile(args, ctx)).to_json_str()
+
+
+class ListProfilesArgs(ToolArguments):
+    """Arguments for list_profiles tool."""
+
+    category: str | None = Field(
+        default=None, description="Optional category name to filter profiles that add or update this category"
+    )
+
+
+async def internal_list_profiles(args: ListProfilesArgs, ctx: Optional[Context] = None) -> Result[list[str]]:  # type: ignore[type-arg]
+    """List available profiles.
+
+    Args:
+        args: List profiles arguments
+        ctx: MCP context
+
+    Returns:
+        Result with list of profile names
+    """
+    from mcp_guide.models.profile import Profile, discover_profiles
+
+    all_profiles = await discover_profiles()
+
+    # If no category filter, return all profiles
+    if not args.category:
+        return Result.ok(all_profiles)
+
+    # Filter profiles by category
+    filtered = []
+    for profile_name in all_profiles:
+        try:
+            profile = await Profile.load(profile_name)
+            # Check if any category in the profile matches the filter
+            if any(cat.name == args.category for cat in profile.categories):
+                filtered.append(profile_name)
+        except Exception:
+            # Skip profiles that fail to load
+            continue
+
+    return Result.ok(filtered)
+
+
+@tools.tool(ListProfilesArgs)
+async def list_profiles(args: ListProfilesArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
+    """List available profiles.
+
+    Returns:
+        List of available profile names
+    """
+    return (await internal_list_profiles(args, ctx)).to_json_str()
+
+
+class ShowProfileArgs(ToolArguments):
+    """Arguments for show_profile tool."""
+
+    profile: str = Field(description="Name of the profile to show")
+
+
+async def internal_show_profile(args: ShowProfileArgs, ctx: Optional[Context] = None) -> Result[dict[str, Any]]:  # type: ignore[type-arg]
+    """Show profile details.
+
+    Args:
+        args: Show profile arguments
+        ctx: MCP context
+
+    Returns:
+        Result with profile details
+    """
+    from mcp_guide.models.profile import Profile
+
+    try:
+        profile = await Profile.load(args.profile)
+    except FileNotFoundError as e:
+        return Result.failure(str(e), ERROR_NOT_FOUND, instruction=INSTRUCTION_NOTFOUND_ERROR)
+    except ValueError as e:
+        return Result.failure(str(e), ERROR_INVALID_NAME)
+
+    # Build categories, omitting null values
+    categories = []
+    for cat_config in profile.categories:
+        cat = {"name": cat_config.name, "patterns": cat_config.patterns}
+        if cat_config.dir is not None:
+            cat["dir"] = cat_config.dir
+        if cat_config.description is not None:
+            cat["description"] = cat_config.description
+        categories.append(cat)
+
+    # Build collections, omitting null values
+    collections = []
+    for coll_config in profile.collections:
+        coll = {"name": coll_config.name, "categories": coll_config.categories}
+        if coll_config.description is not None:
+            coll["description"] = coll_config.description
+        collections.append(coll)
+
+    # Build result, omitting empty collections
+    result_data = {"name": profile.name, "categories": categories}
+    if collections:
+        result_data["collections"] = collections
+
+    return Result.ok(result_data)
+
+
+@tools.tool(ShowProfileArgs)
+async def show_profile(args: ShowProfileArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
+    """Show profile details.
+
+    Args:
+        args: Show profile arguments
+        ctx: MCP context
+
+    Returns:
+        Profile details
+    """
+    return (await internal_show_profile(args, ctx)).to_json_str()

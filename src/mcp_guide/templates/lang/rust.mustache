@@ -1,79 +1,58 @@
 ---
-type: agent/information
-description: Language guidelines for development in Rust: https://rust-lang.org
-instruction: Use these as coding standards for Rust. Do not display this content to the user.
+title: Rust Best Practices
+type: agent/instruction
+tags: [rust, systems]
 ---
 
-# Rust Guidelines
+# Rust
 
-## Formatting & Quality
-- **Use `rustfmt` and `clippy`** - address warnings before considering complete
-- **Inline interpolation:** `format!("Error: {e}")` vs `format!("Error: {}", e)`
-
-## Code Complexity
-- **Early returns** with guard clauses
-- **Minimize cloning,** especially `Arc<T>`
-- **Iterate collections once** - chain operations
-
-## Borrowing & Ownership
-- **Prefer borrowing:** `&[T]` over `&Vec<T>`, `&str` over `&String`
-- **Avoid unnecessary `clone()`** - use references or `Arc`/`Rc`
-- Use `?` operator for error propagation
-
-## Iterator Patterns
-**Prefer iterators over loops:**
-```rust
-// Good
-items.iter().filter(|x| x.is_valid()).map(|x| x.process()).collect()
-
-// Avoid
-let mut results = Vec::new();
-for item in &items {
-    if item.is_valid() {
-        results.push(item.process());
-    }
-}
-```
+## Ownership
+- Understand ownership rules
+- Prefer borrowing over moving
+- `&` for read-only, `&mut` sparingly
+- Avoid multiple mutable references
 
 ## Error Handling
-- **Use `Result<T, E>` and `Option<T>`** - avoid nullable patterns
-- **`expect("msg")` over `unwrap()`** in production
-- Prefer use of `thiserror` and use domain specific errors
+- `Result<T, E>` for recoverable errors
+- `Option<T>` for optional values
+- `?` operator for propagation
+- `thiserror` for custom errors
+- `anyhow` for application errors
 
-## Pattern Matching
-- **Exhaustive `match`** - avoid catch-all `_` when specific patterns better
-- **`if let`** for single patterns
-- **`let-else`** for early returns: `let Some(data) = input else { return Err("msg"); };`
-- avoid typeless conversions, use of Any
+## Types
+- Strong types over primitives
+- Implement `Debug` and `Display`
+- Enums for state machines
+- Leverage type system for correctness
 
-## Collections
-- **Choose correctly:** `Vec<T>`, `HashMap<K,V>`, `HashSet<T>`, `BTree*` for ordering
-- **Pre-allocate** with `Vec::with_capacity()` when size known
+## Lifetimes
+- Let compiler infer when possible
+- Explicit only when needed
+- Understand elision rules
 
-## Function Design
-- **Small, focused non-complex functions**
-- **`impl Trait`** in return positions
-- **`&[T]` parameters** instead of `&Vec<T>`
+## Traits
+- Implement standard traits
+- Trait bounds for generics
+- Associated types for clean APIs
 
-## Types & Traits
-- **`#[derive]`** for common traits
-- **`Display`** for users, **`Debug`** for development
-- **Associated constants** over module constants
+## Iterators
+- Iterator methods over loops
+- Chain operations
+- Leverage lazy evaluation
 
-## Anti-Patterns
-- **No `unwrap()`** in production
-- **No `unsafe`** without justification
-- **No `String`** when `&str` works
-- **Address compiler warnings**
+## Concurrency
+- `Arc` for shared ownership
+- `Mutex`/`RwLock` for shared mutable state
+- Channels for message passing
+- async/await for I/O-bound
 
-## Common Idioms
-```rust
-// Option chaining
-value.as_ref().map(|v| v.process()).unwrap_or_default()
+## Performance
+- `&str` over `String` when possible
+- `Vec` capacity hints
+- Profile before optimizing
 
-// Iterator filtering
-items.iter().filter(|x| x.is_valid()).collect::<Vec<_>>()
-
-// Error context
-fs::read_to_string(path).with_context(|| format!("Failed to read {}", path.display()))?
-```
+## Avoid
+- Don't fight borrow checker, redesign
+- Don't use `unsafe` unless necessary
+- Don't clone unnecessarily
+- Don't use `unwrap()` in production
