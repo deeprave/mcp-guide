@@ -1,0 +1,6 @@
+# Java Profile
+
+categories:
+  - name: lang
+    patterns:
+      - java

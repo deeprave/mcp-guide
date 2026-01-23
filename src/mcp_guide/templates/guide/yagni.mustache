@@ -1,0 +1,97 @@
+---
+title: YAGNI - You Aren't Gonna Need It
+description: Principle of avoiding unnecessary complexity
+type: agent/instruction
+tags: [design, principles, simplicity, agile]
+---
+
+# YAGNI - You Aren't Gonna Need It
+
+## Core Rule
+
+**Don't implement something until you have a concrete, immediate need for it.**
+
+## Key Principles
+
+- Implement features when required, not in anticipation
+- Avoid speculative generality
+- Don't build infrastructure for hypothetical use cases
+- Focus on current requirements only
+
+## What YAGNI Doesn't Mean
+
+- Skip good design practices
+- Avoid refactoring
+- Write unmaintainable code
+- Ignore obvious patterns
+
+## Cost of Premature Features
+
+- Development time on unused features
+- Increased complexity and maintenance burden
+- More code to test and update
+- Opportunity cost of not working on actual requirements
+- Future predictions are often wrong
+
+## Decision Framework
+
+Ask before implementing:
+1. Is this needed now? (If no, don't build it)
+2. Is there a concrete requirement? (If no, wait)
+3. Will it be harder to add later? (Usually no)
+4. Am I speculating about the future? (If yes, stop)
+
+## Red Flags
+
+Phrases indicating YAGNI violation:
+- "We might need this later"
+- "This will make it more flexible"
+- "Let's make it configurable"
+- "What if we need to..."
+- "This could be useful for..."
+
+## Application Guidelines
+
+### Do Apply YAGNI
+- Adding features "just in case"
+- Building frameworks before needed
+- Generalizing with one use case
+- Adding configuration for future flexibility
+- Creating abstractions for hypothetical scenarios
+
+### Don't Apply YAGNI
+- Ignoring known requirements
+- Skipping basic error handling
+- Avoiding necessary abstractions
+- Writing brittle, coupled code
+
+## YAGNI with Other Principles
+
+- **YAGNI + TDD**: Write tests for current requirements only
+- **YAGNI + SOLID**: Apply SOLID to code you're writing now, don't add abstractions for future flexibility
+- **YAGNI + DRY**: Wait for third occurrence before abstracting, duplication cheaper than wrong abstraction
+- **YAGNI + Refactoring**: Less code means easier changes, add features through refactoring
+
+## Benefits
+
+- Smaller, simpler codebase
+- Faster feature delivery
+- Less maintenance burden
+- Easier to understand and navigate
+- More agile and responsive to change
+
+## Implementation Rules
+
+- Write minimal code to satisfy current requirement
+- Don't add hooks for future extensibility
+- Don't create abstractions before second use case
+- Don't optimize before measuring
+- Don't generalize with single example
+
+## Remember
+
+- Wait for concrete need before implementing
+- Simplest solution that works
+- Trust refactoring - easy to add later
+- Focus on current requirements
+- Future is uncertain, don't speculate

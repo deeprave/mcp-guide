@@ -1,0 +1,7 @@
+# TDD Profile
+# TDD Development documentation
+
+categories:
+  - name: guide
+    patterns:
+      - tdd

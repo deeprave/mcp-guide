@@ -93,7 +93,7 @@ class TestCategoryList:
         assert result_dict["success"] is True
         assert len(result_dict["value"]) == 1
         assert result_dict["value"][0]["name"] == "docs"
-        assert result_dict["value"][0]["dir"] == "documentation"
+        assert result_dict["value"][0]["dir"] == "documentation/"
         assert result_dict["value"][0]["patterns"] == ["*.md", "*.txt"]
         assert result_dict["value"][0]["description"] is None
 
@@ -168,7 +168,7 @@ class TestCategoryAdd:
         # Project setup handled by Session
         set_current_session(session)
 
-        args = CategoryAddArgs(name="docs", dir="docs", patterns=["*.md"])
+        args = CategoryAddArgs(name="docs", dir="docs", patterns=["README"])
         result_str = await category_add(args)
         result_dict = json.loads(result_str)
 
@@ -176,8 +176,8 @@ class TestCategoryAdd:
         assert "docs" in result_dict["value"]
         assert len((await session.get_project()).categories) == 1
         assert "docs" in (await session.get_project()).categories
-        assert (await session.get_project()).categories["docs"].dir == "docs"
-        assert (await session.get_project()).categories["docs"].patterns == ["*.md"]
+        assert (await session.get_project()).categories["docs"].dir == "docs/"
+        assert (await session.get_project()).categories["docs"].patterns == ["README"]
         assert (await session.get_project()).categories["docs"].description is None
 
     @pytest.mark.asyncio
@@ -217,7 +217,7 @@ class TestCategoryAdd:
         assert result_dict["success"] is True
         assert len((await session.get_project()).categories) == 1
         # Verify dir defaulted to name
-        assert (await session.get_project()).categories["docs"].dir == "docs"
+        assert (await session.get_project()).categories["docs"].dir == "docs/"
         assert "docs" in (await session.get_project()).categories
 
     @pytest.mark.asyncio
@@ -256,7 +256,7 @@ class TestCategoryAdd:
         assert result_dict["success"] is False
         assert "already exists" in result_dict["error"].lower()
         assert len((await session.get_project()).categories) == 1
-        assert (await session.get_project()).categories["docs"].dir == "documentation"
+        assert (await session.get_project()).categories["docs"].dir == "documentation/"
 
     @pytest.mark.asyncio
     async def test_category_add_invalid_name_empty(self, tmp_path: Path) -> None:
@@ -670,7 +670,7 @@ class TestCategoryChange:
         assert result_dict["success"] is True
         assert "docs" not in (await session.get_project()).categories
         doc_cat = (await session.get_project()).categories["documentation"]
-        assert doc_cat.dir == "docs"
+        assert doc_cat.dir == "docs/"
         assert doc_cat.patterns == ["*.md"]
         assert doc_cat.description == "Documentation"
 
@@ -691,7 +691,7 @@ class TestCategoryChange:
 
         assert result_dict["success"] is True
         doc_cat = (await session.get_project()).categories["docs"]
-        assert doc_cat.dir == "documentation"
+        assert doc_cat.dir == "documentation/"
         assert doc_cat.patterns == ["*.md"]
 
     @pytest.mark.asyncio
@@ -712,7 +712,7 @@ class TestCategoryChange:
         assert result_dict["success"] is True
         doc_cat = (await session.get_project()).categories["docs"]
         assert doc_cat.description == "New description"
-        assert doc_cat.dir == "docs"
+        assert doc_cat.dir == "docs/"
 
     @pytest.mark.asyncio
     async def test_category_change_clear_description(self, tmp_path: Path) -> None:
@@ -751,4 +751,4 @@ class TestCategoryChange:
         assert result_dict["success"] is True
         doc_cat = (await session.get_project()).categories["docs"]
         assert doc_cat.patterns == ["*.rst", "*.txt"]
-        assert doc_cat.dir == "docs"
+        assert doc_cat.dir == "docs/"

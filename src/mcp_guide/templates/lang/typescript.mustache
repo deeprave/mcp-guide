@@ -1,0 +1,40 @@
+---
+title: TypeScript Best Practices
+type: agent/instruction
+tags: [typescript, types]
+---
+
+# TypeScript
+
+## Type System
+- Enable strict mode
+- Avoid `any` - use `unknown` for truly unknown types
+- Prefer interfaces for objects, types for unions
+- Use `readonly` for immutable properties
+
+## Functions
+- Always type parameters and return values
+- Use optional parameters (`?`) not `| undefined`
+- Use `void` for no return value
+
+## Null Safety
+- Enable `strictNullChecks`
+- Use `?.` and `??` operators
+- Prefer explicit checks over type assertions
+
+## Generics
+- Use meaningful names (not just `T`)
+- Constrain with `extends` when needed
+- Avoid over-engineering
+
+## Utility Types
+- `Partial<T>` for optional properties
+- `Pick<T, K>` and `Omit<T, K>` for subsets
+- `Record<K, V>` for key-value maps
+- `ReturnType<T>` for function returns
+
+## Avoid
+- Type assertions (`as`) unless necessary
+- `@ts-ignore` - fix the type issue
+- Overly complex type gymnastics
+

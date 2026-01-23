@@ -1,0 +1,59 @@
+---
+title: Behavior-Driven Development (BDD)
+description: Principles and practices of BDD
+type: agent/instruction
+tags: [testing, development, methodology, collaboration]
+---
+
+# Behavior-Driven Development (BDD)
+
+## Core Concept
+
+Focus on system behavior from user perspective using natural language. Extends TDD with business-readable specifications.
+
+## Given-When-Then Format
+
+```
+Given [initial context/preconditions]
+When [event or action occurs]
+Then [expected outcome]
+And [additional conditions]
+```
+
+**Example**:
+```
+Given a user has items in cart
+When they proceed to checkout
+Then they should see order summary
+And total should include tax
+```
+
+## Key Principles
+
+- **Behavior Over Implementation**: Describe what system does, not how
+- **Concrete Examples**: Use real data, not abstractions
+- **Ubiquitous Language**: Shared vocabulary between technical and business stakeholders
+- **Outside-In**: Start with user-facing behavior, work toward implementation
+- **Living Documentation**: Specifications stay synchronized with code
+
+## BDD Process
+
+1. **Discovery**: Explore requirements, identify rules and examples
+2. **Formulation**: Write examples in Given-When-Then format
+3. **Automation**: Turn examples into automated tests, implement behavior
+
+## Implementation Guidelines
+
+- Use domain language, not technical jargon
+- Make scenarios concrete and specific
+- Focus on business value
+- One action per When clause
+- Scenarios should survive refactoring
+- Avoid testing internal implementation
+
+## BDD vs TDD
+
+- **Focus**: Business behavior vs code correctness
+- **Language**: Domain/business vs technical
+- **Scope**: Feature level vs unit level
+- **Direction**: Outside-in vs inside-out

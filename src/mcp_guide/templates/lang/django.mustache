@@ -1,0 +1,63 @@
+---
+title: Django Best Practices
+type: agent/instruction
+tags: [django, python, orm]
+---
+
+# Django
+
+## Structure
+- Apps for modular functionality
+- `settings/` for environment configs
+- Services layer for complex logic
+
+## Models
+- Meaningful names
+- `__str__` method
+- `select_related`/`prefetch_related` to avoid N+1
+- Custom managers for common queries
+
+## Views
+- Class-based views for patterns
+- Keep thin, logic in models/services
+- Mixins for reusable behavior
+- Proper HTTP status codes
+
+## URLs
+- Meaningful patterns
+- Name all patterns
+- Namespaces for apps
+- RESTful design
+
+## Forms
+- ModelForms when possible
+- Validate in `clean_*` methods
+- Handle errors properly
+
+## Templates
+- Template inheritance
+- Minimal logic
+- `{% static %}` for static files
+
+## ORM
+- `get_object_or_404` for single objects
+- `Q` objects for complex queries
+- `F` expressions for DB operations
+- Transactions for integrity
+
+## Security
+- Never disable CSRF
+- Django auth system
+- Validate all input
+- Keep `SECRET_KEY` secret
+
+## Performance
+- Database indexes
+- Cache expensive operations
+- Pagination for large querysets
+- Django Debug Toolbar
+
+## Avoid
+- Don't put logic in templates
+- Don't use `objects.all()` without filtering
+- Don't ignore indexes

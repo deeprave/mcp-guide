@@ -102,24 +102,30 @@ async def gather_content(
 
     for expr in expressions:
         if expr.name in project.collections:
-            # Handle collection - expand to its categories
+            # Handle collection - expand to its categories (which may be expressions)
             collection = project.collections[expr.name]
-            for category_name in collection.categories:
-                # Create a combination key for deduplication
-                patterns_key = tuple(sorted(expr.patterns)) if expr.patterns else None
-                combination_key = (category_name, patterns_key)
+            for category_expr in collection.categories:
+                # Parse category expression (e.g., "review/commit")
+                cat_expressions = parse_expression(category_expr)
+                for cat_expr in cat_expressions:
+                    # Merge patterns from collection-level expression with category expression
+                    merged_patterns = cat_expr.patterns or expr.patterns
+                    patterns_key = tuple(sorted(merged_patterns)) if merged_patterns else None
+                    combination_key = (cat_expr.name, patterns_key)
 
-                if combination_key not in processed_combinations:
-                    try:
-                        files = await gather_category_fileinfos(session, project, category_name, expr.patterns)
-                        # Set the collection field on files
-                        for file in files:
-                            file.collection = expr.name
-                        all_files.extend(files)
-                        processed_combinations.add(combination_key)
-                    except CategoryNotFoundError as e:
-                        # Re-raise with context about which collection referenced the missing category
-                        raise CategoryNotFoundError(f"{category_name} (referenced by collection '{expr.name}')") from e
+                    if combination_key not in processed_combinations:
+                        try:
+                            files = await gather_category_fileinfos(session, project, cat_expr.name, merged_patterns)
+                            # Set the collection field on files
+                            for file in files:
+                                file.collection = expr.name
+                            all_files.extend(files)
+                            processed_combinations.add(combination_key)
+                        except CategoryNotFoundError as e:
+                            # Re-raise with context about which collection referenced the missing category
+                            raise CategoryNotFoundError(
+                                f"{cat_expr.name} (referenced by collection '{expr.name}')"
+                            ) from e
 
         elif expr.name in project.categories:
             # Handle category - use gather_category_fileinfos

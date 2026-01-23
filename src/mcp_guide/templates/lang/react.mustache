@@ -1,0 +1,48 @@
+---
+title: React Best Practices
+type: agent/instruction
+tags: [react, hooks]
+---
+
+# React
+
+## Components
+- Function components only
+- Small and focused
+- Extract logic into custom hooks
+- One component per file
+
+## Hooks
+- Follow Rules of Hooks (top level, same order)
+- `useState` for local state
+- `useEffect` for side effects - always specify dependencies
+- `useMemo`/`useCallback` only when measured
+- Custom hooks for reusable logic
+
+## State
+- Keep state local when possible
+- Lift up only when needed by multiple components
+- Use Context for global state
+- Prefer derived state over storing computed values
+
+## Props
+- Destructure in signature
+- Use TypeScript for type safety
+- Use children prop for composition
+
+## Performance
+- Measure before optimizing
+- Use React DevTools Profiler
+- `React.memo` for expensive pure components
+
+## Patterns
+- Controlled components for forms
+- Error boundaries for errors
+- Suspense for code splitting
+
+## Avoid
+- Don't mutate state
+- Don't call hooks conditionally
+- Don't forget effect dependencies
+- Don't use index as key for dynamic lists
+

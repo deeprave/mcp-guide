@@ -1,0 +1,37 @@
+---
+title: Go Best Practices
+type: agent/instruction
+tags: [go, golang]
+---
+
+# Go
+
+## Error Handling
+- Always check errors
+- Return errors, don't panic
+- Wrap with `fmt.Errorf` and `%w`
+- Use `errors.Is` and `errors.As`
+
+## Interfaces
+- Small and focused
+- Define where used, not where implemented
+- Accept interfaces, return structs
+
+## Concurrency
+- Goroutines for concurrent ops
+- Channels for communication
+- Close channels when done sending
+- Use `context.Context` for cancellation
+
+## Code
+- Short names for short-lived variables
+- Use `defer` for cleanup
+- Table-driven tests
+- Don't stutter names: `http.Server` not `http.HTTPServer`
+
+## Avoid
+- Don't panic in libraries
+- Don't ignore errors
+- Don't use global variables
+- Don't use `init()` for complex setup
+

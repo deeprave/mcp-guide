@@ -1,0 +1,6 @@
+# FastAPI Profile
+
+categories:
+  - name: lang
+    patterns:
+      - fastapi

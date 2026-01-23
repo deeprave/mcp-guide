@@ -30,15 +30,25 @@ def validate_categories_exist(project: Project, category_names: list[str]) -> No
 
     Args:
         project: Project instance
-        category_names: Category names to validate
+        category_names: Category names or expressions to validate
 
     Raises:
         ArgValidationError: If any categories don't exist (lists all missing)
     """
-    # Use dict keys for O(1) existence checks
-    if errors := [
-        {"field": "categories", "message": f"Category '{name}' does not exist"}
-        for name in category_names
-        if name not in project.categories
-    ]:
+    from mcp_guide.models import ExpressionParseError
+    from mcp_guide.utils.content_common import parse_expression
+
+    errors = []
+    for entry in category_names:
+        try:
+            expressions = parse_expression(entry)
+            for expr in expressions:
+                if expr.name not in project.categories:
+                    errors.append({"field": "categories", "message": f"Category '{expr.name}' does not exist"})
+        except ExpressionParseError:
+            # If parsing fails, treat as literal category name
+            if entry not in project.categories:
+                errors.append({"field": "categories", "message": f"Category '{entry}' does not exist"})
+
+    if errors:
         raise ArgValidationError(errors)

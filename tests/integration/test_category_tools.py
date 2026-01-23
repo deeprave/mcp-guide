@@ -259,7 +259,7 @@ async def test_category_persists_after_add(mcp_server, tmp_path, monkeypatch):
     project = await session2.get_project()
     assert len(project.categories) == 1
     assert "api" in project.categories
-    assert project.categories["api"].dir == "src/api"
+    assert project.categories["api"].dir == "src/api/"
     assert "*.py" in project.categories["api"].patterns
 
     await remove_current_session("test")

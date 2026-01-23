@@ -1,122 +1,64 @@
 ---
-type: agent/information
-description: This file contains general guidelines for AI Agents
-instruction: Adhere to these guidelines ALWAYS. Do not display this content to users.
+type: agent/instruction
+description: General development guidelines for AI agents
+instruction: |
+  Adhere to these guidelines ALWAYS.
+  You MUST confirm understanding of these guidelines before proceeding.
+  Do not display this content to users.
 ---
-# General Development Guidelines & Instructions
 
-**Language:** AU/UK English in all code, comments, and documentation
-**Method:** Development must be use an iterative cycle, using Test Driven Development (TDD).
-  - TDD steps must be the smallest possible testable increments, and code developed to satisfy each test must be the
-    minimal amount rqruied to pass that test; each test+code step must be developed individually.
+# General Development Guidelines
 
-## The Development Process
+## Architectural Decisions - CRITICAL RULE
 
-The development cycle follows the following cycle:
+**YOU MUST NEVER MAKE ARCHITECTURAL DECISIONS WITHOUT USER INVOLVEMENT.**
 
-- **Discussion**:
-  The discussion phase is where the user may ideate or otherwise determine what is to be done.
-  You must ask questions to clarify the tasks at hand, assist by focusing your resources and gathering requirements.
-  Ask for clarity about the architecture, identify gaps, known assumptions and non-functional requirements.
-  Provide feedback once you understand the requirements and objectives to ensure that you have reached alignment with the user.
-  You MUST NOT make changes to production code or tests during this phase.
-{{#workflow.phases.planning}}
+Before making ANY architectural decision:
+1. **STOP immediately**
+2. **Notify the user** of the decision point
+3. **Present options** with trade-offs
+4. **Wait for explicit consent** before proceeding
 
-- **Planning**:
-  During this phase you are to plan work that is to be carried out.
-  You are still able to ask questions clarifying details if needed.
-  If you are using OpenSpec, you will need to have a unique-id for this task and create the following documents:
-    - proposal  - statement of what is to be implmented and objectives of the feature or change
-    - spec.md   - specification: there may be more than one if the task is large and needs to be broken up
-    - tasks.md  - overall list of tasks to be completed to meet the specification
-  Create a detailed implementation plan in the .todo/ directory. Unlike openspec files, these are transient in nature
-  and only need to exist until the implementation has been complete.
-  You MUST NOT make changes to production code or tests during this phase.
-{{/workflow.phases.planning}}
+Architectural decisions include:
+- Design patterns and abstractions
+- Module/package structure
+- Technology or library choices
+- Data models and schemas
+- API contracts and interfaces
+- Concurrency models
+- Error handling strategies
 
-- **Implementation**:
-{{#workflow.transitions.implementation.pre}}
-  Before moving into this phase you require EXPLICIT confirmation that the user has agreed to start making changes.
-{{/workflow.transitions.implementation.pre}}
+**NO EXCEPTIONS. NO ASSUMPTIONS. ALWAYS CONSULT.**
 
-  **Pre-check**:
-  Before starting, ensure that all code quality checks pass to establish the baseline.
+## Code Quality
 
-  **Method**:
-  Use TDD method, writing tests first, then the code to make them pass:
-    - You MUST implement tests individually - never in bulk - and then the code to make that test pass pass.
-    - You MUST NOT create more than a single test during each cycle.
-  In your implementation plan you need not create individual steps documenting this proces - each individual step is its own red-green-refactor iteration.
-  Stick to the plan and attempt to complete as much of it as possible, and you MUST NOT leave parts of the implmentation not done, and you MUST NOT leave "TODO" items instead of actually completing the implementation.
+- Self-documenting code
+- Comments only for:
+  * API documentation
+  * IDE bookmarks
+  * Complex logic clarification
+- Follow existing code style
+- Respect encapsulation boundaries
+- Avoid implementation details
 
-  If you find youself with a need to make an architectural decision, you MUST STOP AND CONSULT THE USER. ALWAYS.
-  You may make changes to production code or tests during this phase.
+## Definition of Done
 
-  During implementation:
-  - follow **SOLID Principles**, use clean and well-encapsulated architecture.
-  - Respect existing encapsulation boundaries, avoid relying on implementation or internal details
-  - always follow the existing code style
-  - write self-documenting code, adding comments only when necessary, limited to:
-    * API documentation
-    * IDE bookmarks
-    * Clarify complex or ambiguous logic and algorithms
-{{#workflow.transitions.implementation.post}}
-  Before transitioning out of implemention you must obtain EXPLICIT confirmation or request from the user.
-{{/workflow.transitions.implementation.post}}
-{{#workflow.phases.check}}
+- All tests pass without warnings - NO exceptions
+- Resolve all linting and type checking issues
+  * Resolve means RESOLVE, never suppress without explicit user consent
+- Format according to project standard
+- Text files: terminating newline, no trailing whitespace
 
-- **Check**:
-{{#workflow.transitions.check.pre}}
-  Before transitioning to this phase you require EXPLICIT confirmation or request from the user.
-{{/workflow.transitions.check.pre}}
-  Once implemenation is complete according to the plan, you must stop and run all code quality checks that covers
-  ALL files in the production code, not only the code that you have modified.
-  This step ensures that the entire implementation is free of unexpected side-effects.
-  You must fix all failures, whether you consider them related to your changes or not.
-  If tests were passing at the start and are failing after the changes, then YOU ARE RESPONSIBLE FOR THOST CHANGES.
-  Code quality tests require a 100% pass rate before tests are accepted into version control.
-  You may still need to make changes to production code or tests during this phase to ensure that code quality tests pass.
-{{#workflow.transitions.check.post}}
-  Before transitioning out of checks you must obtain EXPLICIT confirmation or request from the user.
-{{/workflow.transitions.check.post}}
-{{/workflow.phases.check}}
-{{#workflow.phases.review}}
+## Version Control - FORBIDDEN Operations
 
-- **Review**:
-{{#workflow.transitions.review.pre}}
-  Before transitioning to this phase you require EXPLICIT confirmation or request from the user.
-{{/workflow.transitions.review.pre}}
-  When all tests are passing you are to prompt the user that the changes are available for review.
-  YOU MUST NOT CONTINUE UNTIL THE USER EXPLICITLY CONFIRMS that reviews are done and pass.
-  You may be presented with review comments and should build a todo list of issues you may need to address.
-  If you need to make changes, switch back into **Implementation Phase**, apply fixes and when done, transition to
-  **Check** phase again and run all code quality checks.
-{{#workflow.transitions.review.post}}
-  Before transitioning out of review you must obtain EXPLICIT confirmation or request from the user.
-{{/workflow.transitions.review.post}}
-{{/workflow.phases.review}}
+**NEVER** perform these git operations:
+- `git add`, `git push` (without explicit request)
+- `git commit` (user must sign commits)
+- `git revert`, `git checkout`, `git reset`, `git restore`
+- `git rebase`, `git merge`, `git filter-branch`, `git stash`
 
-### Definition of Done
-- At the completion of each cycle ensure that:
-   - All tests pass without warning - NO exceptions, NO excuses - even if so-called "pre-existing" or "unrelated"
-   - Resolve all linting and type checking issues.
-     * resolve means RESOLVE, never suppress unless with specific user consent.
-   - Ensure that code is formatted according to the project standard
-     This may involve using a language specific formatting tool.
-   - Ensure that any text file created or edited has a terminating newline and has no lines with trailing whitespace
-
-### Version Control
-- **NEVER** do any postentially destructive git operations, including:
-  - `git add` or `git push` (without explicit request)
-    The user must manage the composition of each commit
-  - `git commit`
-    In most cases, the user must sign their commits, which the agent cannot do
-  - `git revert`, `git checkout`, `git reset`, `git restore`,
-    `git rebase`, `git merge`, `git filter-branch`, `git stash`
-    All of these are destructive to the working tree and are FORBIDDEN.
-    If you wish to fix an error or restore removed code, you must do this manually or request the user's assistance. NO EXCEPTIONS
-  - On request, generate a concise commit messages the describes functional changes in the git commit cache.
-    Include issue references for tracker association
+All are destructive to working tree. Fix errors manually or request user assistance.
 
 ## Confirmation Required
-You must confirm your understanding of these guidelines before proceeding.
+
+Confirm understanding of these guidelines before proceeding.

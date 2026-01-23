@@ -1,0 +1,6 @@
+# Groovy Profile
+
+categories:
+  - name: lang
+    patterns:
+      - groovy

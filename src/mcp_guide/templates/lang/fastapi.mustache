@@ -1,0 +1,66 @@
+---
+title: FastAPI Best Practices
+type: agent/instruction
+tags: [fastapi, python, api]
+---
+
+# FastAPI
+
+## Structure
+- Organize by feature
+- Separate routers, schemas, services
+- Dependency injection
+- APIRouter for modularity
+
+## Type Hints
+- Pydantic models for request/response
+- Type all parameters and returns
+- `Field` for constraints
+- Automatic validation
+
+## Async
+- `async def` for I/O-bound
+- Regular `def` for CPU-bound
+- Async database drivers
+- Don't mix blocking and async
+
+## Dependencies
+- `Depends()` for reusable logic
+- Auth as dependencies
+- Database sessions via dependencies
+- Override for testing
+
+## Request/Response
+- Pydantic for validation
+- Explicit response models
+- `status` module for codes
+- `response_model` to filter output
+
+## Error Handling
+- `HTTPException` for API errors
+- Custom exception handlers
+- Consistent error responses
+
+## Database
+- Async drivers (asyncpg, motor)
+- Connection pooling
+- SQLAlchemy 2.0 async
+- Transactions for integrity
+
+## Security
+- OAuth2 with JWT
+- HTTPS in production
+- Rate limiting
+- CORS middleware
+
+## Performance
+- Async for I/O
+- Caching
+- Background tasks for long ops
+- Gzip compression
+
+## Avoid
+- Don't use `async` unnecessarily
+- Don't ignore type hints
+- Don't return raw DB models
+- Don't block event loop

@@ -1,0 +1,7 @@
+# YAGNI Profile
+# Minimal implementation
+
+categories:
+  - name: guide
+    patterns:
+      - yagni

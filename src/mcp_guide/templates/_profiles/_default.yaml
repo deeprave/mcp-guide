@@ -1,0 +1,51 @@
+# Default Profile
+# Base documentation structure
+
+categories:
+  - name: guide
+    dir: guide/
+    patterns:
+      - general
+    description: Development Guidelines
+
+  - name: docs
+    dir: docs/
+    patterns:
+      - tracking
+    description: General Documentation
+
+  - name: lang
+    dir: lang/
+    patterns: []
+    description: Language Specific Guidelines
+
+  - name: context
+    dir: context/
+    patterns: []
+    description: Project Context
+
+  - name: checks
+    dir: checks/
+    patterns: []
+    description: Testing and Code Quality Checks
+
+  - name: review
+    dir: review/
+    patterns:
+      - review
+    description: Code Review Instructions
+
+collections:
+  - name: guidelines
+    description: All guidelines
+    categories: [guide, lang, context]
+
+  - name: commit
+    description: Commit Instructions
+    categories:
+      - review/commit
+
+  - name: pr
+    description: Pull Request Instructions
+    categories:
+      - review/pr

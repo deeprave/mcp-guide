@@ -1,0 +1,41 @@
+---
+title: jQuery Best Practices
+type: agent/instruction
+tags: [jquery, legacy]
+---
+
+# jQuery
+
+## Modern Context
+- Primarily for legacy maintenance
+- Consider vanilla JS or modern frameworks
+
+## Selectors
+- Cache jQuery objects
+- Use specific selectors
+- Use `find()` on cached objects
+
+## Performance
+- Batch DOM updates
+- Use event delegation
+- Chain methods
+
+## Events
+- Use `.on()` for binding
+- Event delegation for dynamic content
+- Unbind when removing elements
+
+## AJAX
+- Use promises (`.done()`, `.fail()`)
+- Handle errors
+- Consider `fetch` API instead
+
+## DOM
+- Use `.text()` for user content (XSS safety)
+- Build HTML outside loops
+- Detach before heavy manipulation
+
+## Avoid
+- Don't query DOM repeatedly
+- Don't use deprecated methods (`.live()`, `.bind()`)
+- Don't ignore memory leaks

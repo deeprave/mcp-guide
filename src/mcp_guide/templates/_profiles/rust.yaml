@@ -1,0 +1,6 @@
+# Rust Profile
+
+categories:
+  - name: lang
+    patterns:
+      - rust

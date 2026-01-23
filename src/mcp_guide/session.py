@@ -26,6 +26,9 @@ try:
 except ImportError:
     Context = None  # type: ignore
 
+# Module-level flag to control default profile application
+_enable_default_profile = True
+
 if TYPE_CHECKING:
     from mcp_guide.feature_flags.protocol import FeatureFlags
     from mcp_guide.session_listener import SessionListener
@@ -336,6 +339,17 @@ class Session:
             project_key = generate_project_key(name, project_hash)
             project = Project(name=name, key=project_key, hash=project_hash)
 
+            # Apply _default profile to new project if enabled
+            if _enable_default_profile:
+                try:
+                    from mcp_guide.models.profile import Profile
+
+                    default_profile = await Profile.load("_default")
+                    project = default_profile.apply_to_project(project)
+                except (FileNotFoundError, ValueError) as e:
+                    logger.debug(f"Default profile not applied: {e}")
+                    # Continue without default profile
+
             projects = data.get("projects", {})
             projects[project_key] = self._project_to_dict(project)
             data["projects"] = projects
@@ -551,6 +565,7 @@ class Session:
 
         config_manager = self._get_config_manager()
         await config_manager.save_project_config(self._project_key, project)
+        self.__project = project  # Update cache
 
     def invalidate_cache(self) -> None:
         """Invalidate the cached project configuration."""
