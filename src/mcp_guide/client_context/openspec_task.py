@@ -38,6 +38,7 @@ class OpenSpecTask:
         self._changes_requested = False
         self._changes_cache: Optional[list[dict[str, Any]]] = None
         self._changes_timestamp: Optional[float] = None
+        self._changes_timer_started = False  # Track if first timer has fired
 
         # Subscribe to startup and command events
         self.task_manager.subscribe(
@@ -166,9 +167,11 @@ class OpenSpecTask:
         if event_type & EventType.TIMER:
             interval = data.get("interval")
             if interval == CHANGES_CHECK_INTERVAL:
-                start_delay = data.get("startDelay", 0.0)
-                if start_delay >= CHANGES_CHECK_START_DELAY:
-                    await self._handle_changes_reminder()
+                # Skip first timer event (respects start delay configured in subscribe)
+                if not self._changes_timer_started:
+                    self._changes_timer_started = True
+                    return True
+                await self._handle_changes_reminder()
                 return True
 
         # Handle command location events

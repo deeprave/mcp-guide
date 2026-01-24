@@ -349,25 +349,33 @@ class TestOpenSpecTask:
         task = OpenSpecTask(mock_task_manager)
         task._flag_checked = True
         task._project_enabled = True
+        task._changes_timer_started = True  # Skip first-fire check
 
         with patch.object(task, "_handle_changes_reminder", new_callable=AsyncMock) as mock_reminder:
-            result = await task.handle_event(EventType.TIMER, {"interval": 3600.0, "startDelay": 20.0})
+            result = await task.handle_event(EventType.TIMER, {"interval": 3600.0})
 
             assert result is True
             mock_reminder.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_timer_event_skips_reminder_before_start_delay(self, mock_task_manager):
-        """Test TIMER event skips changes reminder before start delay."""
+        """Test TIMER event skips changes reminder on first fire (start delay)."""
         task = OpenSpecTask(mock_task_manager)
         task._flag_checked = True
         task._project_enabled = True
 
         with patch.object(task, "_handle_changes_reminder", new_callable=AsyncMock) as mock_reminder:
-            result = await task.handle_event(EventType.TIMER, {"interval": 3600.0, "startDelay": 10.0})
+            # First timer event should be skipped
+            result = await task.handle_event(EventType.TIMER, {"interval": 3600.0})
 
             assert result is True
             mock_reminder.assert_not_called()
+
+            # Second timer event should fire
+            result = await task.handle_event(EventType.TIMER, {"interval": 3600.0})
+
+            assert result is True
+            mock_reminder.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_timer_event_skips_reminder_when_disabled(self, mock_task_manager):
@@ -375,9 +383,10 @@ class TestOpenSpecTask:
         task = OpenSpecTask(mock_task_manager)
         task._flag_checked = True
         task._project_enabled = False
+        task._changes_timer_started = True  # Skip the first-fire check
 
         with patch.object(task, "request_changes_json", new_callable=AsyncMock) as mock_request:
-            result = await task.handle_event(EventType.TIMER, {"interval": 3600.0, "startDelay": 20.0})
+            result = await task.handle_event(EventType.TIMER, {"interval": 3600.0})
 
             assert result is True
             mock_request.assert_not_called()
