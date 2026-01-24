@@ -55,21 +55,25 @@ async def test_category_field_set_on_fileinfo(tmp_path: Path, monkeypatch: Monke
     async def mock_get_session(ctx=None):
         return create_mock_session(tmp_path, project_data)
 
-    # Patch to capture FileInfo objects
+    # Patch to capture FileInfo objects - must patch before module imports
     captured_files = []
 
-    async def capture_read_contents(files, base_dir, template_context=None, category_prefix=None):
+    # Import and wrap the actual function
+    from mcp_guide.utils.content_utils import read_and_render_file_contents as original_read
+
+    async def capture_read_contents(files, base_dir, docroot, template_context=None, category_prefix=None):
         nonlocal captured_files
         captured_files = list(files)  # Capture before processing
-        from mcp_guide.utils.content_utils import read_and_render_file_contents
+        return await original_read(files, base_dir, docroot, template_context, category_prefix)
 
-        return await read_and_render_file_contents(files, base_dir, template_context, category_prefix)
+    # Patch the imported reference in tool_category module
+    import mcp_guide.tools.tool_category
 
+    monkeypatch.setattr(mcp_guide.tools.tool_category, "read_and_render_file_contents", capture_read_contents)
     monkeypatch.setattr("mcp_guide.tools.tool_category.get_or_create_session", mock_get_session)
-    monkeypatch.setattr("mcp_guide.utils.content_common.read_and_render_file_contents", capture_read_contents)
 
     # Call tool
-    args = CategoryContentArgs(category="guide")
+    args = CategoryContentArgs(expression="guide")
     result_json = await category_content(args)
 
     # Parse result

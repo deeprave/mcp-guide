@@ -424,7 +424,7 @@ async def test_category_content_not_found(mcp_server, tmp_path, monkeypatch):
     generate_test_files(docroot)
 
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
-        args = CategoryContentArgs(category="nonexistent")
+        args = CategoryContentArgs(expression="nonexistent")
         result = await call_mcp_tool(client, "category_content", args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
 
@@ -451,7 +451,7 @@ async def test_category_content_empty_category(mcp_server, tmp_path, monkeypatch
     generate_test_files(docroot)
 
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
-        args = CategoryContentArgs(category="guide")
+        args = CategoryContentArgs(expression="guide")
         result = await call_mcp_tool(client, "category_content", args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
 
@@ -477,7 +477,7 @@ async def test_category_content_success_single_file(mcp_server, tmp_path, monkey
     generate_test_files(docroot)
 
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
-        args = CategoryContentArgs(category="lang")
+        args = CategoryContentArgs(expression="lang")
         result = await call_mcp_tool(client, "category_content", args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
 
@@ -504,7 +504,7 @@ async def test_category_content_success_multiple_files(mcp_server, tmp_path, mon
     generate_test_files(docroot)
 
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
-        args = CategoryContentArgs(category="context")
+        args = CategoryContentArgs(expression="context")
         result = await call_mcp_tool(client, "category_content", args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
 
@@ -533,7 +533,7 @@ async def test_category_content_pattern_override(mcp_server, tmp_path, monkeypat
 
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
         # Request only files matching "guidelines-*"
-        args = CategoryContentArgs(category="guide", pattern="guidelines-*")
+        args = CategoryContentArgs(expression="guide", pattern="guidelines-*")
         result = await call_mcp_tool(client, "category_content", args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
 
@@ -565,7 +565,7 @@ async def test_category_content_file_read_error(mcp_server, tmp_path, monkeypatc
 
     try:
         async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
-            args = CategoryContentArgs(category="docs")
+            args = CategoryContentArgs(expression="docs")
             result = await call_mcp_tool(client, "category_content", args)
             response = json.loads(result.content[0].text)  # type: ignore[union-attr]
 
@@ -716,3 +716,85 @@ async def test_category_list_files_category_not_found_integration(mcp_server, tm
         assert "nonexistent" in response["error"]
 
     await remove_current_session("test")
+
+
+# Expression Parsing Tests
+
+
+async def test_category_content_with_pattern_expression(mcp_server, tmp_path, monkeypatch):
+    """Test category_content with category/pattern expression."""
+    from .test_data_generator import generate_test_files
+
+    monkeypatch.setenv("PWD", "/fake/path/test")
+
+    session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
+    docroot = Path(tmp_path.resolve()) / "docs"
+    generate_test_files(docroot)
+
+    # Add category
+    await session.update_config(lambda p: p.with_category("guide", Category(dir="guide", patterns=["*.md"])))
+
+    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+        # Test with pattern expression
+        args = CategoryContentArgs(expression="guide/guidelines.md")
+        result = await call_mcp_tool(client, "category_content", args)
+        response = json.loads(result.content[0].text)  # type: ignore[union-attr]
+
+        assert response["success"] is True
+        assert "Project Guidelines" in response["value"]
+
+
+async def test_category_content_with_multiple_patterns(mcp_server, tmp_path, monkeypatch):
+    """Test category_content with multiple patterns using +."""
+    from .test_data_generator import generate_test_files
+
+    monkeypatch.setenv("PWD", "/fake/path/test")
+
+    session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
+    docroot = Path(tmp_path.resolve()) / "docs"
+    generate_test_files(docroot)
+
+    # Add category
+    await session.update_config(lambda p: p.with_category("guide", Category(dir="guide", patterns=["*.md"])))
+
+    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+        # Test with multiple patterns
+        args = CategoryContentArgs(expression="guide/guidelines.md+guidelines-feature1.md")
+        result = await call_mcp_tool(client, "category_content", args)
+        response = json.loads(result.content[0].text)  # type: ignore[union-attr]
+
+        assert response["success"] is True
+        assert "Project Guidelines" in response["value"]
+        assert "Feature 1 Guidelines" in response["value"]
+
+
+async def test_category_content_with_multiple_expressions(mcp_server, tmp_path, monkeypatch):
+    """Test category_content with multiple comma-separated expressions."""
+    from .test_data_generator import generate_test_files
+
+    monkeypatch.setenv("PWD", "/fake/path/test")
+
+    session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
+    docroot = Path(tmp_path.resolve()) / "docs"
+    generate_test_files(docroot)
+
+    # Add two categories
+    await session.update_config(
+        lambda p: p.with_category("guide", Category(dir="guide", patterns=["*.md"])).with_category(
+            "lang", Category(dir="lang", patterns=["*.md"])
+        )
+    )
+
+    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+        # Test with multiple expressions
+        args = CategoryContentArgs(expression="guide/guidelines.md,lang/python.md")
+        result = await call_mcp_tool(client, "category_content", args)
+        response = json.loads(result.content[0].text)  # type: ignore[union-attr]
+
+        # Debug output
+        if not response["success"]:
+            print(f"Error: {response}")
+
+        assert response["success"] is True
+        assert "Project Guidelines" in response["value"]
+        assert "Python Guide" in response["value"]
