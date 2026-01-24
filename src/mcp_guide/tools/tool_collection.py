@@ -153,7 +153,8 @@ class CollectionAddArgs(ToolArguments):
     name: str = Field(..., description="Name of the collection to create")
     description: Optional[str] = Field(None, description="Optional description of the collection's purpose")
     categories: list[str] = Field(
-        default_factory=list, description="List of category names to include in the collection"
+        default_factory=list,
+        description="List of category expressions or collection names to include in the collection",
     )
 
 
@@ -296,7 +297,9 @@ class CollectionChangeArgs(ToolArguments):
     name: str = Field(..., description="Name of the collection to modify")
     new_name: Optional[str] = Field(None, description="New name for the collection")
     new_description: Optional[str] = Field(None, description="New description for the collection")
-    new_categories: Optional[list[str]] = Field(None, description="New list of categories to replace existing ones")
+    new_categories: Optional[list[str]] = Field(
+        None, description="New list of category expressions or collection names to replace existing ones"
+    )
 
 
 async def internal_collection_change(args: CollectionChangeArgs, ctx: Optional[Context] = None) -> Result[str]:  # type: ignore
@@ -425,8 +428,12 @@ class CollectionUpdateArgs(ToolArguments):
     """Arguments for collection_update tool."""
 
     name: str = Field(..., description="Name of the collection to update")
-    add_categories: Optional[list[str]] = Field(None, description="Category names to add to the collection")
-    remove_categories: Optional[list[str]] = Field(None, description="Category names to remove from the collection")
+    add_categories: Optional[list[str]] = Field(
+        None, description="Category expressions or collection names to add to the collection"
+    )
+    remove_categories: Optional[list[str]] = Field(
+        None, description="Category expressions or collection names to remove from the collection"
+    )
 
 
 async def internal_collection_update(args: CollectionUpdateArgs, ctx: Optional[Context] = None) -> Result[str]:  # type: ignore

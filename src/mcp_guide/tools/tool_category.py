@@ -18,7 +18,6 @@ from mcp_guide.core.validation import (
 )
 from mcp_guide.feature_flags.constants import FLAG_CONTENT_FORMAT_MIME
 from mcp_guide.models import Category, CategoryNotFoundError, FileReadError, Project
-from mcp_guide.models.expression import DocumentExpression
 from mcp_guide.result import Result
 from mcp_guide.result_constants import (
     ERROR_FILE_READ,
@@ -31,7 +30,7 @@ from mcp_guide.result_constants import (
 )
 from mcp_guide.server import tools
 from mcp_guide.session import get_or_create_session
-from mcp_guide.utils.content_common import gather_category_fileinfos, parse_expression
+from mcp_guide.utils.content_common import gather_content
 from mcp_guide.utils.content_utils import read_and_render_file_contents
 from mcp_guide.utils.file_discovery import FileInfo, discover_category_files
 from mcp_guide.utils.flag_utils import get_resolved_flag_value
@@ -742,29 +741,20 @@ async def internal_category_content(
     project = await session.get_project()
 
     try:
-        # Parse expression to handle category/pattern syntax
-        expressions = parse_expression(args.expression)
-
-        # If args.pattern is provided, override all expression patterns (backward compatibility)
+        # Build expression with pattern override if provided
+        expression = args.expression
         if args.pattern:
-            expressions = [DocumentExpression(expr.raw_input, expr.name, [args.pattern]) for expr in expressions]
+            # Apply pattern to all expressions in the input
+            if "," in expression:
+                # Multiple expressions - apply pattern to each
+                parts = [f"{part.strip()}/{args.pattern}" for part in expression.split(",")]
+                expression = ",".join(parts)
+            else:
+                # Single expression
+                expression = f"{expression}/{args.pattern}"
 
-        all_files = []
-
-        for expr in expressions:
-            # Gather FileInfo using common function
-            files = await gather_category_fileinfos(session, project, expr.name, expr.patterns)
-            all_files.extend(files)
-
-        # Deduplicate by path
-        seen = set()
-        unique_files = []
-        for f in all_files:
-            if f.path not in seen:
-                seen.add(f.path)
-                unique_files.append(f)
-
-        files = unique_files
+        # Delegate to gather_content for file gathering and deduplication
+        files = await gather_content(session, project, expression)
 
         # Check for no matches
         if not files:
