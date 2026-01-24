@@ -16,7 +16,9 @@ from mcp_guide.core.validation import (
     validate_directory_path,
     validate_pattern,
 )
+from mcp_guide.feature_flags.constants import FLAG_CONTENT_FORMAT_MIME
 from mcp_guide.models import Category, CategoryNotFoundError, FileReadError, Project
+from mcp_guide.models.expression import DocumentExpression
 from mcp_guide.result import Result
 from mcp_guide.result_constants import (
     ERROR_FILE_READ,
@@ -29,10 +31,13 @@ from mcp_guide.result_constants import (
 )
 from mcp_guide.server import tools
 from mcp_guide.session import get_or_create_session
-from mcp_guide.utils.content_common import gather_category_fileinfos, render_fileinfos
-from mcp_guide.utils.file_discovery import discover_category_files
-from mcp_guide.utils.formatter_selection import ContentFormat
+from mcp_guide.utils.content_common import gather_category_fileinfos, parse_expression
+from mcp_guide.utils.content_utils import read_and_render_file_contents
+from mcp_guide.utils.file_discovery import FileInfo, discover_category_files
+from mcp_guide.utils.flag_utils import get_resolved_flag_value
+from mcp_guide.utils.formatter_selection import ContentFormat, get_formatter_from_flag
 from mcp_guide.utils.frontmatter import get_frontmatter_description_from_file
+from mcp_guide.utils.template_context_cache import get_template_context_if_needed
 
 try:
     from mcp.server.fastmcp import Context
@@ -60,7 +65,7 @@ class CategoryListArgs(ToolArguments):
 class CategoryContentArgs(ToolArguments):
     """Arguments for category_content tool."""
 
-    category: str = Field(description="Name of the category to retrieve content from")
+    expression: str = Field(description="Category expression (e.g., 'docs', 'docs/api', 'docs/api+guide')")
     pattern: str | None = Field(
         default=None, description="Optional glob pattern to override category's default patterns"
     )
@@ -737,32 +742,77 @@ async def internal_category_content(
     project = await session.get_project()
 
     try:
-        # Gather FileInfo using common function
-        patterns = [args.pattern] if args.pattern else None
-        files = await gather_category_fileinfos(session, project, args.category, patterns)
+        # Parse expression to handle category/pattern syntax
+        expressions = parse_expression(args.expression)
+
+        # If args.pattern is provided, override all expression patterns (backward compatibility)
+        if args.pattern:
+            expressions = [DocumentExpression(expr.raw_input, expr.name, [args.pattern]) for expr in expressions]
+
+        all_files = []
+
+        for expr in expressions:
+            # Gather FileInfo using common function
+            files = await gather_category_fileinfos(session, project, expr.name, expr.patterns)
+            all_files.extend(files)
+
+        # Deduplicate by path
+        seen = set()
+        unique_files = []
+        for f in all_files:
+            if f.path not in seen:
+                seen.add(f.path)
+                unique_files.append(f)
+
+        files = unique_files
 
         # Check for no matches
         if not files:
             message = (
-                f"No files matched pattern '{args.pattern}' in category '{args.category}'"
+                f"No files matched pattern '{args.pattern}' in expression '{args.expression}'"
                 if args.pattern
-                else f"No files found in category '{args.category}'"
+                else f"No files found matching expression '{args.expression}'"
             )
             return Result.ok(message, instruction=INSTRUCTION_PATTERN_ERROR)
 
-        # Render using common function
+        # Group files by category for reading (files may span multiple categories)
         docroot = Path(await session.get_docroot())
-        category = project.categories[args.category]  # We know it exists from gather_category_fileinfos
-        category_dir = docroot / category.dir
+        files_by_category: dict[str, list[FileInfo]] = {}
+        for file in files:
+            category_name = file.category or "unknown"
+            if category_name not in files_by_category:
+                files_by_category[category_name] = []
+            files_by_category[category_name].append(file)
+
+        # Read content for each category group
+        final_files: list[FileInfo] = []
+        file_read_errors: list[str] = []
+
+        for category_name, category_files in files_by_category.items():
+            category = project.categories.get(category_name)
+            if not category:
+                raise CategoryNotFoundError(f"Invalid category '{category_name}' found in FileInfo object")
+
+            category_dir = docroot / category.dir
+            template_context = await get_template_context_if_needed(category_files, category_name)
+
+            errors = await read_and_render_file_contents(
+                category_files, category_dir, docroot, template_context, category_prefix=category_name
+            )
+            file_read_errors.extend(errors)
+            final_files.extend(category_files)
+
+        # Check for file read errors
+        if file_read_errors:
+            raise FileReadError(f"Failed to read files: {'; '.join(file_read_errors)}")
 
         # Resolve content format flag
-        from mcp_guide.feature_flags.constants import FLAG_CONTENT_FORMAT_MIME
-        from mcp_guide.utils.flag_utils import get_resolved_flag_value
-
         flag_value = await get_resolved_flag_value(session, FLAG_CONTENT_FORMAT_MIME)
         format_type = ContentFormat.from_flag_value(flag_value)
 
-        content = await render_fileinfos(files, args.category, category_dir, docroot, format_type)
+        # Format and return content
+        formatter = get_formatter_from_flag(format_type)
+        content = await formatter.format(final_files, args.expression)
 
         return Result.ok(content)
 

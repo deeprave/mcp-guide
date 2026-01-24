@@ -53,8 +53,8 @@ def test_pattern_field_is_optional():
     """Test that pattern field is optional."""
     from mcp_guide.tools.tool_category import CategoryContentArgs
 
-    args = CategoryContentArgs(category="docs")
-    assert args.category == "docs"
+    args = CategoryContentArgs(expression="docs")
+    assert args.expression == "docs"
     assert args.pattern is None
 
 
@@ -62,8 +62,8 @@ def test_schema_validates_correctly():
     """Test that schema validates with valid data."""
     from mcp_guide.tools.tool_category import CategoryContentArgs
 
-    args = CategoryContentArgs(category="docs", pattern="*.md")
-    assert args.category == "docs"
+    args = CategoryContentArgs(expression="docs", pattern="*.md")
+    assert args.expression == "docs"
     assert args.pattern == "*.md"
 
 
@@ -72,8 +72,8 @@ def test_schema_has_field_descriptions():
     from mcp_guide.tools.tool_category import CategoryContentArgs
 
     schema = CategoryContentArgs.model_json_schema()
-    assert "category" in schema["properties"]
-    assert "description" in schema["properties"]["category"]
+    assert "expression" in schema["properties"]
+    assert "description" in schema["properties"]["expression"]
     assert "pattern" in schema["properties"]
     assert "description" in schema["properties"]["pattern"]
 
@@ -149,7 +149,7 @@ async def test_tool_returns_result_ok_on_success(tmp_path, monkeypatch):
     monkeypatch.setattr("mcp_guide.tools.tool_category.get_or_create_session", mock_get_session)
 
     # Call tool
-    args = CategoryContentArgs(category="docs")
+    args = CategoryContentArgs(expression="docs")
     result_json = await category_content(args)
 
     # Parse result
@@ -180,7 +180,7 @@ async def test_category_not_found_returns_failure(tmp_path, monkeypatch):
     monkeypatch.setattr("mcp_guide.tools.tool_category.get_or_create_session", mock_get_session)
 
     # Call tool with non-existent category
-    args = CategoryContentArgs(category="nonexistent")
+    args = CategoryContentArgs(expression="nonexistent")
     result_json = await category_content(args)
 
     # Parse result
@@ -211,7 +211,7 @@ async def test_no_matches_returns_failure(tmp_path, monkeypatch):
     monkeypatch.setattr("mcp_guide.tools.tool_category.get_or_create_session", mock_get_session)
 
     # Test 1: Default patterns - should return success
-    args = CategoryContentArgs(category="docs")
+    args = CategoryContentArgs(expression="docs")
     result_json = await category_content(args)
     result = json.loads(result_json)
     assert result["success"] is True
@@ -219,7 +219,7 @@ async def test_no_matches_returns_failure(tmp_path, monkeypatch):
     assert "No files found" in result["value"]
 
     # Test 2: Pattern override - should also return success (consistent with other tools)
-    args = CategoryContentArgs(category="docs", pattern="*.txt")
+    args = CategoryContentArgs(expression="docs", pattern="*.txt")
     result_json = await category_content(args)
     result = json.loads(result_json)
     assert result["success"] is True
@@ -257,7 +257,7 @@ async def test_file_read_error_single_file(tmp_path, monkeypatch):
     monkeypatch.setattr("mcp_guide.utils.content_utils.read_file_content", mock_read_error)
 
     # Call tool
-    args = CategoryContentArgs(category="docs")
+    args = CategoryContentArgs(expression="docs")
     result_json = await category_content(args)
 
     # Parse result
@@ -309,7 +309,7 @@ async def test_file_read_error_multiple_files(tmp_path, monkeypatch):
     monkeypatch.setattr("mcp_guide.utils.content_utils.read_file_content", mock_read_error)
 
     # Call tool
-    args = CategoryContentArgs(category="docs")
+    args = CategoryContentArgs(expression="docs")
     result_json = await category_content(args)
 
     # Parse result
@@ -344,7 +344,7 @@ async def test_error_responses_include_all_fields(tmp_path, monkeypatch):
     monkeypatch.setattr("mcp_guide.tools.tool_category.get_or_create_session", mock_get_session)
 
     # Call tool
-    args = CategoryContentArgs(category="test")
+    args = CategoryContentArgs(expression="test")
     result_json = await category_content(args)
 
     # Parse result
