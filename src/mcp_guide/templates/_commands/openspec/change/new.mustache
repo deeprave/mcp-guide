@@ -34,4 +34,6 @@ Gather requirements from the user through conversation to understand:
 Once you have sufficient context, create the proposal following the structure documented in `openspec/AGENTS.md`.
 
 Keep it as a draft (no tasks.md) unless the user explicitly requests implementation planning.
+
+After creating the change, refresh the cache by running `openspec list --json` and sending via {{tool_prefix}}send_file_content with path `.openspec-changes.json`.
 {{/args.0.value}}

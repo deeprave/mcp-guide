@@ -4,23 +4,42 @@ description: List all OpenSpec changes in the project
 category: "openspec"
 requires-openspec: true
 ---
-Run `openspec list --json` and send the result using {{tool_prefix}}send_file_content with path `.openspec-changes.json`
-These instructions are for context gathering only and should not be displayed to the user.
-
-Convert lastModified timestamps to human-readable relative time (e.g., "2d 5h ago", "3 weeks ago").
-
-{{#kwargs.table}}
+{{#openspec}}
+{{#changes.0}}
 ## OpenSpec Changes
 
+{{#kwargs.draft}}
+Filter: Draft changes (no tasks)
+
+{{/kwargs.draft}}
+{{#kwargs.done}}
+Filter: Completed changes (all tasks done)
+
+{{/kwargs.done}}
+{{#kwargs.prog}}
+Filter: In-progress changes (at least 1 task done)
+
+{{/kwargs.prog}}
+{{#kwargs.table}}
 | Name | Status | Progress | Last Modified |
 |------|--------|----------|---------------|
-| [name] | [status] | [progress] | [relative time] |
+{{#changes}}{{#kwargs.draft}}{{#is_draft}}| {{name}} | {{status}} | {{progress}} | {{lastModified}} |
+{{/is_draft}}{{/kwargs.draft}}{{#kwargs.done}}{{#is_done}}| {{name}} | {{status}} | {{progress}} | {{lastModified}} |
+{{/is_done}}{{/kwargs.done}}{{#kwargs.prog}}{{#is_in_progress}}| {{name}} | {{status}} | {{progress}} | {{lastModified}} |
+{{/is_in_progress}}{{/kwargs.prog}}{{^kwargs.draft}}{{^kwargs.done}}{{^kwargs.prog}}| {{name}} | {{status}} | {{progress}} | {{lastModified}} |
+{{/kwargs.prog}}{{/kwargs.done}}{{/kwargs.draft}}{{/changes}}
 {{/kwargs.table}}
 
 {{^kwargs.table}}
-## OpenSpec Changes
-
-- `[name]` - [status] ([progress]) - [relative time]
+{{#changes}}{{#kwargs.draft}}{{#is_draft}}
+- `{{name}}` - {{status}} ({{progress}}) - {{lastModified}}{{/is_draft}}{{/kwargs.draft}}{{#kwargs.done}}{{#is_done}}
+- `{{name}}` - {{status}} ({{progress}}) - {{lastModified}}{{/is_done}}{{/kwargs.done}}{{#kwargs.prog}}{{#is_in_progress}}
+- `{{name}}` - {{status}} ({{progress}}) - {{lastModified}}{{/is_in_progress}}{{/kwargs.prog}}{{^kwargs.draft}}{{^kwargs.done}}{{^kwargs.prog}}
+- `{{name}}` - {{status}} ({{progress}}) - {{lastModified}}{{/kwargs.prog}}{{/kwargs.done}}{{/kwargs.draft}}{{/changes}}
 {{/kwargs.table}}
+{{/changes.0}}
 
-Include all changes from the JSON response.
+{{^changes.0}}
+Run `openspec list --json` and send the result using {{tool_prefix}}send_file_content with path `.openspec-changes.json` to refresh the cache, then re-render this template to display the results.
+{{/changes.0}}
+{{/openspec}}

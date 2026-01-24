@@ -176,62 +176,42 @@ class TestOpenSpecTask:
         task = OpenSpecTask(mock_task_manager)
 
         event_data = {
-            "path": "openspec",
-            "files": [
-                {"name": "project.md", "type": "file"},
-                {"name": "changes", "type": "directory"},
-                {"name": "specs", "type": "directory"},
-            ],
+            "path": "openspec/project.md",
+            "content": "# OpenSpec Project",
         }
 
         with (
             patch.object(task, "request_version_check", new_callable=AsyncMock),
-            patch.object(task, "request_changes_listing", new_callable=AsyncMock),
+            patch.object(task, "request_changes_json", new_callable=AsyncMock),
         ):
-            result = await task.handle_event(EventType.FS_DIRECTORY, event_data)
+            result = await task.handle_event(EventType.FS_FILE_CONTENT, event_data)
 
             assert result is True
             assert task.is_project_enabled() is True
-            mock_task_manager.set_cached_data.assert_called_once_with("openspec_project_enabled", True)
+            mock_task_manager.set_cached_data.assert_called_with("openspec_project_enabled", True)
 
     @pytest.mark.asyncio
     async def test_handle_event_project_structure_incomplete(self, mock_task_manager):
-        """Test handling incomplete OpenSpec project structure."""
+        """Test handling missing OpenSpec project.md file."""
         task = OpenSpecTask(mock_task_manager)
 
         event_data = {
-            "path": "openspec",
-            "files": [
-                {"name": "project.md", "type": "file"},
-                # Missing changes and specs directories
-            ],
+            "path": "openspec/other.md",
+            "content": "# Other file",
         }
 
-        result = await task.handle_event(EventType.FS_DIRECTORY, event_data)
+        result = await task.handle_event(EventType.FS_FILE_CONTENT, event_data)
 
-        assert result is True
-        assert task.is_project_enabled() is False
-        mock_task_manager.set_cached_data.assert_called_once_with("openspec_project_enabled", False)
+        assert result is False
+        assert task.is_project_enabled() is None
 
     @pytest.mark.asyncio
     async def test_handle_event_project_missing_project_md(self, mock_task_manager):
-        """Test handling OpenSpec structure missing project.md."""
+        """Test that project is not enabled without project.md."""
         task = OpenSpecTask(mock_task_manager)
 
-        event_data = {
-            "path": "openspec",
-            "files": [
-                {"name": "changes", "type": "directory"},
-                {"name": "specs", "type": "directory"},
-                # Missing project.md
-            ],
-        }
-
-        result = await task.handle_event(EventType.FS_DIRECTORY, event_data)
-
-        assert result is True
-        assert task.is_project_enabled() is False
-        mock_task_manager.set_cached_data.assert_called_once_with("openspec_project_enabled", False)
+        # Simulate no project.md file received
+        assert task.is_project_enabled() is None
 
     @pytest.mark.asyncio
     async def test_is_project_enabled_returns_none_before_check(self, mock_task_manager):
@@ -289,24 +269,79 @@ class TestOpenSpecTask:
         task = OpenSpecTask(mock_task_manager)
 
         event_data = {
-            "path": "openspec",
-            "files": [
-                {"name": "project.md", "type": "file"},
-                {"name": "changes", "type": "directory"},
-                {"name": "specs", "type": "directory"},
-            ],
+            "path": "openspec/project.md",
+            "content": "# OpenSpec Project",
         }
 
         with (
             patch.object(task, "request_version_check", new_callable=AsyncMock) as mock_version,
-            patch.object(task, "request_changes_listing", new_callable=AsyncMock) as mock_changes,
+            patch.object(task, "request_changes_json", new_callable=AsyncMock) as mock_changes,
         ):
-            result = await task.handle_event(EventType.FS_DIRECTORY, event_data)
+            result = await task.handle_event(EventType.FS_FILE_CONTENT, event_data)
 
             assert result is True
             assert task.is_project_enabled() is True
             mock_version.assert_called_once()
             mock_changes.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_handle_event_changes_json_caches_data(self, mock_task_manager):
+        """Test handling changes JSON caches the data."""
+        task = OpenSpecTask(mock_task_manager)
+
+        changes_data = [
+            {"name": "change-1", "status": "in-progress", "completedTasks": 0, "totalTasks": 5},
+            {"name": "change-2", "status": "complete", "completedTasks": 10, "totalTasks": 10},
+        ]
+        event_data = {
+            "path": ".openspec-changes.json",
+            "content": json.dumps({"changes": changes_data}),
+        }
+
+        with patch("time.time", return_value=1234567890.0):
+            result = await task.handle_event(EventType.FS_FILE_CONTENT, event_data)
+
+            assert result is True
+            cached = task.get_changes()
+            assert len(cached) == 2
+            # Verify filter flags were added
+            assert cached[0]["is_draft"] is False
+            assert cached[0]["is_done"] is False
+            assert cached[0]["is_in_progress"] is True  # Has tasks but not done
+            assert cached[1]["is_done"] is True
+            mock_task_manager.set_cached_data.assert_called()
+
+    @pytest.mark.asyncio
+    async def test_get_changes_returns_none_when_no_cache(self, mock_task_manager):
+        """Test get_changes returns None when cache is empty."""
+        task = OpenSpecTask(mock_task_manager)
+        assert task.get_changes() is None
+
+    @pytest.mark.asyncio
+    async def test_is_cache_valid_returns_false_when_no_cache(self, mock_task_manager):
+        """Test is_cache_valid returns False when cache is empty."""
+        task = OpenSpecTask(mock_task_manager)
+        assert task.is_cache_valid() is False
+
+    @pytest.mark.asyncio
+    async def test_is_cache_valid_returns_true_when_fresh(self, mock_task_manager):
+        """Test is_cache_valid returns True when cache is fresh."""
+        task = OpenSpecTask(mock_task_manager)
+        task._changes_cache = [{"name": "test"}]
+
+        with patch("time.time", return_value=1000.0):
+            task._changes_timestamp = 900.0  # 100 seconds ago
+            assert task.is_cache_valid() is True
+
+    @pytest.mark.asyncio
+    async def test_is_cache_valid_returns_false_when_stale(self, mock_task_manager):
+        """Test is_cache_valid returns False when cache is stale."""
+        task = OpenSpecTask(mock_task_manager)
+        task._changes_cache = [{"name": "test"}]
+
+        with patch("time.time", return_value=5000.0):
+            task._changes_timestamp = 100.0  # 4900 seconds ago (> 3600 TTL)
+            assert task.is_cache_valid() is False
 
     @pytest.mark.asyncio
     async def test_timer_event_calls_changes_reminder_when_enabled(self, mock_task_manager):
@@ -316,10 +351,23 @@ class TestOpenSpecTask:
         task._project_enabled = True
 
         with patch.object(task, "_handle_changes_reminder", new_callable=AsyncMock) as mock_reminder:
-            result = await task.handle_event(EventType.TIMER, {"interval": 3600.0})
+            result = await task.handle_event(EventType.TIMER, {"interval": 3600.0, "startDelay": 20.0})
 
             assert result is True
             mock_reminder.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_timer_event_skips_reminder_before_start_delay(self, mock_task_manager):
+        """Test TIMER event skips changes reminder before start delay."""
+        task = OpenSpecTask(mock_task_manager)
+        task._flag_checked = True
+        task._project_enabled = True
+
+        with patch.object(task, "_handle_changes_reminder", new_callable=AsyncMock) as mock_reminder:
+            result = await task.handle_event(EventType.TIMER, {"interval": 3600.0, "startDelay": 10.0})
+
+            assert result is True
+            mock_reminder.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_timer_event_skips_reminder_when_disabled(self, mock_task_manager):
@@ -328,48 +376,11 @@ class TestOpenSpecTask:
         task._flag_checked = True
         task._project_enabled = False
 
-        with patch.object(task, "request_changes_listing", new_callable=AsyncMock) as mock_request:
-            result = await task.handle_event(EventType.TIMER, {"interval": 3600.0})
+        with patch.object(task, "request_changes_json", new_callable=AsyncMock) as mock_request:
+            result = await task.handle_event(EventType.TIMER, {"interval": 3600.0, "startDelay": 20.0})
 
             assert result is True
             mock_request.assert_not_called()
-
-    @pytest.mark.asyncio
-    async def test_handle_changes_listing_caches_directories_only(self, mock_task_manager):
-        """Test _handle_changes_listing caches only directories and skips hidden files."""
-        task = OpenSpecTask(mock_task_manager)
-
-        entries = [
-            {"name": "change-1", "type": "directory"},
-            {"name": "change-2", "type": "directory"},
-            {"name": ".hidden", "type": "directory"},
-            {"name": "README.md", "type": "file"},
-            {"name": ".DS_Store", "type": "file"},
-        ]
-
-        task._handle_changes_listing(entries)
-
-        # Should cache only non-hidden directories
-        mock_task_manager.set_cached_data.assert_any_call("openspec_changes_list", ["change-1", "change-2"])
-        # Should also cache timestamp
-        assert any(
-            call[0][0] == "openspec_changes_timestamp" for call in mock_task_manager.set_cached_data.call_args_list
-        )
-
-    @pytest.mark.asyncio
-    async def test_directory_event_for_changes_path(self, mock_task_manager):
-        """Test FS_DIRECTORY event for openspec/changes invokes handler."""
-        task = OpenSpecTask(mock_task_manager)
-        task._flag_checked = True
-
-        entries = [{"name": "change-1", "type": "directory"}]
-        event_data = {"path": "openspec/changes", "files": entries}
-
-        with patch.object(task, "_handle_changes_listing") as mock_handler:
-            result = await task.handle_event(EventType.FS_DIRECTORY, event_data)
-
-            assert result is True
-            mock_handler.assert_called_once_with(entries)
 
 
 class TestOpenSpecResponseFormatting:
@@ -461,39 +472,19 @@ class TestOpenSpecResponseFormatting:
 
         event_data = {"path": ".openspec-changes.json", "content": json.dumps(changes_data)}
 
-        with patch("mcp_guide.client_context.openspec_task.render_common_template") as mock_render:
-            mock_render.return_value = "## OpenSpec Changes\n\n| change-2 | in-progress | N/A |"
+        result = await task.handle_event(EventType.FS_FILE_CONTENT, event_data)
 
-            result = await task.handle_event(EventType.FS_FILE_CONTENT, event_data)
-
-            assert result is True
-            # Verify template was called with sorted changes
-            call_args = mock_render.call_args
-            assert call_args[0][0] == "_commands/openspec/_changes-format"
-            context = call_args[1]["extra_context"]
-
-            # Verify has_changes and count
-            assert context["has_changes"] is True
-            assert len(context["sorted_changes"]) == 2
-
-            # Verify sorting: in-progress first, then by lastModified descending
-            names_in_order = [c["name"] for c in context["sorted_changes"]]
-            assert names_in_order == ["change-2", "change-1"]
-
-            # Verify derived fields
-            change_2, change_1 = context["sorted_changes"]
-
-            assert change_2["status"] == "in-progress"
-            assert change_2["progress"] == "N/A"
-            assert change_2["lastModified"] == "2024-01-02"
-
-            assert change_1["status"] == "complete"
-            assert change_1["progress"] == "10/10"
-            assert change_1["lastModified"] == "2024-01-01"
+        assert result is True
+        # Verify changes were cached with filter flags
+        assert task.get_changes() is not None
+        assert len(task.get_changes()) == 2
+        # Verify filter flags were added
+        assert task.get_changes()[0]["is_done"] is True
+        assert task.get_changes()[1]["is_draft"] is True
 
     @pytest.mark.asyncio
     async def test_format_changes_list_empty(self, mock_task_manager):
-        """Test formatting empty changes list."""
+        """Test caching empty changes list."""
         task = OpenSpecTask(mock_task_manager)
         task._flag_checked = True
 
@@ -501,15 +492,11 @@ class TestOpenSpecResponseFormatting:
 
         event_data = {"path": ".openspec-changes.json", "content": json.dumps(changes_data)}
 
-        with patch("mcp_guide.client_context.openspec_task.render_common_template") as mock_render:
-            mock_render.return_value = "## OpenSpec Changes\n\n*No changes found*"
+        result = await task.handle_event(EventType.FS_FILE_CONTENT, event_data)
 
-            result = await task.handle_event(EventType.FS_FILE_CONTENT, event_data)
-
-            assert result is True
-            call_args = mock_render.call_args
-            context = call_args[1]["extra_context"]
-            assert context["has_changes"] is False
+        assert result is True
+        # Verify empty cache
+        assert task.get_changes() == []
 
     @pytest.mark.asyncio
     async def test_format_show_response(self, mock_task_manager):

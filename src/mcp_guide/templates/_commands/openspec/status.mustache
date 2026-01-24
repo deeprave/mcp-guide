@@ -6,11 +6,25 @@ requires-openspec: true
 instruction: Display errors to the user, otherwise follow the instructions to get status
 ---
 {{#args.0.value}}
-Run `openspec status --change {{args.0.value}} --json` and send the result using {{tool_prefix}}send_file_content with path `.openspec-status.json`.
+{{#openspec.changes}}
+Check if change `{{args.0.value}}` exists in the cached changes list. If found, run `openspec status --change {{args.0.value}} --json` and send the result using {{tool_prefix}}send_file_content with path `.openspec-status.json`.
+
+If not found in cache, first refresh the cache by running `openspec list --json` and sending via {{tool_prefix}}send_file_content with path `.openspec-changes.json`, then run the status command.
+{{/openspec.changes}}
+{{^openspec.changes}}
+First refresh the cache by running `openspec list --json` and sending via {{tool_prefix}}send_file_content with path `.openspec-changes.json`, then run `openspec status --change {{args.0.value}} --json` and send the result using {{tool_prefix}}send_file_content with path `.openspec-status.json`.
+{{/openspec.changes}}
 {{/args.0.value}}
 {{^args.0.value}}
 {{#workflow.issue}}
-Run `openspec status --change {{workflow.issue}} --json` and send the result using {{tool_prefix}}send_file_content with path `.openspec-status.json`.
+{{#openspec.changes}}
+Check if change `{{workflow.issue}}` exists in the cached changes list. If found, run `openspec status --change {{workflow.issue}} --json` and send the result using {{tool_prefix}}send_file_content with path `.openspec-status.json`.
+
+If not found in cache, first refresh the cache by running `openspec list --json` and sending via {{tool_prefix}}send_file_content with path `.openspec-changes.json`, then run the status command.
+{{/openspec.changes}}
+{{^openspec.changes}}
+First refresh the cache by running `openspec list --json` and sending via {{tool_prefix}}send_file_content with path `.openspec-changes.json`, then run `openspec status --change {{workflow.issue}} --json` and send the result using {{tool_prefix}}send_file_content with path `.openspec-status.json`.
+{{/openspec.changes}}
 {{/workflow.issue}}
 {{^workflow.issue}}
 **Error:** No change-id provided and no current workflow issue set.
