@@ -171,3 +171,68 @@ async def test_get_content_empty_result(mcp_server, tmp_path, monkeypatch):
         assert "instruction" in response
 
     await remove_current_session("test")
+
+
+@pytest.mark.anyio
+async def test_get_content_nested_collection(mcp_server, tmp_path, monkeypatch):
+    """Test get_content with nested collection reference."""
+    from .test_data_generator import generate_test_files
+
+    monkeypatch.setenv("PWD", "/fake/path/test")
+
+    session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
+
+    # Add categories and nested collections
+    await session.update_config(
+        lambda p: p.with_category("guide", Category(dir="guide", patterns=["*.md"]))
+        .with_category("lang", Category(dir="lang", patterns=["*.md"]))
+        .with_collection("docs", Collection(categories=["guide"]))
+        .with_collection("all", Collection(categories=["docs", "lang"]))  # Nested: all includes docs collection
+    )
+
+    docroot = Path(tmp_path.resolve()) / "docs"
+    generate_test_files(docroot)
+
+    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+        args = ContentArgs(expression="all")
+        result = await call_mcp_tool(client, "get_content", args)
+        response = json.loads(result.content[0].text)  # type: ignore[union-attr]
+
+        assert response["success"] is True
+        assert "Project Guidelines" in response["value"]  # From guide (via docs collection)
+        assert "Python Guide" in response["value"]  # From lang
+
+    await remove_current_session("test")
+
+
+@pytest.mark.anyio
+async def test_get_content_circular_collection_reference(mcp_server, tmp_path, monkeypatch):
+    """Test get_content with circular collection references."""
+    from .test_data_generator import generate_test_files
+
+    monkeypatch.setenv("PWD", "/fake/path/test")
+
+    session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
+
+    # Add categories and circular collections
+    await session.update_config(
+        lambda p: p.with_category("guide", Category(dir="guide", patterns=["*.md"]))
+        .with_category("lang", Category(dir="lang", patterns=["*.md"]))
+        .with_collection("col1", Collection(categories=["guide", "col2"]))  # col1 → col2
+        .with_collection("col2", Collection(categories=["lang", "col1"]))  # col2 → col1 (circular)
+    )
+
+    docroot = Path(tmp_path.resolve()) / "docs"
+    generate_test_files(docroot)
+
+    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+        args = ContentArgs(expression="col1")
+        result = await call_mcp_tool(client, "get_content", args)
+        response = json.loads(result.content[0].text)  # type: ignore[union-attr]
+
+        # Should not hang or error - circular reference should be handled
+        assert response["success"] is True
+        assert "Project Guidelines" in response["value"]  # From guide
+        assert "Python Guide" in response["value"]  # From lang
+
+    await remove_current_session("test")
