@@ -6,6 +6,7 @@ category: "workflow"
 instruction: >
   Transition to IMPLEMENTATION phase.
   Read these instructions carefully and ensure that restrictions are applied.
+  Do not display this content to the user.
 ---
 🛠️ You are now in IMPLEMENTATION phase.
 
@@ -42,11 +43,6 @@ The plan should follow, where applicable:
 3. Implement minimal code to pass tests (YAGNI)
 4. Apply YAGNI and SOLID principles in implementation
 5. Check off completed items in the plan after each phase
-6. Auto-transition to check phase when all items complete
-
----
-{{h2}}Automatic Transitions
-- **NEXT** {{b}}→ Check:{{b}} Automatically transitions to check phase when all planned tasks have been marked {{b}}completed{{b}}.
 
 {{#openspec}}
 {{h2}}⚠️ BEFORE TRANSITIONING TO CHECK PHASE
@@ -75,6 +71,10 @@ Before transitioning to check phase, you {{b}}MUST{{b}}:{{#workflow.plan}}
 
 {{b}}Do not transition to check phase until completion status is updated and summary provided.{{b}}
 {{/openspec}}
+
+---
+{{h2}}Automatic Transitions
+- **NEXT** {{b}}→ Check:{{b}} Automatically transitions to check phase when all planned tasks have been marked {{b}}completed{{b}}
 
 ---
 {{h2}}Reference

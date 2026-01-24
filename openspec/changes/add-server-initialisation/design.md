@@ -57,7 +57,7 @@ class GuideMCP(FastMCP):
         super().__init__(name, *args, **kwargs)
         self.agent_info: Optional["AgentInfo"] = None
         self._startup_handlers: list[Callable[[], Awaitable[None]]] = []
-    
+
     def on_startup(self) -> Callable:
         """Decorator to register startup handlers."""
         def decorator(func: Callable[[], Awaitable[None]]) -> Callable:
@@ -85,9 +85,9 @@ async def guide_lifespan(server: GuideMCP) -> AsyncIterator[dict]:
             await handler()
         except Exception as e:
             logger.error(f"Startup handler {handler.__name__} failed: {e}")
-    
+
     yield {}  # Server runs
-    
+
     # Shutdown: cleanup if needed (future)
 ```
 

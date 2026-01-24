@@ -14,6 +14,11 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
+# Cache and timer constants
+CHANGES_CACHE_TTL = 3600  # 1 hour
+CHANGES_CHECK_INTERVAL = 3600.0  # 60 minutes
+CHANGES_CHECK_START_DELAY = 20.0  # 20 seconds
+
 
 @task_init
 class OpenSpecTask:
@@ -31,14 +36,16 @@ class OpenSpecTask:
         self._version_requested = False
         self._version: Optional[str] = None
         self._changes_requested = False
+        self._changes_cache: Optional[list[dict[str, Any]]] = None
+        self._changes_timestamp: Optional[float] = None
 
         # Subscribe to startup and command events
         self.task_manager.subscribe(
             self, EventType.TIMER_ONCE | EventType.FS_COMMAND | EventType.FS_DIRECTORY | EventType.FS_FILE_CONTENT, 5.0
         )
 
-        # Subscribe to timer for periodic changes monitoring (60 min)
-        self.task_manager.subscribe(self, EventType.TIMER, 3600.0)
+        # Subscribe to timer for periodic changes monitoring with start delay
+        self.task_manager.subscribe(self, EventType.TIMER, CHANGES_CHECK_INTERVAL, CHANGES_CHECK_START_DELAY)
 
     def get_name(self) -> str:
         """Get a readable name for the task."""
@@ -89,6 +96,31 @@ class OpenSpecTask:
         """
         return self._version
 
+    def get_changes(self) -> Optional[list[dict[str, Any]]]:
+        """Get cached OpenSpec changes list.
+
+        Returns:
+            List of changes or None if not cached.
+        """
+        return self._changes_cache if self.is_cache_valid() else None
+
+    def is_cache_valid(self, ttl: int = CHANGES_CACHE_TTL) -> bool:
+        """Check if changes cache is valid.
+
+        Args:
+            ttl: Time-to-live in seconds (default: CHANGES_CACHE_TTL)
+
+        Returns:
+            True if cache exists and is not expired, False otherwise.
+        """
+        if self._changes_cache is None or self._changes_timestamp is None:
+            return False
+
+        import time
+
+        age = time.time() - self._changes_timestamp
+        return age < ttl
+
     async def request_cli_check(self) -> None:
         """Request OpenSpec CLI availability check from client."""
         content = await render_common_template("openspec-cli-check")
@@ -133,8 +165,10 @@ class OpenSpecTask:
         # Handle timer events for changes monitoring
         if event_type & EventType.TIMER:
             interval = data.get("interval")
-            if interval == 3600.0:  # 60 min interval
-                await self._handle_changes_reminder()
+            if interval == CHANGES_CHECK_INTERVAL:
+                start_delay = data.get("startDelay", 0.0)
+                if start_delay >= CHANGES_CHECK_START_DELAY:
+                    await self._handle_changes_reminder()
                 return True
 
         # Handle command location events
@@ -154,40 +188,30 @@ class OpenSpecTask:
 
                 return True
 
-        # Handle directory listing events
-        if event_type & EventType.FS_DIRECTORY:
-            path = data.get("path", "")
-
-            # Project detection
-            if path.rstrip("/") == "openspec":
-                # FS_DIRECTORY events use "files" key from send_directory_listing
-                entries = data.get("files", [])
-                self._check_project_structure(entries)
-
-                # If project enabled, request version and changes
-                if self._project_enabled:
-                    if not self._version_requested:
-                        self._version_requested = True
-                        await self.request_version_check()
-                    if not self._changes_requested:
-                        self._changes_requested = True
-                        await self.request_changes_listing()
-
-                return True
-
-            # Changes monitoring
-            elif path.rstrip("/") == "openspec/changes":
-                entries = data.get("files", [])
-                self._handle_changes_listing(entries)
-                return True
-
-        # Handle file content events for version detection
+        # Handle file content events
         if event_type & EventType.FS_FILE_CONTENT:
             import json
             from pathlib import Path
 
             path = data.get("path", "")
             path_name = Path(path).name
+
+            # Handle project detection
+            if path_name == "project.md" and path.startswith("openspec/"):
+                # If project.md exists, project is enabled
+                self._project_enabled = True
+                self.task_manager.set_cached_data("openspec_project_enabled", True)
+                logger.info("OpenSpec project enabled")
+
+                # Request version and changes
+                if not self._version_requested:
+                    self._version_requested = True
+                    await self.request_version_check()
+                if not self._changes_requested:
+                    self._changes_requested = True
+                    await self.request_changes_json()
+
+                return True
 
             # Handle version detection
             if path_name == ".openspec-version.txt":
@@ -218,8 +242,24 @@ class OpenSpecTask:
                 return True
 
             elif path_name == ".openspec-changes.json":
-                formatted = await self._format_changes_list_response(json_data)
-                await self.task_manager.queue_instruction(formatted)
+                # Cache the changes data with filter flags
+                import time
+
+                changes = json_data.get("changes", [])
+                # Add filter flags to each change
+                for change in changes:
+                    completed = change.get("completedTasks", 0)
+                    total = change.get("totalTasks", 0)
+                    change["is_draft"] = total == 0
+                    change["is_done"] = total > 0 and completed == total
+                    change["is_in_progress"] = total > 0 and completed < total
+
+                self._changes_cache = changes
+                self._changes_timestamp = time.time()
+                self.task_manager.set_cached_data("openspec_changes", changes)
+                logger.debug(f"Cached {len(changes)} OpenSpec changes")
+
+                # Don't format here - let the command template handle display
                 return True
 
             elif path_name == ".openspec-show.json":
@@ -229,9 +269,9 @@ class OpenSpecTask:
 
         return False
 
-    async def request_changes_listing(self) -> None:
-        """Request listing of openspec/changes directory."""
-        content = await render_common_template("openspec-changes-check")
+    async def request_changes_json(self) -> None:
+        """Request openspec changes JSON via command execution."""
+        content = await render_common_template("_commands/openspec/list")
         await self.task_manager.queue_instruction(content)
 
     async def _handle_changes_reminder(self) -> None:
@@ -239,30 +279,13 @@ class OpenSpecTask:
         if not self._project_enabled:
             return
 
-        try:
-            await self.request_changes_listing()
-            logger.trace("Queued OpenSpec changes check reminder")
-        except Exception as e:
-            logger.warning(f"Failed to queue OpenSpec changes reminder: {e}")
-
-    def _handle_changes_listing(self, entries: list[dict[str, Any]]) -> None:
-        """Handle openspec/changes directory listing.
-
-        Args:
-            entries: List of directory entries from send_directory_listing
-        """
-        import time
-
-        # Extract directory names, filter out files and hidden entries
-        changes_list = [
-            entry["name"]
-            for entry in entries
-            if entry.get("type") == "directory" and not entry.get("name", "").startswith(".")
-        ]
-
-        self.task_manager.set_cached_data("openspec_changes_list", changes_list)
-        self.task_manager.set_cached_data("openspec_changes_timestamp", time.time())
-        logger.trace(f"Cached {len(changes_list)} openspec changes: {changes_list}")
+        # Only remind if cache is stale
+        if not self.is_cache_valid():
+            try:
+                await self.request_changes_json()
+                logger.trace("Queued OpenSpec changes refresh")
+            except Exception as e:
+                logger.warning(f"Failed to queue OpenSpec changes refresh: {e}")
 
     def _parse_version(self, content: str) -> None:
         """Parse OpenSpec version from command output.
@@ -280,32 +303,6 @@ class OpenSpecTask:
             logger.warning(f"Failed to parse OpenSpec version from: {content}")
             self._version = None
             self.task_manager.set_cached_data("openspec_version", None)
-
-    def _check_project_structure(self, entries: list[dict[str, Any]]) -> None:
-        """Check if OpenSpec project structure is valid.
-
-        Args:
-            entries: Directory listing entries from openspec/ directory
-        """
-        # Check for required files and directories
-        has_project_md = False
-        has_changes_dir = False
-        has_specs_dir = False
-
-        for entry in entries:
-            name = entry.get("name", "")
-            entry_type = entry.get("type", "")
-
-            if name == "project.md" and entry_type == "file":
-                has_project_md = True
-            elif name == "changes" and entry_type == "directory":
-                has_changes_dir = True
-            elif name == "specs" and entry_type == "directory":
-                has_specs_dir = True
-
-        self._project_enabled = has_project_md and has_changes_dir and has_specs_dir
-        self.task_manager.set_cached_data("openspec_project_enabled", self._project_enabled)
-        logger.info(f"OpenSpec project {'enabled' if self._project_enabled else 'not initialized'}")
 
     async def _format_status_response(self, data: dict[str, Any]) -> str:
         """Format OpenSpec status response using template.

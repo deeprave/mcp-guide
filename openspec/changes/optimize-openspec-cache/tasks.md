@@ -1,76 +1,75 @@
 # Tasks: Optimize OpenSpec Cache
 
-## Status: 📋 PLANNED
+## Status: ✅ COMPLETE
 
 ## Implementation Tasks
 
-### 1. Create OpenSpec cache manager
-**File**: `src/mcp_guide/utils/openspec_cache.py` (new)
+### 1. Cache implementation in OpenSpecTask ✅
+**File**: `src/mcp_guide/client_context/openspec_task.py`
 
-- [ ] Implement `get_openspec_changes()` - Get cached data if valid
-- [ ] Implement `set_openspec_changes(data)` - Cache data with timestamp
-- [ ] Implement `invalidate_openspec_changes()` - Clear cache
-- [ ] Implement `is_cache_valid(timestamp, ttl)` - Check expiry (15 min default)
+- [x] Add cache state variables (`_changes_cache`, `_changes_timestamp`)
+- [x] Implement `get_changes()` - Returns cached data if valid
+- [x] Implement `is_cache_valid(ttl)` - Check expiry (1 hour TTL)
+- [x] Cache population in `handle_event()` for `.openspec-changes.json`
+- [x] Add filter flags: `is_draft`, `is_done`, `is_in_progress`
 
-### 2. Add cache fields to template context
-**File**: `src/mcp_guide/utils/template_context.py`
+### 2. Expose cache in template context ✅
+**File**: `src/mcp_guide/utils/template_context_cache.py`
 
-- [ ] Add `openspec_changes` field for cached JSON data
-- [ ] Add `openspec_changes_timestamp` field for cache timestamp
-- [ ] Integrate cache manager to populate fields
+- [x] Add `changes` field to openspec context
+- [x] Populate from `openspec_task_subscriber.get_changes()`
 
-### 3. Update OpenSpec prompt template
-**File**: `src/mcp_guide/templates/_prompts/openspec.mustache`
+### 3. Remove directory listing ✅
+**Files**: Templates and OpenSpecTask
 
-- [ ] Remove directory listing requests for `openspec/`
-- [ ] Remove directory listing requests for `openspec/changes/`
-- [ ] Keep command location and version checks
-- [ ] Add logic to use cached data when available
+- [x] Delete `openspec-changes-check.mustache` template
+- [x] Update `openspec-project-check.mustache` to request file content only
+- [x] Remove `_check_project_structure()` method
+- [x] Remove `_handle_changes_listing()` method
+- [x] Simplify project detection to file-based check
 
-### 4. Update :openspec/list command
-**File**: Tool handler for `:openspec/list`
+### 4. Update :openspec/list command ✅
+**File**: `src/mcp_guide/templates/_commands/openspec/list.mustache`
 
-- [ ] Check cache first before prompting agent
-- [ ] Use cached data if valid
-- [ ] Prompt agent to refresh cache on miss
-- [ ] Format output from cached data
+- [x] Check cache first before prompting
+- [x] Add filter support: `--draft`, `--done`, `--prog`
+- [x] Prompt to refresh cache if empty/stale
+- [x] Re-render template after cache refresh
+- [x] Fix excessive newlines in filtered output
 
-### 5. Update :openspec/status command
-**File**: Tool handler for `:openspec/status`
+### 5. Update :openspec/status command ✅
+**File**: `src/mcp_guide/templates/_commands/openspec/status.mustache`
 
-- [ ] Use cached data to find specific change
-- [ ] Avoid running `openspec status` if data in cache
-- [ ] Format status from cached data
+- [x] Check cache for change existence
+- [x] Validate change exists before status command
+- [x] Prompt to refresh cache if needed
 
-### 6. Implement cache invalidation
-**File**: Cache manager and file watchers
+### 6. Implement cache invalidation ✅
+**Files**: Workflow templates
 
-- [ ] Watch `openspec/changes/` directory for modifications
-- [ ] Watch `openspec/changes/*/tasks.md` files
-- [ ] Invalidate cache on file changes
-- [ ] Add manual invalidation instructions to workflow templates
+- [x] `archive.mustache` - Refresh after archive
+- [x] `change/new.mustache` - Refresh after creating change
+- [x] `init.mustache` - Refresh after initialization
 
-### 7. Update workflow templates
-**Files**: Templates that create/modify OpenSpec changes
+### 7. Add tests ✅
+**File**: `tests/test_openspec_task.py`
 
-- [ ] Add cache refresh instruction after change operations
-- [ ] Instruct agent to run `openspec list --json` after modifications
-- [ ] Send result using `guide_send_file_content`
+- [x] Test cache population with filter flags
+- [x] Test `get_changes()` returns None when no cache
+- [x] Test `is_cache_valid()` returns False when no cache
+- [x] Test `is_cache_valid()` returns True when fresh
+- [x] Test `is_cache_valid()` returns False when stale
+- [x] Test timer event skips reminder before start delay
+- [x] Update existing tests for new cache-only behavior
 
-### 8. Add tests
-**File**: `tests/test_openspec_cache.py` (new)
+## Verification ✅
 
-- [ ] Test cache hit (data exists and valid)
-- [ ] Test cache miss (data doesn't exist)
-- [ ] Test cache expiry (data older than 15 minutes)
-- [ ] Test cache invalidation
-- [ ] Test commands use cached data
-
-## Verification
-
-- [ ] No directory listing requests in openspec prompt
-- [ ] `openspec list --json` cached for 15 minutes
-- [ ] `:openspec/list` uses cached data
-- [ ] `:openspec/status` uses cached data
-- [ ] Cache invalidates on change operations
-- [ ] All tests pass
+- [x] No directory listing in openspec-project-check template
+- [x] `openspec list --json` cached for 1 hour
+- [x] `:openspec/list` uses cached data with filters
+- [x] `:openspec/status` uses cached data
+- [x] Cache invalidates after mutations
+- [x] All 34 OpenSpec tests pass
+- [x] Type checks pass (mypy)
+- [x] Linting passes (ruff)
+- [x] Pre-commit checks pass

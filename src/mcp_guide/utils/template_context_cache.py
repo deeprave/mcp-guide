@@ -150,6 +150,7 @@ class TemplateContextCache(SessionListener):
                 agent_vars["openspec"] = {
                     "available": openspec_task_subscriber.is_available(),
                     "version": openspec_task_subscriber.get_version(),
+                    "changes": openspec_task_subscriber.get_changes() or [],
                 }
             else:
                 # Task not registered (feature flag disabled) - set to False

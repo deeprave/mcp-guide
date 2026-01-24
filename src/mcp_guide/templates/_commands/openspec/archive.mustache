@@ -22,3 +22,5 @@ Example: `{{agent.prefix}}guide :openspec/archive add-client-documents`
 Or set a workflow issue first with `{{agent.prefix}}guide :workflow/issue <change-id>`
 {{/workflow.issue}}
 {{/args.0.value}}
+
+After successful archive, refresh the cache by running `openspec list --json` and sending via {{tool_prefix}}send_file_content with path `.openspec-changes.json`.

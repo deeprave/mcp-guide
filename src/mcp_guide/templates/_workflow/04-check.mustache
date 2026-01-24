@@ -6,6 +6,7 @@ category: "workflow"
 instruction: >
   Transition to PLANNING phase.
   Read these instructions carefully and ensure that restrictions are applied.
+  Do not display this content to the user.
 ---
 🔍 You are now in CHECK phase
 
@@ -20,9 +21,18 @@ Code quality checks must pass. This may include (depending on language):
   - Type checks
   - Code formatting
 
-{{h2}}🚨 **IMPLEMENTATION PHASE RULES**
-- ✅ {{b}}Allowed:{{b}} Code changes to correct issues, refactoring and other fixes discovered during testing.
-- ❌ {{b}}Not Allowed:{{b}} Deviating from the original plan without discussion
+{{h2}}⚠️ IMPORTANT
+{{b}}IF YOU HAVE NOT ALREADY DONE SO YOU MUST UPDATE COMPLETION STATUS:{{b}}
+
+Before commencing checks, you {{b}}MUST{{b}}: {{#workflow.issue}}
+- Update `openspec/changes/{{workflow.issue}}/tasks.md` marking all completed items{{/workflow.issue}}{{#workflow.plan}}
+- Update the current implementation plan ({{workflow.plan}}) marking all completed items{{/workflow.plan}}
+- Present a summary of:
+   - What has been completed
+   - What remains to be done
+   - Any blockers or issues discovered
+
+{{b}}Do not commence checks until completion status is updated and summary provided.{{b}}
 
 {{b}}Status:{{b}} Testing and checks in progress.
 
