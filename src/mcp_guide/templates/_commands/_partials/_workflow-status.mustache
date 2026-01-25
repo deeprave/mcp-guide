@@ -3,8 +3,8 @@ requires-workflow: true
 ---
 
 {{b}}Workflow (`{{workflow.file}}`)
-  {{b}}Phase:{{b}} {{#workflow.phase}}`{{workflow.phase}}`{{/workflow.phase}}{{^workflow.phase}}`Unknown`{{/workflow.phase}}
-{{#workflow.issue}}  {{b}}Issue:{{b}} `{{workflow.issue}}`{{/workflow.issue}}{{^workflow.issue}}{{b}}Issue:{{b}} `None`{{/workflow.issue}}{{#workflow.description}} (`{{workflow.description}}`){{/workflow.description}}{{#workflow.tracking}}
+  {{b}}Phase:{{b}} {{#workflow.phase}}`{{workflow.phase}}`{{/workflow.phase}}{{^workflow.phase}}_not yet available_{{/workflow.phase}}
+{{#workflow.issue}}  {{b}}Issue:{{b}} `{{workflow.issue}}`{{/workflow.issue}}{{^workflow.issue}}{{b}}Issue:{{b}} _none_{{/workflow.issue}}{{#workflow.description}} (`{{workflow.description}}`){{/workflow.description}}{{#workflow.tracking}}
   {{b}}Track:{{b}} `{{workflow.tracking}}`{{/workflow.tracking}}{{#workflow.plan}}
   {{b}}Plan:{{b}} `{{workflow.plan}}`{{/workflow.plan}}{{#workflow.queue}}{{#first}}
   {{b}}Queue:{{b}}{{/first}}

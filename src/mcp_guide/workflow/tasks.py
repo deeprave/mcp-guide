@@ -69,6 +69,18 @@ class WorkflowMonitorTask:
             logger.debug(f"WorkflowMonitorTask disabled - {FLAG_WORKFLOW} flag not set")
             return
 
+        # Get workflow file path from flags
+        from mcp_guide.feature_flags.constants import FLAG_WORKFLOW_FILE
+
+        workflow_file = (
+            self.task_manager.resolved_flags.get(FLAG_WORKFLOW_FILE) if self.task_manager.resolved_flags else None
+        )
+        if workflow_file and isinstance(workflow_file, str):
+            self.workflow_file_path = workflow_file
+            # Cache the workflow file path for template context
+            self.task_manager.set_cached_data("workflow_file_path", workflow_file)
+            logger.debug(f"WorkflowMonitorTask using workflow file from flag: {workflow_file}")
+
         if not self._setup_done:
             try:
                 content = await render_workflow_template("monitoring-setup")
@@ -117,6 +129,10 @@ class WorkflowMonitorTask:
             if not new_state:
                 logger.warning("Failed to parse workflow state - not processing changes")
                 return
+
+            logger.trace(
+                f"WorkflowMonitorTask: Parsed workflow state - phase={new_state.phase}, issue={new_state.issue}"
+            )
 
             logger.trace(f"Parsed new workflow state: phase={new_state.phase}, issue={new_state.issue}")
 
