@@ -1,7 +1,8 @@
 """MCP server creation and configuration."""
 
 import os
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from contextlib import asynccontextmanager
+from typing import TYPE_CHECKING, Any, AsyncIterator, Callable, Optional
 
 if TYPE_CHECKING:
     from mcp_guide.cli import ServerConfig
@@ -22,6 +23,31 @@ from mcp_guide.task_manager import TaskManager  # noqa: F401
 from mcp_guide.workflow.tasks import WorkflowMonitorTask  # noqa: F401
 
 logger = get_logger(__name__)
+
+
+@asynccontextmanager
+async def guide_lifespan(server: GuideMCP) -> AsyncIterator[dict[str, Any]]:
+    """Lifespan hook for server initialization and shutdown.
+
+    Executes all registered startup handlers during server startup,
+    before any client connections are accepted.
+
+    Args:
+        server: The GuideMCP server instance
+
+    Yields:
+        Empty dict (required by FastMCP lifespan protocol)
+    """
+    # Startup: Execute all registered handlers
+    for handler in server._startup_handlers:
+        try:
+            await handler()
+        except Exception as e:
+            logger.error(f"Startup handler {handler.__name__} failed: {e}", exc_info=True)
+
+    yield {}  # Server runs
+
+    # Shutdown: cleanup if needed (future)
 
 
 class _ToolsProxy:
@@ -206,6 +232,7 @@ def create_server(config: "ServerConfig") -> GuideMCP:
     mcp = GuideMCP(
         name=server_name,
         instructions="MCP server for project documentation and development guidance",
+        lifespan=guide_lifespan,
     )
 
     # Configure logging after FastMCP init
@@ -220,6 +247,15 @@ def create_server(config: "ServerConfig") -> GuideMCP:
     tool_decorator = ExtMcpToolDecorator(mcp)
     tools.set_instance(tool_decorator)
     resources.set_instance(mcp)
+
+    # Register task manager initialization
+    @mcp.on_init()
+    async def initialize_task_manager() -> None:
+        """Initialize task manager and all registered tasks."""
+        from mcp_guide.task_manager.manager import get_task_manager
+
+        task_manager = get_task_manager()
+        await task_manager.on_init()
 
     # Import tool modules - decorators register immediately
     from mcp_guide.tools import (  # noqa: F401

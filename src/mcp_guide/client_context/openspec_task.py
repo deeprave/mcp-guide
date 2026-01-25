@@ -40,10 +40,8 @@ class OpenSpecTask:
         self._changes_timestamp: Optional[float] = None
         self._changes_timer_started = False  # Track if first timer has fired
 
-        # Subscribe to startup and command events
-        self.task_manager.subscribe(
-            self, EventType.TIMER_ONCE | EventType.FS_COMMAND | EventType.FS_DIRECTORY | EventType.FS_FILE_CONTENT, 5.0
-        )
+        # Subscribe to command and file events
+        self.task_manager.subscribe(self, EventType.FS_COMMAND | EventType.FS_DIRECTORY | EventType.FS_FILE_CONTENT)
 
         # Subscribe to timer for periodic changes monitoring with start delay
         self.task_manager.subscribe(self, EventType.TIMER, CHANGES_CHECK_INTERVAL, CHANGES_CHECK_START_DELAY)
@@ -53,25 +51,28 @@ class OpenSpecTask:
         return "OpenSpecTask"
 
     async def on_tool(self) -> None:
-        """Check flag and unsubscribe if disabled."""
-        if self._flag_checked:
+        """Called after tool/prompt execution.
+
+        Flag checking is now handled in on_init() at server startup.
+        """
+        pass
+
+    async def on_init(self) -> None:
+        """Initialize task at server startup.
+
+        Checks if OpenSpec is enabled via flags and unsubscribes if disabled.
+        """
+        if not self.task_manager.requires_flag(FLAG_OPENSPEC):
+            await self.task_manager.unsubscribe(self)
+            logger.debug(f"OpenSpecTask disabled - {FLAG_OPENSPEC} flag not set")
+            self._flag_checked = True
             return
 
+        # Request CLI availability check
+        if not self._cli_requested:
+            await self.request_cli_check()
+            self._cli_requested = True
         self._flag_checked = True
-
-        try:
-            from mcp_guide.session import get_or_create_session
-            from mcp_guide.utils.flag_utils import get_resolved_flag_value
-
-            session = await get_or_create_session()
-            enabled = await get_resolved_flag_value(session, FLAG_OPENSPEC, False)
-
-            if not enabled:
-                await self.task_manager.unsubscribe(self)
-                logger.debug(f"OpenSpecTask disabled - {FLAG_OPENSPEC} flag not set")
-        except Exception as e:
-            logger.warning(f"Failed to check openspec flag, unsubscribing: {e}")
-            await self.task_manager.unsubscribe(self)
 
     def is_available(self) -> Optional[bool]:
         """Check if OpenSpec CLI is available.
@@ -139,30 +140,6 @@ class OpenSpecTask:
 
     async def handle_event(self, event_type: EventType, data: dict[str, Any]) -> bool:
         """Handle task manager events."""
-        # Handle TIMER_ONCE startup
-        if event_type & EventType.TIMER_ONCE:
-            # Wait for flag check before proceeding
-            if not self._flag_checked:
-                return False  # Requeue until on_tool is called
-
-            # Check if flag is enabled before requesting CLI check
-            try:
-                from mcp_guide.session import get_or_create_session
-                from mcp_guide.utils.flag_utils import get_resolved_flag_value
-
-                session = await get_or_create_session()
-                enabled = await get_resolved_flag_value(session, FLAG_OPENSPEC, False)
-
-                if not enabled:
-                    return True  # Stop TIMER_ONCE without requesting CLI
-            except Exception:
-                return True  # Stop on error
-
-            if not self._cli_requested:
-                await self.request_cli_check()
-                self._cli_requested = True
-            return True
-
         # Handle timer events for changes monitoring
         if event_type & EventType.TIMER:
             interval = data.get("interval")

@@ -25,35 +25,35 @@ class ClientContextTask:
         self._os_info_requested = False
         self._flag_checked = False
 
-        # Always subscribe - flag check happens in on_tool()
-        self.task_manager.subscribe(self, EventType.TIMER_ONCE | EventType.FS_FILE_CONTENT, 5.0)
+        # Subscribe to file content events
+        self.task_manager.subscribe(self, EventType.FS_FILE_CONTENT)
 
     def get_name(self) -> str:
         """Get a readable name for the task."""
         return "ClientContextTask"
 
     async def on_tool(self) -> None:
-        """Check flag and unsubscribe if disabled."""
-        if self._flag_checked:
+        """Called after tool/prompt execution.
+
+        Flag checking is now handled in on_init() at server startup.
+        """
+        pass
+
+    async def on_init(self) -> None:
+        """Initialize task at server startup.
+
+        Checks if client info collection is enabled and requests OS info if so.
+        """
+        if not self.task_manager.requires_flag(FLAG_ALLOW_CLIENT_INFO):
+            await self.task_manager.unsubscribe(self)
+            logger.debug(f"ClientContextTask disabled - {FLAG_ALLOW_CLIENT_INFO} flag not set")
+            self._flag_checked = True
             return
 
+        if not self._os_info_requested:
+            await self.request_basic_os_info()
+            self._os_info_requested = True
         self._flag_checked = True
-
-        # Check if allow-client-info flag is enabled
-        try:
-            from mcp_guide.session import get_or_create_session
-            from mcp_guide.utils.flag_utils import get_resolved_flag_value
-
-            session = await get_or_create_session()
-            enabled = await get_resolved_flag_value(session, FLAG_ALLOW_CLIENT_INFO, False)
-
-            if not enabled:
-                # Unsubscribe if flag is not set
-                await self.task_manager.unsubscribe(self)
-                logger.debug(f"ClientContextTask disabled - {FLAG_ALLOW_CLIENT_INFO} flag not set")
-        except Exception as e:
-            logger.warning(f"Failed to check allow-client-info flag, unsubscribing: {e}")
-            await self.task_manager.unsubscribe(self)
 
     async def request_basic_os_info(self) -> None:
         """Request basic OS information from client."""
@@ -64,31 +64,6 @@ class ClientContextTask:
         """Handle task manager events."""
         import json
         from pathlib import Path
-
-        # Handle TIMER_ONCE startup
-        if event_type & EventType.TIMER_ONCE:
-            # Wait for flag check before proceeding
-            if not self._flag_checked:
-                return False  # Requeue until on_tool is called
-
-            # Check flag value before requesting info
-            try:
-                from mcp_guide.session import get_or_create_session
-                from mcp_guide.utils.flag_utils import get_resolved_flag_value
-
-                session = await get_or_create_session()
-                enabled = await get_resolved_flag_value(session, FLAG_ALLOW_CLIENT_INFO, False)
-
-                if not enabled:
-                    logger.debug("ClientContextTask: allow-client-info disabled, skipping request")
-                    return True  # Stop TIMER_ONCE without requesting
-            except Exception:
-                return True  # Stop on error
-
-            if not self._os_info_requested:
-                await self.request_basic_os_info()
-                self._os_info_requested = True
-            return True  # Stop TIMER_ONCE
 
         # Handle file content events
         if event_type & EventType.FS_FILE_CONTENT:

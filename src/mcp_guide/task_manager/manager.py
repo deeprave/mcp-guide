@@ -54,6 +54,10 @@ class TaskManager:
         self._peak_task_count = 0
         self._total_timer_runs = 0
 
+        # Server initialization state
+        self._session: Optional[Any] = None  # Session established during on_init()
+        self._resolved_flags: Optional[Dict[str, Any]] = None  # Flags loaded during on_init()
+
         # Register as task manager
         try:
             from mcp_guide.core.tool_decorator import set_task_manager
@@ -69,6 +73,72 @@ class TaskManager:
         except RuntimeError:
             # No loop yet, will start when needed
             pass
+
+    @property
+    def session(self) -> Optional[Any]:
+        """Get the session established during server initialization.
+
+        Returns:
+            Session instance or None if not yet initialized
+        """
+        return self._session
+
+    @property
+    def resolved_flags(self) -> Optional[Dict[str, Any]]:
+        """Get the resolved flags loaded during server initialization.
+
+        Returns:
+            Dictionary of resolved flags or None if not yet initialized
+        """
+        return self._resolved_flags
+
+    def requires_flag(self, flag_name: str) -> bool:
+        """Check if a feature flag is enabled.
+
+        Args:
+            flag_name: Name of the feature flag to check
+
+        Returns:
+            True if flag is enabled, False otherwise
+        """
+        if not self.resolved_flags:
+            return False
+        return bool(self.resolved_flags.get(flag_name, False))
+
+    async def on_init(self) -> None:
+        """Initialize task manager and all registered tasks at server startup.
+
+        Establishes session, loads resolved flags, and calls on_init() on all tasks.
+        """
+        logger.info("Initializing task manager at server startup")
+
+        # Establish session using PWD/CWD
+        from mcp_guide.session import get_or_create_session
+
+        self._session = await get_or_create_session()
+        logger.debug(f"Established session for project: {self._session.project_name}")
+
+        # Load resolved flags
+        try:
+            from mcp_guide.models import resolve_all_flags
+
+            self._resolved_flags = await resolve_all_flags(self._session)
+            logger.debug(f"Loaded {len(self._resolved_flags)} resolved flags")
+        except Exception as e:
+            logger.warning(f"Failed to load resolved flags: {e}")
+            self._resolved_flags = {}
+
+        # Initialize all registered tasks
+        for subscription in self._subscriptions:
+            task = subscription.subscriber
+            try:
+                if hasattr(task, "on_init"):
+                    await task.on_init()
+                logger.debug(f"Initialized task: {task.get_name()}")
+            except Exception as e:
+                logger.error(f"Failed to initialize task {task.get_name()}: {e}", exc_info=True)
+
+        logger.info(f"Task manager initialization complete. Initialized {len(self._subscriptions)} tasks")
 
     @classmethod
     def _reset_for_testing(cls) -> None:

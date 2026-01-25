@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any, Optional
 
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.decorators import task_init
+from mcp_guide.feature_flags.constants import FLAG_WORKFLOW
 from mcp_guide.models import FileReadError, NoProjectError
 from mcp_guide.task_manager import EventType, get_task_manager
 from mcp_guide.workflow.change_detection import ChangeEvent, detect_workflow_changes
@@ -52,16 +53,30 @@ class WorkflowMonitorTask:
         self.task_manager.subscribe(self, EventType.TIMER | EventType.FS_FILE_CONTENT, WORKFLOW_INTERVAL, 15.0)
 
     async def on_tool(self) -> None:
-        """Called after tool/prompt execution."""
-        logger.trace(f"WorkflowMonitorTask.on_tool called, _setup_done={self._setup_done}")
+        """Called after tool/prompt execution.
+
+        Flag checking and setup are now handled in on_init() at server startup.
+        """
+        pass
+
+    async def on_init(self) -> None:
+        """Initialize task at server startup.
+
+        Checks if workflow is enabled and queues setup instructions if so.
+        """
+        if not self.task_manager.requires_flag(FLAG_WORKFLOW):
+            await self.task_manager.unsubscribe(self)
+            logger.debug(f"WorkflowMonitorTask disabled - {FLAG_WORKFLOW} flag not set")
+            return
+
         if not self._setup_done:
             try:
                 content = await render_workflow_template("monitoring-setup")
                 await self.task_manager.queue_instruction(content)
                 self._setup_done = True
-                logger.trace("WorkflowMonitorTask.on_tool: Queued setup instruction")
+                logger.debug("WorkflowMonitorTask initialized and queued setup instruction")
             except Exception as e:
-                logger.warning(f"Failed to queue workflow setup: {e}")
+                logger.warning(f"Failed to queue workflow setup during init: {e}")
 
     async def handle_event(self, event_type: "EventType", data: dict[str, Any]) -> bool:
         """Handle task manager events."""
