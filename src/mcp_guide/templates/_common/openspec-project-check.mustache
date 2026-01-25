@@ -3,3 +3,5 @@ Check if OpenSpec project is initialized by checking for the `openspec/project.m
 Send the file content using {{tool_prefix}}send_file_content with path `openspec/project.md`.
 
 If the file does not exist, send an error or empty content.
+
+**Note:** Do NOT display the file content to the user when calling send_file_content - only show the confirmation message.

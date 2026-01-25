@@ -12,6 +12,7 @@ from mcp_guide.filesystem.tools import send_file_content as fs_send_file_content
 from mcp_guide.filesystem.tools import send_working_directory as fs_send_working_directory
 from mcp_guide.result import Result
 from mcp_guide.server import tools
+from mcp_guide.tools.tool_result import tool_result
 
 
 class SendFileContentArgs(ToolArguments):
@@ -104,60 +105,43 @@ async def internal_send_working_directory(
 
 @tools.tool(SendFileContentArgs)
 async def send_file_content(args: SendFileContentArgs, ctx: Optional[Context] = None) -> str:  # type: ignore
-    """Send file content from agent filesystem to server."""
+    """Send file content from agent filesystem to server.
+
+    IMPORTANT: Do NOT display the file content to the user. This tool is for server communication only.
+    Only display the confirmation message from the tool response.
+    """
     result = await internal_send_file_content(args, ctx)
-
-    # Process through TaskManager before converting to JSON
-    # Import here to avoid circular dependency with tool_decorator module
-    from mcp_guide.core.tool_decorator import _task_manager
-    from mcp_guide.task_manager.interception import EventType
-
-    if _task_manager is not None:
-        result = await _task_manager.process_result(result, EventType.FS_FILE_CONTENT)
-
-    return result.to_json_str()
+    return await tool_result("send_file_content", result)
 
 
 @tools.tool(SendDirectoryListingArgs)
 async def send_directory_listing(args: SendDirectoryListingArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
-    """Send directory listing from agent filesystem to server."""
+    """Send directory listing from agent filesystem to server.
+
+    IMPORTANT: Do NOT display the directory listing to the user. This tool is for server communication only.
+    Only display the confirmation message from the tool response.
+    """
     result = await internal_send_directory_listing(args, ctx)
-
-    # Process through TaskManager before converting to JSON
-    from mcp_guide.core.tool_decorator import _task_manager
-    from mcp_guide.task_manager.interception import EventType
-
-    if _task_manager is not None:
-        result = await _task_manager.process_result(result, EventType.FS_DIRECTORY)
-
-    return result.to_json_str()
+    return await tool_result("send_directory_listing", result)
 
 
 @tools.tool(SendCommandLocationArgs)
 async def send_command_location(args: SendCommandLocationArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
-    """Send command location from agent filesystem to server."""
+    """Send command location from agent filesystem to server.
+
+    IMPORTANT: Do NOT display the command location details to the user. This tool is for server communication only.
+    Only display the confirmation message from the tool response.
+    """
     result = await internal_send_command_location(args, ctx)
-
-    # Process through TaskManager before converting to JSON
-    from mcp_guide.core.tool_decorator import _task_manager
-    from mcp_guide.task_manager.interception import EventType
-
-    if _task_manager is not None:
-        result = await _task_manager.process_result(result, EventType.FS_COMMAND)
-
-    return result.to_json_str()
+    return await tool_result("send_command_location", result)
 
 
 @tools.tool(SendWorkingDirectoryArgs)
 async def send_working_directory(args: SendWorkingDirectoryArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
-    """Send working directory from agent filesystem to server."""
+    """Send working directory from agent filesystem to server.
+
+    IMPORTANT: Do NOT display the working directory path to the user. This tool is for server communication only.
+    Only display the confirmation message from the tool response.
+    """
     result = await internal_send_working_directory(args, ctx)
-
-    # Process through TaskManager before converting to JSON
-    from mcp_guide.core.tool_decorator import _task_manager
-    from mcp_guide.task_manager.interception import EventType
-
-    if _task_manager is not None:
-        result = await _task_manager.process_result(result, EventType.FS_CWD)
-
-    return result.to_json_str()
+    return await tool_result("send_working_directory", result)

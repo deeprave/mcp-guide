@@ -20,6 +20,7 @@ from mcp_guide.result_constants import (
 from mcp_guide.server import tools
 from mcp_guide.session import get_or_create_session, list_all_projects
 from mcp_guide.session import set_project as session_set_project
+from mcp_guide.tools.tool_result import tool_result
 
 try:
     from mcp.server.fastmcp import Context
@@ -154,7 +155,8 @@ async def get_project(args: GetCurrentProjectArgs, ctx: Optional[Context] = None
     # Returns: Full project configuration with category directories, patterns, and descriptions
     ```
     """
-    return (await internal_get_project(args, ctx)).to_json_str()
+    result = await internal_get_project(args, ctx)
+    return await tool_result("get_project", result)
 
 
 async def internal_set_project(args: SetCurrentProjectArgs, ctx: Optional[Context] = None) -> Result[dict[str, Any]]:  # type: ignore[type-arg]
@@ -214,7 +216,8 @@ async def set_project(args: SetCurrentProjectArgs, ctx: Optional[Context] = None
     Returns:
         Result containing switch confirmation and optional project details
     """
-    return (await internal_set_project(args, ctx)).to_json_str()
+    result = await internal_set_project(args, ctx)
+    return await tool_result("set_project", result)
 
 
 async def internal_list_projects(args: ListProjectsArgs, ctx: Optional[Context] = None) -> Result[dict]:  # type: ignore[type-arg]
@@ -248,7 +251,8 @@ async def list_projects(args: ListProjectsArgs, ctx: Optional[Context] = None) -
     Returns:
         Result containing projects list or dict
     """
-    return (await internal_list_projects(args, ctx)).to_json_str()
+    result = await internal_list_projects(args, ctx)
+    return await tool_result("list_projects", result)
 
 
 async def internal_list_project(args: ListProjectArgs, ctx: Optional[Context] = None) -> Result[dict[str, Any]]:  # type: ignore[type-arg]
@@ -317,7 +321,8 @@ async def list_project(args: ListProjectArgs, ctx: Optional[Context] = None) -> 
     Returns:
         Result containing project data
     """
-    return (await internal_list_project(args, ctx)).to_json_str()
+    result = await internal_list_project(args, ctx)
+    return await tool_result("list_project", result)
 
 
 async def internal_clone_project(args: CloneProjectArgs, ctx: Optional[Context] = None) -> Result[dict]:  # type: ignore[type-arg]
@@ -584,7 +589,8 @@ async def clone_project(args: CloneProjectArgs, ctx: Optional[Context] = None) -
     Returns:
         Result containing clone statistics and warnings
     """
-    return (await internal_clone_project(args, ctx)).to_json_str()
+    result = await internal_clone_project(args, ctx)
+    return await tool_result("clone_project", result)
 
 
 def _detect_conflicts(source: Project, target: Project) -> tuple[list[str], list[str]]:
@@ -727,7 +733,8 @@ async def use_project_profile(args: UseProjectProfileArgs, ctx: Optional[Context
     Returns:
         Success message or error
     """
-    return (await internal_use_project_profile(args, ctx)).to_json_str()
+    result = await internal_use_project_profile(args, ctx)
+    return await tool_result("use_project_profile", result)
 
 
 class ListProfilesArgs(ToolArguments):
@@ -778,7 +785,8 @@ async def list_profiles(args: ListProfilesArgs, ctx: Optional[Context] = None) -
     Returns:
         List of available profile names
     """
-    return (await internal_list_profiles(args, ctx)).to_json_str()
+    result = await internal_list_profiles(args, ctx)
+    return await tool_result("list_profiles", result)
 
 
 class ShowProfileArgs(ToolArguments):
@@ -843,4 +851,5 @@ async def show_profile(args: ShowProfileArgs, ctx: Optional[Context] = None) -> 
     Returns:
         Profile details
     """
-    return (await internal_show_profile(args, ctx)).to_json_str()
+    result = await internal_show_profile(args, ctx)
+    return await tool_result("show_profile", result)

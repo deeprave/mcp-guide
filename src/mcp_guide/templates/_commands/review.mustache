@@ -8,10 +8,11 @@ instruction: >
   Use the use_subagent tool with command 'InvokeSubagents' and content containing a subagent with agent_name 'guide-review'.
   Query:
    'Perform a code review of project changes.
-    Read the {{workflow.file}} file to understand the current issue context, then use get_content("code-review") to access code review guidelines.
-    Analyse recent changes and create or update the review artifact following the established format and context.'
+    Read the {{workflow.file}} file to understand the current issue context.
+    Use the guide mcp tool get_content("code-review") to access code review guidelines. You must confirm these have been read.
+    Analyse changes against HEAD and create or update the review artifact following the established format and context.
   This is a code review request for the current project.
-  Use this information to create an appropriately named review document as `.todo/<issue-name>-review.md`.
+  Documents produced from tis code review MUST BE NAMED `.todo/<change-id>-review.md`.
 ---
 {{h1}}Code Review Delegation
 
@@ -20,7 +21,8 @@ Delegating comprehensive code review to the {{b}}guide-review{{b}} agent.
 The review agent will:
 - Read the `.guide.yaml` file to understand the current issue context
 - Load code review guidelines from the "code-review" collection
-- Analyze recent changes in the context of the current issue
+- Analyze changes in the context of the current issue
 - Create or update the review artifact in `.todo/` directory
+- Review artifacts are NEVER to be created in the openspec changes directory
 
 {{instruction}}
