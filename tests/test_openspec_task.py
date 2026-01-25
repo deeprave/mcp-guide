@@ -40,12 +40,12 @@ class TestOpenSpecTask:
 
         assert mock_task_manager.subscribe.call_count == 2
 
-        # First call: TIMER_ONCE and FS_COMMAND with 5s interval
+        # First call: FS events (no TIMER_ONCE - handled by on_init now)
         first_call = mock_task_manager.subscribe.call_args_list[0]
         assert first_call[0][0] == task
-        assert first_call[0][1] & EventType.TIMER_ONCE
         assert first_call[0][1] & EventType.FS_COMMAND
-        assert first_call[0][2] == 5.0
+        assert first_call[0][1] & EventType.FS_DIRECTORY
+        assert first_call[0][1] & EventType.FS_FILE_CONTENT
 
         # Second call: TIMER for changes monitoring
         second_call = mock_task_manager.subscribe.call_args_list[1]
@@ -59,25 +59,6 @@ class TestOpenSpecTask:
         task = OpenSpecTask(mock_task_manager)
         assert task.get_name() == "OpenSpecTask"
 
-    @pytest.mark.asyncio
-    async def test_on_tool_unsubscribes_when_flag_disabled(self, mock_task_manager):
-        """Test that task unsubscribes when openspec flag is disabled."""
-        from unittest.mock import AsyncMock
-
-        task = OpenSpecTask(mock_task_manager)
-
-        with patch("mcp_guide.utils.flag_utils.get_resolved_flag_value", new_callable=AsyncMock) as mock_get_flag:
-            mock_get_flag.return_value = False
-
-            await task.on_tool()
-
-            mock_task_manager.unsubscribe.assert_called_once_with(task)
-
-    @pytest.mark.asyncio
-    async def test_on_tool_continues_when_flag_enabled(self, mock_task_manager):
-        """Test that task continues when openspec flag is enabled."""
-        from unittest.mock import AsyncMock
-
         task = OpenSpecTask(mock_task_manager)
 
         with patch("mcp_guide.utils.flag_utils.get_resolved_flag_value", new_callable=AsyncMock) as mock_get_flag:
@@ -86,24 +67,6 @@ class TestOpenSpecTask:
             await task.on_tool()
 
             mock_task_manager.unsubscribe.assert_not_called()
-
-    @pytest.mark.asyncio
-    async def test_handle_event_timer_once_requests_cli_check(self, mock_task_manager):
-        """Test that TIMER_ONCE event requests CLI availability check."""
-        task = OpenSpecTask(mock_task_manager)
-        task._flag_checked = True  # Simulate flag already checked
-
-        with (
-            patch("mcp_guide.client_context.openspec_task.render_common_template") as mock_render,
-            patch("mcp_guide.utils.flag_utils.get_resolved_flag_value") as mock_flag,
-        ):
-            mock_render.return_value = "check cli instruction"
-            mock_flag.return_value = True  # OpenSpec enabled
-
-            result = await task.handle_event(EventType.TIMER_ONCE, {})
-
-            assert result is True
-            mock_task_manager.queue_instruction.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_handle_event_cli_found(self, mock_task_manager):

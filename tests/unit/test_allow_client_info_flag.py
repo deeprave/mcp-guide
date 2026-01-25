@@ -1,7 +1,5 @@
 """Tests for allow-client-info feature flag."""
 
-from unittest.mock import patch
-
 import pytest
 
 
@@ -52,78 +50,22 @@ class TestAllowClientInfoValidator:
 
 
 class TestClientContextTaskConditional:
-    """Test ClientContextTask conditional subscription."""
+    """Test ClientContextTask conditional subscription.
+
+    Note: Flag checking is now handled in on_init() at server startup.
+    See tests/unit/test_on_init.py for on_init() behavior tests.
+    """
 
     @pytest.mark.asyncio
-    async def test_task_unsubscribes_when_flag_disabled(self):
-        """Test that task unsubscribes when allow-client-info is disabled."""
-        from unittest.mock import AsyncMock, Mock
+    async def test_task_subscribes_on_creation(self):
+        """Test that task subscribes when created."""
+        from unittest.mock import Mock
 
         from mcp_guide.client_context.tasks import ClientContextTask
 
         mock_task_manager = Mock()
         mock_task_manager.subscribe = Mock()
-        mock_task_manager.unsubscribe = AsyncMock()
 
         # Create task - it will subscribe in __init__
         task = ClientContextTask(task_manager=mock_task_manager)
         mock_task_manager.subscribe.assert_called_once()
-
-        # Patch get_resolved_flag_value for on_tool call
-        with patch("mcp_guide.utils.flag_utils.get_resolved_flag_value", return_value=False):
-            # Call on_tool - should check flag and unsubscribe
-            await task.on_tool()
-
-        # Should have unsubscribed
-        mock_task_manager.unsubscribe.assert_called_once_with(task)
-
-    @pytest.mark.asyncio
-    async def test_task_stays_subscribed_when_flag_enabled(self):
-        """Test that task stays subscribed when allow-client-info is enabled."""
-        from unittest.mock import AsyncMock, Mock
-
-        from mcp_guide.client_context.tasks import ClientContextTask
-
-        mock_task_manager = Mock()
-        mock_task_manager.subscribe = Mock()
-        mock_task_manager.unsubscribe = AsyncMock()
-
-        mock_flags_proxy = Mock()
-        mock_flags_proxy.list = AsyncMock(return_value={"allow-client-info": True})
-
-        mock_session = AsyncMock()
-        mock_session.feature_flags = Mock(return_value=mock_flags_proxy)
-
-        # Create task - it will subscribe in __init__
-        task = ClientContextTask(task_manager=mock_task_manager)
-        mock_task_manager.subscribe.assert_called_once()
-
-        # Patch get_resolved_flag_value for on_tool call
-        with patch("mcp_guide.utils.flag_utils.get_resolved_flag_value", return_value=True):
-            # Call on_tool - should check flag and stay subscribed
-            await task.on_tool()
-
-        # Should NOT have unsubscribed
-        mock_task_manager.unsubscribe.assert_not_called()
-
-    @pytest.mark.asyncio
-    async def test_task_unsubscribes_on_session_error(self):
-        """Test that task unsubscribes when session access fails."""
-        from unittest.mock import AsyncMock, Mock
-
-        from mcp_guide.client_context.tasks import ClientContextTask
-
-        mock_task_manager = Mock()
-        mock_task_manager.subscribe = Mock()
-        mock_task_manager.unsubscribe = AsyncMock()
-
-        # Create task - it will subscribe in __init__
-        task = ClientContextTask(task_manager=mock_task_manager)
-
-        # Patch get_or_create_session to raise exception
-        with patch("mcp_guide.session.get_or_create_session", side_effect=RuntimeError("No session")):
-            # Call on_tool - should catch exception and unsubscribe
-            await task.on_tool()
-
-        # Should have unsubscribed due to error
-        mock_task_manager.unsubscribe.assert_called_once_with(task)
