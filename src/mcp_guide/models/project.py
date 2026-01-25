@@ -3,7 +3,7 @@
 import os
 from collections.abc import Callable
 from dataclasses import field, replace
-from typing import Any, Optional
+from typing import Optional
 
 from pydantic import ConfigDict, field_validator
 from pydantic.dataclasses import dataclass as pydantic_dataclass
@@ -71,7 +71,6 @@ class Project:
         categories: Dictionary of category configurations (name -> Category)
         collections: Dictionary of collection configurations (name -> Collection)
         allowed_paths: List of allowed filesystem paths (must end with '/')
-        metadata: Dictionary for storing additional project data (e.g., applied_profiles)
 
     Note:
         Instances are immutable (frozen=True).
@@ -89,7 +88,6 @@ class Project:
     project_flags: dict[str, FeatureValue] = field(default_factory=dict)
     allowed_write_paths: list[str] = field(default_factory=lambda: DEFAULT_ALLOWED_WRITE_PATHS.copy())
     additional_read_paths: list[str] = field(default_factory=list)
-    metadata: dict[str, Any] = field(default_factory=dict)
 
     @field_validator("name")
     @classmethod

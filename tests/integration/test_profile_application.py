@@ -83,7 +83,6 @@ collections:
             project = await test_session.get_project()
             assert "docs" in project.categories
             assert "all" in project.collections
-            assert "test" in project.metadata.get("applied_profiles", [])
         finally:
             profile_module.get_profiles_dir = original_get_profiles_dir
 
@@ -135,7 +134,6 @@ categories:
             project = await test_session.get_project()
             assert "cat1" in project.categories
             assert "cat2" in project.categories
-            assert project.metadata.get("applied_profiles") == ["profile1", "profile2"]
         finally:
             profile_module.get_profiles_dir = original_get_profiles_dir
 

@@ -58,11 +58,6 @@ async def format_project_data(
     collections, categories = _format_categories_and_collections(project, verbose)
     result: dict[str, Any] = {"collections": collections, "categories": categories}
 
-    # Add applied profiles if any
-    applied_profiles = project.metadata.get("applied_profiles", [])
-    if applied_profiles:
-        result["applied_profiles"] = applied_profiles
-
     # Add resolved flags if session is available
     if session is not None:
         flags = await resolve_all_flags(session)

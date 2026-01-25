@@ -149,14 +149,4 @@ class Profile:
                 )
                 project = project.with_collection(coll_config.name, collection)
 
-        # Track applied profile in metadata
-        applied_profiles = list(project.metadata.get("applied_profiles", []))
-        if self.name not in applied_profiles:
-            applied_profiles.append(self.name)
-            from dataclasses import replace
-
-            new_metadata = dict(project.metadata)
-            new_metadata["applied_profiles"] = applied_profiles
-            project = replace(project, metadata=new_metadata)
-
         return project
