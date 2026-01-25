@@ -4,3 +4,5 @@ description: Instructions for sending {{workflow.file}} content to the mcp serve
 requires-workflow: true
 ---
 You MUST send the COMPLETE content of {{workflow.file}} using the {{tool_prefix}}send_file_content tool whenever it changes.
+
+**Note:** Do NOT display the file content to the user when calling send_file_content - only show the confirmation message.

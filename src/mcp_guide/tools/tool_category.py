@@ -30,6 +30,7 @@ from mcp_guide.result_constants import (
 )
 from mcp_guide.server import tools
 from mcp_guide.session import get_or_create_session
+from mcp_guide.tools.tool_result import tool_result
 from mcp_guide.utils.content_common import gather_content
 from mcp_guide.utils.content_utils import read_and_render_file_contents
 from mcp_guide.utils.file_discovery import FileInfo, discover_category_files
@@ -158,7 +159,8 @@ async def category_list(args: CategoryListArgs, ctx: Optional[Context] = None) -
     # Returns: [{"name": "docs", "dir": "docs", "patterns": ["*.md"], "description": "Documentation files"}]
     ```
     """
-    return (await internal_category_list(args, ctx)).to_json_str()
+    result = await internal_category_list(args, ctx)
+    return await tool_result("category_list", result)
 
 
 class CategoryAddArgs(ToolArguments):
@@ -313,7 +315,8 @@ async def category_add(args: CategoryAddArgs, ctx: Optional[Context] = None) -> 
     # Creates category with custom directory and file patterns
     ```
     """
-    return (await internal_category_add(args, ctx)).to_json_str()
+    result = await internal_category_add(args, ctx)
+    return await tool_result("category_add", result)
 
 
 class CategoryRemoveArgs(ToolArguments):
@@ -384,7 +387,8 @@ async def category_remove(args: CategoryRemoveArgs, ctx: Optional[Context] = Non
     Examples:
         >>> category_remove(name="docs")
     """
-    return (await internal_category_remove(args, ctx)).to_json_str()
+    result = await internal_category_remove(args, ctx)
+    return await tool_result("category_remove", result)
 
 
 class CategoryChangeArgs(ToolArguments):
@@ -550,7 +554,8 @@ async def category_change(args: CategoryChangeArgs, ctx: Optional[Context] = Non
     Returns:
         Result containing success message
     """
-    return (await internal_category_change(args, ctx)).to_json_str()
+    result = await internal_category_change(args, ctx)
+    return await tool_result("category_change", result)
 
 
 class CategoryUpdateArgs(ToolArguments):
@@ -641,7 +646,7 @@ async def category_update(args: CategoryUpdateArgs, ctx: Optional[Context] = Non
         Result containing success message
     """
     result = await internal_category_update(args, ctx)
-    return result.to_json_str()
+    return await tool_result("category_update", result)
 
 
 async def internal_category_list_files(
@@ -715,7 +720,7 @@ async def category_list_files(args: CategoryListFilesArgs, ctx: Optional[Context
         Result containing list of file information
     """
     result = await internal_category_list_files(args, ctx)
-    return result.to_json_str()
+    return await tool_result("category_list_files", result)
 
 
 async def internal_category_content(
@@ -835,4 +840,4 @@ async def category_content(
         Result containing formatted content or error
     """
     result = await internal_category_content(args, ctx)
-    return result.to_json_str()
+    return await tool_result("category_content", result)

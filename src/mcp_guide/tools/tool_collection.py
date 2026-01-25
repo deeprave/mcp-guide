@@ -18,6 +18,7 @@ from mcp_guide.result_constants import (
 )
 from mcp_guide.server import tools
 from mcp_guide.session import get_current_session, get_or_create_session
+from mcp_guide.tools.tool_result import tool_result
 from mcp_guide.validation import validate_categories_exist
 
 if TYPE_CHECKING:
@@ -144,7 +145,7 @@ async def collection_list(args: CollectionListArgs, ctx: Optional[Context] = Non
     ```
     """
     result = await internal_collection_list(args, ctx)
-    return result.to_json_str()
+    return await tool_result("collection_list", result)
 
 
 class CollectionAddArgs(ToolArguments):
@@ -238,7 +239,7 @@ async def collection_add(args: CollectionAddArgs, ctx: Optional[Context] = None)
         Result containing success message
     """
     result = await internal_collection_add(args, ctx)
-    return result.to_json_str()
+    return await tool_result("collection_add", result)
 
 
 class CollectionRemoveArgs(ToolArguments):
@@ -288,7 +289,7 @@ async def collection_remove(args: CollectionRemoveArgs, ctx: Optional[Context] =
         Result containing success message
     """
     result = await internal_collection_remove(args, ctx)
-    return result.to_json_str()
+    return await tool_result("collection_remove", result)
 
 
 class CollectionChangeArgs(ToolArguments):
@@ -421,7 +422,7 @@ async def collection_change(args: CollectionChangeArgs, ctx: Optional[Context] =
         Result containing success message
     """
     result = await internal_collection_change(args, ctx)
-    return result.to_json_str()
+    return await tool_result("collection_change", result)
 
 
 class CollectionUpdateArgs(ToolArguments):
@@ -528,4 +529,4 @@ async def collection_update(args: CollectionUpdateArgs, ctx: Optional[Context] =
         Result containing success message
     """
     result = await internal_collection_update(args, ctx)
-    return result.to_json_str()
+    return await tool_result("collection_update", result)

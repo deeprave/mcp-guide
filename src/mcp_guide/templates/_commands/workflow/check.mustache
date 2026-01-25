@@ -1,0 +1,18 @@
+---
+type: agent/instruction
+Description: Run all code checks for changes
+category: "project-workflow"
+usage: ":check"
+aliases:
+  - check
+instruction: Run complete checks on changes after reading the code quality guidelines
+---
+{{h1}}Code Checks
+
+- Read the `.guide.yaml` file to understand the current issue context
+- Load code quality check guidelines from the "checks" category
+- Run all checks
+
+{{instruction}}
+
+Use the {{tool_prefix}}get_content("checks") tool to access check guidelines and follow the instructions from that content.

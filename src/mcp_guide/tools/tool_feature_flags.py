@@ -18,6 +18,7 @@ from mcp_guide.result_constants import (
     INSTRUCTION_VALIDATION_ERROR,
 )
 from mcp_guide.server import tools
+from mcp_guide.tools.tool_result import tool_result
 
 try:
     from mcp.server.fastmcp import Context
@@ -120,7 +121,8 @@ async def internal_list_project_flags(
 @tools.tool(ListFlagsArgs)
 async def list_project_flags(args: ListFlagsArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
     """List project feature flags based on project context and parameters."""
-    return (await internal_list_project_flags(args, ctx)).to_json_str()
+    result = await internal_list_project_flags(args, ctx)
+    return await tool_result("list_project_flags", result)
 
 
 async def internal_set_project_flag(args: SetFlagArgs, ctx: Optional[Context] = None) -> Result[str]:  # type: ignore[type-arg]
@@ -171,7 +173,8 @@ async def internal_set_project_flag(args: SetFlagArgs, ctx: Optional[Context] = 
 @tools.tool(SetFlagArgs)
 async def set_project_flag(args: SetFlagArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
     """Set or remove a project feature flag."""
-    return (await internal_set_project_flag(args, ctx)).to_json_str()
+    result = await internal_set_project_flag(args, ctx)
+    return await tool_result("set_project_flag", result)
 
 
 async def internal_get_project_flag(args: GetFlagArgs, ctx: Optional[Context] = None) -> Result[FeatureValue | None]:  # type: ignore[type-arg]
@@ -203,7 +206,8 @@ async def internal_get_project_flag(args: GetFlagArgs, ctx: Optional[Context] = 
 @tools.tool(GetFlagArgs)
 async def get_project_flag(args: GetFlagArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
     """Get a project feature flag value with resolution hierarchy."""
-    return (await internal_get_project_flag(args, ctx)).to_json_str()
+    result = await internal_get_project_flag(args, ctx)
+    return await tool_result("get_project_flag", result)
 
 
 async def internal_set_feature_flag(args: SetFeatureFlagArgs, ctx: Optional[Context] = None) -> Result[str]:  # type: ignore[type-arg]
@@ -262,7 +266,8 @@ async def internal_set_feature_flag(args: SetFeatureFlagArgs, ctx: Optional[Cont
 @tools.tool(SetFeatureFlagArgs)
 async def set_feature_flag(args: SetFeatureFlagArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
     """Set or remove a global feature flag."""
-    return (await internal_set_feature_flag(args, ctx)).to_json_str()
+    result = await internal_set_feature_flag(args, ctx)
+    return await tool_result("set_feature_flag", result)
 
 
 async def internal_get_feature_flag(
@@ -297,7 +302,8 @@ async def internal_get_feature_flag(
 @tools.tool(GetFeatureFlagArgs)
 async def get_feature_flag(args: GetFeatureFlagArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
     """Get a global feature flag value."""
-    return (await internal_get_feature_flag(args, ctx)).to_json_str()
+    result = await internal_get_feature_flag(args, ctx)
+    return await tool_result("get_feature_flag", result)
 
 
 async def internal_list_feature_flags(
@@ -338,4 +344,5 @@ async def internal_list_feature_flags(
 @tools.tool(ListFeatureFlagsArgs)
 async def list_feature_flags(args: ListFeatureFlagsArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
     """List global feature flags."""
-    return (await internal_list_feature_flags(args, ctx)).to_json_str()
+    result = await internal_list_feature_flags(args, ctx)
+    return await tool_result("list_feature_flags", result)

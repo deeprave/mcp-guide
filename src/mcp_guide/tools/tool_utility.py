@@ -13,6 +13,7 @@ from mcp_guide.guide import GuideMCP
 from mcp_guide.result import Result
 from mcp_guide.result_constants import INSTRUCTION_DISPLAY_ONLY
 from mcp_guide.server import tools
+from mcp_guide.tools.tool_result import tool_result
 
 try:
     from mcp.server.fastmcp import Context
@@ -138,4 +139,5 @@ async def client_info(args: GetClientInfoArgs, ctx: Optional[Context] = None) ->
     # Returns: Same information, verbose parameter is ignored for compatibility
     ```
     """
-    return (await internal_client_info(args, ctx)).to_json_str()
+    result = await internal_client_info(args, ctx)
+    return await tool_result("client_info", result)

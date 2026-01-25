@@ -21,6 +21,7 @@ from mcp_guide.result_constants import (
 )
 from mcp_guide.server import tools
 from mcp_guide.session import get_or_create_session
+from mcp_guide.tools.tool_result import tool_result
 from mcp_guide.utils.content_common import gather_content
 from mcp_guide.utils.content_utils import (
     create_file_read_error_result,
@@ -221,4 +222,5 @@ async def get_content(
     # Returns: Combined content from all categories in the collection
     ```
     """
-    return (await internal_get_content(args, ctx)).to_json_str()
+    result = await internal_get_content(args, ctx)
+    return await tool_result("get_content", result)

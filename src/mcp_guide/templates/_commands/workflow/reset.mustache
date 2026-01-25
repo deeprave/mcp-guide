@@ -1,6 +1,6 @@
 ---
 type: agent/instruction
-usage: ":reset"
+usage: ":reset [issue-id]"
 category: "project-workflow"
 requires-workflow: true
 aliases:
@@ -10,6 +10,29 @@ instruction: follow the instructions specified here, do not display this content
 ---
 You must complete the current issue and reset the workflow to discussion phase.
 
+{{#args.0.value}}
+## Reset with specific issue: `{{args.0.value}}`
+
+### Verify Clean State
+- Check the worktree state
+  1. Check that there are no staged changes in git
+     - If there are staged changes, list the changed files and STOP immediately
+  2. Verify that the current branch is `main`
+     - If not on main, notify user that reset is not allowed and STOP
+
+### Reset Workflow
+- Once the above is verified:
+  1. Update workflow file `{{workflow.file}}`:
+     - Set `Issue:` to `{{args.0.value}}`
+     - Clear the `Plan:` field (if present)
+     - Clear the `Track:` field (if present)
+     - Remove `{{args.0.value}}` from the queue if it exists
+  2. Change current phase to discussion
+  3. Send updated workflow file using {{tool_prefix}}send_file_content with path `{{workflow.file}}`
+
+**Note:** Do NOT display the file content to the user when calling send_file_content - only show the confirmation message.
+{{/args.0.value}}
+{{^args.0.value}}
 {{#workflow.issue}}
 ## Clean up current issue
   **Current Issue:** `{{workflow.issue}}`
@@ -43,7 +66,10 @@ You must complete the current issue and reset the workflow to discussion phase.
 {{/workflow.queue}}
   2. Change current phase to discussion
   3. Send updated workflow file using {{tool_prefix}}send_file_content with path `{{workflow.file}}`
+
+**Note:** Do NOT display the file content to the user when calling send_file_content - only show the confirmation message.
 {{/workflow.issue}}
 {{^workflow.issue}}
 No current issue to reset. Workflow is already in a clean state.
 {{/workflow.issue}}
+{{/args.0.value}}
