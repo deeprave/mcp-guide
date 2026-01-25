@@ -128,13 +128,13 @@ class TaskManager:
             logger.warning(f"Failed to load resolved flags: {e}")
             self._resolved_flags = {}
 
-        # Initialize all registered tasks
-        for subscription in self._subscriptions:
+        # Initialize all registered tasks (iterate over snapshot to handle unsubscribes)
+        for subscription in list(self._subscriptions):
             task = subscription.subscriber
             try:
                 if hasattr(task, "on_init"):
                     await task.on_init()
-                logger.debug(f"Initialized task: {task.get_name()}")
+                    logger.debug(f"Initialized task: {task.get_name()}")
             except Exception as e:
                 logger.error(f"Failed to initialize task {task.get_name()}: {e}", exc_info=True)
 
@@ -468,11 +468,25 @@ class TaskManager:
 
     def get_cached_data(self, key: str) -> Any:
         """Get cached data by key."""
-        return self._cache.get(key)
+        value = self._cache.get(key)
+        logger.trace(
+            f"TaskManager.get_cached_data('{key}'): {value is not None} (type: {type(value).__name__ if value else 'None'})"
+        )
+        return value
 
     def set_cached_data(self, key: str, value: Any) -> None:
         """Set cached data by key."""
         self._cache[key] = value
+        logger.trace(
+            f"TaskManager.set_cached_data('{key}'): {type(value).__name__}, cache now has {len(self._cache)} keys: {list(self._cache.keys())}"
+        )
+
+        # Invalidate template context cache when workflow state changes
+        if key == "workflow_state":
+            from mcp_guide.utils.template_context_cache import invalidate_template_context_cache
+
+            invalidate_template_context_cache()
+            logger.trace("Template context cache invalidated due to workflow_state change")
 
     def clear_cached_data(self, key: str) -> None:
         """Clear cached data by key."""

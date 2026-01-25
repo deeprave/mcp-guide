@@ -1,6 +1,5 @@
 """Template context cache with session listener for decoupled context management."""
 
-from contextvars import ContextVar
 from typing import TYPE_CHECKING, Any, Optional
 
 from mcp_guide.core.mcp_log import get_logger
@@ -16,8 +15,15 @@ from mcp_guide.session_listener import SessionListener
 
 logger = get_logger(__name__)
 
-# ContextVar for thread-safe template context cache
-_template_contexts: ContextVar[Optional["TemplateContext"]] = ContextVar("template_contexts", default=None)
+# Module-level cache for template context (shared across all async tasks)
+# ContextVar would be task-local and wouldn't share invalidations across requests
+_template_context_cache: Optional["TemplateContext"] = None
+
+
+def invalidate_template_context_cache() -> None:
+    """Invalidate the template context cache globally."""
+    global _template_context_cache
+    _template_context_cache = None
 
 
 class TemplateContextCache(SessionListener):
@@ -25,7 +31,7 @@ class TemplateContextCache(SessionListener):
 
     def on_session_changed(self, project_name: str) -> None:
         """Invalidate cache when session changes."""
-        _template_contexts.set(None)
+        invalidate_template_context_cache()
         logger.debug(f"Template context cache invalidated for project: {project_name}")
 
     async def _build_system_context(self) -> "TemplateContext":
@@ -408,12 +414,14 @@ class TemplateContextCache(SessionListener):
         Returns:
             TemplateContext with layered contexts (system → agent → project → category)
         """
+        global _template_context_cache
 
         # Check cache first (only for non-category contexts)
         if category_name is None:
-            cached = _template_contexts.get()
-            if cached is not None:
-                return cached
+            if _template_context_cache is not None:
+                logger.trace("TemplateContextCache: Returning cached context")
+                return _template_context_cache
+            logger.trace("TemplateContextCache: No cached context, building new one")
 
         # Build contexts
         system_context = await self._build_system_context()
@@ -430,7 +438,7 @@ class TemplateContextCache(SessionListener):
             layered_context = category_context.new_child(layered_context)
         else:
             # Cache only when no category context (base contexts only)
-            _template_contexts.set(layered_context)
+            _template_context_cache = layered_context
 
         return layered_context
 
@@ -487,7 +495,7 @@ template_context_cache = TemplateContextCache()
 
 def invalidate_template_contexts() -> None:
     """Invalidate the template context cache."""
-    _template_contexts.set(None)
+    invalidate_template_context_cache()
     logger.debug("Template context cache invalidated")
 
 

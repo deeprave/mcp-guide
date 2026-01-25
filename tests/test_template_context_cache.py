@@ -200,9 +200,9 @@ class TestTemplateContextCache:
         cache = TemplateContextCache()
 
         # Clear cache to ensure fresh context
-        from mcp_guide.utils.template_context_cache import _template_contexts
+        from mcp_guide.utils.template_context_cache import invalidate_template_context_cache
 
-        _template_contexts.set(None)
+        invalidate_template_context_cache()
 
         # Mock get_current_session to return session with project
         mock_session = Mock()
@@ -284,9 +284,9 @@ class TestTemplateContextCache:
         cache = TemplateContextCache()
 
         # Clear cache to ensure fresh context
-        from mcp_guide.utils.template_context_cache import _template_contexts
+        from mcp_guide.utils.template_context_cache import invalidate_template_context_cache
 
-        _template_contexts.set(None)
+        invalidate_template_context_cache()
 
         # Mock get_current_session to return session with project
         mock_session = Mock()

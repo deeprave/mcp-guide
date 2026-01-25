@@ -4,7 +4,7 @@
 - [ ] Create `src/mcp_guide/tools/tool_result.py` with `_tool_result()` function
   - [ ] Import Result, TaskManager, logger
   - [ ] Accept `tool_name: str` and `result: Result[T]` parameters
-  - [ ] Call `task_manager.process_result(result)` if task_manager available
+  - [ ] Call `task_manager.process_result(result)` if `task_manager` is available
   - [ ] Log result at TRACE level with result.to_json()
   - [ ] Return `result.to_json_str()`
   - [ ] Add comprehensive docstring
