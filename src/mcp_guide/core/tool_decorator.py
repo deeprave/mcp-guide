@@ -6,11 +6,12 @@ from contextvars import ContextVar
 from functools import cache, wraps
 from typing import TYPE_CHECKING, Any, Callable, Coroutine, Optional, Union
 
-if TYPE_CHECKING:
-    from mcp_guide.task_manager import TaskManager
-
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.result_constants import INSTRUCTION_VALIDATION_ERROR
+from mcp_guide.task_manager.manager import get_task_manager
+
+if TYPE_CHECKING:
+    pass
 
 try:
     from mcp.server.fastmcp import Context
@@ -22,9 +23,6 @@ logger = get_logger(__name__)
 
 # Internal test mode control - not exposed to external manipulation
 _test_mode: ContextVar[bool] = ContextVar("tool_test_mode", default=False)
-
-# Global TaskManager instance for result processing
-_task_manager: Optional["TaskManager"] = None
 
 
 @cache
@@ -49,16 +47,6 @@ def disable_test_mode() -> None:
     _test_mode.set(False)
 
 
-def set_task_manager(task_manager: Optional["TaskManager"]) -> None:
-    """Set the global TaskManager instance for result processing.
-
-    Args:
-        task_manager: TaskManager instance or None to clear
-    """
-    global _task_manager
-    _task_manager = task_manager
-
-
 async def _call_on_tool(tool_name: str) -> None:
     """Call TaskManager.on_tool() at tool invocation start.
 
@@ -68,12 +56,12 @@ async def _call_on_tool(tool_name: str) -> None:
     Args:
         tool_name: Name of the tool being invoked
     """
-    if _task_manager is not None:
-        try:
-            logger.trace(f"Calling on_tool at start of {tool_name}")
-            await _task_manager.on_tool()
-        except Exception as e:
-            logger.error(f"on_tool execution failed at start of {tool_name}: {e}")
+    task_manager = get_task_manager()
+    try:
+        logger.trace(f"Calling on_tool at start of {tool_name}")
+        await task_manager.on_tool()
+    except Exception as e:
+        logger.error(f"on_tool execution failed at start of {tool_name}: {e}")
 
 
 class ExtMcpToolDecorator:

@@ -513,12 +513,7 @@ async def guide(
     # Route request
     result = await _route_guide_request(argv, ctx)
 
-    # Process result through task manager to pick up any queued instructions
-    try:
-        result = await task_manager.process_result(result)
-    except Exception as e:
-        logger.error(f"TaskManager processing failed for prompt: {e}")
+    # Process result through task manager
+    from mcp_guide.tools.tool_result import prompt_result
 
-    # Log the result before returning
-    logger.trace("RESULT: Prompt guide returning result", extra=result.to_json())
-    return result.to_json_str()
+    return await prompt_result("guide", result)

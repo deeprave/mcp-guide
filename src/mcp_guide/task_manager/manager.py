@@ -58,14 +58,6 @@ class TaskManager:
         self._session: Optional[Any] = None  # Session established during on_init()
         self._resolved_flags: Optional[Dict[str, Any]] = None  # Flags loaded during on_init()
 
-        # Register as task manager
-        try:
-            from mcp_guide.core.tool_decorator import set_task_manager
-
-            set_task_manager(self)
-        except ImportError:
-            pass  # Gracefully handle missing modules during testing
-
         # Start timer tasks
         try:
             loop = asyncio.get_running_loop()
@@ -184,6 +176,14 @@ class TaskManager:
         logger.trace(
             f"TaskManager.subscribe: {subscriber.get_name()} subscribing to {event_types}, interval={timer_interval}"
         )
+
+        # Check if this exact subscriber instance with same event types is already registered
+        for existing_sub in self._subscriptions:
+            if existing_sub.subscriber is subscriber and existing_sub.event_types == event_types:
+                logger.debug(
+                    f"Subscriber instance {subscriber.get_name()} already registered for {event_types}, skipping duplicate"
+                )
+                return
 
         # Parameter validation
         if timer_interval is not None and timer_interval <= 0:

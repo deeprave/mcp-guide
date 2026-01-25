@@ -1,8 +1,14 @@
 """Decorators for automatic task initialization."""
 
-from typing import Type, TypeVar
+from typing import TYPE_CHECKING, Any, Set, Type, TypeVar
+
+if TYPE_CHECKING:
+    pass
 
 T = TypeVar("T")
+
+# Track which classes have been instantiated to prevent duplicates
+_instantiated_classes: Set[Type[Any]] = set()
 
 
 def task_init(cls: Type[T]) -> Type[T]:
@@ -17,6 +23,12 @@ def task_init(cls: Type[T]) -> Type[T]:
     Returns:
         The original class (unmodified)
     """
+    # Check if already instantiated to prevent duplicates from multiple imports
+    if cls in _instantiated_classes:
+        return cls
+
+    _instantiated_classes.add(cls)
+
     # Simply instantiate the class - let its __init__ handle everything
     logger = __import__("mcp_guide.core.mcp_log", fromlist=["get_logger"]).get_logger(__name__)
     logger.trace(f"@task_init: Instantiating {cls.__name__}")
