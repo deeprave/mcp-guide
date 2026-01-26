@@ -253,25 +253,45 @@ class TestOpenSpecTask:
         task = OpenSpecTask(mock_task_manager)
 
         changes_data = [
-            {"name": "change-1", "status": "in-progress", "completedTasks": 0, "totalTasks": 5},
-            {"name": "change-2", "status": "complete", "completedTasks": 10, "totalTasks": 10},
+            {
+                "name": "change-1",
+                "status": "in-progress",
+                "completedTasks": 0,
+                "totalTasks": 5,
+                "lastModified": "2024-01-01T10:00:00Z",
+            },
+            {
+                "name": "change-2",
+                "status": "complete",
+                "completedTasks": 10,
+                "totalTasks": 10,
+                "lastModified": "2024-01-02T12:00:00Z",
+            },
         ]
         event_data = {
             "path": ".openspec-changes.json",
             "content": json.dumps({"changes": changes_data}),
         }
 
-        with patch("time.time", return_value=1234567890.0):
+        with (
+            patch("time.time", return_value=1234567890.0),
+            patch("mcp_guide.client_context.openspec_task.render_common_template") as mock_render,
+        ):
+            mock_render.return_value = "## OpenSpec Changes\n..."
             result = await task.handle_event(EventType.FS_FILE_CONTENT, event_data)
 
-            assert result is True
+            # Now returns a Result object
+            from mcp_guide.result import Result
+
+            assert isinstance(result, Result)
+            assert result.success is True
+
             cached = task.get_changes()
-            assert len(cached) == 2
-            # Verify filter flags were added
-            assert cached[0]["is_draft"] is False
-            assert cached[0]["is_done"] is False
-            assert cached[0]["is_in_progress"] is True  # Has tasks but not done
-            assert cached[1]["is_done"] is True
+            # Returns grouped dict now
+            assert "in_progress" in cached
+            assert "complete" in cached
+            assert len(cached["in_progress"]) == 1
+            assert len(cached["complete"]) == 1
             mock_task_manager.set_cached_data.assert_called()
 
     @pytest.mark.asyncio
@@ -444,15 +464,22 @@ class TestOpenSpecResponseFormatting:
 
         event_data = {"path": ".openspec-changes.json", "content": json.dumps(changes_data)}
 
-        result = await task.handle_event(EventType.FS_FILE_CONTENT, event_data)
+        with patch("mcp_guide.client_context.openspec_task.render_common_template") as mock_render:
+            mock_render.return_value = "## OpenSpec Changes\n..."
+            result = await task.handle_event(EventType.FS_FILE_CONTENT, event_data)
 
-        assert result is True
-        # Verify changes were cached with filter flags
-        assert task.get_changes() is not None
-        assert len(task.get_changes()) == 2
-        # Verify filter flags were added
-        assert task.get_changes()[0]["is_done"] is True
-        assert task.get_changes()[1]["is_draft"] is True
+            from mcp_guide.result import Result
+
+            assert isinstance(result, Result)
+            assert result.success is True
+
+            # Verify changes were cached and grouped
+            cached = task.get_changes()
+            assert cached is not None
+            assert "complete" in cached
+            assert "in_progress" in cached
+            assert len(cached["complete"]) == 1
+            assert len(cached["in_progress"]) == 1
 
     @pytest.mark.asyncio
     async def test_format_changes_list_empty(self, mock_task_manager):
@@ -464,11 +491,18 @@ class TestOpenSpecResponseFormatting:
 
         event_data = {"path": ".openspec-changes.json", "content": json.dumps(changes_data)}
 
-        result = await task.handle_event(EventType.FS_FILE_CONTENT, event_data)
+        with patch("mcp_guide.client_context.openspec_task.render_common_template") as mock_render:
+            mock_render.return_value = "## OpenSpec Changes\n..."
+            result = await task.handle_event(EventType.FS_FILE_CONTENT, event_data)
 
-        assert result is True
-        # Verify empty cache
-        assert task.get_changes() == []
+            from mcp_guide.result import Result
+
+            assert isinstance(result, Result)
+            assert result.success is True
+
+            # Verify empty cache returns empty groups
+            cached = task.get_changes()
+            assert cached == {"in_progress": [], "draft": [], "complete": []}
 
     @pytest.mark.asyncio
     async def test_format_show_response(self, mock_task_manager):

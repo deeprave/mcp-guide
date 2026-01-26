@@ -3,40 +3,12 @@ type: agent/instruction
 description: List all OpenSpec changes in the project
 category: "openspec"
 requires-openspec: true
+includes:
+  - openspec-list-format
 ---
 {{#openspec}}
 {{#changes.0}}
-## OpenSpec Changes
-
-{{#kwargs.draft}}
-Filter: Draft changes (no tasks)
-
-{{/kwargs.draft}}
-{{#kwargs.done}}
-Filter: Completed changes (all tasks done)
-
-{{/kwargs.done}}
-{{#kwargs.prog}}
-Filter: In-progress changes (has tasks but not complete)
-
-{{/kwargs.prog}}
-{{#kwargs.table}}
-| Name | Status | Progress | Last Modified |
-|------|--------|----------|---------------|
-{{#changes}}{{#kwargs.draft}}{{#is_draft}}| {{name}} | {{status}} | {{progress}} | {{lastModified}} |
-{{/is_draft}}{{/kwargs.draft}}{{#kwargs.done}}{{#is_done}}| {{name}} | {{status}} | {{progress}} | {{lastModified}} |
-{{/is_done}}{{/kwargs.done}}{{#kwargs.prog}}{{#is_in_progress}}| {{name}} | {{status}} | {{progress}} | {{lastModified}} |
-{{/is_in_progress}}{{/kwargs.prog}}{{^kwargs.draft}}{{^kwargs.done}}{{^kwargs.prog}}| {{name}} | {{status}} | {{progress}} | {{lastModified}} |
-{{/kwargs.prog}}{{/kwargs.done}}{{/kwargs.draft}}{{/changes}}
-{{/kwargs.table}}
-
-{{^kwargs.table}}
-{{#changes}}{{#kwargs.draft}}{{#is_draft}}
-- `{{name}}` - {{status}} ({{progress}}) - {{lastModified}}{{/is_draft}}{{/kwargs.draft}}{{#kwargs.done}}{{#is_done}}
-- `{{name}}` - {{status}} ({{progress}}) - {{lastModified}}{{/is_done}}{{/kwargs.done}}{{#kwargs.prog}}{{#is_in_progress}}
-- `{{name}}` - {{status}} ({{progress}}) - {{lastModified}}{{/is_in_progress}}{{/kwargs.prog}}{{^kwargs.draft}}{{^kwargs.done}}{{^kwargs.prog}}
-- `{{name}}` - {{status}} ({{progress}}) - {{lastModified}}{{/kwargs.prog}}{{/kwargs.done}}{{/kwargs.draft}}{{/changes}}
-{{/kwargs.table}}
+{{> _common/_openspec-list-format}}
 {{/changes.0}}
 
 {{^changes.0}}

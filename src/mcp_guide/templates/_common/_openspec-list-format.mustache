@@ -1,0 +1,30 @@
+---
+type: agent/instruction
+description: Format OpenSpec changes list for display
+---
+{{#openspec}}
+{{#changes}}
+## OpenSpec Changes
+
+{{#in_progress.0}}
+### In Progress
+{{#in_progress}}
+- `{{name}}` ({{progress}}) - {{humanized_date}}
+{{/in_progress}}
+
+{{/in_progress.0}}
+{{#draft.0}}
+### Draft
+{{#draft}}
+- `{{name}}` - {{humanized_date}}
+{{/draft}}
+
+{{/draft.0}}
+{{#complete.0}}
+### Complete
+{{#complete}}
+- `{{name}}` ({{progress}}) - {{humanized_date}}
+{{/complete}}
+{{/complete.0}}
+{{/changes}}
+{{/openspec}}

@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any, Optional
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.decorators import task_init
 from mcp_guide.feature_flags.constants import FLAG_OPENSPEC
+from mcp_guide.result import Result
 from mcp_guide.task_manager import EventType, get_task_manager
 from mcp_guide.workflow.rendering import render_common_template
 
@@ -98,13 +99,60 @@ class OpenSpecTask:
         """
         return self._version
 
-    def get_changes(self) -> Optional[list[dict[str, Any]]]:
-        """Get cached OpenSpec changes list.
+    def get_changes(self) -> Optional[dict[str, list[dict[str, Any]]]]:
+        """Get cached OpenSpec changes list grouped by status.
 
         Returns:
-            List of changes or None if not cached.
+            Dict with in_progress, draft, complete lists or None if not cached.
         """
-        return self._changes_cache if self.is_cache_valid() else None
+        if not self.is_cache_valid():
+            return None
+
+        from datetime import datetime, timezone
+
+        def humanize_date(iso_date: str) -> str:
+            """Convert ISO date to human-readable format."""
+            try:
+                dt = datetime.fromisoformat(iso_date.replace("Z", "+00:00"))
+                now = datetime.now(timezone.utc)
+                delta = now - dt
+                days = delta.days
+                hours = delta.seconds // 3600
+                minutes = (delta.seconds % 3600) // 60
+
+                if days > 0:
+                    return f"{days}d{hours}h ago"
+                elif hours > 0:
+                    return f"{hours}h{minutes}m ago"
+                else:
+                    return f"{minutes}m ago"
+            except Exception:
+                return iso_date[:10]
+
+        # Group changes by status
+        in_progress: list[dict[str, Any]] = []
+        draft: list[dict[str, Any]] = []
+        complete: list[dict[str, Any]] = []
+
+        if self._changes_cache is None:
+            return {"in_progress": in_progress, "draft": draft, "complete": complete}
+
+        for change in self._changes_cache:
+            formatted = change.copy()
+            completed = change.get("completedTasks", 0)
+            total = change.get("totalTasks", 0)
+            formatted["progress"] = f"{completed}/{total}" if total > 0 else "N/A"
+            formatted["humanized_date"] = humanize_date(change.get("lastModified", ""))
+
+            status = change.get("status", "")
+            if status == "in-progress":
+                in_progress.append(formatted)
+            elif status == "no-tasks":
+                draft.append(formatted)
+            elif status == "complete":
+                complete.append(formatted)
+
+        return {"in_progress": in_progress, "draft": draft, "complete": complete}
 
     def is_cache_valid(self, ttl: int = CHANGES_CACHE_TTL) -> bool:
         """Check if changes cache is valid.
@@ -138,7 +186,7 @@ class OpenSpecTask:
         content = await render_common_template("openspec-version-check")
         await self.task_manager.queue_instruction(content)
 
-    async def handle_event(self, event_type: EventType, data: dict[str, Any]) -> bool:
+    async def handle_event(self, event_type: EventType, data: dict[str, Any]) -> "bool | Result[Any]":
         """Handle task manager events."""
         # Handle timer events for changes monitoring
         if event_type & EventType.TIMER:
@@ -222,25 +270,26 @@ class OpenSpecTask:
                 return True
 
             elif path_name == ".openspec-changes.json":
-                # Cache the changes data with filter flags
+                # Cache the changes data
                 import time
 
                 changes = json_data.get("changes", [])
-                # Add filter flags to each change
-                for change in changes:
-                    completed = change.get("completedTasks", 0)
-                    total = change.get("totalTasks", 0)
-                    change["is_draft"] = total == 0
-                    change["is_done"] = total > 0 and completed == total
-                    change["is_in_progress"] = total > 0 and completed < total
-
                 self._changes_cache = changes
                 self._changes_timestamp = time.time()
                 self.task_manager.set_cached_data("openspec_changes", changes)
                 logger.debug(f"Cached {len(changes)} OpenSpec changes")
 
-                # Don't format here - let the command template handle display
-                return True
+                # Invalidate template context cache to pick up fresh changes
+                from mcp_guide.utils.template_context_cache import invalidate_template_context_cache
+
+                invalidate_template_context_cache()
+                logger.debug("Template context cache invalidated after OpenSpec changes update")
+
+                # Render and return the changes list as a Result
+                from mcp_guide.result import Result
+
+                formatted = await render_common_template("_openspec-list-format")
+                return Result.ok(value=formatted, message=f"File content cached for {path_name}", instruction="")
 
             elif path_name == ".openspec-show.json":
                 formatted = await self._format_show_response(json_data)
