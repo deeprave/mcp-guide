@@ -70,7 +70,7 @@ async def send_file_content(
         from mcp_guide.task_manager import EventType, get_task_manager
 
         task_manager = get_task_manager()
-        await task_manager.dispatch_event(
+        event_result = await task_manager.dispatch_event(
             EventType.FS_FILE_CONTENT,
             {
                 "path": validated_path,
@@ -80,13 +80,12 @@ async def send_file_content(
             },
         )
 
+        # If event handler returned a Result, use that
+        if isinstance(event_result, Result):
+            return event_result
+
         return Result.ok(
-            value={
-                "path": validated_path,
-                "content": content,
-                "mtime": mtime,
-                "encoding": encoding,
-            },
+            value={"path": validated_path},
             message=f"File content cached for {validated_path}",
             instruction="",
         )

@@ -3,17 +3,15 @@
 import asyncio
 import threading
 import time
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, TypeVar, Union
+from typing import Any, Dict, List, Optional, TypeVar, Union
 
 from mcp_guide.core.mcp_log import get_logger
+from mcp_guide.core.result import Result
 from mcp_guide.decorators import task_init
 
 from .interception import EventType
 from .protocol import TaskSubscriber
 from .subscription import Subscription
-
-if TYPE_CHECKING:
-    from mcp_guide.core.result import Result
 
 logger = get_logger(__name__)
 
@@ -300,7 +298,9 @@ class TaskManager:
                 pass
             self._timer_task = None
 
-    async def dispatch_event(self, data_type: EventType, data: "Union[dict[str, Any], Result[Any]]") -> dict[str, str]:
+    async def dispatch_event(
+        self, data_type: EventType, data: "Union[dict[str, Any], Result[Any]]"
+    ) -> "Union[Result[Any], dict[str, str]]":
         """Handle agent data with task interception."""
 
         # Extract dict from Result if needed
@@ -319,6 +319,7 @@ class TaskManager:
         processed_count = 0
         current_time = time.time()
         active_subscriptions = []
+        handler_result = None  # Store result from handler
 
         for subscription in self._subscriptions:
             subscriber = subscription.subscriber
@@ -335,7 +336,14 @@ class TaskManager:
                 )
                 handled = False
                 try:
-                    handled = await subscriber.handle_event(data_type, actual_data)
+                    result = await subscriber.handle_event(data_type, actual_data)
+                    # Store Result if handler returned one
+                    if isinstance(result, Result):
+                        handler_result = result
+                        handled = True
+                    elif result:
+                        handled = True
+
                     if handled:
                         processed_count += 1
                         logger.trace(f"Event handled by {subscriber.get_name()}")
@@ -384,6 +392,10 @@ class TaskManager:
                         task_id = f"{subscriber_name}_{id(subscriber)}"
                     if task_id in self._task_stats:
                         self._task_stats[task_id]["last_data"] = current_time
+
+        # Return handler result if one was provided
+        if handler_result is not None:
+            return handler_result
 
         if processed_count == 0:
             return {"status": "acknowledged"}

@@ -3,7 +3,7 @@
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
-    pass
+    from mcp_guide.result import Result
 
 from .interception import EventType
 
@@ -20,7 +20,7 @@ class TaskSubscriber(Protocol):
         """
         ...
 
-    async def handle_event(self, event_type: EventType, data: dict[str, Any]) -> bool:
+    async def handle_event(self, event_type: EventType, data: dict[str, Any]) -> "bool | Result[Any]":
         """Handle an event from the task manager.
 
         Args:
@@ -28,7 +28,7 @@ class TaskSubscriber(Protocol):
             data: Event data dictionary
 
         Returns:
-            True if the event was handled, False otherwise
+            True if the event was handled, False otherwise, or a Result object
         """
         ...
 
