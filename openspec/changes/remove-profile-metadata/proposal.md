@@ -1,17 +1,10 @@
 # Remove Profile Metadata Tracking
 
-## Problem
+## Why
 
-The `applied_profiles` metadata field violates YAGNI - it tracks which profiles were applied to a project but serves no functional purpose. Profiles are already applied (categories and collections exist), so tracking their names is unnecessary complexity.
+The `applied_profiles` metadata field violates YAGNI - it tracks which profiles were applied to a project but serves no functional purpose. Nothing reads or uses this metadata for any decision-making. The actual profile effects (categories and collections) are already in the project, making the tracking redundant. Profile idempotency is handled by checking if categories/collections already exist, not by checking metadata.
 
-## Why It's Unnecessary
-
-1. **No functional use**: Nothing reads or uses `applied_profiles` for any decision-making
-2. **Redundant**: The actual profile effects (categories/collections) are already in the project
-3. **Idempotency handled differently**: Profile application checks if categories/collections already exist, not metadata
-4. **Over-engineering**: Adds complexity without solving any actual problem
-
-## Solution
+## What Changes
 
 Remove all `applied_profiles` metadata tracking:
 - Remove metadata field from Project model

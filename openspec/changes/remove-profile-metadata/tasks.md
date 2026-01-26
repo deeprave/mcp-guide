@@ -1,35 +1,20 @@
-# Tasks: Remove Profile Metadata Tracking
+## 1. Remove metadata field from Project model
+- [x] Remove `metadata` field from Project dataclass
+- [x] Remove unused `Any` import
+- [x] Update docstring
 
-## Status: 📋 PLANNED
+## 2. Remove metadata tracking from Profile
+- [x] Remove metadata tracking logic from Profile.apply_to_project()
+- [x] Profile only adds categories and collections
 
-## Implementation Tasks
+## 3. Remove metadata display
+- [x] Remove applied_profiles display from format_project_data()
 
-### 1. Remove metadata tracking from Profile model
-**File**: `src/mcp_guide/models/profile.py`
+## 4. Update tests
+- [x] Remove metadata assertions from test_profile_application.py
+- [x] Verify all tests pass (1273 passing)
 
-- [ ] Remove lines 150-160 that track applied profiles in metadata
-- [ ] Profile.apply_to_project() should only add categories and collections
-
-### 2. Remove metadata display
-**File**: `src/mcp_guide/models/__init__.py`
-
-- [ ] Remove lines 161-164 that add applied_profiles to formatted output
-- [ ] format_project_data() should not include applied_profiles
-
-### 3. Remove idempotency check based on metadata
-**File**: `src/mcp_guide/tools/tool_project.py`
-
-- [ ] Remove lines checking `applied_profiles` metadata in internal_use_project_profile()
-- [ ] Idempotency is already handled by checking if categories/collections exist
-
-### 4. Update tests
-**Files**: `tests/unit/test_profile.py`, `tests/integration/test_profile_application.py`
-
-- [ ] Remove assertions checking for applied_profiles metadata
-- [ ] Tests should verify categories and collections exist, not metadata
-
-## Verification
-
-- [ ] All tests pass
-- [ ] Profiles still apply correctly
-- [ ] No references to applied_profiles remain in codebase
+## 5. Verification
+- [x] All quality checks pass (ruff, mypy)
+- [x] No references to metadata or applied_profiles remain
+- [x] Profile functionality works correctly
