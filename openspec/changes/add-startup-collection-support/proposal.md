@@ -11,7 +11,7 @@ When a project loads, agents need immediate access to critical startup instructi
 
 ## Impact
 - Affected specs: project-management, instruction-queue
-- Affected code: 
+- Affected code:
   - `src/mcp_guide/guide.py` (GuideMCP.on_init chain)
   - `src/mcp_guide/task_manager/manager.py` (instruction queue priority)
   - Workflow message templates
