@@ -3,7 +3,13 @@ type: agent/instruction
 description: Get status and completion percentage for an OpenSpec change
 category: "openspec"
 requires-openspec: true
-instruction: Display errors to the user, otherwise follow the instructions to get status
+instruction: >
+  Display errors to the user, otherwise follow the instructions to get status
+  When an artifact has a glob pattern in `outputPath` (contains `*` or `**`):
+    - **YOU MUST** expand it using the `glob` tool with the full path: `openspec/changes/[change-name]/[outputPath]`
+    - **YOU MUST** list each matching file individually
+    - **DO NOT** display the glob pattern itself - only the expanded file list
+    - If no files match, provide an empty list
 ---
 {{#args.0.value}}
 {{#openspec.changes}}
@@ -37,8 +43,6 @@ Or set a workflow issue first with `{{agent.prefix}}guide :workflow/issue <chang
 {{/workflow.issue}}
 {{/args.0.value}}
 This information need not be displayed to the user.
-
-For artifacts with glob patterns (like `specs/**/*.md`), expand them to show all matching files.
 
 {{#kwargs.table}}Use table format:
 

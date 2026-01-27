@@ -227,8 +227,8 @@ class TestOpenSpecTask:
         mock_task_manager.set_cached_data.assert_called_with("openspec_version", None)
 
     @pytest.mark.asyncio
-    async def test_project_detection_triggers_version_check(self, mock_task_manager):
-        """Test that project detection no longer triggers automatic version/changes check."""
+    async def test_project_detection_does_not_trigger_version_or_changes_check(self, mock_task_manager):
+        """Test that project detection does not trigger automatic version/changes check."""
         task = OpenSpecTask(mock_task_manager)
 
         event_data = {
@@ -236,11 +236,16 @@ class TestOpenSpecTask:
             "content": "# OpenSpec Project",
         }
 
-        result = await task.handle_event(EventType.FS_FILE_CONTENT, event_data)
+        with (
+            patch.object(task, "request_version_check", new_callable=AsyncMock) as mock_version,
+            patch.object(task, "request_changes_json", new_callable=AsyncMock) as mock_changes,
+        ):
+            result = await task.handle_event(EventType.FS_FILE_CONTENT, event_data)
 
         assert result is True
         assert task.is_project_enabled() is True
-        # Version and changes are now requested by the template, not automatically
+        mock_version.assert_not_called()
+        mock_changes.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_handle_event_changes_json_caches_data(self, mock_task_manager):
