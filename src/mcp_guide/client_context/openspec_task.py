@@ -1,6 +1,7 @@
 """OpenSpec CLI detection task."""
 
 import re
+from dataclasses import replace
 from typing import TYPE_CHECKING, Any, Optional
 
 from mcp_guide.core.mcp_log import get_logger
@@ -224,20 +225,15 @@ class OpenSpecTask:
             path = data.get("path", "")
             path_name = Path(path).name
 
-            # Handle project detection
+            # Handle project detection - now just checks existence, not content
             if path_name == "project.md" and path.startswith("openspec/"):
                 # If project.md exists, project is enabled
                 self._project_enabled = True
                 self.task_manager.set_cached_data("openspec_project_enabled", True)
-                logger.info("OpenSpec project enabled")
+                logger.info("OpenSpec project structure detected")
 
-                # Request version and changes
-                if not self._version_requested:
-                    self._version_requested = True
-                    await self.request_version_check()
-                if not self._changes_requested:
-                    self._changes_requested = True
-                    await self.request_changes_json()
+                # Don't request version/changes here - they're requested by the template
+                # Validation will be marked complete when changes list is received
 
                 return True
 
@@ -278,6 +274,17 @@ class OpenSpecTask:
                 self._changes_timestamp = time.time()
                 self.task_manager.set_cached_data("openspec_changes", changes)
                 logger.debug(f"Cached {len(changes)} OpenSpec changes")
+
+                # Mark validation as complete if not already done
+                from mcp_guide.session import get_or_create_session
+
+                session = await get_or_create_session()
+                project = await session.get_project()
+
+                if not project.openspec_validated and self._available and self._project_enabled:
+                    # All validation checks passed: CLI available, project.md exists, changes directory accessible
+                    await session.update_config(lambda p: replace(p, openspec_validated=True))
+                    logger.info("OpenSpec validation completed and persisted")
 
                 # Invalidate template context cache to pick up fresh changes
                 from mcp_guide.utils.template_context_cache import invalidate_template_context_cache

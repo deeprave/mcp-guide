@@ -71,6 +71,7 @@ class Project:
         categories: Dictionary of category configurations (name -> Category)
         collections: Dictionary of collection configurations (name -> Collection)
         allowed_paths: List of allowed filesystem paths (must end with '/')
+        openspec_validated: Whether OpenSpec validation has been completed for this project
 
     Note:
         Instances are immutable (frozen=True).
@@ -88,6 +89,7 @@ class Project:
     project_flags: dict[str, FeatureValue] = field(default_factory=dict)
     allowed_write_paths: list[str] = field(default_factory=lambda: DEFAULT_ALLOWED_WRITE_PATHS.copy())
     additional_read_paths: list[str] = field(default_factory=list)
+    openspec_validated: bool = False
 
     @field_validator("name")
     @classmethod
