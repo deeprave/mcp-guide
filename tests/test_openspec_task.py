@@ -248,6 +248,52 @@ class TestOpenSpecTask:
         mock_changes.assert_not_called()
 
     @pytest.mark.asyncio
+    async def test_version_comparison(self, mock_task_manager):
+        """Test semantic version comparison."""
+        task = OpenSpecTask(mock_task_manager)
+
+        # Set version
+        task._version = "1.10.2"
+
+        # Test various comparisons
+        assert task.meets_minimum_version("1.9.6") is True
+        assert task.meets_minimum_version("1.10.2") is True
+        assert task.meets_minimum_version("1.10.3") is False
+        assert task.meets_minimum_version("2.0.0") is False
+
+        # Test with v prefix
+        assert task.meets_minimum_version("v1.9.6") is True
+
+        # Test with no version set
+        task._version = None
+        assert task.meets_minimum_version("1.0.0") is False
+
+    @pytest.mark.asyncio
+    async def test_version_persistence(self, mock_task_manager):
+        """Test that version is stored in project config."""
+        task = OpenSpecTask(mock_task_manager)
+
+        event_data = {
+            "path": ".openspec-version.txt",
+            "content": "openspec version 1.2.3",
+        }
+
+        with patch("mcp_guide.session.get_or_create_session") as mock_session:
+            mock_project = MagicMock()
+            mock_project.openspec_version = None
+            mock_session_instance = AsyncMock()
+            mock_session_instance.get_project = AsyncMock(return_value=mock_project)
+            mock_session_instance.update_config = AsyncMock()
+            mock_session.return_value = mock_session_instance
+
+            result = await task.handle_event(EventType.FS_FILE_CONTENT, event_data)
+
+        assert result is True
+        assert task.get_version() == "1.2.3"
+        assert task._version_this_session == "1.2.3"
+        mock_session_instance.update_config.assert_called_once()
+
+    @pytest.mark.asyncio
     async def test_handle_event_changes_json_caches_data(self, mock_task_manager):
         """Test handling changes JSON caches the data."""
         task = OpenSpecTask(mock_task_manager)

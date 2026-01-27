@@ -153,10 +153,25 @@ class TemplateContextCache(SessionListener):
             openspec_task_subscriber = task_manager.get_task_by_type(OpenSpecTask)
 
             if openspec_task_subscriber:
+                # Create lambda for version checking
+                def has_version(text: str, render: Any) -> bool:
+                    """Check if OpenSpec version meets minimum requirement.
+
+                    Args:
+                        text: Minimum version string (e.g., "1.2.0")
+                        render: Mustache render function
+
+                    Returns:
+                        True if current version >= minimum
+                    """
+                    minimum = render(text).strip()
+                    return openspec_task_subscriber.meets_minimum_version(minimum)
+
                 agent_vars["openspec"] = {
                     "available": openspec_task_subscriber.is_available(),
                     "version": openspec_task_subscriber.get_version(),
                     "changes": openspec_task_subscriber.get_changes() or [],
+                    "has_version": has_version,
                 }
             else:
                 # Task not registered (feature flag disabled) - set to False

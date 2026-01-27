@@ -4,6 +4,8 @@ import re
 from dataclasses import replace
 from typing import TYPE_CHECKING, Any, Optional
 
+from packaging.version import InvalidVersion, Version
+
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.decorators import task_init
 from mcp_guide.feature_flags.constants import FLAG_OPENSPEC
@@ -37,6 +39,7 @@ class OpenSpecTask:
         self._project_enabled: Optional[bool] = None
         self._version_requested = False
         self._version: Optional[str] = None
+        self._version_this_session: Optional[str] = None  # Session-level cache
         self._changes_requested = False
         self._changes_cache: Optional[list[dict[str, Any]]] = None
         self._changes_timestamp: Optional[float] = None
@@ -99,6 +102,27 @@ class OpenSpecTask:
             Version string (e.g., "1.2.3") or None if not available.
         """
         return self._version
+
+    def meets_minimum_version(self, minimum: str) -> bool:
+        """Check if current OpenSpec version meets minimum requirement.
+
+        Args:
+            minimum: Minimum version string (e.g., "1.2.0")
+
+        Returns:
+            True if current version >= minimum, False otherwise or if version unknown
+        """
+        if not self._version:
+            return False
+
+        try:
+            # Strip 'v' prefix if present
+            current = self._version.lstrip("v")
+            min_ver = minimum.lstrip("v")
+            return Version(current) >= Version(min_ver)
+        except InvalidVersion:
+            logger.warning(f"Invalid version comparison: current={self._version}, minimum={minimum}")
+            return False
 
     def get_changes(self) -> Optional[dict[str, list[dict[str, Any]]]]:
         """Get cached OpenSpec changes list grouped by status.
@@ -217,6 +241,20 @@ class OpenSpecTask:
 
                 return True
 
+        # Handle directory listing events
+        if event_type & EventType.FS_DIRECTORY:
+            from pathlib import Path
+
+            path = data.get("path", "")
+
+            # Handle project detection via directory listing
+            if path == "openspec/project.md":
+                # Directory listing for project.md means it exists
+                self._project_enabled = True
+                self.task_manager.set_cached_data("openspec_project_enabled", True)
+                logger.info("OpenSpec project structure detected via directory listing")
+                return True
+
         # Handle file content events
         if event_type & EventType.FS_FILE_CONTENT:
             import json
@@ -240,7 +278,7 @@ class OpenSpecTask:
             # Handle version detection
             if path_name == ".openspec-version.txt":
                 content = data.get("content", "")
-                self._parse_version(content)
+                await self._parse_version(content)
                 return True
 
             # Handle OpenSpec command responses
@@ -323,21 +361,32 @@ class OpenSpecTask:
             except Exception as e:
                 logger.warning(f"Failed to queue OpenSpec changes refresh: {e}")
 
-    def _parse_version(self, content: str) -> None:
-        """Parse OpenSpec version from command output.
+    async def _parse_version(self, content: str) -> None:
+        """Parse OpenSpec version from command output and store in project config.
 
         Args:
             content: Output from openspec --version command
         """
+        from mcp_guide.session import get_or_create_session
+
         # Extract semantic version (e.g., "1.2.3" or "v1.2.3")
         match = re.search(r"v?(\d+\.\d+\.\d+)", content)
         if match:
             self._version = match.group(1)
+            self._version_this_session = self._version
             self.task_manager.set_cached_data("openspec_version", self._version)
             logger.info(f"OpenSpec version: {self._version}")
+
+            # Store version in project config
+            session = await get_or_create_session()
+            project = await session.get_project()
+            if project.openspec_version != self._version:
+                await session.update_config(lambda p: replace(p, openspec_version=self._version))
+                logger.info(f"Updated project config with OpenSpec version: {self._version}")
         else:
             logger.warning(f"Failed to parse OpenSpec version from: {content}")
             self._version = None
+            self._version_this_session = None
             self.task_manager.set_cached_data("openspec_version", None)
 
     async def _format_status_response(self, data: dict[str, Any]) -> str:
