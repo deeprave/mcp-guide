@@ -1,7 +1,17 @@
-Check if OpenSpec project is initialized by checking for the `openspec/project.md` file.
+{{#project}}
+{{#openspec_validated}}
+OpenSpec validation already completed for this project. Skipping validation checks.
+{{/openspec_validated}}
+{{^openspec_validated}}
+Check if OpenSpec project is initialized:
 
-Send the file content using {{tool_prefix}}send_file_content with path `openspec/project.md`.
+1. Check if `openspec/project.md` file exists (do not read content)
+2. Request OpenSpec changes list using the command: `openspec list --json`
+3. Send the changes list content using {{tool_prefix}}send_file_content with path `.openspec-changes.json`
 
-If the file does not exist, send an error or empty content.
+If `openspec/project.md` does not exist, send an error.
+If the changes list command fails, send an error.
 
-**Note:** Do NOT display the file content to the user when calling send_file_content - only show the confirmation message.
+**Note:** Do NOT display file content or command output to the user - only show confirmation messages.
+{{/openspec_validated}}
+{{/project}}

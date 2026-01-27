@@ -5,12 +5,11 @@ usage: ":review"
 examples:
   - ":review"
 instruction: >
-  Use the use_subagent tool with command 'InvokeSubagents' and content containing a subagent with agent_name 'guide-review'.
-  Query:
-   'Perform a code review of project changes.
-    Read the {{workflow.file}} file to understand the current issue context.
-    Use the guide mcp tool get_content("code-review") to access code review guidelines. You must confirm these have been read.
-    Analyse changes against HEAD and create or update the review artifact following the established format and context.
+  Use the use_subagent tool with agent_name 'guide-review' using the following query:
+   Perform a code review of changes.
+   Use the guide mcp tool get_content("code-review") to access code review guidelines. You must confirm these have been read.
+   Read the {{workflow.file}} file to understand the current issue context.
+   Analyse changes against HEAD and create or update the review artifact following the established format and context.
   This is a code review request for the current project.
   Documents produced from tis code review MUST BE NAMED `.todo/<change-id>-review.md`.
 ---

@@ -5,8 +5,9 @@ Current implementation reads entire `openspec/project.md` file content and reque
 
 ## What Changes
 - Check `openspec/project.md` exists (not read content) - once only
+- Check `openspec/changes` directory exists by requesting changes list - once only
 - Check OpenSpec command exists - once only
-- Store validation result as boolean flag
+- Store validation result as boolean flag in project configuration
 - Never re-validate while flag is true
 
 ## Impact
@@ -14,4 +15,5 @@ Current implementation reads entire `openspec/project.md` file content and reque
 - Affected code:
   - `src/mcp_guide/templates/_common/openspec-project-check.mustache`
   - `src/mcp_guide/client_context/openspec_task.py`
-  - Feature flags or session state for validation boolean
+  - `src/mcp_guide/models/project.py` (add openspec_validated field)
+  - Project configuration persistence
