@@ -18,6 +18,12 @@
 - {{key}}: {{value}}
 {{/project.project_flag_values}}
 
+{{#openspec}}
+{{b}}OpenSpec:{{b}}
+- Validated: {{#project.openspec_validated}}Yes{{/project.openspec_validated}}{{^project.openspec_validated}}No{{/project.openspec_validated}}
+{{#version}}- Version: {{version}}{{/version}}
+{{/openspec}}
+
 {{#kwargs.verbose}}
 {{b}}Project Key:{{b}} {{project.key}}
 {{b}}Project Hash:{{b}} {{project.hash}}
