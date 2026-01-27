@@ -73,8 +73,14 @@ class OpenSpecTask:
             self._flag_checked = True
             return
 
-        # Request CLI availability check
-        if not self._cli_requested:
+        # Check if already validated
+        from mcp_guide.session import get_or_create_session
+
+        session = await get_or_create_session()
+        project = await session.get_project()
+
+        # Request CLI availability check only if not validated
+        if not project.openspec_validated and not self._cli_requested:
             await self.request_cli_check()
             self._cli_requested = True
         self._flag_checked = True

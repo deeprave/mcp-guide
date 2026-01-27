@@ -3,9 +3,6 @@ type: agent/instruction
 description: Instructions for checking OpenSpec CLI availability
 ---
 {{#project}}
-{{#openspec_validated}}
-OpenSpec CLI already validated for this project. Skipping CLI check.
-{{/openspec_validated}}
 {{^openspec_validated}}
 Please check if the OpenSpec CLI is available on your system and send the result using the {{tool_prefix}}send_command_location tool:
 
