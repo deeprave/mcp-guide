@@ -177,15 +177,12 @@ def pytest_unconfigure(config):
 
 def pytest_sessionfinish(session, exitstatus):
     """Close any remaining event loops after test session."""
-    # Get all event loops and close them
     try:
-        policy = asyncio.get_event_loop_policy()
-        if hasattr(policy, "_local") and hasattr(policy._local, "_loop"):
-            loop = policy._local._loop
-            if loop and not loop.is_closed():
-                loop.close()
-    except (RuntimeError, AttributeError):
-        # Ignore errors during event loop cleanup; loops may already be closed or missing
+        loop = asyncio.get_running_loop()
+        if not loop.is_closed():
+            loop.close()
+    except RuntimeError:
+        # No running loop, nothing to close
         pass
 
 
@@ -200,18 +197,9 @@ def session_temp_dir() -> Path:
 @pytest.fixture(scope="module")
 def event_loop_policy():
     """Set event loop policy for the test module."""
-    policy = asyncio.get_event_loop_policy()
-    yield policy
-    # Close any loops created by this module
-    try:
-        # Use get_event_loop_policy() to avoid deprecation warning
-        if hasattr(policy, "_local") and hasattr(policy._local, "_loop"):
-            loop = policy._local._loop
-            if loop and not loop.is_closed():
-                loop.close()
-    except (RuntimeError, AttributeError):
-        # Ignore errors during event loop cleanup; loops may already be closed or missing
-        pass
+    # pytest-asyncio handles event loop management automatically
+    # This fixture is kept for backwards compatibility but does nothing
+    yield None
 
 
 def robust_cleanup(directory: Path) -> None:

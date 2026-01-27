@@ -1,6 +1,5 @@
 """Result handler decorators for validation and error handling."""
 
-import asyncio
 from collections.abc import Awaitable, Callable
 from functools import wraps
 from typing import Optional, TypeVar
@@ -36,9 +35,10 @@ def validate_result(
             validate_path(data)  # May raise ArgValidationError
             return data.upper()
     """
+    import inspect
 
     def decorator(fn: Callable[..., Awaitable[T]]) -> Callable[..., Awaitable[Result[T]]]:
-        if not asyncio.iscoroutinefunction(fn):
+        if not inspect.iscoroutinefunction(fn):
             raise TypeError(f"validate_result only supports async functions, got {fn.__name__}")
 
         @wraps(fn)
