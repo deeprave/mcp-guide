@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from mcp_guide.core.file_reader import read_file_content
+from mcp_guide.render import render_template
 from mcp_guide.result import Result
 from mcp_guide.utils.file_discovery import FileInfo
 from mcp_guide.utils.frontmatter import (
@@ -14,7 +15,7 @@ from mcp_guide.utils.frontmatter import (
     parse_content_with_frontmatter,
 )
 from mcp_guide.utils.template_context import TemplateContext
-from mcp_guide.utils.template_renderer import is_template_file, render_file_content
+from mcp_guide.utils.template_renderer import is_template_file
 
 # Pre-compile regex for better performance
 IMPORTANT_PREFIX_PATTERN = re.compile(r"^!\s*")
@@ -127,14 +128,12 @@ async def read_and_render_file_contents(
     Returns:
         List of error messages for files that failed to read or render
     """
-    from mcp_guide.utils.frontmatter import check_frontmatter_requirements
-
     file_read_errors: list[str] = []
 
     # Check if any files are templates to avoid unnecessary context validation
     has_templates = template_context is not None and any(is_template_file(f) for f in files)
 
-    # Build context for requirements checking
+    # Build context for requirements checking (resolved flags + workflow)
     requirements_context: dict[str, Any] = {}
     if template_context:
         # Add resolved flags (global + project) to context
@@ -159,44 +158,20 @@ async def read_and_render_file_contents(
             workflow_data = template_context["workflow"]
             requirements_context["workflow"] = workflow_data
 
-        # Also ensure workflow flag from resolved flags is available
-        # (The frontmatter logic will handle truthiness evaluation)
-
-    # Filter files based on frontmatter requirements
+    # Process files with new render_template API
     filtered_files = []
     for file_info in files:
         try:
             # Resolve file path with security validation
             file_info.resolve(base_dir, docroot)
-            raw_content = await read_file_content(file_info.path)
 
-            # Parse frontmatter and strip it from content
-            parsed = parse_content_with_frontmatter(raw_content)
-            metadata = parsed.frontmatter
-            content = parsed.content
-
-            # Check frontmatter requirements - skip file if not satisfied
-            if metadata and not check_frontmatter_requirements(metadata, requirements_context):
-                continue  # Skip this file entirely
-
-            file_info.content = content
-            file_info.frontmatter = metadata
-            filtered_files.append(file_info)
-
-        except Exception as e:
-            file_read_errors.append(f"Failed to read {file_info.path}: {e}")
-            continue
-
-    # Process filtered files for template rendering
-    for file_info in filtered_files:
-        try:
-            # Render templates if context provided and file is a template
+            # For template files, use render_template API (it handles parsing)
             if has_templates and is_template_file(file_info):
-                # Enhanced validation of template context
+                # Validate template context type
                 if not isinstance(template_context, TemplateContext):
                     error_path = f"{category_prefix}/{file_info.name}" if category_prefix else file_info.name
-                    file_read_errors.append(f"'{error_path}': Invalid template context type")
-                    continue
+                    file_read_errors.append(f"'{error_path}' template error: Invalid template context type")
+                    continue  # Skip file on validation error
 
                 # Validate context data structure
                 try:
@@ -204,18 +179,41 @@ async def read_and_render_file_contents(
                     _ = dict(template_context)
                 except (TypeError, ValueError) as e:
                     error_path = f"{category_prefix}/{file_info.name}" if category_prefix else file_info.name
-                    file_read_errors.append(f"'{error_path}': Invalid template context data: {str(e)}")
-                    continue
+                    file_read_errors.append(f"'{error_path}' template error: Invalid template context data: {str(e)}")
+                    continue  # Skip file on validation error
 
-                render_result = await render_file_content(file_info, template_context, base_dir, docroot)
-                if render_result.is_failure():
-                    # Skip file on template error for consistency with other validation failures
+                # Use new render_template API (handles parsing and requirements checking)
+                rendered = await render_template(
+                    file_info=file_info,
+                    base_dir=base_dir,
+                    project_flags=requirements_context,
+                    context=template_context,
+                    docroot=docroot,
+                )
+
+                if rendered is None:
+                    # Rendering error or filtered by requires-*
                     error_path = f"{category_prefix}/{file_info.name}" if category_prefix else file_info.name
-                    file_read_errors.append(f"'{error_path}' template error: {render_result.error}")
-                    continue
-                else:
-                    # Update content with rendered version
-                    file_info.content = render_result.value
+                    file_read_errors.append(f"'{error_path}' template error: Rendering failed")
+                    continue  # Skip this file entirely
+
+                # Extract rendered content and frontmatter
+                file_info.content = rendered.content
+                file_info.frontmatter = rendered.frontmatter
+            else:
+                # Non-template files: parse and check requirements
+                raw_content = await read_file_content(file_info.path)
+                parsed = parse_content_with_frontmatter(raw_content)
+
+                # Check frontmatter requirements - skip file if not satisfied
+                if parsed.frontmatter and requirements_context:
+                    from mcp_guide.utils.frontmatter import check_frontmatter_requirements
+
+                    if not check_frontmatter_requirements(parsed.frontmatter, requirements_context):
+                        continue  # Skip this file entirely (filtered by requires-*)
+
+                file_info.content = parsed.content
+                file_info.frontmatter = parsed.frontmatter
 
             # Update content_size to reflect final content size after all processing
             content = file_info.content or ""
@@ -224,6 +222,8 @@ async def read_and_render_file_contents(
             # Apply category prefix
             if category_prefix:
                 file_info.name = f"{category_prefix}/{file_info.name}"
+
+            filtered_files.append(file_info)
 
         except (FileNotFoundError, PermissionError, UnicodeDecodeError) as e:
             error_path = f"{category_prefix}/{file_info.name}" if category_prefix else file_info.name

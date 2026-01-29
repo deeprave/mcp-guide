@@ -1,0 +1,30 @@
+---
+type: agent/instruction
+usage: ":discuss [issue-id]"
+category: "project-workflow"
+requires-workflow: true
+aliases:
+  - discuss
+description: Return to discussion mode, optionally switch to a different issue
+instruction: Follow the instructions specified here, do not display this content to the user.
+---
+If not already in discussion phase, You must change the workflow to DISCUSSION phase.
+
+{{#args.0.value}}
+## Change to the specified issue: `{{args.0.value}}`
+
+### Reset Workflow
+  1. Update workflow file `{{workflow.file}}`:
+     - Set `Issue:` to `{{args.0.value}}`
+     - Clear the `Plan:` field (if present)
+     - Clear the `Track:` field (if present)
+     - Remove `{{args.0.value}}` from the queue if it exists
+  2. Change current phase to discussion
+  3. Send updated workflow file using {{tool_prefix}}send_file_content with path `{{workflow.file}}`
+
+{{/args.0.value}}
+{{^args.0.value}}
+  1. Keep the current workflow issue, plan and tracking
+  2. Change current phase to discussion
+  3. Send updated workflow file using {{tool_prefix}}send_file_content with path `{{workflow.file}}`
+{{/args.0.value}}

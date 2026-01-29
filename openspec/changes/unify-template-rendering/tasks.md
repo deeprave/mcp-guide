@@ -30,3 +30,6 @@
 - [~] Document `render_template()` API (skipped - covered in README.md)
 - [~] Document `RenderedContent` structure (skipped - covered in README.md)
 - [~] Document frontmatter key constants (skipped - covered in README.md)
+
+## Integration (Subspec: migrate-content-tools)
+- [x] Migrate content tools to use `render_template()` API (see migrate-content-tools/tasks.md)
