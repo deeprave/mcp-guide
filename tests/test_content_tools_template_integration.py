@@ -108,8 +108,8 @@ Current status: active""")
             assert "template error" in errors[0]
             assert "broken.md" in errors[0]
 
-            # Verify original content is preserved
-            assert files[0].content == "Hello {{#unclosed_section}}!"
+            # Verify file was skipped (not in files list)
+            assert len(files) == 0
 
     @pytest.mark.asyncio
     async def test_read_and_render_file_contents_invalid_context_validation(self):
@@ -138,5 +138,5 @@ Current status: active""")
             assert "Invalid template context type" in errors[0]
             assert "test.md" in errors[0]
 
-            # Verify original content is preserved
-            assert files[0].content == "Hello {{name}}!"
+            # Verify file was skipped (not in files list)
+            assert len(files) == 0
