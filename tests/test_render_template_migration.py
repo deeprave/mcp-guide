@@ -19,7 +19,7 @@ class TestRenderTemplateAPIIntegration:
 
     @pytest.mark.asyncio
     async def test_read_and_render_uses_render_template_api(self):
-        """Verify read_and_render_file_contents calls render_template API."""
+        """Verify read_and_render_file_contents calls render_template API with correct arguments."""
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
 
@@ -58,8 +58,18 @@ class TestRenderTemplateAPIIntegration:
                     files=files, base_dir=temp_path, docroot=temp_path, template_context=context
                 )
 
-                # Verify render_template was called
-                assert mock_render.called, "render_template should be called"
+                # Verify render_template was called exactly once
+                mock_render.assert_awaited_once()
+
+                # Verify it was called with the expected arguments
+                call_kwargs = mock_render.call_args.kwargs
+                assert call_kwargs["file_info"] is file_info
+                assert call_kwargs["base_dir"] == temp_path
+                assert call_kwargs["docroot"] == temp_path
+                assert call_kwargs["context"] is context
+                assert "project_flags" in call_kwargs
+
+                # Verify results
                 assert len(errors) == 0, "Should have no errors"
                 assert len(files) == 1, "Should have one file"
                 assert files[0].content == "Hello World!", "Content should be rendered"
