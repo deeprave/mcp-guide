@@ -33,3 +33,6 @@
 
 ## Integration (Subspec: migrate-content-tools)
 - [x] Migrate content tools to use `render_template()` API (see migrate-content-tools/tasks.md)
+
+## Integration (Subspec: migrate-command-rendering)
+- [ ] Migrate command rendering to use `render_template()` API (see migrate-command-rendering/tasks.md)
