@@ -1,31 +1,32 @@
 # Implementation Tasks
 
-## Analysis
-- [ ] Audit all template rendering call sites
-- [ ] Document current frontmatter handling differences
-- [ ] Identify special cases for system templates (commands, workflow, openspec, common)
-- [ ] Map current rendering paths and their differences
-
-## Core Unification
-- [ ] Create unified template renderer interface
-- [ ] Implement consistent frontmatter parsing
-- [ ] Handle template type routing (commands, workflow, openspec, common)
-- [ ] Apply frontmatter rules uniformly
-
-## Special Template Types
-- [ ] Define handling for command templates
-- [ ] Define handling for workflow templates
-- [ ] Define handling for openspec templates
-- [ ] Define handling for common templates
-
-## Refactoring
-- [ ] Consolidate duplicate rendering logic
-- [ ] Update all call sites to use unified renderer
-- [ ] Remove deprecated rendering functions
-- [ ] Update template discovery to work with unified system
+## Core Implementation
+- [x] Create `src/mcp_guide/render/` package
+- [x] Add frontmatter key constants to `render/content.py` (FM_INSTRUCTION, FM_TYPE, FM_DESCRIPTION, FM_REQUIRES_PREFIX, FM_CATEGORY, FM_USAGE, FM_ALIASES, FM_INCLUDES)
+- [x] Add `RenderedContent` dataclass to `render/content.py` (extends `Content`)
+- [x] Add `instruction` property to `RenderedContent`
+- [x] Add `template_type` property to `RenderedContent`
+- [x] Add `render_template()` function to `render/template.py`
+- [x] Export from `render/__init__.py`
+- [x] Implement frontmatter parsing and `requires-*` checking
+- [x] Implement context layering: base (from cache) → frontmatter vars → caller context
+- [x] Implement template vs non-template file handling
+- [x] Implement error handling: log errors, return None
+- [x] Delegate to existing `render_template_content()` for Chevron rendering
 
 ## Testing
-- [ ] Test frontmatter parsing consistency
-- [ ] Test each template type renders correctly
-- [ ] Test template includes and partials
-- [ ] Verify all existing templates still work
+- [x] Test `requires-*` filtering with project flags
+- [x] Test context layering order
+- [x] Test template files render with Chevron
+- [x] Test non-template files return as-is
+- [x] Test partials loading (existing logic)
+- [x] Test frontmatter vars in context
+- [x] Test `instruction` property (with and without frontmatter value)
+- [x] Test `template_type` property (with and without frontmatter value)
+- [x] Test error handling (log and return None)
+
+## Documentation
+- [x] Update design.md with final implementation notes
+- [~] Document `render_template()` API (skipped - covered in README.md)
+- [~] Document `RenderedContent` structure (skipped - covered in README.md)
+- [~] Document frontmatter key constants (skipped - covered in README.md)

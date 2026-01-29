@@ -61,11 +61,14 @@ def check_frontmatter_requirements(frontmatter: Dict[str, Any], context: Dict[st
     return True
 
 
+from mcp_guide.utils.frontmatter_types import Frontmatter
+
+
 @dataclass
 class Content:
     """Represents parsed content with frontmatter."""
 
-    frontmatter: Dict[str, Any]
+    frontmatter: Frontmatter
     frontmatter_length: int
     content: str
     content_length: int
@@ -81,7 +84,7 @@ def parse_content_with_frontmatter(content: str) -> Content:
         Content object with parsed frontmatter and clean content
     """
     if not content.startswith("---\n"):
-        return Content(frontmatter={}, frontmatter_length=0, content=content, content_length=len(content))
+        return Content(frontmatter=Frontmatter(), frontmatter_length=0, content=content, content_length=len(content))
 
     # Find the closing ---
     lines = content.split("\n")
@@ -92,7 +95,7 @@ def parse_content_with_frontmatter(content: str) -> Content:
             break
 
     if end_idx is None:
-        return Content(frontmatter={}, frontmatter_length=0, content=content, content_length=len(content))
+        return Content(frontmatter=Frontmatter(), frontmatter_length=0, content=content, content_length=len(content))
 
     # Extract and parse YAML
     yaml_content = "\n".join(lines[1:end_idx])
@@ -103,12 +106,12 @@ def parse_content_with_frontmatter(content: str) -> Content:
         metadata = yaml.safe_load(yaml_content)
         # Lowercase all keys for case-insensitive access
         if isinstance(metadata, dict):
-            metadata = {k.lower(): v for k, v in metadata.items()}
+            metadata = Frontmatter({k.lower(): v for k, v in metadata.items()})
         else:
-            metadata = {}
+            metadata = Frontmatter()
     except yaml.YAMLError as e:
         logger.warning(f"Invalid YAML in frontmatter: {e}")
-        metadata = {}
+        metadata = Frontmatter()
 
     return Content(
         frontmatter=metadata,
@@ -133,7 +136,7 @@ async def read_content_with_frontmatter(file_path: Path) -> Content:
         return parse_content_with_frontmatter(raw_content)
     except (OSError, UnicodeDecodeError) as e:
         logger.error(f"Could not read file {file_path}: {e}")
-        return Content(frontmatter={}, frontmatter_length=0, content="", content_length=0)
+        return Content(frontmatter=Frontmatter(), frontmatter_length=0, content="", content_length=0)
 
 
 def get_frontmatter_instruction(frontmatter: Optional[Dict[str, Any]]) -> Optional[str]:

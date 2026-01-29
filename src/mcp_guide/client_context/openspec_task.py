@@ -79,6 +79,13 @@ class OpenSpecTask:
         session = await get_or_create_session()
         project = await session.get_project()
 
+        # Load persisted version if available
+        if project.openspec_version:
+            self._version = project.openspec_version
+            self._version_this_session = project.openspec_version
+            self.task_manager.set_cached_data("openspec_version", self._version)
+            logger.debug(f"Loaded persisted OpenSpec version: {self._version}")
+
         # Request CLI availability check only if not validated
         if not project.openspec_validated and not self._cli_requested:
             await self.request_cli_check()

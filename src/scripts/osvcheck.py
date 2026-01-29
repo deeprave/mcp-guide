@@ -73,11 +73,10 @@ def check_vulnerability(pkg_name: str, pkg_version: str, cache: Dict[str, Dict[s
     """
     cache_key = get_cache_key(pkg_name, pkg_version)
 
-    # Check cache first, but if vulnerability was found, always re-check
+    # Check cache first
     cached_result = cache.get(cache_key)
-    if cached_result and cached_result.get("vuln_type") is None:
-        # Only use cache if no vulnerability was previously found
-        return None
+    if cached_result:
+        return cached_result.get("vuln_type")
 
     # Query OSV API (always check if vulnerability was found before, or not in cache)
     query = {"package": {"ecosystem": "PyPI", "name": pkg_name}, "version": pkg_version}
