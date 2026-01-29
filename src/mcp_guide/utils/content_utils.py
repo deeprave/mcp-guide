@@ -5,10 +5,12 @@ from pathlib import Path
 from typing import Any, Optional
 
 from mcp_guide.core.file_reader import read_file_content
+from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.render import render_template
 from mcp_guide.result import Result
 from mcp_guide.utils.file_discovery import FileInfo
 from mcp_guide.utils.frontmatter import (
+    check_frontmatter_requirements,
     get_frontmatter_instruction,
     get_frontmatter_type,
     get_type_based_default_instruction,
@@ -16,6 +18,8 @@ from mcp_guide.utils.frontmatter import (
 )
 from mcp_guide.utils.template_context import TemplateContext
 from mcp_guide.utils.template_renderer import is_template_file
+
+logger = get_logger(__name__)
 
 # Pre-compile regex for better performance
 IMPORTANT_PREFIX_PATTERN = re.compile(r"^!\s*")
@@ -182,20 +186,25 @@ async def read_and_render_file_contents(
                     file_read_errors.append(f"'{error_path}' template error: Invalid template context data: {str(e)}")
                     continue  # Skip file on validation error
 
-                # Use new render_template API (handles parsing and requirements checking)
-                rendered = await render_template(
-                    file_info=file_info,
-                    base_dir=base_dir,
-                    project_flags=requirements_context,
-                    context=template_context,
-                    docroot=docroot,
-                )
+                try:
+                    # Use new render_template API (handles parsing and requirements checking)
+                    rendered = await render_template(
+                        file_info=file_info,
+                        base_dir=base_dir,
+                        project_flags=requirements_context,
+                        context=template_context,
+                        docroot=docroot,
+                    )
+                except Exception as e:
+                    # Template rendering raised an exception - log with full context
+                    error_path = f"{category_prefix}/{file_info.name}" if category_prefix else file_info.name
+                    logger.exception(f"Template rendering failed for '{error_path}'")
+                    file_read_errors.append(f"'{error_path}' template error: {e}")
+                    continue  # Skip this file entirely
 
                 if rendered is None:
-                    # Rendering error or filtered by requires-*
-                    error_path = f"{category_prefix}/{file_info.name}" if category_prefix else file_info.name
-                    file_read_errors.append(f"'{error_path}' template error: Rendering failed")
-                    continue  # Skip this file entirely
+                    # File filtered by requires-* (not an error)
+                    continue
 
                 # Extract rendered content and frontmatter
                 file_info.content = rendered.content
@@ -207,8 +216,6 @@ async def read_and_render_file_contents(
 
                 # Check frontmatter requirements - skip file if not satisfied
                 if parsed.frontmatter and requirements_context:
-                    from mcp_guide.utils.frontmatter import check_frontmatter_requirements
-
                     if not check_frontmatter_requirements(parsed.frontmatter, requirements_context):
                         continue  # Skip this file entirely (filtered by requires-*)
 
@@ -228,6 +235,11 @@ async def read_and_render_file_contents(
         except (FileNotFoundError, PermissionError, UnicodeDecodeError) as e:
             error_path = f"{category_prefix}/{file_info.name}" if category_prefix else file_info.name
             file_read_errors.append(f"'{error_path}': {e}")
+        except Exception as e:
+            # Catch any unexpected exceptions to prevent batch termination
+            error_path = f"{category_prefix}/{file_info.name}" if category_prefix else file_info.name
+            logger.exception(f"Unexpected error processing '{error_path}'")
+            file_read_errors.append(f"'{error_path}': Unexpected error: {e}")
 
     # Update the original files list to only contain filtered files
     files.clear()
