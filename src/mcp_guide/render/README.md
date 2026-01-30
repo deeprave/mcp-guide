@@ -48,11 +48,6 @@ try:
     # Use rendered content
     process(result.content)
 
-except RuntimeError as e:
-    # Template rendering error (syntax, missing vars, etc.)
-    logger.exception(f"Template rendering failed for {file_info.path}")
-    # Handle error appropriately (skip, report, etc.)
-
 except (FileNotFoundError, PermissionError, UnicodeDecodeError) as e:
     # File I/O errors
     logger.error(f"Failed to read template {file_info.path}: {e}")
@@ -67,7 +62,8 @@ except Exception as e:
 **Key Points**:
 - `None` return = filtered by requirements (not an error)
 - Exceptions = actual errors that need handling
-- Use `logger.exception()` to capture full traceback for debugging
+- Use `logger.exception()` to capture full traceback for unexpected errors
+- Use `logger.error()` for expected file I/O errors
 - Catch specific exceptions first, then broader `Exception` for unexpected errors
 - In batch processing, catch exceptions per-file to prevent one error from terminating the batch
 
@@ -80,11 +76,11 @@ for file_info in files:
         if rendered is None:
             continue  # Filtered by requires-*
         results.append(rendered)
-    except RuntimeError as e:
-        logger.exception(f"Template error: {file_info.path}")
-        continue
-    except (FileNotFoundError, PermissionError) as e:
+    except (FileNotFoundError, PermissionError, UnicodeDecodeError) as e:
         logger.error(f"File error: {file_info.path}: {e}")
+        continue
+    except Exception as e:
+        logger.exception(f"Unexpected error: {file_info.path}")
         continue
 ```
 
