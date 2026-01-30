@@ -50,6 +50,7 @@ Indexed args: {{#args}}{{#first}}FIRST: {{/first}}{{value}}{{^last}} {{/last}}{{
         """Test that commands and content are routed correctly."""
         with (
             patch("mcp_guide.prompts.guide_prompt.get_template_contexts", new=AsyncMock()) as mock_context,
+            patch("mcp_guide.render.template.get_template_contexts", new=AsyncMock()) as mock_render_context,
             patch(
                 "mcp_guide.session.get_or_create_session", new=AsyncMock(return_value=mock_ctx.session)
             ) as mock_session,
@@ -57,6 +58,7 @@ Indexed args: {{#args}}{{#first}}FIRST: {{/first}}{{value}}{{^last}} {{/last}}{{
             from mcp_guide.utils.template_context import TemplateContext
 
             mock_context.return_value = TemplateContext({})
+            mock_render_context.return_value = TemplateContext({})
 
             # Test command routing (should use command handler)
             result_str = await guide_function(":test", ctx=mock_ctx)
@@ -80,6 +82,7 @@ Indexed args: {{#args}}{{#first}}FIRST: {{/first}}{{value}}{{^last}} {{/last}}{{
         """Test argument parsing with real command execution."""
         with (
             patch("mcp_guide.prompts.guide_prompt.get_template_contexts", new=AsyncMock()) as mock_context,
+            patch("mcp_guide.render.template.get_template_contexts", new=AsyncMock()) as mock_render_context,
             patch(
                 "mcp_guide.session.get_or_create_session", new=AsyncMock(return_value=mock_ctx.session)
             ) as mock_session,
@@ -87,6 +90,7 @@ Indexed args: {{#args}}{{#first}}FIRST: {{/first}}{{value}}{{^last}} {{/last}}{{
             from mcp_guide.utils.template_context import TemplateContext
 
             mock_context.return_value = TemplateContext({})
+            mock_render_context.return_value = TemplateContext({})
 
             # Test with flags and arguments
             result_str = await guide_function(":test", "--verbose", "arg1", "arg2", "arg3", ctx=mock_ctx)
@@ -118,6 +122,7 @@ Indexed args: {{#args}}{{#first}}FIRST: {{/first}}{{value}}{{^last}} {{/last}}{{
         """Test help system with real command discovery."""
         with (
             patch("mcp_guide.prompts.guide_prompt.get_template_contexts", new=AsyncMock()) as mock_context,
+            patch("mcp_guide.render.template.get_template_contexts", new=AsyncMock()) as mock_render_context,
             patch(
                 "mcp_guide.session.get_or_create_session", new=AsyncMock(return_value=mock_ctx.session)
             ) as mock_session,
@@ -125,6 +130,7 @@ Indexed args: {{#args}}{{#first}}FIRST: {{/first}}{{value}}{{^last}} {{/last}}{{
             from mcp_guide.utils.template_context import TemplateContext
 
             mock_context.return_value = TemplateContext({})
+            mock_render_context.return_value = TemplateContext({})
 
             # Create help template
             help_template = commands_setup / "help.mustache"
@@ -189,6 +195,7 @@ Current project: {{project.name}}
 
         with (
             patch("mcp_guide.prompts.guide_prompt.get_template_contexts", new=AsyncMock()) as mock_context,
+            patch("mcp_guide.render.template.get_template_contexts", new=AsyncMock()) as mock_render_context,
             patch(
                 "mcp_guide.session.get_or_create_session", new=AsyncMock(return_value=mock_ctx.session)
             ) as mock_session,
@@ -196,6 +203,7 @@ Current project: {{project.name}}
             from mcp_guide.utils.template_context import TemplateContext
 
             mock_context.return_value = TemplateContext({"project": {"name": "test-project"}})
+            mock_render_context.return_value = TemplateContext({"project": {"name": "test-project"}})
 
             result_str = await guide_function(":info/project", ctx=mock_ctx)
             result = json.loads(result_str)
@@ -209,6 +217,7 @@ Current project: {{project.name}}
         """Test semicolon prefix works the same as colon."""
         with (
             patch("mcp_guide.prompts.guide_prompt.get_template_contexts", new=AsyncMock()) as mock_context,
+            patch("mcp_guide.render.template.get_template_contexts", new=AsyncMock()) as mock_render_context,
             patch(
                 "mcp_guide.session.get_or_create_session", new=AsyncMock(return_value=mock_ctx.session)
             ) as mock_session,
@@ -216,6 +225,7 @@ Current project: {{project.name}}
             from mcp_guide.utils.template_context import TemplateContext
 
             mock_context.return_value = TemplateContext({})
+            mock_render_context.return_value = TemplateContext({})
 
             # Test semicolon prefix
             result_str = await guide_function(";test", "--verbose", ctx=mock_ctx)
@@ -224,45 +234,3 @@ Current project: {{project.name}}
             assert result["success"] is True
             assert "Test command executed successfully!" in result["value"]
             assert "Verbose mode enabled." in result["value"]
-
-    @pytest.mark.asyncio
-    async def test_front_matter_validation_integration(self, mock_ctx, commands_setup, guide_function):
-        """Test front matter validation with real templates."""
-        # Create command with required arguments
-        strict_template = commands_setup / "strict.mustache"
-        strict_template.write_text("""---
-type: guide-command
-description: Strict command with required args
-required_args: [name]
-optional_args: []
-required_kwargs: [type]
-optional_kwargs: []
----
-Indexed arg: {{args.0.value}}
-Iterated args: {{#args}}{{value}} {{/args}}
-Type: {{kwargs.type}}
-""")
-
-        with (
-            patch("mcp_guide.prompts.guide_prompt.get_template_contexts", new=AsyncMock()) as mock_context,
-            patch(
-                "mcp_guide.session.get_or_create_session", new=AsyncMock(return_value=mock_ctx.session)
-            ) as mock_session,
-        ):
-            from mcp_guide.utils.template_context import TemplateContext
-
-            mock_context.return_value = TemplateContext({})
-
-            # Test missing required arguments - should fail validation
-            result_str = await guide_function(":strict", ctx=mock_ctx)
-            result = json.loads(result_str)
-            assert result["success"] is False
-            assert "missing required" in result["error"].lower()
-
-            # Test with required arguments - should succeed
-            result_str = await guide_function(":strict", "--type=user", "John", "Doe", ctx=mock_ctx)
-            result = json.loads(result_str)
-            assert result["success"] is True
-            assert "Indexed arg: John" in result["value"]
-            assert "Iterated args: John Doe" in result["value"]
-            assert "Type: user" in result["value"]

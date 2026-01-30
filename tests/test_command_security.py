@@ -145,13 +145,14 @@ class TestCommandErrorHandling:
             patch("pathlib.Path.exists", return_value=True),
             patch("pathlib.Path.is_dir", return_value=True),
             patch("mcp_guide.session.get_or_create_session", new=AsyncMock()) as mock_session,
+            patch("mcp_guide.models.resolve_all_flags", new=AsyncMock()) as mock_resolve_flags,
             patch("mcp_guide.utils.command_discovery.discover_command_files", new=AsyncMock()) as mock_discover_files,
             patch("mcp_guide.prompts.guide_prompt.discover_category_files", new=AsyncMock()) as mock_files,
             patch("mcp_guide.prompts.guide_prompt.get_template_contexts", new=AsyncMock()) as mock_context,
             patch(
                 "mcp_guide.utils.template_context_cache.get_template_contexts", new=AsyncMock()
             ) as mock_discover_context,
-            patch("mcp_guide.prompts.guide_prompt.render_file_content", new=AsyncMock()) as mock_render,
+            patch("mcp_guide.prompts.guide_prompt.render_template", new=AsyncMock()) as mock_render,
             patch("aiofiles.open") as mock_aiofiles,
         ):
             # Mock session methods
@@ -159,7 +160,8 @@ class TestCommandErrorHandling:
             mock_session_obj.get_project = AsyncMock()
             mock_session_obj.get_docroot = AsyncMock(return_value="/test/project")
             mock_session.return_value = mock_session_obj
-            from mcp_guide.result import Result
+            mock_resolve_flags.return_value = {}
+            mock_session.return_value = mock_session_obj
             from mcp_guide.utils.file_discovery import FileInfo
             from mcp_guide.utils.template_context import TemplateContext
 
@@ -198,7 +200,8 @@ class TestCommandErrorHandling:
             mock_context.return_value = mock_base_context
             mock_discover_context.return_value = mock_base_context
 
-            mock_render.return_value = Result.failure("Invalid template syntax", error_type="template_error")
+            # Mock render_template to raise exception (new API behavior)
+            mock_render.side_effect = RuntimeError("Invalid template syntax")
 
             # Create proper async context manager mock for file reading
             class MockAsyncFile:
@@ -229,6 +232,7 @@ class TestCommandErrorHandling:
         with (
             patch("pathlib.Path.exists", return_value=True),
             patch("mcp_guide.session.get_or_create_session", new=AsyncMock()) as mock_session,
+            patch("mcp_guide.models.resolve_all_flags", new=AsyncMock()) as mock_resolve_flags,
             patch("mcp_guide.prompts.guide_prompt.discover_commands", new=AsyncMock(return_value=[])),
             patch("mcp_guide.prompts.guide_prompt.get_template_contexts", new=AsyncMock()) as mock_context,
             patch("mcp_guide.prompts.guide_prompt.discover_category_files", new=AsyncMock()) as mock_discover,
@@ -238,6 +242,7 @@ class TestCommandErrorHandling:
             mock_session_obj.get_project = AsyncMock()
             mock_session_obj.get_docroot = AsyncMock(return_value="/test/project")
             mock_session.return_value = mock_session_obj
+            mock_resolve_flags.return_value = {}
             from mcp_guide.utils.file_discovery import FileInfo
             from mcp_guide.utils.template_context import TemplateContext
 

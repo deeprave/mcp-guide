@@ -38,3 +38,23 @@ class RenderedContent(Content):
     def instruction(self) -> Optional[str]:
         """Get instruction from frontmatter or type-based default."""
         return self.frontmatter.get_str(FM_INSTRUCTION) or get_type_based_default_instruction(self.template_type)
+
+    @property
+    def description(self) -> Optional[str]:
+        """Get description from frontmatter."""
+        return self.frontmatter.get_str(FM_DESCRIPTION)
+
+    @property
+    def usage(self) -> Optional[str]:
+        """Get usage string from frontmatter."""
+        return self.frontmatter.get_str(FM_USAGE)
+
+    @property
+    def category(self) -> Optional[str]:
+        """Get category from frontmatter."""
+        return self.frontmatter.get_str(FM_CATEGORY)
+
+    @property
+    def aliases(self) -> Optional[list[str]]:
+        """Get command aliases from frontmatter."""
+        return self.frontmatter.get_list(FM_ALIASES)
