@@ -37,6 +37,9 @@
 ## Integration (Subspec: migrate-command-rendering)
 - [x] Migrate command rendering to use `render_template()` API (see migrate-command-rendering/tasks.md)
 
+## Integration (Subspec: migrate-workflow-rendering)
+- [ ] Migrate workflow rendering to use `render_template()` API (see migrate-workflow-rendering/tasks.md)
+
 ## Enhancement (Related: enhance-requires-checking)
 - [ ] Enhance `requires-*` checking to support list/dict/key-value requirements (see enhance-requires-checking change)
 - [ ] Redesign workflow flag structure to support list/dict/boolean formats
