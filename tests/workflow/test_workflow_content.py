@@ -149,3 +149,62 @@ async def test_render_workflow_content_permission_error():
         )
 
         assert result is None
+
+
+@pytest.mark.asyncio
+async def test_render_workflow_content_unicode_error():
+    """Test handling of unicode decode errors."""
+    pattern = "monitoring-setup"
+    workflow_dir = Path("/test/templates/_workflow")
+    context = {}
+    docroot = Path("/test")
+
+    with (
+        patch("mcp_guide.workflow.workflow_content.discover_category_files") as mock_discover,
+        patch("mcp_guide.workflow.workflow_content.render_template") as mock_render,
+    ):
+        file_info = MagicMock()
+        file_info.path = workflow_dir / "monitoring-setup.mustache"
+        mock_discover.return_value = [file_info]
+
+        mock_render.side_effect = UnicodeDecodeError("utf-8", b"", 0, 1, "invalid utf-8")
+
+        # Should return None and log error
+        result = await render_workflow_content(
+            pattern=pattern,
+            workflow_dir=workflow_dir,
+            context=context,
+            docroot=docroot,
+        )
+
+        assert result is None
+
+
+@pytest.mark.asyncio
+async def test_render_workflow_content_filtered_by_requires():
+    """Test handling when template is filtered by requires-* directives."""
+    pattern = "monitoring-setup"
+    workflow_dir = Path("/test/templates/_workflow")
+    context = {}
+    docroot = Path("/test")
+
+    with (
+        patch("mcp_guide.workflow.workflow_content.discover_category_files") as mock_discover,
+        patch("mcp_guide.workflow.workflow_content.render_template") as mock_render,
+    ):
+        file_info = MagicMock()
+        file_info.path = workflow_dir / "monitoring-setup.mustache"
+        mock_discover.return_value = [file_info]
+
+        # render_template returns None when filtered by requires-*
+        mock_render.return_value = None
+
+        # Should return None and log debug message
+        result = await render_workflow_content(
+            pattern=pattern,
+            workflow_dir=workflow_dir,
+            context=context,
+            docroot=docroot,
+        )
+
+        assert result is None
