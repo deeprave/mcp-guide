@@ -7,12 +7,12 @@ class Frontmatter(dict[str, Any]):
     """Type-safe frontmatter dictionary with typed accessors."""
 
     def get_str(self, key: str, default: Optional[str] = None) -> Optional[str]:
-        """Get string value, converting to lowercase if present."""
+        """Get string value."""
         value = self.get(key, default)
         if value is None:
             return None
         if isinstance(value, str):
-            return value.lower()
+            return value
         raise TypeError(f"Expected str for key '{key}', got {type(value).__name__}")
 
     def get_list(self, key: str, default: Optional[List[str]] = None) -> Optional[List[str]]:

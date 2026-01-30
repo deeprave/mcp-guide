@@ -320,7 +320,7 @@ async def _execute_command(
     except PermissionError as e:
         logger.exception(f"Permission denied reading command: {command_path}")
         return Result.failure(
-            f"Permission denied: {e}",
+            f"Permission denied for command '{file_info.path}': {e}",
             error_type=ERROR_FILE_ERROR,
             instruction=INSTRUCTION_FILE_ERROR,
         )

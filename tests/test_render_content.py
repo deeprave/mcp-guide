@@ -48,11 +48,13 @@ def test_rendered_content_creation():
     assert isinstance(rendered, Content)
     assert rendered.frontmatter == frontmatter
     assert rendered.content == content
+    assert rendered.template_path == template_path
+    assert rendered.template_name == template_name
 
 
 def test_rendered_content_description_property():
     """Test description property returns frontmatter value."""
-    frontmatter = Frontmatter({"description": "Test description"})
+    frontmatter = Frontmatter({"description": "Test Description"})
     rendered = RenderedContent(
         frontmatter=frontmatter,
         frontmatter_length=0,
@@ -61,7 +63,7 @@ def test_rendered_content_description_property():
         template_path=Path("test.md"),
         template_name="test.md",
     )
-    assert rendered.description == "test description"  # get_str() lowercases values
+    assert rendered.description == "Test Description"
 
 
 def test_rendered_content_usage_property():
@@ -134,7 +136,7 @@ def test_instruction_property_with_frontmatter():
         template_path=Path("/test.mustache"),
         template_name="test.mustache",
     )
-    assert rendered.instruction == "custom instruction"  # lowercase
+    assert rendered.instruction == "Custom instruction"
 
 
 def test_instruction_property_without_frontmatter():

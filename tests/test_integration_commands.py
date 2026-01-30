@@ -234,3 +234,45 @@ Current project: {{project.name}}
             assert result["success"] is True
             assert "Test command executed successfully!" in result["value"]
             assert "Verbose mode enabled." in result["value"]
+
+    @pytest.mark.asyncio
+    async def test_partial_resolution_via_guide_command(self, mock_ctx, commands_setup, guide_function):
+        """End-to-end test: partials resolve correctly when invoked via guide command path."""
+        # Create directory structure with partial
+        info_dir = commands_setup / "info"
+        partials_dir = commands_setup / "_partials"
+        info_dir.mkdir(parents=True, exist_ok=True)
+        partials_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create partial
+        partial_file = partials_dir / "_project.mustache"
+        partial_file.write_text("Project: {{project_name}}")
+
+        # Create command that includes partial
+        command_file = info_dir / "project.mustache"
+        command_file.write_text("""---
+type: user/information
+includes:
+  - ../_partials/project
+---
+{{>project}}
+""")
+
+        with (
+            patch("mcp_guide.prompts.guide_prompt.get_template_contexts", new=AsyncMock()) as mock_context,
+            patch("mcp_guide.render.template.get_template_contexts", new=AsyncMock()) as mock_render_context,
+            patch(
+                "mcp_guide.session.get_or_create_session", new=AsyncMock(return_value=mock_ctx.session)
+            ) as mock_session,
+        ):
+            from mcp_guide.utils.template_context import TemplateContext
+
+            mock_context.return_value = TemplateContext({"project_name": "test-project"})
+            mock_render_context.return_value = TemplateContext({"project_name": "test-project"})
+
+            # Invoke via guide command path
+            result_str = await guide_function(":info/project", ctx=mock_ctx)
+            result = json.loads(result_str)
+
+            assert result["success"] is True
+            assert "Project: test-project" in result["value"]
