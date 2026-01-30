@@ -175,7 +175,13 @@ class WorkflowMonitorTask:
             content = await render_workflow_template(template_pattern)
             if content:
                 rendered_contents.append(content)
-            logger.trace(f"Rendered workflow content for {change.change_type.value} using pattern: {template_pattern}")
+                logger.trace(
+                    f"Rendered workflow content for {change.change_type.value} using pattern: {template_pattern}"
+                )
+            else:
+                logger.trace(
+                    f"Workflow content filtered or unavailable for {change.change_type.value} using pattern: {template_pattern}"
+                )
 
         # Combine all rendered content
         return "\n".join(rendered_contents) if rendered_contents else None

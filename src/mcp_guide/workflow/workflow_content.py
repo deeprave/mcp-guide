@@ -34,11 +34,10 @@ async def render_workflow_content(
 
     Returns:
         Rendered template content as string, or None if filtered by requires-*
+        or if an error occurs during rendering
 
     Raises:
-        FileNotFoundError: No template matches pattern or multiple matches
-        RuntimeError: Template rendering error (syntax, missing variables)
-        PermissionError: Cannot read template file
+        FileNotFoundError: No template matches pattern or multiple matches found
     """
     # Discover files matching pattern
     files = await discover_category_files(workflow_dir, [pattern])
