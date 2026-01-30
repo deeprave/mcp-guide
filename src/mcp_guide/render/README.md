@@ -14,13 +14,79 @@ async def render_template(
 ) -> Optional[RenderedContent]
 ```
 
-**Returns**: `RenderedContent` if successful, `None` if filtered or error
+**Returns**: `RenderedContent` if successful, `None` if filtered by `requires-*` directives
+
+**Raises**:
+- `RuntimeError`: Template rendering fails (syntax errors, missing variables, etc.)
+- `FileNotFoundError`: Template file does not exist
+- `PermissionError`: Insufficient permissions to read template
+- `UnicodeDecodeError`: Template file is not valid UTF-8
 
 **Process**:
 1. Parse frontmatter
 2. Check `requires-*` directives against `project_flags` (return `None` if not met)
 3. Build context: base → frontmatter vars → caller context
 4. Render template files with Chevron, return non-template files as-is
+
+## Exception Handling
+
+The API raises exceptions for errors rather than returning `None`. Callers should handle exceptions appropriately:
+
+```python
+try:
+    result = await render_template(
+        file_info=file_info,
+        base_dir=base_dir,
+        project_flags=project_flags,
+        context=context,
+    )
+
+    if result is None:
+        # File filtered by requires-* (not an error)
+        continue
+
+    # Use rendered content
+    process(result.content)
+
+except RuntimeError as e:
+    # Template rendering error (syntax, missing vars, etc.)
+    logger.exception(f"Template rendering failed for {file_info.path}")
+    # Handle error appropriately (skip, report, etc.)
+
+except (FileNotFoundError, PermissionError, UnicodeDecodeError) as e:
+    # File I/O errors
+    logger.error(f"Failed to read template {file_info.path}: {e}")
+    # Handle error appropriately
+
+except Exception as e:
+    # Unexpected errors - log with full traceback
+    logger.exception(f"Unexpected error rendering {file_info.path}")
+    # Decide whether to continue or abort
+```
+
+**Key Points**:
+- `None` return = filtered by requirements (not an error)
+- Exceptions = actual errors that need handling
+- Use `logger.exception()` to capture full traceback for debugging
+- Catch specific exceptions first, then broader `Exception` for unexpected errors
+- In batch processing, catch exceptions per-file to prevent one error from terminating the batch
+
+**Batch Processing**:
+```python
+results = []
+for file_info in files:
+    try:
+        rendered = await render_template(...)
+        if rendered is None:
+            continue  # Filtered by requires-*
+        results.append(rendered)
+    except RuntimeError as e:
+        logger.exception(f"Template error: {file_info.path}")
+        continue
+    except (FileNotFoundError, PermissionError) as e:
+        logger.error(f"File error: {file_info.path}: {e}")
+        continue
+```
 
 ## Return Type
 

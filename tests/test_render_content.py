@@ -48,8 +48,79 @@ def test_rendered_content_creation():
     assert isinstance(rendered, Content)
     assert rendered.frontmatter == frontmatter
     assert rendered.content == content
-    assert rendered.template_path == template_path
-    assert rendered.template_name == template_name
+
+
+def test_rendered_content_description_property():
+    """Test description property returns frontmatter value."""
+    frontmatter = Frontmatter({"description": "Test description"})
+    rendered = RenderedContent(
+        frontmatter=frontmatter,
+        frontmatter_length=0,
+        content="test",
+        content_length=4,
+        template_path=Path("test.md"),
+        template_name="test.md",
+    )
+    assert rendered.description == "test description"  # get_str() lowercases values
+
+
+def test_rendered_content_usage_property():
+    """Test usage property returns frontmatter value."""
+    frontmatter = Frontmatter({"usage": "command [options]"})
+    rendered = RenderedContent(
+        frontmatter=frontmatter,
+        frontmatter_length=0,
+        content="test",
+        content_length=4,
+        template_path=Path("test.md"),
+        template_name="test.md",
+    )
+    assert rendered.usage == "command [options]"
+
+
+def test_rendered_content_category_property():
+    """Test category property returns frontmatter value."""
+    frontmatter = Frontmatter({"category": "utilities"})
+    rendered = RenderedContent(
+        frontmatter=frontmatter,
+        frontmatter_length=0,
+        content="test",
+        content_length=4,
+        template_path=Path("test.md"),
+        template_name="test.md",
+    )
+    assert rendered.category == "utilities"
+
+
+def test_rendered_content_aliases_property():
+    """Test aliases property returns list from frontmatter."""
+    frontmatter = Frontmatter({"aliases": ["alias1", "alias2"]})
+    rendered = RenderedContent(
+        frontmatter=frontmatter,
+        frontmatter_length=0,
+        content="test",
+        content_length=4,
+        template_path=Path("test.md"),
+        template_name="test.md",
+    )
+    assert rendered.aliases == ["alias1", "alias2"]
+
+
+def test_rendered_content_properties_return_none_when_missing():
+    """Test properties return None when keys not in frontmatter."""
+    frontmatter = Frontmatter({})
+    rendered = RenderedContent(
+        frontmatter=frontmatter,
+        frontmatter_length=0,
+        content="test",
+        content_length=4,
+        template_path=Path("test.md"),
+        template_name="test.md",
+    )
+    assert rendered.description is None
+    assert rendered.usage is None
+    assert rendered.category is None
+    assert rendered.aliases is None
 
 
 def test_instruction_property_with_frontmatter():

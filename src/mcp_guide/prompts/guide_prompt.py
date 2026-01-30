@@ -9,22 +9,28 @@ from anyio import Path as AsyncPath
 
 from mcp_guide.config_constants import COMMANDS_DIR
 from mcp_guide.core.mcp_log import get_logger
+from mcp_guide.feature_flags.types import FeatureValue
+from mcp_guide.models import resolve_all_flags
 from mcp_guide.prompts.command_parser import parse_command_arguments
+from mcp_guide.render import render_template
 from mcp_guide.result import Result
-from mcp_guide.result_constants import INSTRUCTION_DISPLAY_ONLY
+from mcp_guide.result_constants import (
+    ERROR_FILE_ERROR,
+    ERROR_NOT_FOUND,
+    ERROR_TEMPLATE,
+    INSTRUCTION_DISPLAY_ONLY,
+    INSTRUCTION_FILE_ERROR,
+    INSTRUCTION_NOTFOUND_ERROR,
+    INSTRUCTION_TEMPLATE_ERROR,
+)
 from mcp_guide.server import mcp
-from mcp_guide.session import get_or_create_session
+from mcp_guide.session import get_current_session, get_or_create_session
 from mcp_guide.tools.tool_content import ContentArgs, internal_get_content
 from mcp_guide.utils.command_discovery import discover_commands
 from mcp_guide.utils.command_formatting import format_args_string
 from mcp_guide.utils.file_discovery import FileInfo, discover_category_files
-from mcp_guide.utils.frontmatter import (
-    get_frontmatter_type,
-    get_type_based_default_instruction,
-)
 from mcp_guide.utils.template_context import TemplateContext, convert_lists_to_indexed
 from mcp_guide.utils.template_context_cache import get_template_contexts
-from mcp_guide.utils.template_renderer import render_file_content, render_template_content
 
 if TYPE_CHECKING:
     from typing import Any
@@ -216,30 +222,6 @@ def _build_command_context(
     )
 
 
-def _validate_command_arguments(
-    front_matter: dict[str, Any], kwargs: dict[str, Any], args: list[str]
-) -> Optional[Result[str]]:
-    """Validate command arguments against frontmatter requirements."""
-    # Check required arguments
-    required_args_value = front_matter.get("required_args", [])
-    if isinstance(required_args_value, list):
-        required_args = [str(arg) for arg in required_args_value if isinstance(arg, (str, int, float))]
-        if len(args) < len(required_args):
-            missing_args = required_args[len(args) :]
-            return Result.failure(f"Missing required arguments: {', '.join(missing_args)}", error_type="validation")
-
-    # Check required kwargs
-    required_kwargs_value = front_matter.get("required_kwargs", [])
-    if isinstance(required_kwargs_value, list):
-        required_kwargs = [str(kwarg) for kwarg in required_kwargs_value if isinstance(kwarg, (str, int, float))]
-        missing_kwargs: list[str] = []
-        missing_kwargs.extend(k for k in required_kwargs if k not in kwargs and f"_{k}" not in kwargs)
-        if missing_kwargs:
-            return Result.failure(f"Missing required options: {', '.join(missing_kwargs)}", error_type="validation")
-
-    return None
-
-
 async def _is_help_command(command_path: str, ctx: Optional[Context]) -> bool:  # type: ignore
     """Check if command_path is a help command or alias."""
     try:
@@ -304,15 +286,6 @@ async def _execute_command(
     # Set base path for content loading
     file_info.resolve(commands_dir, docroot)
 
-    # Cache MCP context if available
-    if ctx:
-        from mcp_guide.mcp_context import cache_mcp_globals
-
-        logger.debug(f"Caching MCP context for command: {command_path}")
-        await cache_mcp_globals(ctx)
-    else:
-        logger.debug(f"No MCP context available for command: {command_path}")
-
     # Build template context
     base_context = await get_template_contexts()
     command_context = _build_command_context(base_context, command_path, file_info, kwargs, args, commands)
@@ -323,55 +296,63 @@ async def _execute_command(
     if await _is_help_command(command_path, ctx) and args:
         return await get_command_help(args[0], command_context, ctx)
 
-    # Get content and frontmatter using accessors
+    # Get resolved flags for requires-* checking
+    current_session = get_current_session()
+    requirements_context: dict[str, FeatureValue] = {}
+    requirements_context = await resolve_all_flags(current_session)  # type: ignore[arg-type]
+
+    # Render template using new API
     try:
-        front_matter = await file_info.get_frontmatter() or {}
-        template_content = await file_info.get_content() or ""
-    except (OSError, PermissionError, FileNotFoundError) as e:
-        return Result.failure(
-            error=f"Error reading file {file_info.path}: {str(e)}",
-            error_type="file_error",
-            instruction="Check file permissions and ensure the file exists and is readable",
+        rendered = await render_template(
+            file_info=file_info,
+            base_dir=file_info.path.parent,  # Use template's parent dir for relative partial resolution
+            project_flags=requirements_context,
+            context=command_context,
+            docroot=docroot,
         )
-
-    # Validate arguments against front matter
-    if front_matter:
-        if validation_error := _validate_command_arguments(front_matter, kwargs, args):
-            return validation_error
-
-    # Render template with partial support
-    render_result = await render_file_content(file_info, command_context, commands_dir, docroot)
-    if render_result.success:
-        result = Result.ok(render_result.value)
-
-        # Set instruction from frontmatter or default
-        if front_matter and "instruction" in front_matter:
-            instruction_result = await render_template_content(
-                front_matter["instruction"], command_context, str(file_info.path)
-            )
-            result.instruction = instruction_result.value if instruction_result.success else INSTRUCTION_DISPLAY_ONLY
-        else:
-            # Check if instruction needs to be overridden with type-based default
-            content_type = get_frontmatter_type(front_matter)
-            default_instruction = get_type_based_default_instruction(content_type)
-
-            # Override if instruction is None OR matches default instructions
-            if (
-                result.instruction is None
-                or result.instruction == Result.success_instruction()
-                or result.instruction == Result.failure_instruction()
-            ):
-                result.instruction = default_instruction or INSTRUCTION_DISPLAY_ONLY
-
-        return result
-    else:
-        from mcp_guide.result_constants import ERROR_TEMPLATE, INSTRUCTION_TEMPLATE_ERROR
-
+    except FileNotFoundError as e:
+        logger.exception(f"Command file not found: {command_path}")
         return Result.failure(
-            f"Template rendering failed: {render_result.error}",
+            f"Command file not found: {e}",
+            error_type=ERROR_NOT_FOUND,
+            instruction=INSTRUCTION_NOTFOUND_ERROR,
+        )
+    except PermissionError as e:
+        logger.exception(f"Permission denied reading command: {command_path}")
+        return Result.failure(
+            f"Permission denied: {e}",
+            error_type=ERROR_FILE_ERROR,
+            instruction=INSTRUCTION_FILE_ERROR,
+        )
+    except RuntimeError as e:
+        # Template rendering error (syntax, missing variables, etc.)
+        logger.exception(f"Template rendering failed for command {command_path}")
+        return Result.failure(
+            f"Template rendering failed: {e}",
             error_type=ERROR_TEMPLATE,
             instruction=INSTRUCTION_TEMPLATE_ERROR,
         )
+    except Exception as e:
+        # Unexpected error
+        logger.exception(f"Unexpected error rendering command {command_path}")
+        return Result.failure(
+            f"Unexpected error: {e}",
+            error_type=ERROR_FILE_ERROR,
+            instruction=INSTRUCTION_FILE_ERROR,
+        )
+
+    if rendered is None:
+        # File filtered by requires-* - treat as not found
+        return Result.failure(
+            f"Command '{command_path}' not found",
+            error_type=ERROR_NOT_FOUND,
+            instruction=INSTRUCTION_NOTFOUND_ERROR,
+        )
+
+    # Extract content and instruction from RenderedContent
+    result = Result.ok(rendered.content)
+    result.instruction = rendered.instruction  # Already has type-based default
+    return result
 
 
 async def _handle_command_request(argv: list[str], ctx: Optional["Context"]) -> Result[Any]:  # type: ignore[type-arg]
@@ -494,6 +475,13 @@ async def guide(
     ctx: Optional["Context"] = None,  # type: ignore[type-arg]
 ) -> str:
     """Access guide functionality."""
+    # Cache MCP context if available
+    if ctx:
+        from mcp_guide.mcp_context import cache_mcp_globals
+
+        logger.debug("Caching MCP context for guide request")
+        await cache_mcp_globals(ctx)
+
     # Call on_tool for all subscribers immediately
     from mcp_guide.task_manager import get_task_manager
 
