@@ -17,7 +17,7 @@ async def render_template(
 **Returns**: `RenderedContent` if successful, `None` if filtered by `requires-*` directives
 
 **Raises**:
-- `RuntimeError`: Template rendering fails (syntax errors, missing variables, etc.)
+- `RuntimeError`: Template rendering fails (syntax errors, rendering exceptions)
 - `FileNotFoundError`: Template file does not exist
 - `PermissionError`: Insufficient permissions to read template
 - `UnicodeDecodeError`: Template file is not valid UTF-8
