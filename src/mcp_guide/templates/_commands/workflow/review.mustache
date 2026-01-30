@@ -4,6 +4,7 @@ Description: Delegate a review to guide-review agent
 usage: ":review"
 examples:
   - ":review"
+category: "project-workflow"
 instruction: >
   Use the use_subagent tool with agent_name 'guide-review' using the following query:
    Perform a code review of changes.
@@ -13,6 +14,8 @@ instruction: >
   This is a code review request for the current project.
   Documents produced from tis code review MUST BE NAMED `.todo/<change-id>-review.md`.
 ---
+{{#workflow}}If you are not currently in review phase, you must transition to review and follow the instructions below.
+{{/workflow}}
 {{h1}}Code Review Delegation
 
 Delegating comprehensive code review to the {{b}}guide-review{{b}} agent.

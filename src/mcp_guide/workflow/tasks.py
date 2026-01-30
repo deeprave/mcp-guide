@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING, Any, Optional
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.decorators import task_init
 from mcp_guide.feature_flags.constants import FLAG_WORKFLOW
-from mcp_guide.models import FileReadError, NoProjectError
 from mcp_guide.task_manager import EventType, get_task_manager
 from mcp_guide.workflow.change_detection import ChangeEvent, detect_workflow_changes
 from mcp_guide.workflow.constants import DEFAULT_WORKFLOW_FILE
@@ -82,13 +81,11 @@ class WorkflowMonitorTask:
             logger.debug(f"WorkflowMonitorTask using workflow file from flag: {workflow_file}")
 
         if not self._setup_done:
-            try:
-                content = await render_workflow_template("monitoring-setup")
+            content = await render_workflow_template("monitoring-setup")
+            if content:
                 await self.task_manager.queue_instruction(content)
-                self._setup_done = True
-                logger.debug("WorkflowMonitorTask initialized and queued setup instruction")
-            except Exception as e:
-                logger.warning(f"Failed to queue workflow setup during init: {e}")
+            self._setup_done = True
+            logger.debug("WorkflowMonitorTask initialized")
 
     async def handle_event(self, event_type: "EventType", data: dict[str, Any]) -> bool:
         """Handle task manager events."""
@@ -113,13 +110,9 @@ class WorkflowMonitorTask:
 
     async def _handle_monitoring_reminder(self) -> None:
         """Handle timer events for workflow monitoring reminders."""
-        try:
-            content = await render_workflow_template("monitoring-reminder")
+        content = await render_workflow_template("monitoring-reminder")
+        if content:
             await self.task_manager.queue_instruction(content)
-        except (NoProjectError, FileReadError) as e:
-            logger.warning(f"Monitoring reminder failed due to configuration issue: {e}")
-        except Exception as e:
-            logger.error(f"Failed to queue monitoring reminder: {e}", exc_info=True)
 
     async def _process_workflow_content(self, content: str) -> None:
         """Process workflow file content and update cached state."""
@@ -151,15 +144,10 @@ class WorkflowMonitorTask:
                     # Store the change content to be used as the main response value
                     self.task_manager.set_cached_data("workflow_change_content", change_content)
 
-            # Always queue monitoring instruction after successful parse (maintains original behaviour)
-            # This ensures the critical "MUST send file content" instruction is always provided
-            try:
-                content = await render_workflow_template("monitoring-result")
-                await self.task_manager.queue_instruction(content)
-            except (NoProjectError, FileReadError) as e:
-                logger.warning(f"Monitoring result failed due to configuration issue: {e}")
-            except Exception as e:
-                logger.error(f"Failed to queue monitoring result instruction: {e}", exc_info=True)
+            # Always queue monitoring instruction after successful parse
+            result_content = await render_workflow_template("monitoring-result")
+            if result_content:
+                await self.task_manager.queue_instruction(result_content)
 
             # Update cache with new state AFTER processing changes
             self.task_manager.set_cached_data("workflow_state", new_state)
@@ -184,16 +172,10 @@ class WorkflowMonitorTask:
             template_pattern = get_instruction_template_for_change(change)
 
             # Render template content for main response
-            try:
-                content = await render_workflow_template(template_pattern)
+            content = await render_workflow_template(template_pattern)
+            if content:
                 rendered_contents.append(content)
-                logger.trace(
-                    f"Rendered workflow content for {change.change_type.value} using pattern: {template_pattern}"
-                )
-            except (NoProjectError, FileReadError) as e:
-                logger.warning(f"Template rendering failed for {template_pattern}: {e}")
-            except Exception as e:
-                logger.error(f"Failed to render template {template_pattern}: {e}", exc_info=True)
+            logger.trace(f"Rendered workflow content for {change.change_type.value} using pattern: {template_pattern}")
 
         # Combine all rendered content
         return "\n".join(rendered_contents) if rendered_contents else None
