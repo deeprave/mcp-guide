@@ -193,7 +193,6 @@ async def read_and_render_file_contents(
                         base_dir=base_dir,
                         project_flags=requirements_context,
                         context=template_context,
-                        docroot=docroot,
                     )
                 except Exception as e:
                     # Template rendering raised an exception - log with full context

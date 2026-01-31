@@ -26,5 +26,5 @@
 - [x] All tests pass without warnings
 - [x] Ruff check passes
 - [x] Mypy passes
-- [ ] Manual test of workflow phase transitions
-- [ ] Manual test of monitoring templates
+- [x] Manual test of workflow phase transitions
+- [x] Manual test of monitoring templates

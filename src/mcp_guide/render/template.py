@@ -20,7 +20,6 @@ async def render_template(
     base_dir: Path,
     project_flags: Dict[str, Any],
     context: Optional[TemplateContext] = None,
-    docroot: Optional[Path] = None,
 ) -> Optional[RenderedContent]:
     """Render a template file with frontmatter and context.
 
@@ -29,7 +28,6 @@ async def render_template(
         base_dir: Base directory for template resolution
         project_flags: Project feature flags for requires-* checking
         context: Optional caller-provided context
-        docroot: Optional document root path
 
     Returns:
         RenderedContent if successful, None if filtered by requires-*

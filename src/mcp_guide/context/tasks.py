@@ -2,11 +2,11 @@
 
 from typing import TYPE_CHECKING, Any, Optional
 
+from mcp_guide.context.rendering import render_context_template
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.decorators import task_init
 from mcp_guide.feature_flags.constants import FLAG_ALLOW_CLIENT_INFO
 from mcp_guide.task_manager import EventType, get_task_manager
-from mcp_guide.workflow.rendering import render_common_template
 
 if TYPE_CHECKING:
     from mcp_guide.task_manager import TaskManager
@@ -57,7 +57,7 @@ class ClientContextTask:
 
     async def request_basic_os_info(self) -> None:
         """Request basic OS information from client."""
-        content = await render_common_template("client-context-setup")
+        content = await render_context_template("client-context-setup")
         await self.task_manager.queue_instruction(content)
 
     async def handle_event(self, event_type: EventType, data: dict[str, Any]) -> bool:
@@ -112,5 +112,5 @@ class ClientContextTask:
     async def _request_detailed_context(self, os_info: dict[str, Any]) -> None:
         """Request detailed context based on OS info."""
         client_data = os_info.get("client", {})
-        content = await render_common_template("client-context-detailed", {"client": client_data})
+        content = await render_context_template("client-context-detailed", {"client": client_data})
         await self.task_manager.queue_instruction(content)

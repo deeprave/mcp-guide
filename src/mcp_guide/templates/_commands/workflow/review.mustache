@@ -1,9 +1,9 @@
 ---
 type: agent/instruction
 Description: Delegate a review to guide-review agent
-usage: ":review"
-examples:
-  - ":review"
+usage: ":workflow/review"
+aliases:
+  - review
 category: "project-workflow"
 instruction: >
   Use the use_subagent tool with agent_name 'guide-review' using the following query:

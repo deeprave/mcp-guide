@@ -1,12 +1,27 @@
 """Tests for OpenSpec CLI detection task."""
 
 import json
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from mcp_guide.client_context.openspec_task import OpenSpecTask
+from mcp_guide.openspec.task import OpenSpecTask
+from mcp_guide.render.content import RenderedContent
 from mcp_guide.task_manager import EventType
+from mcp_guide.utils.frontmatter import Frontmatter
+
+
+def make_rendered_content(content: str, instruction: str | None = None) -> RenderedContent:
+    """Helper to create RenderedContent for mocking."""
+    return RenderedContent(
+        content=content,
+        frontmatter=Frontmatter({"instruction": instruction} if instruction else {}),
+        template_path=Path("test.mustache"),
+        template_name="test",
+        frontmatter_length=0,
+        content_length=len(content),
+    )
 
 
 @pytest.fixture
@@ -38,20 +53,17 @@ class TestOpenSpecTask:
         """Test that task subscribes to events."""
         task = OpenSpecTask(mock_task_manager)
 
-        assert mock_task_manager.subscribe.call_count == 2
+        assert mock_task_manager.subscribe.call_count == 1
 
-        # First call: FS events (no TIMER_ONCE - handled by on_init now)
-        first_call = mock_task_manager.subscribe.call_args_list[0]
-        assert first_call[0][0] == task
-        assert first_call[0][1] & EventType.FS_COMMAND
-        assert first_call[0][1] & EventType.FS_DIRECTORY
-        assert first_call[0][1] & EventType.FS_FILE_CONTENT
-
-        # Second call: TIMER for changes monitoring
-        second_call = mock_task_manager.subscribe.call_args_list[1]
-        assert second_call[0][0] == task
-        assert second_call[0][1] & EventType.TIMER
-        assert second_call[0][2] == 3600.0  # 60 min interval
+        # Single call with all event types
+        call = mock_task_manager.subscribe.call_args_list[0]
+        assert call[0][0] == task
+        assert call[0][1] & EventType.FS_COMMAND
+        assert call[0][1] & EventType.FS_DIRECTORY
+        assert call[0][1] & EventType.FS_FILE_CONTENT
+        assert call[0][1] & EventType.TIMER
+        assert call[0][2] == 3600.0  # 60 min interval
+        assert call[0][3] == 20.0  # 20 sec start delay
 
     @pytest.mark.asyncio
     async def test_get_name(self, mock_task_manager):
@@ -321,9 +333,9 @@ class TestOpenSpecTask:
 
         with (
             patch("time.time", return_value=1234567890.0),
-            patch("mcp_guide.client_context.openspec_task.render_common_template") as mock_render,
+            patch("mcp_guide.openspec.task.render_openspec_template") as mock_render,
         ):
-            mock_render.return_value = "## OpenSpec Changes\n..."
+            mock_render.return_value = make_rendered_content("## OpenSpec Changes\n...")
             result = await task.handle_event(EventType.FS_FILE_CONTENT, event_data)
 
             # Now returns a Result object
@@ -451,14 +463,19 @@ class TestOpenSpecResponseFormatting:
 
         event_data = {"path": ".openspec-status.json", "content": json.dumps(status_data)}
 
-        with patch("mcp_guide.client_context.openspec_task.render_common_template") as mock_render:
-            mock_render.return_value = "## OpenSpec Status: test-change\n\n**Status:** ✅ Complete"
+        with patch("mcp_guide.openspec.task.render_openspec_template") as mock_render:
+            mock_render.return_value = make_rendered_content(
+                "## OpenSpec Status: test-change\n\n**Status:** ✅ Complete"
+            )
 
             result = await task.handle_event(EventType.FS_FILE_CONTENT, event_data)
 
             assert result is True
             assert mock_task_manager.queue_instruction.call_count == 1
-            mock_render.assert_called_once_with("_commands/openspec/_status-format", extra_context=status_data)
+            # Check that render was called with TemplateContext
+            call_args = mock_render.call_args
+            assert call_args[0][0] == "_status-format"
+            assert "extra_context" in call_args[1]
 
     @pytest.mark.asyncio
     async def test_format_status_response_in_progress(self, mock_task_manager):
@@ -475,13 +492,18 @@ class TestOpenSpecResponseFormatting:
 
         event_data = {"path": ".openspec-status.json", "content": json.dumps(status_data)}
 
-        with patch("mcp_guide.client_context.openspec_task.render_common_template") as mock_render:
-            mock_render.return_value = "## OpenSpec Status: test-change\n\n**Status:** ⏳ In Progress"
+        with patch("mcp_guide.openspec.task.render_openspec_template") as mock_render:
+            mock_render.return_value = make_rendered_content(
+                "## OpenSpec Status: test-change\n\n**Status:** ⏳ In Progress"
+            )
 
             result = await task.handle_event(EventType.FS_FILE_CONTENT, event_data)
 
             assert result is True
-            mock_render.assert_called_once_with("_commands/openspec/_status-format", extra_context=status_data)
+            # Check that render was called with TemplateContext
+            call_args = mock_render.call_args
+            assert call_args[0][0] == "_status-format"
+            assert "extra_context" in call_args[1]
 
     @pytest.mark.asyncio
     async def test_format_changes_list_response(self, mock_task_manager):
@@ -510,8 +532,8 @@ class TestOpenSpecResponseFormatting:
 
         event_data = {"path": ".openspec-changes.json", "content": json.dumps(changes_data)}
 
-        with patch("mcp_guide.client_context.openspec_task.render_common_template") as mock_render:
-            mock_render.return_value = "## OpenSpec Changes\n..."
+        with patch("mcp_guide.openspec.task.render_openspec_template") as mock_render:
+            mock_render.return_value = make_rendered_content("## OpenSpec Changes\n...")
             result = await task.handle_event(EventType.FS_FILE_CONTENT, event_data)
 
             from mcp_guide.result import Result
@@ -537,8 +559,8 @@ class TestOpenSpecResponseFormatting:
 
         event_data = {"path": ".openspec-changes.json", "content": json.dumps(changes_data)}
 
-        with patch("mcp_guide.client_context.openspec_task.render_common_template") as mock_render:
-            mock_render.return_value = "## OpenSpec Changes\n..."
+        with patch("mcp_guide.openspec.task.render_openspec_template") as mock_render:
+            mock_render.return_value = make_rendered_content("## OpenSpec Changes\n...")
             result = await task.handle_event(EventType.FS_FILE_CONTENT, event_data)
 
             from mcp_guide.result import Result
@@ -565,13 +587,16 @@ class TestOpenSpecResponseFormatting:
 
         event_data = {"path": ".openspec-show.json", "content": json.dumps(show_data)}
 
-        with patch("mcp_guide.client_context.openspec_task.render_common_template") as mock_render:
-            mock_render.return_value = "## OpenSpec Change: test-change"
+        with patch("mcp_guide.openspec.task.render_openspec_template") as mock_render:
+            mock_render.return_value = make_rendered_content("## OpenSpec Change: test-change")
 
             result = await task.handle_event(EventType.FS_FILE_CONTENT, event_data)
 
             assert result is True
-            mock_render.assert_called_once_with("_commands/openspec/_show-format", extra_context=show_data)
+            # Check that render was called with TemplateContext
+            call_args = mock_render.call_args
+            assert call_args[0][0] == "_show-format"
+            assert "extra_context" in call_args[1]
 
     @pytest.mark.asyncio
     async def test_format_error_response(self, mock_task_manager):
@@ -587,13 +612,20 @@ class TestOpenSpecResponseFormatting:
 
         event_data = {"path": ".openspec-status.json", "content": json.dumps(error_data)}
 
-        with patch("mcp_guide.client_context.openspec_task.render_common_template") as mock_render:
-            mock_render.return_value = "## OpenSpec Error\n\nMissing required option --change"
+        with patch("mcp_guide.openspec.task.render_openspec_template") as mock_render:
+            mock_render.return_value = make_rendered_content("## OpenSpec Error\n\nMissing required option --change")
 
             result = await task.handle_event(EventType.FS_FILE_CONTENT, event_data)
 
             assert result is True
-            mock_render.assert_called_once_with("_commands/openspec/_error-format", extra_context=error_data)
+            # Check that render was called with TemplateContext wrapping the data
+            call_args = mock_render.call_args
+            assert call_args[0][0] == "_error-format"
+            assert "extra_context" in call_args[1]
+            # Verify the context contains the expected data
+            context = call_args[1]["extra_context"]
+            assert context["error"] == error_data["error"]
+            assert context["message"] == error_data["message"]
 
     @pytest.mark.asyncio
     async def test_format_malformed_json(self, mock_task_manager):

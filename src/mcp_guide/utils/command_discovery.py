@@ -55,8 +55,27 @@ async def discover_commands(commands_dir: Path) -> List[Dict[str, Any]]:
     effective_mtime: float = 0.0  # Initialize with default value
 
     async with _cache_lock:
+        # Check if development mode is enabled
+        dev_mode = False
         try:
-            # Check both directory mtime AND max file mtime
+            from mcp_guide.feature_flags.constants import FLAG_GUIDE_DEVELOPMENT
+            from mcp_guide.models import resolve_all_flags
+            from mcp_guide.session import get_current_session
+
+            session = get_current_session()
+            if session:
+                flags = await resolve_all_flags(session)
+                dev_mode = bool(flags.get(FLAG_GUIDE_DEVELOPMENT, False))
+        except Exception:
+            # If we can't check the flag, assume production mode (no mtime checks)
+            pass
+
+        # In production mode, use cache if available without mtime checks
+        if not dev_mode and cache_key in _command_cache:
+            return _command_cache[cache_key][1]
+
+        try:
+            # Check both directory mtime AND max file mtime (only in dev mode)
             current_mtime = (await AsyncPath(commands_dir).stat()).st_mtime
             max_file_mtime = max(
                 (f.stat().st_mtime for f in commands_dir.rglob("*") if f.is_file()),

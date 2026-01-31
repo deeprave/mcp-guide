@@ -65,7 +65,6 @@ class TestRenderTemplateAPIIntegration:
                 call_kwargs = mock_render.call_args.kwargs
                 assert call_kwargs["file_info"] is file_info
                 assert call_kwargs["base_dir"] == temp_path
-                assert call_kwargs["docroot"] == temp_path
                 assert call_kwargs["context"] is context
                 assert "project_flags" in call_kwargs
 

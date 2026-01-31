@@ -56,10 +56,9 @@ includes:
 
         result = await render_template(
             file_info=file_info,
-            base_dir=template_file.parent,  # Should be info/ directory
+            base_dir=template_file.parent,
             project_flags={},
             context=context,
-            docroot=tmp_path,
         )
 
         assert result is not None
@@ -111,10 +110,9 @@ includes:
 
         result = await render_template(
             file_info=file_info,
-            base_dir=template_file.parent,  # Should be phase/ directory
+            base_dir=template_file.parent,
             project_flags={},
             context=context,
-            docroot=tmp_path,
         )
 
         assert result is not None

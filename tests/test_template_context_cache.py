@@ -415,7 +415,7 @@ class TestTemplateContextCache:
         """Test OpenSpec context with CLI available and project enabled."""
         from unittest.mock import patch
 
-        from mcp_guide.client_context.openspec_task import OpenSpecTask
+        from mcp_guide.openspec.task import OpenSpecTask
 
         cache = TemplateContextCache()
 
@@ -438,7 +438,7 @@ class TestTemplateContextCache:
         """Test OpenSpec context with CLI available but project not enabled."""
         from unittest.mock import patch
 
-        from mcp_guide.client_context.openspec_task import OpenSpecTask
+        from mcp_guide.openspec.task import OpenSpecTask
 
         cache = TemplateContextCache()
 
@@ -461,7 +461,7 @@ class TestTemplateContextCache:
         """Test OpenSpec context with CLI not available."""
         from unittest.mock import patch
 
-        from mcp_guide.client_context.openspec_task import OpenSpecTask
+        from mcp_guide.openspec.task import OpenSpecTask
 
         cache = TemplateContextCache()
 

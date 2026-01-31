@@ -1,17 +1,14 @@
 """Template context cache with session listener for decoupled context management."""
 
-from typing import TYPE_CHECKING, Any, Optional
+from typing import Any, Optional
 
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.feature_flags.constants import FLAG_WORKFLOW, FLAG_WORKFLOW_FILE
+from mcp_guide.session_listener import SessionListener
+from mcp_guide.utils.file_discovery import FileInfo
+from mcp_guide.utils.template_context import TemplateContext
 from mcp_guide.workflow.constants import DEFAULT_WORKFLOW_FILE
 from mcp_guide.workflow.flags import parse_workflow_phases, substitute_variables
-
-if TYPE_CHECKING:
-    from mcp_guide.utils.file_discovery import FileInfo
-    from mcp_guide.utils.template_context import TemplateContext
-
-from mcp_guide.session_listener import SessionListener
 
 logger = get_logger(__name__)
 
@@ -146,7 +143,7 @@ class TemplateContextCache(SessionListener):
 
         # Add OpenSpec context
         try:
-            from mcp_guide.client_context.openspec_task import OpenSpecTask
+            from mcp_guide.openspec.task import OpenSpecTask
             from mcp_guide.task_manager import get_task_manager
 
             task_manager = get_task_manager()
@@ -533,7 +530,7 @@ async def get_template_context_if_needed(
     return None
 
 
-async def get_template_contexts(category_name: Optional[str] = None) -> "TemplateContext":
+async def get_template_contexts(category_name: Optional[str] = None) -> TemplateContext:
     """Public API to get template contexts for rendering.
 
     Args:
