@@ -6,6 +6,7 @@ from mcp_guide.feature_flags.constants import (
     FLAG_ALLOW_CLIENT_INFO,
     FLAG_CONTENT_FORMAT_MIME,
     FLAG_CONTENT_STYLE,
+    FLAG_GUIDE_DEVELOPMENT,
 )
 from mcp_guide.feature_flags.types import FeatureValue
 from mcp_guide.feature_flags.types import validate_feature_value_type as validate_flag_value
@@ -102,6 +103,34 @@ def validate_allow_client_info(value: FeatureValue, is_project: bool) -> bool:
     return False
 
 
+def validate_boolean_flag(value: FeatureValue, is_project: bool) -> bool:
+    """Validate simple boolean flag value.
+
+    Accepts truthy values (True, "true", "on", "enabled") and falsy values
+    (False, "false", "off", "disabled", "", None).
+
+    Args:
+        value: Flag value to validate
+        is_project: True if this is a project flag, False if global
+
+    Returns:
+        True if value is valid boolean-like, False otherwise
+    """
+    # Accept boolean types
+    if isinstance(value, bool):
+        return True
+
+    # Accept None (used for deletion/disable)
+    if value is None:
+        return True
+
+    # Accept string boolean representations
+    if isinstance(value, str):
+        return value.lower() in ["true", "false", "on", "off", "enabled", "disabled", ""]
+
+    return False
+
+
 def register_flag_validator(flag_name: str, validator: Callable[[FeatureValue, bool], bool]) -> None:
     """Register a validator function for a specific flag.
 
@@ -142,3 +171,4 @@ def clear_validators() -> None:
 register_flag_validator(FLAG_CONTENT_FORMAT_MIME, validate_content_format_mime)
 register_flag_validator(FLAG_CONTENT_STYLE, validate_template_styling)
 register_flag_validator(FLAG_ALLOW_CLIENT_INFO, validate_allow_client_info)
+register_flag_validator(FLAG_GUIDE_DEVELOPMENT, validate_boolean_flag)

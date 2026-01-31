@@ -305,10 +305,9 @@ async def _execute_command(
     try:
         rendered = await render_template(
             file_info=file_info,
-            base_dir=file_info.path.parent,  # Use template's parent dir for relative partial resolution
+            base_dir=file_info.path.parent,
             project_flags=requirements_context,
             context=command_context,
-            docroot=docroot,
         )
     except FileNotFoundError as e:
         logger.exception(f"Command file not found: {command_path}")

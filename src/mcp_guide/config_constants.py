@@ -1,7 +1,9 @@
 """Configuration constants for the guide application."""
 
-# Directory for command templates
+# Template directories
 COMMANDS_DIR = "_commands"
+WORKFLOW_DIR = "_workflow"
+OPENSPEC_DIR = "_openspec"
 
 # Pattern matching safety limits
 MAX_GLOB_DEPTH = 8

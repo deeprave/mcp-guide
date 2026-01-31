@@ -9,9 +9,11 @@ from packaging.version import InvalidVersion, Version
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.decorators import task_init
 from mcp_guide.feature_flags.constants import FLAG_OPENSPEC
+from mcp_guide.openspec.rendering import render_openspec_template
+from mcp_guide.render.content import RenderedContent
 from mcp_guide.result import Result
 from mcp_guide.task_manager import EventType, get_task_manager
-from mcp_guide.workflow.rendering import render_common_template
+from mcp_guide.utils.template_context import TemplateContext
 
 if TYPE_CHECKING:
     from mcp_guide.task_manager import TaskManager
@@ -45,11 +47,13 @@ class OpenSpecTask:
         self._changes_timestamp: Optional[float] = None
         self._changes_timer_started = False  # Track if first timer has fired
 
-        # Subscribe to command and file events
-        self.task_manager.subscribe(self, EventType.FS_COMMAND | EventType.FS_DIRECTORY | EventType.FS_FILE_CONTENT)
-
-        # Subscribe to timer for periodic changes monitoring with start delay
-        self.task_manager.subscribe(self, EventType.TIMER, CHANGES_CHECK_INTERVAL, CHANGES_CHECK_START_DELAY)
+        # Subscribe to command, file, and timer events
+        self.task_manager.subscribe(
+            self,
+            EventType.FS_COMMAND | EventType.FS_DIRECTORY | EventType.FS_FILE_CONTENT | EventType.TIMER,
+            CHANGES_CHECK_INTERVAL,
+            CHANGES_CHECK_START_DELAY,
+        )
 
     def get_name(self) -> str:
         """Get a readable name for the task."""
@@ -214,18 +218,21 @@ class OpenSpecTask:
 
     async def request_cli_check(self) -> None:
         """Request OpenSpec CLI availability check from client."""
-        content = await render_common_template("openspec-cli-check")
-        await self.task_manager.queue_instruction(content)
+        rendered = await render_openspec_template("openspec-cli-check")
+        if rendered:
+            await self.task_manager.queue_instruction(rendered.content)
 
     async def request_project_check(self) -> None:
         """Request OpenSpec project structure check from client."""
-        content = await render_common_template("openspec-project-check")
-        await self.task_manager.queue_instruction(content)
+        rendered = await render_openspec_template("openspec-project-check")
+        if rendered:
+            await self.task_manager.queue_instruction(rendered.content)
 
     async def request_version_check(self) -> None:
         """Request OpenSpec CLI version from client."""
-        content = await render_common_template("openspec-version-check")
-        await self.task_manager.queue_instruction(content)
+        rendered = await render_openspec_template("openspec-version-check")
+        if rendered:
+            await self.task_manager.queue_instruction(rendered.content)
 
     async def handle_event(self, event_type: EventType, data: dict[str, Any]) -> "bool | Result[Any]":
         """Handle task manager events."""
@@ -310,13 +317,15 @@ class OpenSpecTask:
             # Check for error responses first
             if "error" in json_data:
                 formatted = await self._format_error_response(json_data)
-                await self.task_manager.queue_instruction(formatted)
+                if formatted:
+                    await self.task_manager.queue_instruction(formatted.content)
                 return True
 
             # Format specific OpenSpec responses
             if path_name == ".openspec-status.json":
                 formatted = await self._format_status_response(json_data)
-                await self.task_manager.queue_instruction(formatted)
+                if formatted:
+                    await self.task_manager.queue_instruction(formatted.content)
                 return True
 
             elif path_name == ".openspec-changes.json":
@@ -349,20 +358,28 @@ class OpenSpecTask:
                 # Render and return the changes list as a Result
                 from mcp_guide.result import Result
 
-                formatted = await render_common_template("_openspec-list-format")
-                return Result.ok(value=formatted, message=f"File content cached for {path_name}", instruction="")
+                rendered = await render_openspec_template("_openspec-list-format")
+                if rendered:
+                    return Result.ok(
+                        value=rendered.content,
+                        message=f"File content cached for {path_name}",
+                        instruction=rendered.instruction or "",
+                    )
+                return False
 
             elif path_name == ".openspec-show.json":
                 formatted = await self._format_show_response(json_data)
-                await self.task_manager.queue_instruction(formatted)
+                if formatted:
+                    await self.task_manager.queue_instruction(formatted.content)
                 return True
 
         return False
 
     async def request_changes_json(self) -> None:
         """Request openspec changes JSON via command execution."""
-        content = await render_common_template("_commands/openspec/list")
-        await self.task_manager.queue_instruction(content)
+        rendered = await render_openspec_template("list")
+        if rendered:
+            await self.task_manager.queue_instruction(rendered.content)
 
     async def _handle_changes_reminder(self) -> None:
         """Handle timer events for changes monitoring."""
@@ -405,25 +422,25 @@ class OpenSpecTask:
             self._version_this_session = None
             self.task_manager.set_cached_data("openspec_version", None)
 
-    async def _format_status_response(self, data: dict[str, Any]) -> str:
+    async def _format_status_response(self, data: dict[str, Any]) -> RenderedContent | None:
         """Format OpenSpec status response using template.
 
         Args:
             data: Parsed JSON from openspec status command
 
         Returns:
-            Formatted markdown string
+            RenderedContent with formatted content, or None if filtered by requires-*
         """
-        return await render_common_template("_commands/openspec/_status-format", extra_context=data)
+        return await render_openspec_template("_status-format", extra_context=TemplateContext(data))
 
-    async def _format_changes_list_response(self, data: dict[str, Any]) -> str:
+    async def _format_changes_list_response(self, data: dict[str, Any]) -> RenderedContent | None:
         """Format OpenSpec changes list response using template.
 
         Args:
             data: Parsed JSON from openspec list command
 
         Returns:
-            Formatted markdown string
+            RenderedContent with formatted content, or None if filtered by requires-*
         """
         changes = data.get("changes", [])
 
@@ -442,26 +459,26 @@ class OpenSpecTask:
             change["lastModified"] = last_mod[:10] if last_mod else "N/A"
 
         context = {"has_changes": len(sorted_changes) > 0, "sorted_changes": sorted_changes}
-        return await render_common_template("_commands/openspec/_changes-format", extra_context=context)
+        return await render_openspec_template("_changes-format", extra_context=TemplateContext(context))
 
-    async def _format_show_response(self, data: dict[str, Any]) -> str:
+    async def _format_show_response(self, data: dict[str, Any]) -> RenderedContent | None:
         """Format OpenSpec show response using template.
 
         Args:
             data: Parsed JSON from openspec show command
 
         Returns:
-            Formatted markdown string
+            RenderedContent with formatted content, or None if filtered by requires-*
         """
-        return await render_common_template("_commands/openspec/_show-format", extra_context=data)
+        return await render_openspec_template("_show-format", extra_context=TemplateContext(data))
 
-    async def _format_error_response(self, data: dict[str, Any]) -> str:
+    async def _format_error_response(self, data: dict[str, Any]) -> RenderedContent | None:
         """Format OpenSpec CLI error using template.
 
         Args:
             data: Parsed JSON with error fields
 
         Returns:
-            Formatted markdown string
+            RenderedContent with formatted content, or None if filtered by requires-*
         """
-        return await render_common_template("_commands/openspec/_error-format", extra_context=data)
+        return await render_openspec_template("_error-format", extra_context=TemplateContext(data))

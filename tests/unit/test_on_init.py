@@ -1,8 +1,24 @@
 """Tests for @guide.on_init() decorator and initialization flow."""
 
+from pathlib import Path
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
+
+from mcp_guide.render.content import RenderedContent
+from mcp_guide.utils.frontmatter import Frontmatter
+
+
+def make_rendered_content(content: str, instruction: str | None = None) -> RenderedContent:
+    """Helper to create RenderedContent for mocking."""
+    return RenderedContent(
+        content=content,
+        frontmatter=Frontmatter({"instruction": instruction} if instruction else {}),
+        template_path=Path("test.mustache"),
+        template_name="test",
+        frontmatter_length=0,
+        content_length=len(content),
+    )
 
 
 class TestOnInitDecorator:
@@ -186,7 +202,7 @@ class TestTaskOnInit:
     @pytest.mark.asyncio
     async def test_openspec_task_on_init_checks_flag(self):
         """Test that OpenSpecTask.on_init() checks flag and unsubscribes if disabled."""
-        from mcp_guide.client_context.openspec_task import OpenSpecTask
+        from mcp_guide.openspec.task import OpenSpecTask
 
         mock_task_manager = Mock()
         mock_task_manager.requires_flag = Mock(return_value=False)
@@ -209,7 +225,7 @@ class TestTaskOnInit:
         mock_task_manager.queue_instruction = AsyncMock()
 
         with patch("mcp_guide.workflow.tasks.render_workflow_template") as mock_render:
-            mock_render.return_value = "setup content"
+            mock_render.return_value = make_rendered_content("setup content")
 
             task = WorkflowMonitorTask()
             task.task_manager = mock_task_manager
@@ -241,13 +257,13 @@ class TestTaskOnInit:
     @pytest.mark.asyncio
     async def test_client_context_task_on_init_requests_info_when_enabled(self):
         """Test that ClientContextTask.on_init() requests OS info when flag is enabled."""
-        from mcp_guide.client_context.tasks import ClientContextTask
+        from mcp_guide.context.tasks import ClientContextTask
 
         mock_task_manager = Mock()
         mock_task_manager.requires_flag = Mock(return_value=True)
         mock_task_manager.queue_instruction = AsyncMock()
 
-        with patch("mcp_guide.client_context.tasks.render_common_template") as mock_render:
+        with patch("mcp_guide.context.tasks.render_context_template") as mock_render:
             mock_render.return_value = "client context setup"
 
             task = ClientContextTask(task_manager=mock_task_manager)
@@ -262,7 +278,7 @@ class TestTaskOnInit:
     @pytest.mark.asyncio
     async def test_client_context_task_on_init_unsubscribes_when_disabled(self):
         """Test that ClientContextTask.on_init() unsubscribes when flag is disabled."""
-        from mcp_guide.client_context.tasks import ClientContextTask
+        from mcp_guide.context.tasks import ClientContextTask
 
         mock_task_manager = Mock()
         mock_task_manager.requires_flag = Mock(return_value=False)

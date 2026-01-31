@@ -1,5 +1,8 @@
 """Tests for enhanced template context namespaces."""
 
+from unittest.mock import AsyncMock, MagicMock, patch
+
+from mcp_guide.context.tasks import ClientContextTask
 from mcp_guide.utils.template_context import get_user_context
 
 
@@ -66,10 +69,6 @@ class TestClientContextTask:
 
     def test_client_context_task_requests_basic_os_info(self):
         """Test that ClientContextTask can request basic OS info."""
-        from unittest.mock import AsyncMock, MagicMock, patch
-
-        from mcp_guide.client_context.tasks import ClientContextTask
-
         mock_task_manager = MagicMock()
         mock_task_manager.queue_instruction = AsyncMock()
         mock_task_manager.subscribe = MagicMock()
@@ -89,10 +88,6 @@ class TestClientContextTask:
 
     def test_client_context_task_handles_os_response(self):
         """Test that ClientContextTask has event handling capability."""
-        from unittest.mock import MagicMock
-
-        from mcp_guide.client_context.tasks import ClientContextTask
-
         mock_task_manager = MagicMock()
         mock_task_manager.subscribe = MagicMock()
 

@@ -81,9 +81,9 @@ class WorkflowMonitorTask:
             logger.debug(f"WorkflowMonitorTask using workflow file from flag: {workflow_file}")
 
         if not self._setup_done:
-            content = await render_workflow_template("monitoring-setup")
-            if content:
-                await self.task_manager.queue_instruction(content)
+            rendered = await render_workflow_template("monitoring-setup")
+            if rendered:
+                await self.task_manager.queue_instruction(rendered.content)
             self._setup_done = True
             logger.debug("WorkflowMonitorTask initialized")
 
@@ -110,9 +110,9 @@ class WorkflowMonitorTask:
 
     async def _handle_monitoring_reminder(self) -> None:
         """Handle timer events for workflow monitoring reminders."""
-        content = await render_workflow_template("monitoring-reminder")
-        if content:
-            await self.task_manager.queue_instruction(content)
+        rendered = await render_workflow_template("monitoring-reminder")
+        if rendered:
+            await self.task_manager.queue_instruction(rendered.content)
 
     async def _process_workflow_content(self, content: str) -> None:
         """Process workflow file content and update cached state."""
@@ -145,9 +145,9 @@ class WorkflowMonitorTask:
                     self.task_manager.set_cached_data("workflow_change_content", change_content)
 
             # Always queue monitoring instruction after successful parse
-            result_content = await render_workflow_template("monitoring-result")
-            if result_content:
-                await self.task_manager.queue_instruction(result_content)
+            rendered = await render_workflow_template("monitoring-result")
+            if rendered:
+                await self.task_manager.queue_instruction(rendered.content)
 
             # Update cache with new state AFTER processing changes
             self.task_manager.set_cached_data("workflow_state", new_state)
@@ -172,9 +172,9 @@ class WorkflowMonitorTask:
             template_pattern = get_instruction_template_for_change(change)
 
             # Render template content for main response
-            content = await render_workflow_template(template_pattern)
-            if content:
-                rendered_contents.append(content)
+            rendered = await render_workflow_template(template_pattern)
+            if rendered:
+                rendered_contents.append(rendered.content)
                 logger.trace(
                     f"Rendered workflow content for {change.change_type.value} using pattern: {template_pattern}"
                 )
