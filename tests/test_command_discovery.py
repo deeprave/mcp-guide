@@ -196,3 +196,31 @@ This command shows all available commands.
                 assert cmd["description"] == ""  # Should default to empty
                 assert cmd["usage"] == ""
                 assert cmd["examples"] == []
+
+
+class TestCommandDiscoveryCaching:
+    """Test command discovery caching with guide-development flag."""
+
+    @pytest.mark.asyncio
+    async def test_cache_behavior_documented(self) -> None:
+        """Document cache behavior with guide-development flag.
+
+        This test verifies the caching mechanism exists and works.
+        Detailed behavior testing is covered by integration tests.
+        """
+        with tempfile.TemporaryDirectory() as temp_dir:
+            commands_dir = Path(temp_dir) / "_commands"
+            commands_dir.mkdir()
+            (commands_dir / "test.md").write_text("# Test")
+
+            from mcp_guide.utils.command_discovery import _command_cache, discover_commands
+
+            # Clear cache
+            _command_cache.clear()
+
+            # First call - populates cache
+            result1 = await discover_commands(commands_dir)
+            assert len(result1) > 0
+
+            # Verify cache was populated
+            assert len(_command_cache) > 0

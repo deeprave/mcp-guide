@@ -40,6 +40,10 @@
 ## Integration (Subspec: migrate-workflow-rendering)
 - [x] Migrate workflow rendering to use `render_template()` API (see migrate-workflow-rendering/tasks.md)
 
+## Performance (Subspec: add-development-feature-flag)
+- [x] Add `guide-development` feature flag for development mode (see add-development-feature-flag/tasks.md)
+- [x] Optimize command discovery caching based on flag
+
 ## Enhancement (Related: enhance-requires-checking)
 - [ ] Enhance `requires-*` checking to support list/dict/key-value requirements (see enhance-requires-checking change)
 - [ ] Redesign workflow flag structure to support list/dict/boolean formats
