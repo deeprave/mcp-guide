@@ -48,7 +48,7 @@ class OpenSpecTask:
         # Subscribe to command, file, and timer events
         self.task_manager.subscribe(
             self,
-            EventType.FS_COMMAND | EventType.FS_DIRECTORY | EventType.FS_FILE_CONTENT | EventType.TIMER,
+            EventType.FS_COMMAND | EventType.FS_FILE_CONTENT | EventType.TIMER,
             CHANGES_CHECK_INTERVAL,
         )
 
@@ -262,7 +262,6 @@ class OpenSpecTask:
 
         # Handle directory listing events
         if event_type & EventType.FS_DIRECTORY:
-            # No longer used for project detection
             return False
 
         # Handle file content events

@@ -59,7 +59,6 @@ class TestOpenSpecTask:
         call = mock_task_manager.subscribe.call_args_list[0]
         assert call[0][0] == task
         assert call[0][1] & EventType.FS_COMMAND
-        assert call[0][1] & EventType.FS_DIRECTORY
         assert call[0][1] & EventType.FS_FILE_CONTENT
         assert call[0][1] & EventType.TIMER
         assert call[0][2] == 3600.0  # 60 min interval
@@ -382,6 +381,22 @@ class TestOpenSpecTask:
 
             assert result is True
             mock_request.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_timer_event_skips_request_when_cache_valid(self, mock_task_manager):
+        """Test TIMER event does not request changes when cache is still valid."""
+        import time
+
+        task = OpenSpecTask(mock_task_manager)
+        task._flag_checked = True
+        task._changes_cache = [{"id": "test-change"}]
+        task._changes_timestamp = time.time()  # Fresh cache
+
+        with patch.object(task, "request_changes_json", new_callable=AsyncMock) as mock_request:
+            result = await task.handle_event(EventType.TIMER, {"interval": 3600.0})
+
+            assert result is True
+            mock_request.assert_not_called()
 
 
 class TestOpenSpecResponseFormatting:
