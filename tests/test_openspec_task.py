@@ -8,8 +8,8 @@ import pytest
 
 from mcp_guide.openspec.task import OpenSpecTask
 from mcp_guide.render.content import RenderedContent
+from mcp_guide.render.frontmatter import Frontmatter
 from mcp_guide.task_manager import EventType
-from mcp_guide.utils.frontmatter import Frontmatter
 
 
 def make_rendered_content(content: str, instruction: str | None = None) -> RenderedContent:
@@ -71,7 +71,7 @@ class TestOpenSpecTask:
 
         task = OpenSpecTask(mock_task_manager)
 
-        with patch("mcp_guide.utils.flag_utils.get_resolved_flag_value", new_callable=AsyncMock) as mock_get_flag:
+        with patch("mcp_guide.feature_flags.utils.get_resolved_flag_value", new_callable=AsyncMock) as mock_get_flag:
             mock_get_flag.return_value = True
 
             await task.on_tool()

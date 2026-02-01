@@ -2,7 +2,7 @@
 
 from unittest.mock import AsyncMock, Mock
 
-from mcp_guide.utils.template_context_cache import TemplateContextCache
+from mcp_guide.render.cache import TemplateContextCache
 
 
 class TestTemplateContextCache:
@@ -200,7 +200,7 @@ class TestTemplateContextCache:
         cache = TemplateContextCache()
 
         # Clear cache to ensure fresh context
-        from mcp_guide.utils.template_context_cache import invalidate_template_context_cache
+        from mcp_guide.render.cache import invalidate_template_context_cache
 
         invalidate_template_context_cache()
 
@@ -284,7 +284,7 @@ class TestTemplateContextCache:
         cache = TemplateContextCache()
 
         # Clear cache to ensure fresh context
-        from mcp_guide.utils.template_context_cache import invalidate_template_context_cache
+        from mcp_guide.render.cache import invalidate_template_context_cache
 
         invalidate_template_context_cache()
 
@@ -322,7 +322,7 @@ class TestTemplateContextCache:
 
     def test_get_transient_context_returns_template_context(self) -> None:
         """Test that get_transient_context returns TemplateContext."""
-        from mcp_guide.utils.template_context import TemplateContext
+        from mcp_guide.render.context import TemplateContext
 
         cache = TemplateContextCache()
         context = cache.get_transient_context()

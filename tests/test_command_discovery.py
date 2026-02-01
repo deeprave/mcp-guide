@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from mcp_guide.utils.file_discovery import FileInfo
+from mcp_guide.discovery.files import FileInfo
 
 
 class TestCommandDiscovery:
@@ -50,11 +50,9 @@ class TestCommandDiscovery:
                 ),
             ]
 
-            with patch(
-                "mcp_guide.utils.command_discovery.discover_category_files", new=AsyncMock(return_value=mock_files)
-            ):
+            with patch("mcp_guide.discovery.commands.discover_category_files", new=AsyncMock(return_value=mock_files)):
                 # Import and test the function (to be implemented)
-                from mcp_guide.utils.command_discovery import discover_commands
+                from mcp_guide.discovery.commands import discover_commands
 
                 commands = await discover_commands(commands_dir)
 
@@ -99,10 +97,8 @@ class TestCommandDiscovery:
                 ),
             ]
 
-            with patch(
-                "mcp_guide.utils.command_discovery.discover_category_files", new=AsyncMock(return_value=mock_files)
-            ):
-                from mcp_guide.utils.command_discovery import discover_commands
+            with patch("mcp_guide.discovery.commands.discover_category_files", new=AsyncMock(return_value=mock_files)):
+                from mcp_guide.discovery.commands import discover_commands
 
                 commands = await discover_commands(commands_dir)
 
@@ -145,10 +141,8 @@ This command shows all available commands.
                 )
             ]
 
-            with patch(
-                "mcp_guide.utils.command_discovery.discover_category_files", new=AsyncMock(return_value=mock_files)
-            ):
-                from mcp_guide.utils.command_discovery import discover_commands
+            with patch("mcp_guide.discovery.commands.discover_category_files", new=AsyncMock(return_value=mock_files)):
+                from mcp_guide.discovery.commands import discover_commands
 
                 commands = await discover_commands(commands_dir)
 
@@ -183,10 +177,8 @@ This command shows all available commands.
                 )
             ]
 
-            with patch(
-                "mcp_guide.utils.command_discovery.discover_category_files", new=AsyncMock(return_value=mock_files)
-            ):
-                from mcp_guide.utils.command_discovery import discover_commands
+            with patch("mcp_guide.discovery.commands.discover_category_files", new=AsyncMock(return_value=mock_files)):
+                from mcp_guide.discovery.commands import discover_commands
 
                 commands = await discover_commands(commands_dir)
 
@@ -213,7 +205,7 @@ class TestCommandDiscoveryCaching:
             commands_dir.mkdir()
             (commands_dir / "test.md").write_text("# Test")
 
-            from mcp_guide.utils.command_discovery import _command_cache, discover_commands
+            from mcp_guide.discovery.commands import _command_cache, discover_commands
 
             # Clear cache
             _command_cache.clear()

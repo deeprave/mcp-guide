@@ -4,8 +4,8 @@ from typing import Any, Optional
 
 from mcp_guide.config_constants import CONTEXT_DIR
 from mcp_guide.render.content import RenderedContent
+from mcp_guide.render.context import TemplateContext
 from mcp_guide.render.rendering import render_content
-from mcp_guide.utils.template_context import TemplateContext
 
 
 async def render_context_template(

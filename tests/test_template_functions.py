@@ -6,8 +6,8 @@ from datetime import datetime
 import chevron
 import pytest
 
-from mcp_guide.utils.template_functions import SyntaxHighlighter, TemplateFunctions
-from mcp_guide.utils.template_renderer import render_template_content
+from mcp_guide.render.functions import SyntaxHighlighter, TemplateFunctions
+from mcp_guide.render.renderer import render_template_content
 
 
 class TestTemplateFunctions:

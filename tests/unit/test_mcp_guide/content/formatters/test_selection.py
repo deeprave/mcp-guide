@@ -1,9 +1,9 @@
 """Tests for formatter selection with ContentFormat enum."""
 
-from mcp_guide.utils.content_formatter_base import BaseFormatter
-from mcp_guide.utils.content_formatter_mime import MimeFormatter
-from mcp_guide.utils.content_formatter_plain import PlainFormatter
-from mcp_guide.utils.formatter_selection import (
+from mcp_guide.content.formatters.base import BaseFormatter
+from mcp_guide.content.formatters.mime import MimeFormatter
+from mcp_guide.content.formatters.plain import PlainFormatter
+from mcp_guide.content.formatters.selection import (
     ContentFormat,
     TemplateStyling,
     get_formatter_from_flag,

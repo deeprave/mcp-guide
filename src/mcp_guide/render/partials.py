@@ -62,7 +62,7 @@ async def resolve_partial_paths(template_path: Path, includes: List[str], docroo
             raise PartialNotFoundError(f"Partial path outside docroot: {include}") from e
 
         # Use common extension resolution function
-        from mcp_guide.utils.file_discovery import resolve_file_with_extensions
+        from mcp_guide.discovery.files import resolve_file_with_extensions
 
         found_path = await resolve_file_with_extensions(base_path)
 
@@ -109,7 +109,7 @@ async def load_partial_content(partial_path: Path, base_path: Path, context: dic
     logger.trace(f"Base partial path: {resolved_base}")
 
     # Use common extension resolution function
-    from mcp_guide.utils.file_discovery import resolve_file_with_extensions
+    from mcp_guide.discovery.files import resolve_file_with_extensions
 
     found_path = await resolve_file_with_extensions(Path(resolved_base))
 
@@ -124,7 +124,7 @@ async def load_partial_content(partial_path: Path, base_path: Path, context: dic
         content = await final_path.read_text(encoding="utf-8")
 
         # Process frontmatter if present
-        from mcp_guide.utils.frontmatter import check_frontmatter_requirements, parse_content_with_frontmatter
+        from mcp_guide.render.frontmatter import check_frontmatter_requirements, parse_content_with_frontmatter
 
         parsed = parse_content_with_frontmatter(content)
 

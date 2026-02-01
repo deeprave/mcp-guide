@@ -35,8 +35,8 @@ def validate_categories_exist(project: Project, category_names: list[str]) -> No
     Raises:
         ArgValidationError: If any categories don't exist (lists all missing)
     """
+    from mcp_guide.content.gathering import parse_expression
     from mcp_guide.models import ExpressionParseError
-    from mcp_guide.utils.content_common import parse_expression
 
     errors = []
     for entry in category_names:

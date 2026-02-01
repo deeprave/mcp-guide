@@ -3,8 +3,8 @@
 from datetime import datetime
 from pathlib import Path
 
-from mcp_guide.utils.content_formatter_mime import MimeFormatter
-from mcp_guide.utils.file_discovery import FileInfo
+from mcp_guide.content.formatters.mime import MimeFormatter
+from mcp_guide.discovery.files import FileInfo
 
 
 async def test_mime_formatter_uses_content_size_single_file():

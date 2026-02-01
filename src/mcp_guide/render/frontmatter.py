@@ -61,7 +61,7 @@ def check_frontmatter_requirements(frontmatter: Dict[str, Any], context: Dict[st
     return True
 
 
-from mcp_guide.utils.frontmatter_types import Frontmatter
+from mcp_guide.render.frontmatter_types import Frontmatter
 
 
 @dataclass

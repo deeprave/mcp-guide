@@ -13,8 +13,8 @@ from mcp_guide.render.content import (
     FM_USAGE,
     RenderedContent,
 )
-from mcp_guide.utils.frontmatter import Content
-from mcp_guide.utils.frontmatter_types import Frontmatter
+from mcp_guide.render.frontmatter import Content
+from mcp_guide.render.frontmatter_types import Frontmatter
 
 
 def test_frontmatter_constants_exist():

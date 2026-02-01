@@ -8,8 +8,17 @@ from typing import Optional
 from mcp.server.fastmcp import Context
 from pydantic import Field
 
+from mcp_guide.content.formatters.selection import ContentFormat, get_formatter_from_flag
+from mcp_guide.content.gathering import gather_content
+from mcp_guide.content.utils import (
+    create_file_read_error_result,
+    extract_and_deduplicate_instructions,
+    read_and_render_file_contents,
+)
 from mcp_guide.core.tool_arguments import ToolArguments
+from mcp_guide.discovery.files import FileInfo
 from mcp_guide.models import CategoryNotFoundError, CollectionNotFoundError, ExpressionParseError, FileReadError
+from mcp_guide.render.cache import get_template_context_if_needed
 from mcp_guide.result import Result
 from mcp_guide.result_constants import (
     ERROR_FILE_READ,
@@ -22,15 +31,6 @@ from mcp_guide.result_constants import (
 from mcp_guide.server import tools
 from mcp_guide.session import get_or_create_session
 from mcp_guide.tools.tool_result import tool_result
-from mcp_guide.utils.content_common import gather_content
-from mcp_guide.utils.content_utils import (
-    create_file_read_error_result,
-    extract_and_deduplicate_instructions,
-    read_and_render_file_contents,
-)
-from mcp_guide.utils.file_discovery import FileInfo
-from mcp_guide.utils.formatter_selection import ContentFormat, get_formatter_from_flag
-from mcp_guide.utils.template_context_cache import get_template_context_if_needed
 
 __all__ = ["internal_get_content"]
 
@@ -139,7 +139,7 @@ async def internal_get_content(
 
         # Resolve content format flag
         from mcp_guide.feature_flags.constants import FLAG_CONTENT_FORMAT_MIME
-        from mcp_guide.utils.flag_utils import get_resolved_flag_value
+        from mcp_guide.feature_flags.utils import get_resolved_flag_value
 
         flag_value = await get_resolved_flag_value(session, FLAG_CONTENT_FORMAT_MIME)
         format_type = ContentFormat.from_flag_value(flag_value)

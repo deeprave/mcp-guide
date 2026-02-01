@@ -4,9 +4,9 @@ from datetime import datetime
 from pathlib import Path
 from unittest.mock import patch
 
-from mcp_guide.utils.file_discovery import FileInfo
-from mcp_guide.utils.template_context import TemplateContext
-from mcp_guide.utils.template_renderer import (
+from mcp_guide.discovery.files import FileInfo
+from mcp_guide.render.context import TemplateContext
+from mcp_guide.render.renderer import (
     _build_file_context,
     is_template_file,
     render_template_content,
@@ -63,7 +63,7 @@ class TestPartialNameExtraction:
         """Test partial name extraction logic via the public helper."""
         from pathlib import Path
 
-        from mcp_guide.utils.template_renderer import get_partial_name
+        from mcp_guide.render.renderer import get_partial_name
 
         # Test cases for partial name extraction
         test_cases = [
@@ -212,7 +212,7 @@ class TestContextChainRendering:
         # Mock the context cache to return a known context
         mock_context = TemplateContext({"project": {"name": "test-project"}})
 
-        with patch("mcp_guide.utils.template_renderer.get_template_contexts", return_value=mock_context):
+        with patch("mcp_guide.render.renderer.get_template_contexts", return_value=mock_context):
             result = await render_template_with_context_chain(content)
 
             assert result.is_ok()
@@ -228,7 +228,7 @@ class TestContextChainRendering:
         # Mock category context
         category_context = TemplateContext({"category": {"name": "docs"}})
 
-        with patch("mcp_guide.utils.template_renderer.get_template_contexts", return_value=category_context):
+        with patch("mcp_guide.render.renderer.get_template_contexts", return_value=category_context):
             result = await render_template_with_context_chain(content, category_name="docs")
 
             assert result.is_ok()
@@ -241,7 +241,7 @@ class TestContextChainRendering:
         # Mock base context
         base_context = TemplateContext({"project": {"name": "test-project"}})
 
-        with patch("mcp_guide.utils.template_renderer.get_template_contexts", return_value=base_context):
+        with patch("mcp_guide.render.renderer.get_template_contexts", return_value=base_context):
             result = await render_template_with_context_chain(content)
 
             assert result.is_ok()
@@ -331,7 +331,7 @@ class TestFileContextIsolation:
         # Mock base context
         base_context = TemplateContext({"project": {"name": "test-project"}})
 
-        with patch("mcp_guide.utils.template_renderer.get_template_contexts", return_value=base_context):
+        with patch("mcp_guide.render.renderer.get_template_contexts", return_value=base_context):
             result = await render_template_with_context_chain(content, file_info=file_info)
 
             assert result.is_ok()

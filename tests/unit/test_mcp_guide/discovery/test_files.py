@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from mcp_guide.utils.file_discovery import FileInfo, discover_category_files
+from mcp_guide.discovery.files import FileInfo, discover_category_files
 
 
 def test_fileinfo_has_category_field():

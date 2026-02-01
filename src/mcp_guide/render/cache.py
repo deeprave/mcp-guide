@@ -3,10 +3,10 @@
 from typing import Any, Optional
 
 from mcp_guide.core.mcp_log import get_logger
+from mcp_guide.discovery.files import FileInfo
 from mcp_guide.feature_flags.constants import FLAG_WORKFLOW, FLAG_WORKFLOW_FILE
+from mcp_guide.render.context import TemplateContext
 from mcp_guide.session_listener import SessionListener
-from mcp_guide.utils.file_discovery import FileInfo
-from mcp_guide.utils.template_context import TemplateContext
 from mcp_guide.workflow.constants import DEFAULT_WORKFLOW_FILE
 from mcp_guide.workflow.flags import parse_workflow_phases, substitute_variables
 
@@ -35,7 +35,7 @@ class TemplateContextCache(SessionListener):
         """Build system context with static system information."""
         import platform
 
-        from mcp_guide.utils.template_context import TemplateContext
+        from mcp_guide.render.context import TemplateContext
 
         server_vars = {
             "server": {
@@ -49,8 +49,8 @@ class TemplateContextCache(SessionListener):
 
     async def _build_client_context(self) -> "TemplateContext":
         """Build client context from cached client data."""
+        from mcp_guide.render.context import TemplateContext
         from mcp_guide.task_manager import get_task_manager
-        from mcp_guide.utils.template_context import TemplateContext
 
         task_manager = get_task_manager()
         client_os_info = task_manager.get_cached_data("client_os_info") or {}
@@ -71,7 +71,7 @@ class TemplateContextCache(SessionListener):
         """Build agent context with @ symbol default and agent info if available."""
 
         from mcp_guide.mcp_context import cached_mcp_context
-        from mcp_guide.utils.template_context import TemplateContext
+        from mcp_guide.render.context import TemplateContext
 
         agent_vars: dict[str, Any] = {
             "@": "@"  # @ symbol always available
@@ -127,7 +127,7 @@ class TemplateContextCache(SessionListener):
             styling_value = "plain"
 
         # Convert to enum and get styling variables
-        from mcp_guide.utils.formatter_selection import TemplateStyling, get_styling_variables
+        from mcp_guide.content.formatters.selection import TemplateStyling, get_styling_variables
 
         styling = TemplateStyling.from_flag_value(styling_value)
         formatting_vars = get_styling_variables(styling)
@@ -183,8 +183,8 @@ class TemplateContextCache(SessionListener):
 
     async def _build_project_context(self) -> "TemplateContext":
         """Build project context with current project data."""
+        from mcp_guide.render.context import TemplateContext
         from mcp_guide.session import get_or_create_session
-        from mcp_guide.utils.template_context import TemplateContext
 
         # Extract project information from current session using public API
         project_name = ""
@@ -368,8 +368,8 @@ class TemplateContextCache(SessionListener):
 
     async def _build_category_context(self, category_name: str) -> "TemplateContext":
         """Build category context with category data (not cached)."""
+        from mcp_guide.render.context import TemplateContext
         from mcp_guide.session import get_or_create_session
-        from mcp_guide.utils.template_context import TemplateContext
 
         # Extract category information from current session's project
         category_data = {"name": "", "dir": "", "patterns": [], "description": ""}
@@ -394,8 +394,8 @@ class TemplateContextCache(SessionListener):
 
     async def _build_collection_context(self, collection_name: str) -> "TemplateContext":
         """Build collection context with collection data (not cached)."""
+        from mcp_guide.render.context import TemplateContext
         from mcp_guide.session import get_or_create_session
-        from mcp_guide.utils.template_context import TemplateContext
 
         # Extract collection information from current session's project
         collection_data = {"name": "", "categories": [], "description": ""}
@@ -463,7 +463,7 @@ class TemplateContextCache(SessionListener):
         import time
         from datetime import datetime, timezone
 
-        from mcp_guide.utils.template_context import TemplateContext
+        from mcp_guide.render.context import TemplateContext
 
         # Get single high-resolution timestamp
         timestamp_ns = time.time_ns()
@@ -523,7 +523,7 @@ async def get_template_context_if_needed(
     Returns:
         TemplateContext if templates found, None otherwise
     """
-    from mcp_guide.utils.template_renderer import is_template_file
+    from mcp_guide.render.renderer import is_template_file
 
     if any(is_template_file(file_info) for file_info in files):
         return await get_template_contexts(category_name)

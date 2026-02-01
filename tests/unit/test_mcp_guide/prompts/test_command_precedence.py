@@ -56,7 +56,7 @@ class TestUnderscoreFiltering:
         """Test that command validation excludes underscore-prefixed files."""
         from pathlib import Path
 
-        from mcp_guide.utils.pattern_matching import is_valid_command
+        from mcp_guide.discovery.patterns import is_valid_command
 
         # Arrange
         normal_file = Path("_commands/review.md")
@@ -70,7 +70,7 @@ class TestUnderscoreFiltering:
         """Test that command validation excludes files in underscore directories (except _commands)."""
         from pathlib import Path
 
-        from mcp_guide.utils.pattern_matching import is_valid_command
+        from mcp_guide.discovery.patterns import is_valid_command
 
         # Arrange
         commands_file = Path("_commands/review.md")  # Should be allowed

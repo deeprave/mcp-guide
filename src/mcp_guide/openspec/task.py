@@ -11,9 +11,9 @@ from mcp_guide.decorators import task_init
 from mcp_guide.feature_flags.constants import FLAG_OPENSPEC
 from mcp_guide.openspec.rendering import render_openspec_template
 from mcp_guide.render.content import RenderedContent
+from mcp_guide.render.context import TemplateContext
 from mcp_guide.result import Result
 from mcp_guide.task_manager import EventType, get_task_manager
-from mcp_guide.utils.template_context import TemplateContext
 
 if TYPE_CHECKING:
     from mcp_guide.task_manager import TaskManager
@@ -324,7 +324,7 @@ class OpenSpecTask:
                     logger.info("OpenSpec validation completed and persisted")
 
                 # Invalidate template context cache to pick up fresh changes
-                from mcp_guide.utils.template_context_cache import invalidate_template_context_cache
+                from mcp_guide.render.cache import invalidate_template_context_cache
 
                 invalidate_template_context_cache()
                 logger.debug("Template context cache invalidated after OpenSpec changes update")

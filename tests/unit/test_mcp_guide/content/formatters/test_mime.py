@@ -3,26 +3,26 @@
 from datetime import datetime
 from pathlib import Path
 
-from mcp_guide.utils.file_discovery import FileInfo
+from mcp_guide.discovery.files import FileInfo
 
 
 def test_module_imports():
     """Test that module can be imported."""
-    from mcp_guide.utils import content_formatter_mime
+    from mcp_guide.content.formatters import mime
 
-    assert content_formatter_mime is not None
+    assert mime is not None
 
 
 def test_mime_formatter_class_exists():
     """Test that MimeFormatter class exists."""
-    from mcp_guide.utils.content_formatter_mime import MimeFormatter
+    from mcp_guide.content.formatters.mime import MimeFormatter
 
     assert MimeFormatter is not None
 
 
 def test_format_method_exists():
     """Test that format method exists."""
-    from mcp_guide.utils.content_formatter_mime import MimeFormatter
+    from mcp_guide.content.formatters.mime import MimeFormatter
 
     formatter = MimeFormatter()
     assert hasattr(formatter, "format")
@@ -31,7 +31,7 @@ def test_format_method_exists():
 
 def test_format_single_method_exists():
     """Test that format_single method exists."""
-    from mcp_guide.utils.content_formatter_mime import MimeFormatter
+    from mcp_guide.content.formatters.mime import MimeFormatter
 
     formatter = MimeFormatter()
     assert hasattr(formatter, "format_single")
@@ -40,7 +40,7 @@ def test_format_single_method_exists():
 
 async def test_format_empty_list():
     """Test that empty list returns empty string."""
-    from mcp_guide.utils.content_formatter_mime import MimeFormatter
+    from mcp_guide.content.formatters.mime import MimeFormatter
 
     formatter = MimeFormatter()
     result = await formatter.format([], "test-category")
@@ -49,7 +49,7 @@ async def test_format_empty_list():
 
 async def test_format_single_file_delegates():
     """Test that single file delegates to format_single."""
-    from mcp_guide.utils.content_formatter_mime import MimeFormatter
+    from mcp_guide.content.formatters.mime import MimeFormatter
 
     formatter = MimeFormatter()
     file_info = FileInfo(
@@ -68,7 +68,7 @@ async def test_format_single_file_delegates():
 
 async def test_format_single_markdown_file():
     """Test formatting a single markdown file with MIME headers."""
-    from mcp_guide.utils.content_formatter_mime import MimeFormatter
+    from mcp_guide.content.formatters.mime import MimeFormatter
 
     formatter = MimeFormatter()
     content = "# Test\n\nThis is test content."
@@ -94,7 +94,7 @@ async def test_format_single_markdown_file():
 
 async def test_format_single_text_file():
     """Test formatting a text file."""
-    from mcp_guide.utils.content_formatter_mime import MimeFormatter
+    from mcp_guide.content.formatters.mime import MimeFormatter
 
     formatter = MimeFormatter()
     content = "Plain text content"
@@ -114,7 +114,7 @@ async def test_format_single_text_file():
 
 async def test_format_single_unknown_extension():
     """Test formatting file with unknown extension defaults to text/plain."""
-    from mcp_guide.utils.content_formatter_mime import MimeFormatter
+    from mcp_guide.content.formatters.mime import MimeFormatter
 
     formatter = MimeFormatter()
     content = "Unknown file type"
@@ -133,7 +133,7 @@ async def test_format_single_unknown_extension():
 
 async def test_format_single_utf8_content():
     """Test Content-Length correctly counts UTF-8 bytes."""
-    from mcp_guide.utils.content_formatter_mime import MimeFormatter
+    from mcp_guide.content.formatters.mime import MimeFormatter
 
     formatter = MimeFormatter()
     content = "Hello 世界 🌍"  # Multi-byte characters
@@ -154,7 +154,7 @@ async def test_format_single_utf8_content():
 
 async def test_format_single_uses_content_size_not_content_length():
     """Test that Content-Length uses content_size field, not calculated length."""
-    from mcp_guide.utils.content_formatter_mime import MimeFormatter
+    from mcp_guide.content.formatters.mime import MimeFormatter
 
     formatter = MimeFormatter()
     content = "Test content"
@@ -178,7 +178,7 @@ async def test_format_single_uses_content_size_not_content_length():
 
 async def test_format_multiple_main_header():
     """Test that multiple files have multipart/mixed header with boundary."""
-    from mcp_guide.utils.content_formatter_mime import MimeFormatter
+    from mcp_guide.content.formatters.mime import MimeFormatter
 
     formatter = MimeFormatter()
     files = [
@@ -209,7 +209,7 @@ async def test_format_multiple_main_header():
 
 async def test_format_multiple_boundary_format():
     """Test that boundary follows UUID format and is used correctly."""
-    from mcp_guide.utils.content_formatter_mime import MimeFormatter
+    from mcp_guide.content.formatters.mime import MimeFormatter
 
     formatter = MimeFormatter()
     files = [
@@ -249,7 +249,7 @@ async def test_format_multiple_boundary_format():
 
 async def test_format_multiple_part_headers():
     """Test that each part has proper MIME headers."""
-    from mcp_guide.utils.content_formatter_mime import MimeFormatter
+    from mcp_guide.content.formatters.mime import MimeFormatter
 
     formatter = MimeFormatter()
     files = [
@@ -290,7 +290,7 @@ async def test_format_multiple_uses_actual_content_length():
     after frontmatter removal, but the MIME formatter correctly uses the final
     rendered content length for HTTP headers.
     """
-    from mcp_guide.utils.content_formatter_mime import MimeFormatter
+    from mcp_guide.content.formatters.mime import MimeFormatter
 
     formatter = MimeFormatter()
     files = [
@@ -325,7 +325,7 @@ async def test_format_multiple_uses_actual_content_length():
 
 async def test_format_multiple_crlf_line_endings():
     """Test that CRLF line endings are used throughout."""
-    from mcp_guide.utils.content_formatter_mime import MimeFormatter
+    from mcp_guide.content.formatters.mime import MimeFormatter
 
     formatter = MimeFormatter()
     files = [
@@ -357,7 +357,7 @@ async def test_format_multiple_crlf_line_endings():
 
 async def test_format_multiple_content_preserved():
     """Test that content is preserved exactly in multipart format."""
-    from mcp_guide.utils.content_formatter_mime import MimeFormatter
+    from mcp_guide.content.formatters.mime import MimeFormatter
 
     formatter = MimeFormatter()
     content1 = "# Title\n\nWith **formatting**"

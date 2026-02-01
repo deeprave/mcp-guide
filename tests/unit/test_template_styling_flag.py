@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 
 from mcp_guide.feature_flags.constants import FLAG_CONTENT_STYLE
-from mcp_guide.utils.template_context_cache import TemplateContextCache
+from mcp_guide.render.cache import TemplateContextCache
 
 
 class TestTemplateStylingFlag:

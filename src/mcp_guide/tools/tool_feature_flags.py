@@ -188,7 +188,7 @@ async def internal_get_project_flag(args: GetFlagArgs, ctx: Optional[Context] = 
 
     try:
         # Use resolution hierarchy: project → global → None
-        from mcp_guide.utils.flag_utils import get_resolved_flag_value
+        from mcp_guide.feature_flags.utils import get_resolved_flag_value
 
         value = await get_resolved_flag_value(session, args.feature_name)
 

@@ -4,7 +4,7 @@ from collections import ChainMap
 
 import pytest
 
-from mcp_guide.utils.template_context import TemplateContext
+from mcp_guide.render.context import TemplateContext
 
 
 class TestTemplateContext:

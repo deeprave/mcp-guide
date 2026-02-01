@@ -2,7 +2,7 @@
 
 import pytest
 
-from mcp_guide.utils.frontmatter import (
+from mcp_guide.render.frontmatter import (
     Content,
     get_frontmatter_instruction,
     parse_content_with_frontmatter,

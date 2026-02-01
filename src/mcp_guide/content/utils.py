@@ -6,18 +6,18 @@ from typing import Any, Optional
 
 from mcp_guide.core.file_reader import read_file_content
 from mcp_guide.core.mcp_log import get_logger
+from mcp_guide.discovery.files import FileInfo
 from mcp_guide.render import render_template
-from mcp_guide.result import Result
-from mcp_guide.utils.file_discovery import FileInfo
-from mcp_guide.utils.frontmatter import (
+from mcp_guide.render.context import TemplateContext
+from mcp_guide.render.frontmatter import (
     check_frontmatter_requirements,
     get_frontmatter_instruction,
     get_frontmatter_type,
     get_type_based_default_instruction,
     parse_content_with_frontmatter,
 )
-from mcp_guide.utils.template_context import TemplateContext
-from mcp_guide.utils.template_renderer import is_template_file
+from mcp_guide.render.renderer import is_template_file
+from mcp_guide.result import Result
 
 logger = get_logger(__name__)
 

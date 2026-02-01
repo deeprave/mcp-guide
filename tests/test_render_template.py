@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
+from mcp_guide.discovery.files import FileInfo
 from mcp_guide.render.template import render_template
-from mcp_guide.utils.file_discovery import FileInfo
 
 
 @pytest.mark.asyncio

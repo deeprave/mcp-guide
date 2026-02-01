@@ -26,7 +26,7 @@ class LogCapture:
             logging.getLogger("mcp_guide.filesystem.tools"),
             logging.getLogger("mcp_guide.task_manager"),
             logging.getLogger("mcp_guide.workflow.tasks"),
-            logging.getLogger("mcp_guide.utils.template_context_cache"),
+            logging.getLogger("mcp_guide.render.cache"),
         ]
         for logger in loggers:
             logger.addHandler(self.handler)

@@ -9,7 +9,7 @@ _SENTINEL = object()  # Sentinel value for distinguishing unset parameters
 import aiofiles.os
 from anyio import Path as AsyncPath
 
-from mcp_guide.utils.pattern_matching import safe_glob_search
+from mcp_guide.discovery.patterns import safe_glob_search
 
 # Template file extensions
 TEMPLATE_EXTENSIONS = (".mustache", ".hbs", ".handlebars", ".chevron")
@@ -195,7 +195,7 @@ class FileInfo:
         if self._frontmatter is not None or self._content is None:
             return
 
-        from mcp_guide.utils.frontmatter import parse_content_with_frontmatter
+        from mcp_guide.render.frontmatter import parse_content_with_frontmatter
 
         parsed = parse_content_with_frontmatter(self._content)
         self._frontmatter = parsed.frontmatter

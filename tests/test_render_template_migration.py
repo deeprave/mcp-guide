@@ -7,11 +7,11 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
+from mcp_guide.content.utils import read_and_render_file_contents
+from mcp_guide.discovery.files import FileInfo
 from mcp_guide.render import RenderedContent
-from mcp_guide.utils.content_utils import read_and_render_file_contents
-from mcp_guide.utils.file_discovery import FileInfo
-from mcp_guide.utils.frontmatter import Frontmatter
-from mcp_guide.utils.template_context import TemplateContext
+from mcp_guide.render.context import TemplateContext
+from mcp_guide.render.frontmatter import Frontmatter
 
 
 class TestRenderTemplateAPIIntegration:
@@ -46,7 +46,7 @@ class TestRenderTemplateAPIIntegration:
                 template_name="test.md.mustache",
             )
 
-            with patch("mcp_guide.utils.content_utils.render_template", new_callable=AsyncMock) as mock_render:
+            with patch("mcp_guide.content.utils.render_template", new_callable=AsyncMock) as mock_render:
                 mock_render.return_value = mock_rendered
 
                 # Create template context

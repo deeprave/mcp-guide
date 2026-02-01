@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pytest
 
-from mcp_guide.utils.content_utils import read_and_render_file_contents
-from mcp_guide.utils.file_discovery import FileInfo
-from mcp_guide.utils.template_context import TemplateContext
+from mcp_guide.content.utils import read_and_render_file_contents
+from mcp_guide.discovery.files import FileInfo
+from mcp_guide.render.context import TemplateContext
 
 
 class TestContentToolsTemplateIntegration:

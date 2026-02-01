@@ -3,26 +3,26 @@
 from datetime import datetime
 from pathlib import Path
 
-from mcp_guide.utils.file_discovery import FileInfo
+from mcp_guide.discovery.files import FileInfo
 
 
 def test_module_imports():
     """Test that module can be imported."""
-    from mcp_guide.utils import content_formatter_plain
+    from mcp_guide.content.formatters import plain
 
-    assert content_formatter_plain is not None
+    assert plain is not None
 
 
 def test_plain_formatter_class_exists():
     """Test that PlainFormatter class exists."""
-    from mcp_guide.utils.content_formatter_plain import PlainFormatter
+    from mcp_guide.content.formatters.plain import PlainFormatter
 
     assert PlainFormatter is not None
 
 
 def test_format_method_exists():
     """Test that format method exists."""
-    from mcp_guide.utils.content_formatter_plain import PlainFormatter
+    from mcp_guide.content.formatters.plain import PlainFormatter
 
     formatter = PlainFormatter()
     assert hasattr(formatter, "format")
@@ -31,7 +31,7 @@ def test_format_method_exists():
 
 def test_format_single_method_exists():
     """Test that format_single method exists."""
-    from mcp_guide.utils.content_formatter_plain import PlainFormatter
+    from mcp_guide.content.formatters.plain import PlainFormatter
 
     formatter = PlainFormatter()
     assert hasattr(formatter, "format_single")
@@ -40,7 +40,7 @@ def test_format_single_method_exists():
 
 async def test_format_empty_list():
     """Test that empty list returns empty string."""
-    from mcp_guide.utils.content_formatter_plain import PlainFormatter
+    from mcp_guide.content.formatters.plain import PlainFormatter
 
     formatter = PlainFormatter()
     result = await formatter.format([], "test-category")
@@ -49,7 +49,7 @@ async def test_format_empty_list():
 
 async def test_format_single_file_returns_content():
     """Test that single file returns content unchanged."""
-    from mcp_guide.utils.content_formatter_plain import PlainFormatter
+    from mcp_guide.content.formatters.plain import PlainFormatter
 
     formatter = PlainFormatter()
     content = "# Test\n\nThis is test content."
@@ -67,7 +67,7 @@ async def test_format_single_file_returns_content():
 
 async def test_format_single_preserves_line_endings():
     """Test that line endings are preserved."""
-    from mcp_guide.utils.content_formatter_plain import PlainFormatter
+    from mcp_guide.content.formatters.plain import PlainFormatter
 
     formatter = PlainFormatter()
     content = "Line 1\nLine 2\r\nLine 3\n"
@@ -85,7 +85,7 @@ async def test_format_single_preserves_line_endings():
 
 async def test_format_single_preserves_whitespace():
     """Test that whitespace is preserved."""
-    from mcp_guide.utils.content_formatter_plain import PlainFormatter
+    from mcp_guide.content.formatters.plain import PlainFormatter
 
     formatter = PlainFormatter()
     content = "  Leading spaces\n\tTabs\n  Trailing  "
@@ -103,7 +103,7 @@ async def test_format_single_preserves_whitespace():
 
 async def test_format_single_no_headers():
     """Test that no headers are added."""
-    from mcp_guide.utils.content_formatter_plain import PlainFormatter
+    from mcp_guide.content.formatters.plain import PlainFormatter
 
     formatter = PlainFormatter()
     content = "Plain content"
@@ -126,7 +126,7 @@ async def test_format_single_no_headers():
 
 async def test_format_single_empty_file():
     """Test that empty files work correctly."""
-    from mcp_guide.utils.content_formatter_plain import PlainFormatter
+    from mcp_guide.content.formatters.plain import PlainFormatter
 
     formatter = PlainFormatter()
     file_info = FileInfo(
@@ -143,7 +143,7 @@ async def test_format_single_empty_file():
 
 async def test_format_single_none_content():
     """Test that None content returns empty string."""
-    from mcp_guide.utils.content_formatter_plain import PlainFormatter
+    from mcp_guide.content.formatters.plain import PlainFormatter
 
     formatter = PlainFormatter()
     file_info = FileInfo(
@@ -160,7 +160,7 @@ async def test_format_single_none_content():
 
 async def test_format_multiple_two_files():
     """Test formatting two files with separators."""
-    from mcp_guide.utils.content_formatter_plain import PlainFormatter
+    from mcp_guide.content.formatters.plain import PlainFormatter
 
     formatter = PlainFormatter()
     file1 = FileInfo(
@@ -187,7 +187,7 @@ async def test_format_multiple_two_files():
 
 async def test_format_multiple_three_files():
     """Test formatting three files with separators."""
-    from mcp_guide.utils.content_formatter_plain import PlainFormatter
+    from mcp_guide.content.formatters.plain import PlainFormatter
 
     formatter = PlainFormatter()
     files = [
@@ -209,7 +209,7 @@ async def test_format_multiple_three_files():
 
 async def test_format_multiple_uses_basename():
     """Test that separator uses basename not full path."""
-    from mcp_guide.utils.content_formatter_plain import PlainFormatter
+    from mcp_guide.content.formatters.plain import PlainFormatter
 
     formatter = PlainFormatter()
     file1 = FileInfo(
@@ -238,7 +238,7 @@ async def test_format_multiple_uses_basename():
 
 async def test_format_multiple_preserves_content():
     """Test that content is preserved exactly in multiple files."""
-    from mcp_guide.utils.content_formatter_plain import PlainFormatter
+    from mcp_guide.content.formatters.plain import PlainFormatter
 
     formatter = PlainFormatter()
     content1 = "# Title\n\nWith **formatting**"

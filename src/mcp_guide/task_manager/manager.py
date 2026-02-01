@@ -495,7 +495,7 @@ class TaskManager:
 
         # Invalidate template context cache when workflow state changes
         if key == "workflow_state":
-            from mcp_guide.utils.template_context_cache import invalidate_template_context_cache
+            from mcp_guide.render.cache import invalidate_template_context_cache
 
             invalidate_template_context_cache()
             logger.trace("Template context cache invalidated due to workflow_state change")

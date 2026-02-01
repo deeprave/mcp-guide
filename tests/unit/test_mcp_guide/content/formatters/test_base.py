@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from mcp_guide.utils.content_formatter_base import BaseFormatter
-from mcp_guide.utils.file_discovery import FileInfo
+from mcp_guide.content.formatters.base import BaseFormatter
+from mcp_guide.discovery.files import FileInfo
 
 
 class TestBaseFormatter:
