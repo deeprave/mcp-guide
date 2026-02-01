@@ -63,7 +63,6 @@ class TestOpenSpecTask:
         assert call[0][1] & EventType.FS_FILE_CONTENT
         assert call[0][1] & EventType.TIMER
         assert call[0][2] == 3600.0  # 60 min interval
-        assert call[0][3] == 20.0  # 20 sec start delay
 
     @pytest.mark.asyncio
     async def test_get_name(self, mock_task_manager):
@@ -146,28 +145,8 @@ class TestOpenSpecTask:
         mock_task_manager.set_cached_data.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_handle_event_project_structure_complete(self, mock_task_manager):
-        """Test handling complete OpenSpec project structure."""
-        task = OpenSpecTask(mock_task_manager)
-
-        event_data = {
-            "path": "openspec/project.md",
-            "content": "# OpenSpec Project",
-        }
-
-        with (
-            patch.object(task, "request_version_check", new_callable=AsyncMock),
-            patch.object(task, "request_changes_json", new_callable=AsyncMock),
-        ):
-            result = await task.handle_event(EventType.FS_FILE_CONTENT, event_data)
-
-            assert result is True
-            assert task.is_project_enabled() is True
-            mock_task_manager.set_cached_data.assert_called_with("openspec_project_enabled", True)
-
-    @pytest.mark.asyncio
-    async def test_handle_event_project_structure_incomplete(self, mock_task_manager):
-        """Test handling missing OpenSpec project.md file."""
+    async def test_handle_event_non_openspec_file(self, mock_task_manager):
+        """Test handling non-OpenSpec files."""
         task = OpenSpecTask(mock_task_manager)
 
         event_data = {
@@ -237,27 +216,6 @@ class TestOpenSpecTask:
         assert result is True
         assert task.get_version() is None
         mock_task_manager.set_cached_data.assert_called_with("openspec_version", None)
-
-    @pytest.mark.asyncio
-    async def test_project_detection_does_not_trigger_version_or_changes_check(self, mock_task_manager):
-        """Test that project detection does not trigger automatic version/changes check."""
-        task = OpenSpecTask(mock_task_manager)
-
-        event_data = {
-            "path": "openspec/project.md",
-            "content": "# OpenSpec Project",
-        }
-
-        with (
-            patch.object(task, "request_version_check", new_callable=AsyncMock) as mock_version,
-            patch.object(task, "request_changes_json", new_callable=AsyncMock) as mock_changes,
-        ):
-            result = await task.handle_event(EventType.FS_FILE_CONTENT, event_data)
-
-        assert result is True
-        assert task.is_project_enabled() is True
-        mock_version.assert_not_called()
-        mock_changes.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_version_comparison(self, mock_task_manager):
@@ -399,38 +357,31 @@ class TestOpenSpecTask:
             mock_reminder.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_timer_event_skips_reminder_before_start_delay(self, mock_task_manager):
-        """Test TIMER event skips changes reminder on first fire (start delay)."""
+    async def test_timer_event_triggers_reminder(self, mock_task_manager):
+        """Test TIMER event triggers changes reminder."""
         task = OpenSpecTask(mock_task_manager)
         task._flag_checked = True
         task._project_enabled = True
 
         with patch.object(task, "_handle_changes_reminder", new_callable=AsyncMock) as mock_reminder:
-            # First timer event should be skipped
-            result = await task.handle_event(EventType.TIMER, {"interval": 3600.0})
-
-            assert result is True
-            mock_reminder.assert_not_called()
-
-            # Second timer event should fire
+            # Timer event should trigger reminder
             result = await task.handle_event(EventType.TIMER, {"interval": 3600.0})
 
             assert result is True
             mock_reminder.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_timer_event_skips_reminder_when_disabled(self, mock_task_manager):
-        """Test TIMER event skips changes reminder when project not enabled."""
+    async def test_timer_event_requests_changes_when_cache_stale(self, mock_task_manager):
+        """Test TIMER event requests changes when cache is stale."""
         task = OpenSpecTask(mock_task_manager)
         task._flag_checked = True
-        task._project_enabled = False
-        task._changes_timer_started = True  # Skip the first-fire check
+        task._changes_cache = None  # No cache
 
         with patch.object(task, "request_changes_json", new_callable=AsyncMock) as mock_request:
             result = await task.handle_event(EventType.TIMER, {"interval": 3600.0})
 
             assert result is True
-            mock_request.assert_not_called()
+            mock_request.assert_called_once()
 
 
 class TestOpenSpecResponseFormatting:

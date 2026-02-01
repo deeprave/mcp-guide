@@ -264,7 +264,7 @@ class TestTaskOnInit:
         mock_task_manager.queue_instruction = AsyncMock()
 
         with patch("mcp_guide.context.tasks.render_context_template") as mock_render:
-            mock_render.return_value = "client context setup"
+            mock_render.return_value = make_rendered_content("client context setup")
 
             task = ClientContextTask(task_manager=mock_task_manager)
             await task.on_init()

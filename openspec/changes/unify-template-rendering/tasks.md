@@ -44,7 +44,8 @@
 - [x] Add `guide-development` feature flag for development mode (see add-development-feature-flag/tasks.md)
 - [x] Optimize command discovery caching based on flag
 
-## Enhancement (Related: enhance-requires-checking)
-- [ ] Enhance `requires-*` checking to support list/dict/key-value requirements (see enhance-requires-checking change)
-- [ ] Redesign workflow flag structure to support list/dict/boolean formats
-- [ ] Remove legacy `check_frontmatter_requirements()` function
+## Integration (Subspec: migrate-context-rendering)
+- [x] Migrate context rendering to use `render_content()` API (see migrate-context-rendering/tasks.md)
+
+## Cleanup (Subspec: remove-old-rendering)
+- [x] Remove obsolete `render_system_content()` and `render_file_content()` (see remove-old-rendering/tasks.md)
