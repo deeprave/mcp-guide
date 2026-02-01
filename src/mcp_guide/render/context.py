@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any, Dict, Generator, Optional, Tuple
 from mcp_guide.core.mcp_log import get_logger
 
 if TYPE_CHECKING:
-    from mcp_guide.utils.file_discovery import FileInfo
+    from mcp_guide.discovery.files import FileInfo
 
 logger = get_logger(__name__)
 

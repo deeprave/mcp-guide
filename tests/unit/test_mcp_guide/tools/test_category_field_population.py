@@ -59,7 +59,7 @@ async def test_category_field_set_on_fileinfo(tmp_path: Path, monkeypatch: Monke
     captured_files = []
 
     # Import and wrap the actual function
-    from mcp_guide.utils.content_utils import read_and_render_file_contents as original_read
+    from mcp_guide.content.utils import read_and_render_file_contents as original_read
 
     async def capture_read_contents(files, base_dir, docroot, template_context=None, category_prefix=None):
         nonlocal captured_files

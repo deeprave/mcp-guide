@@ -55,7 +55,7 @@ Indexed args: {{#args}}{{#first}}FIRST: {{/first}}{{value}}{{^last}} {{/last}}{{
                 "mcp_guide.session.get_or_create_session", new=AsyncMock(return_value=mock_ctx.session)
             ) as mock_session,
         ):
-            from mcp_guide.utils.template_context import TemplateContext
+            from mcp_guide.render.context import TemplateContext
 
             mock_context.return_value = TemplateContext({})
             mock_render_context.return_value = TemplateContext({})
@@ -87,7 +87,7 @@ Indexed args: {{#args}}{{#first}}FIRST: {{/first}}{{value}}{{^last}} {{/last}}{{
                 "mcp_guide.session.get_or_create_session", new=AsyncMock(return_value=mock_ctx.session)
             ) as mock_session,
         ):
-            from mcp_guide.utils.template_context import TemplateContext
+            from mcp_guide.render.context import TemplateContext
 
             mock_context.return_value = TemplateContext({})
             mock_render_context.return_value = TemplateContext({})
@@ -127,7 +127,7 @@ Indexed args: {{#args}}{{#first}}FIRST: {{/first}}{{value}}{{^last}} {{/last}}{{
                 "mcp_guide.session.get_or_create_session", new=AsyncMock(return_value=mock_ctx.session)
             ) as mock_session,
         ):
-            from mcp_guide.utils.template_context import TemplateContext
+            from mcp_guide.render.context import TemplateContext
 
             mock_context.return_value = TemplateContext({})
             mock_render_context.return_value = TemplateContext({})
@@ -200,7 +200,7 @@ Current project: {{project.name}}
                 "mcp_guide.session.get_or_create_session", new=AsyncMock(return_value=mock_ctx.session)
             ) as mock_session,
         ):
-            from mcp_guide.utils.template_context import TemplateContext
+            from mcp_guide.render.context import TemplateContext
 
             mock_context.return_value = TemplateContext({"project": {"name": "test-project"}})
             mock_render_context.return_value = TemplateContext({"project": {"name": "test-project"}})
@@ -222,7 +222,7 @@ Current project: {{project.name}}
                 "mcp_guide.session.get_or_create_session", new=AsyncMock(return_value=mock_ctx.session)
             ) as mock_session,
         ):
-            from mcp_guide.utils.template_context import TemplateContext
+            from mcp_guide.render.context import TemplateContext
 
             mock_context.return_value = TemplateContext({})
             mock_render_context.return_value = TemplateContext({})
@@ -265,7 +265,7 @@ includes:
                 "mcp_guide.session.get_or_create_session", new=AsyncMock(return_value=mock_ctx.session)
             ) as mock_session,
         ):
-            from mcp_guide.utils.template_context import TemplateContext
+            from mcp_guide.render.context import TemplateContext
 
             mock_context.return_value = TemplateContext({"project_name": "test-project"})
             mock_render_context.return_value = TemplateContext({"project_name": "test-project"})

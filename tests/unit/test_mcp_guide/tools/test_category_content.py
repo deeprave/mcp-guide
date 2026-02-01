@@ -254,7 +254,7 @@ async def test_file_read_error_single_file(tmp_path, monkeypatch):
         raise PermissionError("Permission denied")
 
     monkeypatch.setattr("mcp_guide.tools.tool_category.get_or_create_session", mock_get_session)
-    monkeypatch.setattr("mcp_guide.utils.content_utils.read_file_content", mock_read_error)
+    monkeypatch.setattr("mcp_guide.content.utils.read_file_content", mock_read_error)
 
     # Call tool
     args = CategoryContentArgs(expression="docs")
@@ -306,7 +306,7 @@ async def test_file_read_error_multiple_files(tmp_path, monkeypatch):
             raise UnicodeDecodeError("utf-8", b"", 0, 1, "invalid start byte")
 
     monkeypatch.setattr("mcp_guide.tools.tool_category.get_or_create_session", mock_get_session)
-    monkeypatch.setattr("mcp_guide.utils.content_utils.read_file_content", mock_read_error)
+    monkeypatch.setattr("mcp_guide.content.utils.read_file_content", mock_read_error)
 
     # Call tool
     args = CategoryContentArgs(expression="docs")

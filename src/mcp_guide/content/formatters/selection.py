@@ -4,12 +4,12 @@ from enum import Enum
 from typing import TYPE_CHECKING, Optional, Protocol
 
 if TYPE_CHECKING:
-    from mcp_guide.utils.file_discovery import FileInfo
+    from mcp_guide.discovery.files import FileInfo
 
+from mcp_guide.content.formatters.base import BaseFormatter
+from mcp_guide.content.formatters.mime import MimeFormatter
+from mcp_guide.content.formatters.plain import PlainFormatter
 from mcp_guide.feature_flags.types import FeatureValue
-from mcp_guide.utils.content_formatter_base import BaseFormatter
-from mcp_guide.utils.content_formatter_mime import MimeFormatter
-from mcp_guide.utils.content_formatter_plain import PlainFormatter
 
 
 class ContentFormatter(Protocol):

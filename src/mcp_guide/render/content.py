@@ -4,8 +4,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
+from mcp_guide.render.frontmatter import Content, get_type_based_default_instruction
 from mcp_guide.result_constants import AGENT_INSTRUCTION
-from mcp_guide.utils.frontmatter import Content, get_type_based_default_instruction
 
 FM_INSTRUCTION = "instruction"
 FM_TYPE = "type"

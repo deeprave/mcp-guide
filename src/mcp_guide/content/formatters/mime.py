@@ -4,7 +4,7 @@ import mimetypes
 
 from uuid_extensions import uuid7
 
-from mcp_guide.utils.file_discovery import FileInfo
+from mcp_guide.discovery.files import FileInfo
 
 
 class MimeFormatter:

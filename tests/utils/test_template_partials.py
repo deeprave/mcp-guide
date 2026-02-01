@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from mcp_guide.utils.template_partials import (
+from mcp_guide.render.partials import (
     PartialNotFoundError,
     load_partial_content,
     resolve_partial_paths,

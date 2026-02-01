@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from mcp_guide.config_constants import MAX_DOCUMENTS_PER_GLOB, MAX_GLOB_DEPTH
-from mcp_guide.utils.pattern_matching import safe_glob_search
+from mcp_guide.discovery.patterns import safe_glob_search
 
 
 class TestBasicPatternMatching:
@@ -422,7 +422,7 @@ class TestUnderscoreFiltering:
     @pytest.mark.asyncio
     async def test_command_validation_excludes_underscore_files(self, temp_project_dir):
         """Test that command validation excludes underscore-prefixed files."""
-        from mcp_guide.utils.pattern_matching import is_valid_command
+        from mcp_guide.discovery.patterns import is_valid_command
 
         # Arrange
         test_dir = temp_project_dir / "test_commands"
@@ -438,7 +438,7 @@ class TestUnderscoreFiltering:
     @pytest.mark.asyncio
     async def test_command_validation_excludes_underscore_directories(self, temp_project_dir):
         """Test that command validation excludes files in underscore directories."""
-        from mcp_guide.utils.pattern_matching import is_valid_command
+        from mcp_guide.discovery.patterns import is_valid_command
 
         # Arrange
         test_dir = temp_project_dir / "test_commands"
@@ -454,7 +454,7 @@ class TestUnderscoreFiltering:
     @pytest.mark.asyncio
     async def test_partial_validation_allows_underscore_files(self, temp_project_dir):
         """Test that partial validation allows underscore-prefixed files."""
-        from mcp_guide.utils.pattern_matching import is_valid_partial
+        from mcp_guide.discovery.patterns import is_valid_partial
 
         # Arrange
         test_dir = temp_project_dir / "test_partials"

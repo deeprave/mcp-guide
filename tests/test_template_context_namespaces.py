@@ -3,7 +3,7 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from mcp_guide.context.tasks import ClientContextTask
-from mcp_guide.utils.template_context import get_user_context
+from mcp_guide.render.context import get_user_context
 
 
 class TestUserContext:
@@ -30,7 +30,7 @@ class TestSystemNamespaceRename:
         """Test that existing system context is renamed to server-system."""
         import asyncio
 
-        from mcp_guide.utils.template_context_cache import TemplateContextCache
+        from mcp_guide.render.cache import TemplateContextCache
 
         cache = TemplateContextCache()
 
@@ -47,7 +47,7 @@ class TestClientContextIntegration:
 
     def test_build_template_context_includes_new_namespaces(self):
         """Test that build_template_context includes user, system, and repo namespaces."""
-        from mcp_guide.utils.template_context import build_template_context
+        from mcp_guide.render.context import build_template_context
 
         # Mock client data
         client_data = {

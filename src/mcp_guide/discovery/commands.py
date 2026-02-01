@@ -8,9 +8,9 @@ import aiofiles
 from anyio import Path as AsyncPath
 
 from mcp_guide.core.mcp_log import get_logger
-from mcp_guide.utils.file_discovery import discover_category_files
-from mcp_guide.utils.frontmatter import parse_content_with_frontmatter
-from mcp_guide.utils.pattern_matching import is_valid_command
+from mcp_guide.discovery.files import discover_category_files
+from mcp_guide.discovery.patterns import is_valid_command
+from mcp_guide.render.frontmatter import parse_content_with_frontmatter
 
 logger = get_logger(__name__)
 
@@ -46,7 +46,7 @@ async def discover_commands(commands_dir: Path) -> List[Dict[str, Any]]:
     # Load context once for requirements checking
     context_data = None
     try:
-        from mcp_guide.utils.template_context_cache import get_template_contexts
+        from mcp_guide.render.cache import get_template_contexts
 
         context_data = await get_template_contexts()
     except Exception:
@@ -125,12 +125,12 @@ async def discover_commands(commands_dir: Path) -> List[Dict[str, Any]]:
                         # Use context loaded earlier (reuse to avoid duplicate calls)
                         if context_data is None:
                             # Context wasn't loaded earlier, load it now
-                            from mcp_guide.utils.template_context_cache import get_template_contexts
+                            from mcp_guide.render.cache import get_template_contexts
 
                             context_data = await get_template_contexts()
 
                         # Check requirements - skip command if not met
-                        from mcp_guide.utils.frontmatter import check_frontmatter_requirements
+                        from mcp_guide.render.frontmatter import check_frontmatter_requirements
 
                         if not check_frontmatter_requirements(front_matter, dict(context_data)):
                             continue

@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 
 from mcp_guide.render.content import RenderedContent
-from mcp_guide.utils.frontmatter import Frontmatter
+from mcp_guide.render.frontmatter import Frontmatter
 
 
 def make_rendered_content(content: str, instruction: str | None = None) -> RenderedContent:

@@ -7,12 +7,17 @@ from typing import TYPE_CHECKING, Any, Awaitable, Callable, Coroutine, List, Opt
 
 from anyio import Path as AsyncPath
 
+from mcp_guide.commands.formatting import format_args_string
 from mcp_guide.config_constants import COMMANDS_DIR
 from mcp_guide.core.mcp_log import get_logger
+from mcp_guide.discovery.commands import discover_commands
+from mcp_guide.discovery.files import FileInfo, discover_category_files
 from mcp_guide.feature_flags.types import FeatureValue
 from mcp_guide.models import resolve_all_flags
 from mcp_guide.prompts.command_parser import parse_command_arguments
 from mcp_guide.render import render_template
+from mcp_guide.render.cache import get_template_contexts
+from mcp_guide.render.context import TemplateContext, convert_lists_to_indexed
 from mcp_guide.result import Result
 from mcp_guide.result_constants import (
     ERROR_FILE_ERROR,
@@ -26,11 +31,6 @@ from mcp_guide.result_constants import (
 from mcp_guide.server import mcp
 from mcp_guide.session import get_current_session, get_or_create_session
 from mcp_guide.tools.tool_content import ContentArgs, internal_get_content
-from mcp_guide.utils.command_discovery import discover_commands
-from mcp_guide.utils.command_formatting import format_args_string
-from mcp_guide.utils.file_discovery import FileInfo, discover_category_files
-from mcp_guide.utils.template_context import TemplateContext, convert_lists_to_indexed
-from mcp_guide.utils.template_context_cache import get_template_contexts
 
 if TYPE_CHECKING:
     from typing import Any
@@ -62,7 +62,7 @@ class CommandMiddleware(Protocol):
 
 async def get_command_help(command_path: str, command_context: dict, ctx: Optional[Context]) -> Result[str]:  # type: ignore
     """Get help information for a command using template rendering."""
-    from mcp_guide.utils.template_renderer import render_template_content
+    from mcp_guide.render.renderer import render_template_content
 
     try:
         # Use the help template with the pre-built command_context
@@ -365,7 +365,7 @@ async def _handle_command_request(argv: list[str], ctx: Optional["Context"]) -> 
         return result
 
     # Validate and sanitize
-    from mcp_guide.utils.command_security import validate_command_path_full
+    from mcp_guide.commands.security import validate_command_path_full
 
     error, command_path = validate_command_path_full(raw_command_path)
     if error:

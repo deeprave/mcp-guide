@@ -7,7 +7,7 @@ from mcp_guide.workflow.constants import DEFAULT_WORKFLOW_FILE, DEFAULT_WORKFLOW
 from mcp_guide.workflow.flags import extract_phase_name, parse_workflow_phases
 
 if TYPE_CHECKING:
-    from mcp_guide.utils.template_context import TemplateContext
+    from mcp_guide.render.context import TemplateContext
     from mcp_guide.workflow.schema import WorkflowState
 
 
@@ -21,7 +21,7 @@ class WorkflowContextCache:
 
     async def get_workflow_context(self) -> "TemplateContext":
         """Build workflow context from cached state."""
-        from mcp_guide.utils.template_context import TemplateContext
+        from mcp_guide.render.context import TemplateContext
 
         # Get cached workflow state
         workflow_state: Optional["WorkflowState"] = self.task_manager.get_cached_data("workflow_state")

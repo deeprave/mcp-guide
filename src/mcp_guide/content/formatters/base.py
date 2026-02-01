@@ -3,7 +3,7 @@
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from mcp_guide.utils.file_discovery import FileInfo
+    from mcp_guide.discovery.files import FileInfo
 
 
 class BaseFormatter:

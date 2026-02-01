@@ -7,14 +7,14 @@ import chevron
 from chevron import ChevronError
 
 from mcp_guide.core.mcp_log import get_logger
+from mcp_guide.discovery.files import TEMPLATE_EXTENSIONS, FileInfo
+from mcp_guide.render.cache import get_template_contexts
+from mcp_guide.render.context import TemplateContext
+from mcp_guide.render.frontmatter import get_frontmatter_includes
+from mcp_guide.render.functions import TemplateFunctions
+from mcp_guide.render.partials import PartialNotFoundError, load_partial_content
 from mcp_guide.result import Result
 from mcp_guide.result_constants import INSTRUCTION_VALIDATION_ERROR
-from mcp_guide.utils.file_discovery import TEMPLATE_EXTENSIONS, FileInfo
-from mcp_guide.utils.frontmatter import get_frontmatter_includes
-from mcp_guide.utils.template_context import TemplateContext
-from mcp_guide.utils.template_context_cache import get_template_contexts
-from mcp_guide.utils.template_functions import TemplateFunctions
-from mcp_guide.utils.template_partials import PartialNotFoundError, load_partial_content
 
 logger = get_logger(__name__)
 
@@ -232,7 +232,7 @@ def _build_file_context(file_info: FileInfo) -> TemplateContext:
 
 def _build_transient_context() -> TemplateContext:
     """Build transient context with current timestamp."""
-    from mcp_guide.utils.template_context_cache import template_context_cache
+    from mcp_guide.render.cache import template_context_cache
 
     return template_context_cache.get_transient_context()
 

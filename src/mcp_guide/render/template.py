@@ -5,12 +5,12 @@ from typing import Any, Dict, Optional
 
 from mcp_guide.core.file_reader import read_file_content
 from mcp_guide.core.mcp_log import get_logger
+from mcp_guide.discovery.files import FileInfo
+from mcp_guide.render.cache import get_template_contexts
 from mcp_guide.render.content import FM_INCLUDES, FM_REQUIRES_PREFIX, RenderedContent
-from mcp_guide.utils.file_discovery import FileInfo
-from mcp_guide.utils.frontmatter import parse_content_with_frontmatter
-from mcp_guide.utils.template_context import TemplateContext
-from mcp_guide.utils.template_context_cache import get_template_contexts
-from mcp_guide.utils.template_renderer import is_template_file, render_template_content
+from mcp_guide.render.context import TemplateContext
+from mcp_guide.render.frontmatter import parse_content_with_frontmatter
+from mcp_guide.render.renderer import is_template_file, render_template_content
 
 logger = get_logger(__name__)
 

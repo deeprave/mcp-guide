@@ -9,6 +9,9 @@ from typing import Any, Optional, Union, cast
 from anyio import Path as AsyncPath
 from pydantic import Field
 
+from mcp_guide.content.formatters.selection import ContentFormat, get_formatter_from_flag
+from mcp_guide.content.gathering import gather_content
+from mcp_guide.content.utils import read_and_render_file_contents
 from mcp_guide.core.tool_arguments import ToolArguments
 from mcp_guide.core.validation import (
     ArgValidationError,
@@ -16,8 +19,12 @@ from mcp_guide.core.validation import (
     validate_directory_path,
     validate_pattern,
 )
+from mcp_guide.discovery.files import FileInfo, discover_category_files
 from mcp_guide.feature_flags.constants import FLAG_CONTENT_FORMAT_MIME
+from mcp_guide.feature_flags.utils import get_resolved_flag_value
 from mcp_guide.models import Category, CategoryNotFoundError, FileReadError, Project
+from mcp_guide.render.cache import get_template_context_if_needed
+from mcp_guide.render.frontmatter import get_frontmatter_description_from_file
 from mcp_guide.result import Result
 from mcp_guide.result_constants import (
     ERROR_FILE_READ,
@@ -31,13 +38,6 @@ from mcp_guide.result_constants import (
 from mcp_guide.server import tools
 from mcp_guide.session import get_or_create_session
 from mcp_guide.tools.tool_result import tool_result
-from mcp_guide.utils.content_common import gather_content
-from mcp_guide.utils.content_utils import read_and_render_file_contents
-from mcp_guide.utils.file_discovery import FileInfo, discover_category_files
-from mcp_guide.utils.flag_utils import get_resolved_flag_value
-from mcp_guide.utils.formatter_selection import ContentFormat, get_formatter_from_flag
-from mcp_guide.utils.frontmatter import get_frontmatter_description_from_file
-from mcp_guide.utils.template_context_cache import get_template_context_if_needed
 
 try:
     from mcp.server.fastmcp import Context

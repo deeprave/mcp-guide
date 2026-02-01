@@ -1,6 +1,6 @@
 """Plain content formatter for single file responses."""
 
-from mcp_guide.utils.file_discovery import FileInfo
+from mcp_guide.discovery.files import FileInfo
 
 
 class PlainFormatter:

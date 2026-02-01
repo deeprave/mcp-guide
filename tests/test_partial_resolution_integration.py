@@ -4,8 +4,8 @@ from datetime import datetime
 
 import pytest
 
+from mcp_guide.discovery.files import FileInfo
 from mcp_guide.render.template import render_template
-from mcp_guide.utils.file_discovery import FileInfo
 
 
 class TestPartialResolutionIntegration:
@@ -43,7 +43,7 @@ includes:
 """)
 
         # Render template
-        from mcp_guide.utils.template_context import TemplateContext
+        from mcp_guide.render.context import TemplateContext
 
         context = TemplateContext({"project_name": "test-project"})
         file_info = FileInfo(
@@ -97,7 +97,7 @@ includes:
 """)
 
         # Render template
-        from mcp_guide.utils.template_context import TemplateContext
+        from mcp_guide.render.context import TemplateContext
 
         context = TemplateContext({"status": "checking"})
         file_info = FileInfo(

@@ -5,12 +5,12 @@ from pathlib import Path
 from typing import Callable, Optional
 
 from mcp_guide.core.mcp_log import get_logger
+from mcp_guide.discovery.files import FileInfo, discover_category_files
 from mcp_guide.models import resolve_all_flags
 from mcp_guide.render.content import RenderedContent
+from mcp_guide.render.context import TemplateContext
 from mcp_guide.render.template import render_template
 from mcp_guide.session import get_current_session, get_or_create_session
-from mcp_guide.utils.file_discovery import FileInfo, discover_category_files
-from mcp_guide.utils.template_context import TemplateContext
 
 logger = get_logger(__name__)
 

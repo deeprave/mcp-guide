@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
-from mcp_guide.utils.template_context import (
+from mcp_guide.render.context import (
     TemplateContext,
     add_file_context,
     build_template_context,

@@ -656,7 +656,7 @@ async def get_or_create_session(
     session = Session(project_name, _config_dir_for_tests=_config_dir_for_tests)
 
     # Register template context cache as listener
-    from mcp_guide.utils.template_context_cache import template_context_cache
+    from mcp_guide.render.cache import template_context_cache
 
     session.add_listener(template_context_cache)
 

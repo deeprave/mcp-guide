@@ -3,8 +3,8 @@
 from unittest.mock import AsyncMock, Mock, patch
 
 from mcp_guide.models import Project
-from mcp_guide.utils.template_context_cache import get_template_contexts
-from mcp_guide.utils.template_renderer import render_template_content
+from mcp_guide.render.cache import get_template_contexts
+from mcp_guide.render.renderer import render_template_content
 
 
 class TestTemplateRenderingWithFlags:

@@ -83,7 +83,7 @@ class ClientContextTask:
                     os_info = json.loads(content)
                     self.task_manager.set_cached_data("client_os_info", os_info)
                     # Invalidate template context cache
-                    from mcp_guide.utils.template_context_cache import invalidate_template_contexts
+                    from mcp_guide.render.cache import invalidate_template_contexts
 
                     invalidate_template_contexts()
                     await self._request_detailed_context(os_info)
@@ -99,7 +99,7 @@ class ClientContextTask:
                     context_info = json.loads(content)
                     self.task_manager.set_cached_data("client_context_info", context_info)
                     # Invalidate template context cache
-                    from mcp_guide.utils.template_context_cache import invalidate_template_contexts
+                    from mcp_guide.render.cache import invalidate_template_contexts
 
                     invalidate_template_contexts()
                     logger.info(f"Client context received: {len(context_info)} namespaces")

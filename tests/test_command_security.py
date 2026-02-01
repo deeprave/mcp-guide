@@ -124,7 +124,7 @@ class TestCommandErrorHandling:
         with (
             patch("pathlib.Path.exists", return_value=True),
             patch("pathlib.Path.is_dir", return_value=True),
-            patch("mcp_guide.utils.command_discovery.discover_commands", new=AsyncMock(return_value=[])),
+            patch("mcp_guide.discovery.commands.discover_commands", new=AsyncMock(return_value=[])),
         ):
             result_str = await guide_function(":nonexistent", ctx=mock_ctx)
             result = json.loads(result_str)
@@ -146,12 +146,10 @@ class TestCommandErrorHandling:
             patch("pathlib.Path.is_dir", return_value=True),
             patch("mcp_guide.session.get_or_create_session", new=AsyncMock()) as mock_session,
             patch("mcp_guide.prompts.guide_prompt.resolve_all_flags", new=AsyncMock()) as mock_resolve_flags,
-            patch("mcp_guide.utils.command_discovery.discover_command_files", new=AsyncMock()) as mock_discover_files,
+            patch("mcp_guide.discovery.commands.discover_command_files", new=AsyncMock()) as mock_discover_files,
             patch("mcp_guide.prompts.guide_prompt.discover_category_files", new=AsyncMock()) as mock_files,
             patch("mcp_guide.prompts.guide_prompt.get_template_contexts", new=AsyncMock()) as mock_context,
-            patch(
-                "mcp_guide.utils.template_context_cache.get_template_contexts", new=AsyncMock()
-            ) as mock_discover_context,
+            patch("mcp_guide.render.cache.get_template_contexts", new=AsyncMock()) as mock_discover_context,
             patch("mcp_guide.prompts.guide_prompt.render_template", new=AsyncMock()) as mock_render,
             patch("aiofiles.open") as mock_aiofiles,
         ):
@@ -162,8 +160,8 @@ class TestCommandErrorHandling:
             mock_session.return_value = mock_session_obj
             mock_resolve_flags.return_value = {}
             mock_session.return_value = mock_session_obj
-            from mcp_guide.utils.file_discovery import FileInfo
-            from mcp_guide.utils.template_context import TemplateContext
+            from mcp_guide.discovery.files import FileInfo
+            from mcp_guide.render.context import TemplateContext
 
             # Mock command file discovery to return a file
             mock_discover_files.return_value = [
@@ -243,8 +241,8 @@ class TestCommandErrorHandling:
             mock_session_obj.get_docroot = AsyncMock(return_value="/test/project")
             mock_session.return_value = mock_session_obj
             mock_resolve_flags.return_value = {}
-            from mcp_guide.utils.file_discovery import FileInfo
-            from mcp_guide.utils.template_context import TemplateContext
+            from mcp_guide.discovery.files import FileInfo
+            from mcp_guide.render.context import TemplateContext
 
             # Mock template context
             mock_base_context = TemplateContext({})
