@@ -2,11 +2,16 @@
 
 import pytest
 
-from mcp_guide.feature_flags.constants import FLAG_WORKFLOW, FLAG_WORKFLOW_FILE
+from mcp_guide.feature_flags.constants import (
+    FLAG_GUIDE_DEVELOPMENT,
+    FLAG_WORKFLOW,
+    FLAG_WORKFLOW_FILE,
+)
 from mcp_guide.feature_flags.validators import (
     FlagValidationError,
     clear_validators,
     register_flag_validator,
+    validate_boolean_flag,
     validate_flag_with_registered,
 )
 
@@ -78,3 +83,77 @@ class TestValidationRegistration:
         # None should not trigger validation
         validate_flag_with_registered("strict-flag", None, is_project=True)
         validate_flag_with_registered("strict-flag", None, is_project=False)
+
+
+class TestBooleanValidator:
+    """Test validate_boolean_flag function."""
+
+    def test_accepts_boolean_true(self):
+        """Test that boolean True is accepted."""
+        assert validate_boolean_flag(True, is_project=True) is True
+
+    def test_accepts_boolean_false(self):
+        """Test that boolean False is accepted."""
+        assert validate_boolean_flag(False, is_project=False) is True
+
+    def test_accepts_none(self):
+        """Test that None is accepted (for deletion)."""
+        assert validate_boolean_flag(None, is_project=True) is True
+
+    def test_accepts_truthy_strings(self):
+        """Test that truthy string values are accepted."""
+        for value in ["true", "True", "TRUE", "on", "ON", "enabled", "ENABLED"]:
+            assert validate_boolean_flag(value, is_project=True) is True
+
+    def test_accepts_falsy_strings(self):
+        """Test that falsy string values are accepted."""
+        for value in ["false", "False", "FALSE", "off", "OFF", "disabled", "DISABLED", ""]:
+            assert validate_boolean_flag(value, is_project=False) is True
+
+    def test_rejects_invalid_strings(self):
+        """Test that invalid string values are rejected."""
+        for value in ["yes", "no", "1", "0", "invalid"]:
+            assert validate_boolean_flag(value, is_project=True) is False
+
+    def test_rejects_numbers(self):
+        """Test that numeric values are rejected."""
+        assert validate_boolean_flag(1, is_project=True) is False
+        assert validate_boolean_flag(0, is_project=False) is False
+
+    def test_rejects_lists(self):
+        """Test that list values are rejected."""
+        assert validate_boolean_flag(["true"], is_project=True) is False
+
+    def test_rejects_dicts(self):
+        """Test that dict values are rejected."""
+        assert validate_boolean_flag({"enabled": True}, is_project=False) is False
+
+
+class TestGuideDevelopmentValidator:
+    """Test guide-development flag validation."""
+
+    def setup_method(self):
+        """Ensure validator is registered (may have been cleared by other tests)."""
+        from mcp_guide.feature_flags.constants import FLAG_GUIDE_DEVELOPMENT
+        from mcp_guide.feature_flags.validators import register_flag_validator, validate_boolean_flag
+
+        # Re-register in case it was cleared
+        register_flag_validator(FLAG_GUIDE_DEVELOPMENT, validate_boolean_flag)
+
+    def test_guide_development_accepts_boolean(self):
+        """Test that guide-development accepts boolean values."""
+        # Validator is registered at module import time
+        validate_flag_with_registered(FLAG_GUIDE_DEVELOPMENT, True, is_project=True)
+        validate_flag_with_registered(FLAG_GUIDE_DEVELOPMENT, False, is_project=False)
+
+    def test_guide_development_accepts_string_boolean(self):
+        """Test that guide-development accepts string boolean values."""
+        validate_flag_with_registered(FLAG_GUIDE_DEVELOPMENT, "true", is_project=True)
+        validate_flag_with_registered(FLAG_GUIDE_DEVELOPMENT, "false", is_project=False)
+
+    def test_guide_development_rejects_invalid(self):
+        """Test that guide-development rejects invalid values."""
+        with pytest.raises(FlagValidationError):
+            validate_flag_with_registered(FLAG_GUIDE_DEVELOPMENT, "invalid", is_project=True)
+        with pytest.raises(FlagValidationError):
+            validate_flag_with_registered(FLAG_GUIDE_DEVELOPMENT, 1, is_project=False)

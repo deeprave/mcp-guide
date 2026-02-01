@@ -12,15 +12,15 @@ try:
 except ImportError:
     Context = None  # type: ignore
 
-from mcp_guide.context.tasks import ClientContextTask  # noqa: F401
+from mcp_guide.context.tasks import ClientContextTask  # noqa: F401 - imported for @task_init decorator side effects
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.core.tool_decorator import ExtMcpToolDecorator
 from mcp_guide.guide import GuideMCP
-from mcp_guide.openspec.task import OpenSpecTask  # noqa: F401
+from mcp_guide.openspec.task import OpenSpecTask  # noqa: F401 - imported for @task_init decorator side effects
 
 # Import task managers early to trigger @task_init decorators
-from mcp_guide.task_manager import TaskManager  # noqa: F401
-from mcp_guide.workflow.tasks import WorkflowMonitorTask  # noqa: F401
+from mcp_guide.task_manager import TaskManager  # noqa: F401 - imported for initialization side effects
+from mcp_guide.workflow.tasks import WorkflowMonitorTask  # noqa: F401 - imported for @task_init decorator side effects
 
 logger = get_logger(__name__)
 
