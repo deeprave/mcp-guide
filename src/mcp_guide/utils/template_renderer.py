@@ -8,7 +8,7 @@ from chevron import ChevronError
 
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.result import Result
-from mcp_guide.result_constants import INSTRUCTION_FILE_ERROR, INSTRUCTION_VALIDATION_ERROR
+from mcp_guide.result_constants import INSTRUCTION_VALIDATION_ERROR
 from mcp_guide.utils.file_discovery import TEMPLATE_EXTENSIONS, FileInfo
 from mcp_guide.utils.frontmatter import get_frontmatter_includes
 from mcp_guide.utils.template_context import TemplateContext
@@ -206,74 +206,6 @@ def _extract_line_context(content: str, error_msg: str) -> str:
         context_lines.append(f"{prefix}{i + 1:4d} | {lines[i]}")
 
     return "\n" + "\n".join(context_lines)
-
-
-async def render_file_content(
-    file_info: FileInfo,
-    context: TemplateContext | None = None,
-    base_dir: Path | None = None,
-    docroot: Path | None = None,
-    _include_chain: set[Path] | None = None,
-) -> Result[str]:
-    """Render file content, applying template rendering if needed.
-
-    Args:
-        file_info: FileInfo with content to render
-        context: Template context (if None, pass through content unchanged)
-        base_dir: Base directory for resolving partial paths
-        _include_chain: Internal parameter to track circular includes
-
-    Returns:
-        Result with rendered content or original content
-    """
-    # Initialize include chain tracking
-    if _include_chain is None:
-        _include_chain = set()
-
-    # Check for circular includes
-    current_path = base_dir / file_info.path if base_dir else file_info.path
-    if current_path in _include_chain:
-        return Result.failure(
-            error=f"Circular include detected: {current_path}",
-            error_type="circular_include",
-            instruction="Remove circular dependencies in template includes",
-        )
-
-    _include_chain.add(current_path)
-
-    # Resolve FileInfo path to absolute using base directory with security validation
-    # Only resolve if the path is not already absolute and we have a docroot for validation
-    if not file_info.path.is_absolute() and docroot is not None and base_dir is not None:
-        file_info.resolve(base_dir, docroot)
-
-    # Get content/frontmatter using accessors
-    content = await file_info.get_content()
-    frontmatter = await file_info.get_frontmatter()
-
-    if content is None:
-        return Result.failure(
-            error=f"File content not loaded: {file_info.path}",
-            error_type="content_error",
-            instruction=INSTRUCTION_FILE_ERROR,
-        )
-
-    # Add logging to debug frontmatter parsing
-
-    # Pass through non-template files unchanged
-    if not is_template_file(file_info) or context is None:
-        return Result.ok(content)
-
-    # Render template files with frontmatter metadata
-    result = await render_template_content(
-        content, context, str(file_info.path), metadata=frontmatter, base_dir=file_info.path.parent
-    )
-    logger.trace(f"Template rendering result for {file_info.path}: success={result.is_ok()}")
-
-    # Update file size if rendering succeeded
-    if result.is_ok() and result.value is not None:
-        file_info.size = len(result.value)
-
-    return result
 
 
 def _build_file_context(file_info: FileInfo) -> TemplateContext:

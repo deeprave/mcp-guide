@@ -23,7 +23,6 @@ logger = get_logger(__name__)
 # Cache and timer constants
 CHANGES_CACHE_TTL = 3600  # 1 hour
 CHANGES_CHECK_INTERVAL = 3600.0  # 60 minutes
-CHANGES_CHECK_START_DELAY = 20.0  # 20 seconds
 
 
 @task_init
@@ -45,14 +44,12 @@ class OpenSpecTask:
         self._changes_requested = False
         self._changes_cache: Optional[list[dict[str, Any]]] = None
         self._changes_timestamp: Optional[float] = None
-        self._changes_timer_started = False  # Track if first timer has fired
 
         # Subscribe to command, file, and timer events
         self.task_manager.subscribe(
             self,
             EventType.FS_COMMAND | EventType.FS_DIRECTORY | EventType.FS_FILE_CONTENT | EventType.TIMER,
             CHANGES_CHECK_INTERVAL,
-            CHANGES_CHECK_START_DELAY,
         )
 
     def get_name(self) -> str:
@@ -93,8 +90,11 @@ class OpenSpecTask:
         if not self._version_this_session:
             await self.request_version_check()
 
-        # Request CLI availability check only if not validated
-        if not project.openspec_validated and not self._cli_requested:
+        # If validated, request changes immediately
+        if project.openspec_validated:
+            await self.request_changes_json()
+        # Otherwise request CLI availability check
+        elif not self._cli_requested:
             await self.request_cli_check()
             self._cli_requested = True
         self._flag_checked = True
@@ -240,10 +240,6 @@ class OpenSpecTask:
         if event_type & EventType.TIMER:
             interval = data.get("interval")
             if interval == CHANGES_CHECK_INTERVAL:
-                # Skip first timer event (respects start delay configured in subscribe)
-                if not self._changes_timer_started:
-                    self._changes_timer_started = True
-                    return True
                 await self._handle_changes_reminder()
                 return True
 
@@ -266,17 +262,8 @@ class OpenSpecTask:
 
         # Handle directory listing events
         if event_type & EventType.FS_DIRECTORY:
-            from pathlib import Path
-
-            path = data.get("path", "")
-
-            # Handle project detection via directory listing
-            if path == "openspec/project.md":
-                # Directory listing for project.md means it exists
-                self._project_enabled = True
-                self.task_manager.set_cached_data("openspec_project_enabled", True)
-                logger.info("OpenSpec project structure detected via directory listing")
-                return True
+            # No longer used for project detection
+            return False
 
         # Handle file content events
         if event_type & EventType.FS_FILE_CONTENT:
@@ -285,18 +272,6 @@ class OpenSpecTask:
 
             path = data.get("path", "")
             path_name = Path(path).name
-
-            # Handle project detection - now just checks existence, not content
-            if path_name == "project.md" and path.startswith("openspec/"):
-                # If project.md exists, project is enabled
-                self._project_enabled = True
-                self.task_manager.set_cached_data("openspec_project_enabled", True)
-                logger.info("OpenSpec project structure detected")
-
-                # Don't request version/changes here - they're requested by the template
-                # Validation will be marked complete when changes list is received
-
-                return True
 
             # Handle version detection
             if path_name == ".openspec-version.txt":
@@ -344,8 +319,8 @@ class OpenSpecTask:
                 session = await get_or_create_session()
                 project = await session.get_project()
 
-                if not project.openspec_validated and self._available and self._project_enabled:
-                    # All validation checks passed: CLI available, project.md exists, changes directory accessible
+                if not project.openspec_validated:
+                    # Validation complete: successfully retrieved changes list
                     await session.update_config(lambda p: replace(p, openspec_validated=True))
                     logger.info("OpenSpec validation completed and persisted")
 
@@ -383,9 +358,6 @@ class OpenSpecTask:
 
     async def _handle_changes_reminder(self) -> None:
         """Handle timer events for changes monitoring."""
-        if not self._project_enabled:
-            return
-
         # Only remind if cache is stale
         if not self.is_cache_valid():
             try:

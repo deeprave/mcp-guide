@@ -57,8 +57,9 @@ class ClientContextTask:
 
     async def request_basic_os_info(self) -> None:
         """Request basic OS information from client."""
-        content = await render_context_template("client-context-setup")
-        await self.task_manager.queue_instruction(content)
+        rendered = await render_context_template("client-context-setup")
+        if rendered:
+            await self.task_manager.queue_instruction(rendered.content)
 
     async def handle_event(self, event_type: EventType, data: dict[str, Any]) -> bool:
         """Handle task manager events."""
@@ -112,5 +113,6 @@ class ClientContextTask:
     async def _request_detailed_context(self, os_info: dict[str, Any]) -> None:
         """Request detailed context based on OS info."""
         client_data = os_info.get("client", {})
-        content = await render_context_template("client-context-detailed", {"client": client_data})
-        await self.task_manager.queue_instruction(content)
+        rendered = await render_context_template("client-context-detailed", {"client": client_data})
+        if rendered:
+            await self.task_manager.queue_instruction(rendered.content)

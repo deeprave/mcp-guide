@@ -4,6 +4,7 @@
 COMMANDS_DIR = "_commands"
 WORKFLOW_DIR = "_workflow"
 OPENSPEC_DIR = "_openspec"
+CONTEXT_DIR = "_context"
 
 # Pattern matching safety limits
 MAX_GLOB_DEPTH = 8

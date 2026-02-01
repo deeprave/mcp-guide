@@ -9,7 +9,6 @@ from mcp_guide.utils.template_context import TemplateContext
 from mcp_guide.utils.template_renderer import (
     _build_file_context,
     is_template_file,
-    render_file_content,
     render_template_content,
     render_template_with_context_chain,
 )
@@ -56,37 +55,9 @@ class TestTemplatePartials:
         assert result.is_ok()
         assert result.value == ""
 
-    async def test_render_file_content_circular_include_detection(self):
-        """Test that circular includes are detected and prevented."""
-        from datetime import datetime
-        from pathlib import Path
 
-        from mcp_guide.utils.file_discovery import FileInfo
-        from mcp_guide.utils.template_context import TemplateContext
-        from mcp_guide.utils.template_renderer import render_file_content
-
-        # Create a file that would create a circular include
-        file_info = FileInfo(
-            path=Path("test.mustache"),
-            size=100,
-            content_size=80,
-            mtime=datetime.now(),
-            name="test",
-            content="{{>partial}}",
-            frontmatter={"includes": ["_partial.mustache"]},
-        )
-
-        context = TemplateContext({"name": "test"})
-
-        # Create an include chain that already contains the current file (simulating circular dependency)
-        # This simulates the case where we're already processing this file in the include chain
-        include_chain = {Path.cwd() / "test.mustache"}
-
-        result = await render_file_content(file_info, context, Path.cwd(), _include_chain=include_chain)
-
-        assert not result.is_ok()
-        assert result.error_type == "circular_include"
-        assert "Circular include detected" in result.error
+class TestPartialNameExtraction:
+    """Test partial name extraction logic."""
 
     def test_partial_name_extraction_logic(self):
         """Test partial name extraction logic via the public helper."""
@@ -229,111 +200,6 @@ class TestTemplateRendering:
 
         assert result.is_ok()
         assert result.value == "Hello World!"
-
-
-class TestFileContentRendering:
-    """Test file content rendering."""
-
-    async def test_render_file_content_non_template(self):
-        """Test rendering non-template file content."""
-        file_info = FileInfo(
-            path=Path("test.md"),
-            size=100,
-            content_size=100,
-            mtime=datetime.now(),
-            name="test.md",
-            content="# Hello World",
-        )
-        context = TemplateContext({"name": "World"})
-
-        result = await render_file_content(file_info, context)
-
-        assert result.is_ok()
-        assert result.value == "# Hello World"
-
-    async def test_render_file_content_template_without_context(self):
-        """Test rendering template file without context."""
-        file_info = FileInfo(
-            path=Path("test.md.mustache"),
-            size=100,
-            content_size=100,
-            mtime=datetime.now(),
-            name="test.md",
-            content="Hello {{name}}!",
-        )
-
-        result = await render_file_content(file_info, None)
-
-        assert result.is_ok()
-        assert result.value == "Hello {{name}}!"
-
-    async def test_render_file_content_template_with_context(self):
-        """Test rendering template file with context."""
-        file_info = FileInfo(
-            path=Path("test.md.mustache"),
-            size=100,
-            content_size=100,
-            mtime=datetime.now(),
-            name="test.md",
-            content="Hello {{name}}!",
-        )
-        context = TemplateContext({"name": "World"})
-
-        result = await render_file_content(file_info, context)
-
-        assert result.is_ok()
-        assert result.value == "Hello World!"
-        # Check that file size was updated
-        assert file_info.size == len("Hello World!")
-
-    async def test_render_file_content_accepts_template_context(self):
-        """Test that render_file_content accepts TemplateContext."""
-        file_info = FileInfo(
-            path=Path("test.md.mustache"),
-            size=100,
-            content_size=100,
-            mtime=datetime.now(),
-            name="test.md",
-            content="Hello {{name}}!",
-        )
-        context = TemplateContext({"name": "World"})
-
-        result = await render_file_content(file_info, context)
-
-        assert result.is_ok()
-        assert result.value == "Hello World!"
-
-    async def test_render_file_content_no_content_loaded(self):
-        """Test rendering file with no content loaded."""
-        file_info = FileInfo(
-            path=Path("test.md"), size=100, content_size=100, mtime=datetime.now(), name="test.md", content=None
-        )
-        context = TemplateContext({"name": "World"})
-
-        result = await render_file_content(file_info, context)
-
-        assert result.is_failure()
-        assert result.error_type == "content_error"
-        assert "File content not loaded" in result.error
-
-    async def test_render_file_content_template_error(self):
-        """Test rendering template file with syntax error."""
-        file_info = FileInfo(
-            path=Path("test.md.mustache"),
-            size=100,
-            content_size=100,
-            mtime=datetime.now(),
-            name="test.md",
-            content="Hello {{#unclosed}}!",
-        )
-        context = TemplateContext({"name": "World"})
-
-        result = await render_file_content(file_info, context)
-
-        assert result.is_failure()
-        assert result.error_type == "template_error"
-        assert "Template syntax error" in result.error
-        assert ">>>    1 |" in result.error  # Check for line context
 
 
 class TestContextChainRendering:
