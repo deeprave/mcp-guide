@@ -4,10 +4,10 @@ from typing import Any, Optional
 
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.discovery.files import FileInfo
-from mcp_guide.feature_flags.constants import FLAG_WORKFLOW, FLAG_WORKFLOW_FILE
+from mcp_guide.feature_flags.constants import FLAG_WORKFLOW, FLAG_WORKFLOW_CONSENT, FLAG_WORKFLOW_FILE
 from mcp_guide.render.context import TemplateContext
 from mcp_guide.session_listener import SessionListener
-from mcp_guide.workflow.constants import DEFAULT_WORKFLOW_FILE
+from mcp_guide.workflow.constants import DEFAULT_WORKFLOW_CONSENT, DEFAULT_WORKFLOW_FILE
 from mcp_guide.workflow.flags import parse_workflow_phases, substitute_variables
 
 logger = get_logger(__name__)
@@ -291,7 +291,7 @@ class TemplateContextCache(SessionListener):
             logger.debug(f"Failed to get client working directory: {e}")
 
         # Resolve workflow flags for template context
-        workflow_config = None
+        workflow_config: dict[str, Any] | None = None
         try:
             if session and project:
                 from mcp_guide.models import resolve_all_flags
@@ -304,7 +304,6 @@ class TemplateContextCache(SessionListener):
                     parsed_config = parse_workflow_phases(workflow_flag)
                     if parsed_config.enabled:
                         workflow_config = {
-                            "enabled": True,
                             "phases": parsed_config.phases,
                             "file": DEFAULT_WORKFLOW_FILE,
                         }
@@ -320,6 +319,24 @@ class TemplateContextCache(SessionListener):
                                 project_hash=project.hash,
                             )
                             workflow_config["file"] = workflow_file
+
+                        # Resolve workflow-consent flag
+                        workflow_consent_flag = resolved_flags.get(FLAG_WORKFLOW_CONSENT) or DEFAULT_WORKFLOW_CONSENT
+                        # Transform consent config for template access
+                        consent_context = {}
+                        phase_names = parsed_config.phases  # List of phase name strings
+                        for phase_name in phase_names:
+                            consent_value = workflow_consent_flag.get(phase_name, [])
+                            consent_list = [consent_value] if isinstance(consent_value, str) else consent_value
+                            consent_context[phase_name] = {
+                                "entry": "entry" in consent_list,
+                                "exit": "exit" in consent_list,
+                            }
+                        workflow_config["consent"] = consent_context
+
+                        # Add boolean flag for each configured phase
+                        for phase_name in phase_names:
+                            workflow_config[phase_name] = True
 
                         # Get workflow state from TaskManager cache
                         from mcp_guide.task_manager import get_task_manager
@@ -337,6 +354,13 @@ class TemplateContextCache(SessionListener):
                                     "queue": workflow_state.queue,
                                 }
                             )
+
+                            # Add current phase consent flags
+                            current_phase_consent = consent_context.get(
+                                workflow_state.phase, {"entry": False, "exit": False}
+                            )
+                            workflow_config["consent"]["entry"] = current_phase_consent["entry"]
+                            workflow_config["consent"]["exit"] = current_phase_consent["exit"]
         except Exception as e:
             logger.debug(f"Failed to resolve workflow flags: {e}")
 

@@ -2,6 +2,8 @@
 type: agent/instruction
 description: Discover available OpenSpec schemas in the project
 category: "openspec"
+usage: ":openspec/schemas"
+
 requires-openspec: true
 ---
 Run `openspec schemas --json` and send the result using {{tool_prefix}}send_file_content with path `.openspec-schemas.json`

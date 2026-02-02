@@ -3,8 +3,8 @@
 from typing import TYPE_CHECKING, Any, Optional
 
 from mcp_guide.core.mcp_log import get_logger
-from mcp_guide.workflow.constants import DEFAULT_WORKFLOW_FILE, DEFAULT_WORKFLOW_PHASES
-from mcp_guide.workflow.flags import extract_phase_name, parse_workflow_phases
+from mcp_guide.workflow.constants import DEFAULT_WORKFLOW_CONSENT, DEFAULT_WORKFLOW_FILE, DEFAULT_WORKFLOW_PHASES
+from mcp_guide.workflow.flags import parse_workflow_phases
 
 if TYPE_CHECKING:
     from mcp_guide.render.context import TemplateContext
@@ -88,26 +88,32 @@ class WorkflowContextCache:
         if not workflow_config.enabled:
             return {}
 
+        # Get consent requirements
+        consent_flag = self.task_manager.get_cached_data("workflow_consent_flag")
+        if consent_flag is None or consent_flag is True:
+            consent_config = DEFAULT_WORKFLOW_CONSENT
+        elif consent_flag is False:
+            consent_config = {}
+        else:
+            consent_config = consent_flag
+
         transitions: dict[str, Any] = {}
         default_phase_name = None
 
         # Process each configured phase
-        for i, phase_with_markers in enumerate(workflow_config.phases):
-            clean_phase = extract_phase_name(phase_with_markers)
-
+        for i, phase in enumerate(workflow_config.phases):
             # First phase is the default phase
             is_default = i == 0
             if is_default:
-                default_phase_name = clean_phase
+                default_phase_name = phase
 
-            # Determine permission requirements from markers
-            pre_consent = phase_with_markers.startswith("*")
-            post_consent = phase_with_markers.endswith("*")
+            # Check consent requirements for this phase
+            consent_value = consent_config.get(phase, [])
+            # Normalize single string to list
+            consent_types = [consent_value] if isinstance(consent_value, str) else consent_value
 
-            # Handle case where phase has both markers (*phase*)
-            if phase_with_markers.startswith("*") and phase_with_markers.endswith("*") and len(phase_with_markers) > 2:
-                pre_consent = True
-                post_consent = True
+            pre_consent = "entry" in consent_types
+            post_consent = "exit" in consent_types
 
             phase_metadata = {
                 "pre": pre_consent,
@@ -118,7 +124,7 @@ class WorkflowContextCache:
             if is_default:
                 phase_metadata["default"] = True
 
-            transitions[clean_phase] = phase_metadata
+            transitions[phase] = phase_metadata
 
         # Add convenience field for the default phase name
         if default_phase_name:
@@ -141,8 +147,8 @@ class WorkflowContextCache:
         if not workflow_config.enabled:
             return {}
 
-        # Extract clean phase names from configured phases
-        configured_phases = [extract_phase_name(p) for p in workflow_config.phases]
+        # Use phase names directly from configured phases
+        configured_phases = workflow_config.phases
         phases = {}
 
         for i, phase in enumerate(configured_phases):

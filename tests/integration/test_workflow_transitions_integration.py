@@ -62,14 +62,16 @@ class TestWorkflowTransitionsIntegration:
     @pytest.mark.asyncio
     async def test_workflow_transitions_with_custom_phases(self):
         """Test workflow.transitions with custom phase configuration."""
-        # Mock task manager with custom workflow flag
+        # Mock task manager with custom workflow flag and consent
         task_manager = Mock()
         workflow_state = WorkflowState(phase=PHASE_DISCUSSION)
-        custom_phases = ["discussion", "*planning", "implementation*"]
+        custom_phases = ["discussion", "planning", "implementation"]
+        custom_consent = {"planning": ["entry"], "implementation": ["exit"]}
 
         task_manager.get_cached_data.side_effect = lambda key: {
             "workflow_state": workflow_state,
             "workflow_flag": custom_phases,
+            "workflow_consent_flag": custom_consent,
         }.get(key)
 
         context_cache = WorkflowContextCache(task_manager)
@@ -81,11 +83,11 @@ class TestWorkflowTransitionsIntegration:
         assert set(transitions.keys()) == {"discussion", "planning", "implementation", "default"}
 
         # Verify custom permissions
-        assert transitions["planning"]["pre"] is True  # *planning
+        assert transitions["planning"]["pre"] is True  # entry consent
         assert transitions["planning"]["post"] is False
 
         assert transitions["implementation"]["pre"] is False
-        assert transitions["implementation"]["post"] is True  # implementation*
+        assert transitions["implementation"]["post"] is True  # exit consent
 
     @pytest.mark.asyncio
     async def test_workflow_transitions_empty_when_disabled(self):

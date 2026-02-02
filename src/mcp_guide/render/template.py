@@ -9,7 +9,7 @@ from mcp_guide.discovery.files import FileInfo
 from mcp_guide.render.cache import get_template_contexts
 from mcp_guide.render.content import FM_INCLUDES, FM_REQUIRES_PREFIX, RenderedContent
 from mcp_guide.render.context import TemplateContext
-from mcp_guide.render.frontmatter import parse_content_with_frontmatter
+from mcp_guide.render.frontmatter import _check_requires_directive, parse_content_with_frontmatter
 from mcp_guide.render.renderer import is_template_file, render_template_content
 
 logger = get_logger(__name__)
@@ -45,9 +45,10 @@ async def render_template(
             continue
 
         flag_name = key[len(FM_REQUIRES_PREFIX) :]
+        required_value = parsed.frontmatter[key]
         flag_value = project_flags.get(flag_name)
 
-        if not flag_value:
+        if not _check_requires_directive(required_value, flag_value):
             logger.debug(f"Template {file_info.path} filtered: {key} not met")
             return None
 

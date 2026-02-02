@@ -1,6 +1,6 @@
 """Tests for template context cache functionality."""
 
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import AsyncMock, Mock, patch
 
 from mcp_guide.render.cache import TemplateContextCache
 
@@ -18,8 +18,6 @@ class TestTemplateContextCache:
 
     async def test_build_project_context_returns_project_name(self) -> None:
         """Test that _build_project_context returns project name in context."""
-        from unittest.mock import patch
-
         from mcp_guide.models import Project
 
         cache = TemplateContextCache()
@@ -39,8 +37,6 @@ class TestTemplateContextCache:
 
     async def test_build_project_context_handles_missing_project(self) -> None:
         """Test that _build_project_context handles missing project gracefully."""
-        from unittest.mock import patch
-
         cache = TemplateContextCache()
 
         # Mock get_or_create_session to return None
@@ -482,8 +478,6 @@ class TestTemplateContextCache:
 
     async def test_openspec_context_task_not_registered(self) -> None:
         """Test OpenSpec context when task not registered."""
-        from unittest.mock import patch
-
         cache = TemplateContextCache()
 
         with patch("mcp_guide.task_manager.get_task_manager") as mock_tm:
@@ -494,3 +488,184 @@ class TestTemplateContextCache:
 
             # When task not registered, openspec is False (disabled)
             assert context["openspec"] is False
+
+    async def test_workflow_context_with_phase_booleans(self) -> None:
+        """Test workflow context includes phase-specific boolean flags for configured phases."""
+        from mcp_guide.models import Project
+
+        cache = TemplateContextCache()
+
+        mock_session = Mock()
+        mock_project = Project(name="test-project", key="test", hash="abc123", categories={}, collections={})
+        mock_session.get_project = AsyncMock(return_value=mock_project)
+        mock_session.get_all_projects = AsyncMock(return_value={})
+        mock_session.feature_flags = Mock(return_value=Mock(list=AsyncMock(return_value={})))
+
+        mock_workflow_state = Mock(
+            phase="implementation",
+            issue="test-issue",
+            tracking={},
+            description="",
+            queue=[],
+        )
+
+        with (
+            patch("mcp_guide.session.get_or_create_session", return_value=mock_session),
+            patch("mcp_guide.models.resolve_all_flags", return_value={"workflow": True}),
+            patch("mcp_guide.task_manager.get_task_manager") as mock_tm,
+            patch("mcp_guide.mcp_context.resolve_project_path", return_value="/test/path"),
+        ):
+            # Configure mock to return workflow_state when called with "workflow_state"
+            def get_cached_data_side_effect(key):
+                if key == "workflow_state":
+                    return mock_workflow_state
+                return None
+
+            mock_tm.return_value.get_cached_data.side_effect = get_cached_data_side_effect
+
+            context = await cache._build_project_context()
+
+            assert "workflow" in context
+            assert context["workflow"]["phase"] == "implementation"
+            # All configured phases should be True
+            assert context["workflow"]["discussion"] is True
+            assert context["workflow"]["planning"] is True
+            assert context["workflow"]["implementation"] is True
+            assert context["workflow"]["check"] is True
+            assert context["workflow"]["review"] is True
+
+    async def test_workflow_context_with_consent_structure(self) -> None:
+        """Test workflow context includes consent with entry/exit structure."""
+        from mcp_guide.models import Project
+
+        cache = TemplateContextCache()
+
+        mock_session = Mock()
+        mock_project = Project(name="test-project", key="test", hash="abc123", categories={}, collections={})
+        mock_session.get_project = AsyncMock(return_value=mock_project)
+        mock_session.get_all_projects = AsyncMock(return_value={})
+        mock_session.feature_flags = Mock(return_value=Mock(list=AsyncMock(return_value={})))
+
+        mock_workflow_state = Mock(
+            phase="discussion",
+            issue="test-issue",
+            tracking={},
+            description="",
+            queue=[],
+        )
+
+        with (
+            patch("mcp_guide.session.get_or_create_session", return_value=mock_session),
+            patch("mcp_guide.models.resolve_all_flags", return_value={"workflow": True}),
+            patch("mcp_guide.task_manager.get_task_manager") as mock_tm,
+            patch("mcp_guide.mcp_context.resolve_project_path", return_value="/test/path"),
+        ):
+
+            def get_cached_data_side_effect(key):
+                if key == "workflow_state":
+                    return mock_workflow_state
+                return None
+
+            mock_tm.return_value.get_cached_data.side_effect = get_cached_data_side_effect
+
+            context = await cache._build_project_context()
+
+            assert "workflow" in context
+            assert "consent" in context["workflow"]
+            # Default consent: implementation entry, review exit
+            assert context["workflow"]["consent"]["implementation"]["entry"] is True
+            assert context["workflow"]["consent"]["implementation"]["exit"] is False
+            assert context["workflow"]["consent"]["review"]["entry"] is False
+            assert context["workflow"]["consent"]["review"]["exit"] is True
+            assert context["workflow"]["consent"]["discussion"]["entry"] is False
+            assert context["workflow"]["consent"]["discussion"]["exit"] is False
+
+    async def test_workflow_context_with_custom_consent(self) -> None:
+        """Test workflow context with custom consent configuration."""
+        from mcp_guide.models import Project
+
+        cache = TemplateContextCache()
+
+        mock_session = Mock()
+        mock_project = Project(name="test-project", key="test", hash="abc123", categories={}, collections={})
+        mock_session.get_project = AsyncMock(return_value=mock_project)
+        mock_session.get_all_projects = AsyncMock(return_value={})
+        mock_session.feature_flags = Mock(return_value=Mock(list=AsyncMock(return_value={})))
+
+        mock_workflow_state = Mock(
+            phase="planning",
+            issue="test-issue",
+            tracking={},
+            description="",
+            queue=[],
+        )
+
+        custom_consent = {"planning": ["entry", "exit"], "check": ["entry"]}
+
+        with (
+            patch("mcp_guide.session.get_or_create_session", return_value=mock_session),
+            patch(
+                "mcp_guide.models.resolve_all_flags",
+                return_value={"workflow": True, "workflow-consent": custom_consent},
+            ),
+            patch("mcp_guide.task_manager.get_task_manager") as mock_tm,
+            patch("mcp_guide.mcp_context.resolve_project_path", return_value="/test/path"),
+        ):
+
+            def get_cached_data_side_effect(key):
+                if key == "workflow_state":
+                    return mock_workflow_state
+                return None
+
+            mock_tm.return_value.get_cached_data.side_effect = get_cached_data_side_effect
+
+            context = await cache._build_project_context()
+
+            assert "workflow" in context
+            assert "consent" in context["workflow"]
+            assert context["workflow"]["consent"]["planning"]["entry"] is True
+            assert context["workflow"]["consent"]["planning"]["exit"] is True
+            assert context["workflow"]["consent"]["check"]["entry"] is True
+            assert context["workflow"]["consent"]["check"]["exit"] is False
+
+    async def test_workflow_context_with_current_phase_consent(self) -> None:
+        """Test workflow context includes current phase consent flags."""
+        from mcp_guide.models import Project
+
+        cache = TemplateContextCache()
+
+        mock_session = Mock()
+        mock_project = Project(name="test-project", key="test", hash="abc123", categories={}, collections={})
+        mock_session.get_project = AsyncMock(return_value=mock_project)
+        mock_session.get_all_projects = AsyncMock(return_value={})
+        mock_session.feature_flags = Mock(return_value=Mock(list=AsyncMock(return_value={})))
+
+        mock_workflow_state = Mock(
+            phase="implementation",
+            issue="test-issue",
+            tracking={},
+            description="",
+            queue=[],
+        )
+
+        with (
+            patch("mcp_guide.session.get_or_create_session", return_value=mock_session),
+            patch("mcp_guide.models.resolve_all_flags", return_value={"workflow": True}),
+            patch("mcp_guide.task_manager.get_task_manager") as mock_tm,
+            patch("mcp_guide.mcp_context.resolve_project_path", return_value="/test/path"),
+        ):
+
+            def get_cached_data_side_effect(key):
+                if key == "workflow_state":
+                    return mock_workflow_state
+                return None
+
+            mock_tm.return_value.get_cached_data.side_effect = get_cached_data_side_effect
+
+            context = await cache._build_project_context()
+
+            assert "workflow" in context
+            assert "consent" in context["workflow"]
+            # Current phase is implementation, which has entry consent by default
+            assert context["workflow"]["consent"]["entry"] is True
+            assert context["workflow"]["consent"]["exit"] is False
