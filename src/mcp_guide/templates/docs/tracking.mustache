@@ -2,7 +2,7 @@
 type: agent/information
 requires-workflow: true
 description: Workflow phase tracking policy
-instruction: Follow this policy exactly. If {{workflow.file}} missing, create it and enter {{workflow.phases.0.value}}.
+instruction: Follow this policy exactly. If {{workflow.file}} missing, create it and enter discussion phase.
 ---
 # Workflow Phases and Tracking
 
@@ -18,7 +18,7 @@ queue:
 ```
 
 ## Core Rules
-- Missing `.guide.yaml` = assume `phase: {{workflow.phases.0.value}}`
+- Missing `.guide.yaml` = assume `phase: discussion`
 - Missing issue = request from user
 - Phase changes MUST update file
 - Issue format: openspec ID or relative path
