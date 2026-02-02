@@ -6,16 +6,13 @@
 
 The template rendering system SHALL support sophisticated `requires-*` directive checking.
 
-The system SHALL support three checking modes:
+The system SHALL support two checking modes:
 
 1. **Boolean Mode**: When `requires-<flag>: true|false`, check if flag value is truthy/falsy
-2. **List Membership Mode**: When `requires-<flag>: [value1, value2]`, check:
+2. **List Membership Mode**: When `requires-<flag>: [value1, value2]`, check if ANY value matches (OR logic):
    - If flag value is scalar: value must be in the list
-   - If flag value is list: all required values must be present in flag list
-   - If flag value is dict: all required keys must be present in flag dict
-3. **Key-Value Mode**: When `requires-<flag>: [key=value, key2=value2]`, check:
-   - Flag value must be a dict
-   - All specified key-value pairs must match
+   - If flag value is list: ANY required value must be present in flag list
+   - If flag value is dict: ANY required key must be present in flag dict
 
 The system SHALL apply checking generically to all `requires-*` directives without special-casing specific flags.
 
@@ -35,29 +32,21 @@ The system SHALL apply checking generically to all `requires-*` directives witho
 - WHEN phase flag is set to "implementation"
 - THEN template is filtered out
 
-#### Scenario: List Containment with List Value
+#### Scenario: List Membership with List Value (ANY match)
 
 - GIVEN a template with `requires-workflow: [discussion, implementation]`
 - WHEN workflow flag is `[discussion, planning, implementation, check, review]`
-- THEN template is included (both required phases present)
-- WHEN workflow flag is `[discussion, planning]`
-- THEN template is filtered out (implementation missing)
+- THEN template is included (discussion is present)
+- WHEN workflow flag is `[planning, check, review]`
+- THEN template is filtered out (neither discussion nor implementation present)
 
-#### Scenario: List Containment with Dict Value
+#### Scenario: List Membership with Dict Value (ANY key)
 
-- GIVEN a template with `requires-workflow: [discussion, implementation]`
-- WHEN workflow flag is `{discussion: false, planning: false, implementation: true, check: false, review: true}`
-- THEN template is included (both required keys present)
-- WHEN workflow flag is `{discussion: false, planning: false}`
-- THEN template is filtered out (implementation key missing)
-
-#### Scenario: Key-Value Pair Checking
-
-- GIVEN a template with `requires-workflow: [implementation=true, check=true]`
-- WHEN workflow flag is `{discussion: false, planning: false, implementation: true, check: true, review: false}`
-- THEN template is included (both key-value pairs match)
-- WHEN workflow flag is `{discussion: false, planning: false, implementation: false, check: true, review: false}`
-- THEN template is filtered out (implementation is false, not true)
+- GIVEN a template with `requires-config: [feature1, feature2]`
+- WHEN config flag is `{feature1: true, feature3: false}`
+- THEN template is included (feature1 key exists)
+- WHEN config flag is `{feature3: true, feature4: false}`
+- THEN template is filtered out (neither feature1 nor feature2 keys exist)
 
 #### Scenario: Multiple Requirements
 
@@ -71,73 +60,116 @@ The system SHALL apply checking generically to all `requires-*` directives witho
 
 ### Requirement: Workflow Flag Structure
 
-The system SHALL support three workflow flag formats:
+The system SHALL support two workflow flag formats:
 
-1. **Simple List**: `workflow: [phase1, phase2, ...]` - list of valid phases, no consent required
-2. **Dict with Consent**: `workflow: {phase1: bool, phase2: bool, ...}` - phases with consent markers
-3. **Boolean Shorthand**: `workflow: true` - expands to default dict structure
+1. **Boolean Shorthand**: `workflow: true` - expands to default phase list
+2. **Simple List**: `workflow: [phase1, phase2, ...]` - explicit phase list
 
-The system SHALL validate and expand `workflow: true` to the default dict structure during flag resolution.
+The system SHALL validate and expand `workflow: true` to the default phase list during flag resolution.
 
-The default dict structure SHALL be:
+The default phase list SHALL be:
 ```yaml
-workflow:
-  discussion: false
-  planning: false
-  implementation: true
-  check: false
-  review: true
+workflow: [discussion, planning, implementation, check, review]
 ```
+
+#### Scenario: Boolean Shorthand Expansion
+
+- GIVEN workflow flag is set to `true`
+- WHEN flag is validated
+- THEN flag is expanded to `[discussion, planning, implementation, check, review]`
+- WHEN checking `requires-workflow: [implementation]`
+- THEN requirement is satisfied (implementation is in list)
 
 #### Scenario: Simple List Format
 
 - GIVEN workflow flag is `[discussion, planning, implementation, check, review]`
 - WHEN checking `requires-workflow: [discussion]`
 - THEN requirement is satisfied (discussion is in list)
-- WHEN checking `requires-workflow: discussion=true`
-- THEN requirement is NOT satisfied (not a dict, cannot check consent)
+- WHEN checking `requires-workflow: [deployment]`
+- THEN requirement is NOT satisfied (deployment not in list)
 
-#### Scenario: Dict with Consent Format
+### Requirement: Workflow Consent Configuration
 
-- GIVEN workflow flag is `{discussion: false, planning: false, implementation: true, check: false, review: true}`
-- WHEN checking `requires-workflow: [implementation]`
-- THEN requirement is satisfied (implementation key exists)
-- WHEN checking `requires-workflow: implementation=true`
-- THEN requirement is satisfied (implementation consent is true)
-- WHEN checking `requires-workflow: discussion=true`
-- THEN requirement is NOT satisfied (discussion consent is false)
+The system SHALL support a separate `workflow-consent` flag for transition consent requirements.
 
-#### Scenario: Boolean Shorthand Expansion
+The system SHALL support three workflow-consent formats:
 
-- GIVEN workflow flag is set to `true`
-- WHEN flag is validated
-- THEN flag is expanded to default dict structure
-- WHEN checking `requires-workflow: implementation=true`
-- THEN requirement is satisfied (default has implementation: true)
+1. **Boolean Shorthand**: `workflow-consent: true` or not set - expands to default consent
+2. **Explicit Disable**: `workflow-consent: false` - no consent requirements
+3. **Custom Consent**: Dict mapping phase names to consent types
 
-### Requirement: Generic Flag Validation
+The default consent configuration SHALL be:
+```yaml
+workflow-consent:
+  implementation: [entry]
+  review: [exit]
+```
 
-The system SHALL provide a validation mechanism for flags that need expansion or transformation.
+Consent types SHALL be:
+- `entry`: Consent required before entering phase
+- `exit`: Consent required before exiting phase
 
-The system SHALL support flag-specific validators that can transform flag values during resolution.
+#### Scenario: Default Consent
 
-The workflow flag validator SHALL expand `true` to the default dict structure.
+- GIVEN workflow is enabled
+- AND workflow-consent is not set OR set to `true`
+- WHEN building workflow.transitions
+- THEN implementation has `pre: true`
+- AND review has `post: true`
+- AND other phases have `pre: false, post: false`
 
-Other flags MAY implement similar expansion logic as needed.
+#### Scenario: No Consent
 
-#### Scenario: Workflow Flag Validation
+- GIVEN workflow is enabled
+- AND workflow-consent is `false`
+- WHEN building workflow.transitions
+- THEN all phases have `pre: false, post: false`
 
-- GIVEN workflow flag is set to `true` in configuration
-- WHEN flags are resolved
-- THEN workflow validator is called
-- AND workflow flag is expanded to default dict
-- AND expanded value is used for requirements checking
+#### Scenario: Custom Consent
+
+- GIVEN workflow-consent is `{planning: [entry], check: [exit]}`
+- WHEN building workflow.transitions
+- THEN planning has `pre: true, post: false`
+- AND check has `pre: false, post: true`
+- AND other phases have `pre: false, post: false`
+
+### Requirement: Workflow Context Building
+
+The system SHALL build `workflow.transitions` from both `workflow` and `workflow-consent` flags.
+
+The system SHALL remove `*` marker parsing from phase names.
+
+The system SHALL maintain phase ordering from the workflow list.
+
+#### Scenario: Transitions from Separate Flags
+
+- GIVEN workflow is `[discussion, planning, implementation, check, review]`
+- AND workflow-consent is default (implementation entry, review exit)
+- WHEN building workflow.transitions
+- THEN transitions contains all phases with correct pre/post values
+- AND transitions.default is "discussion"
+- AND phase ordering is preserved for "next phase" logic
 
 ## REMOVED Requirements
 
+### Requirement: Marker-Based Consent
+
+The `*` prefix/suffix markers for consent SHALL be removed.
+
+Phase names in workflow flag SHALL NOT contain `*` markers.
+
+Consent SHALL be configured via separate `workflow-consent` flag.
+
+#### Scenario: No Markers in Phase Names
+
+- GIVEN workflow flag is validated
+- WHEN workflow contains phase names
+- THEN phase names do NOT contain `*` prefix or suffix
+- AND clean phase names are used directly
+
 ### Requirement: Legacy Requirements Checking
 
-The `check_frontmatter_requirements()` function is REMOVED.
+The `check_frontmatter_requirements()` function SHALL be removed.
 
 All requirements checking SHALL use the enhanced checking in `render_template()`.
 
