@@ -8,6 +8,7 @@ import aiofiles
 import yaml
 
 from mcp_guide.core.mcp_log import get_logger
+from mcp_guide.render.requires import check_requires_directive
 from mcp_guide.result_constants import (
     AGENT_INFO,
     AGENT_INSTRUCTION,
@@ -20,38 +21,6 @@ from mcp_guide.result_constants import (
 )
 
 logger = get_logger(__name__)
-
-
-def _check_requires_directive(required_value: Any, actual_value: Any) -> bool:
-    """Check if requirement is satisfied.
-
-    Args:
-        required_value: Required value from frontmatter
-        actual_value: Actual flag value from context
-
-    Returns:
-        True if requirement is satisfied, False otherwise
-    """
-    # Boolean: truthy check
-    if isinstance(required_value, bool):
-        return bool(actual_value) == required_value
-
-    # List: membership check (ANY match - OR logic)
-    if isinstance(required_value, list):
-        # Scalar: check if actual is in required list
-        if not isinstance(actual_value, (list, dict)):
-            return actual_value in required_value
-
-        # List: check if ANY required value is in actual list
-        if isinstance(actual_value, list):
-            return any(item in actual_value for item in required_value)
-
-        # Dict: check if ANY required key exists in actual dict
-        if isinstance(actual_value, dict):
-            return any(key in actual_value for key in required_value)
-
-    # Exact match
-    return bool(actual_value == required_value)
 
 
 def check_frontmatter_requirements(frontmatter: Dict[str, Any], context: Dict[str, Any]) -> bool:
@@ -69,12 +38,9 @@ def check_frontmatter_requirements(frontmatter: Dict[str, Any], context: Dict[st
             continue
 
         flag_name = key[9:]  # Remove "requires-" prefix
-
-        # Support nested keys (e.g., "openspec.enabled")
         actual_value = context.get(flag_name)
 
-        # Use enhanced checking logic
-        if not _check_requires_directive(required_value, actual_value):
+        if not check_requires_directive(required_value, actual_value):
             return False
 
     return True
