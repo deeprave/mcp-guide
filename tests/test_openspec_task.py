@@ -85,7 +85,7 @@ class TestOpenSpecTask:
 
         event_data = {"command": "openspec", "path": "/usr/local/bin/openspec", "found": True}
 
-        with patch.object(task, "request_project_check", new_callable=AsyncMock) as mock_request:
+        with patch.object(task, "request_version_check", new_callable=AsyncMock) as mock_request:
             result = await task.handle_event(EventType.FS_COMMAND, event_data)
 
             assert result is True
@@ -247,7 +247,10 @@ class TestOpenSpecTask:
             "content": "openspec version 1.2.3",
         }
 
-        with patch("mcp_guide.session.get_or_create_session") as mock_session:
+        with (
+            patch("mcp_guide.session.get_or_create_session") as mock_session,
+            patch.object(task, "request_project_check", new_callable=AsyncMock) as mock_request_project,
+        ):
             mock_project = MagicMock()
             mock_project.openspec_version = None
             mock_session_instance = AsyncMock()
@@ -261,6 +264,7 @@ class TestOpenSpecTask:
         assert task.get_version() == "1.2.3"
         assert task._version_this_session == "1.2.3"
         mock_session_instance.update_config.assert_called_once()
+        mock_request_project.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_handle_event_changes_json_caches_data(self, mock_task_manager):

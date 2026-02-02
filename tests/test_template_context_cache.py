@@ -669,3 +669,81 @@ class TestTemplateContextCache:
             # Current phase is implementation, which has entry consent by default
             assert context["workflow"]["consent"]["entry"] is True
             assert context["workflow"]["consent"]["exit"] is False
+
+    async def test_workflow_context_includes_next_phase(self) -> None:
+        """Test workflow context includes next phase in sequence."""
+        from mcp_guide.models import Project
+
+        cache = TemplateContextCache()
+
+        mock_session = Mock()
+        mock_project = Project(name="test-project", key="test", hash="abc123", categories={}, collections={})
+        mock_session.get_project = AsyncMock(return_value=mock_project)
+        mock_session.get_all_projects = AsyncMock(return_value={})
+        mock_session.feature_flags = Mock(return_value=Mock(list=AsyncMock(return_value={})))
+
+        mock_workflow_state = Mock(
+            phase="implementation",
+            issue="test-issue",
+            tracking={},
+            description="",
+            queue=[],
+        )
+
+        with (
+            patch("mcp_guide.session.get_or_create_session", return_value=mock_session),
+            patch("mcp_guide.models.resolve_all_flags", return_value={"workflow": True}),
+            patch("mcp_guide.task_manager.get_task_manager") as mock_tm,
+            patch("mcp_guide.mcp_context.resolve_project_path", return_value="/test/path"),
+        ):
+
+            def get_cached_data_side_effect(key):
+                if key == "workflow_state":
+                    return mock_workflow_state
+                return None
+
+            mock_tm.return_value.get_cached_data.side_effect = get_cached_data_side_effect
+
+            context = await cache._build_project_context()
+
+            assert "workflow" in context
+            assert context["workflow"]["next"] == "check"
+
+    async def test_workflow_next_wraps_around(self) -> None:
+        """Test workflow.next wraps from last phase to first phase."""
+        from mcp_guide.models import Project
+
+        cache = TemplateContextCache()
+
+        mock_session = Mock()
+        mock_project = Project(name="test-project", key="test", hash="abc123", categories={}, collections={})
+        mock_session.get_project = AsyncMock(return_value=mock_project)
+        mock_session.get_all_projects = AsyncMock(return_value={})
+        mock_session.feature_flags = Mock(return_value=Mock(list=AsyncMock(return_value={})))
+
+        mock_workflow_state = Mock(
+            phase="review",
+            issue="test-issue",
+            tracking={},
+            description="",
+            queue=[],
+        )
+
+        with (
+            patch("mcp_guide.session.get_or_create_session", return_value=mock_session),
+            patch("mcp_guide.models.resolve_all_flags", return_value={"workflow": True}),
+            patch("mcp_guide.task_manager.get_task_manager") as mock_tm,
+            patch("mcp_guide.mcp_context.resolve_project_path", return_value="/test/path"),
+        ):
+
+            def get_cached_data_side_effect(key):
+                if key == "workflow_state":
+                    return mock_workflow_state
+                return None
+
+            mock_tm.return_value.get_cached_data.side_effect = get_cached_data_side_effect
+
+            context = await cache._build_project_context()
+
+            assert "workflow" in context
+            assert context["workflow"]["next"] == "discussion"

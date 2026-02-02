@@ -13,3 +13,11 @@ class SessionListener(Protocol):
             project_name: Name of the new project
         """
         ...
+
+    def on_config_changed(self, project_name: str) -> None:
+        """Called when project configuration changes.
+
+        Args:
+            project_name: Name of the project whose config changed
+        """
+        ...

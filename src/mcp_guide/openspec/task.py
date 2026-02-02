@@ -80,20 +80,16 @@ class OpenSpecTask:
         session = await get_or_create_session()
         project = await session.get_project()
 
-        # Load persisted version if available (but still verify it this session)
+        # Load persisted version if available
         if project.openspec_version:
             self._version = project.openspec_version
             self.task_manager.set_cached_data("openspec_version", self._version)
             logger.debug(f"Loaded persisted OpenSpec version: {self._version}")
 
-        # Request version check once per session (even if we have persisted version)
-        if not self._version_this_session:
-            await self.request_version_check()
-
         # If validated, request changes immediately
         if project.openspec_validated:
             await self.request_changes_json()
-        # Otherwise request CLI availability check
+        # Otherwise request CLI availability check (version check happens after CLI is confirmed)
         elif not self._cli_requested:
             await self.request_cli_check()
             self._cli_requested = True
@@ -253,10 +249,10 @@ class OpenSpecTask:
                 self.task_manager.set_cached_data("openspec_available", self._available)
                 logger.info(f"OpenSpec CLI {'available' if self._available else 'not available'}")
 
-                # If CLI available, check project structure
-                if self._available and not self._project_requested:
-                    self._project_requested = True
-                    await self.request_project_check()
+                # If CLI available, request version check first
+                if self._available and not self._version_requested:
+                    self._version_requested = True
+                    await self.request_version_check()
 
                 return True
 
@@ -387,6 +383,11 @@ class OpenSpecTask:
             if project.openspec_version != self._version:
                 await session.update_config(lambda p: replace(p, openspec_version=self._version))
                 logger.info(f"Updated project config with OpenSpec version: {self._version}")
+
+            # After version is confirmed, check project structure
+            if not self._project_requested:
+                self._project_requested = True
+                await self.request_project_check()
         else:
             logger.warning(f"Failed to parse OpenSpec version from: {content}")
             self._version = None

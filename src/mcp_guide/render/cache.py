@@ -31,6 +31,11 @@ class TemplateContextCache(SessionListener):
         invalidate_template_context_cache()
         logger.debug(f"Template context cache invalidated for project: {project_name}")
 
+    def on_config_changed(self, project_name: str) -> None:
+        """Invalidate cache when project configuration changes."""
+        invalidate_template_context_cache()
+        logger.debug(f"Template context cache invalidated due to config change: {project_name}")
+
     async def _build_system_context(self) -> "TemplateContext":
         """Build system context with static system information."""
         import platform
@@ -356,6 +361,15 @@ class TemplateContextCache(SessionListener):
                                     "queue": workflow_state.queue,
                                 }
                             )
+
+                            # Calculate next phase
+                            try:
+                                current_index = phase_names.index(workflow_state.phase)
+                                next_phase = phase_names[(current_index + 1) % len(phase_names)]
+                                workflow_config["next"] = next_phase
+                            except ValueError:
+                                # Current phase not in configured phases, default to first phase
+                                workflow_config["next"] = phase_names[0] if phase_names else "discussion"
 
                             # Add current phase consent flags
                             current_phase_consent = consent_context.get(
