@@ -57,7 +57,8 @@ class TestGuidePromptIntegration:
 
         result = json.loads(result_str)
         assert result["success"] is False
-        assert result["error"] == "Requires 1 or more arguments"
+        assert "guide prompt requires one or more arguments" in result["error"]
+        assert ":help" in result["error"]
         assert result["error_type"] == "validation"
         assert result["instruction"] == INSTRUCTION_DISPLAY_ONLY
 
@@ -132,7 +133,8 @@ class TestGuidePromptIntegration:
 
         result = json.loads(result_str)
         assert result["success"] is False
-        assert result["error"] == "Requires 1 or more arguments"
+        assert "guide prompt requires one or more arguments" in result["error"]
+        assert ":help" in result["error"]
         assert result["instruction"] == INSTRUCTION_DISPLAY_ONLY
 
     @pytest.mark.asyncio

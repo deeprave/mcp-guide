@@ -498,6 +498,14 @@ class Session:
             except Exception as e:
                 logger.debug(f"Listener notification failed: {e}")
 
+    def _notify_config_changed(self) -> None:
+        """Notify all listeners of config change."""
+        for listener in self._listeners:
+            try:
+                listener.on_config_changed(self.project_name)
+            except Exception as e:
+                logger.debug(f"Config change listener notification failed: {e}")
+
     async def cleanup(self) -> None:
         """Cleanup session resources including config watcher."""
         if self._watcher_task and not self._watcher_task.done():
@@ -544,6 +552,9 @@ class Session:
         await config_manager.save_project_config(self._project_key, updated_project)
         self.__project = updated_project
 
+        # Notify listeners of config change
+        self._notify_config_changed()
+
     def get_state(self) -> SessionState:
         """Get mutable session state."""
         return self._state
@@ -566,6 +577,9 @@ class Session:
         config_manager = self._get_config_manager()
         await config_manager.save_project_config(self._project_key, project)
         self.__project = project  # Update cache
+
+        # Notify listeners of config change
+        self._notify_config_changed()
 
     def invalidate_cache(self) -> None:
         """Invalidate the cached project configuration."""

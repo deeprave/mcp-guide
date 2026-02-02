@@ -36,7 +36,7 @@ Without enhanced checking:
 **Workflow consent formats**:
 1. **Boolean shorthand**: `workflow-consent: true` → expands to default consent requirements
 2. **Explicit consent**: `workflow-consent: false` → no consent requirements
-3. **Custom consent**: 
+3. **Custom consent**:
    ```yaml
    workflow-consent:
      implementation: [entry]
@@ -80,7 +80,7 @@ def check_requires_directive(
         # List: check if ANY required value is in actual list
         if isinstance(actual_value, list):
             return any(item in actual_value for item in required_value)
-        
+
         # Dict: check if ANY required key exists in actual dict
         if isinstance(actual_value, dict):
             return any(key in actual_value for key in required_value)
@@ -122,7 +122,7 @@ workflow-consent: false
 # Default phases
 DEFAULT_WORKFLOW_PHASES = [
     "discussion",
-    "planning", 
+    "planning",
     "implementation",
     "check",
     "review",
@@ -158,42 +158,42 @@ Update `WorkflowContextCache._build_workflow_transitions()` to use both flags:
 ```python
 def _build_workflow_transitions(self) -> dict[str, Any]:
     """Build workflow.transitions dict from workflow and workflow-consent flags."""
-    
+
     # Get workflow phases
     workflow_flag = self.task_manager.get_cached_data("workflow_flag")
     if not workflow_flag:
         return {}
-    
+
     # Get consent requirements
     consent_flag = self.task_manager.get_cached_data("workflow_consent_flag")
     if consent_flag is None:
         consent_flag = DEFAULT_WORKFLOW_CONSENT
-    
+
     transitions = {}
-    
+
     for i, phase in enumerate(workflow_flag):
         # First phase is default
         is_default = i == 0
-        
+
         # Check consent requirements for this phase
         consent_config = consent_flag.get(phase, [])
         pre_consent = "entry" in consent_config
         post_consent = "exit" in consent_config
-        
+
         phase_metadata = {
             "pre": pre_consent,
             "post": post_consent,
         }
-        
+
         if is_default:
             phase_metadata["default"] = True
-        
+
         transitions[phase] = phase_metadata
-    
+
     # Add default phase name
     if workflow_flag:
         transitions["default"] = workflow_flag[0]
-    
+
     return transitions
 ```
 

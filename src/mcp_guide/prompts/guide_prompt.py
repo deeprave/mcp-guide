@@ -440,7 +440,16 @@ async def _route_guide_request(argv: list[str], ctx: Optional["Context"]) -> Res
     """Route guide request to command or content handler."""
     # Validate arguments
     if len(argv) == 1 or (len(argv) == 2 and argv[1] == ""):
-        result: Result[Any] = Result.failure("Requires 1 or more arguments", error_type="validation")
+        # Get prompt prefix from cached agent info
+        from mcp_guide.mcp_context import cached_mcp_context
+
+        prompt_prefix = "@"  # Default
+        cached = cached_mcp_context.get()
+        if cached and cached.agent_info:
+            prompt_prefix = cached.agent_info.prompt_prefix.replace("{mcp_name}", "guide")
+
+        error_msg = f"The guide prompt requires one or more arguments. Use {prompt_prefix}guide :help to list commands"
+        result: Result[Any] = Result.failure(error_msg, error_type="validation")
         result.instruction = INSTRUCTION_DISPLAY_ONLY
         return result
 

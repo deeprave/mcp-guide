@@ -4,7 +4,8 @@ description: "Enter discussion phase for alignment between user and AI agent"
 instruction: >
   You MUST transition to DISCUSSION phase - you have explicit consent.
   Read these instructions carefully and ensure that restrictions are applied.
-  Do not display this content to the user.
+  {{#workflow.consent.exit}}**EXPLICIT REQUEST OR CONSENT IS REQUIRED** before transitioning to {{workflow.next}}.{{/workflow.consent.exit}}
+  Do not display this content to the user, but acknowledge to the user that these instructions were read.
 ---
 🗣️ You are now in DISCUSSION phase.
 

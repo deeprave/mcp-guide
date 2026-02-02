@@ -4,9 +4,10 @@ description: "Enter check phase to run tests and code quality checks"
 usage: ":check or :phase/check"
 category: "workflow"
 instruction: >
-  Transition to PLANNING phase.
+  Transition to CHECK phase.
   Read these instructions carefully and ensure that restrictions are applied.
-  Do not display this content to the user.
+  {{#workflow.consent.exit}}**EXPLICIT REQUEST OR CONSENT IS REQUIRED** before transitioning to {{workflow.next}}.{{/workflow.consent.exit}}
+  Do not display this content to the user, but acknowledge to the user that these instructions were read.
 ---
 🔍 You are now in CHECK phase
 
