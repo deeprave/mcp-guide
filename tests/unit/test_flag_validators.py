@@ -58,9 +58,13 @@ class TestValidationRegistration:
 
         # Valid workflow flag values should not raise
         validate_flag_with_registered(FLAG_WORKFLOW, True, is_project=True)
-        validate_flag_with_registered(FLAG_WORKFLOW, ["discussion", "planning"], is_project=True)
+        validate_flag_with_registered(FLAG_WORKFLOW, ["discussion", "implementation"], is_project=True)
 
-        # Invalid workflow flag should raise
+        # Invalid workflow flag should raise (missing mandatory phases)
+        with pytest.raises(FlagValidationError):
+            validate_flag_with_registered(FLAG_WORKFLOW, ["discussion", "planning"], is_project=True)
+
+        # Invalid workflow flag should raise (invalid phase name)
         with pytest.raises(FlagValidationError):
             validate_flag_with_registered(FLAG_WORKFLOW, ["invalid-phase"], is_project=True)
 

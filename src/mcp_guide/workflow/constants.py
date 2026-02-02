@@ -1,6 +1,6 @@
 """Workflow constants."""
 
-# Workflow phase names (without transition markers)
+# Workflow phase names
 PHASE_DISCUSSION = "discussion"
 PHASE_PLANNING = "planning"
 PHASE_IMPLEMENTATION = "implementation"
@@ -13,28 +13,17 @@ DEFAULT_WORKFLOW_FILE = ".guide.yaml"
 # Workflow directory name
 WORKFLOW_DIR = "_workflow"
 
-
-# Helper functions for transition control markers
-def require_entry_consent(phase: str) -> str:
-    """Mark phase as requiring explicit consent to enter."""
-    return f"*{phase}"
-
-
-def require_exit_consent(phase: str) -> str:
-    """Mark phase as requiring explicit consent to exit."""
-    return f"{phase}*"
-
-
-def require_both_consent(phase: str) -> str:
-    """Mark phase as requiring explicit consent to enter and exit."""
-    return f"*{phase}*"
-
-
-# Default workflow sequence with transition controls
+# Default workflow sequence
 DEFAULT_WORKFLOW_PHASES = [
     PHASE_DISCUSSION,
     PHASE_PLANNING,
-    require_entry_consent(PHASE_IMPLEMENTATION),
-    require_exit_consent(PHASE_CHECK),
-    require_exit_consent(PHASE_REVIEW),
+    PHASE_IMPLEMENTATION,
+    PHASE_CHECK,
+    PHASE_REVIEW,
 ]
+
+# Default consent requirements
+DEFAULT_WORKFLOW_CONSENT = {
+    "implementation": ["entry"],
+    "review": ["exit"],
+}

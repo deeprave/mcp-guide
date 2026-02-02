@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from typing import Optional, Union
 
-from mcp_guide.feature_flags.constants import FLAG_WORKFLOW, FLAG_WORKFLOW_FILE
+from mcp_guide.feature_flags.constants import FLAG_WORKFLOW, FLAG_WORKFLOW_CONSENT, FLAG_WORKFLOW_FILE
 from mcp_guide.feature_flags.types import FeatureValue
 from mcp_guide.feature_flags.validators import register_flag_validator
 from mcp_guide.filesystem.read_write_security import ReadWriteSecurityPolicy, SecurityError
@@ -34,29 +34,16 @@ class WorkflowConfig:
     phases: list[str]
 
 
-def extract_phase_name(phase_with_markers: str) -> str:
-    """Extract clean phase name from phase with transition markers.
-
-    Args:
-        phase_with_markers: Phase name possibly with * prefix/suffix
-
-    Returns:
-        Clean phase name without markers
-    """
-    return phase_with_markers.strip("*")
-
-
 def validate_phase_name(phase: str) -> bool:
     """Validate that a phase name is valid.
 
     Args:
-        phase: Phase name (with or without transition markers)
+        phase: Phase name
 
     Returns:
         True if phase name is valid
     """
-    clean_phase = extract_phase_name(phase)
-    return clean_phase in VALID_PHASES
+    return phase in VALID_PHASES
 
 
 def substitute_variables(
@@ -114,10 +101,7 @@ def parse_workflow_phases(workflow_flag: Union[bool, list[str]]) -> WorkflowConf
         if validate_phase_name(phase):
             validated_phases.append(phase)
         else:
-            clean_phase = extract_phase_name(phase)
-            raise ValueError(
-                f"Invalid phase name: '{clean_phase}'. Valid phases are: {', '.join(sorted(VALID_PHASES))}"
-            )
+            raise ValueError(f"Invalid phase name: '{phase}'. Valid phases are: {', '.join(sorted(VALID_PHASES))}")
 
     return WorkflowConfig(enabled=True, phases=validated_phases)
 
@@ -156,7 +140,24 @@ def _validate_workflow_flag(value: FeatureValue, is_project: bool) -> bool:
         return True
 
     if isinstance(value, list):
-        return all(isinstance(phase, str) and validate_phase_name(phase) for phase in value)
+        # All items must be strings and valid phase names (no markers allowed)
+        for phase in value:
+            if not isinstance(phase, str):
+                return False
+            # Reject phases with markers
+            if phase.startswith("*") or phase.endswith("*"):
+                return False
+            # Must be valid phase name
+            if not validate_phase_name(phase):
+                return False
+
+        # Discussion and implementation are mandatory
+        if "discussion" not in value:
+            return False
+        if "implementation" not in value:
+            return False
+
+        return True
 
     return False
 
@@ -171,6 +172,34 @@ def _validate_workflow_file_flag(value: FeatureValue, is_project: bool) -> bool:
     return True
 
 
+def _validate_workflow_consent_flag(value: FeatureValue, is_project: bool) -> bool:
+    """Validate workflow-consent flag value."""
+    if value is True or value is False or value is None:
+        return True
+
+    if isinstance(value, dict):
+        # Validate structure: {phase: [consent_types]} or {phase: consent_type}
+        for phase, consents in value.items():
+            if not isinstance(phase, str):
+                return False
+            # Phase must be a valid phase name
+            if not validate_phase_name(phase):
+                return False
+
+            # Normalize single string to list
+            consent_list = [consents] if isinstance(consents, str) else consents
+
+            if not isinstance(consent_list, list):
+                return False
+            # Each consent must be "entry" or "exit"
+            if not all(c in ["entry", "exit"] for c in consent_list):
+                return False
+        return True
+
+    return False
+
+
 # Register validators at module import
 register_flag_validator(FLAG_WORKFLOW, _validate_workflow_flag)
 register_flag_validator(FLAG_WORKFLOW_FILE, _validate_workflow_file_flag)
+register_flag_validator(FLAG_WORKFLOW_CONSENT, _validate_workflow_consent_flag)

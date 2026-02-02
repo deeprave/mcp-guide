@@ -49,11 +49,11 @@ class TestWorkflowPhases:
         """Test workflow=true uses default sequence."""
         result = parse_workflow_phases(True)
         assert result.enabled is True
-        assert result.phases == ["discussion", "planning", "*implementation", "check*", "review*"]
+        assert result.phases == ["discussion", "planning", "implementation", "check", "review"]
 
     def test_parse_custom_phases_valid(self):
         """Test parsing custom phase list with valid phases."""
-        custom_phases = ["discussion", "*planning", "implementation*"]
+        custom_phases = ["discussion", "planning", "implementation"]
         result = parse_workflow_phases(custom_phases)
         assert result.enabled is True
         assert result.phases == custom_phases
@@ -86,3 +86,104 @@ class TestWorkflowFileSecurity:
 
         with pytest.raises(SecurityError, match="Write to absolute path not allowed"):
             validate_workflow_file_path(unsafe_path, allowed_paths)
+
+
+class TestWorkflowFlagValidation:
+    """Test workflow flag validation."""
+
+    def test_workflow_flag_rejects_markers(self):
+        """Test workflow flag validator rejects phases with markers."""
+        from mcp_guide.workflow.flags import _validate_workflow_flag
+
+        # Should reject phases with prefix marker
+        assert _validate_workflow_flag(["discussion", "*implementation"], False) is False
+
+        # Should reject phases with suffix marker
+        assert _validate_workflow_flag(["discussion", "check*"], False) is False
+
+        # Should reject phases with both markers
+        assert _validate_workflow_flag(["*implementation*"], False) is False
+
+    def test_workflow_flag_accepts_clean_phases(self):
+        """Test workflow flag validator accepts clean phase names."""
+        from mcp_guide.workflow.flags import _validate_workflow_flag
+
+        # Should accept clean phase names
+        assert _validate_workflow_flag(["discussion", "planning", "implementation"], False) is True
+
+        # Should accept boolean
+        assert _validate_workflow_flag(True, False) is True
+        assert _validate_workflow_flag(False, False) is True
+
+    def test_workflow_flag_rejects_invalid_phases(self):
+        """Test workflow flag validator rejects invalid phase names."""
+        from mcp_guide.workflow.flags import _validate_workflow_flag
+
+        # Should reject invalid phase name
+        assert _validate_workflow_flag(["discussion", "implementation", "invalid_phase"], False) is False
+
+    def test_workflow_flag_requires_mandatory_phases(self):
+        """Test workflow flag validator requires discussion and implementation."""
+        from mcp_guide.workflow.flags import _validate_workflow_flag
+
+        # Should reject without discussion
+        assert _validate_workflow_flag(["planning", "implementation", "check"], False) is False
+
+        # Should reject without implementation
+        assert _validate_workflow_flag(["discussion", "planning", "check"], False) is False
+
+        # Should accept with both mandatory phases
+        assert _validate_workflow_flag(["discussion", "implementation"], False) is True
+        assert _validate_workflow_flag(["discussion", "planning", "implementation", "check", "review"], False) is True
+
+
+class TestWorkflowConsentValidation:
+    """Test workflow-consent flag validation."""
+
+    def test_consent_flag_accepts_boolean(self):
+        """Test consent flag validator accepts boolean values."""
+        from mcp_guide.workflow.flags import _validate_workflow_consent_flag
+
+        assert _validate_workflow_consent_flag(True, False) is True
+        assert _validate_workflow_consent_flag(False, False) is True
+        assert _validate_workflow_consent_flag(None, False) is True
+
+    def test_consent_flag_accepts_valid_dict(self):
+        """Test consent flag validator accepts valid dict structure."""
+        from mcp_guide.workflow.flags import _validate_workflow_consent_flag
+
+        # Valid consent configuration with lists
+        consent = {"implementation": ["entry"], "review": ["exit"]}
+        assert _validate_workflow_consent_flag(consent, False) is True
+
+        # Valid with both entry and exit
+        consent = {"planning": ["entry", "exit"]}
+        assert _validate_workflow_consent_flag(consent, False) is True
+
+        # Valid with single string (YAML shorthand)
+        consent = {"implementation": "entry", "review": "exit"}
+        assert _validate_workflow_consent_flag(consent, False) is True
+
+    def test_consent_flag_rejects_invalid_phase(self):
+        """Test consent flag validator rejects invalid phase names."""
+        from mcp_guide.workflow.flags import _validate_workflow_consent_flag
+
+        # Invalid phase name
+        consent = {"invalid_phase": ["entry"]}
+        assert _validate_workflow_consent_flag(consent, False) is False
+
+    def test_consent_flag_rejects_invalid_consent_type(self):
+        """Test consent flag validator rejects invalid consent types."""
+        from mcp_guide.workflow.flags import _validate_workflow_consent_flag
+
+        # Invalid consent type in list
+        consent = {"implementation": ["invalid"]}
+        assert _validate_workflow_consent_flag(consent, False) is False
+
+        # Invalid consent type as string
+        consent = {"implementation": "invalid"}
+        assert _validate_workflow_consent_flag(consent, False) is False
+
+        # Must be string or list, not other types
+        consent = {"implementation": 123}
+        assert _validate_workflow_consent_flag(consent, False) is False

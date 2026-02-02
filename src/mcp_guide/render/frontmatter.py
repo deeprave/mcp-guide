@@ -22,6 +22,38 @@ from mcp_guide.result_constants import (
 logger = get_logger(__name__)
 
 
+def _check_requires_directive(required_value: Any, actual_value: Any) -> bool:
+    """Check if requirement is satisfied.
+
+    Args:
+        required_value: Required value from frontmatter
+        actual_value: Actual flag value from context
+
+    Returns:
+        True if requirement is satisfied, False otherwise
+    """
+    # Boolean: truthy check
+    if isinstance(required_value, bool):
+        return bool(actual_value) == required_value
+
+    # List: membership check (ANY match - OR logic)
+    if isinstance(required_value, list):
+        # Scalar: check if actual is in required list
+        if not isinstance(actual_value, (list, dict)):
+            return actual_value in required_value
+
+        # List: check if ANY required value is in actual list
+        if isinstance(actual_value, list):
+            return any(item in actual_value for item in required_value)
+
+        # Dict: check if ANY required key exists in actual dict
+        if isinstance(actual_value, dict):
+            return any(key in actual_value for key in required_value)
+
+    # Exact match
+    return bool(actual_value == required_value)
+
+
 def check_frontmatter_requirements(frontmatter: Dict[str, Any], context: Dict[str, Any]) -> bool:
     """Check if frontmatter requirements are satisfied by context.
 
@@ -41,22 +73,9 @@ def check_frontmatter_requirements(frontmatter: Dict[str, Any], context: Dict[st
         # Support nested keys (e.g., "openspec.enabled")
         actual_value = context.get(flag_name)
 
-        # Handle different requirement types
-        if isinstance(required_value, bool):
-            # Simple boolean requirement
-            # For dict values, check if dict is non-empty (truthy)
-            if isinstance(actual_value, dict):
-                actual_value = bool(actual_value)
-            if bool(actual_value) != required_value:
-                return False
-        elif isinstance(required_value, list):
-            # Must match one of the values in list
-            if actual_value not in required_value:
-                return False
-        else:
-            # Exact match requirement
-            if actual_value != required_value:
-                return False
+        # Use enhanced checking logic
+        if not _check_requires_directive(required_value, actual_value):
+            return False
 
     return True
 

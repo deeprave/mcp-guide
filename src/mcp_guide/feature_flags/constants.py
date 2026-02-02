@@ -7,6 +7,7 @@ FLAG_OPENSPEC = "openspec"
 # Workflow flags
 FLAG_WORKFLOW = "workflow"
 FLAG_WORKFLOW_FILE = "workflow-file"
+FLAG_WORKFLOW_CONSENT = "workflow-consent"
 
 # Content format flags
 FLAG_CONTENT_FORMAT_MIME = "content-format-mime"
