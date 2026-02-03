@@ -88,6 +88,10 @@ class OpenSpecTask:
 
         # If validated, request changes immediately
         if project.openspec_validated:
+            # Backfill version if missing
+            if not project.openspec_version and not self._version_requested:
+                self._version_requested = True
+                await self.request_version_check()
             await self.request_changes_json()
         # Otherwise request CLI availability check (version check happens after CLI is confirmed)
         elif not self._cli_requested:
