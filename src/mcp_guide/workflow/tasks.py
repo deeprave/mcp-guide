@@ -199,13 +199,19 @@ class WorkflowMonitorTask:
         combined_instructions = "\n".join(unique_instructions)
 
         # Create a new RenderedContent with combined values
-        # Use first template's metadata
+        # Note: Only instruction is preserved in frontmatter because:
+        # - type: All workflow templates are "agent/instruction" (consistent)
+        # - description: Combining descriptions doesn't make semantic sense
+        # - instruction: This is the critical field that must be preserved and combined
+        # frontmatter_length is 0 because this is a synthetic combined object with no source frontmatter
         first = rendered_list[0]
         return RenderedContent(
             content=combined_content,
             content_length=len(combined_content),
-            frontmatter=Frontmatter({"instruction": combined_instructions} if combined_instructions else {}),
-            frontmatter_length=0,  # Combined frontmatter has no source length
+            frontmatter=Frontmatter(
+                {"type": "agent/instruction", "instruction": combined_instructions} if combined_instructions else {}
+            ),
+            frontmatter_length=0,  # Synthetic combined object has no source frontmatter
             template_path=first.template_path,
             template_name=first.template_name,
         )
