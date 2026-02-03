@@ -14,6 +14,7 @@ from mcp_guide.workflow.parser import parse_workflow_state
 from mcp_guide.workflow.rendering import render_workflow_template
 
 if TYPE_CHECKING:
+    from mcp_guide.render.content import RenderedContent
     from mcp_guide.task_manager import TaskManager
 
 logger = get_logger(__name__)
@@ -139,15 +140,10 @@ class WorkflowMonitorTask:
 
             # Process each detected change and get rendered content for main response
             if changes:
-                change_content = await self._process_workflow_changes(changes)
-                if change_content:
-                    # Store the change content to be used as the main response value
-                    self.task_manager.set_cached_data("workflow_change_content", change_content)
-
-            # Always queue monitoring instruction after successful parse
-            rendered = await render_workflow_template("monitoring-result")
-            if rendered:
-                await self.task_manager.queue_instruction(rendered.content)
+                rendered_change = await self._process_workflow_changes(changes)
+                if rendered_change:
+                    # Store the rendered content to be used as the main response
+                    self.task_manager.set_cached_data("workflow_change_content", rendered_change)
 
             # Update cache with new state AFTER processing changes
             self.task_manager.set_cached_data("workflow_state", new_state)
@@ -157,14 +153,17 @@ class WorkflowMonitorTask:
             logger.error(f"Failed to process workflow content: {e}", exc_info=True)
 
     @staticmethod
-    async def _process_workflow_changes(changes: list[ChangeEvent]) -> Optional[str]:
+    async def _process_workflow_changes(changes: list[ChangeEvent]) -> Optional[RenderedContent]:
         """Process detected workflow changes and return rendered content for main response.
 
         Returns:
-            Rendered change content for main response, or None if no content to return
+            RenderedContent with combined content and instructions, or None if no content to return
         """
+        from mcp_guide.render.content import RenderedContent
+        from mcp_guide.render.frontmatter_types import Frontmatter
+
         # Process each change using existing workflow instruction system
-        rendered_contents = []
+        rendered_list: list[RenderedContent] = []
         for change in changes:
             logger.trace(f"Processing change: {change.change_type.value}")
 
@@ -174,7 +173,7 @@ class WorkflowMonitorTask:
             # Render template content for main response
             rendered = await render_workflow_template(template_pattern)
             if rendered:
-                rendered_contents.append(rendered.content)
+                rendered_list.append(rendered)
                 logger.trace(
                     f"Rendered workflow content for {change.change_type.value} using pattern: {template_pattern}"
                 )
@@ -183,5 +182,30 @@ class WorkflowMonitorTask:
                     f"Workflow content filtered or unavailable for {change.change_type.value} using pattern: {template_pattern}"
                 )
 
-        # Combine all rendered content
-        return "\n".join(rendered_contents) if rendered_contents else None
+        if not rendered_list:
+            return None
+
+        # Combine all rendered content and instructions
+        combined_content = "\n".join(r.content for r in rendered_list)
+
+        # Deduplicate instructions while preserving order
+        seen_instructions = set()
+        unique_instructions = []
+        for r in rendered_list:
+            if r.instruction and r.instruction not in seen_instructions:
+                seen_instructions.add(r.instruction)
+                unique_instructions.append(r.instruction)
+
+        combined_instructions = "\n".join(unique_instructions)
+
+        # Create a new RenderedContent with combined values
+        # Use first template's metadata
+        first = rendered_list[0]
+        return RenderedContent(
+            content=combined_content,
+            content_length=len(combined_content),
+            frontmatter=Frontmatter({"instruction": combined_instructions} if combined_instructions else {}),
+            frontmatter_length=0,  # Combined frontmatter has no source length
+            template_path=first.template_path,
+            template_name=first.template_name,
+        )

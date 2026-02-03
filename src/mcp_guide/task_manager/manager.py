@@ -414,15 +414,17 @@ class TaskManager:
         if event_type is not None:
             await self.dispatch_event(event_type, result)
 
-        # Check for workflow change content that should replace the main response value
+        # Check for workflow change content that should replace the main response
         workflow_change_content = self.get_cached_data("workflow_change_content")
         if workflow_change_content:
             # Clear the cached content after using it
             self.set_cached_data("workflow_change_content", None)
-            # Replace the result value with the workflow change content
+            # Replace the result with workflow change content and instruction
             from dataclasses import replace
 
-            result = replace(result, value=workflow_change_content)
+            result = replace(
+                result, value=workflow_change_content.content, instruction=workflow_change_content.instruction
+            )
             # When workflow_change_content is applied, skip pending instructions for this response
             return result
 
