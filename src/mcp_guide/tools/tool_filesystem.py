@@ -6,12 +6,12 @@ from mcp.server.fastmcp import Context
 from pydantic import Field
 
 from mcp_guide.core.tool_arguments import ToolArguments
+from mcp_guide.core.tool_decorator import toolfunc
 from mcp_guide.filesystem.tools import send_command_location as fs_send_command_location
 from mcp_guide.filesystem.tools import send_directory_listing as fs_send_directory_listing
 from mcp_guide.filesystem.tools import send_file_content as fs_send_file_content
 from mcp_guide.filesystem.tools import send_working_directory as fs_send_working_directory
 from mcp_guide.result import Result
-from mcp_guide.server import tools
 from mcp_guide.tools.tool_result import tool_result
 
 
@@ -103,7 +103,7 @@ async def internal_send_working_directory(
         return Result.failure(error=f"Error processing working directory: {str(e)}", error_type="unknown")
 
 
-@tools.tool(SendFileContentArgs)
+@toolfunc(SendFileContentArgs)
 async def send_file_content(args: SendFileContentArgs, ctx: Optional[Context] = None) -> str:  # type: ignore
     """Send file content from agent filesystem to server.
 
@@ -114,7 +114,7 @@ async def send_file_content(args: SendFileContentArgs, ctx: Optional[Context] = 
     return await tool_result("send_file_content", result)
 
 
-@tools.tool(SendDirectoryListingArgs)
+@toolfunc(SendDirectoryListingArgs)
 async def send_directory_listing(args: SendDirectoryListingArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
     """Send directory listing from agent filesystem to server.
 
@@ -125,7 +125,7 @@ async def send_directory_listing(args: SendDirectoryListingArgs, ctx: Optional[C
     return await tool_result("send_directory_listing", result)
 
 
-@tools.tool(SendCommandLocationArgs)
+@toolfunc(SendCommandLocationArgs)
 async def send_command_location(args: SendCommandLocationArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
     """Send command location from agent filesystem to server.
 
@@ -136,7 +136,7 @@ async def send_command_location(args: SendCommandLocationArgs, ctx: Optional[Con
     return await tool_result("send_command_location", result)
 
 
-@tools.tool(SendWorkingDirectoryArgs)
+@toolfunc(SendWorkingDirectoryArgs)
 async def send_working_directory(args: SendWorkingDirectoryArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
     """Send working directory from agent filesystem to server.
 

@@ -7,6 +7,7 @@ from typing import Optional
 from pydantic import Field
 
 from mcp_guide.core.tool_arguments import ToolArguments
+from mcp_guide.core.tool_decorator import toolfunc
 from mcp_guide.feature_flags.constants import FLAG_ALLOW_CLIENT_INFO
 from mcp_guide.feature_flags.types import FeatureValue
 from mcp_guide.feature_flags.validators import validate_flag_name, validate_flag_value
@@ -17,7 +18,6 @@ from mcp_guide.result_constants import (
     INSTRUCTION_NO_PROJECT,
     INSTRUCTION_VALIDATION_ERROR,
 )
-from mcp_guide.server import tools
 from mcp_guide.tools.tool_result import tool_result
 
 try:
@@ -118,7 +118,7 @@ async def internal_list_project_flags(
         )
 
 
-@tools.tool(ListFlagsArgs)
+@toolfunc(ListFlagsArgs)
 async def list_project_flags(args: ListFlagsArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
     """List project feature flags based on project context and parameters."""
     result = await internal_list_project_flags(args, ctx)
@@ -170,7 +170,7 @@ async def internal_set_project_flag(args: SetFlagArgs, ctx: Optional[Context] = 
         )
 
 
-@tools.tool(SetFlagArgs)
+@toolfunc(SetFlagArgs)
 async def set_project_flag(args: SetFlagArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
     """Set or remove a project feature flag."""
     result = await internal_set_project_flag(args, ctx)
@@ -203,7 +203,7 @@ async def internal_get_project_flag(args: GetFlagArgs, ctx: Optional[Context] = 
         )
 
 
-@tools.tool(GetFlagArgs)
+@toolfunc(GetFlagArgs)
 async def get_project_flag(args: GetFlagArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
     """Get a project feature flag value with resolution hierarchy."""
     result = await internal_get_project_flag(args, ctx)
@@ -263,7 +263,7 @@ async def internal_set_feature_flag(args: SetFeatureFlagArgs, ctx: Optional[Cont
         )
 
 
-@tools.tool(SetFeatureFlagArgs)
+@toolfunc(SetFeatureFlagArgs)
 async def set_feature_flag(args: SetFeatureFlagArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
     """Set or remove a global feature flag."""
     result = await internal_set_feature_flag(args, ctx)
@@ -299,7 +299,7 @@ async def internal_get_feature_flag(
         )
 
 
-@tools.tool(GetFeatureFlagArgs)
+@toolfunc(GetFeatureFlagArgs)
 async def get_feature_flag(args: GetFeatureFlagArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
     """Get a global feature flag value."""
     result = await internal_get_feature_flag(args, ctx)
@@ -341,7 +341,7 @@ async def internal_list_feature_flags(
         )
 
 
-@tools.tool(ListFeatureFlagsArgs)
+@toolfunc(ListFeatureFlagsArgs)
 async def list_feature_flags(args: ListFeatureFlagsArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
     """List global feature flags."""
     result = await internal_list_feature_flags(args, ctx)

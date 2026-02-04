@@ -3,6 +3,7 @@
 import inspect
 import os
 from contextvars import ContextVar
+from dataclasses import dataclass
 from functools import cache, wraps
 from typing import TYPE_CHECKING, Any, Callable, Coroutine, Optional, Union
 
@@ -23,6 +24,30 @@ logger = get_logger(__name__)
 
 # Internal test mode control - not exposed to external manipulation
 _test_mode: ContextVar[bool] = ContextVar("tool_test_mode", default=False)
+
+
+# Deferred registration infrastructure
+@dataclass
+class ToolMetadata:
+    """Metadata for a tool function."""
+
+    name: str
+    func: Callable[..., Any]
+    description: Optional[str]
+    args_class: Optional[type]
+    prefix: Optional[str]
+    wrapped_func: Callable[..., Any]
+
+
+@dataclass
+class ToolRegistration:
+    """Registration tracking for a tool."""
+
+    metadata: ToolMetadata
+    registered: bool = False
+
+
+_TOOL_REGISTRY: dict[str, ToolRegistration] = {}
 
 
 @cache
@@ -188,3 +213,131 @@ class ExtMcpToolDecorator:
             return wrapped
 
         return decorator
+
+
+def toolfunc(
+    args_class: Optional[type] = None,
+    description: Optional[str] = None,
+    prefix: Optional[str] = None,
+) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    """Decorator for deferred tool registration.
+
+    Stores tool metadata without registering with MCP. Registration happens
+    later via register_tools().
+
+    Args:
+        args_class: ToolArguments subclass
+        description: Tool description
+        prefix: Tool name prefix
+
+    Returns:
+        Decorator function
+    """
+
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+        if _test_mode.get():
+            return func
+
+        if not inspect.iscoroutinefunction(func):
+            raise TypeError(f"Tool {func.__name__} must be async")
+
+        # Auto-generate description
+        final_description = description
+        if args_class is not None and description is None and hasattr(args_class, "build_description"):
+            final_description = args_class.build_description(func)
+
+        # Determine prefix and tool name
+        tool_prefix = prefix if prefix is not None else get_tool_prefix().rstrip("_")
+        tool_name = f"{tool_prefix}_{func.__name__}" if tool_prefix else func.__name__
+
+        # Create wrapped function with logging/validation
+        wrapped: Callable[..., Coroutine[Any, Any, str]]
+        if args_class is not None:
+
+            @wraps(func)
+            async def async_wrapper(args: Any, ctx: Optional[Any] = None) -> str:
+                logger.debug(f"Invoking async tool: {tool_name}")
+                await _call_on_tool(tool_name)
+                try:
+                    result = await func(args, ctx)
+                    logger.debug(f"Tool {tool_name} completed successfully")
+                    return result  # type: ignore[no-any-return]
+                except Exception as e:
+                    from pydantic import ValidationError as PydanticValidationError
+
+                    if isinstance(e, PydanticValidationError):
+                        from mcp_guide.core.result import Result
+
+                        error_details = [
+                            {"field": str(err["loc"][0]) if err["loc"] else "unknown", "message": err["msg"]}
+                            for err in e.errors()
+                        ]
+                        error_result: Result[Any] = Result.failure(
+                            f"Invalid tool arguments: {len(error_details)} validation error(s)",
+                            error_type="validation_error",
+                            instruction=INSTRUCTION_VALIDATION_ERROR,
+                        )
+                        error_result.error_data = {"validation_errors": error_details}
+                        logger.error(f"Tool {tool_name} argument validation failed: {error_details}")
+                        return error_result.to_json_str()
+                    logger.error(f"Tool {tool_name} failed: {e}")
+                    raise
+
+            wrapped = async_wrapper
+        else:
+
+            @wraps(func)
+            async def async_wrapper_no_args(ctx: Optional[Any] = None) -> str:
+                logger.debug(f"Invoking async tool: {tool_name}")
+                await _call_on_tool(tool_name)
+                try:
+                    result = await func(ctx=ctx)
+                    logger.debug(f"Tool {tool_name} completed successfully")
+                    return result  # type: ignore[no-any-return]
+                except Exception as e:
+                    logger.error(f"Tool {tool_name} failed: {e}")
+                    raise
+
+            wrapped = async_wrapper_no_args
+
+        # Store in registry
+        metadata = ToolMetadata(
+            name=tool_name,
+            func=func,
+            description=final_description,
+            args_class=args_class,
+            prefix=tool_prefix,
+            wrapped_func=wrapped,
+        )
+        _TOOL_REGISTRY[tool_name] = ToolRegistration(metadata=metadata)
+        logger.trace(f"Tool {tool_name} added to registry (not yet registered)")
+
+        return func
+
+    return decorator
+
+
+def register_tools(mcp: Any) -> None:
+    """Register all tools with MCP server (idempotent).
+
+    Args:
+        mcp: FastMCP instance
+    """
+    for tool_name, registration in _TOOL_REGISTRY.items():
+        if not registration.registered:
+            mcp.tool(name=tool_name, description=registration.metadata.description)(registration.metadata.wrapped_func)
+            registration.registered = True
+            logger.debug(f"Registered tool: {tool_name}")
+        else:
+            logger.trace(f"Tool {tool_name} already registered, skipping")
+
+
+def get_tool_registry() -> dict[str, ToolRegistration]:
+    """Get a copy of the tool registry.
+
+    Returns:
+        Frozen copy of tool registry for introspection
+    """
+    from copy import deepcopy
+
+    return deepcopy(_TOOL_REGISTRY)

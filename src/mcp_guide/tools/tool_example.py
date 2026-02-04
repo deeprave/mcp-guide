@@ -7,8 +7,8 @@ This tool is for demonstration purposes only.
 from typing import Any, Literal, Optional
 
 from mcp_guide.core.tool_arguments import ToolArguments
+from mcp_guide.core.tool_decorator import toolfunc
 from mcp_guide.result import Result
-from mcp_guide.server import tools
 
 try:
     from mcp.server.fastmcp import Context
@@ -23,7 +23,7 @@ class ExampleArgs(ToolArguments):
     message: str = "Hello, World!"
 
 
-@tools.tool(ExampleArgs)
+@toolfunc(ExampleArgs)
 async def example_tool(args: ExampleArgs, ctx: Optional[Context] = None) -> dict[str, Any]:  # type: ignore
     """Example tool demonstrating all tool conventions.
 

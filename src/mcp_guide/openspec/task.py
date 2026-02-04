@@ -351,7 +351,7 @@ class OpenSpecTask:
 
     async def request_changes_json(self) -> None:
         """Request openspec changes JSON via command execution."""
-        rendered = await render_openspec_template("list")
+        rendered = await render_openspec_template("openspec-get-changes")
         if rendered:
             await self.task_manager.queue_instruction(rendered.content)
 

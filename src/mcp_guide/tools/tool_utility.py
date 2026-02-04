@@ -9,10 +9,10 @@ from pydantic import Field
 from mcp_guide.agent_detection import detect_agent, format_agent_info
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.core.tool_arguments import ToolArguments
+from mcp_guide.core.tool_decorator import toolfunc
 from mcp_guide.guide import GuideMCP
 from mcp_guide.result import Result
 from mcp_guide.result_constants import INSTRUCTION_DISPLAY_ONLY
-from mcp_guide.server import tools
 from mcp_guide.tools.tool_result import tool_result
 
 try:
@@ -96,7 +96,7 @@ async def internal_client_info(args: GetClientInfoArgs, ctx: Optional[Context] =
         return Result.failure(f"Error retrieving client info: {str(e)}")
 
 
-@tools.tool(GetClientInfoArgs)
+@toolfunc(GetClientInfoArgs)
 async def client_info(args: GetClientInfoArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
     """Get information about the MCP client/agent.
 
