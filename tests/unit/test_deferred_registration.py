@@ -2,15 +2,21 @@
 
 import pytest
 
-from mcp_guide.core.tool_decorator import _TOOL_REGISTRY, register_tools, toolfunc
+from mcp_guide.core.tool_decorator import (
+    clear_tool_registry,
+    get_tool_registration,
+    get_tool_registry,
+    register_tools,
+    toolfunc,
+)
 
 
 @pytest.fixture(autouse=True)
 def clear_registry():
     """Clear tool registry before each test."""
-    _TOOL_REGISTRY.clear()
+    clear_tool_registry()
     yield
-    _TOOL_REGISTRY.clear()
+    clear_tool_registry()
 
 
 def test_toolfunc_stores_metadata():
@@ -21,8 +27,8 @@ def test_toolfunc_stores_metadata():
         return '{"success": true}'
 
     # Tool should be in registry with prefix
-    assert "guide_test_tool" in _TOOL_REGISTRY
-    registration = _TOOL_REGISTRY["guide_test_tool"]
+    assert "guide_test_tool" in get_tool_registry()
+    registration = get_tool_registration("guide_test_tool")
     assert registration.metadata.name == "guide_test_tool"
     assert not registration.registered
 
@@ -36,11 +42,11 @@ def test_register_tools_is_idempotent(mock_mcp):
 
     # First registration
     register_tools(mock_mcp)
-    assert _TOOL_REGISTRY["guide_test_tool"].registered
+    assert get_tool_registration("guide_test_tool").registered
 
     # Second registration should be safe
     register_tools(mock_mcp)
-    assert _TOOL_REGISTRY["guide_test_tool"].registered
+    assert get_tool_registration("guide_test_tool").registered
 
     # MCP.tool should only be called once
     assert mock_mcp.tool_call_count == 1

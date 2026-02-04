@@ -40,9 +40,9 @@ def mcp_server_factory():
         _ToolsProxy._instance = None
 
         # Clear tool registry
-        from mcp_guide.core.tool_decorator import _TOOL_REGISTRY
+        from mcp_guide.core.tool_decorator import clear_tool_registry
 
-        _TOOL_REGISTRY.clear()
+        clear_tool_registry()
 
         # Create new server instance
         from mcp_guide.cli import ServerConfig
@@ -68,9 +68,9 @@ def mcp_server_factory():
 
     # Clean up after module
     _ToolsProxy._instance = None
-    from mcp_guide.core.tool_decorator import _TOOL_REGISTRY
+    from mcp_guide.core.tool_decorator import clear_tool_registry
 
-    _TOOL_REGISTRY.clear()
+    clear_tool_registry()
 
 
 @pytest.fixture

@@ -4,17 +4,18 @@ import json
 
 import pytest
 
-from mcp_guide.core.prompt_decorator import _PROMPT_REGISTRY, PromptMetadata, PromptRegistration
-from mcp_guide.core.resource_decorator import _RESOURCE_REGISTRY, ResourceMetadata, ResourceRegistration
-from mcp_guide.core.tool_decorator import _TOOL_REGISTRY, ToolMetadata, ToolRegistration
+from mcp_guide.core.prompt_decorator import PromptMetadata, PromptRegistration, clear_prompt_registry
+from mcp_guide.core.resource_decorator import ResourceMetadata, ResourceRegistration, clear_resource_registry
+from mcp_guide.core.tool_decorator import ToolMetadata, ToolRegistration, clear_tool_registry
 from mcp_guide.tools.tool_discovery import ListToolsArgs, list_prompts, list_resources, list_tools
 
 
 @pytest.mark.anyio
 async def test_list_tools_returns_registered_tools():
     """Test that list_tools returns all registered tools."""
-
     # Manually add a test tool to registry
+    from mcp_guide.core.tool_decorator import _TOOL_REGISTRY
+
     async def test_tool(ctx=None) -> str:
         return '{"success": true}'
 
@@ -41,12 +42,14 @@ async def test_list_tools_returns_registered_tools():
         tool_names = [t["name"] for t in result["value"]["tools"]]
         assert "guide_test_tool" in tool_names
     finally:
-        _TOOL_REGISTRY.clear()
+        clear_tool_registry()
 
 
 @pytest.mark.anyio
+@pytest.mark.anyio
 async def test_list_tools_with_args_schema():
     """Test that list_tools includes argument schemas when requested."""
+    from mcp_guide.core.tool_decorator import _TOOL_REGISTRY
 
     # Add tool with args_class
     async def test_tool(args, ctx=None) -> str:
@@ -71,12 +74,14 @@ async def test_list_tools_with_args_schema():
         tools_with_args = [t for t in result["value"]["tools"] if "args_schema" in t]
         assert len(tools_with_args) > 0
     finally:
-        _TOOL_REGISTRY.clear()
+        clear_tool_registry()
 
 
 @pytest.mark.anyio
+@pytest.mark.anyio
 async def test_list_prompts_returns_registered_prompts():
     """Test that list_prompts returns all registered prompts."""
+    from mcp_guide.core.prompt_decorator import _PROMPT_REGISTRY
 
     # Manually add a test prompt to registry
     async def test_prompt() -> str:
@@ -100,12 +105,13 @@ async def test_list_prompts_returns_registered_prompts():
         prompt_names = [p["name"] for p in result["value"]["prompts"]]
         assert "test_prompt" in prompt_names
     finally:
-        _PROMPT_REGISTRY.clear()
+        clear_prompt_registry()
 
 
 @pytest.mark.anyio
 async def test_list_resources_returns_registered_resources():
     """Test that list_resources returns all registered resources."""
+    from mcp_guide.core.resource_decorator import _RESOURCE_REGISTRY
 
     # Manually add a test resource to registry
     async def test_resource(collection: str) -> str:
@@ -139,4 +145,4 @@ async def test_list_resources_returns_registered_resources():
         assert "uri_template" in test_res
         assert test_res["uri_template"] == "test://{collection}"
     finally:
-        _RESOURCE_REGISTRY.clear()
+        clear_resource_registry()
