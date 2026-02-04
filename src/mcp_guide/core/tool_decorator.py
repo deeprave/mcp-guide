@@ -341,3 +341,23 @@ def get_tool_registry() -> dict[str, ToolRegistration]:
     from copy import deepcopy
 
     return deepcopy(_TOOL_REGISTRY)
+
+
+def clear_tool_registry() -> None:
+    """Clear all tools from the registry.
+
+    Used primarily for testing to reset registration state.
+    """
+    _TOOL_REGISTRY.clear()
+
+
+def get_tool_registration(name: str) -> Optional[ToolRegistration]:
+    """Get a specific tool registration by name.
+
+    Args:
+        name: Tool name to look up
+
+    Returns:
+        ToolRegistration if found, None otherwise
+    """
+    return _TOOL_REGISTRY.get(name)

@@ -20,6 +20,14 @@ class GuideMCP(FastMCP):
         self.agent_info: Optional["AgentInfo"] = None
         self._startup_handlers: list[Callable[[], Awaitable[None]]] = []
 
+    def set_instructions(self, instructions: str) -> None:
+        """Set server instructions sent to client during initialization.
+
+        Args:
+            instructions: Instructions text to send to the agent
+        """
+        self._mcp_server.instructions = instructions
+
     def on_init(self) -> Callable[[Callable[[], Awaitable[None]]], Callable[[], Awaitable[None]]]:
         """Decorator to register startup initialization handlers.
 

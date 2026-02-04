@@ -74,3 +74,11 @@ def get_prompt_registry() -> dict[str, PromptRegistration]:
     from copy import deepcopy
 
     return deepcopy(_PROMPT_REGISTRY)
+
+
+def clear_prompt_registry() -> None:
+    """Clear all prompts from the registry.
+
+    Used primarily for testing to reset registration state.
+    """
+    _PROMPT_REGISTRY.clear()

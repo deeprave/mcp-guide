@@ -78,3 +78,11 @@ def get_resource_registry() -> dict[str, ResourceRegistration]:
     from copy import deepcopy
 
     return deepcopy(_RESOURCE_REGISTRY)
+
+
+def clear_resource_registry() -> None:
+    """Clear all resources from the registry.
+
+    Used primarily for testing to reset registration state.
+    """
+    _RESOURCE_REGISTRY.clear()
