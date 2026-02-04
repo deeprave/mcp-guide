@@ -3,19 +3,19 @@
 from typing import Any, Optional
 
 from mcp_guide.core.mcp_log import get_logger
+from mcp_guide.core.resource_decorator import resourcefunc
 
 try:
     from mcp.server.fastmcp import Context
 except ImportError:
     Context = None  # type: ignore
 
-from mcp_guide.server import resources
 from mcp_guide.tools.tool_content import ContentArgs, internal_get_content
 
 logger = get_logger(__name__)
 
 
-@resources.resource("guide://{collection}/{document}")
+@resourcefunc("guide://{collection}/{document}")
 async def guide_resource(collection: str, document: str = "", ctx: Optional["Context[Any, Any, Any]"] = None) -> str:
     """Read content from guide:// URI.
 

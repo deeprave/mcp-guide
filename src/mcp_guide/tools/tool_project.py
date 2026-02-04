@@ -7,6 +7,7 @@ from typing import Any, Optional
 from pydantic import Field
 
 from mcp_guide.core.tool_arguments import ToolArguments
+from mcp_guide.core.tool_decorator import toolfunc
 from mcp_guide.models import Category, Collection, Project, format_project_data
 from mcp_guide.result import Result
 from mcp_guide.result_constants import (
@@ -17,7 +18,6 @@ from mcp_guide.result_constants import (
     INSTRUCTION_NO_PROJECT,
     INSTRUCTION_NOTFOUND_ERROR,
 )
-from mcp_guide.server import tools
 from mcp_guide.session import get_or_create_session, list_all_projects
 from mcp_guide.session import set_project as session_set_project
 from mcp_guide.tools.tool_result import tool_result
@@ -112,7 +112,7 @@ async def internal_get_project(args: GetCurrentProjectArgs, ctx: Optional[Contex
     return Result.ok(result_dict)
 
 
-@tools.tool(GetCurrentProjectArgs)
+@toolfunc(GetCurrentProjectArgs)
 async def get_project(args: GetCurrentProjectArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
     """Get information about the currently active project.
 
@@ -202,7 +202,7 @@ async def internal_set_project(args: SetCurrentProjectArgs, ctx: Optional[Contex
     )
 
 
-@tools.tool(SetCurrentProjectArgs)
+@toolfunc(SetCurrentProjectArgs)
 async def set_project(args: SetCurrentProjectArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
     """Switch to a different project by name.
 
@@ -237,7 +237,7 @@ async def internal_list_projects(args: ListProjectsArgs, ctx: Optional[Context] 
     return await list_all_projects(verbose=args.verbose, session=session)
 
 
-@tools.tool(ListProjectsArgs)
+@toolfunc(ListProjectsArgs)
 async def list_projects(args: ListProjectsArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
     """List all available projects.
 
@@ -307,7 +307,7 @@ async def internal_list_project(args: ListProjectArgs, ctx: Optional[Context] = 
         return Result.failure(str(e), error_type="project_error")
 
 
-@tools.tool(ListProjectArgs)
+@toolfunc(ListProjectArgs)
 async def list_project(args: ListProjectArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
     """Get information about a specific project by name.
 
@@ -575,7 +575,7 @@ async def internal_clone_project(args: CloneProjectArgs, ctx: Optional[Context] 
     return Result.ok(result_dict, message=f"Cloned project '{args.from_project}' to '{target_name}'")
 
 
-@tools.tool(CloneProjectArgs)
+@toolfunc(CloneProjectArgs)
 async def clone_project(args: CloneProjectArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
     """Copy project configuration from one project to another.
 
@@ -718,7 +718,7 @@ async def internal_use_project_profile(args: UseProjectProfileArgs, ctx: Optiona
     return Result.ok(f"Applied profile '{args.profile}' to project '{project.name}'")
 
 
-@tools.tool(UseProjectProfileArgs)
+@toolfunc(UseProjectProfileArgs)
 async def use_project_profile(args: UseProjectProfileArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
     """Apply a profile to the current project.
 
@@ -778,7 +778,7 @@ async def internal_list_profiles(args: ListProfilesArgs, ctx: Optional[Context] 
     return Result.ok(filtered)
 
 
-@tools.tool(ListProfilesArgs)
+@toolfunc(ListProfilesArgs)
 async def list_profiles(args: ListProfilesArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
     """List available profiles.
 
@@ -840,7 +840,7 @@ async def internal_show_profile(args: ShowProfileArgs, ctx: Optional[Context] = 
     return Result.ok(result_data)
 
 
-@tools.tool(ShowProfileArgs)
+@toolfunc(ShowProfileArgs)
 async def show_profile(args: ShowProfileArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
     """Show profile details.
 

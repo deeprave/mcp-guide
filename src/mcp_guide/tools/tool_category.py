@@ -13,6 +13,7 @@ from mcp_guide.content.formatters.selection import ContentFormat, get_formatter_
 from mcp_guide.content.gathering import gather_content
 from mcp_guide.content.utils import read_and_render_file_contents
 from mcp_guide.core.tool_arguments import ToolArguments
+from mcp_guide.core.tool_decorator import toolfunc
 from mcp_guide.core.validation import (
     ArgValidationError,
     validate_description,
@@ -35,7 +36,6 @@ from mcp_guide.result_constants import (
     INSTRUCTION_NOTFOUND_ERROR,
     INSTRUCTION_PATTERN_ERROR,
 )
-from mcp_guide.server import tools
 from mcp_guide.session import get_or_create_session
 from mcp_guide.tools.tool_result import tool_result
 
@@ -116,7 +116,7 @@ async def internal_category_list(args: CategoryListArgs, ctx: Optional[Context] 
     return Result.ok(categories)
 
 
-@tools.tool(CategoryListArgs)
+@toolfunc(CategoryListArgs)
 async def category_list(args: CategoryListArgs, ctx: Optional[Context] = None) -> str:  # type: ignore
     """List all categories in the current project.
 
@@ -249,7 +249,7 @@ async def internal_category_add(args: CategoryAddArgs, ctx: Optional[Context] = 
     return Result.ok(f"Category '{args.name}' added successfully")
 
 
-@tools.tool(CategoryAddArgs)
+@toolfunc(CategoryAddArgs)
 async def category_add(args: CategoryAddArgs, ctx: Optional[Context] = None) -> str:  # type: ignore
     """Add a new category to the current project.
 
@@ -370,7 +370,7 @@ async def internal_category_remove(args: CategoryRemoveArgs, ctx: Optional[Conte
     return Result.ok(f"Category '{args.name}' removed successfully")
 
 
-@tools.tool(CategoryRemoveArgs)
+@toolfunc(CategoryRemoveArgs)
 async def category_remove(args: CategoryRemoveArgs, ctx: Optional[Context] = None) -> str:  # type: ignore
     """Remove a category from the current project.
 
@@ -543,7 +543,7 @@ async def internal_category_change(args: CategoryChangeArgs, ctx: Optional[Conte
     return Result.ok(change_msg)
 
 
-@tools.tool(CategoryChangeArgs)
+@toolfunc(CategoryChangeArgs)
 async def category_change(args: CategoryChangeArgs, ctx: Optional[Context] = None) -> str:  # type: ignore
     """Change properties of an existing category.
 
@@ -634,7 +634,7 @@ async def internal_category_update(args: CategoryUpdateArgs, ctx: Optional[Conte
     return Result.ok(f"Category '{args.name}' patterns updated successfully")
 
 
-@tools.tool(CategoryUpdateArgs)
+@toolfunc(CategoryUpdateArgs)
 async def category_update(args: CategoryUpdateArgs, ctx: Optional[Context] = None) -> str:  # type: ignore
     """Update category patterns incrementally.
 
@@ -708,7 +708,7 @@ async def internal_category_list_files(
     return Result.ok(file_list)
 
 
-@tools.tool(CategoryListFilesArgs)
+@toolfunc(CategoryListFilesArgs)
 async def category_list_files(args: CategoryListFilesArgs, ctx: Optional[Context] = None) -> str:  # type: ignore
     """List all files in a category directory.
 
@@ -825,7 +825,7 @@ async def internal_category_content(
         )
 
 
-@tools.tool(CategoryContentArgs)
+@toolfunc(CategoryContentArgs)
 async def category_content(
     args: CategoryContentArgs,
     ctx: Optional[Context] = None,  # type: ignore[type-arg]

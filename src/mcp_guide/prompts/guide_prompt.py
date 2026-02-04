@@ -10,6 +10,7 @@ from anyio import Path as AsyncPath
 from mcp_guide.commands.formatting import format_args_string
 from mcp_guide.config_constants import COMMANDS_DIR
 from mcp_guide.core.mcp_log import get_logger
+from mcp_guide.core.prompt_decorator import promptfunc
 from mcp_guide.discovery.commands import discover_commands
 from mcp_guide.discovery.files import FileInfo, discover_category_files
 from mcp_guide.feature_flags.types import FeatureValue
@@ -28,7 +29,6 @@ from mcp_guide.result_constants import (
     INSTRUCTION_NOTFOUND_ERROR,
     INSTRUCTION_TEMPLATE_ERROR,
 )
-from mcp_guide.server import mcp
 from mcp_guide.session import get_current_session, get_or_create_session
 from mcp_guide.tools.tool_content import ContentArgs, internal_get_content
 
@@ -461,7 +461,7 @@ async def _route_guide_request(argv: list[str], ctx: Optional["Context"]) -> Res
         return await _handle_content_request(argv, ctx)
 
 
-@mcp.prompt() if mcp is not None else lambda f: f
+@promptfunc()
 async def guide(
     # MCP prompt handlers require explicit parameters - *args not supported
     # MAX_PROMPT_ARGS defined to match MCP protocol limit

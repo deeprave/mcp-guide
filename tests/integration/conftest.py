@@ -39,17 +39,27 @@ def mcp_server_factory():
         # Reset proxy to clear any previously registered tools
         _ToolsProxy._instance = None
 
+        # Clear tool registry
+        from mcp_guide.core.tool_decorator import _TOOL_REGISTRY
+
+        _TOOL_REGISTRY.clear()
+
         # Create new server instance
         from mcp_guide.cli import ServerConfig
 
         config = ServerConfig()
         server = create_server(config)
 
-        # Reload tool modules to re-execute decorators with new server
+        # Reload tool modules to populate registry
         for module_name in tool_modules:
             full_module_path = f"mcp_guide.tools.{module_name}"
             if full_module_path in sys.modules:
                 reload(sys.modules[full_module_path])
+
+        # Register tools with MCP
+        from mcp_guide.core.tool_decorator import register_tools
+
+        register_tools(server)
 
         created_servers.append(server)
         return server
@@ -58,6 +68,9 @@ def mcp_server_factory():
 
     # Clean up after module
     _ToolsProxy._instance = None
+    from mcp_guide.core.tool_decorator import _TOOL_REGISTRY
+
+    _TOOL_REGISTRY.clear()
 
 
 @pytest.fixture

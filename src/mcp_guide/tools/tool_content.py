@@ -16,6 +16,7 @@ from mcp_guide.content.utils import (
     read_and_render_file_contents,
 )
 from mcp_guide.core.tool_arguments import ToolArguments
+from mcp_guide.core.tool_decorator import toolfunc
 from mcp_guide.discovery.files import FileInfo
 from mcp_guide.models import CategoryNotFoundError, CollectionNotFoundError, ExpressionParseError, FileReadError
 from mcp_guide.render.cache import get_template_context_if_needed
@@ -28,7 +29,6 @@ from mcp_guide.result_constants import (
     INSTRUCTION_NOTFOUND_ERROR,
     INSTRUCTION_PATTERN_ERROR,
 )
-from mcp_guide.server import tools
 from mcp_guide.session import get_or_create_session
 from mcp_guide.tools.tool_result import tool_result
 
@@ -161,7 +161,7 @@ async def internal_get_content(
         return Result.failure(str(e), error_type=ERROR_FILE_READ, instruction=INSTRUCTION_FILE_ERROR)
 
 
-@tools.tool(ContentArgs)
+@toolfunc(ContentArgs)
 async def get_content(
     args: ContentArgs,
     ctx: Optional[Context] = None,  # type: ignore[type-arg]

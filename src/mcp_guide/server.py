@@ -257,23 +257,31 @@ def create_server(config: "ServerConfig") -> GuideMCP:
         task_manager = get_task_manager()
         await task_manager.on_init()
 
-    # Import tool modules - decorators register immediately
+    # Import tool modules
+    # Register tools with MCP
+    from mcp_guide.core.tool_decorator import register_tools
     from mcp_guide.tools import (  # noqa: F401
         tool_category,
         tool_collection,
         tool_content,
+        tool_discovery,
         tool_feature_flags,
         tool_filesystem,
         tool_project,
         tool_utility,
     )
 
-    if os.environ.get("MCP_INCLUDE_EXAMPLE_TOOLS", "").lower() in ("true", "1", "yes"):
-        from mcp_guide.tools import tool_example  # noqa: F401
+    register_tools(mcp)
 
-    # Import prompt modules - decorators register immediately
-    # Import resource modules - decorators register immediately
+    # Import prompt and resource modules
     from mcp_guide import resources as resource_module  # noqa: F401
+
+    # Register prompts and resources with MCP
+    from mcp_guide.core.prompt_decorator import register_prompts
+    from mcp_guide.core.resource_decorator import register_resources
     from mcp_guide.prompts import guide_prompt  # noqa: F401
+
+    register_prompts(mcp)
+    register_resources(mcp)
 
     return mcp
