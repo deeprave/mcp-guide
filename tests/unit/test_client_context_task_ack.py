@@ -10,9 +10,9 @@ from mcp_guide.task_manager.manager import TaskManager
 @pytest.fixture(autouse=True)
 def reset_task_manager():
     """Reset TaskManager singleton before each test."""
-    TaskManager._instance = None
+    TaskManager._reset_for_testing()
     yield
-    TaskManager._instance = None
+    TaskManager._reset_for_testing()
 
 
 class TestClientContextTaskAcknowledgement:
