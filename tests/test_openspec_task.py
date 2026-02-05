@@ -31,6 +31,8 @@ def mock_task_manager():
     manager.subscribe = MagicMock()  # Synchronous
     manager.unsubscribe = AsyncMock()
     manager.queue_instruction = AsyncMock()
+    manager.queue_instruction_with_ack = AsyncMock(return_value="test-id")
+    manager.acknowledge_instruction = AsyncMock()
     manager.set_cached_data = MagicMock()
     return manager
 

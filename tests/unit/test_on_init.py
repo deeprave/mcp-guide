@@ -222,7 +222,7 @@ class TestTaskOnInit:
 
         mock_task_manager = Mock()
         mock_task_manager.requires_flag = Mock(return_value=True)
-        mock_task_manager.queue_instruction = AsyncMock()
+        mock_task_manager.queue_instruction_with_ack = AsyncMock(return_value="test-id")
 
         with patch("mcp_guide.workflow.tasks.render_workflow_template") as mock_render:
             mock_render.return_value = make_rendered_content("setup content")
@@ -234,7 +234,7 @@ class TestTaskOnInit:
 
             mock_task_manager.requires_flag.assert_called_once_with("workflow")
             mock_render.assert_called_once_with("monitoring-setup")
-            mock_task_manager.queue_instruction.assert_called_once_with("setup content")
+            mock_task_manager.queue_instruction_with_ack.assert_called_once_with("setup content")
             assert task._setup_done
 
     @pytest.mark.asyncio
@@ -261,7 +261,7 @@ class TestTaskOnInit:
 
         mock_task_manager = Mock()
         mock_task_manager.requires_flag = Mock(return_value=True)
-        mock_task_manager.queue_instruction = AsyncMock()
+        mock_task_manager.queue_instruction_with_ack = AsyncMock(return_value="test-id")
 
         with patch("mcp_guide.context.tasks.render_context_template") as mock_render:
             mock_render.return_value = make_rendered_content("client context setup")
@@ -271,7 +271,7 @@ class TestTaskOnInit:
 
             mock_task_manager.requires_flag.assert_called_once_with("allow-client-info")
             mock_render.assert_called_once_with("client-context-setup")
-            mock_task_manager.queue_instruction.assert_called_once_with("client context setup")
+            mock_task_manager.queue_instruction_with_ack.assert_called_once_with("client context setup")
             assert task._os_info_requested
             assert task._flag_checked
 

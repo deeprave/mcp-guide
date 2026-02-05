@@ -45,6 +45,12 @@ class OpenSpecTask:
         self._changes_cache: Optional[list[dict[str, Any]]] = None
         self._changes_timestamp: Optional[float] = None
 
+        # Instruction tracking IDs
+        self._cli_instruction_id: Optional[str] = None
+        self._project_instruction_id: Optional[str] = None
+        self._version_instruction_id: Optional[str] = None
+        self._changes_instruction_id: Optional[str] = None
+
         # Subscribe to command, file, and timer events
         self.task_manager.subscribe(
             self,
@@ -220,19 +226,19 @@ class OpenSpecTask:
         """Request OpenSpec CLI availability check from client."""
         rendered = await render_openspec_template("openspec-cli-check")
         if rendered:
-            await self.task_manager.queue_instruction(rendered.content)
+            self._cli_instruction_id = await self.task_manager.queue_instruction_with_ack(rendered.content)
 
     async def request_project_check(self) -> None:
         """Request OpenSpec project structure check from client."""
         rendered = await render_openspec_template("openspec-project-check")
         if rendered:
-            await self.task_manager.queue_instruction(rendered.content)
+            self._project_instruction_id = await self.task_manager.queue_instruction_with_ack(rendered.content)
 
     async def request_version_check(self) -> None:
         """Request OpenSpec CLI version from client."""
         rendered = await render_openspec_template("openspec-version-check")
         if rendered:
-            await self.task_manager.queue_instruction(rendered.content)
+            self._version_instruction_id = await self.task_manager.queue_instruction_with_ack(rendered.content)
 
     async def handle_event(self, event_type: EventType, data: dict[str, Any]) -> "bool | Result[Any]":
         """Handle task manager events."""
@@ -252,6 +258,11 @@ class OpenSpecTask:
                 self._available = found and bool(path)
                 self.task_manager.set_cached_data("openspec_available", self._available)
                 logger.info(f"OpenSpec CLI {'available' if self._available else 'not available'}")
+
+                # Acknowledge CLI check instruction
+                if self._cli_instruction_id:
+                    await self.task_manager.acknowledge_instruction(self._cli_instruction_id)
+                    self._cli_instruction_id = None
 
                 # If CLI available, request version check first
                 if self._available and not self._version_requested:
@@ -276,6 +287,12 @@ class OpenSpecTask:
             if path_name == ".openspec-version.txt":
                 content = data.get("content", "")
                 await self._parse_version(content)
+
+                # Acknowledge version check instruction
+                if self._version_instruction_id:
+                    await self.task_manager.acknowledge_instruction(self._version_instruction_id)
+                    self._version_instruction_id = None
+
                 return True
 
             # Handle OpenSpec command responses
@@ -311,6 +328,11 @@ class OpenSpecTask:
                 self._changes_timestamp = time.time()
                 self.task_manager.set_cached_data("openspec_changes", changes)
                 logger.debug(f"Cached {len(changes)} OpenSpec changes")
+
+                # Acknowledge changes request instruction
+                if self._changes_instruction_id:
+                    await self.task_manager.acknowledge_instruction(self._changes_instruction_id)
+                    self._changes_instruction_id = None
 
                 # Mark validation as complete if not already done
                 from mcp_guide.session import get_or_create_session
@@ -353,7 +375,7 @@ class OpenSpecTask:
         """Request openspec changes JSON via command execution."""
         rendered = await render_openspec_template("openspec-get-changes")
         if rendered:
-            await self.task_manager.queue_instruction(rendered.content)
+            self._changes_instruction_id = await self.task_manager.queue_instruction_with_ack(rendered.content)
 
     async def _handle_changes_reminder(self) -> None:
         """Handle timer events for changes monitoring."""

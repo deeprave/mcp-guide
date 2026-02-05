@@ -1,6 +1,6 @@
 # Instruction Retry with Acknowledgement
 
-## Problem
+## Why
 
 Tasks queue instructions to the agent but have no feedback mechanism. If the agent ignores an instruction, the task becomes blocked indefinitely waiting for data that never arrives. There is no way to:
 
@@ -11,18 +11,43 @@ Tasks queue instructions to the agent but have no feedback mechanism. If the age
 
 This creates reliability problems where tasks silently fail when agents don't cooperate.
 
-## Solution
+## What Changes
 
-Add an acknowledgement-based instruction tracking system that allows tasks to:
+Add an acknowledgement-based instruction tracking system with automatic retry:
 
-1. Queue instructions with tracking enabled
-2. Receive confirmation when the agent responds
-3. Automatically retry unacknowledged instructions
-4. Give up after max retries and log failures
+- New `queue_instruction_with_ack()` method returns tracking ID
+- New `acknowledge_instruction()` method to confirm receipt
+- New `RetryTask` monitors idle periods and requeues unacknowledged instructions
+- Retry counter escalates instruction urgency with **IMPORTANT** prefix
+- Deduplication prevents same instruction being queued multiple times
+- Existing `queue_instruction()` unchanged for backward compatibility
 
-**Key principle:** The instruction ID is internal between Task and TaskManager only. The agent sees plain instructions with no protocol changes required.
+## Impact
+
+- Affected specs: `refactor-task-pubsub` (MODIFIED - add instruction tracking requirements)
+- Affected code:
+  - `src/mcp_guide/task_manager.py` - Add tracking methods and data structures
+  - `src/mcp_guide/tasks/` - New `RetryTask` for monitoring
+  - `src/mcp_guide/openspec/task.py` - Migrate to use acknowledgement
+  - `src/mcp_guide/context/tasks.py` - Migrate to use acknowledgement
+  - `src/mcp_guide/workflow/tasks.py` - Migrate to use acknowledgement
+- Breaking changes: None (new API, existing code unchanged)
 
 ## Design
+
+### Retry Mechanism
+
+**RetryTask** runs on 60-second timer and checks for unacknowledged instructions:
+
+1. Check if instruction queue is empty (idle state)
+2. If not empty, skip (MCP is active or results pending dispatch)
+3. If empty, check for tracked instructions awaiting acknowledgement
+4. Requeue unacknowledged instructions with escalating urgency prefix
+
+**Urgency Escalation:**
+- 1st retry: No prefix
+- 2nd retry: Prefix with "**IMPORTANT:** "
+- 3rd+ retry: Prefix with "**URGENT:** "
 
 ### New API
 
@@ -39,57 +64,115 @@ self._pending_instruction_id = instruction_id
 # Later, when task receives the expected response
 async def handle_event(self, event_type, data):
     if self._is_expected_response(event_type, data):
-        # Acknowledge receipt
-        await self.task_manager.acknowledge(self._pending_instruction_id)
+        # Acknowledge receipt - prevents retry
+        await self.task_manager.acknowledge_instruction(self._pending_instruction_id)
         self._pending_instruction_id = None
 ```
+
+### Deduplication
+
+If the same instruction content is queued while already tracked:
+- Return existing instruction ID
+- Do not add duplicate to queue
+- Prevents instruction "doubling up"
 
 ### Internal Tracking
 
 ```python
 @dataclass
-class SentInstruction:
+class TrackedInstruction:
     id: str                    # UUID for tracking
-    content: str               # Instruction text
-    sent_at: float            # Timestamp (for observability)
-    retry_count: int = 0      # Current retry attempt
-    max_retries: int = 3      # Give up after this many attempts
+    content: str               # Original instruction text
+    queued_at: float          # First queue timestamp
+    retry_count: int = 0      # Number of times requeued
+    max_retries: int = 3      # Give up after this many retries
 ```
 
 TaskManager maintains:
 - `_pending_instructions: List[str]` - Existing queue (unchanged)
-- `_sent_instructions: Dict[str, SentInstruction]` - New tracking queue
-- `_failed_instructions: Dict[str, SentInstruction]` - Failed after max retries
+- `_tracked_instructions: Dict[str, TrackedInstruction]` - Instructions awaiting acknowledgement
+- `_content_to_id: Dict[str, str]` - Content hash to ID for deduplication
 
-### Dispatch Logic
+### RetryTask Logic
 
 ```python
-async def _dispatch_instructions(self):
-    """Dispatch pending instructions to agent."""
+class RetryTask(Task):
+    """Monitor and retry unacknowledged instructions."""
 
-    # First, dispatch new instructions
-    while self._pending_instructions:
-        content = self._pending_instructions.pop(0)
+    async def handle_event(self, event_type: EventType, data: dict) -> None:
+        if not (event_type & EventType.TIMER):
+            return
 
-        # Check if this has tracking enabled
-        if content in self._tracked_instructions:
-            instr = self._tracked_instructions[content]
-            self._sent_instructions[instr.id] = instr
-            del self._tracked_instructions[content]
+        # Only retry when queue is idle
+        if not self.task_manager.is_queue_empty():
+            return
 
-        await self._send_to_agent(content)
+        # Requeue unacknowledged instructions
+        await self.task_manager.retry_unacknowledged()
+```
 
-    # Then, retry unacknowledged instructions
-    for instr_id, instr in list(self._sent_instructions.items()):
-        if instr.retry_count >= instr.max_retries:
+### TaskManager Methods
+
+```python
+async def queue_instruction_with_ack(
+    self,
+    content: str,
+    max_retries: int = 3
+) -> str:
+    """Queue instruction with acknowledgement tracking.
+
+    Returns:
+        Instruction ID for acknowledgement
+    """
+    # Check for duplicate
+    if content in self._content_to_id:
+        return self._content_to_id[content]
+
+    # Create tracked instruction
+    instr_id = str(uuid.uuid4())
+    tracked = TrackedInstruction(
+        id=instr_id,
+        content=content,
+        queued_at=time.time(),
+        max_retries=max_retries
+    )
+
+    self._tracked_instructions[instr_id] = tracked
+    self._content_to_id[content] = instr_id
+    self._pending_instructions.append(content)
+
+    return instr_id
+
+async def acknowledge_instruction(self, instruction_id: str) -> None:
+    """Acknowledge instruction receipt - prevents retry."""
+    if instruction_id in self._tracked_instructions:
+        tracked = self._tracked_instructions[instruction_id]
+        del self._tracked_instructions[instruction_id]
+        del self._content_to_id[tracked.content]
+
+async def retry_unacknowledged(self) -> None:
+    """Requeue unacknowledged instructions with urgency prefix."""
+    for instr_id, tracked in list(self._tracked_instructions.items()):
+        if tracked.retry_count >= tracked.max_retries:
             # Give up
-            self._failed_instructions[instr_id] = instr
-            del self._sent_instructions[instr_id]
-            logger.warning(f"Instruction {instr_id} failed after {instr.max_retries} retries")
+            logger.warning(
+                f"Instruction {instr_id} failed after {tracked.max_retries} retries: "
+                f"{tracked.content[:50]}..."
+            )
+            del self._tracked_instructions[instr_id]
+            del self._content_to_id[tracked.content]
         else:
-            # Retry
-            instr.retry_count += 1
-            await self._send_to_agent(instr.content)
+            # Requeue with urgency prefix
+            tracked.retry_count += 1
+
+            if tracked.retry_count == 1:
+                content = tracked.content
+            elif tracked.retry_count == 2:
+                content = f"**IMPORTANT:** {tracked.content}"
+            else:
+                content = f"**URGENT:** {tracked.content}"
+
+            self._pending_instructions.append(content)
 ```
 
 ### Task Correlation

@@ -6,24 +6,24 @@ aliases:
   - review
 category: "project-workflow"
 instruction: >
-  Use the use_subagent tool with agent_name 'guide-review' using the following query:
+  Use the delegate tool with agent 'guide-review' and operation 'launch' with the following task:
    Perform a code review of changes.
-   Use the guide mcp tool get_content("code-review") to access code review guidelines. You must confirm these have been read.
-   Read the {{workflow.file}} file to understand the current issue context.
-   Analyse changes against HEAD and create or update the review artifact following the established format and context.
+   Use the guide mcp tool {{tool_prefix}}get_content("code-review") to access code review guidelines.
+   Read the {{workflow.file}} file to understand the current issue context (issue: {{workflow.issue}}).
+   Analyse changes against HEAD and create or update the review artifact at .todo/{{workflow.issue}}-review.md following the established format and context.
   This is a code review request for the current project.
-  Documents produced from tis code review MUST BE NAMED `.todo/<change-id>-review.md`.
+  The review will run asynchronously in the background. Check status with delegate operation 'status' and agent 'guide-review'.
 ---
 {{#workflow}}If you are not currently in review phase, you must transition to review and follow the instructions below.
 {{/workflow}}
 {{h1}}Code Review Delegation
 
-Delegating comprehensive code review to the {{b}}guide-review{{b}} agent.
+Delegating comprehensive code review to the {{b}}guide-review{{b}} agent (async background task).
 
 The review agent will:
 - Read the `.guide.yaml` file to understand the current issue context
-- Load code review guidelines from the "code-review" collection
-- Analyze changes in the context of the current issue
+- Load code review guidelines from the guide "code-review" collection
+- Analyse changes in the context of the current issue
 - Create or update the review artifact in `.todo/` directory
 - Review artifacts are NEVER to be created in the openspec changes directory
 

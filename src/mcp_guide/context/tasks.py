@@ -25,6 +25,10 @@ class ClientContextTask:
         self._os_info_requested = False
         self._flag_checked = False
 
+        # Instruction tracking IDs
+        self._os_instruction_id: Optional[str] = None
+        self._context_instruction_id: Optional[str] = None
+
         # Subscribe to file content events
         self.task_manager.subscribe(self, EventType.FS_FILE_CONTENT)
 
@@ -59,7 +63,7 @@ class ClientContextTask:
         """Request basic OS information from client."""
         rendered = await render_context_template("client-context-setup")
         if rendered:
-            await self.task_manager.queue_instruction(rendered.content)
+            self._os_instruction_id = await self.task_manager.queue_instruction_with_ack(rendered.content)
 
     async def handle_event(self, event_type: EventType, data: dict[str, Any]) -> bool:
         """Handle task manager events."""
@@ -82,6 +86,12 @@ class ClientContextTask:
                 try:
                     os_info = json.loads(content)
                     self.task_manager.set_cached_data("client_os_info", os_info)
+
+                    # Acknowledge OS info instruction
+                    if self._os_instruction_id:
+                        await self.task_manager.acknowledge_instruction(self._os_instruction_id)
+                        self._os_instruction_id = None
+
                     # Invalidate template context cache
                     from mcp_guide.render.cache import invalidate_template_contexts
 
@@ -98,6 +108,12 @@ class ClientContextTask:
                 try:
                     context_info = json.loads(content)
                     self.task_manager.set_cached_data("client_context_info", context_info)
+
+                    # Acknowledge context instruction
+                    if self._context_instruction_id:
+                        await self.task_manager.acknowledge_instruction(self._context_instruction_id)
+                        self._context_instruction_id = None
+
                     # Invalidate template context cache
                     from mcp_guide.render.cache import invalidate_template_contexts
 
@@ -115,4 +131,4 @@ class ClientContextTask:
         client_data = os_info.get("client", {})
         rendered = await render_context_template("client-context-detailed", {"client": client_data})
         if rendered:
-            await self.task_manager.queue_instruction(rendered.content)
+            self._context_instruction_id = await self.task_manager.queue_instruction_with_ack(rendered.content)
