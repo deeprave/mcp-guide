@@ -49,6 +49,10 @@ class WorkflowMonitorTask:
         self._cached_mtime: Optional[float] = None
         self._setup_done = False
 
+        # Instruction tracking IDs
+        self._setup_instruction_id: Optional[str] = None
+        self._reminder_instruction_id: Optional[str] = None
+
         # Subscribe self to task manager for workflow monitoring with 15s initial delay
         self.task_manager.subscribe(self, EventType.TIMER | EventType.FS_FILE_CONTENT, WORKFLOW_INTERVAL, 15.0)
 
@@ -84,7 +88,7 @@ class WorkflowMonitorTask:
         if not self._setup_done:
             rendered = await render_workflow_template("monitoring-setup")
             if rendered:
-                await self.task_manager.queue_instruction(rendered.content)
+                self._setup_instruction_id = await self.task_manager.queue_instruction_with_ack(rendered.content)
             self._setup_done = True
             logger.debug("WorkflowMonitorTask initialized")
 
@@ -104,6 +108,14 @@ class WorkflowMonitorTask:
         # Check if the file content is for our workflow file (compare basenames)
         path = data.get("path")
         if isinstance(path, str) and Path(path).name == Path(self.workflow_file_path).name:
+            # Acknowledge any pending instructions
+            if self._setup_instruction_id:
+                await self.task_manager.acknowledge_instruction(self._setup_instruction_id)
+                self._setup_instruction_id = None
+            if self._reminder_instruction_id:
+                await self.task_manager.acknowledge_instruction(self._reminder_instruction_id)
+                self._reminder_instruction_id = None
+
             # Process the data
             await self._process_workflow_content(data.get("content", ""))
             return True
@@ -113,7 +125,7 @@ class WorkflowMonitorTask:
         """Handle timer events for workflow monitoring reminders."""
         rendered = await render_workflow_template("monitoring-reminder")
         if rendered:
-            await self.task_manager.queue_instruction(rendered.content)
+            self._reminder_instruction_id = await self.task_manager.queue_instruction_with_ack(rendered.content)
 
     async def _process_workflow_content(self, content: str) -> None:
         """Process workflow file content and update cached state."""

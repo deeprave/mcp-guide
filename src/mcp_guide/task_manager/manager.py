@@ -3,6 +3,7 @@
 import asyncio
 import threading
 import time
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, TypeVar, Union
 
 from mcp_guide.core.mcp_log import get_logger
@@ -16,6 +17,18 @@ from .subscription import Subscription
 logger = get_logger(__name__)
 
 T = TypeVar("T", bound=TaskSubscriber)
+
+
+@dataclass
+class TrackedInstruction:
+    """Tracked instruction for acknowledgement-based retry."""
+
+    id: str
+    content: str
+    queued_at: float
+    last_sent_at: float  # Timestamp of last send/retry
+    retry_count: int = 0
+    max_retries: int = 3
 
 
 @task_init
@@ -41,6 +54,9 @@ class TaskManager:
 
         self._pending_instructions: List[str] = []
         self._cache: Dict[str, Any] = {}  # Keyed storage for task data
+
+        # Instruction tracking for acknowledgement-based retry
+        self._tracked_instructions: Dict[str, TrackedInstruction] = {}
 
         # New pub/sub system
         self._subscriptions: List[Subscription] = []
@@ -407,6 +423,93 @@ class TaskManager:
         # Prevent duplicate instructions in the queue
         if instruction not in self._pending_instructions:
             self._pending_instructions.append(instruction)
+
+    async def queue_instruction_with_ack(self, content: str, max_retries: int = 3) -> str:
+        """Queue instruction with acknowledgement tracking.
+
+        Args:
+            content: Instruction text
+            max_retries: Maximum retry attempts (default: 3)
+
+        Returns:
+            Instruction ID for acknowledgement
+        """
+        import zlib
+
+        # Use CRC32 of content as ID for natural deduplication
+        content_id = hex(zlib.crc32(content.encode()))[2:]
+
+        # Check for duplicate content
+        if content_id in self._tracked_instructions:
+            return content_id
+
+        # Create tracked instruction
+        current_time = time.time()
+        tracked = TrackedInstruction(
+            id=content_id,
+            content=content,
+            queued_at=current_time,
+            last_sent_at=current_time,
+            retry_count=0,
+            max_retries=max_retries,
+        )
+
+        self._tracked_instructions[content_id] = tracked
+        self._pending_instructions.append(content)
+
+        return content_id
+
+    async def acknowledge_instruction(self, instruction_id: str) -> None:
+        """Acknowledge instruction receipt - prevents retry.
+
+        Args:
+            instruction_id: ID returned from queue_instruction_with_ack()
+        """
+        if instruction_id in self._tracked_instructions:
+            del self._tracked_instructions[instruction_id]
+
+    def is_queue_empty(self) -> bool:
+        """Check if instruction queue is empty.
+
+        Returns:
+            True if queue is empty, False otherwise
+        """
+        return len(self._pending_instructions) == 0
+
+    async def retry_unacknowledged(self) -> None:
+        """Requeue unacknowledged instructions with urgency prefix.
+
+        Only retries instructions that have been waiting at least 30 seconds
+        since last send to avoid premature retries.
+        """
+        current_time = time.time()
+        min_retry_delay = 30.0  # Minimum seconds before retry
+
+        for instr_id, tracked in list(self._tracked_instructions.items()):
+            # Check if enough time has passed since last send
+            time_since_send = current_time - tracked.last_sent_at
+            if time_since_send < min_retry_delay:
+                continue
+
+            if tracked.retry_count >= tracked.max_retries:
+                # Give up
+                logger.warning(
+                    f"Instruction {instr_id} failed after {tracked.max_retries} retries: {tracked.content[:50]}..."
+                )
+                del self._tracked_instructions[instr_id]
+            else:
+                # Requeue with urgency prefix
+                tracked.retry_count += 1
+                tracked.last_sent_at = current_time
+
+                if tracked.retry_count == 1:
+                    content = tracked.content
+                elif tracked.retry_count == 2:
+                    content = f"**IMPORTANT:** {tracked.content}"
+                else:
+                    content = f"**URGENT:** {tracked.content}"
+
+                self._pending_instructions.append(content)
 
     async def process_result(self, result: "Result[Any]", event_type: Optional[EventType] = None) -> "Result[Any]":
         """Process MCP Result and delegate to registered tasks."""
