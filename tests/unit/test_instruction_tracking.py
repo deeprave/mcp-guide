@@ -105,6 +105,18 @@ class TestTaskManagerTracking:
         assert manager._pending_instructions.count("Same content") == 1
 
     @pytest.mark.anyio
+    async def test_queue_instruction_with_ack_deduplication_preserves_max_retries(self):
+        """Test that duplicate content preserves original max_retries."""
+        manager = TaskManager()
+
+        id1 = await manager.queue_instruction_with_ack("Same content", max_retries=5)
+        id2 = await manager.queue_instruction_with_ack("Same content", max_retries=1)
+
+        assert id1 == id2
+        tracked = manager._tracked_instructions[id1]
+        assert tracked.max_retries == 5  # Original value preserved
+
+    @pytest.mark.anyio
     async def test_acknowledge_instruction_removes_tracking(self):
         """Test that acknowledge_instruction removes instruction from tracking."""
         manager = TaskManager()

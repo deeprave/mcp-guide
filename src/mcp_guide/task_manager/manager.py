@@ -3,6 +3,7 @@
 import asyncio
 import threading
 import time
+import zlib
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, TypeVar, Union
 
@@ -17,6 +18,19 @@ from .subscription import Subscription
 logger = get_logger(__name__)
 
 T = TypeVar("T", bound=TaskSubscriber)
+
+
+def _get_content_id(content: bytes) -> str:
+    """Generate stable content ID from bytes using CRC32.
+
+    Args:
+        content: Content bytes to hash
+
+    Returns:
+        8-character hex string ID
+    """
+    crc = zlib.crc32(content) & 0xFFFFFFFF
+    return f"{crc:08x}"
 
 
 @dataclass
@@ -434,10 +448,8 @@ class TaskManager:
         Returns:
             Instruction ID for acknowledgement
         """
-        import zlib
-
         # Use CRC32 of content as ID for natural deduplication
-        content_id = hex(zlib.crc32(content.encode()))[2:]
+        content_id = _get_content_id(content.encode())
 
         # Check for duplicate content
         if content_id in self._tracked_instructions:
