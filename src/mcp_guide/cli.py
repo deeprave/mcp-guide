@@ -32,10 +32,7 @@ def parse_transport_mode(mode_str: str) -> tuple[str, Optional[str], Optional[in
 
     # Parse URL format
     if "://" in mode_str:
-        try:
-            parsed = urlparse(mode_str)
-        except ValueError as e:
-            raise ValueError(f"Invalid port: {e}")
+        parsed = urlparse(mode_str)
 
         if parsed.scheme not in ("http", "https"):
             raise ValueError(f"Invalid transport mode: {parsed.scheme}")
@@ -77,6 +74,10 @@ class ServerConfig:
     transport_mode: str = "stdio"
     transport_host: Optional[str] = None
     transport_port: Optional[int] = None
+
+    # SSL configuration for HTTPS
+    ssl_certfile: Optional[str] = None
+    ssl_keyfile: Optional[str] = None
 
     # Error tracking for deferred logging
     cli_error: Optional[click.ClickException] = None
@@ -185,6 +186,18 @@ def parse_args() -> ServerConfig:
         type=click.Path(),
         help="Custom config directory (env: MG_CONFIGDIR)",
     )
+    @click.option(
+        "--ssl-certfile",
+        envvar="MG_SSL_CERTFILE",
+        type=click.Path(exists=True),
+        help="SSL certificate file for HTTPS (env: MG_SSL_CERTFILE)",
+    )
+    @click.option(
+        "--ssl-keyfile",
+        envvar="MG_SSL_KEYFILE",
+        type=click.Path(exists=True),
+        help="SSL private key file for HTTPS (env: MG_SSL_KEYFILE)",
+    )
     @click.pass_context
     def cli(
         ctx: click.Context,
@@ -196,6 +209,8 @@ def parse_args() -> ServerConfig:
         no_tool_prefix: bool,
         docroot: Optional[str],
         configdir: Optional[str],
+        ssl_certfile: Optional[str],
+        ssl_keyfile: Optional[str],
     ) -> None:
         """MCP Guide Server."""
         # Parse transport mode
@@ -219,6 +234,8 @@ def parse_args() -> ServerConfig:
         config.log_json = log_json
         config.docroot = docroot
         config.configdir = configdir
+        config.ssl_certfile = ssl_certfile
+        config.ssl_keyfile = ssl_keyfile
 
         # Tool prefix priority: --no-tool-prefix > --tool-prefix > envvar > default
         if no_tool_prefix:
@@ -226,6 +243,22 @@ def parse_args() -> ServerConfig:
         elif tool_prefix is not None:
             config.tool_prefix = tool_prefix
         # else: Click already set from envvar or we keep default "guide"
+
+        # Parse transport mode
+        try:
+            mode, host, port = parse_transport_mode(transport)
+            config.transport_mode = mode
+            config.transport_host = host
+            config.transport_port = port
+
+            # Validate SSL config for HTTPS
+            if mode == "https":
+                if ssl_certfile and not ssl_keyfile:
+                    raise click.UsageError("--ssl-keyfile required when --ssl-certfile is provided")
+                if ssl_keyfile and not ssl_certfile:
+                    raise click.UsageError("--ssl-certfile required when --ssl-keyfile is provided")
+        except ValueError as e:
+            raise click.UsageError(str(e))
 
     # Parse args - help/version print but don't exit with standalone_mode=False
     try:

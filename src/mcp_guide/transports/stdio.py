@@ -2,13 +2,23 @@
 
 from typing import Any
 
+from mcp.server.fastmcp import FastMCP
+
 
 class StdioTransport:
     """Transport implementation using stdio streams."""
 
+    def __init__(self, mcp_server: FastMCP) -> None:
+        """Initialize STDIO transport.
+
+        Args:
+            mcp_server: FastMCP server instance
+        """
+        self.mcp_server = mcp_server
+
     async def start(self) -> None:
         """Start the stdio transport."""
-        pass
+        await self.mcp_server.run_stdio_async()
 
     async def stop(self) -> None:
         """Stop the stdio transport."""
@@ -20,7 +30,7 @@ class StdioTransport:
         Args:
             message: Message to send
         """
-        pass
+        raise NotImplementedError("STDIO transport uses run_stdio_async() for message handling")
 
     async def receive(self) -> Any:
         """Receive a message from stdio.
@@ -28,4 +38,4 @@ class StdioTransport:
         Returns:
             Received message
         """
-        pass
+        raise NotImplementedError("STDIO transport uses run_stdio_async() for message handling")

@@ -1,5 +1,6 @@
 """HTTP transport implementation using MCP's streamable HTTP."""
 
+import asyncio
 import errno
 from typing import Any, Optional
 
@@ -11,7 +12,15 @@ logger = get_logger(__name__)
 class HttpTransport:
     """Transport implementation using HTTP/HTTPS with MCP's streamable HTTP."""
 
-    def __init__(self, scheme: str, host: Optional[str], port: Optional[int], mcp_server: Any):
+    def __init__(
+        self,
+        scheme: str,
+        host: Optional[str],
+        port: Optional[int],
+        mcp_server: Any,
+        ssl_certfile: Optional[str] = None,
+        ssl_keyfile: Optional[str] = None,
+    ):
         """Initialize HTTP transport.
 
         Args:
@@ -19,15 +28,20 @@ class HttpTransport:
             host: Host to bind to
             port: Port to bind to
             mcp_server: MCP server instance (FastMCP)
+            ssl_certfile: SSL certificate file for HTTPS
+            ssl_keyfile: SSL private key file for HTTPS
         """
         self.scheme = scheme
         self.host = host or "localhost"
         self.port = port or (443 if scheme == "https" else 8080)
         self.mcp_server = mcp_server
+        self.ssl_certfile = ssl_certfile
+        self.ssl_keyfile = ssl_keyfile
         self.server: Optional[Any] = None
+        self.server_task: Optional[asyncio.Task[None]] = None
 
     async def start(self) -> None:
-        """Start the HTTP server using MCP's streamable HTTP."""
+        """Start the HTTP server using MCP's streamable HTTP (non-blocking)."""
         try:
             import uvicorn
 
@@ -41,20 +55,22 @@ class HttpTransport:
                 port=self.port,
                 log_level="info",
                 access_log=True,
+                ssl_certfile=self.ssl_certfile,
+                ssl_keyfile=self.ssl_keyfile,
             )
 
             self.server = uvicorn.Server(config)
 
             logger.info(f"HTTP transport started on {self.scheme}://{self.host}:{self.port}")
 
-            # Start server (this will block until shutdown)
-            await self.server.serve()
+            # Start server in background task
+            self.server_task = asyncio.create_task(self.server.serve())
 
         except OSError as e:
             if e.errno == errno.EADDRINUSE:
                 raise RuntimeError(
                     f"Port {self.port} is already in use. "
-                    f"To use a different port, run: mcp-guide {self.scheme}://localhost:<port>"
+                    f"To use a different port, run: mcp-guide {self.scheme}://{self.host}:<port>"
                 ) from e
             raise
         except Exception as e:
@@ -65,6 +81,8 @@ class HttpTransport:
         try:
             if self.server:
                 self.server.should_exit = True
+            if self.server_task:
+                await self.server_task
             logger.info("HTTP transport stopped")
         except Exception as e:
             logger.warning(f"Error during HTTP server shutdown: {e}")
