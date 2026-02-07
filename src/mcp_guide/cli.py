@@ -3,8 +3,63 @@
 import sys
 from dataclasses import dataclass
 from typing import Optional
+from urllib.parse import urlparse
 
 import click
+
+
+def parse_transport_mode(mode_str: str) -> tuple[str, Optional[str], Optional[int]]:
+    """Parse transport mode string into mode, host, and port.
+
+    Args:
+        mode_str: Transport mode string (stdio, http, https, http://host:port, etc.)
+
+    Returns:
+        Tuple of (mode, host, port)
+
+    Raises:
+        ValueError: If mode string is invalid
+    """
+    # Handle simple modes
+    if mode_str == "stdio":
+        return ("stdio", None, None)
+
+    if mode_str == "http":
+        return ("http", "localhost", 8080)
+
+    if mode_str == "https":
+        return ("https", "0.0.0.0", 443)  # nosec B104 - intentional for HTTPS external access
+
+    # Parse URL format
+    if "://" in mode_str:
+        try:
+            parsed = urlparse(mode_str)
+        except ValueError as e:
+            raise ValueError(f"Invalid port: {e}")
+
+        if parsed.scheme not in ("http", "https"):
+            raise ValueError(f"Invalid transport mode: {parsed.scheme}")
+
+        # Determine host
+        host = parsed.hostname
+        if not host:
+            # Empty host (e.g., http://:8080)
+            host = "localhost" if parsed.scheme == "http" else "0.0.0.0"  # nosec B104 - intentional for HTTPS
+
+        # Determine port
+        port = parsed.port
+        if port is None:
+            port = 8080 if parsed.scheme == "http" else 443
+
+        # Validate port
+        if not isinstance(port, int) or port < 1 or port > 65535:
+            raise ValueError(f"Invalid port: {port}")
+
+        return (parsed.scheme, host, port)
+
+    raise ValueError(
+        f"Invalid transport mode: {mode_str}. Must be one of: stdio, http, https, or a URL like http://host:port"
+    )
 
 
 @dataclass
@@ -17,6 +72,11 @@ class ServerConfig:
     tool_prefix: str = "guide"
     docroot: Optional[str] = None
     configdir: Optional[str] = None
+
+    # Transport configuration
+    transport_mode: str = "stdio"
+    transport_host: Optional[str] = None
+    transport_port: Optional[int] = None
 
     # Error tracking for deferred logging
     cli_error: Optional[click.ClickException] = None
@@ -66,6 +126,12 @@ def parse_args() -> ServerConfig:
         config.should_exit = True
 
     @click.command(context_settings={"help_option_names": ["-h", "--help"]})
+    @click.argument(
+        "transport",
+        type=str,
+        default="stdio",
+        required=False,
+    )
     @click.option(
         "-V",
         "--version",
@@ -122,6 +188,7 @@ def parse_args() -> ServerConfig:
     @click.pass_context
     def cli(
         ctx: click.Context,
+        transport: str,
         log_level: str,
         log_file: Optional[str],
         log_json: bool,
@@ -131,6 +198,15 @@ def parse_args() -> ServerConfig:
         configdir: Optional[str],
     ) -> None:
         """MCP Guide Server."""
+        # Parse transport mode
+        try:
+            mode, host, port = parse_transport_mode(transport)
+            config.transport_mode = mode
+            config.transport_host = host
+            config.transport_port = port
+        except ValueError as e:
+            raise click.UsageError(str(e))
+
         # Validate mutual exclusion using Click's context
         # Check if --tool-prefix was explicitly provided on command line (not from envvar)
         tool_prefix_source = ctx.get_parameter_source("tool_prefix")

@@ -62,12 +62,15 @@ def _handle_cli_error(config: ServerConfig) -> None:
 
 
 async def async_main(config: ServerConfig) -> None:
-    """Async entry point - starts MCP server with STDIO transport.
+    """Async entry point - starts MCP server with configured transport.
 
     Args:
-        config: Server configuration including docroot and configdir
+        config: Server configuration including transport mode
     """
+    import signal
+
     from mcp_guide.server import create_server
+    from mcp_guide.transports import create_transport
 
     # Create server (configures logging)
     mcp = create_server(config)
@@ -75,8 +78,28 @@ async def async_main(config: ServerConfig) -> None:
     # Handle CLI errors after logging is configured
     _handle_cli_error(config)
 
-    # Start server
-    await mcp.run_stdio_async()
+    # Create transport (pass mcp server for HTTP/HTTPS)
+    transport = create_transport(config.transport_mode, config.transport_host, config.transport_port, mcp)
+
+    # Start server with transport
+    match config.transport_mode:
+        case "stdio":
+            await mcp.run_stdio_async()
+        case str(s) if s.startswith("http"):
+            await transport.start()
+            # Keep server running until interrupted
+            shutdown_event = asyncio.Event()
+
+            def signal_handler(sig: int, frame: object) -> None:
+                shutdown_event.set()
+
+            signal.signal(signal.SIGTERM, signal_handler)
+            signal.signal(signal.SIGINT, signal_handler)
+
+            try:
+                await shutdown_event.wait()
+            finally:
+                await transport.stop()
 
 
 def main() -> None:

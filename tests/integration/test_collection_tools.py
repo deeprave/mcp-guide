@@ -45,9 +45,11 @@ async def test_session(tmp_path: Path):
 
     # Setup initial categories
     await session.update_config(
-        lambda p: p.with_category("api", Category(dir="src/api", patterns=["*.py"]))
-        .with_category("tests", Category(dir="tests", patterns=["test_*.py"]))
-        .with_category("docs", Category(dir="docs", patterns=["*.md"]))
+        lambda p: (
+            p.with_category("api", Category(dir="src/api", patterns=["*.py"]))
+            .with_category("tests", Category(dir="tests", patterns=["test_*.py"]))
+            .with_category("docs", Category(dir="docs", patterns=["*.md"]))
+        )
     )
 
     yield session
