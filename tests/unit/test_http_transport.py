@@ -1,5 +1,7 @@
 """Tests for HTTP transport implementation."""
 
+from unittest.mock import patch
+
 import pytest
 
 from mcp_guide.transports.base import Transport
@@ -43,22 +45,37 @@ def test_https_transport_implements_protocol():
 @pytest.mark.asyncio
 async def test_http_transport_lifecycle():
     """Test HttpTransport start/stop lifecycle."""
-    mock_server = MockMcpServer()
-    transport = HttpTransport("http", "localhost", 8081, mock_server)
-
-    # Start in background task
     import asyncio
 
-    server_task = asyncio.create_task(transport.start())
+    # Mock uvicorn.Server to avoid real I/O
+    class FakeServer:
+        def __init__(self, config):
+            self.config = config
+            self.should_exit = False
+            self.started = False
 
-    # Give server time to start
-    await asyncio.sleep(0.5)
+        async def serve(self):
+            self.started = True
+            while not self.should_exit:
+                await asyncio.sleep(0.01)
 
-    # Stop server
-    await transport.stop()
+    mock_server = MockMcpServer()
 
-    # Wait for server task to complete
-    try:
-        await asyncio.wait_for(server_task, timeout=2.0)
-    except asyncio.TimeoutError:
-        pass  # Server may not exit immediately
+    with patch("uvicorn.Server", FakeServer):
+        transport = HttpTransport("http", "localhost", 8081, mock_server)
+
+        # Start in background
+        await transport.start()
+
+        # Give server task time to start
+        await asyncio.sleep(0.05)
+
+        # Verify server started
+        assert transport.server is not None
+        assert transport.server.started
+
+        # Stop server
+        await transport.stop()
+
+        # Verify server stopped
+        assert transport.server.should_exit

@@ -58,11 +58,11 @@ mcp-guide http
 # HTTP on custom host:port
 mcp-guide http://localhost:3000
 
-# HTTPS on 0.0.0.0:443 (default)
-mcp-guide https
+# HTTPS on 0.0.0.0:443 (default) - requires SSL certificates
+mcp-guide https --ssl-certfile cert.pem --ssl-keyfile key.pem
 
 # HTTPS on custom port
-mcp-guide https://:8443
+mcp-guide https://:8443 --ssl-certfile cert.pem --ssl-keyfile key.pem
 ```
 
 **Note**: HTTP/HTTPS transport requires uvicorn:
@@ -72,9 +72,18 @@ uv sync --extra http
 uvx --with uvicorn mcp-guide
 ```
 
+**SSL Configuration for HTTPS**:
+- HTTPS mode requires both `--ssl-certfile` and `--ssl-keyfile` options
+- For development, generate self-signed certificates:
+  ```bash
+  openssl req -x509 -newkey rsa:4096 -nodes -out cert.pem -keyout key.pem -days 365
+  ```
+- For production, use certificates from a trusted CA (Let's Encrypt, etc.)
+- Alternatively, use a reverse proxy (nginx, Caddy) for TLS termination with HTTP mode
+
 **Troubleshooting**:
 - If you get "Port already in use", specify a different port: `mcp-guide http://localhost:3000`
-- Port 80/443 require root privileges - use higher ports (8080, 8443) for development
+- Ports 80 and 443 require root privileges—use higher ports (8080, 8443) for development
 
 ## Configuration
 

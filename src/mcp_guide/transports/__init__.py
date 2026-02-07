@@ -1,33 +1,44 @@
 """Transport layer for MCP Guide."""
 
-import sys
 from typing import Any, Optional
 
 from mcp_guide.transports.base import Transport
 from mcp_guide.transports.stdio import StdioTransport
 
 
+class MissingDependencyError(RuntimeError):
+    """Raised when a required transport dependency is not available."""
+
+    pass
+
+
 def validate_transport_dependencies(mode: str) -> None:
     """Validate that required dependencies are available for the transport mode.
 
     Args:
-        mode: Transport mode ('stdio', 'http', 'https')
+        mode: Transport mode ("stdio", "http", "https")
 
     Raises:
-        SystemExit: If required dependencies are missing
+        MissingDependencyError: If required dependencies are missing.
     """
     if mode in ("http", "https"):
         try:
             import uvicorn  # noqa: F401
-        except ImportError:
-            print("Error: HTTP/HTTPS transport requires uvicorn", file=sys.stderr)
-            print("Install with: uv sync --extra http", file=sys.stderr)
-            print("Or with uvx: uvx --with uvicorn mcp-guide", file=sys.stderr)
-            sys.exit(1)
+        except ImportError as exc:
+            raise MissingDependencyError(
+                "HTTP/HTTPS transport requires 'uvicorn'. "
+                "Install with: 'uv sync --extra http' or "
+                "'uvx --with uvicorn mcp-guide'."
+            ) from exc
 
 
 def create_transport(
-    mode: str, host: Optional[str], port: Optional[int], mcp_server: Optional[Any] = None
+    mode: str,
+    host: Optional[str],
+    port: Optional[int],
+    mcp_server: Optional[Any] = None,
+    ssl_certfile: Optional[str] = None,
+    ssl_keyfile: Optional[str] = None,
 ) -> Transport:
     """Create a transport instance based on mode.
 
@@ -35,28 +46,31 @@ def create_transport(
         mode: Transport mode ('stdio', 'http', 'https')
         host: Host for HTTP/HTTPS transports
         port: Port for HTTP/HTTPS transports
-        mcp_server: MCP server instance (required for HTTP/HTTPS)
+        mcp_server: MCP server instance (required for all transports)
+        ssl_certfile: SSL certificate file for HTTPS
+        ssl_keyfile: SSL private key file for HTTPS
 
     Returns:
         Transport instance
 
     Raises:
-        SystemExit: If required dependencies are missing
-        ValueError: If mcp_server not provided for HTTP/HTTPS
+        MissingDependencyError: If required dependencies are missing
+        ValueError: If mcp_server not provided
     """
     validate_transport_dependencies(mode)
 
+    if mcp_server is None:
+        raise ValueError("mcp_server required for transport")
+
     match mode:
         case "stdio":
-            return StdioTransport()
+            return StdioTransport(mcp_server)
         case str(s) if s.startswith("http"):
-            if mcp_server is None:
-                raise ValueError("mcp_server required for HTTP/HTTPS transport")
             from mcp_guide.transports.http import HttpTransport
 
-            return HttpTransport(mode, host, port, mcp_server)
+            return HttpTransport(mode, host, port, mcp_server, ssl_certfile, ssl_keyfile)
         case _:
             raise ValueError(f"Unknown transport mode: {mode}")
 
 
-__all__ = ["Transport", "create_transport", "validate_transport_dependencies"]
+__all__ = ["Transport", "create_transport", "validate_transport_dependencies", "MissingDependencyError"]
