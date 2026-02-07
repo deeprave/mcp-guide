@@ -61,9 +61,11 @@ async def test_get_content_collection_only(mcp_server, tmp_path, monkeypatch):
 
     # Add categories and collection
     await session.update_config(
-        lambda p: p.with_category("guide", Category(dir="guide", patterns=["*.md"]))
-        .with_category("lang", Category(dir="lang", patterns=["*.md"]))
-        .with_collection("all", Collection(categories=["guide", "lang"]))
+        lambda p: (
+            p.with_category("guide", Category(dir="guide", patterns=["*.md"]))
+            .with_category("lang", Category(dir="lang", patterns=["*.md"]))
+            .with_collection("all", Collection(categories=["guide", "lang"]))
+        )
     )
 
     docroot = Path(tmp_path.resolve()) / "docs"
@@ -184,10 +186,12 @@ async def test_get_content_nested_collection(mcp_server, tmp_path, monkeypatch):
 
     # Add categories and nested collections
     await session.update_config(
-        lambda p: p.with_category("guide", Category(dir="guide", patterns=["*.md"]))
-        .with_category("lang", Category(dir="lang", patterns=["*.md"]))
-        .with_collection("docs", Collection(categories=["guide"]))
-        .with_collection("all", Collection(categories=["docs", "lang"]))  # Nested: all includes docs collection
+        lambda p: (
+            p.with_category("guide", Category(dir="guide", patterns=["*.md"]))
+            .with_category("lang", Category(dir="lang", patterns=["*.md"]))
+            .with_collection("docs", Collection(categories=["guide"]))
+            .with_collection("all", Collection(categories=["docs", "lang"]))
+        )  # Nested: all includes docs collection
     )
 
     docroot = Path(tmp_path.resolve()) / "docs"
@@ -216,10 +220,12 @@ async def test_get_content_circular_collection_reference(mcp_server, tmp_path, m
 
     # Add categories and circular collections
     await session.update_config(
-        lambda p: p.with_category("guide", Category(dir="guide", patterns=["*.md"]))
-        .with_category("lang", Category(dir="lang", patterns=["*.md"]))
-        .with_collection("col1", Collection(categories=["guide", "col2"]))  # col1 → col2
-        .with_collection("col2", Collection(categories=["lang", "col1"]))  # col2 → col1 (circular)
+        lambda p: (
+            p.with_category("guide", Category(dir="guide", patterns=["*.md"]))
+            .with_category("lang", Category(dir="lang", patterns=["*.md"]))
+            .with_collection("col1", Collection(categories=["guide", "col2"]))  # col1 → col2
+            .with_collection("col2", Collection(categories=["lang", "col1"]))
+        )  # col2 → col1 (circular)
     )
 
     docroot = Path(tmp_path.resolve()) / "docs"

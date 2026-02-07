@@ -15,24 +15,70 @@ mcp-guide is a Model Context Protocol (MCP) server that helps AI agents understa
 
 ## Installation
 
-### Using uv (recommended)
+### Using uvx (recommended)
+
+```bash
+# Run directly without installation
+uvx mcp-guide
+
+# With HTTP transport support
+uvx --with uvicorn mcp-guide
+```
+
+### Using uv
 
 ```bash
 # Install from source
 git clone https://github.com/yourusername/mcp-guide.git
 cd mcp-guide
 uv sync
+
+# With HTTP transport support
+uv sync --extra http
 ```
 
-### Using pip
+## Transport Modes
 
+mcp-guide supports multiple transport modes:
+
+### STDIO (default)
+Standard input/output for local agent communication:
 ```bash
-pip install mcp-guide
+mcp-guide stdio
+# or simply
+mcp-guide
 ```
+
+### HTTP/HTTPS
+Network transport for remote access or web applications:
+```bash
+# HTTP on localhost:8080 (default)
+mcp-guide http
+
+# HTTP on custom host:port
+mcp-guide http://localhost:3000
+
+# HTTPS on 0.0.0.0:443 (default)
+mcp-guide https
+
+# HTTPS on custom port
+mcp-guide https://:8443
+```
+
+**Note**: HTTP/HTTPS transport requires uvicorn:
+```bash
+uv sync --extra http
+# or with uvx
+uvx --with uvicorn mcp-guide
+```
+
+**Troubleshooting**:
+- If you get "Port already in use", specify a different port: `mcp-guide http://localhost:3000`
+- Port 80/443 require root privileges - use higher ports (8080, 8443) for development
 
 ## Configuration
 
-### Claude Desktop
+### Claude Desktop (STDIO)
 
 Add to your Claude Desktop configuration file:
 
@@ -51,15 +97,48 @@ Add to your Claude Desktop configuration file:
 }
 ```
 
-### Other MCP Clients
+### Claude Desktop (HTTP)
 
-mcp-guide works with any MCP-compatible client. Configure it to run:
+For HTTP transport with uvicorn support:
 
-```bash
-mcp-guide
+```json
+{
+  "mcpServers": {
+    "mcp-guide": {
+      "command": "uvx",
+      "args": ["--with", "uvicorn", "mcp-guide", "http://localhost:8080"]
+    }
+  }
+}
 ```
 
-The server communicates via STDIO transport.
+### Other MCP Clients
+
+mcp-guide works with any MCP-compatible client. Configure with the appropriate transport mode:
+
+**STDIO (default)**:
+```json
+{
+  "command": "uvx",
+  "args": ["mcp-guide"]
+}
+```
+
+**HTTP**:
+```json
+{
+  "command": "uvx",
+  "args": ["--with", "uvicorn", "mcp-guide", "http://localhost:8080"]
+}
+```
+
+**HTTPS**:
+```json
+{
+  "command": "uvx",
+  "args": ["--with", "uvicorn", "mcp-guide", "https://:8443"]
+}
+```
 
 ## Usage
 
