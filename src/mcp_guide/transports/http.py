@@ -20,6 +20,7 @@ class HttpTransport:
         mcp_server: Any,
         ssl_certfile: Optional[str] = None,
         ssl_keyfile: Optional[str] = None,
+        path_prefix: Optional[str] = None,
     ):
         """Initialize HTTP transport.
 
@@ -30,6 +31,7 @@ class HttpTransport:
             mcp_server: MCP server instance (FastMCP)
             ssl_certfile: SSL certificate file for HTTPS
             ssl_keyfile: SSL private key file for HTTPS
+            path_prefix: Optional path prefix (e.g., 'v1' for /v1/mcp endpoint)
         """
         self.scheme = scheme
         self.host = host or "localhost"
@@ -37,16 +39,35 @@ class HttpTransport:
         self.mcp_server = mcp_server
         self.ssl_certfile = ssl_certfile
         self.ssl_keyfile = ssl_keyfile
+        self.path_prefix = path_prefix
         self.server: Optional[Any] = None
         self.server_task: Optional[asyncio.Task[None]] = None
 
     async def start(self) -> None:
         """Start the HTTP server using MCP's streamable HTTP (non-blocking)."""
+        # Validate SSL configuration for HTTPS
+        if self.scheme == "https" and not self.ssl_certfile:
+            raise RuntimeError(
+                "HTTPS mode requires --ssl-certfile option. "
+                "The certificate file must contain the certificate and optionally the private key. "
+                "Use --ssl-keyfile if the private key is in a separate file."
+            )
+
         try:
             import uvicorn
+            from starlette.applications import Starlette
+            from starlette.routing import Mount
 
             # Get the Starlette app from FastMCP
-            app = self.mcp_server.streamable_http_app()
+            mcp_app = self.mcp_server.streamable_http_app()
+
+            # Mount at custom path if provided, otherwise use default
+            if self.path_prefix:
+                app = Starlette(routes=[Mount(f"/{self.path_prefix}", app=mcp_app)])
+                endpoint_path = f"/{self.path_prefix}/mcp"
+            else:
+                app = mcp_app
+                endpoint_path = "/mcp"
 
             # Configure uvicorn
             config = uvicorn.Config(
@@ -61,7 +82,7 @@ class HttpTransport:
 
             self.server = uvicorn.Server(config)
 
-            logger.info(f"HTTP transport started on {self.scheme}://{self.host}:{self.port}")
+            logger.info(f"HTTP transport started on {self.scheme}://{self.host}:{self.port}{endpoint_path}")
 
             # Start server in background task
             self.server_task = asyncio.create_task(self.server.serve())

@@ -85,6 +85,7 @@ async def async_main(config: ServerConfig) -> None:
             mcp,
             config.ssl_certfile,
             config.ssl_keyfile,
+            config.transport_path,
         )
         await transport.start()
     except MissingDependencyError as e:

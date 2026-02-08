@@ -39,6 +39,7 @@ def create_transport(
     mcp_server: Optional[Any] = None,
     ssl_certfile: Optional[str] = None,
     ssl_keyfile: Optional[str] = None,
+    path_prefix: Optional[str] = None,
 ) -> Transport:
     """Create a transport instance based on mode.
 
@@ -49,6 +50,7 @@ def create_transport(
         mcp_server: MCP server instance (required for all transports)
         ssl_certfile: SSL certificate file for HTTPS
         ssl_keyfile: SSL private key file for HTTPS
+        path_prefix: Optional path prefix for HTTP endpoint
 
     Returns:
         Transport instance
@@ -68,7 +70,7 @@ def create_transport(
         case str(s) if s.startswith("http"):
             from mcp_guide.transports.http import HttpTransport
 
-            return HttpTransport(mode, host, port, mcp_server, ssl_certfile, ssl_keyfile)
+            return HttpTransport(mode, host, port, mcp_server, ssl_certfile, ssl_keyfile, path_prefix)
         case _:
             raise ValueError(f"Unknown transport mode: {mode}")
 
