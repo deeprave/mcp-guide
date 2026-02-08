@@ -106,3 +106,12 @@ def test_parse_https_with_path():
     assert host == "example.com"
     assert port == 8443
     assert path == "api/v2"
+
+
+def test_parse_http_with_trailing_slash():
+    """Test parsing HTTP URL with trailing slash normalizes path."""
+    mode, host, port, path = parse_transport_mode("http://localhost:8080/v1/")
+    assert mode == "http"
+    assert host == "localhost"
+    assert port == 8080
+    assert path == "v1"  # Trailing slash stripped

@@ -2,7 +2,7 @@
 
 ## Rationale
 
-**SSE transport is deprecated** in MCP specification (version 2025-03-26) and replaced by **Streamable HTTP**.
+**SSE transport is deprecated** in the MCP specification (version 2025-03-26) and replaced by **Streamable HTTP**.
 
 ### Why Streamable HTTP?
 
@@ -24,7 +24,7 @@
 
 ### Extend Existing HTTP Transport
 
-Instead of new transport, add streaming capability to existing `HttpTransport`:
+Instead of a new transport, add streaming capability to existing `HttpTransport`:
 
 ```python
 HttpTransport(

@@ -42,6 +42,20 @@ def test_https_transport_implements_protocol():
     assert isinstance(transport, Transport)
 
 
+def test_http_transport_with_mcp_path():
+    """Test that path ending with 'mcp' doesn't get /mcp appended."""
+    mock_server = MockMcpServer()
+    transport = HttpTransport("http", "localhost", 8080, mock_server, path_prefix="mcp")
+    assert transport.path_prefix == "mcp"
+
+
+def test_http_transport_with_api_mcp_path():
+    """Test that nested path ending with 'mcp' doesn't get /mcp appended."""
+    mock_server = MockMcpServer()
+    transport = HttpTransport("http", "localhost", 8080, mock_server, path_prefix="api/mcp")
+    assert transport.path_prefix == "api/mcp"
+
+
 @pytest.mark.asyncio
 async def test_http_transport_lifecycle():
     """Test HttpTransport start/stop lifecycle."""
