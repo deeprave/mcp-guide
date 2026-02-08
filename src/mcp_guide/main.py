@@ -86,8 +86,14 @@ async def async_main(config: ServerConfig) -> None:
             config.ssl_certfile,
             config.ssl_keyfile,
             config.transport_path,
+            config.log_level,
+            config.log_json,
         )
         await transport.start()
+
+        # For HTTP/HTTPS transports, wait for the server to complete
+        if hasattr(transport, "server_task") and transport.server_task:
+            await transport.server_task
     except MissingDependencyError as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)

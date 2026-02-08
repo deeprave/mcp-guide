@@ -1,0 +1,8 @@
+FROM mcp-guide:base AS final
+
+COPY entrypoint-http-nossl.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+EXPOSE 8080
+
+ENTRYPOINT ["/entrypoint.sh"]

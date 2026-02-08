@@ -112,6 +112,37 @@ uvx --with uvicorn mcp-guide
 - If you get "Port already in use", specify a different port: `mcp-guide http://localhost:3000`
 - Ports 80 and 443 require root privileges—use higher ports (8080, 8443) for development
 
+## Docker
+
+mcp-guide provides Docker support for containerized deployments with STDIO and HTTPS transports.
+
+### Quick Start
+
+**STDIO Mode** (for MCP clients):
+```bash
+cd docker
+docker build -t mcp-guide:base -f Dockerfile ..
+docker compose --profile stdio up
+```
+
+**HTTPS Mode** (with self-signed certificates):
+```bash
+cd docker
+./generate-certs.sh --self
+docker compose --profile https up
+```
+
+Access at: https://localhost/mcp
+
+### Features
+
+- Multi-stage builds for minimal image size (~200MB)
+- Structured JSON logging for all components
+- Flexible SSL certificate management (self-signed or Let's Encrypt)
+- Docker Compose profiles for easy deployment
+
+For detailed Docker documentation, see [docker/README.md](docker/README.md).
+
 ## Configuration
 
 ### Claude Desktop (STDIO)
