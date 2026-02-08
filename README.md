@@ -50,19 +50,27 @@ mcp-guide
 ```
 
 ### HTTP/HTTPS
-Network transport for remote access or web applications:
+Network transport for remote access or web applications. Uses MCP's Streamable HTTP protocol for bidirectional communication:
 ```bash
 # HTTP on localhost:8080 (default)
 mcp-guide http
+# Endpoint: http://localhost:8080/mcp
 
 # HTTP on custom host:port
 mcp-guide http://localhost:3000
+# Endpoint: http://localhost:3000/mcp
+
+# HTTP with path prefix for versioning
+mcp-guide http://localhost:8080/v1
+# Endpoint: http://localhost:8080/v1/mcp
 
 # HTTPS on 0.0.0.0:443 (default) - requires SSL certificates
 mcp-guide https --ssl-certfile cert.pem --ssl-keyfile key.pem
+# Endpoint: https://0.0.0.0:443/mcp
 
-# HTTPS on custom port
-mcp-guide https://:8443 --ssl-certfile cert.pem --ssl-keyfile key.pem
+# HTTPS with custom path
+mcp-guide https://:8443/api/v2 --ssl-certfile cert.pem --ssl-keyfile key.pem
+# Endpoint: https://0.0.0.0:8443/api/v2/mcp
 ```
 
 **Note**: HTTP/HTTPS transport requires uvicorn:
@@ -72,11 +80,30 @@ uv sync --extra http
 uvx --with uvicorn mcp-guide
 ```
 
+**HTTP Transport Features**:
+- Uses MCP Streamable HTTP protocol for bidirectional communication
+- `/mcp` is automatically appended to the URL path (unless the path already ends with `mcp`)
+- Supports custom path prefixes for API versioning (e.g., `/v1/mcp`, `/api/v2/mcp`)
+- Supports both HTTP and HTTPS modes
+
 **SSL Configuration for HTTPS**:
-- HTTPS mode requires both `--ssl-certfile` and `--ssl-keyfile` options
+- HTTPS mode requires `--ssl-certfile` option
+- `--ssl-keyfile` is optional if the certificate file contains both the certificate and private key
+- For separate files:
+  ```bash
+  mcp-guide https --ssl-certfile cert.pem --ssl-keyfile key.pem
+  ```
+- For combined certificate bundle (cert + key in one file):
+  ```bash
+  mcp-guide https --ssl-certfile bundle.pem
+  ```
 - For development, generate self-signed certificates:
   ```bash
+  # Separate files
   openssl req -x509 -newkey rsa:4096 -nodes -out cert.pem -keyout key.pem -days 365
+
+  # Combined bundle
+  openssl req -x509 -newkey rsa:4096 -nodes -out bundle.pem -keyout bundle.pem -days 365
   ```
 - For production, use certificates from a trusted CA (Let's Encrypt, etc.)
 - Alternatively, use a reverse proxy (nginx, Caddy) for TLS termination with HTTP mode

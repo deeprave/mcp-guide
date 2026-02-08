@@ -8,27 +8,27 @@ from urllib.parse import urlparse
 import click
 
 
-def parse_transport_mode(mode_str: str) -> tuple[str, Optional[str], Optional[int]]:
-    """Parse transport mode string into mode, host, and port.
+def parse_transport_mode(mode_str: str) -> tuple[str, Optional[str], Optional[int], Optional[str]]:
+    """Parse transport mode string into mode, host, port, and path.
 
     Args:
-        mode_str: Transport mode string (stdio, http, https, http://host:port, etc.)
+        mode_str: Transport mode string (stdio, http, https, http://host:port/path, etc.)
 
     Returns:
-        Tuple of (mode, host, port)
+        Tuple of (mode, host, port, path)
 
     Raises:
         ValueError: If mode string is invalid
     """
     # Handle simple modes
     if mode_str == "stdio":
-        return ("stdio", None, None)
+        return ("stdio", None, None, None)
 
     if mode_str == "http":
-        return ("http", "localhost", 8080)
+        return ("http", "localhost", 8080, None)
 
     if mode_str == "https":
-        return ("https", "0.0.0.0", 443)  # nosec B104 - intentional for HTTPS external access
+        return ("https", "0.0.0.0", 443, None)  # nosec B104 - intentional for HTTPS external access
 
     # Parse URL format
     if "://" in mode_str:
@@ -52,10 +52,13 @@ def parse_transport_mode(mode_str: str) -> tuple[str, Optional[str], Optional[in
         if not isinstance(port, int) or port < 1 or port > 65535:
             raise ValueError(f"Invalid port: {port}")
 
-        return (parsed.scheme, host, port)
+        # Extract path (strip leading slash if present)
+        path = parsed.path.lstrip("/") if parsed.path else None
+
+        return (parsed.scheme, host, port, path)
 
     raise ValueError(
-        f"Invalid transport mode: {mode_str}. Must be one of: stdio, http, https, or a URL like http://host:port"
+        f"Invalid transport mode: {mode_str}. Must be one of: stdio, http, https, or a URL like http://host:port/path"
     )
 
 
@@ -74,6 +77,7 @@ class ServerConfig:
     transport_mode: str = "stdio"
     transport_host: Optional[str] = None
     transport_port: Optional[int] = None
+    transport_path: Optional[str] = None
 
     # SSL configuration for HTTPS
     ssl_certfile: Optional[str] = None
@@ -215,10 +219,11 @@ def parse_args() -> ServerConfig:
         """MCP Guide Server."""
         # Parse transport mode
         try:
-            mode, host, port = parse_transport_mode(transport)
+            mode, host, port, path = parse_transport_mode(transport)
             config.transport_mode = mode
             config.transport_host = host
             config.transport_port = port
+            config.transport_path = path
         except ValueError as e:
             raise click.UsageError(str(e))
 
@@ -246,17 +251,13 @@ def parse_args() -> ServerConfig:
 
         # Parse transport mode
         try:
-            mode, host, port = parse_transport_mode(transport)
+            mode, host, port, path = parse_transport_mode(transport)
             config.transport_mode = mode
             config.transport_host = host
             config.transport_port = port
+            config.transport_path = path
 
-            # Validate SSL config for HTTPS
-            if mode == "https":
-                if ssl_certfile and not ssl_keyfile:
-                    raise click.UsageError("--ssl-keyfile required when --ssl-certfile is provided")
-                if ssl_keyfile and not ssl_certfile:
-                    raise click.UsageError("--ssl-certfile required when --ssl-keyfile is provided")
+            # Note: SSL cert validation happens at server start time, not parse time
         except ValueError as e:
             raise click.UsageError(str(e))
 
