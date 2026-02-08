@@ -13,13 +13,16 @@ if [ -n "${LOG_LEVEL}" ]; then
     set -- "$@" --log-level "${LOG_LEVEL}"
 fi
 
-if [ "${LOG_JSON:-false}" = "true" ]; then
+if [ "$(printf '%s' "${LOG_JSON:-false}" | tr '[:upper:]' '[:lower:]')" = "true" ]; then
     set -- "$@" --log-json
 fi
 
 # Add SSL certificates if present
 if [ -f "$CERT_FILE" ] && [ -f "$KEY_FILE" ]; then
     set -- "$@" --ssl-certfile "$CERT_FILE" --ssl-keyfile "$KEY_FILE"
+elif [ -f "$CERT_FILE" ]; then
+    # Support combined cert+key bundle in single file
+    set -- "$@" --ssl-certfile "$CERT_FILE"
 fi
 
 exec "$@"

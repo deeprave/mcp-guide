@@ -1,20 +1,16 @@
 # Base stage: Python with essential tools
-FROM python:3.14-slim AS base
+FROM python:3.14-alpine AS base
 
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
+RUN apk add --no-cache \
     openssl \
-    ca-certificates && \
-    rm -rf /var/lib/apt/lists/*
+    ca-certificates
 
 # Build stage: Install dependencies and build
 FROM base AS build
 
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
+RUN apk add --no-cache \
     curl \
-    build-essential && \
-    rm -rf /var/lib/apt/lists/*
+    build-base
 
 # Install uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
