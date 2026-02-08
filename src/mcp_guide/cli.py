@@ -52,8 +52,8 @@ def parse_transport_mode(mode_str: str) -> tuple[str, Optional[str], Optional[in
         if not isinstance(port, int) or port < 1 or port > 65535:
             raise ValueError(f"Invalid port: {port}")
 
-        # Extract path (strip leading slash if present)
-        path = parsed.path.lstrip("/") if parsed.path else None
+        # Extract path (strip leading and trailing slashes to normalize)
+        path = parsed.path.strip("/") if parsed.path else None
 
         return (parsed.scheme, host, port, path)
 

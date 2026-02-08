@@ -5,6 +5,7 @@ import errno
 from typing import Any, Optional
 
 from mcp_guide.core.mcp_log import get_logger
+from mcp_guide.transports import MissingDependencyError
 
 logger = get_logger(__name__)
 
@@ -45,26 +46,40 @@ class HttpTransport:
 
     async def start(self) -> None:
         """Start the HTTP server using MCP's streamable HTTP (non-blocking)."""
-        # Validate SSL configuration for HTTPS
+        # Validate SSL configuration
         if self.scheme == "https" and not self.ssl_certfile:
             raise RuntimeError(
                 "HTTPS mode requires --ssl-certfile option. "
                 "The certificate file must contain the certificate and optionally the private key. "
                 "Use --ssl-keyfile if the private key is in a separate file."
             )
+        if self.ssl_keyfile and not self.ssl_certfile:
+            raise RuntimeError(
+                "--ssl-keyfile requires --ssl-certfile. Provide the certificate file with --ssl-certfile."
+            )
 
         try:
             import uvicorn
             from starlette.applications import Starlette
             from starlette.routing import Mount
+        except ImportError as e:
+            raise MissingDependencyError(
+                "HTTP transport requires uvicorn and starlette. Install with: uv sync --extra http"
+            ) from e
 
+        try:
             # Get the Starlette app from FastMCP
             mcp_app = self.mcp_server.streamable_http_app()
 
             # Mount at custom path if provided, otherwise use default
             if self.path_prefix:
-                app = Starlette(routes=[Mount(f"/{self.path_prefix}", app=mcp_app)])
-                endpoint_path = f"/{self.path_prefix}/mcp"
+                # If path already ends with "mcp", use it as-is; otherwise append "/mcp"
+                if self.path_prefix.endswith("mcp"):
+                    app = Starlette(routes=[Mount(f"/{self.path_prefix}", app=mcp_app)])
+                    endpoint_path = f"/{self.path_prefix}"
+                else:
+                    app = Starlette(routes=[Mount(f"/{self.path_prefix}", app=mcp_app)])
+                    endpoint_path = f"/{self.path_prefix}/mcp"
             else:
                 app = mcp_app
                 endpoint_path = "/mcp"
