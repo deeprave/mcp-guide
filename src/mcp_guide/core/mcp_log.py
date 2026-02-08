@@ -317,6 +317,62 @@ def create_formatter(json_format: bool = False) -> logging.Formatter:
     return StructuredJSONFormatter() if json_format else RedactedFormatter()
 
 
+def get_uvicorn_log_config(log_level: str = "info", use_json: bool = False) -> dict[str, Any]:
+    """Get uvicorn logging configuration using our formatters.
+
+    Args:
+        log_level: Log level (debug, info, warning, error, critical)
+        use_json: Whether to use JSON formatting
+
+    Returns:
+        Uvicorn log config dict
+
+    Raises:
+        ValueError: If log_level is not valid
+    """
+    valid_levels = {"trace", "debug", "info", "warning", "error", "critical"}
+    if log_level.lower() not in valid_levels:
+        raise ValueError(f"Invalid log level: {log_level}. Must be one of: {', '.join(sorted(valid_levels))}")
+
+    formatter_class = (
+        "mcp_guide.core.mcp_log.StructuredJSONFormatter" if use_json else "mcp_guide.core.mcp_log.RedactedFormatter"
+    )
+
+    return {
+        "version": 1,
+        "disable_existing_loggers": False,
+        "formatters": {
+            "default": {
+                "()": formatter_class,
+            },
+        },
+        "handlers": {
+            "default": {
+                "formatter": "default",
+                "class": "logging.StreamHandler",
+                "stream": "ext://sys.stdout",
+            },
+        },
+        "loggers": {
+            "uvicorn": {
+                "handlers": ["default"],
+                "level": log_level.upper(),
+                "propagate": False,
+            },
+            "uvicorn.error": {
+                "handlers": ["default"],
+                "level": log_level.upper(),
+                "propagate": False,
+            },
+            "uvicorn.access": {
+                "handlers": ["default"],
+                "level": log_level.upper(),
+                "propagate": False,
+            },
+        },
+    }
+
+
 def save_logging_config(
     console_handler: logging.Handler | None,
     file_handler: logging.Handler | None,

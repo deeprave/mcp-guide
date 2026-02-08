@@ -1,0 +1,41 @@
+services:
+  mcp-guide-stdio:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.stdio
+    image: mcp-guide:stdio
+    profiles: [stdio]
+    stdin_open: true
+    tty: true
+    environment:
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - LOG_JSON=${LOG_JSON:-false}
+
+  mcp-guide-http:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.http
+    image: mcp-guide:http
+    profiles: [http]
+    ports:
+      - "8080:8080"
+    environment:
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - LOG_JSON=${LOG_JSON:-false}
+
+  mcp-guide-https:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.https
+    image: mcp-guide:https
+    profiles: [https]
+    ports:
+      - "443:443"
+    volumes:
+      - ./cert.pem:/certs/cert.pem:ro
+      - ./key.pem:/certs/key.pem:ro
+    environment:
+      - SSL_CERTFILE=/certs/cert.pem
+      - SSL_KEYFILE=/certs/key.pem
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - LOG_JSON=${LOG_JSON:-false}

@@ -1,53 +1,52 @@
 # Add Streamable HTTP Transport
 
+## Status: Complete
+
 ## Why
 
-The current HTTP transport uses basic request/response pattern. Streamable HTTP is the MCP standard for bidirectional communication with streaming support, enabling:
-- Real-time streaming of MCP responses
-- Progress updates during long-running operations
-- Server-initiated messages within a session
-- Single endpoint for all communication (simpler than deprecated SSE)
+Add HTTP/HTTPS network transport to mcp-guide using MCP's Streamable HTTP protocol. This enables remote access to the MCP server over the network, supporting both local development and production deployments.
 
-## What Changes
+## What Changed
 
-Add Streamable HTTP transport mode using FastMCP's built-in `streamable_http_app()`:
+Implemented HTTP/HTTPS transport using FastMCP's built-in `streamable_http_app()`:
 
-- Extend existing HTTP transport with streaming flag
-- Use FastMCP's `streamable_http_app()` for streaming support
-- Single `/mcp` endpoint for bidirectional communication
-- Support both stateless and stateful sessions
-- Reuse existing HTTP infrastructure (uvicorn, SSL, ports)
+- Added HTTP/HTTPS transport modes to CLI
+- Configurable path prefixes for API versioning (e.g., `/v1/mcp`, `/api/v2/mcp`)
+- SSL/TLS support with flexible certificate configuration
+- Combined certificate bundles (cert + key in one file)
+- Automatic `/mcp` endpoint handling
+- Path normalization and validation
 
 **CLI interface:**
 ```bash
-mcp-guide http                          # Basic HTTP (current)
-mcp-guide http --streaming              # Streamable HTTP
-mcp-guide https --streaming             # Streamable HTTPS with SSL
-mcp-guide http://localhost:8080/mcp     # Explicit endpoint path
+mcp-guide http                          # HTTP on localhost:8080
+mcp-guide https --ssl-certfile cert.pem # HTTPS with SSL
+mcp-guide http://localhost:8080/v1      # Custom path prefix
 ```
 
-**Implementation approach:**
-- No new optional dependencies (uses existing uvicorn from [http] extra)
-- Extend `HttpTransport` with `streaming` parameter
-- Use `mcp.streamable_http_app()` when streaming enabled
-- Keep same SSL, port, host configuration
-- Single endpoint handles all communication
+**Key features:**
+- Single `/mcp` endpoint for all communication (MCP Streamable HTTP standard)
+- Optional path prefixes for versioned APIs
+- SSL certificate bundles supported
+- Automatic path normalization (strips leading/trailing slashes)
+- Smart `/mcp` handling (no duplication if path already ends with `mcp`)
 
 ## Impact
 
-- Affected specs: Extend `http-transport` capability with streaming support
+- New capability: HTTP/HTTPS network transport
 - Affected code:
-  - `src/mcp_guide/cli.py` - Add `--streaming` flag
-  - `src/mcp_guide/transports/http.py` - Add streaming mode support
-  - `src/mcp_guide/transports/__init__.py` - Pass streaming flag
-  - `src/mcp_guide/main.py` - Pass streaming config
-- Breaking changes: None (basic HTTP remains default)
-- Dependencies: Reuses existing [http] extra with uvicorn
+  - `src/mcp_guide/cli.py` - URL parsing with path support
+  - `src/mcp_guide/transports/http.py` - HTTP transport implementation
+  - `src/mcp_guide/transports/__init__.py` - Transport factory
+  - `src/mcp_guide/main.py` - Configuration passing
+  - `README.md` - Documentation and examples
+- Breaking changes: None (stdio remains default)
+- Dependencies: Optional `[http]` extra with uvicorn and starlette
 
-## Design Principles
+## Design Decisions
 
-- Minimal changes to existing HTTP transport
-- Leverage FastMCP's built-in streaming support
-- Single endpoint simplifies deployment
-- Backward compatible with basic HTTP mode
-- Reuse all existing HTTP infrastructure (SSL, ports, error handling)
+- FastMCP uses Streamable HTTP by default - no flag needed
+- Path prefix is configurable via URL (not hardcoded)
+- SSL keyfile is optional when key is in certificate file
+- Validation happens at server start (not CLI parse time)
+- Consistent error handling with MissingDependencyError

@@ -22,6 +22,8 @@ class HttpTransport:
         ssl_certfile: Optional[str] = None,
         ssl_keyfile: Optional[str] = None,
         path_prefix: Optional[str] = None,
+        log_level: str = "INFO",
+        log_json: bool = False,
     ):
         """Initialize HTTP transport.
 
@@ -33,6 +35,8 @@ class HttpTransport:
             ssl_certfile: SSL certificate file for HTTPS
             ssl_keyfile: SSL private key file for HTTPS
             path_prefix: Optional path prefix (e.g., 'v1' for /v1/mcp endpoint)
+            log_level: Log level for uvicorn
+            log_json: Whether to use JSON logging
         """
         self.scheme = scheme
         self.host = host or "localhost"
@@ -41,6 +45,8 @@ class HttpTransport:
         self.ssl_certfile = ssl_certfile
         self.ssl_keyfile = ssl_keyfile
         self.path_prefix = path_prefix
+        self.log_level = log_level
+        self.log_json = log_json
         self.server: Optional[Any] = None
         self.server_task: Optional[asyncio.Task[None]] = None
 
@@ -85,12 +91,15 @@ class HttpTransport:
                 endpoint_path = "/mcp"
 
             # Configure uvicorn
+            from mcp_guide.core.mcp_log import get_uvicorn_log_config
+
+            log_config = get_uvicorn_log_config(self.log_level, self.log_json)
+
             config = uvicorn.Config(
                 app=app,
                 host=self.host,
                 port=self.port,
-                log_level="info",
-                access_log=True,
+                log_config=log_config,
                 ssl_certfile=self.ssl_certfile,
                 ssl_keyfile=self.ssl_keyfile,
             )

@@ -1,0 +1,7 @@
+# Environment files
+.env
+
+# SSL certificates and keys
+*.pem
+*.key
+*.crt
