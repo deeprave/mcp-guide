@@ -9,7 +9,7 @@ if [ -n "${LOG_LEVEL}" ]; then
     set -- "$@" --log-level "${LOG_LEVEL}"
 fi
 
-if [ "${LOG_JSON:-false}" = "true" ]; then
+if [ "$(printf '%s' "${LOG_JSON:-false}" | tr '[:upper:]' '[:lower:]')" = "true" ]; then
     set -- "$@" --log-json
 fi
 
