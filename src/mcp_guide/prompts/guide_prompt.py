@@ -78,8 +78,10 @@ async def get_command_help(command_context: TemplateContext, commands_dir: Path)
         if not rendered_result.success:
             return rendered_result
 
+        from mcp_guide.render.content import FM_INSTRUCTION
+
         result = Result.ok(rendered_result.value)
-        result.instruction = command_context.get("instruction", INSTRUCTION_DISPLAY_ONLY)
+        result.instruction = command_context.get(FM_INSTRUCTION, INSTRUCTION_DISPLAY_ONLY)
         return result
 
     except Exception as e:

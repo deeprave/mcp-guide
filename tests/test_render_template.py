@@ -328,3 +328,35 @@ async def test_render_template_instruction_with_conditional():
         assert result.instruction == "Follow policy. Explicit consent required before check."
     finally:
         test_file.unlink(missing_ok=True)
+
+
+async def test_render_template_instruction_non_string_ignored():
+    """Test that non-string instruction values are not rendered and don't cause errors."""
+    test_file = Path("tests/fixtures/test_instruction_non_string.mustache")
+    test_file.parent.mkdir(parents=True, exist_ok=True)
+    test_file.write_text("---\ninstruction:\n  - item1\n  - item2\n---\nContent")
+
+    try:
+        file_info = FileInfo(
+            path=test_file,
+            size=test_file.stat().st_size,
+            content_size=7,  # "Content"
+            mtime=datetime.fromtimestamp(test_file.stat().st_mtime),
+            name=test_file.name,
+        )
+
+        context = TemplateContext({"project": {"name": "test"}})
+
+        result = await render_template(
+            file_info=file_info,
+            base_dir=test_file.parent,
+            project_flags={},
+            context=context,
+        )
+
+        assert result is not None
+        # Non-string instruction should be preserved as-is (list)
+        assert isinstance(result.frontmatter.get("instruction"), list)
+        assert result.frontmatter["instruction"] == ["item1", "item2"]
+    finally:
+        test_file.unlink(missing_ok=True)

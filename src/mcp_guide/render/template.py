@@ -70,19 +70,25 @@ async def render_template(
         final_context = final_context.new_child(context)
 
     # Render frontmatter instruction and description fields as templates
-    if "instruction" in parsed.frontmatter and parsed.frontmatter["instruction"]:
-        try:
-            rendered_instruction = chevron.render(parsed.frontmatter["instruction"], dict(final_context))
-            parsed.frontmatter["instruction"] = rendered_instruction
-        except chevron.ChevronError as e:
-            logger.warning(f"Failed to render instruction template in {file_info.path}: {e}")
+    from mcp_guide.render.content import FM_DESCRIPTION, FM_INSTRUCTION
 
-    if "description" in parsed.frontmatter and parsed.frontmatter["description"]:
-        try:
-            rendered_description = chevron.render(parsed.frontmatter["description"], dict(final_context))
-            parsed.frontmatter["description"] = rendered_description
-        except chevron.ChevronError as e:
-            logger.warning(f"Failed to render description template in {file_info.path}: {e}")
+    if FM_INSTRUCTION in parsed.frontmatter:
+        instruction_value = parsed.frontmatter[FM_INSTRUCTION]
+        if isinstance(instruction_value, str) and instruction_value:
+            try:
+                rendered_instruction = chevron.render(instruction_value, dict(final_context))
+                parsed.frontmatter[FM_INSTRUCTION] = rendered_instruction
+            except chevron.ChevronError as e:
+                logger.warning(f"Failed to render instruction template in {file_info.path}: {e}")
+
+    if FM_DESCRIPTION in parsed.frontmatter:
+        description_value = parsed.frontmatter[FM_DESCRIPTION]
+        if isinstance(description_value, str) and description_value:
+            try:
+                rendered_description = chevron.render(description_value, dict(final_context))
+                parsed.frontmatter[FM_DESCRIPTION] = rendered_description
+            except chevron.ChevronError as e:
+                logger.warning(f"Failed to render description template in {file_info.path}: {e}")
 
     # Render template or return as-is
     if is_template_file(file_info):
