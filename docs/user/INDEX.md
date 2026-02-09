@@ -1,6 +1,6 @@
 # User Documentation
 
-Complete guide to using MCP Guide for managing project documentation and context.
+Complete guide to using mcp-guide for managing project documentation and context.
 
 ## Table of Contents
 
