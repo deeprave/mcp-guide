@@ -32,7 +32,7 @@ from mcp_guide.result_constants import (
 from mcp_guide.session import get_or_create_session
 from mcp_guide.tools.tool_result import tool_result
 
-__all__ = ["internal_get_content"]
+__all__ = ["ContentArgs", "internal_get_content"]
 
 
 class ContentArgs(ToolArguments):
@@ -60,7 +60,7 @@ async def internal_get_content(
 ) -> Result[str]:
     """Get content from collections and categories (unified access).
 
-    Searches collections first, then categories. Aggregates and de-duplicates
+    Searches collections first, then categories. Aggregates and deduplicates
     results from all matches.
 
     Args:
@@ -82,12 +82,12 @@ async def internal_get_content(
 
     try:
         # Use gather_content to handle comma-separated expressions
-        # If pattern is provided, append it to the expression
+        # If a pattern is provided, append it to the expression
         expression = args.expression
         if args.pattern:
-            # Apply pattern to all expressions
+            # Apply each pattern to all expressions
             if "," in expression:
-                # Multiple expressions - apply pattern to each
+                # Multiple expressions - apply the pattern to each
                 parts = [f"{part.strip()}/{args.pattern}" for part in expression.split(",")]
                 expression = ",".join(parts)
             else:
@@ -168,7 +168,7 @@ async def get_content(
 ) -> str:
     """Get content from collections and categories.
 
-    Searches collections first, then categories. Aggregates and de-duplicates
+    Searches collections first, then categories. Aggregates and deduplicates
     results from all matches. Supports pattern filtering for selective content retrieval.
 
     ## JSON Schema
@@ -179,7 +179,7 @@ async def get_content(
       "properties": {
         "expression": {
           "type": "string",
-          "description": "Name to match against collections and categories. Searches collections first, then categories. Aggregates and de-duplicates results from all matches."
+          "description": "Name to match against collections and categories. Searches collections first, then categories. Aggregates and deduplicates results from all matches."
         },
         "pattern": {
           "type": "string",
@@ -199,7 +199,7 @@ async def get_content(
     # Filter content with pattern
     await get_content(ContentArgs(
         expression="docs",
-        pattern="*.md"
+        pattern="readthis"
     ))
     ```
 
@@ -208,14 +208,14 @@ async def get_content(
     ```python
     # Example 1: Get all documentation content
     result = await get_content(ContentArgs(expression="docs"))
-    # Returns: All files from docs category with default patterns
+    # Returns: All files from the docs category with default patterns
 
-    # Example 2: Get only markdown files from examples
+    # Example 2: Get only Markdown files from examples
     result = await get_content(ContentArgs(
         expression="examples",
-        pattern="*.md"
+        pattern="readthis"
     ))
-    # Returns: Only .md files from examples category
+    # Returns: Only readthis* files from the examples category
 
     # Example 3: Get content from a collection
     result = await get_content(ContentArgs(expression="getting-started"))

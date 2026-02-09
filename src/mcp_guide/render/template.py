@@ -3,6 +3,8 @@
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+import chevron
+
 from mcp_guide.core.file_reader import read_file_content
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.discovery.files import FileInfo
@@ -66,6 +68,21 @@ async def render_template(
         final_context = final_context.new_child(frontmatter_vars)
     if context:
         final_context = final_context.new_child(context)
+
+    # Render frontmatter instruction and description fields as templates
+    if "instruction" in parsed.frontmatter and parsed.frontmatter["instruction"]:
+        try:
+            rendered_instruction = chevron.render(parsed.frontmatter["instruction"], dict(final_context))
+            parsed.frontmatter["instruction"] = rendered_instruction
+        except chevron.ChevronError as e:
+            logger.warning(f"Failed to render instruction template in {file_info.path}: {e}")
+
+    if "description" in parsed.frontmatter and parsed.frontmatter["description"]:
+        try:
+            rendered_description = chevron.render(parsed.frontmatter["description"], dict(final_context))
+            parsed.frontmatter["description"] = rendered_description
+        except chevron.ChevronError as e:
+            logger.warning(f"Failed to render description template in {file_info.path}: {e}")
 
     # Render template or return as-is
     if is_template_file(file_info):

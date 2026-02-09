@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from mcp_guide.discovery.files import FileInfo
+from mcp_guide.render.context import TemplateContext
 from mcp_guide.render.template import render_template
 
 
@@ -222,5 +223,108 @@ async def test_render_template_requires_list_with_dict_any_key():
             project_flags={"config": {"feature3": True, "feature4": False}},
         )
         assert result is None
+    finally:
+        test_file.unlink(missing_ok=True)
+
+
+@pytest.mark.asyncio
+async def test_render_template_instruction_with_variable():
+    """Test that template variables in frontmatter instruction field are rendered."""
+    test_file = Path("tests/fixtures/test_instruction_var.mustache")
+    test_file.parent.mkdir(parents=True, exist_ok=True)
+    test_file.write_text(
+        "---\ninstruction: Follow this policy exactly. If {{workflow.file}} missing, create it.\n---\nContent"
+    )
+
+    try:
+        file_info = FileInfo(
+            path=test_file,
+            size=test_file.stat().st_size,
+            content_size=7,  # "Content"
+            mtime=datetime.fromtimestamp(test_file.stat().st_mtime),
+            name=test_file.name,
+        )
+
+        # Provide context with workflow.file
+        context = TemplateContext({"workflow": {"file": ".guide.yaml"}})
+
+        result = await render_template(
+            file_info=file_info,
+            base_dir=test_file.parent,
+            project_flags={},
+            context=context,
+        )
+
+        assert result is not None
+        # The instruction should have the variable expanded
+        assert result.instruction == "Follow this policy exactly. If .guide.yaml missing, create it."
+    finally:
+        test_file.unlink(missing_ok=True)
+
+
+@pytest.mark.asyncio
+async def test_render_template_description_with_variable():
+    """Test that template variables in frontmatter description field are rendered."""
+    test_file = Path("tests/fixtures/test_description_var.mustache")
+    test_file.parent.mkdir(parents=True, exist_ok=True)
+    test_file.write_text("---\ndescription: Project {{project.name}} configuration\n---\nContent")
+
+    try:
+        file_info = FileInfo(
+            path=test_file,
+            size=test_file.stat().st_size,
+            content_size=7,  # "Content"
+            mtime=datetime.fromtimestamp(test_file.stat().st_mtime),
+            name=test_file.name,
+        )
+
+        # Provide context with project.name
+        context = TemplateContext({"project": {"name": "mcp-guide"}})
+
+        result = await render_template(
+            file_info=file_info,
+            base_dir=test_file.parent,
+            project_flags={},
+            context=context,
+        )
+
+        assert result is not None
+        # The description should have the variable expanded
+        assert result.description == "Project mcp-guide configuration"
+    finally:
+        test_file.unlink(missing_ok=True)
+
+
+@pytest.mark.asyncio
+async def test_render_template_instruction_with_conditional():
+    """Test that conditionals in frontmatter instruction field are rendered."""
+    test_file = Path("tests/fixtures/test_instruction_conditional.mustache")
+    test_file.parent.mkdir(parents=True, exist_ok=True)
+    test_file.write_text(
+        "---\ninstruction: Follow policy.{{#workflow.consent.exit}} Explicit consent required before {{workflow.next}}.{{/workflow.consent.exit}}\n---\nContent"
+    )
+
+    try:
+        file_info = FileInfo(
+            path=test_file,
+            size=test_file.stat().st_size,
+            content_size=7,  # "Content"
+            mtime=datetime.fromtimestamp(test_file.stat().st_mtime),
+            name=test_file.name,
+        )
+
+        # Provide context with workflow conditional
+        context = TemplateContext({"workflow": {"consent": {"exit": True}, "next": "check"}})
+
+        result = await render_template(
+            file_info=file_info,
+            base_dir=test_file.parent,
+            project_flags={},
+            context=context,
+        )
+
+        assert result is not None
+        # The instruction should have the conditional expanded
+        assert result.instruction == "Follow policy. Explicit consent required before check."
     finally:
         test_file.unlink(missing_ok=True)

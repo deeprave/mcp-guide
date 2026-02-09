@@ -32,9 +32,11 @@ def extract_and_deduplicate_instructions(files: list[FileInfo]) -> Optional[str]
         files: List of FileInfo objects with frontmatter
 
     Returns:
-        Combined instruction string or None if no instructions found.
+        Combined instruction string or None if no instructions are found.
         Important instructions (starting with "!") override regular instructions.
     """
+    from mcp_guide.render.deduplicate import deduplicate_sentences
+
     regular_instructions = []  # Regular instructions
     important_instructions = []  # Important instructions (override regular)
     regular_seen = set()
@@ -49,18 +51,14 @@ def extract_and_deduplicate_instructions(files: list[FileInfo]) -> Optional[str]
         if explicit_instruction and explicit_instruction.strip():
             # Check if instruction is marked as important
             if explicit_instruction.startswith("!"):
-                # Remove the "!" and any following whitespace
-                clean_instruction = IMPORTANT_PREFIX_PATTERN.sub("", explicit_instruction).strip()
-                # Validate that we have actual content after removing the prefix
-                if clean_instruction:
+                if clean_instruction := IMPORTANT_PREFIX_PATTERN.sub("", explicit_instruction).strip():
                     if clean_instruction not in important_seen:
                         important_instructions.append(clean_instruction)
                         important_seen.add(clean_instruction)
-                # If empty after removing prefix, ignore completely (no fallback)
-            else:
-                if explicit_instruction not in regular_seen:
-                    regular_instructions.append(explicit_instruction)
-                    regular_seen.add(explicit_instruction)
+                        # If empty after removing the prefix, ignore completely (no fallback)
+            elif explicit_instruction not in regular_seen:
+                regular_instructions.append(explicit_instruction)
+                regular_seen.add(explicit_instruction)
         else:
             # Get type-based default instruction
             content_type = get_frontmatter_type(file_info.frontmatter)
@@ -69,19 +67,22 @@ def extract_and_deduplicate_instructions(files: list[FileInfo]) -> Optional[str]
                 regular_instructions.append(default_instruction)
                 regular_seen.add(default_instruction)
 
-    # If we have important instructions, use only those (ignore regular)
+    # Combine instructions
+    combined = None
     if important_instructions:
-        return "\n".join(important_instructions)
+        combined = "\n".join(important_instructions)
+    elif regular_instructions:
+        combined = "\n".join(regular_instructions)
 
-    # Otherwise use regular instructions
-    if regular_instructions:
-        return "\n".join(regular_instructions)
+    # Apply sentence-level deduplication to combined instructions
+    if combined:
+        combined = deduplicate_sentences(combined)
 
-    return None
+    return combined or None
 
 
 def resolve_patterns(override_pattern: Optional[str], default_patterns: list[str]) -> list[str]:
-    """Resolve patterns with optional override.
+    """Resolve patterns with an optional override.
 
     Args:
         override_pattern: Optional pattern to override defaults
@@ -105,7 +106,7 @@ async def read_file_contents(
         files: List of FileInfo objects to read
         base_dir: Base directory for resolving file paths
         docroot: Document root for security validation
-        category_prefix: Optional prefix to add to basenames (e.g., "category")
+        category_prefix: Optional prefix to add to basenames (e.g. "category")
 
     Returns:
         List of error messages for files that failed to read
@@ -127,7 +128,7 @@ async def read_and_render_file_contents(
         base_dir: Base directory for resolving file paths
         docroot: Document root for security validation
         template_context: Optional template context for rendering
-        category_prefix: Optional prefix to add to basenames (e.g., "category")
+        category_prefix: Optional prefix to add to basenames (e.g. "category")
 
     Returns:
         List of error messages for files that failed to read or render
@@ -144,9 +145,10 @@ async def read_and_render_file_contents(
         if hasattr(template_context, "session") and template_context.session:
             from mcp_guide.models import resolve_all_flags
 
+            # noinspection PyBroadException
             try:
                 resolved_flags = await resolve_all_flags(template_context.session)
-                requirements_context.update(resolved_flags)
+                requirements_context |= resolved_flags
             except Exception:
                 # Fallback to project flags if resolution fails
                 if hasattr(template_context, "project") and template_context.project:
@@ -162,11 +164,11 @@ async def read_and_render_file_contents(
             workflow_data = template_context["workflow"]
             requirements_context["workflow"] = workflow_data
 
-    # Process files with new render_template API
+    # Process files with the render_template API
     filtered_files = []
     for file_info in files:
         try:
-            # Resolve file path with security validation
+            # Resolve the file path with security validation
             file_info.resolve(base_dir, docroot)
 
             # For template files, use render_template API (it handles parsing)
@@ -187,7 +189,7 @@ async def read_and_render_file_contents(
                     continue  # Skip file on validation error
 
                 try:
-                    # Use new render_template API (handles parsing and requirements checking)
+                    # Use the render_template API (handles parsing and requirements checking)
                     rendered = await render_template(
                         file_info=file_info,
                         base_dir=base_dir,
@@ -213,15 +215,18 @@ async def read_and_render_file_contents(
                 raw_content = await read_file_content(file_info.path)
                 parsed = parse_content_with_frontmatter(raw_content)
 
-                # Check frontmatter requirements - skip file if not satisfied
-                if parsed.frontmatter and requirements_context:
-                    if not check_frontmatter_requirements(parsed.frontmatter, requirements_context):
-                        continue  # Skip this file entirely (filtered by requires-*)
+                # Check frontmatter requirements - skip this file if not satisfied
+                if (
+                    parsed.frontmatter
+                    and requirements_context
+                    and not check_frontmatter_requirements(parsed.frontmatter, requirements_context)
+                ):
+                    continue  # Skip this file entirely (filtered by requires-*)
 
                 file_info.content = parsed.content
                 file_info.frontmatter = parsed.frontmatter
 
-            # Update content_size to reflect final content size after all processing
+            # Update content_size to reflect the final content size after all processing
             content = file_info.content or ""
             file_info.content_size = len(content.encode("utf-8"))
 
@@ -254,7 +259,7 @@ def create_file_read_error_result(
     error_type: str,
     instruction: str,
 ) -> Result[str]:
-    """Create standardized file read error result.
+    """Create a standard file read error result.
 
     Args:
         errors: List of error messages

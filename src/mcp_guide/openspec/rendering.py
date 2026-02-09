@@ -14,7 +14,7 @@ async def render_openspec_template(
     """Render OpenSpec template.
 
     Args:
-        template_pattern: Pattern to match template file
+        template_pattern: Pattern to match a template file
         extra_context: Optional additional context to layer on top
 
     Returns:

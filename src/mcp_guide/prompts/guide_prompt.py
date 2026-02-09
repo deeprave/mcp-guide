@@ -3,7 +3,7 @@
 """Guide prompt implementation for direct content access."""
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Awaitable, Callable, Coroutine, List, Optional, Protocol, Union
+from typing import TYPE_CHECKING, Awaitable, Callable, Coroutine, List, Optional, Protocol, Union
 
 from anyio import Path as AsyncPath
 
@@ -60,18 +60,12 @@ class CommandMiddleware(Protocol):
         ...
 
 
-async def get_command_help(command_path: str, command_context: dict, ctx: Optional[Context]) -> Result[str]:  # type: ignore
+async def get_command_help(command_context: TemplateContext, commands_dir: Path) -> Result[str]:
     """Get help information for a command using template rendering."""
     from mcp_guide.render.renderer import render_template_content
 
     try:
-        # Use the help template with the pre-built command_context
-        # The help template will handle --table flag via {{#kwargs._table}}
-        from mcp_guide.session import get_or_create_session
-
-        session = await get_or_create_session(ctx)
-        docroot = Path(await session.get_docroot())
-        commands_dir = docroot / COMMANDS_DIR
+        # Use the validated commands_dir passed from the caller
         help_template_path = commands_dir / "help.mustache"
 
         if await AsyncPath(help_template_path).exists():
@@ -80,7 +74,7 @@ async def get_command_help(command_path: str, command_context: dict, ctx: Option
             return Result.failure("Help template not found", error_type="not_found")
 
         # Render the template with the command_context
-        rendered_result = await render_template_content(help_template_content, TemplateContext(command_context))
+        rendered_result = await render_template_content(help_template_content, command_context)
         if not rendered_result.success:
             return rendered_result
 
@@ -106,7 +100,7 @@ async def handle_command(
     """Handle command execution with direct file discovery.
 
     Args:
-        command_path: Command path (e.g., "help", "create/category")
+        command_path: Command path (e.g. "help", "create/category")
         kwargs: Parsed keyword arguments and flags
         args: Positional arguments
         ctx: MCP context
@@ -122,11 +116,11 @@ async def handle_command(
         middleware = []
     middleware = [logging_middleware] + middleware
     if middleware:
-        # Apply middleware chain
+        # Apply the middleware chain
         async def next_handler() -> Result[Any]:
             return await _execute_command(command_path, kwargs, args, ctx)
 
-        # Build middleware chain from right to left
+        # Build the middleware chain from right to left
         handler: Callable[[], Coroutine[Any, Any, Result[Any]]] = next_handler
         for mw in reversed(middleware):
             # Capture current middleware in closure
@@ -146,7 +140,7 @@ async def handle_command(
 
 
 def _resolve_command_alias(command_path: str, commands: list[dict[str, Any]]) -> str:
-    """Resolve command alias to actual command name."""
+    """Resolve command alias to the actual command name."""
     for cmd in commands:
         if command_path in cmd.get("aliases", []):
             name = cmd.get("name")
@@ -155,7 +149,7 @@ def _resolve_command_alias(command_path: str, commands: list[dict[str, Any]]) ->
 
 
 async def _discover_command_file(commands_dir: Path, command_path: str) -> Result[FileInfo]:
-    """Discover command file by path."""
+    """Discover the command file by path."""
     pattern = f"{command_path}.*"
     try:
         files = await discover_category_files(commands_dir, [pattern])
@@ -169,13 +163,13 @@ async def _discover_command_file(commands_dir: Path, command_path: str) -> Resul
 
 
 def _build_command_context(
-    base_context: Any,
+    base_context: TemplateContext,
     command_path: str,
     file_info: FileInfo,
     kwargs: dict[str, Any],
     args: list[str],
     commands: list[dict[str, Any]],
-) -> Any:
+) -> TemplateContext:
     """Build template context for command execution."""
 
     # Use kwargs directly without underscore manipulation
@@ -193,7 +187,7 @@ def _build_command_context(
             categories[category] = []
         categories[category].append(cmd)
 
-    # Convert to sorted list with title-case names
+    # Convert to a sorted list with title-case names
     command_categories: list[dict[str, Any]] = []
     command_categories.extend(
         {
@@ -224,6 +218,7 @@ def _build_command_context(
 
 async def _is_help_command(command_path: str, ctx: Optional[Context]) -> bool:  # type: ignore
     """Check if command_path is a help command or alias."""
+    # noinspection PyBroadException
     try:
         session = await get_or_create_session(ctx)
         docroot = Path(await session.get_docroot())
@@ -231,7 +226,7 @@ async def _is_help_command(command_path: str, ctx: Optional[Context]) -> bool:  
         commands = await discover_commands(commands_dir)
 
         # Find help command and its aliases
-        help_aliases = ["help"]  # Always include base name
+        help_aliases = ["help"]  # Always include the base name
         for cmd in commands:
             if cmd["name"] == "help":
                 help_aliases.extend(cmd.get("aliases", []))
@@ -239,7 +234,7 @@ async def _is_help_command(command_path: str, ctx: Optional[Context]) -> bool:  
 
         return command_path in help_aliases
     except Exception:
-        # Fallback to hardcoded aliases if discovery fails
+        # Fallback to hardcoded aliases if discovery fails for any reason
         return command_path in {"help", "h", "?"}
 
 
@@ -252,7 +247,7 @@ async def _execute_command(
     """Execute command without middleware."""
     from mcp_guide.session import get_or_create_session
 
-    # Initialize session and get paths
+    # Initialise session and get paths
     try:
         session = await get_or_create_session(ctx)
         docroot = Path(await session.get_docroot())
@@ -263,12 +258,11 @@ async def _execute_command(
     if not await AsyncPath(commands_dir).exists():
         return Result.failure(f"Commands directory not found: {COMMANDS_DIR}", error_type="not_found")
 
-    # Discover commands and try direct template file first (higher precedence)
+    # Discover commands and try the direct template file first (higher precedence)
     commands = await discover_commands(commands_dir)
 
-    # First try to find command file directly (template files have higher precedence)
+    # First, try to find the command file directly (template files have higher precedence)
     file_result = await _discover_command_file(commands_dir, command_path)
-    resolved_path = command_path
 
     # If no direct template file found, try alias resolution
     if not file_result.success:
@@ -283,23 +277,22 @@ async def _execute_command(
     if not file_info:
         return Result.failure("No file info returned", error_type="file_error")
 
-    # Set base path for content loading
+    # Set the base path for content loading
     file_info.resolve(commands_dir, docroot)
 
     # Build template context
     base_context = await get_template_contexts()
     command_context = _build_command_context(base_context, command_path, file_info, kwargs, args, commands)
 
-    # Check for help flag or help command with args (after context building)
+    # Check for a help flag or help command with args (after context building)
     if kwargs.get("_help"):
-        return await get_command_help(command_path, command_context, ctx)
+        return await get_command_help(command_context, commands_dir)
     if await _is_help_command(command_path, ctx) and args:
-        return await get_command_help(args[0], command_context, ctx)
+        return await get_command_help(command_context, commands_dir)
 
     # Get resolved flags for requires-* checking
     current_session = get_current_session()
-    requirements_context: dict[str, FeatureValue] = {}
-    requirements_context = await resolve_all_flags(current_session)  # type: ignore[arg-type]
+    requirements_context: dict[str, FeatureValue] = await resolve_all_flags(current_session)  # type: ignore[arg-type]
 
     # Render template using new API
     try:
@@ -410,7 +403,7 @@ async def _handle_content_request(argv: list[str], ctx: Optional["Context"]) -> 
         result.instruction = INSTRUCTION_DISPLAY_ONLY
         return result
 
-    # Join content args as category expression
+    # Join content args as the category expression
     category = ",".join(content_args) if content_args else ""
 
     # Handle --help flag for content requests
@@ -464,7 +457,7 @@ async def _route_guide_request(argv: list[str], ctx: Optional["Context"]) -> Res
 @promptfunc()
 async def guide(
     # MCP prompt handlers require explicit parameters - *args not supported
-    # MAX_PROMPT_ARGS defined to match MCP protocol limit
+    # MAX_PROMPT_ARGS defined to match the MCP protocol limit
     arg1: Optional[str] = None,
     arg2: Optional[str] = None,
     arg3: Optional[str] = None,
@@ -482,12 +475,32 @@ async def guide(
     argf: Optional[str] = None,
     ctx: Optional["Context"] = None,  # type: ignore[type-arg]
 ) -> str:
-    """Access guide functionality."""
+    """Access guide functionality.
+
+    Args:
+        arg1: positional arg
+        arg2: positional arg
+        arg3: positional arg
+        arg4: positional arg
+        arg5: positional arg
+        arg6: positional arg
+        arg7: positional arg
+        arg8: positional arg
+        arg9: positional arg
+        arga: positional arg
+        argb: positional arg
+        argc: positional arg
+        argd: positional arg
+        arge: positional arg
+        argf: positional arg
+        ctx (Optional["Context"]):
+    """
     # Cache MCP context if available
     if ctx:
         from mcp_guide.mcp_context import cache_mcp_globals
 
         logger.debug("Caching MCP context for guide request")
+        # noinspection PyTypeChecker
         await cache_mcp_globals(ctx)
 
     # Call on_tool for all subscribers immediately
@@ -509,7 +522,7 @@ async def guide(
     # Route request
     result = await _route_guide_request(argv, ctx)
 
-    # Process result through task manager
+    # Process result through the task manager
     from mcp_guide.tools.tool_result import prompt_result
 
     return await prompt_result("guide", result)
