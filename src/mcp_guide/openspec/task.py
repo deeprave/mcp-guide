@@ -51,10 +51,10 @@ class OpenSpecTask:
         self._version_instruction_id: Optional[str] = None
         self._changes_instruction_id: Optional[str] = None
 
-        # Subscribe to command, file, and timer events
+        # Subscribe to command, file, directory, and timer events
         self.task_manager.subscribe(
             self,
-            EventType.FS_COMMAND | EventType.FS_FILE_CONTENT | EventType.TIMER,
+            EventType.FS_COMMAND | EventType.FS_FILE_CONTENT | EventType.FS_DIRECTORY | EventType.TIMER,
             CHANGES_CHECK_INTERVAL,
         )
 
@@ -273,6 +273,33 @@ class OpenSpecTask:
 
         # Handle directory listing events
         if event_type & EventType.FS_DIRECTORY:
+            path = data.get("path", "")
+            if path == "openspec/project.md":
+                files = data.get("files", [])
+                self._project_enabled = any(f.get("name") == "project.md" for f in files)
+                
+                # Acknowledge project check instruction
+                if self._project_instruction_id:
+                    await self.task_manager.acknowledge_instruction(self._project_instruction_id)
+                    self._project_instruction_id = None
+                
+                # Mark validation as complete if project.md exists
+                if self._project_enabled:
+                    from mcp_guide.session import get_or_create_session
+                    
+                    session = await get_or_create_session()
+                    project = await session.get_project()
+                    
+                    if not project.openspec_validated:
+                        await session.update_config(lambda p: replace(p, openspec_validated=True))
+                        logger.info("OpenSpec validation completed and persisted")
+                    
+                    # Request changes list after validation
+                    if not self._changes_requested:
+                        self._changes_requested = True
+                        await self.request_changes_json()
+                
+                return True
             return False
 
         # Handle file content events
@@ -333,17 +360,6 @@ class OpenSpecTask:
                 if self._changes_instruction_id:
                     await self.task_manager.acknowledge_instruction(self._changes_instruction_id)
                     self._changes_instruction_id = None
-
-                # Mark validation as complete if not already done
-                from mcp_guide.session import get_or_create_session
-
-                session = await get_or_create_session()
-                project = await session.get_project()
-
-                if not project.openspec_validated:
-                    # Validation complete: successfully retrieved changes list
-                    await session.update_config(lambda p: replace(p, openspec_validated=True))
-                    logger.info("OpenSpec validation completed and persisted")
 
                 # Invalidate template context cache to pick up fresh changes
                 from mcp_guide.render.cache import invalidate_template_context_cache
