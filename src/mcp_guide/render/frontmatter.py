@@ -133,9 +133,11 @@ def get_frontmatter_instruction(frontmatter: Optional[Dict[str, Any]]) -> Option
     Returns:
         Instruction string or None if not found
     """
+    from mcp_guide.render.content import FM_INSTRUCTION
+
     if not frontmatter:
         return None
-    instruction = frontmatter.get("instruction")
+    instruction = frontmatter.get(FM_INSTRUCTION)
     return instruction if isinstance(instruction, str) else None
 
 

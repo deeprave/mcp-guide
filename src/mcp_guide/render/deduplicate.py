@@ -20,9 +20,10 @@ def split_sentences(text: str) -> list[str]:
         return []
 
     # Replace common abbreviations temporarily to avoid false splits
-    text = text.replace("e.g.", "e~g~")
-    text = text.replace("i.e.", "i~e~")
-    text = text.replace("etc.", "etc~")
+    # Use word boundaries to avoid matching substrings
+    text = re.sub(r"\be\.g\.", "e~g~", text)
+    text = re.sub(r"\bi\.e\.", "i~e~", text)
+    text = re.sub(r"\betc\.", "etc~", text)
 
     # Split on sentence-ending punctuation followed by space or end
     sentences = re.split(r"(?<=[.!?])\s+", text)

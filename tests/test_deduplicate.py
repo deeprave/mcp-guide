@@ -22,8 +22,20 @@ class TestSentenceSplitting:
         """Test that abbreviations don't cause incorrect splits."""
         text = "Use e.g. this example. Or i.e. that one."
         sentences = split_sentences(text)
-        # Should not split on abbreviation periods
+        # Should not split on abbreviation periods and should preserve punctuation
+        assert sentences == [
+            "Use e.g. this example.",
+            "Or i.e. that one.",
+        ]
+
+    def test_split_abbreviations_word_boundary(self):
+        """Test that abbreviation handling uses word boundaries."""
+        # Should not replace 'e.g.' in 'page.go' or similar
+        text = "See page.go for details. Use e.g. this example."
+        sentences = split_sentences(text)
         assert len(sentences) == 2
+        assert "page.go" in sentences[0]
+        assert "e.g." in sentences[1]
 
     def test_split_empty_string(self):
         """Test splitting empty string."""
