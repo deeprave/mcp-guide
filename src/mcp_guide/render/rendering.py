@@ -21,7 +21,7 @@ async def discover_single_file(
     docroot: Path,
     display_name: str,
 ) -> list[FileInfo]:
-    """Discover single file matching pattern, raising error if multiple or none found."""
+    """Discover a single file matching pattern, raising an error if multiple or none found."""
     files = await discover_category_files(category_path, [pattern])
 
     if not files:
@@ -44,11 +44,11 @@ async def render_content(
     discover_files: Optional[Callable[[Path, str, Path, str], Awaitable[list[FileInfo]]]] = None,
     process_context: Optional[Callable[[TemplateContext, FileInfo], Awaitable[TemplateContext]]] = None,
 ) -> RenderedContent | None:
-    """Render template from category directory matching pattern.
+    """Render template from the category directory matching pattern.
 
     Args:
-        pattern: Glob pattern to match template file
-        category_dir: Directory name relative to docroot (e.g., "_workflow", "_openspec")
+        pattern: Glob pattern to match a template file
+        category_dir: Directory name relative to docroot (e.g. "_workflow", "_openspec")
         extra_context: Optional additional context to layer on top
         category_name: Optional category name for error messages (defaults to category_dir)
         discover_files: Optional function to discover files (defaults to single-file discovery)
@@ -59,14 +59,14 @@ async def render_content(
         or if an error occurs during rendering
 
     Raises:
-        FileNotFoundError: No template matches pattern or multiple matches found (default behavior)
+        FileNotFoundError: No template matches pattern or multiple matches found (default behaviour)
     """
     session = await get_or_create_session()
     docroot = Path(await session.get_docroot())
     category_path = docroot / category_dir
     display_name = category_name or category_dir
 
-    # Use provided discovery function or default to single-file
+    # Use the provided discovery function or default to single-file
     if discover_files is None:
         files = await discover_single_file(category_path, pattern, docroot, display_name)
     else:
@@ -80,6 +80,7 @@ async def render_content(
     if process_context is not None:
         context = await process_context(extra_context or TemplateContext({}), files[0])
 
+    # noinspection PyBroadException
     try:
         rendered = await render_template(
             file_info=files[0],
@@ -90,7 +91,7 @@ async def render_content(
     except (FileNotFoundError, PermissionError, UnicodeDecodeError) as e:
         logger.error(f"Failed to read {display_name} template {pattern}: {e}")
         return None
-    except Exception as e:
+    except Exception:
         # Broad catch is intentional - gracefully handle any rendering errors
         # Full traceback is logged for debugging
         logger.exception(f"Unexpected error rendering {display_name} template {pattern}")
