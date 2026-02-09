@@ -1,157 +1,33 @@
 # mcp-guide
 
-MCP server for managing project guidelines, development rules, and controlled workflows with AI agents.
+**Structured content delivery for AI agents via Model Context Protocol**
 
-## What is mcp-guide?
+mcp-guide is an MCP server that provides AI agents with organized access to project guidelines, documentation, and context. It helps agents understand your project's standards, follow development workflows, and access relevant information through a flexible content management system.
 
-mcp-guide is a Model Context Protocol (MCP) server that helps AI agents understand and follow your project's guidelines, coding standards, and development workflows. It provides structured access to project documentation, rules, and context.
+## Key Features
 
-## Features
+- **Content Management** - Organize documentation by categories and collections
+- **Template Support** - Dynamic content with Mustache/Chevron templates
+- **Multiple Transports** - STDIO, HTTP, and HTTPS modes
+- **Feature Flags** - Project-specific and global configuration
+- **Workflow Management** - Structured development phase tracking
+- **Profile System** - Pre-configured setups for common scenarios
+- **Docker Support** - Containerized deployment with SSL
+- **OpenSpec Integration** - Spec-driven development workflow
 
-- **Project Guidelines Management** - Organize and serve project-specific guidelines to AI agents
-- **Category-based Organization** - Structure content by categories (guidelines, language-specific rules, context, prompts)
-- **Template Support** - Generate content using Mustache templates
-- **Session Management** - Per-project configuration and state management
-
-## Installation
-
-### Using uvx (recommended)
+## Quick Start
 
 ```bash
-# Run directly without installation
+# Run with uvx (recommended)
 uvx mcp-guide
 
-# With HTTP transport support
-uvx --with uvicorn mcp-guide
+# Or install with uv
+uv tool install mcp-guide
 ```
 
-### Using uv
+### Configure with Claude Desktop
 
-```bash
-# Install from source
-git clone https://github.com/yourusername/mcp-guide.git
-cd mcp-guide
-uv sync
-
-# With HTTP transport support
-uv sync --extra http
-```
-
-## Transport Modes
-
-mcp-guide supports multiple transport modes:
-
-### STDIO (default)
-Standard input/output for local agent communication:
-```bash
-mcp-guide stdio
-# or simply
-mcp-guide
-```
-
-### HTTP/HTTPS
-Network transport for remote access or web applications. Uses MCP's Streamable HTTP protocol for bidirectional communication:
-```bash
-# HTTP on localhost:8080 (default)
-mcp-guide http
-# Endpoint: http://localhost:8080/mcp
-
-# HTTP on custom host:port
-mcp-guide http://localhost:3000
-# Endpoint: http://localhost:3000/mcp
-
-# HTTP with path prefix for versioning
-mcp-guide http://localhost:8080/v1
-# Endpoint: http://localhost:8080/v1/mcp
-
-# HTTPS on 0.0.0.0:443 (default) - requires SSL certificates
-mcp-guide https --ssl-certfile cert.pem --ssl-keyfile key.pem
-# Endpoint: https://0.0.0.0:443/mcp
-
-# HTTPS with custom path
-mcp-guide https://:8443/api/v2 --ssl-certfile cert.pem --ssl-keyfile key.pem
-# Endpoint: https://0.0.0.0:8443/api/v2/mcp
-```
-
-**Note**: HTTP/HTTPS transport requires uvicorn:
-```bash
-uv sync --extra http
-# or with uvx
-uvx --with uvicorn mcp-guide
-```
-
-**HTTP Transport Features**:
-- Uses MCP Streamable HTTP protocol for bidirectional communication
-- `/mcp` is automatically appended to the URL path (unless the path already ends with `mcp`)
-- Supports custom path prefixes for API versioning (e.g., `/v1/mcp`, `/api/v2/mcp`)
-- Supports both HTTP and HTTPS modes
-
-**SSL Configuration for HTTPS**:
-- HTTPS mode requires `--ssl-certfile` option
-- `--ssl-keyfile` is optional if the certificate file contains both the certificate and private key
-- For separate files:
-  ```bash
-  mcp-guide https --ssl-certfile cert.pem --ssl-keyfile key.pem
-  ```
-- For combined certificate bundle (cert + key in one file):
-  ```bash
-  mcp-guide https --ssl-certfile bundle.pem
-  ```
-- For development, generate self-signed certificates:
-  ```bash
-  # Separate files
-  openssl req -x509 -newkey rsa:4096 -nodes -out cert.pem -keyout key.pem -days 365
-
-  # Combined bundle
-  openssl req -x509 -newkey rsa:4096 -nodes -out bundle.pem -keyout bundle.pem -days 365
-  ```
-- For production, use certificates from a trusted CA (Let's Encrypt, etc.)
-- Alternatively, use a reverse proxy (nginx, Caddy) for TLS termination with HTTP mode
-
-**Troubleshooting**:
-- If you get "Port already in use", specify a different port: `mcp-guide http://localhost:3000`
-- Ports 80 and 443 require root privileges—use higher ports (8080, 8443) for development
-
-## Docker
-
-mcp-guide provides Docker support for containerized deployments with STDIO and HTTPS transports.
-
-### Quick Start
-
-**STDIO Mode** (for MCP clients):
-```bash
-cd docker
-docker build -t mcp-guide:base -f Dockerfile ..
-docker compose --profile stdio up
-```
-
-**HTTPS Mode** (with self-signed certificates):
-```bash
-cd docker
-./generate-certs.sh --self
-docker compose --profile https up
-```
-
-Access at: https://localhost/mcp
-
-### Features
-
-- Multi-stage builds for minimal image size (~200MB)
-- Structured JSON logging for all components
-- Flexible SSL certificate management (self-signed or Let's Encrypt)
-- Docker Compose profiles for easy deployment
-
-For detailed Docker documentation, see [docker/README.md](docker/README.md).
-
-## Configuration
-
-### Claude Desktop (STDIO)
-
-Add to your Claude Desktop configuration file:
-
-**macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
-
-**Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows):
 
 ```json
 {
@@ -164,116 +40,89 @@ Add to your Claude Desktop configuration file:
 }
 ```
 
-### Claude Desktop (HTTP)
+## Documentation
 
-For HTTP transport with uvicorn support:
+- **[Getting Started](docs/user/getting-started.md)** - First-time setup and basic concepts
+- **[Installation Guide](docs/user/installation.md)** - Detailed installation and configuration
+- **[User Documentation](docs/user/)** - Complete user guides
+- **[Developer Documentation](docs/developer/)** - Technical reference
+- **[Changelog](CHANGELOG.md)** - Release notes and version history
 
-```json
-{
-  "mcpServers": {
-    "mcp-guide": {
-      "command": "uvx",
-      "args": ["--with", "uvicorn", "mcp-guide", "http://localhost:8080"]
-    }
-  }
-}
-```
+## Transport Modes
 
-### Other MCP Clients
-
-mcp-guide works with any MCP-compatible client. Configure with the appropriate transport mode:
-
-**STDIO (default)**:
-```json
-{
-  "command": "uvx",
-  "args": ["mcp-guide"]
-}
-```
-
-**HTTP**:
-```json
-{
-  "command": "uvx",
-  "args": ["--with", "uvicorn", "mcp-guide", "http://localhost:8080"]
-}
-```
-
-**HTTPS**:
-```json
-{
-  "command": "uvx",
-  "args": ["--with", "uvicorn", "mcp-guide", "https://:8443"]
-}
-```
-
-## Usage
-
-Once configured, your AI agent can access mcp-guide's tools and prompts to:
-
-- Query project guidelines and rules
-- Access language-specific coding standards
-- Retrieve project context and documentation
-- Follow structured development workflows
-
-### Resource Access
-
-mcp-guide supports MCP resources via the `guide://` URI scheme:
-
-```
-guide://collection/document
-```
-
-Example: `guide://lang/python` retrieves Python language guidelines.
-
-For details, see `guide://docs/guide-uri-scheme.md`
-
-*(Note: Tools and prompts are currently under development)*
-
-## Logging
-
-For debugging or monitoring, enable logging with environment variables:
-
+### STDIO (Default)
+Standard input/output for local agent communication:
 ```bash
-# Basic logging
-MG_LOG_LEVEL=INFO MG_LOG_FILE=/var/log/mcp-guide.log mcp-guide
-
-# Debug mode
-MG_LOG_LEVEL=DEBUG MG_LOG_FILE=/tmp/debug.log mcp-guide
+mcp-guide
 ```
 
-Available log levels: TRACE, DEBUG, INFO, WARN, ERROR
-
-## Environment Variables
-
-**MCP_TOOL_PREFIX** - Tool name prefix (default: "guide")
+### HTTP/HTTPS
+Network transport for remote access:
 ```bash
-export MCP_TOOL_PREFIX="guide"  # Tools named: guide_tool_name
+# HTTP (requires uvicorn)
+uvx --with uvicorn mcp-guide http://localhost:8080
+
+# HTTPS with SSL certificates
+uvx --with uvicorn mcp-guide https --ssl-certfile cert.pem --ssl-keyfile key.pem
 ```
 
-**MCP_PROMPT_PREFIX** - Guide prompt prefix (default: None)
+### Docker
+Containerized deployment:
 ```bash
-export MCP_PROMPT_PREFIX="g"  # Prompt named: g_guide
+cd docker
+docker compose --profile stdio up
 ```
 
-Using these renaming conventions avoids naming collisions in tools (common) and prompts (much less likely).
-In agents that already prefix tools with the mcp names such as Claude Code, the MCP_TOOL_PREFIX should be set to an empty value (not unset).
+See [Installation Guide](docs/user/installation.md) for detailed setup instructions.
 
-**MCP_INCLUDE_EXAMPLE_TOOLS** - Include example tools (default: false)
-```bash
-export MCP_INCLUDE_EXAMPLE_TOOLS="true"  # For development
-```
+## Content Organization
+
+mcp-guide organizes content into three types:
+
+- **user/information** - Content displayed to users
+- **agent/information** - Context for AI agents
+- **agent/instruction** - Directives for agent behavior
+
+Content is organized using **categories** (file patterns and directories) and **collections** (groups of categories). Collections act as "macros" to provide targeted context for specific tasks.
+
+See [Content Management](docs/user/content-management.md) for details.
+
+## Feature Flags
+
+Control behavior with project-specific or global flags:
+
+- **workflow** - Enable workflow phase tracking
+- **openspec** - Enable OpenSpec integration
+- **content-style** - Output format (plain, mime)
+
+See [Feature Flags](docs/user/feature-flags.md) for complete reference.
 
 ## Development
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, testing, and contribution guidelines.
+```bash
+# Clone and install
+git clone https://github.com/yourusername/mcp-guide.git
+cd mcp-guide
+uv sync
+
+# Run tests
+uv run pytest
+
+# Format and lint
+uv run ruff format src tests
+uv run ruff check src tests
+uv run mypy src
+```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines.
 
 ## License
 
-MIT License - See [LICENSE.md](LICENSE.md) for details
+MIT License - See [LICENSE.md](LICENSE.md) for details.
 
-## Support
+## Links
 
+- **Documentation**: [docs/user/](docs/user/)
 - **Issues**: [GitHub Issues](https://github.com/yourusername/mcp-guide/issues)
-- **Documentation**: [docs/](docs/)
-- **MCP Protocol**: [Model Context Protocol](https://modelcontextprotocol.io/)
+- **MCP Protocol**: [modelcontextprotocol.io](https://modelcontextprotocol.io/)
+
