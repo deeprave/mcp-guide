@@ -5,14 +5,14 @@ category: "openspec"
 usage: ":openspec/list"
 requires-openspec: true
 includes:
-  - openspec-list-format
+  - ../../_openspec/openspec-list-format
 ---
 {{#openspec}}
-{{#changes.0}}
-{{> _openspec/_openspec-list-format}}
-{{/changes.0}}
+{{#changes}}
+{{>openspec-list-format}}
+{{/changes}}
 
-{{^changes.0}}
+{{^changes}}
 Run `openspec list --json` and send the result using {{tool_prefix}}send_file_content with path `.openspec-changes.json` to refresh the cache, then re-render this template to display the results.
-{{/changes.0}}
+{{/changes}}
 {{/openspec}}
