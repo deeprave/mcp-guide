@@ -90,7 +90,7 @@ class TestOpenSpecTask:
         with patch.object(task, "request_version_check", new_callable=AsyncMock) as mock_request:
             result = await task.handle_event(EventType.FS_COMMAND, event_data)
 
-            assert result is True
+            assert result.result is True
             assert task.is_available() is True
             mock_task_manager.set_cached_data.assert_called_once_with("openspec_available", True)
             mock_request.assert_called_once()
@@ -107,7 +107,7 @@ class TestOpenSpecTask:
         with patch.object(task, "request_project_check", new_callable=AsyncMock) as mock_request:
             result = await task.handle_event(EventType.FS_COMMAND, event_data)
 
-            assert result is True
+            assert result.result is True
             assert task.is_available() is False
             mock_task_manager.set_cached_data.assert_called_once_with("openspec_available", False)
             mock_request.assert_not_called()
@@ -122,7 +122,7 @@ class TestOpenSpecTask:
 
         result = await task.handle_event(EventType.FS_COMMAND, event_data)
 
-        assert result is True
+        assert result.result is True
         assert task.is_available() is False
         mock_task_manager.set_cached_data.assert_called_once_with("openspec_available", False)
 
@@ -142,7 +142,7 @@ class TestOpenSpecTask:
 
         result = await task.handle_event(EventType.FS_FILE_CONTENT, event_data)
 
-        assert result is False
+        assert result is None
         mock_task_manager.set_cached_data.assert_not_called()
 
     @pytest.mark.asyncio
@@ -157,7 +157,7 @@ class TestOpenSpecTask:
 
         result = await task.handle_event(EventType.FS_FILE_CONTENT, event_data)
 
-        assert result is False
+        assert result is None
         assert task.is_project_enabled() is None
 
     @pytest.mark.asyncio
@@ -189,7 +189,7 @@ class TestOpenSpecTask:
 
         result = await task.handle_event(EventType.FS_FILE_CONTENT, event_data)
 
-        assert result is True
+        assert result.result is True
         assert task.get_version() == "1.2.3"
         mock_task_manager.set_cached_data.assert_called_once_with("openspec_version", "1.2.3")
 
@@ -202,7 +202,7 @@ class TestOpenSpecTask:
 
         result = await task.handle_event(EventType.FS_FILE_CONTENT, event_data)
 
-        assert result is True
+        assert result.result is True
         assert task.get_version() == "2.0.1"
 
     @pytest.mark.asyncio
@@ -214,7 +214,7 @@ class TestOpenSpecTask:
 
         result = await task.handle_event(EventType.FS_FILE_CONTENT, event_data)
 
-        assert result is True
+        assert result.result is True
         assert task.get_version() is None
         mock_task_manager.set_cached_data.assert_called_with("openspec_version", None)
 
@@ -262,7 +262,7 @@ class TestOpenSpecTask:
 
             result = await task.handle_event(EventType.FS_FILE_CONTENT, event_data)
 
-        assert result is True
+        assert result.result is True
         assert task.get_version() == "1.2.3"
         assert task._version_this_session == "1.2.3"
         mock_session_instance.update_config.assert_called_once()
@@ -301,11 +301,11 @@ class TestOpenSpecTask:
             mock_render.return_value = make_rendered_content("## OpenSpec Changes\n...")
             result = await task.handle_event(EventType.FS_FILE_CONTENT, event_data)
 
-            # Now returns a Result object
-            from mcp_guide.result import Result
+            # Now returns EventResult
+            from mcp_guide.task_manager.manager import EventResult
 
-            assert isinstance(result, Result)
-            assert result.success is True
+            assert isinstance(result, EventResult)
+            assert result.result is True
 
             cached = task.get_changes()
             # Returns grouped dict now
@@ -358,7 +358,7 @@ class TestOpenSpecTask:
         with patch.object(task, "_handle_changes_reminder", new_callable=AsyncMock) as mock_reminder:
             result = await task.handle_event(EventType.TIMER, {"interval": 3600.0})
 
-            assert result is True
+            assert result.result is True
             mock_reminder.assert_called_once()
 
     @pytest.mark.asyncio
@@ -372,7 +372,7 @@ class TestOpenSpecTask:
             # Timer event should trigger reminder
             result = await task.handle_event(EventType.TIMER, {"interval": 3600.0})
 
-            assert result is True
+            assert result.result is True
             mock_reminder.assert_called_once()
 
     @pytest.mark.asyncio
@@ -385,7 +385,7 @@ class TestOpenSpecTask:
         with patch.object(task, "request_changes_json", new_callable=AsyncMock) as mock_request:
             result = await task.handle_event(EventType.TIMER, {"interval": 3600.0})
 
-            assert result is True
+            assert result.result is True
             mock_request.assert_called_once()
 
     @pytest.mark.asyncio
@@ -401,7 +401,7 @@ class TestOpenSpecTask:
         with patch.object(task, "request_changes_json", new_callable=AsyncMock) as mock_request:
             result = await task.handle_event(EventType.TIMER, {"interval": 3600.0})
 
-            assert result is True
+            assert result.result is True
             mock_request.assert_not_called()
 
 
@@ -442,8 +442,8 @@ class TestOpenSpecResponseFormatting:
 
             result = await task.handle_event(EventType.FS_FILE_CONTENT, event_data)
 
-            assert result is True
-            assert mock_task_manager.queue_instruction.call_count == 1
+            assert result.result is True
+            assert result.rendered_content is not None
             # Check that render was called with TemplateContext
             call_args = mock_render.call_args
             assert call_args[0][0] == "_status-format"
@@ -471,7 +471,7 @@ class TestOpenSpecResponseFormatting:
 
             result = await task.handle_event(EventType.FS_FILE_CONTENT, event_data)
 
-            assert result is True
+            assert result.result is True
             # Check that render was called with TemplateContext
             call_args = mock_render.call_args
             assert call_args[0][0] == "_status-format"
@@ -508,10 +508,10 @@ class TestOpenSpecResponseFormatting:
             mock_render.return_value = make_rendered_content("## OpenSpec Changes\n...")
             result = await task.handle_event(EventType.FS_FILE_CONTENT, event_data)
 
-            from mcp_guide.result import Result
+            from mcp_guide.task_manager.manager import EventResult
 
-            assert isinstance(result, Result)
-            assert result.success is True
+            assert isinstance(result, EventResult)
+            assert result.result is True
 
             # Verify changes were cached and grouped
             cached = task.get_changes()
@@ -535,10 +535,10 @@ class TestOpenSpecResponseFormatting:
             mock_render.return_value = make_rendered_content("## OpenSpec Changes\n...")
             result = await task.handle_event(EventType.FS_FILE_CONTENT, event_data)
 
-            from mcp_guide.result import Result
+            from mcp_guide.task_manager.manager import EventResult
 
-            assert isinstance(result, Result)
-            assert result.success is True
+            assert isinstance(result, EventResult)
+            assert result.result is True
 
             # Verify empty cache returns empty groups
             cached = task.get_changes()
@@ -564,7 +564,7 @@ class TestOpenSpecResponseFormatting:
 
             result = await task.handle_event(EventType.FS_FILE_CONTENT, event_data)
 
-            assert result is True
+            assert result.result is True
             # Check that render was called with TemplateContext
             call_args = mock_render.call_args
             assert call_args[0][0] == "_show-format"
@@ -589,7 +589,7 @@ class TestOpenSpecResponseFormatting:
 
             result = await task.handle_event(EventType.FS_FILE_CONTENT, event_data)
 
-            assert result is True
+            assert result.result is True
             # Check that render was called with TemplateContext wrapping the data
             call_args = mock_render.call_args
             assert call_args[0][0] == "_error-format"
@@ -609,5 +609,5 @@ class TestOpenSpecResponseFormatting:
 
         result = await task.handle_event(EventType.FS_FILE_CONTENT, event_data)
 
-        assert result is False  # Should return False for non-JSON content
+        assert result is None  # Should return False for non-JSON content
         assert mock_task_manager.queue_instruction.call_count == 0

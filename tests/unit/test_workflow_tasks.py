@@ -24,7 +24,7 @@ class TestWorkflowMonitorTask:
         result = await monitor_task.handle_event(
             EventType.FS_FILE_CONTENT, {"path": ".guide.yaml", "content": "phase: test\nissue: test-issue"}
         )
-        assert result is True
+        assert result.result is True
 
     @pytest.mark.asyncio
     async def test_workflow_monitor_task_ignores_unrelated_events(self, monitor_task) -> None:
@@ -39,14 +39,14 @@ class TestWorkflowMonitorTask:
             EventType.FS_FILE_CONTENT,
             {"path": "unrelated/config.yaml", "content": "phase: other\nissue: other-issue"},
         )
-        assert result_file_content is False
+        assert result_file_content is None
 
         # Directory event should also be ignored
         result_directory = await monitor_task.handle_event(
             EventType.FS_DIRECTORY,
             {"path": ".guide", "action": "modified"},
         )
-        assert result_directory is False
+        assert result_directory is None
 
         # Ensure state has not changed after handling unrelated events
         final_state = copy.deepcopy(monitor_task.__dict__)

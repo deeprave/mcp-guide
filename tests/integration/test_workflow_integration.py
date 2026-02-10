@@ -140,7 +140,8 @@ class TestWorkflowIntegration:
                 EventType.FS_FILE_CONTENT, {"path": ".guide.yaml", "content": workflow_content}
             )
 
-            assert result["status"] == "processed", "TaskManager didn't process the data"
+            assert isinstance(result, list), "TaskManager should return list[EventResult]"
+            assert len(result) > 0, "TaskManager didn't process the data"
             assert len(test_subscriber.received_events) >= 1, "Subscriber didn't receive any events"
             event_type, event_data = test_subscriber.received_events[0]
             assert event_type == EventType.FS_FILE_CONTENT

@@ -10,6 +10,7 @@ from typing import Any, Dict, List, Optional, TypeVar, Union
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.core.result import Result
 from mcp_guide.decorators import task_init
+from mcp_guide.render.content import RenderedContent
 
 from .interception import EventType
 from .protocol import TaskSubscriber
@@ -31,6 +32,116 @@ def _get_content_id(content: bytes) -> str:
     """
     crc = zlib.crc32(content) & 0xFFFFFFFF
     return f"{crc:08x}"
+
+
+@dataclass
+class EventResult:
+    """Result from event handler."""
+
+    result: bool  # True=success, False=failure
+    message: Optional[str] = None  # Simple string result
+    rendered_content: Optional[RenderedContent] = None  # Rendered template
+
+
+def _dedupe_and_combine_messages(messages: list[str]) -> str | None:
+    """Deduplicate and combine messages preserving order."""
+    if not messages:
+        return None
+    unique_messages = []
+    seen = set()
+    for msg in messages:
+        if msg not in seen:
+            unique_messages.append(msg)
+            seen.add(msg)
+    return "\n".join(unique_messages) if unique_messages else None
+
+
+def aggregate_event_results(results: list[EventResult]) -> Result[Any]:
+    """Aggregate EventResults into single Result.
+
+    Args:
+        results: List of EventResults from handlers
+
+    Returns:
+        Aggregated Result
+    """
+    # Empty list: event not handled
+    if not results:
+        return Result.ok(instruction="")
+
+    # Single result
+    if len(results) == 1:
+        event_result = results[0]
+        if event_result.rendered_content:
+            return (
+                Result.ok(
+                    value=event_result.rendered_content.content,
+                    message=event_result.message,
+                    instruction=event_result.rendered_content.instruction or "",
+                )
+                if event_result.result
+                else Result.failure(
+                    error=event_result.message or "Handler failed",
+                    instruction=event_result.rendered_content.instruction or "",
+                )
+            )
+        return (
+            Result.ok(message=event_result.message)
+            if event_result.result
+            else Result.failure(error=event_result.message or "Handler failed")
+        )
+
+    # Multiple results - all are handled events (None filtered out)
+    # Multiple results - split into success and failure
+    success_results = [r for r in results if r.result]
+    failed_results = [r for r in results if not r.result]
+
+    # Log failures
+    for failed in failed_results:
+        logger.warning(f"Handler failed: {failed.message or 'Unknown error'}")
+
+    # If any handler succeeded, aggregate successes only
+    if success_results:
+        # Deduplicate and concatenate messages from successful handlers
+        messages = [r.message for r in success_results if r.message]
+        combined_message = _dedupe_and_combine_messages(messages)
+
+        # Concatenate rendered content from successful handlers
+        rendered_contents = [r.rendered_content for r in success_results if r.rendered_content]
+
+        if rendered_contents:
+            combined_content = "\n".join(rc.content for rc in rendered_contents)
+            # Combine instructions using shared logic
+            from mcp_guide.content.utils import combine_instructions
+            from mcp_guide.render.frontmatter import resolve_instruction
+
+            instructions_with_importance = []
+            for rc in rendered_contents:
+                if rc.instruction:
+                    instruction, is_important = resolve_instruction(rc.frontmatter, rc.template_type)
+                    if instruction:
+                        instructions_with_importance.append((instruction, is_important))
+
+            combined_instruction = combine_instructions(instructions_with_importance) or ""
+
+            return Result.ok(
+                value=combined_content,
+                message=combined_message,
+                instruction=combined_instruction,
+            )
+
+        # No rendered content but had successes
+        return Result.ok(message=combined_message)
+
+    # No successes - aggregate failures
+    elif failed_results:
+        messages = [r.message for r in failed_results if r.message]
+        combined_error = _dedupe_and_combine_messages(messages) or "All handlers failed"
+        return Result.failure(error=combined_error)
+
+    # No results at all
+    else:
+        return Result.ok(instruction="")
 
 
 @dataclass
@@ -330,8 +441,16 @@ class TaskManager:
 
     async def dispatch_event(
         self, data_type: EventType, data: "Union[dict[str, Any], Result[Any]]"
-    ) -> "Union[Result[Any], dict[str, str]]":
-        """Handle agent data with task interception."""
+    ) -> list[EventResult]:
+        """Handle agent data with task interception.
+
+        Args:
+            data_type: Type of event to dispatch
+            data: Event data (dict or Result)
+
+        Returns:
+            List of EventResults from handlers
+        """
 
         # Extract dict from Result if needed
         actual_data: dict[str, Any]
@@ -346,10 +465,9 @@ class TaskManager:
         logger.trace(f"Dispatching event {data_type} to {len(self._subscriptions)} subscriptions")
 
         # Check regular subscriptions and clean up dead references
-        processed_count = 0
         current_time = time.time()
         active_subscriptions = []
-        handler_result = None  # Store result from handler
+        event_results: list[EventResult] = []
 
         for subscription in self._subscriptions:
             subscriber = subscription.subscriber
@@ -364,18 +482,11 @@ class TaskManager:
                     f"Event {data_type} matches subscription {subscription.event_types}, "
                     f"dispatching to {subscriber.get_name()}"
                 )
-                handled = False
                 try:
                     result = await subscriber.handle_event(data_type, actual_data)
-                    # Store Result if handler returned one
-                    if isinstance(result, Result):
-                        handler_result = result
-                        handled = True
-                    elif result:
-                        handled = True
-
-                    if handled:
-                        processed_count += 1
+                    # Only add to results if event was handled (not None)
+                    if result is not None:
+                        event_results.append(result)
                         logger.trace(f"Event handled by {subscriber.get_name()}")
                     else:
                         logger.trace(f"Event not handled by {subscriber.get_name()}")
@@ -383,7 +494,11 @@ class TaskManager:
                     logger.warning(f"Error handling event in {subscriber.get_name()}: {e}")
 
                 # Check if this was a TIMER_ONCE event that was handled - remove timer flags
-                if (data_type & EventType.TIMER_ONCE) and (subscription.event_types & EventType.TIMER_ONCE) and handled:
+                if (
+                    (data_type & EventType.TIMER_ONCE)
+                    and (subscription.event_types & EventType.TIMER_ONCE)
+                    and result is not None
+                ):
                     logger.trace(f"Removing TIMER_ONCE flag from {subscriber.get_name()}")
                     subscription.event_types &= ~(EventType.TIMER_ONCE | EventType.TIMER)  # Remove both timer flags
                     subscription.interval = None  # Stop timer from firing again
@@ -406,7 +521,7 @@ class TaskManager:
         # Update subscriptions list with only active ones
         self._subscriptions = active_subscriptions
 
-        logger.trace(f"Event {data_type} processed by {processed_count} subscribers")
+        logger.trace(f"Event {data_type} processed by {len(event_results)} subscribers")
 
         # Update statistics for processed subscribers
         for subscription in self._subscriptions:
@@ -423,14 +538,7 @@ class TaskManager:
                     if task_id in self._task_stats:
                         self._task_stats[task_id]["last_data"] = current_time
 
-        # Return handler result if one was provided
-        if handler_result is not None:
-            return handler_result
-
-        if processed_count == 0:
-            return {"status": "acknowledged"}
-
-        return {"status": "processed"}
+        return event_results
 
     async def queue_instruction(self, instruction: str) -> None:
         """Queue an instruction to be added to the next MCP response."""

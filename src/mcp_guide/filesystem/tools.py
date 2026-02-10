@@ -4,10 +4,13 @@ import time
 from pathlib import Path
 from typing import Any, Dict, Optional, Union
 
+from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.core.result import Result
 from mcp_guide.filesystem.cache import FileCache
 from mcp_guide.filesystem.read_write_security import ReadWriteSecurityPolicy
 from mcp_guide.session import get_or_create_session
+
+logger = get_logger(__name__)
 
 # Global cache instance for server-side caching
 _file_cache = FileCache()
@@ -68,9 +71,10 @@ async def send_file_content(
 
         # Dispatch event to task manager
         from mcp_guide.task_manager import EventType, get_task_manager
+        from mcp_guide.task_manager.manager import aggregate_event_results
 
         task_manager = get_task_manager()
-        event_result = await task_manager.dispatch_event(
+        event_results = await task_manager.dispatch_event(
             EventType.FS_FILE_CONTENT,
             {
                 "path": validated_path,
@@ -80,9 +84,10 @@ async def send_file_content(
             },
         )
 
-        # If event handler returned a Result, use that
-        if isinstance(event_result, Result):
-            return event_result
+        # Aggregate results
+        result = aggregate_event_results(event_results)
+        if result.success and result.value:
+            return result
 
         return Result.ok(
             value={"path": validated_path},
@@ -142,9 +147,10 @@ async def send_directory_listing(
 
         # Dispatch event to task manager
         from mcp_guide.task_manager import EventType, get_task_manager
+        from mcp_guide.task_manager.manager import aggregate_event_results
 
         task_manager = get_task_manager()
-        await task_manager.dispatch_event(
+        event_results = await task_manager.dispatch_event(
             EventType.FS_DIRECTORY,
             {
                 "path": validated_path,
@@ -154,6 +160,11 @@ async def send_directory_listing(
                 "count": len(files),
             },
         )
+
+        # Aggregate results
+        result = aggregate_event_results(event_results)
+        if result.success and result.value:
+            return result
 
         return Result.ok(
             {
@@ -186,9 +197,10 @@ async def send_command_location(
     try:
         # Dispatch event to task manager
         from mcp_guide.task_manager import EventType, get_task_manager
+        from mcp_guide.task_manager.manager import aggregate_event_results
 
         task_manager = get_task_manager()
-        await task_manager.dispatch_event(
+        event_results = await task_manager.dispatch_event(
             EventType.FS_COMMAND,
             {
                 "command": command,
@@ -196,6 +208,11 @@ async def send_command_location(
                 "found": found,
             },
         )
+
+        # Aggregate results
+        result = aggregate_event_results(event_results)
+        if result.success and result.value:
+            return result
 
         return Result.ok(
             {
@@ -222,14 +239,20 @@ async def send_working_directory(context: Any, working_directory: str) -> "Resul
     try:
         # Dispatch event to task manager
         from mcp_guide.task_manager import EventType, get_task_manager
+        from mcp_guide.task_manager.manager import aggregate_event_results
 
         task_manager = get_task_manager()
-        await task_manager.dispatch_event(
+        event_results = await task_manager.dispatch_event(
             EventType.FS_CWD,
             {
                 "working_directory": working_directory,
             },
         )
+
+        # Aggregate results
+        result = aggregate_event_results(event_results)
+        if result.success and result.value:
+            return result
 
         return Result.ok(
             {
@@ -258,9 +281,10 @@ async def send_found_files(
     try:
         # Dispatch event to task manager
         from mcp_guide.task_manager import EventType, get_task_manager
+        from mcp_guide.task_manager.manager import aggregate_event_results
 
         task_manager = get_task_manager()
-        await task_manager.dispatch_event(
+        event_results = await task_manager.dispatch_event(
             EventType.FS_FOUND_FILES,
             {
                 "pattern": pattern,
@@ -269,6 +293,11 @@ async def send_found_files(
                 "count": len(files),
             },
         )
+
+        # Aggregate results
+        result = aggregate_event_results(event_results)
+        if result.success and result.value:
+            return result
 
         return Result.ok(
             {

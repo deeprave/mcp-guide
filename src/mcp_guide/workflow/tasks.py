@@ -16,6 +16,7 @@ from mcp_guide.workflow.rendering import render_workflow_template
 if TYPE_CHECKING:
     from mcp_guide.render.content import RenderedContent
     from mcp_guide.task_manager import TaskManager
+    from mcp_guide.task_manager.manager import EventResult
 
 logger = get_logger(__name__)
 
@@ -92,8 +93,10 @@ class WorkflowMonitorTask:
             self._setup_done = True
             logger.debug("WorkflowMonitorTask initialized")
 
-    async def handle_event(self, event_type: "EventType", data: dict[str, Any]) -> bool:
+    async def handle_event(self, event_type: "EventType", data: dict[str, Any]) -> "EventResult | None":
         """Handle task manager events."""
+        from mcp_guide.task_manager.manager import EventResult
+
         logger.trace(f"WorkflowMonitorTask received event: {event_type} for path: {data.get('path', 'unknown')}")
 
         # Handle timer events
@@ -103,7 +106,7 @@ class WorkflowMonitorTask:
             # Workflow monitoring reminder (10 min interval)
             if interval == WORKFLOW_INTERVAL:
                 await self._handle_monitoring_reminder()
-                return True
+                return EventResult(result=True)
 
         # Check if the file content is for our workflow file (compare basenames)
         path = data.get("path")
@@ -118,8 +121,8 @@ class WorkflowMonitorTask:
 
             # Process the data
             await self._process_workflow_content(data.get("content", ""))
-            return True
-        return False
+            return EventResult(result=True)
+        return None
 
     async def _handle_monitoring_reminder(self) -> None:
         """Handle timer events for workflow monitoring reminders."""

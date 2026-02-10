@@ -3,8 +3,9 @@ type: agent/instruction
 description: Get status and completion percentage for an OpenSpec change
 category: "openspec"
 usage: ":openspec/status [<change-id>]"
-
 requires-openspec: true
+includes:
+  - ../../_openspec/status-format
 instruction: >
   Display errors to the user, otherwise follow the instructions to get status
   When an artifact has a glob pattern in `outputPath` (contains `*` or `**`):
@@ -13,26 +14,18 @@ instruction: >
     - **DO NOT** display the glob pattern itself - only the expanded file list
     - If no files match, provide an empty list
 ---
-{{#args.0.value}}
-{{#openspec.changes}}
-Check if change `{{args.0.value}}` exists in the cached changes list. If found, run `openspec status --change {{args.0.value}} --json` and send the result using {{tool_prefix}}send_file_content with path `.openspec-status.json`.
+{{#openspec}}
+{{#status}}
+{{>status-format}}
+{{/status}}
 
-If not found in cache, first refresh the cache by running `openspec list --json` and sending via {{tool_prefix}}send_file_content with path `.openspec-changes.json`, then run the status command.
-{{/openspec.changes}}
-{{^openspec.changes}}
-First refresh the cache by running `openspec list --json` and sending via {{tool_prefix}}send_file_content with path `.openspec-changes.json`, then run `openspec status --change {{args.0.value}} --json` and send the result using {{tool_prefix}}send_file_content with path `.openspec-status.json`.
-{{/openspec.changes}}
+{{^status}}
+{{#args.0.value}}
+Run `openspec status --change {{args.0.value}} --json` and send the result using {{tool_prefix}}send_file_content with path `.openspec-status.json` to refresh the cache, then re-render this template to display the results.
 {{/args.0.value}}
 {{^args.0.value}}
 {{#workflow.issue}}
-{{#openspec.changes}}
-Check if change `{{workflow.issue}}` exists in the cached changes list. If found, run `openspec status --change {{workflow.issue}} --json` and send the result using {{tool_prefix}}send_file_content with path `.openspec-status.json`.
-
-If not found in cache, first refresh the cache by running `openspec list --json` and sending via {{tool_prefix}}send_file_content with path `.openspec-changes.json`, then run the status command.
-{{/openspec.changes}}
-{{^openspec.changes}}
-First refresh the cache by running `openspec list --json` and sending via {{tool_prefix}}send_file_content with path `.openspec-changes.json`, then run `openspec status --change {{workflow.issue}} --json` and send the result using {{tool_prefix}}send_file_content with path `.openspec-status.json`.
-{{/openspec.changes}}
+Run `openspec status --change {{workflow.issue}} --json` and send the result using {{tool_prefix}}send_file_content with path `.openspec-status.json` to refresh the cache, then re-render this template to display the results.
 {{/workflow.issue}}
 {{^workflow.issue}}
 **Error:** No change-id provided and no current workflow issue set.
@@ -44,35 +37,5 @@ Example: `{{agent.prefix}}guide :openspec/status add-client-documents`
 Or set a workflow issue first with `{{agent.prefix}}guide :workflow/issue <change-id>`
 {{/workflow.issue}}
 {{/args.0.value}}
-This information need not be displayed to the user.
-
-{{#kwargs.table}}Use table format:
-
-## OpenSpec Status: [changeName]
-
-**Schema:** [schemaName]
-**Status:** ✅ Complete (if isComplete is true) or ⏳ In Progress (if false)
-
-### Artifacts
-
-| Artifact | Path | Status |
-|----------|------|--------|
-| [id] | `[outputPath]` (expanded if glob) | [status] |
-{{/kwargs.table}}
-
-{{^kwargs.table}}Use list format:
-
-## OpenSpec Status: [changeName]
-
-**Schema:** [schemaName]
-**Status:** ✅ Complete (if isComplete is true) or ⏳ In Progress (if false)
-
-**Artifacts:**
-- [id]: (if glob pattern, list all matching files)
-  - `[file1]` - [status]
-  - `[file2]` - [status]
-  Or if not a glob:
-  - `[outputPath]` - [status]
-{{/kwargs.table}}
-
-Include all artifacts from the JSON response.
+{{/status}}
+{{/openspec}}
