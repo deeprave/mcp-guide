@@ -10,7 +10,7 @@ from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.discovery.files import TEMPLATE_EXTENSIONS, FileInfo
 from mcp_guide.render.cache import get_template_contexts
 from mcp_guide.render.context import TemplateContext
-from mcp_guide.render.frontmatter import get_frontmatter_includes
+from mcp_guide.render.frontmatter import get_frontmatter_includes, resolve_instruction
 from mcp_guide.render.functions import TemplateFunctions
 from mcp_guide.render.partials import PartialNotFoundError, load_partial_content
 from mcp_guide.result import Result
@@ -117,12 +117,26 @@ async def render_template_content(
                             context_dict = dict(render_context) if render_context else {}
 
                             if base_dir:
-                                partial_content = await load_partial_content(full_include_path, base_dir, context_dict)
+                                partial_content, partial_frontmatter = await load_partial_content(
+                                    full_include_path, base_dir, context_dict
+                                )
                             else:
                                 # Fallback to file path parent if no base_dir provided
                                 file_parent = Path(file_path).parent if file_path != "<template>" else Path.cwd()
-                                partial_content = await load_partial_content(
+                                partial_content, partial_frontmatter = await load_partial_content(
                                     full_include_path, file_parent, context_dict
+                                )
+
+                            # Merge partial frontmatter instruction with parent frontmatter
+                            # Resolve instructions from both parent and partial
+                            parent_instruction, parent_is_important = resolve_instruction(metadata)
+                            partial_instruction, partial_is_important = resolve_instruction(partial_frontmatter)
+
+                            # If partial has important instruction, override parent's instruction in metadata
+                            if partial_is_important and partial_instruction:
+                                metadata["instruction"] = f"! {partial_instruction}"
+                                logger.trace(
+                                    f"Partial '{partial_name}' overriding parent instruction with: {partial_instruction}"
                                 )
 
                             processed_partials[partial_name] = partial_content
