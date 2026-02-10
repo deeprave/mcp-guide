@@ -57,7 +57,6 @@ class TestResolveInstruction:
     def test_empty_frontmatter(self):
         """Test with empty frontmatter dict."""
         instruction, is_important = resolve_instruction({})
-        instruction, is_important = resolve_instruction({})
         assert instruction is not None  # Should get default
         assert is_important is False
 
