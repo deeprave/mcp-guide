@@ -146,7 +146,8 @@ class TestPartialLoading:
         partial_file.write_text(expected_content, encoding="utf-8")
 
         # Load the content
-        actual_content = await load_partial_content(partial_file, tmp_path)
+        actual_content, frontmatter = await load_partial_content(partial_file, tmp_path)
 
         # Verify content matches exactly
         assert actual_content == expected_content
+        assert len(frontmatter) == 0  # No frontmatter in this test

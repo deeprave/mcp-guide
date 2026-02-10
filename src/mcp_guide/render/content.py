@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
-from mcp_guide.render.frontmatter import Content, get_type_based_default_instruction
+from mcp_guide.render.frontmatter import Content, resolve_instruction
 from mcp_guide.result_constants import AGENT_INSTRUCTION
 
 FM_INSTRUCTION = "instruction"
@@ -37,7 +37,8 @@ class RenderedContent(Content):
     @property
     def instruction(self) -> Optional[str]:
         """Get instruction from frontmatter or type-based default."""
-        return self.frontmatter.get_str(FM_INSTRUCTION) or get_type_based_default_instruction(self.template_type)
+        instruction, _ = resolve_instruction(self.frontmatter, self.template_type)
+        return instruction
 
     @property
     def description(self) -> Optional[str]:

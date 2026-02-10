@@ -1,6 +1,12 @@
 ## 1. Implementation
-- [ ] 1.1 Modify `load_partial_content` to return both content and frontmatter
-- [ ] 1.2 Update partial loader to merge frontmatter with parent template
-- [ ] 1.3 Implement `!` prefix handling for instruction override
-- [ ] 1.4 Add tests for frontmatter merging behavior
-- [ ] 1.5 Update templates using partials to leverage new behavior
+- [x] 1.1 Create centralized instruction resolution function in `render/frontmatter.py`
+  - [x] 1.1.1 Support `!` prefix for important instructions
+  - [x] 1.1.2 Support type-based default fallback
+  - [x] 1.1.3 Support deduplication logic
+- [x] 1.2 Refactor `TemplateContent.instruction` to use shared resolver
+- [x] 1.3 Refactor `extract_and_deduplicate_instructions` to use shared resolver
+- [x] 1.4 Modify `load_partial_content` to return both content and frontmatter
+- [x] 1.5 Implement frontmatter merging in renderer with instruction override logic
+- [x] 1.6 Add tests for centralized instruction resolution
+- [x] 1.7 Add tests for partial frontmatter merging behavior
+- [x] 1.8 Verify templates using partials have correct frontmatter

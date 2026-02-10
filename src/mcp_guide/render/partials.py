@@ -1,11 +1,14 @@
 """Template partial utilities for path resolution and content loading."""
 
 from pathlib import Path
-from typing import Any, List
+from typing import TYPE_CHECKING, Any, List
 
 from anyio import Path as AsyncPath
 
 from mcp_guide.core.mcp_log import get_logger
+
+if TYPE_CHECKING:
+    from mcp_guide.render.frontmatter import Frontmatter
 
 logger = get_logger(__name__)
 
@@ -80,7 +83,9 @@ async def resolve_partial_paths(template_path: Path, includes: List[str], docroo
     return resolved_paths
 
 
-async def load_partial_content(partial_path: Path, base_path: Path, context: dict[str, Any] | None = None) -> str:
+async def load_partial_content(
+    partial_path: Path, base_path: Path, context: dict[str, Any] | None = None
+) -> tuple[str, "Frontmatter"]:
     """Load content from a partial template file with frontmatter processing.
 
     Args:
@@ -89,10 +94,12 @@ async def load_partial_content(partial_path: Path, base_path: Path, context: dic
         context: Template context for frontmatter requirements checking
 
     Returns:
-        Content of the partial file (without frontmatter if requirements met)
+        Tuple of (content, frontmatter) where:
+        - content: Content of the partial file (without frontmatter if requirements met, empty if not met)
+        - frontmatter: Frontmatter dictionary (may be empty if no frontmatter)
 
     Raises:
-        PartialNotFoundError: If the partial file does not exist or requirements not met
+        PartialNotFoundError: If the partial file does not exist
     """
     # Convert to AsyncPath immediately
     partial_async = AsyncPath(partial_path)
@@ -131,13 +138,13 @@ async def load_partial_content(partial_path: Path, base_path: Path, context: dic
         # Check frontmatter requirements if context provided
         if parsed.frontmatter and context:
             if not check_frontmatter_requirements(parsed.frontmatter, context):
-                # Requirements not met - return empty content (effectively skip partial)
+                # Requirements not met - return empty content but preserve frontmatter
                 logger.debug(f"Partial {partial_path} skipped due to unmet frontmatter requirements")
-                return ""
+                return ("", parsed.frontmatter)
 
         logger.trace(f"Successfully loaded partial content ({len(parsed.content)} chars): {final_path}")
-        # Return content without frontmatter
-        return parsed.content
+        # Return content and frontmatter
+        return (parsed.content, parsed.frontmatter)
 
     except Exception as e:
         logger.trace(f"Failed to read partial content from {final_path}: {e}")

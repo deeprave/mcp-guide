@@ -1,5 +1,6 @@
 """Front-matter parsing utilities for YAML metadata extraction."""
 
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -8,6 +9,7 @@ import aiofiles
 import yaml
 
 from mcp_guide.core.mcp_log import get_logger
+from mcp_guide.render.frontmatter_types import Frontmatter
 from mcp_guide.render.requires import check_requires_directive
 from mcp_guide.result_constants import (
     AGENT_INFO,
@@ -20,7 +22,12 @@ from mcp_guide.result_constants import (
     USER_INFO,
 )
 
+__all__ = ["Frontmatter", "Content", "resolve_instruction"]
+
 logger = get_logger(__name__)
+
+# Pre-compile regex for important instruction prefix
+IMPORTANT_PREFIX_PATTERN = re.compile(r"^!\s*")
 
 
 def check_frontmatter_requirements(frontmatter: Dict[str, Any], context: Dict[str, Any]) -> bool:
@@ -44,9 +51,6 @@ def check_frontmatter_requirements(frontmatter: Dict[str, Any], context: Dict[st
             return False
 
     return True
-
-
-from mcp_guide.render.frontmatter_types import Frontmatter
 
 
 @dataclass
@@ -196,6 +200,37 @@ def get_type_based_default_instruction(content_type: Optional[str]) -> str:
         Default instruction string
     """
     return get_default_instruction_for_type(content_type)
+
+
+def resolve_instruction(
+    frontmatter: Optional[Dict[str, Any]], content_type: Optional[str] = None
+) -> tuple[Optional[str], bool]:
+    """Resolve instruction from frontmatter with support for important override.
+
+    Args:
+        frontmatter: Parsed frontmatter dictionary
+        content_type: Content type for fallback default instruction
+
+    Returns:
+        Tuple of (instruction, is_important) where:
+        - instruction: Resolved instruction string or None
+        - is_important: True if instruction has ! prefix (overrides regular instructions)
+    """
+    from mcp_guide.render.content import FM_INSTRUCTION
+
+    # Get explicit instruction from frontmatter
+    if frontmatter:
+        instruction = frontmatter.get(FM_INSTRUCTION)
+        if isinstance(instruction, str) and instruction.strip():
+            # Check for important prefix
+            if instruction.startswith("!"):
+                clean_instruction = IMPORTANT_PREFIX_PATTERN.sub("", instruction).strip()
+                return (clean_instruction if clean_instruction else None, True)
+            return (instruction, False)
+
+    # Fallback to type-based default
+    default_instruction = get_type_based_default_instruction(content_type)
+    return (default_instruction, False)
 
 
 async def get_frontmatter_description_from_file(file_path: Path) -> Optional[str]:

@@ -1,6 +1,5 @@
 """Shared utilities for content retrieval tools."""
 
-import re
 from pathlib import Path
 from typing import Any, Optional
 
@@ -11,18 +10,14 @@ from mcp_guide.render import render_template
 from mcp_guide.render.context import TemplateContext
 from mcp_guide.render.frontmatter import (
     check_frontmatter_requirements,
-    get_frontmatter_instruction,
     get_frontmatter_type,
-    get_type_based_default_instruction,
     parse_content_with_frontmatter,
+    resolve_instruction,
 )
 from mcp_guide.render.renderer import is_template_file
 from mcp_guide.result import Result
 
 logger = get_logger(__name__)
-
-# Pre-compile regex for better performance
-IMPORTANT_PREFIX_PATTERN = re.compile(r"^!\s*")
 
 
 def extract_and_deduplicate_instructions(files: list[FileInfo]) -> Optional[str]:
@@ -46,26 +41,18 @@ def extract_and_deduplicate_instructions(files: list[FileInfo]) -> Optional[str]
         if not file_info.frontmatter:
             continue
 
-        # Get explicit instruction from frontmatter
-        explicit_instruction = get_frontmatter_instruction(file_info.frontmatter)
-        if explicit_instruction and explicit_instruction.strip():
-            # Check if instruction is marked as important
-            if explicit_instruction.startswith("!"):
-                if clean_instruction := IMPORTANT_PREFIX_PATTERN.sub("", explicit_instruction).strip():
-                    if clean_instruction not in important_seen:
-                        important_instructions.append(clean_instruction)
-                        important_seen.add(clean_instruction)
-                        # If empty after removing the prefix, ignore completely (no fallback)
-            elif explicit_instruction not in regular_seen:
-                regular_instructions.append(explicit_instruction)
-                regular_seen.add(explicit_instruction)
-        else:
-            # Get type-based default instruction
-            content_type = get_frontmatter_type(file_info.frontmatter)
-            default_instruction = get_type_based_default_instruction(content_type)
-            if default_instruction and default_instruction not in regular_seen:
-                regular_instructions.append(default_instruction)
-                regular_seen.add(default_instruction)
+        # Use centralized instruction resolution
+        content_type = get_frontmatter_type(file_info.frontmatter)
+        instruction, is_important = resolve_instruction(file_info.frontmatter, content_type)
+
+        if instruction:
+            if is_important:
+                if instruction not in important_seen:
+                    important_instructions.append(instruction)
+                    important_seen.add(instruction)
+            elif instruction not in regular_seen:
+                regular_instructions.append(instruction)
+                regular_seen.add(instruction)
 
     # Combine instructions
     combined = None
