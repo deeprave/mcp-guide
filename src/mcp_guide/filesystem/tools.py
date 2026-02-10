@@ -86,7 +86,7 @@ async def send_file_content(
 
         # Aggregate results
         result = aggregate_event_results(event_results)
-        if result.success and result.value:
+        if result.value:
             return result
 
         return Result.ok(
@@ -163,7 +163,7 @@ async def send_directory_listing(
 
         # Aggregate results
         result = aggregate_event_results(event_results)
-        if result.success and result.value:
+        if result.value:
             return result
 
         return Result.ok(
@@ -211,7 +211,7 @@ async def send_command_location(
 
         # Aggregate results
         result = aggregate_event_results(event_results)
-        if result.success and result.value:
+        if result.value:
             return result
 
         return Result.ok(
@@ -251,7 +251,7 @@ async def send_working_directory(context: Any, working_directory: str) -> "Resul
 
         # Aggregate results
         result = aggregate_event_results(event_results)
-        if result.success and result.value:
+        if result.value:
             return result
 
         return Result.ok(
@@ -296,7 +296,7 @@ async def send_found_files(
 
         # Aggregate results
         result = aggregate_event_results(event_results)
-        if result.success and result.value:
+        if result.value:
             return result
 
         return Result.ok(
