@@ -28,9 +28,8 @@ class TaskSubscriber(Protocol):
             data: Event data dictionary
 
         Returns:
-            EventResult if the event was handled, None if not handled
-            EventResult with result status and optional message/rendered_content,
-            or bool for backwards compatibility (will be converted to EventResult)
+            EventResult if the event was handled, None if not handled.
+            EventResult contains result status and optional message/rendered_content.
         """
         ...
 

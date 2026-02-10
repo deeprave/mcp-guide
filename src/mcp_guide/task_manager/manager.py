@@ -117,10 +117,9 @@ def aggregate_event_results(results: list[EventResult]) -> Result[Any]:
 
             instructions_with_importance = []
             for rc in rendered_contents:
-                if rc.instruction:
-                    instruction, is_important = resolve_instruction(rc.frontmatter, rc.template_type)
-                    if instruction:
-                        instructions_with_importance.append((instruction, is_important))
+                instruction, is_important = resolve_instruction(rc.frontmatter, rc.template_type)
+                if instruction:
+                    instructions_with_importance.append((instruction, is_important))
 
             combined_instruction = combine_instructions(instructions_with_importance) or ""
 
@@ -482,6 +481,7 @@ class TaskManager:
                     f"Event {data_type} matches subscription {subscription.event_types}, "
                     f"dispatching to {subscriber.get_name()}"
                 )
+                result: EventResult | None = None
                 try:
                     result = await subscriber.handle_event(data_type, actual_data)
                     # Only add to results if event was handled (not None)
