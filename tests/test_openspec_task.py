@@ -589,7 +589,8 @@ class TestOpenSpecResponseFormatting:
 
             result = await task.handle_event(EventType.FS_FILE_CONTENT, event_data)
 
-            assert result.result is True
+            assert result.result is False  # Errors return False
+            assert result.rendered_content is not None
             # Check that render was called with TemplateContext wrapping the data
             call_args = mock_render.call_args
             assert call_args[0][0] == "_error-format"
