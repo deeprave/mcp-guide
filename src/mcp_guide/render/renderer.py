@@ -9,6 +9,7 @@ from chevron import ChevronError
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.discovery.files import TEMPLATE_EXTENSIONS, FileInfo
 from mcp_guide.render.cache import get_template_contexts
+from mcp_guide.render.content import FM_INSTRUCTION
 from mcp_guide.render.context import TemplateContext
 from mcp_guide.render.frontmatter import get_frontmatter_includes, resolve_instruction
 from mcp_guide.render.functions import TemplateFunctions
@@ -128,13 +129,12 @@ async def render_template_content(
                                 )
 
                             # Merge partial frontmatter instruction with parent frontmatter
-                            # Resolve instructions from both parent and partial
-                            parent_instruction, parent_is_important = resolve_instruction(metadata)
+                            # Resolve instruction from partial frontmatter
                             partial_instruction, partial_is_important = resolve_instruction(partial_frontmatter)
 
                             # If partial has important instruction, override parent's instruction in metadata
                             if partial_is_important and partial_instruction:
-                                metadata["instruction"] = f"! {partial_instruction}"
+                                metadata[FM_INSTRUCTION] = f"! {partial_instruction}"
                                 logger.trace(
                                     f"Partial '{partial_name}' overriding parent instruction with: {partial_instruction}"
                                 )
