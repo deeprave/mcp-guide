@@ -28,7 +28,7 @@ def extract_and_deduplicate_instructions(files: list[FileInfo]) -> Optional[str]
 
     Returns:
         Combined instruction string or None if no instructions are found.
-        Important instructions (starting with "!") override regular instructions.
+        Important instructions (starting with "^") override regular instructions.
     """
     instructions_with_importance = []
     for file_info in files:
@@ -50,7 +50,7 @@ def combine_instructions(instructions_with_importance: list[tuple[str, bool]]) -
 
     Returns:
         Combined instruction string or None if no instructions.
-        Important instructions (starting with "!") override regular instructions.
+        Important instructions (starting with "^") override regular instructions.
     """
     from mcp_guide.render.deduplicate import deduplicate_sentences
 

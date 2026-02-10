@@ -27,7 +27,7 @@ __all__ = ["Frontmatter", "Content", "resolve_instruction"]
 logger = get_logger(__name__)
 
 # Pre-compile regex for important instruction prefix
-IMPORTANT_PREFIX_PATTERN = re.compile(r"^!\s*")
+IMPORTANT_PREFIX_PATTERN = re.compile(r"^\^\s*")
 
 
 def check_frontmatter_requirements(frontmatter: Dict[str, Any], context: Dict[str, Any]) -> bool:
@@ -214,7 +214,7 @@ def resolve_instruction(
     Returns:
         Tuple of (instruction, is_important) where:
         - instruction: Resolved instruction string or None
-        - is_important: True if instruction has ! prefix (overrides regular instructions)
+        - is_important: True if instruction has ^ prefix (overrides regular instructions)
     """
     from mcp_guide.render.content import FM_INSTRUCTION
 
@@ -223,7 +223,7 @@ def resolve_instruction(
         instruction = frontmatter.get(FM_INSTRUCTION)
         if isinstance(instruction, str) and instruction.strip():
             # Check for important prefix
-            if instruction.startswith("!"):
+            if IMPORTANT_PREFIX_PATTERN.match(instruction):
                 clean_instruction = IMPORTANT_PREFIX_PATTERN.sub("", instruction).strip()
                 return (clean_instruction if clean_instruction else None, True)
             return (instruction, False)
