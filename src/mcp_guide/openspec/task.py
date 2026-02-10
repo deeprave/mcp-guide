@@ -356,8 +356,12 @@ class OpenSpecTask:
             if "error" in json_data:
                 formatted = await self._format_error_response(json_data)
                 if formatted:
-                    await self.task_manager.queue_instruction(formatted.content)
-                return EventResult(result=True)
+                    return EventResult(
+                        result=False,
+                        message=formatted.content,
+                        rendered_content=formatted,
+                    )
+                return EventResult(result=False, message="OpenSpec command error")
 
             # Format specific OpenSpec responses
             if path_name == ".openspec-status.json":
