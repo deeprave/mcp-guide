@@ -48,7 +48,7 @@ class TestRetryTask:
 
         # Should not raise exception
         result = await task.handle_event(EventType.FS_COMMAND, {})
-        assert result is None or result is False
+        assert result is None
 
     @pytest.mark.anyio
     async def test_retry_task_skips_retry_when_queue_not_empty(self):

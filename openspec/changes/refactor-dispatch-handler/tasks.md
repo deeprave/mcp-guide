@@ -1,29 +1,54 @@
 # Implementation Tasks
 
 ## Core Refactoring
-- [ ] Update `dispatch_event` to return structured dict with all handler results
-- [ ] Add `processed_count` to return dict (replace 'acknowledged'/'processed' status)
-- [ ] Collect results from all handlers, not just first one
-- [ ] Define standard result format: `{processed_count, handlers: [{template, template_type, context}]}`
+- [x] Create `EventResult` dataclass with:
+  - [x] `result: bool` field (success=True, failure=False)
+  - [x] `message: Optional[str]` field (simple string result)
+  - [x] `rendered_content: Optional[RenderedContent]` field (rendered template)
+- [x] Update `dispatch_event` to return `list[EventResult]`
+- [x] Collect results from all handlers, not just first one
 
-## Dispatcher Function
-- [ ] Create dispatcher function above `dispatch_event`
-- [ ] Handle template rendering based on template_type (openspec, workflow, common)
-- [ ] Pass additional context to template renderer
-- [ ] Return Result without echoing received data
+## Result Construction
+- [x] Create helper function to build Result from EventResult list
+- [x] For single EventResult:
+  - [x] Use `rendered_content.instruction` if present (RenderedContent handles resolution)
+  - [x] Use default instruction if no rendered_content
+  - [x] Set `value` to `rendered_content.content` if rendered
+  - [x] Set `message` from EventResult.message
+- [x] For multiple EventResults:
+  - [x] Success if all EventResult.result are True
+  - [x] Deduplicate and concatenate all messages
+  - [x] Concatenate all rendered_content.content in order
+  - [x] Simple instruction deduplication (not using extract_and_deduplicate_instructions as it expects FileInfo)
 
 ## Handler Updates
-- [ ] Update event handlers to return dict with optional template info
-- [ ] Remove Result returns from handlers (use dict format instead)
-- [ ] Update OpenSpecTask to return template dict instead of Result
+- [x] Update event handlers to return `EventResult` objects
+- [x] Handlers render templates themselves if needed (using appropriate render function)
+- [x] Handlers return simple result+message if no rendering needed
+- [x] Remove template type routing logic (handlers handle their own rendering)
 
 ## Tool Updates
-- [ ] Update filesystem tools to call dispatcher instead of dispatch_event
-- [ ] Remove data echoing from tool responses
-- [ ] Return clean Result.ok() without unnecessary data
+- [x] Update filesystem tools to use new EventResult format
+- [x] Remove data echoing from tool responses
+- [x] Return clean Result constructed from EventResult list
 
 ## Testing
-- [ ] Test multiple handlers returning results
-- [ ] Test template rendering with different types
-- [ ] Verify processed_count accuracy
-- [ ] Test handlers without template info
+- [x] Test multiple handlers returning EventResult
+- [x] Test EventResult with rendered_content
+- [x] Test EventResult with simple message
+- [x] Test Result construction with instruction override
+- [x] Test handlers without rendered content
+
+## Bug Fixes
+- [x] Fix protocol: handlers return `EventResult | None` (not `EventResult | bool`)
+- [x] Update all handlers to return `None` for unhandled events
+- [x] Fix `aggregate_event_results` to handle success/failure split
+- [x] Update all handler type annotations to `EventResult | None`
+
+## Code Quality
+- [x] Extract `combine_instructions()` into shared function
+- [x] Refactor instruction combining logic in both modules
+- [x] All tests pass (1444 tests)
+- [x] All linting checks pass
+- [x] All type checks pass
+- [x] Code formatted

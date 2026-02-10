@@ -12,11 +12,11 @@ from mcp_guide.feature_flags.constants import FLAG_OPENSPEC
 from mcp_guide.openspec.rendering import render_openspec_template
 from mcp_guide.render.content import RenderedContent
 from mcp_guide.render.context import TemplateContext
-from mcp_guide.result import Result
 from mcp_guide.task_manager import EventType, get_task_manager
 
 if TYPE_CHECKING:
     from mcp_guide.task_manager import TaskManager
+    from mcp_guide.task_manager.manager import EventResult
 
 logger = get_logger(__name__)
 
@@ -205,6 +205,24 @@ class OpenSpecTask:
 
         return {"in_progress": in_progress, "draft": draft, "complete": complete}
 
+    def get_show(self) -> Optional[dict[str, Any]]:
+        """Get cached OpenSpec show data.
+
+        Returns:
+            Show data dict or None if not cached.
+        """
+        data = self.task_manager.get_cached_data("openspec_show")
+        return data if isinstance(data, dict) else None
+
+    def get_status(self) -> Optional[dict[str, Any]]:
+        """Get cached OpenSpec status data.
+
+        Returns:
+            Status data dict or None if not cached.
+        """
+        data = self.task_manager.get_cached_data("openspec_status")
+        return data if isinstance(data, dict) else None
+
     def is_cache_valid(self, ttl: int = CHANGES_CACHE_TTL) -> bool:
         """Check if changes cache is valid.
 
@@ -240,14 +258,16 @@ class OpenSpecTask:
         if rendered:
             self._version_instruction_id = await self.task_manager.queue_instruction_with_ack(rendered.content)
 
-    async def handle_event(self, event_type: EventType, data: dict[str, Any]) -> "bool | Result[Any]":
+    async def handle_event(self, event_type: EventType, data: dict[str, Any]) -> "EventResult | None":
         """Handle task manager events."""
+        from mcp_guide.task_manager.manager import EventResult
+
         # Handle timer events for changes monitoring
         if event_type & EventType.TIMER:
             interval = data.get("interval")
             if interval == CHANGES_CHECK_INTERVAL:
                 await self._handle_changes_reminder()
-                return True
+                return EventResult(result=True)
 
         # Handle command location events
         if event_type & EventType.FS_COMMAND:
@@ -269,7 +289,7 @@ class OpenSpecTask:
                     self._version_requested = True
                     await self.request_version_check()
 
-                return True
+                return EventResult(result=True)
 
         # Handle directory listing events
         if event_type & EventType.FS_DIRECTORY:
@@ -299,8 +319,8 @@ class OpenSpecTask:
                         self._changes_requested = True
                         await self.request_changes_json()
 
-                return True
-            return False
+                return EventResult(result=True)
+            return None
 
         # Handle file content events
         if event_type & EventType.FS_FILE_CONTENT:
@@ -320,7 +340,7 @@ class OpenSpecTask:
                     await self.task_manager.acknowledge_instruction(self._version_instruction_id)
                     self._version_instruction_id = None
 
-                return True
+                return EventResult(result=True)
 
             # Handle OpenSpec command responses
             content = data.get("content", "")
@@ -330,21 +350,29 @@ class OpenSpecTask:
                 json_data = json.loads(content)
             except json.JSONDecodeError:
                 logger.debug(f"Non-JSON content in {path_name}, skipping")
-                return False
+                return None
 
             # Check for error responses first
             if "error" in json_data:
                 formatted = await self._format_error_response(json_data)
                 if formatted:
                     await self.task_manager.queue_instruction(formatted.content)
-                return True
+                return EventResult(result=True)
 
             # Format specific OpenSpec responses
             if path_name == ".openspec-status.json":
-                formatted = await self._format_status_response(json_data)
-                if formatted:
-                    await self.task_manager.queue_instruction(formatted.content)
-                return True
+                # Cache the status data
+                self.task_manager.set_cached_data("openspec_status", json_data)
+
+                # Render and return the status format
+                rendered = await render_openspec_template("_status-format", extra_context=TemplateContext(json_data))
+                if rendered:
+                    return EventResult(
+                        result=True,
+                        message=f"File content cached for {path_name}",
+                        rendered_content=rendered,
+                    )
+                return None
 
             elif path_name == ".openspec-changes.json":
                 # Cache the changes data
@@ -367,25 +395,31 @@ class OpenSpecTask:
                 invalidate_template_context_cache()
                 logger.debug("Template context cache invalidated after OpenSpec changes update")
 
-                # Render and return the changes list as a Result
-                from mcp_guide.result import Result
-
-                rendered = await render_openspec_template("_openspec-list-format")
+                # Render and return the changes list
+                rendered = await render_openspec_template("_list-format")
                 if rendered:
-                    return Result.ok(
-                        value=rendered.content,
+                    return EventResult(
+                        result=True,
                         message=f"File content cached for {path_name}",
-                        instruction=rendered.instruction or "",
+                        rendered_content=rendered,
                     )
-                return False
+                return None
 
             elif path_name == ".openspec-show.json":
-                formatted = await self._format_show_response(json_data)
-                if formatted:
-                    await self.task_manager.queue_instruction(formatted.content)
-                return True
+                # Cache the show data
+                self.task_manager.set_cached_data("openspec_show", json_data)
 
-        return False
+                # Render and return the show format
+                rendered = await render_openspec_template("_show-format", extra_context=TemplateContext(json_data))
+                if rendered:
+                    return EventResult(
+                        result=True,
+                        message=f"File content cached for {path_name}",
+                        rendered_content=rendered,
+                    )
+                return None
+
+        return None
 
     async def request_changes_json(self) -> None:
         """Request openspec changes JSON via command execution."""

@@ -173,6 +173,8 @@ class TemplateContextCache(SessionListener):
                     "available": openspec_task_subscriber.is_available(),
                     "version": openspec_task_subscriber.get_version(),
                     "changes": openspec_task_subscriber.get_changes() or [],
+                    "show": openspec_task_subscriber.get_show(),
+                    "status": openspec_task_subscriber.get_status(),
                     "has_version": has_version,
                 }
             else:

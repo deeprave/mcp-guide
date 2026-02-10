@@ -51,7 +51,8 @@ class TestAgentDataInterception:
 
         result = await task_manager.dispatch_event(EventType.FS_FILE_CONTENT, {"path": "test.txt", "content": "data"})
 
-        assert result == {"status": "processed"}
+        assert isinstance(result, list)
+        assert len(result) == 1
         # Check that handle_event was called with the correct data
         assert len(mock_task.received_events) == 1
         event_type, data = mock_task.received_events[0]
@@ -66,7 +67,8 @@ class TestAgentDataInterception:
         # Dispatch different event type - should not be handled
         result = await task_manager.dispatch_event(EventType.FS_DIRECTORY, {"path": "test_dir"})
 
-        assert result == {"status": "acknowledged"}
+        assert isinstance(result, list)
+        assert len(result) == 0
         assert len(mock_task.received_events) == 0
 
     @pytest.mark.asyncio
@@ -80,7 +82,8 @@ class TestAgentDataInterception:
 
         result = await task_manager.dispatch_event(EventType.FS_FILE_CONTENT, {"path": "test.txt", "content": "data"})
 
-        assert result == {"status": "processed"}
+        assert isinstance(result, list)
+        assert len(result) == 2
         assert len(subscriber1.received_events) == 1
         assert len(subscriber2.received_events) == 1
 

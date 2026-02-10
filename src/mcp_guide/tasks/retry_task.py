@@ -8,7 +8,7 @@ from mcp_guide.task_manager.interception import EventType
 from mcp_guide.task_manager.manager import get_task_manager
 
 if TYPE_CHECKING:
-    from mcp_guide.task_manager.manager import TaskManager
+    from mcp_guide.task_manager.manager import EventResult, TaskManager
 
 logger = get_logger(__name__)
 
@@ -46,7 +46,7 @@ class RetryTask:
         """Called after tool execution - no-op."""
         pass
 
-    async def handle_event(self, event_type: EventType, data: dict[str, Any]) -> bool:
+    async def handle_event(self, event_type: EventType, data: dict[str, Any]) -> "EventResult | None":
         """Handle timer events and retry unacknowledged instructions.
 
         Args:
@@ -54,16 +54,18 @@ class RetryTask:
             data: Event data
 
         Returns:
-            True if event was handled, False otherwise
+            EventResult with result status
         """
+        from mcp_guide.task_manager.manager import EventResult
+
         # Only handle timer events
         if not (event_type & EventType.TIMER):
-            return False
+            return None
 
         # Only retry when queue is idle
         if not self.task_manager.is_queue_empty():
-            return False
+            return None
 
         # Retry unacknowledged instructions
         await self.task_manager.retry_unacknowledged()
-        return True
+        return EventResult(result=True)

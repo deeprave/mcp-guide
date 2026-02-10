@@ -10,6 +10,7 @@ from mcp_guide.task_manager import EventType, get_task_manager
 
 if TYPE_CHECKING:
     from mcp_guide.task_manager import TaskManager
+    from mcp_guide.task_manager.manager import EventResult
 
 logger = get_logger(__name__)
 
@@ -65,17 +66,19 @@ class ClientContextTask:
         if rendered:
             self._os_instruction_id = await self.task_manager.queue_instruction_with_ack(rendered.content)
 
-    async def handle_event(self, event_type: EventType, data: dict[str, Any]) -> bool:
+    async def handle_event(self, event_type: EventType, data: dict[str, Any]) -> "EventResult | None":
         """Handle task manager events."""
         import json
         from pathlib import Path
+
+        from mcp_guide.task_manager.manager import EventResult
 
         # Handle file content events
         if event_type & EventType.FS_FILE_CONTENT:
             path = data.get("path")
             if not isinstance(path, str):
                 logger.debug(f"FS_FILE_CONTENT event missing path: {data}")
-                return False
+                return None
 
             path_name = Path(path).name
             logger.debug(f"FS_FILE_CONTENT event for file: {path_name}")
@@ -97,10 +100,10 @@ class ClientContextTask:
 
                     invalidate_template_contexts()
                     await self._request_detailed_context(os_info)
-                    return True
+                    return EventResult(result=True)
                 except json.JSONDecodeError:
                     logger.error(f"Failed to parse OS info JSON: {content}")
-                    return False
+                    return None
 
             # Handle detailed context response
             elif path_name == ".client-context.json":
@@ -119,12 +122,12 @@ class ClientContextTask:
 
                     invalidate_template_contexts()
                     logger.info(f"Client context received: {len(context_info)} namespaces")
-                    return True
+                    return EventResult(result=True)
                 except json.JSONDecodeError:
                     logger.error(f"Failed to parse context info JSON: {content}")
-                    return False
+                    return None
 
-        return False
+        return None
 
     async def _request_detailed_context(self, os_info: dict[str, Any]) -> None:
         """Request detailed context based on OS info."""

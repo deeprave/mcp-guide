@@ -30,31 +30,45 @@ def extract_and_deduplicate_instructions(files: list[FileInfo]) -> Optional[str]
         Combined instruction string or None if no instructions are found.
         Important instructions (starting with "!") override regular instructions.
     """
-    from mcp_guide.render.deduplicate import deduplicate_sentences
-
-    regular_instructions = []  # Regular instructions
-    important_instructions = []  # Important instructions (override regular)
-    regular_seen = set()
-    important_seen = set()
-
+    instructions_with_importance = []
     for file_info in files:
         if not file_info.frontmatter:
             continue
-
-        # Use centralized instruction resolution
         content_type = get_frontmatter_type(file_info.frontmatter)
         instruction, is_important = resolve_instruction(file_info.frontmatter, content_type)
-
         if instruction:
-            if is_important:
-                if instruction not in important_seen:
-                    important_instructions.append(instruction)
-                    important_seen.add(instruction)
-            elif instruction not in regular_seen:
-                regular_instructions.append(instruction)
-                regular_seen.add(instruction)
+            instructions_with_importance.append((instruction, is_important))
 
-    # Combine instructions
+    return combine_instructions(instructions_with_importance)
+
+
+def combine_instructions(instructions_with_importance: list[tuple[str, bool]]) -> Optional[str]:
+    """Combine and deduplicate instructions with important/regular priority.
+
+    Args:
+        instructions_with_importance: List of (instruction, is_important) tuples
+
+    Returns:
+        Combined instruction string or None if no instructions.
+        Important instructions (starting with "!") override regular instructions.
+    """
+    from mcp_guide.render.deduplicate import deduplicate_sentences
+
+    regular_instructions = []
+    important_instructions = []
+    regular_seen = set()
+    important_seen = set()
+
+    for instruction, is_important in instructions_with_importance:
+        if is_important:
+            if instruction not in important_seen:
+                important_instructions.append(instruction)
+                important_seen.add(instruction)
+        elif instruction not in regular_seen:
+            regular_instructions.append(instruction)
+            regular_seen.add(instruction)
+
+    # Combine instructions: important overrides regular
     combined = None
     if important_instructions:
         combined = "\n".join(important_instructions)
