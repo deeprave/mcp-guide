@@ -14,22 +14,22 @@ class TestResolveInstruction:
         assert is_important is False
 
     def test_important_instruction_with_prefix(self):
-        """Test important instruction with ! prefix."""
-        frontmatter = {"instruction": "! Override parent instruction"}
+        """Test important instruction with ^ prefix."""
+        frontmatter = {"instruction": "^ Override parent instruction"}
         instruction, is_important = resolve_instruction(frontmatter)
         assert instruction == "Override parent instruction"
         assert is_important is True
 
     def test_important_instruction_with_whitespace(self):
-        """Test important instruction with ! prefix and extra whitespace."""
-        frontmatter = {"instruction": "!   Override with spaces"}
+        """Test important instruction with ^ prefix and extra whitespace."""
+        frontmatter = {"instruction": "^   Override with spaces"}
         instruction, is_important = resolve_instruction(frontmatter)
         assert instruction == "Override with spaces"
         assert is_important is True
 
     def test_empty_after_prefix_removal(self):
-        """Test instruction that is empty after ! prefix removal."""
-        frontmatter = {"instruction": "!"}
+        """Test instruction that is empty after ^ prefix removal."""
+        frontmatter = {"instruction": "^"}
         instruction, is_important = resolve_instruction(frontmatter)
         assert instruction is None
         assert is_important is True
