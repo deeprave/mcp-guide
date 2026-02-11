@@ -5,8 +5,8 @@ name: Publish Python MCP Package
 #   DOCKERHUB_TOKEN - Docker Hub access token
 #   PYPI_TOKEN - PyPI API token for package publishing
 #
-# Required Variables:
-#   PYTHON_VERSION - Python version for builds (e.g., "3.14")
+# Optional Variables:
+#   PYTHON_VERSION - Python version for builds (default: "3.14")
 #
 # Inputs:
 #   dry-run - Show commands without publishing (default: false)
@@ -47,7 +47,7 @@ jobs:
         uses: astral-sh/setup-uv@v5
 
       - name: Install dependencies
-        run: uv sync --all-extras
+        run: uv sync --frozen --all-extras --group dev
 
       - name: Run tests
         run: uv run pytest
@@ -72,9 +72,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           CURRENT_VERSION="${{ steps.get-version.outputs.version }}"
-          LATEST_RELEASE=$(gh release list --limit 1 --json tagName --jq '.[0].tagName' || echo "")
+          LATEST_RELEASE=$(gh release list --limit 1 --json tagName --jq '.[0].tagName // ""' || echo "")
 
-          if [ -z "$LATEST_RELEASE" ]; then
+          if [ -z "$LATEST_RELEASE" ] || [ "$LATEST_RELEASE" = "null" ]; then
             echo "No previous release found, proceeding with version $CURRENT_VERSION"
             exit 0
           fi
@@ -126,7 +126,7 @@ jobs:
             PYTHON_VERSION=${{ vars.PYTHON_VERSION || '3.14' }}
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/mcp-guide:${{ needs.validate-and-build.outputs.version }}
-            ${{ secrets.DOCKERHUB_USERNAME }}/mcp-guide:latest
+            ${{ github.event.inputs.prerelease != 'true' && format('{0}/mcp-guide:latest', secrets.DOCKERHUB_USERNAME) || '' }}
 
       - name: Show Docker commands (dry-run)
         if: ${{ github.event.inputs.dry-run == 'true' }}
@@ -134,8 +134,8 @@ jobs:
           echo "Would execute:"
           echo "docker buildx build --platform linux/amd64,linux/arm64 \\"
           echo "  --build-arg PYTHON_VERSION=${{ vars.PYTHON_VERSION || '3.14' }} \\"
-          echo "  --tag ${{ secrets.DOCKERHUB_USERNAME }}/mcp-guide:${{ needs.validate-and-build.outputs.version }} \\"
-          echo "  --tag ${{ secrets.DOCKERHUB_USERNAME }}/mcp-guide:latest \\"
+          echo "  --tag <dockerhub-username>/mcp-guide:${{ needs.validate-and-build.outputs.version }} \\"
+          echo "  --tag <dockerhub-username>/mcp-guide:latest \\"
           echo "  --push \\"
           echo "  -f docker/Dockerfile ."
 
@@ -175,8 +175,17 @@ jobs:
       - name: Extract changelog
         id: changelog
         run: |
+          set -euo pipefail
           VERSION="${{ needs.validate-and-build.outputs.version }}"
-          awk "/^## \[$VERSION\]/ {flag=1; next} /^## \[/ {flag=0} flag" CHANGELOG.md > release-notes.md
+          if ! awk "/^## \[$VERSION\]/ {flag=1; next} /^## \[/ {flag=0} flag" CHANGELOG.md > release-notes.md; then
+            echo "Error: Failed to extract changelog section for version $VERSION"
+            exit 1
+          fi
+          if [ ! -s release-notes.md ]; then
+            echo "Error: Changelog section for version $VERSION is missing or empty"
+            echo "Please add a '## [$VERSION]' section to CHANGELOG.md before publishing"
+            exit 1
+          fi
           cat release-notes.md
 
       - name: Create GitHub Release
