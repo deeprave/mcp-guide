@@ -26,6 +26,9 @@ on:
         type: boolean
         default: false
 
+permissions:
+  contents: write
+
 jobs:
   validate-and-build:
     runs-on: ubuntu-latest
@@ -105,14 +108,14 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Log in to Docker Hub
-        if: ${{ !inputs.dry-run }}
+        if: ${{ github.event.inputs.dry-run != 'true' }}
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build and push Docker images
-        if: ${{ !inputs.dry-run }}
+        if: ${{ github.event.inputs.dry-run != 'true' }}
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -126,7 +129,7 @@ jobs:
             ${{ secrets.DOCKERHUB_USERNAME }}/mcp-guide:latest
 
       - name: Show Docker commands (dry-run)
-        if: ${{ inputs.dry-run }}
+        if: ${{ github.event.inputs.dry-run == 'true' }}
         run: |
           echo "Would execute:"
           echo "docker buildx build --platform linux/amd64,linux/arm64 \\"
@@ -148,13 +151,13 @@ jobs:
           path: dist/
 
       - name: Publish to PyPI
-        if: ${{ !inputs.dry-run }}
+        if: ${{ github.event.inputs.dry-run != 'true' }}
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ secrets.PYPI_TOKEN }}
 
       - name: Show PyPI commands (dry-run)
-        if: ${{ inputs.dry-run }}
+        if: ${{ github.event.inputs.dry-run == 'true' }}
         run: |
           echo "Would execute:"
           echo "twine upload dist/*"
@@ -173,27 +176,27 @@ jobs:
         id: changelog
         run: |
           VERSION="${{ needs.validate-and-build.outputs.version }}"
-          awk "/^## \[$VERSION\]/,/^## \[/" CHANGELOG.md | sed '$d' > release-notes.md
+          awk "/^## \[$VERSION\]/ {flag=1; next} /^## \[/ {flag=0} flag" CHANGELOG.md > release-notes.md
           cat release-notes.md
 
       - name: Create GitHub Release
-        if: ${{ !inputs.dry-run }}
+        if: ${{ github.event.inputs.dry-run != 'true' }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "v${{ needs.validate-and-build.outputs.version }}" \
             --title "Release v${{ needs.validate-and-build.outputs.version }}" \
             --notes-file release-notes.md \
-            ${{ inputs.prerelease && '--prerelease' || '--latest' }}
+            ${{ github.event.inputs.prerelease == 'true' && '--prerelease' || '--latest' }}
 
       - name: Show release commands (dry-run)
-        if: ${{ inputs.dry-run }}
+        if: ${{ github.event.inputs.dry-run == 'true' }}
         run: |
           echo "Would execute:"
           echo "gh release create v${{ needs.validate-and-build.outputs.version }} \\"
           echo "  --title 'Release v${{ needs.validate-and-build.outputs.version }}' \\"
           echo "  --notes-file release-notes.md \\"
-          echo "  ${{ inputs.prerelease && '--prerelease' || '--latest' }}"
+          echo "  ${{ github.event.inputs.prerelease == 'true' && '--prerelease' || '--latest' }}"
           echo ""
           echo "Release notes:"
           cat release-notes.md

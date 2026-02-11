@@ -2,7 +2,7 @@
 
 All notable changes to mcp-guide will be documented in this file.
 
-## [1.0.0] - TBD
+## [0.9.0] - TBD
 
 Initial release of mcp-guide.
 
