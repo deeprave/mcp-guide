@@ -3,6 +3,8 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile.stdio
+      args:
+        PYTHON_VERSION: ${PYTHON_VERSION:-3.14}
     image: mcp-guide:stdio
     profiles: [stdio]
     stdin_open: true
@@ -15,6 +17,8 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile.http
+      args:
+        PYTHON_VERSION: ${PYTHON_VERSION:-3.14}
     image: mcp-guide:http
     profiles: [http]
     ports:
@@ -27,6 +31,8 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile.https
+      args:
+        PYTHON_VERSION: ${PYTHON_VERSION:-3.14}
     image: mcp-guide:https
     profiles: [https]
     ports:
