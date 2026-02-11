@@ -1,0 +1,199 @@
+name: Publish Python MCP Package
+
+# Required Secrets:
+#   DOCKERHUB_USERNAME - Docker Hub username for image publishing
+#   DOCKERHUB_TOKEN - Docker Hub access token
+#   PYPI_TOKEN - PyPI API token for package publishing
+#
+# Required Variables:
+#   PYTHON_VERSION - Python version for builds (e.g., "3.14")
+#
+# Inputs:
+#   dry-run - Show commands without publishing (default: false)
+#   prerelease - Mark GitHub release as pre-release (default: false)
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: 'Dry run mode (show commands without publishing)'
+        required: false
+        type: boolean
+        default: false
+      prerelease:
+        description: 'Mark as pre-release'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  validate-and-build:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get-version.outputs.version }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ vars.PYTHON_VERSION || '3.14' }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install dependencies
+        run: uv sync --all-extras
+
+      - name: Run tests
+        run: uv run pytest
+
+      - name: Run linting
+        run: uv run ruff check src/ tests/
+
+      - name: Check formatting
+        run: uv run ruff format --check src/ tests/
+
+      - name: Run type checking
+        run: uv run mypy src/
+
+      - name: Get version
+        id: get-version
+        run: |
+          VERSION=$(uv run python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Check version increment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          CURRENT_VERSION="${{ steps.get-version.outputs.version }}"
+          LATEST_RELEASE=$(gh release list --limit 1 --json tagName --jq '.[0].tagName' || echo "")
+
+          if [ -z "$LATEST_RELEASE" ]; then
+            echo "No previous release found, proceeding with version $CURRENT_VERSION"
+            exit 0
+          fi
+
+          LATEST_VERSION="${LATEST_RELEASE#v}"
+
+          if [ "$CURRENT_VERSION" = "$LATEST_VERSION" ]; then
+            echo "Error: Version $CURRENT_VERSION already released"
+            exit 1
+          fi
+
+          echo "Version check passed: $LATEST_VERSION -> $CURRENT_VERSION"
+
+      - name: Build package
+        run: uv build
+
+      - name: Upload dist artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish-docker:
+    needs: validate-and-build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        if: ${{ !inputs.dry-run }}
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push Docker images
+        if: ${{ !inputs.dry-run }}
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          build-args: |
+            PYTHON_VERSION=${{ vars.PYTHON_VERSION || '3.14' }}
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/mcp-guide:${{ needs.validate-and-build.outputs.version }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/mcp-guide:latest
+
+      - name: Show Docker commands (dry-run)
+        if: ${{ inputs.dry-run }}
+        run: |
+          echo "Would execute:"
+          echo "docker buildx build --platform linux/amd64,linux/arm64 \\"
+          echo "  --build-arg PYTHON_VERSION=${{ vars.PYTHON_VERSION || '3.14' }} \\"
+          echo "  --tag ${{ secrets.DOCKERHUB_USERNAME }}/mcp-guide:${{ needs.validate-and-build.outputs.version }} \\"
+          echo "  --tag ${{ secrets.DOCKERHUB_USERNAME }}/mcp-guide:latest \\"
+          echo "  --push \\"
+          echo "  -f docker/Dockerfile ."
+
+  publish-pypi:
+    needs: validate-and-build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download dist artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish to PyPI
+        if: ${{ !inputs.dry-run }}
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_TOKEN }}
+
+      - name: Show PyPI commands (dry-run)
+        if: ${{ inputs.dry-run }}
+        run: |
+          echo "Would execute:"
+          echo "twine upload dist/*"
+          echo ""
+          echo "Files to upload:"
+          ls -lh dist/
+
+  create-release:
+    needs: [validate-and-build, publish-docker, publish-pypi]
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract changelog
+        id: changelog
+        run: |
+          VERSION="${{ needs.validate-and-build.outputs.version }}"
+          awk "/^## \[$VERSION\]/,/^## \[/" CHANGELOG.md | sed '$d' > release-notes.md
+          cat release-notes.md
+
+      - name: Create GitHub Release
+        if: ${{ !inputs.dry-run }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v${{ needs.validate-and-build.outputs.version }}" \
+            --title "Release v${{ needs.validate-and-build.outputs.version }}" \
+            --notes-file release-notes.md \
+            ${{ inputs.prerelease && '--prerelease' || '--latest' }}
+
+      - name: Show release commands (dry-run)
+        if: ${{ inputs.dry-run }}
+        run: |
+          echo "Would execute:"
+          echo "gh release create v${{ needs.validate-and-build.outputs.version }} \\"
+          echo "  --title 'Release v${{ needs.validate-and-build.outputs.version }}' \\"
+          echo "  --notes-file release-notes.md \\"
+          echo "  ${{ inputs.prerelease && '--prerelease' || '--latest' }}"
+          echo ""
+          echo "Release notes:"
+          cat release-notes.md

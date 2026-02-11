@@ -32,6 +32,7 @@ repos:
         name: osvcheck
         entry: uv run osvcheck
         language: system
+        pass_filenames: false
 
   - repo: https://github.com/abravalheri/validate-pyproject
     rev: v0.24.1

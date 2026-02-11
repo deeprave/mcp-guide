@@ -1,5 +1,6 @@
 # Base stage: Python with essential tools
-FROM python:3.14-alpine AS base
+ARG PYTHON_VERSION=3.14
+FROM python:${PYTHON_VERSION}-alpine AS base
 
 RUN apk add --no-cache \
     openssl \

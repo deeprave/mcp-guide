@@ -106,6 +106,7 @@ Logging is configurable via environment variables:
 
 - `LOG_LEVEL`: Set log level (trace, debug, info, warning, error, critical). Default: `info`
 - `LOG_JSON`: Enable JSON logging (true/false). Default: `false`
+- `PYTHON_VERSION`: Python version for Docker builds. Default: `3.14`
 
 **Text logging** (default):
 ```bash
