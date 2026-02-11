@@ -11,7 +11,16 @@ Manual releases are error-prone and time-consuming. Need automated workflow that
 
 ## What Changes
 
-- Add GitHub Actions workflow for releases (workflow_dispatch only)
+- Add GitHub Actions workflow for releases (workflow_dispatch with dry-run and prerelease parameters)
+- Add dry-run mode that:
+  - Runs all validation and builds
+  - Shows what commands would execute instead of publishing
+  - Explains Docker push, PyPI upload, and GitHub release actions without executing them
+- Add prerelease input for explicit pre-release control
+- Parallelize publishing steps after validation:
+  - Docker multi-arch image builds and push
+  - PyPI package build and publish
+  - GitHub release creation with artifacts
 - Parameterize Dockerfile with PYTHON_VERSION build arg
 - Add version comparison logic to prevent duplicate releases
 - Integrate best-in-class actions:

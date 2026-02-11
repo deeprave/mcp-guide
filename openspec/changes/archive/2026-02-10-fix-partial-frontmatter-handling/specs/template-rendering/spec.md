@@ -1,4 +1,4 @@
-## MODIFIED Requirements
+## ADDED Requirements
 
 ### Requirement: Centralized Instruction Resolution
 The system SHALL provide a centralized function for resolving instructions from frontmatter that supports override semantics and type-based defaults.

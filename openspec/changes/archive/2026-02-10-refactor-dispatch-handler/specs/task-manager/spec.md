@@ -26,7 +26,7 @@ The system SHALL define an EventResult dataclass to represent handler results.
   - `message: Optional[str]` (may be None)
   - `rendered_content: RenderedContent` with content and instruction
 
-## MODIFIED Requirements
+## ADDED Requirements
 
 ### Requirement: Event Dispatch Return Format
 The system SHALL return list of EventResult objects from event dispatch.
