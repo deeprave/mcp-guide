@@ -60,29 +60,34 @@ class CommandMiddleware(Protocol):
         ...
 
 
-async def get_command_help(command_context: TemplateContext, commands_dir: Path) -> Result[str]:
+async def get_command_help(command_context: TemplateContext, commands_dir: Path, docroot: Path) -> Result[str]:
     """Get help information for a command using template rendering."""
-    from mcp_guide.render.renderer import render_template_content
+    from mcp_guide.render.template import render_template
 
     try:
-        # Use the validated commands_dir passed from the caller
-        help_template_path = commands_dir / "help.mustache"
-
-        if await AsyncPath(help_template_path).exists():
-            help_template_content = await AsyncPath(help_template_path).read_text()
-        else:
+        # Discover the help command file through the proper discovery system
+        help_result = await _discover_command_file(commands_dir, "help")
+        if not help_result.success:
             return Result.failure("Help template not found", error_type="not_found")
 
-        # Render the template with the command_context
-        rendered_result = await render_template_content(help_template_content, command_context)
-        if not rendered_result.success:
-            return rendered_result
+        help_file_info = help_result.value
+        if help_file_info is None:
+            return Result.failure("Help template not found", error_type="not_found")
 
-        from mcp_guide.render.content import FM_INSTRUCTION
+        help_file_info.resolve(commands_dir, docroot)
 
-        result = Result.ok(rendered_result.value)
-        result.instruction = command_context.get(FM_INSTRUCTION, INSTRUCTION_DISPLAY_ONLY)
-        return result
+        # Render using the proper template rendering system
+        rendered = await render_template(
+            file_info=help_file_info,
+            base_dir=help_file_info.path.parent,
+            project_flags={},
+            context=command_context,
+        )
+
+        if rendered is None:
+            return Result.failure("Failed to render help template", error_type="render_error")
+
+        return Result.ok(rendered.content, instruction=rendered.instruction)
 
     except Exception as e:
         return Result.failure(str(e), error_type="context")
@@ -177,6 +182,15 @@ def _build_command_context(
     # Use kwargs directly without underscore manipulation
     template_kwargs = convert_lists_to_indexed(kwargs.copy())
 
+    # If args provided (for help command), look up the requested command
+    command_help = None
+    if args:
+        requested_cmd = args[0] if isinstance(args[0], str) else args[0].get("value")
+        for cmd in commands:
+            if cmd.get("name") == requested_cmd or requested_cmd in cmd.get("aliases", []):
+                command_help = cmd
+                break
+
     # Group commands by category dynamically, filtering out underscore-prefixed commands
     categories: dict[str, list[dict[str, Any]]] = {}
     for cmd in commands:
@@ -202,20 +216,22 @@ def _build_command_context(
 
     args_string = format_args_string(args)
 
-    return base_context.new_child(
-        convert_lists_to_indexed(
-            {
-                "kwargs": template_kwargs,
-                "raw_kwargs": kwargs,
-                "args": args,
-                "args_str": args_string,
-                "command": {"name": command_path, "path": str(file_info.path)},
-                "executed_command": command_path,
-                "commands": commands,
-                "command_categories": command_categories,
-            }
-        )
-    )
+    context_data = {
+        "kwargs": template_kwargs,
+        "raw_kwargs": kwargs,
+        "args": args,
+        "args_str": args_string,
+        "command": {"name": command_path, "path": str(file_info.path)},
+        "executed_command": command_path,
+        "commands": commands,
+        "command_categories": command_categories,
+    }
+
+    # Add command_help if found
+    if command_help:
+        context_data["command_help"] = command_help
+
+    return base_context.new_child(convert_lists_to_indexed(context_data))
 
 
 async def _is_help_command(command_path: str, ctx: Optional[Context]) -> bool:  # type: ignore
@@ -288,9 +304,9 @@ async def _execute_command(
 
     # Check for a help flag or help command with args (after context building)
     if kwargs.get("_help"):
-        return await get_command_help(command_context, commands_dir)
+        return await get_command_help(command_context, commands_dir, docroot)
     if await _is_help_command(command_path, ctx) and args:
-        return await get_command_help(command_context, commands_dir)
+        return await get_command_help(command_context, commands_dir, docroot)
 
     # Get resolved flags for requires-* checking
     current_session = get_current_session()

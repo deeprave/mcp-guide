@@ -1,6 +1,6 @@
 # Tool Documentation Standards
 
-This document establishes the standardized format for all MCP tool descriptions in mcp-guide to improve AI agent comprehension and reduce trial-and-error tool usage.
+This document establishes the standardised format for all MCP tool descriptions in mcp-guide to improve AI agent comprehension and reduce trial-and-error tool usage.
 
 ## 4-Section Documentation Format
 

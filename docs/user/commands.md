@@ -18,8 +18,6 @@ Examples:
 
 ```
 :help
-:list categories
-:show python
 ```
 
 ## Using :help
@@ -43,30 +41,15 @@ Commands follow this structure:
 
 ### Positional Arguments
 
-Arguments without flags:
-
-```
-:show python        # 'python' is a positional argument
-:list categories    # 'categories' is a positional argument
-```
+Arguments without flags.
 
 ### Keyword Arguments
 
-Arguments with flags:
-
-```
-:show python --pattern "*.md"
-:list --verbose
-```
+Arguments with flags.
 
 ### Boolean Flags
 
-Flags without values (presence = true):
-
-```
-:list --verbose
-:show --table
-```
+Flags without values (presence = true).
 
 ## Command Context
 
@@ -77,27 +60,16 @@ Commands have access to context variables:
 - `command.kwargs` - Keyword arguments
 - `project.*` - Project information
 - `workflow.*` - Workflow state (if enabled)
-- `session.*` - Session information
 
 ## Command Templates
 
-Commands are defined as Mustache templates in `docroot/commands/`.
+Commands are defined as Mustache templates in the docroot.
 
-### Command File Structure
+## Next Steps
 
-```
-docroot/commands/
-├── help.mustache       # Help command
-├── list.mustache       # List command
-└── show.mustache       # Show command
-```
+- **[Content Documents](content-documents.md)** - Writing content with templates
+- **[Feature Flags](feature-flags.md)** - Configuring behaviour
 
-### Example Command Template
-
-```mustache
----
-type: user/information
-description: Show {{command.args.0}} details
 ---
 
 # {{command.args.0}}

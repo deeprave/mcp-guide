@@ -35,7 +35,7 @@
 - **ALWAYS** ask the client/agent to send file content to the server when needed
 - This is why we have tools like guide_send_file_content - the client sends content to server
 
-### Code Organization
+### Code Organisation
 - **ALWAYS** use module-level imports (PEP 8). In some circumstances this rule may be broken but **must be commented** as to the reason why
 - **NEVER** inline template code in Python files
 - **ALWAYS** use existing template infrastructure for rendering
@@ -55,9 +55,9 @@
 
 ### Data Structures and Control Flow
 - **PREFER** static dictionaries and enums over if/elif/else chains for mapping values
-- **USE** enums to conceptualize different states and options rather than string literals
+- **USE** enums to conceptualise different states and options rather than string literals
 - **LEVERAGE** dictionary lookups, match/case statements, and iteration over enums instead of conditional chains
-- **CENTRALIZE** conversion logic in enum classmethods using simple iteration patterns
+- **CENTRALISE** conversion logic in enum classmethods using simple iteration patterns
 - **AVOID** duplicating string-to-value mapping logic across multiple locations
 
   #### Why This Approach Is Better
@@ -65,12 +65,12 @@
   - **Readability**: Intent is clearer with descriptive enum names and dictionary structures
   - **Type Safety**: Enums provide compile-time checking and IDE support
   - **Brevity**: Less code to write and maintain compared to long if/elif chains
-  - **Consistency**: Centralized conversion ensures uniform behavior across the codebase
+  - **Consistency**: Centralised conversion ensures uniform behaviour across the codebase
 
 ### Private variables
 - **NEVER** access private variables of a foreign class or module
-- **ALWAYS** use the public API of that freign class or module ONLY
-- **FOLLOW** public APIs - properties, attribures and functions provided by the class
+- **ALWAYS** use the public API of that foreign class or module ONLY
+- **FOLLOW** public APIs - properties, attributes and functions provided by the class
 - **NEVER** by extension, use getattr(), hasattr() or setattr() or a foreign class or module
 
 ## Common Mistakes the agent makes that must be avoided

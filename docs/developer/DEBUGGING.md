@@ -8,7 +8,7 @@ mcp-guide supports remote debugging through the `debugpy` package. This allows y
 - Set breakpoints in the mcp-guide source code
 - Step through code execution
 - Inspect variables and call stacks
-- Debug MCP tool calls and server behavior
+- Debug MCP tool calls and server behaviour
 
 ## Prerequisites
 
@@ -101,7 +101,7 @@ Edit your Claude Desktop config (`~/Library/Application Support/Claude/claude_de
 ## Tips
 
 - **Use `MG_DEBUG_WAIT=false`** (or omit it) during normal operation to avoid blocking
-- **Use `MG_DEBUG_WAIT=true`** when debugging server startup or initialization
+- **Use `MG_DEBUG_WAIT=true`** when debugging server startup or initialisation
 - **Set breakpoints** in tool implementations (`src/mcp_guide/tools/`) to debug specific tools
 - **Check stderr output** for debug server status messages
 - **Multiple instances**: Use different `MG_DEBUG_PORT` values if running multiple debug sessions
@@ -131,4 +131,4 @@ The debugging setup is implemented in `src/mcp_guide/main.py` in the `_setup_rem
 4. Optionally waits for debugger attachment
 5. Continues normal server startup
 
-This happens **before** any other initialization, allowing you to debug the entire server lifecycle.
+This happens **before** any other initialisation, allowing you to debug the entire server lifecycle.

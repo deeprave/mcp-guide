@@ -187,11 +187,11 @@ kiro-cli /tools trust-all false
 7. **Caching**: Response cached with modification time for future requests
 8. **Audit Logging**: Complete operation logged for security monitoring
 
-### Performance Optimizations
+### Performance Optimisations
 
 - **Intelligent Caching**: LRU cache with size and entry limits
 - **Modification Tracking**: Files re-read only when modified
-- **Batch Operations**: Multiple file requests optimized
+- **Batch Operations**: Multiple file requests optimised
 - **Compression**: Large responses compressed for network efficiency
 
 ## Privacy Considerations

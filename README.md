@@ -2,33 +2,37 @@
 
 **Structured content delivery for AI agents via Model Context Protocol**
 
-mcp-guide is an MCP server that provides AI agents with organized access to project guidelines, documentation, and context. It helps agents understand your project's standards, follow development workflows, and access relevant information through a flexible content management system.
+mcp-guide is an MCP server that provides AI agents with organised access to project guidelines, documentation, and context. It helps agents understand your project's standards, follow development workflows, and access relevant information through a flexible content management system.
 
 ## Key Features
 
-- **Content Management** - Organize documentation by categories and collections
+- **Content Management** - Organise documents, instructions and prompts by category and collection
 - **Template Support** - Dynamic content with Mustache/Chevron templates
 - **Multiple Transports** - STDIO, HTTP, and HTTPS modes
 - **Feature Flags** - Project-specific and global configuration
 - **Workflow Management** - Structured development phase tracking
 - **Profile System** - Pre-configured setups for common scenarios
-- **Docker Support** - Containerized deployment with SSL
+- **Docker Support** - Containerised deployment with SSL
 - **OpenSpec Integration** - Spec-driven development workflow
 
 ## Quick Start
 
-```bash
-# Run with uvx (recommended)
-uvx mcp-guide
+mcp-guide is run using your AI Agent's MCP configuration, and not usually run directly, at least in stdio transport mode.
+In stdio mode, standard input and output are used to communicate with the MCP so the agent needs to control both in order
+to operate.
+In http mode, however, the server provides web server (http) transport, and this may be started in standalone mode, not
+necessarily by the agent directly (although typically it does).
 
-# Or install with uv
-uv tool install mcp-guide
-```
+The configurations below detail configuration with some cli agents, but almost all of them will be similar.
 
-### Configure with Claude Desktop
+### Configure with AI Agents
 
-Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows):
+#### JSON configuration
 
+These block can be used as is, and inserted into the agent's configuration.
+The stdio mode is a straight-forward configuration, although it requires to uv tool to be installed.
+
+##### Stdio
 ```json
 {
   "mcpServers": {
@@ -40,85 +44,50 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS)
 }
 ```
 
-## Documentation
+If the "mcpServers" block already exists, add the "mcp-guide" block at the end, ensuring that the previously last item, if any, has a terminating comma.
 
-- **[Getting Started](docs/user/getting-started.md)** - First-time setup and basic concepts
-- **[Installation Guide](docs/user/installation.md)** - Detailed installation and configuration
-- **[User Documentation](docs/user/)** - Complete user guides
-- **[Developer Documentation](docs/developer/)** - Technical reference
-- **[Changelog](CHANGELOG.md)** - Release notes and version history
+#### Kiro-CLI
 
-## Transport Modes
+Add the above JSON block to `~/.config/kiro/mcp.json`:
 
-### STDIO (Default)
-Standard input/output for local agent communication:
-```bash
-mcp-guide
-```
+#### Claude Code
 
-### HTTP/HTTPS
-Network transport for remote access:
-```bash
-# HTTP (requires uvicorn)
-uvx --with uvicorn mcp-guide http://localhost:8080
+Add the above JSON block to `~/.claude/settings.json`:
 
-# HTTPS with SSL certificates
-uvx --with uvicorn mcp-guide https --ssl-certfile cert.pem --ssl-keyfile key.pem
-```
+#### GitHub Copilot CLI
 
-### Docker
-Containerized deployment:
-```bash
-cd docker
-docker compose --profile stdio up
-```
+Add to `~/.config/.copilot/mcp.json`:
 
-See [Installation Guide](docs/user/installation.md) for detailed setup instructions.
+## Content Organisation
 
-## Content Organization
+mcp-guide organises content using **frontmatter** (optional YAML metadata at the start of documents) to define document properties and behaviour.
 
-mcp-guide organizes content into three types:
+Content is classified into three types via the `type:` field in frontmatter:
 
-- **user/information** - Content displayed to users
-- **agent/information** - Context for AI agents
-- **agent/instruction** - Directives for agent behavior
+  - **user/information** - Content displayed to users
+  - **agent/information** - Context for AI agents
+  - **agent/instruction** - Directives for agent behaviour
 
-Content is organized using **categories** (file patterns and directories) and **collections** (groups of categories). Collections act as "macros" to provide targeted context for specific tasks.
+Content is organised using **categories** (file patterns and directories) and **collections** (groups of categories). Collections act as "macros" to provide targeted context for specific tasks or purposes.
 
 See [Content Management](docs/user/content-management.md) for details.
 
 ## Feature Flags
 
-Control behavior with project-specific or global flags:
+Feature flags control behaviour, capabilities and special features and may be set globally or per project:
 
 - **workflow** - Enable workflow phase tracking
 - **openspec** - Enable OpenSpec integration
-- **content-style** - Output format (plain, mime)
+- **content-style** - Output format (None, plain, mime)
 
-See [Feature Flags](docs/user/feature-flags.md) for complete reference.
+See [Feature Flags](docs/user/feature-flags.md) for more information.
 
-## Development
+## Documentation
 
-```bash
-# Clone and install
-git clone https://github.com/yourusername/mcp-guide.git
-cd mcp-guide
-uv sync
-
-# Run tests
-uv run pytest
-
-# Format and lint
-uv run ruff format src tests
-uv run ruff check src tests
-uv run mypy src
-```
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines.
-
-## License
-
-MIT License - See [LICENSE.md](LICENSE.md) for details.
+- **[Documentation Index](docs/index.md)** - Documentation overview
+- **[Getting Started](docs/user/getting-started.md)** - First-time setup and basic concepts
+- **[Installation Guide](docs/user/installation.md)** - Detailed installation and configuration
+- **[Changelog](CHANGELOG.md)** - Release notes and version history
 
 ## Links
 
@@ -126,3 +95,6 @@ MIT License - See [LICENSE.md](LICENSE.md) for details.
 - **Issues**: [GitHub Issues](https://github.com/yourusername/mcp-guide/issues)
 - **MCP Protocol**: [modelcontextprotocol.io](https://modelcontextprotocol.io/)
 
+## License
+
+MIT License - See [LICENSE.md](LICENSE.md) for details.

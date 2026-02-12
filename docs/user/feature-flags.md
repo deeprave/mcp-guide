@@ -4,31 +4,25 @@ Understanding and using feature flags in mcp-guide.
 
 ## What are Feature Flags?
 
-Feature flags control mcp-guide behavior and enable conditional content inclusion. They can be set globally or per-project.
+Feature flags control mcp-guide behaviour and enable conditional content inclusion. They can be set globally or per-project.
 
 ## Flag Scope
 
 ### Project Flags
 
-Set for a specific project:
+Set for a specific project. Ask your AI agent to set project flags:
 
-```bash
-# Via MCP tool
-set_project_flag(feature_name="workflow", value=True)
 ```
-
-Stored in: `~/.config/mcp-guide/projects/<project>/config.yaml`
+Please set the workflow feature flag to true for this project
+```
 
 ### Global Flags
 
-Set across all projects:
+Set across all projects. Ask your AI agent to set global flags:
 
-```bash
-# Via MCP tool
-set_feature_flag(feature_name="content-style", value="mime")
 ```
-
-Stored in: `~/.config/mcp-guide/config.yaml`
+Please set the content-style feature flag to mime globally
+```
 
 ### Resolution
 
@@ -39,47 +33,23 @@ When resolving flags:
 
 ## Setting Flags
 
-### Via MCP Tools
+Ask your AI agent to set flags using natural language:
 
-```python
-# Set project flag
-set_project_flag(feature_name="workflow", value=True)
-
-# Set global flag
-set_feature_flag(feature_name="content-style", value="plain")
-
-# Remove flag (use default)
-set_project_flag(feature_name="workflow", value=None)
 ```
-
-### Via Configuration Files
-
-**Project** (`~/.config/mcp-guide/projects/<project>/config.yaml`):
-
-```yaml
-flags:
-  workflow: true
-  openspec: true
-```
-
-**Global** (`~/.config/mcp-guide/config.yaml`):
-
-```yaml
-flags:
-  content-style: mime
+Set the workflow flag to true
+Enable OpenSpec for this project
+Set content-style to plain globally
+Remove the workflow flag (use default)
 ```
 
 ## Querying Flags
 
-```python
-# Get project flag (with fallback to global)
-get_project_flag(feature_name="workflow")
+Ask your AI agent about flags:
 
-# Get global flag only
-get_feature_flag(feature_name="content-style")
-
-# List all active flags
-list_project_flags(active=True)
+```
+What feature flags are set for this project?
+Show me all active flags
+What is the workflow flag set to?
 ```
 
 ## Special Flags

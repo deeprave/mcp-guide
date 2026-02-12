@@ -1,6 +1,6 @@
 # Prompt Documentation Standards
 
-This document establishes the standardized format for all MCP prompt descriptions in mcp-guide to improve AI agent comprehension and reduce trial-and-error prompt usage.
+This document establishes the standardised format for all MCP prompt descriptions in mcp-guide to improve AI agent comprehension and reduce trial-and-error prompt usage.
 
 ## 4-Section Documentation Format
 
@@ -115,7 +115,7 @@ async def example_prompt(*args) -> str:
     # Example 4: Collection processing
     @example_prompt getting-started
     # Processes all categories in the collection
-    # Returns: Complete collection content in organized format
+    # Returns: Complete collection content in organised format
     ```
     """
 ```
