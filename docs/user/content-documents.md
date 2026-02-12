@@ -16,7 +16,6 @@ Example:
 type: agent/instruction
 instruction: Follow these coding standards
 description: Python coding standards
-requires-python: true
 ---
 
 # Python Coding Standards
@@ -65,17 +64,6 @@ description: Test-driven development guidelines
 
 Used for documentation and discovery.
 
-#### requires-*
-
-Conditional inclusion based on feature flags:
-
-```yaml
-requires-python: true
-requires-workflow: enabled
-```
-
-Document is included only if the flag matches. See [Feature Flags](feature-flags.md).
-
 ### Template Variables in Frontmatter
 
 Frontmatter fields support template variables:
@@ -88,6 +76,15 @@ description: Guidelines for {{workflow.phase}} phase
 Variables are expanded when the document is rendered.
 
 ## Templates
+
+Template documents MUST have one of the supported Mustache extensions to be rendered as templates:
+
+- `.mustache`
+- `.hbs`
+- `.handlebars`
+- `.chevron`
+
+Without these extensions, documents are treated as plain text/markdown.
 
 mcp-guide uses Mustache/Chevron template syntax for dynamic content.
 
@@ -273,7 +270,7 @@ type: user/information
 - Structure with headings
 - Include examples
 
-### Organization
+### Organisation
 
 - One topic per file
 - Use descriptive filenames
@@ -308,5 +305,5 @@ Verify:
 
 - **[Feature Flags](feature-flags.md)** - Conditional content with flags
 - **[Commands](commands.md)** - Using command templates
-- **[Content Management](content-management.md)** - Content types and organization
+- **[Content Management](content-management.md)** - Content types and organisation
 

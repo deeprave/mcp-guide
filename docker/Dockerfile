@@ -31,6 +31,10 @@ RUN uv build
 # Final stage: Minimal runtime
 FROM base AS final
 
+# Create non-root user
+RUN addgroup -g 1000 mcp && \
+    adduser -D -u 1000 -G mcp mcp
+
 WORKDIR /app
 
 # Copy uv from build stage
@@ -45,7 +49,14 @@ COPY --from=build /app/dist/*.whl /tmp/
 # Install the package
 RUN uv pip install --python /app/.venv/bin/python /tmp/*.whl && rm /tmp/*.whl
 
+# Create config directory with proper ownership
+RUN mkdir -p /home/mcp/.config/mcp-guide /home/mcp/certs && \
+    chown -R mcp:mcp /app /home/mcp/.config /home/mcp/certs
+
 ENV PATH="/app/.venv/bin:$PATH"
+
+# Switch to non-root user
+USER mcp
 
 # Default command (override in specific Dockerfiles)
 CMD ["mcp-guide", "--help"]

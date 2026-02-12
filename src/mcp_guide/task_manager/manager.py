@@ -718,12 +718,12 @@ class TaskManager:
             f"TaskManager.set_cached_data('{key}'): {type(value).__name__}, cache now has {len(self._cache)} keys: {list(self._cache.keys())}"
         )
 
-        # Invalidate template context cache when workflow state changes
-        if key == "workflow_state":
+        # Invalidate template context cache when workflow state or openspec data changes
+        if key in ("workflow_state", "openspec_show", "openspec_status"):
             from mcp_guide.render.cache import invalidate_template_context_cache
 
             invalidate_template_context_cache()
-            logger.trace("Template context cache invalidated due to workflow_state change")
+            logger.trace(f"Template context cache invalidated due to {key} change")
 
     def clear_cached_data(self, key: str) -> None:
         """Clear cached data by key."""

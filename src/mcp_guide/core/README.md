@@ -33,7 +33,7 @@ async def my_resource(param: str, ctx=None) -> str:
 ```
 
 ## Registration
-Decorators store metadata in registries without registering with MCP. Registration happens during server initialization:
+Decorators store metadata in registries without registering with MCP. Registration happens during server initialisation:
 
 ```python
 from mcp_guide.core.tool_decorator import register_tools

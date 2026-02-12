@@ -6,78 +6,35 @@ Using profiles for pre-configured project setups in mcp-guide.
 
 Profiles are pre-configured sets of categories and collections that can be applied to projects. They provide quick setup for common scenarios without manual configuration.
 
-## Why Use Profiles?
+## Discovering Profiles
 
-- **Quick setup** - Get started faster with pre-configured categories
-- **Best practices** - Follow established patterns
-- **Consistency** - Use same setup across projects
-- **Composable** - Combine multiple profiles
+Ask your AI agent to list available profiles:
 
-## Available Profiles
-
-### python
-
-Python development setup.
-
-**Adds**:
-- `lang/python` category - Python guidelines
-- `testing/pytest` category - pytest standards
-- `python-dev` collection - Python development context
-
-**Use when**: Working on Python projects
-
-### tdd
-
-Test-Driven Development workflow.
-
-**Adds**:
-- `workflows/tdd` category - TDD guidelines
-- `testing` category - Testing standards
-- `tdd-workflow` collection - TDD context
-
-**Use when**: Following TDD practices
-
-### jira
-
-Jira integration setup.
-
-**Adds**:
-- `context/jira` category - Jira workflow context
-- `jira-workflow` collection - Jira-specific instructions
-
-**Use when**: Using Jira for project management
-
-## Applying Profiles
-
-### Via MCP Tool
-
-```python
-# Apply single profile
-use_project_profile(profile="python")
-
-# Apply multiple profiles
-use_project_profile(profile="python")
-use_project_profile(profile="tdd")
+```
+List available profiles
+Show me what profiles exist
+What profiles can I use?
 ```
 
-### Via Configuration
+## Using Profiles
 
-Profiles can also be applied by manually adding their categories to project configuration.
+Ask your AI agent to apply profiles:
 
-## Profile Behavior
-
-### Additive
-
-Profiles are **additive** - they add categories and collections without removing existing ones.
-
-```python
-# Start with base categories
-# Apply python profile -> adds Python categories
-# Apply tdd profile -> adds TDD categories
-# Result: base + python + tdd categories
+```
+Apply the python profile
+Use the tdd profile for this project
+Show me details about the jira profile
 ```
 
-### Composable
+## Profile Behaviour
+
+Profiles are **additive** - they add categories and collections without removing existing ones. Multiple profiles can be combined to build up complex project configurations.
+
+## Next Steps
+
+- **[Categories and Collections](categories-and-collections.md)** - Understanding content organisation
+- **[Feature Flags](feature-flags.md)** - Configuring behaviour
+
 
 Multiple profiles can be combined:
 
@@ -277,6 +234,6 @@ If seeing unexpected categories:
 ## Next Steps
 
 - **[Categories and Collections](categories-and-collections.md)** - Understanding categories
-- **[Content Management](content-management.md)** - Content organization
+- **[Content Management](content-management.md)** - Content organisation
 - **[Getting Started](getting-started.md)** - Basic setup
 

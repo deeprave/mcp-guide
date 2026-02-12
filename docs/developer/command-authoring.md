@@ -33,7 +33,7 @@ Your Mustache template content here...
 
 ### Required Fields
 - **description**: Brief description shown in help
-- **category**: Command category for organization
+- **category**: Command category for organisation
 
 ### Optional Fields
 - **aliases**: Alternative command names
@@ -96,7 +96,7 @@ Current project: **{{project.name}}**
 ## Best Practices
 
 1. **Keep descriptions concise** - They appear in help listings
-2. **Use appropriate categories** - Helps with command organization
+2. **Use appropriate categories** - Helps with command organisation
 3. **Provide usage examples** - Makes commands discoverable
 4. **Validate required arguments** - Use frontmatter validation
 5. **Handle missing data gracefully** - Use Mustache conditionals

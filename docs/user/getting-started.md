@@ -8,13 +8,7 @@ mcp-guide is an MCP (Model Context Protocol) server that provides AI agents with
 
 ## Installation
 
-The quickest way to get started is with `uvx`:
-
-```bash
-uvx mcp-guide
-```
-
-This runs mcp-guide without installation. For other installation methods, see the [Installation Guide](installation.md).
+See the [Installation Guide](installation.md) for detailed setup instructions.
 
 ## First Run
 
@@ -24,46 +18,36 @@ When you first run mcp-guide, it creates a configuration directory:
 - **Windows**: `%APPDATA%\mcp-guide\`
 
 This directory contains:
-- `projects/` - Per-project configurations
-- `docroot/` - Your documentation and content files
+- `config.yaml` - Single configuration file shared by all projects
+- `docs/` - Your documentation and content files (docroot)
+
+Note: The docroot is on the MCP server's filesystem, not the AI agent's filesystem.
 
 ## Understanding the Docroot
 
-The **docroot** is where mcp-guide looks for content to serve to agents. By default, it's located at:
+The **docroot** is where mcp-guide looks for content to serve to agents. By default, it's located at `{configDir}/docs/`.
 
-```
-~/.config/mcp-guide/docroot/
-```
-
-Content is organized by type:
-- `user/information/` - Content displayed to users
-- `agent/information/` - Context for AI agents
-- `agent/instruction/` - Directives for agent behavior
+Content is classified by the `type:` field in document frontmatter:
+- `user/information` - Content displayed to users
+- `agent/information` - Context for AI agents
+- `agent/instruction` - Directives for agent behaviour
 
 See [Content Management](content-management.md) for details on content types.
 
 ## Basic Concepts
 
-### Projects
-
-mcp-guide is project-aware. Each project has its own configuration stored in:
-
-```
-~/.config/mcp-guide/projects/<project-name>/config.yaml
-```
-
-Projects define categories and collections specific to that project.
-
 ### Categories
 
-Categories organize content by file patterns and directories. For example:
+Categories organise content by file patterns and directories. For example:
 
 ```yaml
 categories:
   guidelines:
     dir: guidelines
-    patterns: ["*.md"]
+    patterns: ["readthis", "guidelines"]
 ```
+
+Patterns are globs matching document basenames (not extensions).
 
 ### Collections
 
@@ -79,24 +63,9 @@ collections:
 
 See [Categories and Collections](categories-and-collections.md) for details.
 
-## Configuring with Claude Desktop
+## Configuring with AI Agents
 
-Add mcp-guide to your Claude Desktop configuration:
-
-**macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
-
-```json
-{
-  "mcpServers": {
-    "mcp-guide": {
-      "command": "uvx",
-      "args": ["mcp-guide"]
-    }
-  }
-}
-```
-
-Restart Claude Desktop to load the configuration.
+See the [README](../../README.md#configure-with-ai-agents) for configuration instructions for Kiro-CLI, Claude Code, GitHub Copilot CLI, and HTTPS streaming modes.
 
 ## Using mcp-guide
 
@@ -107,15 +76,41 @@ Once configured, your AI agent can:
 3. **Follow workflows** - Track development phases
 4. **Apply profiles** - Use pre-configured setups
 
+### What You Can Do
+
+As a user, you can interact with mcp-guide through your AI agent using:
+
+- **Query content** - Ask the agent to reference specific documentation
+- **Execute commands** - Use template commands for dynamic content
+- **Apply profiles** - Request pre-configured setups for common scenarios
+- **Use prompts** - Leverage the `@guide` or `/guide` prompt for direct access
+
+### Using the @guide Prompt
+
+The `@guide` prompt provides direct access to content:
+
+```
+@guide <category>[/pattern]    # Reference specific documents (no .md extension needed)
+@guide :<command>               # Execute template commands
+@guide :help                    # View available commands
+```
+
+Examples:
+```
+@guide guidelines               # Access guidelines category
+@guide guidelines/python        # Access python-specific guidelines
+@guide :help                    # Show available commands
+```
+
 The agent interacts with mcp-guide through MCP tools and prompts.
 
 ## Next Steps
 
 - **[Installation Guide](installation.md)** - Detailed installation and configuration
 - **[Content Management](content-management.md)** - Understanding content types
-- **[Categories and Collections](categories-and-collections.md)** - Organizing your content
+- **[Categories and Collections](categories-and-collections.md)** - Organising your content
 - **[Content Documents](content-documents.md)** - Writing content with templates
-- **[Feature Flags](feature-flags.md)** - Configuring behavior
+- **[Feature Flags](feature-flags.md)** - Configuring behaviour
 - **[Commands](commands.md)** - Using the guide prompt
 - **[Profiles](profiles.md)** - Pre-configured setups
 
