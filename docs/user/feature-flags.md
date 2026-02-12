@@ -1,12 +1,23 @@
 # Feature Flags
 
-Understanding and using feature flags in mcp-guide.
+mcp-guide uses feature flags to control behaviour, enable optional features, and customise content delivery. Flags can be set globally (all projects) or per-project, providing flexible configuration for different development contexts.
 
-## What are Feature Flags?
+## Viewing Flags
 
-Feature flags control mcp-guide behaviour and enable conditional content inclusion. They can be set globally or per-project.
+Use the `:flags` command to see all active flags:
 
-## Flag Scope
+```
+:flags
+```
+
+Shows:
+- Feature (global) flags
+- Project flags
+- Resolved values (feature flags that are actually active)
+
+**See:** [Commands](commands.md) for detailed information on the `:flags` command.
+
+## Overview
 
 ### Project Flags
 
@@ -21,7 +32,7 @@ Please set the workflow feature flag to true for this project
 Set across all projects. Ask your AI agent to set global flags:
 
 ```
-Please set the content-style feature flag to mime globally
+Please set the content-format feature flag to mime globally
 ```
 
 ### Resolution
@@ -42,17 +53,7 @@ Set content-style to plain globally
 Remove the workflow flag (use default)
 ```
 
-## Querying Flags
-
-Ask your AI agent about flags:
-
-```
-What feature flags are set for this project?
-Show me all active flags
-What is the workflow flag set to?
-```
-
-## Special Flags
+## Core Feature Flags
 
 ### workflow
 
@@ -69,11 +70,6 @@ Enables workflow phase tracking.
 
 **Usage**:
 
-```yaml
-flags:
-  workflow: true
-```
-
 ### workflow-file
 
 Path to workflow tracking file.
@@ -82,14 +78,6 @@ Path to workflow tracking file.
 **Default**: `.guide.yaml`
 **Scope**: Project
 **Requires**: `workflow: true`
-
-**Usage**:
-
-```yaml
-flags:
-  workflow: true
-  workflow-file: .workflow.yaml
-```
 
 ### workflow-consent
 
@@ -106,59 +94,119 @@ Controls phase transition consent requirements.
 
 **Usage**:
 
-```yaml
-flags:
-  workflow: true
-  workflow-consent: true
-```
-
 ### openspec
 
 Enables OpenSpec integration.
 
 **Type**: Boolean
-**Default**: `false`
+**Default**: _false_
 **Scope**: Project
 
 **When enabled**:
 - Provides OpenSpec workflow instructions
 - Integrates with `openspec/` directory
-- Adds OpenSpec-specific tools
+- Adds OpenSpec-specific commands
 
 **Usage**:
-
-```yaml
-flags:
-  openspec: true
-```
 
 **See**: [OpenSpec documentation](https://openspec.dev)
 
 ### content-style
 
-Output format for content delivery.
+Controls how markdown formatting is rendered in template output for agent display.
 
 **Type**: String
-**Values**: `None`, `plain`, `mime`
-**Default**: `None`
+**Values**: `plain`, `headings`, `full`
+**Default**: `plain`
 **Scope**: Global or Project
 
-**Values**:
-- `None` - Raw content (default)
-- `plain` - Plain text formatting
-- `mime` - MIME multipart format
+**Why this matters:**
 
-**Usage**:
+Different agents have varying capabilities for rendering markdown in their console or interface. Some agents display markdown beautifully with proper formatting, while others show raw markdown syntax which can be distracting or hard to read.
 
-```yaml
-flags:
-  content-style: mime
+**How it works:**
+
+Templates use variables to represent markdown formatting:
+- `{{h1}}` through `{{h6}}` - Heading markers (e.g., `#`, `##`, `###`)
+- `{{b}}` - Bold markers (`**`)
+- `{{i}}` - Italic markers (`*`)
+
+The `content-style` flag controls what these variables render as:
+
+**`plain` (default)** - No formatting:
+- All variables render as empty strings
+- Output is plain text without markdown syntax
+- Best for: Agents that don't render markdown well, or when clean text is preferred
+- Example: `{{h2}}Status` renders as `Status`
+
+**`headings`** - Heading markers only:
+- `{{h1}}` through `{{h6}}` render as `#`, `##`, `###`, etc.
+- `{{b}}` and `{{i}}` remain empty
+- Best for: Agents that handle headings well but struggle with inline formatting
+- Example: `{{h2}}Status` renders as `## Status`
+
+**`full`** - All formatting:
+- All variables render their markdown equivalents
+- Complete markdown formatting in output
+- Best for: Agents with excellent markdown rendering capabilities
+- Example: `{{h2}}Status: {{b}}Active{{b}}` renders as `## Status: **Active**`
+
+**Template example:**
+
+```mustache
+{{h1}}Project Information
+
+{{h2}}Current Phase
+{{b}}Phase:{{b}} {{workflow.phase}}
+{{b}}Issue:{{b}} {{workflow.issue}}
+
+{{h3}}Description
+{{i}}Implementation in progress{{i}}
 ```
 
-**MIME format** is useful for:
-- Structured content delivery
-- Multiple content types
-- Client-side parsing
+With `content-style: plain`:
+```
+Project Information
+
+Current Phase
+Phase: implementation
+Issue: add-feature-x
+
+Description
+Implementation in progress
+```
+
+With `content-style: headings`:
+```
+# Project Information
+
+## Current Phase
+Phase: implementation
+Issue: add-feature-x
+
+### Description
+Implementation in progress
+```
+
+With `content-style: full`:
+```
+# Project Information
+
+## Current Phase
+**Phase:** implementation
+**Issue:** add-feature-x
+
+### Description
+*Implementation in progress*
+```
+
+**Choosing the right mode:**
+
+- Start with `plain` (default) and only change if needed
+- Try `headings` if your agent renders headings nicely but inline formatting looks cluttered
+- Use `full` if your agent has excellent markdown support and you want rich formatting
+- Consider your agent's console/interface capabilities
+- Test different modes to see what works best for your workflow
 
 ## Using Flags in Templates
 
@@ -175,117 +223,7 @@ requires-workflow: true
 
 Follow the {{workflow.phase}} phase guidelines...
 ```
-
-Document is included only if `workflow` flag is `true`.
-
-### Multiple Conditions
-
-```yaml
----
-requires-workflow: true
-requires-openspec: true
----
-
-Content requires both flags...
-```
-
-### Value Matching
-
-```yaml
----
-requires-content-style: mime
----
-
-Content for MIME format only...
-```
-
-### List Matching
-
-```yaml
----
-requires-languages: python
----
-
-Python-specific content...
-```
-
-If `languages` flag is a list, document is included if list contains "python".
-
-## Flag Patterns
-
-### Development Workflow
-
-```yaml
-flags:
-  workflow: true
-  workflow-consent: true
-  openspec: true
-```
-
-### Production Deployment
-
-```yaml
-flags:
-  content-style: mime
-  workflow: false
-```
-
-### Language-Specific
-
-```yaml
-flags:
-  languages:
-    - python
-    - typescript
-  frameworks:
-    - fastapi
-    - react
-```
-
-## Best Practices
-
-### Flag Design
-
-- **Boolean for features** - Use true/false for feature toggles
-- **Strings for options** - Use strings for configuration values
-- **Lists for sets** - Use lists for multiple values
-- **Descriptive names** - Use clear, descriptive flag names
-
-### Flag Usage
-
-- **Project-specific** - Use project flags for project settings
-- **Global defaults** - Use global flags for common settings
-- **Document flags** - Document custom flags in project README
-- **Test combinations** - Test with different flag combinations
-
-### Content Gating
-
-- **Explicit requirements** - Use `requires-*` for conditional content
-- **Fail gracefully** - Content should work without flags when possible
-- **Document dependencies** - Note which flags are required
-
-## Troubleshooting
-
-### Flag Not Working
-
-Check:
-1. Flag is set correctly (spelling, case)
-2. Scope is correct (project vs global)
-3. Value type matches (boolean, string, list)
-
-### Content Not Included
-
-Verify:
-1. `requires-*` matches flag name
-2. Flag value matches requirement
-3. Flag is set in correct scope
-
-### Flag Not Persisting
-
-Ensure:
-1. Configuration file is writable
-2. YAML syntax is valid
-3. Using correct tool (project vs global)
+Document is included only if `workflow` flag is set and not false.
 
 ## Next Steps
 

@@ -10,7 +10,7 @@ FLAG_WORKFLOW_FILE = "workflow-file"
 FLAG_WORKFLOW_CONSENT = "workflow-consent"
 
 # Content format flags
-FLAG_CONTENT_FORMAT_MIME = "content-format-mime"
+FLAG_CONTENT_FORMAT = "content-format"
 FLAG_CONTENT_STYLE = "content-style"
 
 # Development flags

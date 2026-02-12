@@ -250,5 +250,5 @@ If port 443 or 8080 is already in use:
 ```yaml
 # Edit compose.yaml
 ports:
-  - "8443:443"  # Use different host port
+  - "8443:8443"  # Use different host port
 ```

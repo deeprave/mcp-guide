@@ -29,8 +29,8 @@ The configurations below detail configuration with some cli agents, but almost a
 
 #### JSON configuration
 
-These block can be used as is, and inserted into the agent's configuration.
-The stdio mode is a straight-forward configuration, although it requires to uv tool to be installed.
+These blocks can be used as is and inserted into the agent's configuration.
+The stdio mode is a straightforward configuration, although it requires the uv tool to be installed.
 
 ##### Stdio
 ```json
@@ -48,15 +48,19 @@ If the "mcpServers" block already exists, add the "mcp-guide" block at the end, 
 
 #### Kiro-CLI
 
-Add the above JSON block to `~/.config/kiro/mcp.json`:
+Add the above JSON block to `~/.config/kiro/mcp.json`.
 
 #### Claude Code
 
-Add the above JSON block to `~/.claude/settings.json`:
+Add the above JSON block to `~/.claude/settings.json`.
 
 #### GitHub Copilot CLI
 
-Add to `~/.config/.copilot/mcp.json`:
+Add this JSON block to `~/.config/.copilot/mcp.json`.
+
+Other clients will offer similar configuration, some also
+
+See the [Installation Guide](docs/user/installation.md) for more detail in use with various clients, use with docker and using the http/sse transport mode.
 
 ## Content Organisation
 
@@ -86,13 +90,12 @@ See [Feature Flags](docs/user/feature-flags.md) for more information.
 
 - **[Documentation Index](docs/index.md)** - Documentation overview
 - **[Getting Started](docs/user/getting-started.md)** - First-time setup and basic concepts
-- **[Installation Guide](docs/user/installation.md)** - Detailed installation and configuration
 - **[Changelog](CHANGELOG.md)** - Release notes and version history
 
 ## Links
 
-- **Documentation**: [docs/user/](docs/user/)
-- **Issues**: [GitHub Issues](https://github.com/yourusername/mcp-guide/issues)
+- **Documentation**: [docs/user/](docs/index.md)
+- **Issues**: [GitHub Issues](https://github.com/deeprave/mcp-guide/issues)
 - **MCP Protocol**: [modelcontextprotocol.io](https://modelcontextprotocol.io/)
 
 ## License

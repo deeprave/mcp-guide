@@ -111,7 +111,7 @@ class TestFlagValueValidation:
 
 
 class TestContentFormatMimeValidator:
-    """Test content-format-mime flag validator."""
+    """Test content-format flag validator."""
 
     def test_valid_values(self):
         """Test validator accepts valid values."""
@@ -153,18 +153,18 @@ class TestValidatorRegistration:
         """Clean up after each test."""
         clear_validators()
         # Re-register the default validators
-        register_flag_validator("content-format-mime", validate_content_format_mime)
+        register_flag_validator("content-format", validate_content_format_mime)
         register_flag_validator(FLAG_CONTENT_STYLE, validate_template_styling)
 
     def test_registered_validators_work(self):
         """Test that registered validators are used."""
         # Should not raise for valid values
-        validate_flag_with_registered("content-format-mime", "plain", False)
+        validate_flag_with_registered("content-format", "plain", False)
         validate_flag_with_registered(FLAG_CONTENT_STYLE, "headings", False)
 
         # Should raise for invalid values
         with pytest.raises(FlagValidationError):
-            validate_flag_with_registered("content-format-mime", "invalid", False)
+            validate_flag_with_registered("content-format", "invalid", False)
 
         with pytest.raises(FlagValidationError):
             validate_flag_with_registered(FLAG_CONTENT_STYLE, "invalid", False)
