@@ -1,12 +1,12 @@
 ---
 type: agent/instruction
-description: Initialize OpenSpec in the current project
+description: Initialise OpenSpec in the current project
 category: "openspec"
 usage: ":openspec/init"
 
 requires-openspec: true
 ---
-To initialize OpenSpec in this project, please run:
+To initialise OpenSpec in this project, please run:
 
 `openspec init`
 
@@ -15,4 +15,4 @@ This will create the required directory structure:
 - openspec/changes/
 - openspec/specs/
 
-After initialization, refresh the cache by running `openspec list --json` and sending via {{tool_prefix}}send_file_content with path `.openspec-changes.json`.
+After initialisation, refresh the cache by running `openspec list --json` and sending via {{tool_prefix}}send_file_content with path `.openspec-changes.json`.

@@ -27,7 +27,7 @@ Access via MCP resources protocol:
 1. Discover available patterns via `resources/list`
 2. Read content via `resources/read` with guide:// URI
 
-## Behavior
+## Behaviour
 
 - Maps to existing content retrieval system
 - Returns plain text/markdown content

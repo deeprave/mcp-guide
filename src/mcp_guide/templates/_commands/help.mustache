@@ -15,7 +15,25 @@ instruction: Display this information to the user. Take no further action.
 ---
 {{h1}}ℹ️  Command Help
 {{#args}}
-Help for command: {{.}}
+{{#command_help}}
+{{h2}}{{name}}{{#aliases}} ({{#first}}{{/first}}:`{{value}}`{{#last}}{{/last}}{{^last}}, {{/last}}{{/aliases}})
+
+{{description}}
+
+{{#usage}}
+**Usage:** `{{usage}}`
+{{/usage}}
+
+{{#examples}}
+{{h3}}Examples
+{{#.}}
+- `{{.}}`
+{{/.}}
+{{/examples}}
+{{/command_help}}
+{{^command_help}}
+Command not found: {{.}}
+{{/command_help}}
 {{/args}}
 {{^args}}
 {{#command_categories}}

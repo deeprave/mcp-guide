@@ -2,18 +2,29 @@
 type: user/information
 instruction: ^ You are to display this information as-is to the user. You must STOP and not take any further action.
 ---
-## OpenSpec Change: {{changeName}}
+## OpenSpec Change: {{id}}
 
-**Schema:** {{schemaName}}
+**Title:** {{title}}
 
 {{#description}}
 {{description}}
 
 {{/description}}
-{{#artifacts}}
-### Artifacts
+### Spec Deltas ({{deltaCount}})
 
-{{#artifacts}}
-- **{{id}}:** `{{outputPath}}` ({{status}})
-{{/artifacts}}
-{{/artifacts}}
+{{#deltas}}
+#### {{spec}} ({{operation}})
+
+{{description}}
+
+{{#requirements}}
+**Requirements:**
+{{#requirements}}
+- {{text}}
+{{#scenarios}}
+  - {{rawText}}
+{{/scenarios}}
+
+{{/requirements}}
+{{/requirements}}
+{{/deltas}}

@@ -1,0 +1,51 @@
+---
+type: agent/instruction
+description: Create a new OpenSpec proposal
+category: openspec
+usage: ":openspec/propose [<change-id>]"
+aliases:
+  - openspec/new
+  - openspec/create
+requires-openspec: true
+---
+{{^args.0.value}}
+**Missing Change ID**
+
+Please provide a unique verb-led change identifier (e.g., `add-feature-x`, `fix-validation-bug`, `refactor-auth-flow`).
+
+Usage: `:openspec/propose <change-id>`
+{{/args.0.value}}
+{{#args.0.value}}
+# Create OpenSpec Proposal: {{args.0.value}}
+
+**Before Writing Proposal Documents**
+
+Start a dialogue with the user to understand:
+- What is this proposed change about?
+- What is its purpose and intended impact?
+- What systems or components does it affect?
+- Are there architectural considerations or trade-offs?
+- What are the success criteria?
+
+Encourage questions and reasoning. Capturing architectural aspects, constraints, and design rationale is an important part of this dialogue. Take time to explore the problem space before committing to a solution.
+
+**Guardrails**
+- Favour straightforward, minimal implementations first and add complexity only when it is requested or clearly required.
+- Keep changes tightly scoped to the requested outcome.
+- Refer to `openspec/AGENTS.md` if you need additional OpenSpec conventions or clarifications.
+- Identify any vague or ambiguous details and ask the necessary follow-up questions before editing files.
+
+**Steps**
+1. Review `openspec/project.md`, run `openspec list` and `openspec list --specs`, and inspect related code or docs (e.g., via `rg`/`ls`) to ground the proposal in current behaviour; note any gaps that require clarification.
+2. Scaffold `proposal.md` and `design.md` (when architectural reasoning is needed) under `openspec/changes/{{args.0.value}}/`.
+3. Map the change into concrete capabilities or requirements, breaking multi-scope efforts into distinct spec deltas with clear relationships and sequencing.
+4. Capture architectural reasoning in `design.md` when the solution spans multiple systems, introduces new patterns, or demands trade-off discussion before committing to specs.
+5. Draft spec deltas in `changes/{{args.0.value}}/specs/<capability>/spec.md` (one folder per capability) using `## ADDED|MODIFIED|REMOVED Requirements` with at least one `#### Scenario:` per requirement and cross-reference related capabilities when relevant.
+6. Ask the user whether to create `tasks.md` now or leave the proposal in draft form. If creating tasks, draft them as an ordered list of small, verifiable work items that deliver user-visible progress, include validation (tests, tooling), and highlight dependencies or parallelisable work.
+7. Validate with `openspec validate {{args.0.value}} --strict` and resolve every issue before sharing the proposal.
+
+**Reference**
+- Use `openspec show <id> --json --deltas-only` or `openspec show <spec> --type spec` to inspect details when validation fails.
+- Search existing requirements with `rg -n "Requirement:|Scenario:" openspec/specs` before writing new ones.
+- Explore the codebase with `rg <keyword>`, `ls`, or direct file reads so proposals align with current implementation realities.
+{{/args.0.value}}
