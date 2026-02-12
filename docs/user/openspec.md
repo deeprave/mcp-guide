@@ -2,6 +2,8 @@
 
 mcp-guide integrates with OpenSpec, an AI-native system for spec-driven development, providing automatic monitoring and command access for managing changes and specifications.
 
+For more information on OpenSpec, visit https://openspec.dev
+
 ## Overview
 
 OpenSpec integration enables structured change management with automatic monitoring of project changes. The integration validates OpenSpec availability, tracks changes, and provides prompt commands for common operations.
@@ -33,9 +35,10 @@ When OpenSpec is enabled, additional `:openspec/*` commands become available. So
 **:openspec/init**
 Initialise OpenSpec in the current project using the openspec command. This creates required directory structure and `openspec/project.md` file.
 
-**:openspec
+**:openspec/propose** _(openspec/new, openspec/create)_
+Initiate a new OpenSpec change by creating the change directory structure and proposal document. Emphasises dialogue with the user before writing documents. Optionally creates tasks.md for tracking implementation.
 
-**:openspec/propose** _(openspec/new, openspec/change)_
+**:openspec/list**
 List all OpenSpec changes in the project. Triggers a refresh of the change list from OpenSpec CLI.
 
 **:openspec/list**
@@ -77,13 +80,6 @@ When OpenSpec is enabled, OpenSpec information is available in content templates
 - `{{openspec.changes}}` - Array of change objects with name, status, and task counts
 - `{{openspec.show}}` - Details of currently shown change
 - `{{openspec.status}}` - Status information for current change
-
-**Version checking:**
-```mustache
-{{#openspec.has_version}}1.2.0{{/openspec.has_version}}
-Content requiring OpenSpec 1.2.0 or higher
-{{/openspec.has_version}}
-```
 
 ## Configuration
 

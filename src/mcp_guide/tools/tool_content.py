@@ -138,10 +138,10 @@ async def internal_get_content(
             )
 
         # Resolve content format flag
-        from mcp_guide.feature_flags.constants import FLAG_CONTENT_FORMAT_MIME
+        from mcp_guide.feature_flags.constants import FLAG_CONTENT_FORMAT
         from mcp_guide.feature_flags.utils import get_resolved_flag_value
 
-        flag_value = await get_resolved_flag_value(session, FLAG_CONTENT_FORMAT_MIME)
+        flag_value = await get_resolved_flag_value(session, FLAG_CONTENT_FORMAT)
         format_type = ContentFormat.from_flag_value(flag_value)
 
         # Format and return content

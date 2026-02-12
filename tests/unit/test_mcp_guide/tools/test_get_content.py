@@ -281,17 +281,17 @@ async def test_get_content_collection_sets_metadata(tmp_path, monkeypatch):
         # No flags - should default to NONE (BaseFormatter)
         ({}, {}, "none"),
         # Only project flag set
-        ({"content-format-mime": "plain"}, {}, "plain"),
-        ({"content-format-mime": "mime"}, {}, "mime"),
-        ({"content-format-mime": "none"}, {}, "none"),
+        ({"content-format": "plain"}, {}, "plain"),
+        ({"content-format": "mime"}, {}, "mime"),
+        ({"content-format": "none"}, {}, "none"),
         # Only global flag set
-        ({}, {"content-format-mime": "plain"}, "plain"),
-        ({}, {"content-format-mime": "mime"}, "mime"),
-        ({}, {"content-format-mime": "none"}, "none"),
+        ({}, {"content-format": "plain"}, "plain"),
+        ({}, {"content-format": "mime"}, "mime"),
+        ({}, {"content-format": "none"}, "none"),
         # Project flag takes precedence over global
-        ({"content-format-mime": "plain"}, {"content-format-mime": "mime"}, "plain"),
-        ({"content-format-mime": "mime"}, {"content-format-mime": "plain"}, "mime"),
-        ({"content-format-mime": "none"}, {"content-format-mime": "plain"}, "none"),
+        ({"content-format": "plain"}, {"content-format": "mime"}, "plain"),
+        ({"content-format": "mime"}, {"content-format": "plain"}, "mime"),
+        ({"content-format": "none"}, {"content-format": "plain"}, "none"),
     ],
 )
 async def test_get_content_flag_resolution(tmp_path, monkeypatch, project_flags, feature_flags, expected_format):

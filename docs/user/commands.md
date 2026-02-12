@@ -1,264 +1,273 @@
-# Commands
+# Prompt Commands
 
-Using the guide prompt and command system in mcp-guide.
+mcp-guide provides a comprehensive command system through the guide prompt, enabling agents to access project information, manage content, and control workflow behaviour.
 
-## What is the Guide Prompt?
+## Overview
 
-The guide prompt is an MCP prompt that provides a command-line interface for interacting with mcp-guide. It allows agents to execute commands and access help.
+The guide prompt is the primary interface for interacting with mcp-guide. Commands provide access to project configuration, system information, content management, and workflow control. All commands follow a consistent structure and provide built-in help.
 
-## Command Invocation
+## Command Structure
 
-Commands are invoked through the guide prompt:
+Commands are invoked through the guide prompt with this syntax:
 
 ```
 :command [args] [--flags]
 ```
 
-Examples:
-
+**Examples:**
 ```
 :help
+:status
+:project
+:flags
+:create/category docs
 ```
 
-## Using :help
+## Discovery with :help
 
-The `:help` command is your primary discovery mechanism:
-
-```
-:help              # Show available commands
-:help <command>    # Show command-specific help
-```
-
-**Always use :help first** to discover available commands and their usage.
-
-## Command Structure
-
-Commands follow this structure:
+The `:help` command is your primary discovery mechanism. Use it to explore available commands and their usage:
 
 ```
-:command [positional-args] [--flag value] [--boolean-flag]
+:help              # Show all available commands grouped by category
+:help <command>    # Show detailed help for a specific command
 ```
 
-### Positional Arguments
-
-Arguments without flags.
-
-### Keyword Arguments
-
-Arguments with flags.
-
-### Boolean Flags
-
-Flags without values (presence = true).
-
-## Command Context
-
-Commands have access to context variables:
-
-- `command.name` - Command name
-- `command.args` - Positional arguments
-- `command.kwargs` - Keyword arguments
-- `project.*` - Project information
-- `workflow.*` - Workflow state (if enabled)
-
-## Command Templates
-
-Commands are defined as Mustache templates in the docroot.
-
-## Next Steps
-
-- **[Content Documents](content-documents.md)** - Writing content with templates
-- **[Feature Flags](feature-flags.md)** - Configuring behaviour
-
----
-
-# {{command.args.0}}
-
-{{#project.categories}}
-{{#name_matches}}
-**Name**: {{name}}
-**Description**: {{description}}
-**Directory**: {{dir}}
-**Patterns**: {{patterns}}
-{{/name_matches}}
-{{/project.categories}}
-```
-
-## Built-in Commands
-
-### :help
-
-Show available commands or command-specific help.
-
-**Usage**:
-
-```
-:help              # List all commands
-:help <command>    # Show command help
-```
-
-**Examples**:
-
-```
-:help
-:help list
-:help show
-```
-
-### Discovery Pattern
-
-The recommended pattern for using commands:
-
+**Recommended pattern:**
 1. Start with `:help` to see available commands
 2. Use `:help <command>` for specific command usage
 3. Execute the command
-4. Use `:help` again if you need more commands
+4. Use `:help` again to discover related commands
 
-This discovery-first approach helps agents learn available functionality without exhaustive documentation.
+## Core Information Commands
 
-## Creating Custom Commands
+### :status
 
-### 1. Create Command Template
+Shows system status and current project information including active project, workflow phase (if enabled), and OpenSpec integration status (again, if enabled).
 
-Create a file in `docroot/commands/<command-name>.mustache`:
+**Usage:** `:status`
 
-```mustache
----
-type: user/information
-description: Custom command description
----
+### :project _(:info/project)_
 
-# {{command.name}}
+Displays comprehensive project information including:
+- Project name and configuration
+- Categories and their directories
+- Collections and their category memberships
+- Feature flags (project-level)
+- Filesystem permissions
 
-Command output here...
+**Usage:** `:project` or `:info/project`
 
-Arguments: {{command.args}}
-Flags: {{command.kwargs}}
+Use `--verbose` or `-v` for detailed output including all category patterns.
+
+### :flags _(:info/flags)_
+
+Shows all feature flags affecting the current project:
+- Feature flags (apply to all projects by default)
+- Project-specific flags (override feature-flags)
+- Resolved values (what the agent actually sees)
+
+**Usage:** `:flags` or `:info/flags`
+
+Feature flags control behaviour like workflow support, OpenSpec integration, and client information collection.
+
+### :system _(:info/system)_
+
+Displays system information for both the MCP server and the agent's client environment.
+
+**Server information** (always shown):
+- Operating system and platform
+- Hostname
+- Python version
+- Working directory
+
+**Client information** (requires `allow-client-info` feature flag to be enabled):
+- Agent's operating system and platform
+- Agent's hostname
+- User name
+- Git remote URLs
+
+**Usage:** `:system` or `:info/system`
+
+#### The `allow-client-info` Feature Flag
+
+Client information collection is gated behind the `allow-client-info` feature flag due to privacy concerns. This flag is normally set globally (affects all projects) and defaults to _false_.
+
+**Why it's gated:**
+- Collects information about the agent's environment (OS, hostname, user)
+- Requires explicit opt-in to respect user privacy
+
+**To enable:**
+Ask the agent to set the `allow-client-info` feature flag to true.
+
+When disabled, `:system` shows only server information and indicates that client info collection is disabled.
+
+## Project Management Commands
+
+### :create/category
+
+Creates a new category for organising project content. Categories define directories and file patterns for content discovery.
+
+**Usage:** `:create/category [--dir <path>] [--patterns <pattern>...] [--description <text>] <name>`
+
+**Examples:**
+```
+:create/category docs
+:create/category --dir documentation --patterns '*.md' '*.rst' api-docs
+:create/category --description 'Test files' tests
 ```
 
-### 2. Use Command Context
+**Parameters:**
+- `name` (required): Category name
+- `--dir`: Directory path (defaults to category name)
+- `--patterns`: File patterns to match (e.g., `*.md`, `*.py`)
+- `--description`: Human-readable description
 
-Access command arguments and context:
+### :create/collection
 
-```mustache
-{{#command.args}}
-Argument: {{.}}
-{{/command.args}}
+Creates a new collection that groups multiple categories or other collections together.
 
-{{#command.kwargs._verbose}}
-Verbose mode enabled
-{{/command.kwargs._verbose}}
+**Usage:** `:create/collection [--description <text>] <name> [categories...]`
+
+**Examples:**
+```
+:create/collection docs
+:create/collection api-docs code examples
+:create/collection --description 'Getting started content' beginner docs examples
 ```
 
-### 3. Add Conditional Logic
+**Parameters:**
+- `name` (required): Collection name
+- `categories...`: Category or collection names to include
+- `--description`: Human-readable description
 
-```mustache
-{{#command.kwargs._table}}
-| Name | Value |
-|------|-------|
-{{#items}}
-| {{name}} | {{value}} |
-{{/items}}
-{{/command.kwargs._table}}
+Collections enable logical grouping of related content for easier access through the @guide prompt.
 
-{{^command.kwargs._table}}
-{{#items}}
-- {{name}}: {{value}}
-{{/items}}
-{{/command.kwargs._table}}
-```
+## Filesystem Permissions
 
-## Command Best Practices
+mcp-guide implements built-in security controls to ensure agent instructions don't transgress security boundaries outside the project.
 
-### Design
+### Security Model
 
-- **Single purpose** - One command, one task
-- **Clear naming** - Use descriptive command names
-- **Consistent interface** - Follow common patterns
-- **Good defaults** - Work without flags when possible
+**Read permissions:**
+- Project directory: Always readable (default)
+- Additional paths: Must be explicitly allowed via `additional_read_paths` in project configuration
+- System directories: Always blocked (e.g., `/etc`, `/System`, `C:\Windows`)
 
-### Help Text
+**Write permissions:**
+- Controlled by `allowed_write_paths` in project configuration
+- Paths must be relative to project root
+- Must end with trailing slash (e.g., `src/`, `docs/`)
+- Default: Empty list (no writes allowed outside explicit configuration)
 
-- **Include examples** - Show common usage
-- **Document flags** - Explain all options
-- **Show output format** - Describe what command returns
-- **Link to docs** - Reference detailed documentation
+**Temporary files:**
+- Safe temp paths are allowed for read/write
+- System validates temp directory safety
 
-### Output
+### :perm
 
-- **User-friendly** - Format for readability
-- **Consistent** - Use consistent formatting
-- **Actionable** - Include next steps when relevant
-- **Concise** - Don't overwhelm with information
+Shows current filesystem permissions configuration for the project.
 
-## Examples
+**Usage:** `:perm`
 
-### List Categories
+**Displays:**
+- Read permissions (project directory + additional paths)
+- Write permissions (allowed write paths)
 
-```
-:list categories
-```
+### :perm/write-add
 
-Output:
+Adds a directory to the allowed write paths. Path must be relative to project root and end with `/`.
 
-```
-Available Categories:
-- guidelines: Project guidelines and standards
-- python: Python language guidelines
-- testing: Testing standards and practices
-```
+**Usage:** `:perm/write-add <path>`
 
-### Show Category Details
+**Example:** `:perm/write-add src/generated/`
 
-```
-:show python
-```
+### :perm/read-add
 
-Output:
+Adds an absolute path to additional read permissions. Path must be absolute and not a system directory.
 
-```
-# python
+**Usage:** `:perm/read-add <path>`
 
-**Description**: Python language guidelines
-**Directory**: lang/python
-**Patterns**: *.md, *.txt
-**Files**: 5 files found
-```
+**Example:** `:perm/read-add /Users/username/external-docs`
 
-### Verbose Output
+### :perm/write-del
 
-```
-:show python --verbose
-```
+Removes a directory from allowed write paths.
 
-Output includes file list and additional details.
+**Usage:** `:perm/write-del <path>`
 
-## Troubleshooting
+### :perm/read-del
 
-### Command Not Found
+Removes a path from additional read permissions.
 
-Check:
-1. Command file exists in `docroot/commands/`
-2. Filename matches command name
-3. File has `.mustache` extension
+**Usage:** `:perm/read-del <path>`
 
-### Command Not Working
+### Security Violations
 
-Verify:
-1. Template syntax is correct
-2. Context variables exist
-3. Frontmatter is valid YAML
+When an agent attempts to read or write outside permitted paths:
+1. The operation is blocked
+2. A `SecurityError` is raised
+3. The violation is logged
+4. The agent receives an error message
 
-### Help Not Showing
+This ensures that even if an agent is instructed to access restricted paths, the MCP server enforces security boundaries.
 
-Ensure:
-1. `help.mustache` exists in `docroot/commands/`
-2. Template is properly formatted
-3. Command files have descriptions
+## Workflow Commands
+
+When the `workflow` feature flag is enabled, additional `:workflow/*` commands become available. See [Workflows](workflows.md) for complete documentation.
+
+**Key workflow commands:**
+- `:workflow/show` (`:show`) - Show current workflow status
+- `:workflow/phase` (`:phase`) - Transition to a specific phase
+- `:workflow/issue` (`:issue`) - Manage current issue
+- `:workflow/check` (`:check`) - Run code quality checks
+- `:workflow/review` (`:review`) - Delegate review to guide-review agent
+
+## OpenSpec Commands
+
+When OpenSpec integration is enabled, `:openspec/*` commands provide access to spec-driven development features. See [OpenSpec Integration](openspec.md) for complete documentation.
+
+**Key OpenSpec commands:**
+- `:openspec/propose` - Create new OpenSpec change
+- `:openspec/list` - List all changes
+- `:openspec/show` - Show change details
+- `:openspec/status` - Get completion status
+- `:openspec/validate` - Validate change against schema
+
+## Command Categories
+
+Commands are organised into categories for easier discovery:
+
+**General:** `:status`, `:help`
+**Info:** `:project`, `:flags`, `:system`, `:agent`
+**Project:** `:create/category`, `:create/collection`
+**Permissions:** `:perm`, `:perm/write-add`, `:perm/read-add`, `:perm/write-del`, `:perm/read-del`
+**Workflow:** `:workflow/*` commands (when enabled)
+**OpenSpec:** `:openspec/*` commands (when enabled)
+
+Use `:help` to see all available commands in your current configuration.
+
+## Best Practices
+
+### For Users
+
+- **Start with :help** - Discover available commands before diving in
+- **Use :status regularly** - Stay aware of current project and workflow state
+- **Check :flags** - Understand which features are enabled
+- **Review :perm** - Know your filesystem boundaries
+- **Enable features deliberately** - Use feature flags to control agent behaviour
+
+### For Agents
+
+- **Respect security boundaries** - Don't attempt to bypass filesystem restrictions
+- **Use discovery commands** - Call `:help` to learn available functionality
+- **Check permissions first** - Use `:perm` before attempting file operations
+- **Follow workflow phases** - Respect phase restrictions when workflow is enabled
+- **Provide context** - Use `--verbose` flags when users need detailed information
 
 ## Next Steps
 
-- **[Content Documents](content-documents.md)** - Writing command templates
-- **[Content Management](content-management.md)** - Understanding content types
-- **[Developer Documentation](../developer/command-authoring.md)** - Advanced command authoring
-
+- **[Workflows](workflows.md)** - Structured development phase tracking
+- **[OpenSpec Integration](openspec.md)** - Spec-driven development workflow
+- **[Feature Flags](feature-flags.md)** - Configuring project and global behaviour
+- **[Content Management](content-management.md)** - Working with categories and collections
+- **[Developer Documentation](../developer/command-authoring.md)** - Creating custom commands

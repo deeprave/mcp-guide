@@ -4,7 +4,7 @@ from typing import Callable, Dict
 
 from mcp_guide.feature_flags.constants import (
     FLAG_ALLOW_CLIENT_INFO,
-    FLAG_CONTENT_FORMAT_MIME,
+    FLAG_CONTENT_FORMAT,
     FLAG_CONTENT_STYLE,
     FLAG_GUIDE_DEVELOPMENT,
 )
@@ -51,7 +51,7 @@ def validate_flag_name(name: str) -> bool:
 
 
 def validate_content_format_mime(value: FeatureValue, is_project: bool) -> bool:
-    """Validate content-format-mime flag value.
+    """Validate content-format flag value.
 
     Args:
         value: Flag value to validate
@@ -168,7 +168,7 @@ def clear_validators() -> None:
 
 
 # Register validators
-register_flag_validator(FLAG_CONTENT_FORMAT_MIME, validate_content_format_mime)
+register_flag_validator(FLAG_CONTENT_FORMAT, validate_content_format_mime)
 register_flag_validator(FLAG_CONTENT_STYLE, validate_template_styling)
 register_flag_validator(FLAG_ALLOW_CLIENT_INFO, validate_allow_client_info)
 register_flag_validator(FLAG_GUIDE_DEVELOPMENT, validate_boolean_flag)

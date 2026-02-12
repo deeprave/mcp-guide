@@ -9,7 +9,7 @@ mcp-guide is designed to work with AI agents via the Model Context Protocol (MCP
 ### Common JSON configuration
 
 This JSON block can be used with most AI CLI agents to add the MCP server.
-It requires uv., python 3.11+ to be installed, and the "uvx" command to be available on the PATH.
+It requires uv, Python 3.11+ to be installed, and the "uvx" command to be available on the PATH.
 
 **MCP client configuration (stdio):**
 
@@ -120,7 +120,7 @@ Https transport is recommdned when accessing the server from another host, howev
 
 mcp-guide provides docker compose support for containerised deployments.
 
-### `compose.yaml` supporting all three modes selected uising profiles
+### `compose.yaml` supporting all three modes selected using profiles
 
 ```yaml
 services:
