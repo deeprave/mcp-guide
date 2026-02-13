@@ -4,62 +4,62 @@ type: agent/instruction
 tags: [fastapi, python, api]
 ---
 
-# FastAPI
+{{h1}}FastAPI
 
-## Structure
+{{h2}}Structure
 - Organise by feature
 - Separate routers, schemas, services
 - Dependency injection
 - APIRouter for modularity
 
-## Type Hints
+{{h2}}Type Hints
 - Pydantic models for request/response
 - Type all parameters and returns
 - `Field` for constraints
 - Automatic validation
 
-## Async
+{{h2}}Async
 - `async def` for I/O-bound
 - Regular `def` for CPU-bound
 - Async database drivers
 - Don't mix blocking and async
 
-## Dependencies
+{{h2}}Dependencies
 - `Depends()` for reusable logic
 - Auth as dependencies
 - Database sessions via dependencies
 - Override for testing
 
-## Request/Response
+{{h2}}Request/Response
 - Pydantic for validation
 - Explicit response models
 - `status` module for codes
 - `response_model` to filter output
 
-## Error Handling
+{{h2}}Error Handling
 - `HTTPException` for API errors
 - Custom exception handlers
 - Consistent error responses
 
-## Database
+{{h2}}Database
 - Async drivers (asyncpg, motor)
 - Connection pooling
 - SQLAlchemy 2.0 async
 - Transactions for integrity
 
-## Security
+{{h2}}Security
 - OAuth2 with JWT
 - HTTPS in production
 - Rate limiting
 - CORS middleware
 
-## Performance
+{{h2}}Performance
 - Async for I/O
 - Caching
 - Background tasks for long ops
 - Gzip compression
 
-## Avoid
+{{h2}}Avoid
 - Don't use `async` unnecessarily
 - Don't ignore type hints
 - Don't return raw DB models

@@ -1,17 +1,17 @@
-# Guide URI Scheme
+{{h1}}Guide URI Scheme
 
 The `guide://` URI scheme provides MCP resource access to guide content.
 
-## URI Pattern
+{{h2}}URI Pattern
 
 ```
 guide://collection/document
 ```
 
-- **collection**: Collection or category name
-- **document**: Optional document pattern (omit for all content)
+- {{b}}collection{{b}}: Collection or category name
+- {{b}}document{{b}}: Optional document pattern (omit for all content)
 
-## Examples
+{{h2}}Examples
 
 ```
 guide://lang              # All language guidelines
@@ -21,13 +21,13 @@ guide://docs/readme       # README-related docs
 guide://_workflow          # Workflow documentation
 ```
 
-## Usage
+{{h2}}Usage
 
 Access via MCP resources protocol:
 1. Discover available patterns via `resources/list`
 2. Read content via `resources/read` with guide:// URI
 
-## Behaviour
+{{h2}}Behaviour
 
 - Maps to existing content retrieval system
 - Returns plain text/markdown content

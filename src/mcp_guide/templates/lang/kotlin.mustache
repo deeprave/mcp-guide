@@ -4,59 +4,59 @@ type: agent/instruction
 tags: [kotlin, jvm]
 ---
 
-# Kotlin
+{{h1}}Kotlin
 
-## Language
+{{h2}}Language
 - `val` by default, `var` when needed
 - Data classes for DTOs
 - Sealed classes for hierarchies
 - Extension functions for utilities
 
-## Null Safety
+{{h2}}Null Safety
 - Prefer non-nullable types
 - Safe call: `?.`
 - Elvis: `?:`
 - `let` for null checks
 - Avoid `!!`
 
-## Functions
+{{h2}}Functions
 - Single-expression when appropriate
 - Default parameters over overloads
 - Named arguments for clarity
 - Inline for higher-order functions
 
-## Collections
+{{h2}}Collections
 - Immutable by default
 - Operations: `map`, `filter`, `fold`
 - Sequences for lazy evaluation
 - Destructuring for pairs/data classes
 
-## Coroutines
+{{h2}}Coroutines
 - `suspend` for async
 - Structured concurrency
 - Handle cancellation
 - Appropriate dispatchers
 - Don't block in coroutines
 
-## Classes
+{{h2}}Classes
 - Primary constructors
 - `init` blocks for initialisation
 - Companion objects for static
 - Object declarations for singletons
 
-## Scope Functions
+{{h2}}Scope Functions
 - `let` for null checks/transformations
 - `apply` for configuration
 - `also` for side effects
 - `run` for scoped operations
 - `with` for multiple calls
 
-## Interop
+{{h2}}Interop
 - `@JvmStatic` for Java
 - `@JvmOverloads` for defaults
 - Handle platform types carefully
 
-## Avoid
+{{h2}}Avoid
 - Don't overuse `!!`
 - Don't ignore null safety
 - Don't use Java-style code

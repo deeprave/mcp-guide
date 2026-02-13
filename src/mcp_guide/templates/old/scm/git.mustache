@@ -2,50 +2,50 @@
 type: agent/information
 ---
 
-# git.md
+{{h1}}git.md
 
-# Git Best Practices & Tips
+{{h1}}Git Best Practices & Tips
 
-## Core Best Practices
+{{h2}}Core Best Practices
 
-### 1. Commit Messages
-- **Use conventional commits:** `type(scope): description`
-- **Keep first line under 50 characters**
-- **Use imperative mood:** "Add feature" not "Added feature"
-- **Include issue references:** `fix: resolve login bug (#123)`
+{{h3}}1. Commit Messages
+- {{b}}Use conventional commits:{{b}} `type(scope): description`
+- {{b}}Keep first line under 50 characters{{b}}
+- {{b}}Use imperative mood:{{b}} "Add feature" not "Added feature"
+- {{b}}Include issue references:{{b}} `fix: resolve login bug (#123)`
 
-### 2. Branch Management
-- **Use descriptive branch names:** `feature/user-authentication`, `fix/memory-leak`
-- **Keep branches focused:** One feature/fix per branch
-- **Delete merged branches:** Clean up after merging
-- **Use branch protection rules** on main/master
+{{h3}}2. Branch Management
+- {{b}}Use descriptive branch names:{{b}} `feature/user-authentication`, `fix/memory-leak`
+- {{b}}Keep branches focused:{{b}} One feature/fix per branch
+- {{b}}Delete merged branches:{{b}} Clean up after merging
+- {{b}}Use branch protection rules{{b}} on main/master
 
-### 3. Commit Hygiene
-- **Commit early and often** with logical chunks
-- **Never commit secrets** or sensitive data
-- **Use `.gitignore`** for build artifacts and IDE files
-- **Squash commits** before merging to keep history clean
+{{h3}}3. Commit Hygiene
+- {{b}}Commit early and often{{b}} with logical chunks
+- {{b}}Never commit secrets{{b}} or sensitive data
+- {{b}}Use `.gitignore`{{b}} for build artifacts and IDE files
+- {{b}}Squash commits{{b}} before merging to keep history clean
 
-### 4. Collaboration
-- **Pull before push:** Always sync with remote first
-- **Use pull requests/merge requests** for code review
-- **Rebase feature branches** to maintain linear history
-- **Tag releases** with semantic versioning
+{{h3}}4. Collaboration
+- {{b}}Pull before push:{{b}} Always sync with remote first
+- {{b}}Use pull requests/merge requests{{b}} for code review
+- {{b}}Rebase feature branches{{b}} to maintain linear history
+- {{b}}Tag releases{{b}} with semantic versioning
 
-## Specific Git Usage Instructions
-**IMPORTANT**
+{{h2}}Specific Git Usage Instructions
+{{b}}IMPORTANT{{b}}
 - As all commits are signed, do not do a git commit directly.
   Instead, prepare the commit message, and ask me to do so
-- **NEVER** `checkout` or `restore` files from git to revert recent changes that you have made. What is in git may not be up to date as other changes that have been made, and these commands also risk overwriting other files as a side-effect, destroying many hours of development work.
+- {{b}}NEVER{{b}} `checkout` or `restore` files from git to revert recent changes that you have made. What is in git may not be up to date as other changes that have been made, and these commands also risk overwriting other files as a side-effect, destroying many hours of development work.
 - When you come to a logical place where a feature or sub-feature has been completed, ask the user whether they wish to commit.
 - Before commit, all the relevant checks must be done in preparation:
   - All tests must be passing
   - All lint and type checking must be passing
   - Code has been formatted according to the required standard
 
-## Essential Commands & Tips
+{{h2}}Essential Commands & Tips
 
-### Quick Fixes
+{{h3}}Quick Fixes
 ```bash
 # Undo last commit (keep changes)
 git reset --soft HEAD~1
@@ -60,7 +60,7 @@ git reset HEAD <file>
 git checkout -- <file>
 ```
 
-### Branch Operations
+{{h3}}Branch Operations
 ```bash
 # Create and switch to new branch
 git checkout -b feature/new-feature
@@ -75,7 +75,7 @@ git branch -d feature-name
 git push origin --delete feature-name
 ```
 
-### History & Information
+{{h3}}History & Information
 ```bash
 # View commit history (one line)
 git log --oneline
@@ -90,7 +90,7 @@ git blame <file>
 git log --grep="keyword"
 ```
 
-### Stashing
+{{h3}}Stashing
 ```bash
 # Stash current changes
 git stash
@@ -105,14 +105,14 @@ git stash list
 git stash apply stash@{2}
 ```
 
-## Advanced Tips
+{{h2}}Advanced Tips
 
-### 5. Rebase vs Merge
-- **Use rebase** for feature branches to maintain clean history
-- **Use merge** for integrating completed features
-- **Never rebase shared/public branches**
+{{h3}}5. Rebase vs Merge
+- {{b}}Use rebase{{b}} for feature branches to maintain clean history
+- {{b}}Use merge{{b}} for integrating completed features
+- {{b}}Never rebase shared/public branches{{b}}
 
-### 6. Interactive Rebase
+{{h3}}6. Interactive Rebase
 ```bash
 # Clean up last 3 commits
 git rebase -i HEAD~3
@@ -121,7 +121,7 @@ git rebase -i HEAD~3
 # Use 'squash' to combine commits
 ```
 
-### 7. Cherry-picking
+{{h3}}7. Cherry-picking
 ```bash
 # Apply specific commit to current branch
 git cherry-pick <commit-hash>
@@ -130,7 +130,7 @@ git cherry-pick <commit-hash>
 git cherry-pick -n <commit-hash>
 ```
 
-### 8. Aliases for Efficiency
+{{h3}}8. Aliases for Efficiency
 ```bash
 # Set up useful aliases
 git config --global alias.st status
@@ -140,9 +140,9 @@ git config --global alias.unstage 'reset HEAD --'
 git config --global alias.last 'log -1 HEAD'
 ```
 
-## FAQ Solutions
+{{h2}}FAQ Solutions
 
-### "I committed to the wrong branch"
+{{h3}}"I committed to the wrong branch"
 ```bash
 # Move last commit to correct branch
 git checkout correct-branch
@@ -151,14 +151,14 @@ git checkout wrong-branch
 git reset --hard HEAD~1
 ```
 
-### "I need to change the last commit"
+{{h3}}"I need to change the last commit"
 ```bash
 # Add more changes to last commit
 git add .
 git commit --amend --no-edit
 ```
 
-### "I want to see what changed"
+{{h3}}"I want to see what changed"
 ```bash
 # Compare working directory to last commit
 git diff HEAD
@@ -170,7 +170,7 @@ git diff --cached
 git diff main..feature-branch
 ```
 
-### "I accidentally deleted a file"
+{{h3}}"I accidentally deleted a file"
 ```bash
 # Restore file from last commit
 git checkout HEAD -- <file>
@@ -179,9 +179,9 @@ git checkout HEAD -- <file>
 git log --oneline --follow -- <file>
 ```
 
-## Security & Cleanup
+{{h2}}Security & Cleanup
 
-### 9. Remove Sensitive Data
+{{h3}}9. Remove Sensitive Data
 ```bash
 # Remove file from entire history (use with caution)
 git filter-branch --force --index-filter \
@@ -189,7 +189,7 @@ git filter-branch --force --index-filter \
 --prune-empty --tag-name-filter cat -- --all
 ```
 
-### 10. Repository Maintenance
+{{h3}}10. Repository Maintenance
 ```bash
 # Clean up unreachable objects
 git gc --prune=now
@@ -201,9 +201,9 @@ git fsck
 git count-objects -vH
 ```
 
-## Configuration Essentials
+{{h2}}Configuration Essentials
 
-### 11. Global Setup
+{{h3}}11. Global Setup
 ```bash
 # Set identity
 git config --global user.name "Your Name"
@@ -216,8 +216,8 @@ git config --global core.editor "code --wait"
 git config --global color.ui auto
 ```
 
-### 12. Ignore Patterns
-**Common `.gitignore` entries:**
+{{h3}}12. Ignore Patterns
+{{b}}Common `.gitignore` entries:{{b}}
 ```
 # Dependencies
 node_modules/
@@ -244,4 +244,4 @@ Thumbs.db
 .env.local
 ```
 
-Remember: **Git is a tool for collaboration and history tracking. Keep commits atomic, meaningful, and your history clean.**
+Remember: {{b}}Git is a tool for collaboration and history tracking. Keep commits atomic, meaningful, and your history clean.{{b}}

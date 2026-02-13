@@ -5,27 +5,27 @@ type: agent/instruction
 tags: [design, architecture, oop, principles]
 ---
 
-# SOLID Principles
+{{h1}}SOLID Principles
 
-## S - Single Responsibility Principle
+{{h2}}S - Single Responsibility Principle
 
-**Rule**: A class should have one, and only one, reason to change.
+{{b}}Rule{{b}}: A class should have one, and only one, reason to change.
 
 - Each class has single, well-defined responsibility
 - Multiple responsibilities = multiple reasons to change
 - Changes to one responsibility shouldn't affect others
 
-## O - Open/Closed Principle
+{{h2}}O - Open/Closed Principle
 
-**Rule**: Open for extension, closed for modification.
+{{b}}Rule{{b}}: Open for extension, closed for modification.
 
 - Add new behaviour without changing existing code
 - Extend through inheritance, composition, or interfaces
 - Use strategy pattern, dependency injection, abstract classes
 
-## L - Liskov Substitution Principle
+{{h2}}L - Liskov Substitution Principle
 
-**Rule**: Subtypes must be substitutable for their base types.
+{{b}}Rule{{b}}: Subtypes must be substitutable for their base types.
 
 - Subclasses must strengthen, not weaken, contracts
 - Don't throw unexpected exceptions in subclass
@@ -33,33 +33,33 @@ tags: [design, architecture, oop, principles]
 - Don't provide weaker postconditions
 - Preserve invariants
 
-## I - Interface Segregation Principle
+{{h2}}I - Interface Segregation Principle
 
-**Rule**: Clients shouldn't depend on interfaces they don't use.
+{{b}}Rule{{b}}: Clients shouldn't depend on interfaces they don't use.
 
 - Many specific interfaces better than one general interface
 - Split large interfaces into smaller, focused ones
 - Clients depend only on methods they use
 - Reduces coupling and side effects
 
-## D - Dependency Inversion Principle
+{{h2}}D - Dependency Inversion Principle
 
-**Rule**: Depend on abstractions, not concretions.
+{{b}}Rule{{b}}: Depend on abstractions, not concretions.
 
 - High-level modules don't depend on low-level modules
 - Both depend on abstractions
 - Abstractions don't depend on details
 - Use dependency injection and program to interfaces
 
-## Architectural Impact
+{{h2}}Architectural Impact
 
-- **Modularity**: Clear boundaries between components
-- **Maintainability**: Localized, predictable changes
-- **Testability**: Small, focused classes; mockable dependencies
-- **Flexibility**: Easy extension without modification
-- **Scalability**: Independent components scale separately
+- {{b}}Modularity{{b}}: Clear boundaries between components
+- {{b}}Maintainability{{b}}: Localized, predictable changes
+- {{b}}Testability{{b}}: Small, focused classes; mockable dependencies
+- {{b}}Flexibility{{b}}: Easy extension without modification
+- {{b}}Scalability{{b}}: Independent components scale separately
 
-## Application Guidelines
+{{h2}}Application Guidelines
 
 - Apply when complexity emerges, don't over-engineer early
 - Balance principles based on context

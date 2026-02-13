@@ -3,12 +3,12 @@ type: agent/information
 description: OpenSpec spec-driven development workflow for this project
 instruction: Use this information when working with OpenSpec. Do not display to users.
 ---
-# OpenSpec Workflow
+{{h1}}OpenSpec Workflow
 {{#project.project_flags.openspec}}
 
 OpenSpec is a spec-driven development workflow that aligns humans and AI on what to build before writing code.
 
-## Directory Structure
+{{h2}}Directory Structure
 
 ```
 openspec/
@@ -22,39 +22,39 @@ openspec/
         └── specs/<component>/spec.md  # Deltas
 ```
 
-## Workflow Phases
+{{h2}}Workflow Phases
 
-### 1. Draft Proposal
+{{h3}}1. Draft Proposal
 Create `openspec/changes/<feature>/` with:
 - `proposal.md` - Must include `## Why` and `## What Changes` headers
 - `tasks.md` - Implementation checklist
 - `specs/<component>/spec.md` - Deltas (ADDED/MODIFIED/REMOVED)
 
-**Critical**: Specs must be `specs/<name>/spec.md` (directory + spec.md), not `specs/<name>.md`
+{{b}}Critical{{b}}: Specs must be `specs/<name>/spec.md` (directory + spec.md), not `specs/<name>.md`
 
-### 2. Review & Align
+{{h3}}2. Review & Align
 ```bash
 openspec list                    # View active changes
 openspec show <feature>          # Review details
 openspec validate <feature>      # Check formatting
 ```
 
-### 3. Implement
+{{h3}}3. Implement
 Work through `tasks.md`, marking items complete as you go.
 
-### 4. Check
+{{h3}}4. Check
 - Run all automated checks (tests, types, linting)
 - Request user review explicitly
 - Address feedback
-- **Require explicit user approval** before archiving
+- {{b}}Require explicit user approval{{b}} before archiving
 
-### 5. Archive
+{{h3}}5. Archive
 ```bash
 openspec archive <feature> --yes
 ```
 Merges changes to `openspec/specs/` and moves to `openspec/archive/`.
 
-## Proposal Format
+{{h2}}Proposal Format
 
 ```markdown
 # Feature Name
@@ -78,7 +78,7 @@ Implementation details
 Verification steps
 ```
 
-## Delta Format
+{{h2}}Delta Format
 
 ```markdown
 ## ADDED Requirements
@@ -98,7 +98,7 @@ The system SHALL provide capability.
 (What's being removed)
 ```
 
-## Commands
+{{h2}}Commands
 
 ```bash
 # Viewing
@@ -114,7 +114,7 @@ openspec archive <change> [--yes]
 openspec update                  # Refresh instructions
 ```
 
-## Best Practices
+{{h2}}Best Practices
 
 1. One change per feature - keep atomic
 2. Complete specs before implementation
@@ -124,15 +124,15 @@ openspec update                  # Refresh instructions
 6. Never archive without explicit user approval
 7. Archive promptly after approval
 
-## OpenSpec vs .todo
+{{h2}}OpenSpec vs .todo
 
-- **OpenSpec**: Structured features with specs, formal workflow
-- **.todo**: Quick fixes, investigations, reviews without specs
+- {{b}}OpenSpec{{b}}: Structured features with specs, formal workflow
+- {{b}}.todo{{b}}: Quick fixes, investigations, reviews without specs
 
-## Resources
+{{h2}}Resources
 
-- **Documentation**: https://openspec.dev
-- **Agent Guide**: file://openspec/AGENTS.md
+- {{b}}Documentation{{b}}: https://openspec.dev
+- {{b}}Agent Guide{{b}}: file://openspec/AGENTS.md
 
 {{/project.project_flags.openspec}}
 {{^project.project_flags.openspec}}

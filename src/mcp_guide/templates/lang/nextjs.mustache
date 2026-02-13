@@ -4,53 +4,53 @@ type: agent/instruction
 tags: [nextjs, react, ssr]
 ---
 
-# Next.js
+{{h1}}Next.js
 
-## Routing
+{{h2}}Routing
 - File-based routing in `app/` directory
 - Dynamic routes: `[param]`
 - Route groups: `(group)` for organisation
 - Implement loading and error states
 
-## Data Fetching
+{{h2}}Data Fetching
 - Server Components by default
 - Fetch where needed
 - `'use client'` only for interactivity
 - Implement error boundaries
 
-## Server Components
+{{h2}}Server Components
 - Default, no client JS
 - Direct backend access
 - Better performance and SEO
 - Can't use hooks or browser APIs
 
-## Client Components
+{{h2}}Client Components
 - Mark with `'use client'`
 - Keep small and leaf-level
 - Minimize client-side JS
 
-## Performance
+{{h2}}Performance
 - `next/image` for optimisation
 - `next/font` for fonts
 - Streaming and Suspense
 - Lazy load heavy components
 
-## Metadata
+{{h2}}Metadata
 - `metadata` export for SEO
 - `generateMetadata` for async
 - Include Open Graph tags
 
-## API Routes
+{{h2}}API Routes
 - Route Handlers in `app/api/`
 - Return `Response` objects
 - Use middleware for auth
 
-## Patterns
+{{h2}}Patterns
 - Server Actions for mutations
 - Optimistic updates
 - `revalidatePath`/`revalidateTag` for cache
 
-## Avoid
+{{h2}}Avoid
 - Don't over-use `'use client'`
 - Don't fetch in Client Components unnecessarily
 - Don't skip error/loading states

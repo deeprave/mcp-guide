@@ -5,13 +5,13 @@ type: agent/instruction
 tags: [testing, development, methodology, collaboration]
 ---
 
-# Behaviour-Driven Development (BDD)
+{{h1}}Behaviour-Driven Development (BDD)
 
-## Core Concept
+{{h2}}Core Concept
 
 Focus on system behaviour from user perspective using natural language. Extends TDD with business-readable specifications.
 
-## Given-When-Then Format
+{{h2}}Given-When-Then Format
 
 ```
 Given [initial context/preconditions]
@@ -20,7 +20,7 @@ Then [expected outcome]
 And [additional conditions]
 ```
 
-**Example**:
+{{b}}Example{{b}}:
 ```
 Given a user has items in cart
 When they proceed to checkout
@@ -28,21 +28,21 @@ Then they should see order summary
 And total should include tax
 ```
 
-## Key Principles
+{{h2}}Key Principles
 
-- **Behaviour Over Implementation**: Describe what system does, not how
-- **Concrete Examples**: Use real data, not abstractions
-- **Ubiquitous Language**: Shared vocabulary between technical and business stakeholders
-- **Outside-In**: Start with user-facing behaviour, work toward implementation
-- **Living Documentation**: Specifications stay synchronised with code
+- {{b}}Behaviour Over Implementation{{b}}: Describe what system does, not how
+- {{b}}Concrete Examples{{b}}: Use real data, not abstractions
+- {{b}}Ubiquitous Language{{b}}: Shared vocabulary between technical and business stakeholders
+- {{b}}Outside-In{{b}}: Start with user-facing behaviour, work toward implementation
+- {{b}}Living Documentation{{b}}: Specifications stay synchronised with code
 
-## BDD Process
+{{h2}}BDD Process
 
-1. **Discovery**: Explore requirements, identify rules and examples
-2. **Formulation**: Write examples in Given-When-Then format
-3. **Automation**: Turn examples into automated tests, implement behaviour
+1. {{b}}Discovery{{b}}: Explore requirements, identify rules and examples
+2. {{b}}Formulation{{b}}: Write examples in Given-When-Then format
+3. {{b}}Automation{{b}}: Turn examples into automated tests, implement behaviour
 
-## Implementation Guidelines
+{{h2}}Implementation Guidelines
 
 - Use domain language, not technical jargon
 - Make scenarios concrete and specific
@@ -51,9 +51,9 @@ And total should include tax
 - Scenarios should survive refactoring
 - Avoid testing internal implementation
 
-## BDD vs TDD
+{{h2}}BDD vs TDD
 
-- **Focus**: Business behaviour vs code correctness
-- **Language**: Domain/business vs technical
-- **Scope**: Feature level vs unit level
-- **Direction**: Outside-in vs inside-out
+- {{b}}Focus{{b}}: Business behaviour vs code correctness
+- {{b}}Language{{b}}: Domain/business vs technical
+- {{b}}Scope{{b}}: Feature level vs unit level
+- {{b}}Direction{{b}}: Outside-in vs inside-out

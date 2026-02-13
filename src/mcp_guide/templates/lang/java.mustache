@@ -4,53 +4,53 @@ type: agent/instruction
 tags: [java, jvm]
 ---
 
-# Java
+{{h1}}Java
 
-## Organisation
+{{h2}}Organisation
 - One public class per file
 - Package by feature
 - Keep classes focused
 
-## OOP
+{{h2}}OOP
 - Composition over inheritance
 - Program to interfaces
 - Immutable objects when possible
 - Override `equals()`, `hashCode()`, `toString()` consistently
 
-## Modern Features
+{{h2}}Modern Features
 - `var` for obvious types
 - Records for immutable data
 - Sealed classes for hierarchies
 - Pattern matching and switch expressions
 - Text blocks for multi-line strings
 
-## Collections
+{{h2}}Collections
 - `List.of()`, `Set.of()`, `Map.of()` for immutable
 - Streams for data processing
 - Concurrent collections for thread safety
 
-## Exceptions
+{{h2}}Exceptions
 - Checked for recoverable conditions
 - Unchecked for programming errors
 - Try-with-resources for cleanup
 - Meaningful error messages
 
-## Concurrency
+{{h2}}Concurrency
 - `java.util.concurrent` utilities
 - Immutable objects for thread safety
 - Avoid shared mutable state
 
-## Performance
+{{h2}}Performance
 - Don't optimise prematurely
 - StringBuilder in loops
 - Profile before optimising
 
-## Testing
+{{h2}}Testing
 - JUnit 5
 - AAA pattern (Arrange, Act, Assert)
 - Test edge cases
 
-## Avoid
+{{h2}}Avoid
 - Don't use raw types
 - Don't ignore warnings
 - Don't catch and swallow exceptions

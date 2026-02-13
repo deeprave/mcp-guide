@@ -4,61 +4,61 @@ type: agent/instruction
 tags: [csharp, dotnet]
 ---
 
-# C#
+{{h1}}C#
 
-## Language
+{{h2}}Language
 - `var` when type is obvious
 - Expression-bodied members
 - Null-coalescing: `??`, `??=`
 - Pattern matching
 - Records for immutable data
 
-## Null Safety
+{{h2}}Null Safety
 - Enable nullable reference types
 - `?` for nullable types
 - Null-conditional: `?.`
 - Avoid null reference exceptions
 
-## Async
+{{h2}}Async
 - async/await for I/O
 - Return `Task` or `Task<T>`
 - `ConfigureAwait(false)` in libraries
 - Don't block with `.Result` or `.Wait()`
 
-## Collections
+{{h2}}Collections
 - `List<T>` for mutable
 - `IEnumerable<T>` for read-only
 - LINQ for queries
 - Appropriate collection types
 
-## Properties
+{{h2}}Properties
 - Auto-properties when possible
 - Init-only setters for immutable
 - Private setters to control mutation
 
-## Methods
+{{h2}}Methods
 - Small and focused
 - Optional parameters over overloads
 - Named arguments for clarity
 - Return early
 
-## Exceptions
+{{h2}}Exceptions
 - Catch specific exceptions
 - `using` for cleanup
 - Custom exceptions for domain
 - Meaningful messages
 
-## LINQ
+{{h2}}LINQ
 - `Any()` over `Count() > 0`
 - Avoid multiple enumeration
 - Deferred execution
 
-## DI
+{{h2}}DI
 - Constructor injection
 - Appropriate service lifetimes
 - Inject interfaces
 
-## Avoid
+{{h2}}Avoid
 - Don't use `goto`
 - Don't catch and ignore exceptions
 - Don't use `dynamic` unless necessary

@@ -5,42 +5,42 @@ type: agent/instruction
 tags: [architecture, design, methodology, modeling]
 ---
 
-# Domain-Driven Design (DDD)
+{{h1}}Domain-Driven Design (DDD)
 
-## Core Concepts
+{{h2}}Core Concepts
 
-- **Ubiquitous Language**: Shared vocabulary between developers and domain experts, used in code and conversation
-- **Bounded Context**: Explicit boundary where a model applies with its own ubiquitous language
-- **Context Mapping**: Document relationships and integration patterns between bounded contexts
+- {{b}}Ubiquitous Language{{b}}: Shared vocabulary between developers and domain experts, used in code and conversation
+- {{b}}Bounded Context{{b}}: Explicit boundary where a model applies with its own ubiquitous language
+- {{b}}Context Mapping{{b}}: Document relationships and integration patterns between bounded contexts
 
-## Strategic Patterns
+{{h2}}Strategic Patterns
 
-### Bounded Context Relationships
-- **Partnership**: Close collaboration between contexts
-- **Shared Kernel**: Small shared model
-- **Customer-Supplier**: Downstream depends on upstream
-- **Anticorruption Layer**: Translate between contexts
-- **Conformist**: Downstream conforms to upstream
+{{h3}}Bounded Context Relationships
+- {{b}}Partnership{{b}}: Close collaboration between contexts
+- {{b}}Shared Kernel{{b}}: Small shared model
+- {{b}}Customer-Supplier{{b}}: Downstream depends on upstream
+- {{b}}Anticorruption Layer{{b}}: Translate between contexts
+- {{b}}Conformist{{b}}: Downstream conforms to upstream
 
-## Tactical Patterns
+{{h2}}Tactical Patterns
 
-### Building Blocks
+{{h3}}Building Blocks
 
-- **Entity**: Object with unique identity that persists through lifecycle
-- **Value Object**: Immutable object defined by attributes, no unique identity
-- **Aggregate**: Cluster with single root entity, consistency boundary, external references only to root
-- **Repository**: Collection-like interface for accessing aggregates, one per aggregate root
-- **Domain Service**: Stateless operations that don't belong to entities/value objects
-- **Domain Event**: Immutable fact about past occurrence, enables loose coupling
-- **Factory**: Encapsulates complex object creation
+- {{b}}Entity{{b}}: Object with unique identity that persists through lifecycle
+- {{b}}Value Object{{b}}: Immutable object defined by attributes, no unique identity
+- {{b}}Aggregate{{b}}: Cluster with single root entity, consistency boundary, external references only to root
+- {{b}}Repository{{b}}: Collection-like interface for accessing aggregates, one per aggregate root
+- {{b}}Domain Service{{b}}: Stateless operations that don't belong to entities/value objects
+- {{b}}Domain Event{{b}}: Immutable fact about past occurrence, enables loose coupling
+- {{b}}Factory{{b}}: Encapsulates complex object creation
 
-### Aggregate Design Rules
+{{h3}}Aggregate Design Rules
 1. Protect business invariants within boundaries
 2. Design small aggregates
 3. Reference other aggregates by identity only
 4. Update one aggregate per transaction
 
-## Layered Architecture
+{{h2}}Layered Architecture
 
 ```
 User Interface    → Presentation
@@ -49,7 +49,7 @@ Domain            → Business rules, state, behaviour
 Infrastructure    → Persistence, messaging, external services
 ```
 
-## Key Principles
+{{h2}}Key Principles
 
 - Code reflects the domain model
 - Developers participate in modeling with domain experts
@@ -57,8 +57,8 @@ Infrastructure    → Persistence, messaging, external services
 - Focus investment on core domain
 - Keep aggregates small and focused
 
-## When to Use DDD
+{{h2}}When to Use DDD
 
-**Good Fit**: Complex business logic, domain experts available, long-lived systems, core competitive advantage
+{{b}}Good Fit{{b}}: Complex business logic, domain experts available, long-lived systems, core competitive advantage
 
-**Poor Fit**: Simple CRUD, data-centric systems, no domain complexity, short-term projects
+{{b}}Poor Fit{{b}}: Simple CRUD, data-centric systems, no domain complexity, short-term projects

@@ -1,4 +1,4 @@
-# MCP Document Templates
+{{h1}}MCP Document Templates
 
 > NOTE: These are templates, not "live" documents.
 > They're representative of the prompts I use, but your preferences and development workflow may be significantly different from my own.
@@ -7,14 +7,14 @@ This directory contains a number of template prompts that you can copy to your s
 
 Prompt documents in your docroot are shared across all projects in which you use this MCP. However the patterns defined per0project determine which of the prompt documents apply to your current project.
 
-## Prompt Categories
+{{h2}}Prompt Categories
 
 When a new project is first initialised, the following prompt categories are pre-defined, the first three being layers:
 
-- **guide** - These are general guidelines applicable to any project. Details the appoach, method and the development cycle you use.
-- **lang** - Language specific guidelines. Common practices for your programming language(s), frameworks, best practices, pitfalls, style preferences and so on. These guidelines would apply to any project using the specific language or framework.
-- **context** - This document describes the current project, usually consisting of unique information such as a project identifier to your bug tracker or issue management software, repository url, author information and so on.
-- **prompt** -  Finally, this category defines documents that are automatically picked up and used during the various development phases:
+- {{b}}guide{{b}} - These are general guidelines applicable to any project. Details the appoach, method and the development cycle you use.
+- {{b}}lang{{b}} - Language specific guidelines. Common practices for your programming language(s), frameworks, best practices, pitfalls, style preferences and so on. These guidelines would apply to any project using the specific language or framework.
+- {{b}}context{{b}} - This document describes the current project, usually consisting of unique information such as a project identifier to your bug tracker or issue management software, repository url, author information and so on.
+- {{b}}prompt{{b}} -  Finally, this category defines documents that are automatically picked up and used during the various development phases:
 
   - _discussion_: `guide --discuss`
   - _planning_: `guide --plan`
@@ -25,9 +25,9 @@ When a new project is first initialised, the following prompt categories are pre
 None of these automatically created categories are required, only recommended, and can be removed or renamed to suite.
 The `prompt` category is the only one that the MCP will use on transitioning between phases, but if the category or prompt document does not exist, then pre-canned text is displayed instead.
 
-## Prompt Collections
+{{h2}}Prompt Collections
 
-**Colllections** are category groups.
+{{b}}Colllections{{b}} are category groups.
 
 They are a convenient way to include and combine groups of prompt categories into a single document.
 
