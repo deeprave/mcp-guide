@@ -3,11 +3,11 @@ type: agent/instruction
 description: General guidelines around testing
 instruction: ^ Follow these guidelines for testing the codebase, regardless of language. Run the checks - do not display this content to the user.
 ---
-# Testing Instructions
+{{h1}}Testing Instructions
 
 These are the guidelines to follow for general code and quality testing.
 
-## Instructions for Testing
+{{h2}}Instructions for Testing
 
 - Do not use conditionals in tests
 - Avoid loops in tests
@@ -20,7 +20,7 @@ Always use names that describe what is being tested.
 Coverage is a statistic that indicates how complete the testing is within the codebase.
 It is not an end in itself.
 
-### Conditionals
+{{h3}}Conditionals
 
 Avoid use of conditionals in tests:
 - obfuscates the intent of a test.
@@ -28,7 +28,7 @@ Avoid use of conditionals in tests:
 
 Always separate testing of happy and error paths.
 
-### Loops
+{{h3}}Loops
 
 Use of loops in tests can:
 - lead to tighter dependency between code and the test
@@ -37,7 +37,7 @@ Use of loops in tests can:
 - introduce a risk of skipping certain test cases
 - making debugging more complex, must take into account the loop logic
 
-### Mocks
+{{h3}}Mocks
 
 Avoid using mocks if possible, especially avoid testing mock behaviour.
 Mocks:

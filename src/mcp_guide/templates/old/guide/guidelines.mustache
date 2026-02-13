@@ -2,56 +2,56 @@
 type: agent/information
 ---
 
-# Development guidelines & instructions
+{{h1}}Development guidelines & instructions
 
 These instructions must be followed during the iterative development cycle.
 
-**Method:** TDD (Red-Green-Refactor) with agile planning
-**Language:** AU/UK English in all code, comments, and documentation
+{{b}}Method:{{b}} TDD (Red-Green-Refactor) with agile planning
+{{b}}Language:{{b}} AU/UK English in all code, comments, and documentation
 
-## Development Process
+{{h2}}Development Process
 
-### Requirements & Planning
+{{h3}}Requirements & Planning
 - Gather requirements and create comprehensive step-by-step implementation plan.
   Use a `requirements` agent do do this, if you have one.
 - Break work into smallest possible tasks/subtasks
 - Always use task checklists
-- Identify unknowns - **ASK QUESTIONS** DO NOT make assumptions
+- Identify unknowns - {{b}}ASK QUESTIONS{{b}} DO NOT make assumptions
 - Never make architecturally significant decisions - ASK THE USER FOR GUIDANCE.
 
-### Implementation
+{{h3}}Implementation
 
-**🚨 MANDATORY USER CONSENT REQUIREMENT:**
+{{b}}🚨 MANDATORY USER CONSENT REQUIREMENT:{{b}}
 1. Create detailed implementation plan
-2. **EXPLICITLY REQUEST** user review and confirmation
-3. **WAIT FOR EXPLICIT CONSENT** before making ANY changes to the project
-4. **NEVER BYPASS THIS STEP - NO EXCEPTIONS**
+2. {{b}}EXPLICITLY REQUEST{{b}} user review and confirmation
+3. {{b}}WAIT FOR EXPLICIT CONSENT{{b}} before making ANY changes to the project
+4. {{b}}NEVER BYPASS THIS STEP - NO EXCEPTIONS{{b}}
 
-**Core Principles:**
-- **TDD MANDATORY:** Always write a failing test before implementation
+{{b}}Core Principles:{{b}}
+- {{b}}TDD MANDATORY:{{b}} Always write a failing test before implementation
   There are rare exceptions: refactoring existing features, fixing tests, research
-- Follow **SOLID principles**, use clean and well encapsulated architecture
+- Follow {{b}}SOLID principles{{b}}, use clean and well encapsulated architecture
 - Use consistent naming conventions and code style
   Always follow the existing code style.
 - Write self-documenting code.
   Minimise comments exceptL API docs, IDE bookmarks, complex logic or algorithms/
 
-### Iterative Development
+{{h3}}Iterative Development
 
-**Pre-Check**
+{{b}}Pre-Check{{b}}
 - Run complete test suite first (ensure that all tests pass)
 
-**Discussion**
+{{b}}Discussion{{b}}
 - The user will provide a story about the current iteration.
 - Provide your analysis, do your research via web_search and the codebase
 - Raise concerns, request clarity, present options. This is IMPORTANT.
 - Ensure that you understand the user's request completely.
 
-**Planning**
+{{b}}Planning{{b}}
 - Create the implementation plan breaking the work down into small steps
 - Ensure the plan contains a checklist that can be updated during development
 
-**Implementation**
+{{b}}Implementation{{b}}
 - Implement step-by-step per the plan, following a TDD workflow
     - Create a failing test that embodies expected behaviour
     - Mark changes to production code, just enough to make the tests pass
@@ -62,14 +62,14 @@ These instructions must be followed during the iterative development cycle.
     - Check each item in the plan as each phase is completed
     - Simplify your code, ensure tests still pass
 
-**Check**
+{{b}}Check{{b}}
 - Run all tests to ensure that tests pass
 - Add integration tests as required
-    - **100% test pass rate required**
+    - {{b}}100% test pass rate required{{b}}
     - fix ALL failing tests, no warnings, no side-effects
 - Maintain required coverage threshold, but not artificially
 
-### Definition of Done
+{{h3}}Definition of Done
 - At the completion of each phase or cycle (user's preference) ensure that:
    - All tests pass, no exceptions, no excuses
    - Resolve all linting and type checking issues.
@@ -78,8 +78,8 @@ These instructions must be followed during the iterative development cycle.
      This may involve using a language specific formatting tool.
    - Ensure that any text file created or edited has a terminating newline
 
-### Version Control
-- **NEVER** do any of the following git operations:
+{{h3}}Version Control
+- {{b}}NEVER{{b}} do any of the following git operations:
   - `git add` or `git push` (without explicit request)
     The user must manage the composition of a commit
   - `git commit`
@@ -92,5 +92,5 @@ These instructions must be followed during the iterative development cycle.
   - On request, generate a concise commit messages the describes functional changes in the git commit cache.
     Include issue references for tracker association
 
-## Confirmation Required
+{{h2}}Confirmation Required
 You must confirm your understanding of guidelines before proceeding.

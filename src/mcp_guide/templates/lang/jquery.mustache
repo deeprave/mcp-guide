@@ -4,38 +4,38 @@ type: agent/instruction
 tags: [jquery, legacy]
 ---
 
-# jQuery
+{{h1}}jQuery
 
-## Modern Context
+{{h2}}Modern Context
 - Primarily for legacy maintenance
 - Consider vanilla JS or modern frameworks
 
-## Selectors
+{{h2}}Selectors
 - Cache jQuery objects
 - Use specific selectors
 - Use `find()` on cached objects
 
-## Performance
+{{h2}}Performance
 - Batch DOM updates
 - Use event delegation
 - Chain methods
 
-## Events
+{{h2}}Events
 - Use `.on()` for binding
 - Event delegation for dynamic content
 - Unbind when removing elements
 
-## AJAX
+{{h2}}AJAX
 - Use promises (`.done()`, `.fail()`)
 - Handle errors
 - Consider `fetch` API instead
 
-## DOM
+{{h2}}DOM
 - Use `.text()` for user content (XSS safety)
 - Build HTML outside loops
 - Detach before heavy manipulation
 
-## Avoid
+{{h2}}Avoid
 - Don't query DOM repeatedly
 - Don't use deprecated methods (`.live()`, `.bind()`)
 - Don't ignore memory leaks

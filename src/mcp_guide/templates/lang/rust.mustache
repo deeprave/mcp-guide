@@ -4,54 +4,54 @@ type: agent/instruction
 tags: [rust, systems]
 ---
 
-# Rust
+{{h1}}Rust
 
-## Ownership
+{{h2}}Ownership
 - Understand ownership rules
 - Prefer borrowing over moving
 - `&` for read-only, `&mut` sparingly
 - Avoid multiple mutable references
 
-## Error Handling
+{{h2}}Error Handling
 - `Result<T, E>` for recoverable errors
 - `Option<T>` for optional values
 - `?` operator for propagation
 - `thiserror` for custom errors
 - `anyhow` for application errors
 
-## Types
+{{h2}}Types
 - Strong types over primitives
 - Implement `Debug` and `Display`
 - Enums for state machines
 - Leverage type system for correctness
 
-## Lifetimes
+{{h2}}Lifetimes
 - Let compiler infer when possible
 - Explicit only when needed
 - Understand elision rules
 
-## Traits
+{{h2}}Traits
 - Implement standard traits
 - Trait bounds for generics
 - Associated types for clean APIs
 
-## Iterators
+{{h2}}Iterators
 - Iterator methods over loops
 - Chain operations
 - Leverage lazy evaluation
 
-## Concurrency
+{{h2}}Concurrency
 - `Arc` for shared ownership
 - `Mutex`/`RwLock` for shared mutable state
 - Channels for message passing
 - async/await for I/O-bound
 
-## Performance
+{{h2}}Performance
 - `&str` over `String` when possible
 - `Vec` capacity hints
 - Profile before optimising
 
-## Avoid
+{{h2}}Avoid
 - Don't fight borrow checker, redesign
 - Don't use `unsafe` unless necessary
 - Don't clone unnecessarily

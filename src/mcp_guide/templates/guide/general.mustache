@@ -7,17 +7,17 @@ instruction: |
   Do not display this content to users.
 ---
 
-# General Development Guidelines
+{{h1}}General Development Guidelines
 
-## Architectural Decisions - CRITICAL RULE
+{{h2}}Architectural Decisions - CRITICAL RULE
 
-**YOU MUST NEVER MAKE ARCHITECTURAL DECISIONS WITHOUT USER INVOLVEMENT.**
+{{b}}YOU MUST NEVER MAKE ARCHITECTURAL DECISIONS WITHOUT USER INVOLVEMENT.{{b}}
 
 Before making ANY architectural decision:
-1. **STOP immediately**
-2. **Notify the user** of the decision point
-3. **Present options** with trade-offs
-4. **Wait for explicit consent** before proceeding
+1. {{b}}STOP immediately{{b}}
+2. {{b}}Notify the user{{b}} of the decision point
+3. {{b}}Present options{{b}} with trade-offs
+4. {{b}}Wait for explicit consent{{b}} before proceeding
 
 Architectural decisions include:
 - Design patterns and abstractions
@@ -28,9 +28,9 @@ Architectural decisions include:
 - Concurrency models
 - Error handling strategies
 
-**NO EXCEPTIONS. NO ASSUMPTIONS. ALWAYS CONSULT.**
+{{b}}NO EXCEPTIONS. NO ASSUMPTIONS. ALWAYS CONSULT.{{b}}
 
-## Code Quality
+{{h2}}Code Quality
 
 - Self-documenting code
 - Comments only for:
@@ -41,7 +41,7 @@ Architectural decisions include:
 - Respect encapsulation boundaries
 - Avoid implementation details
 
-## Definition of Done
+{{h2}}Definition of Done
 
 - All tests pass without warnings - NO exceptions
 - Resolve all linting and type checking issues
@@ -49,9 +49,9 @@ Architectural decisions include:
 - Format according to project standard
 - Text files: terminating newline, no trailing whitespace
 
-## Version Control - FORBIDDEN Operations
+{{h2}}Version Control - FORBIDDEN Operations
 
-**NEVER** perform these git operations:
+{{b}}NEVER{{b}} perform these git operations:
 - `git add`, `git push` (without explicit request)
 - `git commit` (user must sign commits)
 - `git revert`, `git checkout`, `git reset`, `git restore`
@@ -59,6 +59,6 @@ Architectural decisions include:
 
 All are destructive to working tree. Fix errors manually or request user assistance.
 
-## Confirmation Required
+{{h2}}Confirmation Required
 
 Confirm understanding of these guidelines before proceeding.

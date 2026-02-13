@@ -4,48 +4,48 @@ type: agent/instruction
 tags: [groovy, jvm]
 ---
 
-# Groovy
+{{h1}}Groovy
 
-## Language
+{{h2}}Language
 - Optional typing for clarity
 - Closures for functional programming
 - GStrings for interpolation
 - Safe navigation: `?.`
 - Elvis operator: `?:`
 
-## Collections
+{{h2}}Collections
 - Literals: `[1, 2, 3]`, `[key: value]`
 - Methods: `each`, `collect`, `find`, `findAll`
 - Chain operations
 - Spread operator: `*`
 
-## Closures
+{{h2}}Closures
 - `it` for single parameter
 - Name parameters for multiple
 - Understand scope and delegation
 
-## Metaprogramming
+{{h2}}Metaprogramming
 - Use judiciously
 - `methodMissing`/`propertyMissing` carefully
 - Document behaviour
 - Test thoroughly
 
-## Gradle
+{{h2}}Gradle
 - Groovy DSL for builds
 - Use plugins
 - buildSrc for shared logic
 
-## Testing
+{{h2}}Testing
 - Spock for expressive tests
 - Data-driven with `where:` blocks
 - Keep readable
 
-## Performance
+{{h2}}Performance
 - `@CompileStatic` for critical code
 - Avoid excessive metaprogramming in hot paths
 - Profile before optimising
 
-## Avoid
+{{h2}}Avoid
 - Don't overuse dynamic features
 - Don't ignore type safety when it matters
 - Don't abuse metaprogramming

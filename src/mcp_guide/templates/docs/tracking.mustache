@@ -4,9 +4,9 @@ requires-workflow: true
 description: Workflow phase tracking policy
 instruction: Follow this policy exactly. If {{workflow.file}} missing, create it and enter discussion phase.
 ---
-# Workflow Phases and Tracking
+{{h1}}Workflow Phases and Tracking
 
-## File Format
+{{h2}}File Format
 Development phases are tracked in {{workflow.file}}
 ```yaml
 phase: [{{#workflow.phases}}{{value}}{{^last}}|{{/last}}{{/workflow.phases}}]
@@ -17,60 +17,60 @@ queue:
   - <queued-issues>
 ```
 
-## Core Rules
+{{h2}}Core Rules
 - Missing `.guide.yaml` = assume `phase: discussion`
 - Missing issue = request from user
 - Phase changes MUST update file
 - Issue format: openspec ID or relative path
 
-## MCP Communication Protocol
-**CRITICAL**: After ANY change to `{{workflow.file}}`:
+{{h2}}MCP Communication Protocol
+{{b}}CRITICAL{{b}}: After ANY change to `{{workflow.file}}`:
 1. Update the file with the new content
-2. **IMMEDIATELY** call `send_file_content` with the complete updated content
+2. {{b}}IMMEDIATELY{{b}} call `send_file_content` with the complete updated content
 3. The MCP cannot detect file changes automatically - you MUST notify it on every change
 4. On phase transitions the MCP will respond with phase-specific instructions and restrictions
 5. Never assume the MCP knows about file changes unless you explicitly send them
 
-## Phase Transitions
+{{h2}}Phase Transitions
 
 {{#workflow.discussion}}
-### Discussion Phase
+{{h3}}Discussion Phase
 - Default when no `{{workflow.file}}` exists - discussion mode
 - Can modify: `{{workflow.file}}`, `openspec/`, `.todo/`
 - Cannot modify: production code, tests
 {{#workflow.consent.discussion.exit}}
-- **EXPLICIT CONSENT OR REQUEST REQUIRED** before transition from discussion phase.
+- {{b}}EXPLICIT CONSENT OR REQUEST REQUIRED{{b}} before transition from discussion phase.
 {{/workflow.consent.discussion.exit}}
 {{/workflow.discussion}}
 
 {{#workflow.planning}}
-### Planning Phase
+{{h3}}Planning Phase
 {{#workflow.consent.planning.entry}}
-- **EXPLICIT CONSENT OR REQUEST REQUIRED** before entering planning phase.
+- {{b}}EXPLICIT CONSENT OR REQUEST REQUIRED{{b}} before entering planning phase.
 {{/workflow.consent.planning.entry}}
 - Auto-transition when plan drafted
 - Can modify: `{{workflow.file}}`, `openspec/`, `.todo/`
 - Cannot modify: production code, tests
 {{#workflow.consent.planning.exit}}
-- **EXPLICIT CONSENT OR REQUEST REQUIRED** before transition from planning phase.
+- {{b}}EXPLICIT CONSENT OR REQUEST REQUIRED{{b}} before transition from planning phase.
 {{/workflow.consent.planning.exit}}
 {{/workflow.planning}}
 
 {{#workflow.implementation}}
-### Implementation Phase
+{{h3}}Implementation Phase
 {{#workflow.consent.implementation.entry}}
-- **EXPLICIT CONSENT OR REQUEST REQUIRED** before entering implementation phase.
+- {{b}}EXPLICIT CONSENT OR REQUEST REQUIRED{{b}} before entering implementation phase.
 {{/workflow.consent.implementation.entry}}
 - Can modify: all files including production code, tests
 {{#workflow.consent.implementation.exit}}
-- **EXPLICIT CONSENT OR REQUEST REQUIRED** before transition from implementation phase.
+- {{b}}EXPLICIT CONSENT OR REQUEST REQUIRED{{b}} before transition from implementation phase.
 {{/workflow.consent.implementation.exit}}
 {{/workflow.implementation}}
 
 {{#workflow.check}}
-### Check Phase
+{{h3}}Check Phase
 {{#workflow.consent.check.entry}}
-- **EXPLICIT CONSENT OR REQUEST REQUIRED** before entering check phase.
+- {{b}}EXPLICIT CONSENT OR REQUEST REQUIRED{{b}} before entering check phase.
 {{/workflow.consent.check.entry}}
 {{^workflow.consent.check.entry}}
 - Auto-transition when implementation complete
@@ -78,25 +78,25 @@ queue:
 - Run all tests and code quality checks across ALL files
 - Can modify: all files
 {{#workflow.consent.check.exit}}
-- **EXPLICIT CONSENT OR REQUEST REQUIRED** before transition from check phase.
+- {{b}}EXPLICIT CONSENT OR REQUEST REQUIRED{{b}} before transition from check phase.
 {{/workflow.consent.check.exit}}
 {{/workflow.check}}
 
 {{#workflow.review}}
-### Review Phase
+{{h3}}Review Phase
 {{#workflow.consent.review.entry}}
-- **EXPLICIT CONSENT OR REQUEST REQUIRED** before entering review phase.
+- {{b}}EXPLICIT CONSENT OR REQUEST REQUIRED{{b}} before entering review phase.
 {{/workflow.consent.review.entry}}
 {{^workflow.consent.review.entry}}
 - Auto-transition when all tests and code quality checks pass.
 {{/workflow.consent.review.entry}}
 - Feedback and final review stage
 {{#workflow.consent.review.exit}}
-- **EXPLICIT CONSENT OR REQUEST REQUIRED** before transition from review phase.
+- {{b}}EXPLICIT CONSENT OR REQUEST REQUIRED{{b}} before transition from review phase.
 {{/workflow.consent.review.exit}}
 {{/workflow.review}}
 
-## Queue Management
+{{h2}}Queue Management
 - On transition to discussion phase confirm that the current issue can be marked completed.
   - YES: remove issue, and fetch top issue from queue (if one exists)
   - NO: retain issue

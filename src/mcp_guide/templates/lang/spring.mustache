@@ -4,67 +4,67 @@ type: agent/instruction
 tags: [spring, java, di]
 ---
 
-# Spring
+{{h1}}Spring
 
-## Dependency Injection
+{{h2}}Dependency Injection
 - Constructor injection over field
 - Inject interfaces, not implementations
 - Avoid circular dependencies
 - `@Qualifier` for disambiguation
 
-## Configuration
+{{h2}}Configuration
 - Java-based config over XML
 - `@Configuration` classes
 - Externalize with `application.properties`
 - Profiles for environments
 - `@ConfigurationProperties` for properties
 
-## Components
+{{h2}}Components
 - Stereotypes: `@Service`, `@Repository`, `@Controller`
 - Keep focused and single-purpose
 - No business logic in controllers
 - DTOs for API boundaries
 
-## Spring Boot
+{{h2}}Spring Boot
 - Use starters
 - Leverage auto-configuration
 - Actuator for monitoring
 - Convention over configuration
 
-## Data Access
+{{h2}}Data Access
 - Spring Data JPA
 - Repository interfaces
 - Query methods or `@Query`
 - Pagination for large datasets
 - `@Transactional` appropriately
 
-## REST APIs
+{{h2}}REST APIs
 - `@RestController` for endpoints
 - `ResponseEntity` for control
 - Proper HTTP methods/status codes
 - `@ControllerAdvice` for exceptions
 
-## Testing
+{{h2}}Testing
 - `@SpringBootTest` for integration
 - `@WebMvcTest` for controllers
 - `@DataJpaTest` for repositories
 - `@MockBean` for mocking
 - Test slices for speed
 
-## Security
+{{h2}}Security
 - Spring Security for auth
 - Password encoding
 - `@PreAuthorise` for method security
 - CSRF protection
 - HTTPS in production
 
-## Performance
+{{h2}}Performance
 - `@Cacheable` for caching
 - Connection pooling
 - `@Async` for async processing
 - Monitor with Actuator
 
-## Avoid
+{{h2}}Avoid
 - Don't use field injection in production
 - Don't ignore transaction boundaries
 - Don't put logic in controllers

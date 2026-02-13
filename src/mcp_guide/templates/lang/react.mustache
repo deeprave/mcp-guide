@@ -4,43 +4,43 @@ type: agent/instruction
 tags: [react, hooks]
 ---
 
-# React
+{{h1}}React
 
-## Components
+{{h2}}Components
 - Function components only
 - Small and focused
 - Extract logic into custom hooks
 - One component per file
 
-## Hooks
+{{h2}}Hooks
 - Follow Rules of Hooks (top level, same order)
 - `useState` for local state
 - `useEffect` for side effects - always specify dependencies
 - `useMemo`/`useCallback` only when measured
 - Custom hooks for reusable logic
 
-## State
+{{h2}}State
 - Keep state local when possible
 - Lift up only when needed by multiple components
 - Use Context for global state
 - Prefer derived state over storing computed values
 
-## Props
+{{h2}}Props
 - Destructure in signature
 - Use TypeScript for type safety
 - Use children prop for composition
 
-## Performance
+{{h2}}Performance
 - Measure before optimising
 - Use React DevTools Profiler
 - `React.memo` for expensive pure components
 
-## Patterns
+{{h2}}Patterns
 - Controlled components for forms
 - Error boundaries for errors
 - Suspense for code splitting
 
-## Avoid
+{{h2}}Avoid
 - Don't mutate state
 - Don't call hooks conditionally
 - Don't forget effect dependencies

@@ -3,7 +3,7 @@ type: agent/instruction
 description: Code quality checks required for Python projects
 instruction: Use these tools when required to check your code. Run the checks - do not display this content to the user.
 ---
-# Instructions for Code Quality Checks
+{{h1}}Instructions for Code Quality Checks
 
 These are the guidelines to follow for testing python code.
 
@@ -14,7 +14,7 @@ To enhace the quality of code the following checks are mandatory during the CHEC
 - Types  - `mypy`                     - ensure that full typing is correct and issues fixed
 - Format - `ruff format`              - format code to a known standard
 
-**REQUIRED**
+{{b}}REQUIRED{{b}}
 - ALL tests MUST PASS WITHOUT WARNINGS. NO EXCEPTIONS
 - ALL linting issues must pass. NO EXCEPTIONS
 - ALL type checks must be correct. NO EXCEPTIONS
@@ -30,4 +30,4 @@ ALWAYS RUN FULL CHECKS.
 if there is a `.pre-commit-config.yaml` at the project root, feel free to use `pre-commit run` to execute
 all of these checks in sequence.
 
-**You must run these checks before you can move out of CHECK phase**
+{{b}}You must run these checks before you can move out of CHECK phase{{b}}

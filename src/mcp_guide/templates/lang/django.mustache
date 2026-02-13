@@ -4,60 +4,60 @@ type: agent/instruction
 tags: [django, python, orm]
 ---
 
-# Django
+{{h1}}Django
 
-## Structure
+{{h2}}Structure
 - Apps for modular functionality
 - `settings/` for environment configs
 - Services layer for complex logic
 
-## Models
+{{h2}}Models
 - Meaningful names
 - `__str__` method
 - `select_related`/`prefetch_related` to avoid N+1
 - Custom managers for common queries
 
-## Views
+{{h2}}Views
 - Class-based views for patterns
 - Keep thin, logic in models/services
 - Mixins for reusable behaviour
 - Proper HTTP status codes
 
-## URLs
+{{h2}}URLs
 - Meaningful patterns
 - Name all patterns
 - Namespaces for apps
 - RESTful design
 
-## Forms
+{{h2}}Forms
 - ModelForms when possible
 - Validate in `clean_*` methods
 - Handle errors properly
 
-## Templates
+{{h2}}Templates
 - Template inheritance
 - Minimal logic
 - `{% static %}` for static files
 
-## ORM
+{{h2}}ORM
 - `get_object_or_404` for single objects
 - `Q` objects for complex queries
 - `F` expressions for DB operations
 - Transactions for integrity
 
-## Security
+{{h2}}Security
 - Never disable CSRF
 - Django auth system
 - Validate all input
 - Keep `SECRET_KEY` secret
 
-## Performance
+{{h2}}Performance
 - Database indexes
 - Cache expensive operations
 - Pagination for large querysets
 - Django Debug Toolbar
 
-## Avoid
+{{h2}}Avoid
 - Don't put logic in templates
 - Don't use `objects.all()` without filtering
 - Don't ignore indexes

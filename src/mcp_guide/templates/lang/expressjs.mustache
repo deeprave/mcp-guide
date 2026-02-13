@@ -4,52 +4,52 @@ type: agent/instruction
 tags: [expressjs, nodejs, api]
 ---
 
-# Express.js
+{{h1}}Express.js
 
-## Structure
+{{h2}}Structure
 - Separate routes, controllers, logic
 - Use routers for modularity
 - Organise by feature
 - Environment-based config
 
-## Middleware
+{{h2}}Middleware
 - Order matters
 - Use `next()` to pass control
 - Error middleware: 4 parameters
 - `express.json()` for parsing
 - Log requests early
 
-## Error Handling
+{{h2}}Error Handling
 - Async error middleware
 - Try/catch or wrapper for async
 - Custom error classes
 - Consistent error responses
 
-## Security
+{{h2}}Security
 - Use helmet
 - Rate limiting
 - Validate/sanitize input
 - CORS appropriately
 - No stack traces in production
 
-## Routing
+{{h2}}Routing
 - Correct HTTP methods
 - Version API: `/api/v1/`
 - Proper status codes
 - `express.Router()` for grouping
 
-## Async
+{{h2}}Async
 - async/await with error handling
 - Wrap async handlers
 - Avoid callback hell
 
-## Performance
+{{h2}}Performance
 - Gzip compression
 - Caching
 - Connection pooling
 - Clustering for multi-core
 
-## Avoid
+{{h2}}Avoid
 - Don't block event loop
 - Don't use sync functions in routes
 - Don't ignore errors

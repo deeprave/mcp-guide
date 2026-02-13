@@ -5,27 +5,27 @@ type: agent/instruction
 tags: [design, principles, simplicity, agile]
 ---
 
-# YAGNI - You Aren't Gonna Need It
+{{h1}}YAGNI - You Aren't Gonna Need It
 
-## Core Rule
+{{h2}}Core Rule
 
-**Don't implement something until you have a concrete, immediate need for it.**
+{{b}}Don't implement something until you have a concrete, immediate need for it.{{b}}
 
-## Key Principles
+{{h2}}Key Principles
 
 - Implement features when required, not in anticipation
 - Avoid speculative generality
 - Don't build infrastructure for hypothetical use cases
 - Focus on current requirements only
 
-## What YAGNI Doesn't Mean
+{{h2}}What YAGNI Doesn't Mean
 
 - Skip good design practices
 - Avoid refactoring
 - Write unmaintainable code
 - Ignore obvious patterns
 
-## Cost of Premature Features
+{{h2}}Cost of Premature Features
 
 - Development time on unused features
 - Increased complexity and maintenance burden
@@ -33,7 +33,7 @@ tags: [design, principles, simplicity, agile]
 - Opportunity cost of not working on actual requirements
 - Future predictions are often wrong
 
-## Decision Framework
+{{h2}}Decision Framework
 
 Ask before implementing:
 1. Is this needed now? (If no, don't build it)
@@ -41,7 +41,7 @@ Ask before implementing:
 3. Will it be harder to add later? (Usually no)
 4. Am I speculating about the future? (If yes, stop)
 
-## Red Flags
+{{h2}}Red Flags
 
 Phrases indicating YAGNI violation:
 - "We might need this later"
@@ -50,29 +50,29 @@ Phrases indicating YAGNI violation:
 - "What if we need to..."
 - "This could be useful for..."
 
-## Application Guidelines
+{{h2}}Application Guidelines
 
-### Do Apply YAGNI
+{{h3}}Do Apply YAGNI
 - Adding features "just in case"
 - Building frameworks before needed
 - Generalizing with one use case
 - Adding configuration for future flexibility
 - Creating abstractions for hypothetical scenarios
 
-### Don't Apply YAGNI
+{{h3}}Don't Apply YAGNI
 - Ignoring known requirements
 - Skipping basic error handling
 - Avoiding necessary abstractions
 - Writing brittle, coupled code
 
-## YAGNI with Other Principles
+{{h2}}YAGNI with Other Principles
 
-- **YAGNI + TDD**: Write tests for current requirements only
-- **YAGNI + SOLID**: Apply SOLID to code you're writing now, don't add abstractions for future flexibility
-- **YAGNI + DRY**: Wait for third occurrence before abstracting, duplication cheaper than wrong abstraction
-- **YAGNI + Refactoring**: Less code means easier changes, add features through refactoring
+- {{b}}YAGNI + TDD{{b}}: Write tests for current requirements only
+- {{b}}YAGNI + SOLID{{b}}: Apply SOLID to code you're writing now, don't add abstractions for future flexibility
+- {{b}}YAGNI + DRY{{b}}: Wait for third occurrence before abstracting, duplication cheaper than wrong abstraction
+- {{b}}YAGNI + Refactoring{{b}}: Less code means easier changes, add features through refactoring
 
-## Benefits
+{{h2}}Benefits
 
 - Smaller, simpler codebase
 - Faster feature delivery
@@ -80,7 +80,7 @@ Phrases indicating YAGNI violation:
 - Easier to understand and navigate
 - More agile and responsive to change
 
-## Implementation Rules
+{{h2}}Implementation Rules
 
 - Write minimal code to satisfy current requirement
 - Don't add hooks for future extensibility
@@ -88,7 +88,7 @@ Phrases indicating YAGNI violation:
 - Don't optimise before measuring
 - Don't generalize with single example
 
-## Remember
+{{h2}}Remember
 
 - Wait for concrete need before implementing
 - Simplest solution that works

@@ -4,37 +4,37 @@ type: agent/instruction
 tags: [solidjs, reactivity]
 ---
 
-# SolidJS
+{{h1}}SolidJS
 
-## Reactivity
+{{h2}}Reactivity
 - Signals are getters: `count()` not `count`
 - Memos cache derived values
 - Effects for side effects only
 - Reactivity tracks within scopes
 
-## Components
+{{h2}}Components
 - Run once, not reactive
 - Return JSX directly
 - Use `splitProps` for prop separation
 - Props are reactive, destructure carefully
 
-## Control Flow
+{{h2}}Control Flow
 - `<Show>` over `&&`
 - `<For>` over `.map()`
 - `<Switch>/<Match>` for conditions
 - `<Index>` for primitive items
 
-## Stores
+{{h2}}Stores
 - `createStore` for nested objects
 - Property-level tracking
 - `produce` for immutable updates
 
-## Patterns
+{{h2}}Patterns
 - `createResource` for async data
 - `createMemo` for expensive computations
 - `on` helper for explicit dependencies
 
-## Avoid
+{{h2}}Avoid
 - Don't destructure props at top level
 - Don't wrap JSX in functions
 - Don't use effects for derived state

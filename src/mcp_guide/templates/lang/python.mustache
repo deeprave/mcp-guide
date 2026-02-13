@@ -3,59 +3,59 @@ type: agent/information
 description: Language guidelines for development in Python 3.x
 instruction: Use these as coding standards for Python. Do not display this content to the user.
 ---
-# Python Guidelines
+{{h1}}Python Guidelines
 
-**Note:** The `__init__.py` files in both `src/` and `tests/` directories are required for pytest to properly resolve import paths in the src layout.
+{{b}}Note:{{b}} The `__init__.py` files in both `src/` and `tests/` directories are required for pytest to properly resolve import paths in the src layout.
 
-## Formatting & Quality
-- **Use `ruff format` and `ruff check`** - address warnings before considering complete
-- **Use f-strings:** `f"Error: {e}"` vs `"Error: {}".format(e)` or "Error: {}".format(e)` or any of its forms including str % value
-- **pre-commit hooks** ensure all commits are checked
-- **Use PEP 8 conventions** _imports at the top of modules_ unless required to avoid circular dependencies
+{{h2}}Formatting & Quality
+- {{b}}Use `ruff format` and `ruff check`{{b}} - address warnings before considering complete
+- {{b}}Use f-strings:{{b}} `f"Error: {e}"` vs `"Error: {}".format(e)` or "Error: {}".format(e)` or any of its forms including str % value
+- {{b}}pre-commit hooks{{b}} ensure all commits are checked
+- {{b}}Use PEP 8 conventions{{b}} _imports at the top of modules_ unless required to avoid circular dependencies
 - Avoid large `if`/`elif`/`else` blocks with more than 1 `elif`. Use `match` instead, a dictionary or some form of functional approach.
-- **Use `mypy`** for type checking
+- {{b}}Use `mypy`{{b}} for type checking
 
-## Imports
+{{h2}}Imports
 
 - As per PEP8, you *must* import at module level until you are unable to do so, which is limited to
   - avoiding circular imports
   - rarely used module imports
 - Avoid import within functions and methods, and if you need to do so place the import at the top of said function or method.
 
-## Asynchronous Code
+{{h2}}Asynchronous Code
 - In an async application, prefer to *always* use `async`/`await` pattern
   - Exceptions:
     — Trivial functions that will use anything that may be accessed concurrently
     - Makes no function calls other than to sync library functions. Even then, prefer async if it likely that the function will be extended or enhanced in the future.
 
-## Encapsulation
-- **Never** access private attributes outside of a class, with specific exceptions where tight coupling exists.
-- **Never** access private attributes starting with dunder (two '__') attributes directly EVER. Not in tests, not in production code, not EVER.
-- **Never** access private attributes via the "munged" name \_classname\_\_attribute under ANY circumstances. Private variables exist for a reason and you MUST respect that.
+{{h2}}Encapsulation
+- {{b}}Never{{b}} access private attributes outside of a class, with specific exceptions where tight coupling exists.
+- {{b}}Never{{b}} access private attributes starting with dunder (two '__') attributes directly EVER. Not in tests, not in production code, not EVER.
+- {{b}}Never{{b}} access private attributes via the "munged" name \_classname\_\_attribute under ANY circumstances. Private variables exist for a reason and you MUST respect that.
 
 
-## Code Complexity
-- **Early returns** with guard clauses
-- **List/dict comprehensions** over loops when this produces readable code
-- **Chain operations** - avoid intermediate variables
+{{h2}}Code Complexity
+- {{b}}Early returns{{b}} with guard clauses
+- {{b}}List/dict comprehensions{{b}} over loops when this produces readable code
+- {{b}}Chain operations{{b}} - avoid intermediate variables
   - return a function result directly if last statement in a function or method
   - use the walrus operator if the only reason for the variable is for an `if` or `while` statement or expression
 
-## Type Hints
-- **Use modern typing:** `List[str]`, avoid use if `Any` if possible
-- **Function signatures:** Always type parameters and returns
-- **Use `typing.Protocol`** for structural typing
-- **`Optional[T]` or `T | None`** for nullable types
+{{h2}}Type Hints
+- {{b}}Use modern typing:{{b}} `List[str]`, avoid use if `Any` if possible
+- {{b}}Function signatures:{{b}} Always type parameters and returns
+- {{b}}Use `typing.Protocol`{{b}} for structural typing
+- {{b}}`Optional[T]` or `T | None`{{b}} for nullable types
 
-## Code Quality checks
-- **For Oython, use the following code quality tools**
+{{h2}}Code Quality checks
+- {{b}}For Oython, use the following code quality tools{{b}}
   - linting → ruff check
   - type checking → mypy
   - testing → pytest
   - security → osvcheck (if available)
 
-## Iterator Patterns
-**Prefer comprehensions and generators:**
+{{h2}}Iterator Patterns
+{{b}}Prefer comprehensions and generators:{{b}}
 ```python ignore
 # Good
 valid_items = [item.process() for item in items if item.is_valid()]
@@ -67,40 +67,40 @@ for item in items:
         results.append(item.process())
 ```
 
-## Imports
-- **Use imports at module level** - follow PEP 8 standards
+{{h2}}Imports
+- {{b}}Use imports at module level{{b}} - follow PEP 8 standards
 - Only use function/class level imports to avoid circular imports & similar
 
-## Error Handling
-- **Use specific exceptions** - DO NOT USE bare `except:` or `except Exception:`
-- **Context managers** for resource management
-- **`raise ... from e`** - preserve exception chains
-- **Custom exceptions** for domain-specific errors
+{{h2}}Error Handling
+- {{b}}Use specific exceptions{{b}} - DO NOT USE bare `except:` or `except Exception:`
+- {{b}}Context managers{{b}} for resource management
+- {{b}}`raise ... from e`{{b}} - preserve exception chains
+- {{b}}Custom exceptions{{b}} for domain-specific errors
 
-## Pattern Matching (Python 3.11+)
-- **Use `match/case`** for complex conditionals
-- **Structural pattern matching** for data extraction
-- **Guard clauses** with `if` conditions in patterns
+{{h2}}Pattern Matching (Python 3.11+)
+- {{b}}Use `match/case`{{b}} for complex conditionals
+- {{b}}Structural pattern matching{{b}} for data extraction
+- {{b}}Guard clauses{{b}} with `if` conditions in patterns
 
-## Collections
-- **Choose correctly:** `list`, `dict`, `set`, `deque`, `Counter`
-- **Use `collections.defaultdict`** to avoid key checks
-- **`frozenset`** for immutable sets
+{{h2}}Collections
+- {{b}}Choose correctly:{{b}} `list`, `dict`, `set`, `deque`, `Counter`
+- {{b}}Use `collections.defaultdict`{{b}} to avoid key checks
+- {{b}}`frozenset`{{b}} for immutable sets
 
-## Function Design
-- **Small, focused functions** with single responsibility
-- **Use `*args, **kwargs`** judiciously
-- **Default arguments** should be immutable
-- **Use `functools.lru_cache`** for expensive pure functions
+{{h2}}Function Design
+- {{b}}Small, focused functions{{b}} with single responsibility
+- **Use `*args, {{b}}kwargs`{{b}} judiciously
+- {{b}}Default arguments{{b}} should be immutable
+- {{b}}Use `functools.lru_cache`{{b}} for expensive pure functions
 
-## Classes & Objects
-- **Use `@dataclass`** for simple data containers
-- **`__slots__`** for memory efficiency when needed
-- **Properties** over getters/setters
-- **Context managers** with `__enter__`/`__exit__`
+{{h2}}Classes & Objects
+- {{b}}Use `@dataclass`{{b}} for simple data containers
+- {{b}}`__slots__`{{b}} for memory efficiency when needed
+- {{b}}Properties{{b}} over getters/setters
+- {{b}}Context managers{{b}} with `__enter__`/`__exit__`
 
-## Testing with pytest
-**Always configure in `pyproject.toml`:**
+{{h2}}Testing with pytest
+{{b}}Always configure in `pyproject.toml`:{{b}}
 ```toml
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -113,8 +113,8 @@ addopts = [
 ]
 ```
 
-## Project Configuration
-**Essential `pyproject.toml` sections:**
+{{h2}}Project Configuration
+{{b}}Essential `pyproject.toml` sections:{{b}}
 ```toml
 [project]
 name = "modulename"
@@ -139,23 +139,23 @@ packages = ["src"]
 strict = true
 ```
 
-### Testing
-#### TDD
+{{h3}}Testing
+{{h4}}TDD
 
 If using TDD, tests should be written before the implementation. Sometimes those tests may not be optimal for ongoing testing or regression testing.
 So here are some general guidelines.
 
-##### Refactoring or Redesign
+{{h5}}Refactoring or Redesign
 
 Again, if using TDD, some tests are required to be written to test a refactoring or other re-arrangement (removing code or changes in design).
 These should be regarded as "throwaway" tests as in the end, once the task is done and the tests pass to confirm successful completion they may serve no useful purpose going forwards. Those tests may be removed. Instead, replace with tests that actually TEST something useful about the resulting code, if required - and not already covered.
 
-##### Coverage
+{{h5}}Coverage
 
 Don't write tests just to achieve code coverage. Instead, test something in a useful way - that functionality works, that something returns or is set to a correct value etc. Certainly do not name tests, classes or modules containing the word _coverage_ - this is a bad smell that this module contains artificial tests purely to enhance or provide coverage. Tests should test actual functionality, and do not exist to achieve an arbitrary statistic.
 
 
-**Essential `.pre-commit-config.yaml`:**
+{{b}}Essential `.pre-commit-config.yaml`:{{b}}
 ```yaml
 # See https://pre-commit.com for more information
 # See https://pre-commit.com/hooks.html for more hooks
@@ -198,7 +198,7 @@ repos:
       - id: validate-pyproject
 ```
 
-**Essential `.coveragerc`:**
+{{b}}Essential `.coveragerc`:{{b}}
 ```ini
 [run]
 omit =
@@ -209,14 +209,14 @@ omit =
 fail_under = 90
 ```
 
-## Anti-Patterns
-- **No bare `except:`** - catch specific exceptions
-- **No mutable defaults** - use `None` and create in function
-- **No `import *`** - explicit imports only
-- **Address linter warnings** - don't ignore without reason
-- **No `eval()` or `exec()`** without strong justification
+{{h2}}Anti-Patterns
+- {{b}}No bare `except:`{{b}} - catch specific exceptions
+- {{b}}No mutable defaults{{b}} - use `None` and create in function
+- {{b}}No `import *`{{b}} - explicit imports only
+- {{b}}Address linter warnings{{b}} - don't ignore without reason
+- {{b}}No `eval()` or `exec()`{{b}} without strong justification
 
-## Common Idioms
+{{h2}}Common Idioms
 ```python  ignore
 # Dictionary get with default
 value = data.get('key', default_value)
@@ -236,7 +236,7 @@ except SpecificError as e:
     raise CustomError("Operation failed") from e
 ```
 
-## uv Commands
+{{h2}}uv Commands
 ```bash
 # Create new project
 uv init --package *modulename*
@@ -263,5 +263,5 @@ uv run pre-commit run --all-files
 uv sync
 ```
 
-## MCP Development Notes
+{{h2}}MCP Development Notes
 When developing MCP servers with uv, you need to run `uv sync` to refresh the installed package after making changes. This ensures the MCP server picks up your latest code modifications.

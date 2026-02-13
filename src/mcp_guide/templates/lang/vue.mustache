@@ -4,49 +4,49 @@ type: agent/instruction
 tags: [vue, components]
 ---
 
-# Vue.js
+{{h1}}Vue.js
 
-## Components
+{{h2}}Components
 - Composition API for new projects
 - `<script setup>` syntax
 - Small, focused components
 - PascalCase names
 
-## Reactivity
+{{h2}}Reactivity
 - `ref()` for primitives, `reactive()` for objects
 - `.value` to access refs in script
 - `computed()` for derived state
 - `watch()` for side effects
 
-## Props/Events
+{{h2}}Props/Events
 - Define with types and defaults
 - `defineProps()` and `defineEmits()`
 - Emit for child-to-parent
 - Don't mutate props
 - `v-model` for two-way binding
 
-## Templates
+{{h2}}Templates
 - `v-if` for conditionals
 - `v-for` with `:key`
 - `v-show` for frequent toggles
 - Shorthand: `:` and `@`
 
-## Composables
+{{h2}}Composables
 - Extract reusable logic
 - `use` prefix
 - Return reactive values
 
-## Performance
+{{h2}}Performance
 - `v-once` for static content
 - Lazy load with `defineAsyncComponent`
 - `shallowRef`/`shallowReactive` when appropriate
 
-## State
+{{h2}}State
 - Pinia for global state
 - Keep state local when possible
 - provide/inject for DI
 
-## Avoid
+{{h2}}Avoid
 - Don't access `$refs` during render
 - Don't use arrow functions for methods/computed
 - Don't overuse watchers
