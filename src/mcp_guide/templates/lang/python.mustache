@@ -9,15 +9,15 @@ instruction: Use these as coding standards for Python. Do not display this conte
 
 {{h2}}Formatting & Quality
 - {{b}}Use `ruff format` and `ruff check`{{b}} - address warnings before considering complete
-- {{b}}Use f-strings:{{b}} `f"Error: {e}"` vs `"Error: {}".format(e)` or "Error: {}".format(e)` or any of its forms including str % value
+- {{b}}Use f-strings:{{b}} `f"Error: {e}"` vs `"Error: {}".format(e)` or `"Error: %s" % e`
 - {{b}}pre-commit hooks{{b}} ensure all commits are checked
-- {{b}}Use PEP 8 conventions{{b}} _imports at the top of modules_ unless required to avoid circular dependencies
+- {{b}}Use PEP 8 conventions{{b}} {{i}}imports at the top of modules{{i}} unless required to avoid circular dependencies
 - Avoid large `if`/`elif`/`else` blocks with more than 1 `elif`. Use `match` instead, a dictionary or some form of functional approach.
 - {{b}}Use `mypy`{{b}} for type checking
 
 {{h2}}Imports
 
-- As per PEP8, you *must* import at module level until you are unable to do so, which is limited to
+- As per PEP8, you {{i}}must{{i}} import at module level until you are unable to do so, which is limited to
   - avoiding circular imports
   - rarely used module imports
 - Avoid import within functions and methods, and if you need to do so place the import at the top of said function or method.
@@ -48,7 +48,7 @@ instruction: Use these as coding standards for Python. Do not display this conte
 - {{b}}`Optional[T]` or `T | None`{{b}} for nullable types
 
 {{h2}}Code Quality checks
-- {{b}}For Oython, use the following code quality tools{{b}}
+- {{b}}For Python, use the following code quality tools{{b}}
   - linting → ruff check
   - type checking → mypy
   - testing → pytest
@@ -89,7 +89,7 @@ for item in items:
 
 {{h2}}Function Design
 - {{b}}Small, focused functions{{b}} with single responsibility
-- **Use `*args, {{b}}kwargs`{{b}} judiciously
+- {{b}}Use `*args`, `**kwargs` judiciously{{b}}
 - {{b}}Default arguments{{b}} should be immutable
 - {{b}}Use `functools.lru_cache`{{b}} for expensive pure functions
 
