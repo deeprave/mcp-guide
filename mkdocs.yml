@@ -1,14 +1,27 @@
+# MkDocs Configuration for mcp-guide Documentation
+#
+# Quick Start:
+#   Install dependencies:  uv sync --extra docs
+#   Local preview:         uv run mkdocs serve
+#   Build static site:     uv run mkdocs build
+#   Output directory:      site/
+#
+# The local preview server runs at http://127.0.0.1:8000 with live reload.
+# The built site in site/ can be deployed to any static hosting service.
+# Note: Use 'uv run' to ensure mkdocs runs in the correct virtual environment.
+
 site_name: mcp-guide Documentation
 site_description: Structured content delivery for AI agents via Model Context Protocol
-site_url: https://github.com/deeprave/mcp-guide
+# site_url: https://docs.example.com/mcp-guide  # TODO: set to canonical docs URL once known
 repo_url: https://github.com/deeprave/mcp-guide
 repo_name: deeprave/mcp-guide
 
 theme:
   name: material
   palette:
-    primary: indigo
-    accent: indigo
+    - scheme: default
+      primary: indigo
+      accent: indigo
 
 nav:
   - Home: index.md
