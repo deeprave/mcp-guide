@@ -1,0 +1,35 @@
+site_name: mcp-guide Documentation
+site_description: Structured content delivery for AI agents via Model Context Protocol
+site_url: https://github.com/deeprave/mcp-guide
+repo_url: https://github.com/deeprave/mcp-guide
+repo_name: deeprave/mcp-guide
+
+theme:
+  name: material
+  palette:
+    primary: indigo
+    accent: indigo
+
+nav:
+  - Home: index.md
+  - User Guide:
+      - Getting Started: user/getting-started.md
+      - Installation: user/installation.md
+      - Categories and Collections: user/categories-and-collections.md
+      - Content Management: user/content-management.md
+      - Content Documents: user/content-documents.md
+      - Workflows: user/workflows.md
+      - OpenSpec Integration: user/openspec.md
+      - Feature Flags: user/feature-flags.md
+      - Profiles: user/profiles.md
+      - Prompt Commands: user/commands.md
+  - Developer Guide:
+      - Command Authoring: developer/command-authoring.md
+      - Filesystem Access: developer/filesystem-access.md
+      - Debugging: developer/DEBUGGING.md
+
+markdown_extensions:
+  - admonition
+  - codehilite
+  - toc:
+      permalink: true
