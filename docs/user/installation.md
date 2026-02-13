@@ -18,14 +18,18 @@ It requires uv, Python 3.11+ to be installed, and the "uvx" command to be availa
   "mcpServers": {
     "mcp-guide": {
       "command": "uvx",
-      "args": ["mcp-guide"]
+      "args": ["mcp-guide"],
+      "env": {
+        "MCP_TOOL_PREFIX": ""
+      }
     }
   }
 }
 ```
 
-The following configuration requires only docker.
-The volume mapping is optional
+**Note:** The `env` section is optional but recommended for Claude Code to avoid double-prefixing of tool names.
+
+The following configuration requires only docker. The host volume mapping is optional but recommended to persist any changes you make to documents.
 
 **MCP client configuration (STDIO with Docker):**
 
@@ -81,8 +85,8 @@ Unsecured network transport:
 #### HTTPS transport
 
 Network transport with Server-Sent Events for remote access.
-Https transport requires SSL certificates, http transport does not.
-Both configurations require uvicorn for serving http requests.
+HTTPS transport requires SSL certificates, HTTP transport does not.
+Both configurations require uvicorn for serving HTTP requests.
 
 ```json
 {
@@ -93,7 +97,7 @@ Both configurations require uvicorn for serving http requests.
         "--with",
         "uvicorn",
         "mcp-guide",
-        "https",
+        "https://localhost:8443",
         "--ssl-certfile",
         "/path/to/cert.pem",
         "--ssl-keyfile",
@@ -103,6 +107,8 @@ Both configurations require uvicorn for serving http requests.
   }
 }
 ```
+
+**Note:** Port 443 (default HTTPS) requires root/admin privileges. Use port 8443 or another non-privileged port (>1024) for development.
 
 **Generating SSL Certificates** (development):
 
@@ -118,7 +124,7 @@ Https transport is recommdned when accessing the server from another host, howev
 
 ## Docker Compose
 
-mcp-guide provides docker compose support for containerised deployments.
+mcp-guide provides docker compose support for containerised deployments. Use the `--profile` flag to select which service to run (e.g., `docker compose --profile http up`).
 
 ### `compose.yaml` supporting all three modes selected using profiles
 
@@ -247,6 +253,8 @@ export MG_LOG_JSON=1
 export MCP_TOOL_PREFIX="guide"
 ```
 
+This can also be configured in the MCP client configuration using the `env` section (see the stdio configuration example above).
+
 **Note**: Some clients (like Claude Code) already prefix tool names with the MCP server name.
 In these cases, set `MCP_TOOL_PREFIX=""` or start with `--no-tool-prefix` to avoid double prefixing.
 
@@ -256,50 +264,6 @@ In these cases, set `MCP_TOOL_PREFIX=""` or start with `--no-tool-prefix` to avo
 # Include example tools (default: false)
 export MCP_INCLUDE_EXAMPLE_TOOLS="true"
 ```
-
-## Configuration
-
-### Configuration Directory
-
-mcp-guide stores configuration in:
-
-- **macOS/Linux**: `~/.config/mcp-guide/`
-- **Windows**: `%APPDATA%\mcp-guide\`
-
-Structure:
-
-```
-~/.config/mcp-guide/
-├── config.yaml        # Single configuration file
-└── docs/             # Content files (docroot)
-```
-
-## Environment Variables
-
-### Logging
-
-```bash
-# Log level (TRACE, DEBUG, INFO, WARN, ERROR)
-export MG_LOG_LEVEL=INFO
-
-# Log file path
-export MG_LOG_FILE=/var/log/mcp-guide.log
-
-# Enable JSON structured logging (set to 1 or any non-empty value)
-export MG_LOG_JSON=1
-```
-
-### Tool and Prompt Naming
-
-```bash
-# Tool name prefix (default: "guide")
-export MCP_TOOL_PREFIX="guide"
-
-# Prompt name prefix (default: none)
-export MCP_PROMPT_PREFIX="g"
-```
-
-**Note**: Some clients (like Claude Code) already prefix tool names with the MCP server name. In these cases, set `MCP_TOOL_PREFIX=""` to avoid double prefixing.
 
 ## Next Steps
 

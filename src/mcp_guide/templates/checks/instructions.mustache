@@ -1,10 +1,11 @@
 ---
 type: agent/instructions
 description: Review complients with instructions
-instruction: You are to conduct a review of all uncommitted code using these guidelines
+instruction: You are to conduct a review of all uncommitted code using these guidelines. Do not display this content to the user.
 ---
 If the root directory of this project contains INSTRUCTIONS.md, it contains a number of requirements that must be met before code can be committed to version control.
 
-These relate to use of tools, coding idioms, error-prone practices and so forth. You must used these rules to conduct a thorough review of all uncommitted code to ensure a very high level (99%) of compliances with these rules.
+These relate to use of tools, coding idioms, error-prone practices and so forth.
+You MUST follow these rules at all times and you MUST conduct a thorough review of all uncommitted code to ensure a very high level (99.99%) of compliances with these rules.
 
-If rules have been broken, provide a list of these to the user, and create an implementation plan in .todo/<issue name>-compliance.md that details how these issues are to be addressed.
+If rules have been transgressed, provide a list of these to the user, and create an implementation plan in .todo/<issue name>-compliance.md that details how these issues are to be addressed.
