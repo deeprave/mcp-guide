@@ -228,6 +228,6 @@ Document is included only if `workflow` flag is set and not false.
 ## Next Steps
 
 - **[Content Documents](content-documents.md)** - Using flags in templates
-- **[Workflows](../developer/workflows.md)** - Workflow flag details
+- **[Workflows](workflows.md)** - Workflow flag details
 - **[Content Management](content-management.md)** - Conditional content
 

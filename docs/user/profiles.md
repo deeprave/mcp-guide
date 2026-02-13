@@ -151,7 +151,7 @@ collections:
 
 ## Creating Custom Profiles
 
-Custom profiles can be created by project administrators. See [Developer Documentation](../developer/) for details on profile creation.
+Custom profiles can be created by project administrators.
 
 ## Best Practices
 
