@@ -1,93 +1,119 @@
 # Content Management
 
-Understanding how content is organised and delivered in mcp-guide.
+Understanding how your content gets organized and delivered to your AI agent.
 
-## Document Frontmatter
+## Projects
 
-Documents use YAML frontmatter (metadata at the start of files) to control behaviour and classification. Common keys include:
+mcp-guide organizes everything around **projects**. A project is typically tied to the basename of your current directory - if you're working in `/home/user/my-app`, your project is `my-app`.
 
-- **type**: Content classification (required)
-- **description**: Human-readable description
-- **instruction**: Specific directives for agents
+Categories and collections (discussed in the sections below) are configured per-project. This means each project can have its own patterns and groupings, even though the underlying documents are shared across all projects.
 
-Other frontmatter keys exist and are documented where relevant.
+Behind the scenes, mcp-guide uses a hash calculated from the absolute path to uniquely identify each project. This means you can have two projects with the same name in different filesystem locations, and they'll be treated as separate projects with their own configurations.
 
-## Content Types
+## Document Format
 
-Content type is determined by the `type:` field in document frontmatter (not by directory location). mcp-guide supports three content types:
+mcp-guide works primarily with markdown files, though any text file can serve as a source of information. Mustache templates are rendered to markdown before delivery.
 
-### user/information
+Documents can include optional **metadata** (called "frontmatter") - a YAML block at the top of the file delimited by three hyphens above and below:
 
-Content displayed directly to users.
+```markdown
+---
+type: agent/instruction
+description: Python coding standards
+instruction: Follow these standards when writing Python code
+---
 
-**Purpose**: Information the user needs to see and understand.
+# Python Standards
 
-**Examples**:
-- Error messages and warnings
-- Status updates and confirmations
-- Results and summaries
-- User-facing documentation
+Your content here...
+```
 
-**When to use**: When the content should be shown to the human user, not just processed by the agent.
+### Common Metadata Keys
 
-### agent/information
+| Key | Purpose |
+|-----|---------|
+| `type` | Document type (see below) - determines how content is used |
+| `description` | Human-readable description of the document |
+| `instruction` | Specific directive for the agent (not always required) |
 
-Context and background information for AI agents.
+Other metadata keys are used for specific purposes: `tags`, `title`, `requires-<feature-flag>`, `includes` (for partial templates). Commands use additional keys like `category`, `aliases`, `usage`, and `examples`.
 
-**Purpose**: Help agents understand the project, domain, or task without directing their behaviour.
+## Document Types
 
-**Examples**:
-- Project architecture and design decisions
-- Domain knowledge and terminology
-- Historical context
-- Reference documentation
-- Code examples and patterns
+The `type` metadata key determines how content is used:
 
-**When to use**: When the agent needs context to make informed decisions, but you're not telling it what to do.
+| Type | Purpose | Audience |
+|------|---------|----------|
+| `user/information` | Display rendered information to the user | Human user |
+| `agent/information` | Provide context and additional information | AI agent |
+| `agent/instruction` | Direct the agent to execute given instructions | AI agent |
 
-### agent/instruction
+That's it. The distinction is simple but powerful - it tells the agent whether content is for display, context, or direction.
 
-Directives and rules for agent behaviour.
+## Document Categories
 
-**Purpose**: Tell agents how to behave, what to do, and what to avoid.
+Documents belong to a **category**, each representing a directory structure in the document store where they can be retrieved. Categories are assigned patterns for files within them that are displayed *by default* when the category is referenced. However, all files in a category are always available by overriding the pattern with `<category>[/pattern1[+pattern2...]]`. This is called a document **expression**.
 
-**Examples**:
-- Coding standards and style guides
-- Development workflows and processes
-- Testing requirements
-- Security policies
-- Do's and don'ts
+Category names can be up to 30 unicode characters in length and can contain (but not start with) underscores and hyphens.
 
-**When to use**: When you need to control or guide agent behaviour with explicit rules.
+To see what's in a category, just ask your AI:
 
-## Why Three Types?
+```
+> list all files in the guide category
 
-The distinction between these types is important:
+Files in the guide category:
 
-1. **Clarity**: Agents know whether content is informational or instructional
-2. **Control**: You can provide context without over-constraining behaviour
-3. **Flexibility**: Mix information and instruction as needed
-4. **Organisation**: Clear structure makes content easier to manage
+1. bdd (1,811 bytes) - Principles and practices of BDD
+2. general (1,946 bytes) - General development guidelines for AI agents
+3. tdd (1,329 bytes) - Principles and practices of TDD
+4. yagni (2,815 bytes) - Principle of avoiding unnecessary complexity
+5. ddd (2,504 bytes) - Principles and patterns of Domain-Driven Design
+6. solid (2,237 bytes) - Five principles of object-oriented design
+```
 
-## Supported Formats
+All files in every category are available to all projects - categories are shared across them. Patterns, however, are defined per-project, so category patterns select the most relevant files for each project. This means referencing a category selectively delivers only the documents most relevant to that project.
 
-Documents can be:
+## Collections
 
-- **Plain markdown** - Formatted documentation
-- **Plain text** - Simple text files
-- **Mustache templates** - Dynamic content with variables
+Each collection is simply a list of expressions used together to return multiple documents. For example, you might define a `self-review` collection containing `[guide/general, checks/instructions, lang/python, review/review]`. Strung together like this, they provide:
 
-All files can include frontmatter for metadata and control.
+- Summary of guidelines
+- Special instructions for the current project
+- Detailed instructions for producing a code review for a Python project
+
+This enhances the code review with adherence to coding standards and specific edicts that relate to your project.
+
+## Content Concatenation
+
+When multiple documents are requested, they're concatenated and presented to the agent. The `content-format` feature flag controls how this happens:
+
+- **None** - Documents concatenated with no delimiters
+- **plain** - Simple text separators between documents
+- **mime** - MIME-style delimiters with metadata headers
+
+Different agents prefer different formats. Experiment to determine the setting that gives the best results with your agent.
+
+## Content Style
+
+The `content-style` flag affects how markdown is rendered to the console. Agents render markdown differently - some have complete support for headings, bolding, and italics.
+
+For documents delivered to the console (to the user), the style should match your client:
+
+- **full** - Complete markdown rendering (works well with Claude Code)
+- **plain** - Minimal formatting
+- **compact** - Condensed output
+
+Choose according to your agent's capabilities and your taste.
 
 ## Content Discovery
 
 mcp-guide discovers content through:
 
 1. **Categories** - Define which files to include based on patterns
-2. **Collections** - Group categories for specific purposes
-3. **Frontmatter** - Metadata in content files controls inclusion
+2. **Collections** - Group category expressions for specific purposes
+3. **Metadata** - Frontmatter controls inclusion and behavior
 
-See [Categories and Collections](categories-and-collections.md) for organisation details.
+See [Categories and Collections](categories-and-collections.md) for organization details.
 
 ## Content Delivery
 
@@ -100,9 +126,10 @@ When an agent requests content:
 5. De-duplicates instructions
 6. Returns formatted content
 
+The agent receives exactly what it needs, formatted appropriately for its capabilities.
+
 ## Next Steps
 
-- **[Categories and Collections](categories-and-collections.md)** - Organising content
+- **[Categories and Collections](categories-and-collections.md)** - Organizing content
 - **[Content Documents](content-documents.md)** - Writing content with templates
 - **[Feature Flags](feature-flags.md)** - Conditional content inclusion
-

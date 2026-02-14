@@ -11,6 +11,12 @@ mcp-guide is designed to work with AI agents via the Model Context Protocol (MCP
 This JSON block can be used with most AI CLI agents to add the MCP server.
 It requires uv, Python 3.11+ to be installed, and the "uvx" command to be available on the PATH.
 
+mcp-guide supports three transport modes:
+
+- **STDIO** - Standard input/output for local agent communication (most common)
+- **HTTP** - Unsecured network transport using Server-Sent Events (SSE)
+- **HTTPS** - Secured network transport using Server-Sent Events (SSE) with SSL certificates
+
 **MCP client configuration (stdio):**
 
 ```json
@@ -118,28 +124,19 @@ openssl req -x509 -newkey rsa:4096 -nodes \
 ```
 
 For production, use certificates obtained from a trusted CA (Let's Encrypt, DigiCert, etc.).
+Alternatively, use a reverse proxy like nginx or Apache to handle SSL termination and forward requests to mcp-guide over HTTP.
 Note that no confidential information is transferred between mcp and agent - there are no login credentials or other secrets.
-Https transport is recommdned when accessing the server from another host, however.
+HTTPS transport is recommended when accessing the server from another host, however.
 
 
 ## Docker Compose
 
 mcp-guide provides docker compose support for containerised deployments. Use the `--profile` flag to select which service to run (e.g., `docker compose --profile http up`).
 
-### `compose.yaml` supporting all three modes selected using profiles
+### `compose.yaml` for HTTP and HTTPS modes
 
 ```yaml
 services:
-  mcp-guide-stdio:
-    image: dlnugent/mcp-guide:latest
-    profiles: [stdio]
-    stdin_open: true
-    tty: true
-    command: ["stdio"]
-    environment:
-      - MG_LOG_LEVEL=${MG_LOG_LEVEL:-info}
-      - MG_LOG_JSON=${MG_LOG_JSON:-1}
-
   mcp-guide-http:
     image: dlnugent/mcp-guide:latest
     profiles: [http]
@@ -163,6 +160,8 @@ services:
       - MG_LOG_LEVEL=${MG_LOG_LEVEL:-info}
       - MG_LOG_JSON=${MG_LOG_JSON:-1}
 ```
+
+**Note:** STDIO mode cannot be used in a compose configuration because it requires the MCP client to start the MCP server to attach stdin/stdout used for message exchange. In HTTP/HTTPS mode, the MCP server runs independently from the AI client and communicates over the network using the HTTP protocol.
 
 ### Using The Pre-built Image
 
