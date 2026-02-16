@@ -30,13 +30,13 @@ nav:
       - Installation: user/installation.md
       - Categories and Collections: user/categories-and-collections.md
       - Content Management: user/content-management.md
-      - Content Documents: user/content-documents.md
+      - Documents: user/documents.md
       - Workflows: user/workflows.md
       - OpenSpec Integration: user/openspec.md
       - Feature Flags: user/feature-flags.md
       - Profiles: user/profiles.md
       - Prompt Commands: user/commands.md
-  - Developer Guide:
+  - Developer Notes:
       - Command Authoring: developer/command-authoring.md
       - Filesystem Access: developer/filesystem-access.md
       - Debugging: developer/DEBUGGING.md

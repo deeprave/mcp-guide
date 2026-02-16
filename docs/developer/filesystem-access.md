@@ -18,10 +18,10 @@ This enables more accurate and contextual assistance by understanding your actua
 
 ### Multi-Layer Security Architecture
 
-The filesystem access system implements defense-in-depth with multiple security layers:
+The filesystem access system implements defence-in-depth with multiple security layers:
 
 1. **Path Validation Layer**
-   - Normalizes all paths to prevent traversal attacks
+   - Normalises all paths to prevent traversal attacks
    - Validates against allowed path prefixes
    - Blocks access to system and sensitive directories
    - Resolves and validates symbolic links
@@ -89,7 +89,7 @@ Configure allowed paths in your project's `.guide-config.json`:
 #### `allowed_write_paths` (Array of strings)
 - **Purpose**: Directories where the MCP server can read and write files
 - **Default**: `["src/", "docs/", "tests/", "examples/", "config/"]`
-- **Security**: Paths are validated and normalized
+- **Security**: Paths are validated and normalised
 - **Format**: Relative paths from project root, must end with `/`
 
 #### `additional_read_paths` (Array of strings)
@@ -177,7 +177,7 @@ kiro-cli /tools trust-all false
 
 1. **Path Request**: MCP server requests access to a specific file or directory
 2. **Security Validation**:
-   - Path normalized and validated against security policy
+   - Path normalised and validated against security policy
    - Checked against allowed_write_paths and additional_read_paths
    - System and sensitive directories blocked
 3. **Cache Check**: Recently accessed files served from cache if still valid

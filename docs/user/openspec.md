@@ -33,10 +33,10 @@ The integration may seem verbose in some agents as it executes OpenSpec commands
 When OpenSpec is enabled, additional `:openspec/*` commands become available. Some commands invoke the OpenSpec CLI directly (with response caching). Use `@guide :help` for more information (or `/guide :help` in Claude Code or Copilot CLI).
 
 **:openspec/init**
-Initialise OpenSpec in the current project using the openspec command. This creates required directory structure and `openspec/project.md` file.
+Initialise OpenSpec in the current project using the openspec command. This creates the required directory structure and `openspec/project.md` file.
 
 **:openspec/propose** _(openspec/new, openspec/create)_
-Initiate a new OpenSpec change by creating the change directory structure and proposal document. Emphasises dialogue with the user before writing documents. Optionally creates tasks.md for tracking implementation.
+Initiate a new OpenSpec change by creating the change directory structure and proposal document. Emphasises dialogue with the user before writing documents. Optionally creates `tasks.md` for tracking implementation.
 
 **:openspec/list**
 List all OpenSpec changes in the project. Triggers a refresh of the change list from OpenSpec CLI.
@@ -47,16 +47,16 @@ List all OpenSpec changes in the project. Triggers a refresh of the change list 
 **:openspec/show**
 Show details for the current or a specific OpenSpec change, including proposal, tasks, and spec deltas.
 
-**:openspec/validate**
+**@guide :openspec/validate**
 Validate the current or a specific OpenSpec change against schema requirements and structural rules.
 
-**:openspec/status**
+**@guide :openspec/status**
 Get the completion status and percentage for an OpenSpec change based on completed tasks.
 
-**:openspec/archive**
+**@guide :openspec/archive**
 Archive a completed OpenSpec change, moving it to the archive directory and optionally updating main specs.
 
-**:openspec/schemas**
+**@guide :openspec/schemas**
 Discover available OpenSpec schemas in the project for creating new specifications.
 
 ## Integration with the `workflow` feature flag
@@ -65,9 +65,9 @@ When both OpenSpec and workflow feature flags are enabled, they work together:
 
 - The workflow `issue` field typically specifies the OpenSpec change name (e.g., `add-feature-x` or `add-feature-x/sub-spec`)
 - mcp-guide provides its own versions of OpenSpec prompts:
-  - `:workflow/implement` - Equivalent to openspec-apply (with full project guidelines)
-  - `:openspec/archive` - Equivalent to openspec-archive
-  - `:openspec/propose` - Equivalent to openspec-propose
+  - `@guide :workflow/implement` - Equivalent to openspec-apply (with full project guidelines)
+  - `@guide :openspec/archive` - Equivalent to openspec-archive
+  - `@guide :openspec/propose` - Equivalent to openspec-propose
 
 Otherwise, OpenSpec and workflow operate independently.
 

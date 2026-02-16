@@ -1,50 +1,34 @@
 # Feature Flags
 
-mcp-guide uses feature flags to control behaviour, enable optional features, and customise content delivery. Flags can be set globally (all projects) or per-project, providing flexible configuration for different development contexts.
+Feature flags control how mcp-guide behaves, what features are enabled, and how content is delivered. You can set flags globally (affecting all projects) or per-project (for specific contexts).
 
 ## Viewing Flags
 
-Use the `:flags` command to see all active flags:
+Use the `@guide :flags` prompt command to see what's currently active. It shows feature flags, project flags, and the resolved values (what's actually in effect).
 
-```
-:flags
-```
+**See:** [Commands](commands.md) for more on the `:flags` command.
 
-Shows:
-- Feature (global) flags
-- Project flags
-- Resolved values (feature flags that are actually active)
+## How Flags Work
 
-**See:** [Commands](commands.md) for detailed information on the `:flags` command.
+Flags can be set at two levels:
 
-## Overview
-
-### Project Flags
-
-Set for a specific project. Ask your AI agent to set project flags:
+**Project flags** - Apply to a specific project. Just ask your AI agent:
 
 ```
 Please set the workflow feature flag to true for this project
 ```
 
-### Global Flags
-
-Set across all projects. Ask your AI agent to set global flags:
+**Feature flags** - Apply across all projects by default. Ask your AI agent:
 
 ```
 Please set the content-format feature flag to mime globally
 ```
 
-### Resolution
-
-When resolving flags:
-1. Check project flags first
-2. Fall back to global flags
-3. Use default if not set
+When resolving what value to use, project flags take precedence over feature flags, which take precedence over defaults.
 
 ## Setting Flags
 
-Ask your AI agent to set flags using natural language:
+Just ask your AI agent using natural language:
 
 ```
 Set the workflow flag to true
@@ -55,158 +39,23 @@ Remove the workflow flag (use default)
 
 ## Core Feature Flags
 
-### workflow
+| Flag | Description | Type | Default |
+|------|-------------|------|---------|
+| `workflow` | Enables workflow phase tracking (discussion, planning, implementation, check, review). Can be `true` (all phases), `false` (disabled), or list of phase names. | `boolean` or `list[string]` | `false` |
+| `workflow-file` | Path to workflow tracking file. Supports variables: `{project-name}`, `{project-key}`, `{project-hash}`. | `string` | `.guide.yaml` |
+| `workflow-consent` | Controls phase transition consent requirements. Can be `true` (default consent rules), `false` (no consent required), or custom rules specifying which phases require consent to enter or exit. | `boolean` or `dict` | `true` |
+| `openspec` | Enables OpenSpec integration for structured change management. Adds OpenSpec-specific commands and workflow instructions. | `boolean` | `false` |
+| `content-style` | Controls markdown formatting in template output. `plain` = strips all formatting, `headings` = renders heading markers only, `full` = renders all markdown. | `string` | `plain` |
+| `content-format` | Controls content MIME type. `text` = plain text, `mime` = MIME multipart format. | `string` | `text` |
+| `allow-client-info` | Enables collection of client environment information (OS, hostname, user, git remotes). Privacy-sensitive. | `boolean` | `false` |
+| `guide-development` | Enables development features for mcp-guide itself. | `boolean` | `false` |
 
-Enables workflow phase tracking.
+**Notes:**
 
-**Type**: Boolean
-**Default**: `false`
-**Scope**: Project
-
-**When enabled**:
-- Tracks development phases (discussion, planning, implementation, check, review)
-- Provides phase-specific instructions
-- Enforces phase transition rules
-
-**Usage**:
-
-### workflow-file
-
-Path to workflow tracking file.
-
-**Type**: String
-**Default**: `.guide.yaml`
-**Scope**: Project
-**Requires**: `workflow: true`
-
-### workflow-consent
-
-Controls phase transition consent requirements.
-
-**Type**: Boolean
-**Default**: `true`
-**Scope**: Project
-**Requires**: `workflow: true`
-
-**When enabled**:
-- Explicit consent required for implementation phase
-- Explicit consent required to exit review phase
-
-**Usage**:
-
-### openspec
-
-Enables OpenSpec integration.
-
-**Type**: Boolean
-**Default**: _false_
-**Scope**: Project
-
-**When enabled**:
-- Provides OpenSpec workflow instructions
-- Integrates with `openspec/` directory
-- Adds OpenSpec-specific commands
-
-**Usage**:
-
-**See**: [OpenSpec documentation](https://openspec.dev)
-
-### content-style
-
-Controls how markdown formatting is rendered in template output for agent display.
-
-**Type**: String
-**Values**: `plain`, `headings`, `full`
-**Default**: `plain`
-**Scope**: Global or Project
-
-**Why this matters:**
-
-Different agents have varying capabilities for rendering markdown in their console or interface. Some agents display markdown beautifully with proper formatting, while others show raw markdown syntax which can be distracting or hard to read.
-
-**How it works:**
-
-Templates use variables to represent markdown formatting:
-- `{{h1}}` through `{{h6}}` - Heading markers (e.g., `#`, `##`, `###`)
-- `{{b}}` - Bold markers (`**`)
-- `{{i}}` - Italic markers (`*`)
-
-The `content-style` flag controls what these variables render as:
-
-**`plain` (default)** - No formatting:
-- All variables render as empty strings
-- Output is plain text without markdown syntax
-- Best for: Agents that don't render markdown well, or when clean text is preferred
-- Example: `{{h2}}Status` renders as `Status`
-
-**`headings`** - Heading markers only:
-- `{{h1}}` through `{{h6}}` render as `#`, `##`, `###`, etc.
-- `{{b}}` and `{{i}}` remain empty
-- Best for: Agents that handle headings well but struggle with inline formatting
-- Example: `{{h2}}Status` renders as `## Status`
-
-**`full`** - All formatting:
-- All variables render their markdown equivalents
-- Complete markdown formatting in output
-- Best for: Agents with excellent markdown rendering capabilities
-- Example: `{{h2}}Status: {{b}}Active{{b}}` renders as `## Status: **Active**`
-
-**Template example:**
-
-```mustache
-{{h1}}Project Information
-
-{{h2}}Current Phase
-{{b}}Phase:{{b}} {{workflow.phase}}
-{{b}}Issue:{{b}} {{workflow.issue}}
-
-{{h3}}Description
-{{i}}Implementation in progress{{i}}
-```
-
-With `content-style: plain`:
-```
-Project Information
-
-Current Phase
-Phase: implementation
-Issue: add-feature-x
-
-Description
-Implementation in progress
-```
-
-With `content-style: headings`:
-```
-# Project Information
-
-## Current Phase
-Phase: implementation
-Issue: add-feature-x
-
-### Description
-Implementation in progress
-```
-
-With `content-style: full`:
-```
-# Project Information
-
-## Current Phase
-**Phase:** implementation
-**Issue:** add-feature-x
-
-### Description
-*Implementation in progress*
-```
-
-**Choosing the right mode:**
-
-- Start with `plain` (default) and only change if needed
-- Try `headings` if your agent renders headings nicely but inline formatting looks cluttered
-- Use `full` if your agent has excellent markdown support and you want rich formatting
-- Consider your agent's console/interface capabilities
-- Test different modes to see what works best for your workflow
+- `workflow` set to `true` enables all 5 default phases: discussion, planning, implementation, check, review
+- `workflow` can be a list to enable specific phases: `["discussion", "planning", "implementation"]` (`discussion` and `implementation` are mandatory)
+- `workflow-consent` set to `true` applies default consent: implementation requires entry consent, review requires exit consent
+- `workflow-consent` can be a dict for custom consent: `{"planning": ["entry"], "implementation": ["entry", "exit"]}`
 
 ## Using Flags in Templates
 
@@ -227,7 +76,7 @@ Document is included only if `workflow` flag is set and not false.
 
 ## Next Steps
 
-- **[Content Documents](content-documents.md)** - Using flags in templates
+- **[Documents](documents.md)** - Using flags in templates
 - **[Workflows](workflows.md)** - Workflow flag details
 - **[Content Management](content-management.md)** - Conditional content
 

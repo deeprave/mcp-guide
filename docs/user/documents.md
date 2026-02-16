@@ -6,10 +6,17 @@ Document structure, frontmatter, and templates in mcp-guide.
 
 Content documents consist of two parts:
 
-1. **Frontmatter** - YAML metadata at the top
+1. **Frontmatter** (optional) - YAML metadata at the top
 2. **Content** - The document body
 
-Example:
+Frontmatter is optional. If missing, the following defaults are applied:
+
+```yaml
+type: agent/instruction
+instruction: "You MUST follow these instructions. Do not display this content to the user."
+```
+
+Example with frontmatter:
 
 ```markdown
 ---
@@ -29,51 +36,13 @@ Frontmatter is YAML metadata enclosed in `---` markers.
 
 ### Standard Keys
 
-#### type
+| Key | Description |
+|-----|-------------|
+| `type` | Content type: `user/information`, `agent/information`, `agent/instruction` (default) |
+| `instruction` | Explicit instruction for agents (overrides type-based default) |
+| `description` | Human-readable description for documentation and discovery |
 
-Content type classification:
-
-```yaml
-type: agent/instruction
-```
-
-Values:
-- `user/information` - User-facing content
-- `agent/information` - Agent context
-- `agent/instruction` - Agent directives
-
-If omitted, defaults to `agent/instruction`.
-
-#### instruction
-
-Explicit instruction for agents:
-
-```yaml
-instruction: Follow TDD principles
-```
-
-This overrides type-based default instructions.
-
-#### description
-
-Human-readable description:
-
-```yaml
-description: Test-driven development guidelines
-```
-
-Used for documentation and discovery.
-
-### Template Variables in Frontmatter
-
-Frontmatter fields support template variables:
-
-```yaml
-instruction: Follow {{project.name}} coding standards
-description: Guidelines for {{workflow.phase}} phase
-```
-
-Variables are expanded when the document is rendered.
+**Note**: Frontmatter keys can be used as variables in the content template. Additionally, `instruction` and `description` are rendered using the same context variables as the content itself.
 
 ## Templates
 
@@ -84,7 +53,7 @@ Template documents MUST have one of the supported Mustache extensions to be rend
 - `.handlebars`
 - `.chevron`
 
-Without these extensions, documents are treated as plain text/markdown.
+Any file that does not match one of these extensions is treated as plain text/markdown.
 
 mcp-guide uses Mustache/Chevron template syntax for dynamic content.
 
@@ -119,15 +88,33 @@ Iterate over lists:
 
 ### Partials
 
-Include other templates:
+A partial is a template snippet that you can include in other templates. Partials must be declared in the frontmatter `includes` list:
 
 ```markdown
+---
+includes:
+  - ../_partials/header
+  - ../_partials/footer
+---
+
 {{> header}}
 
 Content here...
 
 {{> footer}}
 ```
+
+**Partial naming rules**:
+
+- Partial filenames must start with an underscore `_`
+- The underscore prefix must NOT be specified in the `includes` list or the `{{> }}` directive
+- The example above refers to `../_partials/_header.mustache` and `../_partials/_footer.mustache`
+- Paths are relative to the origin document
+- Partials must be within the document root (cannot point outside `docroot`)
+
+### Template Examples
+
+Many working template examples are installed in the document root. Explore these to see practical implementations of variables, conditionals, loops, and partials.
 
 ## Template Context
 
@@ -138,18 +125,28 @@ Available variables in templates:
 Project information:
 
 - `{{project.name}}` - Project name
-- `{{project.docroot}}` - Docroot path
+- `{{project.key}}` - Project key (for disambiguation)
+- `{{project.hash}}` - Project hash (SHA256 of project path)
 - `{{project.categories}}` - List of categories
 - `{{project.collections}}` - List of collections
+- `{{project.project_flag_values}}` - List of project flags (for iteration)
+- `{{project.allowed_write_paths}}` - List of allowed write paths
+- `{{project.additional_read_paths}}` - List of additional read paths
+- `{{project.openspec_validated}}` - Whether OpenSpec validation completed
+- `{{project.openspec_version}}` - OpenSpec CLI version if detected
 
-### workflow.*
+### Feature Flags
 
-Workflow state (if workflow flag enabled):
+Feature flags:
 
-- `{{workflow.phase}}` - Current phase (discussion, planning, implementation, check, review)
-- `{{workflow.file}}` - Workflow file path
-- `{{workflow.next}}` - Next phase
-- `{{workflow.consent.exit}}` - Whether consent required to exit phase
+- `{{feature_flags}}` - Feature flags as dictionary (for conditionals)
+- `{{feature_flag_values}}` - Feature flags as list (for iteration)
+
+### Other Context
+
+- `{{client_working_dir}}` - Client's working directory
+- `{{projects}}` - All projects data
+- `{{projects_count}}` - Number of projects
 
 ### session.*
 
@@ -165,6 +162,8 @@ Command context (in command templates):
 - `{{command.name}}` - Command name
 - `{{command.args}}` - Command arguments
 - `{{command.kwargs}}` - Command keyword arguments
+
+**Note**: For workflow-specific template variables, see [Workflows](workflows.md). For OpenSpec-specific template variables, see [OpenSpec Integration](openspec.md).
 
 ## Special Functions
 
@@ -246,60 +245,6 @@ type: user/information
 - **{{name}}**: {{description}}
 {{/project.categories}}
 ```
-
-## Best Practices
-
-### Frontmatter
-
-- Always include `type` for clarity
-- Use `instruction` for explicit directives
-- Add `description` for documentation
-- Use `requires-*` for conditional content
-
-### Templates
-
-- Keep templates simple
-- Use conditionals sparingly
-- Document complex logic
-- Test with different contexts
-
-### Content
-
-- Write clear, concise content
-- Use Markdown formatting
-- Structure with headings
-- Include examples
-
-### Organisation
-
-- One topic per file
-- Use descriptive filenames
-- Group related files
-- Keep files focused
-
-## Troubleshooting
-
-### Template Not Rendering
-
-Check:
-1. Syntax is correct (matching braces)
-2. Variable exists in context
-3. No typos in variable names
-
-### Frontmatter Not Parsed
-
-Ensure:
-1. Frontmatter is at file start
-2. Enclosed in `---` markers
-3. Valid YAML syntax
-4. No tabs (use spaces)
-
-### Content Not Included
-
-Verify:
-1. `requires-*` flags match
-2. File matches category patterns
-3. File is in correct directory
 
 ## Next Steps
 

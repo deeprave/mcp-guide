@@ -1,12 +1,12 @@
 # Content Management
 
-Understanding how your content gets organized and delivered to your AI agent.
+Understanding how your content gets organised and delivered to your AI agent.
 
 ## Projects
 
 mcp-guide organizes everything around **projects**. A project is typically tied to the basename of your current directory - if you're working in `/home/user/my-app`, your project is `my-app`.
 
-Categories and collections (discussed in the sections below) are configured per-project. This means each project can have its own patterns and groupings, even though the underlying documents are shared across all projects.
+Categories and collections are configured per-project. This means each project can have its own patterns and groupings, even though the underlying documents are shared across all projects.
 
 Behind the scenes, mcp-guide uses a hash calculated from the absolute path to uniquely identify each project. This means you can have two projects with the same name in different filesystem locations, and they'll be treated as separate projects with their own configurations.
 
@@ -38,6 +38,10 @@ Your content here...
 
 Other metadata keys are used for specific purposes: `tags`, `title`, `requires-<feature-flag>`, `includes` (for partial templates). Commands use additional keys like `category`, `aliases`, `usage`, and `examples`.
 
+**Note on using `instruction`**: A default instruction is automatically applied based on the value in its `type`.
+This means that `instruction` should only be used to vary that in some way, or add additional instruction.
+If the document has `type: agent/instruction` (and most are), the document's content is read as an instruction and can contain the additional context there.
+
 ## Document Types
 
 The `type` metadata key determines how content is used:
@@ -48,11 +52,11 @@ The `type` metadata key determines how content is used:
 | `agent/information` | Provide context and additional information | AI agent |
 | `agent/instruction` | Direct the agent to execute given instructions | AI agent |
 
-That's it. The distinction is simple but powerful - it tells the agent whether content is for display, context, or direction.
+The distinction is simple but powerful - it tells the agent whether content is for display, context, or direction.
 
 ## Document Categories
 
-Documents belong to a **category**, each representing a directory structure in the document store where they can be retrieved. Categories are assigned patterns for files within them that are displayed *by default* when the category is referenced. However, all files in a category are always available by overriding the pattern with `<category>[/pattern1[+pattern2...]]`. This is called a document **expression**.
+Documents belong to a **category**. Each category represents a directory structure in the document store where documents can be retrieved. Categories are assigned patterns for files within them that are displayed *by default* when the category is referenced. However, all files in a category are always available by overriding the pattern with `<category>[/pattern1[+pattern2...]]`. This is called a document **expression**.
 
 Category names can be up to 30 unicode characters in length and can contain (but not start with) underscores and hyphens.
 
@@ -100,8 +104,8 @@ The `content-style` flag affects how markdown is rendered to the console. Agents
 For documents delivered to the console (to the user), the style should match your client:
 
 - **full** - Complete markdown rendering (works well with Claude Code)
-- **plain** - Minimal formatting
-- **compact** - Condensed output
+- **headings** - Only render header markup
+- **plain** - (default) Don't render content as headings, bold or italic
 
 Choose according to your agent's capabilities and your taste.
 
@@ -111,25 +115,12 @@ mcp-guide discovers content through:
 
 1. **Categories** - Define which files to include based on patterns
 2. **Collections** - Group category expressions for specific purposes
-3. **Metadata** - Frontmatter controls inclusion and behavior
+3. **Metadata** - Frontmatter controls inclusion and behaviour
 
-See [Categories and Collections](categories-and-collections.md) for organization details.
-
-## Content Delivery
-
-When an agent requests content:
-
-1. mcp-guide identifies relevant categories/collections
-2. Reads matching files from the docroot
-3. Processes templates and frontmatter
-4. Applies feature flag filters
-5. De-duplicates instructions
-6. Returns formatted content
-
-The agent receives exactly what it needs, formatted appropriately for its capabilities.
+See [Categories and Collections](categories-and-collections.md) for organisation details.
 
 ## Next Steps
 
-- **[Categories and Collections](categories-and-collections.md)** - Organizing content
-- **[Content Documents](content-documents.md)** - Writing content with templates
+- **[Categories and Collections](categories-and-collections.md)** - Organising content
+- **[Documents](documents.md)** - Writing content with templates
 - **[Feature Flags](feature-flags.md)** - Conditional content inclusion

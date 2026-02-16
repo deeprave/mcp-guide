@@ -14,10 +14,10 @@ It requires uv, Python 3.11+ to be installed, and the "uvx" command to be availa
 mcp-guide supports three transport modes:
 
 - **STDIO** - Standard input/output for local agent communication (most common)
-- **HTTP** - Unsecured network transport using Server-Sent Events (SSE)
-- **HTTPS** - Secured network transport using Server-Sent Events (SSE) with SSL certificates
+- **HTTP** - Non-secure network transport using Server-Sent Events (SSE)
+- **HTTPS** - Secure network transport using Server-Sent Events (SSE) with SSL certificates
 
-**MCP client configuration (stdio):**
+MCP client configuration (STDIO):
 
 ```json
 {
@@ -37,7 +37,7 @@ mcp-guide supports three transport modes:
 
 The following configuration requires only docker. The host volume mapping is optional but recommended to persist any changes you make to documents.
 
-**MCP client configuration (STDIO with Docker):**
+MCP client configuration (STDIO with Docker):
 
 ```json
 {
@@ -62,15 +62,16 @@ The following configuration requires only docker. The host volume mapping is opt
 
 Standard input/output for local agent communication. This is the most common configuration.
 
-**Kiro-CLI** (`~/.config/kiro/mcp.json`):
-**Claude Code** (`~/.claude/settings.json`):
-**GitHub Copilot CLI** (`~/.config/.copilot/mcp.json`):
+Configuration locations:
+- Kiro-CLI: `~/.config/kiro/mcp.json`
+- Claude Code: `~/.claude/settings.json`
+- GitHub Copilot CLI: `~/.config/.copilot/mcp.json`
 
 ### Streaming Mode (SSE)
 
 #### HTTP transport
 
-Unsecured network transport:
+MCP client configuration (HTTP):
 
 ```json
 {
@@ -94,6 +95,8 @@ Network transport with Server-Sent Events for remote access.
 HTTPS transport requires SSL certificates, HTTP transport does not.
 Both configurations require uvicorn for serving HTTP requests.
 
+MCP client configuration (HTTPS):
+
 ```json
 {
   "mcpServers": {
@@ -116,7 +119,7 @@ Both configurations require uvicorn for serving HTTP requests.
 
 **Note:** Port 443 (default HTTPS) requires root/admin privileges. Use port 8443 or another non-privileged port (>1024) for development.
 
-**Generating SSL Certificates** (development):
+Generating SSL certificates (development):
 
 ```bash
 openssl req -x509 -newkey rsa:4096 -nodes \
@@ -133,7 +136,7 @@ HTTPS transport is recommended when accessing the server from another host, howe
 
 mcp-guide provides docker compose support for containerised deployments. Use the `--profile` flag to select which service to run (e.g., `docker compose --profile http up`).
 
-### `compose.yaml` for HTTP and HTTPS modes
+Docker compose configuration:
 
 ```yaml
 services:
@@ -163,17 +166,17 @@ services:
 
 **Note:** STDIO mode cannot be used in a compose configuration because it requires the MCP client to start the MCP server to attach stdin/stdout used for message exchange. In HTTP/HTTPS mode, the MCP server runs independently from the AI client and communicates over the network using the HTTP protocol.
 
-### Using The Pre-built Image
+Pull the pre-built image:
 
 ```bash
 docker pull dlnugent/mcp-guide:latest
 ```
 
-Note that the mappings (-v) for the configuration files are optional, but ensure that configuration changes and any changes to documents in the docroot store are persisted across restarts.
+Note that the volume mappings (-v) for configuration files are optional, but ensure that configuration changes and any changes to documents in the docroot store are persisted across restarts.
 
-### STDIO Mode
+### Docker STDIO Mode
 
-**Using docker run:**
+Run with docker:
 
 ```bash
 docker run -it --rm \
@@ -181,7 +184,9 @@ docker run -it --rm \
   dlnugent/mcp-guide:latest
 ```
 
-### HTTP Mode
+### Docker HTTP Mode
+
+Run with docker:
 
 ```bash
 docker run -it --rm \
@@ -193,9 +198,9 @@ docker run -it --rm \
 
 Access at: `http://localhost:8080/mcp`
 
-### HTTPS Mode
+### Docker HTTPS Mode
 
-Generate certificates first:
+Generate certificates:
 
 ```bash
 openssl req -x509 -newkey rsa:4096 -nodes \
@@ -225,7 +230,8 @@ mcp-guide stores configuration in:
 - **macOS/Linux**: `~/.config/mcp-guide/`
 - **Windows**: `%APPDATA%\mcp-guide\`
 
-Configuration & Document Structure:
+Directory structure:
+
 ```
 ~/.config/mcp-guide/
 ├── config.yaml        # Single configuration file
@@ -233,6 +239,8 @@ Configuration & Document Structure:
 ```
 
 ### Logging
+
+Environment variables:
 
 ```bash
 # Log level (TRACE, DEBUG, INFO, WARN, ERROR)
@@ -247,6 +255,8 @@ export MG_LOG_JSON=1
 
 ### Tool Naming
 
+Environment variable:
+
 ```bash
 # Tool name prefix (default: "guide")
 export MCP_TOOL_PREFIX="guide"
@@ -256,13 +266,6 @@ This can also be configured in the MCP client configuration using the `env` sect
 
 **Note**: Some clients (like Claude Code) already prefix tool names with the MCP server name.
 In these cases, set `MCP_TOOL_PREFIX=""` or start with `--no-tool-prefix` to avoid double prefixing.
-
-### Development
-
-```bash
-# Include example tools (default: false)
-export MCP_INCLUDE_EXAMPLE_TOOLS="true"
-```
 
 ## Next Steps
 

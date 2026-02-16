@@ -4,97 +4,113 @@ Organising content with categories and collections in mcp-guide.
 
 ## Categories
 
-Categories define which files to include based on directory paths and file patterns.
+Categories specify which files to include based on directory paths and file patterns.
 
-### Defining Categories
+### Viewing Categories
 
-Categories are defined in your project configuration:
+To see what categories exist in your project, ask your AI:
 
-```yaml
-categories:
-  guidelines:
-    dir: guidelines
-    patterns:
-      - "readthis"
-      - "guidelines"
-    description: "Project guidelines and standards"
-
-  python:
-    dir: lang/python
-    patterns:
-      - "python-guide"
-      - "style"
-    description: "Python language guidelines"
 ```
+@guide :project -v
+```
+
+This shows all categories, their directories, patterns, and descriptions.
+
+### Creating Categories
+
+You can ask your AI to create categories for you:
+
+```
+Please create a category called 'api' for API documentation in the docs/api directory
+```
+
+```
+Add a category 'testing' with patterns for pytest files
+```
+
+The AI will create the category with appropriate settings based on your description.
 
 ### Category Properties
 
-- **dir**: Directory path relative to docroot (required)
-- **patterns**: List of glob patterns matching document basenames (required)
-- **description**: Human-readable description (optional)
+Each category has:
+
+- **Name**: Up to 30 characters, no leading underscore/hyphen, no whitespace
+- **Directory**: Path relative to docroot where documents are stored
+- **Patterns**: Glob patterns that match documents to include
+- **Description**: Optional human-readable description
 
 ### Pattern Syntax
 
-Patterns are globs matching document basenames (not extensions). Focus on text documents:
+Patterns are globs that match documents that should be selected when the bare category is used.
+This normally means using the basename, without the file extension.
+Patterns are matched for basenames by default, and various extensions are tried in order: markdown, markdown template and finally text.
+Beware of using glob patterns containing `*` too liberally. It is better to simply add multiple patterns than select everything.
+Trailing `*` in any pattern is discouraged, the system takes care of that automatically.
+
+Examples:
 
 - `readthis` - Matches "readthis", "readthis.md", "readthis.txt"
-- `guide*` - Matches "guidelines", "guide-python", etc.
-- `python-*` - Matches "python-style", "python-testing"
-- `{guide,readme}` - Matches either "guide" or "readme"
+- `{guide,readme}` - Matches both "guide" and "readme"
 
 ### Using Categories
 
-Request content using the `@guide` prompt:
+The primary use of the prompt is to request content using an expression.
+
+Request a single category:
 
 ```
-@guide guidelines
+@guide guide
 ```
 
-Categories can be combined with `+`:
+Request multiple categories by separating them with commas:
 
 ```
-@guide guidelines+python
+@guide guide,lang,context
 ```
 
-Override patterns with `/`:
+You can override the default patterns by using `/` to specify documents within the category:
 
 ```
-@guide guidelines/python
+@guide lang/python
+```
+
+Combine multiple patterns within a category using `+`:
+
+```
+@guide testing/python+pytest
 ```
 
 ## Collections
 
-Collections group category expressions together. They act as "macros" to provide targeted context for specific tasks.
+Collections group category expressions together. They act as "macros" to provide targeted context for specific tasks without remembering complex expressions.
 
-Category expressions can be simple names (`guidelines`) or complex expressions (`guidelines+python`).
+### Viewing Collections
 
-### Defining Collections
+To see what collections exist in your project:
 
-```yaml
-collections:
-  python-dev:
-    categories:
-      - guidelines
-      - python
-      - testing
-    description: "Python development context"
-
-  code-review:
-    categories:
-      - guidelines
-      - code-quality
-      - security
-    description: "Code review checklist"
+```
+@guide :project -v
 ```
 
-### Collection Properties
+This shows all collections and the categories they include.
 
-- **categories**: List of category expressions (required)
-- **description**: Human-readable description (optional)
+### Creating Collections
+
+Ask your AI to create collections:
+
+```
+Please create a collection called 'python-dev' that includes guide, lang, and testing categories
+```
+
+```
+Add a collection 'code-review' with guide, checks, and review categories
+```
+
+The AI will set up the collection with the categories you specify.
 
 ### Using Collections
 
-Request content using the `@guide` prompt:
+Request a collection using the `@guide` prompt:
 
 ```
 @guide python-dev
@@ -102,7 +118,7 @@ Request content using the `@guide` prompt:
 
 Collections expand to their category expressions automatically.
 
-You can also override patterns:
+You can also override patterns when using a collection:
 
 ```
 @guide python-dev/testing
@@ -110,54 +126,35 @@ You can also override patterns:
 
 ### Nested Collections
 
-Collections can reference other collections:
+Collections can reference other collections. For example, you might have a base collection that other collections build upon. Ask your AI to set this up:
 
-```yaml
-collections:
-  base:
-    categories:
-      - guidelines
-
-  python-dev:
-    categories:
-      - base  # References the 'base' collection
-      - python
+```
+Create a 'base' collection with just the guide category, then create 'python-dev' that includes base plus lang and testing
 ```
 
 ## Category Expressions
 
-Category expressions allow flexible content selection:
+Category expressions provide flexible content selection.
 
 ### Basic Expressions
 
-- `guidelines` - Single category
-- `guidelines+python` - Multiple categories (union)
-- `guidelines/security` - Subdirectory within category
+- `guide` - Single category
+- `guide,lang` - Multiple categories (comma-separated)
+- `lang/python` - Specific pattern within a category
 
 ### Subdirectory Selection
 
-Use `/` to select subdirectories:
+You can use `/` to select documents from subdirectories within a category:
 
 ```
-@guide guidelines/security
+@guide docs/api/authentication
 ```
 
-## Pattern Overrides
-
-Override category patterns at request time using `/`:
-
-```
-@guide guidelines/python
-```
-
-This is useful for:
-- Filtering by topic
-- Selecting specific documents
-- Testing patterns
+This selects the "authentication" document from the `api/` subdirectory within the `docs` category.
 
 ## Next Steps
 
-- **[Content Documents](content-documents.md)** - Writing content with templates
+- **[Documents](documents.md)** - Writing content with templates
 - **[Feature Flags](feature-flags.md)** - Conditional content inclusion
 - **[Profiles](profiles.md)** - Pre-configured category setups
 
