@@ -48,3 +48,11 @@ jobs:
       - name: Deploy versioned docs
         run: uv run mike deploy --push --update-aliases ${{ steps.version.outputs.version }} latest
 
+      - name: Print deployment URL
+        run: |
+          echo "📚 Documentation deployed to:"
+          echo "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/"
+          echo ""
+          echo "Version ${{ steps.version.outputs.version }}: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/${{ steps.version.outputs.version }}/"
+          echo "Latest: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/latest/"
+
