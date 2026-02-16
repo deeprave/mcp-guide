@@ -3,8 +3,18 @@ name: Test
 on:
   push:
     branches: [ main ]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'pyproject.toml'
+      - '.github/workflows/python-mcp-test.yml'
   pull_request:
     branches: [ main ]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'pyproject.toml'
+      - '.github/workflows/python-mcp-test.yml'
 
 jobs:
   test:
