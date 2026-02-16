@@ -1,0 +1,45 @@
+version: 2
+updates:
+  # Python dependencies
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "thursday"
+    groups:
+      mcp:
+        patterns:
+          - "mcp*"
+      pydantic:
+        patterns:
+          - "pydantic*"
+      testing:
+        patterns:
+          - "pytest*"
+          - "coverage*"
+      linting:
+        patterns:
+          - "ruff*"
+          - "mypy*"
+      docs:
+        patterns:
+          - "mkdocs*"
+          - "mike*"
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "thursday"
+    groups:
+      actions:
+        patterns:
+          - "*"
+
+  # Docker
+  - package-ecosystem: "docker"
+    directory: "/docker"
+    schedule:
+      interval: "weekly"
+      day: "thursday"
