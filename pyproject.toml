@@ -18,6 +18,12 @@ dependencies = [
     "patch-ng>=1.19.0",
 ]
 
+[project.urls]
+Homepage = "https://github.com/deeprave/mcp-guide"
+Documentation = "https://deeprave.github.io/mcp-guide/"
+Repository = "https://github.com/deeprave/mcp-guide"
+Issues = "https://github.com/deeprave/mcp-guide/issues"
+
 [project.optional-dependencies]
 http = ["uvicorn>=0.27.0"]
 docs = [
