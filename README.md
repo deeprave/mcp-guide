@@ -1,5 +1,12 @@
 # mcp-guide
 
+[![Build Status](https://img.shields.io/github/actions/workflow/status/deeprave/mcp-guide/python-mcp-docs.yml?branch=main&label=docs&logo=github)](https://github.com/deeprave/mcp-guide/actions/workflows/python-mcp-docs.yml)
+[![Security](https://img.shields.io/github/actions/workflow/status/deeprave/mcp-guide/codeql.yml?branch=main&label=security&logo=github)](https://github.com/deeprave/mcp-guide/security/code-scanning)
+[![Maintenance](https://img.shields.io/badge/maintenance-active-brightgreen.svg)](https://github.com/deeprave/mcp-guide)
+[![PyPI version](https://img.shields.io/pypi/v/mcp-guide.svg?logo=pypi&logoColor=white)](https://pypi.org/project/mcp-guide/)
+[![PyPI downloads](https://img.shields.io/pypi/dm/mcp-guide.svg?logo=pypi&logoColor=white)](https://pypi.org/project/mcp-guide/)
+[![Python versions](https://img.shields.io/pypi/pyversions/mcp-guide.svg?logo=python&logoColor=white)](https://pypi.org/project/mcp-guide/)
+
 **Structured content delivery for AI agents via Model Context Protocol**
 
 mcp-guide is an MCP server that provides AI agents with organised access to project guidelines, documentation, and context. It helps agents understand your project's standards, follow development workflows, and access relevant information through a flexible content management system.
