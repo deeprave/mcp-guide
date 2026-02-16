@@ -23,6 +23,8 @@ http = ["uvicorn>=0.27.0"]
 docs = [
     "mkdocs>=1.5.0",
     "mkdocs-material>=9.5.0",
+    "mike>=2.0.0",
+    "yq>=3.0.0",
 ]
 
 [project.scripts]
@@ -112,4 +114,7 @@ dev = [
 ]
 debug = [
     "debugpy>=1.8.0",
+]
+docs = [
+    "tomlq>=0.1.0",
 ]
