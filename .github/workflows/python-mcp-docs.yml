@@ -48,6 +48,9 @@ jobs:
       - name: Deploy versioned docs
         run: uv run mike deploy --push --update-aliases ${{ steps.version.outputs.version }} latest
 
+      - name: Set default version
+        run: uv run mike set-default --push latest
+
       - name: Print deployment URL
         run: |
           echo "📚 Documentation deployed to:"
