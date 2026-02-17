@@ -15,7 +15,7 @@ Enforce a disciplined development cycle through five distinct phases with explic
 
 ## Phase Tracking
 
-Track progress using `.guide.yaml` file:
+Track progress using the `.guide.yaml` file:
 
 ```yaml
 Phase: discussion|planning|implementation|check|review
@@ -24,7 +24,7 @@ Issue: <issue-id or path>
 
 ## Phase Transitions
 
-1. **discussion → planning**: Automatic once plan is drafted
+1. **discussion → planning**: Automatic once a plan is drafted
 2. **planning → implementation**: Requires explicit user consent
 3. **implementation → check**: Automatic when plan completed
 4. **check → review**: Automatic when all tests pass
