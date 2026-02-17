@@ -2,7 +2,17 @@
 
 All notable changes to mcp-guide will be documented in this file.
 
-## [0.9.0] - TBD
+## [1.0.0] - TBD
+
+### Changed
+- Documentation and deployment to GitHub Pages
+- Full Python 3.11+ support and testing
+
+### Fixed
+- Permission command names in templates
+- Documentation cross-references and broken links
+
+## [0.9.0] - 2026-02-16
 
 Initial release of mcp-guide.
 
