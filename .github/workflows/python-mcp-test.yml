@@ -16,6 +16,9 @@ on:
       - 'pyproject.toml'
       - '.github/workflows/python-mcp-test.yml'
 
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
