@@ -1,0 +1,1664 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Structured content delivery for AI agents via Model Context Protocol">
+      
+      
+      
+        <link rel="canonical" href="https://deeprave.github.io/mcp-guide/1.0.0b1/developer/filesystem-access/">
+      
+      
+        <link rel="prev" href="../command-authoring/">
+      
+      
+        <link rel="next" href="../DEBUGGING/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+    
+    
+      
+        <title>Filesystem Access - mcp-guide Documentation</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#filesystem-access" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="mcp-guide Documentation" class="md-header__button md-logo" aria-label="mcp-guide Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            mcp-guide Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Filesystem Access
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-hidden="true"  type="radio" name="__palette" id="__palette_0">
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/deeprave/mcp-guide" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    deeprave/mcp-guide
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="mcp-guide Documentation" class="md-nav__button md-logo" aria-label="mcp-guide Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    mcp-guide Documentation
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/deeprave/mcp-guide" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    deeprave/mcp-guide
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    User Guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user/getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user/categories-and-collections/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Categories and Collections
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user/content-management/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Content Management
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user/documents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documents
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user/workflows/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Workflows
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user/openspec/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenSpec Integration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user/feature-flags/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Feature Flags
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user/profiles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Profiles
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user/commands/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt Commands
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Developer Notes
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Developer Notes
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../command-authoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Command Authoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Filesystem Access
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Filesystem Access
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#what-it-does" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What It Does
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#security-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Security Model
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Security Model">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#multi-layer-security-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Multi-Layer Security Architecture
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#default-security-restrictions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Default Security Restrictions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#security-audit-and-monitoring" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Security Audit and Monitoring
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configuration
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Configuration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#project-level-path-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Project-Level Path Configuration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#configuration-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configuration Options
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Configuration Options">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#allowed_write_paths-array-of-strings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        allowed_write_paths (Array of strings)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#additional_read_paths-array-of-strings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        additional_read_paths (Array of strings)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#adding-paths-via-commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Adding Paths via Commands
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#advanced-security-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Advanced Security Configuration
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Advanced Security Configuration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#removing-restrictions-use-with-caution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Removing Restrictions (Use with Caution)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#architecture-overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Architecture Overview
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Architecture Overview">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#component-interaction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Component Interaction
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#data-flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data Flow
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-it-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How It Works
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="How It Works">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#file-access-process" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        File Access Process
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#performance-optimisations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Performance Optimisations
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#privacy-considerations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Privacy Considerations
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Troubleshooting
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Troubleshooting">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#common-issues" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common Issues
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../DEBUGGING/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Debugging
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#what-it-does" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What It Does
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#security-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Security Model
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Security Model">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#multi-layer-security-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Multi-Layer Security Architecture
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#default-security-restrictions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Default Security Restrictions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#security-audit-and-monitoring" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Security Audit and Monitoring
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configuration
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Configuration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#project-level-path-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Project-Level Path Configuration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#configuration-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configuration Options
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Configuration Options">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#allowed_write_paths-array-of-strings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        allowed_write_paths (Array of strings)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#additional_read_paths-array-of-strings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        additional_read_paths (Array of strings)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#adding-paths-via-commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Adding Paths via Commands
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#advanced-security-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Advanced Security Configuration
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Advanced Security Configuration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#removing-restrictions-use-with-caution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Removing Restrictions (Use with Caution)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#architecture-overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Architecture Overview
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Architecture Overview">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#component-interaction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Component Interaction
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#data-flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data Flow
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-it-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How It Works
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="How It Works">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#file-access-process" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        File Access Process
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#performance-optimisations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Performance Optimisations
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#privacy-considerations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Privacy Considerations
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Troubleshooting
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Troubleshooting">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#common-issues" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common Issues
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="filesystem-access">Filesystem Access<a class="headerlink" href="#filesystem-access" title="Permanent link">&para;</a></h1>
+<p>The MCP Guide server can request access to files and directories on the agent's filesystem to provide contextual assistance with your projects.</p>
+<h2 id="what-it-does">What It Does<a class="headerlink" href="#what-it-does" title="Permanent link">&para;</a></h2>
+<p>The filesystem access feature allows the MCP server to:
+- Read file contents to understand your codebase
+- List directory contents to discover project structure
+- Detect project types and configurations
+- Cache frequently accessed files for better performance</p>
+<p>This enables more accurate and contextual assistance by understanding your actual project files rather than working from general knowledge alone.</p>
+<h2 id="security-model">Security Model<a class="headerlink" href="#security-model" title="Permanent link">&para;</a></h2>
+<p><strong>By default, filesystem access is restricted to protect your system.</strong></p>
+<h3 id="multi-layer-security-architecture">Multi-Layer Security Architecture<a class="headerlink" href="#multi-layer-security-architecture" title="Permanent link">&para;</a></h3>
+<p>The filesystem access system implements defence-in-depth with multiple security layers:</p>
+<ol>
+<li><strong>Path Validation Layer</strong></li>
+<li>Normalises all paths to prevent traversal attacks</li>
+<li>Validates against allowed path prefixes</li>
+<li>Blocks access to system and sensitive directories</li>
+<li>
+<p>Resolves and validates symbolic links</p>
+</li>
+<li>
+<p><strong>Security Policy Layer</strong></p>
+</li>
+<li>Enforces read/write permissions per project</li>
+<li>Maintains audit logs of all access attempts</li>
+<li>Tracks security violations and blocked requests</li>
+<li>
+<p>Provides configurable security levels</p>
+</li>
+<li>
+<p><strong>Sampling Request Layer</strong></p>
+</li>
+<li>Agent-side validation before file operations</li>
+<li>Secure communication between server and agent</li>
+<li>Fallback handling for unsupported operations</li>
+<li>Error recovery and retry mechanisms</li>
+</ol>
+<h3 id="default-security-restrictions">Default Security Restrictions<a class="headerlink" href="#default-security-restrictions" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Read Access</strong>: Limited to project directories (<code>src/</code>, <code>docs/</code>, <code>tests/</code>, etc.)</li>
+<li><strong>Write Access</strong>: Restricted to explicitly configured paths only</li>
+<li><strong>System Protection</strong>: No access to system directories (<code>/etc</code>, <code>/usr</code>, <code>/System</code>)</li>
+<li><strong>Privacy Protection</strong>: No access to sensitive directories (<code>~/.ssh</code>, <code>~/.aws</code>, etc.)</li>
+<li><strong>Attack Prevention</strong>: Path traversal attacks (<code>../../../etc/passwd</code>) are blocked</li>
+<li><strong>Link Validation</strong>: Symbolic links are resolved and validated to prevent escaping</li>
+</ul>
+<h3 id="security-audit-and-monitoring">Security Audit and Monitoring<a class="headerlink" href="#security-audit-and-monitoring" title="Permanent link">&para;</a></h3>
+<p>All filesystem access attempts are comprehensively logged with:
+- Requested path and operation type (read/write/list)
+- Success/failure status and error details
+- Security violations and blocked attempts
+- Timestamp, user context, and request source
+- Performance metrics and cache statistics</p>
+<p>Audit logs are structured for easy analysis and can be integrated with security monitoring systems.</p>
+<h2 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permanent link">&para;</a></h2>
+<h3 id="project-level-path-configuration">Project-Level Path Configuration<a class="headerlink" href="#project-level-path-configuration" title="Permanent link">&para;</a></h3>
+<p>Configure allowed paths in your project's <code>.guide-config.json</code>:</p>
+<div class="codehilite"><pre><span></span><code><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;filesystem&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;allowed_write_paths&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">      </span><span class="s2">&quot;src/&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="s2">&quot;docs/&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="s2">&quot;tests/&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="s2">&quot;config/&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="s2">&quot;custom-directory/&quot;</span>
+<span class="w">    </span><span class="p">],</span>
+<span class="w">    </span><span class="nt">&quot;additional_read_paths&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">      </span><span class="s2">&quot;node_modules/&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="s2">&quot;vendor/&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="s2">&quot;build/&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="s2">&quot;external-libs/&quot;</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<h3 id="configuration-options">Configuration Options<a class="headerlink" href="#configuration-options" title="Permanent link">&para;</a></h3>
+<h4 id="allowed_write_paths-array-of-strings"><code>allowed_write_paths</code> (Array of strings)<a class="headerlink" href="#allowed_write_paths-array-of-strings" title="Permanent link">&para;</a></h4>
+<ul>
+<li><strong>Purpose</strong>: Directories where the MCP server can read and write files</li>
+<li><strong>Default</strong>: <code>["src/", "docs/", "tests/", "examples/", "config/"]</code></li>
+<li><strong>Security</strong>: Paths are validated and normalised</li>
+<li><strong>Format</strong>: Relative paths from project root, must end with <code>/</code></li>
+</ul>
+<h4 id="additional_read_paths-array-of-strings"><code>additional_read_paths</code> (Array of strings)<a class="headerlink" href="#additional_read_paths-array-of-strings" title="Permanent link">&para;</a></h4>
+<ul>
+<li><strong>Purpose</strong>: Additional directories for read-only access (beyond write paths)</li>
+<li><strong>Default</strong>: <code>[]</code> (empty)</li>
+<li><strong>Use Cases</strong>: Dependencies, build outputs, external libraries</li>
+<li><strong>Security</strong>: Read-only access, cannot modify files in these paths</li>
+</ul>
+<h3 id="adding-paths-via-commands">Adding Paths via Commands<a class="headerlink" href="#adding-paths-via-commands" title="Permanent link">&para;</a></h3>
+<p>Use the built-in guide commands to safely add paths to your project configuration:</p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># Add a directory to allowed write paths</span>
+@guide<span class="w"> </span>:fs/add-write<span class="w"> </span><span class="s2">&quot;new-module/&quot;</span>
+
+<span class="c1"># Add a directory to additional read paths</span>
+@guide<span class="w"> </span>:fs/add-read<span class="w"> </span><span class="s2">&quot;external-deps/&quot;</span>
+
+<span class="c1"># List current filesystem configuration</span>
+@guide<span class="w"> </span>:fs/show
+</code></pre></div>
+
+<p>These commands automatically:
+- Validate path format and security
+- Update your project configuration
+- Apply changes immediately
+- Maintain configuration file formatting</p>
+<h3 id="advanced-security-configuration">Advanced Security Configuration<a class="headerlink" href="#advanced-security-configuration" title="Permanent link">&para;</a></h3>
+<h4 id="removing-restrictions-use-with-caution">Removing Restrictions (Use with Caution)<a class="headerlink" href="#removing-restrictions-use-with-caution" title="Permanent link">&para;</a></h4>
+<p>If you need unrestricted filesystem access and fully trust this MCP server:</p>
+<div class="codehilite"><pre><span></span><code>kiro-cli<span class="w"> </span>/tools<span class="w"> </span>trust-all
+</code></pre></div>
+
+<p><strong>⚠️ WARNING</strong>: This removes all security restrictions. The MCP server will have access to your entire filesystem. Only use this if you:
+- Completely trust this MCP server
+- Understand the security implications
+- Are working in an isolated/sandboxed environment</p>
+<p>To restore restrictions:</p>
+<div class="codehilite"><pre><span></span><code>kiro-cli<span class="w"> </span>/tools<span class="w"> </span>trust-all<span class="w"> </span><span class="nb">false</span>
+</code></pre></div>
+
+<h2 id="architecture-overview">Architecture Overview<a class="headerlink" href="#architecture-overview" title="Permanent link">&para;</a></h2>
+<h3 id="component-interaction">Component Interaction<a class="headerlink" href="#component-interaction" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code>┌─────────────────┐<span class="w">    </span>┌──────────────────┐<span class="w">    </span>┌─────────────────┐
+│<span class="w">   </span><span class="nv">MCP</span><span class="w"> </span><span class="nv">Server</span><span class="w">    </span>│───▶│<span class="w">  </span><span class="nv">Sampling</span><span class="w"> </span><span class="nv">API</span><span class="w">    </span>│───▶│<span class="w">   </span><span class="nv">Agent</span><span class="w"> </span><span class="ss">(</span><span class="nv">CLI</span><span class="ss">)</span><span class="w">   </span>│
+│<span class="w">                 </span>│<span class="w">    </span>│<span class="w">                  </span>│<span class="w">    </span>│<span class="w">                 </span>│
+│<span class="w"> </span>•<span class="w"> </span><span class="nv">Path</span><span class="w"> </span><span class="nv">requests</span><span class="w"> </span>│<span class="w">    </span>│<span class="w"> </span>•<span class="w"> </span><span class="nv">Security</span><span class="w"> </span><span class="nv">check</span><span class="w"> </span>│<span class="w">    </span>│<span class="w"> </span>•<span class="w"> </span><span class="nv">File</span><span class="w"> </span><span class="nv">access</span><span class="w">   </span>│
+│<span class="w"> </span>•<span class="w"> </span><span class="nv">Content</span><span class="w"> </span><span class="nv">proc</span>.<span class="w"> </span>│<span class="w">    </span>│<span class="w"> </span>•<span class="w"> </span><span class="nv">Audit</span><span class="w"> </span><span class="nv">logging</span><span class="w">  </span>│<span class="w">    </span>│<span class="w"> </span>•<span class="w"> </span><span class="nv">Response</span><span class="w"> </span><span class="k">send</span><span class="w"> </span>│
+│<span class="w"> </span>•<span class="w"> </span><span class="nv">Cache</span><span class="w"> </span><span class="nv">mgmt</span>.<span class="w">   </span>│<span class="w">    </span>│<span class="w"> </span>•<span class="w"> </span><span class="nv">Error</span><span class="w"> </span><span class="nv">handling</span><span class="w"> </span>│<span class="w">    </span>│<span class="w"> </span>•<span class="w"> </span><span class="nv">Local</span><span class="w"> </span><span class="nv">validation</span>│
+└─────────────────┘<span class="w">    </span>└──────────────────┘<span class="w">    </span>└─────────────────┘
+<span class="w">         </span>│<span class="w">                       </span>│<span class="w">                       </span>│
+<span class="w">         </span>▼<span class="w">                       </span>▼<span class="w">                       </span>▼
+┌─────────────────┐<span class="w">    </span>┌──────────────────┐<span class="w">    </span>┌─────────────────┐
+│<span class="w">   </span><span class="nv">File</span><span class="w"> </span><span class="nv">Cache</span><span class="w">    </span>│<span class="w">    </span>│<span class="w"> </span><span class="nv">Security</span><span class="w"> </span><span class="nv">Policy</span><span class="w">  </span>│<span class="w">    </span>│<span class="w"> </span><span class="nv">Path</span><span class="w"> </span><span class="nv">Validator</span><span class="w">  </span>│
+│<span class="w">                 </span>│<span class="w">    </span>│<span class="w">                  </span>│<span class="w">    </span>│<span class="w">                 </span>│
+│<span class="w"> </span>•<span class="w"> </span><span class="nv">LRU</span><span class="w"> </span><span class="nv">eviction</span><span class="w">  </span>│<span class="w">    </span>│<span class="w"> </span>•<span class="w"> </span><span class="nv">Path</span><span class="w"> </span><span class="nv">rules</span><span class="w">     </span>│<span class="w">    </span>│<span class="w"> </span>•<span class="w"> </span><span class="nv">Normalization</span><span class="w"> </span>│
+│<span class="w"> </span>•<span class="w"> </span><span class="nv">Size</span><span class="w"> </span><span class="nv">limits</span><span class="w">   </span>│<span class="w">    </span>│<span class="w"> </span>•<span class="w"> </span><span class="nv">Audit</span><span class="w"> </span><span class="nv">trail</span><span class="w">    </span>│<span class="w">    </span>│<span class="w"> </span>•<span class="w"> </span><span class="nv">Symlink</span><span class="w"> </span><span class="nv">check</span><span class="w"> </span>│
+│<span class="w"> </span>•<span class="w"> </span><span class="nv">TTL</span><span class="w"> </span><span class="nv">tracking</span><span class="w">  </span>│<span class="w">    </span>│<span class="w"> </span>•<span class="w"> </span><span class="nv">Violation</span><span class="w"> </span><span class="nv">log</span><span class="w">  </span>│<span class="w">    </span>│<span class="w"> </span>•<span class="w"> </span><span class="nv">Traversal</span><span class="w"> </span><span class="nv">block</span>│
+└─────────────────┘<span class="w">    </span>└──────────────────┘<span class="w">    </span>└─────────────────┘
+</code></pre></div>
+
+<h3 id="data-flow">Data Flow<a class="headerlink" href="#data-flow" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>Request</strong>: MCP server requests file/directory access</li>
+<li><strong>Validation</strong>: Security policy validates path against allowed lists</li>
+<li><strong>Sampling</strong>: Secure sampling request sent to agent</li>
+<li><strong>Agent Processing</strong>: Agent validates and performs file operation</li>
+<li><strong>Response</strong>: File content/listing sent back to server</li>
+<li><strong>Caching</strong>: Results cached with modification time tracking</li>
+<li><strong>Audit</strong>: All operations logged for security monitoring</li>
+</ol>
+<h2 id="how-it-works">How It Works<a class="headerlink" href="#how-it-works" title="Permanent link">&para;</a></h2>
+<h3 id="file-access-process">File Access Process<a class="headerlink" href="#file-access-process" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>Path Request</strong>: MCP server requests access to a specific file or directory</li>
+<li><strong>Security Validation</strong>:</li>
+<li>Path normalised and validated against security policy</li>
+<li>Checked against allowed_write_paths and additional_read_paths</li>
+<li>System and sensitive directories blocked</li>
+<li><strong>Cache Check</strong>: Recently accessed files served from cache if still valid</li>
+<li><strong>Sampling Request</strong>: If not cached, secure request sent to agent</li>
+<li><strong>Agent Validation</strong>: Agent performs additional security checks</li>
+<li><strong>File Operation</strong>: Agent reads file/directory and sends response</li>
+<li><strong>Caching</strong>: Response cached with modification time for future requests</li>
+<li><strong>Audit Logging</strong>: Complete operation logged for security monitoring</li>
+</ol>
+<h3 id="performance-optimisations">Performance Optimisations<a class="headerlink" href="#performance-optimisations" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Intelligent Caching</strong>: LRU cache with size and entry limits</li>
+<li><strong>Modification Tracking</strong>: Files re-read only when modified</li>
+<li><strong>Batch Operations</strong>: Multiple file requests optimised</li>
+<li><strong>Compression</strong>: Large responses compressed for network efficiency</li>
+</ul>
+<h2 id="privacy-considerations">Privacy Considerations<a class="headerlink" href="#privacy-considerations" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Explicit Access</strong>: File contents only accessed when specifically requested</li>
+<li><strong>No Scanning</strong>: No automatic scanning or indexing of your filesystem</li>
+<li><strong>Temporary Caching</strong>: Cached contents stored temporarily with TTL</li>
+<li><strong>Modification Respect</strong>: Cache invalidated when files change</li>
+<li><strong>Complete Logging</strong>: All access attempts logged and auditable</li>
+<li><strong>User Control</strong>: Full control over accessible paths and security level</li>
+<li><strong>Opt-in Model</strong>: Filesystem access requires explicit configuration</li>
+</ul>
+<h2 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permanent link">&para;</a></h2>
+<h3 id="common-issues">Common Issues<a class="headerlink" href="#common-issues" title="Permanent link">&para;</a></h3>
+<p><strong>Access Denied Errors</strong>
+- Check if path is in <code>allowed_write_paths</code> or <code>additional_read_paths</code>
+- Verify path format (relative, ends with <code>/</code> for directories)
+- Review audit logs for security violations</p>
+<p><strong>Performance Issues</strong>
+- Monitor cache hit rates in statistics
+- Adjust cache size limits if needed
+- Check for excessive file modification causing cache misses</p>
+<p><strong>Configuration Problems</strong>
+- Validate JSON syntax in <code>.guide-config.json</code>
+- Use <code>/show-filesystem-config</code> to verify current settings
+- Check file permissions on configuration file</p>
+<p>The filesystem access feature is designed to be helpful while maintaining security by default. You can always restrict access further or remove restrictions entirely based on your specific needs and trust level.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": [], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
