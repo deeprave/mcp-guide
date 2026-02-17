@@ -84,8 +84,19 @@ Available agents: {", ".join(sorted(available_agents.keys()))}""",
     agent_dir = available_agents[args.agent]
     install_dir_file = agent_dir / "install.dir"
 
-    # Read install paths (first line for project, second for user home if exists)
-    install_paths = install_dir_file.read_text().strip().split("\n")
+    # Read and validate install paths
+    install_paths = [p.strip() for p in install_dir_file.read_text().strip().split("\n") if p.strip()]
+
+    if not install_paths:
+        print(f"Error: {install_dir_file} is empty or malformed", file=sys.stderr)
+        return 1
+
+    # Validate paths are relative and safe
+    for path in install_paths:
+        if Path(path).is_absolute() or ".." in Path(path).parts:
+            print(f"Error: Invalid path in {install_dir_file}: {path}", file=sys.stderr)
+            print("Paths must be relative and not contain '..'", file=sys.stderr)
+            return 1
 
     # Determine which path to use based on dirname
     home_dir = Path.home()
