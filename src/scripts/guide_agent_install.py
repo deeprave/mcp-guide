@@ -10,7 +10,10 @@ from pathlib import Path
 def get_available_agents() -> dict[str, Path]:
     """Get available agents by scanning for install.dir files."""
     agents_base = Path(__file__).parent.parent / "mcp_guide" / "agents"
-    available = {}
+    available: dict[str, Path] = {}
+
+    if not agents_base.exists() or not agents_base.is_dir():
+        return available
 
     for agent_dir in agents_base.iterdir():
         if agent_dir.is_dir():
@@ -58,7 +61,7 @@ Available agents: {", ".join(sorted(available_agents.keys()))}""",
             print(readme_path.read_text())
         else:
             parser.print_help()
-        return 1
+        return 0
 
     # Invalid agent
     if args.agent not in available_agents:
@@ -71,9 +74,10 @@ Available agents: {", ".join(sorted(available_agents.keys()))}""",
         agent_readme = agents_base / args.agent / "README.md"
         if agent_readme.exists():
             print(agent_readme.read_text())
+            return 0
         else:
             print(f"Error: No README found for agent '{args.agent}'", file=sys.stderr)
-        return 1
+            return 1
 
     # Install agent
     dirname = Path(args.dirname).expanduser().resolve()
@@ -96,16 +100,16 @@ Available agents: {", ".join(sorted(available_agents.keys()))}""",
     installed = []
     skipped = []
 
-    # Determine file pattern based on agent type
-    if args.agent == "copilot":
-        file_pattern = "*.agent.md"
-    elif args.agent == "claude":
-        file_pattern = "*.md"
-    else:  # kiro and others
+    # Read file pattern from install.pattern file
+    pattern_file = agent_dir / "install.pattern"
+    if pattern_file.exists():
+        file_pattern = pattern_file.read_text().strip()
+    else:
+        # Fallback to *.json if no pattern file exists
         file_pattern = "*.json"
 
     for agent_file in agent_dir.glob(file_pattern):
-        if agent_file.name in ("README.md", "install.dir"):
+        if agent_file.name in ("README.md", "install.dir", "install.pattern"):
             continue
         target_file = target_dir / agent_file.name
         if target_file.exists() and not args.force:
