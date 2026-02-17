@@ -63,7 +63,7 @@ MCP client configuration (STDIO with Docker):
 Standard input/output for local agent communication. This is the most common configuration.
 
 Configuration locations:
-- Kiro-CLI: `~/.config/kiro/mcp.json`
+- Kiro-CLI: `~/.kiro/settings/mcp.json`
 - Claude Code: `~/.claude/settings.json`
 - GitHub Copilot CLI: `~/.config/.copilot/mcp.json`
 
@@ -220,6 +220,51 @@ docker run -it --rm \
 ```
 
 Access at: `https://localhost/mcp`
+
+## Other Commands
+
+### mcp-install
+
+Install or update the template and document store. Run this after installation or to update to the latest templates.
+
+From repository or installed package:
+```bash
+mcp-install
+```
+
+Via uvx:
+```bash
+uvx --from mcp-guide mcp-install
+```
+
+Use `--help` to display usage information:
+```bash
+mcp-install --help
+```
+
+### guide-agent-install
+
+Install mcp-guide configuration for specific AI agents. Automates the setup process by creating the appropriate configuration files.
+
+From repository or installed package:
+```bash
+guide-agent-install <agent> <dir>
+```
+
+Via uvx:
+```bash
+uvx --from mcp-guide guide-agent-install <agent> <dir>
+```
+
+**Usage:**
+- No arguments: Display README with general information
+- Agent only: Display agent-specific README
+- Agent and directory: Install configuration for the specified agent
+
+Use `--help` to display usage information:
+```bash
+guide-agent-install --help
+```
 
 ## Configuration
 
