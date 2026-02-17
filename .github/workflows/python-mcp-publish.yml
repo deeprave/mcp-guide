@@ -177,15 +177,24 @@ jobs:
         run: |
           set -euo pipefail
           VERSION="${{ needs.validate-and-build.outputs.version }}"
-          if ! awk "/^## \[$VERSION\]/ {flag=1; next} /^## \[/ {flag=0} flag" CHANGELOG.md > release-notes.md; then
-            echo "Error: Failed to extract changelog section for version $VERSION"
+          # Strip pre-release suffix for changelog lookup (1.0.0b1 -> 1.0.0)
+          BASE_VERSION=$(echo "$VERSION" | sed -E 's/(a|b|rc)[0-9]+$//')
+          
+          if ! awk "/^## \[$BASE_VERSION\]/ {flag=1; next} /^## \[/ {flag=0} flag" CHANGELOG.md > release-notes.md; then
+            echo "Error: Failed to extract changelog section for version $BASE_VERSION"
             exit 1
           fi
           if [ ! -s release-notes.md ]; then
-            echo "Error: Changelog section for version $VERSION is missing or empty"
-            echo "Please add a '## [$VERSION]' section to CHANGELOG.md before publishing"
+            echo "Error: Changelog section for version $BASE_VERSION is missing or empty"
+            echo "Please add a '## [$BASE_VERSION]' section to CHANGELOG.md before publishing"
             exit 1
           fi
+          
+          # Add pre-release note if applicable
+          if [ "$VERSION" != "$BASE_VERSION" ]; then
+            echo "**Note**: This is a pre-release version ($VERSION)" | cat - release-notes.md > temp && mv temp release-notes.md
+          fi
+          
           cat release-notes.md
 
       - name: Create GitHub Release
