@@ -1,6 +1,6 @@
 [project]
 name = "mcp-guide"
-version = "1.0.0b1"
+version = "1.0.0b2"
 description = "MCP server for handling guidelines, project rules and controlled development"
 readme = "README.md"
 license = {file = "LICENSE.md"}
@@ -16,6 +16,7 @@ dependencies = [
     "click>=8.3.0",
     "uuid7>=0.1.0",
     "patch-ng>=1.19.0",
+    "packaging>=24.0",
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -25,6 +26,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Communications",
 ]
@@ -48,6 +50,7 @@ docs = [
 mcp-guide = "mcp_guide.main:main"
 mcp-install = "scripts.mcp_guide_install:cli"
 osvcheck = "scripts.osvcheck:main"
+guide-agent-install = "scripts.guide_agent_install:main"
 
 [build-system]
 requires = ["uv_build"]
@@ -133,5 +136,4 @@ debug = [
     "debugpy>=1.8.0",
 ]
 docs = [
-    "tomlq>=0.1.0",
 ]

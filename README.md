@@ -55,7 +55,7 @@ If the "mcpServers" block already exists, add the "mcp-guide" block at the end, 
 
 #### Kiro-CLI
 
-Add the above JSON block to `~/.config/kiro/mcp.json`.
+Add the above JSON block to `~/.kiro/settings/mcp.json`.
 
 #### Claude Code
 
