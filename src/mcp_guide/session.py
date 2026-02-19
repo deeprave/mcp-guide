@@ -86,6 +86,15 @@ class Session:
             """Invalidate the feature flags cache."""
             self.__feature_flags = None
 
+        def _ensure_config_dir(self) -> None:
+            """Ensure config directory exists, creating it if necessary."""
+            config_dir = self.config_file.parent
+            if not config_dir.exists():
+                try:
+                    config_dir.mkdir(parents=True, exist_ok=True)
+                except OSError as e:
+                    logger.exception(f"Failed to create config directory {config_dir}: {e}")
+
         async def get_or_create_config(self, file_path: Path) -> str:
             """Read config, or install templates and create it on first run.
 
@@ -270,6 +279,7 @@ class Session:
 
                 return result
 
+            self._ensure_config_dir()
             return await lock_update(self.config_file, _get_or_create)
 
         async def _migrate_and_load_project(
@@ -412,6 +422,7 @@ class Session:
                 except OSError as e:
                     raise OSError(f"Failed to write config file {file_path}: {e}") from e
 
+            self._ensure_config_dir()
             await lock_update(self.config_file, _save)
 
     def __init__(self, project_name: str, *, _config_dir_for_tests: Optional[str] = None):

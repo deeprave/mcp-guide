@@ -8,16 +8,15 @@ The existing initialization mechanism in `Session._ConfigManager.get_or_create_c
 
 ## What Changes
 
-Modify `lock_update()` in `file_lock.py` to handle missing parent directory:
+Add a helper method in `Session._ConfigManager` to ensure the config directory exists before reading/saving config:
 
-1. Create `ConfigDirectoryError` exception class
-2. Catch `FileNotFoundError` when creating lock file
-3. Check if parent directory exists
-4. If not, create it (log and raise ConfigDirectoryError on failure)
-5. Retry lock creation (log and raise ConfigDirectoryError on failure)
-6. Add exception handler in main entry point to catch ConfigDirectoryError and exit with code 2
+1. Add `_ensure_config_dir()` method to `_ConfigManager` class
+2. Method checks if `self.config_file.parent` exists
+3. If not, calls `makedirs(exist_ok=True)` to create it
+4. Logs any exception during directory creation and continues
+5. Call `_ensure_config_dir()` only in methods that read/save the config file itself (not flags or other operations)
 
-Both failure scenarios are fatal - if we can't materialize our config, the MCP server cannot continue. The exception propagates to main which exits with a specific error code (2) indicating conditions to run MCP cannot be met.
+This is a minimal fix confined to `_ConfigManager` that ensures the directory exists before the first config file access.
 
 ## Impact
 
