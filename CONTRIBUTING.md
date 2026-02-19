@@ -122,6 +122,7 @@ The agent will use the appropriate MCP tools (`guide_set_feature_flag` or `guide
 ## Profiles
 
 Profiles provide pre-configured category and collection setups for common scenarios. Profiles are composable - multiple profiles can be applied to build complex configurations.
+Each profile can add categories, collections and/or patterns.
 
 **To use profiles, ask your AI agent:**
 - "What profiles are available?"

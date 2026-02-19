@@ -58,12 +58,12 @@
 ## 8. Documentation
 - [x] 8.1 Document required secrets in README or docs
 - [x] 8.2 Document required variables
-- [ ] 8.3 Document release process with dry-run option
-- [ ] 8.4 Add troubleshooting guide
+- [x] 8.3 Document release process with dry-run option
+- [x] 8.4 Add troubleshooting guide
 
 ## 9. Testing
-- [ ] 9.1 Test workflow with dry-run mode enabled
-- [ ] 9.2 Verify dry-run shows commands without executing
-- [ ] 9.3 Verify Docker images build for both architectures
-- [ ] 9.4 Verify version comparison logic
-- [ ] 9.5 Test complete workflow end-to-end in production mode
+- [x] 9.1 Test workflow with dry-run mode enabled
+- [x] 9.2 Verify dry-run shows commands without executing
+- [x] 9.3 Verify Docker images build for both architectures
+- [x] 9.4 Verify version comparison logic
+- [x] 9.5 Test complete workflow end-to-end in production mode
