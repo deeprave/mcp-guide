@@ -35,6 +35,22 @@ async def send_file_content(
     Returns:
         Result with cached file metadata
     """
+    # Validate required parameters
+    errors = {}
+    if not path or not path.strip():
+        errors["path"] = "You must provide a valid file path when calling send_file_content"
+    if not content:
+        errors["content"] = "You must provide file content when calling send_file_content"
+
+    if errors:
+        logger.debug(f"Validation errors in send_file_content: {errors}")
+        return Result.failure(
+            error="Missing or invalid field(s)",
+            error_type="validation_error",
+            error_data=errors,
+            instruction="Please correct these validation issues and resubmit your response",
+        )
+
     try:
         session = await get_or_create_session(context)
         project = await session.get_project()
@@ -118,6 +134,22 @@ async def send_directory_listing(
     Returns:
         Result with directory listing metadata
     """
+    # Validate required parameters
+    errors = {}
+    if not path or not path.strip():
+        errors["path"] = "You must provide a valid directory path when calling send_directory_listing"
+    if files is None:
+        errors["entries"] = "You must provide zero or more directory entries when calling send_directory_listing"
+
+    if errors:
+        logger.debug(f"Validation errors in send_directory_listing: {errors}")
+        return Result.failure(
+            error="Missing or invalid field(s)",
+            error_type="validation_error",
+            error_data=errors,
+            instruction="Please correct these validation issues and resubmit your response",
+        )
+
     try:
         session = await get_or_create_session(context)
         project = await session.get_project()
@@ -194,6 +226,20 @@ async def send_command_location(
     Returns:
         Result with command location metadata
     """
+    # Validate required parameters
+    errors = {}
+    if not command or not command.strip():
+        errors["command"] = "You must provide a command name when calling send_command_location"
+
+    if errors:
+        logger.debug(f"Validation errors in send_command_location: {errors}")
+        return Result.failure(
+            error="Missing or invalid field(s)",
+            error_type="validation_error",
+            error_data=errors,
+            instruction="Please correct these validation issues and resubmit your response",
+        )
+
     try:
         # Dispatch event to task manager
         from mcp_guide.task_manager import EventType, get_task_manager
@@ -236,6 +282,20 @@ async def send_working_directory(context: Any, working_directory: str) -> "Resul
     Returns:
         Result with working directory metadata
     """
+    # Validate required parameters
+    errors = {}
+    if not working_directory or not working_directory.strip():
+        errors["path"] = "You must provide a working directory path when calling send_working_directory"
+
+    if errors:
+        logger.debug(f"Validation errors in send_working_directory: {errors}")
+        return Result.failure(
+            error="Missing or invalid field(s)",
+            error_type="validation_error",
+            error_data=errors,
+            instruction="Please correct these validation issues and resubmit your response",
+        )
+
     try:
         # Dispatch event to task manager
         from mcp_guide.task_manager import EventType, get_task_manager
@@ -278,6 +338,22 @@ async def send_found_files(
     Returns:
         Result with found files metadata
     """
+    # Validate required parameters
+    errors = {}
+    if not pattern or not pattern.strip():
+        errors["pattern"] = "You must provide a search pattern when calling send_found_files"
+    if files is None:
+        errors["files"] = "You must provide a list of found files when calling send_found_files"
+
+    if errors:
+        logger.debug(f"Validation errors in send_found_files: {errors}")
+        return Result.failure(
+            error="Missing or invalid field(s)",
+            error_type="validation_error",
+            error_data=errors,
+            instruction="Please correct these validation issues and resubmit your response",
+        )
+
     try:
         # Dispatch event to task manager
         from mcp_guide.task_manager import EventType, get_task_manager

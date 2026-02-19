@@ -79,6 +79,7 @@ class Result(Generic[T]):
         message: Optional[str] = None,
         instruction: Optional[str] = None,
         additional_agent_instructions: Optional[str] = None,
+        error_data: Optional[dict[str, Any]] = None,
     ) -> "Result[T]":
         """Create a failure result with error information.
 
@@ -89,6 +90,7 @@ class Result(Generic[T]):
             message: Optional message
             instruction: Optional instruction for agent
             additional_agent_instructions: Optional side-band instruction for agent
+            error_data: Optional structured error data
 
         Returns:
             Result with success=False
@@ -101,6 +103,7 @@ class Result(Generic[T]):
             message=message,
             instruction=instruction if instruction is not None else cls.default_failure_instruction,
             additional_agent_instructions=additional_agent_instructions,
+            error_data=error_data,
         )
 
     def is_ok(self) -> bool:
