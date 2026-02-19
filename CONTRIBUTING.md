@@ -4,7 +4,7 @@
 
 ### Requirements
 
-- Python 3.13+
+- Python 3.11+
 - uv package manager
 
 ### Installation
@@ -52,16 +52,82 @@ uv build
 
 ## Architecture
 
-mcp-guide uses a monorepo structure with two packages:
-
-- **mcp_core** - Reusable core functionality (logging, utilities)
-- **mcp_guide** - Guide-specific implementation (server, tools, prompts)
-
 ### Key Technologies
 
 - **FastMCP** - MCP server implementation
 - **Chevron** - Template-based content generation
 - **Pydantic** - Data validation and settings management
+
+### Development Workflow
+
+This project uses **OpenSpec** for spec-driven development:
+
+- Specifications are in `openspec/specs/`
+- Changes are proposed in `openspec/changes/`
+- See `openspec/AGENTS.md` for the full workflow
+
+Use OpenSpec commands to manage changes:
+```bash
+openspec list              # View active changes
+openspec validate --strict # Validate specifications
+```
+
+## Docker Development
+
+Docker support includes both STDIO and HTTP transports:
+
+**STDIO mode (for local development):**
+```bash
+docker compose --profile stdio up
+```
+
+**HTTP mode (for remote access):**
+```bash
+docker compose --profile http up
+```
+
+See `docker/README.md` for SSL certificate setup and detailed configuration.
+
+## Agent Configurations
+
+Pre-configured agent setups are available for common AI coding assistants. Install using the `guide-agent-install` command:
+
+```bash
+# List available agents
+guide-agent-install --list
+
+# Show agent-specific README
+guide-agent-install <agent>
+
+# Install configuration
+guide-agent-install <agent> <directory>
+```
+
+Available agents: `kiro`, `claude`, `copilot`
+
+Each agent has specific configuration files that are installed to the appropriate directory for that agent.
+
+## Feature Flags
+
+### Development Flag
+
+The `guide-development` flag enables less aggressive caching during development, making template and content changes immediately visible.
+
+**To enable this flag, ask your AI agent to set it:**
+- "Enable the guide-development flag for this project"
+- "Set guide-development to true"
+
+The agent will use the appropriate MCP tools (`guide_set_feature_flag` or `guide_set_project_flag`) to configure this.
+
+## Profiles
+
+Profiles provide pre-configured category and collection setups for common scenarios. Profiles are composable - multiple profiles can be applied to build complex configurations.
+
+**To use profiles, ask your AI agent:**
+- "What profiles are available?"
+- "Apply the [profile-name] profile to this project"
+
+The agent will use MCP tools (`guide_list_profiles`, `guide_use_project_profile`) to manage profiles.
 
 ## Logging
 
