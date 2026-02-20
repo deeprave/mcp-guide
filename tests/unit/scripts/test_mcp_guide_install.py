@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+import pytest
 from click.testing import CliRunner
 
 
@@ -34,6 +35,34 @@ class TestArgumentParsing:
 
         # Assert
         assert result.exit_code == 0
+
+    @pytest.mark.e2e
+    def test_installed_entry_point_help_runs(self, tmp_path: Path) -> None:
+        """Integration test that installed console script entry point is runnable.
+
+        This exercises the packaging/entry-point wiring that tools like `uvx --from mcp-guide`
+        depend on, by installing the project into an isolated virtualenv and invoking
+        the generated `mcp-install` script with `--help`.
+        """
+        import os
+        import subprocess
+        import sys
+
+        # Create an isolated virtual environment
+        venv_dir = tmp_path / "venv"
+        subprocess.check_call([sys.executable, "-m", "venv", str(venv_dir)])
+
+        # Resolve the venv's Python and bin/Scripts directory
+        bin_dir = venv_dir / ("Scripts" if os.name == "nt" else "bin")
+        python_exe = bin_dir / ("python.exe" if os.name == "nt" else "python")
+
+        # Install the current project into the virtualenv
+        project_root = Path(__file__).resolve().parents[3]
+        subprocess.check_call([str(python_exe), "-m", "pip", "install", str(project_root)])
+
+        # Invoke the installed console script with --help to verify it is correctly installed
+        env = os.environ.copy()
+        subprocess.check_call([str(bin_dir / "mcp-install"), "--help"], env=env)
 
 
 class TestInstallation:

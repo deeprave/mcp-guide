@@ -130,6 +130,7 @@ dev = [
     "watchdog>=6.0.0",
     "bandit>=1.9.2",
     "pyright>=1.1.407",
+    "osvcheck>=1.0.0b1",
 ]
 debug = [
     "debugpy>=1.8.0",
