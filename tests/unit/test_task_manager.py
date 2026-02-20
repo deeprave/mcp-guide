@@ -24,14 +24,6 @@ class MockSubscriber:
         return True
 
 
-@pytest.fixture(autouse=True)
-def reset_task_manager() -> None:
-    """Reset TaskManager singleton before each test."""
-    TaskManager._reset_for_testing()
-    yield
-    TaskManager._reset_for_testing()
-
-
 class TestTaskManagerInstantiation:
     """Test TaskManager can be created."""
 
@@ -86,13 +78,6 @@ class TestAgentDataInterception:
         assert len(result) == 2
         assert len(subscriber1.received_events) == 1
         assert len(subscriber2.received_events) == 1
-
-
-@pytest.fixture
-def task_manager() -> TaskManager:
-    """Create a fresh TaskManager for each test."""
-    TaskManager._reset_for_testing()
-    return TaskManager()
 
 
 @pytest.fixture

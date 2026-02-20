@@ -403,6 +403,14 @@ class TaskManager:
             except Exception as e:
                 logger.warning(f"Error in on_tool for {subscriber.get_name()}: {e}")
 
+    def get_subscription_count(self) -> int:
+        """Get the number of active subscriptions.
+
+        Returns:
+            Number of active subscriptions
+        """
+        return len(self._subscriptions)
+
     async def unsubscribe(self, subscriber: TaskSubscriber) -> None:
         """Remove all subscriptions for a subscriber."""
         # Clean up statistics - remove all entries for this subscriber

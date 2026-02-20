@@ -92,13 +92,13 @@ class OpenSpecTask:
             self.task_manager.set_cached_data("openspec_version", self._version)
             logger.debug(f"Loaded persisted OpenSpec version: {self._version}")
 
-        # If validated, request changes immediately
+        # If validated, check version at least once per session
         if project.openspec_validated:
-            # Backfill version if missing
-            if not project.openspec_version and not self._version_requested:
+            # Always check version once per session to ensure accuracy
+            if not self._version_requested:
                 self._version_requested = True
                 await self.request_version_check()
-            await self.request_changes_json()
+            # Cache invalidation handled by timer, data fetched on-demand
         # Otherwise request CLI availability check (version check happens after CLI is confirmed)
         elif not self._cli_requested:
             await self.request_cli_check()
@@ -432,14 +432,14 @@ class OpenSpecTask:
             self._changes_instruction_id = await self.task_manager.queue_instruction_with_ack(rendered.content)
 
     async def _handle_changes_reminder(self) -> None:
-        """Handle timer events for changes monitoring."""
-        # Only remind if cache is stale
+        """Handle timer events for changes monitoring.
+
+        Invalidates cache when TTL expires. Data will be fetched on-demand
+        when :openspec/list command is next invoked.
+        """
         if not self.is_cache_valid():
-            try:
-                await self.request_changes_json()
-                logger.trace("Queued OpenSpec changes refresh")
-            except Exception as e:
-                logger.warning(f"Failed to queue OpenSpec changes refresh: {e}")
+            self._changes_timestamp = None
+            logger.trace("OpenSpec changes cache invalidated")
 
     async def _parse_version(self, content: str) -> None:
         """Parse OpenSpec version from command output and store in project config.
