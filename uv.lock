@@ -884,6 +884,7 @@ dev = [
     { name = "bandit" },
     { name = "coverage" },
     { name = "mypy" },
+    { name = "osvcheck" },
     { name = "pre-commit" },
     { name = "pyright" },
     { name = "pytest" },
@@ -922,6 +923,7 @@ dev = [
     { name = "bandit", specifier = ">=1.9.2" },
     { name = "coverage", specifier = ">=7.10.7" },
     { name = "mypy", specifier = ">=1.18.2" },
+    { name = "osvcheck", specifier = ">=1.0.0b1" },
     { name = "pre-commit", specifier = ">=4.0.0" },
     { name = "pyright", specifier = ">=1.1.407" },
     { name = "pytest", specifier = ">=8.4.2" },
@@ -1095,6 +1097,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/24/bf/d1bda4f6168e0b2e9e5958945e01910052158313224ada5ce1fb2e1113b8/nodeenv-1.10.0.tar.gz", hash = "sha256:996c191ad80897d076bdfba80a41994c2b47c68e224c542b48feba42ba00f8bb", size = 55611, upload-time = "2025-12-20T14:08:54.006Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/88/b2/d0896bdcdc8d28a7fc5717c305f1a861c26e18c05047949fb371034d98bd/nodeenv-1.10.0-py2.py3-none-any.whl", hash = "sha256:5bb13e3eed2923615535339b3c620e76779af4cb4c6a90deccc9e36b274d3827", size = 23438, upload-time = "2025-12-20T14:08:52.782Z" },
+]
+
+[[package]]
+name = "osvcheck"
+version = "1.0.0b1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/2b/e0/4b772ccf78cbee59b0447efcb0c3df12c499381b415c0928f8a4ae3608ef/osvcheck-1.0.0b1.tar.gz", hash = "sha256:54955843eb6d1bdeec0a65d940a339b5ad7c9afdd83b4e7c03753c81a52af543", size = 8115, upload-time = "2026-02-20T01:08:51.506Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8e/93/dad6d78c5e7435f74ee067737d053e6f4f45ccd37aa69ccc2e2441dd5b3e/osvcheck-1.0.0b1-py3-none-any.whl", hash = "sha256:15d8ada8e37a4aa1cc1ada71fc0a9e9fb42c16eff00d77ba404a1c52081b9772", size = 11532, upload-time = "2026-02-20T01:08:50.15Z" },
 ]
 
 [[package]]
