@@ -2,7 +2,7 @@
 
 import pytest
 
-from mcp_guide.task_manager import EventType, TaskManager
+from mcp_guide.task_manager import EventType
 
 
 class MockSubscriber:
@@ -20,13 +20,6 @@ class MockSubscriber:
         """Handle events and record them."""
         self.received_events.append((event_type, data))
         return True
-
-
-@pytest.fixture
-def task_manager():
-    """Create a fresh TaskManager for each test."""
-    TaskManager._reset_for_testing()
-    return TaskManager()
 
 
 @pytest.mark.asyncio

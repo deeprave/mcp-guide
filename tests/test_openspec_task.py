@@ -377,32 +377,32 @@ class TestOpenSpecTask:
 
     @pytest.mark.asyncio
     async def test_timer_event_requests_changes_when_cache_stale(self, mock_task_manager):
-        """Test TIMER event requests changes when cache is stale."""
+        """Test TIMER event invalidates cache when stale."""
         task = OpenSpecTask(mock_task_manager)
         task._flag_checked = True
-        task._changes_cache = None  # No cache
+        task._changes_cache = []  # Has cache
+        task._changes_timestamp = 0.0  # Stale timestamp
 
-        with patch.object(task, "request_changes_json", new_callable=AsyncMock) as mock_request:
-            result = await task.handle_event(EventType.TIMER, {"interval": 3600.0})
+        result = await task.handle_event(EventType.TIMER, {"interval": 3600.0})
 
-            assert result.result is True
-            mock_request.assert_called_once()
+        assert result.result is True
+        assert task._changes_timestamp is None  # Cache invalidated
 
     @pytest.mark.asyncio
-    async def test_timer_event_skips_request_when_cache_valid(self, mock_task_manager):
-        """Test TIMER event does not request changes when cache is still valid."""
+    async def test_timer_event_skips_invalidation_when_cache_valid(self, mock_task_manager):
+        """Test TIMER event does not invalidate cache when still valid."""
         import time
 
         task = OpenSpecTask(mock_task_manager)
         task._flag_checked = True
         task._changes_cache = [{"id": "test-change"}]
-        task._changes_timestamp = time.time()  # Fresh cache
+        initial_timestamp = time.time()
+        task._changes_timestamp = initial_timestamp  # Fresh cache
 
-        with patch.object(task, "request_changes_json", new_callable=AsyncMock) as mock_request:
-            result = await task.handle_event(EventType.TIMER, {"interval": 3600.0})
+        result = await task.handle_event(EventType.TIMER, {"interval": 3600.0})
 
-            assert result.result is True
-            mock_request.assert_not_called()
+        assert result.result is True
+        assert task._changes_timestamp == initial_timestamp  # Cache not invalidated
 
 
 class TestOpenSpecResponseFormatting:

@@ -10,6 +10,18 @@ import pytest
 import pytest_asyncio
 
 
+@pytest.fixture
+def task_manager():
+    """Create a fresh TaskManager for each test.
+
+    Resets the TaskManager singleton before each test to ensure isolation.
+    """
+    from mcp_guide.task_manager.manager import TaskManager
+
+    TaskManager._reset_for_testing()
+    return TaskManager()
+
+
 @pytest.fixture(scope="module", autouse=True)
 def reset_tools_proxy_module():
     """Reset tools proxy and reload modules for each test module.
