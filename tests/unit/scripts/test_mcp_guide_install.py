@@ -11,7 +11,7 @@ class TestArgumentParsing:
     def test_parse_docroot_option(self) -> None:
         """Test that CLI accepts -d/--docroot option."""
         # Arrange
-        from scripts.mcp_guide_install import cli
+        from mcp_guide.scripts.mcp_guide_install import cli
 
         runner = CliRunner()
 
@@ -25,7 +25,7 @@ class TestArgumentParsing:
     def test_parse_configdir_option(self) -> None:
         """Test that CLI accepts -c/--configdir option."""
         # Arrange
-        from scripts.mcp_guide_install import cli
+        from mcp_guide.scripts.mcp_guide_install import cli
 
         runner = CliRunner()
 
@@ -42,7 +42,7 @@ class TestInstallation:
     def test_install_creates_templates_and_config(self, tmp_path: Path) -> None:
         """Test that install creates templates and config file."""
         # Arrange
-        from scripts.mcp_guide_install import cli
+        from mcp_guide.scripts.mcp_guide_install import cli
 
         runner = CliRunner()
         docroot = tmp_path / "docs"
@@ -63,7 +63,7 @@ class TestInteractiveMode:
     def test_parse_interactive_flag(self) -> None:
         """Test that CLI accepts -i/--interactive flag."""
         # Arrange
-        from scripts.mcp_guide_install import cli
+        from mcp_guide.scripts.mcp_guide_install import cli
 
         runner = CliRunner()
 
@@ -77,7 +77,7 @@ class TestInteractiveMode:
     def test_parse_verbose_flag(self) -> None:
         """Test that CLI accepts -v/--verbose flag."""
         # Arrange
-        from scripts.mcp_guide_install import cli
+        from mcp_guide.scripts.mcp_guide_install import cli
 
         runner = CliRunner()
 
@@ -90,7 +90,7 @@ class TestInteractiveMode:
     def test_prompts_for_docroot_in_interactive_mode(self, tmp_path: Path) -> None:
         """Test that interactive mode prompts for docroot."""
         # Arrange
-        from scripts.mcp_guide_install import cli
+        from mcp_guide.scripts.mcp_guide_install import cli
 
         runner = CliRunner()
         docroot = tmp_path / "docs"
@@ -108,7 +108,7 @@ class TestInteractiveMode:
     def test_skips_prompts_in_non_interactive_mode(self, tmp_path: Path) -> None:
         """Test that non-interactive mode skips prompts."""
         # Arrange
-        from scripts.mcp_guide_install import cli
+        from mcp_guide.scripts.mcp_guide_install import cli
 
         runner = CliRunner()
         docroot = tmp_path / "docs"
@@ -124,7 +124,7 @@ class TestInteractiveMode:
     def test_displays_progress_in_verbose_mode(self, tmp_path: Path) -> None:
         """Test that verbose mode displays progress."""
         # Arrange
-        from scripts.mcp_guide_install import cli
+        from mcp_guide.scripts.mcp_guide_install import cli
 
         runner = CliRunner()
         docroot = tmp_path / "docs"
@@ -145,7 +145,7 @@ class TestErrorHandling:
         """Test that invalid docroot path is handled gracefully."""
         # Arrange
         import mcp_guide.installer.core
-        from scripts.mcp_guide_install import cli
+        from mcp_guide.scripts.mcp_guide_install import cli
 
         async def mock_install(*args, **kwargs):
             raise PermissionError("Permission denied for docroot")
@@ -166,7 +166,7 @@ class TestErrorHandling:
         """Test that permission errors are handled gracefully."""
         # Arrange
         import mcp_guide.installer.core
-        from scripts.mcp_guide_install import cli
+        from mcp_guide.scripts.mcp_guide_install import cli
 
         async def mock_install(*args, **kwargs):
             raise PermissionError("Permission denied")
@@ -188,7 +188,7 @@ class TestErrorHandling:
         """Test that missing template package is handled gracefully."""
         # Arrange
         import mcp_guide.installer.core
-        from scripts.mcp_guide_install import cli
+        from mcp_guide.scripts.mcp_guide_install import cli
 
         async def mock_install(*args, **kwargs):
             raise FileNotFoundError("Templates directory not found")
@@ -213,7 +213,7 @@ class TestUpdateCommand:
     def test_update_command_uses_configured_docroot(self, tmp_path: Path) -> None:
         """Test that update command uses docroot from config."""
         # Arrange
-        from scripts.mcp_guide_install import cli
+        from mcp_guide.scripts.mcp_guide_install import cli
 
         runner = CliRunner()
         docroot = tmp_path / "docs"
@@ -243,7 +243,7 @@ class TestUpdateCommand:
         import aiofiles
         import yaml
 
-        from scripts.mcp_guide_install import cli
+        from mcp_guide.scripts.mcp_guide_install import cli
 
         runner = CliRunner()
         old_docroot = tmp_path / "old_docs"
@@ -275,7 +275,7 @@ class TestStatusCommand:
     def test_status_command_shows_installation_info(self, tmp_path: Path) -> None:
         """Test that status command shows installation information."""
         # Arrange
-        from scripts.mcp_guide_install import cli
+        from mcp_guide.scripts.mcp_guide_install import cli
 
         runner = CliRunner()
         docroot = tmp_path / "docs"

@@ -1,6 +1,6 @@
 [project]
 name = "mcp-guide"
-version = "1.0.0b2"
+version = "1.0.0b3"
 description = "MCP server for handling guidelines, project rules and controlled development"
 readme = "README.md"
 license = {file = "LICENSE.md"}
@@ -48,9 +48,8 @@ docs = [
 
 [project.scripts]
 mcp-guide = "mcp_guide.main:main"
-mcp-install = "scripts.mcp_guide_install:cli"
-osvcheck = "scripts.osvcheck:main"
-guide-agent-install = "scripts.guide_agent_install:main"
+mcp-install = "mcp_guide.scripts.mcp_guide_install:cli"
+guide-agent-install = "mcp_guide.scripts.guide_agent_install:main"
 
 [build-system]
 requires = ["uv_build"]
@@ -134,6 +133,4 @@ dev = [
 ]
 debug = [
     "debugpy>=1.8.0",
-]
-docs = [
 ]
