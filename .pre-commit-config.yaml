@@ -26,21 +26,18 @@ repos:
         types: [python]
         pass_filenames: false
 
-  - repo: local
+  - repo: https://github.com/deeprave/osvcheck
+    rev: v1.0.0b1
     hooks:
-      - id: osv-check
-        name: osvcheck
-        entry: uv run osvcheck
-        language: system
-        pass_filenames: false
+      - id: osvcheck
 
   - repo: https://github.com/abravalheri/validate-pyproject
-    rev: v0.24.1
+    rev: v0.25
     hooks:
       - id: validate-pyproject
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.14.13
+    rev: v0.15.2
     hooks:
       - id: ruff-check
         args:
