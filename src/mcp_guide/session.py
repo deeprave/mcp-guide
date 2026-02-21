@@ -84,6 +84,7 @@ class Session:
 
         def _invalidate_feature_flags(self) -> None:
             """Invalidate the feature flags cache."""
+            logger.trace("Invalidating feature flags cache")
             self.__feature_flags = None
 
         def _ensure_config_dir(self) -> None:
@@ -168,6 +169,7 @@ class Session:
                     return data.get("feature_flags", {}) if data else {}
 
                 self.__feature_flags = await lock_update(self.config_file, _get_flags)
+                logger.trace(f"get_feature_flags: loaded from disk, flags={self.__feature_flags!r}")
             return self.__feature_flags
 
         async def set_feature_flag(self, flag_name: str, value: Any) -> None:

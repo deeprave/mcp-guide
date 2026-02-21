@@ -2,8 +2,12 @@
 
 from typing import TYPE_CHECKING, Any
 
+from mcp_guide.core.mcp_log import get_logger
+
 if TYPE_CHECKING:
     from mcp_guide.session import Session
+
+logger = get_logger(__name__)
 
 
 async def get_resolved_flag_value(session: "Session", flag_name: str, default: Any = None) -> Any:
@@ -21,7 +25,9 @@ async def get_resolved_flag_value(session: "Session", flag_name: str, default: A
         from mcp_guide.models import resolve_all_flags
 
         resolved_flags = await resolve_all_flags(session)
-        return resolved_flags.get(flag_name, default)
-    except Exception:
-        # Return default if flag resolution fails
+        value = resolved_flags.get(flag_name, default)
+        logger.trace(f"Flag resolution: {flag_name}={value!r}")
+        return value
+    except Exception as e:
+        logger.trace(f"Flag resolution failed: {flag_name}, exception={e!r}, returning default={default!r}")
         return default

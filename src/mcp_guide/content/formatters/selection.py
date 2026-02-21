@@ -3,6 +3,8 @@
 from enum import Enum
 from typing import TYPE_CHECKING, Optional, Protocol
 
+from mcp_guide.core.mcp_log import get_logger
+
 if TYPE_CHECKING:
     from mcp_guide.discovery.files import FileInfo
 
@@ -10,6 +12,8 @@ from mcp_guide.content.formatters.base import BaseFormatter
 from mcp_guide.content.formatters.mime import MimeFormatter
 from mcp_guide.content.formatters.plain import PlainFormatter
 from mcp_guide.feature_flags.types import FeatureValue
+
+logger = get_logger(__name__)
 
 
 class ContentFormatter(Protocol):
@@ -75,6 +79,7 @@ def get_formatter_from_flag(format_type: ContentFormat) -> ContentFormatter:
     Returns:
         Appropriate formatter instance
     """
+    logger.trace(f"get_formatter_from_flag: format_type={format_type!r}")
     if format_type == ContentFormat.PLAIN:
         return PlainFormatter()
     elif format_type == ContentFormat.MIME:

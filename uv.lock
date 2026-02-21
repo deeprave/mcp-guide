@@ -850,7 +850,7 @@ cli = [
 
 [[package]]
 name = "mcp-guide"
-version = "1.0.0b5"
+version = "1.0.0rc1"
 source = { editable = "." }
 dependencies = [
     { name = "aiofiles" },
@@ -1101,11 +1101,11 @@ wheels = [
 
 [[package]]
 name = "osvcheck"
-version = "1.0.0b1"
+version = "1.0.1"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/2b/e0/4b772ccf78cbee59b0447efcb0c3df12c499381b415c0928f8a4ae3608ef/osvcheck-1.0.0b1.tar.gz", hash = "sha256:54955843eb6d1bdeec0a65d940a339b5ad7c9afdd83b4e7c03753c81a52af543", size = 8115, upload-time = "2026-02-20T01:08:51.506Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/f2/d1/7dc15e2911154ada8882c806ea0efd48ae456fd5a5f7fc2a8695e6015d8d/osvcheck-1.0.1.tar.gz", hash = "sha256:270f5c9e4057e4c5a9aa862fd56f15b94bceb4fd5029bba80b2b9605d9eb25fc", size = 8616, upload-time = "2026-02-21T16:55:29.879Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/8e/93/dad6d78c5e7435f74ee067737d053e6f4f45ccd37aa69ccc2e2441dd5b3e/osvcheck-1.0.0b1-py3-none-any.whl", hash = "sha256:15d8ada8e37a4aa1cc1ada71fc0a9e9fb42c16eff00d77ba404a1c52081b9772", size = 11532, upload-time = "2026-02-20T01:08:50.15Z" },
+    { url = "https://files.pythonhosted.org/packages/54/3c/ea055d9c4b55ffafc061a9c1f027778eb824cf4053f7e753057f34d2c45d/osvcheck-1.0.1-py3-none-any.whl", hash = "sha256:869063c9165fe1a2c19cf2f2b6dbb8b31f63783513da5ddb27a24061f13f8284", size = 12090, upload-time = "2026-02-21T16:55:28.536Z" },
 ]
 
 [[package]]
@@ -1820,7 +1820,7 @@ wheels = [
 
 [[package]]
 name = "typer"
-version = "0.24.0"
+version = "0.24.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "annotated-doc" },
@@ -1828,9 +1828,9 @@ dependencies = [
     { name = "rich" },
     { name = "shellingham" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/5a/b6/3e681d3b6bb22647509bdbfdd18055d5adc0dce5c5585359fa46ff805fdc/typer-0.24.0.tar.gz", hash = "sha256:f9373dc4eff901350694f519f783c29b6d7a110fc0dcc11b1d7e353b85ca6504", size = 118380, upload-time = "2026-02-16T22:08:48.496Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/f5/24/cb09efec5cc954f7f9b930bf8279447d24618bb6758d4f6adf2574c41780/typer-0.24.1.tar.gz", hash = "sha256:e39b4732d65fbdcde189ae76cf7cd48aeae72919dea1fdfc16593be016256b45", size = 118613, upload-time = "2026-02-21T16:54:40.609Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/85/d0/4da85c2a45054bb661993c93524138ace4956cb075a7ae0c9d1deadc331b/typer-0.24.0-py3-none-any.whl", hash = "sha256:5fc435a9c8356f6160ed6e85a6301fdd6e3d8b2851da502050d1f92c5e9eddc8", size = 56441, upload-time = "2026-02-16T22:08:47.535Z" },
+    { url = "https://files.pythonhosted.org/packages/4a/91/48db081e7a63bb37284f9fbcefda7c44c277b18b0e13fbc36ea2335b71e6/typer-0.24.1-py3-none-any.whl", hash = "sha256:112c1f0ce578bfb4cab9ffdabc68f031416ebcc216536611ba21f04e9aa84c9e", size = 56085, upload-time = "2026-02-21T16:54:41.616Z" },
 ]
 
 [[package]]

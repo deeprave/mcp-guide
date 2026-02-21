@@ -1,7 +1,7 @@
 ## 1. Investigation
-- [ ] 1.1 Add debug logging to `get_resolved_flag_value()` to capture flag resolution
-- [ ] 1.2 Add logging to `_ConfigManager.get_feature_flags()` to track cache hits/misses
-- [ ] 1.3 Add logging to `get_formatter_from_flag()` to verify formatter selection
+- [ ] 1.1 Add TRACE logging to `get_resolved_flag_value()` to capture flag resolution
+- [ ] 1.2 Add TRACE logging to `_ConfigManager.get_feature_flags()` to track cache hits/misses
+- [ ] 1.3 Add TRACE logging to `get_formatter_from_flag()` to verify formatter selection
 - [ ] 1.4 Reproduce the issue with logging enabled to identify root cause
 
 ## 2. Fix Implementation
