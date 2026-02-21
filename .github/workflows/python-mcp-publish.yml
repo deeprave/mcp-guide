@@ -3,7 +3,10 @@ name: Publish Python MCP Package
 # Required Secrets:
 #   DOCKERHUB_USERNAME - Docker Hub username for image publishing
 #   DOCKERHUB_TOKEN - Docker Hub access token
-#   PYPI_TOKEN - PyPI API token for package publishing
+#
+# PyPI Publishing:
+#   Uses Trusted Publishing (OIDC) - no API token required
+#   Configure at: https://pypi.org/manage/account/publishing/
 #
 # Optional Variables:
 #   PYTHON_VERSION - Python version for builds (default: "3.14")
@@ -28,6 +31,7 @@ on:
 
 permissions:
   contents: write
+  id-token: write  # Required for Trusted Publishing
 
 jobs:
   validate-and-build:
@@ -142,6 +146,7 @@ jobs:
   publish-pypi:
     needs: validate-and-build
     runs-on: ubuntu-latest
+    environment: pypi  # Optional: use environment for additional protection
 
     steps:
       - name: Download dist artifacts
@@ -154,7 +159,7 @@ jobs:
         if: ${{ github.event.inputs.dry-run != 'true' }}
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          password: ${{ secrets.PYPI_TOKEN }}
+          attestations: true
 
       - name: Show PyPI commands (dry-run)
         if: ${{ github.event.inputs.dry-run == 'true' }}
