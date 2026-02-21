@@ -3,7 +3,7 @@
 """Guide prompt implementation for direct content access."""
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Awaitable, Callable, Coroutine, List, Optional, Protocol, Union
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Coroutine, List, Optional, Protocol, Union
 
 from anyio import Path as AsyncPath
 
