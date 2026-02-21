@@ -1,0 +1,1452 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Structured content delivery for AI agents via Model Context Protocol">
+      
+      
+      
+        <link rel="canonical" href="https://deeprave.github.io/mcp-guide/1.0.0b4/user/getting-started/">
+      
+      
+        <link rel="prev" href="../..">
+      
+      
+        <link rel="next" href="../installation/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+    
+    
+      
+        <title>Getting Started - mcp-guide Documentation</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#getting-started-with-mcp-guide" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="mcp-guide Documentation" class="md-header__button md-logo" aria-label="mcp-guide Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            mcp-guide Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Getting Started
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-hidden="true"  type="radio" name="__palette" id="__palette_0">
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/deeprave/mcp-guide" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    deeprave/mcp-guide
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="mcp-guide Documentation" class="md-nav__button md-logo" aria-label="mcp-guide Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    mcp-guide Documentation
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/deeprave/mcp-guide" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    deeprave/mcp-guide
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    User Guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#guide-mcp-purpose" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Guide MCP Purpose
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-guide-prompt" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The guide Prompt
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The guide Prompt">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#basic-usage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Basic Usage
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#document-categories-and-collections" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Document Categories and Collections
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Document Categories and Collections">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#categories" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Categories
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#collections" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Collections
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#document-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Document Types
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#default-profile" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Default Profile
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Default Profile">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#special-instructionsmd" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Special: INSTRUCTIONS.md
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#adding-profiles" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Adding Profiles
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Commands
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Commands">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#useful-commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Useful Commands
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#first-run-self-installation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        First Run - Self Installation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#next-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Next Steps
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../categories-and-collections/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Categories and Collections
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../content-management/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Content Management
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../documents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documents
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../workflows/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Workflows
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../openspec/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenSpec Integration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../feature-flags/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Feature Flags
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../profiles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Profiles
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../commands/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt Commands
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Developer Notes
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Developer Notes
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../developer/command-authoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Command Authoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../developer/filesystem-access/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Filesystem Access
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../developer/DEBUGGING/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Debugging
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#guide-mcp-purpose" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Guide MCP Purpose
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-guide-prompt" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The guide Prompt
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The guide Prompt">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#basic-usage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Basic Usage
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#document-categories-and-collections" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Document Categories and Collections
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Document Categories and Collections">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#categories" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Categories
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#collections" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Collections
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#document-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Document Types
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#default-profile" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Default Profile
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Default Profile">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#special-instructionsmd" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Special: INSTRUCTIONS.md
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#adding-profiles" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Adding Profiles
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Commands
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Commands">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#useful-commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Useful Commands
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#first-run-self-installation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        First Run - Self Installation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#next-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Next Steps
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="getting-started-with-mcp-guide">Getting Started with mcp-guide<a class="headerlink" href="#getting-started-with-mcp-guide" title="Permanent link">&para;</a></h1>
+<p>So you've got mcp-guide installed and running. Now what?</p>
+<p>This section answers the most important question: <strong>how do I actually use it?</strong></p>
+<h2 id="guide-mcp-purpose">Guide MCP Purpose<a class="headerlink" href="#guide-mcp-purpose" title="Permanent link">&para;</a></h2>
+<p>At its core, mcp-guide serves instructions to your AI agent. Think of it as a structured way to tell your agent how to work on your project - providing information on coding standards, workflow steps, project-specific context - all delivered on demand.</p>
+<p>While it can do more than that, serving agent instructions is the fundamental purpose. Everything else builds on this.</p>
+<h2 id="the-guide-prompt">The <code>guide</code> Prompt<a class="headerlink" href="#the-guide-prompt" title="Permanent link">&para;</a></h2>
+<p>Your primary interface is the guide prompt (an agent determines the prompt prefix - it may be <code>@guide</code> or <code>/guide</code>).
+The prompt provides a means of interacting with the MCP, allowing you to query and control it directly.</p>
+<p>When you invoke the guide prompt with an expression that conains just a category name, you get back all the documents in that category that match the patterns set for that category. The agent receives these documents and acts on them according to their type.</p>
+<h3 id="basic-usage">Basic Usage<a class="headerlink" href="#basic-usage" title="Permanent link">&para;</a></h3>
+<p><strong>Common Examples:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Prompt</th>
+<th>What It Does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>@guide commit</code></td>
+<td>Provides commit message instructions based on changes in your working tree</td>
+</tr>
+<tr>
+<td><code>@guide pr</code></td>
+<td>Provides GitHub pull request description instructions for changes compared with your main branch</td>
+</tr>
+<tr>
+<td><code>@guide review</code></td>
+<td>Instructions for the agent to self-review code changes</td>
+</tr>
+<tr>
+<td><code>@guide guidelines</code></td>
+<td>Composite request presenting coding standards, language-specific guides, and project context</td>
+</tr>
+</tbody>
+</table>
+<h2 id="document-categories-and-collections">Document Categories and Collections<a class="headerlink" href="#document-categories-and-collections" title="Permanent link">&para;</a></h2>
+<h3 id="categories">Categories<a class="headerlink" href="#categories" title="Permanent link">&para;</a></h3>
+<p>A <strong>category</strong> is a named group of documents with an associated directory (usually the same as the name), an optional description and zero or more patterns. The category name is limited to 30 printable unicode characters and cannot start with an underscore or hyphen and cannot contain whitespace.</p>
+<p>When you reference a category without specifying a pattern, you retrieve documents matching the patterns.</p>
+<p>Patterns are "globs", and may contain '<em>', '?', '</em>*' and path separators. However, they are usually used to match the basename of documents (filenames without any extension). The document matcher automatically tries several extensions by default, favouring markdown, mustache templates and text files.</p>
+<p>When referencing a category, you can also override the default patterns:</p>
+<div class="codehilite"><pre><span></span><code><span class="nv">@guide</span><span class="w"> </span><span class="n">lang</span><span class="o">/</span><span class="n">python</span>
+</code></pre></div>
+
+<p>Retrieves the python language documents from the <code>lang</code> category.</p>
+<div class="codehilite"><pre><span></span><code><span class="nv">@guide</span><span class="w"> </span><span class="n">docs</span><span class="o">/</span><span class="n">workflow</span><span class="o">+</span><span class="n">tracking</span>
+</code></pre></div>
+
+<p>Retrieves documents matching BOTH <code>workflow</code> AND <code>tracking</code> patterns in the <code>docs</code> category.</p>
+<p>What you're providing is an expression, which takes the form of a comma-separated list of categories, with optional patterns for each, separated by '+'. When retrieved, all matching documents are returned to the agent.</p>
+<h3 id="collections">Collections<a class="headerlink" href="#collections" title="Permanent link">&para;</a></h3>
+<p><strong>Collections</strong> are groups of category expressions - convenient shortcuts or "macros" for commonly used combinations.</p>
+<p>Instead of typing <code>@guide guide,lang/python,context/project,checks</code> every time, you might have a collection called <code>guidelines</code> that includes all of those.</p>
+<p>Collections make it easy to provide targeted context for specific tasks without remembering complex expressions.</p>
+<p>See <a href="../categories-and-collections/">Categories and Collections</a> for managing these.</p>
+<h2 id="document-types">Document Types<a class="headerlink" href="#document-types" title="Permanent link">&para;</a></h2>
+<p>What the agent does with documents depends on their <strong>type</strong>, set in the document metadata:</p>
+<ul>
+<li><strong><code>agent/instruction</code></strong> - Directives the agent must follow (most common)</li>
+<li><strong><code>agent/information</code></strong> - Context and reference material for the agent</li>
+<li><strong><code>user/information</code></strong> - Content displayed to users</li>
+</ul>
+<p>When invoking multiple patterns, be aware that mixing document types may not give the desired result. Most documents served via <code>@guide</code> are agent instructions - this is the core of what mcp-guide does.</p>
+<h2 id="default-profile">Default Profile<a class="headerlink" href="#default-profile" title="Permanent link">&para;</a></h2>
+<p>When you start mcp-guide in a new project, it creates a default profile with the following categories:</p>
+<ul>
+<li><strong>guide</strong> - General Guidelines and Instructions</li>
+<li><strong>docs</strong> - General Uncategorised Documents</li>
+<li><strong>lang</strong> - Language-specific guides (initially empty)</li>
+<li><strong>context</strong> - Project context (initially empty)</li>
+<li><strong>checks</strong> - Testing and validation instructions (initially empty)</li>
+<li><strong>review</strong> - Code review instructions</li>
+</ul>
+<p>Before these can become useful, you will need to add patterns:
+- Add your programming language to <code>lang</code>
+- Add project context (tracking method, workflow approach, issue tracking etc.)
+- Add testing frameworks and special instructions to <code>checks</code>
+- Configure review depth and output format in <code>review</code></p>
+<p>Many provided documents are opinionated about development approach and direction. Use what works for you, ignore the rest.</p>
+<p>To discover available documents in a category you can simple ask the agent to list all files available in that category.</p>
+<h3 id="special-instructionsmd">Special: INSTRUCTIONS.md<a class="headerlink" href="#special-instructionsmd" title="Permanent link">&para;</a></h3>
+<p>The <code>checks</code> category includes a brief document <code>instructions</code> that tells the agent to look for <code>INSTRUCTIONS.md</code> in your project root.
+This file contains edicts the agent MUST obey during development - rules specific to your project or agent that curb common misbehaviors.</p>
+<p>The <code>checks</code> phase in workflow mode is a good place to remind the agent of these instructions before formal examination of changes.
+Also consider appending <code>checks/instructions</code> to your default <code>guidelines</code> collection.</p>
+<h3 id="adding-profiles">Adding Profiles<a class="headerlink" href="#adding-profiles" title="Permanent link">&para;</a></h3>
+<p>Other profiles can be added on demand - they are additive to your existing configuration. See <a href="../profiles/">Profiles</a> for details.</p>
+<h2 id="commands">Commands<a class="headerlink" href="#commands" title="Permanent link">&para;</a></h2>
+<p>Commands are specialized documents that tell the agent to do something specific or present useful information using a templated layout.
+They are special in that use a <code>:</code> prefix in the <code>@guide</code> prompt: <code>@guide :&lt;command&gt;</code>.</p>
+<p>Many commands accept these common arguments:</p>
+<table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>-h</code>, <code>--help</code></td>
+<td>Show help</td>
+</tr>
+<tr>
+<td><code>-v</code>, <code>--verbose</code></td>
+<td>Detailed output</td>
+</tr>
+<tr>
+<td><code>-q</code>, <code>--quiet</code></td>
+<td>Minimal output</td>
+</tr>
+<tr>
+<td><code>-f</code>, <code>--force</code></td>
+<td>Skip confirmations</td>
+</tr>
+<tr>
+<td><code>-d</code>, <code>--debug</code></td>
+<td>Debug information</td>
+</tr>
+<tr>
+<td><code>-t</code>, <code>--table</code></td>
+<td>Tabular format</td>
+</tr>
+</tbody>
+</table>
+<p>Not all commands support all arguments - use <code>:help &lt;command&gt;</code> to see what's available for a specific command.</p>
+<h3 id="useful-commands">Useful Commands<a class="headerlink" href="#useful-commands" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Command</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>@guide :project</code></td>
+<td>Information about the current project, categories, and collections</td>
+</tr>
+<tr>
+<td><code>@guide :status</code></td>
+<td>Current project name, active tasks, and workflow state (if enabled)</td>
+</tr>
+<tr>
+<td><code>@guide :agent</code></td>
+<td>Information about the running agent and its attributes</td>
+</tr>
+<tr>
+<td><code>@guide :create/category</code></td>
+<td>Create new categories</td>
+</tr>
+<tr>
+<td><code>@guide :create/collection</code></td>
+<td>Create new collections</td>
+</tr>
+<tr>
+<td><code>@guide :help</code></td>
+<td>List available commands</td>
+</tr>
+<tr>
+<td><code>@guide :help &lt;command&gt;</code></td>
+<td>Detailed help for a specific command (without <code>:</code> prefix)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Note:</strong> The <code>:project</code>, <code>:status</code>, and <code>:agent</code> commands may show incomplete information if the agent hasn't yet requested or determined certain details through tool use. Running them a couple of times or using a general <code>@guide &lt;category&gt;</code> instruction will usually shake this out immediately.</p>
+<h2 id="first-run-self-installation">First Run - Self Installation<a class="headerlink" href="#first-run-self-installation" title="Permanent link">&para;</a></h2>
+<p>When mcp-guide first runs, it creates:</p>
+<ul>
+<li><strong>Configuration directory</strong>:</li>
+<li>macOS/Linux: <code>~/.config/mcp-guide/</code></li>
+<li>
+<p>Windows: <code>%APPDATA%\mcp-guide\</code></p>
+</li>
+<li>
+<p><strong>Configuration file</strong>: <code>config.yaml</code> (shared by all projects)</p>
+</li>
+<li>
+<p><strong>Document root</strong> (<code>docroot</code>): <code>docs/</code> directory within the configuration directory</p>
+</li>
+<li>
+<p><strong>Standard templates</strong>: Copies of all default documents and templates</p>
+</li>
+</ul>
+<p>If you want to add custom documents, place them in the <code>docs/</code> directory. Each category has a designated subdirectory (usually matching the category name). Files within these directories become available to serve via the MCP.</p>
+<p>The docroot is on the MCP server's filesystem - if running in Docker or on a remote server, that's where the files live, and are not available on your local machine unless mapped, or "mounted".</p>
+<h2 id="next-steps">Next Steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h2>
+<p>Now that you understand the basics:</p>
+<ul>
+<li>Explore <a href="../categories-and-collections/">Categories and Collections</a> to organise your content</li>
+<li>Check out <a href="../profiles/">Profiles</a> for pre-configured setups</li>
+<li>Learn about <a href="../commands/">Commands</a> for specialised functionality</li>
+<li>Review <a href="../workflows/">Workflows</a> if you want structured development phases</li>
+<li>See <a href="../feature-flags/">Feature Flags</a> to customise behaviour</li>
+</ul>
+<p>The key thing to remember: <strong>mcp-guide serves instructions to your AI agent</strong>.
+Everything else is about organising and delivering those instructions effectively.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": [], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
