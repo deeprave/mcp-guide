@@ -255,6 +255,7 @@ class TestOpenSpecTask:
         ):
             mock_project = MagicMock()
             mock_project.openspec_version = None
+            mock_project.openspec_validated = False  # Required for request_project_check to be called
             mock_session_instance = AsyncMock()
             mock_session_instance.get_project = AsyncMock(return_value=mock_project)
             mock_session_instance.update_config = AsyncMock()
