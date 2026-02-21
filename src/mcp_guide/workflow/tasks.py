@@ -168,7 +168,7 @@ class WorkflowMonitorTask:
             logger.error(f"Failed to process workflow content: {e}", exc_info=True)
 
     @staticmethod
-    async def _process_workflow_changes(changes: list[ChangeEvent]) -> Optional[RenderedContent]:
+    async def _process_workflow_changes(changes: list[ChangeEvent]) -> Optional["RenderedContent"]:
         """Process detected workflow changes and return rendered content for main response.
 
         Returns:
