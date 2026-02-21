@@ -449,30 +449,41 @@ class OpenSpecTask:
         """
         from mcp_guide.session import get_or_create_session
 
-        # Extract semantic version (e.g., "1.2.3" or "v1.2.3")
-        match = re.search(r"v?(\d+\.\d+\.\d+)", content)
-        if match:
-            self._version = match.group(1)
-            self._version_this_session = self._version
-            self.task_manager.set_cached_data("openspec_version", self._version)
-            logger.info(f"OpenSpec version: {self._version}")
+        try:
+            # Extract semantic version (e.g., "1.2.3" or "v1.2.3")
+            match = re.search(r"v?(\d+\.\d+\.\d+)", content)
+            if match:
+                self._version = match.group(1)
+                self._version_this_session = self._version
+                self.task_manager.set_cached_data("openspec_version", self._version)
+                logger.info(f"OpenSpec version: {self._version}")
 
-            # Store version in project config
-            session = await get_or_create_session()
-            project = await session.get_project()
-            if project.openspec_version != self._version:
-                await session.update_config(lambda p: replace(p, openspec_version=self._version))
-                logger.info(f"Updated project config with OpenSpec version: {self._version}")
+                # Store version in project config
+                session = await get_or_create_session()
+                project = await session.get_project()
+                if project.openspec_version != self._version:
+                    await session.update_config(lambda p: replace(p, openspec_version=self._version))
+                    logger.info(f"Updated project config with OpenSpec version: {self._version}")
 
-            # After version is confirmed, check project structure
-            if not self._project_requested:
-                self._project_requested = True
-                await self.request_project_check()
-        else:
-            logger.warning(f"Failed to parse OpenSpec version from: {content}")
-            self._version = None
-            self._version_this_session = None
-            self.task_manager.set_cached_data("openspec_version", None)
+                # After version is confirmed, check project structure (only if not already validated)
+                if not self._project_requested and not project.openspec_validated:
+                    self._project_requested = True
+                    await self.request_project_check()
+            else:
+                logger.warning(f"Failed to parse OpenSpec version from: {content}")
+                self._version = None
+                self._version_this_session = None
+                self.task_manager.set_cached_data("openspec_version", None)
+        finally:
+            # Always acknowledge to prevent re-queuing
+            if self._version_instruction_id:
+                await self.task_manager.acknowledge_instruction(self._version_instruction_id)
+                self._version_instruction_id = None
+            
+            # Acknowledge even on failure to prevent re-queuing
+            if self._version_instruction_id:
+                await self.task_manager.acknowledge_instruction(self._version_instruction_id)
+                self._version_instruction_id = None
 
     async def _format_status_response(self, data: dict[str, Any]) -> RenderedContent | None:
         """Format OpenSpec status response using template.

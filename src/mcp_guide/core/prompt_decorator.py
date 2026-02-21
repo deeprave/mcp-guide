@@ -40,8 +40,9 @@ def promptfunc(description: Optional[str] = None) -> Callable[[Callable[..., Any
 
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         prompt_name = func.__name__
+        prompt_description = description or func.__doc__
 
-        metadata = PromptMetadata(name=prompt_name, func=func, description=description)
+        metadata = PromptMetadata(name=prompt_name, func=func, description=prompt_description)
         _PROMPT_REGISTRY[prompt_name] = PromptRegistration(metadata=metadata)
         logger.trace(f"Prompt {prompt_name} added to registry (not yet registered)")
 

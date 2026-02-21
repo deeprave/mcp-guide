@@ -1,8 +1,4 @@
 {{#project}}
-{{#openspec_validated}}
-OpenSpec validation already completed for this project. Skipping validation checks.
-{{/openspec_validated}}
-{{^openspec_validated}}
 Check if OpenSpec project is initialised:
 
 1. Check if `openspec/project.md` file exists using directory listing
@@ -14,5 +10,4 @@ If `openspec/project.md` does not exist, send an error.
 If the changes list command fails, send an error.
 
 **Note:** Do NOT display file content or command output to the user - only show confirmation messages.
-{{/openspec_validated}}
 {{/project}}

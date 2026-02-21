@@ -1,3 +1,7 @@
+---
+type: agent/instruction
+description: Don't be guity of "mea culpa" - mistakes you always seem to make.
+---
 # MCP Development Instructions
 
 ## Critical Architecture Understanding

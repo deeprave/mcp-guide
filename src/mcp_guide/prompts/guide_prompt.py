@@ -496,22 +496,8 @@ async def guide(
     """Access guide functionality.
 
     Args:
-        arg1: positional arg
-        arg2: positional arg
-        arg3: positional arg
-        arg4: positional arg
-        arg5: positional arg
-        arg6: positional arg
-        arg7: positional arg
-        arg8: positional arg
-        arg9: positional arg
-        arga: positional arg
-        argb: positional arg
-        argc: positional arg
-        argd: positional arg
-        arge: positional arg
-        argf: positional arg
-        ctx (Optional["Context"]):
+        arg[1-f]: up to 15 positional args
+        ctx: mcp context
     """
     # Cache MCP context if available
     if ctx:
