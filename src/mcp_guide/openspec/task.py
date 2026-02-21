@@ -479,7 +479,7 @@ class OpenSpecTask:
             if self._version_instruction_id:
                 await self.task_manager.acknowledge_instruction(self._version_instruction_id)
                 self._version_instruction_id = None
-            
+
             # Acknowledge even on failure to prevent re-queuing
             if self._version_instruction_id:
                 await self.task_manager.acknowledge_instruction(self._version_instruction_id)
