@@ -12,6 +12,7 @@ try:
 except ImportError:
     Context = None  # type: ignore
 
+from mcp_guide import __version__
 from mcp_guide.context.tasks import ClientContextTask  # noqa: F401 - imported for @task_init decorator side effects
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.core.tool_decorator import ExtMcpToolDecorator
@@ -202,7 +203,7 @@ def _configure_logging_after_fastmcp(config: "ServerConfig") -> None:
     register_cleanup_handlers()
 
     # Log startup message
-    logger.info("Starting mcp-guide server")
+    logger.info(f"Starting mcp-guide server; version {__version__}")
     logger.debug(f"Log level: {config.log_level}, File: {config.log_file or 'none'}, JSON: {config.log_json}")
 
 
