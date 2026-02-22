@@ -3,16 +3,16 @@ type: agent/instruction
 description: "Enter implementation phase to execute the plan with code changes"
 usage: ":implement or :phase/implementation"
 category: "workflow"
+requires-workflow: true
 instruction: >
-  Transition to IMPLEMENTATION phase.
+  You MUST transition to IMPLEMENTATION phase.
   Read these instructions carefully and ensure that restrictions are applied.
-  {{#workflow.consent.exit}}**EXPLICIT REQUEST OR CONSENT IS REQUIRED** before transitioning to {{workflow.next}}.{{/workflow.consent.exit}}
   Do not display this content to the user, but acknowledge to the user that these instructions were read.
 ---
 🛠️ You are now in IMPLEMENTATION phase.
 
 {{h2}}Consent Acknowledgment
-{{b}}✅ Explicit consent provided{{b}} - Proceed with the implementation as planned.
+{{b}}✅ Explicit consent or request has been provided{{b}} - Proceed with the implementation as planned.
 
 {{h2}}Purpose
 Execute the implementation plan with code changes. Stay within the plan scope and follow established principles.
@@ -22,61 +22,31 @@ Do not make architectural decisions without the user's direct import.
 - ✅ {{b}}Allowed:{{b}} Code changes, implementation, following the plan
 - ❌ {{b}}Not Allowed:{{b}} Deviating from the plan without discussion
   - ✅ Ask questions if clarification is needed.
+  - ✅ Steadfastly follow the project guidelines.
 
-{{b}}Status:{{b}} Implementation in progress. Following TDD, YAGNI, and SOLID principles.
+{{b}}Status:{{b}} Implementation in progress.
 
-{{h2}}In this Phase: Decide {{b}}HOW{{b}} implementation will be done
+{{h2}}In this Phase: Execute {{b}}HOW{{b}} implementation of the agreed plan.
 1. Create and/or review the implementation plan
-2. Refine and adjust as needed according to user review
-3. Break down tasks into smallest manageable steps using TDD with Red-Green-Refactor approach
-4. Get explicit user consent before moving to implementation
+2. Break down tasks into the smallest manageable steps
+3. Refine and adjust according to user review or feedback
 
-{{h2}}Implementation Principles
-The plan should follow, where applicable:
-- {{b}}TDD:{{b}} Test-Driven Development approach
-- {{b}}YAGNI:{{b}} You Aren't Gonna Need It - minimal implementation
-- {{b}}SOLID:{{b}} SOLID design principles
-- {{b}}ENCAPSULATION:{{b}} Do not break encapsulation, always used public API
-
-{{h2}}Workflow
-1. Follow the implementation plan step by step
-2. Write tests first (TDD approach)
-3. Implement minimal code to pass tests (YAGNI)
-4. Apply YAGNI and SOLID principles in implementation
-5. Check off completed items in the plan after each phase
-
-{{#openspec}}
-{{h2}}⚠️ BEFORE TRANSITIONING TO CHECK PHASE
+{{h2}}⚠️ BEFORE TRANSITIONING FROM THIS PHASE
 {{b}}MUST UPDATE COMPLETION STATUS:{{b}}
+{{#openspec}}{{#workflow.issue}}
+  - Update `openspec/changes/{{workflow.issue}}/tasks.md` marking all completed items{{/workflow.issue}}
+{{/openspec}}{{#workflow.plan}}
+  - Update the current implementation plan ({{workflow.plan}}) marking all completed items{{/workflow.plan}}
+  - Present a summary of:
+     - What has been completed
+     - What remains to be done
+     - Any blockers or issues discovered
+     - Any outstanding items that have not been implemented. **THESE MUST BE HIGHLIGHTED**
 
-Before transitioning to check phase, you {{b}}MUST{{b}}:{{#workflow.issue}}
-- Update `openspec/changes/{{workflow.issue}}/tasks.md` marking all completed items{{/workflow.issue}}{{#workflow.plan}}
-- Update the current implementation plan ({{workflow.plan}}) marking all completed items{{/workflow.plan}}
-- Present a summary of:
-   - What has been completed
-   - What remains to be done
-   - Any blockers or issues discovered
+{{b}}Do not transition phase until completion status is updated where applicable and a summary provided.{{b}}
 
-{{b}}Do not transition to check phase until completion status is updated and summary provided.{{b}}
-{{/openspec}}
-{{^openspec}}
-{{h2}}⚠️ BEFORE TRANSITIONING TO CHECK PHASE
-{{b}}MUST UPDATE COMPLETION STATUS:{{b}}
-
-Before transitioning to check phase, you {{b}}MUST{{b}}:{{#workflow.plan}}
-- Update the current implementation plan ({{workflow.plan}}) marking all completed items{{/workflow.plan}}
-- Present a summary of:
-   - What has been completed
-   - What remains to be done
-   - Any blockers or issues discovered
-
-{{b}}Do not transition to check phase until completion status is updated and summary provided.{{b}}
-{{/openspec}}
-
----
-{{h2}}Automatic Transitions
-- **NEXT** {{b}}→ Check:{{b}} Automatically transitions to check phase when all planned tasks have been marked {{b}}completed{{b}}
+{{#workflow.consent.exit}}**EXPLICIT REQUEST OR CONSENT IS REQUIRED** before transitioning to {{workflow.next.value}}.{{/workflow.consent.exit}}
 
 ---
 {{h2}}Reference
-Use tool: {{tool_prefix}}get_content("docs/tracking") for detailed development workflow information
+Refer to guide://docs/tracking or {{tool_prefix}}get_content("docs/tracking") for detailed workflow information.

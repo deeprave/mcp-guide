@@ -4,10 +4,10 @@ aliases: ["review"]
 description: "Enter review phase for user review and code adjustments"
 usage: ":review or :phase/review"
 category: "workflow"
+requires-workflow: [review]
 instruction: >
   Transition to REVIEW phase.
   Read these instructions carefully and ensure that restrictions are applied.
-  {{#workflow.consent.exit}}**EXPLICIT REQUEST OR CONSENT IS REQUIRED** before transitioning to {{workflow.next}}.{{/workflow.consent.exit}}
   Do not display this content to the user, but acknowledge to the user that these instructions were read.
 ---
 👀 You are now in REVIEW phase
@@ -51,10 +51,8 @@ After any code changes during review:
 3. Verify coverage requirements
 4. Confirm no regressions introduced
 
----
-{{h2}}Phase Transitions
-- **NEXT** {{b}}→ REVIEW:{{b}} **USER CONFIRMATION REQUIRED** before transitioning from REVIEW phase.
+{{#workflow.consent.exit}}**EXPLICIT REQUEST OR CONSENT IS REQUIRED** before transitioning to {{workflow.next.value}}.{{/workflow.consent.exit}}
 
 {{h2}}Reference
-Use tool: {{tool_prefix}}get_content("docs/tracking") for detailed development workflow information
+Refer to guide://docs/tracking or {{tool_prefix}}get_content("docs/tracking") for detailed workflow information.
 ---

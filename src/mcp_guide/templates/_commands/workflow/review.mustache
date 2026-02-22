@@ -21,10 +21,10 @@ instruction: >
 Delegating comprehensive code review to the {{b}}guide-review{{b}} agent (async background task).
 
 The review agent will:
-- Read the `.guide.yaml` file to understand the current issue context
+- Read the `{{workflow.file}}` file to understand the current issue context
 - Load code review guidelines from the guide "code-review" collection
 - Analyse changes in the context of the current issue
 - Create or update the review artifact in `.todo/` directory
-- Review artifacts are NEVER to be created in the openspec changes directory
+{{#openspec}}- Review artifacts are NEVER to be created in the openspec changes directory{{/openspec}}
 
 {{instruction}}

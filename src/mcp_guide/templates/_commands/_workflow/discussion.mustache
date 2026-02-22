@@ -17,8 +17,9 @@ instruction: >
 - You MUST NOT create, edit, rename or delete project files!
   {{b}}Exceptions:{{b}}
   - Discussion briefs, analysis documents, specifications and plans
-  - Documents in specs/, openspec/, .todo/, or similar write-allowed folders.
-  - if `.guide.yaml` file exists, provide a brief list of tasks queued for development
+  {{#openspec}}- Documents in specs/, openspec/, .todo/, or similar write-allowed folders.{{/openspec}}
+  {{^openspec}}- Documents in specs/, .todo/, or similar write-allowed folders.{{/openspec}}
+  - if `{{workflow.file}}` file exists, provide a brief list of tasks queued for development
     - The user may wish to remove completed tasks
     - But you MUST wait for the user's explicit instruction
     - Ensure that the most recently completed component tasks have been marked as completed
@@ -26,16 +27,17 @@ instruction: >
 {{b}}Purpose of this phase:{{b}} Decide WHAT needs to be done.
 
 {{h2}}Automatic Transitions
-- {{b}}→ PLANNING:{{b}} Automatically transitions to planning phase when ready to create an implementation plan.
+{{#workflow.phases.planning}}- {{b}}→ {{workflow.phases.discussion.next}}:{{b}} Automatically transitions to {{workflow.phases.discussion.next}} phase when ready to create an implementation plan.{{/workflow.phases.planning}}
 
 {{h2}}Workflow
 1. Discuss requirements and approach
 2. Clarify any ambiguities
 3. Reach alignment on the problem and solution approach
-4. Create implementation plan (triggers automatic transition to planning)
+{{#workflow.phases.planning}}4. Create implementation plan (triggers automatic transition to {{workflow.phases.discussion.next}}){{/workflow.phases.planning}}
+{{^workflow.phases.planning}}4. Create implementation plan{{/workflow.phases.planning}}
 ---
 {{b}}Status:{{b}} Ready for discussion and requirements gathering.
 
 {{h2}}Reference
-Use tool: {{tool_prefix}}get_content("docs/tracking") - Detailed development workflow information
+Refer to guide://docs/tracking or {{tool_prefix}}get_content("docs/tracking") for detailed workflow information.
 

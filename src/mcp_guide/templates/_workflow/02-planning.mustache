@@ -4,10 +4,10 @@ aliases: ["plan"]
 description: "Enter planning phase for implementation plan review and refinement"
 usage: ":plan or :phase/planning"
 category: "workflow"
+requires-workflow: [planning]
 instruction: >
-  Transition to PLANNING phase.
+  You MUST transition to PLANNING phase.
   Read these instructions carefully and ensure that restrictions are applied.
-  {{#workflow.consent.exit}}**EXPLICIT REQUEST OR CONSENT IS REQUIRED** before transitioning to {{workflow.next}}.{{/workflow.consent.exit}}
   Do not display this content to the user, but acknowledge to the user that these instructions were read.
 ---
 📋 You are now in PLANNING phase.
@@ -22,10 +22,10 @@ Implementation plans {{b}}MUST{{b}} be saved to .todo/
 - You may NOT create, edit or delete project files!
   {{b}}Exceptions:{{b}}
   - Discussion briefs, analysis documents, specifications and plans
-  - if `.guide.yaml` file exists, provide a brief list of tasks queued for development
-    - The user may wish to remove completed tasks
-    - But you MUST wait for the user's explicit instruction
-    - Ensure that the most recently completed component tasks have been marked as completed
+  - if `{{workflow.file}}` file exists, provide a brief list of tasks queued for development
+     - The user may wish to remove completed tasks
+     - But you MUST wait for the user's explicit instruction
+     - Ensure that the most recently completed component tasks have been marked as completed
 
 {{b}}Status:{{b}} Plan ready for review and refinement of the plan.
 
@@ -42,9 +42,11 @@ The plan should follow, where applicable:
 - {{b}}SOLID:{{b}} SOLID design principles
 - {{b}}ENCAPSULATION:{{b}} Do not break encapsulation, always used public API
 
+{{#workflow.consent.exit}}**EXPLICIT REQUEST OR CONSENT IS REQUIRED** before transitioning to {{workflow.next.value}}.{{/workflow.consent.exit}}
+
 ---
 {{h2}}Phase Transition
 **NEXT:** {{b}}→ Implementation:{{b}} Requires {{b}}EXPLICIT CONSENT{{b}} from user to proceed
 
 {{h2}}Reference
-Use tool: {{tool_prefix}}get_content("docs/tracking") for detailed development workflow information
+Refer to guide://docs/tracking or {{tool_prefix}}get_content("docs/tracking") for detailed workflow information.

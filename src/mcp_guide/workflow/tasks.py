@@ -101,7 +101,7 @@ class WorkflowMonitorTask:
 
         # Handle timer events
         if event_type & EventType.TIMER:
-            interval = data.get("interval")
+            interval = data.get("timer_interval")
 
             # Workflow monitoring reminder (10 min interval)
             if interval == WORKFLOW_INTERVAL:

@@ -22,7 +22,7 @@ Execute the implementation plan with code changes. Stay within the plan scope an
 - {{b}}SOLID:{{b}} Follow SOLID design principles
 
 {{h2}}Automatic Transitions
-- {{b}}→ Check:{{b}} Automatically transitions to check phase when planned implementation is {{b}}completed{{b}} (all items checked off)
+{{#workflow.phases.check}}- {{b}}→ {{workflow.phases.implementation.next}}:{{b}} Automatically transitions to {{workflow.phases.implementation.next}} phase when planned implementation is {{b}}completed{{b}} (all items checked off){{/workflow.phases.check}}
 
 {{h2}}Available Commands
 - `:check` - Move to check phase (when implementation complete)
@@ -35,7 +35,7 @@ Execute the implementation plan with code changes. Stay within the plan scope an
 3. Implement minimal code to pass tests (YAGNI)
 4. Apply SOLID principles in design
 5. Check off completed items in the plan
-6. Auto-transition to check phase when all items complete
+{{#workflow.phases.check}}6. Auto-transition to {{workflow.phases.implementation.next}} phase when all items complete{{/workflow.phases.check}}
 
 {{h2}}Consent Acknowledgment
 {{b}}✅ Explicit consent provided{{b}} - Proceeding with implementation as planned.
@@ -44,4 +44,4 @@ Execute the implementation plan with code changes. Stay within the plan scope an
 {{b}}Status:{{b}} Implementation in progress. Following TDD, YAGNI, and SOLID principles.
 
 {{h2}}Reference
-{{tool_prefix}}get_content("docs/tracking") - Detailed development workflow information
+Refer to guide://docs/tracking or {{tool_prefix}}get_content("docs/tracking") for detailed workflow information.

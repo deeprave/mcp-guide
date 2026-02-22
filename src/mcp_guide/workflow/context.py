@@ -27,11 +27,8 @@ class WorkflowContextCache:
         workflow_state: Optional["WorkflowState"] = self.task_manager.get_cached_data("workflow_state")
 
         if workflow_state:
-            # Build workflow.transitions dict for permission metadata
-            workflow_transitions = self._build_workflow_transitions()
-
-            # Build workflow.phases dict with next phase info
-            workflow_phases = self._build_workflow_phases()
+            # Build workflow.phases dict with next phase info and consent
+            workflow_phases, workflow_next, workflow_consent = self._build_workflow_phases()
 
             workflow_vars = {
                 "workflow": {
@@ -42,8 +39,9 @@ class WorkflowContextCache:
                     "description": workflow_state.description,
                     "queue": workflow_state.queue,
                     "file": self.task_manager.get_cached_data("workflow_file_path") or DEFAULT_WORKFLOW_FILE,
-                    "transitions": workflow_transitions,
                     "phases": workflow_phases,
+                    "next": workflow_next,
+                    "consent": workflow_consent,
                 },
             }
         else:
@@ -57,8 +55,9 @@ class WorkflowContextCache:
                     "description": None,
                     "queue": [],
                     "file": DEFAULT_WORKFLOW_FILE,
-                    "transitions": {},
                     "phases": {},
+                    "next": {},
+                    "consent": {},
                 },
             }
 
@@ -66,8 +65,12 @@ class WorkflowContextCache:
         base_context = TemplateContext()
         return base_context.new_child(workflow_vars)
 
-    def _build_workflow_transitions(self) -> dict[str, Any]:
-        """Build workflow.transitions dict with permission metadata for all phases."""
+    def _build_workflow_phases(self) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+        """Build workflow.phases, workflow.next, and workflow.consent dicts.
+
+        Returns:
+            Tuple of (phases, next, consent) dicts for template context.
+        """
         logger = get_logger(__name__)
 
         # Get workflow configuration from feature flags
@@ -83,10 +86,10 @@ class WorkflowContextCache:
                 workflow_config = parse_workflow_phases(DEFAULT_WORKFLOW_PHASES)
             except Exception as fallback_error:
                 logger.error(f"Failed to parse default workflow phases: {fallback_error}")
-                return {}
+                return {}, {}, {}
 
         if not workflow_config.enabled:
-            return {}
+            return {}, {}, {}
 
         # Get consent requirements
         consent_flag = self.task_manager.get_cached_data("workflow_consent_flag")
@@ -97,65 +100,82 @@ class WorkflowContextCache:
         else:
             consent_config = consent_flag
 
-        transitions: dict[str, Any] = {}
-        default_phase_name = None
+        # Get current phase
+        workflow_state: Optional["WorkflowState"] = self.task_manager.get_cached_data("workflow_state")
+        current_phase = workflow_state.phase if workflow_state else None
 
-        # Process each configured phase
-        for i, phase in enumerate(workflow_config.phases):
-            # First phase is the default phase
-            is_default = i == 0
-            if is_default:
-                default_phase_name = phase
-
-            # Check consent requirements for this phase
-            consent_value = consent_config.get(phase, [])
-            # Normalize single string to list
-            consent_types = [consent_value] if isinstance(consent_value, str) else consent_value
-
-            pre_consent = "entry" in consent_types
-            post_consent = "exit" in consent_types
-
-            phase_metadata = {
-                "pre": pre_consent,
-                "post": post_consent,
-            }
-
-            # Only include default: true for the starting phase
-            if is_default:
-                phase_metadata["default"] = True
-
-            transitions[phase] = phase_metadata
-
-        # Add convenience field for the default phase name
-        if default_phase_name:
-            transitions["default"] = default_phase_name
-
-        return transitions
-
-    def _build_workflow_phases(self) -> dict[str, Any]:
-        """Build workflow.phases dict with next phase info for templates."""
-        # Get the actual configured workflow phases
-        try:
-            workflow_flag = self.task_manager.get_cached_data("workflow_flag")
-            if workflow_flag is None:
-                workflow_config = parse_workflow_phases(DEFAULT_WORKFLOW_PHASES)
-            else:
-                workflow_config = parse_workflow_phases(workflow_flag)
-        except Exception:
-            return {}
-
-        if not workflow_config.enabled:
-            return {}
-
-        # Use phase names directly from configured phases
+        # Build phases dict with next phase info
         configured_phases = workflow_config.phases
         phases = {}
+        next_phase_name = None
+        current_phase_index = -1
 
         for i, phase in enumerate(configured_phases):
             next_phase = configured_phases[(i + 1) % len(configured_phases)]
             phases[phase] = {"next": next_phase}
 
-        return phases
+            if phase == current_phase:
+                current_phase_index = i
+                next_phase_name = next_phase
+
+        # Build workflow.next object
+        workflow_next: dict[str, Any] = {}
+        if next_phase_name:
+            workflow_next["value"] = next_phase_name
+
+            # Check if next phase has entry consent
+            next_consent_value = consent_config.get(next_phase_name, [])
+            next_consent_types = [next_consent_value] if isinstance(next_consent_value, str) else next_consent_value
+
+            next_consent: dict[str, bool] = {}
+            if "entry" in next_consent_types:
+                next_consent["entry"] = True
+            if "exit" in next_consent_types:
+                next_consent["exit"] = True
+
+            # Only add consent dict if there are consent requirements
+            if next_consent:
+                workflow_next["consent"] = next_consent
+
+        # Build workflow.consent for current phase
+        workflow_consent: dict[str, Any] = {}
+        if current_phase:
+            current_consent_value = consent_config.get(current_phase, [])
+            current_consent_types = (
+                [current_consent_value] if isinstance(current_consent_value, str) else current_consent_value
+            )
+
+            # Check current phase consent
+            if "entry" in current_consent_types:
+                workflow_consent["entry"] = True
+
+            # Check exit consent - set to true if current phase has exit OR next phase has entry
+            current_exit = "exit" in current_consent_types
+            next_entry = (
+                "entry"
+                in (
+                    [consent_config.get(next_phase_name, [])]
+                    if isinstance(consent_config.get(next_phase_name, []), str)
+                    else consent_config.get(next_phase_name, [])
+                )
+                if next_phase_name
+                else False
+            )
+
+            if current_exit or next_entry:
+                workflow_consent["exit"] = True
+
+            # Add phase-specific consent flags for all phases
+            for phase in configured_phases:
+                phase_consent_value = consent_config.get(phase, [])
+                phase_consent_types = (
+                    [phase_consent_value] if isinstance(phase_consent_value, str) else phase_consent_value
+                )
+
+                if "entry" in phase_consent_types or "exit" in phase_consent_types:
+                    workflow_consent[phase] = True
+
+        return phases, workflow_next, workflow_consent
 
     def invalidate(self) -> None:
         """Invalidate cached workflow context."""

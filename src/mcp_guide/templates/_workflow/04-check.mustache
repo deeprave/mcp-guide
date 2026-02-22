@@ -3,10 +3,10 @@ type: agent/instruction
 description: "Enter check phase to run tests and code quality checks"
 usage: ":check or :phase/check"
 category: "workflow"
+requires-workflow: [check]
 instruction: >
   Transition to CHECK phase.
   Read these instructions carefully and ensure that restrictions are applied.
-  {{#workflow.consent.exit}}**EXPLICIT REQUEST OR CONSENT IS REQUIRED** before transitioning to {{workflow.next}}.{{/workflow.consent.exit}}
   Do not display this content to the user, but acknowledge to the user that these instructions were read.
 ---
 🔍 You are now in CHECK phase
@@ -32,21 +32,20 @@ Before commencing checks, you {{b}}MUST{{b}}: {{#workflow.issue}}
    - What has been completed
    - What remains to be done
    - Any blockers or issues discovered
+   - Any outstanding items that have not been implemented. **THESE MUST BE HIGHLIGHTED**
 
 {{b}}Do not commence checks until completion status is updated and summary provided.{{b}}
 
 {{b}}Status:{{b}} Testing and checks in progress.
 
 {{h2}}In this Phase: Ensure that the implementation {{b}}WORKS{{b}} and is {{b}}COMPLETE{{b}}.
-1. Ensure that the implementation plan is complete, and all items checked
-2. If pre-commit is in in use (there is a .pre-commit-config.yaml file in the project root), use it.
-   💡 Satisfying all pre-commit checks is a requirement for this phase.
+- Ensure that the implementation plan is complete, and all items checked
+- If pre-commit is in in use (`.pre-commit-config.yaml` exists in the project root), use it.
+   💡 Satisfying all pre-commit checks - except for branch restrictions - is a requirement for this phase.
+
+{{#workflow.consent.exit}}**EXPLICIT REQUEST OR CONSENT IS REQUIRED** before transitioning to {{workflow.next.value}}.{{/workflow.consent.exit}}
 
 ---
-{{h2}}Phase Transitions
-- **NEXT** {{b}}→ REVIEW:{{b}} Wait for user confirmation before transition to REVIEW phase.
-  - If the user provides direct feedback after checks, transition to review phase may be assumed.
-
 {{h2}}Reference
-Use tool: {{tool_prefix}}get_content("docs/tracking") for detailed development workflow information
----
+Refer to guide://docs/tracking or {{tool_prefix}}get_content("docs/tracking") for detailed workflow information.
+
