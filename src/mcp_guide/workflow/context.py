@@ -100,6 +100,12 @@ class WorkflowContextCache:
         else:
             consent_config = consent_flag
 
+        # Helper to normalize consent config values
+        def _get_consent_types(phase_name: str) -> list[str]:
+            """Normalize consent config value to list of consent types."""
+            consent_value = consent_config.get(phase_name, [])
+            return [consent_value] if isinstance(consent_value, str) else consent_value
+
         # Get current phase
         workflow_state: Optional["WorkflowState"] = self.task_manager.get_cached_data("workflow_state")
         current_phase = workflow_state.phase if workflow_state else None
@@ -120,12 +126,12 @@ class WorkflowContextCache:
 
         # Build workflow.next object
         workflow_next: dict[str, Any] = {}
+        next_consent_types: list[str] = []
         if next_phase_name:
             workflow_next["value"] = next_phase_name
 
             # Check if next phase has entry consent
-            next_consent_value = consent_config.get(next_phase_name, [])
-            next_consent_types = [next_consent_value] if isinstance(next_consent_value, str) else next_consent_value
+            next_consent_types = _get_consent_types(next_phase_name)
 
             next_consent: dict[str, bool] = {}
             if "entry" in next_consent_types:
@@ -140,10 +146,7 @@ class WorkflowContextCache:
         # Build workflow.consent for current phase
         workflow_consent: dict[str, Any] = {}
         if current_phase:
-            current_consent_value = consent_config.get(current_phase, [])
-            current_consent_types = (
-                [current_consent_value] if isinstance(current_consent_value, str) else current_consent_value
-            )
+            current_consent_types = _get_consent_types(current_phase)
 
             # Check current phase consent
             if "entry" in current_consent_types:
@@ -151,26 +154,14 @@ class WorkflowContextCache:
 
             # Check exit consent - set to true if current phase has exit OR next phase has entry
             current_exit = "exit" in current_consent_types
-            next_entry = (
-                "entry"
-                in (
-                    [consent_config.get(next_phase_name, [])]
-                    if isinstance(consent_config.get(next_phase_name, []), str)
-                    else consent_config.get(next_phase_name, [])
-                )
-                if next_phase_name
-                else False
-            )
+            next_entry = "entry" in next_consent_types if next_phase_name else False
 
             if current_exit or next_entry:
                 workflow_consent["exit"] = True
 
             # Add phase-specific consent flags for all phases
             for phase in configured_phases:
-                phase_consent_value = consent_config.get(phase, [])
-                phase_consent_types = (
-                    [phase_consent_value] if isinstance(phase_consent_value, str) else phase_consent_value
-                )
+                phase_consent_types = _get_consent_types(phase)
 
                 if "entry" in phase_consent_types or "exit" in phase_consent_types:
                     workflow_consent[phase] = True
