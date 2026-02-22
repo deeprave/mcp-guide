@@ -1,20 +1,20 @@
-"""Integration test for workflow.transitions template variable."""
+"""Integration test for workflow.phases, workflow.next, and workflow.consent template variables."""
 
 from unittest.mock import Mock
 
 import pytest
 
-from mcp_guide.workflow.constants import PHASE_DISCUSSION
+from mcp_guide.workflow.constants import PHASE_DISCUSSION, PHASE_PLANNING
 from mcp_guide.workflow.context import WorkflowContextCache
 from mcp_guide.workflow.schema import WorkflowState
 
 
-class TestWorkflowTransitionsIntegration:
-    """Integration tests for workflow.transitions in template context."""
+class TestWorkflowPhasesIntegration:
+    """Integration tests for workflow.phases, workflow.next, and workflow.consent in template context."""
 
     @pytest.mark.asyncio
-    async def test_workflow_transitions_in_template_context(self):
-        """Test that workflow.transitions is available in template context."""
+    async def test_workflow_phases_in_template_context(self):
+        """Test that workflow.phases, workflow.next, and workflow.consent are available in template context."""
         # Mock task manager with workflow state
         task_manager = Mock()
         workflow_state = WorkflowState(phase=PHASE_DISCUSSION, issue="test-issue", tracking="JIRA TEST-123")
@@ -22,6 +22,7 @@ class TestWorkflowTransitionsIntegration:
             "workflow_state": workflow_state,
             "workflow_file_path": ".guide.yaml",
             "workflow_flag": None,  # Use default
+            "workflow_consent_flag": None,  # Use default
         }.get(key)
 
         # Create workflow context cache
@@ -30,38 +31,84 @@ class TestWorkflowTransitionsIntegration:
         # Get workflow context
         context = await context_cache.get_workflow_context()
 
-        # Verify workflow.transitions is present
+        # Verify workflow variables are present
         assert "workflow" in context
         workflow_vars = context["workflow"]
-        assert "transitions" in workflow_vars
+        assert "phases" in workflow_vars
+        assert "next" in workflow_vars
+        assert "consent" in workflow_vars
 
-        transitions = workflow_vars["transitions"]
+        phases = workflow_vars["phases"]
+        next_phase = workflow_vars["next"]
+        consent = workflow_vars["consent"]
 
-        # Verify structure matches expected format from proposal
-        expected_phases = ["discussion", "planning", "implementation", "check", "review", "default"]
-        assert set(transitions.keys()) == set(expected_phases)
+        # Verify phases structure - each phase has next field
+        expected_phases = ["discussion", "planning", "implementation", "check", "review"]
+        assert set(phases.keys()) == set(expected_phases)
+        for phase_name in expected_phases:
+            assert "next" in phases[phase_name]
 
-        # Verify each phase has required metadata (excluding default field)
-        for phase_name, metadata in transitions.items():
-            if phase_name != "default":
-                assert "pre" in metadata
-                assert "post" in metadata
-                assert isinstance(metadata["pre"], bool)
-                assert isinstance(metadata["post"], bool)
-                # Only discussion phase should have default: true
-                if phase_name == "discussion":
-                    assert metadata.get("default", False) is True
-                else:
-                    assert "default" not in metadata
+        # Verify next phase structure
+        assert "value" in next_phase
+        assert next_phase["value"] == "planning"  # discussion -> planning
 
-        # Verify default field exists and points to discussion
-        assert transitions["default"] == "discussion"
-        assert transitions["implementation"]["pre"] is True
-        assert transitions["review"]["post"] is True
+        # Verify consent structure - should have phase-specific flags
+        assert "implementation" in consent  # implementation has entry consent
+        assert "review" in consent  # review has exit consent
 
     @pytest.mark.asyncio
-    async def test_workflow_transitions_with_custom_phases(self):
-        """Test workflow.transitions with custom phase configuration."""
+    async def test_workflow_next_with_consent(self):
+        """Test workflow.next includes consent when next phase requires it."""
+        # Mock task manager - planning phase, next is implementation (has entry consent)
+        task_manager = Mock()
+        workflow_state = WorkflowState(phase=PHASE_PLANNING)
+        task_manager.get_cached_data.side_effect = lambda key: {
+            "workflow_state": workflow_state,
+            "workflow_flag": None,  # Use default
+            "workflow_consent_flag": None,  # Use default
+        }.get(key)
+
+        context_cache = WorkflowContextCache(task_manager)
+        context = await context_cache.get_workflow_context()
+
+        next_phase = context["workflow"]["next"]
+        consent = context["workflow"]["consent"]
+
+        # Next phase should have consent dict with entry
+        assert "consent" in next_phase
+        assert next_phase["consent"]["entry"] is True
+
+        # Current phase should have exit consent (propagated from next entry)
+        assert consent["exit"] is True
+
+    @pytest.mark.asyncio
+    async def test_workflow_consent_propagation(self):
+        """Test that next phase entry consent sets current phase exit consent."""
+        # Mock task manager - discussion phase, next is planning with entry consent
+        task_manager = Mock()
+        workflow_state = WorkflowState(phase=PHASE_DISCUSSION)
+        custom_consent = {"planning": ["entry"]}
+        task_manager.get_cached_data.side_effect = lambda key: {
+            "workflow_state": workflow_state,
+            "workflow_flag": None,
+            "workflow_consent_flag": custom_consent,
+        }.get(key)
+
+        context_cache = WorkflowContextCache(task_manager)
+        context = await context_cache.get_workflow_context()
+
+        next_phase = context["workflow"]["next"]
+        consent = context["workflow"]["consent"]
+
+        # Next phase should have entry consent
+        assert next_phase["consent"]["entry"] is True
+
+        # Current phase should have exit consent (propagated)
+        assert consent["exit"] is True
+
+    @pytest.mark.asyncio
+    async def test_workflow_phases_with_custom_config(self):
+        """Test workflow.phases with custom phase configuration."""
         # Mock task manager with custom workflow flag and consent
         task_manager = Mock()
         workflow_state = WorkflowState(phase=PHASE_DISCUSSION)
@@ -77,21 +124,24 @@ class TestWorkflowTransitionsIntegration:
         context_cache = WorkflowContextCache(task_manager)
         context = await context_cache.get_workflow_context()
 
-        transitions = context["workflow"]["transitions"]
+        phases = context["workflow"]["phases"]
+        next_phase = context["workflow"]["next"]
+        consent = context["workflow"]["consent"]
 
-        # Should only have custom phases plus default field
-        assert set(transitions.keys()) == {"discussion", "planning", "implementation", "default"}
+        # Should only have custom phases
+        assert set(phases.keys()) == {"discussion", "planning", "implementation"}
 
-        # Verify custom permissions
-        assert transitions["planning"]["pre"] is True  # entry consent
-        assert transitions["planning"]["post"] is False
+        # Verify next phase has entry consent
+        assert next_phase["value"] == "planning"
+        assert next_phase["consent"]["entry"] is True
 
-        assert transitions["implementation"]["pre"] is False
-        assert transitions["implementation"]["post"] is True  # exit consent
+        # Verify consent has phase-specific flags
+        assert consent["planning"] is True
+        assert consent["implementation"] is True
 
     @pytest.mark.asyncio
-    async def test_workflow_transitions_empty_when_disabled(self):
-        """Test workflow.transitions is empty when workflow is disabled."""
+    async def test_workflow_phases_empty_when_disabled(self):
+        """Test workflow.phases/next/consent are empty when workflow is disabled."""
         task_manager = Mock()
         task_manager.get_cached_data.side_effect = lambda key: {
             "workflow_state": None,
@@ -101,5 +151,7 @@ class TestWorkflowTransitionsIntegration:
         context_cache = WorkflowContextCache(task_manager)
         context = await context_cache.get_workflow_context()
 
-        # Should have empty transitions when workflow is disabled
-        assert context["workflow"]["transitions"] == {}
+        # Should have empty dicts when workflow is disabled
+        assert context["workflow"]["phases"] == {}
+        assert context["workflow"]["next"] == {}
+        assert context["workflow"]["consent"] == {}

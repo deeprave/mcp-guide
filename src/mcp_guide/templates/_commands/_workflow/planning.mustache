@@ -17,7 +17,7 @@ Implementation plan is reviewed, refined and adjusted. No code changes are permi
 - ❌ {{b}}Not Allowed:{{b}} Code changes, implementation, testing
 
 {{h2}}Transition Requirements
-- {{b}}→ Implementation:{{b}} Requires {{b}}explicit consent{{b}} from user to proceed
+{{#workflow.consent.exit}}- {{b}}→ {{workflow.next.value}}:{{b}} Requires {{b}}EXPLICIT CONSENT OR REQUEST{{b}} from user to proceed{{/workflow.consent.exit}}
 
 {{h2}}Available Commands
 - `:implement` - Move to implementation phase ({{b}}requires explicit consent{{b}})
@@ -40,7 +40,4 @@ The plan should follow:
 {{b}}Status:{{b}} Plan ready for review and refinement. Implementation requires explicit consent.
 
 {{h2}}Reference
-{{tool_prefix}}get_content("docs/tracking") - Detailed development workflow information
-
-{{h2}}Reference
-See `docs/tracking.md` for detailed development workflow information.
+Refer to guide://docs/tracking or {{tool_prefix}}get_content("docs/tracking") for detailed workflow information.

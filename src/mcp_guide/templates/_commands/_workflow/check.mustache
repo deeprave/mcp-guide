@@ -24,7 +24,7 @@ Run tests, make code adjustments, and execute all code quality checks. All tests
   - Test coverage requirements
 
 {{h2}}Automatic Transitions
-- {{b}}→ Review:{{b}} Automatically transitions to review phase once all tests complete and pass
+{{#workflow.phases.review}}- {{b}}→ {{workflow.phases.check.next}}:{{b}} Automatically transitions to {{workflow.phases.check.next}} phase once all tests complete and pass{{/workflow.phases.review}}
 
 {{h2}}Available Commands
 - `:review` - Move to review phase (when all checks pass)
@@ -40,7 +40,7 @@ Run tests, make code adjustments, and execute all code quality checks. All tests
    - Test coverage analysis
 3. Make minor adjustments to fix any issues
 4. Re-run checks until all pass
-5. Auto-transition to review phase when complete
+{{#workflow.phases.review}}5. Auto-transition to {{workflow.phases.check.next}} phase when complete{{/workflow.phases.review}}
 
 {{h2}}Check Status
 - [ ] All tests passing
@@ -53,4 +53,4 @@ Run tests, make code adjustments, and execute all code quality checks. All tests
 {{b}}Status:{{b}} Running tests and quality checks. All must pass before review.
 
 {{h2}}Reference
-{{tool_prefix}}get_content("docs/tracking") - Detailed development workflow information
+Refer to guide://docs/tracking or {{tool_prefix}}get_content("docs/tracking") for detailed workflow information.
