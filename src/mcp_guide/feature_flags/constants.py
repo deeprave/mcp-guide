@@ -13,5 +13,8 @@ FLAG_WORKFLOW_CONSENT = "workflow-consent"
 FLAG_CONTENT_FORMAT = "content-format"
 FLAG_CONTENT_STYLE = "content-style"
 
+# Startup flags
+FLAG_STARTUP_INSTRUCTION = "startup-instruction"
+
 # Development flags
 FLAG_GUIDE_DEVELOPMENT = "guide-development"

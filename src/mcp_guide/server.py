@@ -259,6 +259,17 @@ def create_server(config: "ServerConfig") -> GuideMCP:
         task_manager = get_task_manager()
         await task_manager.on_init()
 
+    # Register startup instruction handler
+    @mcp.on_init()
+    async def register_startup_handler() -> None:
+        """Register startup instruction handler with session."""
+        from mcp_guide.session import get_current_session
+        from mcp_guide.startup import handle_project_load
+
+        session = get_current_session()
+        if session:
+            session.set_on_project_load(handle_project_load)
+
     # Import tool modules
     # Register tools with MCP
     from mcp_guide.core.tool_decorator import register_tools

@@ -3,6 +3,7 @@
 import asyncio
 import contextlib
 import dataclasses
+from collections.abc import Awaitable
 from contextvars import ContextVar
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Optional, Union
@@ -446,6 +447,7 @@ class Session:
         self._config_watcher: Optional[ConfigWatcher] = None
         self._watcher_task: Optional["asyncio.Task[None]"] = None
         self.__project: Optional[Project] = None
+        self._on_project_load: Optional[Callable[[Session], Awaitable[None]]] = None
 
         # Initialize config manager with test directory if provided
         if _config_dir_for_tests is not None:
@@ -471,6 +473,19 @@ class Session:
         except Exception as e:
             logger.error(f"Unexpected error setting up config watcher for {self.project_name}: {e}")
             raise
+
+    def set_on_project_load(self, callback: Callable[["Session"], Awaitable[None]]) -> None:
+        """Set callback to invoke when project loads.
+
+        Args:
+            callback: Async function to call with session when project loads
+        """
+        self._on_project_load = callback
+
+    async def _notify_project_load(self) -> None:
+        """Notify callback that project loaded."""
+        if self._on_project_load:
+            await self._on_project_load(self)
 
     async def _ensure_watcher_started(self) -> None:
         """Ensure config watcher is started."""
@@ -762,6 +777,7 @@ async def set_project(project_name: str, ctx: Optional["Context"] = None) -> Res
     try:
         session = await get_or_create_session(ctx=ctx, project_name=project_name)
         project = await session.get_project()
+        await session._notify_project_load()
         return Result.ok(project)
     except (InvalidProjectNameError, ValueError) as e:
         return Result.failure(str(e), error_type=ERROR_INVALID_NAME)
