@@ -1,9 +1,15 @@
 """Workflow flag parsing and validation."""
 
 from dataclasses import dataclass
-from typing import Optional, Union
+from typing import TYPE_CHECKING, Optional, Union
 
-from mcp_guide.feature_flags.constants import FLAG_WORKFLOW, FLAG_WORKFLOW_CONSENT, FLAG_WORKFLOW_FILE
+from mcp_guide.core.result import Result
+from mcp_guide.feature_flags.constants import (
+    FLAG_STARTUP_INSTRUCTION,
+    FLAG_WORKFLOW,
+    FLAG_WORKFLOW_CONSENT,
+    FLAG_WORKFLOW_FILE,
+)
 from mcp_guide.feature_flags.types import FeatureValue
 from mcp_guide.feature_flags.validators import register_flag_validator
 from mcp_guide.filesystem.read_write_security import ReadWriteSecurityPolicy, SecurityError
@@ -15,6 +21,9 @@ from mcp_guide.workflow.constants import (
     PHASE_PLANNING,
     PHASE_REVIEW,
 )
+
+if TYPE_CHECKING:
+    from mcp_guide.models.project import Project
 
 # Valid phase names for validation
 VALID_PHASES = {
@@ -199,7 +208,91 @@ def _validate_workflow_consent_flag(value: FeatureValue, is_project: bool) -> bo
     return False
 
 
+def parse_startup_expression(expr: str) -> tuple[list[str], list[str]]:
+    """Parse startup expression into categories and collections.
+
+    Args:
+        expr: Expression like "docs,@guidelines,examples/README*"
+
+    Returns:
+        Tuple of (categories, collections)
+    """
+    if not expr or not expr.strip():
+        return ([], [])
+
+    categories = []
+    collections = []
+
+    for part in expr.split(","):
+        part = part.strip()
+        if not part:
+            continue
+
+        if part.startswith("@"):
+            # Collection
+            collections.append(part[1:])
+        else:
+            # Category (strip pattern if present)
+            if "/" in part:
+                part = part.split("/")[0]
+            categories.append(part)
+
+    return (categories, collections)
+
+
+def validate_startup_expression(expr: str, project: "Project") -> Result[None]:
+    """Validate startup expression against project.
+
+    Args:
+        expr: Expression to validate
+        project: Project to validate against
+
+    Returns:
+        Result indicating success or error
+    """
+    if not expr or not expr.strip():
+        return Result.ok(None)
+
+    categories, collections = parse_startup_expression(expr)
+
+    # Validate categories exist
+    for cat in categories:
+        if cat not in project.categories:
+            return Result.failure(f"Category '{cat}' not found in project")
+
+    # Validate collections exist
+    for coll in collections:
+        if coll not in project.collections:
+            return Result.failure(f"Collection '{coll}' not found in project")
+
+    return Result.ok(None)
+
+
+def _validate_startup_instruction_flag(value: FeatureValue, is_project: bool) -> bool:
+    """Validate startup-instruction flag value.
+
+    Args:
+        value: Flag value to validate
+        is_project: Whether this is a project-level flag
+
+    Returns:
+        True if valid, False otherwise
+    """
+    # None or empty string is valid (flag not set)
+    if value is None or value == "":
+        return True
+
+    # Must be a string
+    if not isinstance(value, str):
+        return False
+
+    # Basic syntax check - will be validated against project when set
+    # Just ensure it's not obviously malformed
+    return bool(value.strip())
+
+
 # Register validators at module import
 register_flag_validator(FLAG_WORKFLOW, _validate_workflow_flag)
 register_flag_validator(FLAG_WORKFLOW_FILE, _validate_workflow_file_flag)
 register_flag_validator(FLAG_WORKFLOW_CONSENT, _validate_workflow_consent_flag)
+register_flag_validator(FLAG_STARTUP_INSTRUCTION, _validate_startup_instruction_flag)

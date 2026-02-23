@@ -1,7 +1,7 @@
 [project]
 name = "mcp-guide"
 version = "1.0.0rc1"
-description = "MCPerver for handling guidelines, project rules and controlled development"
+description = "MCP Server for handling guidelines, project rules and controlled development workflow"
 readme = "README.md"
 license = {file = "LICENSE.md"}
 authors = [{name = "David Nugent", email = "davidn@uniquode.io"}]

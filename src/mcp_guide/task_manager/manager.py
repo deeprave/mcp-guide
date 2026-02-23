@@ -548,11 +548,18 @@ class TaskManager:
 
         return event_results
 
-    async def queue_instruction(self, instruction: str) -> None:
-        """Queue an instruction to be added to the next MCP response."""
-        # Prevent duplicate instructions in the queue
+    async def queue_instruction(self, instruction: str, priority: bool = False) -> None:
+        """Queue instruction for next dispatch.
+
+        Args:
+            instruction: Instruction text to queue
+            priority: If True, insert at front; if False, append to end
+        """
         if instruction not in self._pending_instructions:
-            self._pending_instructions.append(instruction)
+            if priority:
+                self._pending_instructions.insert(0, instruction)
+            else:
+                self._pending_instructions.append(instruction)
 
     async def queue_instruction_with_ack(self, content: str, max_retries: int = 3) -> str:
         """Queue instruction with acknowledgement tracking.

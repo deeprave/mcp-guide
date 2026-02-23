@@ -5,15 +5,16 @@ category: "project-workflow"
 usage: ":workflow/plan"
 aliases:
   - plan
-instruction: Create or update the implementation plan for the current change
+instruction: Create or update the implementation plan for the current issue
 ---
 {{h1}}Planning mode
 
-- Enter PLANNING phase if not already on planning
-- Gather requirements from the codebase and the current change specification and tasks
-- Create a detailed implementation
+- You must enter PLANNING phase
+{{#openspec}}{{#workflow.issue}}
+- Gather requirements for `{{workflow.issue}}`{{#workflow.issue}}
+- Create a detailed implementation plan
 
-- use {{tool_prefix}}get_config("guide") for project requirements
+- read {{tool_prefix}}get_content("guidelines") for project requirements and guidelines.
 {{#openspec}}
 - read ./openspec/AGENTS.md for information about openspec changes
 {{/openspec}}
