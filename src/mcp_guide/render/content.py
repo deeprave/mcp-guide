@@ -53,6 +53,10 @@ class RenderedContent(Content):
 
         # Add partial instructions
         for partial_fm in self.partial_frontmatter:
+            # Skip partials without explicit instruction or type to avoid injecting defaults
+            if "instruction" not in partial_fm and "type" not in partial_fm:
+                continue
+
             partial_frontmatter = Frontmatter(partial_fm)
             partial_type = get_frontmatter_type(partial_frontmatter)
             partial_instruction, partial_is_important = resolve_instruction(partial_frontmatter, partial_type)

@@ -129,7 +129,8 @@ async def render_template_content(
                                 )
 
                             processed_partials[partial_name] = partial_content
-                            if partial_frontmatter:
+                            # Only collect frontmatter if partial was actually rendered (has content)
+                            if partial_frontmatter and partial_content:
                                 partial_frontmatter_list.append(partial_frontmatter)
                             logger.trace(f"Loaded partial '{partial_name}' from {include_path}")
                         except PartialNotFoundError as e:
