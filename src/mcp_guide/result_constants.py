@@ -1,12 +1,8 @@
 """Constants for Result instructions and error types."""
 
 # Display instructions
-INSTRUCTION_DISPLAY_ONLY = (
-    "You are to display this information as-is to the user. You must STOP and not take any further action."
-)
-INSTRUCTION_ERROR_MESSAGE = (
-    "Display this error as-is to the user so that THEY can correct it. Do not make any further action or try to assist."
-)
+INSTRUCTION_DISPLAY_ONLY = "This information is to be presented to the user, not actioned."
+INSTRUCTION_ERROR_MESSAGE = "This error is to be presented to the user so that they can correct it, do not action."
 
 # Common error types
 ERROR_NO_PROJECT = "no_project"

@@ -3,10 +3,9 @@
 import asyncio
 import contextlib
 import dataclasses
-from collections.abc import Awaitable
 from contextvars import ContextVar
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, ClassVar, Optional, Union
 
 import yaml
 from anyio import Path as AsyncPath
@@ -50,6 +49,8 @@ class DocrootError(RuntimeError):
 
 class Session:
     """Per-project runtime session with encapsulated configuration management."""
+
+    _listeners: ClassVar[list["SessionListener"]] = []
 
     @classmethod
     def _get_config_manager(cls, config_dir: Optional[str] = None) -> "Session._ConfigManager":
@@ -443,11 +444,9 @@ class Session:
         self.project_name = project_name
         self._project_key: Optional[str] = None  # Track project key with hash
         self._state = SessionState()
-        self._listeners: list["SessionListener"] = []
         self._config_watcher: Optional[ConfigWatcher] = None
         self._watcher_task: Optional["asyncio.Task[None]"] = None
         self.__project: Optional[Project] = None
-        self._on_project_load: Optional[Callable[[Session], Awaitable[None]]] = None
 
         # Initialize config manager with test directory if provided
         if _config_dir_for_tests is not None:
@@ -474,19 +473,6 @@ class Session:
             logger.error(f"Unexpected error setting up config watcher for {self.project_name}: {e}")
             raise
 
-    def set_on_project_load(self, callback: Callable[["Session"], Awaitable[None]]) -> None:
-        """Set callback to invoke when project loads.
-
-        Args:
-            callback: Async function to call with session when project loads
-        """
-        self._on_project_load = callback
-
-    async def _notify_project_load(self) -> None:
-        """Notify callback that project loaded."""
-        if self._on_project_load:
-            await self._on_project_load(self)
-
     async def _ensure_watcher_started(self) -> None:
         """Ensure config watcher is started."""
         if self._config_watcher and hasattr(self, "_watcher_lock"):
@@ -508,21 +494,31 @@ class Session:
         # Notify all listeners of the change
         self._notify_listeners()
 
-    def add_listener(self, listener: "SessionListener") -> None:
-        """Add a session change listener."""
-        if listener not in self._listeners:
-            self._listeners.append(listener)
+    @classmethod
+    def add_listener(cls, listener: "SessionListener") -> None:
+        """Add a session change listener (class-level)."""
+        if listener not in cls._listeners:
+            cls._listeners.append(listener)
 
-    def remove_listener(self, listener: "SessionListener") -> None:
-        """Remove a session change listener."""
-        if listener in self._listeners:
-            self._listeners.remove(listener)
+    @classmethod
+    def remove_listener(cls, listener: "SessionListener") -> None:
+        """Remove a session change listener (class-level)."""
+        if listener in cls._listeners:
+            cls._listeners.remove(listener)
+
+    @classmethod
+    def clear_listeners(cls) -> None:
+        """Clear all session listeners (class-level).
+
+        Primarily for testing to ensure clean state between tests.
+        """
+        cls._listeners.clear()
 
     def _notify_listeners(self) -> None:
         """Notify all listeners of session change."""
         for listener in self._listeners:
             try:
-                listener.on_session_changed(self.project_name)
+                listener.on_session_changed(self)
             except Exception as e:
                 logger.debug(f"Listener notification failed: {e}")
 
@@ -530,7 +526,7 @@ class Session:
         """Notify all listeners of config change."""
         for listener in self._listeners:
             try:
-                listener.on_config_changed(self.project_name)
+                listener.on_config_changed(self)
             except Exception as e:
                 logger.debug(f"Config change listener notification failed: {e}")
 
@@ -697,10 +693,11 @@ async def get_or_create_session(
     # Create new session
     session = Session(project_name, _config_dir_for_tests=_config_dir_for_tests)
 
-    # Register template context cache as listener
+    # Register template context cache as listener (class-level, only once)
     from mcp_guide.render.cache import template_context_cache
 
-    session.add_listener(template_context_cache)
+    if template_context_cache not in Session._listeners:
+        Session.add_listener(template_context_cache)
 
     # Store in ContextVar
     set_current_session(session)
@@ -777,7 +774,6 @@ async def set_project(project_name: str, ctx: Optional["Context"] = None) -> Res
     try:
         session = await get_or_create_session(ctx=ctx, project_name=project_name)
         project = await session.get_project()
-        await session._notify_project_load()
         return Result.ok(project)
     except (InvalidProjectNameError, ValueError) as e:
         return Result.failure(str(e), error_type=ERROR_INVALID_NAME)

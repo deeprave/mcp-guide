@@ -1,6 +1,9 @@
 """Template context cache with session listener for decoupled context management."""
 
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
+
+if TYPE_CHECKING:
+    from mcp_guide.session import Session
 
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.discovery.files import FileInfo
@@ -26,28 +29,38 @@ def invalidate_template_context_cache() -> None:
 class TemplateContextCache(SessionListener):
     """Template context cache that listens to session changes."""
 
-    def on_session_changed(self, project_name: str) -> None:
+    def on_session_changed(self, session: "Session") -> None:
         """Invalidate cache when session changes."""
         invalidate_template_context_cache()
-        logger.debug(f"Template context cache invalidated for project: {project_name}")
+        logger.debug(f"Template context cache invalidated for project: {session.project_name}")
 
-    def on_config_changed(self, project_name: str) -> None:
+    def on_config_changed(self, session: "Session") -> None:
         """Invalidate cache when project configuration changes."""
         invalidate_template_context_cache()
-        logger.debug(f"Template context cache invalidated due to config change: {project_name}")
+        logger.debug(f"Template context cache invalidated due to config change: {session.project_name}")
 
     async def _build_system_context(self) -> "TemplateContext":
         """Build system context with static system information."""
         import platform
 
         from mcp_guide.render.context import TemplateContext
+        from mcp_guide.result_constants import (
+            INSTRUCTION_AGENT_INSTRUCTIONS,
+            INSTRUCTION_AGENT_REQUIREMENTS,
+            INSTRUCTION_DISPLAY_ONLY,
+            INSTRUCTION_ERROR_MESSAGE,
+        )
 
         server_vars = {
             "server": {
                 "os": platform.system(),
                 "platform": platform.platform(),
                 "python_version": platform.python_version(),
-            }
+            },
+            "INSTRUCTION_DISPLAY_ONLY": INSTRUCTION_DISPLAY_ONLY,
+            "INSTRUCTION_ERROR_MESSAGE": INSTRUCTION_ERROR_MESSAGE,
+            "INSTRUCTION_AGENT_INSTRUCTIONS": INSTRUCTION_AGENT_INSTRUCTIONS,
+            "INSTRUCTION_AGENT_REQUIREMENTS": INSTRUCTION_AGENT_REQUIREMENTS,
         }
 
         return TemplateContext(server_vars)
@@ -248,6 +261,18 @@ class TemplateContextCache(SessionListener):
         except Exception as e:
             logger.debug(f"Failed to get global flags: {e}")
 
+        # Get resolved flags (project + global with project overrides)
+        resolved_flags_dict = {}
+        resolved_flags_list = []
+        try:
+            if session:
+                from mcp_guide.models import resolve_all_flags
+
+                resolved_flags_dict = await resolve_all_flags(session)
+                resolved_flags_list = [{"key": k, "value": v} for k, v in resolved_flags_dict.items()]
+        except Exception as e:
+            logger.debug(f"Failed to resolve flags: {e}")
+
         # Get projects list for template context
         projects_data: dict[str, Any] = {}
         projects_count = 0
@@ -394,8 +419,10 @@ class TemplateContextCache(SessionListener):
                 "project_flag_values": project_flag_values,
             },
             "client_working_dir": client_working_dir,
-            "feature_flags": global_flags_dict,  # Dict format for conditionals
-            "feature_flag_values": global_flags_list,  # List format for iteration
+            "flags": resolved_flags_dict,  # Resolved flags (project + global with overrides)
+            "flag_values": resolved_flags_list,  # List format for iteration
+            "feature_flags": global_flags_dict,  # Global flags only (dict format)
+            "feature_flag_values": global_flags_list,  # Global flags only (list format)
             "projects": projects_data,
             "projects_count": projects_count,
         }
