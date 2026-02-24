@@ -1,23 +1,26 @@
 """Session listener protocol for decoupled session change notifications."""
 
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
+
+if TYPE_CHECKING:
+    from mcp_guide.session import Session
 
 
 class SessionListener(Protocol):
     """Protocol for objects that listen to session changes."""
 
-    def on_session_changed(self, project_name: str) -> None:
+    def on_session_changed(self, session: "Session") -> None:
         """Called when session changes to a different project.
 
         Args:
-            project_name: Name of the new project
+            session: Session instance that changed
         """
         ...
 
-    def on_config_changed(self, project_name: str) -> None:
+    def on_config_changed(self, session: "Session") -> None:
         """Called when project configuration changes.
 
         Args:
-            project_name: Name of the project whose config changed
+            session: Session instance whose config changed
         """
         ...

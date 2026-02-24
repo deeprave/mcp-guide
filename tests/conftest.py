@@ -202,6 +202,20 @@ def event_loop_policy():
     yield None
 
 
+@pytest.fixture(autouse=True)
+def clear_session_listeners():
+    """Clear class-level session listeners before each test.
+
+    Ensures clean listener state and prevents test isolation issues.
+    Minimal overhead (just clears a list) but prevents accumulated
+    listeners from affecting subsequent tests.
+    """
+    from mcp_guide.session import Session
+
+    Session.clear_listeners()
+    yield
+
+
 def robust_cleanup(directory: Path) -> None:
     """Robustly clean up a directory, handling read-only files and other issues."""
 
