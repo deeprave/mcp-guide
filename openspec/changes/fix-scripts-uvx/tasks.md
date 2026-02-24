@@ -20,7 +20,7 @@ Fix path resolution to correctly locate the agents directory relative to the ins
 ### 1. Fix Path Resolution
 - [x] 1.1 Update `get_available_agents()` in `guide_agent_install.py`
   - Use `importlib.resources` or package-relative path
-  - Change from `Path(__file__).parent.parent / "mcp_guide" / "agents"` 
+  - Change from `Path(__file__).parent.parent / "mcp_guide" / "agents"`
   - To: `Path(__file__).parent.parent / "agents"` (simplest fix)
 - [x] 1.2 Update `main()` function's `agents_base` variable with same fix
 - [x] 1.3 Verify agents directory structure is correct

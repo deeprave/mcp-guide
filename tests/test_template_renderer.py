@@ -41,7 +41,9 @@ class TestTemplatePartials:
         result = await render_template_content(content, context, partials=partials)
 
         assert result.is_ok()
-        assert result.value == "Project: test-project"
+        rendered_content, partial_frontmatter = result.value
+        assert rendered_content == "Project: test-project"
+        assert partial_frontmatter == []
 
     async def test_render_template_missing_partial(self):
         """Test template rendering with missing partial."""
@@ -53,7 +55,9 @@ class TestTemplatePartials:
 
         # Chevron silently ignores missing partials and renders empty string
         assert result.is_ok()
-        assert result.value == ""
+        rendered_content, partial_frontmatter = result.value
+        assert rendered_content == ""
+        assert partial_frontmatter == []
 
 
 class TestPartialNameExtraction:
@@ -117,7 +121,8 @@ class TestTemplateRendering:
         result = await render_template_content(content, context)
 
         assert result.is_ok()
-        assert result.value == "Hello World!"
+        rendered_content, _ = result.value
+        assert rendered_content == "Hello World!"
 
     async def test_render_template_content_with_lambda_functions(self):
         """Test template rendering with lambda functions."""
@@ -127,7 +132,8 @@ class TestTemplateRendering:
         result = await render_template_content(content, context)
 
         assert result.is_ok()
-        assert "2023-12-25" in result.value
+        rendered_content, _ = result.value
+        assert "2023-12-25" in rendered_content
 
     async def test_render_template_content_syntax_error(self):
         """Test template rendering with syntax error."""
@@ -149,7 +155,8 @@ class TestTemplateRendering:
         result = await render_template_content(content, context)
 
         assert result.is_ok()
-        assert result.value == "Hello World! Project: test-project"
+        rendered_content, _ = result.value
+        assert rendered_content == "Hello World! Project: test-project"
 
     async def test_lambda_functions_injection_in_pipeline(self):
         """Test that lambda functions are properly injected and work in pipeline."""
@@ -178,7 +185,8 @@ class TestTemplateRendering:
             result = await render_template_content(content, context)
 
             assert result.is_ok(), f"Failed for: {content}"
-            assert result.value == expected, f"Expected '{expected}', got '{result.value}'"
+            rendered_content, _ = result.value
+            assert rendered_content == expected, f"Expected '{expected}', got '{rendered_content}'"
 
     async def test_render_template_content_missing_variable(self):
         """Test template rendering with missing variable."""
@@ -189,7 +197,8 @@ class TestTemplateRendering:
 
         # Chevron renders missing variables as empty string
         assert result.is_ok()
-        assert result.value == "Hello !"
+        rendered_content, _ = result.value
+        assert rendered_content == "Hello !"
 
     async def test_render_template_content_accepts_template_context(self):
         """Test that render_template_content accepts TemplateContext."""
@@ -199,7 +208,8 @@ class TestTemplateRendering:
         result = await render_template_content(content, context)
 
         assert result.is_ok()
-        assert result.value == "Hello World!"
+        rendered_content, _ = result.value
+        assert rendered_content == "Hello World!"
 
 
 class TestContextChainRendering:
@@ -216,7 +226,8 @@ class TestContextChainRendering:
             result = await render_template_with_context_chain(content)
 
             assert result.is_ok()
-            assert result.value == "Hello test-project!"
+            rendered_content, _ = result.value
+            assert rendered_content == "Hello test-project!"
 
     async def test_render_template_with_context_chain_adds_category_context(self) -> None:
         """Test that wrapper adds category context when category_name provided."""
@@ -232,7 +243,8 @@ class TestContextChainRendering:
             result = await render_template_with_context_chain(content, category_name="docs")
 
             assert result.is_ok()
-            assert result.value == "Category: docs"
+            rendered_content, _ = result.value
+            assert rendered_content == "Category: docs"
 
     async def test_render_template_with_context_chain_adds_transient_context(self) -> None:
         """Test that wrapper adds transient context with timestamps."""
@@ -245,9 +257,10 @@ class TestContextChainRendering:
             result = await render_template_with_context_chain(content)
 
             assert result.is_ok()
+            rendered_content, _ = result.value
             # Should contain a timestamp (exact value will vary)
-            assert "Rendered at:" in result.value
-            assert len(result.value) > len("Rendered at: ")
+            assert "Rendered at:" in rendered_content
+            assert len(rendered_content) > len("Rendered at: ")
 
 
 class TestFileContextIsolation:
@@ -335,4 +348,5 @@ class TestFileContextIsolation:
             result = await render_template_with_context_chain(content, file_info=file_info)
 
             assert result.is_ok()
-            assert result.value == "File: readme (1024 bytes)"
+            rendered_content, _ = result.value
+            assert rendered_content == "File: readme (1024 bytes)"

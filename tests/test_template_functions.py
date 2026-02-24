@@ -177,8 +177,9 @@ class TestSafeLambdaWrapper:
         result = await render_template_content("Date: {{#format_date}}%Y-{{invalid_date}}{{/format_date}}", context)
 
         assert result.is_ok()
-        assert "[Template Error (" in result.value
-        assert "not a datetime object" in result.value
+        rendered_content, _ = result.value
+        assert "[Template Error (" in rendered_content
+        assert "not a datetime object" in rendered_content
 
     async def test_safe_lambda_error_handling_truncate(self):
         """Test that safe lambda wrapper catches and formats errors for truncate."""
@@ -188,7 +189,8 @@ class TestSafeLambdaWrapper:
         result = await render_template_content("{{#truncate}}-5{{text}}{{/truncate}}", context)
 
         assert result.is_ok()
-        assert "[Template Error (" in result.value
+        rendered_content, _ = result.value
+        assert "[Template Error (" in rendered_content
 
     async def test_safe_lambda_error_handling_highlight_code(self):
         """Test that safe lambda wrapper catches and formats errors for highlight_code."""
@@ -198,7 +200,8 @@ class TestSafeLambdaWrapper:
         result = await render_template_content("{{#highlight_code}}py@thon{{code}}{{/highlight_code}}", context)
 
         assert result.is_ok()
-        assert "[Template Error (" in result.value
+        rendered_content, _ = result.value
+        assert "[Template Error (" in rendered_content
 
     def test_full_template_rendering_with_lambdas(self):
         """Test complete template rendering pipeline with lambda functions."""

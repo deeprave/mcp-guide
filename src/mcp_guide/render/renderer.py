@@ -72,7 +72,7 @@ async def render_template_content(
     partials: Optional[Dict[str, str]] = None,
     metadata: Optional[Dict[str, Any]] = None,
     base_dir: Optional[Path] = None,
-) -> Result[str]:
+) -> Result[tuple[str, list[Dict[str, Any]]]]:
     """Render template content with context.
 
     Args:
@@ -84,12 +84,13 @@ async def render_template_content(
         metadata: Optional frontmatter metadata to merge into context
 
     Returns:
-        Result with rendered content or error
+        Result with tuple of (rendered content, list of partial frontmatter)
     """
     try:
         # Process metadata (frontmatter) if provided
         render_context = context
         processed_partials = partials or {}
+        partial_frontmatter_list: list[Dict[str, Any]] = []
 
         if metadata:
             # Add frontmatter data to context
@@ -127,11 +128,9 @@ async def render_template_content(
                                     full_include_path, file_parent, context_dict
                                 )
 
-                            # Merge partial frontmatter instruction with parent frontmatter
-                            # Note: Instruction combining is handled elsewhere via combine_instructions()
-                            # which properly handles important instruction precedence
-
                             processed_partials[partial_name] = partial_content
+                            if partial_frontmatter:
+                                partial_frontmatter_list.append(partial_frontmatter)
                             logger.trace(f"Loaded partial '{partial_name}' from {include_path}")
                         except PartialNotFoundError as e:
                             logger.error(f"Partial template not found: {include_path} - {e}")
@@ -161,7 +160,7 @@ async def render_template_content(
         logger.trace(f"Rendering template {file_path} with partials: {list(processed_partials.keys())}")
         rendered = chevron.render(content, template_context, partials_dict=processed_partials)  # type: ignore[arg-type]
         logger.trace(f"Template {file_path} rendered content ({len(rendered)} chars): {rendered[:1024]}")
-        return Result.ok(rendered)
+        return Result.ok((rendered, partial_frontmatter_list))
 
     except ChevronError as e:
         # Enhanced Chevron-specific error handling with line context
@@ -248,7 +247,7 @@ async def render_template_with_context_chain(
     category_name: Optional[str] = None,
     file_info: Optional[FileInfo] = None,
     file_path: str = "<template>",
-) -> Result[str]:
+) -> Result[tuple[str, list[Dict[str, Any]]]]:
     """Render template content with automatically built context chain.
 
     Args:
@@ -258,7 +257,7 @@ async def render_template_with_context_chain(
         file_path: File path for error reporting (used when file_info not provided)
 
     Returns:
-        Result with rendered content or error
+        Result with tuple of (rendered content, list of partial frontmatter)
     """
     try:
         # Build base context chain (system → agent → project → category)

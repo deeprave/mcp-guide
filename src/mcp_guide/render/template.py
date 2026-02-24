@@ -91,6 +91,7 @@ async def render_template(
                 logger.warning(f"Failed to render description template in {file_info.path}: {e}")
 
     # Render template or return as-is
+    partial_frontmatter_list: list[Dict[str, Any]] = []
     if is_template_file(file_info):
         result = await render_template_content(
             content=parsed.content,
@@ -103,7 +104,7 @@ async def render_template(
             # Raise exception with detailed error context
             raise RuntimeError(f"Template rendering failed: {result.error}")
         assert result.value is not None, "Result value should not be None when success is True"
-        rendered_content = result.value
+        rendered_content, partial_frontmatter_list = result.value
     else:
         rendered_content = parsed.content
 
@@ -114,4 +115,5 @@ async def render_template(
         content_length=len(rendered_content),
         template_path=file_info.path,
         template_name=file_info.path.name,
+        partial_frontmatter=partial_frontmatter_list,
     )

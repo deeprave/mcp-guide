@@ -35,7 +35,7 @@ Phase tracking is enabled!
 
             # Verify content is rendered
             assert result.success
-            rendered_content = result.value
+            rendered_content, _ = result.value
             assert "Phase tracking is enabled!" in rendered_content
 
     async def test_template_does_not_render_with_phase_tracking_flag_false(self) -> None:
@@ -63,7 +63,7 @@ Phase tracking is enabled!
 
             # Verify content is not rendered
             assert result.success
-            rendered_content = result.value
+            rendered_content, _ = result.value
             assert "Phase tracking is enabled!" not in rendered_content
             # Should be empty or just whitespace
             assert rendered_content.strip() == ""
@@ -96,7 +96,7 @@ Phase tracking is enabled!
 
             # Verify content is not rendered
             assert result.success
-            rendered_content = result.value
+            rendered_content, _ = result.value
             assert "Phase tracking is enabled!" not in rendered_content
             # Should be empty or just whitespace
             assert rendered_content.strip() == ""

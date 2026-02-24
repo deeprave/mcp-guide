@@ -5,26 +5,16 @@ usage: ":workflow/review"
 aliases:
   - review
 category: "project-workflow"
-instruction: >
-  Use the delegate tool with agent 'guide-review' and operation 'launch' with the following task:
-   Perform a code review of changes.
-   Use the guide mcp tool {{tool_prefix}}get_content("code-review") to access code review guidelines.
-   Read the {{workflow.file}} file to understand the current issue context (issue: {{workflow.issue}}).
-   Analyse changes against HEAD and create or update the review artifact at .todo/{{workflow.issue}}-review.md following the established format and context.
-  This is a code review request for the current project.
-  The review will run asynchronously in the background. Check status with delegate operation 'status' and agent 'guide-review'.
+instruction: Perform a code self-review of project changes.
 ---
-{{#workflow}}If you are not currently in review phase, you must transition to review and follow the instructions below.
+{{#workflow}}You MUST transition to REVIEW phase.
 {{/workflow}}
-{{h1}}Code Review Delegation
+{{h1}}Code Review
 
-Delegating comprehensive code review to the {{b}}guide-review{{b}} agent (async background task).
+- If available, switch to the `guide-review` agent.
+- Use the guide mcp tool {{tool_prefix}}get_content("code-review") to access code review guidelines.
+- Read the {{workflow.file}} file to understand the current issue context (issue: {{workflow.issue}}).
+- Analyse changes against HEAD and create or update the review artifact at .todo/{{workflow.issue}}-review.md following the established format and context.
+- Once completed, switch back to the `guide` agent.
 
-The review agent will:
-- Read the `{{workflow.file}}` file to understand the current issue context
-- Load code review guidelines from the guide "code-review" collection
-- Analyse changes in the context of the current issue
-- Create or update the review artifact in `.todo/` directory
-{{#openspec}}- Review artifacts are NEVER to be created in the openspec changes directory{{/openspec}}
-
-{{instruction}}
+{{#openspec}}**NOTE** Review artifacts are NEVER to be created in the openspec changes directory{{/openspec}}
