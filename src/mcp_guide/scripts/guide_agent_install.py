@@ -9,7 +9,7 @@ from pathlib import Path
 
 def get_available_agents() -> dict[str, Path]:
     """Get available agents by scanning for install.dir files."""
-    agents_base = Path(__file__).parent.parent / "mcp_guide" / "agents"
+    agents_base = Path(__file__).parent.parent / "agents"
     available: dict[str, Path] = {}
 
     if not agents_base.exists() or not agents_base.is_dir():
@@ -27,7 +27,7 @@ def get_available_agents() -> dict[str, Path]:
 def main() -> int:
     """Main entry point."""
     available_agents = get_available_agents()
-    agents_base = Path(__file__).parent.parent / "mcp_guide" / "agents"
+    agents_base = Path(__file__).parent.parent / "agents"
 
     parser = argparse.ArgumentParser(
         description="Install agent configurations",

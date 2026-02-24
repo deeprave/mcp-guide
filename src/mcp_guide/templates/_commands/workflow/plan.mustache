@@ -11,7 +11,8 @@ instruction: Create or update the implementation plan for the current issue
 
 - You must enter PLANNING phase
 {{#openspec}}{{#workflow.issue}}
-- Gather requirements for `{{workflow.issue}}`{{#workflow.issue}}
+- Gather requirements for `{{workflow.issue}}`
+{{/workflow.issue}}{{/openspec}}
 - Create a detailed implementation plan
 
 - read {{tool_prefix}}get_content("guidelines") for project requirements and guidelines.

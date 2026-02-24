@@ -33,6 +33,7 @@ All notable changes to mcp-guide will be documented in this file.
 - Missing packaging>=24.0 dependency for version handling
 - NameError in workflow tasks when using RenderedContent type annotation
 - Workflow monitoring reminder timer event key mismatch
+- Path resolution in `guide-agent-install` script preventing agent discovery
 
 ## [0.9.0] - 2026-02-16
 
