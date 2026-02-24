@@ -257,7 +257,8 @@ async def test_render_template_instruction_with_variable():
 
         assert result is not None
         # The instruction should have the variable expanded
-        assert result.instruction == "Follow this policy exactly. If .guide.yaml missing, create it."
+        # Note: deduplicate_sentences joins sentences with newlines
+        assert result.instruction == "Follow this policy exactly.\nIf .guide.yaml missing, create it."
     finally:
         test_file.unlink(missing_ok=True)
 
@@ -325,7 +326,8 @@ async def test_render_template_instruction_with_conditional():
 
         assert result is not None
         # The instruction should have the conditional expanded
-        assert result.instruction == "Follow policy. Explicit consent required before check."
+        # Note: deduplicate_sentences joins sentences with newlines
+        assert result.instruction == "Follow policy.\nExplicit consent required before check."
     finally:
         test_file.unlink(missing_ok=True)
 
