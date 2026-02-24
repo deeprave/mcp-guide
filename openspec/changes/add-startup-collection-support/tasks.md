@@ -13,7 +13,7 @@
 
 ## 2. Feature Flag Definition
 - [x] 2.1 Add `startup-instruction` to feature flag schema (string type, optional)
-- [ ] 2.2 Document flag in feature flags documentation
+- [x] 2.2 Document flag in feature flags documentation
 
 ## 3. Expression Validation
 - [x] 3.1 Create expression parser to extract categories/collections
@@ -60,27 +60,27 @@
   - [x] Verify class-level listener storage
   - [x] Verify all sessions notify same listeners
   - [x] Verify session passed to listener methods
-- [ ] 8.2 Test with flag not set (template filtered, no instruction)
-- [ ] 8.3 Test with empty flag (template filtered, no instruction)
-- [ ] 8.4 Test with valid collection expression
-- [ ] 8.5 Test with valid category expression
-- [ ] 8.6 Test with valid category+pattern expression
-- [ ] 8.7 Test with multiple expressions
-- [ ] 8.8 Test validation rejects invalid categories
-- [ ] 8.9 Test validation rejects invalid collections
-- [ ] 8.10 Test template renders with flag value
-- [ ] 8.11 Test instruction triggers on session creation
-- [ ] 8.12 Test instruction triggers on session switch
-- [ ] 8.13 Test instruction not duplicated per session
-- [ ] 8.14 Test blank template content not queued
+- [x] 8.2 Test with flag not set (template filtered, no instruction)
+- [x] 8.3 Test with empty flag (template filtered, no instruction)
+- [x] 8.4 Test with valid collection expression
+- [x] 8.5 Test with valid category expression
+- [x] 8.6 Test with valid category+pattern expression
+- [x] 8.7 Test with multiple expressions
+- [x] 8.8 Test validation rejects invalid categories
+- [x] 8.9 Test validation rejects invalid collections
+- [x] 8.10 Test template renders with flag value
+- [x] 8.11 Test instruction triggers on session creation
+- [x] 8.12 Test instruction triggers on session switch
+- [x] 8.13 Test instruction not duplicated per session
+- [x] 8.14 Test blank template content not queued
 
 ## 9. Documentation
-- [ ] 9.1 Document `startup-instruction` flag in feature flags guide
-- [ ] 9.2 Add examples of valid expressions
-- [ ] 9.3 Document `_startup.md` template
-- [ ] 9.4 Document validation behavior
-- [ ] 9.5 Add troubleshooting section for common errors
-- [ ] 9.6 Update all feature flag documentation to include `startup-instruction`
-- [ ] 9.7 Document fire-and-forget behavior (queued, sent via Result, no acknowledgment)
-- [ ] 9.8 Document highest-priority queueing behavior
-- [ ] 9.9 Document session listener refactoring (breaking change)
+- [x] 9.1 Document `startup-instruction` flag in feature flags guide
+- [x] 9.2 Add examples of valid expressions
+- [x] 9.3 Document `_startup.md` template
+- [x] 9.4 Document validation behavior
+- [x] 9.5 Add troubleshooting section for common errors
+- [x] 9.6 Update all feature flag documentation to include `startup-instruction`
+- [x] 9.7 Document fire-and-forget behavior (queued, sent via Result, no acknowledgment)
+- [x] 9.8 Document highest-priority queueing behavior
+- [x] 9.9 Document session listener refactoring (breaking change)

@@ -45,6 +45,7 @@ Remove the workflow flag (use default)
 | `workflow-file` | Path to workflow tracking file. Supports variables: `{project-name}`, `{project-key}`, `{project-hash}`. | `string` | `.guide.yaml` |
 | `workflow-consent` | Controls phase transition consent requirements. Can be `true` (default consent rules), `false` (no consent required), or custom rules specifying which phases require consent to enter or exit. | `boolean` or `dict` | `true` |
 | `openspec` | Enables OpenSpec integration for structured change management. Adds OpenSpec-specific commands and workflow instructions. | `boolean` | `false` |
+| `startup-instruction` | Content expression to load when project session starts. Queued as high-priority instruction for immediate agent context. Supports any valid content expression (collection, category, or pattern). | `string` | (not set) |
 | `content-style` | Controls markdown formatting in template output. `plain` = strips all formatting, `headings` = renders heading markers only, `full` = renders all markdown. | `string` | `plain` |
 | `content-format` | Controls content MIME type. `text` = plain text, `mime` = MIME multipart format. | `string` | `text` |
 | `allow-client-info` | Enables collection of client environment information (OS, hostname, user, git remotes). Privacy-sensitive. | `boolean` | `false` |
