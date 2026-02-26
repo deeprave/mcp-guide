@@ -30,10 +30,11 @@ class TestCategory:
         assert category.dir == "docs/"
         assert category.patterns == ["*.md"]
 
-    def test_category_without_name_field(self):
-        """Category should not have name field (name becomes dict key)."""
-        category = Category(dir="docs", patterns=["*.md"])
-        assert not hasattr(category, "name")
+    def test_category_has_name_field(self):
+        """Category should have name field (set by with_category)."""
+        category = Category(dir="docs", patterns=["README"])
+        assert hasattr(category, "name")
+        assert category.name == ""  # Empty by default, set by with_category
         # Should only have dir, patterns, description
         assert hasattr(category, "dir")
         assert hasattr(category, "patterns")
@@ -111,13 +112,15 @@ class TestProject:
             collections={},
         )
 
-        category = Category(dir="docs/", patterns=["*.md"])
+        category = Category(dir="docs/", patterns=["README"])
         new_project = project.with_category("docs", category)
 
         assert new_project is not project
         assert len(new_project.categories) == 1
         assert "docs" in new_project.categories
-        assert new_project.categories["docs"] == category
+        assert new_project.categories["docs"].name == "docs"  # Name is set by with_category
+        assert new_project.categories["docs"].dir == category.dir
+        assert new_project.categories["docs"].patterns == category.patterns
         assert len(project.categories) == 0  # Original unchanged
 
     def test_without_category_returns_new_instance(self):
@@ -164,13 +167,15 @@ class TestProject:
         from mcp_guide.models import Category
 
         project = Project(name="test")
-        category = Category(dir="docs", patterns=["*.md"])
+        category = Category(dir="docs", patterns=["README"])
         new_project = project.with_category("docs", category)
 
         assert new_project is not project
         assert len(new_project.categories) == 1
         assert "docs" in new_project.categories
-        assert new_project.categories["docs"] == category
+        assert new_project.categories["docs"].name == "docs"
+        assert new_project.categories["docs"].dir == category.dir
+        assert new_project.categories["docs"].patterns == category.patterns
 
     def test_without_category_dict_based(self):
         """without_category should work with dict-based categories."""

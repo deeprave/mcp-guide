@@ -33,8 +33,6 @@ class TestCommandDiscovery:
                     mtime=1234567890,
                     name="help.md",
                     content="",
-                    category="",
-                    collection="",
                     ctime=1234567890,
                 ),
                 FileInfo(
@@ -44,8 +42,6 @@ class TestCommandDiscovery:
                     mtime=1234567890,
                     name="status.mustache",
                     content="",
-                    category="",
-                    collection="",
                     ctime=1234567890,
                 ),
             ]
@@ -81,7 +77,6 @@ class TestCommandDiscovery:
                     name="create/category.md",
                     content="",
                     category="",
-                    collection="",
                     ctime=1234567890,
                 ),
                 FileInfo(
@@ -92,7 +87,6 @@ class TestCommandDiscovery:
                     name="create/collection.mustache",
                     content="",
                     category="",
-                    collection="",
                     ctime=1234567890,
                 ),
             ]
@@ -136,7 +130,6 @@ This command shows all available commands.
                     name="help.md",
                     content=help_content,
                     category="",
-                    collection="",
                     ctime=1234567890,
                 )
             ]
@@ -172,7 +165,6 @@ This command shows all available commands.
                     name="simple.md",
                     content="# Simple Command\nJust a simple command.",
                     category="",
-                    collection="",
                     ctime=1234567890,
                 )
             ]

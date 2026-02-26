@@ -22,66 +22,23 @@ def test_fileinfo_has_category_field():
     assert file_info.category is None
 
 
-def test_fileinfo_has_collection_field():
-    """Test that FileInfo has collection field."""
-    from datetime import datetime
-
-    file_info = FileInfo(
-        path=Path("test.md"),
-        size=100,
-        content_size=100,
-        mtime=datetime.now(),
-        name="test.md",
-    )
-    assert hasattr(file_info, "collection")
-    assert file_info.collection is None
-
-
 def test_fileinfo_category_can_be_set():
     """Test that category field can be set."""
     from datetime import datetime
 
+    from mcp_guide.models.project import Category
+
+    category = Category(dir="docs/", patterns=["README"], name="docs")
     file_info = FileInfo(
         path=Path("test.md"),
         size=100,
         content_size=100,
         mtime=datetime.now(),
         name="test.md",
-        category="docs",
+        category=category,
     )
-    assert file_info.category == "docs"
-
-
-def test_fileinfo_collection_can_be_set():
-    """Test that collection field can be set."""
-    from datetime import datetime
-
-    file_info = FileInfo(
-        path=Path("test.md"),
-        size=100,
-        content_size=100,
-        mtime=datetime.now(),
-        name="test.md",
-        collection="all",
-    )
-    assert file_info.collection == "all"
-
-
-def test_fileinfo_both_fields_can_be_set():
-    """Test that both category and collection fields can be set."""
-    from datetime import datetime
-
-    file_info = FileInfo(
-        path=Path("test.md"),
-        size=100,
-        content_size=100,
-        mtime=datetime.now(),
-        name="test.md",
-        category="docs",
-        collection="all",
-    )
-    assert file_info.category == "docs"
-    assert file_info.collection == "all"
+    assert file_info.category == category
+    assert file_info.category.name == "docs"
 
 
 @pytest.mark.asyncio

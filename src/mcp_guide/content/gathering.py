@@ -123,10 +123,6 @@ async def gather_content(
                 if category_expr in project.collections and category_expr not in project.categories:
                     # Recursively resolve nested collection
                     nested_files = await gather_content(session, project, category_expr, visited_collections)
-                    # Set the collection field to the parent collection
-                    for file in nested_files:
-                        if not file.collection:  # Don't override if already set
-                            file.collection = expr.name
                     all_files.extend(nested_files)
                 else:
                     # Parse category expression (e.g., "review/commit")
@@ -142,9 +138,6 @@ async def gather_content(
                                 files = await gather_category_fileinfos(
                                     session, project, cat_expr.name, merged_patterns
                                 )
-                                # Set the collection field on files
-                                for file in files:
-                                    file.collection = expr.name
                                 all_files.extend(files)
                                 processed_combinations.add(combination_key)
                             except CategoryNotFoundError as e:
@@ -172,8 +165,8 @@ async def gather_content(
 
     for file in all_files:
         # Get category to determine directory
-        if file.category and file.category in project.categories:
-            category = project.categories[file.category]
+        if file.category and file.category.name in project.categories:
+            category = file.category
             category_dir = docroot / category.dir
             absolute_path = category_dir / file.path  # Construct actual absolute path
 
@@ -227,9 +220,9 @@ async def gather_category_fileinfos(
     category_dir = docroot / category.dir
     files = await discover_category_files(category_dir, resolved_patterns)
 
-    # Set category field on all FileInfo objects
+    # Set category object on all FileInfo objects
     for file in files:
-        file.category = category_name
+        file.category = category
 
     return files
 
@@ -268,4 +261,4 @@ async def render_fileinfos(
 
     # Format content
     formatter = get_formatter_from_flag(format_type)
-    return await formatter.format(files, context_name)
+    return await formatter.format(files, docroot)

@@ -137,10 +137,13 @@ async def test_tool_returns_result_ok_on_success(tmp_path, monkeypatch):
 
     # Create test files
     test_file = tmp_path / "test.md"
+    test_file = tmp_path / "README"
     test_file.write_text("# Test Content")
 
     # Create test project with category
-    project = Project(name="test", categories={"docs": Category(dir=".", patterns=["*.md"])}, collections={})
+    project = Project(
+        name="test", categories={"docs": Category(dir=".", name="docs", patterns=["README"])}, collections={}
+    )
 
     # Mock get_or_create_session
     async def mock_get_session(ctx=None):
@@ -203,7 +206,9 @@ async def test_no_matches_returns_failure(tmp_path, monkeypatch):
     )
 
     # Create test project with category but no matching files
-    project = Project(name="test", categories={"docs": Category(dir=".", patterns=["*.md"])}, collections={})
+    project = Project(
+        name="test", categories={"docs": Category(dir=".", name="docs", patterns=["README"])}, collections={}
+    )
 
     async def mock_get_session(ctx=None):
         return create_mock_session(project, tmp_path)
@@ -240,10 +245,12 @@ async def test_file_read_error_single_file(tmp_path, monkeypatch):
     )
 
     # Create test project with category
-    project = Project(name="test", categories={"docs": Category(dir=".", patterns=["*.md"])}, collections={})
+    project = Project(
+        name="test", categories={"docs": Category(dir=".", name="docs", patterns=["README"])}, collections={}
+    )
 
     # Create a file
-    test_file = tmp_path / "test.md"
+    test_file = tmp_path / "README"
     test_file.write_text("content")
 
     async def mock_get_session(ctx=None):
@@ -265,7 +272,7 @@ async def test_file_read_error_single_file(tmp_path, monkeypatch):
     assert result["success"] is False
     assert result["error_type"] == ERROR_FILE_READ
     assert result["instruction"] == INSTRUCTION_FILE_ERROR
-    assert "test.md" in result["error"]
+    assert "README" in result["error"]
     assert "Permission denied" in result["error"]
 
 
@@ -282,12 +289,16 @@ async def test_file_read_error_multiple_files(tmp_path, monkeypatch):
     )
 
     # Create test project with category
-    project = Project(name="test", categories={"docs": Category(dir=".", patterns=["*.md"])}, collections={})
+    project = Project(
+        name="test",
+        categories={"docs": Category(dir=".", name="docs", patterns=["file1", "file2", "file3"])},
+        collections={},
+    )
 
     # Create multiple files
-    (tmp_path / "file1.md").write_text("content1")
-    (tmp_path / "file2.md").write_text("content2")
-    (tmp_path / "file3.md").write_text("content3")
+    (tmp_path / "file1").write_text("content1")
+    (tmp_path / "file2").write_text("content2")
+    (tmp_path / "file3").write_text("content3")
 
     async def mock_get_session(ctx=None):
         return create_mock_session(project, tmp_path)
@@ -318,9 +329,9 @@ async def test_file_read_error_multiple_files(tmp_path, monkeypatch):
     assert result["error_type"] == ERROR_FILE_READ
     assert result["instruction"] == INSTRUCTION_FILE_ERROR
     # All three files should be in error message
-    assert "file1.md" in result["error"]
-    assert "file2.md" in result["error"]
-    assert "file3.md" in result["error"]
+    assert "file1" in result["error"]
+    assert "file2" in result["error"]
+    assert "file3" in result["error"]
     # Check aggregation format with semicolons
     assert ";" in result["error"]
 

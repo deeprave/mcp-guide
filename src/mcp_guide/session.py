@@ -214,8 +214,43 @@ class Session:
 
         @staticmethod
         def _project_to_dict(project: Project) -> dict[str, Any]:
-            """Convert Project to dictionary for YAML storage."""
-            return dataclasses.asdict(project)
+            """Convert Project to dictionary for YAML storage.
+
+            Strips the 'name' field from categories since it's redundant with the dict key.
+            """
+            data = dataclasses.asdict(project)
+            # Remove 'name' field from each category (it's redundant with the key)
+            if "categories" in data:
+                for category_data in data["categories"].values():
+                    category_data.pop("name", None)
+            return data
+
+        @staticmethod
+        def _dict_to_project(project_data: dict[str, Any]) -> Project:
+            """Convert dictionary to Project, setting category names from keys.
+
+            Args:
+                project_data: Dictionary with project data from YAML
+
+            Returns:
+                Project instance with category names set from dict keys
+            """
+            from mcp_guide.models.project import Category
+
+            # Make a copy to avoid modifying the input
+            data = dict(project_data)
+
+            # Set category names from dict keys
+            if "categories" in data:
+                categories_dict = {}
+                for cat_name, cat_data in data["categories"].items():
+                    # Ensure name is set from the key
+                    cat_data_copy = dict(cat_data)
+                    cat_data_copy["name"] = cat_name
+                    categories_dict[cat_name] = Category(**cat_data_copy)
+                data["categories"] = categories_dict
+
+            return Project(**data)
 
         async def get_or_create_project_config(self, name: str) -> tuple[str, Project]:
             """Get project config or create if it doesn't exist.
@@ -260,7 +295,7 @@ class Session:
                             project_data = projects[expected_key]
                             project_data_copy = dict(project_data)
                             project_data_copy["key"] = expected_key
-                            return expected_key, Project(**project_data_copy)
+                            return expected_key, self._dict_to_project(project_data_copy)
 
                         # Then try hash-based matching for projects with same name
                         for key, project_data in projects.items():
@@ -269,7 +304,7 @@ class Session:
                             if project_name == name and project_hash == current_hash:
                                 project_data_copy = dict(project_data)
                                 project_data_copy["key"] = key
-                                return key, Project(**project_data_copy)
+                                return key, self._dict_to_project(project_data_copy)
 
                     # Optimized non-legacy loading (name-only fallback)
                     result = await self._load_existing_project(name, projects, file_path, data)
@@ -317,7 +352,7 @@ class Session:
 
                     project_data_copy = dict(project_data)
                     project_data_copy["key"] = new_key
-                    return new_key, Project(**project_data_copy)
+                    return new_key, self._dict_to_project(project_data_copy)
 
             # Create new project if not found
             return await self._create_new_project(name, file_path, data)
@@ -333,7 +368,7 @@ class Session:
                     try:
                         project_data_copy = dict(project_data)
                         project_data_copy["key"] = key
-                        return key, Project(**project_data_copy)
+                        return key, self._dict_to_project(project_data_copy)
                     except Exception as e:
                         raise ValueError(f"Invalid project data for '{name}' in {file_path}: {e}") from e
 
@@ -395,7 +430,7 @@ class Session:
                         project_data_copy = dict(project_data)
                         project_data_copy["name"] = name
                         project_data_copy["key"] = project_key
-                        projects[project_key] = Project(**project_data_copy)
+                        projects[project_key] = self._dict_to_project(project_data_copy)
                     except Exception as e:
                         raise ValueError(f"Invalid project data for '{project_key}': {e}") from e
 

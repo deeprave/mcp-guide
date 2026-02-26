@@ -3,11 +3,26 @@
 from datetime import datetime
 from pathlib import Path
 
+import pytest
+
 from mcp_guide.content.formatters.mime import MimeFormatter
 from mcp_guide.discovery.files import FileInfo
+from mcp_guide.models.project import Category
 
 
-async def test_mime_formatter_uses_content_size_single_file():
+@pytest.fixture
+def mock_category():
+    """Mock category for testing."""
+    return Category(dir="test/", patterns=["*"], name="test")
+
+
+@pytest.fixture
+def docroot(tmp_path):
+    """Mock docroot for testing."""
+    return tmp_path
+
+
+async def test_mime_formatter_uses_content_size_single_file(mock_category, docroot):
     """Test MIME formatter uses content_size for single file Content-Length."""
     content = "Test content"
     original_size = 100  # Simulates original file size with frontmatter
@@ -20,10 +35,11 @@ async def test_mime_formatter_uses_content_size_single_file():
         content_size=content_size,
         mtime=datetime.now(),
         content=content,
+        category=mock_category,
     )
 
     formatter = MimeFormatter()
-    result = await formatter.format_single(file_info, "test")
+    result = await formatter.format_single(file_info, docroot)
 
     # Should use content_size (12), not original size (100)
     assert f"Content-Length: {content_size}" in result
@@ -31,7 +47,7 @@ async def test_mime_formatter_uses_content_size_single_file():
     assert content in result
 
 
-async def test_mime_formatter_uses_content_size_multiple_files():
+async def test_mime_formatter_uses_content_size_multiple_files(mock_category, docroot):
     """Test MIME formatter uses content_size for multiple files Content-Length."""
     files = [
         FileInfo(
@@ -41,6 +57,7 @@ async def test_mime_formatter_uses_content_size_multiple_files():
             content_size=50,  # Size after frontmatter removal
             mtime=datetime.now(),
             content="File 1 content",
+            category=mock_category,
         ),
         FileInfo(
             path=Path("file2.txt"),
@@ -49,11 +66,12 @@ async def test_mime_formatter_uses_content_size_multiple_files():
             content_size=75,  # Size after frontmatter removal
             mtime=datetime.now(),
             content="File 2 content",
+            category=mock_category,
         ),
     ]
 
     formatter = MimeFormatter()
-    result = await formatter.format(files, "test")
+    result = await formatter.format(files, docroot)
 
     # Should use actual content length after rendering
     assert f"Content-Length: {len('File 1 content'.encode('utf-8'))}" in result
@@ -66,7 +84,7 @@ async def test_mime_formatter_uses_content_size_multiple_files():
     assert "Content-Length: 300" not in result
 
 
-async def test_content_size_equals_size_when_no_frontmatter():
+async def test_content_size_equals_size_when_no_frontmatter(mock_category, docroot):
     """Test that when content_size equals size, behavior is correct."""
     content = "No frontmatter here"
     size = len(content.encode("utf-8"))
@@ -78,17 +96,18 @@ async def test_content_size_equals_size_when_no_frontmatter():
         content_size=size,  # Same as size when no frontmatter
         mtime=datetime.now(),
         content=content,
+        category=mock_category,
     )
 
     formatter = MimeFormatter()
-    result = await formatter.format_single(file_info, "test")
+    result = await formatter.format_single(file_info, docroot)
 
     # Should use content_size (which equals size in this case)
     assert f"Content-Length: {size}" in result
     assert content in result
 
 
-async def test_content_size_different_from_calculated_length():
+async def test_content_size_different_from_calculated_length(mock_category, docroot):
     """Test edge case where content_size differs from calculated content length."""
     # This could happen if content was modified after content_size was set
     content = "Modified content"
@@ -101,10 +120,11 @@ async def test_content_size_different_from_calculated_length():
         content_size=content_size,
         mtime=datetime.now(),
         content=content,
+        category=mock_category,
     )
 
     formatter = MimeFormatter()
-    result = await formatter.format_single(file_info, "test")
+    result = await formatter.format_single(file_info, docroot)
 
     # Should use actual content length, not content_size field
     # This is correct behavior after template rendering

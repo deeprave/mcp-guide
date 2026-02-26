@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
+from mcp_guide.models.project import Category
 from mcp_guide.render.context import (
     TemplateContext,
     add_file_context,
@@ -23,8 +24,7 @@ class MockFileInfo:
     mtime: datetime
     name: str
     content: str | None = None
-    category: str | None = None
-    collection: str | None = None
+    category: Category | None = None
     ctime: datetime | None = None
 
 
@@ -105,8 +105,7 @@ class TestBuildTemplateContext:
             size=1024,
             mtime=datetime(2024, 1, 1, 12, 0, 0),
             name="test/file.txt",  # Rendered path (template extension removed)
-            category="docs",
-            collection="main",
+            category=Category(dir="docs/", patterns=["readme"], name="docs"),
         )
 
         # Add file context for specific file
@@ -237,7 +236,7 @@ class TestBuildTemplateContext:
             size=1024,
             mtime="invalid_datetime",  # Invalid datetime object
             name="test/file.txt",
-            category="docs",
+            category=Category(dir="docs/", patterns=["readme"], name="docs"),
             ctime="invalid_ctime",  # Invalid ctime object
         )
 

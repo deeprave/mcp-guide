@@ -578,9 +578,9 @@ class TestCollectionChange:
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
-        api_cat = {"name": "api", "dir": "api", "patterns": ["*.py"]}
-        tests_cat = {"name": "tests", "dir": "tests", "patterns": ["test_*.py"]}
-        docs_cat = {"name": "docs", "dir": "docs", "patterns": ["*.md"]}
+        api_cat = Category(dir="api", patterns=["*.py"])
+        tests_cat = Category(dir="tests", patterns=["test_*.py"])
+        docs_cat = Category(dir="docs", patterns=["*.md"])
         await session.update_config(
             lambda p: p.with_category("api", api_cat).with_category("tests", tests_cat).with_category("docs", docs_cat)
         )
@@ -609,9 +609,9 @@ class TestCollectionChange:
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
-        api_cat = {"name": "api", "dir": "api", "patterns": ["*.py"]}
-        tests_cat = {"name": "tests", "dir": "tests", "patterns": ["test_*.py"]}
-        docs_cat = {"name": "docs", "dir": "docs", "patterns": ["*.md"]}
+        api_cat = Category(dir="api", patterns=["*.py"])
+        tests_cat = Category(dir="tests", patterns=["test_*.py"])
+        docs_cat = Category(dir="docs", patterns=["*.md"])
         await session.update_config(
             lambda p: p.with_category("api", api_cat).with_category("tests", tests_cat).with_category("docs", docs_cat)
         )
@@ -636,7 +636,7 @@ class TestCollectionChange:
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
-        api_cat = {"name": "api", "dir": "api", "patterns": ["*.py"]}
+        api_cat = Category(dir="api", patterns=["*.py"])
         await session.update_config(lambda p: p.with_category("api", api_cat))
 
         backend_collection = Collection(categories=[], description="Old")
@@ -876,8 +876,8 @@ class TestCollectionUpdate:
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
-        api_cat = {"name": "api", "dir": "api", "patterns": ["*.py"]}
-        tests_cat = {"name": "tests", "dir": "tests", "patterns": ["test_*.py"]}
+        api_cat = Category(dir="api", patterns=["*.py"])
+        tests_cat = Category(dir="tests", patterns=["test_*.py"])
         await session.update_config(lambda p: p.with_category("api", api_cat).with_category("tests", tests_cat))
 
         backend_collection = {"name": "backend", "categories": ["api", "tests"], "description": None}
@@ -902,7 +902,7 @@ class TestCollectionUpdate:
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
-        api_cat = {"name": "api", "dir": "api", "patterns": ["*.py"]}
+        api_cat = Category(dir="api", patterns=["*.py"])
         await session.update_config(lambda p: p.with_category("api", api_cat))
 
         backend_collection = {"name": "backend", "categories": ["api"], "description": None}
@@ -925,9 +925,9 @@ class TestCollectionUpdate:
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
-        api_cat = {"name": "api", "dir": "api", "patterns": ["*.py"]}
-        tests_cat = {"name": "tests", "dir": "tests", "patterns": ["test_*.py"]}
-        docs_cat = {"name": "docs", "dir": "docs", "patterns": ["*.md"]}
+        api_cat = Category(dir="api", patterns=["*.py"])
+        tests_cat = Category(dir="tests", patterns=["test_*.py"])
+        docs_cat = Category(dir="docs", patterns=["*.md"])
         await session.update_config(
             lambda p: p.with_category("api", api_cat).with_category("tests", tests_cat).with_category("docs", docs_cat)
         )
@@ -954,8 +954,8 @@ class TestCollectionUpdate:
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
-        api_cat = {"name": "api", "dir": "api", "patterns": ["*.py"]}
-        tests_cat = {"name": "tests", "dir": "tests", "patterns": ["test_*.py"]}
+        api_cat = Category(dir="api", patterns=["*.py"])
+        tests_cat = Category(dir="tests", patterns=["test_*.py"])
         await session.update_config(lambda p: p.with_category("api", api_cat).with_category("tests", tests_cat))
 
         backend_collection = {"name": "backend", "categories": ["api", "tests"], "description": None}
@@ -979,9 +979,9 @@ class TestCollectionUpdate:
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
-        api_cat = {"name": "api", "dir": "api", "patterns": ["*.py"]}
-        tests_cat = {"name": "tests", "dir": "tests", "patterns": ["test_*.py"]}
-        docs_cat = {"name": "docs", "dir": "docs", "patterns": ["*.md"]}
+        api_cat = Category(dir="api", patterns=["*.py"])
+        tests_cat = Category(dir="tests", patterns=["test_*.py"])
+        docs_cat = Category(dir="docs", patterns=["*.md"])
         await session.update_config(
             lambda p: p.with_category("api", api_cat).with_category("tests", tests_cat).with_category("docs", docs_cat)
         )
@@ -1006,9 +1006,9 @@ class TestCollectionUpdate:
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
-        api_cat = {"name": "api", "dir": "api", "patterns": ["*.py"]}
-        tests_cat = {"name": "tests", "dir": "tests", "patterns": ["test_*.py"]}
-        docs_cat = {"name": "docs", "dir": "docs", "patterns": ["*.md"]}
+        api_cat = Category(dir="api", patterns=["*.py"])
+        tests_cat = Category(dir="tests", patterns=["test_*.py"])
+        docs_cat = Category(dir="docs", patterns=["*.md"])
         await session.update_config(
             lambda p: p.with_category("api", api_cat).with_category("tests", tests_cat).with_category("docs", docs_cat)
         )
@@ -1033,9 +1033,9 @@ class TestCollectionUpdate:
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
-        api_cat = {"name": "api", "dir": "api", "patterns": ["*.py"]}
-        tests_cat = {"name": "tests", "dir": "tests", "patterns": ["test_*.py"]}
-        docs_cat = {"name": "docs", "dir": "docs", "patterns": ["*.md"]}
+        api_cat = Category(dir="api", patterns=["*.py"])
+        tests_cat = Category(dir="tests", patterns=["test_*.py"])
+        docs_cat = Category(dir="docs", patterns=["*.md"])
         await session.update_config(
             lambda p: p.with_category("api", api_cat).with_category("tests", tests_cat).with_category("docs", docs_cat)
         )
@@ -1061,9 +1061,9 @@ class TestCollectionUpdate:
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
-        api_cat = {"name": "api", "dir": "api", "patterns": ["*.py"]}
-        tests_cat = {"name": "tests", "dir": "tests", "patterns": ["test_*.py"]}
-        docs_cat = {"name": "docs", "dir": "docs", "patterns": ["*.md"]}
+        api_cat = Category(dir="api", patterns=["*.py"])
+        tests_cat = Category(dir="tests", patterns=["test_*.py"])
+        docs_cat = Category(dir="docs", patterns=["*.md"])
         await session.update_config(
             lambda p: p.with_category("api", api_cat).with_category("tests", tests_cat).with_category("docs", docs_cat)
         )
@@ -1090,8 +1090,8 @@ class TestCollectionUpdate:
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
-        api_cat = {"name": "api", "dir": "api", "patterns": ["*.py"]}
-        docs_cat = {"name": "docs", "dir": "docs", "patterns": ["*.md"]}
+        api_cat = Category(dir="api", patterns=["*.py"])
+        docs_cat = Category(dir="docs", patterns=["*.md"])
         await session.update_config(lambda p: p.with_category("api", api_cat).with_category("docs", docs_cat))
 
         backend_collection = {"name": "backend", "categories": ["api"], "description": None}
@@ -1192,7 +1192,7 @@ class TestCollectionUpdate:
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
-        api_cat = {"name": "api", "dir": "api", "patterns": ["*.py"]}
+        api_cat = Category(dir="api", patterns=["*.py"])
         await session.update_config(lambda p: p.with_category("api", api_cat))
 
         backend_collection = Collection(categories=[], description=None)
@@ -1219,7 +1219,7 @@ class TestCollectionUpdate:
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
-        api_cat = {"name": "api", "dir": "api", "patterns": ["*.py"]}
+        api_cat = Category(dir="api", patterns=["*.py"])
         await session.update_config(lambda p: p.with_category("api", api_cat))
 
         backend_collection = {"name": "backend", "categories": ["api"], "description": None}

@@ -79,7 +79,7 @@ async def test_format_single_preserves_line_endings():
         mtime=datetime.now(),
         content=content,
     )
-    result = await formatter.format_single(file_info, "test")
+    result = await formatter.format_single(file_info)
     assert result == content
 
 
@@ -97,7 +97,7 @@ async def test_format_single_preserves_whitespace():
         mtime=datetime.now(),
         content=content,
     )
-    result = await formatter.format_single(file_info, "test")
+    result = await formatter.format_single(file_info)
     assert result == content
 
 
@@ -115,7 +115,7 @@ async def test_format_single_no_headers():
         mtime=datetime.now(),
         content=content,
     )
-    result = await formatter.format_single(file_info, "test")
+    result = await formatter.format_single(file_info)
     # Verify no MIME headers
     assert "Content-Type:" not in result
     assert "Content-Location:" not in result
@@ -137,7 +137,7 @@ async def test_format_single_empty_file():
         mtime=datetime.now(),
         content="",
     )
-    result = await formatter.format_single(file_info, "test")
+    result = await formatter.format_single(file_info)
     assert result == ""
 
 
@@ -154,7 +154,7 @@ async def test_format_single_none_content():
         mtime=datetime.now(),
         content=None,
     )
-    result = await formatter.format_single(file_info, "test")
+    result = await formatter.format_single(file_info)
     assert result == ""
 
 

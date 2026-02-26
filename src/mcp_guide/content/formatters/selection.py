@@ -1,6 +1,7 @@
 """Formatter selection using ContentFormat enum."""
 
 from enum import Enum
+from pathlib import Path
 from typing import TYPE_CHECKING, Optional, Protocol
 
 from mcp_guide.core.mcp_log import get_logger
@@ -19,7 +20,7 @@ logger = get_logger(__name__)
 class ContentFormatter(Protocol):
     """Protocol for content formatters."""
 
-    async def format(self, files: list["FileInfo"], context_name: str) -> str:
+    async def format(self, files: list["FileInfo"], docroot: Path) -> str:
         """Format files into a string representation."""
         ...
 
