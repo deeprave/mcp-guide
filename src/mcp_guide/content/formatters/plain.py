@@ -1,17 +1,19 @@
 """Plain content formatter for single file responses."""
 
+from pathlib import Path
+
 from mcp_guide.discovery.files import FileInfo
 
 
 class PlainFormatter:
     """Formats file content as plain text without headers."""
 
-    async def format(self, file_infos: list[FileInfo], category_name: str) -> str:
+    async def format(self, file_infos: list[FileInfo], docroot: Path) -> str:
         """Format file content as plain text.
 
         Args:
             file_infos: List of files with content
-            category_name: Name of the category (unused for plain format)
+            docroot: Document root path (unused for plain format)
 
         Returns:
             Plain content without headers
@@ -20,28 +22,26 @@ class PlainFormatter:
             return ""
 
         if len(file_infos) == 1:
-            return await self.format_single(file_infos[0], category_name)
+            return await self.format_single(file_infos[0])
 
-        return await self.format_multiple(file_infos, category_name)
+        return await self.format_multiple(file_infos)
 
-    async def format_single(self, file_info: FileInfo, category_name: str) -> str:
+    async def format_single(self, file_info: FileInfo) -> str:
         """Format single file as plain content.
 
         Args:
             file_info: File with content
-            category_name: Name of the category (unused for plain format)
 
         Returns:
             Plain content without headers
         """
         return file_info.content or ""
 
-    async def format_multiple(self, file_infos: list[FileInfo], category_name: str) -> str:
+    async def format_multiple(self, file_infos: list[FileInfo]) -> str:
         """Format multiple files with separators.
 
         Args:
             file_infos: List of files with content
-            category_name: Name of the category (unused for plain format)
 
         Returns:
             Concatenated content with separators

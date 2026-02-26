@@ -43,12 +43,12 @@ async def test_category_field_set_on_fileinfo(tmp_path: Path, monkeypatch: Monke
     # Create test files
     category_dir = tmp_path / "guide"
     category_dir.mkdir()
-    (category_dir / "test.md").write_text("# Test")
+    (category_dir / "README").write_text("# Test")
 
     # Project data
     project_data = Project(
         name="test",
-        categories={"guide": Category(dir="guide", patterns=["*.md"])},
+        categories={"guide": Category(dir="guide", name="guide", patterns=["README"])},
         collections={},
     )
 
@@ -83,4 +83,7 @@ async def test_category_field_set_on_fileinfo(tmp_path: Path, monkeypatch: Monke
     # Verify category field was set
     assert len(captured_files) > 0, "Should have captured FileInfo objects"
     for file_info in captured_files:
-        assert file_info.category == "guide", f"FileInfo.category should be 'guide', got {file_info.category}"
+        assert file_info.category is not None, "FileInfo.category should be set"
+        assert file_info.category.name == "guide", (
+            f"FileInfo.category.name should be 'guide', got {file_info.category.name}"
+        )

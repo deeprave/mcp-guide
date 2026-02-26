@@ -2,7 +2,10 @@
 
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, Optional, Union
+
+if TYPE_CHECKING:
+    from mcp_guide.models.project import Category
 
 _SENTINEL = object()  # Sentinel value for distinguishing unset parameters
 
@@ -84,13 +87,14 @@ class FileInfo:
     """File metadata.
 
     Attributes:
-        path: Relative path to file from category directory
+        path: Relative or absolute path to file. Initially relative to category directory,
+              but may be converted to absolute during deduplication to correctly identify
+              files with the same name across different categories.
         size: File size in bytes including frontmatter
         content_size: Content size in bytes excluding frontmatter
         mtime: File modification time
         name: Relative path without template extension (for agent display)
-        category: Category name where file was discovered (for templating)
-        collection: Collection name where file was discovered (for templating)
+        category: Category object for accessing directory and configuration
         ctime: File metadata change time (platform-dependent; Unix: inode change time, Windows: creation time)
     """
 
@@ -101,8 +105,7 @@ class FileInfo:
         content_size: int,
         mtime: datetime,
         name: str,
-        category: Optional[str] = None,
-        collection: Optional[str] = None,
+        category: Optional["Category"] = None,
         ctime: Optional[datetime] = None,
         content: Union[str, None, object] = _SENTINEL,
         frontmatter: Optional[Dict[str, Any]] = None,
@@ -114,7 +117,6 @@ class FileInfo:
         self.mtime = mtime
         self.name = name
         self.category = category
-        self.collection = collection
         self.ctime = ctime
 
         # Private attributes for lazy loading

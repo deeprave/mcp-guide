@@ -20,12 +20,15 @@ class Category:
     Attributes:
         dir: Relative directory path for category content (must end with /)
         patterns: List of glob patterns (may be empty)
+        name: Category name (managed by Project, must match dict key)
         description: Optional description of the category
 
     Note:
         Instances are immutable (frozen=True).
         Extra fields from config files are ignored.
-        Name is stored as dict key in Project.categories.
+        The name field is managed by Project.with_category() and must match
+        the dictionary key in Project.categories. Use with_category() to ensure
+        consistency when adding or updating categories.
         The dir field is automatically normalized to end with / if missing.
     """
 
@@ -33,6 +36,7 @@ class Category:
 
     dir: str
     patterns: list[str]
+    name: str = ""
     description: Optional[str] = None
 
     def __post_init__(self) -> None:
@@ -154,7 +158,23 @@ class Project:
         return v
 
     def with_category(self, name: str, category: Category) -> "Project":
-        """Return new Project with category added."""
+        """Return new Project with category added.
+
+        Args:
+            name: Category name (used as dict key)
+            category: Category object to add
+
+        Returns:
+            New Project with category added
+
+        Note:
+            If category.name differs from name parameter, category.name is
+            updated to match. This ensures consistency between dict key and
+            embedded name field.
+        """
+        # Enforce name consistency: always use the dict key as the name
+        if category.name != name:
+            category = replace(category, name=name)
         new_categories = {**self.categories, name: category}
         return replace(self, categories=new_categories)
 

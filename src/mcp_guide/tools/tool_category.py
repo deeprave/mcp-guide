@@ -774,7 +774,9 @@ async def internal_category_content(
         docroot = Path(await session.get_docroot())
         files_by_category: dict[str, list[FileInfo]] = {}
         for file in files:
-            category_name = file.category or "unknown"
+            category_name = (
+                file.category.name if file.category else "unknown"
+            )  # Category is always set by gather_content
             if category_name not in files_by_category:
                 files_by_category[category_name] = []
             files_by_category[category_name].append(file)
@@ -807,7 +809,7 @@ async def internal_category_content(
 
         # Format and return content
         formatter = get_formatter_from_flag(format_type)
-        content = await formatter.format(final_files, args.expression)
+        content = await formatter.format(final_files, docroot)
 
         return Result.ok(content)
 

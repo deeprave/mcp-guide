@@ -259,9 +259,7 @@ def add_file_context(base_context: TemplateContext, file_info: "FileInfo") -> Te
 
     # Add optional fields if present
     if file_info.category:
-        file_data["category"] = file_info.category
-    if file_info.collection:
-        file_data["collection"] = file_info.collection
+        file_data["category"] = file_info.category.name
     if file_info.ctime:
         try:
             file_data["ctime"] = file_info.ctime.isoformat()

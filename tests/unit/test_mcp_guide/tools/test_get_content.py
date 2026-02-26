@@ -74,12 +74,12 @@ async def test_get_content_collection_only(tmp_path, monkeypatch):
     # Create test files
     category_dir = tmp_path / "guide"
     category_dir.mkdir()
-    (category_dir / "test.md").write_text("# Test")
+    (category_dir / "README").write_text("# Test")
 
     # Project data
     project_data = Project(
         name="test",
-        categories={"guide": Category(dir="guide", patterns=["*.md"])},
+        categories={"guide": Category(dir="guide", name="guide", patterns=["README", "guide"])},
         collections={"all": Collection(categories=["guide"])},
     )
 
@@ -102,12 +102,12 @@ async def test_get_content_category_only(tmp_path, monkeypatch):
     # Create test files
     category_dir = tmp_path / "guide"
     category_dir.mkdir()
-    (category_dir / "test.md").write_text("# Test")
+    (category_dir / "README").write_text("# Test")
 
     # Project data
     project_data = Project(
         name="test",
-        categories={"guide": Category(dir="guide", patterns=["*.md"])},
+        categories={"guide": Category(dir="guide", name="guide", patterns=["README", "guide"])},
         collections={},
     )
 
@@ -130,12 +130,12 @@ async def test_get_content_deduplicates(tmp_path, monkeypatch):
     # Create test files
     category_dir = tmp_path / "guide"
     category_dir.mkdir()
-    (category_dir / "test.md").write_text("# Test")
+    (category_dir / "README").write_text("# Test")
 
     # Project data - collection and category both named "guide"
     project_data = Project(
         name="test",
-        categories={"guide": Category(dir="guide", patterns=["*.md"])},
+        categories={"guide": Category(dir="guide", name="guide", patterns=["README", "guide"])},
         collections={"guide": Collection(categories=["guide"])},
     )
 
@@ -164,7 +164,7 @@ async def test_get_content_empty_result(tmp_path, monkeypatch):
     # Project data
     project_data = Project(
         name="test",
-        categories={"empty": Category(dir="empty", patterns=["*.md"])},
+        categories={"empty": Category(dir="empty", name="empty", patterns=["README", "guide"])},
         collections={},
     )
 
@@ -189,13 +189,14 @@ async def test_get_content_pattern_override(tmp_path, monkeypatch):
     # Create test files
     category_dir = tmp_path / "docs"
     category_dir.mkdir()
-    (category_dir / "test.md").write_text("# Test")
-    (category_dir / "test.txt").write_text("Test")
+    (category_dir / "README").write_text("# Test")
+    (category_dir / "guide").write_text("Guide content")
+    (category_dir / "tutorial").write_text("Tutorial content")
 
-    # Project data - category accepts both .md and .txt
+    # Project data - category accepts multiple files
     project_data = Project(
         name="test",
-        categories={"docs": Category(dir="docs", patterns=["*.md", "*.txt"])},
+        categories={"docs": Category(dir="docs", name="docs", patterns=["README", "guide", "tutorial"])},
         collections={},
     )
 
@@ -204,16 +205,17 @@ async def test_get_content_pattern_override(tmp_path, monkeypatch):
 
     monkeypatch.setattr("mcp_guide.tools.tool_content.get_or_create_session", mock_get_session)
 
-    # Call tool with pattern override to only get .md files
-    args = ContentArgs(expression="docs", pattern="*.md")
+    # Call tool with pattern override to only get README
+    args = ContentArgs(expression="docs", pattern="README")
     result_json = await get_content(args)
 
     # Parse result
     result = json.loads(result_json)
     assert result["success"] is True
     assert "# Test" in result["value"]
-    # Verify .txt file content is not included
-    assert "Test" not in result["value"] or result["value"].count("Test") == 1  # Only from "# Test"
+    # Verify other files are not included
+    assert "Guide content" not in result["value"]
+    assert "Tutorial content" not in result["value"]
 
 
 async def test_get_content_category_sets_metadata(tmp_path, monkeypatch):
@@ -221,12 +223,12 @@ async def test_get_content_category_sets_metadata(tmp_path, monkeypatch):
     # Create test file
     category_dir = tmp_path / "docs"
     category_dir.mkdir()
-    (category_dir / "test.md").write_text("# Test")
+    (category_dir / "README").write_text("# Test")
 
     # Project data
     project_data = Project(
         name="test",
-        categories={"docs": Category(dir="docs", patterns=["*.md"])},
+        categories={"docs": Category(dir="docs", name="docs", patterns=["README", "guide"])},
         collections={},
     )
 
@@ -251,12 +253,12 @@ async def test_get_content_collection_sets_metadata(tmp_path, monkeypatch):
     # Create test file
     category_dir = tmp_path / "docs"
     category_dir.mkdir()
-    (category_dir / "test.md").write_text("# Test")
+    (category_dir / "README").write_text("# Test")
 
     # Project data
     project_data = Project(
         name="test",
-        categories={"docs": Category(dir="docs", patterns=["*.md"])},
+        categories={"docs": Category(dir="docs", name="docs", patterns=["README", "guide"])},
         collections={"all": Collection(categories=["docs"])},
     )
 
@@ -299,12 +301,12 @@ async def test_get_content_flag_resolution(tmp_path, monkeypatch, project_flags,
     # Create test file
     category_dir = tmp_path / "docs"
     category_dir.mkdir()
-    (category_dir / "test.md").write_text("# Test Content\n\nSome text.")
+    (category_dir / "README").write_text("# Test Content\n\nSome text.")
 
     # Project data
     project_data = Project(
         name="test",
-        categories={"docs": Category(dir="docs", patterns=["*.md"])},
+        categories={"docs": Category(dir="docs", name="docs", patterns=["README", "guide"])},
         collections={},
     )
 

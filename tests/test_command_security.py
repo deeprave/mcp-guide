@@ -172,8 +172,6 @@ class TestCommandErrorHandling:
                     mtime=1234567890,
                     name="broken.mustache",
                     content="",
-                    category="",
-                    collection="",
                     ctime=1234567890,
                 )
             ]
@@ -187,8 +185,6 @@ class TestCommandErrorHandling:
                     mtime=1234567890,
                     name="broken.mustache",
                     content="",
-                    category="",
-                    collection="",
                     ctime=1234567890,
                 )
             ]
@@ -255,8 +251,6 @@ class TestCommandErrorHandling:
                     content_size=100,
                     mtime=1234567890,
                     name="restricted.mustache",
-                    category="",
-                    collection="",
                     ctime=1234567890,
                 )
             ]
