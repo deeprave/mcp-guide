@@ -123,12 +123,13 @@ class MimeFormatter:
         if not file_info.category:
             raise ValueError(f"Cannot convert absolute path to relative: file has no category: {path}")
 
-        # Get category directory
-        category_dir = docroot / file_info.category.dir
+        # Get category directory and resolve both paths to handle symlinks
+        category_dir = (docroot / file_info.category.dir).resolve()
+        resolved_path = path.resolve()
 
         # Convert to relative
         try:
-            return path.relative_to(category_dir)
+            return resolved_path.relative_to(category_dir)
         except ValueError as e:
             raise ValueError(f"Path is outside category directory: {path}") from e
 
