@@ -136,7 +136,6 @@ async def test_tool_returns_result_ok_on_success(tmp_path, monkeypatch):
     )
 
     # Create test files
-    test_file = tmp_path / "test.md"
     test_file = tmp_path / "README"
     test_file.write_text("# Test Content")
 
