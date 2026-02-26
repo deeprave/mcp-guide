@@ -28,8 +28,8 @@ class MimeFormatter:
         if not content:
             return "text/plain"
 
-        # JSON: strict parse
-        if content[0] in ("{", "[", '"'):
+        # JSON: strict parse (limit to reasonable size to avoid expensive parsing)
+        if content[0] in ("{", "[", '"') and len(content) < 1_000_000:
             try:
                 json.loads(content)
                 return "application/json"
@@ -53,7 +53,7 @@ class MimeFormatter:
             col_counts = [len(r) for r in rows]
             if len(rows) >= 2 and max(col_counts) >= 2 and min(col_counts) >= 2:
                 return "text/csv"
-        except (csv.Error, Exception):
+        except csv.Error:
             pass
 
         # YAML: strict parse (JSON already ruled out)
@@ -100,7 +100,7 @@ class MimeFormatter:
         }
         return type_to_ext.get(detected_type, "")
 
-    async def _get_relative_path(self, file_info: FileInfo, docroot: Path) -> Path:
+    def _get_relative_path(self, file_info: FileInfo, docroot: Path) -> Path:
         """Get relative path within category directory.
 
         Args:
@@ -166,8 +166,9 @@ class MimeFormatter:
         content = file_info.content or ""
 
         # Get relative path within category
-        doc_path = await self._get_relative_path(file_info, docroot)
-        doc_path_str = str(doc_path)
+        doc_path = self._get_relative_path(file_info, docroot)
+        # Use POSIX path for URI (forward slashes on all platforms)
+        doc_path_str = doc_path.as_posix()
 
         # Strip template extensions
         for ext in TEMPLATE_EXTENSIONS:
@@ -220,8 +221,8 @@ class MimeFormatter:
             content = file_info.content or ""
 
             # Get relative path within category
-            doc_path = await self._get_relative_path(file_info, docroot)
-            doc_path_str = str(doc_path)
+            doc_path = self._get_relative_path(file_info, docroot)
+            doc_path_str = doc_path.as_posix()
 
             # Strip template extensions
             for ext in TEMPLATE_EXTENSIONS:
