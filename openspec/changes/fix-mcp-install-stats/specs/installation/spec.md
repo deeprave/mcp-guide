@@ -32,6 +32,20 @@ The system SHALL use intelligent update strategy based on file modification stat
 - **THEN** file is skipped
 - **AND** no backup or update occurs
 
+#### Scenario: No archive available and file differs from new version
+- **WHEN** no `_installed.zip` archive exists
+- **AND** current file differs from new version (SHA256)
+- **THEN** current file is backed up to `orig.<filename>`
+- **AND** new version is installed
+- **AND** warning is raised about potential user changes
+- **AND** system cannot distinguish user modifications from template changes without archive
+
+#### Scenario: No archive available and file identical to new version
+- **WHEN** no `_installed.zip` archive exists
+- **AND** current file matches new version (SHA256)
+- **THEN** file is skipped
+- **AND** no backup or update occurs
+
 ## ADDED Requirements
 
 ### Requirement: Installation Logging

@@ -17,8 +17,8 @@ description: Don't be guilty of "mea culpa": avoid these mistakes you repeatedly
 
 ### Client vs Server Filesystem
 - **SERVER**: MCP server runs on the SERVER filesystem
-- **CLIENT**: Many files, like the workflow file (usually .guide.yaml), project files exist on CLIENT filesystem
-- **NEVER** attempt to read client files directly from server code using Path.read_text() using Path.cwd() or similar
+- **CLIENT**: Many files, such as the workflow file (usually .guide.yaml) and project files, exist on the CLIENT filesystem
+- **NEVER** attempt to read client files directly from server code using Path.read_text(), Path.cwd(), or similar
 - **ALWAYS** ask the client/agent to send file content to the server when needed
 - This is why we have tools like guide_send_file_content – this allows the client to send content and information to the server
 
@@ -82,7 +82,7 @@ description: Don't be guilty of "mea culpa": avoid these mistakes you repeatedly
 ### Common Mistakes that MUST be avoided
 1. **NEVER** create sync wrapper functions or have effectively duplicate sync/async versions
 2. **NEVER** assume it is possible to read client files directly from server code
-3. **NEVER** using sync I/O in async contexts
+3. **NEVER** use sync I/O in async contexts
 4. **NEVER** hardcoding filesystem paths
 5. **NEVER** have template content in code
 6. **NEVER** ignore and duplicate existing infrastructure and functionality

@@ -31,12 +31,17 @@
 - Compare with original from `_installed.zip` (if available)
 - **If file doesn't exist**: Install new file
 - **If current = new version (SHA256)**: Skip (no changes needed)
-- **If current = original**: Update to new version (no user changes)
-- **If current ≠ original**: User modified file
-  - Compute diff between original and current
-  - Apply diff to new version
-  - If patch succeeds: Keep patched result
-  - If patch fails: Backup as `orig.<filename>`, install new, warn user
+- **If archive exists**:
+  - **If current = original**: Update to new version (no user changes)
+  - **If current ≠ original**: User modified file
+    - Compute diff between original and current
+    - Apply diff to new version
+    - If patch succeeds: Keep patched result
+    - If patch fails: Backup as `orig.<filename>`, install new, warn user
+- **If no archive exists**:
+  - **If current = new version**: Skip (unchanged)
+  - **If current ≠ new version**: Backup as `orig.<filename>`, install new, warn user
+  - Cannot distinguish user modifications from template changes without archive
 
 ### 2. Fix Installation Spec
 Create spec delta to correct illogical scenario:

@@ -339,43 +339,44 @@ async def install_file(
     original_name = archive_name or dest.name
     if await file_exists_in_archive(archive_path, original_name):
         original_temp = await _extract_original_to_temp(archive_path, original_name, dest)
+        original_temp_async = AsyncPath(original_temp)
 
-        # Check if source has changed from original
-        if await compare_files(source, original_temp):
-            # Source unchanged - preserve user modifications
-            original_temp.unlink()
-            logger.debug(f"Unchanged template, preserving user modifications: {dest}")
-            return "unchanged"
+        try:
+            # Check if source has changed from original
+            if await compare_files(source, original_temp):
+                # Source unchanged - preserve user modifications
+                logger.debug(f"Unchanged template, preserving user modifications: {dest}")
+                return "unchanged"
 
-        # Compare dest with original
-        if await compare_files(dest, original_temp):
-            # Unmodified - just update
+            # Compare dest with original
+            if await compare_files(dest, original_temp):
+                # Unmodified - just update
+                await _copy_file_with_permissions(source, dest)
+                logger.debug(f"Updated file: {dest}")
+                return "updated"
+
+            # User modified - try to patch
+            diff = await compute_diff(original_temp, source)
+            success = await apply_diff(dest, diff)
+
+            if success:
+                # Patch succeeded
+                logger.debug(f"Patched user modifications: {dest}")
+                return "patched"
+
+            # Patch failed - backup and replace
+            backup_path = dest.parent / f"orig.{dest.name}"
+            async with aiofiles.open(dest, "rb") as src:
+                backup_content = await src.read()
+            async with aiofiles.open(backup_path, "wb") as dst:
+                await dst.write(backup_content)
+
             await _copy_file_with_permissions(source, dest)
-            original_temp.unlink()
-            logger.debug(f"Updated file: {dest}")
-            return "updated"
-
-        # User modified - try to patch
-        diff = await compute_diff(original_temp, source)
-        success = await apply_diff(dest, diff)
-
-        if success:
-            # Patch succeeded
-            original_temp.unlink()
-            logger.debug(f"Patched user modifications: {dest}")
-            return "patched"
-
-        # Patch failed - backup and replace
-        backup_path = dest.parent / f"orig.{dest.name}"
-        async with aiofiles.open(dest, "rb") as src:
-            backup_content = await src.read()
-        async with aiofiles.open(backup_path, "wb") as dst:
-            await dst.write(backup_content)
-
-        await _copy_file_with_permissions(source, dest)
-        original_temp.unlink()
-        logger.warning(f"⚠️  Conflict: {dest} (backed up to {backup_path})")
-        return "conflict"
+            logger.warning(f"⚠️  Conflict: {dest} (backed up to {backup_path})")
+            return "conflict"
+        finally:
+            # Always cleanup temp file
+            await original_temp_async.unlink(missing_ok=True)
 
     # No original in archive - just update
     await _copy_file_with_permissions(source, dest)
@@ -502,31 +503,11 @@ async def update_templates(docroot: Path, archive_path: Path) -> dict[str, int]:
         rel_path = template_file.relative_to(templates_path)
         current_file = docroot / rel_path
 
-        if not current_file.exists():
-            # New file - just install
-            await install_file(template_file, current_file)
-            stats["installed"] += 1
-        else:
-            # Existing file - use smart update
-            original_in_archive = rel_path
-            if await file_exists_in_archive(archive_path, str(original_in_archive)):
-                original_temp = await _extract_original_to_temp(archive_path, str(original_in_archive), current_file)
-
-                result = await smart_update(current_file, template_file, original_temp)
-                # Map old action names to new format
-                action_map = {
-                    "skipped": "unchanged",
-                    "replaced": "updated",
-                    "patched": "patched",
-                    "conflict": "conflicts",
-                }
-                stats[action_map.get(result["action"], result["action"])] += 1
-
-                original_temp.unlink()
-            else:
-                # No original - just replace
-                await install_file(template_file, current_file)
-                stats["updated"] += 1
+        # Use install_file for all cases - it handles everything
+        result = await install_file(template_file, current_file, archive_path, str(rel_path))
+        # Map singular "conflict" to plural "conflicts" for stats
+        stat_key = "conflicts" if result == "conflict" else result
+        stats[stat_key] += 1
 
     # Update archive with new originals
     await create_archive(archive_path, template_files, templates_path)
