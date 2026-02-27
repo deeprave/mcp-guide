@@ -11,10 +11,13 @@ instruction: Perform a review of project changes.
 {{/workflow}}
 {{h1}}Perform a Code Review
 
-  - If available, switch to the `guide-review` agent. If not, perform a self-review.
-  - Use the guide mcp tool {{tool_prefix}}get_content("code-review") to access code review guidelines.
-  - Read the {{workflow.file}} file to understand the current issue context {{#workflow.issue}}(issue: {{workflow.issue}}).{{/workflow.issue}}
+  — If available, switch to the `guide-review` agent. If not, perform a self-review.
+  — You MUST NOT consider previous conversational history when conducting this review.
+    **This review must be done with a fresh look without consideration of previous work, including any fixes and tests.**
+    You must review just the end product of the changes.
+  — Use the guide mcp tool {{tool_prefix}}get_content("code-review") to access code review guidelines.
+  — Read the {{workflow.file}} file to understand the current issue context {{#workflow.issue}}(issue: {{workflow.issue}}).{{/workflow.issue}}
   - Analyse changes against HEAD and create or update the review artifact in `{{#workflow.issue}}.todo/{{workflow.issue}}-review.md{{/workflow.issue}}{{^workflow.issue}}.todo{{/workflow.issue}}` following the established format and context.
-  - Once completed, switch back to the `guide` agent.
+  — Once completed, switch back to the `guide` agent.
 
 {{#openspec}}**NOTE** Review artifacts are NEVER to be created in the openspec changes directory{{/openspec}}

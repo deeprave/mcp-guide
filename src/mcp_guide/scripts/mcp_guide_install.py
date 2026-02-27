@@ -2,10 +2,40 @@
 """MCP Guide installer script."""
 
 import asyncio
+import logging
 from pathlib import Path
 
 import click
 import yaml
+
+
+def setup_installer_logging(verbose: bool, quiet: bool) -> None:
+    """Configure logging for installer CLI.
+
+    Args:
+        verbose: Enable DEBUG level logging
+        quiet: Enable WARNING level logging only
+    """
+    from mcp_guide.core.mcp_log import create_console_handler, create_formatter, get_log_level
+
+    # Determine log level
+    if verbose:
+        level = "DEBUG"
+    elif quiet:
+        level = "WARNING"
+    else:
+        level = "INFO"
+
+    # Create console handler with mcp-guide's formatter
+    handler = create_console_handler()
+    formatter = create_formatter(json_format=False)
+    handler.setFormatter(formatter)
+    handler.setLevel(get_log_level(level))
+
+    # Configure root logger
+    root = logging.getLogger()
+    root.setLevel(get_log_level(level))
+    root.addHandler(handler)
 
 
 @click.command()
@@ -14,9 +44,16 @@ import yaml
 @click.option("-c", "--configdir", type=click.Path(), help="Custom config directory")
 @click.option("-i", "--interactive", is_flag=True, help="Enable interactive prompts")
 @click.option("-v", "--verbose", is_flag=True, help="Enable verbose output")
+@click.option("-q", "--quiet", is_flag=True, help="Suppress statistics output")
 @click.option("--dry-run", is_flag=True, help="Show what would be done without doing it")
 def cli(
-    command: str, docroot: str | None, configdir: str | None, interactive: bool, verbose: bool, dry_run: bool
+    command: str,
+    docroot: str | None,
+    configdir: str | None,
+    interactive: bool,
+    verbose: bool,
+    quiet: bool,
+    dry_run: bool,
 ) -> None:
     """Install or update MCP Guide templates.
 
@@ -32,17 +69,26 @@ def cli(
             click.echo("Interactive mode enabled")
         if verbose:
             click.echo("Verbose mode enabled")
+        if quiet:
+            click.echo("Quiet mode enabled")
         if docroot:
             click.echo(f"Would use docroot: {docroot}")
         if configdir:
             click.echo(f"Would use configdir: {configdir}")
         return
 
-    asyncio.run(main(command, docroot, configdir, interactive, verbose))
+    # Setup logging based on flags
+    setup_installer_logging(verbose, quiet)
+
+    asyncio.run(main(command, docroot, configdir, interactive, verbose, quiet))
 
 
-async def main(command: str, docroot: str | None, configdir: str | None, interactive: bool, verbose: bool) -> None:
+async def main(
+    command: str, docroot: str | None, configdir: str | None, interactive: bool, verbose: bool, quiet: bool
+) -> None:
     """Main installation logic."""
+    import logging
+
     import aiofiles
 
     from mcp_guide import __version__
@@ -55,6 +101,8 @@ async def main(command: str, docroot: str | None, configdir: str | None, interac
         write_version,
     )
     from mcp_guide.installer.integration import install_and_create_config
+
+    logger = logging.getLogger(__name__)
 
     try:
         # Resolve config directory and file
@@ -98,25 +146,36 @@ async def main(command: str, docroot: str | None, configdir: str | None, interac
 
         # Execute command
         if command == "install":
-            if verbose:
-                click.echo("Installing templates...")
-
             if config_file.exists() and not custom_docroot:
                 # Config exists, just install templates
                 result = await install_templates(docroot_path, archive_path)
                 await write_version(docroot_path, __version__)
-                click.echo(f"Installed {result['files_installed']} files to {docroot_path}")
+
+                # Log summary statistics at INFO level
+                parts = []
+                if result["installed"] > 0:
+                    parts.append(f"{result['installed']} installed")
+                if result["updated"] > 0:
+                    parts.append(f"{result['updated']} updated")
+                if result.get("patched", 0) > 0:
+                    parts.append(f"{result['patched']} patched")
+                if result["unchanged"] > 0:
+                    parts.append(f"{result['unchanged']} unchanged")
+                if result.get("conflicts", 0) > 0:
+                    parts.append(f"{result['conflicts']} conflicts")
+
+                if parts:
+                    logger.info(f"{', '.join(parts)} to {docroot_path}")
+                else:
+                    logger.info(f"Installed to {docroot_path}")
             else:
                 # Use integration function for first install or custom docroot
                 await install_and_create_config(config_file, docroot_path if custom_docroot else None)
-                click.echo(f"Installed templates to {docroot_path}")
+                logger.info(f"Installation complete: {docroot_path}")
 
-            click.echo(f"Config saved to {config_file}")
+            logger.info(f"Config saved: {config_file}")
 
         elif command == "update":
-            if verbose:
-                click.echo("Updating templates...")
-
             result = await update_templates(docroot_path, archive_path)
             await write_version(docroot_path, __version__)
 
@@ -129,12 +188,27 @@ async def main(command: str, docroot: str | None, configdir: str | None, interac
                 async with aiofiles.open(config_file, "w", encoding="utf-8") as f:
                     await f.write(yaml.safe_dump(config))
 
-            click.echo(f"Processed {result['files_processed']} files")
-            click.echo(f"  Skipped: {result['skipped']}")
-            click.echo(f"  Replaced: {result['replaced']}")
-            click.echo(f"  Patched: {result['patched']}")
-            if result["conflict"] > 0:
-                click.echo(f"  Conflicts: {result['conflict']} (backups created)")
+            # Log summary statistics at INFO level
+            parts = []
+            if result["installed"] > 0:
+                parts.append(f"{result['installed']} installed")
+            if result["updated"] > 0:
+                parts.append(f"{result['updated']} updated")
+            if result["patched"] > 0:
+                parts.append(f"{result['patched']} patched")
+            if result["unchanged"] > 0:
+                parts.append(f"{result['unchanged']} unchanged")
+            if result["conflicts"] > 0:
+                parts.append(f"{result['conflicts']} conflicts")
+
+            if parts:
+                logger.info(", ".join(parts))
+
+            # Log conflict warning at WARNING level
+            if result["conflicts"] > 0:
+                logger.warning("⚠️  Conflicts detected - user changes backed up to orig.* files")
+
+            logger.info(f"Update complete: {docroot_path}")
 
         elif command == "status":
             installed_version = await read_version(docroot_path)
