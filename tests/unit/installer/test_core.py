@@ -438,7 +438,7 @@ class TestFileInstallation:
         result = await install_file(source, dest)
 
         # Assert
-        assert result is False  # Skipped
+        assert result == "skipped_binary"  # Returns status string
         assert not dest.exists()
 
     @pytest.mark.asyncio
@@ -478,8 +478,8 @@ class TestInstallationOrchestration:
         # Assert
         assert docroot.exists()
         assert archive_path.exists()
-        assert "files_installed" in result
-        assert result["files_installed"] > 0
+        assert "installed" in result
+        assert result["installed"] > 0
 
     @pytest.mark.asyncio
     async def test_update_templates_uses_smart_strategy(self, tmp_path: Path) -> None:
@@ -505,5 +505,213 @@ class TestInstallationOrchestration:
         result = await update_templates(docroot, archive_path)
 
         # Assert
-        assert "files_processed" in result
-        assert "skipped" in result or "patched" in result or "replaced" in result
+        assert "unchanged" in result or "patched" in result or "updated" in result or "installed" in result
+
+
+class TestInstallFileSmartUpdate:
+    """Tests for install_file smart update strategy."""
+
+    @pytest.mark.asyncio
+    async def test_install_file_returns_skipped_binary_for_binary_files(self, tmp_path: Path) -> None:
+        """Test that install_file returns 'skipped_binary' for binary files."""
+        # Arrange
+        from mcp_guide.installer.core import install_file
+
+        source = tmp_path / "binary.bin"
+        source.write_bytes(b"\x00\x01\x02\xff\xfe")
+        dest = tmp_path / "dest.bin"
+
+        # Act
+        result = await install_file(source, dest)
+
+        # Assert
+        assert result == "skipped_binary"
+        assert not dest.exists()
+
+    @pytest.mark.asyncio
+    async def test_install_file_returns_installed_for_new_file(self, tmp_path: Path) -> None:
+        """Test that install_file returns 'installed' when destination doesn't exist."""
+        # Arrange
+        from mcp_guide.installer.core import install_file
+
+        source = tmp_path / "source.txt"
+        source.write_text("content")
+        dest = tmp_path / "dest.txt"
+
+        # Act
+        result = await install_file(source, dest)
+
+        # Assert
+        assert result == "installed"
+        assert dest.exists()
+        assert dest.read_text() == "content"
+
+    @pytest.mark.asyncio
+    async def test_install_file_returns_unchanged_for_identical_files(self, tmp_path: Path) -> None:
+        """Test that install_file returns 'unchanged' when source and dest are identical."""
+        # Arrange
+        from mcp_guide.installer.core import install_file
+
+        source = tmp_path / "source.txt"
+        source.write_text("same content")
+        dest = tmp_path / "dest.txt"
+        dest.write_text("same content")
+
+        # Act
+        result = await install_file(source, dest)
+
+        # Assert
+        assert result == "unchanged"
+        assert dest.read_text() == "same content"
+
+    @pytest.mark.asyncio
+    async def test_install_file_returns_updated_for_unmodified_file(self, tmp_path: Path) -> None:
+        """Test that install_file returns 'updated' when dest matches original but differs from source."""
+        # Arrange
+        from mcp_guide.installer.core import install_file
+
+        source = tmp_path / "source.txt"
+        source.write_text("new content")
+        dest = tmp_path / "dest.txt"
+        dest.write_text("original content")
+
+        # Create archive with original
+        archive_path = tmp_path / "archive.zip"
+        with ZipFile(archive_path, "w") as zf:
+            zf.writestr("dest.txt", "original content")
+
+        # Act
+        result = await install_file(source, dest, archive_path)
+
+        # Assert
+        assert result == "updated"
+        assert dest.read_text() == "new content"
+
+    @pytest.mark.asyncio
+    async def test_install_file_returns_patched_for_user_modified_file(self, tmp_path: Path) -> None:
+        """Test that install_file returns 'patched' when user modifications are preserved."""
+        # Arrange
+        from mcp_guide.installer.core import install_file
+
+        source = tmp_path / "source.txt"
+        source.write_text("line 1\nline 2 updated\nline 3\n")
+
+        dest = tmp_path / "dest.txt"
+        dest.write_text("line 1\nline 2\nline 3\nuser added line\n")
+
+        # Create archive with original
+        archive_path = tmp_path / "archive.zip"
+        with ZipFile(archive_path, "w") as zf:
+            zf.writestr("dest.txt", "line 1\nline 2\nline 3\n")
+
+        # Act
+        result = await install_file(source, dest, archive_path)
+
+        # Assert
+        assert result == "patched"
+        content = dest.read_text()
+        assert "line 2 updated" in content  # New change applied
+        assert "user added line" in content  # User change preserved
+
+    @pytest.mark.asyncio
+    async def test_install_file_returns_conflict_and_creates_backup_on_patch_failure(self, tmp_path: Path) -> None:
+        """Test that install_file returns 'conflict' and creates backup when patch fails."""
+        # Arrange
+        from mcp_guide.installer.core import install_file
+
+        source = tmp_path / "source.txt"
+        source.write_text("completely different content\n")
+
+        dest = tmp_path / "dest.txt"
+        dest.write_text("line 1\nline 2\nuser changes that conflict\n")
+
+        # Create archive with original
+        archive_path = tmp_path / "archive.zip"
+        with ZipFile(archive_path, "w") as zf:
+            zf.writestr("dest.txt", "original line 1\noriginal line 2\n")
+
+        # Act
+        result = await install_file(source, dest, archive_path)
+
+        # Assert
+        assert result == "conflict"
+        assert dest.read_text() == "completely different content\n"  # New version installed
+        backup = tmp_path / "orig.dest.txt"
+        assert backup.exists()
+        assert backup.read_text() == "line 1\nline 2\nuser changes that conflict\n"  # User version backed up
+
+    @pytest.mark.asyncio
+    async def test_install_file_uses_archive_name_for_subdirectory_files(self, tmp_path: Path) -> None:
+        """Test that install_file uses archive_name parameter for correct archive lookup."""
+        # Arrange
+        from mcp_guide.installer.core import install_file
+
+        # Create source file
+        source = tmp_path / "source" / "subdir" / "config.yaml"
+        source.parent.mkdir(parents=True)
+        source.write_text("version: 2\n")
+
+        # Create dest file with user modifications
+        dest = tmp_path / "dest" / "subdir" / "config.yaml"
+        dest.parent.mkdir(parents=True)
+        dest.write_text("version: 1\nuser_setting: custom\n")
+
+        # Create archive with original using full relative path
+        archive_path = tmp_path / "archive.zip"
+        with ZipFile(archive_path, "w") as zf:
+            zf.writestr("subdir/config.yaml", "version: 1\n")
+
+        # Act - pass archive_name with full relative path
+        result = await install_file(source, dest, archive_path, "subdir/config.yaml")
+
+        # Assert
+        assert result == "patched"
+        content = dest.read_text()
+        assert "version: 2" in content  # New version applied
+        assert "user_setting: custom" in content  # User setting preserved
+
+    @pytest.mark.asyncio
+    async def test_install_file_handles_same_filename_in_different_directories(self, tmp_path: Path) -> None:
+        """Test that files with same name in different directories are handled correctly."""
+        # Arrange
+        from mcp_guide.installer.core import create_archive, install_file
+
+        # Create two files with same name in different dirs
+        source_dir = tmp_path / "source"
+        (source_dir / "dir1").mkdir(parents=True)
+        (source_dir / "dir2").mkdir(parents=True)
+
+        file1 = source_dir / "dir1" / "config.txt"
+        file2 = source_dir / "dir2" / "config.txt"
+        file1.write_text("content1\n")
+        file2.write_text("content2\n")
+
+        # Create archive
+        archive = tmp_path / "archive.zip"
+        await create_archive(archive, [file1, file2], source_dir)
+
+        # Install both files
+        dest_dir = tmp_path / "dest"
+        dest1 = dest_dir / "dir1" / "config.txt"
+        dest2 = dest_dir / "dir2" / "config.txt"
+
+        await install_file(file1, dest1, archive, "dir1/config.txt")
+        await install_file(file2, dest2, archive, "dir2/config.txt")
+
+        # Modify only dest1
+        dest1.write_text("content1\nuser changes\n")
+
+        # Update with new versions
+        file1.write_text("content1\nnew line\n")
+        file2.write_text("content2\nnew line\n")
+
+        # Act
+        result1 = await install_file(file1, dest1, archive, "dir1/config.txt")
+        result2 = await install_file(file2, dest2, archive, "dir2/config.txt")
+
+        # Assert
+        assert result1 == "patched"  # User modified, should patch
+        assert result2 == "updated"  # Not modified, should update
+        assert "user changes" in dest1.read_text()  # User changes preserved
+        assert "new line" in dest1.read_text()  # New content applied
+        assert "new line" in dest2.read_text()  # New content applied
