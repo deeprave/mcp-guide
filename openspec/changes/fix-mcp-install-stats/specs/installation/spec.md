@@ -1,68 +1,71 @@
 ## MODIFIED Requirements
 
-### Requirement: Template Package Installation
-The system SHALL copy templates from mcp_guide_templates package to docroot, tracking and reporting actual operations performed.
+### Requirement: Smart Update Strategy
+The system SHALL use intelligent update strategy based on file modification status.
 
-#### Scenario: Install from package with accurate reporting
-- **WHEN** installation runs
-- **THEN** templates directory from mcp_guide_templates package is located
-- **AND** each file is checked against destination
-- **AND** new files are installed
-- **AND** changed files are updated
-- **AND** unchanged files are skipped
-- **AND** statistics report counts of installed, updated, and unchanged files
+#### Scenario: File unchanged from original and differs from new version
+- **WHEN** current file matches original in `_installed.zip`
+- **AND** current file differs from new version
+- **THEN** file is updated to new version without backup
+- **AND** no user changes are lost
 
-#### Scenario: Skip unchanged files
-- **WHEN** destination file exists and matches source content
-- **THEN** file copy is skipped
-- **AND** file is counted as "unchanged"
-- **AND** no disk I/O occurs for that file
+#### Scenario: File unchanged from original and identical to new version
+- **WHEN** current file matches original in `_installed.zip`
+- **AND** current file matches new version (SHA256)
+- **THEN** file is skipped
+- **AND** no update occurs
 
-### Requirement: Command-Line Options
-The system SHALL support command-line options for docroot, config directory, and output verbosity.
+#### Scenario: File modified by user
+- **WHEN** current file differs from original in `_installed.zip`
+- **THEN** diff is computed between original and current
+- **AND** diff is applied to new version
+- **AND** result is kept if patch succeeds
 
-#### Scenario: Override docroot via CLI
-- **WHEN** -d or --docroot option is provided
-- **THEN** templates are installed to specified docroot
-- **AND** docroot path is saved to config file
+#### Scenario: Patch application fails
+- **WHEN** diff cannot be applied to new version
+- **THEN** current file is backed up to `orig.<filename>`
+- **AND** new version is installed
+- **AND** warning is raised about overwritten changes
 
-#### Scenario: Override config directory via CLI
-- **WHEN** -c or --configdir option is provided
-- **THEN** config file is created in specified directory
-- **AND** existing config values are preserved if file exists
-
-#### Scenario: Use defaults
-- **WHEN** no options are provided
-- **THEN** default docroot is used
-- **AND** default config directory is used
-- **AND** existing config docroot is preserved if config exists
-
-#### Scenario: Quiet mode suppresses output
-- **WHEN** -q or --quiet flag is provided
-- **THEN** installation statistics are not displayed
-- **AND** success/progress messages are not displayed
-- **AND** error and warning messages are still displayed
-- **AND** installation proceeds normally
+#### Scenario: File identical to new version
+- **WHEN** current file matches new version (SHA256)
+- **THEN** file is skipped
+- **AND** no backup or update occurs
 
 ## ADDED Requirements
 
-### Requirement: Installation Statistics Tracking
-The system SHALL track and report accurate statistics about file operations during installation.
+### Requirement: Installation Logging
+The system SHALL use structured logging for installation operations with configurable verbosity.
 
-#### Scenario: Track file operations
-- **WHEN** templates are installed or updated
-- **THEN** system counts files that are newly installed
-- **AND** system counts files that are updated (changed)
-- **AND** system counts files that are unchanged (skipped)
-- **AND** binary files are excluded from all counts
+#### Scenario: Verbose logging
+- **WHEN** `--verbose` flag is provided
+- **THEN** log level is set to DEBUG
+- **AND** per-file operations are logged
+- **AND** summary statistics are logged
 
-#### Scenario: Report statistics in default mode
-- **WHEN** installation completes without --quiet flag
-- **THEN** system displays "X files installed, Y files updated, Z files unchanged"
-- **AND** counts reflect actual operations performed
-- **AND** message is displayed after installation completes
+#### Scenario: Normal logging
+- **WHEN** no verbosity flags are provided
+- **THEN** log level is set to INFO
+- **AND** summary statistics are logged
+- **AND** conflict warnings are logged
 
-#### Scenario: Suppress statistics in quiet mode
-- **WHEN** installation completes with --quiet flag
-- **THEN** statistics are not displayed
-- **AND** only errors and warnings are shown
+#### Scenario: Quiet logging
+- **WHEN** `--quiet` flag is provided
+- **THEN** log level is set to WARNING
+- **AND** only conflict warnings are logged
+- **AND** summary statistics are suppressed
+
+#### Scenario: Per-file operation logging
+- **WHEN** file operations occur
+- **THEN** each operation is logged at DEBUG level
+- **AND** message includes file path and operation type
+
+#### Scenario: Summary statistics logging
+- **WHEN** installation or update completes
+- **THEN** summary statistics are logged at INFO level
+- **AND** statistics include counts for installed, updated, patched, unchanged files
+
+#### Scenario: Conflict warning logging
+- **WHEN** patch fails and backup is created
+- **THEN** individual conflict is logged at WARNING level with file path and backup location
+- **AND** summary conflict warning is logged at WARNING level after all operations
