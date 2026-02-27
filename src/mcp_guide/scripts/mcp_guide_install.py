@@ -63,6 +63,10 @@ def cli(
       status   Show installation status
       list     List installed files
     """
+    # Validate mutually exclusive flags
+    if verbose and quiet:
+        raise click.UsageError("--verbose and --quiet are mutually exclusive")
+
     if dry_run:
         click.echo(f"Dry run mode - {command} - no changes will be made")
         if interactive:

@@ -4,7 +4,10 @@
 - [x] 1.3 Compare current file with new version using SHA256
 - [x] 1.4 If current = new: Skip file, return "unchanged"
 - [x] 1.5 Load original file from `_installed.zip` (if available)
-- [x] 1.6 If no original: Update to new version, return "updated"
+- [ ] 1.6 If no archive exists:
+  - [ ] 1.6.1 If current = new: Skip file, return "unchanged" (already done in 1.4)
+  - [ ] 1.6.2 If current ≠ new: Backup as `orig.<filename>`, install new, return "conflict"
+  - [ ] 1.6.3 Log warning about potential user changes
 - [x] 1.7 Compare current with original using SHA256
 - [x] 1.8 If current = original: Update to new version, return "updated"
 - [x] 1.9 If current ≠ original: User modified file
@@ -27,6 +30,9 @@
 - [x] 2.8 Test binary files skipped
 - [x] 2.9 Test file permissions preserved
 - [x] 2.10 Test file timestamp preserved for unchanged files
+- [ ] 2.11 Test no archive: skip unchanged file (current = new) returns "unchanged"
+- [ ] 2.12 Test no archive: backup changed file (current ≠ new) returns "conflict"
+- [ ] 2.13 Test no archive: warning logged about potential user changes
 
 ## 3. Add E2E tests for install command
 - [x] 3.1 Test first install creates all files
@@ -72,6 +78,20 @@
 
 ## 10. Update documentation
 - [x] 10.1 Update CLI help text for --quiet flag (not needed - no --quiet flag implemented)
+- [x] 10.2 Document smart update behavior (already in spec)
+- [x] 10.3 Document backup file naming convention (already in spec)
+- [x] 10.4 Add changelog entry for bug fix (will be done at release time)
+
+## 11. Address code review comments
+- [x] 11.1 Fix `update_templates` to capture `install_file` return value and update stats correctly
+- [x] 11.2 Refactor `update_templates` to use `install_file` consistently (eliminates code duplication)
+- [x] 11.3 Make `--verbose` and `--quiet` mutually exclusive with clear error message
+- [x] 11.4 Fix test to fail loudly when no template files found
+- [x] 11.5 Remove test that doesn't verify actual behavior
+- [x] 11.6 Tighten quiet mode test assertions
+- [x] 11.7 Fix INSTRUCTIONS.md typos (grammar and wording)
+- [x] 11.8 Replace synchronous `unlink()` with async `AsyncPath.unlink()` in `install_file()`
+- [x] 11.9 Add try/finally block to ensure temp file cleanup on exceptions
 - [x] 10.2 Document smart update behavior (already in spec)
 - [x] 10.3 Document backup file naming convention (already in spec)
 - [x] 10.4 Add changelog entry for bug fix (will be done at release time)

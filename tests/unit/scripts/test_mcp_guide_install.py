@@ -135,31 +135,6 @@ class TestEndToEndInstallation:
         for f in template_files:
             assert f.stat().st_mtime == original_mtimes[f]
 
-    def test_install_detects_and_updates_changed_templates(self, tmp_path: Path) -> None:
-        """Test that install detects and updates changed template files."""
-        # Arrange
-        from mcp_guide.scripts.mcp_guide_install import cli
-
-        runner = CliRunner()
-        docroot = tmp_path / "docs"
-        configdir = tmp_path / "config"
-
-        # First install
-        result1 = runner.invoke(cli, ["install", "--docroot", str(docroot), "--configdir", str(configdir)])
-        assert result1.exit_code == 0
-
-        # Simulate template change by modifying archive
-        # (In real scenario, this would be a new version of mcp-guide)
-        # For this test, we'll just verify the mechanism works
-        template_files = list(docroot.rglob("*.md"))
-        assert len(template_files) > 0
-
-        # Act - Install again (would update if templates changed)
-        result2 = runner.invoke(cli, ["install", "--docroot", str(docroot), "--configdir", str(configdir)])
-
-        # Assert
-        assert result2.exit_code == 0
-
     def test_install_preserves_user_modifications_via_patch(self, tmp_path: Path) -> None:
         """Test that install preserves user modifications when templates haven't changed."""
         from mcp_guide.scripts.mcp_guide_install import cli
@@ -174,19 +149,20 @@ class TestEndToEndInstallation:
 
         # Modify a file (simulate user changes)
         template_files = [f for f in docroot.rglob("*.md") if "old" not in f.parts]
-        if template_files:
-            test_file = template_files[0]
-            original_content = test_file.read_text()
-            modified_content = original_content + "\n\n# User Added Section\nUser content here\n"
-            test_file.write_text(modified_content)
+        assert template_files, "No template files found - test cannot verify smart update behavior"
 
-            # Act - Install again (templates haven't changed)
-            result2 = runner.invoke(cli, ["install", "--docroot", str(docroot), "--configdir", str(configdir)])
+        test_file = template_files[0]
+        original_content = test_file.read_text()
+        modified_content = original_content + "\n\n# User Added Section\nUser content here\n"
+        test_file.write_text(modified_content)
 
-            # Assert - install should succeed and preserve user modifications
-            assert result2.exit_code == 0
-            final_content = test_file.read_text()
-            assert "User Added Section" in final_content
+        # Act - Install again (templates haven't changed)
+        result2 = runner.invoke(cli, ["install", "--docroot", str(docroot), "--configdir", str(configdir)])
+
+        # Assert - install should succeed and preserve user modifications
+        assert result2.exit_code == 0
+        final_content = test_file.read_text()
+        assert "User Added Section" in final_content
 
     def test_install_creates_backup_on_patch_failure(self, tmp_path: Path) -> None:
         """Test that install creates backup when patch fails."""
@@ -301,13 +277,16 @@ class TestQuietMode:
 
         # Assert
         assert result.exit_code == 0
-        # Should not contain statistics
-        assert "installed" not in result.output.lower() or "config saved" in result.output.lower()
-        # Should still show essential messages
-        assert "config saved" in result.output.lower() or result.exit_code == 0
 
-        # Assert
-        assert result.exit_code == 0
+        output = result.output.lower()
+
+        # Should not contain statistics in quiet mode
+        assert "installed" not in output
+        assert "updated" not in output
+        assert "patched" not in output
+
+        # Quiet mode suppresses all non-error output (WARNING level only)
+        # So output should be empty or minimal
         assert "interactive" in result.output.lower() or result.exit_code == 0
 
     def test_parse_verbose_flag(self) -> None:
