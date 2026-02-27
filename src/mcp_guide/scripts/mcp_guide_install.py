@@ -32,9 +32,15 @@ def setup_installer_logging(verbose: bool, quiet: bool) -> None:
     handler.setFormatter(formatter)
     handler.setLevel(get_log_level(level))
 
-    # Configure root logger
+    # Configure root logger without accumulating duplicate handlers
     root = logging.getLogger()
     root.setLevel(get_log_level(level))
+
+    # Remove any existing handlers to avoid duplicate log output when this
+    # function is called multiple times in the same process.
+    for existing_handler in list(root.handlers):
+        root.removeHandler(existing_handler)
+
     root.addHandler(handler)
 
 
@@ -84,12 +90,10 @@ def cli(
     # Setup logging based on flags
     setup_installer_logging(verbose, quiet)
 
-    asyncio.run(main(command, docroot, configdir, interactive, verbose, quiet))
+    asyncio.run(main(command, docroot, configdir, interactive))
 
 
-async def main(
-    command: str, docroot: str | None, configdir: str | None, interactive: bool, verbose: bool, quiet: bool
-) -> None:
+async def main(command: str, docroot: str | None, configdir: str | None, interactive: bool) -> None:
     """Main installation logic."""
     import logging
 
@@ -141,10 +145,6 @@ async def main(
             if not click.confirm(f"{command.capitalize()} templates to {docroot_path}?", default=True):
                 click.echo(f"{command.capitalize()} cancelled")
                 return
-
-        if verbose:
-            click.echo(f"{command.capitalize()}ing to: {docroot_path}")
-            click.echo(f"Config file: {config_file}")
 
         archive_path = docroot_path / ORIGINAL_ARCHIVE
 

@@ -92,6 +92,14 @@
 - [x] 11.7 Fix INSTRUCTIONS.md typos (grammar and wording)
 - [x] 11.8 Replace synchronous `unlink()` with async `AsyncPath.unlink()` in `install_file()`
 - [x] 11.9 Add try/finally block to ensure temp file cleanup on exceptions
+
+## 12. Address second round code review comments
+- [x] 12.1 Implement no-archive backup behavior per spec (backup + conflict + warning)
+- [x] 12.2 Centralize backup naming with `get_backup_path()` helper function
+- [x] 12.3 Fix duplicate handler accumulation in `setup_installer_logging()`
+- [x] 12.4 Remove unused `verbose` and `quiet` parameters from `main()`
+- [x] 12.5 Remove unrelated assertion from quiet mode test
+- [x] 12.6 Update verbose mode test to check for actual DEBUG output
 - [x] 10.2 Document smart update behavior (already in spec)
 - [x] 10.3 Document backup file naming convention (already in spec)
 - [x] 10.4 Add changelog entry for bug fix (will be done at release time)
