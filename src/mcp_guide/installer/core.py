@@ -19,6 +19,18 @@ BACKUP_SUFFIX = ".orig"
 logger = get_logger(__name__)
 
 
+def get_backup_path(file_path: Path) -> Path:
+    """Get backup path for a file using standard naming convention.
+
+    Args:
+        file_path: Original file path
+
+    Returns:
+        Path for backup file (orig.<filename>)
+    """
+    return file_path.parent / f"orig.{file_path.name}"
+
+
 async def compute_file_hash(filepath: Path) -> str:
     """Compute SHA256 hash of a file asynchronously.
 
@@ -365,7 +377,7 @@ async def install_file(
                 return "patched"
 
             # Patch failed - backup and replace
-            backup_path = dest.parent / f"orig.{dest.name}"
+            backup_path = get_backup_path(dest)
             async with aiofiles.open(dest, "rb") as src:
                 backup_content = await src.read()
             async with aiofiles.open(backup_path, "wb") as dst:
@@ -378,10 +390,23 @@ async def install_file(
             # Always cleanup temp file
             await original_temp_async.unlink(missing_ok=True)
 
-    # No original in archive - just update
+    # No original in archive - cannot distinguish user modifications from template changes
+    # Compare with new version
+    if await compare_files(source, dest):
+        # Files are identical - skip
+        logger.debug(f"Skipping unchanged file (no archive): {dest}")
+        return "unchanged"
+
+    # Files differ - backup and replace with warning
+    backup_path = get_backup_path(dest)
+    async with aiofiles.open(dest, "rb") as src:
+        backup_content = await src.read()
+    async with aiofiles.open(backup_path, "wb") as dst:
+        await dst.write(backup_content)
+
     await _copy_file_with_permissions(source, dest)
-    logger.debug(f"Updated file (no original in archive): {dest}")
-    return "updated"
+    logger.warning(f"⚠️  No archive: {dest} backed up to {backup_path} (cannot verify user changes)")
+    return "conflict"
 
 
 async def install_directory(source: Path, dest: Path) -> None:
