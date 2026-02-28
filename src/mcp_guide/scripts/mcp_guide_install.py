@@ -32,16 +32,18 @@ def setup_installer_logging(verbose: bool, quiet: bool) -> None:
     handler.setFormatter(formatter)
     handler.setLevel(get_log_level(level))
 
-    # Configure root logger without accumulating duplicate handlers
-    root = logging.getLogger()
-    root.setLevel(get_log_level(level))
+    # Configure installer logger (not root) to avoid impacting other loggers
+    installer_logger = logging.getLogger("mcp_guide.installer")
+    installer_logger.setLevel(get_log_level(level))
 
     # Remove any existing handlers to avoid duplicate log output when this
     # function is called multiple times in the same process.
-    for existing_handler in list(root.handlers):
-        root.removeHandler(existing_handler)
+    for existing_handler in list(installer_logger.handlers):
+        installer_logger.removeHandler(existing_handler)
 
-    root.addHandler(handler)
+    installer_logger.addHandler(handler)
+    # Prevent propagation to root logger to avoid duplicate output
+    installer_logger.propagate = False
 
 
 @click.command()

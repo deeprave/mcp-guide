@@ -103,9 +103,13 @@
 - [x] 13.1 Fix boolean chaining in `install_file` for clearer type handling
 - [x] 13.2 Remove redundant `compare_files` check in no-archive path
 - [x] 13.3 Create `_backup_file` helper to centralize backup logic
-- [ ] 13.4 Document or remove unused `smart_update` function
-- [ ] 13.5 Scope logging handlers to installer logger instead of root logger
-- [ ] 13.6 Centralize stats structure and singular/plural mapping
+- [x] 13.4 Document or remove unused `smart_update` function
+- [x] 13.5 Scope logging handlers to installer logger instead of root logger
+- [x] 13.6 Centralize stats structure and singular/plural mapping
+- [x] 13.7 Use AsyncPath for dest.exists() in install_file
+- [x] 13.8 Replace mtime-based test with hash-based verification
+- [x] 13.9 Use caplog for verbose mode test instead of output string matching
+- [x] 13.10 Fix grammar in proposal.md ("Back up" vs "Backup")
 - [x] 12.5 Remove unrelated assertion from quiet mode test
 - [x] 12.6 Update verbose mode test to check for actual DEBUG output
 - [x] 10.2 Document smart update behavior (already in spec)

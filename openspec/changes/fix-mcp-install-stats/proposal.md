@@ -37,11 +37,11 @@
     - Compute diff between original and current
     - Apply diff to new version
     - If patch succeeds: Keep patched result
-    - If patch fails: Backup as `orig.<filename>`, install new, warn user
+    - If patch fails: Back up as `orig.<filename>`, install new, warn user
 - **If no archive exists**:
   - **If current = new version**: Skip (unchanged)
-  - **If current ≠ new version**: Backup as `orig.<filename>`, install new, warn user
-  - Cannot distinguish user modifications from template changes without archive
+  - **If current ≠ new version**: Back up as `orig.<filename>`, install new, warn user
+  - Cannot distinguish user modifications from template changes without archive.
 
 ### 2. Fix Installation Spec
 Create spec delta to correct illogical scenario:
