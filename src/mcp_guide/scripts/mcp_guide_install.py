@@ -95,8 +95,6 @@ def cli(
 
 async def main(command: str, docroot: str | None, configdir: str | None, interactive: bool) -> None:
     """Main installation logic."""
-    import logging
-
     import aiofiles
 
     from mcp_guide import __version__

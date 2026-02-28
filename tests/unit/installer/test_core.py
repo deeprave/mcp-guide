@@ -288,7 +288,7 @@ class TestSmartUpdate:
         assert current.read_text() == "Line 1\nLine 2 updated\nLine 3\nLine 4 user added\n"
 
         # Verify backup was created
-        backup = tmp_path / "current.txt.orig"
+        backup = tmp_path / "orig.current.txt"
         assert backup.exists()
         assert backup.read_text() == "Line 1\nLine 2\nLine 3\nLine 4 user added\n"
 

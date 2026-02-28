@@ -14,7 +14,7 @@ from mcp_guide.core.mcp_log import get_logger
 # System files
 ORIGINAL_ARCHIVE = ".original.zip"
 VERSION_FILE = ".version"
-BACKUP_SUFFIX = ".orig"
+BACKUP_PREFIX = "orig"
 
 logger = get_logger(__name__)
 
@@ -28,7 +28,7 @@ def get_backup_path(file_path: Path) -> Path:
     Returns:
         Path for backup file (orig.<filename>)
     """
-    return file_path.parent / f"orig.{file_path.name}"
+    return file_path.parent / f"{BACKUP_PREFIX}.{file_path.name}"
 
 
 async def compute_file_hash(filepath: Path) -> str:
@@ -218,7 +218,7 @@ async def smart_update(current: Path, new: Path, original: Path) -> dict[str, st
         return {"action": "replaced", "reason": "no user changes"}
 
     # User has modified file - backup and try to patch
-    backup = current.with_suffix(current.suffix + BACKUP_SUFFIX)
+    backup = get_backup_path(current)
     async with aiofiles.open(current, "rb") as src:
         backup_content = await src.read()
 
@@ -341,15 +341,12 @@ async def install_file(
         logger.debug(f"Skipping unchanged file: {dest}")
         return "unchanged"
 
-    # If no archive, just update
-    if not archive_path or not archive_path.exists():
-        await _copy_file_with_permissions(source, dest)
-        logger.debug(f"Updated file (no original): {dest}")
-        return "updated"
-
-    # Load original from archive
+    # Check if we have an archive with the original version
+    has_archive = archive_path and archive_path.exists()
     original_name = archive_name or dest.name
-    if await file_exists_in_archive(archive_path, original_name):
+    has_original = has_archive and archive_path and await file_exists_in_archive(archive_path, original_name)
+
+    if has_original and archive_path:
         original_temp = await _extract_original_to_temp(archive_path, original_name, dest)
         original_temp_async = AsyncPath(original_temp)
 
