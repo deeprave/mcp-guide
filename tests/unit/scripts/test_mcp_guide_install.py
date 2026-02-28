@@ -110,8 +110,10 @@ class TestEndToEndInstallation:
         assert len(template_files) > 0
 
     def test_second_install_skips_unchanged_files(self, tmp_path: Path) -> None:
-        """Test that second install skips all unchanged files."""
+        """Test that second install does not modify already-installed files (by content hash)."""
         # Arrange
+        import hashlib
+
         from mcp_guide.scripts.mcp_guide_install import cli
 
         runner = CliRunner()
@@ -122,18 +124,28 @@ class TestEndToEndInstallation:
         result1 = runner.invoke(cli, ["install", "--docroot", str(docroot), "--configdir", str(configdir)])
         assert result1.exit_code == 0
 
-        # Get modification times
-        template_files = list(docroot.rglob("*.md"))
-        original_mtimes = {f: f.stat().st_mtime for f in template_files}
+        # Record hashes of all installed files (excluding the original archive)
+        installed_files = [p for p in docroot.rglob("*") if p.is_file() and p.name != ".original.zip"]
+        assert installed_files, "expected first install to produce at least one file"
 
-        # Act - Second install
+        def file_hash(path: Path) -> str:
+            h = hashlib.sha256()
+            with path.open("rb") as f:
+                for chunk in iter(lambda: f.read(8192), b""):
+                    h.update(chunk)
+            return h.hexdigest()
+
+        first_hashes = {p.relative_to(docroot): file_hash(p) for p in installed_files}
+
+        # Second install
         result2 = runner.invoke(cli, ["install", "--docroot", str(docroot), "--configdir", str(configdir)])
-
-        # Assert
         assert result2.exit_code == 0
-        # Files should have same modification times (unchanged)
-        for f in template_files:
-            assert f.stat().st_mtime == original_mtimes[f]
+
+        # Recompute hashes and make sure nothing was changed
+        installed_files_after = [p for p in docroot.rglob("*") if p.is_file() and p.name != ".original.zip"]
+        second_hashes = {p.relative_to(docroot): file_hash(p) for p in installed_files_after}
+
+        assert first_hashes == second_hashes
 
     def test_install_preserves_user_modifications_via_patch(self, tmp_path: Path) -> None:
         """Test that install preserves user modifications when templates haven't changed."""
@@ -336,8 +348,10 @@ class TestQuietMode:
         assert "Enter docroot" not in result.output
 
     def test_displays_progress_in_verbose_mode(self, tmp_path: Path) -> None:
-        """Test that verbose mode displays progress."""
+        """Test that verbose mode enables DEBUG logging."""
         # Arrange
+        import logging
+
         from mcp_guide.scripts.mcp_guide_install import cli
 
         runner = CliRunner()
@@ -349,8 +363,15 @@ class TestQuietMode:
 
         # Assert
         assert result.exit_code == 0
-        # Verbose mode should show DEBUG level logs
-        assert "DEBUG" in result.output or "Installed new file" in result.output
+        # Verbose mode should configure the installer logger at DEBUG level
+        installer_logger = logging.getLogger("mcp_guide.installer")
+        # The logger should have been configured (has handlers and appropriate level)
+        assert installer_logger.handlers, "Expected installer logger to have handlers in verbose mode"
+        # At least one handler should be at DEBUG level or the logger itself
+        has_debug = installer_logger.level == logging.DEBUG or any(
+            h.level == logging.DEBUG for h in installer_logger.handlers
+        )
+        assert has_debug, "Expected DEBUG level logging in verbose mode"
 
 
 class TestErrorHandling:

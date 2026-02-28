@@ -204,56 +204,6 @@ async def apply_diff(target: Path, diff_content: str) -> bool:
         return False
 
 
-async def smart_update(current: Path, new: Path, original: Path) -> dict[str, str]:
-    """Determine and execute smart update strategy.
-
-    Args:
-        current: Current file on filesystem
-        new: New file to install
-        original: Original file from archive
-
-    Returns:
-        Dict with 'action' and 'reason' keys
-    """
-    if await compare_files(current, new):
-        return {"action": "skipped", "reason": "current equals new"}
-
-    # If no original exists, can't track user changes - just replace
-    if not original.exists():
-        async with aiofiles.open(new, "rb") as src:
-            content = await src.read()
-        async with aiofiles.open(current, "wb") as dst:
-            await dst.write(content)
-        return {"action": "replaced", "reason": "no original to compare"}
-
-    if await compare_files(current, original):
-        async with aiofiles.open(new, "rb") as src:
-            content = await src.read()
-        async with aiofiles.open(current, "wb") as dst:
-            await dst.write(content)
-        return {"action": "replaced", "reason": "no user changes"}
-
-    # User has modified file - backup and try to patch
-    backup = get_backup_path(current)
-    async with aiofiles.open(current, "rb") as src:
-        backup_content = await src.read()
-
-    # Apply patch (patch_ng will try to create its own backup)
-    diff = await compute_diff(original, new)
-    success = await apply_diff(current, diff)
-
-    if success:
-        # Patch succeeded - create our backup
-        async with aiofiles.open(backup, "wb") as dst:
-            await dst.write(backup_content)
-        return {"action": "patched", "reason": "user changes preserved"}
-
-    # Patch failed - restore current file from backup
-    async with aiofiles.open(current, "wb") as dst:
-        await dst.write(backup_content)
-    return {"action": "conflict", "reason": "patch failed"}
-
-
 async def get_templates_path() -> Path:
     """Get the path to the templates directory in the package.
 
@@ -306,6 +256,34 @@ async def _extract_original_to_temp(archive_path: Path, rel_path: str, dest: Pat
     return original_temp
 
 
+def _create_stats_dict() -> dict[str, int]:
+    """Create a new statistics dictionary with standard keys.
+
+    Returns:
+        Dict with operation counts initialized to 0
+    """
+    return {
+        "installed": 0,
+        "updated": 0,
+        "patched": 0,
+        "unchanged": 0,
+        "conflicts": 0,
+        "skipped_binary": 0,
+    }
+
+
+def _map_result_to_stat_key(result: str) -> str:
+    """Map install_file result to stats dictionary key.
+
+    Args:
+        result: Result string from install_file
+
+    Returns:
+        Stats key (handles singular/plural mapping)
+    """
+    return "conflicts" if result == "conflict" else result
+
+
 async def _copy_file_with_permissions(source: Path, dest: Path) -> None:
     """Copy file content and permissions from source to dest.
 
@@ -347,7 +325,8 @@ async def install_file(
         return "skipped_binary"
 
     # If dest doesn't exist, install new file
-    if not dest.exists():
+    adest = AsyncPath(dest)
+    if not await adest.exists():
         await _copy_file_with_permissions(source, dest)
         logger.debug(f"Installed new file: {dest}")
         return "installed"
@@ -469,15 +448,7 @@ async def install_templates(docroot: Path, archive_path: Path) -> dict[str, int]
     templates_path = await get_templates_path()
     template_files = await list_template_files()
 
-    # Track statistics
-    stats = {
-        "installed": 0,
-        "updated": 0,
-        "patched": 0,
-        "unchanged": 0,
-        "conflicts": 0,
-        "skipped_binary": 0,
-    }
+    stats = _create_stats_dict()
 
     # Install all template files
     for template_file in template_files:
@@ -486,8 +457,7 @@ async def install_templates(docroot: Path, archive_path: Path) -> dict[str, int]
         result = await install_file(
             template_file, dest_file, archive_path if archive_path.exists() else None, str(rel_path)
         )
-        # Map singular "conflict" to plural "conflicts" for stats
-        stat_key = "conflicts" if result == "conflict" else result
+        stat_key = _map_result_to_stat_key(result)
         stats[stat_key] += 1
 
     # Create archive of originals with version
@@ -516,14 +486,7 @@ async def update_templates(docroot: Path, archive_path: Path) -> dict[str, int]:
     templates_path = await get_templates_path()
     template_files = await list_template_files()
 
-    stats = {
-        "installed": 0,
-        "updated": 0,
-        "patched": 0,
-        "unchanged": 0,
-        "conflicts": 0,
-        "skipped_binary": 0,
-    }
+    stats = _create_stats_dict()
 
     for template_file in template_files:
         rel_path = template_file.relative_to(templates_path)
@@ -531,8 +494,7 @@ async def update_templates(docroot: Path, archive_path: Path) -> dict[str, int]:
 
         # Use install_file for all cases - it handles everything
         result = await install_file(template_file, current_file, archive_path, str(rel_path))
-        # Map singular "conflict" to plural "conflicts" for stats
-        stat_key = "conflicts" if result == "conflict" else result
+        stat_key = _map_result_to_stat_key(result)
         stats[stat_key] += 1
 
     # Update archive with new originals
