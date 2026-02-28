@@ -200,11 +200,11 @@ class TestEndToEndInstallation:
 
             status = asyncio.run(test_conflict())
 
-            # Assert
-            if status == "conflict":
-                backup_file = test_file.parent / f"orig.{test_file.name}"
-                assert backup_file.exists()
-                assert "Completely Different Content" in backup_file.read_text()
+            # Assert - must be a conflict
+            assert status == "conflict", f"Expected conflict but got {status}"
+            backup_file = test_file.parent / f"orig.{test_file.name}"
+            assert backup_file.exists(), "Backup file should exist"
+            assert "Completely Different Content" in backup_file.read_text()
 
     def test_install_reports_correct_statistics(self, tmp_path: Path) -> None:
         """Test that install reports correct statistics."""
