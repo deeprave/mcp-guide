@@ -98,6 +98,14 @@
 - [x] 12.2 Centralize backup naming with `get_backup_path()` helper function
 - [x] 12.3 Fix duplicate handler accumulation in `setup_installer_logging()`
 - [x] 12.4 Remove unused `verbose` and `quiet` parameters from `main()`
+
+## 13. Address third round code review comments
+- [x] 13.1 Fix boolean chaining in `install_file` for clearer type handling
+- [x] 13.2 Remove redundant `compare_files` check in no-archive path
+- [x] 13.3 Create `_backup_file` helper to centralize backup logic
+- [ ] 13.4 Document or remove unused `smart_update` function
+- [ ] 13.5 Scope logging handlers to installer logger instead of root logger
+- [ ] 13.6 Centralize stats structure and singular/plural mapping
 - [x] 12.5 Remove unrelated assertion from quiet mode test
 - [x] 12.6 Update verbose mode test to check for actual DEBUG output
 - [x] 10.2 Document smart update behavior (already in spec)

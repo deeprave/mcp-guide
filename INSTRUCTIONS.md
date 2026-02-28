@@ -46,10 +46,10 @@ description: Don't be guilty of "mea culpa": avoid these mistakes you repeatedly
 - **NEVER** access private variables of a foreign class or module
 - **ALWAYS** use the public API of that foreign class or module ONLY
 - **FOLLOW** public APIs - properties, attributes and functions provided by the class
-- **NEVER** by extension, use getattr(), hasattr() or setattr() or a foreign class or module
+- **NEVER** use getattr(), hasattr(), or setattr() on a foreign class or module
 
 ### Code Organisation
-- **ALWAYS** use module-level imports (PEP 8) unless unavoidable, use typing.TYPE_CHECKING where necessary.
+- **ALWAYS** use module-level imports (PEP 8). If non-module-level imports are unavoidable, use typing.TYPE_CHECKING where necessary.
 - **ALWAYS** add comments detailing the reason why imports must be defined at non-module level scope
 
 ### Text Transformation Tools – PROHIBITED
@@ -86,7 +86,7 @@ description: Don't be guilty of "mea culpa": avoid these mistakes you repeatedly
 4. **NEVER** hardcoding filesystem paths
 5. **NEVER** have template content in code
 6. **NEVER** ignore and duplicate existing infrastructure and functionality
-7. **NEVER** use function-level imports without requirement (avoiding circular imports or rarely used modules etc.)
+7. **NEVER** use function-level imports without a requirement (e.g., avoiding circular imports or rarely used modules, etc.).
 8. **NEVER** hardcode instruction text – use existing template rendering infrastructure
 9. **NEVER** access private attributes
 10. **NEVER** use sed, awk or perl for text transformations – use fs_write str_replace instead
