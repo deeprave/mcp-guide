@@ -4,10 +4,10 @@
 - [x] 1.3 Compare current file with new version using SHA256
 - [x] 1.4 If current = new: Skip file, return "unchanged"
 - [x] 1.5 Load original file from `_installed.zip` (if available)
-- [ ] 1.6 If no archive exists:
-  - [ ] 1.6.1 If current = new: Skip file, return "unchanged" (already done in 1.4)
-  - [ ] 1.6.2 If current ≠ new: Backup as `orig.<filename>`, install new, return "conflict"
-  - [ ] 1.6.3 Log warning about potential user changes
+- [x] 1.6 If no archive exists:
+  - [x] 1.6.1 If current = new: Skip file, return "unchanged" (already done in 1.4)
+  - [x] 1.6.2 If current ≠ new: Backup as `orig.<filename>`, install new, return "conflict"
+  - [x] 1.6.3 Log warning about potential user changes
 - [x] 1.7 Compare current with original using SHA256
 - [x] 1.8 If current = original: Update to new version, return "updated"
 - [x] 1.9 If current ≠ original: User modified file
@@ -30,9 +30,9 @@
 - [x] 2.8 Test binary files skipped
 - [x] 2.9 Test file permissions preserved
 - [x] 2.10 Test file timestamp preserved for unchanged files
-- [ ] 2.11 Test no archive: skip unchanged file (current = new) returns "unchanged"
-- [ ] 2.12 Test no archive: backup changed file (current ≠ new) returns "conflict"
-- [ ] 2.13 Test no archive: warning logged about potential user changes
+- [x] 2.11 Test no archive: skip unchanged file (current = new) returns "unchanged"
+- [x] 2.12 Test no archive: backup changed file (current ≠ new) returns "conflict"
+- [x] 2.13 Test no archive: warning logged about potential user changes
 
 ## 3. Add E2E tests for install command
 - [x] 3.1 Test first install creates all files

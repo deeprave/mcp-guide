@@ -582,3 +582,62 @@ class TestInstallFileSmartUpdate:
         assert "user changes" in dest1.read_text()  # User changes preserved
         assert "new line" in dest1.read_text()  # New content applied
         assert "new line" in dest2.read_text()  # New content applied
+
+    @pytest.mark.asyncio
+    async def test_install_file_no_archive_skip_unchanged(self, tmp_path: Path) -> None:
+        """Test that install_file returns 'unchanged' when no archive and files are identical."""
+        # Arrange
+        from mcp_guide.installer.core import install_file
+
+        source = tmp_path / "source.txt"
+        source.write_text("same content")
+        dest = tmp_path / "dest.txt"
+        dest.write_text("same content")
+
+        # Act - no archive provided
+        result = await install_file(source, dest, archive_path=None)
+
+        # Assert
+        assert result == "unchanged"
+        assert dest.read_text() == "same content"
+
+    @pytest.mark.asyncio
+    async def test_install_file_no_archive_backup_changed(self, tmp_path: Path, caplog) -> None:
+        """Test that install_file backs up and returns 'conflict' when no archive and files differ."""
+        # Arrange
+        from mcp_guide.installer.core import install_file
+
+        source = tmp_path / "source.txt"
+        source.write_text("new content")
+        dest = tmp_path / "dest.txt"
+        dest.write_text("old content")
+
+        # Act - no archive provided
+        with caplog.at_level("WARNING"):
+            result = await install_file(source, dest, archive_path=None)
+
+        # Assert
+        assert result == "conflict"
+        assert dest.read_text() == "new content"  # New version installed
+        backup = tmp_path / "orig.dest.txt"
+        assert backup.exists()
+        assert backup.read_text() == "old content"  # Old version backed up
+
+    @pytest.mark.asyncio
+    async def test_install_file_no_archive_warning_logged(self, tmp_path: Path, caplog) -> None:
+        """Test that install_file logs warning about inability to verify user changes when no archive."""
+        # Arrange
+        from mcp_guide.installer.core import install_file
+
+        source = tmp_path / "source.txt"
+        source.write_text("new content")
+        dest = tmp_path / "dest.txt"
+        dest.write_text("old content")
+
+        # Act - no archive provided
+        with caplog.at_level("WARNING"):
+            await install_file(source, dest, archive_path=None)
+
+        # Assert
+        assert any("No archive" in record.message for record in caplog.records)
+        assert any("cannot verify user changes" in record.message for record in caplog.records)
