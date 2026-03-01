@@ -382,13 +382,13 @@ class TestInstallFileSmartUpdate:
     async def test_docroot_safety_check_same_path_raises(self, tmp_path: Path) -> None:
         """Test that docroot safety check raises when docroot equals template source."""
         # Arrange
-        from mcp_guide.installer.core import _get_templates_path_sync, validate_docroot_safety
+        from mcp_guide.installer.core import get_templates_path, validate_docroot_safety
 
-        templates_path = _get_templates_path_sync()
+        templates_path = await get_templates_path()
 
         # Act & Assert
         with pytest.raises(ValueError, match="Docroot cannot be same as template source"):
-            validate_docroot_safety(templates_path)
+            await validate_docroot_safety(templates_path)
 
     @pytest.mark.asyncio
     async def test_docroot_safety_check_different_path_ok(self, tmp_path: Path) -> None:
@@ -400,7 +400,7 @@ class TestInstallFileSmartUpdate:
         docroot.mkdir()
 
         # Act & Assert - should not raise
-        validate_docroot_safety(docroot)
+        await validate_docroot_safety(docroot)
 
     @pytest.mark.asyncio
     async def test_docroot_safety_check_nonexistent_path_ok(self, tmp_path: Path) -> None:
@@ -411,7 +411,7 @@ class TestInstallFileSmartUpdate:
         docroot = tmp_path / "nonexistent"
 
         # Act & Assert - should not raise
-        validate_docroot_safety(docroot)
+        await validate_docroot_safety(docroot)
 
     @pytest.mark.asyncio
     async def test_install_file_returns_skipped_binary_for_binary_files(self, tmp_path: Path) -> None:

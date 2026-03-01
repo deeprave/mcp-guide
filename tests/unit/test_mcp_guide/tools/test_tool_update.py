@@ -36,51 +36,12 @@ async def test_update_documents_already_current_version(tmp_path):
         f.write(__version__)
 
     with patch("mcp_guide.tools.tool_update.get_or_create_session", return_value=session):
-        result = await internal_update_documents(UpdateDocumentsArgs(force=False), ctx)
+        result = await internal_update_documents(UpdateDocumentsArgs(), ctx)
 
         assert result.success is True
         value = result.value
         assert value["updated"] is False
         assert "Already at version" in value["message"]
-
-
-@pytest.mark.asyncio
-async def test_update_documents_force_update(tmp_path):
-    """Test update_documents performs update when force=True."""
-    ctx = Mock()
-    session = Mock()
-    session.get_docroot = AsyncMock(return_value=str(tmp_path))
-
-    # Create version file with current version
-    version_file = tmp_path / ".version"
-    with open(version_file, "w") as f:
-        from mcp_guide import __version__
-
-        f.write(__version__)
-
-    mock_stats = {
-        "installed": 0,
-        "updated": 5,
-        "patched": 2,
-        "unchanged": 10,
-        "conflicts": 0,
-        "skipped_binary": 0,
-    }
-
-    with patch("mcp_guide.tools.tool_update.get_or_create_session", return_value=session):
-        with patch("mcp_guide.tools.tool_update.lock_update", new_callable=AsyncMock) as mock_lock:
-            mock_lock.return_value = mock_stats
-
-            result = await internal_update_documents(UpdateDocumentsArgs(force=True), ctx)
-
-            assert result.success is True
-            value = result.value
-            assert value["updated"] is True
-            assert value["stats"] == mock_stats
-            assert "successfully" in value["message"]
-
-            # Verify lock_update was called
-            mock_lock.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -108,7 +69,7 @@ async def test_update_documents_new_version(tmp_path):
         with patch("mcp_guide.tools.tool_update.lock_update", new_callable=AsyncMock) as mock_lock:
             mock_lock.return_value = mock_stats
 
-            result = await internal_update_documents(UpdateDocumentsArgs(force=False), ctx)
+            result = await internal_update_documents(UpdateDocumentsArgs(), ctx)
 
             assert result.success is True
             value = result.value
@@ -136,7 +97,7 @@ async def test_update_documents_no_version_file(tmp_path):
         with patch("mcp_guide.tools.tool_update.lock_update", new_callable=AsyncMock) as mock_lock:
             mock_lock.return_value = mock_stats
 
-            result = await internal_update_documents(UpdateDocumentsArgs(force=False), ctx)
+            result = await internal_update_documents(UpdateDocumentsArgs(), ctx)
 
             assert result.success is True
             value = result.value
@@ -156,9 +117,40 @@ async def test_update_documents_creates_docroot(tmp_path):
 
     with patch("mcp_guide.tools.tool_update.get_or_create_session", return_value=session):
         with patch("mcp_guide.tools.tool_update.lock_update", new_callable=AsyncMock) as mock_lock:
-            mock_lock.return_value = mock_stats
+            with patch("mcp_guide.installer.core.write_version", new_callable=AsyncMock) as mock_write:
+                mock_lock.return_value = mock_stats
 
-            result = await internal_update_documents(UpdateDocumentsArgs(force=False), ctx)
+                result = await internal_update_documents(UpdateDocumentsArgs(), ctx)
 
-            assert result.success is True
-            assert docroot.exists()
+                assert result.success is True
+                assert docroot.exists()
+                # Verify version was written
+                mock_write.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_update_documents_writes_version_after_update(tmp_path):
+    """Test update_documents writes version file after successful update."""
+    ctx = Mock()
+    session = Mock()
+    session.get_docroot = AsyncMock(return_value=str(tmp_path))
+
+    # Create old version file
+    version_file = tmp_path / ".version"
+    with open(version_file, "w") as f:
+        f.write("0.0.1")
+
+    mock_stats = {"installed": 0, "updated": 5, "patched": 0, "unchanged": 0, "conflicts": 0, "skipped_binary": 0}
+
+    with patch("mcp_guide.tools.tool_update.get_or_create_session", return_value=session):
+        with patch("mcp_guide.tools.tool_update.lock_update", new_callable=AsyncMock) as mock_lock:
+            with patch("mcp_guide.installer.core.write_version", new_callable=AsyncMock) as mock_write:
+                mock_lock.return_value = mock_stats
+
+                result = await internal_update_documents(UpdateDocumentsArgs(), ctx)
+
+                assert result.success is True
+                # Verify write_version was called with correct arguments
+                from mcp_guide import __version__
+
+                mock_write.assert_called_once_with(tmp_path, __version__)

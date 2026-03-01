@@ -19,24 +19,7 @@ BACKUP_PREFIX = "orig"
 logger = get_logger(__name__)
 
 
-def _get_templates_path_sync() -> Path:
-    """Get templates path synchronously for validation.
-
-    Returns:
-        Path to templates directory
-    """
-    import mcp_guide
-
-    package_path = Path(mcp_guide.__file__).parent
-    templates_in_package = package_path / "templates"
-    if templates_in_package.exists():
-        return templates_in_package
-
-    # Fallback to development path
-    return package_path.parent.parent / "templates"
-
-
-def validate_docroot_safety(docroot: Path) -> None:
+async def validate_docroot_safety(docroot: Path) -> None:
     """Validate docroot is not the template source directory.
 
     Args:
@@ -45,14 +28,20 @@ def validate_docroot_safety(docroot: Path) -> None:
     Raises:
         ValueError: If docroot resolves to template source path
     """
-    templates_path = _get_templates_path_sync()
+    templates_path = await get_templates_path()
+    try:
+        templates_resolved = templates_path.resolve(strict=True)
+    except (OSError, RuntimeError):
+        # If templates path cannot be resolved, skip the safety check
+        return
+
     try:
         docroot_resolved = docroot.resolve(strict=True)
     except (OSError, RuntimeError):
         # If docroot doesn't exist yet, it's safe
         return
 
-    if docroot_resolved == templates_path:
+    if docroot_resolved == templates_resolved:
         raise ValueError(f"Docroot cannot be same as template source: {docroot_resolved}")
 
 
@@ -486,7 +475,7 @@ async def install_templates(docroot: Path, archive_path: Path) -> dict[str, int]
     await AsyncPath(docroot).mkdir(parents=True, exist_ok=True)
 
     # Safety check: prevent docroot from being template source
-    validate_docroot_safety(docroot)
+    await validate_docroot_safety(docroot)
 
     templates_path = await get_templates_path()
     template_files = await list_template_files()
@@ -530,7 +519,7 @@ async def update_documents(docroot: Path, archive_path: Path) -> dict[str, int]:
     await AsyncPath(docroot).mkdir(parents=True, exist_ok=True)
 
     # Safety check: prevent docroot from being template source
-    validate_docroot_safety(docroot)
+    await validate_docroot_safety(docroot)
 
     templates_path = await get_templates_path()
     template_files = await list_template_files()
