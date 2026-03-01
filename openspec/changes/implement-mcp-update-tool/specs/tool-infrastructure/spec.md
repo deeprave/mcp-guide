@@ -29,10 +29,18 @@ The system SHALL provide an MCP tool `update_documents` that updates documentati
 
 #### Scenario: Exclusive access via locking
 - **WHEN** tool is invoked
-- **THEN** `lock_update()` is used for exclusive file access
+- **THEN** docroot is ensured to exist via `mkdir(parents=True, exist_ok=True)`
+- **AND** lock path is `docroot / ".update"` (creates `.update.lock`)
+- **AND** `lock_update(lock_path, _perform_update, docroot, archive_path)` is used
 - **AND** lock is automatically cleaned up on completion or error
 
 #### Scenario: Tool accepts no arguments
 - **WHEN** tool is registered
 - **THEN** it accepts no parameters
 - **AND** uses session docroot automatically
+
+#### Scenario: Lock shared with mcp-install script
+- **WHEN** both MCP tool and mcp-install script use update functionality
+- **THEN** both use same lock path `docroot / ".update"`
+- **AND** concurrent operations wait for lock
+- **AND** lock file is `{docroot}/.update.lock`

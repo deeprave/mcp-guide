@@ -4,6 +4,7 @@ from typing import Callable, Dict
 
 from mcp_guide.feature_flags.constants import (
     FLAG_ALLOW_CLIENT_INFO,
+    FLAG_AUTOUPDATE,
     FLAG_CONTENT_FORMAT,
     FLAG_CONTENT_STYLE,
     FLAG_GUIDE_DEVELOPMENT,
@@ -103,6 +104,32 @@ def validate_allow_client_info(value: FeatureValue, is_project: bool) -> bool:
     return False
 
 
+def validate_autoupdate(value: FeatureValue, is_project: bool) -> bool:
+    """Validate autoupdate flag value.
+
+    This flag is global-only and cannot be set at project level.
+
+    Args:
+        value: Flag value to validate
+        is_project: True if this is a project flag, False if global
+
+    Returns:
+        True if value is valid, False otherwise
+    """
+    # Reject project-level setting
+    if is_project:
+        return False
+
+    # Accept boolean values only
+    if value is True or value in ["true", "enabled", "on"]:
+        return True
+
+    if value is False or value is None or value in ["false", "disabled", "off"]:
+        return True
+
+    return False
+
+
 def validate_boolean_flag(value: FeatureValue, is_project: bool) -> bool:
     """Validate simple boolean flag value.
 
@@ -171,4 +198,5 @@ def clear_validators() -> None:
 register_flag_validator(FLAG_CONTENT_FORMAT, validate_content_format_mime)
 register_flag_validator(FLAG_CONTENT_STYLE, validate_template_styling)
 register_flag_validator(FLAG_ALLOW_CLIENT_INFO, validate_allow_client_info)
+register_flag_validator(FLAG_AUTOUPDATE, validate_autoupdate)
 register_flag_validator(FLAG_GUIDE_DEVELOPMENT, validate_boolean_flag)

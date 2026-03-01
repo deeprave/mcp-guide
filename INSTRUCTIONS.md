@@ -78,6 +78,10 @@ description: Don't be guilty of "mea culpa": avoid these mistakes you repeatedly
 - **NEVER** hardcode paths like "templates" / "_workflow" – use proper discovery
 
 
+### Testing
+- **ALWAYS** use pytest native fixtures, preferred over unittest functionality such as a `setup()` method
+- **PREFER** function-scopped fixtures over module or autouse=True, don't add unnecessary overhead to all tests
+
 ## Summary
 ### Common Mistakes that MUST be avoided
 1. **NEVER** create sync wrapper functions or have effectively duplicate sync/async versions

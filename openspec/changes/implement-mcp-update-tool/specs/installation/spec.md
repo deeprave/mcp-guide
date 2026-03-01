@@ -1,17 +1,23 @@
 ## MODIFIED Requirements
 
 ### Requirement: Smart Update Logic
-The system SHALL provide `update_docs()` function (renamed from `update_templates()`) that updates all documentation files using smart comparison logic.
+The system SHALL provide `update_documents()` function (renamed from `update_templates()`) that updates all documentation files using smart comparison logic.
 
 #### Scenario: Function renamed for clarity
 - **WHEN** update logic is invoked
-- **THEN** function is named `update_docs()`
+- **THEN** function is named `update_documents()`
 - **AND** handles all file types (templates, markdown, etc.)
 - **AND** uses same smart update logic as before
 
+#### Scenario: Docroot ensured before operations
+- **WHEN** `install_templates()` or `update_documents()` is called
+- **THEN** `await AsyncPath(docroot).mkdir(parents=True, exist_ok=True)` is called first
+- **AND** docroot is guaranteed to exist before any file operations
+- **AND** lock file creation cannot fail due to missing directory
+
 #### Scenario: Reused by update tool
 - **WHEN** `update_documents` tool is invoked
-- **THEN** it calls `update_docs()` function
+- **THEN** it calls `update_documents()` function
 - **AND** uses same parameters as `mcp-install update`
 - **AND** returns same statistics format
 

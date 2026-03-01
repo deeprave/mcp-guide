@@ -49,6 +49,7 @@ Remove the workflow flag (use default)
 | `content-style` | Controls markdown formatting in template output. `plain` = strips all formatting, `headings` = renders heading markers only, `full` = renders all markdown. | `string` | `plain` |
 | `content-format` | Controls content MIME type. `text` = plain text, `mime` = MIME multipart format. | `string` | `text` |
 | `allow-client-info` | Enables collection of client environment information (OS, hostname, user, git remotes). Privacy-sensitive. | `boolean` | `false` |
+| `autoupdate` | Enables automatic update prompting at startup when new documentation versions are available. Prompts agent to run the `update_documents` tool. Global only (cannot be set per-project). | `boolean` | `false` |
 | `guide-development` | Enables development features for mcp-guide itself. | `boolean` | `false` |
 
 **Notes:**

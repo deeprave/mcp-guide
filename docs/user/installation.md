@@ -242,6 +242,18 @@ Use `--help` to display usage information:
 mcp-install --help
 ```
 
+**Updating from within your agent:**
+
+You can also update documentation directly through your AI agent using the `update_documents` tool. Just ask:
+
+```
+Please update the documentation
+```
+
+The agent will run the `update_documents` tool, which performs the same smart update as `mcp-install update`. To enable automatic update prompting when new versions are available, set the `autoupdate` feature flag globally.
+
+**See:** [Feature Flags](feature-flags.md) for details on the `autoupdate` flag.
+
 ### guide-agent-install
 
 Install mcp-guide configuration for specific AI agents. Automates the setup process by creating the appropriate configuration files.

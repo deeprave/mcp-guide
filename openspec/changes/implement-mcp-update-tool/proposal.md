@@ -13,8 +13,10 @@ Users need a way to update documentation files when the mcp-guide package is upd
 - Add `update_documents` tool (no arguments) that updates docroot using same logic as `mcp-install update`
 - Add global feature flag `autoupdate` (boolean) with validation to prevent project-level usage
 - Add `McpUpdateTask` that checks flag once at startup and queues instruction if enabled
-- Reuse existing installer logic (`update_templates` renamed to `update_docs`) with `lock_update()` for exclusive access
+- Reuse existing installer logic (`update_templates` renamed to `update_documents`) with `lock_update()` for exclusive access
 - Tool validates `.version` file and compares with current package version
+- Ensure docroot exists before locking (using `mkdir(parents=True, exist_ok=True)`)
+- Lock file created at `{docroot}/.update.lock` (shared between MCP tool and mcp-install script)
 
 ## Impact
 

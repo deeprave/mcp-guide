@@ -3,6 +3,7 @@
 import pytest
 
 from mcp_guide.feature_flags.constants import (
+    FLAG_AUTOUPDATE,
     FLAG_GUIDE_DEVELOPMENT,
     FLAG_WORKFLOW,
     FLAG_WORKFLOW_FILE,
@@ -161,3 +162,43 @@ class TestGuideDevelopmentValidator:
             validate_flag_with_registered(FLAG_GUIDE_DEVELOPMENT, "invalid", is_project=True)
         with pytest.raises(FlagValidationError):
             validate_flag_with_registered(FLAG_GUIDE_DEVELOPMENT, 1, is_project=False)
+
+
+class TestAutoupdateValidator:
+    """Test autoupdate flag validator."""
+
+    def setup_method(self):
+        """Clear and re-register validators before each test."""
+        clear_validators()
+        # Re-register the autoupdate validator
+        from mcp_guide.feature_flags.validators import register_flag_validator, validate_autoupdate
+
+        register_flag_validator(FLAG_AUTOUPDATE, validate_autoupdate)
+
+    def test_autoupdate_accepts_boolean_global(self):
+        """Test that autoupdate accepts boolean values at global level."""
+        validate_flag_with_registered(FLAG_AUTOUPDATE, True, is_project=False)
+        validate_flag_with_registered(FLAG_AUTOUPDATE, False, is_project=False)
+
+    def test_autoupdate_accepts_string_boolean_global(self):
+        """Test that autoupdate accepts string boolean values at global level."""
+        validate_flag_with_registered(FLAG_AUTOUPDATE, "true", is_project=False)
+        validate_flag_with_registered(FLAG_AUTOUPDATE, "false", is_project=False)
+        validate_flag_with_registered(FLAG_AUTOUPDATE, "enabled", is_project=False)
+        validate_flag_with_registered(FLAG_AUTOUPDATE, "disabled", is_project=False)
+
+    def test_autoupdate_rejects_project_level(self):
+        """Test that autoupdate rejects project-level setting."""
+        with pytest.raises(FlagValidationError, match="Invalid project flag 'autoupdate'"):
+            validate_flag_with_registered(FLAG_AUTOUPDATE, True, is_project=True)
+        with pytest.raises(FlagValidationError, match="Invalid project flag 'autoupdate'"):
+            validate_flag_with_registered(FLAG_AUTOUPDATE, False, is_project=True)
+
+    def test_autoupdate_rejects_invalid_values(self):
+        """Test that autoupdate rejects invalid values."""
+        with pytest.raises(FlagValidationError):
+            validate_flag_with_registered(FLAG_AUTOUPDATE, "invalid", is_project=False)
+        with pytest.raises(FlagValidationError):
+            validate_flag_with_registered(FLAG_AUTOUPDATE, 1, is_project=False)
+        with pytest.raises(FlagValidationError):
+            validate_flag_with_registered(FLAG_AUTOUPDATE, ["list"], is_project=False)

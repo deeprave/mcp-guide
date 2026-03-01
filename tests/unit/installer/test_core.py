@@ -349,10 +349,10 @@ class TestInstallationOrchestration:
         assert result["installed"] > 0
 
     @pytest.mark.asyncio
-    async def test_update_templates_uses_smart_strategy(self, tmp_path: Path) -> None:
-        """Test that update_templates uses smart update strategy."""
+    async def test_update_documents_uses_smart_strategy(self, tmp_path: Path) -> None:
+        """Test that update_documents uses smart update strategy."""
         # Arrange
-        from mcp_guide.installer.core import update_templates
+        from mcp_guide.installer.core import update_documents
 
         docroot = tmp_path / "docroot"
         archive_path = tmp_path / "originals.zip"
@@ -369,7 +369,7 @@ class TestInstallationOrchestration:
             zf.writestr("README.md", "Archive readme\n")
 
         # Act
-        result = await update_templates(docroot, archive_path)
+        result = await update_documents(docroot, archive_path)
 
         # Assert
         assert "unchanged" in result or "patched" in result or "updated" in result or "installed" in result
@@ -377,6 +377,41 @@ class TestInstallationOrchestration:
 
 class TestInstallFileSmartUpdate:
     """Tests for install_file smart update strategy."""
+
+    @pytest.mark.asyncio
+    async def test_docroot_safety_check_same_path_raises(self, tmp_path: Path) -> None:
+        """Test that docroot safety check raises when docroot equals template source."""
+        # Arrange
+        from mcp_guide.installer.core import _get_templates_path_sync, validate_docroot_safety
+
+        templates_path = _get_templates_path_sync()
+
+        # Act & Assert
+        with pytest.raises(ValueError, match="Docroot cannot be same as template source"):
+            validate_docroot_safety(templates_path)
+
+    @pytest.mark.asyncio
+    async def test_docroot_safety_check_different_path_ok(self, tmp_path: Path) -> None:
+        """Test that docroot safety check passes when docroot differs from template source."""
+        # Arrange
+        from mcp_guide.installer.core import validate_docroot_safety
+
+        docroot = tmp_path / "docroot"
+        docroot.mkdir()
+
+        # Act & Assert - should not raise
+        validate_docroot_safety(docroot)
+
+    @pytest.mark.asyncio
+    async def test_docroot_safety_check_nonexistent_path_ok(self, tmp_path: Path) -> None:
+        """Test that docroot safety check passes when docroot doesn't exist yet."""
+        # Arrange
+        from mcp_guide.installer.core import validate_docroot_safety
+
+        docroot = tmp_path / "nonexistent"
+
+        # Act & Assert - should not raise
+        validate_docroot_safety(docroot)
 
     @pytest.mark.asyncio
     async def test_install_file_returns_skipped_binary_for_binary_files(self, tmp_path: Path) -> None:

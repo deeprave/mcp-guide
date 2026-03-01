@@ -1,0 +1,112 @@
+"""Tests for McpUpdateTask."""
+
+from unittest.mock import AsyncMock, Mock, patch
+
+import pytest
+
+from mcp_guide.tasks.update_task import McpUpdateTask
+
+
+@pytest.mark.asyncio
+async def test_update_task_disabled_without_flag():
+    """Test task is disabled when autoupdate flag is not set."""
+    task_manager = Mock()
+    task_manager.requires_flag.return_value = False
+
+    task = McpUpdateTask(task_manager)
+    await task.on_init()
+
+    # Should check flag and return early
+    task_manager.requires_flag.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_update_task_no_project():
+    """Test task handles missing project gracefully."""
+    task_manager = Mock()
+    task_manager.requires_flag.return_value = True
+
+    with patch("mcp_guide.session.get_or_create_session") as mock_session:
+        mock_session.side_effect = ValueError("No project")
+
+        task = McpUpdateTask(task_manager)
+        await task.on_init()
+
+        # Should not crash
+        task_manager.requires_flag.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_update_task_no_version_file(tmp_path):
+    """Test task prompts when no version file exists."""
+    task_manager = Mock()
+    task_manager.requires_flag.return_value = True
+    task_manager.queue_instruction_with_ack = AsyncMock(return_value="test-id")
+
+    session = Mock()
+    session.get_docroot = AsyncMock(return_value=str(tmp_path))
+
+    with patch("mcp_guide.session.get_or_create_session", return_value=session):
+        with patch("mcp_guide.render.rendering.render_content") as mock_render:
+            mock_content = Mock()
+            mock_content.content = "Update prompt"
+            mock_render.return_value = mock_content
+
+            task = McpUpdateTask(task_manager)
+            await task.on_init()
+
+            # Should queue instruction
+            task_manager.queue_instruction_with_ack.assert_called_once_with("Update prompt")
+
+
+@pytest.mark.asyncio
+async def test_update_task_version_mismatch(tmp_path):
+    """Test task prompts when version differs."""
+    task_manager = Mock()
+    task_manager.requires_flag.return_value = True
+    task_manager.queue_instruction_with_ack = AsyncMock(return_value="test-id")
+
+    session = Mock()
+    session.get_docroot = AsyncMock(return_value=str(tmp_path))
+
+    # Create version file with old version
+    version_file = tmp_path / ".version"
+    with open(version_file, "w") as f:
+        f.write("0.0.1")
+
+    with patch("mcp_guide.session.get_or_create_session", return_value=session):
+        with patch("mcp_guide.render.rendering.render_content") as mock_render:
+            mock_content = Mock()
+            mock_content.content = "Update prompt"
+            mock_render.return_value = mock_content
+
+            task = McpUpdateTask(task_manager)
+            await task.on_init()
+
+            # Should queue instruction
+            task_manager.queue_instruction_with_ack.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_update_task_version_current(tmp_path):
+    """Test task skips prompt when version is current."""
+    task_manager = Mock()
+    task_manager.requires_flag.return_value = True
+    task_manager.queue_instruction_with_ack = AsyncMock()
+
+    session = Mock()
+    session.get_docroot = AsyncMock(return_value=str(tmp_path))
+
+    # Create version file with current version
+    version_file = tmp_path / ".version"
+    with open(version_file, "w") as f:
+        from mcp_guide import __version__
+
+        f.write(__version__)
+
+    with patch("mcp_guide.session.get_or_create_session", return_value=session):
+        task = McpUpdateTask(task_manager)
+        await task.on_init()
+
+        # Should NOT queue instruction
+        task_manager.queue_instruction_with_ack.assert_not_called()

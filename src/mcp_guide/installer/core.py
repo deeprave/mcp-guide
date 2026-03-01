@@ -19,6 +19,43 @@ BACKUP_PREFIX = "orig"
 logger = get_logger(__name__)
 
 
+def _get_templates_path_sync() -> Path:
+    """Get templates path synchronously for validation.
+
+    Returns:
+        Path to templates directory
+    """
+    import mcp_guide
+
+    package_path = Path(mcp_guide.__file__).parent
+    templates_in_package = package_path / "templates"
+    if templates_in_package.exists():
+        return templates_in_package
+
+    # Fallback to development path
+    return package_path.parent.parent / "templates"
+
+
+def validate_docroot_safety(docroot: Path) -> None:
+    """Validate docroot is not the template source directory.
+
+    Args:
+        docroot: Docroot path to validate
+
+    Raises:
+        ValueError: If docroot resolves to template source path
+    """
+    templates_path = _get_templates_path_sync()
+    try:
+        docroot_resolved = docroot.resolve(strict=True)
+    except (OSError, RuntimeError):
+        # If docroot doesn't exist yet, it's safe
+        return
+
+    if docroot_resolved == templates_path:
+        raise ValueError(f"Docroot cannot be same as template source: {docroot_resolved}")
+
+
 def get_backup_path(file_path: Path) -> Path:
     """Get backup path for a file using standard naming convention.
 
@@ -445,6 +482,12 @@ async def install_templates(docroot: Path, archive_path: Path) -> dict[str, int]
     """
     from mcp_guide import __version__
 
+    # Ensure docroot exists before any operations
+    await AsyncPath(docroot).mkdir(parents=True, exist_ok=True)
+
+    # Safety check: prevent docroot from being template source
+    validate_docroot_safety(docroot)
+
     templates_path = await get_templates_path()
     template_files = await list_template_files()
 
@@ -473,7 +516,7 @@ async def install_templates(docroot: Path, archive_path: Path) -> dict[str, int]
     return stats
 
 
-async def update_templates(docroot: Path, archive_path: Path) -> dict[str, int]:
+async def update_documents(docroot: Path, archive_path: Path) -> dict[str, int]:
     """Update templates using smart strategy.
 
     Args:
@@ -483,6 +526,12 @@ async def update_templates(docroot: Path, archive_path: Path) -> dict[str, int]:
     Returns:
         Dict with operation counts: installed, updated, patched, unchanged, conflicts, skipped_binary
     """
+    # Ensure docroot exists before any operations
+    await AsyncPath(docroot).mkdir(parents=True, exist_ok=True)
+
+    # Safety check: prevent docroot from being template source
+    validate_docroot_safety(docroot)
+
     templates_path = await get_templates_path()
     template_files = await list_template_files()
 
