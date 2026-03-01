@@ -7,11 +7,11 @@ from typing import Optional
 
 import aiofiles
 from anyio import Path as AsyncPath
-from pydantic import Field
 
 from mcp_guide.core.tool_arguments import ToolArguments
 from mcp_guide.core.tool_decorator import toolfunc
 from mcp_guide.file_lock import lock_update
+from mcp_guide.installer.core import ORIGINAL_ARCHIVE
 from mcp_guide.installer.core import update_documents as installer_update_documents
 from mcp_guide.result import Result
 from mcp_guide.result_constants import ERROR_NO_PROJECT, INSTRUCTION_NO_PROJECT
@@ -22,14 +22,13 @@ try:
 except ImportError:
     Context = None  # type: ignore
 
-
 __all__ = ["internal_update_documents"]
 
 
 class UpdateDocumentsArgs(ToolArguments):
     """Arguments for update_documents tool."""
 
-    force: bool = Field(default=False, description="If True, update even if version hasn't changed")
+    pass
 
 
 async def _read_version(docroot: Path) -> str | None:
@@ -73,22 +72,27 @@ async def internal_update_documents(
         )
 
     docroot = Path(await session.get_docroot())
-    archive_path = docroot / ".originals.zip"
+    archive_path = docroot / ORIGINAL_ARCHIVE
 
     # Ensure docroot exists
     await AsyncPath(docroot).mkdir(parents=True, exist_ok=True)
 
-    # Check version unless force
-    if not args.force:
-        from mcp_guide import __version__
+    # Check version
+    from mcp_guide import __version__
 
-        current_version = await _read_version(docroot)
-        if current_version == __version__:
-            return Result.ok(value={"message": f"Already at version {__version__}", "updated": False})
+    current_version = await _read_version(docroot)
+    if current_version == __version__:
+        return Result.ok(value={"message": f"Already at version {__version__}", "updated": False})
 
     # Use lock_update with lock path
     lock_path = docroot / ".update"
     stats = await lock_update(lock_path, _perform_update, docroot, archive_path)
+
+    # Write version after successful update
+    from mcp_guide import __version__
+    from mcp_guide.installer.core import write_version
+
+    await write_version(docroot, __version__)
 
     return Result.ok(
         value={

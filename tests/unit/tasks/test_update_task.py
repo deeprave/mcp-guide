@@ -11,6 +11,7 @@ from mcp_guide.tasks.update_task import McpUpdateTask
 async def test_update_task_disabled_without_flag():
     """Test task is disabled when autoupdate flag is not set."""
     task_manager = Mock()
+    task_manager.subscribe = Mock()
     task_manager.requires_flag.return_value = False
 
     task = McpUpdateTask(task_manager)
@@ -24,6 +25,7 @@ async def test_update_task_disabled_without_flag():
 async def test_update_task_no_project():
     """Test task handles missing project gracefully."""
     task_manager = Mock()
+    task_manager.subscribe = Mock()
     task_manager.requires_flag.return_value = True
 
     with patch("mcp_guide.session.get_or_create_session") as mock_session:
@@ -40,14 +42,16 @@ async def test_update_task_no_project():
 async def test_update_task_no_version_file(tmp_path):
     """Test task prompts when no version file exists."""
     task_manager = Mock()
+    task_manager.subscribe = Mock()
     task_manager.requires_flag.return_value = True
     task_manager.queue_instruction_with_ack = AsyncMock(return_value="test-id")
+    task_manager.subscribe = Mock()
 
     session = Mock()
     session.get_docroot = AsyncMock(return_value=str(tmp_path))
 
     with patch("mcp_guide.session.get_or_create_session", return_value=session):
-        with patch("mcp_guide.render.rendering.render_content") as mock_render:
+        with patch("mcp_guide.render.rendering.render_content", new_callable=AsyncMock) as mock_render:
             mock_content = Mock()
             mock_content.content = "Update prompt"
             mock_render.return_value = mock_content
@@ -63,8 +67,10 @@ async def test_update_task_no_version_file(tmp_path):
 async def test_update_task_version_mismatch(tmp_path):
     """Test task prompts when version differs."""
     task_manager = Mock()
+    task_manager.subscribe = Mock()
     task_manager.requires_flag.return_value = True
     task_manager.queue_instruction_with_ack = AsyncMock(return_value="test-id")
+    task_manager.subscribe = Mock()
 
     session = Mock()
     session.get_docroot = AsyncMock(return_value=str(tmp_path))
@@ -75,7 +81,7 @@ async def test_update_task_version_mismatch(tmp_path):
         f.write("0.0.1")
 
     with patch("mcp_guide.session.get_or_create_session", return_value=session):
-        with patch("mcp_guide.render.rendering.render_content") as mock_render:
+        with patch("mcp_guide.render.rendering.render_content", new_callable=AsyncMock) as mock_render:
             mock_content = Mock()
             mock_content.content = "Update prompt"
             mock_render.return_value = mock_content
@@ -91,6 +97,7 @@ async def test_update_task_version_mismatch(tmp_path):
 async def test_update_task_version_current(tmp_path):
     """Test task skips prompt when version is current."""
     task_manager = Mock()
+    task_manager.subscribe = Mock()
     task_manager.requires_flag.return_value = True
     task_manager.queue_instruction_with_ack = AsyncMock()
 

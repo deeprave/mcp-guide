@@ -80,7 +80,7 @@ description: Don't be guilty of "mea culpa": avoid these mistakes you repeatedly
 
 ### Testing
 - **ALWAYS** use pytest native fixtures, preferred over unittest functionality such as a `setup()` method
-- **PREFER** function-scopped fixtures over module or autouse=True, don't add unnecessary overhead to all tests
+- **PREFER** function-scoped fixtures over module or autouse=True, don't add unnecessary overhead to all tests
 
 ## Summary
 ### Common Mistakes that MUST be avoided

@@ -1,7 +1,7 @@
 """McpUpdateTask - prompts for documentation updates at startup."""
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 import aiofiles
 from anyio import Path as AsyncPath
@@ -9,7 +9,8 @@ from anyio import Path as AsyncPath
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.decorators import task_init
 from mcp_guide.feature_flags.constants import FLAG_AUTOUPDATE
-from mcp_guide.task_manager.manager import get_task_manager
+from mcp_guide.task_manager.interception import EventType
+from mcp_guide.task_manager.manager import EventResult, get_task_manager
 
 if TYPE_CHECKING:
     from mcp_guide.task_manager.manager import TaskManager
@@ -33,6 +34,9 @@ class McpUpdateTask:
         self._checked = False
         self._instruction_id: Optional[str] = None
 
+        # Subscribe to keep task alive (no specific events needed, use 0)
+        self.task_manager.subscribe(self, EventType(0))
+
     def get_name(self) -> str:
         """Get task name.
 
@@ -40,6 +44,18 @@ class McpUpdateTask:
             Task name
         """
         return "McpUpdateTask"
+
+    async def handle_event(self, event_type: EventType, data: dict[str, Any]) -> EventResult | None:
+        """Handle task manager events (no-op for this task).
+
+        Args:
+            event_type: Type of event
+            data: Event data
+
+        Returns:
+            None (event not handled)
+        """
+        return None
 
     async def on_init(self) -> None:
         """Initialize task at server startup - check for updates."""
