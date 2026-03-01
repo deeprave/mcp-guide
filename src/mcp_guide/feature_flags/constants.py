@@ -16,5 +16,8 @@ FLAG_CONTENT_STYLE = "content-style"
 # Startup flags
 FLAG_STARTUP_INSTRUCTION = "startup-instruction"
 
+# Update flags
+FLAG_AUTOUPDATE = "autoupdate"
+
 # Development flags
 FLAG_GUIDE_DEVELOPMENT = "guide-development"

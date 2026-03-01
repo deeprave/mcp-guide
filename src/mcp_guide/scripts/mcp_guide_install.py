@@ -7,6 +7,7 @@ from pathlib import Path
 
 import click
 import yaml
+from anyio import Path as AsyncPath
 
 
 def setup_installer_logging(verbose: bool, quiet: bool) -> None:
@@ -101,16 +102,21 @@ async def main(command: str, docroot: str | None, configdir: str | None, interac
 
     from mcp_guide import __version__
     from mcp_guide.config_paths import get_config_dir, get_docroot
+    from mcp_guide.file_lock import lock_update
     from mcp_guide.installer.core import (
         ORIGINAL_ARCHIVE,
         install_templates,
         read_version,
-        update_templates,
+        update_documents,
         write_version,
     )
     from mcp_guide.installer.integration import install_and_create_config
 
     logger = logging.getLogger(__name__)
+
+    async def _perform_update(lock_path: Path, docroot_path: Path, archive_path: Path) -> dict[str, int]:
+        """Perform update with locking."""
+        return await update_documents(docroot_path, archive_path)
 
     try:
         # Resolve config directory and file
@@ -180,7 +186,11 @@ async def main(command: str, docroot: str | None, configdir: str | None, interac
             logger.info(f"Config saved: {config_file}")
 
         elif command == "update":
-            result = await update_templates(docroot_path, archive_path)
+            # Ensure docroot exists before locking
+            await AsyncPath(docroot_path).mkdir(parents=True, exist_ok=True)
+
+            lock_path = docroot_path / ".update"
+            result = await lock_update(lock_path, _perform_update, docroot_path, archive_path)
             await write_version(docroot_path, __version__)
 
             # Update config if docroot changed
