@@ -64,7 +64,7 @@
 - [ ] 10.4 Verify lock cleanup on success and error paths
 - [ ] 10.5 Verify `.version` and `.original.zip` created after update
 - [ ] 10.6 Test docroot safety check (same path raises exception)
-- [ ] 10.7 Test concurrent updates (tool vs script) wait for lock
+- [ ] 10.7 Test concurrent updates (tool vs script) to ensure they wait for the lock
 - [ ] 10.8 Verify lock file created at `{docroot}/.update.lock`
 
 ## 11. Documentation
