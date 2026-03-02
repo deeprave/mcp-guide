@@ -1,6 +1,6 @@
 [project]
 name = "mcp-guide"
-version = "1.0.0rc1"
+version = "1.0.0rc2"
 description = "MCP Server for handling guidelines, project rules and controlled development workflow"
 readme = "README.md"
 license = {file = "LICENSE.md"}
