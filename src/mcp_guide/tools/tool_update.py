@@ -5,13 +5,12 @@
 from pathlib import Path
 from typing import Optional
 
-import aiofiles
 from anyio import Path as AsyncPath
 
 from mcp_guide.core.tool_arguments import ToolArguments
 from mcp_guide.core.tool_decorator import toolfunc
 from mcp_guide.file_lock import lock_update
-from mcp_guide.installer.core import ORIGINAL_ARCHIVE
+from mcp_guide.installer.core import ORIGINAL_ARCHIVE, read_version, write_version
 from mcp_guide.installer.core import update_documents as installer_update_documents
 from mcp_guide.result import Result
 from mcp_guide.result_constants import ERROR_NO_PROJECT, INSTRUCTION_NO_PROJECT
@@ -31,15 +30,6 @@ class UpdateDocumentsArgs(ToolArguments):
     pass
 
 
-async def _read_version(docroot: Path) -> str | None:
-    """Read version from docroot."""
-    version_path = docroot / ".version"
-    if not await AsyncPath(version_path).exists():
-        return None
-    async with aiofiles.open(version_path, "r", encoding="utf-8") as f:
-        return (await f.read()).strip()
-
-
 async def _perform_update(lock_path: Path, docroot: Path, archive_path: Path) -> dict[str, int]:
     """Perform the actual update with locking."""
     return await installer_update_documents(docroot, archive_path)
@@ -56,7 +46,7 @@ async def internal_update_documents(
     Uses file locking to prevent concurrent updates.
 
     Args:
-        args: Tool arguments with force flag
+        args: Tool arguments (currently no parameters)
         ctx: MCP Context (auto-injected by FastMCP)
 
     Returns:
@@ -80,7 +70,7 @@ async def internal_update_documents(
     # Check version
     from mcp_guide import __version__
 
-    current_version = await _read_version(docroot)
+    current_version = await read_version(docroot)
     if current_version == __version__:
         return Result.ok(value={"message": f"Already at version {__version__}", "updated": False})
 
@@ -89,9 +79,6 @@ async def internal_update_documents(
     stats = await lock_update(lock_path, _perform_update, docroot, archive_path)
 
     # Write version after successful update
-    from mcp_guide import __version__
-    from mcp_guide.installer.core import write_version
-
     await write_version(docroot, __version__)
 
     return Result.ok(

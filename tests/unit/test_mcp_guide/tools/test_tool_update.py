@@ -117,7 +117,7 @@ async def test_update_documents_creates_docroot(tmp_path):
 
     with patch("mcp_guide.tools.tool_update.get_or_create_session", return_value=session):
         with patch("mcp_guide.tools.tool_update.lock_update", new_callable=AsyncMock) as mock_lock:
-            with patch("mcp_guide.installer.core.write_version", new_callable=AsyncMock) as mock_write:
+            with patch("mcp_guide.tools.tool_update.write_version", new_callable=AsyncMock) as mock_write:
                 mock_lock.return_value = mock_stats
 
                 result = await internal_update_documents(UpdateDocumentsArgs(), ctx)
@@ -144,7 +144,7 @@ async def test_update_documents_writes_version_after_update(tmp_path):
 
     with patch("mcp_guide.tools.tool_update.get_or_create_session", return_value=session):
         with patch("mcp_guide.tools.tool_update.lock_update", new_callable=AsyncMock) as mock_lock:
-            with patch("mcp_guide.installer.core.write_version", new_callable=AsyncMock) as mock_write:
+            with patch("mcp_guide.tools.tool_update.write_version", new_callable=AsyncMock) as mock_write:
                 mock_lock.return_value = mock_stats
 
                 result = await internal_update_documents(UpdateDocumentsArgs(), ctx)

@@ -3,12 +3,12 @@
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 
-import aiofiles
 from anyio import Path as AsyncPath
 
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.decorators import task_init
 from mcp_guide.feature_flags.constants import FLAG_AUTOUPDATE
+from mcp_guide.installer.core import read_version
 from mcp_guide.task_manager.interception import EventType
 from mcp_guide.task_manager.manager import EventResult, get_task_manager
 
@@ -80,15 +80,21 @@ class McpUpdateTask:
             if not await AsyncPath(docroot).exists():
                 return EventResult(result=True)
 
-            version_file = docroot / ".version"
-            if not await AsyncPath(version_file).exists():
-                # No version file - prompt for update
-                await self._prompt_update()
+            # Read current version with error handling
+            try:
+                current_version = await read_version(docroot)
+            except (OSError, IOError) as exc:
+                logger.warning(
+                    "Failed to read version file in %s; skipping update check: %s",
+                    docroot,
+                    exc,
+                )
                 return EventResult(result=True)
 
-            # Read current version
-            async with aiofiles.open(version_file, "r", encoding="utf-8") as f:
-                current_version = (await f.read()).strip()
+            # If no version file exists, prompt for update
+            if current_version is None:
+                await self._prompt_update()
+                return EventResult(result=True)
 
             # Compare with package version
             from mcp_guide import __version__
