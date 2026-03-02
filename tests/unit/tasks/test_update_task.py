@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
+from mcp_guide.task_manager.interception import EventType
 from mcp_guide.tasks.update_task import McpUpdateTask
 
 
@@ -13,12 +14,15 @@ async def test_update_task_disabled_without_flag():
     task_manager = Mock()
     task_manager.subscribe = Mock()
     task_manager.requires_flag.return_value = False
+    task_manager.unsubscribe = AsyncMock()
 
     task = McpUpdateTask(task_manager)
-    await task.on_init()
+    result = await task.handle_event(EventType.TIMER_ONCE, {})
 
     # Should check flag and return early
     task_manager.requires_flag.assert_called_once()
+    assert result is not None
+    assert result.result is True
 
 
 @pytest.mark.asyncio
@@ -27,15 +31,18 @@ async def test_update_task_no_project():
     task_manager = Mock()
     task_manager.subscribe = Mock()
     task_manager.requires_flag.return_value = True
+    task_manager.unsubscribe = AsyncMock()
 
     with patch("mcp_guide.session.get_or_create_session") as mock_session:
         mock_session.side_effect = ValueError("No project")
 
         task = McpUpdateTask(task_manager)
-        await task.on_init()
+        result = await task.handle_event(EventType.TIMER_ONCE, {})
 
         # Should not crash
         task_manager.requires_flag.assert_called_once()
+        assert result is not None
+        assert result.result is True
 
 
 @pytest.mark.asyncio
@@ -45,7 +52,7 @@ async def test_update_task_no_version_file(tmp_path):
     task_manager.subscribe = Mock()
     task_manager.requires_flag.return_value = True
     task_manager.queue_instruction_with_ack = AsyncMock(return_value="test-id")
-    task_manager.subscribe = Mock()
+    task_manager.unsubscribe = AsyncMock()
 
     session = Mock()
     session.get_docroot = AsyncMock(return_value=str(tmp_path))
@@ -57,10 +64,12 @@ async def test_update_task_no_version_file(tmp_path):
             mock_render.return_value = mock_content
 
             task = McpUpdateTask(task_manager)
-            await task.on_init()
+            result = await task.handle_event(EventType.TIMER_ONCE, {})
 
             # Should queue instruction
             task_manager.queue_instruction_with_ack.assert_called_once_with("Update prompt")
+            assert result is not None
+            assert result.result is True
 
 
 @pytest.mark.asyncio
@@ -70,7 +79,7 @@ async def test_update_task_version_mismatch(tmp_path):
     task_manager.subscribe = Mock()
     task_manager.requires_flag.return_value = True
     task_manager.queue_instruction_with_ack = AsyncMock(return_value="test-id")
-    task_manager.subscribe = Mock()
+    task_manager.unsubscribe = AsyncMock()
 
     session = Mock()
     session.get_docroot = AsyncMock(return_value=str(tmp_path))
@@ -87,10 +96,12 @@ async def test_update_task_version_mismatch(tmp_path):
             mock_render.return_value = mock_content
 
             task = McpUpdateTask(task_manager)
-            await task.on_init()
+            result = await task.handle_event(EventType.TIMER_ONCE, {})
 
             # Should queue instruction
             task_manager.queue_instruction_with_ack.assert_called_once()
+            assert result is not None
+            assert result.result is True
 
 
 @pytest.mark.asyncio
@@ -100,6 +111,7 @@ async def test_update_task_version_current(tmp_path):
     task_manager.subscribe = Mock()
     task_manager.requires_flag.return_value = True
     task_manager.queue_instruction_with_ack = AsyncMock()
+    task_manager.unsubscribe = AsyncMock()
 
     session = Mock()
     session.get_docroot = AsyncMock(return_value=str(tmp_path))
@@ -113,7 +125,9 @@ async def test_update_task_version_current(tmp_path):
 
     with patch("mcp_guide.session.get_or_create_session", return_value=session):
         task = McpUpdateTask(task_manager)
-        await task.on_init()
+        result = await task.handle_event(EventType.TIMER_ONCE, {})
 
         # Should NOT queue instruction
         task_manager.queue_instruction_with_ack.assert_not_called()
+        assert result is not None
+        assert result.result is True
