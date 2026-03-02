@@ -64,6 +64,12 @@ async def test_session_with_data(setup_config_isolation):
 
     yield session
     await remove_current_session("test-project")
+    # Ensure all file handles are closed before cleanup
+    import asyncio
+    import gc
+
+    await asyncio.sleep(0)
+    gc.collect()
 
 
 @pytest.fixture(autouse=True)
@@ -71,6 +77,10 @@ async def setup_session(test_session_with_data):
     """Auto-use fixture to ensure session is set for each test."""
     set_current_session(test_session_with_data)
     yield
+    # Ensure all pending I/O completes before cleanup
+    import asyncio
+
+    await asyncio.sleep(0)
 
 
 @pytest.fixture(scope="module")
