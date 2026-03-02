@@ -295,6 +295,28 @@ def assert_tool_registered(tool_names, tool_name):
 
 
 @pytest.fixture(scope="function")
+def reset_flag_registry():
+    """Capture and restore flag validator/scope registries for test isolation.
+
+    Ensures tests that modify global validator/scope registries don't leak
+    state into other tests, preventing order-dependent failures.
+    """
+    from mcp_guide.feature_flags import validators
+
+    # Capture current state
+    saved_validators = validators._FLAG_VALIDATORS.copy()
+    saved_scopes = validators._FLAG_SCOPES.copy()
+
+    yield
+
+    # Restore original state
+    validators._FLAG_VALIDATORS.clear()
+    validators._FLAG_VALIDATORS.update(saved_validators)
+    validators._FLAG_SCOPES.clear()
+    validators._FLAG_SCOPES.update(saved_scopes)
+
+
+@pytest.fixture(scope="function")
 def guide_function():
     """Import guide function with server initialization.
 

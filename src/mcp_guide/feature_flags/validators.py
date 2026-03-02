@@ -26,9 +26,15 @@ __all__ = [
 
 
 class FlagScope(Enum):
-    """Flag scope restrictions."""
+    """Flag scope restrictions.
 
-    GLOBAL_ONLY = "global"
+    Defines where a flag can be set:
+    - FEATURE_ONLY: Can only be set at feature/global level
+    - PROJECT_ONLY: Can only be set at project level
+    - BOTH: Can be set at either level (default)
+    """
+
+    FEATURE_ONLY = "feature"
     PROJECT_ONLY = "project"
     BOTH = "both"
 
@@ -94,11 +100,12 @@ def validate_template_styling(value: FeatureValue, is_project: bool) -> bool:
 def validate_allow_client_info(value: FeatureValue, is_project: bool) -> bool:
     """Validate allow-client-info flag value.
 
-    This flag is global-only and cannot be set at project level.
+    Accepts boolean values or string representations ('enabled', 'disabled', 'on', 'off').
+    Scope restriction (feature-only) is enforced by validate_flag_with_registered().
 
     Args:
         value: Flag value to validate
-        is_project: True if this is a project flag, False if global
+        is_project: Whether this is a project-level flag (used by scope checking)
 
     Returns:
         True if value is valid, False otherwise
@@ -117,11 +124,12 @@ def validate_allow_client_info(value: FeatureValue, is_project: bool) -> bool:
 def validate_autoupdate(value: FeatureValue, is_project: bool) -> bool:
     """Validate autoupdate flag value.
 
-    This flag is global-only and cannot be set at project level.
+    Accepts boolean values or string representations ('enabled', 'disabled', 'on', 'off').
+    Scope restriction (feature-only) is enforced by validate_flag_with_registered().
 
     Args:
         value: Flag value to validate
-        is_project: True if this is a project flag, False if global
+        is_project: Whether this is a project-level flag (used by scope checking)
 
     Returns:
         True if value is valid, False otherwise
@@ -196,7 +204,7 @@ def validate_flag_with_registered(flag_name: str, value: FeatureValue, is_projec
     # Check scope restrictions first
     scope = _FLAG_SCOPES.get(flag_name)
     if scope:
-        if scope == FlagScope.GLOBAL_ONLY and is_project:
+        if scope == FlagScope.FEATURE_ONLY and is_project:
             raise FlagValidationError(f"Cannot set project flag `{flag_name}`, must be a feature flag")
         if scope == FlagScope.PROJECT_ONLY and not is_project:
             raise FlagValidationError(f"Cannot set feature flag `{flag_name}`, must be a project flag")
@@ -217,6 +225,6 @@ def clear_validators() -> None:
 # Register validators
 register_flag_validator(FLAG_CONTENT_FORMAT, validate_content_format_mime)
 register_flag_validator(FLAG_CONTENT_STYLE, validate_template_styling)
-register_flag_validator(FLAG_ALLOW_CLIENT_INFO, validate_allow_client_info, FlagScope.GLOBAL_ONLY)
-register_flag_validator(FLAG_AUTOUPDATE, validate_autoupdate, FlagScope.GLOBAL_ONLY)
+register_flag_validator(FLAG_ALLOW_CLIENT_INFO, validate_allow_client_info, FlagScope.FEATURE_ONLY)
+register_flag_validator(FLAG_AUTOUPDATE, validate_autoupdate, FlagScope.FEATURE_ONLY)
 register_flag_validator(FLAG_GUIDE_DEVELOPMENT, validate_boolean_flag)

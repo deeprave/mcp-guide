@@ -37,7 +37,7 @@ class TestAllowClientInfoValidator:
         assert not validate_allow_client_info(1, is_project=False)
         assert not validate_allow_client_info(0, is_project=False)
 
-    def test_validator_rejects_project_level(self):
+    def test_validator_rejects_project_level(self, reset_flag_registry):
         """Test that validator rejects project-level setting via validate_flag_with_registered."""
         from mcp_guide.feature_flags.constants import FLAG_ALLOW_CLIENT_INFO
         from mcp_guide.feature_flags.validators import FlagValidationError, validate_flag_with_registered
@@ -52,6 +52,10 @@ class TestAllowClientInfoValidator:
             FlagValidationError, match=r"Cannot set project flag `allow-client-info`, must be a feature flag"
         ):
             validate_flag_with_registered(FLAG_ALLOW_CLIENT_INFO, "enabled", is_project=True)
+
+        # Feature-level use should still be allowed
+        validate_flag_with_registered(FLAG_ALLOW_CLIENT_INFO, True, is_project=False)
+        validate_flag_with_registered(FLAG_ALLOW_CLIENT_INFO, "enabled", is_project=False)
 
 
 class TestClientContextTaskConditional:
