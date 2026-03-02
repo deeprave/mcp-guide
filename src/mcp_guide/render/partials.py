@@ -128,7 +128,10 @@ async def load_partial_content(
     logger.trace(f"Resolved final partial path: {final_path}")
 
     try:
-        content = await final_path.read_text(encoding="utf-8")
+        import aiofiles
+
+        async with aiofiles.open(final_path, "r", encoding="utf-8") as f:
+            content = await f.read()
 
         # Process frontmatter if present
         from mcp_guide.render.frontmatter import check_frontmatter_requirements, parse_content_with_frontmatter
