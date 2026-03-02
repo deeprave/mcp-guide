@@ -270,19 +270,8 @@ def create_server(config: "ServerConfig") -> GuideMCP:
         startup_listener = StartupInstructionListener()
         Session.add_listener(startup_listener)
 
-    # Import tool modules
     # Register tools with MCP
     from mcp_guide.core.tool_decorator import register_tools
-    from mcp_guide.tools import (  # noqa: F401
-        tool_category,
-        tool_collection,
-        tool_content,
-        tool_discovery,
-        tool_feature_flags,
-        tool_filesystem,
-        tool_project,
-        tool_utility,
-    )
 
     register_tools(mcp)
 

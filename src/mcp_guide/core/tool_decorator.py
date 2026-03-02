@@ -320,9 +320,14 @@ def toolfunc(
 def register_tools(mcp: Any) -> None:
     """Register all tools with MCP server (idempotent).
 
+    Imports tool modules to trigger decorators, then registers all tools.
+
     Args:
         mcp: FastMCP instance
     """
+    # Import tools package to trigger all @toolfunc decorators
+    import mcp_guide.tools  # noqa: F401
+
     for tool_name, registration in _TOOL_REGISTRY.items():
         if not registration.registered:
             mcp.tool(name=tool_name, description=registration.metadata.description)(registration.metadata.wrapped_func)

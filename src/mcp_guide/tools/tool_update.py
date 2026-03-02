@@ -11,13 +11,14 @@ from mcp_guide.installer.core import ORIGINAL_ARCHIVE, perform_locked_update, re
 from mcp_guide.result import Result
 from mcp_guide.result_constants import ERROR_NO_PROJECT, INSTRUCTION_NO_PROJECT
 from mcp_guide.session import get_or_create_session
+from mcp_guide.tools.tool_result import tool_result
 
 try:
     from mcp.server.fastmcp import Context
 except ImportError:
     Context = None  # type: ignore
 
-__all__ = ["internal_update_documents"]
+__all__ = ["internal_update_documents", "update_documents"]
 
 
 class UpdateDocumentsArgs(ToolArguments):
@@ -26,7 +27,6 @@ class UpdateDocumentsArgs(ToolArguments):
     pass
 
 
-@toolfunc(UpdateDocumentsArgs)
 async def internal_update_documents(
     args: UpdateDocumentsArgs,
     ctx: Optional[Context] = None,  # type: ignore
@@ -72,3 +72,41 @@ async def internal_update_documents(
             "stats": stats,
         }
     )
+
+
+@toolfunc(UpdateDocumentsArgs)
+async def update_documents(
+    args: UpdateDocumentsArgs,
+    ctx: Optional[Context] = None,  # type: ignore
+) -> str:
+    """Update documentation files in the current project.
+
+    Checks for version changes and updates files using smart merge strategy.
+    Uses file locking to prevent concurrent updates.
+
+    ## JSON Schema
+
+    ```json
+    {
+      "type": "object",
+      "properties": {}
+    }
+    ```
+
+    ## Usage Instructions
+
+    ```python
+    # Update documentation files
+    await update_documents(UpdateDocumentsArgs())
+    ```
+
+    ## Concrete Examples
+
+    ```python
+    # Example: Update documentation
+    result = await update_documents(UpdateDocumentsArgs())
+    # Returns: {"message": "Documentation updated successfully", "updated": true, "stats": {...}}
+    ```
+    """
+    result = await internal_update_documents(args, ctx)
+    return await tool_result("update_documents", result)
