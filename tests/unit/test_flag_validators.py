@@ -42,10 +42,10 @@ class TestValidationRegistration:
         validate_flag_with_registered("test-flag", "valid-value", is_project=True)
 
         # Invalid value should raise
-        with pytest.raises(FlagValidationError, match="Invalid project flag 'test-flag' value"):
+        with pytest.raises(FlagValidationError, match="Invalid project flag `test-flag` value"):
             validate_flag_with_registered("test-flag", "invalid-value", is_project=True)
 
-        with pytest.raises(FlagValidationError, match="Invalid global flag 'test-flag' value"):
+        with pytest.raises(FlagValidationError, match="Invalid feature flag `test-flag` value"):
             validate_flag_with_registered("test-flag", "invalid-value", is_project=False)
 
     def test_workflow_validators_registered(self):
@@ -168,9 +168,9 @@ class TestGuideDevelopmentValidator:
 def autoupdate_validator():
     """Clear and re-register autoupdate validator for each test."""
     clear_validators()
-    from mcp_guide.feature_flags.validators import register_flag_validator, validate_autoupdate
+    from mcp_guide.feature_flags.validators import FlagScope, register_flag_validator, validate_autoupdate
 
-    register_flag_validator(FLAG_AUTOUPDATE, validate_autoupdate)
+    register_flag_validator(FLAG_AUTOUPDATE, validate_autoupdate, FlagScope.GLOBAL_ONLY)
 
 
 class TestAutoupdateValidator:
@@ -190,9 +190,9 @@ class TestAutoupdateValidator:
 
     def test_autoupdate_rejects_project_level(self, autoupdate_validator):
         """Test that autoupdate rejects project-level setting."""
-        with pytest.raises(FlagValidationError, match="Invalid project flag 'autoupdate'"):
+        with pytest.raises(FlagValidationError, match="Cannot set project flag `autoupdate`, must be a feature flag"):
             validate_flag_with_registered(FLAG_AUTOUPDATE, True, is_project=True)
-        with pytest.raises(FlagValidationError, match="Invalid project flag 'autoupdate'"):
+        with pytest.raises(FlagValidationError, match="Cannot set project flag `autoupdate`, must be a feature flag"):
             validate_flag_with_registered(FLAG_AUTOUPDATE, False, is_project=True)
 
     def test_autoupdate_rejects_invalid_values(self, autoupdate_validator):
@@ -203,3 +203,53 @@ class TestAutoupdateValidator:
             validate_flag_with_registered(FLAG_AUTOUPDATE, 1, is_project=False)
         with pytest.raises(FlagValidationError):
             validate_flag_with_registered(FLAG_AUTOUPDATE, ["list"], is_project=False)
+
+
+class TestFlagScopeRestrictions:
+    """Test flag scope restriction error messages."""
+
+    def test_global_only_flag_error_message(self):
+        """Test that global-only flags show correct error message when set as project flag."""
+        clear_validators()
+        from mcp_guide.feature_flags.validators import FlagScope, register_flag_validator
+
+        def dummy_validator(value, is_project):
+            return True
+
+        register_flag_validator("test-global-only", dummy_validator, FlagScope.GLOBAL_ONLY)
+
+        with pytest.raises(
+            FlagValidationError, match=r"Cannot set project flag `test-global-only`, must be a feature flag"
+        ):
+            validate_flag_with_registered("test-global-only", "value", is_project=True)
+
+    def test_project_only_flag_error_message(self):
+        """Test that project-only flags show correct error message when set as feature flag."""
+        clear_validators()
+        from mcp_guide.feature_flags.validators import FlagScope, register_flag_validator
+
+        def dummy_validator(value, is_project):
+            return True
+
+        register_flag_validator("test-project-only", dummy_validator, FlagScope.PROJECT_ONLY)
+
+        with pytest.raises(
+            FlagValidationError, match=r"Cannot set feature flag `test-project-only`, must be a project flag"
+        ):
+            validate_flag_with_registered("test-project-only", "value", is_project=False)
+
+    def test_both_scope_allows_either(self):
+        """Test that flags with BOTH scope can be set at either level."""
+        clear_validators()
+        from mcp_guide.feature_flags.validators import FlagScope, register_flag_validator
+
+        def dummy_validator(value, is_project):
+            return True
+
+        register_flag_validator("test-both", dummy_validator, FlagScope.BOTH)
+
+        # Should not raise for project level
+        validate_flag_with_registered("test-both", "value", is_project=True)
+
+        # Should not raise for global level
+        validate_flag_with_registered("test-both", "value", is_project=False)
