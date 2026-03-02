@@ -1,5 +1,6 @@
 """Feature flag validators and registration system."""
 
+from enum import Enum
 from typing import Callable, Dict
 
 from mcp_guide.feature_flags.constants import (
@@ -20,10 +21,23 @@ __all__ = [
     "validate_flag_with_registered",
     "clear_validators",
     "FlagValidationError",
+    "FlagScope",
 ]
+
+
+class FlagScope(Enum):
+    """Flag scope restrictions."""
+
+    GLOBAL_ONLY = "global"
+    PROJECT_ONLY = "project"
+    BOTH = "both"
+
 
 # Registry for flag-specific validators
 _FLAG_VALIDATORS: Dict[str, Callable[[FeatureValue, bool], bool]] = {}
+
+# Registry for flag scope restrictions
+_FLAG_SCOPES: Dict[str, FlagScope] = {}
 
 
 class FlagValidationError(Exception):
@@ -89,10 +103,6 @@ def validate_allow_client_info(value: FeatureValue, is_project: bool) -> bool:
     Returns:
         True if value is valid, False otherwise
     """
-    # Reject project-level setting
-    if is_project:
-        return False
-
     # Accept enable values (will be normalized to True)
     if value is True or value in ["true", "enabled", "on"]:
         return True
@@ -116,10 +126,6 @@ def validate_autoupdate(value: FeatureValue, is_project: bool) -> bool:
     Returns:
         True if value is valid, False otherwise
     """
-    # Reject project-level setting
-    if is_project:
-        return False
-
     # Accept boolean values only
     if value is True or value in ["true", "enabled", "on"]:
         return True
@@ -158,14 +164,18 @@ def validate_boolean_flag(value: FeatureValue, is_project: bool) -> bool:
     return False
 
 
-def register_flag_validator(flag_name: str, validator: Callable[[FeatureValue, bool], bool]) -> None:
+def register_flag_validator(
+    flag_name: str, validator: Callable[[FeatureValue, bool], bool], scope: FlagScope = FlagScope.BOTH
+) -> None:
     """Register a validator function for a specific flag.
 
     Args:
         flag_name: Name of the flag
         validator: Function that validates the flag value and context
+        scope: Scope restriction for the flag (default: BOTH)
     """
     _FLAG_VALIDATORS[flag_name] = validator
+    _FLAG_SCOPES[flag_name] = scope
 
 
 def validate_flag_with_registered(flag_name: str, value: FeatureValue, is_project: bool) -> None:
@@ -183,20 +193,30 @@ def validate_flag_with_registered(flag_name: str, value: FeatureValue, is_projec
     if value is None:
         return
 
+    # Check scope restrictions first
+    scope = _FLAG_SCOPES.get(flag_name)
+    if scope:
+        if scope == FlagScope.GLOBAL_ONLY and is_project:
+            raise FlagValidationError(f"Cannot set project flag `{flag_name}`, must be a feature flag")
+        if scope == FlagScope.PROJECT_ONLY and not is_project:
+            raise FlagValidationError(f"Cannot set feature flag `{flag_name}`, must be a project flag")
+
+    # Validate value
     validator = _FLAG_VALIDATORS.get(flag_name)
     if validator and not validator(value, is_project):
-        flag_type = "project" if is_project else "global"
-        raise FlagValidationError(f"Invalid {flag_type} flag '{flag_name}' value: {value}")
+        flag_type = "project" if is_project else "feature"
+        raise FlagValidationError(f"Invalid {flag_type} flag `{flag_name}` value: {value}")
 
 
 def clear_validators() -> None:
     """Clear all registered validators. For testing only."""
     _FLAG_VALIDATORS.clear()
+    _FLAG_SCOPES.clear()
 
 
 # Register validators
 register_flag_validator(FLAG_CONTENT_FORMAT, validate_content_format_mime)
 register_flag_validator(FLAG_CONTENT_STYLE, validate_template_styling)
-register_flag_validator(FLAG_ALLOW_CLIENT_INFO, validate_allow_client_info)
-register_flag_validator(FLAG_AUTOUPDATE, validate_autoupdate)
+register_flag_validator(FLAG_ALLOW_CLIENT_INFO, validate_allow_client_info, FlagScope.GLOBAL_ONLY)
+register_flag_validator(FLAG_AUTOUPDATE, validate_autoupdate, FlagScope.GLOBAL_ONLY)
 register_flag_validator(FLAG_GUIDE_DEVELOPMENT, validate_boolean_flag)

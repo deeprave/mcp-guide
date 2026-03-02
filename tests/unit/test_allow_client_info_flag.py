@@ -38,12 +38,20 @@ class TestAllowClientInfoValidator:
         assert not validate_allow_client_info(0, is_project=False)
 
     def test_validator_rejects_project_level(self):
-        """Test that validator rejects project-level setting."""
-        # Should reject all values when is_project=True
-        assert not validate_allow_client_info(True, is_project=True)
-        assert not validate_allow_client_info("enabled", is_project=True)
-        assert not validate_allow_client_info(False, is_project=True)
-        assert not validate_allow_client_info(None, is_project=True)
+        """Test that validator rejects project-level setting via validate_flag_with_registered."""
+        from mcp_guide.feature_flags.constants import FLAG_ALLOW_CLIENT_INFO
+        from mcp_guide.feature_flags.validators import FlagValidationError, validate_flag_with_registered
+
+        # Should raise FlagValidationError when trying to set at project level
+        with pytest.raises(
+            FlagValidationError, match=r"Cannot set project flag `allow-client-info`, must be a feature flag"
+        ):
+            validate_flag_with_registered(FLAG_ALLOW_CLIENT_INFO, True, is_project=True)
+
+        with pytest.raises(
+            FlagValidationError, match=r"Cannot set project flag `allow-client-info`, must be a feature flag"
+        ):
+            validate_flag_with_registered(FLAG_ALLOW_CLIENT_INFO, "enabled", is_project=True)
 
 
 class TestClientContextTaskConditional:
