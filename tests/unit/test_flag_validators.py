@@ -165,12 +165,12 @@ class TestGuideDevelopmentValidator:
 
 
 @pytest.fixture
-def autoupdate_validator():
+def autoupdate_validator(reset_flag_registry):
     """Clear and re-register autoupdate validator for each test."""
     clear_validators()
     from mcp_guide.feature_flags.validators import FlagScope, register_flag_validator, validate_autoupdate
 
-    register_flag_validator(FLAG_AUTOUPDATE, validate_autoupdate, FlagScope.GLOBAL_ONLY)
+    register_flag_validator(FLAG_AUTOUPDATE, validate_autoupdate, FlagScope.FEATURE_ONLY)
 
 
 class TestAutoupdateValidator:
@@ -208,22 +208,22 @@ class TestAutoupdateValidator:
 class TestFlagScopeRestrictions:
     """Test flag scope restriction error messages."""
 
-    def test_global_only_flag_error_message(self):
-        """Test that global-only flags show correct error message when set as project flag."""
+    def test_global_only_flag_error_message(self, reset_flag_registry):
+        """Test that feature-only flags show correct error message when set as project flag."""
         clear_validators()
         from mcp_guide.feature_flags.validators import FlagScope, register_flag_validator
 
         def dummy_validator(value, is_project):
             return True
 
-        register_flag_validator("test-global-only", dummy_validator, FlagScope.GLOBAL_ONLY)
+        register_flag_validator("test-feature-only", dummy_validator, FlagScope.FEATURE_ONLY)
 
         with pytest.raises(
-            FlagValidationError, match=r"Cannot set project flag `test-global-only`, must be a feature flag"
+            FlagValidationError, match=r"Cannot set project flag `test-feature-only`, must be a feature flag"
         ):
-            validate_flag_with_registered("test-global-only", "value", is_project=True)
+            validate_flag_with_registered("test-feature-only", "value", is_project=True)
 
-    def test_project_only_flag_error_message(self):
+    def test_project_only_flag_error_message(self, reset_flag_registry):
         """Test that project-only flags show correct error message when set as feature flag."""
         clear_validators()
         from mcp_guide.feature_flags.validators import FlagScope, register_flag_validator
@@ -238,7 +238,7 @@ class TestFlagScopeRestrictions:
         ):
             validate_flag_with_registered("test-project-only", "value", is_project=False)
 
-    def test_both_scope_allows_either(self):
+    def test_both_scope_allows_either(self, reset_flag_registry):
         """Test that flags with BOTH scope can be set at either level."""
         clear_validators()
         from mcp_guide.feature_flags.validators import FlagScope, register_flag_validator
