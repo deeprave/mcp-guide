@@ -31,11 +31,10 @@ class McpUpdateTask:
         if task_manager is None:
             task_manager = get_task_manager()
         self.task_manager = task_manager
-        self._checked = False
         self._instruction_id: Optional[str] = None
 
-        # Subscribe to keep task alive (no specific events needed, use 0)
-        self.task_manager.subscribe(self, EventType(0))
+        # Subscribe to one-shot timer with 1-second delay to check for updates after startup
+        self.task_manager.subscribe(self, EventType.TIMER_ONCE, timer_interval=1.0)
 
     def get_name(self) -> str:
         """Get task name.
@@ -46,53 +45,65 @@ class McpUpdateTask:
         return "McpUpdateTask"
 
     async def handle_event(self, event_type: EventType, data: dict[str, Any]) -> EventResult | None:
-        """Handle task manager events (no-op for this task).
+        """Handle timer event to check for updates.
 
         Args:
             event_type: Type of event
             data: Event data
 
         Returns:
-            None (event not handled)
+            EventResult with result status, or None if not handled
         """
-        return None
+        from mcp_guide.task_manager.manager import EventResult
 
-    async def on_init(self) -> None:
-        """Initialize task at server startup - check for updates."""
-        # Check if autoupdate flag is enabled
-        if not self.task_manager.requires_flag(FLAG_AUTOUPDATE):
-            logger.debug(f"McpUpdateTask disabled - {FLAG_AUTOUPDATE} flag not set")
-            return
-
-        # Get current project
-        from mcp_guide.session import get_or_create_session
+        # Only handle timer events
+        if not (event_type & EventType.TIMER_ONCE):
+            return None
 
         try:
-            session = await get_or_create_session()
-        except (ValueError, AttributeError):
-            logger.debug("No session available for update check")
-            return
+            # Check if autoupdate flag is enabled
+            if not self.task_manager.requires_flag(FLAG_AUTOUPDATE):
+                logger.debug(f"McpUpdateTask disabled - {FLAG_AUTOUPDATE} flag not set")
+                return EventResult(result=True)
 
-        # Check if update is needed
-        docroot = Path(await session.get_docroot())
-        if not await AsyncPath(docroot).exists():
-            return
+            # Get current project
+            from mcp_guide.session import get_or_create_session
 
-        version_file = docroot / ".version"
-        if not await AsyncPath(version_file).exists():
-            # No version file - prompt for update
-            await self._prompt_update()
-            return
+            try:
+                session = await get_or_create_session()
+            except (ValueError, AttributeError):
+                logger.debug("No session available for update check")
+                return EventResult(result=True)
 
-        # Read current version
-        async with aiofiles.open(version_file, "r", encoding="utf-8") as f:
-            current_version = (await f.read()).strip()
+            # Check if update is needed
+            docroot = Path(await session.get_docroot())
+            if not await AsyncPath(docroot).exists():
+                return EventResult(result=True)
 
-        # Compare with package version
-        from mcp_guide import __version__
+            version_file = docroot / ".version"
+            if not await AsyncPath(version_file).exists():
+                # No version file - prompt for update
+                await self._prompt_update()
+                return EventResult(result=True)
 
-        if current_version != __version__:
-            await self._prompt_update()
+            # Read current version
+            async with aiofiles.open(version_file, "r", encoding="utf-8") as f:
+                current_version = (await f.read()).strip()
+
+            # Compare with package version
+            from mcp_guide import __version__
+
+            if current_version != __version__:
+                await self._prompt_update()
+
+            return EventResult(result=True)
+        finally:
+            # Unsubscribe after handling one-shot timer
+            await self.task_manager.unsubscribe(self)
+
+    async def on_init(self) -> None:
+        """Initialize task at server startup - no-op (work done in handle_event)."""
+        pass
 
     async def on_tool(self) -> None:
         """Called after tool execution - no-op."""
