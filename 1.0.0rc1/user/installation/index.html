@@ -1482,6 +1482,13 @@ HTTPS transport is recommended when accessing the server from another host, howe
 <div class="codehilite"><pre><span></span><code>mcp-install<span class="w"> </span>--help
 </code></pre></div>
 
+<p><strong>Updating from within your agent:</strong></p>
+<p>You can also update documentation directly through your AI agent using the <code>update_documents</code> tool. Just ask:</p>
+<div class="codehilite"><pre><span></span><code>Please update the documentation
+</code></pre></div>
+
+<p>The agent will run the <code>update_documents</code> tool, which performs the same smart update as <code>mcp-install update</code>. To enable automatic update prompting when new versions are available, set the <code>autoupdate</code> feature flag globally.</p>
+<p><strong>See:</strong> <a href="../feature-flags/">Feature Flags</a> for details on the <code>autoupdate</code> flag.</p>
 <h3 id="guide-agent-install">guide-agent-install<a class="headerlink" href="#guide-agent-install" title="Permanent link">&para;</a></h3>
 <p>Install mcp-guide configuration for specific AI agents. Automates the setup process by creating the appropriate configuration files.</p>
 <p>From repository or installed package:</p>
