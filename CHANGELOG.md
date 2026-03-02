@@ -17,6 +17,9 @@ All notable changes to mcp-guide will be documented in this file.
 - `guide-agent-install` script for automated agent configuration
 - `mcp-install` script for initial install and updating
 - `startup-instruction` flag for automatic project context loading on session start
+- `update_documents` tool for updating documentation through AI agents
+- `autoupdate` global feature flag for automating document update at startup
+- Structured logging for installation operations with configurable verbosity
 
 ### Changed
 - Documentation and deployment to GitHub Pages
@@ -24,6 +27,7 @@ All notable changes to mcp-guide will be documented in this file.
 - Console scripts fixed for uvx compatibility
 - RetryTask auto-unsubscribes when idle to reduce background overhead
 - OpenSpecTask uses on-demand cache refresh instead of proactive updates
+- Installation operations use structured logging with DEBUG/INFO/WARNING levels
 
 ### Fixed
 - Permission command names in templates
@@ -34,8 +38,11 @@ All notable changes to mcp-guide will be documented in this file.
 - NameError in workflow tasks when using RenderedContent type annotation
 - Workflow monitoring reminder timer event key mismatch
 - Path resolution in `guide-agent-install` script preventing agent discovery
+- Content-format flag not applied immediately after being set
+- Phase-specific template content showing when phase not in workflow configuration
+- Scripts not working correctly with uvx due to missing package data
+- Docroot safety check prevents updates when docroot equals template source path
 
 ## [0.9.0] - 2026-02-16
 
 Initial internal pilot release of mcp-guide.
-
