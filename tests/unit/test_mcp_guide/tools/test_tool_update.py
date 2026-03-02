@@ -66,8 +66,8 @@ async def test_update_documents_new_version(tmp_path):
     }
 
     with patch("mcp_guide.tools.tool_update.get_or_create_session", return_value=session):
-        with patch("mcp_guide.tools.tool_update.lock_update", new_callable=AsyncMock) as mock_lock:
-            mock_lock.return_value = mock_stats
+        with patch("mcp_guide.tools.tool_update.perform_locked_update", new_callable=AsyncMock) as mock_update:
+            mock_update.return_value = mock_stats
 
             result = await internal_update_documents(UpdateDocumentsArgs(), ctx)
 
@@ -94,8 +94,8 @@ async def test_update_documents_no_version_file(tmp_path):
     }
 
     with patch("mcp_guide.tools.tool_update.get_or_create_session", return_value=session):
-        with patch("mcp_guide.tools.tool_update.lock_update", new_callable=AsyncMock) as mock_lock:
-            mock_lock.return_value = mock_stats
+        with patch("mcp_guide.tools.tool_update.perform_locked_update", new_callable=AsyncMock) as mock_update:
+            mock_update.return_value = mock_stats
 
             result = await internal_update_documents(UpdateDocumentsArgs(), ctx)
 
@@ -107,7 +107,7 @@ async def test_update_documents_no_version_file(tmp_path):
 
 @pytest.mark.asyncio
 async def test_update_documents_creates_docroot(tmp_path):
-    """Test update_documents creates docroot if it doesn't exist."""
+    """Test update_documents delegates to perform_locked_update which creates docroot."""
     ctx = Mock()
     session = Mock()
     docroot = tmp_path / "nonexistent" / "docroot"
@@ -116,16 +116,14 @@ async def test_update_documents_creates_docroot(tmp_path):
     mock_stats = {"installed": 1, "updated": 0, "patched": 0, "unchanged": 0, "conflicts": 0, "skipped_binary": 0}
 
     with patch("mcp_guide.tools.tool_update.get_or_create_session", return_value=session):
-        with patch("mcp_guide.tools.tool_update.lock_update", new_callable=AsyncMock) as mock_lock:
-            with patch("mcp_guide.tools.tool_update.write_version", new_callable=AsyncMock) as mock_write:
-                mock_lock.return_value = mock_stats
+        with patch("mcp_guide.tools.tool_update.perform_locked_update", new_callable=AsyncMock) as mock_update:
+            mock_update.return_value = mock_stats
 
-                result = await internal_update_documents(UpdateDocumentsArgs(), ctx)
+            result = await internal_update_documents(UpdateDocumentsArgs(), ctx)
 
-                assert result.success is True
-                assert docroot.exists()
-                # Verify version was written
-                mock_write.assert_called_once()
+            assert result.success is True
+            # Verify perform_locked_update was called with correct arguments
+            mock_update.assert_called_once_with(docroot, docroot / ".original.zip")
 
 
 @pytest.mark.asyncio
@@ -143,14 +141,9 @@ async def test_update_documents_writes_version_after_update(tmp_path):
     mock_stats = {"installed": 0, "updated": 5, "patched": 0, "unchanged": 0, "conflicts": 0, "skipped_binary": 0}
 
     with patch("mcp_guide.tools.tool_update.get_or_create_session", return_value=session):
-        with patch("mcp_guide.tools.tool_update.lock_update", new_callable=AsyncMock) as mock_lock:
-            with patch("mcp_guide.tools.tool_update.write_version", new_callable=AsyncMock) as mock_write:
-                mock_lock.return_value = mock_stats
+        with patch("mcp_guide.tools.tool_update.perform_locked_update", new_callable=AsyncMock) as mock_update:
+            mock_update.return_value = mock_stats
 
-                result = await internal_update_documents(UpdateDocumentsArgs(), ctx)
+            result = await internal_update_documents(UpdateDocumentsArgs(), ctx)
 
-                assert result.success is True
-                # Verify write_version was called with correct arguments
-                from mcp_guide import __version__
-
-                mock_write.assert_called_once_with(tmp_path, __version__)
+            assert result.success is True

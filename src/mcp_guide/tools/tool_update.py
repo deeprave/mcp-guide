@@ -5,13 +5,9 @@
 from pathlib import Path
 from typing import Optional
 
-from anyio import Path as AsyncPath
-
 from mcp_guide.core.tool_arguments import ToolArguments
 from mcp_guide.core.tool_decorator import toolfunc
-from mcp_guide.file_lock import lock_update
-from mcp_guide.installer.core import ORIGINAL_ARCHIVE, read_version, write_version
-from mcp_guide.installer.core import update_documents as installer_update_documents
+from mcp_guide.installer.core import ORIGINAL_ARCHIVE, perform_locked_update, read_version
 from mcp_guide.result import Result
 from mcp_guide.result_constants import ERROR_NO_PROJECT, INSTRUCTION_NO_PROJECT
 from mcp_guide.session import get_or_create_session
@@ -28,11 +24,6 @@ class UpdateDocumentsArgs(ToolArguments):
     """Arguments for update_documents tool."""
 
     pass
-
-
-async def _perform_update(lock_path: Path, docroot: Path, archive_path: Path) -> dict[str, int]:
-    """Perform the actual update with locking."""
-    return await installer_update_documents(docroot, archive_path)
 
 
 @toolfunc(UpdateDocumentsArgs)
@@ -64,9 +55,6 @@ async def internal_update_documents(
     docroot = Path(await session.get_docroot())
     archive_path = docroot / ORIGINAL_ARCHIVE
 
-    # Ensure docroot exists
-    await AsyncPath(docroot).mkdir(parents=True, exist_ok=True)
-
     # Check version
     from mcp_guide import __version__
 
@@ -74,12 +62,8 @@ async def internal_update_documents(
     if current_version == __version__:
         return Result.ok(value={"message": f"Already at version {__version__}", "updated": False})
 
-    # Use lock_update with lock path
-    lock_path = docroot / ".update"
-    stats = await lock_update(lock_path, _perform_update, docroot, archive_path)
-
-    # Write version after successful update
-    await write_version(docroot, __version__)
+    # Perform locked update
+    stats = await perform_locked_update(docroot, archive_path)
 
     return Result.ok(
         value={

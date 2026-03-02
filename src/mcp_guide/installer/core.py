@@ -459,6 +459,40 @@ async def read_version(docroot: Path) -> str | None:
         return (await f.read()).strip()
 
 
+async def perform_locked_update(docroot: Path, archive_path: Path) -> dict[str, int]:
+    """Perform a locked update of documentation files.
+
+    Ensures docroot exists, acquires update lock, performs update, and writes version.
+
+    Args:
+        docroot: Document root directory
+        archive_path: Path to original archive
+
+    Returns:
+        Dict with operation counts: installed, updated, patched, unchanged, conflicts, skipped_binary
+    """
+    from anyio import Path as AsyncPath
+
+    from mcp_guide import __version__
+    from mcp_guide.file_lock import lock_update
+
+    # Ensure docroot exists
+    await AsyncPath(docroot).mkdir(parents=True, exist_ok=True)
+
+    # Define update function
+    async def _perform_update(lock_path: Path, docroot_path: Path, archive_path: Path) -> dict[str, int]:
+        return await update_documents(docroot_path, archive_path)
+
+    # Use lock_update with lock path
+    lock_path = docroot / ".update"
+    stats = await lock_update(lock_path, _perform_update, docroot, archive_path)
+
+    # Write version after successful update
+    await write_version(docroot, __version__)
+
+    return stats
+
+
 async def install_templates(docroot: Path, archive_path: Path) -> dict[str, int]:
     """Install templates to docroot and create originals archive.
 
