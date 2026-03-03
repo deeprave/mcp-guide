@@ -1,15 +1,25 @@
 """Template context cache with session listener for decoupled context management."""
 
+import platform
 from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from mcp_guide.session import Session
 
+from mcp_guide import __version__
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.discovery.files import FileInfo
 from mcp_guide.feature_flags.constants import FLAG_WORKFLOW, FLAG_WORKFLOW_CONSENT, FLAG_WORKFLOW_FILE
+from mcp_guide.mcp_context import cached_mcp_context
 from mcp_guide.render.context import TemplateContext
+from mcp_guide.result_constants import (
+    INSTRUCTION_AGENT_INSTRUCTIONS,
+    INSTRUCTION_AGENT_REQUIREMENTS,
+    INSTRUCTION_DISPLAY_ONLY,
+    INSTRUCTION_ERROR_MESSAGE,
+)
 from mcp_guide.session_listener import SessionListener
+from mcp_guide.task_manager import get_task_manager
 from mcp_guide.workflow.constants import DEFAULT_WORKFLOW_CONSENT, DEFAULT_WORKFLOW_FILE
 from mcp_guide.workflow.flags import parse_workflow_phases, substitute_variables
 
@@ -41,21 +51,12 @@ class TemplateContextCache(SessionListener):
 
     async def _build_system_context(self) -> "TemplateContext":
         """Build system context with static system information."""
-        import platform
-
-        from mcp_guide.render.context import TemplateContext
-        from mcp_guide.result_constants import (
-            INSTRUCTION_AGENT_INSTRUCTIONS,
-            INSTRUCTION_AGENT_REQUIREMENTS,
-            INSTRUCTION_DISPLAY_ONLY,
-            INSTRUCTION_ERROR_MESSAGE,
-        )
-
         server_vars = {
             "server": {
                 "os": platform.system(),
                 "platform": platform.platform(),
                 "python_version": platform.python_version(),
+                "version": __version__,
             },
             "INSTRUCTION_DISPLAY_ONLY": INSTRUCTION_DISPLAY_ONLY,
             "INSTRUCTION_ERROR_MESSAGE": INSTRUCTION_ERROR_MESSAGE,
@@ -67,9 +68,6 @@ class TemplateContextCache(SessionListener):
 
     async def _build_client_context(self) -> "TemplateContext":
         """Build client context from cached client data."""
-        from mcp_guide.render.context import TemplateContext
-        from mcp_guide.task_manager import get_task_manager
-
         task_manager = get_task_manager()
         client_os_info = task_manager.get_cached_data("client_os_info") or {}
         client_context_info = task_manager.get_cached_data("client_context_info") or {}
@@ -87,15 +85,12 @@ class TemplateContextCache(SessionListener):
 
     async def _build_agent_context(self) -> "TemplateContext":
         """Build agent context with @ symbol default and agent info if available."""
-
-        from mcp_guide.mcp_context import cached_mcp_context
-        from mcp_guide.render.context import TemplateContext
-
         agent_vars: dict[str, Any] = {
             "@": "@"  # @ symbol always available
         }
 
         # Add tool_prefix from MCP_TOOL_PREFIX environment variable
+        # Import here to avoid circular dependency with tool_decorator module
         from mcp_guide.core.tool_decorator import get_tool_prefix
 
         tool_prefix = get_tool_prefix()
@@ -145,6 +140,7 @@ class TemplateContextCache(SessionListener):
             styling_value = "plain"
 
         # Convert to enum and get styling variables
+        # Import here to avoid circular dependency with formatters module
         from mcp_guide.content.formatters.selection import TemplateStyling, get_styling_variables
 
         styling = TemplateStyling.from_flag_value(styling_value)
@@ -152,17 +148,8 @@ class TemplateContextCache(SessionListener):
 
         # Add task statistics
         try:
-            from mcp_guide.task_manager import get_task_manager
-
-            task_manager = get_task_manager()
-            agent_vars["tasks"] = task_manager.get_task_statistics()
-        except Exception as e:
-            logger.debug(f"Failed to get task statistics: {e}")
-
-        # Add OpenSpec context
-        try:
+            # task_manager already imported at module level, but OpenSpecTask needs lazy import
             from mcp_guide.openspec.task import OpenSpecTask
-            from mcp_guide.task_manager import get_task_manager
 
             task_manager = get_task_manager()
             openspec_task_subscriber = task_manager.get_task_by_type(OpenSpecTask)
