@@ -181,42 +181,29 @@ class TestOpenSpecTask:
         assert task.get_version() is None
 
     @pytest.mark.asyncio
-    async def test_handle_event_version_parsing_valid(self, mock_task_manager):
-        """Test parsing valid semantic version."""
-        task = OpenSpecTask(mock_task_manager)
-
-        event_data = {"path": ".openspec-version.txt", "content": "openspec version 1.2.3"}
-
-        result = await task.handle_event(EventType.FS_FILE_CONTENT, event_data)
-
-        assert result.result is True
-        assert task.get_version() == "1.2.3"
-        mock_task_manager.set_cached_data.assert_called_once_with("openspec_version", "1.2.3")
-
+    @pytest.mark.parametrize(
+        "content,expected_version",
+        [
+            ("openspec version 1.2.3", "1.2.3"),
+            ("v2.0.1", "2.0.1"),
+            ("invalid version", None),
+        ],
+    )
     @pytest.mark.asyncio
-    async def test_handle_event_version_parsing_with_v_prefix(self, mock_task_manager):
-        """Test parsing version with v prefix."""
+    async def test_handle_event_version_parsing(self, content: str, expected_version, mock_task_manager):
+        """Test parsing various version formats."""
         task = OpenSpecTask(mock_task_manager)
 
-        event_data = {"path": ".openspec-version.txt", "content": "v2.0.1"}
+        event_data = {"path": ".openspec-version.txt", "content": content}
 
         result = await task.handle_event(EventType.FS_FILE_CONTENT, event_data)
 
         assert result.result is True
-        assert task.get_version() == "2.0.1"
-
-    @pytest.mark.asyncio
-    async def test_handle_event_version_parsing_invalid(self, mock_task_manager):
-        """Test parsing invalid version format."""
-        task = OpenSpecTask(mock_task_manager)
-
-        event_data = {"path": ".openspec-version.txt", "content": "invalid version"}
-
-        result = await task.handle_event(EventType.FS_FILE_CONTENT, event_data)
-
-        assert result.result is True
-        assert task.get_version() is None
-        mock_task_manager.set_cached_data.assert_called_with("openspec_version", None)
+        assert task.get_version() == expected_version
+        if expected_version == "1.2.3":
+            mock_task_manager.set_cached_data.assert_called_once_with("openspec_version", expected_version)
+        else:
+            mock_task_manager.set_cached_data.assert_called_with("openspec_version", expected_version)
 
     @pytest.mark.asyncio
     async def test_version_comparison(self, mock_task_manager):
@@ -323,30 +310,28 @@ class TestOpenSpecTask:
         assert task.get_changes() is None
 
     @pytest.mark.asyncio
-    async def test_is_cache_valid_returns_false_when_no_cache(self, mock_task_manager):
-        """Test is_cache_valid returns False when cache is empty."""
-        task = OpenSpecTask(mock_task_manager)
-        assert task.is_cache_valid() is False
-
+    @pytest.mark.parametrize(
+        "scenario,has_cache,current_time,timestamp,expected",
+        [
+            ("no_cache", False, None, None, False),
+            ("fresh", True, 1000.0, 900.0, True),
+            ("stale", True, 5000.0, 100.0, False),
+        ],
+    )
     @pytest.mark.asyncio
-    async def test_is_cache_valid_returns_true_when_fresh(self, mock_task_manager):
-        """Test is_cache_valid returns True when cache is fresh."""
+    async def test_is_cache_valid(
+        self, scenario: str, has_cache: bool, current_time, timestamp, expected: bool, mock_task_manager
+    ):
+        """Test cache validity under various conditions."""
         task = OpenSpecTask(mock_task_manager)
-        task._changes_cache = [{"name": "test"}]
 
-        with patch("time.time", return_value=1000.0):
-            task._changes_timestamp = 900.0  # 100 seconds ago
-            assert task.is_cache_valid() is True
-
-    @pytest.mark.asyncio
-    async def test_is_cache_valid_returns_false_when_stale(self, mock_task_manager):
-        """Test is_cache_valid returns False when cache is stale."""
-        task = OpenSpecTask(mock_task_manager)
-        task._changes_cache = [{"name": "test"}]
-
-        with patch("time.time", return_value=5000.0):
-            task._changes_timestamp = 100.0  # 4900 seconds ago (> 3600 TTL)
-            assert task.is_cache_valid() is False
+        if has_cache:
+            task._changes_cache = [{"name": "test"}]
+            with patch("time.time", return_value=current_time):
+                task._changes_timestamp = timestamp
+                assert task.is_cache_valid() is expected
+        else:
+            assert task.is_cache_valid() is expected
 
     @pytest.mark.asyncio
     async def test_timer_event_calls_changes_reminder_when_enabled(self, mock_task_manager):

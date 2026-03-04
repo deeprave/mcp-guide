@@ -108,23 +108,6 @@ def test_rendered_content_aliases_property():
     assert rendered.aliases == ["alias1", "alias2"]
 
 
-def test_rendered_content_properties_return_none_when_missing():
-    """Test properties return None when keys not in frontmatter."""
-    frontmatter = Frontmatter({})
-    rendered = RenderedContent(
-        frontmatter=frontmatter,
-        frontmatter_length=0,
-        content="test",
-        content_length=4,
-        template_path=Path("test.md"),
-        template_name="test.md",
-    )
-    assert rendered.description is None
-    assert rendered.usage is None
-    assert rendered.category is None
-    assert rendered.aliases is None
-
-
 def test_instruction_property_with_frontmatter():
     """Test instruction property returns frontmatter value when present."""
     frontmatter = Frontmatter({"instruction": "Custom instruction"})

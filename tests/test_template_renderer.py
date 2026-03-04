@@ -4,6 +4,8 @@ from datetime import datetime
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 from mcp_guide.discovery.files import FileInfo
 from mcp_guide.render.context import TemplateContext
 from mcp_guide.render.renderer import (
@@ -17,16 +19,23 @@ from mcp_guide.render.renderer import (
 class TestTemplateDetection:
     """Test template file detection."""
 
-    def test_is_template_file_with_mustache_extension(self):
-        """Test template detection for .mustache files."""
+    @pytest.mark.parametrize(
+        "extension,expected",
+        [
+            (".mustache", True),
+            (".hbs", True),
+            (".handlebars", True),
+            (".chevron", True),
+            ("", False),
+        ],
+    )
+    def test_is_template_file(self, extension, expected):
+        """Test template detection for various file extensions."""
         file_info = FileInfo(
-            path=Path("test.md.mustache"), size=100, content_size=100, mtime=datetime.now(), name="test.md"
+            path=Path(f"test.md{extension}"), size=100, content_size=100, mtime=datetime.now(), name="test.md"
         )
 
-        assert is_template_file(file_info) is True
-
-    def test_is_template_file_with_hbs_extension(self):
-        """Test template detection for .hbs files."""
+        assert is_template_file(file_info) is expected
 
 
 class TestTemplatePartials:
@@ -65,7 +74,6 @@ class TestPartialNameExtraction:
 
     def test_partial_name_extraction_logic(self):
         """Test partial name extraction logic via the public helper."""
-        from pathlib import Path
 
         from mcp_guide.render.renderer import get_partial_name
 
@@ -83,31 +91,6 @@ class TestPartialNameExtraction:
             assert get_partial_name(include_path) == expected_name, (
                 f"Failed for {include_path}: expected {expected_name}, got {get_partial_name(include_path)}"
             )
-        file_info = FileInfo(path=Path("test.md.hbs"), size=100, content_size=100, mtime=datetime.now(), name="test.md")
-
-        assert is_template_file(file_info) is True
-
-    def test_is_template_file_with_handlebars_extension(self):
-        """Test template detection for .handlebars files."""
-        file_info = FileInfo(
-            path=Path("test.md.handlebars"), size=100, content_size=100, mtime=datetime.now(), name="test.md"
-        )
-
-        assert is_template_file(file_info) is True
-
-    def test_is_template_file_with_chevron_extension(self):
-        """Test template detection for .chevron files."""
-        file_info = FileInfo(
-            path=Path("test.md.chevron"), size=100, content_size=100, mtime=datetime.now(), name="test.md"
-        )
-
-        assert is_template_file(file_info) is True
-
-    def test_is_template_file_without_mustache_extension(self):
-        """Test template detection for non-template files."""
-        file_info = FileInfo(path=Path("test.md"), size=100, content_size=100, mtime=datetime.now(), name="test.md")
-
-        assert is_template_file(file_info) is False
 
 
 class TestTemplateRendering:

@@ -117,37 +117,24 @@ class TestTaskManagerOnInit:
     """Test TaskManager.on_init() method."""
 
     @pytest.mark.asyncio
-    async def test_task_manager_requires_flag_returns_true_when_enabled(self):
-        """Test that requires_flag() returns True when flag is enabled."""
+    @pytest.mark.parametrize(
+        "scenario,flags,expected",
+        [
+            ("enabled", {"test-flag": True}, True),
+            ("disabled", {"test-flag": False}, False),
+            ("missing", {}, False),
+        ],
+        ids=lambda x: x if isinstance(x, str) else str(x),
+    )
+    async def test_task_manager_requires_flag(self, scenario, flags, expected):
+        """Test that requires_flag() returns correct value based on flag state."""
         from mcp_guide.task_manager.manager import TaskManager
 
         TaskManager._reset_for_testing()
         task_manager = TaskManager()
-        task_manager._resolved_flags = {"test-flag": True}
+        task_manager._resolved_flags = flags
 
-        assert task_manager.requires_flag("test-flag") is True
-
-    @pytest.mark.asyncio
-    async def test_task_manager_requires_flag_returns_false_when_disabled(self):
-        """Test that requires_flag() returns False when flag is disabled."""
-        from mcp_guide.task_manager.manager import TaskManager
-
-        TaskManager._reset_for_testing()
-        task_manager = TaskManager()
-        task_manager._resolved_flags = {"test-flag": False}
-
-        assert task_manager.requires_flag("test-flag") is False
-
-    @pytest.mark.asyncio
-    async def test_task_manager_requires_flag_returns_false_when_missing(self):
-        """Test that requires_flag() returns False when flag is not set."""
-        from mcp_guide.task_manager.manager import TaskManager
-
-        TaskManager._reset_for_testing()
-        task_manager = TaskManager()
-        task_manager._resolved_flags = {}
-
-        assert task_manager.requires_flag("test-flag") is False
+        assert task_manager.requires_flag("test-flag") is expected
 
     @pytest.mark.asyncio
     async def test_task_manager_on_init_establishes_session(self):

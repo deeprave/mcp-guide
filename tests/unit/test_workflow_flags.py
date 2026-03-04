@@ -8,32 +8,25 @@ from mcp_guide.workflow.flags import parse_workflow_phases, substitute_variables
 class TestVariableSubstitution:
     """Test variable substitution in workflow flags."""
 
-    def test_substitute_project_name(self):
-        """Test {project-name} substitution."""
-        result = substitute_variables("{project-name}.yaml", project_name="test-project")
-        assert result == "test-project.yaml"
-
-    def test_substitute_project_key(self):
-        """Test {project-key} substitution."""
-        result = substitute_variables("/tmp/{project-key}.yaml", project_key="test-abc123")
-        assert result == "/tmp/test-abc123.yaml"
-
-    def test_substitute_project_hash(self):
-        """Test {project-hash} substitution."""
-        result = substitute_variables(".{project-hash}.yaml", project_hash="abc123def")
-        assert result == ".abc123def.yaml"
-
-    def test_substitute_multiple_variables(self):
-        """Test multiple variable substitution."""
-        result = substitute_variables(
-            "/tmp/{project-name}-{project-hash}.yaml", project_name="test", project_hash="abc123"
-        )
-        assert result == "/tmp/test-abc123.yaml"
-
-    def test_no_substitution_needed(self):
-        """Test string without variables."""
-        result = substitute_variables(".guide.yaml")
-        assert result == ".guide.yaml"
+    @pytest.mark.parametrize(
+        "template,kwargs,expected",
+        [
+            ("{project-name}.yaml", {"project_name": "test-project"}, "test-project.yaml"),
+            ("/tmp/{project-key}.yaml", {"project_key": "test-abc123"}, "/tmp/test-abc123.yaml"),
+            (".{project-hash}.yaml", {"project_hash": "abc123def"}, ".abc123def.yaml"),
+            (
+                "/tmp/{project-name}-{project-hash}.yaml",
+                {"project_name": "test", "project_hash": "abc123"},
+                "/tmp/test-abc123.yaml",
+            ),
+            (".guide.yaml", {}, ".guide.yaml"),
+        ],
+        ids=["project_name", "project_key", "project_hash", "multiple_variables", "no_substitution"],
+    )
+    def test_variable_substitution(self, template, kwargs, expected):
+        """Test variable substitution in templates."""
+        result = substitute_variables(template, **kwargs)
+        assert result == expected
 
 
 class TestWorkflowPhases:

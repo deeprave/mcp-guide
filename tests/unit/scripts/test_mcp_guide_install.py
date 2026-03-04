@@ -245,15 +245,19 @@ class TestEndToEndInstallation:
 class TestInteractiveMode:
     """Tests for interactive mode."""
 
-    def test_parse_interactive_flag(self) -> None:
-        """Test that CLI accepts -i/--interactive flag."""
+    @pytest.mark.parametrize(
+        "flag",
+        ["--interactive", "--quiet", "--verbose"],
+    )
+    def test_parse_mode_flags(self, flag: str) -> None:
+        """Test that CLI accepts mode flags (-i/--interactive, -q/--quiet, -v/--verbose)."""
         # Arrange
         from mcp_guide.scripts.mcp_guide_install import cli
 
         runner = CliRunner()
 
         # Act
-        result = runner.invoke(cli, ["install", "--interactive", "--dry-run"])
+        result = runner.invoke(cli, ["install", flag, "--dry-run"])
 
         # Assert
         assert result.exit_code == 0
@@ -261,19 +265,6 @@ class TestInteractiveMode:
 
 class TestQuietMode:
     """Tests for quiet mode."""
-
-    def test_parse_quiet_flag(self) -> None:
-        """Test that CLI accepts -q/--quiet flag."""
-        # Arrange
-        from mcp_guide.scripts.mcp_guide_install import cli
-
-        runner = CliRunner()
-
-        # Act
-        result = runner.invoke(cli, ["install", "--quiet", "--dry-run"])
-
-        # Assert
-        assert result.exit_code == 0
 
     def test_quiet_suppresses_statistics(self, tmp_path: Path) -> None:
         """Test that --quiet suppresses statistics output."""
@@ -299,19 +290,6 @@ class TestQuietMode:
 
         # Quiet mode suppresses all non-error output (WARNING level only)
         # So output should be empty or minimal
-
-    def test_parse_verbose_flag(self) -> None:
-        """Test that CLI accepts -v/--verbose flag."""
-        # Arrange
-        from mcp_guide.scripts.mcp_guide_install import cli
-
-        runner = CliRunner()
-
-        # Act
-        result = runner.invoke(cli, ["install", "--verbose", "--dry-run"])
-
-        # Assert
-        assert result.exit_code == 0
 
     def test_prompts_for_docroot_in_interactive_mode(self, tmp_path: Path) -> None:
         """Test that interactive mode prompts for docroot."""

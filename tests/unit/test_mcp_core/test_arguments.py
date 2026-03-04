@@ -25,12 +25,6 @@ class LiteralArgs(Arguments):
 class TestArgumentsValidation:
     """Tests for Pydantic validation."""
 
-    def test_base_model_inheritance_and_validation(self):
-        """Arguments should inherit from BaseModel and validate fields."""
-        args = SimpleArgs(name="test", count=10)
-        assert args.name == "test"
-        assert args.count == 10
-
     def test_extra_forbid_rejects_unknown_fields(self):
         """Arguments should reject unknown fields with extra='forbid'."""
         with pytest.raises(ValidationError) as exc_info:

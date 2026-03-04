@@ -2,6 +2,8 @@
 
 import logging
 
+import pytest
+
 
 class TestTraceLevel:
     """Tests for TRACE logging level."""
@@ -74,33 +76,21 @@ class TestLoggerTraceMethod:
 class TestMessageSanitization:
     """Tests for log message sanitization."""
 
-    def test_sanitize_newlines(self):
-        """Test newlines are escaped."""
+    @pytest.mark.parametrize(
+        "input_msg,expected",
+        [
+            ("line1\nline2", "line1\\nline2"),  # newlines
+            ("line1\rline2", "line1\\rline2"),  # carriage returns
+            ("line1\r\nline2", "line1\\r\\nline2"),  # both
+            (123, 123),  # non-string integer
+            (None, None),  # non-string None
+        ],
+    )
+    def test_sanitize_log_message(self, input_msg, expected):
+        """Test log message sanitization for various inputs."""
         from mcp_guide.core.mcp_log import _sanitize_log_message
 
-        result = _sanitize_log_message("line1\nline2")
-        assert result == "line1\\nline2"
-
-    def test_sanitize_carriage_returns(self):
-        """Test carriage returns are escaped."""
-        from mcp_guide.core.mcp_log import _sanitize_log_message
-
-        result = _sanitize_log_message("line1\rline2")
-        assert result == "line1\\rline2"
-
-    def test_sanitize_both(self):
-        """Test both newlines and carriage returns are escaped."""
-        from mcp_guide.core.mcp_log import _sanitize_log_message
-
-        result = _sanitize_log_message("line1\r\nline2")
-        assert result == "line1\\r\\nline2"
-
-    def test_sanitize_non_string(self):
-        """Test non-string values are returned as-is."""
-        from mcp_guide.core.mcp_log import _sanitize_log_message
-
-        assert _sanitize_log_message(123) == 123
-        assert _sanitize_log_message(None) is None
+        assert _sanitize_log_message(input_msg) == expected
 
 
 class TestRedactedFormatter:
@@ -287,37 +277,34 @@ class TestStructuredJSONFormatter:
 class TestCreateFileHandler:
     """Tests for create_file_handler platform selection and failure fallback."""
 
-    def test_watched_file_handler_on_non_windows(self, monkeypatch, tmp_path):
-        """On non-Windows platforms, WatchedFileHandler should be used."""
+    @pytest.mark.parametrize(
+        "platform_name,expected_handler_type,is_watched",
+        [
+            ("Linux", "WatchedFileHandler", True),
+            ("Windows", "FileHandler", False),
+        ],
+        ids=["non_windows", "windows"],
+    )
+    def test_file_handler_platform_specific(
+        self, monkeypatch, tmp_path, platform_name, expected_handler_type, is_watched
+    ):
+        """File handler type should vary by platform."""
         import platform
         from logging import handlers
 
         from mcp_guide.core.mcp_log import create_file_handler
 
-        monkeypatch.setattr(platform, "system", lambda: "Linux")
+        monkeypatch.setattr(platform, "system", lambda: platform_name)
 
-        log_file = tmp_path / "test_non_windows.log"
+        log_file = tmp_path / f"test_{platform_name.lower()}.log"
         handler = create_file_handler(str(log_file))
 
         try:
-            assert isinstance(handler, handlers.WatchedFileHandler)
-        finally:
-            handler.close()
-
-    def test_file_handler_on_windows(self, monkeypatch, tmp_path):
-        """On Windows platforms, FileHandler should be used."""
-        import platform
-
-        from mcp_guide.core.mcp_log import create_file_handler
-
-        monkeypatch.setattr(platform, "system", lambda: "Windows")
-
-        log_file = tmp_path / "test_windows.log"
-        handler = create_file_handler(str(log_file))
-
-        try:
-            assert isinstance(handler, logging.FileHandler)
-            assert not isinstance(handler, logging.handlers.WatchedFileHandler)
+            if is_watched:
+                assert isinstance(handler, handlers.WatchedFileHandler)
+            else:
+                assert isinstance(handler, logging.FileHandler)
+                assert not isinstance(handler, logging.handlers.WatchedFileHandler)
         finally:
             handler.close()
 

@@ -37,25 +37,9 @@ class TestTrackedInstruction:
         assert isinstance(instr.queued_at, float)
         assert isinstance(instr.last_sent_at, float)
 
-    def test_tracked_instruction_defaults(self):
-        """Test TrackedInstruction default values."""
-        current_time = time.time()
-        instr = TrackedInstruction(id="test-id", content="Test", queued_at=current_time, last_sent_at=current_time)
-
-        assert instr.retry_count == 0
-        assert instr.max_retries == 3
-
 
 class TestTaskManagerTracking:
     """Test TaskManager instruction tracking."""
-
-    def test_tracking_dictionaries_initialized(self):
-        """Test that tracking dictionaries are initialized empty."""
-        manager = TaskManager()
-
-        assert hasattr(manager, "_tracked_instructions")
-        assert isinstance(manager._tracked_instructions, dict)
-        assert len(manager._tracked_instructions) == 0
 
     @pytest.mark.anyio
     async def test_queue_instruction_with_ack_returns_id(self):

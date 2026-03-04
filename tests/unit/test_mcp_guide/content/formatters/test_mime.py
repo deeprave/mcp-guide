@@ -21,36 +21,32 @@ def docroot(tmp_path):
     return tmp_path
 
 
-def test_module_imports():
-    """Test that module can be imported."""
-    from mcp_guide.content.formatters import mime
+@pytest.mark.parametrize(
+    "check_type",
+    ["module", "class", "format_method", "format_single_method"],
+)
+def test_mime_formatter_structure(check_type: str):
+    """Test MimeFormatter module, class, and method existence."""
+    if check_type == "module":
+        from mcp_guide.content.formatters import mime
 
-    assert mime is not None
+        assert mime is not None
+    elif check_type == "class":
+        from mcp_guide.content.formatters.mime import MimeFormatter
 
+        assert MimeFormatter is not None
+    elif check_type == "format_method":
+        from mcp_guide.content.formatters.mime import MimeFormatter
 
-def test_mime_formatter_class_exists():
-    """Test that MimeFormatter class exists."""
-    from mcp_guide.content.formatters.mime import MimeFormatter
+        formatter = MimeFormatter()
+        assert hasattr(formatter, "format")
+        assert callable(formatter.format)
+    else:  # format_single_method
+        from mcp_guide.content.formatters.mime import MimeFormatter
 
-    assert MimeFormatter is not None
-
-
-def test_format_method_exists():
-    """Test that format method exists."""
-    from mcp_guide.content.formatters.mime import MimeFormatter
-
-    formatter = MimeFormatter()
-    assert hasattr(formatter, "format")
-    assert callable(formatter.format)
-
-
-def test_format_single_method_exists():
-    """Test that format_single method exists."""
-    from mcp_guide.content.formatters.mime import MimeFormatter
-
-    formatter = MimeFormatter()
-    assert hasattr(formatter, "format_single")
-    assert callable(formatter.format_single)
+        formatter = MimeFormatter()
+        assert hasattr(formatter, "format_single")
+        assert callable(formatter.format_single)
 
 
 async def test_format_empty_list(docroot):

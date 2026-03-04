@@ -1,5 +1,7 @@
 """Tests for command argument parser."""
 
+import pytest
+
 from mcp_guide.prompts.command_parser import parse_command_arguments
 
 
@@ -60,41 +62,24 @@ class TestCommandArgumentParser:
         assert args == ["my-collection", "category1"]
         assert errors == []
 
-    def test_parse_errors_empty_flag(self):
-        """Test error handling for empty flags."""
-        argv = [":command", "--"]
+    @pytest.mark.parametrize(
+        "argv,expected_error",
+        [
+            (["--"], "Invalid flag: -- (empty flag name)"),
+            (["--key="], "Invalid flag: --key= (empty value)"),
+            (["=value"], "Invalid argument: starts with '=' but no key"),
+            (["--=value"], "Invalid flag: empty key before '='"),
+        ],
+        ids=["empty_flag", "empty_value", "empty_key", "malformed_flag"],
+    )
+    def test_parse_errors(self, argv, expected_error):
+        """Test error handling for various invalid argument formats."""
+        argv = [":command"] + argv
         kwargs, args, errors = parse_command_arguments(argv)
 
         assert kwargs == {}
         assert args == []
-        assert errors == ["Invalid flag: -- (empty flag name)"]
-
-    def test_parse_errors_empty_value(self):
-        """Test error handling for empty values."""
-        argv = [":command", "--key="]
-        kwargs, args, errors = parse_command_arguments(argv)
-
-        assert kwargs == {}
-        assert args == []
-        assert errors == ["Invalid flag: --key= (empty value)"]
-
-    def test_parse_errors_empty_key(self):
-        """Test error handling for empty keys."""
-        argv = [":command", "=value"]
-        kwargs, args, errors = parse_command_arguments(argv)
-
-        assert kwargs == {}
-        assert args == []
-        assert errors == ["Invalid argument: starts with '=' but no key"]
-
-    def test_parse_errors_malformed_flag(self):
-        """Test error handling for malformed flags."""
-        argv = [":command", "--=value"]
-        kwargs, args, errors = parse_command_arguments(argv)
-
-        assert kwargs == {}
-        assert args == []
-        assert errors == ["Invalid flag: empty key before '='"]
+        assert errors == [expected_error]
 
     def test_hyphen_to_underscore_conversion(self):
         """Test that hyphens are converted to underscores in flag names."""

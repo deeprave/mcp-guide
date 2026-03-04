@@ -46,14 +46,6 @@ class TestTemplateContext:
         assert context["valid_key"] == "value"
         assert len(context) == 1
 
-    def test_setitem_accepts_string_keys(self):
-        """Test that __setitem__ accepts string keys."""
-        context = TemplateContext({})
-        context["valid_key"] = "value"
-
-        assert context["valid_key"] == "value"
-        assert len(context) == 1
-
     def test_setitem_rejects_non_string_keys(self):
         """Test that __setitem__ rejects non-string keys with TypeError."""
         context = TemplateContext({})
@@ -67,50 +59,15 @@ class TestTemplateContext:
         with pytest.raises(TypeError, match="Context keys must be strings"):
             context[None] = "value"
 
-    def test_setitem_rejects_non_string_keys(self):
-        """Test that __setitem__ rejects non-string keys with TypeError."""
-        context = TemplateContext({})
-
-        with pytest.raises(TypeError, match="Context keys must be strings"):
-            context[123] = "value"
-
-        with pytest.raises(TypeError, match="Context keys must be strings"):
-            context[3.14] = "value"
-
-        with pytest.raises(TypeError, match="Context keys must be strings"):
-            context[None] = "value"
-
-    def test_type_validation_invalid_keys(self):
+    @pytest.mark.parametrize(
+        "invalid_key",
+        [123, 3.14, None, object(), (1, 2), True],
+        ids=["int", "float", "none", "object", "tuple", "bool"],
+    )
+    def test_type_validation_invalid_keys(self, invalid_key):
         """Test that non-string keys raise TypeError."""
-        # Test integer keys
         with pytest.raises(TypeError, match="Context keys must be strings"):
-            TemplateContext({123: "value"})
-
-        # Test float keys
-        with pytest.raises(TypeError, match="Context keys must be strings"):
-            TemplateContext({3.14: "value"})
-
-        # Test None keys
-        with pytest.raises(TypeError, match="Context keys must be strings"):
-            TemplateContext({None: "value"})
-
-        # Test object keys
-        with pytest.raises(TypeError, match="Context keys must be strings"):
-            TemplateContext({object(): "value"})
-
-        # Test tuple keys
-        with pytest.raises(TypeError, match="Context keys must be strings"):
-            TemplateContext({(1, 2): "value"})
-
-        # Test boolean keys
-        with pytest.raises(TypeError, match="Context keys must be strings"):
-            TemplateContext({True: "value"})
-
-        # Test list keys (unhashable, but should still be caught)
-        with pytest.raises(TypeError):  # Either unhashable or key validation
-            bad_dict = {}
-            bad_dict[["list"]] = "value"  # Build at runtime to avoid import error
-            TemplateContext(bad_dict)
+            TemplateContext({invalid_key: "value"})
 
     def test_type_validation_edge_case_keys(self):
         """Test edge cases for string keys that should be valid."""

@@ -2,19 +2,13 @@
 
 from unittest.mock import AsyncMock, Mock, patch
 
+import pytest
+
 from mcp_guide.render.cache import TemplateContextCache
 
 
 class TestTemplateContextCache:
     """Test TemplateContextCache class functionality."""
-
-    def test_build_project_context_method_exists(self) -> None:
-        """Test that _build_project_context method exists."""
-        cache = TemplateContextCache()
-
-        # Method should exist
-        assert hasattr(cache, "_build_project_context")
-        assert callable(getattr(cache, "_build_project_context"))
 
     async def test_build_project_context_returns_project_name(self) -> None:
         """Test that _build_project_context returns project name in context."""
@@ -308,71 +302,42 @@ class TestTemplateContextCache:
             assert "project" in context
             assert context["project"]["name"] == "integration-test"
 
-    def test_get_transient_context_method_exists(self) -> None:
-        """Test that get_transient_context method exists."""
-        cache = TemplateContextCache()
-
-        # Method should exist
-        assert hasattr(cache, "get_transient_context")
-        assert callable(getattr(cache, "get_transient_context"))
-
-    def test_get_transient_context_returns_template_context(self) -> None:
-        """Test that get_transient_context returns TemplateContext."""
+    def test_get_transient_context_structure(self) -> None:
+        """Test that get_transient_context returns correct structure and types."""
         from mcp_guide.render.context import TemplateContext
 
         cache = TemplateContextCache()
-        context = cache.get_transient_context()
 
+        # Method exists and returns TemplateContext
+        assert hasattr(cache, "get_transient_context")
+        assert callable(getattr(cache, "get_transient_context"))
+
+        context = cache.get_transient_context()
         assert isinstance(context, TemplateContext)
 
-    def test_get_transient_context_has_required_fields(self) -> None:
-        """Test that get_transient_context returns required timestamp fields."""
-        cache = TemplateContextCache()
-        context = cache.get_transient_context()
+        # Required fields exist
+        required_fields = ["now", "now_utc", "timestamp", "timestamp_ms", "timestamp_ns"]
+        for field in required_fields:
+            assert field in context
 
-        # Test required fields exist
-        assert "now" in context
-        assert "now_utc" in context
-        assert "timestamp" in context
-        assert "timestamp_ms" in context
-        assert "timestamp_ns" in context
-
-    def test_get_transient_context_field_types(self) -> None:
-        """Test that transient context fields have correct types."""
-        cache = TemplateContextCache()
-        context = cache.get_transient_context()
-
-        # Test field types
+        # Field types are correct
         assert isinstance(context["now"], dict)
         assert isinstance(context["now_utc"], dict)
         assert isinstance(context["timestamp"], float)
         assert isinstance(context["timestamp_ms"], float)
         assert isinstance(context["timestamp_ns"], int)
 
-        # Test structured datetime fields
-        assert isinstance(context["now"]["date"], str)
-        assert isinstance(context["now"]["day"], str)
-        assert isinstance(context["now"]["time"], str)
-        assert isinstance(context["now"]["tz"], str)
-        assert isinstance(context["now"]["datetime"], str)
+        # Structured datetime fields
+        for dt_field in ["now", "now_utc"]:
+            assert isinstance(context[dt_field]["date"], str)
+            assert isinstance(context[dt_field]["day"], str)
+            assert isinstance(context[dt_field]["time"], str)
+            assert isinstance(context[dt_field]["tz"], str)
+            assert isinstance(context[dt_field]["datetime"], str)
 
-        assert isinstance(context["now_utc"]["date"], str)
-        assert isinstance(context["now_utc"]["day"], str)
-        assert isinstance(context["now_utc"]["time"], str)
-        assert isinstance(context["now_utc"]["tz"], str)
-        assert isinstance(context["now_utc"]["datetime"], str)
-
-    def test_get_transient_context_timezone_awareness(self) -> None:
-        """Test that datetime fields contain timezone information."""
-        cache = TemplateContextCache()
-        context = cache.get_transient_context()
-
-        # Test timezone information is present
+        # Timezone awareness
         assert context["now"]["tz"]  # Should have timezone offset
         assert context["now_utc"]["tz"] == "+0000"  # UTC always +0000
-
-        # Test datetime strings contain timezone info
-        assert context["now"]["datetime"]  # Should have timezone in datetime string
         assert context["now_utc"]["datetime"].endswith("Z")  # UTC should end with Z
 
     def test_transient_context_freshness(self) -> None:
@@ -407,21 +372,34 @@ class TestTemplateContextCache:
         assert abs(timestamp - expected_timestamp) < 1e-9
         assert abs(timestamp_ms - expected_timestamp_ms) < 1e-6
 
-    async def test_openspec_context_cli_available_project_enabled(self) -> None:
-        """Test OpenSpec context with CLI available and project enabled."""
+    @pytest.mark.parametrize(
+        "scenario,is_available,has_task",
+        [
+            ("cli_available_enabled", True, True),
+            ("cli_available_not_enabled", True, True),
+            ("cli_not_available", False, True),
+            ("task_not_registered", False, False),
+        ],
+        ids=["cli_available_enabled", "cli_available_not_enabled", "cli_not_available", "task_not_registered"],
+    )
+    async def test_openspec_context_scenarios(self, scenario, is_available, has_task) -> None:
+        """Test OpenSpec context with various CLI and task registration scenarios."""
         from unittest.mock import patch
 
         from mcp_guide.openspec.task import OpenSpecTask
 
         cache = TemplateContextCache()
 
-        mock_task = Mock(spec=OpenSpecTask)
-        mock_task.is_available.return_value = True
-        mock_task.get_version.return_value = "1.2.3"
-        mock_task.get_changes.return_value = []
-        mock_task.get_show.return_value = None
-        mock_task.get_status.return_value = None
-        mock_task.meets_minimum_version.return_value = True
+        if has_task:
+            mock_task = Mock(spec=OpenSpecTask)
+            mock_task.is_available.return_value = is_available
+            mock_task.get_version.return_value = "1.2.3" if is_available else None
+            mock_task.get_changes.return_value = []
+            mock_task.get_show.return_value = None
+            mock_task.get_status.return_value = None
+            mock_task.meets_minimum_version.return_value = is_available
+        else:
+            mock_task = None
 
         with patch("mcp_guide.render.cache.get_task_manager") as mock_tm:
             mock_tm.return_value.get_task_by_type.return_value = mock_task
@@ -429,74 +407,13 @@ class TestTemplateContextCache:
 
             context = await cache._build_agent_context()
 
-            # Task registered, so openspec is truthy (a dict)
-            assert context["openspec"]
-            assert isinstance(context["openspec"], dict)
-
-    async def test_openspec_context_cli_available_project_not_enabled(self) -> None:
-        """Test OpenSpec context with CLI available but project not enabled."""
-        from unittest.mock import patch
-
-        from mcp_guide.openspec.task import OpenSpecTask
-
-        cache = TemplateContextCache()
-
-        mock_task = Mock(spec=OpenSpecTask)
-        mock_task.is_available.return_value = True
-        mock_task.get_version.return_value = "1.2.3"
-        mock_task.get_changes.return_value = []
-        mock_task.get_show.return_value = None
-        mock_task.get_status.return_value = None
-        mock_task.meets_minimum_version.return_value = True
-
-        with patch("mcp_guide.render.cache.get_task_manager") as mock_tm:
-            mock_tm.return_value.get_task_by_type.return_value = mock_task
-            mock_tm.return_value.get_task_statistics.return_value = {}
-
-            context = await cache._build_agent_context()
-
-            # Task registered, so openspec is truthy (a dict)
-            assert context["openspec"]
-            assert isinstance(context["openspec"], dict)
-
-    async def test_openspec_context_cli_not_available(self) -> None:
-        """Test OpenSpec context with CLI not available."""
-        from unittest.mock import patch
-
-        from mcp_guide.openspec.task import OpenSpecTask
-
-        cache = TemplateContextCache()
-
-        mock_task = Mock(spec=OpenSpecTask)
-        mock_task.is_available.return_value = False
-        mock_task.get_version.return_value = None
-        mock_task.get_changes.return_value = []
-        mock_task.get_show.return_value = None
-        mock_task.get_status.return_value = None
-        mock_task.meets_minimum_version.return_value = False
-
-        with patch("mcp_guide.render.cache.get_task_manager") as mock_tm:
-            mock_tm.return_value.get_task_by_type.return_value = mock_task
-            mock_tm.return_value.get_task_statistics.return_value = {}
-
-            context = await cache._build_agent_context()
-
-            # Task registered, so openspec is truthy (a dict)
-            assert context["openspec"]
-            assert isinstance(context["openspec"], dict)
-
-    async def test_openspec_context_task_not_registered(self) -> None:
-        """Test OpenSpec context when task not registered."""
-        cache = TemplateContextCache()
-
-        with patch("mcp_guide.task_manager.get_task_manager") as mock_tm:
-            mock_tm.return_value.get_task_by_type.return_value = None
-            mock_tm.return_value.get_task_statistics.return_value = {}
-
-            context = await cache._build_agent_context()
-
-            # When task not registered, openspec is False (disabled)
-            assert context["openspec"] is False
+            if has_task:
+                # Task registered, so openspec is truthy (a dict)
+                assert context["openspec"]
+                assert isinstance(context["openspec"], dict)
+            else:
+                # When task not registered, openspec is False (disabled)
+                assert context["openspec"] is False
 
     async def test_workflow_context_with_phase_booleans(self) -> None:
         """Test workflow context includes phase-specific boolean flags for configured phases."""

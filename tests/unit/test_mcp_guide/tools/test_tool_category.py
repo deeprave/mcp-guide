@@ -259,161 +259,58 @@ class TestCategoryAdd:
         assert (await session.get_project()).categories["docs"].dir == "documentation/"
 
     @pytest.mark.asyncio
-    async def test_category_add_invalid_name_empty(self, tmp_path: Path) -> None:
-        """Reject invalid name (empty)."""
+    @pytest.mark.parametrize(
+        "invalid_name,error_contains",
+        [
+            ("", None),
+            ("docs/api", None),
+            ("a" * 31, "30 characters"),
+        ],
+        ids=["empty", "special_chars", "too_long"],
+    )
+    async def test_category_add_invalid_name(
+        self, tmp_path: Path, invalid_name: str, error_contains: str | None
+    ) -> None:
+        """Reject invalid category names."""
         from mcp_guide.tools.tool_category import CategoryAddArgs, category_add
 
         session = Session("test", _config_dir_for_tests=str(tmp_path))
         await session.get_project()
-        # Project setup handled by Session
         set_current_session(session)
 
-        args = CategoryAddArgs(name="", dir="docs", patterns=["*.md"])
+        args = CategoryAddArgs(name=invalid_name, dir="docs", patterns=["*.md"])
         result_str = await category_add(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is False
         assert result_dict["error_type"] == "validation_error"
+        if error_contains:
+            assert error_contains in result_dict["error"]
         assert len((await session.get_project()).categories) == 0
 
-    @pytest.mark.asyncio
-    async def test_category_add_invalid_name_special_chars(self, tmp_path: Path) -> None:
-        """Reject invalid name (special chars)."""
+    @pytest.mark.parametrize(
+        "field,value",
+        [
+            ("dir", "/absolute/path"),
+            ("dir", "../parent"),
+            ("description", "x" * 501),
+            ("description", 'Has "quotes"'),
+            ("patterns", ["/absolute/*.md"]),
+            ("patterns", ["../*.md"]),
+        ],
+        ids=["dir_absolute", "dir_traversal", "desc_too_long", "desc_quotes", "pattern_absolute", "pattern_traversal"],
+    )
+    async def test_category_add_invalid_fields(self, tmp_path: Path, field: str, value: any) -> None:
+        """Reject invalid directory, description, and pattern values."""
         from mcp_guide.tools.tool_category import CategoryAddArgs, category_add
 
         session = Session("test", _config_dir_for_tests=str(tmp_path))
         await session.get_project()
-        # Project setup handled by Session
         set_current_session(session)
 
-        args = CategoryAddArgs(name="docs/api", dir="docs", patterns=["*.md"])
-        result_str = await category_add(args)
-        result_dict = json.loads(result_str)
-
-        assert result_dict["success"] is False
-        assert result_dict["error_type"] == "validation_error"
-        assert len((await session.get_project()).categories) == 0
-
-    @pytest.mark.asyncio
-    async def test_category_add_invalid_name_too_long(self, tmp_path: Path) -> None:
-        """Reject invalid name (exceeds 30 characters)."""
-        from mcp_guide.tools.tool_category import CategoryAddArgs, category_add
-
-        session = Session("test", _config_dir_for_tests=str(tmp_path))
-        await session.get_project()
-        # Project setup handled by Session
-        set_current_session(session)
-
-        args = CategoryAddArgs(name="a" * 31, dir="docs", patterns=["*.md"])
-        result_str = await category_add(args)
-        result_dict = json.loads(result_str)
-
-        assert result_dict["success"] is False
-        assert result_dict["error_type"] == "validation_error"
-        assert "30 characters" in result_dict["error"]
-        assert len((await session.get_project()).categories) == 0
-
-    @pytest.mark.asyncio
-    async def test_category_add_invalid_directory_absolute(self, tmp_path: Path) -> None:
-        """Reject invalid directory (absolute path)."""
-        from mcp_guide.tools.tool_category import CategoryAddArgs, category_add
-
-        session = Session("test", _config_dir_for_tests=str(tmp_path))
-        await session.get_project()
-        # Project setup handled by Session
-        set_current_session(session)
-
-        args = CategoryAddArgs(name="docs", dir="/absolute/path", patterns=["*.md"])
-        result_str = await category_add(args)
-        result_dict = json.loads(result_str)
-
-        assert result_dict["success"] is False
-        assert result_dict["error_type"] == "validation_error"
-        assert len((await session.get_project()).categories) == 0
-
-    @pytest.mark.asyncio
-    async def test_category_add_invalid_directory_traversal(self, tmp_path: Path) -> None:
-        """Reject invalid directory (traversal)."""
-        from mcp_guide.tools.tool_category import CategoryAddArgs, category_add
-
-        session = Session("test", _config_dir_for_tests=str(tmp_path))
-        await session.get_project()
-        # Project setup handled by Session
-        set_current_session(session)
-
-        args = CategoryAddArgs(name="docs", dir="../parent", patterns=["*.md"])
-        result_str = await category_add(args)
-        result_dict = json.loads(result_str)
-
-        assert result_dict["success"] is False
-        assert result_dict["error_type"] == "validation_error"
-        assert len((await session.get_project()).categories) == 0
-
-    @pytest.mark.asyncio
-    async def test_category_add_invalid_description_too_long(self, tmp_path: Path) -> None:
-        """Reject invalid description (too long)."""
-        from mcp_guide.tools.tool_category import CategoryAddArgs, category_add
-
-        session = Session("test", _config_dir_for_tests=str(tmp_path))
-        await session.get_project()
-        # Project setup handled by Session
-        set_current_session(session)
-
-        args = CategoryAddArgs(name="docs", dir="docs", patterns=["*.md"], description="x" * 501)
-        result_str = await category_add(args)
-        result_dict = json.loads(result_str)
-
-        assert result_dict["success"] is False
-        assert result_dict["error_type"] == "validation_error"
-        assert len((await session.get_project()).categories) == 0
-
-    @pytest.mark.asyncio
-    async def test_category_add_invalid_description_quotes(self, tmp_path: Path) -> None:
-        """Reject invalid description (quotes)."""
-        from mcp_guide.tools.tool_category import CategoryAddArgs, category_add
-
-        session = Session("test", _config_dir_for_tests=str(tmp_path))
-        await session.get_project()
-        # Project setup handled by Session
-        set_current_session(session)
-
-        args = CategoryAddArgs(name="docs", dir="docs", patterns=["*.md"], description='Has "quotes"')
-        result_str = await category_add(args)
-        result_dict = json.loads(result_str)
-
-        assert result_dict["success"] is False
-        assert result_dict["error_type"] == "validation_error"
-        assert len((await session.get_project()).categories) == 0
-
-    @pytest.mark.asyncio
-    async def test_category_add_invalid_pattern_absolute(self, tmp_path: Path) -> None:
-        """Reject invalid pattern (absolute path)."""
-        from mcp_guide.tools.tool_category import CategoryAddArgs, category_add
-
-        session = Session("test", _config_dir_for_tests=str(tmp_path))
-        await session.get_project()
-        # Project setup handled by Session
-        set_current_session(session)
-
-        args = CategoryAddArgs(name="docs", dir="docs", patterns=["/absolute/*.md"])
-        result_str = await category_add(args)
-        result_dict = json.loads(result_str)
-
-        assert result_dict["success"] is False
-        assert result_dict["error_type"] == "validation_error"
-        assert len((await session.get_project()).categories) == 0
-
-    @pytest.mark.asyncio
-    async def test_category_add_invalid_pattern_traversal(self, tmp_path: Path) -> None:
-        """Reject invalid pattern (traversal)."""
-        from mcp_guide.tools.tool_category import CategoryAddArgs, category_add
-
-        session = Session("test", _config_dir_for_tests=str(tmp_path))
-        await session.get_project()
-        # Project setup handled by Session
-        set_current_session(session)
-
-        args = CategoryAddArgs(name="docs", dir="docs", patterns=["../*.md"])
+        kwargs = {"name": "docs", "dir": "docs", "patterns": ["*.md"]}
+        kwargs[field] = value
+        args = CategoryAddArgs(**kwargs)
         result_str = await category_add(args)
         result_dict = json.loads(result_str)
 

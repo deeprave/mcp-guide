@@ -1,5 +1,7 @@
 """Tests for workflow change detection functionality."""
 
+import pytest
+
 from mcp_guide.workflow.change_detection import ChangeType, detect_workflow_changes
 from mcp_guide.workflow.constants import PHASE_DISCUSSION, PHASE_PLANNING
 from mcp_guide.workflow.schema import WorkflowState
@@ -71,77 +73,47 @@ class TestWorkflowChangeDetection:
         assert changes[0].from_value == "old-issue"
         assert changes[0].to_value is None
 
-    def test_tracking_change_detected(self):
-        """Test tracking change detection."""
-        old_state = WorkflowState(tracking="PROJ-123")
-        new_state = WorkflowState(tracking="PROJ-456")
+    @pytest.mark.parametrize(
+        "old_value,new_value,scenario",
+        [
+            ("PROJ-123", "PROJ-456", "change"),
+            ("PROJ-123", None, "cleared"),
+            (None, "PROJ-123", "set_from_none"),
+        ],
+        ids=["change", "cleared", "set_from_none"],
+    )
+    def test_tracking_changes(self, old_value, new_value, scenario):
+        """Test tracking change detection for different scenarios."""
+        old_state = WorkflowState(tracking=old_value)
+        new_state = WorkflowState(tracking=new_value)
 
         changes = detect_workflow_changes(old_state, new_state)
 
         assert len(changes) == 1
         assert changes[0].change_type == ChangeType.TRACKING
-        assert changes[0].from_value == "PROJ-123"
-        assert changes[0].to_value == "PROJ-456"
+        assert changes[0].from_value == old_value
+        assert changes[0].to_value == new_value
 
-    def test_tracking_cleared(self):
-        """Test tracking being cleared (set to None)."""
-        old_state = WorkflowState(tracking="PROJ-123")
-        new_state = WorkflowState(tracking=None)
-
-        changes = detect_workflow_changes(old_state, new_state)
-
-        assert len(changes) == 1
-        assert changes[0].change_type == ChangeType.TRACKING
-        assert changes[0].from_value == "PROJ-123"
-        assert changes[0].to_value is None
-
-    def test_tracking_set_from_none(self):
-        """Test tracking being set from None to a value."""
-        old_state = WorkflowState(tracking=None)
-        new_state = WorkflowState(tracking="PROJ-123")
-
-        changes = detect_workflow_changes(old_state, new_state)
-
-        assert len(changes) == 1
-        assert changes[0].change_type == ChangeType.TRACKING
-        assert changes[0].from_value is None
-        assert changes[0].to_value == "PROJ-123"
-
-    def test_description_change_detected(self):
-        """Test description change detection."""
-        old_state = WorkflowState(description="Old description")
-        new_state = WorkflowState(description="New description")
+    @pytest.mark.parametrize(
+        "old_value,new_value,scenario",
+        [
+            ("Old description", "New description", "change"),
+            ("Some description", None, "cleared"),
+            (None, "Some description", "set_from_none"),
+        ],
+        ids=["change", "cleared", "set_from_none"],
+    )
+    def test_description_changes(self, old_value, new_value, scenario):
+        """Test description change detection for different scenarios."""
+        old_state = WorkflowState(description=old_value)
+        new_state = WorkflowState(description=new_value)
 
         changes = detect_workflow_changes(old_state, new_state)
 
         assert len(changes) == 1
         assert changes[0].change_type == ChangeType.DESCRIPTION
-        assert changes[0].from_value == "Old description"
-        assert changes[0].to_value == "New description"
-
-    def test_description_cleared(self):
-        """Test description being cleared (set to None)."""
-        old_state = WorkflowState(description="Some description")
-        new_state = WorkflowState(description=None)
-
-        changes = detect_workflow_changes(old_state, new_state)
-
-        assert len(changes) == 1
-        assert changes[0].change_type == ChangeType.DESCRIPTION
-        assert changes[0].from_value == "Some description"
-        assert changes[0].to_value is None
-
-    def test_description_set_from_none(self):
-        """Test description being set from None to a value."""
-        old_state = WorkflowState(description=None)
-        new_state = WorkflowState(description="Some description")
-
-        changes = detect_workflow_changes(old_state, new_state)
-
-        assert len(changes) == 1
-        assert changes[0].change_type == ChangeType.DESCRIPTION
-        assert changes[0].from_value is None
-        assert changes[0].to_value == "Some description"
+        assert changes[0].from_value == old_value
+        assert changes[0].to_value == new_value
 
     def test_queue_items_added(self):
         """Test queue item addition detection."""

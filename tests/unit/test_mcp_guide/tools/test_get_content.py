@@ -5,7 +5,6 @@ import json
 import pytest
 from pydantic import ValidationError
 
-from mcp_guide.core.tool_arguments import ToolArguments
 from mcp_guide.models import Category, Collection, Project
 from mcp_guide.tools.tool_content import ContentArgs, get_content
 
@@ -43,11 +42,6 @@ def create_mock_session(tmp_path, project_data, project_flags_data=None, feature
 def test_content_args_exists():
     """Test that ContentArgs class exists."""
     assert ContentArgs is not None
-
-
-def test_content_args_inherits_from_tool_arguments():
-    """Test that ContentArgs inherits from ToolArguments."""
-    assert issubclass(ContentArgs, ToolArguments)
 
 
 def test_expression_field_is_required():
@@ -218,18 +212,27 @@ async def test_get_content_pattern_override(tmp_path, monkeypatch):
     assert "Tutorial content" not in result["value"]
 
 
-async def test_get_content_category_sets_metadata(tmp_path, monkeypatch):
-    """Test that category-only search sets category field on FileInfo."""
+@pytest.mark.parametrize(
+    "scenario,expression,has_collection",
+    [
+        ("category_only", "docs", False),
+        ("collection", "all", True),
+    ],
+    ids=["category_only", "collection"],
+)
+async def test_get_content_metadata_scenarios(tmp_path, monkeypatch, scenario, expression, has_collection):
+    """Test that category and collection searches set appropriate metadata on FileInfo."""
     # Create test file
     category_dir = tmp_path / "docs"
     category_dir.mkdir()
     (category_dir / "README").write_text("# Test")
 
     # Project data
+    collections = {"all": Collection(categories=["docs"])} if has_collection else {}
     project_data = Project(
         name="test",
         categories={"docs": Category(dir="docs", name="docs", patterns=["README", "guide"])},
-        collections={},
+        collections=collections,
     )
 
     async def mock_get_session(ctx=None):
@@ -238,40 +241,10 @@ async def test_get_content_category_sets_metadata(tmp_path, monkeypatch):
     monkeypatch.setattr("mcp_guide.tools.tool_content.get_or_create_session", mock_get_session)
 
     # Call tool
-    args = ContentArgs(expression="docs")
+    args = ContentArgs(expression=expression)
     result_json = await get_content(args)
 
-    # Verify success - the bug would cause issues in future template rendering
-    # but for now we just verify the tool works
-    result = json.loads(result_json)
-    assert result["success"] is True
-    assert "# Test" in result["value"]
-
-
-async def test_get_content_collection_sets_metadata(tmp_path, monkeypatch):
-    """Test that collection search sets both category and collection fields on FileInfo."""
-    # Create test file
-    category_dir = tmp_path / "docs"
-    category_dir.mkdir()
-    (category_dir / "README").write_text("# Test")
-
-    # Project data
-    project_data = Project(
-        name="test",
-        categories={"docs": Category(dir="docs", name="docs", patterns=["README", "guide"])},
-        collections={"all": Collection(categories=["docs"])},
-    )
-
-    async def mock_get_session(ctx=None):
-        return create_mock_session(tmp_path, project_data)
-
-    monkeypatch.setattr("mcp_guide.tools.tool_content.get_or_create_session", mock_get_session)
-
-    # Call tool
-    args = ContentArgs(expression="all")
-    result_json = await get_content(args)
-
-    # Verify success - both category and collection fields should be set
+    # Verify success
     result = json.loads(result_json)
     assert result["success"] is True
     assert "# Test" in result["value"]

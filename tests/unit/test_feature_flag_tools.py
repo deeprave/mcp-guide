@@ -132,9 +132,18 @@ class TestTestSetProjectFlagTool:
     """Test set_flag MCP tool."""
 
     @pytest.mark.asyncio
-    async def test_set_flag_default_value_true(self):
-        """Test setting flag with default value (True)."""
-        args = SetFlagArgs(feature_name="new_flag")
+    @pytest.mark.parametrize(
+        "scenario,value,expected_msg,mock_method",
+        [
+            ("default_true", True, "Flag 'test_flag' set to True", "set"),
+            ("explicit_value", "custom_value", "Flag 'test_flag' set to 'custom_value'", "set"),
+            ("remove_none", None, "Flag 'test_flag' removed", "remove"),
+        ],
+        ids=["default_true", "explicit_value", "remove_none"],
+    )
+    async def test_set_flag_scenarios(self, scenario, value, expected_msg, mock_method):
+        """Test setting flag with different values."""
+        args = SetFlagArgs(feature_name="test_flag", value=value)
 
         with patch("mcp_guide.session.get_or_create_session") as mock_session_func:
             mock_session = Mock()
@@ -142,58 +151,22 @@ class TestTestSetProjectFlagTool:
 
             # Mock project flags proxy
             mock_flags_proxy = Mock()
-            mock_flags_proxy.set = AsyncMock()
+            if mock_method == "set":
+                mock_flags_proxy.set = AsyncMock()
+            else:
+                mock_flags_proxy.remove = AsyncMock()
             mock_session.project_flags.return_value = mock_flags_proxy
 
             result_json = await set_project_flag(args)
             result = parse_result_json(result_json)
 
             assert result.success is True
-            assert "Flag 'new_flag' set to True" in result.value
-            mock_flags_proxy.set.assert_called_once_with("new_flag", True)
+            assert expected_msg in result.value
 
-    @pytest.mark.asyncio
-    async def test_set_flag_explicit_value(self):
-        """Test setting flag with explicit value."""
-        args = SetFlagArgs(feature_name="test_flag", value="custom_value")
-
-        with patch("mcp_guide.session.get_or_create_session") as mock_session_func:
-            mock_session = Mock()
-            mock_session_func.return_value = mock_session
-            mock_session.project_name = "test-project"
-
-            # Mock project flags proxy
-            mock_project_proxy = Mock()
-            mock_project_proxy.set = AsyncMock()
-            mock_session.project_flags.return_value = mock_project_proxy
-
-            result_json = await set_project_flag(args)
-            result = parse_result_json(result_json)
-
-            assert result.success is True
-            assert "Flag 'test_flag' set to 'custom_value'" in result.value
-            mock_project_proxy.set.assert_called_once_with("test_flag", "custom_value")
-
-    @pytest.mark.asyncio
-    async def test_set_flag_remove_with_none(self):
-        """Test removing flag with value=None."""
-        args = SetFlagArgs(feature_name="remove_flag", value=None)
-
-        with patch("mcp_guide.session.get_or_create_session") as mock_session_func:
-            mock_session = Mock()
-            mock_session_func.return_value = mock_session
-
-            # Mock global flags proxy
-            mock_flags_proxy = Mock()
-            mock_flags_proxy.remove = AsyncMock()
-            mock_session.project_flags.return_value = mock_flags_proxy
-
-            result_json = await set_project_flag(args)
-            result = parse_result_json(result_json)
-
-            assert result.success is True
-            assert "Flag 'remove_flag' removed" in result.value
-            mock_flags_proxy.remove.assert_called_once_with("remove_flag")
+            if mock_method == "set":
+                mock_flags_proxy.set.assert_called_once_with("test_flag", value)
+            else:
+                mock_flags_proxy.remove.assert_called_once_with("test_flag")
 
     @pytest.mark.asyncio
     async def test_set_flag_validation_error(self):

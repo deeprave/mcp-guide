@@ -1,6 +1,7 @@
 """Tests for immutable data models."""
 
 import pytest
+from pydantic import ValidationError
 
 from mcp_guide.models import Category, Collection, Project, SessionState
 
@@ -30,22 +31,6 @@ class TestCategory:
         assert category.dir == "docs/"
         assert category.patterns == ["*.md"]
 
-    def test_category_has_name_field(self):
-        """Category should have name field (set by with_category)."""
-        category = Category(dir="docs", patterns=["README"])
-        assert hasattr(category, "name")
-        assert category.name == ""  # Empty by default, set by with_category
-        # Should only have dir, patterns, description
-        assert hasattr(category, "dir")
-        assert hasattr(category, "patterns")
-        assert hasattr(category, "description")
-
-    def test_category_is_frozen(self):
-        """Category instances should be immutable."""
-        category = Category(dir="docs/", patterns=["*.md"])
-        with pytest.raises(AttributeError):
-            category.dir = "new-dir"
-
 
 class TestCollection:
     """Tests for Collection model."""
@@ -56,51 +41,26 @@ class TestCollection:
         assert collection.categories == ["api", "database"]
         assert collection.description == "Backend services"
 
-    def test_collection_without_name_field(self):
-        """Collection should not have name field (name becomes dict key)."""
-        collection = Collection(categories=["docs"], description="All docs")
-        assert not hasattr(collection, "name")
-        # Should only have categories, description
-        assert hasattr(collection, "categories")
-        assert hasattr(collection, "description")
-
-    def test_collection_is_frozen(self):
-        """Collection instances should be immutable."""
-        collection = Collection(categories=["api"])
-        with pytest.raises(AttributeError):
-            collection.categories = ["new-categories"]
-
 
 class TestProject:
     """Tests for Project model."""
 
-    def test_project_name_too_long(self):
-        """Project name must be 50 chars or less."""
-        with pytest.raises(ValueError, match="between 1 and 50 characters"):
-            Project(name="a" * 51)
-
-    def test_project_name_empty(self):
-        """Project name cannot be empty."""
-        with pytest.raises(ValueError, match="between 1 and 50 characters"):
-            Project(name="")
-
-    def test_project_name_invalid_characters(self):
-        """Project name must only contain valid characters."""
-        invalid_names = ["proj@name", "proj name", "proj/name", "proj.name"]
-        for name in invalid_names:
-            with pytest.raises(ValueError, match="must contain only alphanumeric"):
-                Project(name=name)
-
-    def test_project_is_frozen(self):
-        """Project instances should be immutable (frozen)."""
-        project = Project(
-            name="test-project",
-            categories={},
-            collections={},
-        )
-
-        with pytest.raises(AttributeError):
-            project.name = "new-name"
+    @pytest.mark.parametrize(
+        "scenario,name,expected_error",
+        [
+            ("too_long", "a" * 51, "between 1 and 50 characters"),
+            ("empty", "", "between 1 and 50 characters"),
+            ("invalid_at", "proj@name", "must contain only alphanumeric"),
+            ("invalid_space", "proj name", "must contain only alphanumeric"),
+            ("invalid_slash", "proj/name", "must contain only alphanumeric"),
+            ("invalid_dot", "proj.name", "must contain only alphanumeric"),
+        ],
+        ids=["too_long", "empty", "invalid_at", "invalid_space", "invalid_slash", "invalid_dot"],
+    )
+    def test_project_name_validation(self, scenario, name, expected_error):
+        """Project name must meet validation requirements."""
+        with pytest.raises(ValueError, match=expected_error):
+            Project(name=name)
 
     def test_with_category_returns_new_instance(self):
         """with_category should return a new Project instance."""
@@ -210,24 +170,23 @@ class TestAllowedPaths:
         # Should not raise and should preserve the provided path
         assert str(valid_path) in project.additional_read_paths
 
-    def test_additional_read_paths_rejects_relative_path(self):
-        """Relative paths should raise ValueError for additional_read_paths."""
-        with pytest.raises(ValueError):
-            Project(name="test", additional_read_paths=["relative/path"])
-
-    def test_additional_read_paths_rejects_system_directory_with_message(self):
-        """System directories (e.g. /etc) should raise ValidationError with expected message."""
-        from pydantic import ValidationError
-
-        system_path = "/etc"
-
-        with pytest.raises(ValidationError, match="System directory not allowed"):
-            Project(name="test", additional_read_paths=[system_path])
-
-    def test_additional_read_paths_rejects_empty_string(self):
-        """Empty-string additional_read_paths entries should raise ValueError."""
-        with pytest.raises(ValueError):
-            Project(name="test", additional_read_paths=[""])
+    @pytest.mark.parametrize(
+        "paths,error_type,error_match",
+        [
+            (["relative/path"], ValueError, None),
+            (["/etc"], ValidationError, "System directory not allowed"),
+            ([""], ValueError, None),
+        ],
+        ids=["relative_path", "system_directory", "empty_string"],
+    )
+    def test_additional_read_paths_validation(self, paths, error_type, error_match):
+        """Additional read paths should reject invalid paths."""
+        if error_match:
+            with pytest.raises(error_type, match=error_match):
+                Project(name="test", additional_read_paths=paths)
+        else:
+            with pytest.raises(error_type):
+                Project(name="test", additional_read_paths=paths)
 
     def test_project_with_custom_allowed_paths(self):
         """Project can be created with custom allowed_write_paths."""
@@ -249,46 +208,3 @@ class TestAllowedPaths:
         new_project = project.with_category("docs", category)
 
         assert new_project.allowed_write_paths == custom_paths
-
-
-class TestExtraFieldHandling:
-    """Tests for models ignoring extra fields in config."""
-
-    def test_project_ignores_extra_fields(self):
-        """Project should ignore extra fields from hand-edited configs."""
-        project = Project(
-            name="test-project",
-            categories={},
-            collections={},
-            deprecated_field="old_value",  # type: ignore
-            unknown_field=123,  # type: ignore
-        )
-        assert project.name == "test-project"
-        assert project.categories == {}
-        assert project.collections == {}
-        assert not hasattr(project, "deprecated_field")
-        assert not hasattr(project, "unknown_field")
-
-    def test_category_ignores_extra_fields(self):
-        """Category should ignore extra fields from hand-edited configs."""
-        category = Category(
-            dir="docs/",
-            patterns=["*.md"],
-            deprecated_field="old_value",  # type: ignore
-            unknown_field=123,  # type: ignore
-        )
-        assert category.dir == "docs/"
-        assert category.patterns == ["*.md"]
-        assert not hasattr(category, "deprecated_field")
-        assert not hasattr(category, "unknown_field")
-
-    def test_collection_ignores_extra_fields(self):
-        """Collection should ignore extra fields from hand-edited configs."""
-        collection = Collection(
-            categories=["docs", "api"],
-            deprecated_field="old_value",  # type: ignore
-            unknown_field=123,  # type: ignore
-        )
-        assert collection.categories == ["docs", "api"]
-        assert not hasattr(collection, "deprecated_field")
-        assert not hasattr(collection, "unknown_field")

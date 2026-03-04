@@ -132,24 +132,36 @@ class TestTemplateStylingFlag:
             assert context["h5"] == ""
             assert context["h6"] == ""
 
-    async def test_template_styling_invalid_value_defaults_plain(self, template_cache):
-        """Test invalid content-style value defaults to plain."""
+    @pytest.mark.parametrize(
+        "error_scenario,mock_setup",
+        [
+            (
+                "invalid_value",
+                lambda mock_get_session: _setup_invalid_value_mock(mock_get_session),
+            ),
+            (
+                "session_error",
+                lambda mock_get_session: setattr(mock_get_session, "side_effect", Exception("Session error")),
+            ),
+            (
+                "connection_error",
+                lambda mock_get_session: setattr(mock_get_session, "side_effect", ConnectionError("Connection failed")),
+            ),
+            (
+                "flag_resolution_error",
+                lambda mock_get_session: _setup_flag_resolution_error_mock(mock_get_session),
+            ),
+        ],
+        ids=["invalid_value", "session_error", "connection_error", "flag_resolution_error"],
+    )
+    async def test_template_styling_error_defaults_plain(self, template_cache, error_scenario, mock_setup):
+        """Test various error scenarios default to plain styling."""
         with patch("mcp_guide.session.get_current_session") as mock_get_session:
-            mock_session = Mock()
-
-            mock_project_flags_obj = Mock()
-            mock_project_flags_obj.list = AsyncMock(return_value={FLAG_CONTENT_STYLE: "invalid"})
-            mock_session.project_flags.return_value = mock_project_flags_obj
-
-            mock_feature_flags_obj = Mock()
-            mock_feature_flags_obj.list = AsyncMock(return_value={})
-            mock_session.feature_flags.return_value = mock_feature_flags_obj
-
-            mock_get_session.return_value = mock_session
+            mock_setup(mock_get_session)
 
             context = await template_cache._build_agent_context()
 
-            # Should default to plain when invalid value provided
+            # Should default to plain when errors occur
             assert context["b"] == ""
             assert context["i"] == ""
             assert context["h1"] == ""
@@ -159,46 +171,27 @@ class TestTemplateStylingFlag:
             assert context["h5"] == ""
             assert context["h6"] == ""
 
-    async def test_template_styling_session_error_defaults_plain(self, template_cache):
-        """Test session access error defaults to plain."""
-        with patch("mcp_guide.session.get_current_session") as mock_get_session:
-            mock_get_session.side_effect = Exception("Session error")
 
-            context = await template_cache._build_agent_context()
+def _setup_invalid_value_mock(mock_get_session):
+    """Setup mock for invalid value scenario."""
+    mock_session = Mock()
 
-            # Should default to plain when session access fails
-            assert context["b"] == ""
-            assert context["i"] == ""
-            assert context["h1"] == ""
-            assert context["h2"] == ""
-            assert context["h3"] == ""
-            assert context["h4"] == ""
-            assert context["h5"] == ""
-            assert context["h6"] == ""
+    mock_project_flags_obj = Mock()
+    mock_project_flags_obj.list = AsyncMock(return_value={FLAG_CONTENT_STYLE: "invalid"})
+    mock_session.project_flags.return_value = mock_project_flags_obj
 
-    async def test_template_styling_connection_error_defaults_plain(self, template_cache):
-        """Test connection error defaults to plain."""
-        with patch("mcp_guide.session.get_current_session") as mock_get_session:
-            mock_get_session.side_effect = ConnectionError("Connection failed")
+    mock_feature_flags_obj = Mock()
+    mock_feature_flags_obj.list = AsyncMock(return_value={})
+    mock_session.feature_flags.return_value = mock_feature_flags_obj
 
-            context = await template_cache._build_agent_context()
+    mock_get_session.return_value = mock_session
 
-            # Should default to plain when connection fails
-            assert context["b"] == ""
-            assert context["i"] == ""
 
-    async def test_template_styling_flag_resolution_error_defaults_plain(self, template_cache):
-        """Test flag resolution error defaults to plain."""
-        with patch("mcp_guide.session.get_current_session") as mock_get_session:
-            mock_session = Mock()
-            mock_project_flags_obj = Mock()
-            mock_project_flags_obj.list = AsyncMock(side_effect=KeyError("Flag not found"))
-            mock_session.project_flags.return_value = mock_project_flags_obj
+def _setup_flag_resolution_error_mock(mock_get_session):
+    """Setup mock for flag resolution error scenario."""
+    mock_session = Mock()
+    mock_project_flags_obj = Mock()
+    mock_project_flags_obj.list = AsyncMock(side_effect=KeyError("Flag not found"))
+    mock_session.project_flags.return_value = mock_project_flags_obj
 
-            mock_get_session.return_value = mock_session
-
-            context = await template_cache._build_agent_context()
-
-            # Should default to plain when flag resolution fails
-            assert context["b"] == ""
-            assert context["i"] == ""
+    mock_get_session.return_value = mock_session

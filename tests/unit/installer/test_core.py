@@ -116,33 +116,23 @@ class TestArchiveOperations:
         # Assert
         assert content == b"Test content"
 
+    @pytest.mark.parametrize(
+        "filename,expected",
+        [
+            ("present.txt", True),
+            ("missing.txt", False),
+        ],
+    )
     @pytest.mark.asyncio
-    async def test_file_exists_in_archive_returns_true_when_present(self, tmp_path: Path) -> None:
-        """Test that file_exists_in_archive returns True when file is in archive."""
-        # Arrange
+    async def test_file_exists_in_archive(self, filename: str, expected: bool, tmp_path: Path) -> None:
+        """Test file_exists_in_archive returns correct boolean."""
         archive_path = tmp_path / "archive.zip"
         with ZipFile(archive_path, "w") as zf:
             zf.writestr("present.txt", "content")
-
-        # Act
-        result = await file_exists_in_archive(archive_path, "present.txt")
-
-        # Assert
-        assert result is True
-
-    @pytest.mark.asyncio
-    async def test_file_exists_in_archive_returns_false_when_absent(self, tmp_path: Path) -> None:
-        """Test that file_exists_in_archive returns False when file is not in archive."""
-        # Arrange
-        archive_path = tmp_path / "archive.zip"
-        with ZipFile(archive_path, "w") as zf:
             zf.writestr("other.txt", "content")
 
-        # Act
-        result = await file_exists_in_archive(archive_path, "missing.txt")
-
-        # Assert
-        assert result is False
+        result = await file_exists_in_archive(archive_path, filename)
+        assert result is expected
 
 
 class TestDiffOperations:
@@ -165,52 +155,50 @@ class TestDiffOperations:
         assert "-Line 2" in diff
         assert "+Line 2 modified" in diff
 
-    @pytest.mark.asyncio
-    async def test_apply_diff_successfully_patches_file(self, tmp_path: Path) -> None:
-        """Test that apply_diff successfully applies a diff to a target file."""
-        # Arrange
-        target = tmp_path / "target.txt"
-        target.write_text("Line 1\nLine 2\nLine 3\n")
-
-        # Create a diff with absolute paths (apply_diff should rewrite them)
-        diff_content = """--- /some/absolute/path/original.txt
+    @pytest.mark.parametrize(
+        "target_content,diff_content,expected_success,expected_result",
+        [
+            (
+                "Line 1\nLine 2\nLine 3\n",
+                """--- /some/absolute/path/original.txt
 +++ /another/absolute/path/modified.txt
 @@ -1,3 +1,3 @@
  Line 1
 -Line 2
 +Line 2 modified
  Line 3
-"""
-
-        # Act
-        success = await apply_diff(target, diff_content)
-
-        # Assert
-        assert success is True
-        assert target.read_text() == "Line 1\nLine 2 modified\nLine 3\n"
-
-    @pytest.mark.asyncio
-    async def test_apply_diff_returns_false_when_patch_fails(self, tmp_path: Path) -> None:
-        """Test that apply_diff returns False when patch cannot be applied."""
-        # Arrange
-        target = tmp_path / "target.txt"
-        target.write_text("Line 1\nDifferent content\nLine 3\n")
-
-        # Create a diff that won't match the file content
-        diff_content = """--- original.txt
+""",
+                True,
+                "Line 1\nLine 2 modified\nLine 3\n",
+            ),
+            (
+                "Line 1\nDifferent content\nLine 3\n",
+                """--- original.txt
 +++ modified.txt
 @@ -1,3 +1,3 @@
  Line 1
 -Line 2
 +Line 2 modified
  Line 3
-"""
+""",
+                False,
+                None,
+            ),
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_apply_diff(
+        self, target_content: str, diff_content: str, expected_success: bool, expected_result, tmp_path: Path
+    ) -> None:
+        """Test apply_diff with successful and failed patches."""
+        target = tmp_path / "target.txt"
+        target.write_text(target_content)
 
-        # Act
         success = await apply_diff(target, diff_content)
 
-        # Assert
-        assert success is False
+        assert success is expected_success
+        if expected_result:
+            assert target.read_text() == expected_result
 
 
 class TestTemplateDiscovery:
@@ -379,168 +367,115 @@ class TestInstallFileSmartUpdate:
     """Tests for install_file smart update strategy."""
 
     @pytest.mark.asyncio
-    async def test_docroot_safety_check_same_path_raises(self, tmp_path: Path) -> None:
-        """Test that docroot safety check raises when docroot equals template source."""
-        # Arrange
+    @pytest.mark.parametrize(
+        "scenario,should_raise",
+        [
+            ("same_path", True),
+            ("different_path", False),
+            ("nonexistent_path", False),
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_docroot_safety_check(self, scenario: str, should_raise: bool, tmp_path: Path) -> None:
+        """Test docroot safety validation with various path scenarios."""
         from mcp_guide.installer.core import get_templates_path, validate_docroot_safety
 
-        templates_path = await get_templates_path()
+        if scenario == "same_path":
+            docroot = await get_templates_path()
+        elif scenario == "different_path":
+            docroot = tmp_path / "docroot"
+            docroot.mkdir()
+        else:  # nonexistent_path
+            docroot = tmp_path / "nonexistent"
 
-        # Act & Assert
-        with pytest.raises(ValueError, match="Docroot cannot be same as template source"):
-            await validate_docroot_safety(templates_path)
+        if should_raise:
+            with pytest.raises(ValueError, match="Docroot cannot be same as template source"):
+                await validate_docroot_safety(docroot)
+        else:
+            await validate_docroot_safety(docroot)
 
+    @pytest.mark.parametrize(
+        "scenario,source_content,dest_content,archive_content,expected_status,check_backup",
+        [
+            ("skipped_binary", b"\x00\x01\x02\xff\xfe", None, None, "skipped_binary", False),
+            ("installed", "content", None, None, "installed", False),
+            ("unchanged", "same content", "same content", None, "unchanged", False),
+            ("updated", "new content", "original content", "original content", "updated", False),
+            (
+                "patched",
+                "line 1\nline 2 updated\nline 3\n",
+                "line 1\nline 2\nline 3\nuser added line\n",
+                "line 1\nline 2\nline 3\n",
+                "patched",
+                False,
+            ),
+            (
+                "conflict",
+                "completely different content\n",
+                "line 1\nline 2\nuser changes that conflict\n",
+                "original line 1\noriginal line 2\n",
+                "conflict",
+                True,
+            ),
+            ("no_archive_unchanged", "same content", "same content", False, "unchanged", False),
+            ("no_archive_conflict", "new content", "old content", False, "conflict", True),
+        ],
+        ids=[
+            "skipped_binary",
+            "installed",
+            "unchanged",
+            "updated",
+            "patched",
+            "conflict",
+            "no_archive_unchanged",
+            "no_archive_conflict",
+        ],
+    )
     @pytest.mark.asyncio
-    async def test_docroot_safety_check_different_path_ok(self, tmp_path: Path) -> None:
-        """Test that docroot safety check passes when docroot differs from template source."""
-        # Arrange
-        from mcp_guide.installer.core import validate_docroot_safety
-
-        docroot = tmp_path / "docroot"
-        docroot.mkdir()
-
-        # Act & Assert - should not raise
-        await validate_docroot_safety(docroot)
-
-    @pytest.mark.asyncio
-    async def test_docroot_safety_check_nonexistent_path_ok(self, tmp_path: Path) -> None:
-        """Test that docroot safety check passes when docroot doesn't exist yet."""
-        # Arrange
-        from mcp_guide.installer.core import validate_docroot_safety
-
-        docroot = tmp_path / "nonexistent"
-
-        # Act & Assert - should not raise
-        await validate_docroot_safety(docroot)
-
-    @pytest.mark.asyncio
-    async def test_install_file_returns_skipped_binary_for_binary_files(self, tmp_path: Path) -> None:
-        """Test that install_file returns 'skipped_binary' for binary files."""
-        # Arrange
+    async def test_install_file_return_statuses(
+        self, scenario, source_content, dest_content, archive_content, expected_status, check_backup, tmp_path: Path
+    ) -> None:
+        """Test install_file returns correct status for various scenarios."""
         from mcp_guide.installer.core import install_file
 
-        source = tmp_path / "binary.bin"
-        source.write_bytes(b"\x00\x01\x02\xff\xfe")
-        dest = tmp_path / "dest.bin"
-
-        # Act
-        result = await install_file(source, dest)
-
-        # Assert
-        assert result == "skipped_binary"
-        assert not dest.exists()
-
-    @pytest.mark.asyncio
-    async def test_install_file_returns_installed_for_new_file(self, tmp_path: Path) -> None:
-        """Test that install_file returns 'installed' when destination doesn't exist."""
-        # Arrange
-        from mcp_guide.installer.core import install_file
-
+        # Setup source
         source = tmp_path / "source.txt"
-        source.write_text("content")
+        if isinstance(source_content, bytes):
+            source.write_bytes(source_content)
+        else:
+            source.write_text(source_content)
+
+        # Setup destination
         dest = tmp_path / "dest.txt"
+        if dest_content:
+            if isinstance(dest_content, bytes):
+                dest.write_bytes(dest_content)
+            else:
+                dest.write_text(dest_content)
 
-        # Act
-        result = await install_file(source, dest)
-
-        # Assert
-        assert result == "installed"
-        assert dest.exists()
-        assert dest.read_text() == "content"
-
-    @pytest.mark.asyncio
-    async def test_install_file_returns_unchanged_for_identical_files(self, tmp_path: Path) -> None:
-        """Test that install_file returns 'unchanged' when source and dest are identical."""
-        # Arrange
-        from mcp_guide.installer.core import install_file
-
-        source = tmp_path / "source.txt"
-        source.write_text("same content")
-        dest = tmp_path / "dest.txt"
-        dest.write_text("same content")
-
-        # Act
-        result = await install_file(source, dest)
-
-        # Assert
-        assert result == "unchanged"
-        assert dest.read_text() == "same content"
-
-    @pytest.mark.asyncio
-    async def test_install_file_returns_updated_for_unmodified_file(self, tmp_path: Path) -> None:
-        """Test that install_file returns 'updated' when dest matches original but differs from source."""
-        # Arrange
-        from mcp_guide.installer.core import install_file
-
-        source = tmp_path / "source.txt"
-        source.write_text("new content")
-        dest = tmp_path / "dest.txt"
-        dest.write_text("original content")
-
-        # Create archive with original
-        archive_path = tmp_path / "archive.zip"
-        with ZipFile(archive_path, "w") as zf:
-            zf.writestr("dest.txt", "original content")
+        # Setup archive
+        archive_path = None
+        if archive_content is not False and archive_content is not None:
+            archive_path = tmp_path / "archive.zip"
+            with ZipFile(archive_path, "w") as zf:
+                zf.writestr("dest.txt", archive_content)
 
         # Act
         result = await install_file(source, dest, archive_path)
 
         # Assert
-        assert result == "updated"
-        assert dest.read_text() == "new content"
+        assert result == expected_status
 
-    @pytest.mark.asyncio
-    async def test_install_file_returns_patched_for_user_modified_file(self, tmp_path: Path) -> None:
-        """Test that install_file returns 'patched' when user modifications are preserved."""
-        # Arrange
-        from mcp_guide.installer.core import install_file
+        if scenario == "skipped_binary":
+            assert not dest.exists()
+        elif scenario == "patched":
+            content = dest.read_text()
+            assert "line 2 updated" in content
+            assert "user added line" in content
 
-        source = tmp_path / "source.txt"
-        source.write_text("line 1\nline 2 updated\nline 3\n")
-
-        dest = tmp_path / "dest.txt"
-        dest.write_text("line 1\nline 2\nline 3\nuser added line\n")
-
-        # Create archive with original
-        archive_path = tmp_path / "archive.zip"
-        with ZipFile(archive_path, "w") as zf:
-            zf.writestr("dest.txt", "line 1\nline 2\nline 3\n")
-
-        # Act
-        result = await install_file(source, dest, archive_path)
-
-        # Assert
-        assert result == "patched"
-        content = dest.read_text()
-        assert "line 2 updated" in content  # New change applied
-        assert "user added line" in content  # User change preserved
-
-    @pytest.mark.asyncio
-    async def test_install_file_returns_conflict_and_creates_backup_on_patch_failure(self, tmp_path: Path) -> None:
-        """Test that install_file returns 'conflict' and creates backup when patch fails."""
-        # Arrange
-        from mcp_guide.installer.core import install_file
-
-        source = tmp_path / "source.txt"
-        source.write_text("completely different content\n")
-
-        dest = tmp_path / "dest.txt"
-        dest.write_text("line 1\nline 2\nuser changes that conflict\n")
-
-        # Create archive with original
-        archive_path = tmp_path / "archive.zip"
-        with ZipFile(archive_path, "w") as zf:
-            zf.writestr("dest.txt", "original line 1\noriginal line 2\n")
-
-        # Act
-        result = await install_file(source, dest, archive_path)
-
-        # Assert
-        assert result == "conflict"
-        assert dest.read_text() == "completely different content\n"  # New version installed
-        backup = tmp_path / "orig.dest.txt"
-        assert backup.exists()
-        assert backup.read_text() == "line 1\nline 2\nuser changes that conflict\n"  # User version backed up
+        if check_backup:
+            backup = tmp_path / "orig.dest.txt"
+            assert backup.exists()
 
     @pytest.mark.asyncio
     async def test_install_file_uses_archive_name_for_subdirectory_files(self, tmp_path: Path) -> None:
@@ -617,62 +552,3 @@ class TestInstallFileSmartUpdate:
         assert "user changes" in dest1.read_text()  # User changes preserved
         assert "new line" in dest1.read_text()  # New content applied
         assert "new line" in dest2.read_text()  # New content applied
-
-    @pytest.mark.asyncio
-    async def test_install_file_no_archive_skip_unchanged(self, tmp_path: Path) -> None:
-        """Test that install_file returns 'unchanged' when no archive and files are identical."""
-        # Arrange
-        from mcp_guide.installer.core import install_file
-
-        source = tmp_path / "source.txt"
-        source.write_text("same content")
-        dest = tmp_path / "dest.txt"
-        dest.write_text("same content")
-
-        # Act - no archive provided
-        result = await install_file(source, dest, archive_path=None)
-
-        # Assert
-        assert result == "unchanged"
-        assert dest.read_text() == "same content"
-
-    @pytest.mark.asyncio
-    async def test_install_file_no_archive_backup_changed(self, tmp_path: Path, caplog) -> None:
-        """Test that install_file backs up and returns 'conflict' when no archive and files differ."""
-        # Arrange
-        from mcp_guide.installer.core import install_file
-
-        source = tmp_path / "source.txt"
-        source.write_text("new content")
-        dest = tmp_path / "dest.txt"
-        dest.write_text("old content")
-
-        # Act - no archive provided
-        with caplog.at_level("WARNING"):
-            result = await install_file(source, dest, archive_path=None)
-
-        # Assert
-        assert result == "conflict"
-        assert dest.read_text() == "new content"  # New version installed
-        backup = tmp_path / "orig.dest.txt"
-        assert backup.exists()
-        assert backup.read_text() == "old content"  # Old version backed up
-
-    @pytest.mark.asyncio
-    async def test_install_file_no_archive_warning_logged(self, tmp_path: Path, caplog) -> None:
-        """Test that install_file logs warning about inability to verify user changes when no archive."""
-        # Arrange
-        from mcp_guide.installer.core import install_file
-
-        source = tmp_path / "source.txt"
-        source.write_text("new content")
-        dest = tmp_path / "dest.txt"
-        dest.write_text("old content")
-
-        # Act - no archive provided
-        with caplog.at_level("WARNING"):
-            await install_file(source, dest, archive_path=None)
-
-        # Assert
-        assert any("No archive" in record.message for record in caplog.records)
-        assert any("cannot verify user changes" in record.message for record in caplog.records)
