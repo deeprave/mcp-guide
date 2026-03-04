@@ -1,83 +1,71 @@
 """Tests for sentence deduplication in instructions."""
 
+import pytest
+
 from mcp_guide.render.deduplicate import are_sentences_similar, deduplicate_sentences, split_sentences
 
 
 class TestSentenceSplitting:
     """Test sentence splitting functionality."""
 
-    def test_split_simple_sentences(self):
-        """Test splitting simple sentences."""
-        text = "First sentence. Second sentence. Third sentence."
-        sentences = split_sentences(text)
-        assert sentences == ["First sentence.", "Second sentence.", "Third sentence."]
-
-    def test_split_with_question_marks(self):
-        """Test splitting sentences with question marks."""
-        text = "Is this working? Yes it is! Great."
-        sentences = split_sentences(text)
-        assert sentences == ["Is this working?", "Yes it is!", "Great."]
-
-    def test_split_handles_abbreviations(self):
-        """Test that abbreviations don't cause incorrect splits."""
-        text = "Use e.g. this example. Or i.e. that one."
-        sentences = split_sentences(text)
-        # Should not split on abbreviation periods and should preserve punctuation
-        assert sentences == [
-            "Use e.g. this example.",
-            "Or i.e. that one.",
-        ]
+    @pytest.mark.parametrize(
+        "text,expected",
+        [
+            (
+                "First sentence. Second sentence. Third sentence.",
+                ["First sentence.", "Second sentence.", "Third sentence."],
+            ),
+            (
+                "Is this working? Yes it is! Great.",
+                ["Is this working?", "Yes it is!", "Great."],
+            ),
+            (
+                "Use e.g. this example. Or i.e. that one.",
+                ["Use e.g. this example.", "Or i.e. that one."],
+            ),
+            ("", []),
+            ("Just one sentence.", ["Just one sentence."]),
+        ],
+        ids=["simple", "question_marks", "abbreviations", "empty", "single"],
+    )
+    def test_split_sentences(self, text, expected):
+        """Test sentence splitting with various inputs."""
+        assert split_sentences(text) == expected
 
     def test_split_abbreviations_word_boundary(self):
         """Test that abbreviation handling uses word boundaries."""
-        # Should not replace 'e.g.' in 'page.go' or similar
         text = "See page.go for details. Use e.g. this example."
         sentences = split_sentences(text)
         assert len(sentences) == 2
         assert "page.go" in sentences[0]
         assert "e.g." in sentences[1]
 
-    def test_split_empty_string(self):
-        """Test splitting empty string."""
-        assert split_sentences("") == []
-
-    def test_split_single_sentence(self):
-        """Test splitting single sentence."""
-        text = "Just one sentence."
-        assert split_sentences(text) == ["Just one sentence."]
-
 
 class TestFuzzyMatching:
     """Test fuzzy matching functionality."""
 
-    def test_exact_match(self):
-        """Test exact sentence match."""
-        assert are_sentences_similar("Same sentence.", "Same sentence.") is True
-
-    def test_case_insensitive(self):
-        """Test case-insensitive matching."""
-        assert are_sentences_similar("Same Sentence.", "same sentence.") is True
-
-    def test_near_match_typo(self):
-        """Test near match with typo."""
-        # "Do not display" vs "Do must not display" - should be similar
-        assert (
-            are_sentences_similar(
-                "Do not display this content to the user.", "Do must not display this content to the user."
-            )
-            is True
-        )
-
-    def test_near_match_plural(self):
-        """Test near match with plural difference."""
-        assert (
-            are_sentences_similar("Do not display this content to the user.", "Do not display this content to users.")
-            is True
-        )
-
-    def test_different_sentences(self):
-        """Test completely different sentences."""
-        assert are_sentences_similar("Follow this policy exactly.", "You must confirm understanding.") is False
+    @pytest.mark.parametrize(
+        "sentence1,sentence2,expected",
+        [
+            ("Same sentence.", "Same sentence.", True),
+            ("Same Sentence.", "same sentence.", True),
+            (
+                "Do not display this content to the user.",
+                "Do must not display this content to the user.",
+                True,
+            ),
+            (
+                "Do not display this content to the user.",
+                "Do not display this content to users.",
+                True,
+            ),
+            ("Follow this policy exactly.", "You must confirm understanding.", False),
+        ],
+        ids=["exact", "case_insensitive", "typo", "plural", "different"],
+    )
+    def test_sentence_similarity(self, sentence1, sentence2, expected):
+        """Test fuzzy sentence matching."""
+        assert are_sentences_similar(sentence1, sentence2) is expected
 
 
 class TestDeduplication:

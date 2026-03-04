@@ -224,52 +224,31 @@ class TestHiddenFileExclusion:
 class TestExtensionlessFallback:
     """Tests for extensionless pattern fallback to .md."""
 
+    @pytest.mark.parametrize(
+        "scenario,files,pattern,expected_name",
+        [
+            ("exact_match", ["intro", "intro.md"], "intro", "intro"),
+            ("fallback_md", ["intro.md"], "intro", "intro.md"),
+            ("no_fallback", ["intro.md", "intro.txt"], "intro.txt", "intro.txt"),
+        ],
+    )
     @pytest.mark.asyncio
-    async def test_extensionless_exact_match(self, temp_project_dir):
-        """Test extensionless pattern prefers exact match."""
+    async def test_extensionless_pattern_behavior(
+        self, scenario: str, files: list, pattern: str, expected_name: str, temp_project_dir
+    ):
+        """Test extensionless pattern matching with exact match, fallback, and explicit extension."""
         # Arrange
-        test_dir = temp_project_dir / "test_exact"
+        test_dir = temp_project_dir / f"test_{scenario}"
         test_dir.mkdir()
-        (test_dir / "intro").write_text("content1")
-        (test_dir / "intro.md").write_text("content2")
+        for filename in files:
+            (test_dir / filename).write_text("content")
 
         # Act
-        results = await safe_glob_search(test_dir, ["intro"])
+        results = await safe_glob_search(test_dir, [pattern])
 
         # Assert
         assert len(results) == 1
-        assert results[0].name == "intro"
-
-    @pytest.mark.asyncio
-    async def test_extensionless_fallback_md(self, temp_project_dir):
-        """Test extensionless pattern falls back to .md."""
-        # Arrange
-        test_dir = temp_project_dir / "test_fallback"
-        test_dir.mkdir()
-        (test_dir / "intro.md").write_text("content")
-
-        # Act
-        results = await safe_glob_search(test_dir, ["intro"])
-
-        # Assert
-        assert len(results) == 1
-        assert results[0].name == "intro.md"
-
-    @pytest.mark.asyncio
-    async def test_pattern_with_extension_no_fallback(self, temp_project_dir):
-        """Test pattern with extension doesn't use fallback."""
-        # Arrange
-        test_dir = temp_project_dir / "test_no_fallback"
-        test_dir.mkdir()
-        (test_dir / "intro.md").write_text("content1")
-        (test_dir / "intro.txt").write_text("content2")
-
-        # Act
-        results = await safe_glob_search(test_dir, ["intro.txt"])
-
-        # Assert
-        assert len(results) == 1
-        assert results[0].name == "intro.txt"
+        assert results[0].name == expected_name
 
 
 class TestSymlinkAndBoundaryBehavior:

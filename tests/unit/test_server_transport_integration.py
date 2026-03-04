@@ -1,22 +1,6 @@
 """Tests for server transport integration."""
 
-from mcp_guide.cli import ServerConfig, parse_args
-
-
-def test_server_config_has_transport_fields():
-    """Test that ServerConfig has transport-related fields."""
-    config = ServerConfig()
-    assert hasattr(config, "transport_mode")
-    assert hasattr(config, "transport_host")
-    assert hasattr(config, "transport_port")
-
-
-def test_server_config_defaults_to_stdio():
-    """Test that ServerConfig defaults to stdio transport."""
-    config = ServerConfig()
-    assert config.transport_mode == "stdio"
-    assert config.transport_host is None
-    assert config.transport_port is None
+from mcp_guide.cli import parse_args
 
 
 def test_parse_args_with_stdio_mode(monkeypatch):

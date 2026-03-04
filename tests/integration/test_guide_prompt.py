@@ -63,79 +63,59 @@ class TestGuidePromptIntegration:
         assert result["instruction"] == INSTRUCTION_DISPLAY_ONLY
 
     @pytest.mark.asyncio
-    async def test_argv_parsing_none_termination(self, guide_function) -> None:
-        """Argv parsing should stop at first None value."""
+    @pytest.mark.parametrize(
+        "scenario,args,kwargs,expected_expression",
+        [
+            ("none_termination", ("a",), {"arg3": "c"}, "a"),  # arg2 is None, stops at "a"
+            ("argument_ordering", ("first",), {"arg2": "second"}, "first,second"),
+            ("multiple_arguments", ("lang/python", "advanced", "tutorial"), {}, "lang/python,advanced,tutorial"),
+            (
+                "maximum_arguments",
+                ("1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B", "C", "D", "E", "F"),
+                {},
+                "1,2,3,4,5,6,7,8,9,A,B,C,D,E,F",
+            ),
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_argv_parsing(self, guide_function, scenario, args, kwargs, expected_expression) -> None:
+        """Test argv parsing with different argument scenarios."""
         mock_ctx = MagicMock()
         mock_result = Result.ok("Test content")
 
         with patch(
             "mcp_guide.prompts.guide_prompt.internal_get_content", new=AsyncMock(return_value=mock_result)
         ) as mock_get_content:
-            await guide_function("a", arg3="c", ctx=mock_ctx)  # arg2 is None, so should stop at "a"
+            await guide_function(*args, **kwargs, ctx=mock_ctx)
 
             args_call, _ = mock_get_content.call_args
             content_args = args_call[0]
-            assert content_args.expression == "a"
+            assert content_args.expression == expected_expression
 
     @pytest.mark.asyncio
-    async def test_argv_parsing_argument_ordering(self, guide_function) -> None:
-        """Argv parsing should maintain correct argument order."""
-        mock_ctx = MagicMock()
-        mock_result = Result.ok("Test content")
-
-        with patch(
-            "mcp_guide.prompts.guide_prompt.internal_get_content", new=AsyncMock(return_value=mock_result)
-        ) as mock_get_content:
-            await guide_function("first", arg2="second", ctx=mock_ctx)  # Both args should be processed
-
-            args_call, _ = mock_get_content.call_args
-            content_args = args_call[0]
-            assert content_args.expression == "first,second"
-
+    @pytest.mark.parametrize(
+        "scenario,command,expected_error",
+        [
+            ("empty_string", "", "guide prompt requires one or more arguments"),
+            ("colon_only", ":", "Command name cannot be empty"),
+            ("semicolon_only", ";", "Command name cannot be empty"),
+        ],
+        ids=["empty_string", "colon_only", "semicolon_only"],
+    )
     @pytest.mark.asyncio
-    async def test_argv_parsing_multiple_arguments(self, guide_function) -> None:
-        """Argv parsing should handle multiple arguments correctly."""
-        mock_ctx = MagicMock()
-        mock_result = Result.ok("Test content")
-
-        with patch(
-            "mcp_guide.prompts.guide_prompt.internal_get_content", new=AsyncMock(return_value=mock_result)
-        ) as mock_get_content:
-            await guide_function("lang/python", "advanced", "tutorial", ctx=mock_ctx)
-
-            args_call, _ = mock_get_content.call_args
-            content_args = args_call[0]
-            assert content_args.expression == "lang/python,advanced,tutorial"
-
-    @pytest.mark.asyncio
-    async def test_argv_parsing_maximum_arguments(self, guide_function) -> None:
-        """Argv parsing should handle all 15 arguments."""
-        mock_ctx = MagicMock()
-        mock_result = Result.ok("Test content")
-
-        with patch(
-            "mcp_guide.prompts.guide_prompt.internal_get_content", new=AsyncMock(return_value=mock_result)
-        ) as mock_get_content:
-            await guide_function(
-                "1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B", "C", "D", "E", "F", ctx=mock_ctx
-            )
-
-            args_call, _ = mock_get_content.call_args
-            content_args = args_call[0]
-            assert content_args.expression == "1,2,3,4,5,6,7,8,9,A,B,C,D,E,F"
-
-    @pytest.mark.asyncio
-    async def test_guide_prompt_with_empty_command(self, guide_function) -> None:
-        """@guide prompt should return usage error when command is empty string."""
+    async def test_guide_prompt_empty_command_scenarios(
+        self, guide_function, scenario, command, expected_error
+    ) -> None:
+        """@guide prompt should handle various empty command scenarios."""
         mock_ctx = MagicMock()
 
-        result_str = await guide_function("", ctx=mock_ctx)
-
+        result_str = await guide_function(command, ctx=mock_ctx)
         result = json.loads(result_str)
         assert result["success"] is False
-        assert "guide prompt requires one or more arguments" in result["error"]
-        assert ":help" in result["error"]
-        assert result["instruction"] == INSTRUCTION_DISPLAY_ONLY
+        assert expected_error in result["error"]
+        if scenario == "empty_string":
+            assert ":help" in result["error"]
+            assert result["instruction"] == INSTRUCTION_DISPLAY_ONLY
 
     @pytest.mark.asyncio
     async def test_guide_prompt_with_arguments_reserved(self, guide_function) -> None:
@@ -270,20 +250,6 @@ class TestGuidePromptIntegration:
             assert args_list == []
 
     @pytest.mark.asyncio
-    async def test_guide_prompt_with_empty_command(self, guide_function) -> None:
-        """@guide prompt should reject empty commands like : or ;."""
-        mock_ctx = MagicMock()
-
-        result_str = await guide_function(":", ctx=mock_ctx)
-        result = json.loads(result_str)
-        assert result["success"] is False
-        assert result["error"] == "Command name cannot be empty"
-
-        result_str = await guide_function(";", ctx=mock_ctx)
-        result = json.loads(result_str)
-        assert result["success"] is False
-        assert result["error"] == "Command name cannot be empty"
-
     @pytest.mark.asyncio
     async def test_guide_prompt_with_command_arguments(self, guide_function) -> None:
         """@guide prompt should parse command arguments."""

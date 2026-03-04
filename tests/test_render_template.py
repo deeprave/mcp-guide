@@ -42,36 +42,18 @@ async def test_render_template_simple():
 
 
 @pytest.mark.asyncio
-async def test_render_template_requires_flag_present():
-    """Test render_template returns content when required flag is present."""
-    test_file = Path("tests/fixtures/test_requires.mustache")
-    test_file.parent.mkdir(parents=True, exist_ok=True)
-    test_file.write_text("---\nrequires-feature: true\n---\nContent")
-
-    try:
-        file_info = FileInfo(
-            path=test_file,
-            size=test_file.stat().st_size,
-            content_size=7,
-            mtime=datetime.fromtimestamp(test_file.stat().st_mtime),
-            name=test_file.name,
-        )
-
-        result = await render_template(
-            file_info=file_info,
-            base_dir=test_file.parent,
-            project_flags={"feature": True},
-        )
-
-        assert result is not None
-    finally:
-        test_file.unlink(missing_ok=True)
-
-
+@pytest.mark.parametrize(
+    "scenario,project_flags,expected_result",
+    [
+        ("flag_present", {"feature": True}, "not_none"),
+        ("flag_missing", {}, None),
+        ("flag_falsy", {"feature": False}, None),
+    ],
+)
 @pytest.mark.asyncio
-async def test_render_template_requires_flag_missing():
-    """Test render_template returns None when required flag is missing."""
-    test_file = Path("tests/fixtures/test_requires_missing.mustache")
+async def test_render_template_requires_flag(scenario, project_flags, expected_result):
+    """Test render_template with different required flag scenarios."""
+    test_file = Path(f"tests/fixtures/test_requires_{scenario}.mustache")
     test_file.parent.mkdir(parents=True, exist_ok=True)
     test_file.write_text("---\nrequires-feature: true\n---\nContent")
 
@@ -87,37 +69,13 @@ async def test_render_template_requires_flag_missing():
         result = await render_template(
             file_info=file_info,
             base_dir=test_file.parent,
-            project_flags={},
+            project_flags=project_flags,
         )
 
-        assert result is None
-    finally:
-        test_file.unlink(missing_ok=True)
-
-
-@pytest.mark.asyncio
-async def test_render_template_requires_flag_falsy():
-    """Test render_template returns None when required flag is falsy."""
-    test_file = Path("tests/fixtures/test_requires_falsy.mustache")
-    test_file.parent.mkdir(parents=True, exist_ok=True)
-    test_file.write_text("---\nrequires-feature: true\n---\nContent")
-
-    try:
-        file_info = FileInfo(
-            path=test_file,
-            size=test_file.stat().st_size,
-            content_size=7,
-            mtime=datetime.fromtimestamp(test_file.stat().st_mtime),
-            name=test_file.name,
-        )
-
-        result = await render_template(
-            file_info=file_info,
-            base_dir=test_file.parent,
-            project_flags={"feature": False},
-        )
-
-        assert result is None
+        if expected_result == "not_none":
+            assert result is not None
+        else:
+            assert result is expected_result
     finally:
         test_file.unlink(missing_ok=True)
 

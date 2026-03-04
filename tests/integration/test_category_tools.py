@@ -163,74 +163,39 @@ async def test_category_management_workflow(mcp_server, test_session, monkeypatc
 # Validation Tests
 
 
+@pytest.mark.parametrize(
+    "scenario,args_factory,setup_fn",
+    [
+        ("invalid_name", lambda: CategoryAddArgs(name="", dir="src/api", patterns=["*.py"]), None),
+        ("invalid_patterns", lambda: CategoryAddArgs(name="api", dir="src/api", patterns=["../*.py"]), None),
+        (
+            "duplicate",
+            lambda: CategoryAddArgs(name="api", dir="src/api2", patterns=["*.py"]),
+            lambda client: call_mcp_tool(
+                client, "category_add", CategoryAddArgs(name="api", dir="src/api", patterns=["*.py"])
+            ),
+        ),
+        ("update_nonexistent", lambda: CategoryUpdateArgs(name="nonexistent", add_patterns=["*.py"]), None),
+        ("remove_nonexistent", lambda: CategoryRemoveArgs(name="nonexistent"), None),
+    ],
+    ids=["invalid_name", "invalid_patterns", "duplicate", "update_nonexistent", "remove_nonexistent"],
+)
 @pytest.mark.anyio
-async def test_add_category_invalid_name_fails(mcp_server, test_session, monkeypatch):
-    """Test adding category with invalid name fails."""
+async def test_category_error_scenarios(mcp_server, test_session, monkeypatch, scenario, args_factory, setup_fn):
+    """Test various category operation error scenarios."""
     monkeypatch.setenv("PWD", "/fake/path/test")
 
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
-        args = CategoryAddArgs(name="", dir="src/api", patterns=["*.py"])
-        result = await call_mcp_tool(client, "category_add", args)
-        response = json.loads(result.content[0].text)  # type: ignore[union-attr]
+        if setup_fn:
+            await setup_fn(client)
 
-        assert response["success"] is False
-        assert "error" in response
-
-
-@pytest.mark.anyio
-async def test_add_category_invalid_patterns_fails(mcp_server, test_session, monkeypatch):
-    """Test adding category with invalid patterns fails."""
-    monkeypatch.setenv("PWD", "/fake/path/test")
-
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
-        # Use pattern with path traversal
-        args = CategoryAddArgs(name="api", dir="src/api", patterns=["../*.py"])
-        result = await call_mcp_tool(client, "category_add", args)
-        response = json.loads(result.content[0].text)  # type: ignore[union-attr]
-
-        assert response["success"] is False
-        assert "error" in response
-
-
-@pytest.mark.anyio
-async def test_add_category_duplicate_fails(mcp_server, test_session, monkeypatch):
-    """Test adding duplicate category fails."""
-    monkeypatch.setenv("PWD", "/fake/path/test")
-
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
-        args1 = CategoryAddArgs(name="api", dir="src/api", patterns=["*.py"])
-        await call_mcp_tool(client, "category_add", args1)
-
-        args2 = CategoryAddArgs(name="api", dir="src/api2", patterns=["*.py"])
-        result = await call_mcp_tool(client, "category_add", args2)
-        response = json.loads(result.content[0].text)  # type: ignore[union-attr]
-
-        assert response["success"] is False
-        assert "error" in response
-
-
-@pytest.mark.anyio
-async def test_update_nonexistent_category_fails(mcp_server, test_session, monkeypatch):
-    """Test updating non-existent category fails."""
-    monkeypatch.setenv("PWD", "/fake/path/test")
-
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
-        args = CategoryUpdateArgs(name="nonexistent", add_patterns=["*.py"])
-        result = await call_mcp_tool(client, "category_update", args)
-        response = json.loads(result.content[0].text)  # type: ignore[union-attr]
-
-        assert response["success"] is False
-        assert "error" in response
-
-
-@pytest.mark.anyio
-async def test_remove_nonexistent_category_fails(mcp_server, test_session, monkeypatch):
-    """Test removing non-existent category fails."""
-    monkeypatch.setenv("PWD", "/fake/path/test")
-
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
-        args = CategoryRemoveArgs(name="nonexistent")
-        result = await call_mcp_tool(client, "category_remove", args)
+        args = args_factory()
+        tool_name = (
+            "category_add"
+            if isinstance(args, CategoryAddArgs)
+            else ("category_update" if isinstance(args, CategoryUpdateArgs) else "category_remove")
+        )
+        result = await call_mcp_tool(client, tool_name, args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
 
         assert response["success"] is False

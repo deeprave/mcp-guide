@@ -89,15 +89,18 @@ class TestValidateDirectoryPath:
         assert len(exc_info.value.errors) == 1
         assert exc_info.value.errors[0]["field"] == "path"
 
-    def test_default_when_none(self):
-        """None should return default value."""
-        result = validate_directory_path(None, "default_dir")
-        assert result == "default_dir"
-
-    def test_default_when_empty(self):
-        """Empty string should return default value."""
-        result = validate_directory_path("", "default_dir")
-        assert result == "default_dir"
+    @pytest.mark.parametrize(
+        "value,expected",
+        [
+            (None, "default_dir"),
+            ("", "default_dir"),
+        ],
+        ids=["none", "empty"],
+    )
+    def test_default_values(self, value, expected):
+        """Test that None and empty string return default value."""
+        result = validate_directory_path(value, "default_dir")
+        assert result == expected
 
 
 class TestValidateDescription:
@@ -131,30 +134,35 @@ class TestValidateDescription:
         result = validate_description("x" * 100, max_length=200)
         assert result == "x" * 100
 
-    def test_reject_double_quotes(self):
-        """Description with double quotes should be rejected."""
+    @pytest.mark.parametrize(
+        "description,quote_type",
+        [
+            ('Has "quotes" in it', "double"),
+            ("Has 'quotes' in it", "single"),
+        ],
+        ids=["double_quotes", "single_quotes"],
+    )
+    def test_reject_quotes(self, description, quote_type):
+        """Description with quotes should be rejected."""
         with pytest.raises(ArgValidationError) as exc_info:
-            validate_description('Has "quotes" in it')
+            validate_description(description)
         assert len(exc_info.value.errors) == 1
         assert exc_info.value.errors[0]["field"] == "description"
-        assert exc_info.value.instruction == DEFAULT_INSTRUCTION
+        if quote_type == "double":
+            assert exc_info.value.instruction == DEFAULT_INSTRUCTION
 
-    def test_reject_single_quotes(self):
-        """Description with single quotes should be rejected."""
-        with pytest.raises(ArgValidationError) as exc_info:
-            validate_description("Has 'quotes' in it")
-        assert len(exc_info.value.errors) == 1
-        assert exc_info.value.errors[0]["field"] == "description"
-
-    def test_allow_none(self):
-        """None should be allowed."""
-        result = validate_description(None)
-        assert result is None
-
-    def test_allow_empty(self):
-        """Empty string should be allowed."""
-        result = validate_description("")
-        assert result == ""
+    @pytest.mark.parametrize(
+        "value,expected",
+        [
+            (None, None),
+            ("", ""),
+        ],
+        ids=["none", "empty"],
+    )
+    def test_allow_none_and_empty(self, value, expected):
+        """None and empty string should be allowed."""
+        result = validate_description(value)
+        assert result == expected
 
 
 class TestValidatePattern:
@@ -203,19 +211,24 @@ class TestValidatePattern:
 class TestArgValidationError:
     """Tests for ArgValidationError class."""
 
-    def test_single_error_message(self):
-        """Single error should generate appropriate message."""
-        error = ArgValidationError([{"field": "name", "message": "Required field"}])
-        assert error.message == "Validation error: Required field"
-
-    def test_multiple_errors_message(self):
-        """Multiple errors should generate count message."""
-        errors = [
-            {"field": "name", "message": "Required field"},
-            {"field": "age", "message": "Must be positive"},
-        ]
+    @pytest.mark.parametrize(
+        "errors,expected_message",
+        [
+            ([{"field": "name", "message": "Required field"}], "Validation error: Required field"),
+            (
+                [
+                    {"field": "name", "message": "Required field"},
+                    {"field": "age", "message": "Must be positive"},
+                ],
+                "2 validation errors occurred",
+            ),
+        ],
+        ids=["single_error", "multiple_errors"],
+    )
+    def test_error_messages(self, errors, expected_message):
+        """Test error message generation for single and multiple errors."""
         error = ArgValidationError(errors)
-        assert error.message == "2 validation errors occurred"
+        assert error.message == expected_message
 
     def test_custom_message(self):
         """Custom message should override generated message."""

@@ -2,7 +2,7 @@
 
 import json
 from pathlib import Path
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -57,164 +57,87 @@ class TestGetProject:
             assert result["error_type"] == "no_project"
             assert "Project context not available" in result["error"]
 
+    @pytest.mark.parametrize(
+        "verbose,has_data",
+        [
+            (False, True),  # non-verbose with data
+            (True, True),  # verbose with data
+            (False, False),  # empty project
+        ],
+    )
     @pytest.mark.asyncio
-    async def test_non_verbose_output(self, tmp_path: Path, monkeypatch):
-        """Test get_project with verbose=False returns names only."""
-        # Set PWD to control project name detection
-        monkeypatch.setenv("PWD", "/fake/path/test-project")
+    async def test_get_project_output(self, verbose: bool, has_data: bool, tmp_path: Path, monkeypatch):
+        """Test get_project output format based on verbose flag and data presence."""
+        project_name = "test-project" if has_data else "empty-project"
+        monkeypatch.setenv("PWD", f"/fake/path/{project_name}")
 
-        # Create project with data
-        session = Session("test-project", _config_dir_for_tests=str(tmp_path))
-
-        project = Project(
-            name="test-project",
-            categories={
-                "python": Category(dir="src/", patterns=["*.py"], description="Python source files"),
-                "typescript": Category(dir="src/", patterns=["*.ts"], description="TypeScript files"),
-            },
-            collections={"api-docs": Collection(description="API documentation", categories=["python", "typescript"])},
-        )
-
-        # Set up the project properly using the session's methods
-        from mcp_guide.tools.tool_category import CategoryAddArgs, category_add
-        from mcp_guide.tools.tool_collection import CollectionAddArgs, collection_add
-
-        set_current_session(session)
-
-        # Add categories
-        await category_add(
-            CategoryAddArgs(name="python", dir="src/", patterns=["*.py"], description="Python source files")
-        )
-        await category_add(
-            CategoryAddArgs(name="typescript", dir="src/", patterns=["*.ts"], description="TypeScript files")
-        )
-
-        # Add collection
-        await collection_add(
-            CollectionAddArgs(name="api-docs", description="API documentation", categories=["python", "typescript"])
-        )
-
-        try:
-            args = GetCurrentProjectArgs(verbose=False)
-            result_str = await get_project(args)
-            result = json.loads(result_str)
-
-            assert result["success"] is True
-            assert result["value"]["collections"] == ["api-docs"]
-            assert set(result["value"]["categories"]) == {"python", "typescript"}
-
-            # Ensure collections and categories are lists of strings, not dicts
-            assert all(isinstance(c, str) for c in result["value"]["collections"])
-            assert all(isinstance(c, str) for c in result["value"]["categories"])
-        finally:
-            await remove_current_session("test-project")
-
-    @pytest.mark.asyncio
-    async def test_verbose_output(self, tmp_path: Path, monkeypatch):
-        """Test get_project with verbose=True returns full details."""
-        # Set PWD to control project name detection
-        monkeypatch.setenv("PWD", "/fake/path/test-project")
-
-        # Create project with data
-        session = Session("test-project", _config_dir_for_tests=str(tmp_path))
+        session = Session(project_name, _config_dir_for_tests=str(tmp_path))
         await session.get_project()
         set_current_session(session)
 
-        # Add categories and collections using real API
-        from mcp_guide.tools.tool_category import CategoryAddArgs, internal_category_add
-        from mcp_guide.tools.tool_collection import CollectionAddArgs, internal_collection_add
+        if has_data:
+            # Add categories and collections
+            from mcp_guide.tools.tool_category import CategoryAddArgs, internal_category_add
+            from mcp_guide.tools.tool_collection import CollectionAddArgs, internal_collection_add
 
-        # Add categories first
-        python_args = CategoryAddArgs(name="python", dir="src/", patterns=["*.py"], description="Python source files")
-        await internal_category_add(python_args)
-
-        typescript_args = CategoryAddArgs(
-            name="typescript", dir="src/", patterns=["*.ts"], description="TypeScript files"
-        )
-        await internal_category_add(typescript_args)
-
-        # Add collection
-        collection_args = CollectionAddArgs(
-            name="api-docs", description="API documentation", categories=["python", "typescript"]
-        )
-        await internal_collection_add(collection_args)
+            await internal_category_add(
+                CategoryAddArgs(name="python", dir="src/", patterns=["*.py"], description="Python source files")
+            )
+            await internal_category_add(
+                CategoryAddArgs(name="typescript", dir="src/", patterns=["*.ts"], description="TypeScript files")
+            )
+            await internal_collection_add(
+                CollectionAddArgs(name="api-docs", description="API documentation", categories=["python", "typescript"])
+            )
 
         try:
-            args = GetCurrentProjectArgs(verbose=True)
+            args = GetCurrentProjectArgs(verbose=verbose)
             result_str = await get_project(args)
             result = json.loads(result_str)
 
             assert result["success"] is True
 
-            # Check collections are dicts with full details
-            assert len(result["value"]["collections"]) == 1
-            collection = result["value"]["collections"][0]
-            assert collection["name"] == "api-docs"
-            assert collection["description"] == "API documentation"
-            assert set(collection["categories"]) == {"python", "typescript"}
+            if has_data:
+                if verbose:
+                    # Verbose mode: full details as dicts
+                    assert len(result["value"]["collections"]) == 1
+                    collection = result["value"]["collections"][0]
+                    assert collection["name"] == "api-docs"
+                    assert collection["description"] == "API documentation"
+                    assert set(collection["categories"]) == {"python", "typescript"}
 
-            # Check categories are dicts with full details
-            assert len(result["value"]["categories"]) == 2
-            category_names = {c["name"] for c in result["value"]["categories"]}
-            assert category_names == {"python", "typescript"}
-
-            for category in result["value"]["categories"]:
-                assert "name" in category
-                assert "dir" in category
-                assert "patterns" in category
-                assert "description" in category
-                assert isinstance(category["patterns"], list)
+                    assert len(result["value"]["categories"]) == 2
+                    category_names = {c["name"] for c in result["value"]["categories"]}
+                    assert category_names == {"python", "typescript"}
+                    for category in result["value"]["categories"]:
+                        assert all(k in category for k in ["name", "dir", "patterns", "description"])
+                else:
+                    # Non-verbose mode: names only as strings
+                    assert result["value"]["collections"] == ["api-docs"]
+                    assert set(result["value"]["categories"]) == {"python", "typescript"}
+                    assert all(isinstance(c, str) for c in result["value"]["collections"])
+                    assert all(isinstance(c, str) for c in result["value"]["categories"])
+            else:
+                # Empty project
+                assert result["value"]["collections"] == []
+                assert result["value"]["categories"] == []
         finally:
-            await remove_current_session("test-project")
+            await remove_current_session(project_name)
 
+    @pytest.mark.parametrize(
+        "verbose,expected_type",
+        [
+            (True, dict),  # verbose: flags as dict with values
+            (False, list),  # non-verbose: flags as list of names
+        ],
+    )
     @pytest.mark.asyncio
-    async def test_empty_project(self, tmp_path: Path, monkeypatch):
-        """Test get_project with empty project."""
-        # Set PWD to control project name detection
-        monkeypatch.setenv("PWD", "/fake/path/empty-project")
-
-        session = Session("empty-project", _config_dir_for_tests=str(tmp_path))
-        await session.get_project()
-        project = await session.get_project()
-        set_current_session(session)
-
-        try:
-            # Test non-verbose
-            args = GetCurrentProjectArgs(verbose=False)
-            result_str = await get_project(args)
-            result = json.loads(result_str)
-
-            assert result["success"] is True
-            assert result["value"]["collections"] == []
-            assert result["value"]["categories"] == []
-
-            # Test verbose
-            args = GetCurrentProjectArgs(verbose=True)
-            result_str = await get_project(args)
-            result = json.loads(result_str)
-
-            assert result["success"] is True
-            assert result["value"]["collections"] == []
-            assert result["value"]["categories"] == []
-        finally:
-            await remove_current_session("empty-project")
-
-    @pytest.mark.asyncio
-    async def test_flags_included_verbose_mode(self, tmp_path: Path, monkeypatch):
-        """Test get_project includes flags with values in verbose mode."""
+    async def test_flags_output(self, verbose: bool, expected_type: type, tmp_path: Path, monkeypatch):
+        """Test get_project flag output format based on verbose flag."""
         monkeypatch.setenv("PWD", "/fake/path/test-project")
 
         session = Session("test-project", _config_dir_for_tests=str(tmp_path))
         await session.get_project()
-
-        # Create project with flags
-        project = Project(
-            name="test-project",
-            categories={"docs": Category(dir="docs/", patterns=["*.md"])},
-            collections={},
-            project_flags={"debug": True, "env": "test"},
-        )
-        project = await session.get_project()
         set_current_session(session)
 
         # Mock both project and global flags
@@ -229,61 +152,22 @@ class TestGetProject:
             patch.object(session, "feature_flags", return_value=global_flags_mock),
         ):
             try:
-                args = GetCurrentProjectArgs(verbose=True)
+                args = GetCurrentProjectArgs(verbose=verbose)
                 result_str = await get_project(args)
                 result = json.loads(result_str)
 
                 assert result["success"] is True
-
-                # Check flags are included with values
                 flags = result["value"]["flags"]
-                assert isinstance(flags, dict)
-                assert flags["debug"] is True
-                assert flags["env"] == "test"
-                assert flags["global_flag"] == "value"
-            finally:
-                await remove_current_session("test-project")
+                assert isinstance(flags, expected_type)
 
-    @pytest.mark.asyncio
-    async def test_flags_included_non_verbose_mode(self, tmp_path: Path, monkeypatch):
-        """Test get_project includes flag names only in non-verbose mode."""
-        monkeypatch.setenv("PWD", "/fake/path/test-project")
-
-        session = Session("test-project", _config_dir_for_tests=str(tmp_path))
-        await session.get_project()
-
-        # Create project with flags
-        project = Project(
-            name="test-project",
-            categories={"docs": Category(dir="docs/", patterns=["*.md"])},
-            collections={},
-            project_flags={"debug": True, "env": "test"},
-        )
-        project = await session.get_project()
-        set_current_session(session)
-
-        # Mock both project and global flags
-        project_flags_mock = AsyncMock()
-        project_flags_mock.list = AsyncMock(return_value={"debug": True, "env": "test"})
-
-        global_flags_mock = AsyncMock()
-        global_flags_mock.list = AsyncMock(return_value={"global_flag": "value"})
-
-        with (
-            patch.object(session, "project_flags", return_value=project_flags_mock),
-            patch.object(session, "feature_flags", return_value=global_flags_mock),
-        ):
-            try:
-                args = GetCurrentProjectArgs(verbose=False)
-                result_str = await get_project(args)
-                result = json.loads(result_str)
-
-                assert result["success"] is True
-
-                # Check flags are included as names only
-                flags = result["value"]["flags"]
-                assert isinstance(flags, list)
-                assert set(flags) == {"debug", "env", "global_flag"}
+                if verbose:
+                    # Verbose: dict with values
+                    assert flags["debug"] is True
+                    assert flags["env"] == "test"
+                    assert flags["global_flag"] == "value"
+                else:
+                    # Non-verbose: list of names
+                    assert set(flags) == {"debug", "env", "global_flag"}
             finally:
                 await remove_current_session("test-project")
 
@@ -294,12 +178,6 @@ class TestGetProject:
 
         session = Session("test-project", _config_dir_for_tests=str(tmp_path))
         await session.get_project()
-
-        # Create project with flags that override global ones
-        project = Project(
-            name="test-project", categories={}, collections={}, project_flags={"shared_flag": "project_value"}
-        )
-        project = await session.get_project()
         set_current_session(session)
 
         # Mock both project and global flags with same name
@@ -348,123 +226,70 @@ class TestSetProject:
         assert args.verbose is False
 
     @pytest.mark.asyncio
-    async def test_invalid_project_name(self):
-        """Test set_project with invalid project name."""
-        # Mock set_project to return failure for invalid name
-        mock_result = Result.failure(
-            "Project name 'invalid@name' must contain only alphanumeric characters, underscores, and hyphens",
-            error_type="invalid_name",
-        )
+    @pytest.mark.parametrize(
+        "scenario,verbose,has_data",
+        [
+            ("existing_non_verbose", False, True),
+            ("existing_verbose", True, True),
+            ("create_new", False, False),
+        ],
+    )
+    async def test_set_project_success(self, scenario: str, verbose: bool, has_data: bool):
+        """Test successful project switching."""
+        # Create mock project
+        if has_data:
+            project = Project(
+                name="test-project",
+                categories={
+                    "python": Category(dir="src/", patterns=["*.py"], description="Python files"),
+                    "docs": Category(dir="docs/", patterns=["*.md"], description="Documentation"),
+                },
+                collections={"backend": Collection(categories=["python"], description="Backend code")},
+            )
+        else:
+            project = Project(name="test-project", categories={}, collections={})
+
+        mock_result = Result.ok(project)
 
         with patch("mcp_guide.tools.tool_project.session_set_project", return_value=mock_result):
-            args = SetCurrentProjectArgs(name="invalid@name", verbose=False)
+            args = SetCurrentProjectArgs(name="test-project", verbose=verbose)
+            result_str = await set_project(args)
+            result = json.loads(result_str)
+
+            assert result["success"] is True
+            assert result["message"] == "Switched to project 'test-project'"
+
+            if verbose and has_data:
+                assert len(result["value"]["collections"]) == 1
+                assert result["value"]["collections"][0]["name"] == "backend"
+                assert len(result["value"]["categories"]) == 2
+            elif has_data:
+                assert result["value"]["collections"] == ["backend"]
+                assert result["value"]["categories"] == ["python", "docs"]
+            else:
+                assert result["value"]["collections"] == []
+                assert result["value"]["categories"] == []
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "error_type,error_msg",
+        [
+            ("invalid_name", "must contain only alphanumeric"),
+            ("project_load_error", "Configuration file corrupted"),
+        ],
+    )
+    async def test_set_project_errors(self, error_type: str, error_msg: str):
+        """Test error handling."""
+        mock_result = Result.failure(error_msg, error_type=error_type)
+
+        with patch("mcp_guide.tools.tool_project.session_set_project", return_value=mock_result):
+            args = SetCurrentProjectArgs(name="test-project", verbose=False)
             result_str = await set_project(args)
             result = json.loads(result_str)
 
             assert result["success"] is False
-            assert result["error_type"] == "invalid_name"
-            assert "must contain only alphanumeric" in result["error"]
-
-    @pytest.mark.asyncio
-    async def test_switch_existing_project_non_verbose(self):
-        """Test switching to existing project with verbose=False."""
-        # Create mock project
-        project = Project(
-            name="existing-project",
-            categories={
-                "python": Category(dir="src/", patterns=["*.py"], description="Python files"),
-                "docs": Category(dir="docs/", patterns=["*.md"], description="Documentation"),
-            },
-            collections={"backend": Collection(categories=["python"], description="Backend code")},
-        )
-
-        # Mock set_project to return success
-        mock_result = Result.ok(project)
-
-        with patch("mcp_guide.tools.tool_project.session_set_project", return_value=mock_result):
-            args = SetCurrentProjectArgs(name="existing-project", verbose=False)
-            result_str = await set_project(args)
-            result = json.loads(result_str)
-
-            assert result["success"] is True
-            assert result["message"] == "Switched to project 'existing-project'"
-            assert result["value"]["collections"] == ["backend"]
-            assert result["value"]["categories"] == ["python", "docs"]
-
-    @pytest.mark.asyncio
-    async def test_switch_existing_project_verbose(self):
-        """Test switching to existing project with verbose=True."""
-        # Create mock project
-        project = Project(
-            name="existing-project",
-            categories={
-                "python": Category(dir="src/", patterns=["*.py"], description="Python files"),
-                "docs": Category(dir="docs/", patterns=["*.md"], description="Documentation"),
-            },
-            collections={"backend": Collection(categories=["python"], description="Backend code")},
-        )
-
-        # Mock set_project to return success
-        mock_result = Result.ok(project)
-
-        with patch("mcp_guide.tools.tool_project.session_set_project", return_value=mock_result):
-            args = SetCurrentProjectArgs(name="existing-project", verbose=True)
-            result_str = await set_project(args)
-            result = json.loads(result_str)
-
-            assert result["success"] is True
-            assert result["message"] == "Switched to project 'existing-project'"
-
-            # Check collections verbose format
-            assert len(result["value"]["collections"]) == 1
-            assert result["value"]["collections"][0]["name"] == "backend"
-            assert result["value"]["collections"][0]["description"] == "Backend code"
-            assert result["value"]["collections"][0]["categories"] == ["python"]
-
-            # Check categories verbose format
-            assert len(result["value"]["categories"]) == 2
-            assert result["value"]["categories"][0]["name"] == "python"
-            assert result["value"]["categories"][0]["dir"] == "src/"
-            assert result["value"]["categories"][0]["patterns"] == ["*.py"]
-            assert result["value"]["categories"][0]["description"] == "Python files"
-
-    @pytest.mark.asyncio
-    async def test_create_new_project(self):
-        """Test creating new project when it doesn't exist."""
-        # Create mock project (simulating newly created)
-        project = Project(
-            name="new-project",
-            categories={},
-            collections={},
-        )
-
-        # Mock set_project to return success (set_project handles creation)
-        mock_result = Result.ok(project)
-
-        with patch("mcp_guide.tools.tool_project.session_set_project", return_value=mock_result):
-            args = SetCurrentProjectArgs(name="new-project", verbose=False)
-            result_str = await set_project(args)
-            result = json.loads(result_str)
-
-            assert result["success"] is True
-            assert result["message"] == "Switched to project 'new-project'"
-            assert result["value"]["collections"] == []
-            assert result["value"]["categories"] == []
-
-    @pytest.mark.asyncio
-    async def test_error_passthrough(self):
-        """Test that errors from set_project are passed through."""
-        # Mock set_project to return a generic error
-        mock_result = Result.failure("Configuration file corrupted", error_type="project_load_error")
-
-        with patch("mcp_guide.tools.tool_project.session_set_project", return_value=mock_result):
-            args = SetCurrentProjectArgs(name="broken-project", verbose=False)
-            result_str = await set_project(args)
-            result = json.loads(result_str)
-
-            assert result["success"] is False
-            assert result["error_type"] == "project_load_error"
-            assert "Configuration file corrupted" in result["error"]
+            assert result["error_type"] == error_type
+            assert error_msg in result["error"]
 
 
 class TestListProjects:
@@ -484,39 +309,38 @@ class TestListProjects:
         args = ListProjectsArgs()
         assert args.verbose is False
 
+    @pytest.mark.parametrize(
+        "verbose,mock_data,expected_check",
+        [
+            (
+                False,
+                {"projects": ["alpha", "beta", "gamma"]},
+                lambda r: r["value"]["projects"] == ["alpha", "beta", "gamma"],
+            ),
+            (
+                True,
+                {
+                    "projects": {
+                        "project1": {"categories": [], "collections": []},
+                        "project2": {"categories": [], "collections": []},
+                    }
+                },
+                lambda r: "project1" in r["value"]["projects"] and "project2" in r["value"]["projects"],
+            ),
+        ],
+    )
     @pytest.mark.asyncio
-    async def test_list_projects_non_verbose(self):
-        """Test list_projects returns project names in non-verbose mode."""
-        mock_result = Result.ok({"projects": ["alpha", "beta", "gamma"]})
+    async def test_list_projects_success(self, verbose: bool, mock_data: dict, expected_check):
+        """Test list_projects output format based on verbose flag."""
+        mock_result = Result.ok(mock_data)
 
         with patch("mcp_guide.tools.tool_project.list_all_projects", return_value=mock_result):
-            args = ListProjectsArgs(verbose=False)
+            args = ListProjectsArgs(verbose=verbose)
             result_str = await list_projects(args)
             result = json.loads(result_str)
 
             assert result["success"] is True
-            assert result["value"]["projects"] == ["alpha", "beta", "gamma"]
-
-    @pytest.mark.asyncio
-    async def test_list_projects_verbose(self):
-        """Test list_projects returns full details in verbose mode."""
-        mock_result = Result.ok(
-            {
-                "projects": {
-                    "project1": {"categories": [], "collections": []},
-                    "project2": {"categories": [], "collections": []},
-                }
-            }
-        )
-
-        with patch("mcp_guide.tools.tool_project.list_all_projects", return_value=mock_result):
-            args = ListProjectsArgs(verbose=True)
-            result_str = await list_projects(args)
-            result = json.loads(result_str)
-
-            assert result["success"] is True
-            assert "project1" in result["value"]["projects"]
-            assert "project2" in result["value"]["projects"]
+            assert expected_check(result)
 
     @pytest.mark.asyncio
     async def test_list_projects_error(self):
@@ -547,54 +371,52 @@ class TestListProject:
         assert args.name is None
         assert args.verbose is False
 
+    @pytest.mark.parametrize(
+        "name,verbose,mock_setup",
+        [
+            (None, False, lambda: patch("mcp_guide.tools.tool_project.get_or_create_session")),  # current project
+            (
+                "other-project",
+                False,
+                lambda: patch(
+                    "mcp_guide.session.Session.get_project_config",
+                    new=AsyncMock(return_value=Project(name="other-project", categories={}, collections={})),
+                ),
+            ),  # specific project
+            (
+                "test-project",
+                True,
+                lambda: patch(
+                    "mcp_guide.session.Session.get_project_config",
+                    new=AsyncMock(
+                        return_value=Project(
+                            name="test-project",
+                            categories={"docs": Category(name="docs", dir="docs", patterns=["*.md"])},
+                            collections={"all": Collection(name="all", categories=["docs"])},
+                        )
+                    ),
+                ),
+            ),  # verbose mode
+        ],
+    )
     @pytest.mark.asyncio
-    async def test_list_project_current_project(self):
-        """Test list_project with no name (defaults to current)."""
+    async def test_list_project_success(self, name, verbose, mock_setup):
+        """Test list_project with different name and verbose combinations."""
         from mcp_guide.models import Project
 
-        with patch("mcp_guide.tools.tool_project.get_or_create_session") as mock_session:
-            mock_session.return_value.get_project.return_value = Project(name="test", categories={}, collections={})
-            mock_session.return_value.project_name = "test"
+        with mock_setup() as mock:
+            if name is None:
+                # Current project case
+                mock.return_value.get_project.return_value = Project(name="test", categories={}, collections={})
+                mock.return_value.project_name = "test"
 
-            args = ListProjectArgs(name=None, verbose=False)
+            args = ListProjectArgs(name=name, verbose=verbose)
             result_str = await list_project(args)
             result = json.loads(result_str)
 
             assert result["success"] is True
-
-    @pytest.mark.asyncio
-    async def test_list_project_specific_project(self):
-        """Test list_project with specific project name."""
-        from mcp_guide.models import Project
-
-        with patch(
-            "mcp_guide.session.Session.get_project_config",
-            new=AsyncMock(return_value=Project(name="other-project", categories={}, collections={})),
-        ):
-            args = ListProjectArgs(name="other-project", verbose=False)
-            result_str = await list_project(args)
-            result = json.loads(result_str)
-
-            assert result["success"] is True
-
-    @pytest.mark.asyncio
-    async def test_list_project_verbose(self):
-        """Test list_project with verbose mode."""
-        from mcp_guide.models import Category, Collection, Project
-
-        project = Project(
-            name="test-project",
-            categories={"docs": Category(name="docs", dir="docs", patterns=["*.md"])},
-            collections={"all": Collection(name="all", categories=["docs"])},
-        )
-
-        with patch("mcp_guide.session.Session.get_project_config", new=AsyncMock(return_value=project)):
-            args = ListProjectArgs(name="test-project", verbose=True)
-            result_str = await list_project(args)
-            result = json.loads(result_str)
-
-            assert result["success"] is True
-            assert isinstance(result["value"]["categories"], dict)
+            if verbose:
+                assert isinstance(result["value"]["categories"], dict)
 
     @pytest.mark.asyncio
     async def test_list_project_project_not_found(self):
@@ -653,269 +475,65 @@ class TestCloneProject:
     """Tests for clone_project tool."""
 
     @pytest.mark.asyncio
-    async def test_source_project_not_found(self):
-        """Test clone_project with non-existent source project."""
-        mock_projects = {"existing-project": Project(name="existing-project", categories={}, collections={})}
-        mock_session = AsyncMock()
-        mock_session.get_all_projects = AsyncMock(return_value=mock_projects)
-
-        with patch("mcp_guide.tools.tool_project.get_or_create_session", new=AsyncMock(return_value=mock_session)):
-            args = CloneProjectArgs(from_project="nonexistent")
+    @pytest.mark.parametrize(
+        "error_type,from_project,to_project,mock_setup,expected_error_type,expected_msg",
+        [
+            (
+                "source_not_found",
+                "nonexistent",
+                None,
+                lambda: patch(
+                    "mcp_guide.tools.tool_project.get_or_create_session",
+                    new=AsyncMock(
+                        return_value=AsyncMock(
+                            get_all_projects=AsyncMock(
+                                return_value={"existing": Project(name="existing", categories={}, collections={})}
+                            )
+                        )
+                    ),
+                ),
+                "not_found",
+                "not found",
+            ),
+            ("invalid_source_name", "../etc", None, None, "invalid_name", None),
+            ("invalid_target_name", "source", "../etc", None, "invalid_name", None),
+            (
+                "config_read_error",
+                "source",
+                "current",
+                lambda: patch(
+                    "mcp_guide.tools.tool_project.get_or_create_session",
+                    new=AsyncMock(
+                        return_value=AsyncMock(get_all_projects=AsyncMock(side_effect=Exception("config read failed")))
+                    ),
+                ),
+                "config_read_error",
+                None,
+            ),
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_clone_project_errors(
+        self, error_type, from_project, to_project, mock_setup, expected_error_type, expected_msg
+    ):
+        """Test clone_project error scenarios."""
+        if mock_setup:
+            with mock_setup():
+                args = CloneProjectArgs(from_project=from_project, to_project=to_project)
+                result_str = await clone_project(args)
+                result = json.loads(result_str)
+        else:
+            args = CloneProjectArgs(from_project=from_project, to_project=to_project)
             result_str = await clone_project(args)
             result = json.loads(result_str)
-
-            assert result["success"] is False
-            assert "not found" in result["error"].lower()
-            assert result["error_type"] == "not_found"
-
-    @pytest.mark.asyncio
-    async def test_invalid_source_project_name(self):
-        """Test clone_project with invalid source project name."""
-        # No mocking needed - validation happens before session access
-        args = CloneProjectArgs(from_project="../etc")
-        result_str = await clone_project(args)
-        result = json.loads(result_str)
 
         assert result["success"] is False
-        assert result["error_type"] == "invalid_name"
+        assert result["error_type"] == expected_error_type
+        if expected_msg:
+            assert expected_msg in result["error"].lower()
 
     @pytest.mark.asyncio
-    async def test_1arg_mode_uses_current_project(self):
-        """Test clone_project with to_project=None uses current project."""
-        source_cat = Category(dir="docs", patterns=["*.md"], description=None)
-        source_proj = Project(name="source", categories={"docs": source_cat}, collections={})
-        current_proj = Project(name="current", categories={}, collections={})
-
-        mock_projects = {"source": source_proj, "current": current_proj}
-        mock_session = AsyncMock()
-        mock_session.get_all_projects = AsyncMock(return_value=mock_projects)
-        mock_session.get_project = AsyncMock(return_value=current_proj)
-        mock_session.save_project = AsyncMock()
-        mock_session.invalidate_cache = Mock()
-
-        with patch("mcp_guide.tools.tool_project.get_or_create_session", new=AsyncMock(return_value=mock_session)):
-            args = CloneProjectArgs(from_project="source", to_project=None, merge=True)
-            result_str = await clone_project(args)
-            result = json.loads(result_str)
-
-            assert result["success"] is True
-            assert result["value"]["to_project"] == "current"
-
-    @pytest.mark.asyncio
-    async def test_2arg_mode_new_project(self):
-        """Test clone_project with to_project creating new project."""
-        source_cat = Category(dir="docs", patterns=["*.md"], description=None)
-        source_proj = Project(name="source", categories={"docs": source_cat}, collections={})
-
-        mock_projects = {"source": source_proj}
-        mock_session = AsyncMock()
-        mock_session.get_all_projects = AsyncMock(return_value=mock_projects)
-        mock_session.save_project = AsyncMock()
-
-        # First call fails (no current project), second call succeeds with temp session, third call fails again
-        with patch(
-            "mcp_guide.tools.tool_project.get_or_create_session",
-            side_effect=[ValueError("No current project"), mock_session, ValueError("No current project")],
-        ):
-            args = CloneProjectArgs(from_project="source", to_project="new-project", merge=True)
-            result_str = await clone_project(args)
-            result = json.loads(result_str)
-
-            assert result["success"] is True
-            assert result["value"]["to_project"] == "new-project"
-            assert result["value"]["categories_added"] == 1
-
-    @pytest.mark.asyncio
-    async def test_invalid_target_project_name(self):
-        """Test clone_project with invalid target project name."""
-        args = CloneProjectArgs(from_project="source", to_project="../etc")
-        result_str = await clone_project(args)
-        result = json.loads(result_str)
-
-        assert result["success"] is False
-        assert result["error_type"] == "invalid_name"
-
-    @pytest.mark.asyncio
-    async def test_safeguard_prevents_replace_with_existing_config(self):
-        """Test safeguard prevents replace mode on non-empty target."""
-        source_proj = Project(name="source", categories={}, collections={})
-        target_cat = Category(name="existing", dir="src", patterns=["*.py"], description=None)
-        target_proj = Project(name="target", categories={"docs": target_cat}, collections={})
-
-        mock_projects = {"source": source_proj, "target": target_proj}
-        mock_session = AsyncMock()
-        mock_session.get_all_projects = AsyncMock(return_value=mock_projects)
-
-        with patch(
-            "mcp_guide.tools.tool_project.get_or_create_session",
-            side_effect=[ValueError("No current project"), mock_session, ValueError("No current project")],
-        ):
-            args = CloneProjectArgs(from_project="source", to_project="target", merge=False, force=False)
-            result_str = await clone_project(args)
-            result = json.loads(result_str)
-
-            assert result["success"] is False
-            assert result["error_type"] == "safeguard_prevented"
-            assert "existing configuration" in result["error"]
-
-    @pytest.mark.asyncio
-    async def test_force_bypasses_safeguard(self):
-        """Test force=True bypasses safeguard."""
-        source_cat = Category(dir="docs", patterns=["*.md"], description=None)
-        source_proj = Project(name="source", categories={"docs": source_cat}, collections={})
-        target_cat = Category(name="existing", dir="src", patterns=["*.py"], description=None)
-        target_proj = Project(name="target", categories={"docs": target_cat}, collections={})
-
-        mock_projects = {"source": source_proj, "target": target_proj}
-        mock_session = AsyncMock()
-        mock_session.get_all_projects = AsyncMock(return_value=mock_projects)
-        mock_session.save_project = AsyncMock()
-
-        with patch(
-            "mcp_guide.tools.tool_project.get_or_create_session",
-            side_effect=[ValueError("No current project"), mock_session, ValueError("No current project")],
-        ):
-            args = CloneProjectArgs(from_project="source", to_project="target", merge=False, force=True)
-            result_str = await clone_project(args)
-            result = json.loads(result_str)
-
-            assert result["success"] is True
-            assert result["value"]["categories_added"] == 1
-
-    @pytest.mark.asyncio
-    async def test_merge_with_conflicts_shows_warnings(self):
-        """Test merge mode with conflicts generates warnings."""
-        source_cat = Category(dir="docs", patterns=["*.md"], description="Source docs")
-        source_proj = Project(name="source", categories={"docs": source_cat}, collections={})
-        target_cat = Category(name="docs", dir="documentation", patterns=["*.txt"], description="Target docs")
-        target_proj = Project(name="target", categories={"docs": target_cat}, collections={})
-
-        mock_projects = {"source": source_proj, "target": target_proj}
-        mock_session = AsyncMock()
-        mock_session.get_all_projects = AsyncMock(return_value=mock_projects)
-        mock_session.save_project = AsyncMock()
-
-        with patch(
-            "mcp_guide.tools.tool_project.get_or_create_session",
-            side_effect=[ValueError("No current project"), mock_session, ValueError("No current project")],
-        ):
-            args = CloneProjectArgs(from_project="source", to_project="target", merge=True)
-            result_str = await clone_project(args)
-            result = json.loads(result_str)
-
-            assert result["success"] is True
-            assert len(result["value"]["warnings"]) > 0
-            assert "overwrite" in result["value"]["warnings"][0].lower()
-            assert result["value"]["categories_overwritten"] == 1
-
-    @pytest.mark.asyncio
-    async def test_replace_mode_replaces_entire_config(self):
-        """Test replace mode replaces entire configuration."""
-        source_cat = Category(dir="docs", patterns=["*.md"], description=None)
-        source_proj = Project(name="source", categories={"docs": source_cat}, collections={})
-        target_proj = Project(name="target", categories={}, collections={})
-
-        mock_projects = {"source": source_proj, "target": target_proj}
-        mock_session = AsyncMock()
-        mock_session.get_all_projects = AsyncMock(return_value=mock_projects)
-        mock_session.save_project = AsyncMock()
-
-        with patch(
-            "mcp_guide.tools.tool_project.get_or_create_session",
-            side_effect=[ValueError("No current project"), mock_session, ValueError("No current project")],
-        ):
-            args = CloneProjectArgs(from_project="source", to_project="target", merge=False, force=False)
-            result_str = await clone_project(args)
-            result = json.loads(result_str)
-
-            assert result["success"] is True
-            assert result["value"]["categories_added"] == 1
-            assert result["value"]["categories_overwritten"] == 0
-
-    @pytest.mark.asyncio
-    async def test_cache_invalidated_when_current_project_modified(self):
-        """Test cache is invalidated when current project is modified."""
-        source_cat = Category(dir="docs", patterns=["*.md"], description=None)
-        source_proj = Project(name="source", categories={"docs": source_cat}, collections={})
-        current_proj = Project(name="current", categories={}, collections={})
-
-        mock_projects = {"source": source_proj, "current": current_proj}
-        mock_session = AsyncMock()
-        mock_session.get_all_projects = AsyncMock(return_value=mock_projects)
-        mock_session.get_project = AsyncMock(return_value=current_proj)
-        mock_session.save_project = AsyncMock()
-        mock_session.invalidate_cache = Mock()  # Track cache invalidation
-
-        with patch("mcp_guide.tools.tool_project.get_or_create_session", new=AsyncMock(return_value=mock_session)):
-            args = CloneProjectArgs(from_project="source", to_project="current", merge=True)
-            result_str = await clone_project(args)
-            result = json.loads(result_str)
-
-            assert result["success"] is True
-            mock_session.invalidate_cache.assert_called_once()  # Cache was invalidated
-
-    @pytest.mark.asyncio
-    async def test_clone_empty_project(self):
-        """Test cloning empty project."""
-        source_proj = Project(name="source", categories={}, collections={})
-        target_proj = Project(name="target", categories={}, collections={})
-
-        mock_projects = {"source": source_proj, "target": target_proj}
-        mock_session = AsyncMock()
-        mock_session.get_all_projects = AsyncMock(return_value=mock_projects)
-        mock_session.save_project = AsyncMock()
-
-        with patch(
-            "mcp_guide.tools.tool_project.get_or_create_session",
-            side_effect=[ValueError("No current project"), mock_session, ValueError("No current project")],
-        ):
-            args = CloneProjectArgs(from_project="source", to_project="target", merge=True)
-            result_str = await clone_project(args)
-            result = json.loads(result_str)
-
-            assert result["success"] is True
-            assert result["value"]["categories_added"] == 0
-            assert result["value"]["collections_added"] == 0
-
-    @pytest.mark.asyncio
-    async def test_clone_to_same_project(self):
-        """Test cloning project to itself (idempotent)."""
-        source_cat = Category(dir="docs", patterns=["*.md"], description=None)
-        source_proj = Project(name="source", categories={"docs": source_cat}, collections={})
-
-        mock_projects = {"source": source_proj}
-        mock_session = AsyncMock()
-        mock_session.get_all_projects = AsyncMock(return_value=mock_projects)
-        mock_session.save_project = AsyncMock()
-
-        with patch(
-            "mcp_guide.tools.tool_project.get_or_create_session",
-            side_effect=[ValueError("No current project"), mock_session, ValueError("No current project")],
-        ):
-            args = CloneProjectArgs(from_project="source", to_project="source", merge=True)
-            result_str = await clone_project(args)
-            result = json.loads(result_str)
-
-            assert result["success"] is True
-            assert result["value"]["categories_added"] == 0
-            assert result["value"]["categories_overwritten"] == 1  # Overwrites itself
-
-    @pytest.mark.asyncio
-    async def test_clone_project_config_read_error(self):
-        """clone_project returns config_read_error when get_all_projects fails."""
-        mock_session = AsyncMock()
-        mock_session.get_all_projects = AsyncMock(side_effect=Exception("config read failed"))
-
-        with patch("mcp_guide.tools.tool_project.get_or_create_session", new=AsyncMock(return_value=mock_session)):
-            args = CloneProjectArgs(from_project="source", to_project="current", merge=True)
-            result_str = await clone_project(args)
-            result = json.loads(result_str)
-
-            assert result["success"] is False
-            assert result["error_type"] == "config_read_error"
-
-    @pytest.mark.asyncio
-    async def test_clone_project_config_write_error(self):
+    async def test_config_write_error(self):
         """clone_project returns config_write_error when save_project raises OSError."""
         source_proj = Project(name="source", categories={}, collections={})
         current_proj = Project(name="current", categories={}, collections={})

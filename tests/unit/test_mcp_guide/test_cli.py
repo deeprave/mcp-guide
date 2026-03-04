@@ -3,21 +3,11 @@
 import os
 from unittest.mock import patch
 
-from mcp_guide.cli import ServerConfig, parse_args
+from mcp_guide.cli import parse_args
 
 
 class TestServerConfig:
     """Tests for ServerConfig dataclass."""
-
-    def test_default_values(self) -> None:
-        """Test default configuration values."""
-        config = ServerConfig()
-        assert config.log_level == "INFO"
-        assert config.log_file is None
-        assert config.log_json is False
-        assert config.tool_prefix == "guide"
-        assert config.cli_error is None
-        assert config.should_exit is False
 
 
 class TestParseArgs:

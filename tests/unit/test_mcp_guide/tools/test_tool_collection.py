@@ -265,45 +265,36 @@ class TestCollectionAdd:
         assert project.collections == original_collections
 
     @pytest.mark.asyncio
-    async def test_add_collection_invalid_description_too_long(self, test_session_with_data: Session) -> None:
-        """Description exceeding max length should return validation error."""
+    @pytest.mark.parametrize(
+        "description,error_contains",
+        [
+            ("x" * 501, "exceeds"),
+            ('Has "quotes" in it', "quote"),
+        ],
+        ids=["too_long", "quotes"],
+    )
+    async def test_add_collection_invalid_description(
+        self, test_session_with_data: Session, description: str, error_contains: str
+    ) -> None:
+        """Description validation should reject invalid values."""
         session = get_current_session()
         project = await session.get_project()
         project.collections.clear()
         await session.save_project(project)
 
-        # Capture original project state
         original_project = await session.get_project()
         original_collections = original_project.collections
 
-        long_desc = "x" * 501
-        args = CollectionAddArgs(name="backend", description=long_desc)
+        args = CollectionAddArgs(name="backend", description=description)
         result_str = await collection_add(args)
         result_dict = json.loads(result_str)
 
         assert result_dict["success"] is False
         assert result_dict["error_type"] == "validation_error"
-        assert "exceeds" in result_dict["error"]
+        assert error_contains in result_dict["error"]
 
-        # Project state should be unchanged
         project = await session.get_project()
         assert len(project.collections) == len(original_collections)
-
-    @pytest.mark.asyncio
-    async def test_add_collection_invalid_description_quotes(self, test_session_with_data: Session) -> None:
-        """Description with quotes should return validation error."""
-        session = get_current_session()
-        project = await session.get_project()
-        project.collections.clear()
-        await session.save_project(project)
-
-        args = CollectionAddArgs(name="backend", description='Has "quotes" in it')
-        result_str = await collection_add(args)
-        result_dict = json.loads(result_str)
-
-        assert result_dict["success"] is False
-        assert result_dict["error_type"] == "validation_error"
-        assert "quote" in result_dict["error"]
 
     @pytest.mark.asyncio
     async def test_add_collection_nonexistent_categories(self, test_session_with_data: Session) -> None:

@@ -93,44 +93,38 @@ class TestValidationRegistration:
 class TestBooleanValidator:
     """Test validate_boolean_flag function."""
 
-    def test_accepts_boolean_true(self):
-        """Test that boolean True is accepted."""
-        assert validate_boolean_flag(True, is_project=True) is True
-
-    def test_accepts_boolean_false(self):
-        """Test that boolean False is accepted."""
-        assert validate_boolean_flag(False, is_project=False) is True
-
-    def test_accepts_none(self):
-        """Test that None is accepted (for deletion)."""
-        assert validate_boolean_flag(None, is_project=True) is True
-
-    def test_accepts_truthy_strings(self):
-        """Test that truthy string values are accepted."""
-        for value in ["true", "True", "TRUE", "on", "ON", "enabled", "ENABLED"]:
-            assert validate_boolean_flag(value, is_project=True) is True
-
-    def test_accepts_falsy_strings(self):
-        """Test that falsy string values are accepted."""
-        for value in ["false", "False", "FALSE", "off", "OFF", "disabled", "DISABLED", ""]:
-            assert validate_boolean_flag(value, is_project=False) is True
-
-    def test_rejects_invalid_strings(self):
-        """Test that invalid string values are rejected."""
-        for value in ["yes", "no", "1", "0", "invalid"]:
-            assert validate_boolean_flag(value, is_project=True) is False
-
-    def test_rejects_numbers(self):
-        """Test that numeric values are rejected."""
-        assert validate_boolean_flag(1, is_project=True) is False
-        assert validate_boolean_flag(0, is_project=False) is False
-
-    def test_rejects_lists(self):
-        """Test that list values are rejected."""
-        assert validate_boolean_flag(["true"], is_project=True) is False
-
-    def test_rejects_dicts(self):
-        """Test that dict values are rejected."""
+    @pytest.mark.parametrize(
+        "scenario,value,is_project,expected",
+        [
+            # Valid values
+            ("bool_true", True, True, True),
+            ("bool_false", False, False, True),
+            ("none", None, True, True),
+            ("truthy_true", "true", True, True),
+            ("truthy_TRUE", "TRUE", True, True),
+            ("truthy_on", "on", True, True),
+            ("truthy_enabled", "enabled", True, True),
+            ("falsy_false", "false", False, True),
+            ("falsy_FALSE", "FALSE", False, True),
+            ("falsy_off", "off", False, True),
+            ("falsy_disabled", "disabled", False, True),
+            ("falsy_empty", "", False, True),
+            # Invalid values
+            ("invalid_yes", "yes", True, False),
+            ("invalid_no", "no", True, False),
+            ("invalid_1", "1", True, False),
+            ("invalid_0", "0", True, False),
+            ("invalid_string", "invalid", True, False),
+            ("invalid_number_1", 1, True, False),
+            ("invalid_number_0", 0, False, False),
+            ("invalid_list", ["true"], True, False),
+            ("invalid_dict", {"value": True}, True, False),
+        ],
+        ids=lambda x: x if isinstance(x, str) else str(x),
+    )
+    def test_boolean_flag_validation(self, scenario, value, is_project, expected):
+        """Test boolean flag validation with various inputs."""
+        assert validate_boolean_flag(value, is_project=is_project) is expected
         assert validate_boolean_flag({"enabled": True}, is_project=False) is False
 
 

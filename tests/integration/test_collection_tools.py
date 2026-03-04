@@ -360,79 +360,45 @@ async def test_multiple_operations_persist(mcp_server, tmp_path, monkeypatch):
 # Phase 5: Error Cases Tests
 
 
+@pytest.mark.parametrize(
+    "scenario,args_factory,setup_fn,expect_success",
+    [
+        (
+            "duplicate",
+            lambda: CollectionAddArgs(name="backend", categories=["api"]),
+            lambda client: call_mcp_tool(
+                client, "collection_add", CollectionAddArgs(name="backend", categories=["api"])
+            ),
+            False,
+        ),
+        ("remove_nonexistent", lambda: CollectionRemoveArgs(name="nonexistent"), None, False),
+        ("update_nonexistent", lambda: CollectionUpdateArgs(name="nonexistent", add_categories=["api"]), None, False),
+        ("invalid_name", lambda: CollectionAddArgs(name="invalid name!", categories=["api"]), None, False),
+        ("empty_categories", lambda: CollectionAddArgs(name="empty", categories=[]), None, True),
+    ],
+    ids=["duplicate", "remove_nonexistent", "update_nonexistent", "invalid_name", "empty_categories"],
+)
 @pytest.mark.anyio
-async def test_add_duplicate_collection_fails(mcp_server, test_session, monkeypatch):
-    """Test adding duplicate collection fails."""
-
+async def test_collection_error_scenarios(
+    mcp_server, test_session, monkeypatch, scenario, args_factory, setup_fn, expect_success
+):
+    """Test various collection operation error scenarios."""
     monkeypatch.setenv("PWD", "/fake/path/test")
 
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
-        args1 = CollectionAddArgs(name="backend", categories=["api"])
-        await call_mcp_tool(client, "collection_add", args1)
+        if setup_fn:
+            await setup_fn(client)
 
-        # Try to add duplicate
-        args2 = CollectionAddArgs(name="backend", categories=["api"])
-        result = await call_mcp_tool(client, "collection_add", args2)
+        args = args_factory()
+        tool_name = (
+            "collection_add"
+            if isinstance(args, CollectionAddArgs)
+            else ("collection_update" if isinstance(args, CollectionUpdateArgs) else "collection_remove")
+        )
+        result = await call_mcp_tool(client, tool_name, args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
 
-        assert response["success"] is False
-        assert "backend" in response["error"].lower() or "exists" in response["error"].lower()
-
-
-@pytest.mark.anyio
-async def test_remove_nonexistent_collection_fails(mcp_server, test_session, monkeypatch):
-    """Test removing non-existent collection fails."""
-
-    monkeypatch.setenv("PWD", "/fake/path/test")
-
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
-        args = CollectionRemoveArgs(name="nonexistent")
-        result = await call_mcp_tool(client, "collection_remove", args)
-        response = json.loads(result.content[0].text)  # type: ignore[union-attr]
-
-        assert response["success"] is False
-
-
-@pytest.mark.anyio
-async def test_update_nonexistent_collection_fails(mcp_server, test_session, monkeypatch):
-    """Test updating non-existent collection fails."""
-
-    monkeypatch.setenv("PWD", "/fake/path/test")
-
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
-        args = CollectionUpdateArgs(name="nonexistent", add_categories=["api"])
-        result = await call_mcp_tool(client, "collection_update", args)
-        response = json.loads(result.content[0].text)  # type: ignore[union-attr]
-
-        assert response["success"] is False
-
-
-@pytest.mark.anyio
-async def test_add_collection_invalid_name_fails(mcp_server, test_session, monkeypatch):
-    """Test adding collection with invalid name fails."""
-
-    monkeypatch.setenv("PWD", "/fake/path/test")
-
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
-        args = CollectionAddArgs(name="invalid name!", categories=["api"])
-        result = await call_mcp_tool(client, "collection_add", args)
-        response = json.loads(result.content[0].text)  # type: ignore[union-attr]
-
-        assert response["success"] is False
-
-
-@pytest.mark.anyio
-async def test_add_collection_empty_categories(mcp_server, test_session, monkeypatch):
-    """Test adding collection with empty categories succeeds."""
-
-    monkeypatch.setenv("PWD", "/fake/path/test")
-
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
-        args = CollectionAddArgs(name="empty", categories=[])
-        result = await call_mcp_tool(client, "collection_add", args)
-        response = json.loads(result.content[0].text)  # type: ignore[union-attr]
-
-        assert response["success"] is True
+        assert response["success"] is expect_success
 
 
 # Phase 6: Multi-Tool Workflows

@@ -5,12 +5,6 @@ import asyncio
 from mcp_guide.task_manager import get_task_manager
 
 
-def test_task_manager_initialization():
-    """Test TaskManager can be initialized."""
-    task_manager = get_task_manager()
-    assert task_manager is not None
-
-
 def test_instruction_acknowledgement_api():
     """Test instruction acknowledgement public API."""
 

@@ -141,13 +141,18 @@ async def test_clone_project_registered(mcp_server):
 # Read-Only Operations
 
 
+@pytest.mark.parametrize(
+    "verbose",
+    [False, True],
+    ids=["non_verbose", "verbose"],
+)
 @pytest.mark.anyio
-async def test_get_project_non_verbose(mcp_server, monkeypatch):
-    """Test getting current project in non-verbose mode."""
+async def test_get_project_verbose_modes(mcp_server, monkeypatch, verbose):
+    """Test getting current project with different verbose modes."""
     monkeypatch.setenv("PWD", "/fake/path/test")
 
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
-        args = GetCurrentProjectArgs()
+        args = GetCurrentProjectArgs(verbose=verbose)
         result = await call_mcp_tool(client, "get_project", args)
 
         assert result.isError is False
@@ -155,56 +160,32 @@ async def test_get_project_non_verbose(mcp_server, monkeypatch):
         assert "collections" in content or "categories" in content
 
 
+@pytest.mark.parametrize(
+    "verbose,setup_projects",
+    [
+        (False, ["project_alpha", "project_beta", "project_gamma"]),
+        (True, ["project_alpha", "project_beta"]),
+    ],
+    ids=["non_verbose", "verbose"],
+)
 @pytest.mark.anyio
-async def test_get_project_verbose(mcp_server, monkeypatch):
-    """Test getting current project in verbose mode."""
-    monkeypatch.setenv("PWD", "/fake/path/test")
-
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
-        args = GetCurrentProjectArgs(verbose=True)
-        result = await call_mcp_tool(client, "get_project", args)
-
-        assert result.isError is False
-        content = result.content[0].text  # type: ignore[union-attr]
-        assert "categories" in content or "collections" in content
-
-
-@pytest.mark.anyio
-async def test_list_projects_non_verbose(mcp_server):
-    """Test listing all projects in non-verbose mode."""
+async def test_list_projects_verbose_modes(mcp_server, verbose, setup_projects):
+    """Test listing all projects with different verbose modes."""
 
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
         # Create test projects
-        await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_alpha"))
-        await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_beta"))
-        await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_gamma"))
+        for project in setup_projects:
+            await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name=project))
 
-        args = ListProjectsArgs()
+        args = ListProjectsArgs(verbose=verbose)
         result = await call_mcp_tool(client, "list_projects", args)
 
         assert result.isError is False
         content = result.content[0].text  # type: ignore[union-attr]
-        assert "project_alpha" in content
-        assert "project_beta" in content
-        assert "project_gamma" in content
-
-
-@pytest.mark.anyio
-async def test_list_projects_verbose(mcp_server):
-    """Test listing all projects in verbose mode."""
-
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
-        # Create test projects
-        await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_alpha"))
-        await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_beta"))
-
-        args = ListProjectsArgs(verbose=True)
-        result = await call_mcp_tool(client, "list_projects", args)
-
-        assert result.isError is False
-        content = result.content[0].text  # type: ignore[union-attr]
-        assert "project_alpha" in content
-        assert "categories" in content or "collections" in content
+        for project in setup_projects:
+            assert project in content
+        if verbose:
+            assert "categories" in content or "collections" in content
 
 
 @pytest.mark.anyio

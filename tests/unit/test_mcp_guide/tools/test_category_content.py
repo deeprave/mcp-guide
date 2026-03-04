@@ -1,5 +1,8 @@
 """Tests for category_content tool."""
 
+import pytest
+from pydantic import ValidationError
+
 
 def create_mock_session(project, tmp_path):
     """Create a mock session with required methods."""
@@ -31,40 +34,36 @@ def create_mock_session(project, tmp_path):
     return MockSession()
 
 
-def test_category_content_args_exists():
-    """Test that CategoryContentArgs class exists."""
+@pytest.mark.parametrize(
+    "scenario,expression,pattern,should_raise,expected_expression,expected_pattern",
+    [
+        ("class_exists", None, None, False, None, None),
+        ("category_required", None, None, True, None, None),
+        ("pattern_optional", "docs", None, False, "docs", None),
+        ("valid_with_pattern", "docs", "*.md", False, "docs", "*.md"),
+    ],
+)
+def test_category_content_args_schema(
+    scenario, expression, pattern, should_raise, expected_expression, expected_pattern
+):
+    """Test CategoryContentArgs schema validation scenarios."""
     from mcp_guide.tools.tool_category import CategoryContentArgs
 
-    assert CategoryContentArgs is not None
+    if scenario == "class_exists":
+        assert CategoryContentArgs is not None
+        return
 
-
-def test_category_field_is_required():
-    """Test that category field is required."""
-    import pytest
-    from pydantic import ValidationError
-
-    from mcp_guide.tools.tool_category import CategoryContentArgs
-
-    with pytest.raises(ValidationError):
-        CategoryContentArgs()
-
-
-def test_pattern_field_is_optional():
-    """Test that pattern field is optional."""
-    from mcp_guide.tools.tool_category import CategoryContentArgs
-
-    args = CategoryContentArgs(expression="docs")
-    assert args.expression == "docs"
-    assert args.pattern is None
-
-
-def test_schema_validates_correctly():
-    """Test that schema validates with valid data."""
-    from mcp_guide.tools.tool_category import CategoryContentArgs
-
-    args = CategoryContentArgs(expression="docs", pattern="*.md")
-    assert args.expression == "docs"
-    assert args.pattern == "*.md"
+    if should_raise:
+        with pytest.raises(ValidationError):
+            CategoryContentArgs() if expression is None else CategoryContentArgs(expression=expression, pattern=pattern)
+    else:
+        args = (
+            CategoryContentArgs(expression=expression, pattern=pattern)
+            if pattern
+            else CategoryContentArgs(expression=expression)
+        )
+        assert args.expression == expected_expression
+        assert args.pattern == expected_pattern
 
 
 def test_schema_has_field_descriptions():
@@ -231,8 +230,24 @@ async def test_no_matches_returns_failure(tmp_path, monkeypatch):
     assert "*.txt" in result["value"]
 
 
-async def test_file_read_error_single_file(tmp_path, monkeypatch):
-    """Test that single file read error returns ERROR_FILE_READ."""
+@pytest.mark.parametrize(
+    "scenario,patterns,error_map",
+    [
+        ("single_file", ["README"], {"README": PermissionError("Permission denied")}),
+        (
+            "multiple_files",
+            ["file1", "file2", "file3"],
+            {
+                "file1": FileNotFoundError("File not found"),
+                "file2": PermissionError("Permission denied"),
+                "file3": UnicodeDecodeError("utf-8", b"", 0, 1, "invalid start byte"),
+            },
+        ),
+    ],
+    ids=["single_file", "multiple_files"],
+)
+async def test_file_read_error_scenarios(tmp_path, monkeypatch, scenario, patterns, error_map):
+    """Test that file read errors return ERROR_FILE_READ with appropriate aggregation."""
     import json
 
     from mcp_guide.models import Category, Project
@@ -245,19 +260,22 @@ async def test_file_read_error_single_file(tmp_path, monkeypatch):
 
     # Create test project with category
     project = Project(
-        name="test", categories={"docs": Category(dir=".", name="docs", patterns=["README"])}, collections={}
+        name="test", categories={"docs": Category(dir=".", name="docs", patterns=patterns)}, collections={}
     )
 
-    # Create a file
-    test_file = tmp_path / "README"
-    test_file.write_text("content")
+    # Create files
+    for pattern in patterns:
+        (tmp_path / pattern).write_text(f"content-{pattern}")
 
     async def mock_get_session(ctx=None):
         return create_mock_session(project, tmp_path)
 
-    # Mock read_file_content to raise error
+    # Mock read_file_content to raise errors based on error_map
     async def mock_read_error(path):
-        raise PermissionError("Permission denied")
+        for filename, error in error_map.items():
+            if filename in str(path):
+                raise error
+        return "content"
 
     monkeypatch.setattr("mcp_guide.tools.tool_category.get_or_create_session", mock_get_session)
     monkeypatch.setattr("mcp_guide.content.utils.read_file_content", mock_read_error)
@@ -271,68 +289,14 @@ async def test_file_read_error_single_file(tmp_path, monkeypatch):
     assert result["success"] is False
     assert result["error_type"] == ERROR_FILE_READ
     assert result["instruction"] == INSTRUCTION_FILE_ERROR
-    assert "README" in result["error"]
-    assert "Permission denied" in result["error"]
 
+    # All files should be in error message
+    for filename in error_map.keys():
+        assert filename in result["error"]
 
-async def test_file_read_error_multiple_files(tmp_path, monkeypatch):
-    """Test that multiple file read errors are aggregated."""
-    import json
-
-    from mcp_guide.models import Category, Project
-    from mcp_guide.tools.tool_category import (
-        ERROR_FILE_READ,
-        INSTRUCTION_FILE_ERROR,
-        CategoryContentArgs,
-        category_content,
-    )
-
-    # Create test project with category
-    project = Project(
-        name="test",
-        categories={"docs": Category(dir=".", name="docs", patterns=["file1", "file2", "file3"])},
-        collections={},
-    )
-
-    # Create multiple files
-    (tmp_path / "file1").write_text("content1")
-    (tmp_path / "file2").write_text("content2")
-    (tmp_path / "file3").write_text("content3")
-
-    async def mock_get_session(ctx=None):
-        return create_mock_session(project, tmp_path)
-
-    # Mock read_file_content to raise different errors for different files
-    call_count = 0
-
-    async def mock_read_error(path):
-        nonlocal call_count
-        call_count += 1
-        if "file1" in str(path):
-            raise FileNotFoundError("File not found")
-        elif "file2" in str(path):
-            raise PermissionError("Permission denied")
-        else:
-            raise UnicodeDecodeError("utf-8", b"", 0, 1, "invalid start byte")
-
-    monkeypatch.setattr("mcp_guide.tools.tool_category.get_or_create_session", mock_get_session)
-    monkeypatch.setattr("mcp_guide.content.utils.read_file_content", mock_read_error)
-
-    # Call tool
-    args = CategoryContentArgs(expression="docs")
-    result_json = await category_content(args)
-
-    # Parse result
-    result = json.loads(result_json)
-    assert result["success"] is False
-    assert result["error_type"] == ERROR_FILE_READ
-    assert result["instruction"] == INSTRUCTION_FILE_ERROR
-    # All three files should be in error message
-    assert "file1" in result["error"]
-    assert "file2" in result["error"]
-    assert "file3" in result["error"]
-    # Check aggregation format with semicolons
-    assert ";" in result["error"]
+    # Multiple files should have semicolon aggregation
+    if len(error_map) > 1:
+        assert ";" in result["error"]
 
 
 async def test_error_responses_include_all_fields(tmp_path, monkeypatch):
