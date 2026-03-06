@@ -10,7 +10,7 @@ The system SHALL provide MCP tools for managing project permission paths without
 - **GIVEN** a project with existing write paths
 - **WHEN** agent calls `add_permission_path` with `permission_type="write"` and `path="docs/"`
 - **THEN** the path is added to `allowed_write_paths` in project config
-- **AND** path is validated as relative and ends with `/`
+- **AND** path is validated as relative
 - **AND** duplicate paths are silently ignored
 - **AND** success message is returned
 
@@ -46,16 +46,18 @@ The system SHALL provide MCP tools for managing project permission paths without
 The system SHALL define typed argument classes for permission management tools following existing patterns.
 
 #### Scenario: AddPermissionPathArgs structure
-- **GIVEN** the `AddPermissionPathArgs` dataclass
-- **THEN** it SHALL have `permission_type: Literal["read", "write"]` field
-- **AND** it SHALL have `path: str` field
-- **AND** it SHALL be decorated with `@dataclass`
+- **GIVEN** the `AddPermissionPathArgs` class
+- **THEN** it SHALL inherit from `ToolArguments` (Pydantic BaseModel)
+- **AND** it SHALL have `permission_type: Literal["read", "write"]` field with Field descriptor
+- **AND** it SHALL have `path: str` field with Field descriptor
+- **AND** fields SHALL include description metadata
 
 #### Scenario: RemovePermissionPathArgs structure
-- **GIVEN** the `RemovePermissionPathArgs` dataclass
-- **THEN** it SHALL have `permission_type: Literal["read", "write"]` field
-- **AND** it SHALL have `path: str` field
-- **AND** it SHALL be decorated with `@dataclass`
+- **GIVEN** the `RemovePermissionPathArgs` class
+- **THEN** it SHALL inherit from `ToolArguments` (Pydantic BaseModel)
+- **AND** it SHALL have `permission_type: Literal["read", "write"]` field with Field descriptor
+- **AND** it SHALL have `path: str` field with Field descriptor
+- **AND** fields SHALL include description metadata
 
 ### Requirement: Path Validation Reuse
 
@@ -66,7 +68,7 @@ The system SHALL reuse existing path validation logic from `Project` model valid
 - **WHEN** validating a write path
 - **THEN** it SHALL use the same validation as `Project.validate_allowed_write_paths`
 - **AND** enforce relative paths
-- **AND** enforce trailing slash for directories
+- **AND** support both files (no trailing slash) and directories (trailing slash)
 - **AND** use `validate_directory_path` for security checks
 
 #### Scenario: Read path validation reuse

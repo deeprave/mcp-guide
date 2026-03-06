@@ -58,7 +58,7 @@ The distinction is simple but powerful - it tells the agent whether content is f
 
 Documents belong to a **category**. Each category represents a directory structure in the document store where documents can be retrieved. Categories are assigned patterns for files within them that are displayed *by default* when the category is referenced. However, all files in a category are always available by overriding the pattern with `<category>[/pattern1[+pattern2...]]`. This is called a document **expression**.
 
-Category names can be up to 30 unicode characters in length and can contain (but not start with) underscores and hyphens.
+Category names can be up to 30 Unicode characters in length and can contain (but not start with) underscores and hyphens.
 
 ### Managing Categories
 

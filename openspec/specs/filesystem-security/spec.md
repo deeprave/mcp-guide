@@ -36,6 +36,34 @@ The system SHALL validate filesystem paths with separate read and write permissi
 - **AND** ReadWriteSecurityPolicy.validate_write_path() allows access
 - **AND** operation proceeds without checking allowed_write_paths
 
+### Requirement: Allowed Write Paths Validation
+The system SHALL validate allowed_write_paths to support both file-level and directory-level permissions.
+
+#### Scenario: File-level write permission
+- **WHEN** allowed_write_paths contains path without trailing slash
+- **THEN** path is treated as exact file match
+- **AND** only that specific file is writable
+- **AND** similar filenames are blocked
+
+#### Scenario: Directory-level write permission
+- **WHEN** allowed_write_paths contains path with trailing slash
+- **THEN** path is treated as directory prefix
+- **AND** all files within directory are writable
+- **AND** subdirectories are writable
+
+#### Scenario: Mixed file and directory permissions
+- **WHEN** allowed_write_paths contains both files and directories
+- **THEN** each path is validated independently
+- **AND** file paths match exactly
+- **AND** directory paths match by prefix
+
+#### Scenario: Write path validation requirements
+- **WHEN** allowed_write_paths is validated
+- **THEN** all paths must be relative to project root
+- **AND** paths must not contain path traversal attempts
+- **AND** paths must not be empty
+- **AND** absolute paths are rejected
+
 ### Requirement: Project Root Injection
 The system SHALL support optional project root injection for path resolution without requiring it upfront.
 
