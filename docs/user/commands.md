@@ -267,8 +267,8 @@ additional_read_paths:
 
 **Write paths:**
 - Must be relative to project root
-- Must end with `/` for directories
-- Examples: `src/`, `docs/`, `config.json`
+- Can be specific files or directories (end with `/` for directories)
+- Examples: `src/`, `docs/`, `config.json`, `.guide.yaml`
 
 **Read paths:**
 - Must be absolute paths

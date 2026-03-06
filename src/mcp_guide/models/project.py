@@ -121,8 +121,6 @@ class Project:
             # Use existing validation for security checks
             validate_directory_path(path)
 
-            if not path.endswith("/"):
-                raise ValueError(f"Allowed write path '{path}' must end with trailing slash. Use '{path}/' instead.")
         return v
 
     @field_validator("additional_read_paths")

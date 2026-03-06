@@ -194,10 +194,19 @@ class TestAllowedPaths:
         project = Project(name="test", allowed_write_paths=custom_paths)
         assert project.allowed_write_paths == custom_paths
 
-    def test_allowed_paths_requires_trailing_slash(self):
-        """Allowed write paths must have trailing slashes."""
-        with pytest.raises(ValueError, match="trailing slash"):
-            Project(name="test", allowed_write_paths=["docs"])
+    def test_allowed_paths_supports_files_and_directories(self):
+        """Allowed write paths can be files or directories."""
+        # Directories with trailing slash
+        project1 = Project(name="test", allowed_write_paths=["docs/", "src/"])
+        assert project1.allowed_write_paths == ["docs/", "src/"]
+
+        # Specific files without trailing slash
+        project2 = Project(name="test", allowed_write_paths=["config.json", ".guide.yaml"])
+        assert project2.allowed_write_paths == ["config.json", ".guide.yaml"]
+
+        # Mix of files and directories
+        project3 = Project(name="test", allowed_write_paths=["docs/", "config.json"])
+        assert project3.allowed_write_paths == ["docs/", "config.json"]
 
     def test_allowed_paths_preserved_on_modification(self):
         """with_category and without_category should preserve allowed_write_paths."""

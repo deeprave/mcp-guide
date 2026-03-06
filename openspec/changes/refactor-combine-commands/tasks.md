@@ -47,17 +47,17 @@
 - [x] 8.4 Update documentation to reflect tool-based approach
 
 ## 9. Implement Flag Commands
-- [x] 7.1 Create `_commands/flags/` directory
-- [x] 7.2 Create `flags/project.mustache` overview template
-- [x] 7.3 Create action templates: `project/list.mustache`, `project/get.mustache`, `project/set.mustache`, `project/remove.mustache`
-- [x] 7.4 Wire to existing tools: `list_project_flags`, `get_project_flag`, `set_project_flag`
-- [x] 7.5 Create `flags/feature.mustache` overview template
-- [x] 7.6 Create action templates: `feature/list.mustache`, `feature/get.mustache`, `feature/set.mustache`, `feature/remove.mustache`
-- [x] 7.7 Wire to existing tools: `list_feature_flags`, `get_feature_flag`, `set_feature_flag`
-- [x] 7.8 Create `flags.mustache` combined overview template
-- [x] 7.9 Add flag descriptions and scope restrictions
-- [x] 7.10 Fix terminology: use "Feature Flags" not "Global Flags"
-- [x] 7.11 Test all flag commands work correctly
+- [x] 9.1 Create `_commands/flags/` directory
+- [x] 9.2 Create `flags/project.mustache` overview template
+- [x] 9.3 Create action templates: `project/list.mustache`, `project/get.mustache`, `project/set.mustache`, `project/remove.mustache`
+- [x] 9.4 Wire to existing tools: `list_project_flags`, `get_project_flag`, `set_project_flag`
+- [x] 9.5 Create `flags/feature.mustache` overview template
+- [x] 9.6 Create action templates: `feature/list.mustache`, `feature/get.mustache`, `feature/set.mustache`, `feature/remove.mustache`
+- [x] 9.7 Wire to existing tools: `list_feature_flags`, `get_feature_flag`, `set_feature_flag`
+- [x] 9.8 Create `flags.mustache` combined overview template
+- [x] 9.9 Add flag descriptions and scope restrictions
+- [x] 9.10 Fix terminology: use "Feature Flags" not "Global Flags"
+- [x] 9.11 Test all flag commands work correctly
 
 ## 10. Remove Old Commands
 - [x] 8.1 Remove `_commands/create/category.mustache`

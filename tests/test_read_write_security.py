@@ -45,7 +45,7 @@ class TestReadWriteSecurityPolicy:
     def test_write_relative_path_not_in_allowed_paths(self):
         """Test writing outside allowed paths is blocked."""
         policy = ReadWriteSecurityPolicy(write_allowed_paths=["docs/"])
-        with pytest.raises(SecurityError, match="outside allowed write directories"):
+        with pytest.raises(SecurityError, match="outside allowed write paths"):
             policy.validate_write_path("src/file.py")
 
     def test_write_absolute_path_blocked(self):
@@ -124,12 +124,12 @@ class TestReadWriteSecurityPolicy:
         # Should NOT allow writes to specs2/ directory (security vulnerability)
         with pytest.raises(SecurityError) as exc_info:
             policy.validate_write_path("specs2/test.md")
-        assert "outside allowed write directories" in str(exc_info.value)
+        assert "outside allowed write paths" in str(exc_info.value)
 
         # Should NOT allow writes to specsheet/ directory
         with pytest.raises(SecurityError) as exc_info:
             policy.validate_write_path("specsheet/test.md")
-        assert "outside allowed write directories" in str(exc_info.value)
+        assert "outside allowed write paths" in str(exc_info.value)
 
     def test_empty_paths_handling(self):
         """Test handling of empty or None paths."""

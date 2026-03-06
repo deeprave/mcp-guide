@@ -62,62 +62,65 @@ Audit logs are structured for easy analysis and can be integrated with security 
 
 ### Project-Level Path Configuration
 
-Configure allowed paths in your project's `.guide-config.json`:
+Configure allowed paths in your project's `.guide.yaml`:
 
-```json
-{
-  "filesystem": {
-    "allowed_write_paths": [
-      "src/",
-      "docs/",
-      "tests/",
-      "config/",
-      "custom-directory/"
-    ],
-    "additional_read_paths": [
-      "node_modules/",
-      "vendor/",
-      "build/",
-      "external-libs/"
-    ]
-  }
-}
+```yaml
+allowed_write_paths:
+  - src/
+  - docs/
+  - tests/
+  - config/
+  - config.json
+
+additional_read_paths:
+  - /absolute/path/to/external/libs
+  - /home/user/vendor
 ```
 
 ### Configuration Options
 
 #### `allowed_write_paths` (Array of strings)
-- **Purpose**: Directories where the MCP server can read and write files
-- **Default**: `["src/", "docs/", "tests/", "examples/", "config/"]`
-- **Security**: Paths are validated and normalised
-- **Format**: Relative paths from project root, must end with `/`
+- **Purpose**: Files or directories where the MCP server can write
+- **Default**: `[]` (empty - no writes allowed by default)
+- **Security**: Paths are validated and normalized
+- **Format**: Relative paths from project root
+  - Directories: End with `/` (e.g., `src/`, `docs/`)
+  - Files: No trailing slash (e.g., `config.json`, `.guide.yaml`)
 
 #### `additional_read_paths` (Array of strings)
-- **Purpose**: Additional directories for read-only access (beyond write paths)
+- **Purpose**: Additional absolute paths for read-only access
 - **Default**: `[]` (empty)
-- **Use Cases**: Dependencies, build outputs, external libraries
-- **Security**: Read-only access, cannot modify files in these paths
+- **Use Cases**: External dependencies, build outputs, external libraries
+- **Security**: Read-only access, must be absolute paths, system directories blocked
+- **Format**: Absolute paths (e.g., `/home/user/data`, `/opt/external`)
 
-### Adding Paths via Commands
+### Managing Paths via Commands
 
-Use the built-in guide commands to safely add paths to your project configuration:
+Use the built-in guide commands to safely manage paths:
 
 ```bash
-# Add a directory to allowed write paths
-@guide :fs/add-write "new-module/"
+# View current permissions
+@guide :project/perm
 
-# Add a directory to additional read paths
-@guide :fs/add-read "external-deps/"
+# Add write permissions
+@guide :project/perm/write/add src/
+@guide :project/perm/write/add config.json
 
-# List current filesystem configuration
-@guide :fs/show
+# Remove write permissions
+@guide :project/perm/write/remove src/
+
+# Add read permissions (absolute paths)
+@guide :project/perm/read/add /external/data
+
+# Remove read permissions
+@guide :project/perm/read/remove /external/data
 ```
 
 These commands automatically:
 - Validate path format and security
-- Update your project configuration
+- Update your project configuration in `.guide.yaml`
 - Apply changes immediately
-- Maintain configuration file formatting
+- Prevent system directory access
 
 ### Advanced Security Configuration
 
@@ -210,7 +213,9 @@ kiro-cli /tools trust-all false
 
 **Access Denied Errors**
 - Check if path is in `allowed_write_paths` or `additional_read_paths`
-- Verify path format (relative, ends with `/` for directories)
+- Verify path format:
+  - Write paths: Relative, directories end with `/`, files without
+  - Read paths: Absolute paths only
 - Review audit logs for security violations
 
 **Performance Issues**
@@ -219,8 +224,8 @@ kiro-cli /tools trust-all false
 - Check for excessive file modification causing cache misses
 
 **Configuration Problems**
-- Validate JSON syntax in `.guide-config.json`
-- Use `/show-filesystem-config` to verify current settings
+- Validate YAML syntax in `.guide.yaml`
+- Use `@guide :project/perm` to verify current settings
 - Check file permissions on configuration file
 
 The filesystem access feature is designed to be helpful while maintaining security by default. You can always restrict access further or remove restrictions entirely based on your specific needs and trust level.

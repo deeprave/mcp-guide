@@ -30,12 +30,12 @@ class ReadWriteSecurityPolicy:
         """Initialize security policy.
 
         Args:
-            write_allowed_paths: Relative paths allowed for write operations
+            write_allowed_paths: Relative paths allowed for write operations (files or directories)
             additional_read_paths: Absolute paths allowed for read operations
             project_root: Optional project root for path resolution
             client_resolve: Optional function to resolve client paths
         """
-        self.write_allowed_paths = [path.rstrip("/") + "/" for path in (write_allowed_paths or [])]
+        self.write_allowed_paths = write_allowed_paths or []
         self.additional_read_paths = additional_read_paths or []
         self.project_root = Path(project_root) if project_root else None
         self.client_resolve = client_resolve
@@ -187,16 +187,21 @@ class ReadWriteSecurityPolicy:
             logger.debug(f"Write allowed to temporary directory: {path}")
             return normalized
 
-        # Check if path is within allowed write directories
+        # Check if path is within allowed write paths (files or directories)
         for allowed in self.write_allowed_paths:
-            allowed_prefix = allowed.rstrip("/") + "/"
-            if normalized.startswith(allowed_prefix):
+            # Exact file match
+            if normalized == allowed:
+                logger.debug(f"Write allowed for exact file match {path} -> {normalized}")
+                return normalized
+
+            # Directory prefix match (if allowed path ends with /)
+            if allowed.endswith("/") and normalized.startswith(allowed):
                 logger.debug(f"Write allowed for path {path} -> {normalized}")
                 return normalized
 
         self._violation_count += 1
         logger.warning(f"Security violation #{self._violation_count}: write denied for path {path}")
-        raise SecurityError(f"Path {path} is outside allowed write directories: {self.write_allowed_paths}")
+        raise SecurityError(f"Path {path} is outside allowed write paths: {self.write_allowed_paths}")
 
     def get_violation_count(self) -> int:
         """Get the number of security violations detected."""

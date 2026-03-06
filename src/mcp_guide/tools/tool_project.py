@@ -884,8 +884,7 @@ async def internal_add_permission_path(args: AddPermissionPathArgs, ctx: Optiona
     Returns:
         Result with success message
     """
-    from mcp_guide.core.validation import validate_directory_path
-    from mcp_guide.filesystem.system_directories import is_system_directory
+    from mcp_guide.models.project import Project
 
     # Get current project
     session = await get_or_create_session(ctx)
@@ -893,43 +892,28 @@ async def internal_add_permission_path(args: AddPermissionPathArgs, ctx: Optiona
     if not project:
         return Result.failure(ERROR_NO_PROJECT, INSTRUCTION_NO_PROJECT)
 
-    # Validate and add path based on type
+    # Check if already exists (silent success)
     if args.permission_type == "write":
-        # Write paths must be relative and end with /
-        import os
-
-        if os.path.isabs(args.path):
-            return Result.failure("INVALID_PATH", f"Write path must be relative: {args.path}")
-
-        # Validate directory path for security
-        try:
-            validate_directory_path(args.path)
-        except ValueError as e:
-            return Result.failure("INVALID_PATH", str(e))
-
-        if not args.path.endswith("/"):
-            return Result.failure("INVALID_PATH", f"Write path must end with '/': {args.path}")
-
-        # Check if already exists (silent success)
         if args.path in project.allowed_write_paths:
             return Result.ok(f"Path '{args.path}' already in write permissions")
 
+        # Validate using Project model validator
+        try:
+            Project.validate_allowed_write_paths([args.path])
+        except ValueError as e:
+            return Result.failure("INVALID_PATH", str(e))
+
         # Add to write paths
         project.allowed_write_paths.append(args.path)
-
     else:  # read
-        # Read paths must be absolute and not system directories
-        import os
-
-        if not os.path.isabs(args.path):
-            return Result.failure("INVALID_PATH", f"Read path must be absolute: {args.path}")
-
-        if is_system_directory(args.path):
-            return Result.failure("INVALID_PATH", f"System directory not allowed: {args.path}")
-
-        # Check if already exists (silent success)
         if args.path in project.additional_read_paths:
             return Result.ok(f"Path '{args.path}' already in read permissions")
+
+        # Validate using Project model validator
+        try:
+            Project.validate_additional_read_paths([args.path])
+        except ValueError as e:
+            return Result.failure("INVALID_PATH", str(e))
 
         # Add to read paths
         project.additional_read_paths.append(args.path)
