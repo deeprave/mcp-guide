@@ -1,0 +1,26 @@
+---
+type: user/information
+description: Show category commands and current categories
+usage: ":project/category [--verbose|-v]"
+category: project-categories
+aliases:
+  - category
+instruction: ^ Display this information to the user
+---
+{{h1}}Category Commands
+
+{{b}}Available commands:{{b}}
+- `{{@}}guide :project/category/list` - List all categories
+- `{{@}}guide :project/category/add <name>` - Add new category
+- `{{@}}guide :project/category/remove <name>` - Remove category
+- `{{@}}guide :project/category/change <name>` - Change category properties
+- `{{@}}guide :project/category/update <name>` - Update patterns
+- `{{@}}guide :project/category/files <name>` - List files in category
+
+{{b}}Current Categories:{{b}}
+{{#project.categories}}
+- `{{name}}`{{#kwargs.verbose}} ({{dir}}, patterns: {{#patterns}}{{value}}{{^last}}, {{/last}}{{/patterns}}){{/kwargs.verbose}}{{#kwargs.v}} ({{dir}}, patterns: {{#patterns}}{{value}}{{^last}}, {{/last}}{{/patterns}}){{/kwargs.v}}
+{{/project.categories}}
+{{^project.categories}}
+No categories configured
+{{/project.categories}}

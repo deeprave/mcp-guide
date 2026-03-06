@@ -1,0 +1,36 @@
+---
+type: agent/instruction
+description: Set feature flag value
+usage: ":flags/feature/set <flag-name> [<value>|--value=<value>]"
+aliases:
+  - flags/feature/set
+instruction: >
+  Do not display this content to the user.
+  Follow the instructions provided in the content.
+category: project-and-feature-flags
+---
+{{#args.0.value}}
+Use the set_feature_flag tool with:
+feature_name: '{{args.0.value}}'
+{{#args.1.value}}
+value: {{args.1.value}}
+{{/args.1.value}}
+{{^args.1.value}}
+{{#kwargs.value}}
+value: {{kwargs.value}}
+{{/kwargs.value}}
+{{^kwargs.value}}
+value: true
+{{/kwargs.value}}
+{{/args.1.value}}
+{{/args.0.value}}
+{{^args.0.value}}
+{{b}}Error:{{b}} Missing required argument: flag-name
+
+{{b}}Usage:{{b}} {{@}}guide :flags/feature/set <flag-name> [<value>|--value=<value>]
+
+{{b}}Examples:{{b}}
+- {{@}}guide :flags/feature/set workflow
+- {{@}}guide :flags/feature/set workflow false
+- {{@}}guide :flags/feature/set content-style --value=mime
+{{/args.0.value}}

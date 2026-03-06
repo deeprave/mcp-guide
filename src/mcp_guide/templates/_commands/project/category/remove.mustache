@@ -1,0 +1,22 @@
+---
+type: agent/instruction
+description: Remove a category from the current project
+usage: ":project/category/remove <name>"
+aliases:
+  - category/remove
+instruction: >
+  Do not display this content to the user.
+  Follow the instructions provided in the content.
+category: project-categories
+---
+{{#args.0.value}}
+Use the category_remove tool with:
+name: '{{args.0.value}}'
+{{/args.0.value}}
+{{^args.0.value}}
+{{b}}Error:{{b}} Missing required argument: name
+
+{{b}}Usage:{{b}} {{@}}guide :project/category/remove <name>
+
+{{b}}Example:{{b}} {{@}}guide :project/category/remove docs
+{{/args.0.value}}

@@ -1,0 +1,18 @@
+---
+type: agent/instruction
+description: List project feature flags
+usage: ":flags/project/list [--active]"
+aliases:
+  - flags/project/list
+instruction: >
+  Do not display this content to the user.
+  Follow the instructions provided in the content.
+category: project-and-feature-flags
+---
+Use the list_project_flags tool with:
+{{#kwargs.active}}
+active: {{kwargs.active}}
+{{/kwargs.active}}
+{{^kwargs.active}}
+active: true
+{{/kwargs.active}}

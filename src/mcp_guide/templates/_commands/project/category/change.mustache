@@ -1,0 +1,34 @@
+---
+type: agent/instruction
+description: Change category properties
+usage: ":project/category/change <name> [--new-name=<name>] [--new-dir=<path>] [--new-patterns=<patterns>] [--new-description=<text>]"
+aliases:
+  - category/change
+instruction: >
+  Do not display this content to the user.
+  Follow the instructions provided in the content.
+category: project-categories
+---
+{{#args.0.value}}
+Use the category_change tool with:
+name: '{{args.0.value}}'
+{{#kwargs.new_name}}
+new_name: '{{kwargs.new_name}}'
+{{/kwargs.new_name}}
+{{#kwargs.new_dir}}
+new_dir: '{{kwargs.new_dir}}'
+{{/kwargs.new_dir}}
+{{#kwargs.new_patterns}}
+new_patterns: {{kwargs.new_patterns}}
+{{/kwargs.new_patterns}}
+{{#kwargs.new_description}}
+new_description: '{{kwargs.new_description}}'
+{{/kwargs.new_description}}
+{{/args.0.value}}
+{{^args.0.value}}
+{{b}}Error:{{b}} Missing required argument: name
+
+{{b}}Usage:{{b}} {{@}}guide :project/category/change <name> [--new-name=<name>] [--new-dir=<path>] [--new-patterns=<patterns>] [--new-description=<text>]
+
+{{b}}Example:{{b}} {{@}}guide :project/category/change docs --new-name=documentation --new-dir=docs/
+{{/args.0.value}}

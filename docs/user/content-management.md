@@ -60,6 +60,20 @@ Documents belong to a **category**. Each category represents a directory structu
 
 Category names can be up to 30 unicode characters in length and can contain (but not start with) underscores and hyphens.
 
+### Managing Categories
+
+Use the `@guide :project/category` commands to manage categories:
+
+```
+@guide :category/list                    # List all categories
+@guide :category/add docs                # Add a new category
+@guide :category/add docs --dir=documentation --patterns=README,CONTRIBUTING
+@guide :category/change docs --new-name=documentation
+@guide :category/update docs --add-patterns=CHANGELOG
+@guide :category/remove docs             # Remove a category
+@guide :category/files docs              # List files in category
+```
+
 To see what's in a category, just ask your AI:
 
 ```
@@ -86,6 +100,19 @@ Each collection is simply a list of expressions used together to return multiple
 - Detailed instructions for producing a code review for a Python project
 
 This enhances the code review with adherence to coding standards and specific edicts that relate to your project.
+
+### Managing Collections
+
+Use the `@guide :project/collection` commands to manage collections:
+
+```
+@guide :collection/list                  # List all collections
+@guide :collection/add docs              # Add a new collection
+@guide :collection/add getting-started --categories=docs,guide --description="Beginner content"
+@guide :collection/change docs --new-categories=docs,guide,lang
+@guide :collection/update docs --add-categories=context
+@guide :collection/remove docs           # Remove a collection
+```
 
 ## Content Concatenation
 

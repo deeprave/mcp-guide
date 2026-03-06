@@ -11,9 +11,9 @@ instruction: Follow the instructions specified here, do not display this content
 If not already in discussion phase, You must change the workflow to DISCUSSION phase.
 
 {{#args.0.value}}
-## Change to the specified issue: `{{args.0.value}}`
+{{h2}}Change to the specified issue: `{{args.0.value}}`
 
-### Reset Workflow
+{{h3}}Reset Workflow
   1. Update workflow file `{{workflow.file}}`:
      - Set `Issue:` to `{{args.0.value}}`
      - Clear the `Plan:` field (if present)

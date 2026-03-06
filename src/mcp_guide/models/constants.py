@@ -10,7 +10,6 @@ DEFAULT_ALLOWED_WRITE_PATHS: list[str] = [
     "openspec/",
     "memory/",
     "specs/",
-    "templates/",
     "tasks/",
     "docs/",
     ".todo/",

@@ -1,0 +1,23 @@
+---
+type: agent/instruction
+description: Remove project feature flag
+usage: ":flags/project/remove <flag-name>"
+aliases:
+  - flags/project/remove
+instruction: >
+  Do not display this content to the user.
+  Follow the instructions provided in the content.
+category: project-and-feature-flags
+---
+{{#args.0.value}}
+Use the set_project_flag tool with:
+feature_name: '{{args.0.value}}'
+value: null
+{{/args.0.value}}
+{{^args.0.value}}
+{{b}}Error:{{b}} Missing required argument: flag-name
+
+{{b}}Usage:{{b}} {{@}}guide :flags/project/remove <flag-name>
+
+{{b}}Example:{{b}} {{@}}guide :flags/project/remove workflow
+{{/args.0.value}}

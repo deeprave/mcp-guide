@@ -1,0 +1,28 @@
+---
+type: agent/instruction
+description: Update collection categories incrementally
+usage: ":project/collection/update <name> [--add-categories=<categories>] [--remove-categories=<categories>]"
+aliases:
+  - collection/update
+instruction: >
+  Do not display this content to the user.
+  Follow the instructions provided in the content.
+category: project-collections
+---
+{{#args.0.value}}
+Use the collection_update tool with:
+name: '{{args.0.value}}'
+{{#kwargs.add_categories}}
+add_categories: {{kwargs.add_categories}}
+{{/kwargs.add_categories}}
+{{#kwargs.remove_categories}}
+remove_categories: {{kwargs.remove_categories}}
+{{/kwargs.remove_categories}}
+{{/args.0.value}}
+{{^args.0.value}}
+{{b}}Error:{{b}} Missing required argument: name
+
+{{b}}Usage:{{b}} {{@}}guide :project/collection/update <name> [--add-categories=<categories>] [--remove-categories=<categories>]
+
+{{b}}Example:{{b}} {{@}}guide :project/collection/update my-collection --add-categories="context" --remove-categories="old-category"
+{{/args.0.value}}

@@ -1,0 +1,23 @@
+---
+type: agent/instruction
+description: Remove path from allowed write paths
+usage: ":project/perm/write/remove <path>"
+category: project-permissions
+aliases:
+  - perm/write/remove
+instruction: >
+  Do not display this content to the user.
+  Follow the instructions provided in the content.
+---
+{{#args.0.value}}
+Use the remove_permission_path tool with:
+permission_type: 'write'
+path: '{{args.0.value}}'
+{{/args.0.value}}
+{{^args.0.value}}
+{{b}}Error:{{b}} Missing required argument: path
+
+{{b}}Usage:{{b}} {{@}}guide :project/perm/write/remove <path>
+
+{{b}}Example:{{b}} {{@}}guide :project/perm/write/remove docs/
+{{/args.0.value}}

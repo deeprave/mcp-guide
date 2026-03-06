@@ -37,6 +37,8 @@ __all__ = [
     "internal_use_project_profile",
     "internal_list_profiles",
     "internal_show_profile",
+    "internal_add_permission_path",
+    "internal_remove_permission_path",
 ]
 
 
@@ -853,3 +855,162 @@ async def show_profile(args: ShowProfileArgs, ctx: Optional[Context] = None) -> 
     """
     result = await internal_show_profile(args, ctx)
     return await tool_result("show_profile", result)
+
+
+# Permission Management Tools
+
+
+class AddPermissionPathArgs(ToolArguments):
+    """Arguments for add_permission_path tool."""
+
+    permission_type: str = Field(description="Permission type: 'read' or 'write'")
+    path: str = Field(description="Path to add to permissions")
+
+
+class RemovePermissionPathArgs(ToolArguments):
+    """Arguments for remove_permission_path tool."""
+
+    permission_type: str = Field(description="Permission type: 'read' or 'write'")
+    path: str = Field(description="Path to remove from permissions")
+
+
+async def internal_add_permission_path(args: AddPermissionPathArgs, ctx: Optional[Context] = None) -> Result:  # type: ignore[type-arg]
+    """Add path to project permissions.
+
+    Args:
+        args: Add permission path arguments
+        ctx: MCP context
+
+    Returns:
+        Result with success message
+    """
+    from mcp_guide.core.validation import validate_directory_path
+    from mcp_guide.filesystem.system_directories import is_system_directory
+
+    # Validate permission type
+    if args.permission_type not in ("read", "write"):
+        return Result.failure(
+            "INVALID_PERMISSION_TYPE",
+            f"Permission type must be 'read' or 'write', got: {args.permission_type}",
+        )
+
+    # Get current project
+    session = await get_or_create_session(ctx)
+    project = await session.get_project()
+    if not project:
+        return Result.failure(ERROR_NO_PROJECT, INSTRUCTION_NO_PROJECT)
+
+    # Validate and add path based on type
+    if args.permission_type == "write":
+        # Write paths must be relative and end with /
+        import os
+
+        if os.path.isabs(args.path):
+            return Result.failure("INVALID_PATH", f"Write path must be relative: {args.path}")
+
+        # Validate directory path for security
+        try:
+            validate_directory_path(args.path)
+        except ValueError as e:
+            return Result.failure("INVALID_PATH", str(e))
+
+        if not args.path.endswith("/"):
+            return Result.failure("INVALID_PATH", f"Write path must end with '/': {args.path}")
+
+        # Check if already exists (silent success)
+        if args.path in project.allowed_write_paths:
+            return Result.ok(f"Path '{args.path}' already in write permissions")
+
+        # Add to write paths
+        project.allowed_write_paths.append(args.path)
+
+    else:  # read
+        # Read paths must be absolute and not system directories
+        import os
+
+        if not os.path.isabs(args.path):
+            return Result.failure("INVALID_PATH", f"Read path must be absolute: {args.path}")
+
+        if is_system_directory(args.path):
+            return Result.failure("INVALID_PATH", f"System directory not allowed: {args.path}")
+
+        # Check if already exists (silent success)
+        if args.path in project.additional_read_paths:
+            return Result.ok(f"Path '{args.path}' already in read permissions")
+
+        # Add to read paths
+        project.additional_read_paths.append(args.path)
+
+    # Save updated project
+    await session.save_project(project)
+
+    return Result.ok(f"Added '{args.path}' to {args.permission_type} permissions")
+
+
+async def internal_remove_permission_path(args: RemovePermissionPathArgs, ctx: Optional[Context] = None) -> Result:  # type: ignore[type-arg]
+    """Remove path from project permissions.
+
+    Args:
+        args: Remove permission path arguments
+        ctx: MCP context
+
+    Returns:
+        Result with success message
+    """
+    # Validate permission type
+    if args.permission_type not in ("read", "write"):
+        return Result.failure(
+            "INVALID_PERMISSION_TYPE",
+            f"Permission type must be 'read' or 'write', got: {args.permission_type}",
+        )
+
+    # Get current project
+    session = await get_or_create_session(ctx)
+    project = await session.get_project()
+    if not project:
+        return Result.failure(ERROR_NO_PROJECT, INSTRUCTION_NO_PROJECT)
+
+    # Remove path based on type (silent success if not found)
+    if args.permission_type == "write":
+        if args.path in project.allowed_write_paths:
+            project.allowed_write_paths.remove(args.path)
+            await session.save_project(project)
+            return Result.ok(f"Removed '{args.path}' from write permissions")
+        return Result.ok(f"Path '{args.path}' not in write permissions")
+
+    else:  # read
+        if args.path in project.additional_read_paths:
+            project.additional_read_paths.remove(args.path)
+            await session.save_project(project)
+            return Result.ok(f"Removed '{args.path}' from read permissions")
+        return Result.ok(f"Path '{args.path}' not in read permissions")
+
+
+@toolfunc(AddPermissionPathArgs)
+async def add_permission_path(args: AddPermissionPathArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
+    """Add path to project permissions.
+
+    Args:
+        args: Add permission path arguments
+        ctx: MCP context
+
+    Returns:
+        Success message
+    """
+    result = await internal_add_permission_path(args, ctx)
+    return await tool_result("add_permission_path", result)
+
+
+@toolfunc(RemovePermissionPathArgs)
+async def remove_permission_path(args: RemovePermissionPathArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
+    """Remove path from project permissions.
+
+    Args:
+        args: Remove permission path arguments
+        ctx: MCP context
+
+    Returns:
+        Success message
+    """
+    result = await internal_remove_permission_path(args, ctx)
+    return await tool_result("remove_permission_path", result)

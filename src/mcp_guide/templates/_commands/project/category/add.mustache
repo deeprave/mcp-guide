@@ -1,0 +1,31 @@
+---
+type: agent/instruction
+description: Add a new category to the current project
+usage: ":project/category/add <name> [--dir=<path>] [--patterns=<patterns>] [--description=<text>]"
+aliases:
+  - category/add
+instruction: >
+  Do not display this content to the user.
+  Follow the instructions provided in the content.
+category: project-categories
+---
+{{#args.0.value}}
+Use the category_add tool with:
+name: '{{args.0.value}}'
+{{#kwargs.dir}}
+dir: '{{kwargs.dir}}'
+{{/kwargs.dir}}
+{{#kwargs.patterns}}
+patterns: {{kwargs.patterns}}
+{{/kwargs.patterns}}
+{{#kwargs.description}}
+description: '{{kwargs.description}}'
+{{/kwargs.description}}
+{{/args.0.value}}
+{{^args.0.value}}
+{{b}}Error:{{b}} Missing required argument: name
+
+{{b}}Usage:{{b}} {{@}}guide :project/category/add <name> [--dir=<path>] [--patterns=<patterns>] [--description=<text>]
+
+{{b}}Example:{{b}} {{@}}guide :project/category/add docs --dir=documentation --patterns="README,CONTRIBUTING" --description="Documentation files"
+{{/args.0.value}}

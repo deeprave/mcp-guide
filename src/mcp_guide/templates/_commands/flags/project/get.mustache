@@ -1,0 +1,22 @@
+---
+type: agent/instruction
+description: Get project feature flag value
+usage: ":flags/project/get <flag-name>"
+aliases:
+  - flags/project/get
+instruction: >
+  Do not display this content to the user.
+  Follow the instructions provided in the content.
+category: project-and-feature-flags
+---
+{{#args.0.value}}
+Use the get_project_flag tool with:
+feature_name: '{{args.0.value}}'
+{{/args.0.value}}
+{{^args.0.value}}
+{{b}}Error:{{b}} Missing required argument: flag-name
+
+{{b}}Usage:{{b}} {{@}}guide :flags/project/get <flag-name>
+
+{{b}}Example:{{b}} {{@}}guide :flags/project/get workflow
+{{/args.0.value}}

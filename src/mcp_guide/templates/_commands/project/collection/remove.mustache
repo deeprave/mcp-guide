@@ -1,0 +1,22 @@
+---
+type: agent/instruction
+description: Remove a collection from the current project
+usage: ":project/collection/remove <name>"
+aliases:
+  - collection/remove
+instruction: >
+  Do not display this content to the user.
+  Follow the instructions provided in the content.
+category: project-collections
+---
+{{#args.0.value}}
+Use the collection_remove tool with:
+name: '{{args.0.value}}'
+{{/args.0.value}}
+{{^args.0.value}}
+{{b}}Error:{{b}} Missing required argument: name
+
+{{b}}Usage:{{b}} {{@}}guide :project/collection/remove <name>
+
+{{b}}Example:{{b}} {{@}}guide :project/collection/remove my-collection
+{{/args.0.value}}

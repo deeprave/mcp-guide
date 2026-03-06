@@ -9,16 +9,16 @@ aliases:
 requires-openspec: true
 ---
 {{^args.0.value}}
-**Missing Change ID**
+{{b}}Missing Change ID{{b}}
 
 Please provide a unique verb-led change identifier (e.g., `add-feature-x`, `fix-validation-bug`, `refactor-auth-flow`).
 
-Usage: `:openspec/propose <change-id>`
+Usage: `{{@}}guide :openspec/propose <change-id>`
 {{/args.0.value}}
 {{#args.0.value}}
-# Create OpenSpec Proposal: {{args.0.value}}
+{{h1}}Create OpenSpec Proposal: {{args.0.value}}
 
-**Before Writing Proposal Documents**
+{{b}}Before Writing Proposal Documents{{b}}
 
 Start a dialogue with the user to understand:
 - What is this proposed change about?
@@ -29,13 +29,13 @@ Start a dialogue with the user to understand:
 
 Encourage questions and reasoning. Capturing architectural aspects, constraints, and design rationale is an important part of this dialogue. Take time to explore the problem space before committing to a solution.
 
-**Guardrails**
+{{b}}Guardrails{{b}}
 - Favour straightforward, minimal implementations first and add complexity only when it is requested or clearly required.
 - Keep changes tightly scoped to the requested outcome.
 - Refer to `openspec/AGENTS.md` if you need additional OpenSpec conventions or clarifications.
 - Identify any vague or ambiguous details and ask the necessary follow-up questions before editing files.
 
-**Steps**
+{{b}}Steps{{b}}
 1. Review `openspec/project.md`, run `openspec list` and `openspec list --specs`, and inspect related code or docs (e.g., via `rg`/`ls`) to ground the proposal in current behaviour; note any gaps that require clarification.
 2. Scaffold `proposal.md` and `design.md` (when architectural reasoning is needed) under `openspec/changes/{{args.0.value}}/`.
 3. Map the change into concrete capabilities or requirements, breaking multi-scope efforts into distinct spec deltas with clear relationships and sequencing.
@@ -44,7 +44,7 @@ Encourage questions and reasoning. Capturing architectural aspects, constraints,
 6. Ask the user whether to create `tasks.md` now or leave the proposal in draft form. If creating tasks, draft them as an ordered list of small, verifiable work items that deliver user-visible progress, include validation (tests, tooling), and highlight dependencies or parallelisable work.
 7. Validate with `openspec validate {{args.0.value}} --strict` and resolve every issue before sharing the proposal.
 
-**Reference**
+{{b}}Reference{{b}}
 - Use `openspec show <id> --json --deltas-only` or `openspec show <spec> --type spec` to inspect details when validation fails.
 - Search existing requirements with `rg -n "Requirement:|Scenario:" openspec/specs` before writing new ones.
 - Explore the codebase with `rg <keyword>`, `ls`, or direct file reads so proposals align with current implementation realities.
