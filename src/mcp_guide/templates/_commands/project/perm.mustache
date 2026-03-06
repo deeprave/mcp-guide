@@ -14,15 +14,15 @@ category: project-permissions
 {{h3}}Read Permissions
 Project directory: `{{client_working_dir}}`
 
-{{#project.additional_read_paths}}
+{{#project.additional_read_paths.0}}
 Additional paths:
 {{#project.additional_read_paths}}
 - `{{value}}`
 {{/project.additional_read_paths}}
-{{/project.additional_read_paths}}
-{{^project.additional_read_paths}}
+{{/project.additional_read_paths.0}}
+{{^project.additional_read_paths.0}}
 No additional read paths configured.
-{{/project.additional_read_paths}}
+{{/project.additional_read_paths.0}}
 
 {{h3}}Write Permissions
 {{#project.allowed_write_paths}}

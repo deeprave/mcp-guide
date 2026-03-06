@@ -2,7 +2,7 @@
 
 """Project management tools."""
 
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 from pydantic import Field
 
@@ -863,14 +863,14 @@ async def show_profile(args: ShowProfileArgs, ctx: Optional[Context] = None) -> 
 class AddPermissionPathArgs(ToolArguments):
     """Arguments for add_permission_path tool."""
 
-    permission_type: str = Field(description="Permission type: 'read' or 'write'")
+    permission_type: Literal["read", "write"] = Field(description="Permission type: 'read' or 'write'")
     path: str = Field(description="Path to add to permissions")
 
 
 class RemovePermissionPathArgs(ToolArguments):
     """Arguments for remove_permission_path tool."""
 
-    permission_type: str = Field(description="Permission type: 'read' or 'write'")
+    permission_type: Literal["read", "write"] = Field(description="Permission type: 'read' or 'write'")
     path: str = Field(description="Path to remove from permissions")
 
 
@@ -886,13 +886,6 @@ async def internal_add_permission_path(args: AddPermissionPathArgs, ctx: Optiona
     """
     from mcp_guide.core.validation import validate_directory_path
     from mcp_guide.filesystem.system_directories import is_system_directory
-
-    # Validate permission type
-    if args.permission_type not in ("read", "write"):
-        return Result.failure(
-            "INVALID_PERMISSION_TYPE",
-            f"Permission type must be 'read' or 'write', got: {args.permission_type}",
-        )
 
     # Get current project
     session = await get_or_create_session(ctx)
@@ -957,13 +950,6 @@ async def internal_remove_permission_path(args: RemovePermissionPathArgs, ctx: O
     Returns:
         Result with success message
     """
-    # Validate permission type
-    if args.permission_type not in ("read", "write"):
-        return Result.failure(
-            "INVALID_PERMISSION_TYPE",
-            f"Permission type must be 'read' or 'write', got: {args.permission_type}",
-        )
-
     # Get current project
     session = await get_or_create_session(ctx)
     project = await session.get_project()

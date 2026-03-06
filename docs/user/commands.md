@@ -173,7 +173,7 @@ Sets a project-specific feature flag value.
 ```
 @guide :flags/project/set workflow
 @guide :flags/project/set workflow false
-@guide :flags/project/set content-style --value=mime
+@guide :flags/project/set content-format --value=mime
 ```
 
 **@guide :flags/project/remove** _(:flags/project/remove)_
@@ -207,7 +207,7 @@ Sets a feature flag value.
 ```
 @guide :flags/feature/set workflow
 @guide :flags/feature/set workflow false
-@guide :flags/feature/set content-style --value=mime
+@guide :flags/feature/set content-format --value=mime
 ```
 
 **@guide :flags/feature/remove** _(:flags/feature/remove)_
@@ -222,7 +222,8 @@ Removes a feature flag.
 
 - **workflow** - Enable workflow phase tracking (Project and Feature)
 - **openspec** - Enable OpenSpec integration (Project and Feature)
-- **content-style** - Output format: None, plain, or mime (Project and Feature)
+- **content-style** - Markdown formatting: plain, headings, or full (Project and Feature)
+- **content-format** - Content MIME type: text or mime (Project and Feature)
 - **autoupdate** - Automatic content updates (Feature only)
 
 ## Filesystem Permissions

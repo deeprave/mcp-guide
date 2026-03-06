@@ -14,11 +14,15 @@ from mcp_guide.tools.tool_project import (
 @pytest.fixture
 async def test_session(tmp_path):
     """Create a test session with a project."""
-    session = Session("test-project", _config_dir_for_tests=str(tmp_path))
+    # Use a unique project name per test to avoid state pollution
+    import uuid
+
+    project_name = f"test-{uuid.uuid4().hex[:8]}"
+    session = Session(project_name, _config_dir_for_tests=str(tmp_path))
     await session.get_project()
     set_current_session(session)
     yield session
-    await remove_current_session("test-project")
+    await remove_current_session(project_name)
 
 
 @pytest.mark.asyncio
@@ -37,8 +41,7 @@ async def test_session(tmp_path):
         ("write", "no-slash", False),  # Must end with /
         # Invalid read paths
         ("read", "relative/path", False),  # Must be absolute
-        # Invalid permission type
-        ("invalid", "path/", False),
+        ("read", "/etc", False),  # System directory not allowed
     ],
 )
 async def test_add_permission_path(permission_type, path, expected_success, test_session):
@@ -48,6 +51,7 @@ async def test_add_permission_path(permission_type, path, expected_success, test
 
     if expected_success:
         assert result.success, f"Expected success for {permission_type}:{path}, got: {result.error}"
+        assert "Added" in result.value or "already" in result.value
     else:
         assert not result.success, f"Expected failure for {permission_type}:{path}"
 
@@ -91,8 +95,11 @@ async def test_remove_permission_path(permission_type, path, test_session):
 
 @pytest.mark.asyncio
 async def test_remove_permission_path_invalid_type(test_session):
-    """Test removing path with invalid permission type."""
-    args = RemovePermissionPathArgs(permission_type="invalid", path="path/")
-    result = await internal_remove_permission_path(args, None)
-    assert not result.success
-    assert "INVALID_PERMISSION_TYPE" in result.error
+    """Test that invalid permission type is rejected at parse time by Literal type."""
+    import pytest
+    from pydantic_core import ValidationError
+
+    with pytest.raises(ValidationError) as exc_info:
+        RemovePermissionPathArgs(permission_type="invalid", path="path/")
+
+    assert "literal_error" in str(exc_info.value)
