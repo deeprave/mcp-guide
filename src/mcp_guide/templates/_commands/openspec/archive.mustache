@@ -15,7 +15,7 @@ Run `openspec archive {{args.0.value}} --yes` and send the result using {{tool_p
 Run `openspec archive {{workflow.issue}} --yes` and send the result using {{tool_prefix}}send_file_content with path `.openspec-archive.txt`
 {{/workflow.issue}}
 {{^workflow.issue}}
-**Error:** No change-id provided and no current workflow issue set.
+{{b}}Error:{{b}} No change-id provided and no current workflow issue set.
 
 Usage: `{{agent.prefix}}guide :openspec/archive <change-id>`
 

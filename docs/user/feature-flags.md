@@ -4,37 +4,56 @@ Feature flags control how mcp-guide behaves, what features are enabled, and how 
 
 ## Viewing Flags
 
-Use the `@guide :flags` prompt command to see what's currently active. It shows feature flags, project flags, and the resolved values (what's actually in effect).
+Use the `@guide :flags` commands to view and manage flags:
 
-**See:** [Commands](commands.md) for more on the `:flags` command.
+```
+@guide :flags                           # Show all flags with available commands
+@guide :flags/list                      # List all flags (project and feature)
+@guide :flags/project/list              # List project-specific flags
+@guide :flags/feature/list              # List feature flags (global)
+```
+
+**See:** [Commands](commands.md) for complete flag command reference.
 
 ## How Flags Work
 
 Flags can be set at two levels:
 
-**Project flags** - Apply to a specific project. Just ask your AI agent:
+**Project flags** - Apply to a specific project:
 
 ```
-Please set the workflow feature flag to true for this project
+@guide :flags/project/set workflow
+@guide :flags/project/set workflow false
+@guide :flags/project/set content-style --value=plain
+@guide :flags/project/remove workflow      # Remove override, use feature flag value
 ```
 
-**Feature flags** - Apply across all projects by default. Ask your AI agent:
+**Feature flags** - Apply across all projects by default:
 
 ```
-Please set the content-format feature flag to mime globally
+@guide :flags/feature/set workflow
+@guide :flags/feature/set content-format --value=mime
+@guide :flags/feature/remove autoupdate    # Remove flag entirely
 ```
 
 When resolving what value to use, project flags take precedence over feature flags, which take precedence over defaults.
 
-## Setting Flags
+## Managing Flags
 
-Just ask your AI agent using natural language:
+Use the flag commands to get, set, and remove flags:
 
 ```
-Set the workflow flag to true
-Enable OpenSpec for this project
-Set content-style to plain globally
-Remove the workflow flag (use default)
+# Get flag values
+@guide :flags/project/get workflow
+@guide :flags/feature/get autoupdate
+
+# Set flag values
+@guide :flags/project/set workflow true
+@guide :flags/feature/set content-format --value=mime
+
+# Remove flags
+@guide :flags/project/remove workflow      # Revert to feature flag value
+@guide :flags/feature/remove autoupdate    # Remove flag entirely
 ```
 
 ## Core Feature Flags

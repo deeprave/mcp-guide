@@ -1,0 +1,25 @@
+---
+type: agent/instruction
+description: Add path to allowed write paths
+usage: ":project/perm/write/add <path>"
+category: project-permissions
+aliases:
+  - perm/write/add
+instruction: >
+  Do not display this content to the user.
+  Follow the instructions provided in the content.
+---
+{{#args.0.value}}
+Use the add_permission_path tool with:
+permission_type: 'write'
+path: '{{args.0.value}}'
+{{/args.0.value}}
+{{^args.0.value}}
+{{b}}Error:{{b}} Missing required argument: path
+
+{{b}}Usage:{{b}} {{@}}guide :project/perm/write/add <path>
+
+{{b}}Example:{{b}} {{@}}guide :project/perm/write/add docs/
+
+{{b}}Note:{{b}} Write paths must be relative to project root and end with `/` for directories.
+{{/args.0.value}}

@@ -21,7 +21,7 @@ Run `openspec show {{args.0.value}} --json` and send the result using {{tool_pre
 Run `openspec show {{workflow.issue}} --json` and send the result using {{tool_prefix}}send_file_content with path `.openspec-show.json` to refresh the cache, then re-render this template to display the results.
 {{/workflow.issue}}
 {{^workflow.issue}}
-**Error:** No change-id provided and no current workflow issue set.
+{{b}}Error:{{b}} No change-id provided and no current workflow issue set.
 
 Usage: `{{agent.prefix}}guide :openspec/show <change-id>`
 

@@ -1,0 +1,23 @@
+---
+type: agent/instruction
+description: Remove path from additional read paths
+usage: ":project/perm/read/remove <path>"
+category: project-permissions
+aliases:
+  - perm/read/remove
+instruction: >
+  Do not display this content to the user.
+  Follow the instructions provided in the content.
+---
+{{#args.0.value}}
+Use the remove_permission_path tool with:
+permission_type: 'read'
+path: '{{args.0.value}}'
+{{/args.0.value}}
+{{^args.0.value}}
+{{b}}Error:{{b}} Missing required argument: path
+
+{{b}}Usage:{{b}} {{@}}guide :project/perm/read/remove <path>
+
+{{b}}Example:{{b}} {{@}}guide :project/perm/read/remove /external/data
+{{/args.0.value}}

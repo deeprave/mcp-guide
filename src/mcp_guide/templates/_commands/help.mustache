@@ -21,7 +21,7 @@ instruction: Display this information to the user. Take no further action.
 {{description}}
 
 {{#usage}}
-**Usage:** `{{usage}}`
+{{b}}Usage:{{b}} `{{usage}}`
 {{/usage}}
 
 {{#examples}}
@@ -38,7 +38,7 @@ Command not found: {{.}}
 {{^args}}
 {{#command_categories}}
 {{#kwargs.table}}
-**{{title}}**
+{{b}}{{title}}{{b}}
 | Command | Description |
 |---------|-------------|
 {{#commands}}

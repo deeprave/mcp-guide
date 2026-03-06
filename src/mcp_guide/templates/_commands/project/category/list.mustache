@@ -1,0 +1,15 @@
+---
+type: agent/instruction
+description: List all categories in the current project
+usage: ":project/category/list [--verbose|-v]"
+aliases:
+  - category/list
+instruction: >
+  Do not display this content to the user.
+  Follow the instructions provided in the content.
+category: project-categories
+---
+Use the category_list tool with:
+{{#kwargs.verbose}}verbose: true{{/kwargs.verbose}}
+{{#kwargs.v}}verbose: true{{/kwargs.v}}
+{{^kwargs.verbose}}{{^kwargs.v}}verbose: true{{/kwargs.v}}{{/kwargs.verbose}}

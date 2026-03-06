@@ -1,0 +1,22 @@
+---
+type: agent/instruction
+description: List files in a category
+usage: ":project/category/files <name>"
+aliases:
+  - category/files
+instruction: >
+  Do not display this content to the user.
+  Follow the instructions provided in the content.
+category: project-categories
+---
+{{#args.0.value}}
+Use the category_list_files tool with:
+name: '{{args.0.value}}'
+{{/args.0.value}}
+{{^args.0.value}}
+{{b}}Error:{{b}} Missing required argument: name
+
+{{b}}Usage:{{b}} {{@}}guide :project/category/files <name>
+
+{{b}}Example:{{b}} {{@}}guide :project/category/files docs
+{{/args.0.value}}

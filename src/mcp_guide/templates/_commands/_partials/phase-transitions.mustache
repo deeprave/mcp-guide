@@ -1,26 +1,26 @@
 {{h2}}Phase Transitions
 
 {{#workflow.phases.discussion}}
-**discussion**{{#workflow.consent.discussion}} - Requires consent{{/workflow.consent.discussion}}{{^workflow.consent.discussion}} - Available{{/workflow.consent.discussion}}
+{{b}}discussion{{b}}{{#workflow.consent.discussion}} - Requires consent{{/workflow.consent.discussion}}{{^workflow.consent.discussion}} - Available{{/workflow.consent.discussion}}
  → {{workflow.phases.discussion.next}}
 {{/workflow.phases.discussion}}
 
 {{#workflow.phases.planning}}
-**planning**{{#workflow.consent.planning}} - Requires consent{{/workflow.consent.planning}}{{^workflow.consent.planning}} - Available{{/workflow.consent.planning}}
+{{b}}planning{{b}}{{#workflow.consent.planning}} - Requires consent{{/workflow.consent.planning}}{{^workflow.consent.planning}} - Available{{/workflow.consent.planning}}
  → {{workflow.phases.planning.next}}
 {{/workflow.phases.planning}}
 
 {{#workflow.phases.implementation}}
-**implementation**{{#workflow.consent.implementation}} - Requires consent{{/workflow.consent.implementation}}{{^workflow.consent.implementation}} - Available{{/workflow.consent.implementation}}
+{{b}}implementation{{b}}{{#workflow.consent.implementation}} - Requires consent{{/workflow.consent.implementation}}{{^workflow.consent.implementation}} - Available{{/workflow.consent.implementation}}
  → {{workflow.phases.implementation.next}}
 {{/workflow.phases.implementation}}
 
 {{#workflow.phases.check}}
-**check**{{#workflow.consent.check}} - Requires consent{{/workflow.consent.check}}{{^workflow.consent.check}} - Available{{/workflow.consent.check}}
+{{b}}check{{b}}{{#workflow.consent.check}} - Requires consent{{/workflow.consent.check}}{{^workflow.consent.check}} - Available{{/workflow.consent.check}}
  → {{workflow.phases.check.next}}
 {{/workflow.phases.check}}
 
 {{#workflow.phases.review}}
-**review**{{#workflow.consent.review}} - Requires consent{{/workflow.consent.review}}{{^workflow.consent.review}} - Available{{/workflow.consent.review}}
+{{b}}review{{b}}{{#workflow.consent.review}} - Requires consent{{/workflow.consent.review}}{{^workflow.consent.review}} - Available{{/workflow.consent.review}}
  → {{workflow.phases.review.next}}
 {{/workflow.phases.review}}

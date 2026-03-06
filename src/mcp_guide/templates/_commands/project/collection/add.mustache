@@ -1,0 +1,28 @@
+---
+type: agent/instruction
+description: Add a new collection to the current project
+usage: ":project/collection/add <name> [--categories=<categories>] [--description=<text>]"
+aliases:
+  - collection/add
+instruction: >
+  Do not display this content to the user.
+  Follow the instructions provided in the content.
+category: project-collections
+---
+{{#args.0.value}}
+Use the collection_add tool with:
+name: '{{args.0.value}}'
+{{#kwargs.categories}}
+categories: {{kwargs.categories}}
+{{/kwargs.categories}}
+{{#kwargs.description}}
+description: '{{kwargs.description}}'
+{{/kwargs.description}}
+{{/args.0.value}}
+{{^args.0.value}}
+{{b}}Error:{{b}} Missing required argument: name
+
+{{b}}Usage:{{b}} {{@}}guide :project/collection/add <name> [--categories=<categories>] [--description=<text>]
+
+{{b}}Example:{{b}} {{@}}guide :project/collection/add my-collection --categories="docs,guide" --description="Documentation and guidelines"
+{{/args.0.value}}

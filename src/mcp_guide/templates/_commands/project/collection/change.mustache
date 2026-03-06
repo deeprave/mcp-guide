@@ -1,0 +1,31 @@
+---
+type: agent/instruction
+description: Change collection properties
+usage: ":project/collection/change <name> [--new-name=<name>] [--new-categories=<categories>] [--new-description=<text>]"
+aliases:
+  - collection/change
+instruction: >
+  Do not display this content to the user.
+  Follow the instructions provided in the content.
+category: project-collections
+---
+{{#args.0.value}}
+Use the collection_change tool with:
+name: '{{args.0.value}}'
+{{#kwargs.new_name}}
+new_name: '{{kwargs.new_name}}'
+{{/kwargs.new_name}}
+{{#kwargs.new_categories}}
+new_categories: {{kwargs.new_categories}}
+{{/kwargs.new_categories}}
+{{#kwargs.new_description}}
+new_description: '{{kwargs.new_description}}'
+{{/kwargs.new_description}}
+{{/args.0.value}}
+{{^args.0.value}}
+{{b}}Error:{{b}} Missing required argument: name
+
+{{b}}Usage:{{b}} {{@}}guide :project/collection/change <name> [--new-name=<name>] [--new-categories=<categories>] [--new-description=<text>]
+
+{{b}}Example:{{b}} {{@}}guide :project/collection/change my-collection --new-name=renamed --new-categories="docs,guide,lang"
+{{/args.0.value}}

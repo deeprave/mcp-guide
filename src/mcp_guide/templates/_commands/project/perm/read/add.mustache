@@ -1,0 +1,25 @@
+---
+type: agent/instruction
+description: Add path to additional read paths
+usage: ":project/perm/read/add <path>"
+category: project-permissions
+aliases:
+  - perm/read/add
+instruction: >
+  Do not display this content to the user.
+  Follow the instructions provided in the content.
+---
+{{#args.0.value}}
+Use the add_permission_path tool with:
+permission_type: 'read'
+path: '{{args.0.value}}'
+{{/args.0.value}}
+{{^args.0.value}}
+{{b}}Error:{{b}} Missing required argument: path
+
+{{b}}Usage:{{b}} {{@}}guide :project/perm/read/add <path>
+
+{{b}}Example:{{b}} {{@}}guide :project/perm/read/add /external/data
+
+{{b}}Note:{{b}} Read paths must be absolute paths.
+{{/args.0.value}}

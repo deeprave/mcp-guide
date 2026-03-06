@@ -1,0 +1,25 @@
+---
+type: user/information
+description: Show collection commands and current collections
+usage: ":project/collection [--verbose|-v]"
+category: project-collections
+aliases:
+  - collection
+instruction: ^ Display this information to the user
+---
+{{h1}}Collection Commands
+
+{{b}}Available commands:{{b}}
+- `{{@}}guide :project/collection/list` - List all collections
+- `{{@}}guide :project/collection/add <name>` - Add new collection
+- `{{@}}guide :project/collection/remove <name>` - Remove collection
+- `{{@}}guide :project/collection/change <name>` - Change collection properties
+- `{{@}}guide :project/collection/update <name>` - Update categories
+
+{{b}}Current Collections:{{b}}
+{{#project.collections}}
+- `{{name}}`{{#kwargs.verbose}} ({{#categories}}{{value}}{{^last}}, {{/last}}{{/categories}}){{#description}} - {{description}}{{/description}}{{/kwargs.verbose}}{{#kwargs.v}} ({{#categories}}{{value}}{{^last}}, {{/last}}{{/categories}}){{#description}} - {{description}}{{/description}}{{/kwargs.v}}
+{{/project.collections}}
+{{^project.collections}}
+No collections configured
+{{/project.collections}}

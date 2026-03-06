@@ -3,8 +3,8 @@ description: Task manager statistics display
 ---
 
 {{h2}}Task Manager
-- **Active Tasks:** {{tasks.count}} (peak: {{tasks.peak_count}})
-- **Timer Events:** {{tasks.total_timer_runs}} total
+- {{b}}Active Tasks:{{b}} {{tasks.count}} (peak: {{tasks.peak_count}})
+- {{b}}Timer Events:{{b}} {{tasks.total_timer_runs}} total
 
 {{#kwargs.table}}
 | Task | Type | Runtime | Last Run | Details |
@@ -18,7 +18,7 @@ description: Task manager statistics display
 {{/kwargs.table}}
 {{^kwargs.table}}
 {{#tasks.running}}
-  **Task** `{{name}}`{{#interval}} (timer, `{{interval}}s`){{/interval}}
+  {{b}}Task{{b}} `{{name}}`{{#interval}} (timer, `{{interval}}s`){{/interval}}
   - Running for `{{runtime}}`{{#interval}} | Runs `{{run_count}}` | Last `{{time_since_last}}` | Next in `{{time_until_next}}`{{/interval}}
 {{/tasks.running}}
 {{^tasks.running}}

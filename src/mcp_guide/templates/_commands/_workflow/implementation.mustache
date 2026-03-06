@@ -25,9 +25,9 @@ Execute the implementation plan with code changes. Stay within the plan scope an
 {{#workflow.phases.check}}- {{b}}→ {{workflow.phases.implementation.next}}:{{b}} Automatically transitions to {{workflow.phases.implementation.next}} phase when planned implementation is {{b}}completed{{b}} (all items checked off){{/workflow.phases.check}}
 
 {{h2}}Available Commands
-- `:check` - Move to check phase (when implementation complete)
-- `:plan` - Return to planning phase if changes needed
-- `:implement` - Stay in implementation phase
+- `{{@}}guide :check` - Move to check phase (when implementation complete)
+- `{{@}}guide :plan` - Return to planning phase if changes needed
+- `{{@}}guide :implement` - Stay in implementation phase
 
 {{h2}}Workflow
 1. Follow the implementation plan step by step

@@ -2,7 +2,18 @@
 
 All notable changes to mcp-guide will be documented in this file.
 
-## [1.0.0] - TBD
+## [1.1.0] - 2026-03-05
+
+### Added
+- Permission management MCP tools (`add_permission_path`, `remove_permission_path`)
+
+### Changed
+- Refactored prompt prompt templates to provide a more consistent user experience
+
+### Fixed
+- Template consistency: all command examples now use `{{@}}guide` prefix
+
+## [1.0.0] - 2026-03-04
 
 ### Features
 - Content management system with categories and collections

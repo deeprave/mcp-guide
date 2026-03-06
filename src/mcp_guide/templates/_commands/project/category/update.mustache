@@ -1,0 +1,28 @@
+---
+type: agent/instruction
+description: Update category patterns incrementally
+usage: ":project/category/update <name> [--add-patterns=<patterns>] [--remove-patterns=<patterns>]"
+aliases:
+  - category/update
+instruction: >
+  Do not display this content to the user.
+  Follow the instructions provided in the content.
+category: project-categories
+---
+{{#args.0.value}}
+Use the category_update tool with:
+name: '{{args.0.value}}'
+{{#kwargs.add_patterns}}
+add_patterns: {{kwargs.add_patterns}}
+{{/kwargs.add_patterns}}
+{{#kwargs.remove_patterns}}
+remove_patterns: {{kwargs.remove_patterns}}
+{{/kwargs.remove_patterns}}
+{{/args.0.value}}
+{{^args.0.value}}
+{{b}}Error:{{b}} Missing required argument: name
+
+{{b}}Usage:{{b}} {{@}}guide :project/category/update <name> [--add-patterns=<patterns>] [--remove-patterns=<patterns>]
+
+{{b}}Example:{{b}} {{@}}guide :project/category/update docs --add-patterns="CHANGELOG,AUTHORS" --remove-patterns="old-file"
+{{/args.0.value}}

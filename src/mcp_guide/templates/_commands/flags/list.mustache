@@ -1,0 +1,25 @@
+---
+type: user/information
+description: List all feature flags (project and feature)
+usage: ":flags/list [--active]"
+aliases:
+  - flags/list
+category: project-and-feature-flags
+---
+{{h1}}All Feature Flags
+
+{{h2}}Project Flags
+{{#project.project_flag_values}}
+- {{key}}: {{value}}
+{{/project.project_flag_values}}
+{{^project.project_flag_values}}
+No project flags set.
+{{/project.project_flag_values}}
+
+{{h2}}Feature Flags
+{{#feature_flag_values}}
+- {{key}}: {{value}}
+{{/feature_flag_values}}
+{{^feature_flag_values}}
+No feature flags set.
+{{/feature_flag_values}}
