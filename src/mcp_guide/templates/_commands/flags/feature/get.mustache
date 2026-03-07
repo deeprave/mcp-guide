@@ -1,7 +1,7 @@
 ---
 type: agent/instruction
-description: Get feature flag value
-usage: ":flags/feature/get <flag-name>"
+description: Get feature flag value or filter by pattern
+usage: ":flags/feature/get <flag-name-or-pattern>"
 aliases:
   - flags/feature/get
 instruction: >
@@ -10,13 +10,18 @@ instruction: >
 category: project-and-feature-flags
 ---
 {{#args.0.value}}
-Use the get_feature_flag tool with:
+Use the list_feature_flags tool with:
 feature_name: '{{args.0.value}}'
+
+If the value contains wildcards (* ? [), returns dict of matching flags.
+Otherwise returns single flag value.
 {{/args.0.value}}
 {{^args.0.value}}
-{{b}}Error:{{b}} Missing required argument: flag-name
+{{b}}Error:{{b}} Missing required argument: flag-name-or-pattern
 
-{{b}}Usage:{{b}} {{@}}guide :flags/feature/get <flag-name>
+{{b}}Usage:{{b}} {{@}}guide :flags/feature/get <flag-name-or-pattern>
 
-{{b}}Example:{{b}} {{@}}guide :flags/feature/get workflow
+{{b}}Examples:{{b}}
+  {{@}}guide :flags/feature/get allow-client-info  # Get single flag
+  {{@}}guide :flags/feature/get allow-*            # Get all allow-* flags
 {{/args.0.value}}

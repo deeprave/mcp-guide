@@ -133,13 +133,20 @@ class TestWorkflowFlagValidation:
 class TestWorkflowConsentValidation:
     """Test workflow-consent flag validation."""
 
-    def test_consent_flag_rejects_boolean(self):
-        """Test consent flag validator rejects boolean values."""
+    @pytest.mark.parametrize(
+        "value,expected",
+        [
+            (True, True),
+            (False, False),
+            (None, True),
+        ],
+        ids=["true", "false", "none"],
+    )
+    def test_consent_flag_accepts_boolean_and_none(self, value, expected):
+        """Test consent flag validator accepts True and None."""
         from mcp_guide.workflow.flags import _validate_workflow_consent_flag
 
-        assert _validate_workflow_consent_flag(True, False) is False
-        assert _validate_workflow_consent_flag(False, False) is False
-        assert _validate_workflow_consent_flag(None, False) is True
+        assert _validate_workflow_consent_flag(value, False) is expected
 
     def test_consent_flag_accepts_valid_dict(self):
         """Test consent flag validator accepts valid dict structure."""

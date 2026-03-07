@@ -13,7 +13,7 @@ import pytest
 from mcp.shared.memory import create_connected_server_and_client_session
 
 from mcp_guide.session import Session, remove_current_session, set_current_session
-from mcp_guide.tools.tool_category import CategoryAddArgs, internal_category_add
+from mcp_guide.tools.tool_category import CategoryAddArgs, CategoryCollectionAddArgs, internal_category_add
 from mcp_guide.tools.tool_project import (
     CloneProjectArgs,
     GetCurrentProjectArgs,
@@ -196,8 +196,16 @@ async def test_list_project_by_name(mcp_server, monkeypatch):
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
         # Create project_alpha with categories
         await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_alpha"))
-        await call_mcp_tool(client, "category_add", CategoryAddArgs(name="docs", dir="docs", patterns=["*.md"]))
-        await call_mcp_tool(client, "category_add", CategoryAddArgs(name="api", dir="src/api", patterns=["*.py"]))
+        await call_mcp_tool(
+            client,
+            "category_collection_add",
+            CategoryCollectionAddArgs(type="category", name="docs", dir="docs", patterns=["*.md"]),
+        )
+        await call_mcp_tool(
+            client,
+            "category_collection_add",
+            CategoryCollectionAddArgs(type="category", name="api", dir="src/api", patterns=["*.py"]),
+        )
 
         args = ListProjectArgs(name="project_alpha")
         result = await call_mcp_tool(client, "list_project", args)
@@ -262,7 +270,11 @@ async def test_switch_verbose_mode(mcp_server):
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
         # Create project_beta with some content
         await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_beta"))
-        await call_mcp_tool(client, "category_add", CategoryAddArgs(name="docs", dir="docs", patterns=["*.md"]))
+        await call_mcp_tool(
+            client,
+            "category_collection_add",
+            CategoryCollectionAddArgs(type="category", name="docs", dir="docs", patterns=["*.md"]),
+        )
         await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="test"))
 
         result = await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_beta", verbose=True))
@@ -284,8 +296,16 @@ async def test_clone_to_current_merge(mcp_server, monkeypatch):
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
         # Create project_alpha with content
         await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_alpha"))
-        await call_mcp_tool(client, "category_add", CategoryAddArgs(name="docs", dir="docs", patterns=["*.md"]))
-        await call_mcp_tool(client, "category_add", CategoryAddArgs(name="api", dir="src/api", patterns=["*.py"]))
+        await call_mcp_tool(
+            client,
+            "category_collection_add",
+            CategoryCollectionAddArgs(type="category", name="docs", dir="docs", patterns=["*.md"]),
+        )
+        await call_mcp_tool(
+            client,
+            "category_collection_add",
+            CategoryCollectionAddArgs(type="category", name="api", dir="src/api", patterns=["*.py"]),
+        )
 
         # Create empty project_gamma and switch to it
         monkeypatch.setenv("PWD", "/fake/path/project_gamma")
@@ -307,8 +327,16 @@ async def test_clone_to_different_merge(mcp_server):
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
         # Create project_alpha with content
         await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_alpha"))
-        await call_mcp_tool(client, "category_add", CategoryAddArgs(name="docs", dir="docs", patterns=["*.md"]))
-        await call_mcp_tool(client, "category_add", CategoryAddArgs(name="api", dir="src/api", patterns=["*.py"]))
+        await call_mcp_tool(
+            client,
+            "category_collection_add",
+            CategoryCollectionAddArgs(type="category", name="docs", dir="docs", patterns=["*.md"]),
+        )
+        await call_mcp_tool(
+            client,
+            "category_collection_add",
+            CategoryCollectionAddArgs(type="category", name="api", dir="src/api", patterns=["*.py"]),
+        )
 
         # Create empty project_gamma
         await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_gamma"))
@@ -333,7 +361,11 @@ async def test_clone_with_conflicts(mcp_server):
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
         # Create project_alpha with docs category
         await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_alpha"))
-        await call_mcp_tool(client, "category_add", CategoryAddArgs(name="docs", dir="docs", patterns=["*.md"]))
+        await call_mcp_tool(
+            client,
+            "category_collection_add",
+            CategoryCollectionAddArgs(type="category", name="docs", dir="docs", patterns=["*.md"]),
+        )
 
         # Create project_beta with different docs category
         await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_beta"))
@@ -479,8 +511,16 @@ async def test_clone_updates_cache(mcp_server):
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
         # Create project_alpha with content
         await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_alpha"))
-        await call_mcp_tool(client, "category_add", CategoryAddArgs(name="docs", dir="docs", patterns=["*.md"]))
-        await call_mcp_tool(client, "category_add", CategoryAddArgs(name="api", dir="src/api", patterns=["*.py"]))
+        await call_mcp_tool(
+            client,
+            "category_collection_add",
+            CategoryCollectionAddArgs(type="category", name="docs", dir="docs", patterns=["*.md"]),
+        )
+        await call_mcp_tool(
+            client,
+            "category_collection_add",
+            CategoryCollectionAddArgs(type="category", name="api", dir="src/api", patterns=["*.py"]),
+        )
 
         # Switch to gamma
         await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_gamma"))
@@ -505,8 +545,16 @@ async def test_complete_multi_project_workflow(mcp_server, monkeypatch):
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
         # Create project_alpha with content
         await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_alpha"))
-        await call_mcp_tool(client, "category_add", CategoryAddArgs(name="docs", dir="docs", patterns=["*.md"]))
-        await call_mcp_tool(client, "category_add", CategoryAddArgs(name="api", dir="src/api", patterns=["*.py"]))
+        await call_mcp_tool(
+            client,
+            "category_collection_add",
+            CategoryCollectionAddArgs(type="category", name="docs", dir="docs", patterns=["*.md"]),
+        )
+        await call_mcp_tool(
+            client,
+            "category_collection_add",
+            CategoryCollectionAddArgs(type="category", name="api", dir="src/api", patterns=["*.py"]),
+        )
 
         # Create empty project_gamma
         monkeypatch.setenv("PWD", "/fake/path/project_gamma")

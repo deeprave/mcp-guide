@@ -15,11 +15,11 @@ from mcp.shared.memory import create_connected_server_and_client_session
 
 from mcp_guide.models import Category
 from mcp_guide.session import get_or_create_session, remove_current_session
-from mcp_guide.tools.tool_collection import (
-    CollectionAddArgs,
-    CollectionListArgs,
-    CollectionRemoveArgs,
-    CollectionUpdateArgs,
+from mcp_guide.tools.tool_category import (
+    CategoryCollectionAddArgs,
+    CategoryCollectionListArgs,
+    CategoryCollectionRemoveArgs,
+    CategoryCollectionUpdateArgs,
 )
 from tests.conftest import call_mcp_tool
 
@@ -65,8 +65,10 @@ async def test_add_collection_via_mcp(mcp_server, test_session, monkeypatch):
     monkeypatch.setenv("PWD", "/fake/path/test")
 
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
-        args = CollectionAddArgs(name="backend", categories=["api", "tests"], description="Backend code")
-        result = await call_mcp_tool(client, "collection_add", args)
+        args = CategoryCollectionAddArgs(
+            type="collection", name="backend", categories=["api", "tests"], description="Backend code"
+        )
+        result = await call_mcp_tool(client, "category_collection_add", args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
         assert response["success"] is True
 
@@ -78,12 +80,14 @@ async def test_list_collections_via_mcp(mcp_server, test_session, monkeypatch):
 
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
         # Add collection
-        args1 = CollectionAddArgs(name="backend", categories=["api", "tests"], description="Backend code")
-        await call_mcp_tool(client, "collection_add", args1)
+        args1 = CategoryCollectionAddArgs(
+            type="collection", name="backend", categories=["api", "tests"], description="Backend code"
+        )
+        await call_mcp_tool(client, "category_collection_add", args1)
 
         # List collections
-        args = CollectionListArgs(verbose=True)
-        result = await call_mcp_tool(client, "collection_list", args)
+        args = CategoryCollectionListArgs(type="collection", verbose=True)
+        result = await call_mcp_tool(client, "category_collection_list", args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
 
         assert response["success"] is True
@@ -101,18 +105,18 @@ async def test_update_collection_via_mcp(mcp_server, test_session, monkeypatch):
 
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
         # Add collection
-        args1 = CollectionAddArgs(name="backend", categories=["api", "tests"])
-        await call_mcp_tool(client, "collection_add", args1)
+        args1 = CategoryCollectionAddArgs(type="collection", name="backend", categories=["api", "tests"])
+        await call_mcp_tool(client, "category_collection_add", args1)
 
         # Update collection
-        args = CollectionUpdateArgs(name="backend", add_categories=["docs"])
-        result = await call_mcp_tool(client, "collection_update", args)
+        args = CategoryCollectionUpdateArgs(type="collection", name="backend", add_categories=["docs"])
+        result = await call_mcp_tool(client, "category_collection_update", args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
         assert response["success"] is True
 
         # Verify update
-        args2 = CollectionListArgs(verbose=True)
-        result = await call_mcp_tool(client, "collection_list", args2)
+        args2 = CategoryCollectionListArgs(type="collection", verbose=True)
+        result = await call_mcp_tool(client, "category_collection_list", args2)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
         collections = response["value"]
         assert "docs" in collections[0]["categories"]
@@ -126,18 +130,18 @@ async def test_remove_collection_via_mcp(mcp_server, test_session, monkeypatch):
 
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
         # Add collection
-        args1 = CollectionAddArgs(name="backend", categories=["api"])
-        await call_mcp_tool(client, "collection_add", args1)
+        args1 = CategoryCollectionAddArgs(type="collection", name="backend", categories=["api"])
+        await call_mcp_tool(client, "category_collection_add", args1)
 
         # Remove collection
-        args = CollectionRemoveArgs(name="backend")
-        result = await call_mcp_tool(client, "collection_remove", args)
+        args = CategoryCollectionRemoveArgs(type="collection", name="backend")
+        result = await call_mcp_tool(client, "category_collection_remove", args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
         assert response["success"] is True
 
         # Verify removed
-        args2 = CollectionListArgs(verbose=True)
-        result = await call_mcp_tool(client, "collection_list", args2)
+        args2 = CategoryCollectionListArgs(type="collection", verbose=True)
+        result = await call_mcp_tool(client, "category_collection_list", args2)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
         collections = response["value"]
         assert len(collections) == 0
@@ -151,36 +155,38 @@ async def test_collection_management_workflow(mcp_server, test_session, monkeypa
 
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
         # Add
-        args = CollectionAddArgs(name="backend", categories=["api", "tests"], description="Backend code")
-        result = await call_mcp_tool(client, "collection_add", args)
+        args = CategoryCollectionAddArgs(
+            type="collection", name="backend", categories=["api", "tests"], description="Backend code"
+        )
+        result = await call_mcp_tool(client, "category_collection_add", args)
         assert json.loads(result.content[0].text)["success"] is True  # type: ignore[union-attr]
 
         # List - verify added
-        args = CollectionListArgs(verbose=True)
-        result = await call_mcp_tool(client, "collection_list", args)
+        args = CategoryCollectionListArgs(type="collection", verbose=True)
+        result = await call_mcp_tool(client, "category_collection_list", args)
         collections = json.loads(result.content[0].text)["value"]  # type: ignore[union-attr]
         assert len(collections) == 1
         assert collections[0]["name"] == "backend"
 
         # Update - add category
-        args = CollectionUpdateArgs(name="backend", add_categories=["docs"])
-        result = await call_mcp_tool(client, "collection_update", args)
+        args = CategoryCollectionUpdateArgs(type="collection", name="backend", add_categories=["docs"])
+        result = await call_mcp_tool(client, "category_collection_update", args)
         assert json.loads(result.content[0].text)["success"] is True  # type: ignore[union-attr]
 
         # List - verify updated
-        args = CollectionListArgs(verbose=True)
-        result = await call_mcp_tool(client, "collection_list", args)
+        args = CategoryCollectionListArgs(type="collection", verbose=True)
+        result = await call_mcp_tool(client, "category_collection_list", args)
         collections = json.loads(result.content[0].text)["value"]  # type: ignore[union-attr]
         assert "docs" in collections[0]["categories"]
 
         # Remove
-        args = CollectionRemoveArgs(name="backend")
-        result = await call_mcp_tool(client, "collection_remove", args)
+        args = CategoryCollectionRemoveArgs(type="collection", name="backend")
+        result = await call_mcp_tool(client, "category_collection_remove", args)
         assert json.loads(result.content[0].text)["success"] is True  # type: ignore[union-attr]
 
         # List - verify removed
-        args = CollectionListArgs(verbose=True)
-        result = await call_mcp_tool(client, "collection_list", args)
+        args = CategoryCollectionListArgs(type="collection", verbose=True)
+        result = await call_mcp_tool(client, "category_collection_list", args)
         collections = json.loads(result.content[0].text)["value"]  # type: ignore[union-attr]
         assert len(collections) == 0
 
@@ -195,8 +201,8 @@ async def test_add_collection_invalid_category_fails(mcp_server, test_session, m
     monkeypatch.setenv("PWD", "/fake/path/test")
 
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
-        args = CollectionAddArgs(name="backend", categories=["nonexistent"])
-        result = await call_mcp_tool(client, "collection_add", args)
+        args = CategoryCollectionAddArgs(type="collection", name="backend", categories=["nonexistent"])
+        result = await call_mcp_tool(client, "category_collection_add", args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
 
         assert response["success"] is False
@@ -211,12 +217,12 @@ async def test_update_collection_invalid_category_fails(mcp_server, test_session
 
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
         # Add valid collection
-        args1 = CollectionAddArgs(name="backend", categories=["api"])
-        await call_mcp_tool(client, "collection_add", args1)
+        args1 = CategoryCollectionAddArgs(type="collection", name="backend", categories=["api"])
+        await call_mcp_tool(client, "category_collection_add", args1)
 
         # Try to update with invalid category
-        args = CollectionUpdateArgs(name="backend", add_categories=["nonexistent"])
-        result = await call_mcp_tool(client, "collection_update", args)
+        args = CategoryCollectionUpdateArgs(type="collection", name="backend", add_categories=["nonexistent"])
+        result = await call_mcp_tool(client, "category_collection_update", args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
 
         assert response["success"] is False
@@ -230,8 +236,8 @@ async def test_validation_errors_return_proper_format(mcp_server, test_session, 
     monkeypatch.setenv("PWD", "/fake/path/test")
 
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
-        args = CollectionAddArgs(name="backend", categories=["nonexistent"])
-        result = await call_mcp_tool(client, "collection_add", args)
+        args = CategoryCollectionAddArgs(type="collection", name="backend", categories=["nonexistent"])
+        result = await call_mcp_tool(client, "category_collection_add", args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
 
         # Verify Result format
@@ -256,8 +262,8 @@ async def test_collection_persists_after_add(mcp_server, tmp_path, monkeypatch):
     await session1.update_config(lambda p: p.with_category("api", Category(dir="src/api", patterns=["*.py"])))
 
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
-        args = CollectionAddArgs(name="backend", categories=["api"])
-        await call_mcp_tool(client, "collection_add", args)
+        args = CategoryCollectionAddArgs(type="collection", name="backend", categories=["api"])
+        await call_mcp_tool(client, "category_collection_add", args)
 
     await remove_current_session("test")
 
@@ -283,10 +289,10 @@ async def test_collection_persists_after_update(mcp_server, tmp_path, monkeypatc
     )
 
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
-        args1 = CollectionAddArgs(name="backend", categories=["api"])
-        await call_mcp_tool(client, "collection_add", args1)
-        args2 = CollectionUpdateArgs(name="backend", add_categories=["docs"])
-        await call_mcp_tool(client, "collection_update", args2)
+        args1 = CategoryCollectionAddArgs(type="collection", name="backend", categories=["api"])
+        await call_mcp_tool(client, "category_collection_add", args1)
+        args2 = CategoryCollectionUpdateArgs(type="collection", name="backend", add_categories=["docs"])
+        await call_mcp_tool(client, "category_collection_update", args2)
 
     await remove_current_session("test")
 
@@ -309,10 +315,10 @@ async def test_collection_removed_persists(mcp_server, tmp_path, monkeypatch):
     await session1.update_config(lambda p: p.with_category("api", Category(dir="src/api", patterns=["*.py"])))
 
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
-        args1 = CollectionAddArgs(name="backend", categories=["api"])
-        await call_mcp_tool(client, "collection_add", args1)
-        args2 = CollectionRemoveArgs(name="backend")
-        await call_mcp_tool(client, "collection_remove", args2)
+        args1 = CategoryCollectionAddArgs(type="collection", name="backend", categories=["api"])
+        await call_mcp_tool(client, "category_collection_add", args1)
+        args2 = CategoryCollectionRemoveArgs(type="collection", name="backend")
+        await call_mcp_tool(client, "category_collection_remove", args2)
 
     await remove_current_session("test")
 
@@ -338,14 +344,14 @@ async def test_multiple_operations_persist(mcp_server, tmp_path, monkeypatch):
     )
 
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
-        args1 = CollectionAddArgs(name="backend", categories=["api"])
-        await call_mcp_tool(client, "collection_add", args1)
-        args2 = CollectionAddArgs(name="frontend", categories=["docs"])
-        await call_mcp_tool(client, "collection_add", args2)
-        args3 = CollectionUpdateArgs(name="backend", add_categories=["docs"])
-        await call_mcp_tool(client, "collection_update", args3)
-        args4 = CollectionRemoveArgs(name="frontend")
-        await call_mcp_tool(client, "collection_remove", args4)
+        args1 = CategoryCollectionAddArgs(type="collection", name="backend", categories=["api"])
+        await call_mcp_tool(client, "category_collection_add", args1)
+        args2 = CategoryCollectionAddArgs(type="collection", name="frontend", categories=["docs"])
+        await call_mcp_tool(client, "category_collection_add", args2)
+        args3 = CategoryCollectionUpdateArgs(type="collection", name="backend", add_categories=["docs"])
+        await call_mcp_tool(client, "category_collection_update", args3)
+        args4 = CategoryCollectionRemoveArgs(type="collection", name="frontend")
+        await call_mcp_tool(client, "category_collection_remove", args4)
 
     await remove_current_session("test")
 
@@ -365,16 +371,38 @@ async def test_multiple_operations_persist(mcp_server, tmp_path, monkeypatch):
     [
         (
             "duplicate",
-            lambda: CollectionAddArgs(name="backend", categories=["api"]),
+            lambda: CategoryCollectionAddArgs(type="collection", name="backend", categories=["api"]),
             lambda client: call_mcp_tool(
-                client, "collection_add", CollectionAddArgs(name="backend", categories=["api"])
+                client,
+                "category_collection_add",
+                CategoryCollectionAddArgs(type="collection", name="backend", categories=["api"]),
             ),
             False,
         ),
-        ("remove_nonexistent", lambda: CollectionRemoveArgs(name="nonexistent"), None, False),
-        ("update_nonexistent", lambda: CollectionUpdateArgs(name="nonexistent", add_categories=["api"]), None, False),
-        ("invalid_name", lambda: CollectionAddArgs(name="invalid name!", categories=["api"]), None, False),
-        ("empty_categories", lambda: CollectionAddArgs(name="empty", categories=[]), None, True),
+        (
+            "remove_nonexistent",
+            lambda: CategoryCollectionRemoveArgs(type="collection", name="nonexistent"),
+            None,
+            False,
+        ),
+        (
+            "update_nonexistent",
+            lambda: CategoryCollectionUpdateArgs(type="collection", name="nonexistent", add_categories=["api"]),
+            None,
+            False,
+        ),
+        (
+            "invalid_name",
+            lambda: CategoryCollectionAddArgs(type="collection", name="invalid name!", categories=["api"]),
+            None,
+            False,
+        ),
+        (
+            "empty_categories",
+            lambda: CategoryCollectionAddArgs(type="collection", name="empty", categories=[]),
+            None,
+            True,
+        ),
     ],
     ids=["duplicate", "remove_nonexistent", "update_nonexistent", "invalid_name", "empty_categories"],
 )
@@ -391,9 +419,13 @@ async def test_collection_error_scenarios(
 
         args = args_factory()
         tool_name = (
-            "collection_add"
-            if isinstance(args, CollectionAddArgs)
-            else ("collection_update" if isinstance(args, CollectionUpdateArgs) else "collection_remove")
+            "category_collection_add"
+            if isinstance(args, CategoryCollectionAddArgs)
+            else (
+                "category_collection_update"
+                if isinstance(args, CategoryCollectionUpdateArgs)
+                else "category_collection_remove"
+            )
         )
         result = await call_mcp_tool(client, tool_name, args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
@@ -415,10 +447,10 @@ async def test_collection_removal_preserves_categories(mcp_server, tmp_path, mon
     await session1.update_config(lambda p: p.with_category("api", Category(dir="src/api", patterns=["*.py"])))
 
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
-        args1 = CollectionAddArgs(name="backend", categories=["api"])
-        await call_mcp_tool(client, "collection_add", args1)
-        args2 = CollectionRemoveArgs(name="backend")
-        await call_mcp_tool(client, "collection_remove", args2)
+        args1 = CategoryCollectionAddArgs(type="collection", name="backend", categories=["api"])
+        await call_mcp_tool(client, "category_collection_add", args1)
+        args2 = CategoryCollectionRemoveArgs(type="collection", name="backend")
+        await call_mcp_tool(client, "category_collection_remove", args2)
 
     await remove_current_session("test")
 

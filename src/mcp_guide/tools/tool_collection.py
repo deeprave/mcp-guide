@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING, Any, Optional
 from pydantic import Field
 
 from mcp_guide.core.tool_arguments import ToolArguments
-from mcp_guide.core.tool_decorator import toolfunc
 from mcp_guide.core.validation import ArgValidationError, validate_description
 from mcp_guide.models import Collection, NoProjectError
 from mcp_guide.result import Result
@@ -101,7 +100,6 @@ async def internal_collection_list(args: CollectionListArgs, ctx: Optional[Conte
     return Result.ok(collections)
 
 
-@toolfunc(CollectionListArgs)
 async def collection_list(args: CollectionListArgs, ctx: Optional[Context] = None) -> str:  # type: ignore
     """List all collections in the current project.
 
@@ -227,7 +225,6 @@ async def internal_collection_add(args: CollectionAddArgs, ctx: Optional[Context
     return Result.ok(f"Collection '{args.name}' added successfully")
 
 
-@toolfunc(CollectionAddArgs)
 async def collection_add(args: CollectionAddArgs, ctx: Optional[Context] = None) -> str:  # type: ignore
     """Add a new collection to the current project.
 
@@ -277,7 +274,6 @@ async def internal_collection_remove(args: CollectionRemoveArgs, ctx: Optional[C
     return Result.ok(f"Collection '{args.name}' removed successfully")
 
 
-@toolfunc(CollectionRemoveArgs)
 async def collection_remove(args: CollectionRemoveArgs, ctx: Optional[Context] = None) -> str:  # type: ignore
     """Remove a collection from the current project.
 
@@ -406,7 +402,6 @@ async def internal_collection_change(args: CollectionChangeArgs, ctx: Optional[C
     return Result.ok(change_msg)
 
 
-@toolfunc(CollectionChangeArgs)
 async def collection_change(args: CollectionChangeArgs, ctx: Optional[Context] = None) -> str:  # type: ignore
     """Change properties of an existing collection.
 
@@ -514,7 +509,6 @@ async def internal_collection_update(args: CollectionUpdateArgs, ctx: Optional[C
     return Result.ok(f"Collection '{args.name}' categories updated successfully")
 
 
-@toolfunc(CollectionUpdateArgs)
 async def collection_update(args: CollectionUpdateArgs, ctx: Optional[Context] = None) -> str:  # type: ignore
     """Update collection categories incrementally.
 

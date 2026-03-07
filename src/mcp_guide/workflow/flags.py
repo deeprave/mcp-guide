@@ -183,7 +183,7 @@ def _validate_workflow_file_flag(value: FeatureValue, is_project: bool) -> bool:
 
 def _validate_workflow_consent_flag(value: FeatureValue, is_project: bool) -> bool:
     """Validate workflow-consent flag value."""
-    if value is None:
+    if value is None or value is True:
         return True
 
     if isinstance(value, dict):
