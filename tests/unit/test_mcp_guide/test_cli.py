@@ -21,7 +21,7 @@ class TestParseArgs:
                 assert config.log_level == "INFO"
                 assert config.log_file is None
                 assert config.log_json is False
-                assert config.tool_prefix == "guide"
+                assert config.tool_prefix == ""
 
     def test_help_sets_should_exit_and_no_error(self) -> None:
         """`--help` should mark config for exit without an error."""
@@ -78,20 +78,6 @@ class TestParseArgs:
                 config = parse_args()
                 assert config.log_level == "ERROR"
 
-    def test_no_tool_prefix_flag(self) -> None:
-        """Test --no-tool-prefix sets empty string."""
-        with patch("sys.argv", ["mcp-guide", "--no-tool-prefix"]):
-            with patch.dict(os.environ, {}, clear=True):
-                config = parse_args()
-                assert config.tool_prefix == ""
-
-    def test_no_tool_prefix_overrides_envvar(self) -> None:
-        """Test --no-tool-prefix overrides environment variable."""
-        with patch("sys.argv", ["mcp-guide", "--no-tool-prefix"]):
-            with patch.dict(os.environ, {"MCP_TOOL_PREFIX": "custom"}, clear=True):
-                config = parse_args()
-                assert config.tool_prefix == ""
-
     def test_tool_prefix_cli_arg(self) -> None:
         """Test --tool-prefix sets custom prefix."""
         with patch("sys.argv", ["mcp-guide", "--tool-prefix", "myapp"]):
@@ -105,20 +91,6 @@ class TestParseArgs:
             with patch.dict(os.environ, {"MCP_TOOL_PREFIX": "custom"}, clear=True):
                 config = parse_args()
                 assert config.tool_prefix == "custom"
-
-    def test_mutual_exclusion_error(self) -> None:
-        """Test error when both --tool-prefix and --no-tool-prefix provided."""
-        import click
-
-        with patch("sys.argv", ["mcp-guide", "--tool-prefix", "test", "--no-tool-prefix"]):
-            with patch.dict(os.environ, {}, clear=True):
-                config = parse_args()
-                # Should have error stored
-                assert config.cli_error is not None
-                assert isinstance(config.cli_error, click.UsageError)
-                assert "Cannot use both" in config.cli_error.format_message()
-                # Should not exit (invalid args, not help/version)
-                assert config.should_exit is False
 
     def test_invalid_log_level_error(self) -> None:
         """Test invalid log level stores BadParameter exception."""

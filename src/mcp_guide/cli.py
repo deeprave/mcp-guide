@@ -69,7 +69,7 @@ class ServerConfig:
     log_level: str = "INFO"
     log_file: Optional[str] = None
     log_json: bool = False
-    tool_prefix: str = "guide"
+    tool_prefix: str = ""
     docroot: Optional[str] = None
     configdir: Optional[str] = None
 
@@ -98,8 +98,6 @@ def parse_args() -> ServerConfig:
     1. Command line argument (highest)
     2. Environment variable (via Click's envvar)
     3. Default value (lowest)
-
-    Exception: --no-tool-prefix overrides all other prefix settings.
 
     Error Handling:
     - Help/version flags: Stored in config, exit after logging configured
@@ -169,12 +167,7 @@ def parse_args() -> ServerConfig:
         "--tool-prefix",
         envvar="MCP_TOOL_PREFIX",
         type=str,
-        help="Custom tool prefix (env: MCP_TOOL_PREFIX, default: guide)",
-    )
-    @click.option(
-        "--no-tool-prefix",
-        is_flag=True,
-        help="Disable tool prefix",
+        help="Custom tool prefix (env: MCP_TOOL_PREFIX, default: none)",
     )
     @click.option(
         "-d",
@@ -202,36 +195,22 @@ def parse_args() -> ServerConfig:
         type=click.Path(exists=True),
         help="SSL private key file for HTTPS (env: MG_SSL_KEYFILE)",
     )
-    @click.pass_context
     def cli(
-        ctx: click.Context,
         transport: str,
         log_level: str,
         log_file: Optional[str],
         log_json: bool,
         tool_prefix: Optional[str],
-        no_tool_prefix: bool,
         docroot: Optional[str],
         configdir: Optional[str],
         ssl_certfile: Optional[str],
         ssl_keyfile: Optional[str],
     ) -> None:
         """MCP Guide Server."""
-        # Parse transport mode
-        try:
-            mode, host, port, path = parse_transport_mode(transport)
-            config.transport_mode = mode
-            config.transport_host = host
-            config.transport_port = port
-            config.transport_path = path
-        except ValueError as e:
-            raise click.UsageError(str(e))
-
-        # Validate mutual exclusion using Click's context
-        # Check if --tool-prefix was explicitly provided on command line (not from envvar)
-        tool_prefix_source = ctx.get_parameter_source("tool_prefix")
-        if no_tool_prefix and tool_prefix_source == click.core.ParameterSource.COMMANDLINE:
-            raise click.UsageError("Cannot use both --tool-prefix and --no-tool-prefix")
+        # Tool prefix: --tool-prefix > envvar > default (empty)
+        if tool_prefix is not None:
+            config.tool_prefix = tool_prefix
+        # else: Click already set from envvar or we keep default ""
 
         # Populate config
         config.log_level = log_level.upper()
@@ -241,13 +220,6 @@ def parse_args() -> ServerConfig:
         config.configdir = configdir
         config.ssl_certfile = ssl_certfile
         config.ssl_keyfile = ssl_keyfile
-
-        # Tool prefix priority: --no-tool-prefix > --tool-prefix > envvar > default
-        if no_tool_prefix:
-            config.tool_prefix = ""
-        elif tool_prefix is not None:
-            config.tool_prefix = tool_prefix
-        # else: Click already set from envvar or we keep default "guide"
 
         # Parse transport mode
         try:

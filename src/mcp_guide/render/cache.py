@@ -19,7 +19,6 @@ from mcp_guide.result_constants import (
     INSTRUCTION_ERROR_MESSAGE,
 )
 from mcp_guide.session_listener import SessionListener
-from mcp_guide.task_manager import get_task_manager
 from mcp_guide.workflow.constants import DEFAULT_WORKFLOW_CONSENT, DEFAULT_WORKFLOW_FILE
 from mcp_guide.workflow.flags import parse_workflow_phases, substitute_variables
 
@@ -68,6 +67,9 @@ class TemplateContextCache(SessionListener):
 
     async def _build_client_context(self) -> "TemplateContext":
         """Build client context from cached client data."""
+        # Deferred import: avoids circular dependency (tool_decorator → task_manager → render → cache → task_manager)
+        from mcp_guide.task_manager import get_task_manager
+
         task_manager = get_task_manager()
         client_os_info = task_manager.get_cached_data("client_os_info") or {}
         client_context_info = task_manager.get_cached_data("client_context_info") or {}
@@ -148,8 +150,9 @@ class TemplateContextCache(SessionListener):
 
         # Add task statistics
         try:
-            # task_manager already imported at module level, but OpenSpecTask needs lazy import
+            # Deferred import: avoids circular dependency (tool_decorator → task_manager → render → cache → task_manager)
             from mcp_guide.openspec.task import OpenSpecTask
+            from mcp_guide.task_manager import get_task_manager
 
             task_manager = get_task_manager()
             openspec_task_subscriber = task_manager.get_task_by_type(OpenSpecTask)
@@ -360,6 +363,7 @@ class TemplateContextCache(SessionListener):
                             workflow_config[phase_name] = True
 
                         # Get workflow state from TaskManager cache
+                        # Deferred import: avoids circular dependency (tool_decorator → task_manager → render → cache → task_manager)
                         from mcp_guide.task_manager import get_task_manager
 
                         task_manager = get_task_manager()
