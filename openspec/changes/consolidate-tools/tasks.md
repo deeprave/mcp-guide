@@ -1,0 +1,23 @@
+## 1. Implementation
+- [x] 1.1 Create `CategoryCollectionListArgs` with `type` discriminator
+- [x] 1.2 Implement `category_collection_list` combining both list functions
+- [x] 1.3 Create `CategoryCollectionRemoveArgs` with `type` discriminator
+- [x] 1.4 Implement `category_collection_remove` combining both remove functions
+- [x] 1.5 Create `CategoryCollectionAddArgs` and implement `category_collection_add`
+- [x] 1.6 Create `CategoryCollectionChangeArgs` and implement `category_collection_change`
+- [x] 1.7 Create `CategoryCollectionUpdateArgs` and implement `category_collection_update`
+- [x] 1.8 Remove `@toolfunc` decorator from old tools (kept for internal use)
+- [x] 1.9 Update all integration tests (29 category + 31 collection tests)
+- [x] 1.10 Verify all tests pass (1520 tests passing)
+- [x] 1.11 Verify mypy passes (no type errors)
+- [x] 1.12 Verify ruff passes (no lint errors)
+- [x] 1.13 Remove `@toolfunc` from `list_tools`, `list_prompts`, `list_resources`
+- [x] 1.14 Remove `@toolfunc` from `get_project_flag` and `get_feature_flag`
+- [x] 1.15 Verify `feature_name` filter exists in `list_project_flags` (already present)
+- [x] 1.16 Verify `feature_name` filter exists in `list_feature_flags` (already present)
+- [x] 1.17 Update tests for flag tools (2 tests updated)
+- [x] 1.18 Verify all tests pass (1520 tests passing)
+- [x] 1.19 Verify tool count is 28
+- [x] 1.20 Update templates to use consolidated tools
+- [x] 1.21 Implement glob pattern filtering for list_project_flags and list_feature_flags
+- [x] 1.22 Add parametrized tests for glob pattern functionality

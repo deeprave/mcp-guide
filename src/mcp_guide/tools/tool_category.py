@@ -4,7 +4,7 @@
 
 from dataclasses import replace
 from pathlib import Path
-from typing import Any, Optional, Union, cast
+from typing import Any, Literal, Optional, Union, cast
 
 from anyio import Path as AsyncPath
 from pydantic import Field
@@ -116,8 +116,7 @@ async def internal_category_list(args: CategoryListArgs, ctx: Optional[Context] 
     return Result.ok(categories)
 
 
-@toolfunc(CategoryListArgs)
-async def category_list(args: CategoryListArgs, ctx: Optional[Context] = None) -> str:  # type: ignore
+async def category_list(args: CategoryListArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
     """List all categories in the current project.
 
     Retrieves category information from the current project configuration.
@@ -249,8 +248,7 @@ async def internal_category_add(args: CategoryAddArgs, ctx: Optional[Context] = 
     return Result.ok(f"Category '{args.name}' added successfully")
 
 
-@toolfunc(CategoryAddArgs)
-async def category_add(args: CategoryAddArgs, ctx: Optional[Context] = None) -> str:  # type: ignore
+async def category_add(args: CategoryAddArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
     """Add a new category to the current project.
 
     Creates a new category with specified configuration including name,
@@ -370,8 +368,7 @@ async def internal_category_remove(args: CategoryRemoveArgs, ctx: Optional[Conte
     return Result.ok(f"Category '{args.name}' removed successfully")
 
 
-@toolfunc(CategoryRemoveArgs)
-async def category_remove(args: CategoryRemoveArgs, ctx: Optional[Context] = None) -> str:  # type: ignore
+async def category_remove(args: CategoryRemoveArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
     """Remove a category from the current project.
 
     Removes the specified category and automatically removes it from all collections.
@@ -543,8 +540,7 @@ async def internal_category_change(args: CategoryChangeArgs, ctx: Optional[Conte
     return Result.ok(change_msg)
 
 
-@toolfunc(CategoryChangeArgs)
-async def category_change(args: CategoryChangeArgs, ctx: Optional[Context] = None) -> str:  # type: ignore
+async def category_change(args: CategoryChangeArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
     """Change properties of an existing category.
 
     Args:
@@ -634,8 +630,7 @@ async def internal_category_update(args: CategoryUpdateArgs, ctx: Optional[Conte
     return Result.ok(f"Category '{args.name}' patterns updated successfully")
 
 
-@toolfunc(CategoryUpdateArgs)
-async def category_update(args: CategoryUpdateArgs, ctx: Optional[Context] = None) -> str:  # type: ignore
+async def category_update(args: CategoryUpdateArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
     """Update category patterns incrementally.
 
     Args:
@@ -709,7 +704,7 @@ async def internal_category_list_files(
 
 
 @toolfunc(CategoryListFilesArgs)
-async def category_list_files(args: CategoryListFilesArgs, ctx: Optional[Context] = None) -> str:  # type: ignore
+async def category_list_files(args: CategoryListFilesArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
     """List all files in a category directory.
 
     Args:
@@ -843,3 +838,207 @@ async def category_content(
     """
     result = await internal_category_content(args, ctx)
     return await tool_result("category_content", result)
+
+
+# Consolidated category/collection tools
+
+
+class CategoryCollectionListArgs(ToolArguments):
+    """Arguments for category_collection_list tool."""
+
+    type: Literal["category", "collection"] = Field(description="Type of items to list")
+    verbose: bool = Field(default=True, description="If True, return full details; if False, return names only")
+
+
+async def internal_category_collection_list(
+    args: CategoryCollectionListArgs,
+    ctx: Optional[Context] = None,  # type: ignore[type-arg]
+) -> Result[list]:  # type: ignore[type-arg]
+    """List categories or collections based on type."""
+    if args.type == "category":
+        category_args = CategoryListArgs(verbose=args.verbose)
+        return await internal_category_list(category_args, ctx)
+    else:
+        from mcp_guide.tools.tool_collection import CollectionListArgs, internal_collection_list
+
+        collection_args = CollectionListArgs(verbose=args.verbose)
+        return await internal_collection_list(collection_args, ctx)
+
+
+@toolfunc(CategoryCollectionListArgs)
+async def category_collection_list(
+    args: CategoryCollectionListArgs,
+    ctx: Optional[Context] = None,  # type: ignore[type-arg]
+) -> str:
+    """List all categories or collections in the current project."""
+    result = await internal_category_collection_list(args, ctx)
+    return await tool_result("category_collection_list", result)
+
+
+class CategoryCollectionRemoveArgs(ToolArguments):
+    """Arguments for category_collection_remove tool."""
+
+    type: Literal["category", "collection"] = Field(description="Type of item to remove")
+    name: str = Field(description="Name of the item to remove")
+
+
+async def internal_category_collection_remove(
+    args: CategoryCollectionRemoveArgs,
+    ctx: Optional[Context] = None,  # type: ignore[type-arg]
+) -> Result[str]:
+    """Remove a category or collection based on type."""
+    if args.type == "category":
+        category_args = CategoryRemoveArgs(name=args.name)
+        return await internal_category_remove(category_args, ctx)
+    else:
+        from mcp_guide.tools.tool_collection import CollectionRemoveArgs, internal_collection_remove
+
+        collection_args = CollectionRemoveArgs(name=args.name)
+        return await internal_collection_remove(collection_args, ctx)
+
+
+@toolfunc(CategoryCollectionRemoveArgs)
+async def category_collection_remove(
+    args: CategoryCollectionRemoveArgs,
+    ctx: Optional[Context] = None,  # type: ignore[type-arg]
+) -> str:
+    """Remove a category or collection from the current project."""
+    result = await internal_category_collection_remove(args, ctx)
+    return await tool_result("category_collection_remove", result)
+
+
+class CategoryCollectionAddArgs(ToolArguments):
+    """Arguments for category_collection_add tool."""
+
+    type: Literal["category", "collection"] = Field(description="Type of item to add")
+    name: str = Field(description="Name to create")
+    description: Optional[str] = Field(None, description="Optional description")
+    dir: Optional[str] = Field(None, description="Directory path (category only)")
+    patterns: Optional[list[str]] = Field(None, description="File patterns (category only)")
+    categories: Optional[list[str]] = Field(None, description="Category expressions (collection only)")
+
+
+async def internal_category_collection_add(
+    args: CategoryCollectionAddArgs,
+    ctx: Optional[Context] = None,  # type: ignore[type-arg]
+) -> Result[str]:
+    """Add a category or collection based on type."""
+    if args.type == "category":
+        category_args = CategoryAddArgs(
+            name=args.name,
+            dir=args.dir,
+            patterns=args.patterns or [],
+            description=args.description,
+        )
+        return await internal_category_add(category_args, ctx)
+    else:
+        from mcp_guide.tools.tool_collection import CollectionAddArgs, internal_collection_add
+
+        collection_args = CollectionAddArgs(
+            name=args.name,
+            description=args.description,
+            categories=args.categories or [],
+        )
+        return await internal_collection_add(collection_args, ctx)
+
+
+@toolfunc(CategoryCollectionAddArgs)
+async def category_collection_add(
+    args: CategoryCollectionAddArgs,
+    ctx: Optional[Context] = None,  # type: ignore[type-arg]
+) -> str:
+    """Add a new category or collection to the current project."""
+    result = await internal_category_collection_add(args, ctx)
+    return await tool_result("category_collection_add", result)
+
+
+class CategoryCollectionChangeArgs(ToolArguments):
+    """Arguments for category_collection_change tool."""
+
+    type: Literal["category", "collection"] = Field(description="Type of item to modify")
+    name: str = Field(description="Name to modify")
+    new_name: Optional[str] = Field(None, description="New name")
+    new_description: Optional[str] = Field(None, description="New description")
+    new_dir: Optional[str] = Field(None, description="New directory path (category only)")
+    new_patterns: Optional[list[str]] = Field(None, description="New file patterns (category only)")
+    new_categories: Optional[list[str]] = Field(None, description="New category list (collection only)")
+
+
+async def internal_category_collection_change(
+    args: CategoryCollectionChangeArgs,
+    ctx: Optional[Context] = None,  # type: ignore[type-arg]
+) -> Result[str]:
+    """Change a category or collection based on type."""
+    if args.type == "category":
+        category_args = CategoryChangeArgs(
+            name=args.name,
+            new_name=args.new_name,
+            new_dir=args.new_dir,
+            new_patterns=args.new_patterns,
+            new_description=args.new_description,
+        )
+        return await internal_category_change(category_args, ctx)
+    else:
+        from mcp_guide.tools.tool_collection import CollectionChangeArgs, internal_collection_change
+
+        collection_args = CollectionChangeArgs(
+            name=args.name,
+            new_name=args.new_name,
+            new_description=args.new_description,
+            new_categories=args.new_categories,
+        )
+        return await internal_collection_change(collection_args, ctx)
+
+
+@toolfunc(CategoryCollectionChangeArgs)
+async def category_collection_change(
+    args: CategoryCollectionChangeArgs,
+    ctx: Optional[Context] = None,  # type: ignore[type-arg]
+) -> str:
+    """Change properties of an existing category or collection."""
+    result = await internal_category_collection_change(args, ctx)
+    return await tool_result("category_collection_change", result)
+
+
+class CategoryCollectionUpdateArgs(ToolArguments):
+    """Arguments for category_collection_update tool."""
+
+    type: Literal["category", "collection"] = Field(description="Type of item to update")
+    name: str = Field(description="Name to update")
+    add_patterns: Optional[list[str]] = Field(None, description="Patterns to add (category only)")
+    remove_patterns: Optional[list[str]] = Field(None, description="Patterns to remove (category only)")
+    add_categories: Optional[list[str]] = Field(None, description="Categories to add (collection only)")
+    remove_categories: Optional[list[str]] = Field(None, description="Categories to remove (collection only)")
+
+
+async def internal_category_collection_update(
+    args: CategoryCollectionUpdateArgs,
+    ctx: Optional[Context] = None,  # type: ignore[type-arg]
+) -> Result[str]:
+    """Update a category or collection based on type."""
+    if args.type == "category":
+        category_args = CategoryUpdateArgs(
+            name=args.name,
+            add_patterns=args.add_patterns,
+            remove_patterns=args.remove_patterns,
+        )
+        return await internal_category_update(category_args, ctx)
+    else:
+        from mcp_guide.tools.tool_collection import CollectionUpdateArgs, internal_collection_update
+
+        collection_args = CollectionUpdateArgs(
+            name=args.name,
+            add_categories=args.add_categories,
+            remove_categories=args.remove_categories,
+        )
+        return await internal_collection_update(collection_args, ctx)
+
+
+@toolfunc(CategoryCollectionUpdateArgs)
+async def category_collection_update(
+    args: CategoryCollectionUpdateArgs,
+    ctx: Optional[Context] = None,  # type: ignore[type-arg]
+) -> str:
+    """Update category or collection incrementally."""
+    result = await internal_category_collection_update(args, ctx)
+    return await tool_result("category_collection_update", result)

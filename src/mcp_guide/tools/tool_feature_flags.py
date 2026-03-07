@@ -2,6 +2,7 @@
 
 """Feature flags management tools."""
 
+from fnmatch import fnmatch
 from typing import Optional
 
 from pydantic import Field
@@ -38,7 +39,10 @@ __all__ = [
 class ListFlagsArgs(ToolArguments):
     """Arguments for list_flags tool."""
 
-    feature_name: Optional[str] = Field(None, description="Specific flag name to retrieve")
+    feature_name: Optional[str] = Field(
+        None,
+        description="Glob pattern to filter flags (e.g., 'workflow*', 'content-*'). Returns matching flags as dict. Exact match returns single value.",
+    )
     active: bool = Field(True, description="Include resolved flags (True) or project-only (False)")
 
 
@@ -71,8 +75,28 @@ class GetFeatureFlagArgs(ToolArguments):
 class ListFeatureFlagsArgs(ToolArguments):
     """Arguments for list_feature_flags tool."""
 
-    feature_name: Optional[str] = Field(None, description="Specific flag name to retrieve")
+    feature_name: Optional[str] = Field(
+        None,
+        description="Glob pattern to filter flags (e.g., 'workflow*', 'content-*'). Returns matching flags as dict. Exact match returns single value.",
+    )
     active: bool = Field(True, description="Include resolved flags (True) or project-only (False)")
+
+
+def _filter_flags_by_pattern(
+    flags: dict[str, FeatureValue],
+    pattern: str | None,
+) -> FeatureValue | dict[str, FeatureValue] | None:
+    """Filter flags by glob pattern or exact match."""
+    if not pattern:
+        return flags
+
+    # Check if pattern contains wildcards
+    if "*" in pattern or "?" in pattern or "[" in pattern:
+        # Glob pattern - return matching flags as dict
+        return {k: v for k, v in flags.items() if fnmatch(k, pattern)}
+    else:
+        # Exact match - return single value
+        return flags.get(pattern)
 
 
 async def internal_list_project_flags(
@@ -100,12 +124,7 @@ async def internal_list_project_flags(
             flags_proxy = session.project_flags()
             flags = await flags_proxy.list()
 
-        if args.feature_name:
-            # Return single flag value
-            return Result.ok(flags.get(args.feature_name))
-        else:
-            # Return all flags
-            return Result.ok(flags)
+        return Result.ok(_filter_flags_by_pattern(flags, args.feature_name))
 
     except OSError as e:
         return Result.failure(f"Failed to read configuration: {e}", error_type="config_read_error")
@@ -203,7 +222,6 @@ async def internal_get_project_flag(args: GetFlagArgs, ctx: Optional[Context] = 
         )
 
 
-@toolfunc(GetFlagArgs)
 async def get_project_flag(args: GetFlagArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
     """Get a project feature flag value with resolution hierarchy."""
     result = await internal_get_project_flag(args, ctx)
@@ -299,7 +317,6 @@ async def internal_get_feature_flag(
         )
 
 
-@toolfunc(GetFeatureFlagArgs)
 async def get_feature_flag(args: GetFeatureFlagArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
     """Get a global feature flag value."""
     result = await internal_get_feature_flag(args, ctx)
@@ -323,12 +340,7 @@ async def internal_list_feature_flags(
         global_proxy = session.feature_flags()
         flags = await global_proxy.list()
 
-        if args.feature_name:
-            # Return single flag value
-            return Result.ok(flags.get(args.feature_name))
-        else:
-            # Return all flags
-            return Result.ok(flags)
+        return Result.ok(_filter_flags_by_pattern(flags, args.feature_name))
 
     except OSError as e:
         return Result.failure(f"Failed to read configuration: {e}", error_type="config_read_error")

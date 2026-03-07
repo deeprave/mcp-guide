@@ -10,7 +10,7 @@ import pytest_asyncio
 from mcp.shared.memory import create_connected_server_and_client_session
 
 from mcp_guide.session import Session, remove_current_session, set_current_session
-from mcp_guide.tools.tool_feature_flags import GetFlagArgs, ListFlagsArgs, SetFlagArgs
+from mcp_guide.tools.tool_feature_flags import ListFlagsArgs, SetFlagArgs
 from tests.conftest import call_mcp_tool
 
 
@@ -77,7 +77,7 @@ async def test_list_project_flags_via_mcp(mcp_server, test_session, monkeypatch)
 
 @pytest.mark.anyio
 async def test_get_project_flag_via_mcp(mcp_server, test_session, monkeypatch):
-    """Test getting feature flag through MCP client."""
+    """Test getting feature flag through MCP client using list_project_flags with feature_name."""
     monkeypatch.setenv("PWD", "/fake/path/test")
 
     async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
@@ -85,9 +85,9 @@ async def test_get_project_flag_via_mcp(mcp_server, test_session, monkeypatch):
         set_args = SetFlagArgs(feature_name="get_test", value=["list", "value"])
         await call_mcp_tool(client, "set_project_flag", set_args)
 
-        # Then get the flag
-        get_args = GetFlagArgs(feature_name="get_test")
-        result = await call_mcp_tool(client, "get_project_flag", get_args)
+        # Then get the flag using list_project_flags with feature_name
+        get_args = ListFlagsArgs(feature_name="get_test")
+        result = await call_mcp_tool(client, "list_project_flags", get_args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
 
         assert response["success"] is True
@@ -128,11 +128,83 @@ async def test_remove_flag_via_mcp(mcp_server, test_session, monkeypatch):
         assert response["success"] is True
         assert "removed" in response["value"].lower()
 
-        # Verify flag is gone
-        get_args = GetFlagArgs(feature_name="remove_test")
-        result = await call_mcp_tool(client, "get_project_flag", get_args)
+        # Verify flag is gone using list_project_flags with feature_name
+        get_args = ListFlagsArgs(feature_name="remove_test")
+        result = await call_mcp_tool(client, "list_project_flags", get_args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
 
         assert response["success"] is True
         # When flag doesn't exist, value should be None
         assert response.get("value") is None
+
+
+@pytest.mark.parametrize(
+    "pattern,flags_to_set,expected_matches",
+    [
+        # Test workflow* pattern - matches workflow, workflow-file, workflow-consent
+        (
+            "workflow*",
+            [
+                ("workflow", True),
+                ("workflow-file", ".workflow.yaml"),
+                ("workflow-consent", True),
+                ("openspec", True),
+            ],
+            ["workflow", "workflow-file", "workflow-consent"],
+        ),
+        # Test content-* pattern - matches content-format, content-style
+        (
+            "content-*",
+            [("content-format", "mime"), ("content-style", "plain"), ("workflow", True)],
+            ["content-format", "content-style"],
+        ),
+        # Test *spec pattern
+        ("*spec", [("openspec", True), ("workflow", True)], ["openspec"]),
+        # Test pattern with no matches
+        ("nonexistent*", [("workflow", True), ("openspec", True)], []),
+    ],
+    ids=["workflow-prefix", "content-prefix", "spec-suffix", "no-matches"],
+)
+async def test_list_flags_with_glob_pattern(
+    mcp_server, test_session, monkeypatch, pattern, flags_to_set, expected_matches
+):
+    """Test listing flags with glob pattern filtering."""
+    monkeypatch.setenv("PWD", "/fake/path/test")
+
+    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+        # Set flags
+        for flag_name, flag_value in flags_to_set:
+            await call_mcp_tool(client, "set_project_flag", SetFlagArgs(feature_name=flag_name, value=flag_value))
+
+        # Test pattern
+        result = await call_mcp_tool(client, "list_project_flags", ListFlagsArgs(feature_name=pattern))
+        response = json.loads(result.content[0].text)  # type: ignore[union-attr]
+
+        assert response["success"] is True
+        assert isinstance(response["value"], dict)
+
+        # Check expected matches
+        for expected in expected_matches:
+            assert expected in response["value"], f"Expected {expected} in {response['value']}"
+
+        # Check no unexpected matches
+        assert len(response["value"]) == len(expected_matches), (
+            f"Expected {len(expected_matches)} matches, got {len(response['value'])}: {response['value']}"
+        )
+
+
+async def test_list_flags_exact_match_returns_single_value(mcp_server, test_session, monkeypatch):
+    """Test that exact match (no wildcards) returns single value, not dict."""
+    monkeypatch.setenv("PWD", "/fake/path/test")
+
+    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+        # Set a flag
+        await call_mcp_tool(client, "set_project_flag", SetFlagArgs(feature_name="workflow", value=True))
+
+        # Test exact match returns single value
+        result = await call_mcp_tool(client, "list_project_flags", ListFlagsArgs(feature_name="workflow"))
+        response = json.loads(result.content[0].text)  # type: ignore[union-attr]
+
+        assert response["success"] is True
+        assert response["value"] is True  # Single value, not dict
+        assert not isinstance(response["value"], dict)
