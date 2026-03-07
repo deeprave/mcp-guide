@@ -56,9 +56,9 @@ def get_tool_prefix() -> str:
 
     Returns:
         Tool prefix with trailing underscore if non-blank, empty string if blank.
-        Uses "guide" as default if MCP_TOOL_PREFIX is not set.
+        Uses empty string as default if MCP_TOOL_PREFIX is not set.
     """
-    tool_prefix = os.environ.get("MCP_TOOL_PREFIX", "guide")
+    tool_prefix = os.environ.get("MCP_TOOL_PREFIX", "")
     return f"{tool_prefix}_" if tool_prefix else ""
 
 

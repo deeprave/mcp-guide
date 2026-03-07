@@ -258,7 +258,7 @@ async def call_mcp_tool(client, tool_name: str, args_model=None, **kwargs):
 
     # Always use the configured prefix
     prefix = get_tool_prefix().rstrip("_")
-    prefixed_tool_name = f"{prefix}_{tool_name}"
+    prefixed_tool_name = f"{prefix}_{tool_name}" if prefix else tool_name
 
     if args_model is not None:
         # Convert Pydantic model to dict and wrap in "args"
@@ -289,7 +289,7 @@ def assert_tool_registered(tool_names, tool_name):
 
     # Always use the configured prefix
     prefix = get_tool_prefix().rstrip("_")
-    prefixed_tool_name = f"{prefix}_{tool_name}"
+    prefixed_tool_name = f"{prefix}_{tool_name}" if prefix else tool_name
 
     assert prefixed_tool_name in tool_names, f"Tool '{prefixed_tool_name}' not found in registered tools: {tool_names}"
 

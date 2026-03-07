@@ -135,23 +135,22 @@ async def test_mcp_client_can_list_and_call_tools(test_session, tmp_path):
             # Initialize with timeout
             await asyncio.wait_for(session.initialize(), timeout=5.0)
 
-            # List tools - verify guide_category_collection_list is registered
-            # Note: Subprocess runs main.py which sets MCP_TOOL_PREFIX="guide"
+            # List tools - verify category_collection_list is registered
             tools_result = await asyncio.wait_for(session.list_tools(), timeout=5.0)
             tool_names = [tool.name for tool in tools_result.tools]
 
-            assert "guide_category_collection_list" in tool_names
+            assert "category_collection_list" in tool_names
 
             # Assert deprecated tools are no longer registered
-            assert "guide_category_list" not in tool_names
-            assert "guide_collection_list" not in tool_names
-            assert "guide_list_tools" not in tool_names
-            assert "guide_list_prompts" not in tool_names
-            assert "guide_list_resources" not in tool_names
+            assert "category_list" not in tool_names
+            assert "collection_list" not in tool_names
+            assert "list_tools" not in tool_names
+            assert "list_prompts" not in tool_names
+            assert "list_resources" not in tool_names
 
-            # Call guide_category_collection_list tool
+            # Call category_collection_list tool
             call_result = await asyncio.wait_for(
-                session.call_tool("guide_category_collection_list", {"args": {"type": "category", "verbose": False}}),
+                session.call_tool("category_collection_list", {"args": {"type": "category", "verbose": False}}),
                 timeout=5.0,
             )
 

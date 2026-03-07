@@ -26,10 +26,10 @@ def test_toolfunc_stores_metadata():
     async def test_tool(ctx=None) -> str:
         return '{"success": true}'
 
-    # Tool should be in registry with prefix
-    assert "guide_test_tool" in get_tool_registry()
-    registration = get_tool_registration("guide_test_tool")
-    assert registration.metadata.name == "guide_test_tool"
+    # Tool should be in registry without prefix (default is empty)
+    assert "test_tool" in get_tool_registry()
+    registration = get_tool_registration("test_tool")
+    assert registration.metadata.name == "test_tool"
     assert not registration.registered
 
 
@@ -42,14 +42,13 @@ def test_register_tools_is_idempotent(mock_mcp):
 
     # First registration
     register_tools(mock_mcp)
-    assert get_tool_registration("guide_test_tool").registered
+    first_count = mock_mcp.tool_call_count
+    assert first_count > 0
+    assert get_tool_registration("test_tool").registered
 
-    # Second registration should be safe
+    # Second registration should be idempotent - no new registrations
     register_tools(mock_mcp)
-    assert get_tool_registration("guide_test_tool").registered
-
-    # MCP.tool should only be called once
-    assert mock_mcp.tool_call_count == 1
+    assert mock_mcp.tool_call_count == first_count
 
 
 @pytest.fixture

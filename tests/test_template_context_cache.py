@@ -401,7 +401,7 @@ class TestTemplateContextCache:
         else:
             mock_task = None
 
-        with patch("mcp_guide.render.cache.get_task_manager") as mock_tm:
+        with patch("mcp_guide.task_manager.get_task_manager") as mock_tm:
             mock_tm.return_value.get_task_by_type.return_value = mock_task
             mock_tm.return_value.get_task_statistics.return_value = {}
 
