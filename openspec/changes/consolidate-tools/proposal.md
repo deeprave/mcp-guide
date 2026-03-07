@@ -22,7 +22,11 @@ MCP server has a hard limit of 37 tools. Currently at 39 tools (37 original + 2 
 **Flag Tools Consolidation:**
 - Remove `get_project_flag` and `get_feature_flag` (redundant with list operations)
 - Add `feature_name: Optional[str]` filter to `list_project_flags` and `list_feature_flags`
+<<<<<<< Updated upstream
 - When `feature_name` provided, returns single flag value instead of dict
+=======
+- When `feature_name` is provided, returns a single flag value instead of a dict
+>>>>>>> Stashed changes
 - Saves 2 tools
 
 **Total Reduction:** 39 → 28 tools (saves 11 tools, well under 37 limit)
