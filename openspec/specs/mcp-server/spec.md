@@ -116,25 +116,6 @@ The MCP server SHALL provide a set_flag tool for modifying feature flag values.
 - **WHEN** set_flag receives invalid flag name or value
 - **THEN** return validation error without modifying configuration
 
-### Requirement: get_flag Tool
-The MCP server SHALL provide a get_flag tool for retrieving individual feature flag values.
-
-#### Scenario: Get flag with resolution
-- **WHEN** get_flag is invoked with feature_name
-- **THEN** return resolved value using project → global → None hierarchy
-
-#### Scenario: Get global flag specifically
-- **WHEN** get_flag is invoked with project="*"
-- **THEN** return global flag value only (no resolution)
-
-#### Scenario: Get current project context
-- **WHEN** get_flag is invoked with project=None
-- **THEN** use current project for resolution
-
-#### Scenario: Flag not found
-- **WHEN** get_flag cannot find flag in resolution hierarchy
-- **THEN** return None value
-
 ### Requirement: Feature Flag Tool Integration
 All feature flag tools SHALL integrate with existing MCP server patterns and error handling.
 
