@@ -152,19 +152,19 @@ class TemplateContextCache(SessionListener):
         # Import here to avoid circular dependency (render → task_manager → render)
         from mcp_guide.task_manager import get_task_manager
 
+        task_manager = get_task_manager()
+
         # Add task statistics
         try:
-            task_manager = get_task_manager()
             agent_vars["tasks"] = task_manager.get_task_statistics()
-        except Exception as e:
+        except (AttributeError, KeyError) as e:
             logger.debug(f"Failed to get task statistics: {e}")
 
-        # Add OpenSpec context
+        # Add OpenSpec-specific context (version, changes, status)
         try:
             # OpenSpecTask needs lazy import
             from mcp_guide.openspec.task import OpenSpecTask
 
-            task_manager = get_task_manager()
             openspec_task_subscriber = task_manager.get_task_by_type(OpenSpecTask)
 
             if openspec_task_subscriber:
