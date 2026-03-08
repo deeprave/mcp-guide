@@ -1,4 +1,4 @@
-<!-- 
+<!--
 Pull Request Title Guidelines:
 - Use imperative mode ("Add feature" not "Added feature" or "Adds feature")
 - Capitalise the first letter

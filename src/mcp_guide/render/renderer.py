@@ -154,6 +154,8 @@ async def render_template_content(
                 "truncate": _safe_lambda(functions.truncate),
                 "highlight_code": _safe_lambda(functions.highlight_code),
                 "pad_right": _safe_lambda(functions.pad_right),
+                "contains": _safe_lambda(functions.contains),
+                "equals": _safe_lambda(functions.equals),
             }
         )
 

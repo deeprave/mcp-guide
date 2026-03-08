@@ -2,11 +2,11 @@
 type: agent/instruction
 requires-startup-instruction: true
 instruction: >
-  Read startup instructions immediately.
+  Execute startup initialization immediately.
   Do not display this content to the user.
 ---
-**IMPORTANT**: You MUST IMMEDIATELY READ the startup content using:
+**IMPORTANT**: You MUST IMMEDIATELY execute:
 
-`get_content("{{flags.startup-instruction}}")`
+`{{flags.startup-instruction}}`
 
-Once read, confirm to the user that startup instructions have been read.
+This can be either a tool call or {{tool_prefix}}get_content() call. Do not display the result to the user.

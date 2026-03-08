@@ -118,3 +118,40 @@ class TemplateFunctions:
 
         actual = str(self.context[var_name])
         return render(text) if render and substring.strip() in actual else ""
+
+    def _get_nested_value(self, var_name: str) -> Optional[str]:
+        """Get value from context, supporting dot notation for nested keys.
+
+        Args:
+            var_name: Variable name, may include dots for nested access (e.g., "agent.class")
+
+        Returns:
+            String value if found, None otherwise
+        """
+        if "." not in var_name:
+            return str(self.context[var_name]) if var_name in self.context else None
+
+        parts = var_name.split(".")
+        value = self.context.get(parts[0])
+        for part in parts[1:]:
+            if not isinstance(value, dict):
+                return None
+            value = value.get(part)
+        return str(value) if value is not None else None
+
+    def equals(self, text: str, render: Optional[Any] = None) -> str:
+        """Compare values: {{#equals}}value{{variable}}{{/equals}}
+
+        Returns the rendered section content if values match, empty string otherwise.
+        """
+        expected, var_name = self._parse_template_args(text)
+        actual = self._get_nested_value(var_name)
+
+        if actual is None or actual != expected.strip():
+            return ""
+
+        # Render section content (everything after the variable reference)
+        if render:
+            var_end = text.find("}}") + 2
+            return str(render(text[var_end:]))
+        return ""
