@@ -120,42 +120,6 @@ async def get_project(args: GetCurrentProjectArgs, ctx: Optional[Context] = None
 
     Returns project name, collections, and categories. Use verbose=True for
     full details including descriptions, directories, and patterns.
-
-    ## JSON Schema
-
-    ```json
-    {
-      "type": "object",
-      "properties": {
-        "verbose": {
-          "type": "boolean",
-          "description": "If True, return full details; if False, return names only"
-        }
-      }
-    }
-    ```
-
-    ## Usage Instructions
-
-    ```python
-    # Get basic project information
-    await get_project(GetCurrentProjectArgs(verbose=False))
-
-    # Get detailed project configuration
-    await get_project(GetCurrentProjectArgs(verbose=True))
-    ```
-
-    ## Concrete Examples
-
-    ```python
-    # Example 1: Get project overview
-    result = await get_project(GetCurrentProjectArgs(verbose=False))
-    # Returns: {"project": "my-project", "categories": ["docs", "examples"], "collections": ["all"]}
-
-    # Example 2: Get complete project details
-    result = await get_project(GetCurrentProjectArgs(verbose=True))
-    # Returns: Full project configuration with category directories, patterns, and descriptions
-    ```
     """
     result = await internal_get_project(args, ctx)
     return await tool_result("get_project", result)
@@ -210,13 +174,6 @@ async def set_project(args: SetCurrentProjectArgs, ctx: Optional[Context] = None
 
     Creates new project with default categories if it doesn't exist. Use verbose=True
     for full project details after switching.
-
-    Args:
-        args: Tool arguments with name and verbose flag
-        ctx: MCP Context (auto-injected by FastMCP)
-
-    Returns:
-        Result containing switch confirmation and optional project details
     """
     result = await internal_set_project(args, ctx)
     return await tool_result("set_project", result)
@@ -245,13 +202,6 @@ async def list_projects(args: ListProjectsArgs, ctx: Optional[Context] = None) -
 
     Returns project names (non-verbose) or full project details (verbose).
     Does not require a current project context.
-
-    Args:
-        args: Tool arguments with verbose flag
-        ctx: MCP Context (auto-injected by FastMCP)
-
-    Returns:
-        Result containing projects list or dict
     """
     result = await internal_list_projects(args, ctx)
     return await tool_result("list_projects", result)
@@ -315,13 +265,6 @@ async def list_project(args: ListProjectArgs, ctx: Optional[Context] = None) -> 
 
     Returns project details without switching the current project.
     If no name provided, returns current project information.
-
-    Args:
-        args: Tool arguments with name and verbose flag
-        ctx: MCP Context (auto-injected by FastMCP)
-
-    Returns:
-        Result containing project data
     """
     result = await internal_list_project(args, ctx)
     return await tool_result("list_project", result)
@@ -583,13 +526,6 @@ async def clone_project(args: CloneProjectArgs, ctx: Optional[Context] = None) -
 
     Clones categories and collections from source project to target project.
     Supports merge (combine configs) or replace (overwrite) modes with safeguards.
-
-    Args:
-        args: Tool arguments with from_project, to_project, merge, and force flags
-        ctx: MCP Context (auto-injected by FastMCP)
-
-    Returns:
-        Result containing clone statistics and warnings
     """
     result = await internal_clone_project(args, ctx)
     return await tool_result("clone_project", result)
@@ -727,13 +663,6 @@ async def use_project_profile(args: UseProjectProfileArgs, ctx: Optional[Context
     Profiles are composable and additive - they add categories and collections
     without removing existing ones. Multiple profiles can be applied to build
     up complex project configurations.
-
-    Args:
-        args: Profile arguments
-        ctx: MCP context
-
-    Returns:
-        Success message or error
     """
     result = await internal_use_project_profile(args, ctx)
     return await tool_result("use_project_profile", result)
@@ -784,8 +713,8 @@ async def internal_list_profiles(args: ListProfilesArgs, ctx: Optional[Context] 
 async def list_profiles(args: ListProfilesArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
     """List available profiles.
 
-    Returns:
-        List of available profile names
+    Returns names of pre-configured project profiles. Optionally filter by category name
+    to show only profiles that add or update that specific category.
     """
     result = await internal_list_profiles(args, ctx)
     return await tool_result("list_profiles", result)
@@ -846,12 +775,8 @@ async def internal_show_profile(args: ShowProfileArgs, ctx: Optional[Context] = 
 async def show_profile(args: ShowProfileArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
     """Show profile details.
 
-    Args:
-        args: Show profile arguments
-        ctx: MCP context
-
-    Returns:
-        Profile details
+    Returns complete profile configuration including categories and collections that
+    will be added when the profile is applied.
     """
     result = await internal_show_profile(args, ctx)
     return await tool_result("show_profile", result)
@@ -960,12 +885,8 @@ async def internal_remove_permission_path(args: RemovePermissionPathArgs, ctx: O
 async def add_permission_path(args: AddPermissionPathArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
     """Add path to project permissions.
 
-    Args:
-        args: Add permission path arguments
-        ctx: MCP context
-
-    Returns:
-        Success message
+    Grants read or write permission for the specified path in the current project.
+    Paths are stored in project configuration and enforced by the MCP server.
     """
     result = await internal_add_permission_path(args, ctx)
     return await tool_result("add_permission_path", result)
@@ -975,12 +896,8 @@ async def add_permission_path(args: AddPermissionPathArgs, ctx: Optional[Context
 async def remove_permission_path(args: RemovePermissionPathArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
     """Remove path from project permissions.
 
-    Args:
-        args: Remove permission path arguments
-        ctx: MCP context
-
-    Returns:
-        Success message
+    Revokes read or write permission for the specified path in the current project.
+    The path must have been previously added to permissions.
     """
     result = await internal_remove_permission_path(args, ctx)
     return await tool_result("remove_permission_path", result)

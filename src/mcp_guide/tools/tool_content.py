@@ -172,57 +172,6 @@ async def get_content(
 
     Searches collections first, then categories. Aggregates and deduplicates
     results from all matches. Supports pattern filtering for selective content retrieval.
-
-    ## JSON Schema
-
-    ```json
-    {
-      "type": "object",
-      "properties": {
-        "expression": {
-          "type": "string",
-          "description": "Name to match against collections and categories. Searches collections first, then categories. Aggregates and deduplicates results from all matches."
-        },
-        "pattern": {
-          "type": "string",
-          "description": "Optional glob pattern to filter files (e.g., '*.md'). Overrides default patterns for all matched categories."
-        }
-      },
-      "required": ["expression"]
-    }
-    ```
-
-    ## Usage Instructions
-
-    ```python
-    # Get all content from a category or collection
-    await get_content(ContentArgs(expression="docs"))
-
-    # Filter content with pattern
-    await get_content(ContentArgs(
-        expression="docs",
-        pattern="readthis"
-    ))
-    ```
-
-    ## Concrete Examples
-
-    ```python
-    # Example 1: Get all documentation content
-    result = await get_content(ContentArgs(expression="docs"))
-    # Returns: All files from the docs category with default patterns
-
-    # Example 2: Get only Markdown files from examples
-    result = await get_content(ContentArgs(
-        expression="examples",
-        pattern="readthis"
-    ))
-    # Returns: Only readthis* files from the examples category
-
-    # Example 3: Get content from a collection
-    result = await get_content(ContentArgs(expression="getting-started"))
-    # Returns: Combined content from all categories in the collection
-    ```
     """
     result = await internal_get_content(args, ctx)
     return await tool_result("get_content", result)

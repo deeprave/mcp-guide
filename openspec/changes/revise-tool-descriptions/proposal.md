@@ -1,18 +1,22 @@
 # Change: Revise tool descriptions to concise standard
 
 ## Why
-The current 4-section tool description standard requires a manually-written JSON Schema section that is redundant — `build_description` already auto-appends a `## Arguments` block generated from Pydantic field descriptions at registration time. The verbose format (JSON Schema + Usage Instructions + Concrete Examples) is also contrary to MCP best practice, which recommends concise 1-5 sentence descriptions. 24 of 28 registered tools have minimal or one-liner docstrings and are non-compliant with the current standard.
+The current 4-section tool description standard has redundant and verbose sections:
+- **Hand-written JSON Schema sections**: Docstrings contain manually-typed JSON Schema blocks that duplicate the auto-generated `## Arguments` block that `build_description` appends from Pydantic field descriptions at registration time
+- **Usage Instructions and Concrete Examples**: Verbose format contrary to MCP best practice, which recommends concise 1-5 sentence descriptions
+- **Inconsistent adoption**: 24 of 28 registered tools have minimal docstrings (3-12 lines) and don't follow the verbose standard
 
 ## What Changes
-- Revise the standard: concise description only (no JSON Schema section; Usage/Examples optional for complex tools)
+- Revise the standard: concise description only (2-4 sentences), no hand-written JSON Schema/Usage/Examples sections
 - Update `src/mcp_guide/tools/README.md` template to reflect the revised standard
-- Remove JSON Schema sections from the 4 tools that have them (`get_project`, `get_content`, `update_documents`, `client_info`) and replace with concise descriptions
-- Write good concise descriptions for the 24 tools with minimal/one-liner docstrings
-- Fix `list_profiles` docstring: move content from `internal_list_profiles` to the registered `list_profiles` function
+- Remove hand-written JSON Schema + Usage + Examples sections from the 4 verbose tools (`get_project`, `get_content`, `update_documents`, `client_info`) and replace with concise descriptions
+- Improve descriptions for the 14 minimal tools (3-6 lines) to be clearer and more informative
+- Optionally polish the 10 adequate tools (8-12 lines) for consistency
 - Update `tool-infrastructure` spec to reflect the revised requirement
+- **Keep**: Auto-generated `## Arguments` section from `build_description` - this remains the single source of parameter documentation
 
 ## Impact
 - Affected specs: `tool-infrastructure`
 - Affected code: `src/mcp_guide/tools/README.md` and all tool modules
 - Non-breaking: tool behaviour unchanged, only docstrings change
-- `build_description` retained — it still appends the auto-generated `## Arguments` block from Pydantic field descriptions
+- Agents still get full parameter documentation via auto-generated `## Arguments` section

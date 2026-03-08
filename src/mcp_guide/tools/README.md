@@ -2,29 +2,15 @@
 
 This document establishes the standardised format for all MCP tool descriptions in mcp-guide to improve AI agent comprehension and reduce trial-and-error tool usage.
 
-## 4-Section Documentation Format
+## Concise Description Format
 
-All tools must include these four sections in their docstrings:
+Tool docstrings should be 2-4 sentences focusing on WHAT the tool does and WHEN to use it:
 
-### 1. Description
-- **First line**: ≤50 characters if possible (for clean listings)
-- **Purpose**: Clear explanation of what the tool does
-- **Use cases**: When and why to use this tool
+- **First sentence**: What the tool does (imperative mood)
+- **Second sentence**: Key behavior or capability details
+- **Optional 3rd-4th sentences**: When to use, important constraints, or context
 
-### 2. JSON Schema
-- **Format**: Pydantic-generated schema in code fence with type annotation
-- **Content**: Complete argument structure with types and descriptions
-- **Purpose**: Helps agents understand expected parameters
-
-### 3. Usage Instructions
-- **Format**: Code examples showing general usage patterns
-- **Content**: How to call the tool with typical arguments
-- **Purpose**: Provides concrete guidance for tool invocation
-
-### 4. Concrete Examples
-- **Format**: Code with commentary explaining the examples
-- **Content**: Real-world scenarios with expected outcomes
-- **Purpose**: Demonstrates practical applications
+The `build_description()` function automatically appends an `## Arguments` section from Pydantic field descriptions, providing parameter documentation.
 
 ## Field Description Requirements
 
@@ -51,81 +37,24 @@ class ExampleArgs(ToolArguments):
 ## Complete Tool Documentation Example
 
 ```python
-@tools.tool()
-async def example_tool(args: ExampleArgs, ctx: Optional[Context] = None) -> str:
+@toolfunc(ExampleArgs)
+async def example_tool(args: ExampleArgs, ctx: Context) -> str:
     """Process items with optional pattern filtering.
 
-    Searches for items matching the specified name and applies
-    optional pattern filtering to results. Useful for content
-    discovery and selective processing workflows.
-
-    ## JSON Schema
-
-    ```json
-    {
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "string",
-          "description": "Name of the item to process"
-        },
-        "pattern": {
-          "type": "string",
-          "description": "Optional glob pattern to filter results (e.g., '*.md')"
-        },
-        "verbose": {
-          "type": "boolean",
-          "description": "Include detailed output in response"
-        }
-      },
-      "required": ["name"]
-    }
-    ```
-
-    ## Usage Instructions
-
-    ```python
-    # Basic usage
-    await example_tool(ExampleArgs(name="docs"))
-
-    # With pattern filtering
-    await example_tool(ExampleArgs(name="docs", pattern="*.md"))
-
-    # Verbose output
-    await example_tool(ExampleArgs(name="docs", verbose=True))
-    ```
-
-    ## Concrete Examples
-
-    ```python
-    # Example 1: Process documentation category
-    result = await example_tool(ExampleArgs(name="docs"))
-    # Returns: List of all items in docs category
-
-    # Example 2: Filter markdown files only
-    result = await example_tool(ExampleArgs(
-        name="docs",
-        pattern="*.md"
-    ))
-    # Returns: Only .md files from docs category
-
-    # Example 3: Detailed processing information
-    result = await example_tool(ExampleArgs(
-        name="docs",
-        verbose=True
-    ))
-    # Returns: Items with processing metadata and statistics
-    ```
+    Searches for items matching the specified name and applies optional pattern
+    filtering to results. Useful for content discovery and selective processing
+    workflows.
     """
+    # build_description auto-appends ## Arguments section from Pydantic fields
 ```
 
 ## Best Practices
 
 ### Description Guidelines
-- Keep first line concise and descriptive
-- Use active voice ("Creates", "Lists", "Updates")
-- Explain the tool's primary purpose clearly
-- Include context about when to use the tool
+- Use imperative mood ("Get", "List", "Update" not "Gets", "Lists", "Updates")
+- Focus on WHAT and WHEN, not HOW
+- Keep to 2-4 sentences maximum
+- Avoid redundant JSON Schema/Usage/Examples sections
 
 ### Schema Guidelines
 - Always include complete Field descriptions
@@ -133,28 +62,14 @@ async def example_tool(args: ExampleArgs, ctx: Optional[Context] = None) -> str:
 - Provide examples in descriptions where helpful
 - Indicate optional vs required parameters clearly
 
-### Usage Guidelines
-- Show common usage patterns
-- Include parameter variations
-- Demonstrate typical argument combinations
-- Keep examples realistic and practical
-
-### Example Guidelines
-- Use real-world scenarios
-- Include expected outcomes
-- Show different use cases
-- Add explanatory comments
-
 ## Validation Checklist
 
 Before submitting tool documentation:
 
-- [ ] First line ≤50 characters (if possible)
-- [ ] All four sections present and complete
+- [ ] Description is 2-4 sentences
+- [ ] Uses imperative mood
 - [ ] All Field descriptions included
-- [ ] JSON schema matches Pydantic model
-- [ ] Usage examples are runnable
-- [ ] Concrete examples include outcomes
+- [ ] No hand-written JSON Schema/Usage/Examples sections
 - [ ] Documentation follows established patterns
 
 ## Reference

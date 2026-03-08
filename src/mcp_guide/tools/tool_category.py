@@ -707,12 +707,8 @@ async def internal_category_list_files(
 async def category_list_files(args: CategoryListFilesArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
     """List all files in a category directory.
 
-    Args:
-        args: Tool arguments with category name
-        ctx: MCP Context (auto-injected by FastMCP)
-
-    Returns:
-        Result containing list of file information
+    Returns file information including names, sizes, and modification times for all
+    files matching the category's patterns.
     """
     result = await internal_category_list_files(args, ctx)
     return await tool_result("category_list_files", result)
@@ -829,12 +825,8 @@ async def category_content(
 ) -> str:
     """Get content from a category.
 
-    Args:
-        args: Tool arguments with category name and optional pattern
-        ctx: MCP Context (auto-injected by FastMCP)
-
-    Returns:
-        Result containing formatted content or error
+    Retrieves file content matching the category's directory and patterns. Supports
+    optional pattern override for selective content retrieval.
     """
     result = await internal_category_content(args, ctx)
     return await tool_result("category_content", result)
@@ -870,7 +862,11 @@ async def category_collection_list(
     args: CategoryCollectionListArgs,
     ctx: Optional[Context] = None,  # type: ignore[type-arg]
 ) -> str:
-    """List all categories or collections in the current project."""
+    """List all categories or collections in the current project.
+
+    Returns names only by default, or full details including descriptions, directories,
+    and patterns when verbose=True.
+    """
     result = await internal_category_collection_list(args, ctx)
     return await tool_result("category_collection_list", result)
 
@@ -902,7 +898,11 @@ async def category_collection_remove(
     args: CategoryCollectionRemoveArgs,
     ctx: Optional[Context] = None,  # type: ignore[type-arg]
 ) -> str:
-    """Remove a category or collection from the current project."""
+    """Remove a category or collection from the current project.
+
+    Deletes the specified category or collection by name. This operation cannot be undone.
+    Use with caution as removing a category referenced by collections may cause errors.
+    """
     result = await internal_category_collection_remove(args, ctx)
     return await tool_result("category_collection_remove", result)
 
@@ -956,7 +956,12 @@ async def category_collection_add(
     args: CategoryCollectionAddArgs,
     ctx: Optional[Context] = None,  # type: ignore[type-arg]
 ) -> str:
-    """Add a new category or collection to the current project."""
+    """Add a new category or collection to the current project.
+
+    Creates a category with directory and file patterns, or a collection grouping
+    multiple categories. Category-specific fields (dir, patterns) and collection-specific
+    fields (categories) are validated based on the type parameter.
+    """
     result = await internal_category_collection_add(args, ctx)
     return await tool_result("category_collection_add", result)
 
@@ -1013,7 +1018,11 @@ async def category_collection_change(
     args: CategoryCollectionChangeArgs,
     ctx: Optional[Context] = None,  # type: ignore[type-arg]
 ) -> str:
-    """Change properties of an existing category or collection."""
+    """Change properties of an existing category or collection.
+
+    Replaces entire property values (name, description, directory, patterns, or categories).
+    For incremental updates (adding/removing patterns or categories), use category_collection_update instead.
+    """
     result = await internal_category_collection_change(args, ctx)
     return await tool_result("category_collection_change", result)
 
@@ -1066,6 +1075,10 @@ async def category_collection_update(
     args: CategoryCollectionUpdateArgs,
     ctx: Optional[Context] = None,  # type: ignore[type-arg]
 ) -> str:
-    """Update category or collection incrementally."""
+    """Update category or collection incrementally.
+
+    Add or remove individual patterns (for categories) or category references (for collections)
+    without replacing the entire list. For complete property replacement, use category_collection_change.
+    """
     result = await internal_category_collection_update(args, ctx)
     return await tool_result("category_collection_update", result)

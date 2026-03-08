@@ -1,18 +1,18 @@
 ## 1. Standard and Template
-- [ ] 1.1 Update `src/mcp_guide/tools/README.md` — revise to concise description standard, remove JSON Schema section
-- [ ] 1.2 Update `tool-infrastructure` spec delta
+- [x] 1.1 Update `src/mcp_guide/tools/README.md` — remove JSON Schema/Usage/Examples sections, revise to concise description standard (keep note about auto-generated Arguments)
+- [x] 1.2 Update `tool-infrastructure` spec delta — clarify that manual JSON Schema is redundant, auto-generated Arguments section is kept
 
-## 2. Remove verbose sections from compliant tools
-- [ ] 2.1 `tool_project.py` — `get_project`: replace 40L verbose docstring with concise description
-- [ ] 2.2 `tool_content.py` — `get_content`: replace 55L verbose docstring with concise description
-- [ ] 2.3 `tool_update.py` — `update_documents`: replace 28L verbose docstring with concise description
-- [ ] 2.4 `tool_utility.py` — `client_info`: replace 40L verbose docstring with concise description
+## 2. Remove redundant sections from verbose tools
+- [x] 2.1 `tool_utility.py` — `client_info`: remove 40L hand-written JSON Schema + Usage + Examples, replace with ~3L concise description
+- [x] 2.2 `tool_project.py` — `get_project`: remove 40L hand-written JSON Schema + Usage + Examples, replace with ~3L concise description
+- [x] 2.3 `tool_content.py` — `get_content`: remove 55L hand-written JSON Schema + Usage + Examples, replace with ~3L concise description
+- [x] 2.4 `tool_update.py` — `update_documents`: remove 28L hand-written JSON Schema + Usage + Examples, replace with ~3L concise description
 
-## 3. Write concise descriptions for non-compliant tools
-- [ ] 3.1 `tool_category.py` — all 7 tools
-- [ ] 3.2 `tool_feature_flags.py` — all 4 tools
-- [ ] 3.3 `tool_project.py` — remaining 9 tools (set_project, list_projects, list_project, clone_project, use_project_profile, list_profiles, show_profile, add_permission_path, remove_permission_path)
-- [ ] 3.4 `tool_filesystem.py` — all 4 tools
+## 3. Improve minimal tool descriptions
+- [x] 3.1 `tool_category.py` — 5 category_collection_* tools (3-6L → ~4L each)
+- [x] 3.2 `tool_feature_flags.py` — 4 flag tools (3-9L → ~4L each)
+- [x] 3.3 `tool_filesystem.py` — 4 send_* tools (4L → ~3L each, clarify agent→server direction)
+- [x] 3.4 `tool_project.py` — `list_profiles` (4L → ~3L, add context about filtering)
 
-## 4. Fix docstring placement
-- [ ] 4.1 `tool_project.py` — move `list_profiles` docstring from `internal_list_profiles` to registered `list_profiles`
+## 4. Optional: Polish adequate tools
+- [x] 4.1 Review 10 adequate tools (8-12L) for consistency and clarity
