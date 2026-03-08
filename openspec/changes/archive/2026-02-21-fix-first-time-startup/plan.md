@@ -46,7 +46,7 @@ while True:
             except Exception:
                 logger.exception(f"Failed to create config directory: {lock_file.parent}")
                 raise ConfigDirectoryError(f"Cannot create config directory: {lock_file.parent}")
-        
+
         # Retry lock creation
         try:
             with open(lock_file, "x") as lockfile:

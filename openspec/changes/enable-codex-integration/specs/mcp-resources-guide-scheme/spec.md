@@ -5,7 +5,7 @@
 The guide:// URI scheme SHALL support command execution using underscore-prefixed paths:
 
 - `guide://_command` - Command with no arguments
-- `guide://_command/arg1/arg2` - Command with positional arguments  
+- `guide://_command/arg1/arg2` - Command with positional arguments
 - `guide://_command?kwarg=value` - Command with keyword arguments
 - `guide://_command/arg1?kwarg=value` - Command with both positional and keyword arguments
 

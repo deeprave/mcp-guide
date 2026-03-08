@@ -1,7 +1,7 @@
 # Prune Test Suite
 
-**Status**: Proposed  
-**Priority**: Medium  
+**Status**: Proposed
+**Priority**: Medium
 **Complexity**: Medium
 
 ## Why

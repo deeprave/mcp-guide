@@ -80,17 +80,17 @@ Compare line coverage per module. If coverage drops significantly (>5%) in any m
 ## Risks & Trade-offs
 
 ### Risk: Removing Valuable Regression Tests
-**Likelihood**: Medium  
-**Impact**: High  
-**Mitigation**: 
+**Likelihood**: Medium
+**Impact**: High
+**Mitigation**:
 - Review each removal carefully
 - Run full suite before/after
 - Document significant removals
 - Can restore from git history if needed
 
 ### Risk: Coverage Drop
-**Likelihood**: Low  
-**Impact**: Medium  
+**Likelihood**: Low
+**Impact**: Medium
 **Mitigation**:
 - Current coverage is 82%, target is ≥90%
 - Focused tests often improve coverage

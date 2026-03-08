@@ -148,11 +148,21 @@ class TemplateContextCache(SessionListener):
         styling = TemplateStyling.from_flag_value(styling_value)
         formatting_vars = get_styling_variables(styling)
 
+        # Import task_manager once to avoid duplication
+        # Import here to avoid circular dependency (render → task_manager → render)
+        from mcp_guide.task_manager import get_task_manager
+
         # Add task statistics
         try:
-            # Deferred import: avoids circular dependency (tool_decorator → task_manager → render → cache → task_manager)
+            task_manager = get_task_manager()
+            agent_vars["tasks"] = task_manager.get_task_statistics()
+        except Exception as e:
+            logger.debug(f"Failed to get task statistics: {e}")
+
+        # Add OpenSpec context
+        try:
+            # OpenSpecTask needs lazy import
             from mcp_guide.openspec.task import OpenSpecTask
-            from mcp_guide.task_manager import get_task_manager
 
             task_manager = get_task_manager()
             openspec_task_subscriber = task_manager.get_task_by_type(OpenSpecTask)

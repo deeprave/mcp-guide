@@ -2,20 +2,20 @@
 
 {{h2}}Collections
 {{#project.collections}}
-- {{b}}{{name}}{{b}}: {{description}}
+- {{b}}`{{name}}`{{b}}: {{description}}
 {{#kwargs.verbose}}
-{{#categories}}{{#first}} - {{/first}}{{value}}{{^last}}, {{/last}}{{/categories}}
+{{#categories}}{{#first}} - {{/first}}`{{value}}`{{^last}}, {{/last}}{{/categories}}
 {{/kwargs.verbose}}
 {{/project.collections}}
 
 {{h2}}Categories
 {{#project.categories}}
-- `{{name}}`: {{#kwargs.verbose}}dir=`{{dir}}` [{{#patterns}}{{value}}{{^last}}, {{/last}}{{/patterns}}] {{/kwargs.verbose}}{{description}}
+- `{{name}}`: {{#kwargs.verbose}}dir=`{{dir}}` [{{#patterns}}`{{value}}`{{^last}}, {{/last}}{{/patterns}}] {{/kwargs.verbose}}{{description}}
 {{/project.categories}}
 
 {{b}}Project Flags:{{b}}
 {{#project.project_flag_values}}
-- {{key}}: {{value}}
+- `{{key}}`: {{value}}
 {{/project.project_flag_values}}
 
 {{#openspec}}

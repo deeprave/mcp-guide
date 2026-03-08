@@ -5,19 +5,26 @@ usage: ":workflow/review"
 aliases:
   - review
 category: "project-workflow"
-instruction: Perform a review of project changes.
+instruction: Perform a review of project changes. {{INSTRUCTION_AGENT_INSTRUCTIONS}}
 ---
 {{#workflow}}You MUST transition to REVIEW phase.
 {{/workflow}}
 {{h1}}Perform a Code Review
 
-  — If available, switch to the `guide-review` agent. If not, perform a self-review.
+{{#agent}}
+{{#equals}}kiro{{agent.class}}
+  — Use `use_subagent` to delegate review to `guide-review` agent with the instructions below.
+{{/equals}}
+{{#equals}}q-dev{{agent.class}}
+  — Use `use_subagent` to delegate review to `guide-review` agent with the instructions below.
+{{/equals}}
+{{/agent}}
+
+{{b}}Review Instructions:{{b}}
   — You MUST NOT consider previous conversational history when conducting this review.
     {{b}}This review must be done with a fresh look without consideration of previous work, including any fixes and tests.{{b}}
-    You must review just the end product of the changes.
-  — Use the guide mcp tool {{tool_prefix}}get_content("code-review") to access code review guidelines.
-  — Read the {{workflow.file}} file to understand the current issue context {{#workflow.issue}}(issue: {{workflow.issue}}).{{/workflow.issue}}
-  - Analyse changes against HEAD and create or update the review artifact in `{{#workflow.issue}}.todo/{{workflow.issue}}-review.md{{/workflow.issue}}{{^workflow.issue}}.todo{{/workflow.issue}}` following the established format and context.
-  — Once completed, switch back to the `guide` agent.
+  — Use {{tool_prefix}}get_content("code-review") to access code review guidelines.
+  — Read {{workflow.file}} to understand the current issue context {{#workflow.issue}}(issue: {{workflow.issue}}).{{/workflow.issue}}
+  — Analyse changes against HEAD and create or update review artifact in `{{#workflow.issue}}.todo/{{workflow.issue}}-review.md{{/workflow.issue}}{{^workflow.issue}}.todo{{/workflow.issue}}`
 
 {{#openspec}}{{b}}NOTE{{b}} Review artifacts are NEVER to be created in the openspec changes directory{{/openspec}}
