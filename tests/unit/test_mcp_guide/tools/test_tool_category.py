@@ -649,3 +649,131 @@ class TestCategoryChange:
         doc_cat = (await session.get_project()).categories["docs"]
         assert doc_cat.patterns == ["*.rst", "*.txt"]
         assert doc_cat.dir == "docs/"
+
+
+class TestCategoryCollectionArgsValidation:
+    """Tests for CategoryCollection*Args validation."""
+
+    @pytest.mark.parametrize(
+        "args_class,type_value,invalid_field,invalid_value,error_match",
+        [
+            # CategoryCollectionAddArgs
+            (
+                "CategoryCollectionAddArgs",
+                "category",
+                "categories",
+                ["cat1"],
+                "'categories' field is only valid for type='collection'",
+            ),
+            (
+                "CategoryCollectionAddArgs",
+                "collection",
+                "dir",
+                "some/path",
+                "'dir' and 'patterns' fields are only valid for type='category'",
+            ),
+            (
+                "CategoryCollectionAddArgs",
+                "collection",
+                "patterns",
+                ["*.md"],
+                "'dir' and 'patterns' fields are only valid for type='category'",
+            ),
+            # CategoryCollectionChangeArgs
+            (
+                "CategoryCollectionChangeArgs",
+                "category",
+                "new_categories",
+                ["cat1"],
+                "'new_categories' field is only valid for type='collection'",
+            ),
+            (
+                "CategoryCollectionChangeArgs",
+                "collection",
+                "new_dir",
+                "some/path",
+                "'new_dir' and 'new_patterns' fields are only valid for type='category'",
+            ),
+            (
+                "CategoryCollectionChangeArgs",
+                "collection",
+                "new_patterns",
+                ["*.md"],
+                "'new_dir' and 'new_patterns' fields are only valid for type='category'",
+            ),
+            # CategoryCollectionUpdateArgs
+            (
+                "CategoryCollectionUpdateArgs",
+                "category",
+                "add_categories",
+                ["cat1"],
+                "'add_categories' and 'remove_categories' fields are only valid for type='collection'",
+            ),
+            (
+                "CategoryCollectionUpdateArgs",
+                "category",
+                "remove_categories",
+                ["cat1"],
+                "'add_categories' and 'remove_categories' fields are only valid for type='collection'",
+            ),
+            (
+                "CategoryCollectionUpdateArgs",
+                "collection",
+                "add_patterns",
+                ["*.md"],
+                "'add_patterns' and 'remove_patterns' fields are only valid for type='category'",
+            ),
+            (
+                "CategoryCollectionUpdateArgs",
+                "collection",
+                "remove_patterns",
+                ["*.md"],
+                "'add_patterns' and 'remove_patterns' fields are only valid for type='category'",
+            ),
+        ],
+        ids=[
+            "add_category_with_categories",
+            "add_collection_with_dir",
+            "add_collection_with_patterns",
+            "change_category_with_new_categories",
+            "change_collection_with_new_dir",
+            "change_collection_with_new_patterns",
+            "update_category_with_add_categories",
+            "update_category_with_remove_categories",
+            "update_collection_with_add_patterns",
+            "update_collection_with_remove_patterns",
+        ],
+    )
+    def test_incompatible_field_validation(
+        self, args_class: str, type_value: str, invalid_field: str, invalid_value: any, error_match: str
+    ) -> None:
+        """Reject incompatible fields based on type."""
+        from pydantic import ValidationError
+
+        from mcp_guide.tools import tool_category
+
+        cls = getattr(tool_category, args_class)
+        kwargs = {"type": type_value, "name": "test", invalid_field: invalid_value}
+
+        with pytest.raises(ValidationError, match=error_match):
+            cls(**kwargs)
+
+    @pytest.mark.parametrize(
+        "args_class,type_value,valid_fields",
+        [
+            ("CategoryCollectionAddArgs", "category", {"dir": "docs", "patterns": ["*.md"]}),
+            ("CategoryCollectionAddArgs", "collection", {"categories": ["cat1", "cat2"]}),
+        ],
+        ids=["add_valid_category", "add_valid_collection"],
+    )
+    def test_valid_field_combinations(self, args_class: str, type_value: str, valid_fields: dict) -> None:
+        """Accept valid field combinations."""
+        from mcp_guide.tools import tool_category
+
+        cls = getattr(tool_category, args_class)
+        kwargs = {"type": type_value, "name": "test", **valid_fields}
+        args = cls(**kwargs)
+
+        assert args.type == type_value
+        for field, value in valid_fields.items():
+            assert getattr(args, field) == value

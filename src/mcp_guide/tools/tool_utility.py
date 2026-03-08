@@ -11,6 +11,7 @@ from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.core.tool_arguments import ToolArguments
 from mcp_guide.core.tool_decorator import toolfunc
 from mcp_guide.guide import GuideMCP
+from mcp_guide.render.cache import invalidate_template_context_cache
 from mcp_guide.result import Result
 from mcp_guide.result_constants import INSTRUCTION_DISPLAY_ONLY
 from mcp_guide.tools.tool_result import tool_result
@@ -66,6 +67,37 @@ async def internal_client_info(args: GetClientInfoArgs, ctx: Optional[Context] =
 
             agent_info = detect_agent(ctx.session.client_params)
             mcp.agent_info = agent_info
+
+            # Invalidate template cache so next render picks up agent info
+            invalidate_template_context_cache()
+
+            # Update cached_mcp_context with agent info
+            from time import time
+
+            from mcp_guide.mcp_context import CachedMcpContext, cached_mcp_context
+
+            try:
+                existing = cached_mcp_context.get()
+                cached_mcp_context.set(
+                    CachedMcpContext(
+                        roots=existing.roots if existing else [],
+                        project_name=existing.project_name if existing else "",
+                        agent_info=agent_info,
+                        client_params=ctx.session.client_params,
+                        timestamp=time(),
+                    )
+                )
+            except LookupError:
+                # No existing context, create new one
+                cached_mcp_context.set(
+                    CachedMcpContext(
+                        roots=[],
+                        project_name="",
+                        agent_info=agent_info,
+                        client_params=ctx.session.client_params,
+                        timestamp=time(),
+                    )
+                )
 
         # Build structured data
         mcp_name = mcp.name if mcp.name else "guide"

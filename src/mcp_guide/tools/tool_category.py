@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Literal, Optional, Union, cast
 
 from anyio import Path as AsyncPath
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from mcp_guide.content.formatters.selection import ContentFormat, get_formatter_from_flag
 from mcp_guide.content.gathering import gather_content
@@ -917,6 +917,15 @@ class CategoryCollectionAddArgs(ToolArguments):
     patterns: Optional[list[str]] = Field(None, description="File patterns (category only)")
     categories: Optional[list[str]] = Field(None, description="Category expressions (collection only)")
 
+    @model_validator(mode="after")
+    def validate_type_fields(self) -> "CategoryCollectionAddArgs":
+        """Validate that fields match the specified type."""
+        if self.type == "category" and self.categories is not None:
+            raise ValueError("'categories' field is only valid for type='collection'")
+        if self.type == "collection" and (self.dir is not None or self.patterns is not None):
+            raise ValueError("'dir' and 'patterns' fields are only valid for type='category'")
+        return self
+
 
 async def internal_category_collection_add(
     args: CategoryCollectionAddArgs,
@@ -962,6 +971,15 @@ class CategoryCollectionChangeArgs(ToolArguments):
     new_dir: Optional[str] = Field(None, description="New directory path (category only)")
     new_patterns: Optional[list[str]] = Field(None, description="New file patterns (category only)")
     new_categories: Optional[list[str]] = Field(None, description="New category list (collection only)")
+
+    @model_validator(mode="after")
+    def validate_type_fields(self) -> "CategoryCollectionChangeArgs":
+        """Validate that fields match the specified type."""
+        if self.type == "category" and self.new_categories is not None:
+            raise ValueError("'new_categories' field is only valid for type='collection'")
+        if self.type == "collection" and (self.new_dir is not None or self.new_patterns is not None):
+            raise ValueError("'new_dir' and 'new_patterns' fields are only valid for type='category'")
+        return self
 
 
 async def internal_category_collection_change(
@@ -1009,6 +1027,15 @@ class CategoryCollectionUpdateArgs(ToolArguments):
     remove_patterns: Optional[list[str]] = Field(None, description="Patterns to remove (category only)")
     add_categories: Optional[list[str]] = Field(None, description="Categories to add (collection only)")
     remove_categories: Optional[list[str]] = Field(None, description="Categories to remove (collection only)")
+
+    @model_validator(mode="after")
+    def validate_type_fields(self) -> "CategoryCollectionUpdateArgs":
+        """Validate that fields match the specified type."""
+        if self.type == "category" and (self.add_categories is not None or self.remove_categories is not None):
+            raise ValueError("'add_categories' and 'remove_categories' fields are only valid for type='collection'")
+        if self.type == "collection" and (self.add_patterns is not None or self.remove_patterns is not None):
+            raise ValueError("'add_patterns' and 'remove_patterns' fields are only valid for type='category'")
+        return self
 
 
 async def internal_category_collection_update(

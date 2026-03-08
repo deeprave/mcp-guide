@@ -11,14 +11,13 @@ instruction: Perform a review of project changes. {{INSTRUCTION_AGENT_INSTRUCTIO
 {{/workflow}}
 {{h1}}Perform a Code Review
 
-{{#agent}}
+{{#agent.class}}
 {{#equals}}kiro{{agent.class}}
   — Use `use_subagent` to delegate review to `guide-review` agent with the instructions below.
 {{/equals}}
 {{#equals}}q-dev{{agent.class}}
   — Use `use_subagent` to delegate review to `guide-review` agent with the instructions below.
 {{/equals}}
-{{/agent}}
 
 {{b}}Review Instructions:{{b}}
   — You MUST NOT consider previous conversational history when conducting this review.
@@ -28,3 +27,11 @@ instruction: Perform a review of project changes. {{INSTRUCTION_AGENT_INSTRUCTIO
   — Analyse changes against HEAD and create or update review artifact in `{{#workflow.issue}}.todo/{{workflow.issue}}-review.md{{/workflow.issue}}{{^workflow.issue}}.todo{{/workflow.issue}}`
 
 {{#openspec}}{{b}}NOTE{{b}} Review artifacts are NEVER to be created in the openspec changes directory{{/openspec}}
+{{/agent.class}}
+{{^agent.class}}
+{{b}}Agent Detection Required{{b}}
+  — Run {{tool_prefix}}client_info() to detect the agent information
+  — Report the result to the user
+  — Ask the user to run this command again after agent detection completes
+
+{{/agent.class}}
