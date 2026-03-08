@@ -9,4 +9,8 @@ instruction: >
 
 `{{flags.startup-instruction}}`
 
-This can be either a tool call or {{tool_prefix}}get_content() call. Do not display the result to the user.
+This will be either:
+- A tool call name (e.g., `init_session`) - invoke as a tool
+- A content ID (e.g., `startup-guide`) - call {{tool_prefix}}get_content("{{flags.startup-instruction}}")
+
+Do not display the result to the user.
