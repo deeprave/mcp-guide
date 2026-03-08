@@ -76,11 +76,7 @@ async def internal_client_info(args: GetClientInfoArgs, ctx: Optional[Context] =
 
             from mcp_guide.mcp_context import CachedMcpContext, cached_mcp_context
 
-            try:
-                existing = cached_mcp_context.get()
-            except LookupError:
-                existing = None
-
+            existing = cached_mcp_context.get()
             cached_mcp_context.set(
                 CachedMcpContext(
                     roots=existing.roots if existing else [],

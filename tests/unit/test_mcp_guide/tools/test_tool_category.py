@@ -763,8 +763,19 @@ class TestCategoryCollectionArgsValidation:
         [
             ("CategoryCollectionAddArgs", "category", {"dir": "docs", "patterns": ["*.md"]}),
             ("CategoryCollectionAddArgs", "collection", {"categories": ["cat1", "cat2"]}),
+            ("CategoryCollectionChangeArgs", "category", {"new_dir": "docs", "new_patterns": ["*.md"]}),
+            ("CategoryCollectionChangeArgs", "collection", {"new_categories": ["cat1", "cat2"]}),
+            ("CategoryCollectionUpdateArgs", "category", {"add_patterns": ["*.md"], "remove_patterns": ["*.txt"]}),
+            ("CategoryCollectionUpdateArgs", "collection", {"add_categories": ["cat1"], "remove_categories": ["cat2"]}),
         ],
-        ids=["add_valid_category", "add_valid_collection"],
+        ids=[
+            "add_valid_category",
+            "add_valid_collection",
+            "change_valid_category",
+            "change_valid_collection",
+            "update_valid_category",
+            "update_valid_collection",
+        ],
     )
     def test_valid_field_combinations(self, args_class: str, type_value: str, valid_fields: dict) -> None:
         """Accept valid field combinations."""
