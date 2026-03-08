@@ -133,6 +133,24 @@ dev = [
     "osvcheck>=1.0.0b1",
     "vulture>=2.14",
 ]
+
+[tool.vulture]
+exclude = [
+  "tests/",
+  "src/mcp_guide/scripts/",
+]
+ignore_decorators = [
+  "@toolfunc",
+  "@tools.tool",
+  "@mcp.tool",
+  "@mcp.prompt",
+]
+ignore_names = [
+  "__all__",
+  "main",
+]
+min_confidence = 80
+
 debug = [
     "debugpy>=1.8.0",
 ]
