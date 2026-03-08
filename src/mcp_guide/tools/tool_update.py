@@ -83,30 +83,6 @@ async def update_documents(
 
     Checks for version changes and updates files using smart merge strategy.
     Uses file locking to prevent concurrent updates.
-
-    ## JSON Schema
-
-    ```json
-    {
-      "type": "object",
-      "properties": {}
-    }
-    ```
-
-    ## Usage Instructions
-
-    ```python
-    # Update documentation files
-    await update_documents(UpdateDocumentsArgs())
-    ```
-
-    ## Concrete Examples
-
-    ```python
-    # Example: Update documentation
-    result = await update_documents(UpdateDocumentsArgs())
-    # Returns: {"message": "Documentation updated successfully", "updated": true, "stats": {...}}
-    ```
     """
     result = await internal_update_documents(args, ctx)
     return await tool_result("update_documents", result)

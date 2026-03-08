@@ -139,7 +139,11 @@ async def internal_list_project_flags(
 
 @toolfunc(ListFlagsArgs)
 async def list_project_flags(args: ListFlagsArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
-    """List project feature flags based on project context and parameters."""
+    """List project feature flags based on project context and parameters.
+
+    Returns flags set for the current project. Use active=True to include resolved values
+    from global flags, or active=False for project-only flags. Supports glob pattern filtering.
+    """
     result = await internal_list_project_flags(args, ctx)
     return await tool_result("list_project_flags", result)
 
@@ -191,7 +195,12 @@ async def internal_set_project_flag(args: SetFlagArgs, ctx: Optional[Context] = 
 
 @toolfunc(SetFlagArgs)
 async def set_project_flag(args: SetFlagArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
-    """Set or remove a project feature flag."""
+    """Set or remove a project feature flag.
+
+    Sets a flag value for the current project, or removes it if value=None. Flag names must
+    contain only alphanumeric characters, hyphens, and underscores. Values can be bool, str,
+    list[str], or dict[str, str].
+    """
     result = await internal_set_project_flag(args, ctx)
     return await tool_result("set_project_flag", result)
 
@@ -283,7 +292,12 @@ async def internal_set_feature_flag(args: SetFeatureFlagArgs, ctx: Optional[Cont
 
 @toolfunc(SetFeatureFlagArgs)
 async def set_feature_flag(args: SetFeatureFlagArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
-    """Set or remove a global feature flag."""
+    """Set or remove a global feature flag.
+
+    Sets a flag value globally (applies to all projects), or removes it if value=None. Flag names
+    must contain only alphanumeric characters, hyphens, and underscores. Values can be bool, str,
+    list[str], or dict[str, str].
+    """
     result = await internal_set_feature_flag(args, ctx)
     return await tool_result("set_feature_flag", result)
 
@@ -355,6 +369,10 @@ async def internal_list_feature_flags(
 
 @toolfunc(ListFeatureFlagsArgs)
 async def list_feature_flags(args: ListFeatureFlagsArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
-    """List global feature flags."""
+    """List global feature flags.
+
+    Returns flags set globally (apply to all projects). Use active=True to include resolved values,
+    or active=False for explicitly set flags only. Supports glob pattern filtering.
+    """
     result = await internal_list_feature_flags(args, ctx)
     return await tool_result("list_feature_flags", result)
