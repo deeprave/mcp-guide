@@ -56,7 +56,7 @@ async def example_tool(args: ExampleArgs, ctx: Context) -> str:
 - Keep to 2-4 sentences maximum
 - Avoid redundant JSON Schema/Usage/Examples sections
 
-### Schema Guidelines
+### Field Description Guidelines
 - Always include complete Field descriptions
 - Use clear, specific language
 - Provide examples in descriptions where helpful
