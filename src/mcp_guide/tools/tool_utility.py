@@ -78,26 +78,18 @@ async def internal_client_info(args: GetClientInfoArgs, ctx: Optional[Context] =
 
             try:
                 existing = cached_mcp_context.get()
-                cached_mcp_context.set(
-                    CachedMcpContext(
-                        roots=existing.roots if existing else [],
-                        project_name=existing.project_name if existing else "",
-                        agent_info=agent_info,
-                        client_params=ctx.session.client_params,
-                        timestamp=time(),
-                    )
-                )
             except LookupError:
-                # No existing context, create new one
-                cached_mcp_context.set(
-                    CachedMcpContext(
-                        roots=[],
-                        project_name="",
-                        agent_info=agent_info,
-                        client_params=ctx.session.client_params,
-                        timestamp=time(),
-                    )
+                existing = None
+
+            cached_mcp_context.set(
+                CachedMcpContext(
+                    roots=existing.roots if existing else [],
+                    project_name=existing.project_name if existing else "",
+                    agent_info=agent_info,
+                    client_params=ctx.session.client_params,
+                    timestamp=time(),
                 )
+            )
 
         # Build structured data
         mcp_name = mcp.name if mcp.name else "guide"

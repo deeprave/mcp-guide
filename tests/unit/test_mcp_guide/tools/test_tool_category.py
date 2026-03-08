@@ -745,7 +745,7 @@ class TestCategoryCollectionArgsValidation:
         ],
     )
     def test_incompatible_field_validation(
-        self, args_class: str, type_value: str, invalid_field: str, invalid_value: any, error_match: str
+        self, args_class: str, type_value: str, invalid_field: str, invalid_value, error_match: str
     ) -> None:
         """Reject incompatible fields based on type."""
         from pydantic import ValidationError
