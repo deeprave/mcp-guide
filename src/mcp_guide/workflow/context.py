@@ -15,18 +15,15 @@ class WorkflowContextCache:
     """Cache for workflow context data used in template rendering."""
 
     def __init__(self, task_manager: Any) -> None:
-        """Initialize with task manager reference."""
+        """Initialise with a task manager reference."""
         self.task_manager = task_manager
         self._cached_context = None
 
     async def get_workflow_context(self) -> "TemplateContext":
-        """Build workflow context from cached state."""
+        """Build workflow context from the cached state."""
         from mcp_guide.render.context import TemplateContext
 
-        # Get cached workflow state
-        workflow_state: Optional["WorkflowState"] = self.task_manager.get_cached_data("workflow_state")
-
-        if workflow_state:
+        if workflow_state := self.task_manager.get_cached_data("workflow_state"):
             # Build workflow.phases dict with next phase info and consent
             workflow_phases, workflow_next, workflow_consent = self._build_workflow_phases()
 
@@ -61,7 +58,7 @@ class WorkflowContextCache:
                 },
             }
 
-        # Create base context and add workflow variables as child
+        # Create base context and add workflow variables as a child
         base_context = TemplateContext()
         return base_context.new_child(workflow_vars)
 
@@ -102,7 +99,7 @@ class WorkflowContextCache:
 
         # Helper to normalize consent config values
         def _get_consent_types(phase_name: str) -> list[str]:
-            """Normalize consent config value to list of consent types."""
+            """Normalize consent config value to a list of consent types."""
             consent_value = consent_config.get(phase_name, [])
             return [consent_value] if isinstance(consent_value, str) else consent_value
 
@@ -114,14 +111,12 @@ class WorkflowContextCache:
         configured_phases = workflow_config.phases
         phases = {}
         next_phase_name = None
-        current_phase_index = -1
 
         for i, phase in enumerate(configured_phases):
             next_phase = configured_phases[(i + 1) % len(configured_phases)]
             phases[phase] = {"next": next_phase}
 
             if phase == current_phase:
-                current_phase_index = i
                 next_phase_name = next_phase
 
         # Build workflow.next object
@@ -130,7 +125,7 @@ class WorkflowContextCache:
         if next_phase_name:
             workflow_next["value"] = next_phase_name
 
-            # Check if next phase has entry consent
+            # Check if the next phase has entry consent
             next_consent_types = _get_consent_types(next_phase_name)
 
             next_consent: dict[str, bool] = {}
@@ -143,7 +138,7 @@ class WorkflowContextCache:
             if next_consent:
                 workflow_next["consent"] = next_consent
 
-        # Build workflow.consent for current phase
+        # Build workflow.consent for the current phase
         workflow_consent: dict[str, Any] = {}
         if current_phase:
             current_consent_types = _get_consent_types(current_phase)
@@ -152,7 +147,7 @@ class WorkflowContextCache:
             if "entry" in current_consent_types:
                 workflow_consent["entry"] = True
 
-            # Check exit consent - set to true if current phase has exit OR next phase has entry
+            # Check exit consent - set to true if the current phase has exit OR the next phase has entry
             current_exit = "exit" in current_consent_types
             next_entry = "entry" in next_consent_types if next_phase_name else False
 

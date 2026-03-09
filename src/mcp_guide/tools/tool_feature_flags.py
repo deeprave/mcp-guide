@@ -79,7 +79,6 @@ class ListFeatureFlagsArgs(ToolArguments):
         None,
         description="Glob pattern to filter flags (e.g., 'workflow*', 'content-*'). Returns matching flags as dict. Exact match returns single value.",
     )
-    active: bool = Field(True, description="Include resolved flags (True) or project-only (False)")
 
 
 def _filter_flags_by_pattern(
@@ -371,8 +370,7 @@ async def internal_list_feature_flags(
 async def list_feature_flags(args: ListFeatureFlagsArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
     """List global feature flags.
 
-    Returns flags set globally (apply to all projects). Use active=True to include resolved values,
-    or active=False for explicitly set flags only. Supports glob pattern filtering.
+    Returns flags set globally (apply to all projects). Supports glob pattern filtering.
     """
     result = await internal_list_feature_flags(args, ctx)
     return await tool_result("list_feature_flags", result)

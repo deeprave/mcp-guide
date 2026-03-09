@@ -50,6 +50,13 @@ This index tracks all ADRs including historical decisions that have been superse
 **Dependencies:** ADR-006
 **Summary:** Defines priority order for detecting client's current working directory/project: (1) MCP client roots via Context, (2) cached project name, (3) PWD environment variable as last fallback. Documents MCP roots specification, FastMCP Context implementation, and when roots may not be available.
 
+### ADR-010: Concise Tool Description Standard
+**Status:** Accepted
+**Date:** 2026-03-09
+**File:** [010-concise-tool-descriptions.md](010-concise-tool-descriptions.md)
+**Dependencies:** ADR-008
+**Summary:** Adopts concise 2-4 sentence tool descriptions following MCP best practice, eliminating redundant hand-written JSON Schema/Usage/Examples sections. Parameter documentation provided solely through auto-generated Arguments section from Pydantic field descriptions.
+
 ## Historical ADRs
 
 ### ADR-005: MCP Inspector for Integration Testing
@@ -73,7 +80,7 @@ ADR numbers are assigned sequentially and are never reused. When an ADR is super
 ## Maintenance
 
 When creating a new ADR:
-1. Use the next available number (currently: 010)
+1. Use the next available number (currently: 011)
 2. Add entry to this index
 3. Update "Supersedes" field if replacing an existing ADR
 4. Move superseded ADR to "Historical ADRs" section

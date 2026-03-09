@@ -70,9 +70,10 @@ class TemplateContext(ChainMap[str, Any]):
             self._validate_mapping(mapping)
         super().__init__(*converted_maps)
 
-    def _validate_mapping(self, mapping: dict[str, Any]) -> None:
+    @staticmethod
+    def _validate_mapping(mapping: dict[str, Any]) -> None:
         """Validate that all keys are strings."""
-        for key in mapping.keys():
+        for key in mapping:
             if not isinstance(key, str):
                 raise TypeError(f"Context keys must be strings, got {type(key).__name__}: {key}")
 
@@ -83,7 +84,7 @@ class TemplateContext(ChainMap[str, Any]):
         super().__setitem__(key, value)
 
     def new_child(self, m: Optional[MutableMapping[str, Any]] = None) -> "TemplateContext":
-        """Create new child context, returning TemplateContext instance."""
+        """Create a new child context, returning TemplateContext instance."""
         if m is None:
             m = {}
         if isinstance(m, dict):
@@ -95,9 +96,7 @@ class TemplateContext(ChainMap[str, Any]):
         """Return parent contexts as TemplateContext or None if root."""
         parent_maps = super().parents
         # ChainMap always has at least one map, check if it's meaningful
-        if len(self.maps) <= 1:  # Only one map means this is root
-            return None
-        return TemplateContext(*parent_maps.maps)  # type: ignore[arg-type]
+        return None if len(self.maps) <= 1 else TemplateContext(*parent_maps.maps)  # type: ignore[arg-type]
 
     def __getitem__(self, key: str) -> Any:
         """Get item with soft deletion sentinel handling."""
@@ -145,10 +144,9 @@ class TemplateContext(ChainMap[str, Any]):
             if key in mapping:
                 self.maps[0][key] = _SOFT_DELETE_SENTINEL
                 break
-                break
 
     def hard_delete(self, key: str) -> None:
-        """Hard delete a key from current map, revealing parent value if any."""
+        """Hard delete a key from the current map, revealing parent value if any."""
         if not isinstance(key, str):
             raise TypeError(f"Context keys must be strings, got {type(key).__name__}: {key}")
         self.maps[0].pop(key, None)
@@ -166,9 +164,7 @@ def _convert_to_template_safe(value: Any) -> Any:
         return value.isoformat()
     if isinstance(value, Path):
         return str(value)
-    if isinstance(value, (str, int, float, bool)):
-        return value
-    return str(value)
+    return value if isinstance(value, (str, int, float, bool)) else str(value)
 
 
 def _validate_and_convert_data(data: Any) -> Dict[str, Any]:
@@ -211,12 +207,12 @@ def build_template_context(
     """Build base template context with static data sources.
 
     Priority order (highest to lowest): collection > category > project > agent > client > system
-    Note: file_data is added per-file using new_child() during rendering loop
+    Note: file_data is added per-file using new_child() during the rendering loop
     """
     # Convert and validate all data sources
     layers = []
 
-    # Add layers in highest to lowest priority order (ChainMap uses first-wins)
+    # Add layers in the highest to lowest priority order (ChainMap uses first-wins)
     if collection_data:
         layers.append(_validate_and_convert_data(collection_data))
     if category_data:
@@ -235,9 +231,9 @@ def build_template_context(
 
 
 def add_file_context(base_context: TemplateContext, file_info: "FileInfo") -> TemplateContext:
-    """Add file-specific context as child of base context for per-file rendering.
+    """Add file-specific context as a child of base context for per-file rendering.
 
-    This creates a new child context with file data having highest priority.
+    This creates a new child context with file data having the highest priority.
     Used in rendering loops where each file gets its own context.
     """
     # Extract template-safe data directly from FileInfo
@@ -292,10 +288,10 @@ def get_transient_context(base_context: TemplateContext) -> TemplateContext:
 
 
 def get_user_context() -> Dict[str, Any]:
-    """Collect user information for template context from client environment.
+    """Collect user information for the template context from the client environment.
 
     This function will be populated with data sent from the client via MCP tools.
-    For now, returns empty structure until client data is received.
+    For now, returns an empty structure until client data is received.
     """
     return {
         "name": "",

@@ -133,6 +133,9 @@ dev = [
     "osvcheck>=1.0.0b1",
     "vulture>=2.14",
 ]
+debug = [
+    "debugpy>=1.8.0",
+]
 
 [tool.vulture]
 exclude = [
@@ -150,7 +153,3 @@ ignore_names = [
   "main",
 ]
 min_confidence = 80
-
-debug = [
-    "debugpy>=1.8.0",
-]
