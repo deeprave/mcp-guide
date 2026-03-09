@@ -206,6 +206,26 @@ class TestArgRequiredFeature:
         assert args == []
         assert errors == ["Flag --tracking requires a value, got flag --verbose"]
 
+    def test_argrequired_rejects_dash_prefixed_values(self):
+        """Test that dash-prefixed values require equals syntax."""
+        argv = [":command", "--threshold", "-5"]
+        kwargs, args, errors = parse_command_arguments(argv, argrequired=["threshold"])
+
+        # -5 is parsed as short flag, threshold gets error
+        assert "5" in kwargs  # -5 parsed as short flag
+        assert errors == ["Flag --threshold requires a value, got flag -5"]
+
+    def test_argrequired_accepts_quoted_negative_values(self):
+        """Test that quoted negative values work (shell removes quotes)."""
+        # Shell would pass this as: [":command", "--threshold", "-5"]
+        # But with equals syntax, it works:
+        argv = [":command", "--threshold=-5"]
+        kwargs, args, errors = parse_command_arguments(argv, argrequired=["threshold"])
+
+        assert kwargs == {"threshold": "-5"}
+        assert args == []
+        assert errors == []
+
     def test_argrequired_multiple_flags(self):
         """Test multiple flags in argrequired list."""
         argv = [":command", "--issue", "feature-123", "--description", "Test feature", "--verbose"]

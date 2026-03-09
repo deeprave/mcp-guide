@@ -80,6 +80,10 @@ When a flag is declared in `argrequired`:
 - Next token is a flag: `Error: Flag --tracking requires a value`
 - Value provided: Parsed correctly as key-value pair
 
+**Note:** Values starting with `-` (including negative numbers) are treated as flags. Use `--flag=value` syntax for such values:
+- `--threshold -5` ✗ (error: got flag -5)
+- `--threshold=-5` ✓ (works correctly)
+
 ## Template Context
 
 Commands have access to these template variables:
