@@ -1,6 +1,7 @@
 """Reusable MCP logging module with FastMCP integration."""
 
 import atexit
+import contextlib
 import json
 import logging
 import signal
@@ -14,7 +15,7 @@ from mcp_guide.core.mcp_log_filter import get_redaction_function
 TRACE_LEVEL = 5
 TRACE = TRACE_LEVEL
 
-# Register TRACE level with logging module
+# Register TRACE level with the logging module
 logging.addLevelName(TRACE_LEVEL, "TRACE")
 
 # Re-export standard logging levels
@@ -24,7 +25,7 @@ WARNING = logging.WARNING
 ERROR = logging.ERROR
 CRITICAL = logging.CRITICAL
 
-# Track if TRACE level has been initialized
+# Track if the TRACE level has been initialised
 _trace_initialized = False
 
 # Module-level storage for logging configuration
@@ -44,33 +45,27 @@ def _cleanup_logging() -> None:
 
     if _saved_logging_config:
         if _saved_logging_config.get("console_handler"):
-            try:
+            with contextlib.suppress(Exception):
                 _saved_logging_config["console_handler"].close()
-            except Exception:
-                pass
         if _saved_logging_config.get("file_handler"):
-            try:
+            with contextlib.suppress(Exception):
                 _saved_logging_config["file_handler"].close()
-            except Exception:
-                pass
-
     # Close all root logger handlers
     for handler in logging.getLogger().handlers[:]:
-        try:
+        with contextlib.suppress(Exception):
             handler.close()
             logging.getLogger().removeHandler(handler)
-        except Exception:
-            pass
 
 
-def _signal_handler(signum: int, frame: Any) -> None:
+# noinspection PyUnusedLocal
+def _signal_handler(signum: int, frame: Any) -> None:  # noqa
     """Handle termination signals."""
     _cleanup_logging()
     sys.exit(128 + signum)
 
 
 def register_cleanup_handlers() -> None:
-    """Register cleanup handlers for graceful shutdown.
+    """Register cleanup handlers for a graceful shutdown.
 
     Call this explicitly from your application's main entry point
     to enable automatic cleanup of logging resources on exit.
@@ -94,16 +89,17 @@ class RedactedFormatter(logging.Formatter):
     """Log formatter with PII redaction support."""
 
     def __init__(self) -> None:
-        """Initialize formatter with redaction function."""
+        """Initialise the formatter with a redaction function."""
         super().__init__(fmt="%(asctime)s - %(name)s - %(levelname)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
         self._redaction_func: Callable[[str], str] = get_redaction_function()
 
     def format(self, record: logging.LogRecord) -> str:
-        """Format log record with redaction."""
-        # Add extra fields to the message if present
-        extra_data = {}
-        for key, value in record.__dict__.items():
-            if key not in {
+        """Format the log record with redaction."""
+        extra_data = {
+            key: value
+            for key, value in record.__dict__.items()
+            if key
+            not in {
                 "name",
                 "msg",
                 "args",
@@ -126,9 +122,8 @@ class RedactedFormatter(logging.Formatter):
                 "exc_text",
                 "stack_info",
                 "message",
-            }:
-                extra_data[key] = value
-
+            }
+        }
         formatted = super().format(record)
         if extra_data:
             formatted += f" - extra: {json.dumps(extra_data)}"
@@ -140,7 +135,7 @@ class StructuredJSONFormatter(logging.Formatter):
     """JSON formatter for structured logging with PII redaction."""
 
     def __init__(self) -> None:
-        """Initialize JSON formatter with redaction function."""
+        """Initialise JSON formatter with a redaction function."""
         super().__init__()
         self._redaction_func: Callable[[str], str] = get_redaction_function()
 
@@ -246,25 +241,27 @@ def configure_logger_hierarchy(app_name: str) -> None:
     # Store patterns for future logger creation
     if not hasattr(logging, "_mcp_app_patterns"):
         logging._mcp_app_patterns = []  # type: ignore
+    # noinspection PyProtectedMember
     logging._mcp_app_patterns.append(app_name)  # type: ignore
 
     # Monkey-patch getLogger to configure new loggers
     original_getLogger = logging.getLogger
 
     def patched_getLogger(name: str | None = None) -> logging.Logger:
-        logger = original_getLogger(name)
+        _logger = original_getLogger(name)
         if name and hasattr(logging, "_mcp_app_patterns"):
-            for pattern in logging._mcp_app_patterns:
-                if name.startswith(pattern) or name.startswith(f"fastmcp.{pattern}"):
-                    logger.propagate = False
+            # noinspection PyProtectedMember
+            for _pattern in logging._mcp_app_patterns:
+                if name.startswith(_pattern) or name.startswith(f"fastmcp.{_pattern}"):
+                    _logger.propagate = False
                     break
-        return logger
+        return _logger
 
     logging.getLogger = patched_getLogger
 
 
 def create_console_handler() -> logging.Handler:
-    """Create console handler with RichHandler if available."""
+    """Create a console handler with RichHandler if available."""
     try:
         # Import here as rich is an optional dependency
         from rich.console import Console
@@ -281,7 +278,7 @@ def create_console_handler() -> logging.Handler:
 
 
 def create_file_handler(log_file: str) -> logging.Handler:
-    """Create file handler with external rotation support on non-Windows.
+    """Create a file handler with external rotation support on non-Windows.
 
     Falls back to StreamHandler if file creation fails.
     """
@@ -313,7 +310,7 @@ def create_file_handler(log_file: str) -> logging.Handler:
 
 
 def create_formatter(json_format: bool = False) -> logging.Formatter:
-    """Create formatter based on configuration."""
+    """Create a formatter based on configuration."""
     return StructuredJSONFormatter() if json_format else RedactedFormatter()
 
 
@@ -394,7 +391,7 @@ def save_logging_config(
 
 
 def _configure_fastmcp_log_levels() -> None:
-    """Set FastMCP logger levels to match root logger level.
+    """Set FastMCP logger levels to match the root logger level.
 
     Only updates loggers that are more verbose than root level.
     Skips NOTSET loggers to preserve parent inheritance.
@@ -406,7 +403,7 @@ def _configure_fastmcp_log_levels() -> None:
             logger = logging.getLogger(logger_name)
             current_level = logger.level
 
-            # Skip NOTSET (0) - it means inherit from parent
+            # Skip NOTSET (0) - it means inherit from the parent
             if current_level != logging.NOTSET and current_level < root_level:
                 logger.setLevel(root_level)
 
@@ -429,14 +426,12 @@ def restore_logging_config() -> None:
     # Configure FastMCP logger levels
     _configure_fastmcp_log_levels()
 
-    # Configure logger hierarchy if app_name was saved
-    app_name = _saved_logging_config.get("app_name")
-    if app_name:
+    if app_name := _saved_logging_config.get("app_name"):
         configure_logger_hierarchy(app_name)
 
 
 def add_trace_to_context() -> None:
-    """Add trace() method to FastMCP Context class.
+    """Add a trace () method to the FastMCP Context class.
 
     Maps to debug level with [TRACE] prefix for client visibility.
     Handles ImportError gracefully if FastMCP not available.
@@ -457,7 +452,7 @@ def add_trace_to_context() -> None:
 def configure(
     file_path: str | None = None, level: str = "INFO", json_format: bool = False, app_name: str | None = None
 ) -> None:
-    """Configure logging system.
+    """Configure the logging system.
 
     Args:
         file_path: Optional path to log file
