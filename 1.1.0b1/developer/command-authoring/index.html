@@ -770,6 +770,45 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#flag-argument-syntax" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Flag Argument Syntax
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Flag Argument Syntax">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#using-argrequired" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Using argrequired
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#error-handling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Error Handling
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#template-context" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -864,7 +903,7 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#error-handling" class="md-nav__link">
+  <a href="#error-handling_1" class="md-nav__link">
     <span class="md-ellipsis">
       
         Error Handling
@@ -1034,6 +1073,45 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#flag-argument-syntax" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Flag Argument Syntax
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Flag Argument Syntax">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#using-argrequired" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Using argrequired
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#error-handling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Error Handling
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#template-context" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1128,7 +1206,7 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#error-handling" class="md-nav__link">
+  <a href="#error-handling_1" class="md-nav__link">
     <span class="md-ellipsis">
       
         Error Handling
@@ -1207,7 +1285,40 @@ Note that all frontmatter fields are available as context variables within the t
 <li><strong>examples</strong>: List of example invocations</li>
 <li><strong>required_args</strong>: List of required positional arguments</li>
 <li><strong>required_kwargs</strong>: List of required keyword arguments</li>
+<li><strong>argrequired</strong>: List of flags that require values (enables <code>--flag value</code> syntax)</li>
 </ul>
+<h2 id="flag-argument-syntax">Flag Argument Syntax<a class="headerlink" href="#flag-argument-syntax" title="Permanent link">&para;</a></h2>
+<p>Commands support two syntaxes for flag arguments:</p>
+<ol>
+<li><strong>Equals syntax</strong>: <code>--flag=value</code> (always supported)</li>
+<li><strong>Space-separated syntax</strong>: <code>--flag value</code> (requires <code>argrequired</code> declaration)</li>
+</ol>
+<h3 id="using-argrequired">Using argrequired<a class="headerlink" href="#using-argrequired" title="Permanent link">&para;</a></h3>
+<p>To enable space-separated flag values, declare the flag names in the <code>argrequired</code> frontmatter field:</p>
+<div class="codehilite"><pre><span></span><code><span class="nn">---</span>
+<span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Create workflow issue</span>
+<span class="nt">category</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;workflow&quot;</span>
+<span class="nt">argrequired</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">tracking</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">issue</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">description</span>
+<span class="nn">---</span>
+</code></pre></div>
+
+<p>With this declaration, both syntaxes work:
+- <code>@guide :workflow/issue --tracking GUIDE-177</code> ✓
+- <code>@guide :workflow/issue --tracking=GUIDE-177</code> ✓</p>
+<p>Without <code>argrequired</code>, only the equals syntax works:
+- <code>@guide :workflow/issue --tracking GUIDE-177</code> ✗ (parsed as boolean flag + positional arg)
+- <code>@guide :workflow/issue --tracking=GUIDE-177</code> ✓</p>
+<h3 id="error-handling">Error Handling<a class="headerlink" href="#error-handling" title="Permanent link">&para;</a></h3>
+<p>When a flag is declared in <code>argrequired</code>:
+- Missing value: <code>Error: Flag --tracking requires a value</code>
+- Next token is a flag: <code>Error: Flag --tracking requires a value</code>
+- Value provided: Parsed correctly as key-value pair</p>
+<p><strong>Note:</strong> Values starting with <code>-</code> (including negative numbers) are treated as flags. Use <code>--flag=value</code> syntax for such values:
+- <code>--threshold -5</code> ✗ (error: got flag -5)
+- <code>--threshold=-5</code> ✓ (works correctly)</p>
 <h2 id="template-context">Template Context<a class="headerlink" href="#template-context" title="Permanent link">&para;</a></h2>
 <p>Commands have access to these template variables:</p>
 <h3 id="command-data">Command Data<a class="headerlink" href="#command-data" title="Permanent link">&para;</a></h3>
@@ -1274,7 +1385,7 @@ Note that all frontmatter fields are available as context variables within the t
 <li><code>{{#list}}{{.}}{{/list}}</code> - Iterate over lists</li>
 <li><code>{{! comment }}</code> - Comments (not rendered)</li>
 </ul>
-<h2 id="error-handling">Error Handling<a class="headerlink" href="#error-handling" title="Permanent link">&para;</a></h2>
+<h2 id="error-handling_1">Error Handling<a class="headerlink" href="#error-handling_1" title="Permanent link">&para;</a></h2>
 <p>Template errors include line context for debugging:</p>
 <div class="codehilite"><pre><span></span><code><span class="x">Template syntax error in _commands/example.mustache: Unclosed section &#39;missing&#39;</span>
 

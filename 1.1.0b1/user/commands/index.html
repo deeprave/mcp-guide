@@ -1288,12 +1288,18 @@
 <div class="codehilite"><pre><span></span><code><span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">command</span><span class="w"> </span><span class="o">[</span><span class="n">args</span><span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="n">--flags</span><span class="o">]</span>
 </code></pre></div>
 
+<p><strong>Flag Syntax:</strong>
+Commands support two syntaxes for flags with values:
+- <code>--flag=value</code> (always supported)
+- <code>--flag value</code> (supported when flag is declared with <code>argrequired</code>)</p>
 <p><strong>Examples:</strong></p>
 <div class="codehilite"><pre><span></span><code><span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">help</span>
 <span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">status</span>
 <span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">project</span>
 <span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">flags</span>
 <span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="k">create</span><span class="o">/</span><span class="n">category</span><span class="w"> </span><span class="n">docs</span>
+<span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">workflow</span><span class="o">/</span><span class="n">issue</span><span class="w"> </span><span class="c1">--tracking GUIDE-177</span>
+<span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">flags</span><span class="o">/</span><span class="n">project</span><span class="o">/</span><span class="k">set</span><span class="w"> </span><span class="n">workflow</span><span class="w"> </span><span class="c1">--value=true</span>
 </code></pre></div>
 
 <h2 id="discovery-with-guide-help">Discovery with @guide :help<a class="headerlink" href="#discovery-with-guide-help" title="Permanent link">&para;</a></h2>
