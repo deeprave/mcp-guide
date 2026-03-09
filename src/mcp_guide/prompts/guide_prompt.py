@@ -314,12 +314,14 @@ async def _execute_command(
             argrequired_value = frontmatter.get("argrequired")
             if isinstance(argrequired_value, list):
                 argrequired = argrequired_value
-        except OSError:
-            pass  # Frontmatter unavailable; parse without argrequired
+        except OSError as e:
+            logger.warning(f"Failed to read frontmatter for command {command_path}: {e}. Parsing without argrequired.")
         kwargs, args, parse_errors = parse_command_arguments(argv, argrequired=argrequired)
         if parse_errors:
             error_msg = "; ".join(parse_errors)
-            return Result.failure(f"Argument parsing failed: {error_msg}", error_type="validation")
+            result: Result[Any] = Result.failure(f"Argument parsing failed: {error_msg}", error_type="validation")
+            result.instruction = INSTRUCTION_DISPLAY_ONLY
+            return result
 
     # Build template context
     base_context = await get_template_contexts()
