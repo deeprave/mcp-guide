@@ -24,12 +24,9 @@ class TestHelpSystem:
             result_str = await guide_function(":help", ctx=mock_ctx)
 
             mock_handle.assert_called_once()
-            args = mock_handle.call_args[0]
-            command_path, kwargs, args_list = args[:3]
-
-            assert command_path == "help"
-            assert kwargs == {}
-            assert args_list == []
+            call_kwargs = mock_handle.call_args
+            assert call_kwargs[0][0] == "help"
+            assert call_kwargs[1]["argv"] == [":help"]
 
             result = json.loads(result_str)
             assert result["success"] is True

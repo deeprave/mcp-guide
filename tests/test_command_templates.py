@@ -38,12 +38,9 @@ class TestCommandTemplates:
             result_str = await guide_function(":status", ctx=mock_ctx)
 
             mock_handle.assert_called_once()
-            args = mock_handle.call_args[0]
-            command_path, kwargs, args_list = args[:3]
-
-            assert command_path == "status"
-            assert kwargs == {}
-            assert args_list == []
+            call_kwargs = mock_handle.call_args
+            assert call_kwargs[0][0] == "status"
+            assert call_kwargs[1]["argv"] == [":status"]
 
             result = json.loads(result_str)
             assert result["success"] is True
@@ -71,12 +68,9 @@ Collection created successfully!"""
             result_str = await guide_function(":create/collection", "my-docs", "docs", "examples", ctx=mock_ctx)
 
             mock_handle.assert_called_once()
-            args = mock_handle.call_args[0]
-            command_path, kwargs, args_list = args[:3]
-
-            assert command_path == "create/collection"
-            assert kwargs == {}
-            assert args_list == ["my-docs", "docs", "examples"]
+            call_kwargs = mock_handle.call_args
+            assert call_kwargs[0][0] == "create/collection"
+            assert call_kwargs[1]["argv"] == [":create/collection", "my-docs", "docs", "examples"]
 
             result = json.loads(result_str)
             assert result["success"] is True

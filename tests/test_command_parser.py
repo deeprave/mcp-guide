@@ -165,3 +165,79 @@ class TestCommandArgumentParser:
         assert kwargs == {"verbose": True, "force": True}  # Valid chars still processed
         assert args == []
         assert errors == ["Invalid flag character: -@"]
+
+
+class TestArgRequiredFeature:
+    """Tests for argrequired parameter - space-separated flag values."""
+
+    def test_argrequired_with_space_syntax(self):
+        """Test --flag value syntax when flag is in argrequired list."""
+        argv = [":command", "--tracking", "GUIDE-177", "--verbose"]
+        kwargs, args, errors = parse_command_arguments(argv, argrequired=["tracking"])
+
+        assert kwargs == {"tracking": "GUIDE-177", "verbose": True}
+        assert args == []
+        assert errors == []
+
+    def test_argrequired_with_equals_syntax_still_works(self):
+        """Test --flag=value syntax still works with argrequired."""
+        argv = [":command", "--tracking=GUIDE-177", "--verbose"]
+        kwargs, args, errors = parse_command_arguments(argv, argrequired=["tracking"])
+
+        assert kwargs == {"tracking": "GUIDE-177", "verbose": True}
+        assert args == []
+        assert errors == []
+
+    def test_argrequired_missing_value_error(self):
+        """Test error when required flag has no value."""
+        argv = [":command", "--tracking"]
+        kwargs, args, errors = parse_command_arguments(argv, argrequired=["tracking"])
+
+        assert kwargs == {}
+        assert args == []
+        assert errors == ["Flag --tracking requires a value"]
+
+    def test_argrequired_next_token_is_flag_error(self):
+        """Test error when required flag followed by another flag."""
+        argv = [":command", "--tracking", "--verbose"]
+        kwargs, args, errors = parse_command_arguments(argv, argrequired=["tracking"])
+
+        assert kwargs == {"verbose": True}
+        assert args == []
+        assert errors == ["Flag --tracking requires a value, got flag --verbose"]
+
+    def test_argrequired_multiple_flags(self):
+        """Test multiple flags in argrequired list."""
+        argv = [":command", "--issue", "feature-123", "--description", "Test feature", "--verbose"]
+        kwargs, args, errors = parse_command_arguments(argv, argrequired=["issue", "description"])
+
+        assert kwargs == {"issue": "feature-123", "description": "Test feature", "verbose": True}
+        assert args == []
+        assert errors == []
+
+    def test_argrequired_mixed_with_positional_args(self):
+        """Test argrequired flags mixed with positional arguments."""
+        argv = [":command", "--dir", "src/tests", "arg1", "--patterns", "*.py", "arg2"]
+        kwargs, args, errors = parse_command_arguments(argv, argrequired=["dir", "patterns"])
+
+        assert kwargs == {"dir": "src/tests", "patterns": "*.py"}
+        assert args == ["arg1", "arg2"]
+        assert errors == []
+
+    def test_argrequired_none_preserves_current_behavior(self):
+        """Test that argrequired=None preserves current boolean flag behavior."""
+        argv = [":command", "--verbose", "arg1"]
+        kwargs, args, errors = parse_command_arguments(argv, argrequired=None)
+
+        assert kwargs == {"verbose": True}
+        assert args == ["arg1"]
+        assert errors == []
+
+    def test_argrequired_empty_list_preserves_current_behavior(self):
+        """Test that argrequired=[] preserves current boolean flag behavior."""
+        argv = [":command", "--verbose", "arg1"]
+        kwargs, args, errors = parse_command_arguments(argv, argrequired=[])
+
+        assert kwargs == {"verbose": True}
+        assert args == ["arg1"]
+        assert errors == []

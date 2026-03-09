@@ -1,5 +1,6 @@
 """Command argument parser for guide prompt system."""
 
+from collections import deque
 from typing import TypedDict
 
 
@@ -12,7 +13,9 @@ class ParsedCommand(TypedDict):
 
 
 def parse_command_arguments(
-    argv: list[str], short_flag_map: dict[str, str] | None = None
+    argv: list[str],
+    short_flag_map: dict[str, str] | None = None,
+    argrequired: list[str] | None = None,
 ) -> tuple[dict[str, str | bool | int], list[str], list[str]]:
     """Parse command arguments into kwargs, args, and parse_errors.
 
@@ -21,6 +24,10 @@ def parse_command_arguments(
         short_flag_map: Optional mapping of short flags to long flags.
                        When provided, allows commands to support short flags like -v for --verbose.
                        Example: {"v": "verbose", "d": "dry_run"} would map -v to --verbose
+        argrequired: Optional list of flag names that require values.
+                    When a flag in this list is encountered without '=', the next argument
+                    is consumed as its value. Example: ["tracking", "issue"] allows
+                    "--tracking GUIDE-177" in addition to "--tracking=GUIDE-177"
 
     Returns:
         Tuple of (kwargs, args, parse_errors)
@@ -34,6 +41,12 @@ def parse_command_arguments(
 
     if short_flag_map is None:
         short_flag_map = {}
+
+    if argrequired is None:
+        argrequired = []
+
+    # Normalize argrequired to use underscores (matching how flag names are processed)
+    argrequired_normalized = {name.replace("-", "_") for name in argrequired}
 
     # Add common short flag mappings
     common_mappings = {"v": "verbose", "h": "help", "q": "quiet", "f": "force", "d": "debug", "t": "table"}
@@ -67,7 +80,10 @@ def parse_command_arguments(
         return flag_name.replace("-", "_"), value if value is not None else True
 
     # Skip the command itself (first argument)
-    for arg in argv[1:]:
+    remaining = deque(argv[1:])
+    while remaining:
+        arg = remaining.popleft()
+
         if arg.startswith("--"):
             # Handle --flag, --no-flag, --key=value
             if "=" in arg:
@@ -87,8 +103,23 @@ def parse_command_arguments(
                 if not flag_name:
                     parse_errors.append("Invalid flag: -- (empty flag name)")
                     continue
+
                 key, value = process_flag(flag_name)
+
+                # Check if this flag requires a value
+                if key in argrequired_normalized and value is True:
+                    if not remaining:
+                        parse_errors.append(f"Flag --{flag_name} requires a value")
+                        continue
+                    next_arg = remaining[0]  # peek
+                    if next_arg.startswith("-"):
+                        parse_errors.append(f"Flag --{flag_name} requires a value, got flag {next_arg}")
+                        continue
+                    kwargs[key] = remaining.popleft()  # consume
+                    continue
+
                 kwargs[key] = value
+
         elif arg.startswith("-") and len(arg) > 1 and not arg.startswith("--"):
             # Handle single-dash short flags like -v, -f, -abc (combined)
             flags = arg[1:]  # Remove -

@@ -200,12 +200,9 @@ class TestGuidePromptIntegration:
             result_str = await guide_function(":help", ctx=mock_ctx)
 
             mock_handle_command.assert_called_once()
-            args = mock_handle_command.call_args[0]
-            command_path, kwargs, args_list = args[:3]
-
-            assert command_path == "help"
-            assert kwargs == {}
-            assert args_list == []
+            call_kwargs = mock_handle_command.call_args
+            assert call_kwargs[0][0] == "help"  # command_path is first positional
+            assert call_kwargs[1]["argv"] == [":help"]
 
             result = json.loads(result_str)
             assert result["success"] is True
@@ -223,12 +220,9 @@ class TestGuidePromptIntegration:
             await guide_function(";status", ctx=mock_ctx)
 
             mock_handle_command.assert_called_once()
-            args = mock_handle_command.call_args[0]
-            command_path, kwargs, args_list = args[:3]
-
-            assert command_path == "status"
-            assert kwargs == {}
-            assert args_list == []
+            call_kwargs = mock_handle_command.call_args
+            assert call_kwargs[0][0] == "status"
+            assert call_kwargs[1]["argv"] == [";status"]
 
     @pytest.mark.asyncio
     async def test_guide_prompt_with_subcommand(self, guide_function) -> None:
@@ -242,60 +236,43 @@ class TestGuidePromptIntegration:
             await guide_function(":create/category", ctx=mock_ctx)
 
             mock_handle_command.assert_called_once()
-            args = mock_handle_command.call_args[0]
-            command_path, kwargs, args_list = args[:3]
+            call_kwargs = mock_handle_command.call_args
+            assert call_kwargs[0][0] == "create/category"
+            assert call_kwargs[1]["argv"] == [":create/category"]
 
-            assert command_path == "create/category"
-            assert kwargs == {}
-            assert args_list == []
-
-    @pytest.mark.asyncio
     @pytest.mark.asyncio
     async def test_guide_prompt_with_command_arguments(self, guide_function) -> None:
-        """@guide prompt should parse command arguments."""
+        """@guide prompt should pass raw argv to handle_command for deferred parsing."""
         mock_ctx = MagicMock()
         mock_result = Result.ok("Command with args")
 
-        with (
-            patch(
-                "mcp_guide.prompts.guide_prompt.handle_command", new=AsyncMock(return_value=mock_result)
-            ) as mock_handle_command,
-            patch("mcp_guide.prompts.guide_prompt.parse_command_arguments") as mock_parse,
-        ):
-            # Mock the parser to return expected values
-            mock_parse.return_value = (
-                {"_verbose": True, "description": "test"},  # kwargs
-                ["arg1", "arg2"],  # args
-                [],  # parse_errors
-            )
-
+        with patch(
+            "mcp_guide.prompts.guide_prompt.handle_command", new=AsyncMock(return_value=mock_result)
+        ) as mock_handle_command:
             await guide_function(":create/collection", "--verbose", "description=test", "arg1", "arg2", ctx=mock_ctx)
 
-            # Verify parser was called with correct arguments
-            mock_parse.assert_called_once_with([":create/collection", "--verbose", "description=test", "arg1", "arg2"])
-
-            # Verify command handler was called with parsed arguments
+            # Verify command handler was called with raw argv
             mock_handle_command.assert_called_once()
-            args = mock_handle_command.call_args[0]
-            command_path, kwargs, args_list = args[:3]
-
-            assert command_path == "create/collection"
-            assert kwargs == {"_verbose": True, "description": "test"}
-            assert args_list == ["arg1", "arg2"]
+            call_kwargs = mock_handle_command.call_args
+            assert call_kwargs[0][0] == "create/collection"
+            assert call_kwargs[1]["argv"] == [
+                ":create/collection",
+                "--verbose",
+                "description=test",
+                "arg1",
+                "arg2",
+            ]
 
     @pytest.mark.asyncio
     async def test_guide_prompt_with_parse_errors(self, guide_function) -> None:
-        """@guide prompt should return failure for argument parsing errors."""
+        """@guide prompt should return failure for argument parsing errors via _execute_command."""
         mock_ctx = MagicMock()
 
-        with patch("mcp_guide.prompts.guide_prompt.parse_command_arguments") as mock_parse:
-            # Mock the parser to return parse errors
-            mock_parse.return_value = (
-                {},  # kwargs
-                [],  # args
-                ["Invalid flag: --bad=", "Missing key: =value"],  # parse_errors
-            )
-
+        # Mock _execute_command to simulate parse error from deferred parsing
+        error_result = Result.failure(
+            "Argument parsing failed: Invalid flag: --bad=; Missing key: =value", error_type="validation"
+        )
+        with patch("mcp_guide.prompts.guide_prompt._execute_command", new=AsyncMock(return_value=error_result)):
             result_str = await guide_function(":create", "--bad=", "=value", ctx=mock_ctx)
 
             result = json.loads(result_str)

@@ -6,9 +6,11 @@ All notable changes to mcp-guide will be documented in this file.
 
 ### Added
 - Permission management MCP tools (`add_permission_path`, `remove_permission_path`)
+- Guide prompt parser now supports space-separated flag values (`--flag value` in addition to `--flag=value`)
 
 ### Changed
 - Refactored prompt templates to provide a more consistent user experience
+- Command templates now declare required arguments via `argrequired` frontmatter field
 
 ### Fixed
 - Template consistency: all command examples now use `{{@}}guide` prefix
