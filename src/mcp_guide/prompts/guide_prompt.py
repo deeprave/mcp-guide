@@ -99,23 +99,30 @@ MAX_PROMPT_ARGS = 15
 
 async def handle_command(
     command_path: str,
-    kwargs: dict[str, Union[str, bool, int]],
-    args: list[str],
-    ctx: Optional[Context],  # type: ignore
+    kwargs: Optional[dict[str, Union[str, bool, int]]] = None,
+    args: Optional[list[str]] = None,
+    ctx: Optional[Context] = None,  # type: ignore
     middleware: Optional[List[CommandMiddleware]] = None,
+    argv: Optional[list[str]] = None,
 ) -> Result[Any]:
     """Handle command execution with direct file discovery.
 
     Args:
         command_path: Command path (e.g. "help", "create/category")
-        kwargs: Parsed keyword arguments and flags
-        args: Positional arguments
+        kwargs: Pre-parsed keyword arguments (used if argv not provided)
+        args: Pre-parsed positional arguments (used if argv not provided)
         ctx: MCP context
         middleware: Optional list of middleware to apply
+        argv: Raw argument list; if provided, parsing is deferred to _execute_command
 
     Returns:
         Result containing rendered command output or error
     """
+    if kwargs is None:
+        kwargs = {}
+    if args is None:
+        args = []
+
     # Add logging middleware by default
     from mcp_guide.middleware.logging_middleware import logging_middleware
 
@@ -125,7 +132,7 @@ async def handle_command(
     if middleware:
         # Apply the middleware chain
         async def next_handler() -> Result[Any]:
-            return await _execute_command(command_path, kwargs, args, ctx)
+            return await _execute_command(command_path, kwargs, args, ctx, argv=argv)
 
         # Build the middleware chain from right to left
         handler: Callable[[], Coroutine[Any, Any, Result[Any]]] = next_handler
@@ -143,7 +150,7 @@ async def handle_command(
 
         return await handler()
     else:
-        return await _execute_command(command_path, kwargs, args, ctx)
+        return await _execute_command(command_path, kwargs, args, ctx, argv=argv)
 
 
 def _resolve_command_alias(command_path: str, commands: list[dict[str, Any]]) -> str:
@@ -261,6 +268,7 @@ async def _execute_command(
     kwargs: dict[str, Union[str, bool, int]],
     args: list[str],
     ctx: Optional[Context],  # type: ignore
+    argv: Optional[list[str]] = None,
 ) -> Result[Any]:
     """Execute command without middleware."""
     from mcp_guide.session import get_or_create_session
@@ -297,6 +305,21 @@ async def _execute_command(
 
     # Set the base path for content loading
     file_info.resolve(commands_dir, docroot)
+
+    # If raw argv provided, parse arguments using frontmatter argrequired
+    if argv is not None:
+        argrequired = None
+        try:
+            frontmatter = await file_info.get_frontmatter() or {}
+            argrequired_value = frontmatter.get("argrequired")
+            if isinstance(argrequired_value, list):
+                argrequired = argrequired_value
+        except OSError:
+            pass  # Frontmatter unavailable; parse without argrequired
+        kwargs, args, parse_errors = parse_command_arguments(argv, argrequired=argrequired)
+        if parse_errors:
+            error_msg = "; ".join(parse_errors)
+            return Result.failure(f"Argument parsing failed: {error_msg}", error_type="validation")
 
     # Build template context
     base_context = await get_template_contexts()
@@ -384,21 +407,13 @@ async def _handle_command_request(argv: list[str], ctx: Optional["Context"]) -> 
         result.instruction = INSTRUCTION_DISPLAY_ONLY
         return result
 
-    # Parse arguments
-    kwargs, args, parse_errors = parse_command_arguments(argv[1:])
-    if parse_errors:
-        error_msg = "; ".join(parse_errors)
-        result = Result.failure(f"Argument parsing failed: {error_msg}", error_type="validation")
-        result.instruction = INSTRUCTION_DISPLAY_ONLY
-        return result
-
     # Validate context
     if ctx is None:
         result = Result.failure("Context is required for command execution", error_type="validation")
         result.instruction = INSTRUCTION_DISPLAY_ONLY
         return result
 
-    return await handle_command(command_path, kwargs, args, ctx)
+    return await handle_command(command_path, argv=argv[1:], ctx=ctx)
 
 
 async def _handle_content_request(argv: list[str], ctx: Optional["Context"]) -> Result[Any]:  # type: ignore[type-arg]

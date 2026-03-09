@@ -5,6 +5,11 @@ description: "Manage current workflow issue"
 usage: ":issue [--issue=issue-id] [--description='desc'] [--tracking='type id'] [--clear|--next|issue-id]"
 category: "project-workflow"
 requires-workflow: true
+argrequired:
+  - issue
+  - queue
+  - description
+  - tracking
 includes:
   - "../_partials/workflow-status"
 instruction: >

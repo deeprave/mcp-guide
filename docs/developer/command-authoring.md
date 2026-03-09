@@ -41,6 +41,44 @@ Your Mustache template content here...
 - **examples**: List of example invocations
 - **required_args**: List of required positional arguments
 - **required_kwargs**: List of required keyword arguments
+- **argrequired**: List of flags that require values (enables `--flag value` syntax)
+
+## Flag Argument Syntax
+
+Commands support two syntaxes for flag arguments:
+
+1. **Equals syntax**: `--flag=value` (always supported)
+2. **Space-separated syntax**: `--flag value` (requires `argrequired` declaration)
+
+### Using argrequired
+
+To enable space-separated flag values, declare the flag names in the `argrequired` frontmatter field:
+
+```yaml
+---
+description: Create workflow issue
+category: "workflow"
+argrequired:
+  - tracking
+  - issue
+  - description
+---
+```
+
+With this declaration, both syntaxes work:
+- `@guide :workflow/issue --tracking GUIDE-177` ✓
+- `@guide :workflow/issue --tracking=GUIDE-177` ✓
+
+Without `argrequired`, only the equals syntax works:
+- `@guide :workflow/issue --tracking GUIDE-177` ✗ (parsed as boolean flag + positional arg)
+- `@guide :workflow/issue --tracking=GUIDE-177` ✓
+
+### Error Handling
+
+When a flag is declared in `argrequired`:
+- Missing value: `Error: Flag --tracking requires a value`
+- Next token is a flag: `Error: Flag --tracking requires a value`
+- Value provided: Parsed correctly as key-value pair
 
 ## Template Context
 

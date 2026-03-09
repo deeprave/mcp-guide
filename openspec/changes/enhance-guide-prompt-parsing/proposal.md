@@ -20,9 +20,15 @@ This enhancement improves usability by supporting both syntaxes while maintainin
 ### Affected Components
 
 1. `src/mcp_guide/prompts/command_parser.py` - Parser logic
-2. `src/mcp_guide/templates/_commands/workflow/issue.mustache` - `--issue`, `--description`, `--tracking`, `--queue`
-3. `src/mcp_guide/templates/_commands/create/category.mustache` - `--dir`, `--patterns`, `--description`
-4. `src/mcp_guide/templates/_commands/create/collection.mustache` - `--description`
+2. `src/mcp_guide/templates/_commands/workflow/issue.mustache` - `issue`, `queue`, `description`, `tracking`
+3. `src/mcp_guide/templates/_commands/project/category/add.mustache` - `dir`, `patterns`, `description`
+4. `src/mcp_guide/templates/_commands/project/category/change.mustache` - `new_name`, `new_dir`, `new_patterns`, `new_description`
+5. `src/mcp_guide/templates/_commands/project/category/update.mustache` - `add_patterns`, `remove_patterns`
+6. `src/mcp_guide/templates/_commands/project/collection/add.mustache` - `categories`, `description`
+7. `src/mcp_guide/templates/_commands/project/collection/change.mustache` - `new_name`, `new_categories`, `new_description`
+8. `src/mcp_guide/templates/_commands/project/collection/update.mustache` - `add_categories`, `remove_categories`
+9. `src/mcp_guide/templates/_commands/flags/project/set.mustache` - `value`
+10. `src/mcp_guide/templates/_commands/flags/feature/set.mustache` - `value`
 
 ## Technical Approach
 

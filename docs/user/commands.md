@@ -10,6 +10,11 @@ Commands are invoked through the guide prompt with this syntax:
 @guide :command [args] [--flags]
 ```
 
+**Flag Syntax:**
+Commands support two syntaxes for flags with values:
+- `--flag=value` (always supported)
+- `--flag value` (supported when flag is declared with `argrequired`)
+
 **Examples:**
 ```
 @guide :help
@@ -17,6 +22,8 @@ Commands are invoked through the guide prompt with this syntax:
 @guide :project
 @guide :flags
 @guide :create/category docs
+@guide :workflow/issue --tracking GUIDE-177
+@guide :flags/project/set workflow --value=true
 ```
 
 ## Discovery with @guide :help
