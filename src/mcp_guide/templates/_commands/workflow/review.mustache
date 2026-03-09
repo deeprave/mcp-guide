@@ -6,6 +6,8 @@ aliases:
   - review
 category: "project-workflow"
 instruction: Perform a review of project changes. {{INSTRUCTION_AGENT_INSTRUCTIONS}}
+includes:
+  - ../_partials/client-info
 ---
 {{#workflow}}You MUST transition to REVIEW phase.
 {{/workflow}}
@@ -29,9 +31,5 @@ instruction: Perform a review of project changes. {{INSTRUCTION_AGENT_INSTRUCTIO
 {{#openspec}}{{b}}NOTE{{b}} Review artifacts are NEVER to be created in the openspec changes directory{{/openspec}}
 {{/agent.class}}
 {{^agent.class}}
-{{b}}Agent Detection Required{{b}}
-  — Run {{tool_prefix}}client_info() to detect the agent information
-  — Report the result to the user
-  — Ask the user to run this command again after agent detection completes
-
+{{>client-info}}
 {{/agent.class}}
