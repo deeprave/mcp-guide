@@ -271,28 +271,26 @@ async def export_content(
     output_path = _resolve_export_path(args.path, agent_name, export_flag)
 
     # Add the specific file path to allowed_write_paths only if not already covered
+    project = await session.get_project()
+
+    # Check if path is already permitted by testing against security policy
+    from mcp_guide.filesystem.read_write_security import ReadWriteSecurityPolicy, SecurityError
+
+    policy = ReadWriteSecurityPolicy(
+        write_allowed_paths=project.allowed_write_paths,
+        additional_read_paths=project.additional_read_paths,
+    )
+
+    # Try to validate - if it raises SecurityError, path is not covered
     try:
-        project = await session.get_project()
+        policy.validate_write_path(output_path)
+    except SecurityError:
+        # Path not allowed - add it
+        from dataclasses import replace as dc_replace
 
-        # Check if path is already permitted by testing against security policy
-        from mcp_guide.filesystem.read_write_security import ReadWriteSecurityPolicy
-
-        policy = ReadWriteSecurityPolicy(
-            write_allowed_paths=project.allowed_write_paths,
-            additional_read_paths=project.additional_read_paths,
-        )
-
-        # If validation fails, path is not covered - add it
-        if not policy.validate_write_path(output_path):
-            from dataclasses import replace as dc_replace
-
-            updated = dc_replace(project, allowed_write_paths=[*project.allowed_write_paths, output_path])
-            await session.update_config(lambda _: updated)
-    except Exception as e:
-        return await tool_result(
-            "export_content",
-            Result.failure(f"Cannot add export file to allowed write paths: {e}", error_type="validation"),
-        )
+        updated = dc_replace(project, allowed_write_paths=[*project.allowed_write_paths, output_path])
+        await session.update_config(lambda _: updated)
+        logger.info(f"Added {output_path} to allowed_write_paths")
 
     # Build instruction
     instruction = (

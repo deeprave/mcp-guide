@@ -1,0 +1,34 @@
+---
+type: agent/instruction
+usage: {{@}}guide :export <expression> <path> [--pattern <pattern>] [--force]
+argrequired:
+  - pattern
+---
+{{^args.0.value}}
+**Error:** Missing required argument: expression
+
+Usage: {{@}}guide :export <expression> <path> [--pattern <pattern>] [--force]
+{{/args.0.value}}
+{{#args.0.value}}
+{{^args.1.value}}
+**Error:** Missing required argument: path
+
+Usage: {{@}}guide :export <expression> <path> [--pattern <pattern>] [--force]
+{{/args.1.value}}
+{{#args.1.value}}
+Export Content to File
+
+Call the `{{tool_prefix}}export_content` tool with these arguments:
+
+```
+{{tool_prefix}}export_content(
+    expression="{{args.0.value}}",
+    path="{{args.1.value}}"{{#flag.pattern}},
+    pattern="{{flag.pattern}}"{{/flag.pattern}}{{#flag.force}},
+    force=True{{/flag.force}}
+)
+```
+
+Follow the returned instructions to write the content to the specified path.
+{{/args.1.value}}
+{{/args.0.value}}
