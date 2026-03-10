@@ -176,7 +176,7 @@ When `path` is omitted, the tool uses the `path-export` flag value plus a genera
 
 **Security:**
 
-Export paths are validated against `allowed_write_paths`. The `path-export` flag value is automatically added to allowed paths. Path traversal (`../`) and system directories (`/etc`, `/sys`) are blocked.
+Export file paths are automatically added to `allowed_write_paths` (the specific file, not the entire directory). Path traversal (`../`, `..\\`) is blocked in path flag values. System directories (`/etc`, `/sys`) are blocked for absolute paths.
 
 ## Next Steps
 
