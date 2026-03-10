@@ -1,6 +1,5 @@
 """MCP context data structures and management."""
 
-from contextvars import ContextVar
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
@@ -30,8 +29,20 @@ class CachedMcpContext:
     timestamp: float
 
 
-# ContextVar for comprehensive MCP context cache (thread-safe)
-cached_mcp_context: ContextVar[Optional[CachedMcpContext]] = ContextVar("cached_mcp_context", default=None)
+# Module-level global for MCP context cache — persists across requests.
+# MCP stdio transport processes one request at a time, so no locking is needed.
+_cached_mcp_context: Optional[CachedMcpContext] = None
+
+
+def get_cached_mcp_context() -> Optional[CachedMcpContext]:
+    """Return the cached MCP context."""
+    return _cached_mcp_context
+
+
+def set_cached_mcp_context(value: Optional[CachedMcpContext]) -> None:
+    """Set the cached MCP context."""
+    global _cached_mcp_context
+    _cached_mcp_context = value
 
 
 async def cache_mcp_globals(ctx: Optional["Context"] = None) -> bool:  # type: ignore[type-arg]
@@ -81,7 +92,7 @@ async def cache_mcp_globals(ctx: Optional["Context"] = None) -> bool:  # type: i
             # Continue - we can still cache agent info
 
         # Cache MCP context (even if roots failed)
-        cached_mcp_context.set(
+        set_cached_mcp_context(
             CachedMcpContext(
                 roots=roots,
                 project_name="",  # Will be set by resolve_project_name
@@ -98,7 +109,7 @@ async def cache_mcp_globals(ctx: Optional["Context"] = None) -> bool:  # type: i
             if hasattr(ctx, "session") and hasattr(ctx.session, "client_params") and ctx.session.client_params:
                 client_params = ctx.session.client_params
                 agent_info = detect_agent(client_params)
-                cached_mcp_context.set(
+                set_cached_mcp_context(
                     CachedMcpContext(
                         roots=[],
                         project_name="",
@@ -133,7 +144,7 @@ async def resolve_project_name() -> str:
     import os
 
     # Priority 1: Client roots from cached context
-    cached = cached_mcp_context.get()
+    cached = get_cached_mcp_context()
     if cached and cached.roots:
         first_root = cached.roots[0]
         if str(first_root.uri).startswith("file://"):
@@ -142,7 +153,7 @@ async def resolve_project_name() -> str:
             project_name = project_path.name
             if project_name:
                 # Update cached context with resolved project name
-                cached_mcp_context.set(
+                set_cached_mcp_context(
                     CachedMcpContext(
                         roots=cached.roots,
                         project_name=project_name,
@@ -173,7 +184,7 @@ async def resolve_project_path() -> Path:
     import os
 
     # Priority 1: Client roots from cached context
-    cached = cached_mcp_context.get()
+    cached = get_cached_mcp_context()
     if cached and cached.roots:
         first_root = cached.roots[0]
         if str(first_root.uri).startswith("file://"):

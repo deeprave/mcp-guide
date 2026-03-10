@@ -1,25 +1,13 @@
-## 1. Investigation
-- [ ] 1.1 Find where command results construct `instruction` and `description` fields
-- [ ] 1.2 Identify template context requirements (tool_prefix, INSTRUCTION_AGENT_INSTRUCTIONS, etc.)
-- [ ] 1.3 Locate existing template rendering utilities in render package
-- [ ] 1.4 Check if content rendering already handles this correctly
-- [ ] 1.5 Investigate how partial frontmatter is currently merged (regardless of usage)
+## 1. Fix: Partial instruction applied when partial not rendered
+- [x] 1.1 Wrap `processed_partials` dict in a tracking subclass that records which keys chevron actually accesses during rendering
+- [x] 1.2 After rendering, only collect frontmatter from partials that were actually accessed
+- [x] 1.3 Tests: partial instruction NOT applied when partial isn't in template body; IS applied when it is
 
-## 2. Implementation
-- [ ] 2.1 Wire template renderer into command result construction
-- [ ] 2.2 Ensure template context is available at render time
-- [ ] 2.3 Handle missing context gracefully (fallback to unrendered)
-- [ ] 2.4 Track which partials are actually rendered during Mustache processing
-- [ ] 2.5 Only merge frontmatter from partials that are actually used in output
+## 2. Fix: Partial instruction fields not rendered as templates
+- [x] 2.1 After loading partial content in `renderer.py`, render the partial's `instruction` and `description` fields through chevron with the current context
+- [x] 2.2 Tests: `{{INSTRUCTION_AGENT_INSTRUCTIONS}}` and `{{tool_prefix}}` resolve correctly in partial instructions
 
-## 3. Tests
-- [ ] 3.1 Test instruction field rendering with tool_prefix
-- [ ] 3.2 Test description field rendering
-- [ ] 3.3 Test INSTRUCTION_AGENT_INSTRUCTIONS expansion
-- [ ] 3.4 Test graceful handling of missing context
-- [ ] 3.5 Test partial instruction NOT applied when partial isn't rendered
-- [ ] 3.6 Test partial instruction IS applied when partial is rendered
-- [ ] 3.7 Test status command displays correctly (not overridden by unused _client-info)
-
-## 4. Documentation
-- [ ] 4.1 Document template variables available in instruction/description fields
+## 3. Validation
+- [x] 3.1 Status command displays correctly (not overridden by unused `_client-info` partial)
+- [x] 3.2 Commands that DO use `{{>client-info}}` still get the instruction applied
+- [x] 3.3 Full test suite passes

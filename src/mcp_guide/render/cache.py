@@ -10,7 +10,7 @@ from mcp_guide import __version__
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.discovery.files import FileInfo
 from mcp_guide.feature_flags.constants import FLAG_WORKFLOW, FLAG_WORKFLOW_CONSENT, FLAG_WORKFLOW_FILE
-from mcp_guide.mcp_context import cached_mcp_context
+from mcp_guide.mcp_context import get_cached_mcp_context
 from mcp_guide.render.context import TemplateContext
 from mcp_guide.result_constants import (
     INSTRUCTION_AGENT_INSTRUCTIONS,
@@ -100,7 +100,7 @@ class TemplateContextCache(SessionListener):
 
         # Try to get agent information from global ContextVar
         try:
-            cached_context = cached_mcp_context.get()
+            cached_context = get_cached_mcp_context()
             if cached_context and cached_context.agent_info:
                 agent_info = cached_context.agent_info
                 # Resolve the prompt prefix template with actual MCP name

@@ -188,8 +188,8 @@ class TestProjectNameDetection:
         """Caches entire roots list and derived project name."""
         import mcp_guide.session
 
-        # Reset cache (ContextVar)
-        mcp_guide.mcp_context.cached_mcp_context.set(None)
+        # Reset cache
+        mcp_guide.mcp_context.set_cached_mcp_context(None)
 
         mock_ctx = MagicMock()
         mock_root = MagicMock()
@@ -199,7 +199,7 @@ class TestProjectNameDetection:
         await mcp_guide.mcp_context.cache_mcp_globals(mock_ctx)
 
         # Check cache was populated with roots (project name is resolved separately)
-        cached = mcp_guide.mcp_context.cached_mcp_context.get()
+        cached = mcp_guide.mcp_context.get_cached_mcp_context()
         assert cached is not None
         assert len(cached.roots) == 1
         assert str(cached.roots[0].uri) == "file:///home/user/cached-project"
