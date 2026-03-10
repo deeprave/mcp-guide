@@ -74,10 +74,10 @@ async def internal_client_info(args: GetClientInfoArgs, ctx: Optional[Context] =
             # Update cached_mcp_context with agent info
             from time import time
 
-            from mcp_guide.mcp_context import CachedMcpContext, cached_mcp_context
+            from mcp_guide.mcp_context import CachedMcpContext, get_cached_mcp_context, set_cached_mcp_context
 
-            existing = cached_mcp_context.get()
-            cached_mcp_context.set(
+            existing = get_cached_mcp_context()
+            set_cached_mcp_context(
                 CachedMcpContext(
                     roots=existing.roots if existing else [],
                     project_name=existing.project_name if existing else "",

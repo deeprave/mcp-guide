@@ -349,3 +349,13 @@ def guide_function():
         logger.propagate = True
         logger.setLevel(logging.NOTSET)
     root.setLevel(logging.WARNING)
+
+
+@pytest.fixture(autouse=True)
+def reset_cached_mcp_context():
+    """Reset module-level MCP context cache between tests to prevent pollution."""
+    import mcp_guide.mcp_context
+
+    mcp_guide.mcp_context.set_cached_mcp_context(None)
+    yield
+    mcp_guide.mcp_context.set_cached_mcp_context(None)

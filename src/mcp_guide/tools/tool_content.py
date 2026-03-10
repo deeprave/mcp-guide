@@ -250,9 +250,9 @@ async def export_content(
     # Resolve agent name
     agent_name = ""
     try:
-        from mcp_guide.mcp_context import cached_mcp_context
+        from mcp_guide.mcp_context import get_cached_mcp_context
 
-        cached = cached_mcp_context.get()
+        cached = get_cached_mcp_context()
         if cached and cached.agent_info:
             agent_name = cached.agent_info.normalized_name.lower()
     except (AttributeError, LookupError) as e:

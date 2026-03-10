@@ -1,7 +1,7 @@
 """Template rendering utilities for Mustache templates."""
 
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, Optional, TypeVar
 
 import chevron
 from chevron import ChevronError
@@ -17,6 +17,29 @@ from mcp_guide.result import Result
 from mcp_guide.result_constants import INSTRUCTION_VALIDATION_ERROR
 
 logger = get_logger(__name__)
+
+_VT = TypeVar("_VT")
+
+
+class _TrackingDict(Dict[str, _VT]):
+    """Dict subclass that records which keys were accessed (for chevron partial tracking)."""
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.accessed: set[str] = set()
+
+    def __getitem__(self, key: str) -> _VT:
+        self.accessed.add(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default: Any = None) -> Any:
+        self.accessed.add(key)
+        return super().get(key, default)
+
+    def __contains__(self, key: object) -> bool:
+        if isinstance(key, str):
+            self.accessed.add(key)
+        return super().__contains__(key)
 
 
 def get_partial_name(include_path: str | Path) -> str:
@@ -89,8 +112,10 @@ async def render_template_content(
     try:
         # Process metadata (frontmatter) if provided
         render_context = context
-        processed_partials = partials or {}
+        processed_partials: Dict[str, str] = partials or {}
         partial_frontmatter_list: list[Dict[str, Any]] = []
+        # Maps partial name → its frontmatter (only for partials with content)
+        partial_frontmatter_by_name: Dict[str, Dict[str, Any]] = {}
 
         if metadata:
             # Add frontmatter data to context
@@ -129,9 +154,20 @@ async def render_template_content(
                                 )
 
                             processed_partials[partial_name] = partial_content
-                            # Only collect frontmatter if partial was actually rendered (has content)
+                            # Track frontmatter for partials that have content; actual
+                            # collection deferred until after rendering (usage tracking)
                             if partial_frontmatter and partial_content:
-                                partial_frontmatter_list.append(partial_frontmatter)
+                                # Render instruction/description fields as templates
+                                context_for_render = dict(render_context) if render_context else {}
+                                for field in ("instruction", "description"):
+                                    if field in partial_frontmatter and isinstance(partial_frontmatter[field], str):
+                                        try:
+                                            partial_frontmatter[field] = chevron.render(
+                                                partial_frontmatter[field], context_for_render
+                                            )
+                                        except chevron.ChevronError as e:
+                                            logger.warning(f"Failed to render {field} in partial {partial_name}: {e}")
+                                partial_frontmatter_by_name[partial_name] = partial_frontmatter
                             logger.trace(f"Loaded partial '{partial_name}' from {include_path}")
                         except PartialNotFoundError as e:
                             logger.error(f"Partial template not found: {include_path} - {e}")
@@ -159,10 +195,21 @@ async def render_template_content(
             }
         )
 
+        # Use a tracking dict so we know which partials chevron actually renders
+        tracking_partials: _TrackingDict[str] = _TrackingDict(processed_partials)
+
         # Render template with Chevron (TemplateContext works as ChainMap)
         logger.trace(f"Rendering template {file_path} with partials: {list(processed_partials.keys())}")
-        rendered = chevron.render(content, template_context, partials_dict=processed_partials)  # type: ignore[arg-type]
+        rendered = chevron.render(content, template_context, partials_dict=tracking_partials)  # type: ignore[arg-type]
         logger.trace(f"Template {file_path} rendered content ({len(rendered)} chars): {rendered[:1024]}")
+
+        # Only collect frontmatter from partials that were actually rendered
+        partial_frontmatter_list = [
+            partial_frontmatter_by_name[name]
+            for name in tracking_partials.accessed
+            if name in partial_frontmatter_by_name
+        ]
+
         return Result.ok((rendered, partial_frontmatter_list))
 
     except ChevronError as e:

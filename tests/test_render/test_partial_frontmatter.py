@@ -2,8 +2,10 @@
 
 import pytest
 
+from mcp_guide.render.context import TemplateContext
 from mcp_guide.render.frontmatter import Frontmatter
 from mcp_guide.render.partials import load_partial_content
+from mcp_guide.render.renderer import render_template_content
 
 
 @pytest.mark.asyncio
@@ -56,7 +58,6 @@ class TestPartialFrontmatter:
 @pytest.mark.asyncio
 async def test_partial_regular_instruction_does_not_override_parent(tmp_path):
     """Test that partial with regular instruction does not override parent instruction."""
-    from mcp_guide.render.renderer import render_template_content
 
     # Create parent template with regular instruction
     parent_content = "{{>child}}"
@@ -79,3 +80,98 @@ async def test_partial_regular_instruction_does_not_override_parent(tmp_path):
     assert result.is_ok()
     # Parent metadata should NOT be changed by child's regular instruction
     assert parent_metadata["instruction"] == "Parent instruction"
+
+
+@pytest.mark.asyncio
+async def test_unused_partial_instruction_not_applied(tmp_path):
+    """Bug fix: partial instruction must NOT be applied when partial isn't rendered.
+
+    If a partial is in the includes list but {{>partial}} is not in the template body,
+    chevron never renders it, so its frontmatter should not be collected.
+    """
+
+    # Template does NOT reference {{>client-info}}
+    template_content = "Status: OK"
+
+    # Partial with important instruction exists in includes
+    partial_path = tmp_path / "_client-info.mustache"
+    partial_path.write_text(
+        "---\ntype: agent/instruction\ninstruction: '^ Run client_info tool'\n---\nAgent detection required"
+    )
+
+    metadata = Frontmatter({"type": "user/information", "includes": ["client-info"]})
+    context = TemplateContext({})
+
+    result = await render_template_content(
+        template_content,
+        context,
+        file_path=str(tmp_path / "status.mustache"),
+        metadata=dict(metadata),
+        base_dir=tmp_path,
+    )
+
+    assert result.is_ok()
+    rendered_content, partial_frontmatter_list = result.value
+    assert rendered_content == "Status: OK"
+    # Partial was NOT rendered, so its frontmatter must NOT be in the list
+    assert partial_frontmatter_list == []
+
+
+@pytest.mark.asyncio
+async def test_used_partial_instruction_is_applied(tmp_path):
+    """Partial instruction IS applied when partial is actually rendered via {{>partial}}."""
+
+    # Template DOES reference {{>client-info}}
+    template_content = "Status: {{>client-info}}"
+
+    partial_path = tmp_path / "_client-info.mustache"
+    partial_path.write_text(
+        "---\ntype: agent/instruction\ninstruction: '^ Run client_info tool'\n---\nAgent detection required"
+    )
+
+    metadata = Frontmatter({"type": "user/information", "includes": ["client-info"]})
+    context = TemplateContext({})
+
+    result = await render_template_content(
+        template_content,
+        context,
+        file_path=str(tmp_path / "status.mustache"),
+        metadata=dict(metadata),
+        base_dir=tmp_path,
+    )
+
+    assert result.is_ok()
+    rendered_content, partial_frontmatter_list = result.value
+    assert "Agent detection required" in rendered_content
+    # Partial WAS rendered, so its frontmatter must be collected
+    assert len(partial_frontmatter_list) == 1
+    assert partial_frontmatter_list[0].get("instruction") == "^ Run client_info tool"
+
+
+@pytest.mark.asyncio
+async def test_partial_instruction_placeholders_resolved(tmp_path):
+    """Bug fix: placeholders like {{tool_prefix}} in partial instructions must be resolved."""
+
+    template_content = "{{>agent-detect}}"
+
+    partial_path = tmp_path / "_agent-detect.mustache"
+    partial_path.write_text(
+        "---\ntype: agent/instruction\ninstruction: 'Run {{tool_prefix}}client_info'\n---\nDetect agent"
+    )
+
+    metadata = Frontmatter({"includes": ["agent-detect"]})
+    context = TemplateContext({"tool_prefix": "my_"})
+
+    result = await render_template_content(
+        template_content,
+        context,
+        file_path=str(tmp_path / "parent.mustache"),
+        metadata=dict(metadata),
+        base_dir=tmp_path,
+    )
+
+    assert result.is_ok()
+    _, partial_frontmatter_list = result.value
+    assert len(partial_frontmatter_list) == 1
+    # Placeholder must be resolved
+    assert partial_frontmatter_list[0].get("instruction") == "Run my_client_info"

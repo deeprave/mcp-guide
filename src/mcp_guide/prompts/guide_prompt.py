@@ -469,10 +469,10 @@ async def _route_guide_request(argv: list[str], ctx: Optional["Context"]) -> Res
     # Validate arguments
     if len(argv) == 1 or (len(argv) == 2 and argv[1] == ""):
         # Get prompt prefix from cached agent info
-        from mcp_guide.mcp_context import cached_mcp_context
+        from mcp_guide.mcp_context import get_cached_mcp_context
 
         prompt_prefix = "@"  # Default
-        cached = cached_mcp_context.get()
+        cached = get_cached_mcp_context()
         if cached and cached.agent_info:
             prompt_prefix = cached.agent_info.prompt_prefix.replace("{mcp_name}", "guide")
 
