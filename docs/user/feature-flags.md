@@ -80,8 +80,9 @@ Use the flag commands to get, set, and remove flags:
 - `workflow-consent` set to `true` applies default consent: implementation requires entry consent, review requires exit consent
 - `workflow-consent` can be a dict for custom consent: `{"planning": ["entry"], "implementation": ["entry", "exit"]}`
 - `path-documents` and `path-export` accept both relative paths (`.todo/`) and absolute paths (`/tmp/knowledge/`, `~/.goose/knowledge/`)
-- Path flags automatically add trailing slash if missing
-- Path flags are validated for security: path traversal (`../`) and system directories (`/etc`, `/sys`, `/proc`) are blocked
+- Path flags automatically add trailing slash if missing and normalize backslashes to forward slashes
+- Path flags are validated for security: path traversal (`../`, `..\\`) is blocked
+- For absolute paths, system directories (`/etc`, `/sys`, `/proc`) are blocked
 - Resolved path flag values are automatically added to `allowed_write_paths` for security policy compliance
 
 ## Using Flags in Templates

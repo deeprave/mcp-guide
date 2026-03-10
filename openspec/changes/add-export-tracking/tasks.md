@@ -1,0 +1,21 @@
+## Implementation
+
+- [ ] 1.1 Add `ExportedTo` model (path, mtime)
+- [ ] 1.2 Add `exports: Dict[Tuple[str, Optional[str]], ExportedTo]` field to Project model
+- [ ] 1.3 Add `get_export_entry()` method to lookup by (expression, pattern) tuple
+- [ ] 1.4 Add `upsert_export_entry()` method to update tracking
+- [ ] 2.1 Modify file discovery to accept optional `updated_since` parameter
+- [ ] 2.2 Filter files in discovery where `mtime <= updated_since`
+- [ ] 2.3 Return early if no files pass mtime filter
+- [ ] 3.1 Add `force` parameter to `export_content` tool
+- [ ] 3.2 Check export tracking before content gathering
+- [ ] 3.3 Pass `updated_since=None` when `force=True`
+- [ ] 3.4 Return "already available" message when content unchanged
+- [ ] 3.5 Upsert tracking entry after successful export
+- [ ] 3.6 Detect agent name for message customization
+- [ ] 4.1 Write unit tests for ExportedTo model
+- [ ] 4.2 Write unit tests for mtime filtering in discovery
+- [ ] 4.3 Write integration tests for staleness detection
+- [ ] 4.4 Write integration tests for force flag behavior
+- [ ] 5.1 Update content-management.md with tracking behavior
+- [ ] 5.2 Document force flag usage

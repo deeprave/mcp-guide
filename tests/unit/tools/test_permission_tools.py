@@ -36,11 +36,15 @@ async def test_session(tmp_path):
         # Valid write paths - specific files
         ("write", "config.json", True),
         ("write", ".guide.yaml", True),
+        # Valid write paths - absolute
+        ("write", "/tmp/exports/", True),
+        ("write", "/home/user/knowledge/", True),
         # Valid read paths
         ("read", "/absolute/path", True),
         ("read", "/home/user/data", True),
-        # Invalid write paths
-        ("write", "/absolute/path", False),  # Must be relative
+        # Invalid write paths - system directories
+        ("write", "/etc/", False),
+        ("write", "/sys/kernel/", False),
         # Invalid read paths
         ("read", "relative/path", False),  # Must be absolute
     ],

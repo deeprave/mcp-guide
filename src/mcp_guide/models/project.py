@@ -109,17 +109,23 @@ class Project:
     @field_validator("allowed_write_paths")
     @classmethod
     def validate_allowed_write_paths(cls, v: list[str]) -> list[str]:
-        """Validate that all allowed write paths are safe, consistent, and relative."""
+        """Validate allowed write paths (relative or absolute). Block system directories for absolute paths."""
+        from mcp_guide.filesystem.system_directories import is_system_directory
+
         for path in v:
             if not path:
                 raise ValueError("Allowed write path cannot be empty")
 
-            # Check that path is relative
-            if os.path.isabs(path):
-                raise ValueError(f"Write allowed path must be relative: {path}")
+            # Normalize separators
+            normalized = path.replace("\\", "/")
 
-            # Use existing validation for security checks
-            validate_directory_path(path)
+            # For absolute paths, block system directories
+            if os.path.isabs(path) and is_system_directory(normalized):
+                raise ValueError(f"System directory not allowed: {path}")
+
+            # For relative paths, use existing validation
+            if not os.path.isabs(path):
+                validate_directory_path(path)
 
         return v
 
