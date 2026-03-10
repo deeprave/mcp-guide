@@ -3,7 +3,7 @@
 from dataclasses import replace
 from typing import TYPE_CHECKING, Optional
 
-from mcp_guide.feature_flags.validators import validate_flag_with_registered
+from mcp_guide.feature_flags.validators import normalise_flag, validate_flag_with_registered
 
 if TYPE_CHECKING:
     from mcp_guide.models import Project
@@ -33,6 +33,7 @@ class ProjectFlags:
         if value is None:
             await self.remove(flag_name)
             return
+        value = normalise_flag(flag_name, value)
         validate_flag_with_registered(flag_name, value, is_project=True)
 
         def updater(project: "Project") -> "Project":

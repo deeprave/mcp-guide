@@ -9,6 +9,8 @@ from mcp_guide.feature_flags.constants import (
     FLAG_CONTENT_FORMAT,
     FLAG_CONTENT_STYLE,
     FLAG_GUIDE_DEVELOPMENT,
+    FLAG_PATH_DOCUMENTS,
+    FLAG_PATH_EXPORT,
 )
 from mcp_guide.feature_flags.types import FeatureValue
 from mcp_guide.feature_flags.types import validate_feature_value_type as validate_flag_value
@@ -19,6 +21,7 @@ __all__ = [
     "validate_flag_value",
     "register_flag_validator",
     "validate_flag_with_registered",
+    "normalise_flag",
     "clear_validators",
     "FlagValidationError",
     "FlagScope",
@@ -44,6 +47,9 @@ _FLAG_VALIDATORS: Dict[str, Callable[[FeatureValue, bool], bool]] = {}
 
 # Registry for flag scope restrictions
 _FLAG_SCOPES: Dict[str, FlagScope] = {}
+
+# Registry for flag-specific normalisers
+_FLAG_NORMALISERS: Dict[str, Callable[[FeatureValue], FeatureValue]] = {}
 
 
 class FlagValidationError(Exception):
@@ -172,8 +178,52 @@ def validate_boolean_flag(value: FeatureValue, is_project: bool) -> bool:
     return False
 
 
+def validate_path_flag(value: FeatureValue, is_project: bool) -> bool:
+    """Validate path flag value.
+
+    Accepts non-empty strings without path traversal.
+
+    Args:
+        value: Flag value to validate
+        is_project: True if this is a project flag, False if global
+
+    Returns:
+        True if value is a valid path string, False otherwise
+    """
+    if not isinstance(value, str) or not value:
+        return False
+    normalised = value.replace("\\", "/")
+    return ".." not in normalised.split("/")
+
+
+def normalise_path_flag(value: FeatureValue) -> FeatureValue:
+    """Normalise path flag value by ensuring trailing slash."""
+    if isinstance(value, str) and not value.endswith("/"):
+        return value + "/"
+    return value
+
+
+def normalise_flag(flag_name: str, value: FeatureValue) -> FeatureValue:
+    """Normalise flag value using its registered normaliser.
+
+    Args:
+        flag_name: Name of the flag
+        value: Flag value to normalise
+
+    Returns:
+        Normalised flag value, or original if no normaliser registered
+    """
+    normaliser = _FLAG_NORMALISERS.get(flag_name)
+    if normaliser:
+        return normaliser(value)
+    return value
+
+
 def register_flag_validator(
-    flag_name: str, validator: Callable[[FeatureValue, bool], bool], scope: FlagScope = FlagScope.BOTH
+    flag_name: str,
+    validator: Callable[[FeatureValue, bool], bool],
+    scope: FlagScope = FlagScope.BOTH,
+    normaliser: Callable[[FeatureValue], FeatureValue] | None = None,
 ) -> None:
     """Register a validator function for a specific flag.
 
@@ -181,9 +231,12 @@ def register_flag_validator(
         flag_name: Name of the flag
         validator: Function that validates the flag value and context
         scope: Scope restriction for the flag (default: BOTH)
+        normaliser: Optional function to normalise the value before validation
     """
     _FLAG_VALIDATORS[flag_name] = validator
     _FLAG_SCOPES[flag_name] = scope
+    if normaliser:
+        _FLAG_NORMALISERS[flag_name] = normaliser
 
 
 def validate_flag_with_registered(flag_name: str, value: FeatureValue, is_project: bool) -> None:
@@ -220,6 +273,7 @@ def clear_validators() -> None:
     """Clear all registered validators. For testing only."""
     _FLAG_VALIDATORS.clear()
     _FLAG_SCOPES.clear()
+    _FLAG_NORMALISERS.clear()
 
 
 # Register validators
@@ -228,3 +282,5 @@ register_flag_validator(FLAG_CONTENT_STYLE, validate_template_styling)
 register_flag_validator(FLAG_ALLOW_CLIENT_INFO, validate_allow_client_info, FlagScope.FEATURE_ONLY)
 register_flag_validator(FLAG_AUTOUPDATE, validate_autoupdate, FlagScope.FEATURE_ONLY)
 register_flag_validator(FLAG_GUIDE_DEVELOPMENT, validate_boolean_flag)
+register_flag_validator(FLAG_PATH_DOCUMENTS, validate_path_flag, normaliser=normalise_path_flag)
+register_flag_validator(FLAG_PATH_EXPORT, validate_path_flag, normaliser=normalise_path_flag)

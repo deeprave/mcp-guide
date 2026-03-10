@@ -322,6 +322,27 @@ class TemplateContextCache(SessionListener):
         except Exception as e:
             logger.debug(f"Failed to get client working directory: {e}")
 
+        # Resolve path flags for template context with validation
+        path_config = {
+            "documents": ".todo/",  # Default
+            "export": ".knowledge/",  # Default
+        }
+        try:
+            if session:
+                from mcp_guide.feature_flags.constants import FLAG_PATH_DOCUMENTS, FLAG_PATH_EXPORT
+                from mcp_guide.feature_flags.utils import get_resolved_flag_value
+                from mcp_guide.feature_flags.validators import validate_path_flag
+
+                documents_path = await get_resolved_flag_value(session, FLAG_PATH_DOCUMENTS)
+                export_path = await get_resolved_flag_value(session, FLAG_PATH_EXPORT)
+
+                if documents_path and isinstance(documents_path, str) and validate_path_flag(documents_path, True):
+                    path_config["documents"] = documents_path
+                if export_path and isinstance(export_path, str) and validate_path_flag(export_path, True):
+                    path_config["export"] = export_path
+        except Exception as e:
+            logger.debug(f"Failed to resolve path flags: {e}")
+
         # Resolve workflow flags for template context
         workflow_config: dict[str, Any] | None = None
         try:
@@ -420,6 +441,7 @@ class TemplateContextCache(SessionListener):
                 "project_flag_values": project_flag_values,
             },
             "client_working_dir": client_working_dir,
+            "path": path_config,  # Path flags (documents, export)
             "flags": resolved_flags_dict,  # Resolved flags (project + global with overrides)
             "flag_values": resolved_flags_list,  # List format for iteration
             "feature_flags": global_flags_dict,  # Global flags only (dict format)
