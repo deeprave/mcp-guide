@@ -4,7 +4,7 @@
 
 import contextlib
 import logging
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from typing import Optional
 
 from mcp.server.fastmcp import Context
@@ -270,19 +270,28 @@ async def export_content(
     # Resolve the output path
     output_path = _resolve_export_path(args.path, agent_name, export_flag)
 
-    # Add the directory to allowed_write_paths
-    export_dir: str = f"{PurePosixPath(output_path).parent.as_posix()}/"
+    # Add the specific file path to allowed_write_paths only if not already covered
     try:
         project = await session.get_project()
-        if export_dir not in project.allowed_write_paths:
+
+        # Check if path is already permitted by testing against security policy
+        from mcp_guide.filesystem.read_write_security import ReadWriteSecurityPolicy
+
+        policy = ReadWriteSecurityPolicy(
+            write_allowed_paths=project.allowed_write_paths,
+            additional_read_paths=project.additional_read_paths,
+        )
+
+        # If validation fails, path is not covered - add it
+        if not policy.validate_write_path(output_path):
             from dataclasses import replace as dc_replace
 
-            updated = dc_replace(project, allowed_write_paths=[*project.allowed_write_paths, export_dir])
+            updated = dc_replace(project, allowed_write_paths=[*project.allowed_write_paths, output_path])
             await session.update_config(lambda _: updated)
     except Exception as e:
         return await tool_result(
             "export_content",
-            Result.failure(f"Cannot add export directory to allowed write paths: {e}", error_type="validation"),
+            Result.failure(f"Cannot add export file to allowed write paths: {e}", error_type="validation"),
         )
 
     # Build instruction
