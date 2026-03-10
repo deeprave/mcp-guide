@@ -632,6 +632,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#path" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        path.*
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#feature-flags" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1246,6 +1257,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#path" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        path.*
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#feature-flags" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1547,6 +1569,17 @@ Content here...
 <li><code>{{project.openspec_validated}}</code> - Whether OpenSpec validation completed</li>
 <li><code>{{project.openspec_version}}</code> - OpenSpec CLI version if detected</li>
 </ul>
+<h3 id="path">path.*<a class="headerlink" href="#path" title="Permanent link">&para;</a></h3>
+<p>Path configuration from flags:</p>
+<ul>
+<li><code>{{path.documents}}</code> - Workflow documents directory (from <code>path-documents</code> flag, default <code>.todo/</code>)</li>
+<li><code>{{path.export}}</code> - Knowledge export directory (from <code>path-export</code> flag, agent-specific default)</li>
+</ul>
+<p>Use these in templates instead of hardcoding paths:</p>
+<div class="codehilite"><pre><span></span><code>Implementation plan: {{path.documents}}plan.md
+Export knowledge: {{path.export}}architecture.md
+</code></pre></div>
+
 <h3 id="feature-flags">Feature Flags<a class="headerlink" href="#feature-flags" title="Permanent link">&para;</a></h3>
 <p>Feature flags:</p>
 <ul>

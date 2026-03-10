@@ -609,6 +609,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#exporting-content" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Exporting Content
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#next-steps" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1107,6 +1118,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#exporting-content" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Exporting Content
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#next-steps" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1284,6 +1306,31 @@ If the document has <code>type: agent/instruction</code> (and most are), the doc
 <li><strong>Metadata</strong> - Frontmatter controls inclusion and behaviour</li>
 </ol>
 <p>See <a href="../categories-and-collections/">Categories and Collections</a> for organisation details.</p>
+<h2 id="exporting-content">Exporting Content<a class="headerlink" href="#exporting-content" title="Permanent link">&para;</a></h2>
+<p>The <code>export_content</code> tool allows agents to export rendered content to files for knowledge persistence:</p>
+<div class="codehilite"><pre><span></span><code><span class="n">export_content</span><span class="p">(</span><span class="n">expression</span><span class="o">=</span><span class="s2">&quot;docs&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">path</span><span class="o">=</span><span class="s2">&quot;documentation.md&quot;</span><span class="p">)</span>
+<span class="n">export_content</span><span class="p">(</span><span class="n">expression</span><span class="o">=</span><span class="s2">&quot;architecture&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">path</span><span class="o">=</span><span class="s2">&quot;arch.md&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">pattern</span><span class="o">=</span><span class="s2">&quot;*.md&quot;</span><span class="p">)</span>
+<span class="n">export_content</span><span class="p">(</span><span class="n">expression</span><span class="o">=</span><span class="s2">&quot;api-guide&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">path</span><span class="o">=</span><span class="s2">&quot;api.md&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">force</span><span class="o">=</span><span class="n">True</span><span class="p">)</span><span class="w">  </span><span class="c1"># Overwrite existing</span>
+</code></pre></div>
+
+<p><strong>Arguments:</strong></p>
+<ul>
+<li><code>expression</code> - Content expression (category, collection, or pattern)</li>
+<li><code>path</code> - Output filename (required). If no directory component, uses resolved export directory</li>
+<li><code>pattern</code> - Optional glob pattern to filter files</li>
+<li><code>force</code> - Overwrite existing files (default: False)</li>
+</ul>
+<p><strong>Path Resolution:</strong></p>
+<ul>
+<li>Filename only (<code>"output.md"</code>) → prepends resolved export directory</li>
+<li>With directory (<code>"docs/output.md"</code>) → uses as-is</li>
+<li>No extension → <code>.md</code> added automatically</li>
+<li>Export directory resolution: <code>path-export</code> flag → agent default → <code>.knowledge/</code></li>
+</ul>
+<p><strong>Path defaulting:</strong></p>
+<p>When <code>path</code> is omitted, the tool uses the <code>path-export</code> flag value plus a generated filename based on the expression. For Goose agents, this defaults to <code>~/.goose/projects/{project-hash}/knowledge/</code>, allowing knowledge to persist across sessions.</p>
+<p><strong>Security:</strong></p>
+<p>Export file paths are automatically added to <code>allowed_write_paths</code> (the specific file, not the entire directory). Path traversal (<code>../</code>, <code>..\\</code>) is blocked in path flag values. System directories (<code>/etc</code>, <code>/sys</code>) are blocked for absolute paths.</p>
 <h2 id="next-steps">Next Steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong><a href="../categories-and-collections/">Categories and Collections</a></strong> - Organising content</li>

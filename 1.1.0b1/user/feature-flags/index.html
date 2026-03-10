@@ -1099,6 +1099,18 @@
 <td><code>text</code></td>
 </tr>
 <tr>
+<td><code>path-documents</code></td>
+<td>Directory path for workflow tracking documents (plans, checklists, summaries). Supports both relative (<code>.todo/</code>) and absolute (<code>~/.goose/projects/knowledge/</code>) paths. Auto-added to <code>allowed_write_paths</code>.</td>
+<td><code>string</code></td>
+<td><code>.todo/</code></td>
+</tr>
+<tr>
+<td><code>path-export</code></td>
+<td>Directory path for exported knowledge content. Agent-specific defaults: Goose uses <code>~/.goose/projects/{project-hash}/knowledge/</code>, others use <code>.kiro/knowledge/</code>. Auto-added to <code>allowed_write_paths</code>.</td>
+<td><code>string</code></td>
+<td>(agent-specific)</td>
+</tr>
+<tr>
 <td><code>allow-client-info</code></td>
 <td>Enables collection of client environment information (OS, hostname, user, git remotes). Privacy-sensitive.</td>
 <td><code>boolean</code></td>
@@ -1124,6 +1136,11 @@
 <li><code>workflow</code> can be a list to enable specific phases: <code>["discussion", "planning", "implementation"]</code> (<code>discussion</code> and <code>implementation</code> are mandatory)</li>
 <li><code>workflow-consent</code> set to <code>true</code> applies default consent: implementation requires entry consent, review requires exit consent</li>
 <li><code>workflow-consent</code> can be a dict for custom consent: <code>{"planning": ["entry"], "implementation": ["entry", "exit"]}</code></li>
+<li><code>path-documents</code> and <code>path-export</code> accept both relative paths (<code>.todo/</code>) and absolute paths (<code>/tmp/knowledge/</code>, <code>~/.goose/knowledge/</code>)</li>
+<li>Path flags automatically add trailing slash if missing and normalize backslashes to forward slashes</li>
+<li>Path flags are validated for security: path traversal (<code>../</code>, <code>..\\</code>) is blocked</li>
+<li>For absolute paths, system directories (<code>/etc</code>, <code>/sys</code>, <code>/proc</code>) are blocked</li>
+<li>Resolved path flag values are automatically added to <code>allowed_write_paths</code> for security policy compliance</li>
 </ul>
 <h2 id="using-flags-in-templates">Using Flags in Templates<a class="headerlink" href="#using-flags-in-templates" title="Permanent link">&para;</a></h2>
 <h3 id="conditional-content">Conditional Content<a class="headerlink" href="#conditional-content" title="Permanent link">&para;</a></h3>
