@@ -181,7 +181,7 @@ def validate_boolean_flag(value: FeatureValue, is_project: bool) -> bool:
 def validate_path_flag(value: FeatureValue, is_project: bool) -> bool:
     """Validate path flag value.
 
-    Accepts non-empty strings without path traversal.
+    Accepts non-empty, whitespace-trimmed strings (relative or absolute) without path traversal.
 
     Args:
         value: Flag value to validate
@@ -190,16 +190,37 @@ def validate_path_flag(value: FeatureValue, is_project: bool) -> bool:
     Returns:
         True if value is a valid path string, False otherwise
     """
-    if not isinstance(value, str) or not value:
+    if not isinstance(value, str):
         return False
+
+    # Strip leading/trailing whitespace to avoid confusing invisible padding
+    value = value.strip()
+    if not value:
+        return False
+
     normalised = value.replace("\\", "/")
-    return ".." not in normalised.split("/")
+
+    # Block path traversal
+    if ".." in normalised.split("/"):
+        return False
+
+    # Block system directories for absolute paths
+    if normalised.startswith("/"):
+        from mcp_guide.filesystem.system_directories import is_system_directory
+
+        if is_system_directory(normalised):
+            return False
+
+    return True
 
 
 def normalise_path_flag(value: FeatureValue) -> FeatureValue:
-    """Normalise path flag value by ensuring trailing slash."""
-    if isinstance(value, str) and not value.endswith("/"):
-        return value + "/"
+    """Normalise path flag value by using POSIX separators and ensuring trailing slash."""
+    if isinstance(value, str):
+        normalised = value.replace("\\", "/")
+        if not normalised.endswith("/"):
+            normalised += "/"
+        return normalised
     return value
 
 

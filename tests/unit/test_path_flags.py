@@ -21,11 +21,40 @@ def _ensure_path_flags_registered():
 
 
 class TestValidatePathFlag:
-    @pytest.mark.parametrize("path", [".todo/", ".todo", ".kiro/knowledge/"])
+    @pytest.mark.parametrize(
+        "path",
+        [
+            ".todo/",
+            ".todo",
+            ".kiro/knowledge/",
+            "  .todo/  ",
+            "\t.todo\t",
+            "/tmp/knowledge/",  # absolute path
+            "~/.goose/knowledge/",  # home directory
+        ],
+    )
     def test_valid_paths(self, path):
         assert validate_path_flag(path, False) is True
 
-    @pytest.mark.parametrize("path", ["", None, True, 42, "../etc/", "foo/../../bar"])
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "",
+            None,
+            True,
+            42,
+            "../etc/",
+            "foo/../../bar",
+            "..\\etc\\",  # Windows-style traversal
+            "foo\\..\\..\\bar",  # Windows-style multi-level traversal
+            "..\\etc/..\\",  # mixed separators with traversal
+            "foo/..\\bar",  # mixed separators with traversal
+            "   ",  # only whitespace
+            "/etc/",  # system directory
+            "/sys/kernel/",  # system directory
+            "/proc/",  # system directory
+        ],
+    )
     def test_invalid_paths(self, path):
         assert validate_path_flag(path, False) is False
 
