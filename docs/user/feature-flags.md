@@ -67,6 +67,8 @@ Use the flag commands to get, set, and remove flags:
 | `startup-instruction` | Content expression to load when project session starts. Queued as high-priority instruction for immediate agent context. Supports any valid content expression (collection, category, or pattern). | `string` | (not set) |
 | `content-style` | Controls markdown formatting in template output. `plain` = strips all formatting, `headings` = renders heading markers only, `full` = renders all markdown. | `string` | `plain` |
 | `content-format` | Controls content MIME type. `text` = plain text, `mime` = MIME multipart format. | `string` | `text` |
+| `path-documents` | Directory path for workflow tracking documents (plans, checklists, summaries). Supports both relative (`.todo/`) and absolute (`~/.goose/projects/knowledge/`) paths. Auto-added to `allowed_write_paths`. | `string` | `.todo/` |
+| `path-export` | Directory path for exported knowledge content. Agent-specific defaults: Goose uses `~/.goose/projects/{project-hash}/knowledge/`, others use `.kiro/knowledge/`. Auto-added to `allowed_write_paths`. | `string` | (agent-specific) |
 | `allow-client-info` | Enables collection of client environment information (OS, hostname, user, git remotes). Privacy-sensitive. | `boolean` | `false` |
 | `autoupdate` | Enables automatic update prompting at startup when new documentation versions are available. Prompts agent to run the `update_documents` tool. Global only (cannot be set per-project). | `boolean` | `false` |
 | `guide-development` | Enables development features for mcp-guide itself. | `boolean` | `false` |
@@ -77,6 +79,10 @@ Use the flag commands to get, set, and remove flags:
 - `workflow` can be a list to enable specific phases: `["discussion", "planning", "implementation"]` (`discussion` and `implementation` are mandatory)
 - `workflow-consent` set to `true` applies default consent: implementation requires entry consent, review requires exit consent
 - `workflow-consent` can be a dict for custom consent: `{"planning": ["entry"], "implementation": ["entry", "exit"]}`
+- `path-documents` and `path-export` accept both relative paths (`.todo/`) and absolute paths (`/tmp/knowledge/`, `~/.goose/knowledge/`)
+- Path flags automatically add trailing slash if missing
+- Path flags are validated for security: path traversal (`../`) and system directories (`/etc`, `/sys`, `/proc`) are blocked
+- Resolved path flag values are automatically added to `allowed_write_paths` for security policy compliance
 
 ## Using Flags in Templates
 

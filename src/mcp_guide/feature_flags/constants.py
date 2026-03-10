@@ -16,6 +16,26 @@ FLAG_CONTENT_STYLE = "content-style"
 # Startup flags
 FLAG_STARTUP_INSTRUCTION = "startup-instruction"
 
+# Path flags
+FLAG_PATH_DOCUMENTS = "path-documents"
+FLAG_PATH_EXPORT = "path-export"
+
+DEFAULT_EXPORT_DIR = ".knowledge/"
+
+AGENT_KNOWLEDGE_DIRS: dict[str, str] = {
+    "kiro": ".kiro/knowledge/",
+    "q-dev": ".kiro/knowledge/",
+    "claude": ".claude/knowledge/",
+    "claude-code": ".claude/knowledge/",
+    "cursor": ".cursor/knowledge/",
+    "cursor-agent": ".cursor/knowledge/",
+    "copilot": ".github/instructions/knowledge/",
+    "gemini": ".gemini/knowledge/",
+    "codex": ".codex/knowledge/",
+    "goose": ".goose/skills/",
+    "block-goose-cli": ".goose/skills/",
+}
+
 # Update flags
 FLAG_AUTOUPDATE = "autoupdate"
 

@@ -7,12 +7,12 @@ instruction: Use these tools when required to check your code. Run the checks - 
 
 These are the guidelines to follow for testing python code.
 
-To enhace the quality of code the following checks are mandatory during the CHECKS phase:
+To enhance the quality of code the following checks are mandatory during the CHECK phase:
 
-- Test   - `pytest -v -Walways`       - ensure that all tests pass and there are no warnings
-- Lint   - `ruff check`               - ensure that all lint checks are fixed
-- Types  - `mypy`                     - ensure that full typing is correct and issues fixed
-- Format - `ruff format`              - format code to a known standard
+- Test   - `pytest -v -Werror -Walways` - ensure that all tests pass and there are no warnings
+- Lint   - `ruff check`                 - ensure that all lint checks are fixed
+- Types  - `mypy`                       - ensure that full typing is correct and issues fixed
+- Format - `ruff format`                - format code to a known standard
 
 {{b}}REQUIRED{{b}}
 - ALL tests MUST PASS WITHOUT WARNINGS. NO EXCEPTIONS
@@ -21,6 +21,11 @@ To enhace the quality of code the following checks are mandatory during the CHEC
 
 For tools with an option to fix issues NEVER use "unsafe" versions.
 Examine the error, do an analysis and fix it directly.
+
+- Use pytest's `parametrize` feature to collapse same-logic tests into easily maintained and consistent test functions.
+- Avoid use of loops - see `parametrize`
+- Avoid use of conditionals in tests
+- Ensure as many known edge cases are fully covered.
 
 Partially running tests is NOT ACCEPTABLE. You must do final checks by running ALL tests. NO EXCEPTIONS.
 

@@ -146,6 +146,38 @@ mcp-guide discovers content through:
 
 See [Categories and Collections](categories-and-collections.md) for organisation details.
 
+## Exporting Content
+
+The `export_content` tool allows agents to export rendered content to files for knowledge persistence:
+
+```
+export_content(expression="docs", path="documentation.md")
+export_content(expression="architecture", path="arch.md", pattern="*.md")
+export_content(expression="api-guide", path="api.md", force=True)  # Overwrite existing
+```
+
+**Arguments:**
+
+- `expression` - Content expression (category, collection, or pattern)
+- `path` - Output filename (required). If no directory component, uses resolved export directory
+- `pattern` - Optional glob pattern to filter files
+- `force` - Overwrite existing files (default: False)
+
+**Path Resolution:**
+
+- Filename only (`"output.md"`) → prepends resolved export directory
+- With directory (`"docs/output.md"`) → uses as-is
+- No extension → `.md` added automatically
+- Export directory resolution: `path-export` flag → agent default → `.knowledge/`
+
+**Path defaulting:**
+
+When `path` is omitted, the tool uses the `path-export` flag value plus a generated filename based on the expression. For Goose agents, this defaults to `~/.goose/projects/{project-hash}/knowledge/`, allowing knowledge to persist across sessions.
+
+**Security:**
+
+Export paths are validated against `allowed_write_paths`. The `path-export` flag value is automatically added to allowed paths. Path traversal (`../`) and system directories (`/etc`, `/sys`) are blocked.
+
 ## Next Steps
 
 - **[Categories and Collections](categories-and-collections.md)** - Organising content

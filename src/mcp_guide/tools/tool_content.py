@@ -2,7 +2,9 @@
 
 """Unified content access tool - get_content."""
 
-from pathlib import Path
+import contextlib
+import logging
+from pathlib import Path, PurePosixPath
 from typing import Optional
 
 from mcp.server.fastmcp import Context
@@ -31,6 +33,8 @@ from mcp_guide.result_constants import (
 )
 from mcp_guide.session import get_or_create_session
 from mcp_guide.tools.tool_result import tool_result
+
+logger = logging.getLogger(__name__)
 
 __all__ = ["ContentArgs", "internal_get_content"]
 
@@ -175,3 +179,117 @@ async def get_content(
     """
     result = await internal_get_content(args, ctx)
     return await tool_result("get_content", result)
+
+
+class ExportContentArgs(ToolArguments):
+    """Arguments for export_content tool."""
+
+    expression: str = Field(
+        ...,
+        description="Name to match against collections and categories.",
+    )
+    pattern: str | None = Field(
+        None,
+        description="Optional glob pattern to filter files (e.g., '*.md').",
+    )
+    path: str = Field(
+        ...,
+        description="Output filename. If no directory component, uses resolved export directory. "
+        "Extension .md added if missing.",
+    )
+    force: bool = Field(
+        False,
+        description="Overwrite existing file. Default is create-only.",
+    )
+
+
+def _resolve_export_path(path: str, session_agent_name: str, resolved_export_flag: str | None) -> str:
+    """Resolve the export path from user input.
+
+    - Ensures .md extension
+    - If no directory component, prepends the resolved export directory
+    """
+    from pathlib import PurePosixPath
+
+    p = PurePosixPath(path)
+
+    # Add .md if no extension
+    if not p.suffix:
+        p = p.with_suffix(".md")
+
+    # If no directory component, prepend export directory
+    if p.parent == PurePosixPath("."):
+        if resolved_export_flag:
+            export_dir = resolved_export_flag
+        else:
+            from mcp_guide.feature_flags.constants import AGENT_KNOWLEDGE_DIRS, DEFAULT_EXPORT_DIR
+
+            export_dir = AGENT_KNOWLEDGE_DIRS.get(session_agent_name, DEFAULT_EXPORT_DIR)
+        p = PurePosixPath(export_dir) / p
+
+    return str(p)
+
+
+@toolfunc(ExportContentArgs)
+async def export_content(
+    args: ExportContentArgs,
+    ctx: Optional[Context] = None,  # type: ignore[type-arg]
+) -> str:
+    """Export rendered content to a file for knowledge indexing.
+
+    Reuses get_content logic to gather and render content, then returns it with
+    an instruction to write to the resolved path.
+    """
+    # Get rendered content
+    content_args = ContentArgs(expression=args.expression, pattern=args.pattern)
+    result = await internal_get_content(content_args, ctx)
+
+    if not result.success:
+        return await tool_result("export_content", result)
+
+    # Resolve agent name
+    agent_name = ""
+    try:
+        from mcp_guide.mcp_context import cached_mcp_context
+
+        cached = cached_mcp_context.get()
+        if cached and cached.agent_info:
+            agent_name = cached.agent_info.normalized_name.lower()
+    except (AttributeError, LookupError) as e:
+        logger.warning(f"Agent detection failed, using default export path: {e}")
+    # Resolve path-export flag
+    session = await get_or_create_session(ctx)
+    export_flag = None
+    with contextlib.suppress(Exception):
+        from mcp_guide.feature_flags.constants import FLAG_PATH_EXPORT
+        from mcp_guide.feature_flags.utils import get_resolved_flag_value
+
+        val = await get_resolved_flag_value(session, FLAG_PATH_EXPORT)
+        if isinstance(val, str):
+            export_flag = val
+    # Resolve the output path
+    output_path = _resolve_export_path(args.path, agent_name, export_flag)
+
+    # Add the directory to allowed_write_paths
+    export_dir: str = f"{PurePosixPath(output_path).parent.as_posix()}/"
+    try:
+        project = await session.get_project()
+        if export_dir not in project.allowed_write_paths:
+            from dataclasses import replace as dc_replace
+
+            updated = dc_replace(project, allowed_write_paths=[*project.allowed_write_paths, export_dir])
+            await session.update_config(lambda _: updated)
+    except Exception as e:
+        return await tool_result(
+            "export_content",
+            Result.failure(f"Cannot add export directory to allowed write paths: {e}", error_type="validation"),
+        )
+
+    # Build instruction
+    instruction = (
+        f"Write the content below to `{output_path}` (overwrite if it already exists)"
+        if args.force
+        else f"Write the content below to `{output_path}` (create only - do not overwrite if it exists)"
+    )
+
+    return await tool_result("export_content", Result.ok(result.value, instruction=instruction))

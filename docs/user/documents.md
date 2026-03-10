@@ -135,6 +135,20 @@ Project information:
 - `{{project.openspec_validated}}` - Whether OpenSpec validation completed
 - `{{project.openspec_version}}` - OpenSpec CLI version if detected
 
+### path.*
+
+Path configuration from flags:
+
+- `{{path.documents}}` - Workflow documents directory (from `path-documents` flag, default `.todo/`)
+- `{{path.export}}` - Knowledge export directory (from `path-export` flag, agent-specific default)
+
+Use these in templates instead of hardcoding paths:
+
+```markdown
+Implementation plan: {{path.documents}}plan.md
+Export knowledge: {{path.export}}architecture.md
+```
+
 ### Feature Flags
 
 Feature flags:
