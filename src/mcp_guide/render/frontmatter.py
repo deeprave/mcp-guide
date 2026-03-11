@@ -365,6 +365,11 @@ async def process_file(
 
     Returns:
         ProcessedFrontmatter if requirements met, None if filtered
+
+    Raises:
+        FileNotFoundError: If file doesn't exist
+        PermissionError: If file can't be read
+        UnicodeDecodeError: If file isn't valid UTF-8
     """
     async with aiofiles.open(file_info.path, "r", encoding="utf-8") as f:
         content = await f.read()

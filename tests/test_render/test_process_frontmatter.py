@@ -25,59 +25,48 @@ Content here"""
 
 
 @pytest.mark.asyncio
-async def test_process_frontmatter_requirements_met():
-    """Test frontmatter with satisfied requirements."""
+@pytest.mark.parametrize(
+    "requirements_context,expected_none",
+    [
+        ({"feature": True}, False),  # requirements met
+        ({"feature": False}, True),  # requirements not met
+    ],
+)
+async def test_process_frontmatter_requirements(requirements_context, expected_none):
+    """Test frontmatter with requirements checking."""
     content = """---
 requires-feature: true
 ---
 Content"""
 
-    result = await process_frontmatter(content, {"feature": True}, None)
+    result = await process_frontmatter(content, requirements_context, None)
 
-    assert result is not None
-
-
-@pytest.mark.asyncio
-async def test_process_frontmatter_requirements_not_met():
-    """Test frontmatter with unsatisfied requirements returns None."""
-    content = """---
-requires-feature: true
----
-Content"""
-
-    result = await process_frontmatter(content, {"feature": False}, None)
-
-    assert result is None
+    if expected_none:
+        assert result is None
+    else:
+        assert result is not None
 
 
 @pytest.mark.asyncio
-async def test_process_frontmatter_render_instruction():
-    """Test instruction field rendered as template."""
-    content = """---
-instruction: Hello {{name}}
+@pytest.mark.parametrize(
+    "field_name,template,context_data,expected",
+    [
+        ("instruction", "Hello {{name}}", {"name": "World"}, "Hello World"),
+        ("description", "Project {{project}}", {"project": "test"}, "Project test"),
+    ],
+)
+async def test_process_frontmatter_render_fields(field_name, template, context_data, expected):
+    """Test frontmatter fields rendered as templates."""
+    content = f"""---
+{field_name}: {template}
 ---
 Content"""
-    context = TemplateContext({"name": "World"})
+    context = TemplateContext(context_data)
 
     result = await process_frontmatter(content, {}, context)
 
     assert result is not None
-    assert result.frontmatter["instruction"] == "Hello World"
-
-
-@pytest.mark.asyncio
-async def test_process_frontmatter_render_description():
-    """Test description field rendered as template."""
-    content = """---
-description: Project {{project}}
----
-Content"""
-    context = TemplateContext({"project": "test"})
-
-    result = await process_frontmatter(content, {}, context)
-
-    assert result is not None
-    assert result.frontmatter["description"] == "Project test"
+    assert result.frontmatter[field_name] == expected
 
 
 @pytest.mark.asyncio
@@ -120,8 +109,15 @@ async def test_process_file_non_template(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_process_file_with_frontmatter_requirements_met(tmp_path):
-    """Test process_file with frontmatter requirements that are satisfied."""
+@pytest.mark.parametrize(
+    "requirements_context,expected_none",
+    [
+        ({"feature": True}, False),  # requirements met
+        ({"feature": False}, True),  # requirements not met
+    ],
+)
+async def test_process_file_with_frontmatter_requirements(tmp_path, requirements_context, expected_none):
+    """Test process_file with frontmatter requirements checking."""
     file_path = tmp_path / "test.md"
     file_path.write_text("""---
 requires-feature: true
@@ -139,32 +135,10 @@ Content""")
         name="test.md",
     )
 
-    result = await process_file(file_info, tmp_path, {"feature": True}, None)
+    result = await process_file(file_info, tmp_path, requirements_context, None)
 
-    assert result is not None
-    assert result.content == "Content"
-
-
-@pytest.mark.asyncio
-async def test_process_file_with_frontmatter_requirements_not_met(tmp_path):
-    """Test process_file returns None when requirements not satisfied."""
-    file_path = tmp_path / "test.md"
-    file_path.write_text("""---
-requires-feature: true
----
-Content""")
-
-    stat = file_path.stat()
-    from datetime import datetime
-
-    file_info = FileInfo(
-        path=file_path,
-        size=stat.st_size,
-        content_size=stat.st_size,
-        mtime=datetime.fromtimestamp(stat.st_mtime),
-        name="test.md",
-    )
-
-    result = await process_file(file_info, tmp_path, {"feature": False}, None)
-
-    assert result is None
+    if expected_none:
+        assert result is None
+    else:
+        assert result is not None
+        assert result.content == "Content"
