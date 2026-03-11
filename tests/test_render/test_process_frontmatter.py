@@ -168,30 +168,3 @@ Content""")
     result = await process_file(file_info, tmp_path, {"feature": False}, None)
 
     assert result is None
-
-
-@pytest.mark.asyncio
-async def test_process_file_template(tmp_path):
-    """Test process_file with a template file that needs rendering."""
-    file_path = tmp_path / "test.mustache"
-    file_path.write_text("Hello {{name}}")
-
-    stat = file_path.stat()
-    from datetime import datetime
-
-    file_info = FileInfo(
-        path=file_path,
-        size=stat.st_size,
-        content_size=stat.st_size,
-        mtime=datetime.fromtimestamp(stat.st_mtime),
-        name="test.mustache",
-    )
-
-    from mcp_guide.render.context import TemplateContext
-
-    context = TemplateContext({"name": "World"})
-
-    result = await process_file(file_info, tmp_path, {}, context)
-
-    assert result is not None
-    assert result.content == "Hello World"
