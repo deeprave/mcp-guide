@@ -3,7 +3,7 @@
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 import aiofiles
 import yaml
@@ -22,12 +22,17 @@ from mcp_guide.result_constants import (
     USER_INFO,
 )
 
+if TYPE_CHECKING:
+    from mcp_guide.render.context import TemplateContext
+
 __all__ = [
     "Frontmatter",
     "Content",
+    "ProcessedFrontmatter",
     "resolve_instruction",
     "parse_content_with_frontmatter",
     "check_frontmatter_requirements",
+    "process_frontmatter",
 ]
 
 logger = get_logger(__name__)
@@ -66,6 +71,16 @@ class Content:
     frontmatter: Frontmatter
     frontmatter_length: int
     content: str
+    content_length: int
+
+
+@dataclass
+class ProcessedFrontmatter:
+    """Result of frontmatter processing with requirements check and field rendering."""
+
+    frontmatter: Frontmatter
+    content: str
+    frontmatter_length: int
     content_length: int
 
 
@@ -289,3 +304,45 @@ def get_default_instruction_for_type(content_type: Optional[str]) -> str:
     }
 
     return type_instructions.get(content_type or "", INSTRUCTION_DISPLAY_ONLY)
+
+
+async def process_frontmatter(
+    content: str,
+    requirements_context: Dict[str, Any],
+    render_context: Optional["TemplateContext"] = None,
+) -> Optional[ProcessedFrontmatter]:
+    """Process frontmatter: parse, check requirements, render fields.
+
+    Args:
+        content: Raw content with frontmatter
+        requirements_context: Context for requires-* checking
+        render_context: Optional context for rendering instruction/description
+
+    Returns:
+        ProcessedFrontmatter if requirements met, None if filtered
+    """
+    # Parse frontmatter
+    parsed = parse_content_with_frontmatter(content)
+
+    # Check requirements
+    if not check_frontmatter_requirements(parsed.frontmatter, requirements_context):
+        return None
+
+    # Render instruction and description fields if render_context provided
+    if render_context:
+        import chevron
+
+        context_dict = dict(render_context)
+        for field in ("instruction", "description"):
+            if field in parsed.frontmatter and isinstance(parsed.frontmatter[field], str):
+                try:
+                    parsed.frontmatter[field] = chevron.render(parsed.frontmatter[field], context_dict)
+                except chevron.ChevronError as e:
+                    logger.warning(f"Failed to render {field} field: {e}")
+
+    return ProcessedFrontmatter(
+        frontmatter=parsed.frontmatter,
+        content=parsed.content,
+        frontmatter_length=parsed.frontmatter_length,
+        content_length=parsed.content_length,
+    )
