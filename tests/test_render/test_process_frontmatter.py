@@ -2,8 +2,9 @@
 
 import pytest
 
+from mcp_guide.discovery.files import FileInfo
 from mcp_guide.render.context import TemplateContext
-from mcp_guide.render.frontmatter import process_frontmatter
+from mcp_guide.render.frontmatter import process_file, process_frontmatter
 
 
 @pytest.mark.asyncio
@@ -91,3 +92,106 @@ Content"""
 
     # Should not raise, should log warning
     assert result is not None
+
+
+@pytest.mark.asyncio
+async def test_process_file_non_template(tmp_path):
+    """Test process_file with a non-template markdown file."""
+    # Create a simple markdown file
+    file_path = tmp_path / "test.md"
+    file_path.write_text("# Hello\n\nContent here")
+
+    stat = file_path.stat()
+    from datetime import datetime
+
+    file_info = FileInfo(
+        path=file_path,
+        size=stat.st_size,
+        content_size=stat.st_size,
+        mtime=datetime.fromtimestamp(stat.st_mtime),
+        name="test.md",
+    )
+
+    result = await process_file(file_info, tmp_path, {}, None)
+
+    assert result is not None
+    assert result.content == "# Hello\n\nContent here"
+    assert result.frontmatter == {}
+
+
+@pytest.mark.asyncio
+async def test_process_file_with_frontmatter_requirements_met(tmp_path):
+    """Test process_file with frontmatter requirements that are satisfied."""
+    file_path = tmp_path / "test.md"
+    file_path.write_text("""---
+requires-feature: true
+---
+Content""")
+
+    stat = file_path.stat()
+    from datetime import datetime
+
+    file_info = FileInfo(
+        path=file_path,
+        size=stat.st_size,
+        content_size=stat.st_size,
+        mtime=datetime.fromtimestamp(stat.st_mtime),
+        name="test.md",
+    )
+
+    result = await process_file(file_info, tmp_path, {"feature": True}, None)
+
+    assert result is not None
+    assert result.content == "Content"
+
+
+@pytest.mark.asyncio
+async def test_process_file_with_frontmatter_requirements_not_met(tmp_path):
+    """Test process_file returns None when requirements not satisfied."""
+    file_path = tmp_path / "test.md"
+    file_path.write_text("""---
+requires-feature: true
+---
+Content""")
+
+    stat = file_path.stat()
+    from datetime import datetime
+
+    file_info = FileInfo(
+        path=file_path,
+        size=stat.st_size,
+        content_size=stat.st_size,
+        mtime=datetime.fromtimestamp(stat.st_mtime),
+        name="test.md",
+    )
+
+    result = await process_file(file_info, tmp_path, {"feature": False}, None)
+
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_process_file_template(tmp_path):
+    """Test process_file with a template file that needs rendering."""
+    file_path = tmp_path / "test.mustache"
+    file_path.write_text("Hello {{name}}")
+
+    stat = file_path.stat()
+    from datetime import datetime
+
+    file_info = FileInfo(
+        path=file_path,
+        size=stat.st_size,
+        content_size=stat.st_size,
+        mtime=datetime.fromtimestamp(stat.st_mtime),
+        name="test.mustache",
+    )
+
+    from mcp_guide.render.context import TemplateContext
+
+    context = TemplateContext({"name": "World"})
+
+    result = await process_file(file_info, tmp_path, {}, context)
+
+    assert result is not None
+    assert result.content == "Hello World"
