@@ -138,7 +138,7 @@ async def load_partial_content(
         from mcp_guide.render.frontmatter import process_frontmatter
 
         render_context = TemplateContext(context) if context else None
-        processed = await process_frontmatter(content, context or {}, render_context)
+        processed = await process_frontmatter(content, context, render_context)
 
         if processed is None:
             # Requirements not met - return empty content with empty frontmatter

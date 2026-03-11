@@ -295,6 +295,7 @@ async def test_file_read_error_scenarios(tmp_path, monkeypatch, scenario, patter
         return MockAsyncFile()
 
     monkeypatch.setattr("mcp_guide.tools.tool_category.get_or_create_session", mock_get_session)
+    monkeypatch.setattr("mcp_guide.core.file_reader.read_file_content", mock_read_error)
     monkeypatch.setattr("mcp_guide.render.frontmatter.aiofiles.open", mock_aiofiles_open)
 
     # Call tool
