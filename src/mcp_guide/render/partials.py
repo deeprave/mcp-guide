@@ -133,21 +133,24 @@ async def load_partial_content(
         async with aiofiles.open(final_path, "r", encoding="utf-8") as f:
             content = await f.read()
 
-        # Process frontmatter if present
-        from mcp_guide.render.frontmatter import check_frontmatter_requirements, parse_content_with_frontmatter
+        # Process frontmatter: parse, check requirements, render instruction/description
+        from mcp_guide.render.context import TemplateContext
+        from mcp_guide.render.frontmatter import process_frontmatter
 
-        parsed = parse_content_with_frontmatter(content)
+        render_context = TemplateContext(context) if context else None
+        processed = await process_frontmatter(content, context or {}, render_context)
 
-        # Check frontmatter requirements if context provided
-        if parsed.frontmatter and context:
-            if not check_frontmatter_requirements(parsed.frontmatter, context):
-                # Requirements not met - return empty content but preserve frontmatter
-                logger.debug(f"Partial {partial_path} skipped due to unmet frontmatter requirements")
-                return ("", parsed.frontmatter)
+        if processed is None:
+            # Requirements not met - return empty content with empty frontmatter
+            logger.debug(f"Partial {partial_path} skipped due to unmet frontmatter requirements")
+            from mcp_guide.render.frontmatter import parse_content_with_frontmatter
 
-        logger.trace(f"Successfully loaded partial content ({len(parsed.content)} chars): {final_path}")
+            parsed = parse_content_with_frontmatter(content)
+            return ("", parsed.frontmatter)
+
+        logger.trace(f"Successfully loaded partial content ({len(processed.content)} chars): {final_path}")
         # Return content and frontmatter
-        return (parsed.content, parsed.frontmatter)
+        return (processed.content, processed.frontmatter)
 
     except Exception as e:
         logger.trace(f"Failed to read partial content from {final_path}: {e}")

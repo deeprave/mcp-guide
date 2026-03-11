@@ -83,6 +83,20 @@ async def test_partial_regular_instruction_does_not_override_parent(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_partial_instruction_rendered_with_context(tmp_path):
+    """Test that partial instruction/description fields are rendered as templates."""
+    partial_file = tmp_path / "_test.mustache"
+    partial_file.write_text("---\ninstruction: 'Hello {{name}}'\ndescription: 'Project {{project}}'\n---\nContent")
+
+    context = {"name": "World", "project": "test"}
+    content, frontmatter = await load_partial_content(partial_file, tmp_path, context)
+
+    assert content == "Content"
+    assert frontmatter.get("instruction") == "Hello World"
+    assert frontmatter.get("description") == "Project test"
+
+
+@pytest.mark.asyncio
 async def test_unused_partial_instruction_not_applied(tmp_path):
     """Bug fix: partial instruction must NOT be applied when partial isn't rendered.
 
