@@ -2,7 +2,9 @@
 
 Unified template rendering with frontmatter and context handling.
 
-## Core Function
+## Core Functions
+
+### render_template()
 
 ```python
 async def render_template(
@@ -26,7 +28,45 @@ async def render_template(
 1. Parse frontmatter
 2. Check `requires-*` directives against `project_flags` (return `None` if not met)
 3. Build context: base → frontmatter vars → caller context
-4. Render template files with Chevron, return non-template files as-is
+4. Render template files with Chevron and partials support
+
+### process_frontmatter()
+
+```python
+async def process_frontmatter(
+    content: str,
+    requirements_context: Dict[str, Any],
+    render_context: Optional[TemplateContext],
+) -> Optional[ProcessedFrontmatter]
+```
+
+**Returns**: `ProcessedFrontmatter` if requirements met, `None` if filtered
+
+**Process**:
+1. Parse frontmatter from content
+2. Check `requires-*` directives against requirements_context
+3. Render `instruction` and `description` fields as templates if render_context provided
+
+Used internally by `render_template()` and `process_file()` for consistent frontmatter handling.
+
+### process_file()
+
+```python
+async def process_file(
+    file_info: FileInfo,
+    base_dir: Path,
+    requirements_context: Dict[str, Any],
+    render_context: Optional[TemplateContext],
+) -> Optional[ProcessedFrontmatter]
+```
+
+**Returns**: `ProcessedFrontmatter` if requirements met, `None` if filtered
+
+**Process**:
+1. Read file content
+2. Process frontmatter using `process_frontmatter()`
+
+**Note**: For non-template files only. Templates must use `render_template()` for proper partials support.
 
 ## Exception Handling
 
