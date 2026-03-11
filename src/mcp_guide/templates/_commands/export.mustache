@@ -23,9 +23,9 @@ Call the `{{tool_prefix}}export_content` tool with these arguments:
 ```
 {{tool_prefix}}export_content(
     expression="{{args.0.value}}",
-    path="{{args.1.value}}"{{#flag.pattern}},
-    pattern="{{flag.pattern}}"{{/flag.pattern}}{{#flag.force}},
-    force=True{{/flag.force}}
+    path="{{args.1.value}}"{{#kwargs.pattern}},
+    pattern="{{kwargs.pattern}}"{{/kwargs.pattern}}{{#kwargs.force}},
+    force=True{{/kwargs.force}}
 )
 ```
 

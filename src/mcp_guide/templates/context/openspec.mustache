@@ -98,6 +98,20 @@ The system SHALL provide capability.
 (What's being removed)
 ```
 
+{{h2}}Archiving — Stale Delta Handling
+
+When archiving, spec deltas may reference requirement headers that no longer exist
+because a previous archive already actioned them. Two cases:
+
+- {{b}}Requirement no longer exists in any spec{{b}}: use `--skip-specs` — the change
+  was already applied by a prior archive, nothing to do.
+- {{b}}Requirement moved to a different spec or renamed{{b}}: update the delta's spec
+  path or header to match the current location before archiving — do NOT skip.
+
+{{b}}Proactive hygiene{{b}}: when archiving a change that removes or renames a
+requirement, check all other pending changes for references to that header and update
+their deltas immediately to prevent stale delta accumulation.
+
 {{h2}}Commands
 
 ```bash
