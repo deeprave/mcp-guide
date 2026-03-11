@@ -25,9 +25,22 @@ requires-feature: workflow
 Hello {{name}}!
 
 {{#items}}
-- {{.}}
+- {{value}}
 {{/items}}
 ```
+
+> **Note**: lists are represented internally as objects as:
+> ```python
+> {
+>   value: str,       # value of the item
+>   first: bool,      # true if first in list, otherwise false
+>   last: bool        # true if last in list, otherwise false
+> }
+> ```
+> This allows smart formatting since you can add a prefix to the first item,
+> `{{#first}}prefix{{/first}}{{value}}`
+> and add text between each iten
+> `{{value}}{{^last}}, {{/last}}`
 
 ### Frontmatter Fields
 
@@ -36,8 +49,10 @@ Common frontmatter fields:
 - **type**: Content type (`user/information`, `agent/information`, `agent/instruction`)
 - **description**: Brief description (rendered as template)
 - **instruction**: Custom instruction for agents (rendered as template)
-- **requires-***: Conditional requirements (e.g., `requires-feature: workflow`)
+- **requires-***: Conditional requirements (e.g., `requires-workflow: true`)
 - **includes**: List of partial templates to include
+-
+> **Note**:
 
 All frontmatter keys are case-insensitive and normalized to lowercase.
 

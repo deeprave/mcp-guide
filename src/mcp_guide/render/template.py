@@ -40,8 +40,8 @@ async def render_template(
     # Build context for frontmatter field rendering
     base_context = await get_template_contexts()
 
-    # Extract frontmatter vars will be done after processing
-    # Build final context: base → caller
+    # Build initial context for rendering frontmatter instruction/description fields
+    # Frontmatter vars will be added after processing
     final_context = base_context
     if context:
         final_context = final_context.new_child(context)
@@ -59,10 +59,10 @@ async def render_template(
         k: v for k, v in processed.frontmatter.items() if not k.startswith(FM_REQUIRES_PREFIX) and k != FM_INCLUDES
     }
 
+    # Add frontmatter vars to context for template body rendering
+    # Context chain: base → caller → frontmatter_vars
     if frontmatter_vars:
-        final_context = base_context.new_child(frontmatter_vars)
-        if context:
-            final_context = final_context.new_child(context)
+        final_context = final_context.new_child(frontmatter_vars)
     # Render template or return as-is
     partial_frontmatter_list: list[Dict[str, Any]] = []
     if is_template_file(file_info):
