@@ -309,24 +309,31 @@ def get_default_instruction_for_type(content_type: Optional[str]) -> str:
 
 async def process_frontmatter(
     content: str,
-    requirements_context: Dict[str, Any],
+    requirements_context: Optional[Dict[str, Any]],
     render_context: Optional["TemplateContext"] = None,
 ) -> Optional[ProcessedFrontmatter]:
     """Process frontmatter: parse, check requirements, render fields.
 
     Args:
         content: Raw content with frontmatter
-        requirements_context: Context for requires-* checking
+        requirements_context: Context for requires-* checking. If None, requirements are not checked.
         render_context: Optional context for rendering instruction/description
 
     Returns:
         ProcessedFrontmatter if requirements met, None if filtered
+
+    Note:
+        Requirements checking is skipped when requirements_context is None.
+        Empty dict is treated as "no requirements to check" (all pass).
+        Missing flags in requirements_context are treated as False (requirement not met).
     """
     # Parse frontmatter
     parsed = parse_content_with_frontmatter(content)
 
-    # Check requirements
-    if not check_frontmatter_requirements(parsed.frontmatter, requirements_context):
+    # Check requirements only if context provided and not empty
+    if requirements_context is not None and not check_frontmatter_requirements(
+        parsed.frontmatter, requirements_context
+    ):
         return None
 
     # Render instruction and description fields if render_context provided
@@ -351,16 +358,14 @@ async def process_frontmatter(
 
 async def process_file(
     file_info: Any,
-    base_dir: Path,
-    requirements_context: Dict[str, Any],
+    requirements_context: Optional[Dict[str, Any]],
     render_context: Optional["TemplateContext"],
 ) -> Optional[ProcessedFrontmatter]:
     """Process a non-template file: read, parse frontmatter, check requirements.
 
     Args:
         file_info: FileInfo object with file path
-        base_dir: Base directory for file resolution
-        requirements_context: Context for requires-* checking
+        requirements_context: Context for requires-* checking. If None, requirements are not checked.
         render_context: Optional context for rendering frontmatter fields
 
     Returns:

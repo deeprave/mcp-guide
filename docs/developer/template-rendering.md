@@ -29,7 +29,7 @@ Hello {{name}}!
 {{/items}}
 ```
 
-> **Note**: lists are represented internally as objects as:
+> **Note**: lists are represented internally as objects:
 > ```python
 > {
 >   value: str,       # value of the item
@@ -39,7 +39,7 @@ Hello {{name}}!
 > ```
 > This allows smart formatting since you can add a prefix to the first item,
 > `{{#first}}prefix{{/first}}{{value}}`
-> and add text between each iten
+> and add text between each item
 > `{{value}}{{^last}}, {{/last}}`
 
 ### Frontmatter Fields

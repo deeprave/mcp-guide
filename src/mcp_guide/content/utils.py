@@ -212,7 +212,7 @@ async def read_and_render_file_contents(
             else:
                 # Non-template files: use process_file
                 try:
-                    processed = await process_file(file_info, base_dir, requirements_context, template_context)
+                    processed = await process_file(file_info, requirements_context, template_context)
                 except Exception as e:
                     # File processing raised an exception
                     error_path = f"{category_prefix}/{file_info.name}" if category_prefix else file_info.name

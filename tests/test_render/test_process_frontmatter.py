@@ -22,6 +22,8 @@ Content here"""
     assert result.frontmatter["type"] == "agent/instruction"
     assert result.frontmatter["instruction"] == "Test instruction"
     assert result.content == "Content here"
+    assert result.frontmatter_length == 62  # Length of frontmatter block including delimiters
+    assert result.content_length == 12  # Length of "Content here"
 
 
 @pytest.mark.asyncio
@@ -70,8 +72,8 @@ Content"""
 
 
 @pytest.mark.asyncio
-async def test_process_frontmatter_render_error_graceful():
-    """Test rendering error handled gracefully with warning."""
+async def test_process_frontmatter_empty_context():
+    """Test that empty render context doesn't trigger field rendering."""
     content = """---
 instruction: Hello {{missing}}
 ---
@@ -79,8 +81,9 @@ Content"""
 
     result = await process_frontmatter(content, {}, TemplateContext({}))
 
-    # Should not raise, should log warning
+    # Empty context is falsy, so rendering is skipped
     assert result is not None
+    assert result.frontmatter["instruction"] == "Hello {{missing}}"
 
 
 @pytest.mark.asyncio
@@ -101,7 +104,7 @@ async def test_process_file_non_template(tmp_path):
         name="test.md",
     )
 
-    result = await process_file(file_info, tmp_path, {}, None)
+    result = await process_file(file_info, {}, None)
 
     assert result is not None
     assert result.content == "# Hello\n\nContent here"
@@ -135,7 +138,7 @@ Content""")
         name="test.md",
     )
 
-    result = await process_file(file_info, tmp_path, requirements_context, None)
+    result = await process_file(file_info, requirements_context, None)
 
     if expected_none:
         assert result is None
