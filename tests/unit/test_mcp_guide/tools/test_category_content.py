@@ -270,15 +270,32 @@ async def test_file_read_error_scenarios(tmp_path, monkeypatch, scenario, patter
     async def mock_get_session(ctx=None):
         return create_mock_session(project, tmp_path)
 
-    # Mock read_file_content to raise errors based on error_map
+    # Mock read_file_content to raise errors based on error_map (for templates)
     async def mock_read_error(path):
         for filename, error in error_map.items():
             if filename in str(path):
                 raise error
         return "content"
 
+    # Mock aiofiles.open to raise errors based on error_map (for non-templates via process_file)
+    class MockAsyncFile:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            pass
+
+        async def read(self):
+            return "content"
+
+    def mock_aiofiles_open(path, *args, **kwargs):
+        for filename, error in error_map.items():
+            if filename in str(path):
+                raise error
+        return MockAsyncFile()
+
     monkeypatch.setattr("mcp_guide.tools.tool_category.get_or_create_session", mock_get_session)
-    monkeypatch.setattr("mcp_guide.content.utils.read_file_content", mock_read_error)
+    monkeypatch.setattr("mcp_guide.render.frontmatter.aiofiles.open", mock_aiofiles_open)
 
     # Call tool
     args = CategoryContentArgs(expression="docs")

@@ -3,15 +3,13 @@
 from pathlib import Path
 from typing import Any, Optional
 
-from mcp_guide.core.file_reader import read_file_content
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.discovery.files import FileInfo
 from mcp_guide.render import render_template
 from mcp_guide.render.context import TemplateContext
 from mcp_guide.render.frontmatter import (
-    check_frontmatter_requirements,
     get_frontmatter_type,
-    parse_content_with_frontmatter,
+    process_file,
     resolve_instruction,
 )
 from mcp_guide.render.renderer import is_template_file
@@ -212,20 +210,22 @@ async def read_and_render_file_contents(
                 file_info.content = rendered.content
                 file_info.frontmatter = rendered.frontmatter
             else:
-                # Non-template files: parse and check requirements
-                raw_content = await read_file_content(file_info.path)
-                parsed = parse_content_with_frontmatter(raw_content)
+                # Non-template files: use process_file
+                try:
+                    processed = await process_file(file_info, base_dir, requirements_context, template_context)
+                except Exception as e:
+                    # File processing raised an exception
+                    error_path = f"{category_prefix}/{file_info.name}" if category_prefix else file_info.name
+                    logger.exception(f"File processing failed for '{error_path}'")
+                    file_read_errors.append(f"'{error_path}': {e}")
+                    continue
 
-                # Check frontmatter requirements - skip this file if not satisfied
-                if (
-                    parsed.frontmatter
-                    and requirements_context
-                    and not check_frontmatter_requirements(parsed.frontmatter, requirements_context)
-                ):
-                    continue  # Skip this file entirely (filtered by requires-*)
+                if processed is None:
+                    # File filtered by requires-*
+                    continue
 
-                file_info.content = parsed.content
-                file_info.frontmatter = parsed.frontmatter
+                file_info.content = processed.content
+                file_info.frontmatter = processed.frontmatter
 
             # Update content_size to reflect the final content size after all processing
             content = file_info.content or ""

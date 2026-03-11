@@ -33,6 +33,7 @@ __all__ = [
     "parse_content_with_frontmatter",
     "check_frontmatter_requirements",
     "process_frontmatter",
+    "process_file",
 ]
 
 logger = get_logger(__name__)
@@ -346,3 +347,50 @@ async def process_frontmatter(
         frontmatter_length=parsed.frontmatter_length,
         content_length=parsed.content_length,
     )
+
+
+async def process_file(
+    file_info: Any,
+    base_dir: Path,
+    requirements_context: Dict[str, Any],
+    render_context: Optional["TemplateContext"],
+) -> Optional[ProcessedFrontmatter]:
+    """Process a file: read, parse frontmatter, check requirements, render if template.
+
+    Args:
+        file_info: FileInfo object with file path
+        base_dir: Base directory for file resolution
+        requirements_context: Context for requires-* checking
+        render_context: Optional context for rendering
+
+    Returns:
+        ProcessedFrontmatter if requirements met, None if filtered
+    """
+    async with aiofiles.open(file_info.path, "r", encoding="utf-8") as f:
+        content = await f.read()
+
+    # Check if template file
+    from mcp_guide.render.renderer import is_template_file
+
+    if is_template_file(file_info) and render_context:
+        # Render template
+        import chevron
+
+        processed = await process_frontmatter(content, requirements_context, render_context)
+        if processed is None:
+            return None
+
+        # Render content as template
+        try:
+            rendered_content = chevron.render(processed.content, dict(render_context))
+            return ProcessedFrontmatter(
+                frontmatter=processed.frontmatter,
+                content=rendered_content,
+                frontmatter_length=processed.frontmatter_length,
+                content_length=len(rendered_content),
+            )
+        except Exception as e:
+            logger.warning(f"Failed to render template {file_info.path}: {e}")
+            return processed
+
+    return await process_frontmatter(content, requirements_context, render_context)
