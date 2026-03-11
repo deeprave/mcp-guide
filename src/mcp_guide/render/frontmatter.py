@@ -22,7 +22,13 @@ from mcp_guide.result_constants import (
     USER_INFO,
 )
 
-__all__ = ["Frontmatter", "Content", "resolve_instruction"]
+__all__ = [
+    "Frontmatter",
+    "Content",
+    "resolve_instruction",
+    "parse_content_with_frontmatter",
+    "check_frontmatter_requirements",
+]
 
 logger = get_logger(__name__)
 
