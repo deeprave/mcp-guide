@@ -154,19 +154,8 @@ async def render_template_content(
                                 )
 
                             processed_partials[partial_name] = partial_content
-                            # Track frontmatter for partials that have content; actual
-                            # collection deferred until after rendering (usage tracking)
+                            # Track frontmatter for partials that have content
                             if partial_frontmatter and partial_content:
-                                # Render instruction/description fields as templates
-                                context_for_render = dict(render_context) if render_context else {}
-                                for field in ("instruction", "description"):
-                                    if field in partial_frontmatter and isinstance(partial_frontmatter[field], str):
-                                        try:
-                                            partial_frontmatter[field] = chevron.render(
-                                                partial_frontmatter[field], context_for_render
-                                            )
-                                        except chevron.ChevronError as e:
-                                            logger.warning(f"Failed to render {field} in partial {partial_name}: {e}")
                                 partial_frontmatter_by_name[partial_name] = partial_frontmatter
                             logger.trace(f"Loaded partial '{partial_name}' from {include_path}")
                         except PartialNotFoundError as e:

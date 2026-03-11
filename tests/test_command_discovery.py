@@ -177,6 +177,67 @@ This command shows all available commands.
                 assert cmd["usage"] == ""
                 assert cmd["examples"] == []
 
+    @pytest.mark.asyncio
+    async def test_discover_commands_filters_by_requirements(self) -> None:
+        """Should filter commands based on requires-* frontmatter."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            commands_dir = Path(temp_dir) / "_commands"
+            commands_dir.mkdir()
+
+            # Command with unmet requirement
+            filtered_content = """---
+requires-feature: enabled
+description: Feature command
+---
+# Feature Command
+"""
+            (commands_dir / "feature.md").write_text(filtered_content)
+
+            # Command with met requirement
+            included_content = """---
+requires-workflow: true
+description: Workflow command
+---
+# Workflow Command
+"""
+            (commands_dir / "workflow.md").write_text(included_content)
+
+            mock_files = [
+                FileInfo(
+                    path=Path("feature.md"),
+                    size=100,
+                    content_size=100,
+                    mtime=1234567890,
+                    name="feature.md",
+                    content=filtered_content,
+                    ctime=1234567890,
+                ),
+                FileInfo(
+                    path=Path("workflow.md"),
+                    size=100,
+                    content_size=100,
+                    mtime=1234567890,
+                    name="workflow.md",
+                    content=included_content,
+                    ctime=1234567890,
+                ),
+            ]
+
+            # Mock context with workflow=true but feature=false
+            mock_context = {"workflow": True, "feature": False}
+
+            with (
+                patch("mcp_guide.discovery.commands.discover_category_files", new=AsyncMock(return_value=mock_files)),
+                patch("mcp_guide.render.cache.get_template_contexts", new=AsyncMock(return_value=mock_context)),
+            ):
+                from mcp_guide.discovery.commands import discover_commands
+
+                commands = await discover_commands(commands_dir)
+
+                # Should only include workflow command
+                assert len(commands) == 1
+                assert commands[0]["name"] == "workflow"
+
 
 class TestCommandDiscoveryCaching:
     """Test command discovery caching with guide-development flag."""
