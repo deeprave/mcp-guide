@@ -26,19 +26,19 @@ class _TrackingDict(Dict[str, _VT]):
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-        self.accessed: set[str] = set()
+        self.accessed: dict[str, None] = {}
 
     def __getitem__(self, key: str) -> _VT:
-        self.accessed.add(key)
+        self.accessed[key] = None
         return super().__getitem__(key)
 
     def get(self, key: str, default: Any = None) -> Any:
-        self.accessed.add(key)
+        self.accessed[key] = None
         return super().get(key, default)
 
     def __contains__(self, key: object) -> bool:
         if isinstance(key, str):
-            self.accessed.add(key)
+            self.accessed[key] = None
         return super().__contains__(key)
 
 
