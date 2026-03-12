@@ -249,14 +249,12 @@ class FileInfo:
 async def discover_documents(
     base_dir: Path,
     patterns: list[str],
-    updated_since: Optional[float] = None,
 ) -> list[FileInfo]:
     """Discover files in directory with metadata.
 
     Args:
         base_dir: Absolute path to base directory
         patterns: Glob patterns to match files
-        updated_since: Optional Unix timestamp - only return files modified after this time
 
     Returns:
         List of FileInfo with relative paths, size, mtime
@@ -308,11 +306,6 @@ async def discover_documents(
     results = []
     for matched_path in files_by_path.values():
         stat_result = await aiofiles.os.stat(matched_path)
-
-        # Filter by mtime if updated_since provided
-        if updated_since is not None and stat_result.st_mtime <= updated_since:
-            continue
-
         relative_path = matched_path.relative_to(base_dir_resolved)
 
         # Calculate name (full relative path without template extension)

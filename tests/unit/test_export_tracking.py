@@ -10,13 +10,13 @@ class TestExportedTo:
 
     def test_create_exported_to(self):
         """Test creating ExportedTo instance."""
-        exported = ExportedTo(path="/path/to/export.md", mtime=1234567890.5)
+        exported = ExportedTo(path="/path/to/export.md", metadata_hash="a3f5c8d1")
         assert exported.path == "/path/to/export.md"
-        assert exported.mtime == 1234567890.5
+        assert exported.metadata_hash == "a3f5c8d1"
 
     def test_exported_to_immutable(self):
         """Test ExportedTo is immutable."""
-        exported = ExportedTo(path="/path/to/export.md", mtime=1234567890.5)
+        exported = ExportedTo(path="/path/to/export.md", metadata_hash="a3f5c8d1")
         with pytest.raises(AttributeError):
             exported.path = "/new/path"  # type: ignore
 
@@ -33,7 +33,7 @@ class TestProjectExports:
 
     def test_project_exports_with_entries(self):
         """Test Project with export entries."""
-        exported = ExportedTo(path="/export.md", mtime=1234567890.5)
+        exported = ExportedTo(path="/export.md", metadata_hash="a3f5c8d1")
         project = Project(
             name="test",
             exports={("docs", None): exported},
@@ -41,12 +41,12 @@ class TestProjectExports:
         assert len(project.exports) == 1
         assert ("docs", None) in project.exports
         assert project.exports[("docs", None)].path == "/export.md"
-        assert project.exports[("docs", None)].mtime == 1234567890.5
+        assert project.exports[("docs", None)].metadata_hash == "a3f5c8d1"
 
     def test_project_exports_multiple_entries(self):
         """Test Project with multiple export entries."""
-        exported1 = ExportedTo(path="/export1.md", mtime=1234567890.5)
-        exported2 = ExportedTo(path="/export2.md", mtime=1234567891.5)
+        exported1 = ExportedTo(path="/export1.md", metadata_hash="a3f5c8d1")
+        exported2 = ExportedTo(path="/export2.md", metadata_hash="b2e4f9a7")
         project = Project(
             name="test",
             exports={
@@ -55,8 +55,8 @@ class TestProjectExports:
             },
         )
         assert len(project.exports) == 2
-        assert project.exports[("docs", None)].mtime == 1234567890.5
-        assert project.exports[("docs", "*.md")].mtime == 1234567891.5
+        assert project.exports[("docs", None)].metadata_hash == "a3f5c8d1"
+        assert project.exports[("docs", "*.md")].metadata_hash == "b2e4f9a7"
 
 
 class TestProjectExportMethods:
@@ -70,16 +70,16 @@ class TestProjectExportMethods:
 
     def test_get_export_entry_found(self):
         """Test get_export_entry returns entry when found."""
-        exported = ExportedTo(path="/export.md", mtime=1234567890.5)
+        exported = ExportedTo(path="/export.md", metadata_hash="a3f5c8d1")
         project = Project(name="test", exports={("docs", None): exported})
         result = project.get_export_entry("docs", None)
         assert result is not None
         assert result.path == "/export.md"
-        assert result.mtime == 1234567890.5
+        assert result.metadata_hash == "a3f5c8d1"
 
     def test_get_export_entry_with_pattern(self):
         """Test get_export_entry with pattern."""
-        exported = ExportedTo(path="/export.md", mtime=1234567890.5)
+        exported = ExportedTo(path="/export.md", metadata_hash="a3f5c8d1")
         project = Project(name="test", exports={("docs", "*.md"): exported})
         result = project.get_export_entry("docs", "*.md")
         assert result is not None
@@ -88,25 +88,25 @@ class TestProjectExportMethods:
     def test_upsert_export_entry_new(self):
         """Test upsert_export_entry adds new entry."""
         project = Project(name="test")
-        new_project = project.upsert_export_entry("docs", None, "/export.md", 1234567890.5)
+        new_project = project.upsert_export_entry("docs", None, "/export.md", "a3f5c8d1")
         assert len(new_project.exports) == 1
         assert ("docs", None) in new_project.exports
         assert new_project.exports[("docs", None)].path == "/export.md"
-        assert new_project.exports[("docs", None)].mtime == 1234567890.5
+        assert new_project.exports[("docs", None)].metadata_hash == "a3f5c8d1"
 
     def test_upsert_export_entry_update(self):
         """Test upsert_export_entry updates existing entry."""
-        exported = ExportedTo(path="/old.md", mtime=1234567890.5)
+        exported = ExportedTo(path="/old.md", metadata_hash="a3f5c8d1")
         project = Project(name="test", exports={("docs", None): exported})
-        new_project = project.upsert_export_entry("docs", None, "/new.md", 1234567900.5)
+        new_project = project.upsert_export_entry("docs", None, "/new.md", "c1d2e3f4")
         assert len(new_project.exports) == 1
         assert new_project.exports[("docs", None)].path == "/new.md"
-        assert new_project.exports[("docs", None)].mtime == 1234567900.5
+        assert new_project.exports[("docs", None)].metadata_hash == "c1d2e3f4"
 
     def test_upsert_export_entry_preserves_other_entries(self):
         """Test upsert_export_entry preserves other entries."""
-        exported1 = ExportedTo(path="/export1.md", mtime=1234567890.5)
-        exported2 = ExportedTo(path="/export2.md", mtime=1234567891.5)
+        exported1 = ExportedTo(path="/export1.md", metadata_hash="a3f5c8d1")
+        exported2 = ExportedTo(path="/export2.md", metadata_hash="b2e4f9a7")
         project = Project(
             name="test",
             exports={
@@ -114,7 +114,7 @@ class TestProjectExportMethods:
                 ("guide", None): exported2,
             },
         )
-        new_project = project.upsert_export_entry("docs", None, "/new.md", 1234567900.5)
+        new_project = project.upsert_export_entry("docs", None, "/new.md", "c1d2e3f4")
         assert len(new_project.exports) == 2
         assert new_project.exports[("docs", None)].path == "/new.md"
         assert new_project.exports[("guide", None)].path == "/export2.md"
@@ -122,35 +122,101 @@ class TestProjectExportMethods:
     def test_upsert_export_entry_with_pattern(self):
         """Test upsert_export_entry with pattern."""
         project = Project(name="test")
-        new_project = project.upsert_export_entry("docs", "*.md", "/export.md", 1234567890.5)
+        new_project = project.upsert_export_entry("docs", "*.md", "/export.md", "a3f5c8d1")
         assert ("docs", "*.md") in new_project.exports
         assert new_project.exports[("docs", "*.md")].path == "/export.md"
 
 
-class TestExportStalenessDetection:
-    """Tests for export staleness detection logic."""
+class TestMetadataHashComputation:
+    """Tests for metadata hash computation."""
 
-    def test_max_mtime_calculation(self):
-        """Test calculating max mtime from file list."""
+    @pytest.mark.parametrize(
+        "files_setup,expected_hash,description",
+        [
+            (
+                "empty",
+                "00000000",
+                "empty file list returns zero hash",
+            ),
+            (
+                "single",
+                lambda h: len(h) == 8 and h != "00000000",
+                "single file returns 8-char non-zero hash",
+            ),
+        ],
+    )
+    def test_hash_computation(self, files_setup, expected_hash, description, tmp_path):
+        """Test hash computation for various file list scenarios."""
         from datetime import datetime
 
         from mcp_guide.discovery.files import FileInfo
+        from mcp_guide.tools.tool_content import compute_metadata_hash
 
-        files = [
-            FileInfo(path="a.md", size=100, content_size=100, mtime=datetime.fromtimestamp(1000), name="a.md"),
-            FileInfo(path="b.md", size=100, content_size=100, mtime=datetime.fromtimestamp(2000), name="b.md"),
-            FileInfo(path="c.md", size=100, content_size=100, mtime=datetime.fromtimestamp(1500), name="c.md"),
+        docroot = tmp_path / "docs"
+        docroot.mkdir()
+
+        if files_setup == "empty":
+            files = []
+        elif files_setup == "single":
+            file_path = docroot / "a.md"
+            file_path.touch()
+            files = [
+                FileInfo(
+                    path=file_path,
+                    size=100,
+                    content_size=100,
+                    mtime=datetime.fromtimestamp(1000),
+                    name="a.md",
+                ),
+            ]
+
+        hash_val = compute_metadata_hash(files, docroot)
+
+        if callable(expected_hash):
+            assert expected_hash(hash_val), description
+        else:
+            assert hash_val == expected_hash, description
+
+    def test_same_filename_different_paths(self, tmp_path):
+        """Test that files with same name in different directories produce different hashes."""
+        from datetime import datetime
+
+        from mcp_guide.discovery.files import FileInfo
+        from mcp_guide.tools.tool_content import compute_metadata_hash
+
+        docroot = tmp_path / "docs"
+        docroot.mkdir()
+        (docroot / "dir1").mkdir()
+        (docroot / "dir2").mkdir()
+
+        file1_path = docroot / "dir1" / "file.md"
+        file2_path = docroot / "dir2" / "file.md"
+        file1_path.touch()
+        file2_path.touch()
+
+        files1 = [
+            FileInfo(
+                path=file1_path,
+                size=100,
+                content_size=100,
+                mtime=datetime.fromtimestamp(1000),
+                name="file.md",
+            ),
         ]
 
-        max_mtime = max(f.mtime.timestamp() for f in files)
-        assert max_mtime == 2000.0
+        files2 = [
+            FileInfo(
+                path=file2_path,
+                size=100,
+                content_size=100,
+                mtime=datetime.fromtimestamp(1000),
+                name="file.md",
+            ),
+        ]
 
-    def test_empty_file_list_max_mtime(self):
-        """Test max mtime with empty file list."""
-        files = []
-        # Should handle empty list gracefully
-        max_mtime = max((f.mtime.timestamp() for f in files), default=0.0)
-        assert max_mtime == 0.0
+        hash1 = compute_metadata_hash(files1, docroot)
+        hash2 = compute_metadata_hash(files2, docroot)
+        assert hash1 != hash2, "Files with same name in different directories must have different hashes"
 
 
 class TestProjectExportsBackwardsCompatibility:
