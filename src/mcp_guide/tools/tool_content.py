@@ -40,7 +40,7 @@ logger = logging.getLogger(__name__)
 __all__ = ["ContentArgs", "internal_get_content"]
 
 
-def compute_metadata_hash(files: list[FileInfo], docroot: Path) -> str:
+def compute_metadata_hash(files: list[FileInfo], docroot: Path) -> Optional[str]:
     """Compute CRC32 hash of file metadata.
 
     Args:
@@ -48,12 +48,13 @@ def compute_metadata_hash(files: list[FileInfo], docroot: Path) -> str:
         docroot: Document root path to compute relative paths from
 
     Returns:
-        8-character hex string (CRC32 hash)
+        8-character hex string (CRC32 hash), or None if files is empty
     """
     if not files:
-        return "00000000"
+        return None
 
-    entries = [f"{f.path.relative_to(docroot).as_posix()}:{f.mtime.timestamp()}" for f in files]
+    docroot_resolved = docroot.resolve()
+    entries = [f"{f.path.resolve().relative_to(docroot_resolved).as_posix()}:{f.mtime.timestamp()}" for f in files]
     entries.sort()
     data = "|".join(entries).encode()
     return f"{zlib.crc32(data):08x}"
@@ -275,14 +276,14 @@ async def export_content(
         return await tool_result("export_content", result)
 
     # Compute metadata hash from gathered files (if available in result metadata)
-    metadata_hash = "00000000"
+    metadata_hash: Optional[str] = None
     if hasattr(result, "metadata") and result.metadata and "files" in result.metadata:
         files = result.metadata["files"]
         if files:
             metadata_hash = compute_metadata_hash(files, docroot)
 
-    # Check staleness if not forced
-    if not args.force and export_entry and metadata_hash != "00000000" and metadata_hash == export_entry.metadata_hash:
+    # Check staleness if not forced (path changes also require force=True)
+    if not args.force and export_entry and metadata_hash is not None and metadata_hash == export_entry.metadata_hash:
         # Content hasn't changed since last export
         message = f"Content for '{args.expression}' already exported to {export_entry.path}. Use force=True to overwrite or if file is missing."
 
@@ -342,7 +343,7 @@ async def export_content(
     )
 
     # Update export tracking
-    if metadata_hash != "00000000":
+    if metadata_hash is not None:
         updated_project = project.upsert_export_entry(args.expression, args.pattern, output_path, metadata_hash)
         await session.update_config(lambda _: updated_project)
 

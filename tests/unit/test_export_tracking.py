@@ -131,21 +131,13 @@ class TestMetadataHashComputation:
     """Tests for metadata hash computation."""
 
     @pytest.mark.parametrize(
-        "files_setup,expected_hash,description",
+        "files_setup,expected",
         [
-            (
-                "empty",
-                "00000000",
-                "empty file list returns zero hash",
-            ),
-            (
-                "single",
-                lambda h: len(h) == 8 and h != "00000000",
-                "single file returns 8-char non-zero hash",
-            ),
+            ("empty", None),
+            ("single", lambda h: len(h) == 8),
         ],
     )
-    def test_hash_computation(self, files_setup, expected_hash, description, tmp_path):
+    def test_hash_computation(self, files_setup, expected, tmp_path):
         """Test hash computation for various file list scenarios."""
         from datetime import datetime
 
@@ -171,11 +163,7 @@ class TestMetadataHashComputation:
             ]
 
         hash_val = compute_metadata_hash(files, docroot)
-
-        if callable(expected_hash):
-            assert expected_hash(hash_val), description
-        else:
-            assert hash_val == expected_hash, description
+        assert expected(hash_val) if callable(expected) else hash_val == expected
 
     def test_same_filename_different_paths(self, tmp_path):
         """Test that files with same name in different directories produce different hashes."""
