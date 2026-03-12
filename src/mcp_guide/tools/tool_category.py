@@ -20,7 +20,7 @@ from mcp_guide.core.validation import (
     validate_directory_path,
     validate_pattern,
 )
-from mcp_guide.discovery.files import FileInfo, discover_category_files
+from mcp_guide.discovery.files import FileInfo, discover_documents
 from mcp_guide.feature_flags.constants import FLAG_CONTENT_FORMAT
 from mcp_guide.feature_flags.utils import get_resolved_flag_value
 from mcp_guide.models import Category, CategoryNotFoundError, FileReadError, Project
@@ -679,7 +679,7 @@ async def internal_category_list_files(
     # Discover files using **/* pattern to get all files
     docroot = Path(await session.get_docroot())
     category_dir = docroot / category.dir
-    files = await discover_category_files(category_dir, ["**/*"])
+    files = await discover_documents(category_dir, ["**/*"])
 
     # Format as list of file info dictionaries with descriptions
     file_list = []

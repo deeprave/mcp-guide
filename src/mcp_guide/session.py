@@ -217,12 +217,19 @@ class Session:
             """Convert Project to dictionary for YAML storage.
 
             Strips the 'name' field from categories since it's redundant with the dict key.
+            Converts exports dict keys from tuples to strings for YAML compatibility.
             """
             data = dataclasses.asdict(project)
             # Remove 'name' field from each category (it's redundant with the key)
             if "categories" in data:
                 for category_data in data["categories"].values():
                     category_data.pop("name", None)
+            # Convert exports tuple keys to strings for YAML
+            if "exports" in data:
+                data["exports"] = {
+                    f"{expr}:{pat if pat is not None else ''}": exported
+                    for (expr, pat), exported in data["exports"].items()
+                }
             return data
 
         @staticmethod
@@ -235,7 +242,7 @@ class Session:
             Returns:
                 Project instance with category names set from dict keys
             """
-            from mcp_guide.models.project import Category
+            from mcp_guide.models.project import Category, ExportedTo
 
             # Make a copy to avoid modifying the input
             data = dict(project_data)
@@ -249,6 +256,15 @@ class Session:
                     cat_data_copy["name"] = cat_name
                     categories_dict[cat_name] = Category(**cat_data_copy)
                 data["categories"] = categories_dict
+
+            # Convert exports string keys back to tuples
+            if "exports" in data:
+                exports_dict = {}
+                for key_str, exported_data in data["exports"].items():
+                    expr, _, pat = key_str.partition(":")
+                    key = (expr, pat if pat else None)
+                    exports_dict[key] = ExportedTo(**exported_data)
+                data["exports"] = exports_dict
 
             return Project(**data)
 

@@ -11,10 +11,12 @@ Agents repeatedly export the same content to their knowledge bases, consuming co
 - Return "already exported" message when content is current
 - Add `force` flag to override staleness check
 - Filter file discovery by export timestamp to detect changes efficiently
+- Rename `discover_category_files()` → `discover_documents()` for clarity (function is used for commands, categories, and generic file discovery)
 
 ## Impact
 
-- Affected specs: `content-tools`
-- Affected code: `tool_content.py`, `project_config.py`, `models.py`, `discovery.py`
+- Affected specs: `content-tools`, `file-discovery`
+- Affected code: `tool_content.py`, `project_config.py`, `models.py`, `discovery/files.py` (rename + signature change)
 - Non-breaking: existing `export_content` calls work unchanged
+- API change: `discover_category_files()` renamed to `discover_documents()` (internal API, 28 call sites updated)
 - Performance: reduces redundant exports and context consumption

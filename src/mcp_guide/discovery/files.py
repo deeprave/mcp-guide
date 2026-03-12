@@ -246,28 +246,30 @@ class FileInfo:
         self._frontmatter = value
 
 
-async def discover_category_files(
-    category_dir: Path,
+async def discover_documents(
+    base_dir: Path,
     patterns: list[str],
+    updated_since: Optional[float] = None,
 ) -> list[FileInfo]:
-    """Discover files in category directory with metadata.
+    """Discover files in directory with metadata.
 
     Args:
-        category_dir: Absolute path to category directory
+        base_dir: Absolute path to base directory
         patterns: Glob patterns to match files
+        updated_since: Optional Unix timestamp - only return files modified after this time
 
     Returns:
         List of FileInfo with relative paths, size, mtime
 
     Raises:
-        ValueError: If category_dir is not absolute
-        FileNotFoundError: If category_dir doesn't exist
+        ValueError: If base_dir is not absolute
+        FileNotFoundError: If base_dir doesn't exist
     """
-    if not category_dir.is_absolute():
-        raise ValueError(f"Category directory must be absolute: {category_dir}")
+    if not base_dir.is_absolute():
+        raise ValueError(f"Base directory must be absolute: {base_dir}")
 
-    if not await AsyncPath(category_dir).exists() or not await AsyncPath(category_dir).is_dir():
-        raise FileNotFoundError(f"Category directory not found: {category_dir}")
+    if not await AsyncPath(base_dir).exists() or not await AsyncPath(base_dir).is_dir():
+        raise FileNotFoundError(f"Base directory not found: {base_dir}")
 
     # Validate patterns don't include template extensions
     for pattern in patterns:
@@ -281,16 +283,16 @@ async def discover_category_files(
     expanded_patterns: list[str] = []
     for pattern in patterns:
         expanded_patterns.extend(get_file_extension_patterns(pattern))
-    matched_paths = await safe_glob_search(category_dir, expanded_patterns)
+    matched_paths = await safe_glob_search(base_dir, expanded_patterns)
 
-    # Resolve category_dir for consistent path calculations
-    category_dir_resolved = category_dir.resolve()
+    # Resolve base_dir for consistent path calculations
+    base_dir_resolved = base_dir.resolve()
 
     # Group by full relative path and prefer non-template over template
     # Note: safe_glob_search returns sorted results, so non-template always comes before template
     files_by_path: dict[str, Path] = {}
     for matched_path in matched_paths:
-        relative_path = matched_path.relative_to(category_dir_resolved)
+        relative_path = matched_path.relative_to(base_dir_resolved)
 
         # Calculate the key: full relative path without template extension
         path_str = str(relative_path)
@@ -306,7 +308,12 @@ async def discover_category_files(
     results = []
     for matched_path in files_by_path.values():
         stat_result = await aiofiles.os.stat(matched_path)
-        relative_path = matched_path.relative_to(category_dir_resolved)
+
+        # Filter by mtime if updated_since provided
+        if updated_since is not None and stat_result.st_mtime <= updated_since:
+            continue
+
+        relative_path = matched_path.relative_to(base_dir_resolved)
 
         # Calculate name (full relative path without template extension)
         name = relative_path.as_posix()

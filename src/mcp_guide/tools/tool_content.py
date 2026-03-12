@@ -240,12 +240,42 @@ async def export_content(
     Reuses get_content logic to gather and render content, then returns it with
     an instruction to write to the resolved path.
     """
+    session = await get_or_create_session(ctx)
+    project = await session.get_project()
+
+    # Check for existing export (staleness detection)
+    export_entry = project.get_export_entry(args.expression, args.pattern)
+
     # Get rendered content
     content_args = ContentArgs(expression=args.expression, pattern=args.pattern)
     result = await internal_get_content(content_args, ctx)
 
     if not result.success:
         return await tool_result("export_content", result)
+
+    # Extract max mtime from gathered files (if available in result metadata)
+    max_mtime = 0.0
+    if hasattr(result, "metadata") and result.metadata and "files" in result.metadata:
+        files = result.metadata["files"]
+        if files:
+            max_mtime = max(f.mtime.timestamp() for f in files)
+
+    # Check staleness if not forced
+    if not args.force and export_entry and max_mtime > 0 and max_mtime <= export_entry.mtime:
+        # Content hasn't changed since last export
+        agent_name = ""
+        try:
+            from mcp_guide.mcp_context import get_cached_mcp_context
+
+            cached = get_cached_mcp_context()
+            if cached and cached.agent_info:
+                agent_name = cached.agent_info.normalized_name.lower()
+        except (AttributeError, LookupError):
+            pass
+
+        message = f"Content for '{args.expression}' already exported to {export_entry.path}. Use force=True to overwrite or if file is missing."
+
+        return await tool_result("export_content", Result.ok(message))
 
     # Resolve agent name
     agent_name = ""
@@ -257,8 +287,8 @@ async def export_content(
             agent_name = cached.agent_info.normalized_name.lower()
     except (AttributeError, LookupError) as e:
         logger.warning(f"Agent detection failed, using default export path: {e}")
+
     # Resolve path-export flag
-    session = await get_or_create_session(ctx)
     export_flag = None
     with contextlib.suppress(Exception):
         from mcp_guide.feature_flags.constants import FLAG_PATH_EXPORT
@@ -267,11 +297,12 @@ async def export_content(
         val = await get_resolved_flag_value(session, FLAG_PATH_EXPORT)
         if isinstance(val, str):
             export_flag = val
+
     # Resolve the output path
     output_path = _resolve_export_path(args.path, agent_name, export_flag)
 
     # Add the specific file path to allowed_write_paths only if not already covered
-    project = await session.get_project()
+    # (project already fetched above)
 
     # Check if path is already permitted by testing against security policy
     from mcp_guide.filesystem.read_write_security import ReadWriteSecurityPolicy, SecurityError
@@ -298,5 +329,10 @@ async def export_content(
         if args.force
         else f"Write the content below to `{output_path}` (create only - do not overwrite if it exists)"
     )
+
+    # Update export tracking
+    if max_mtime > 0:
+        updated_project = project.upsert_export_entry(args.expression, args.pattern, output_path, max_mtime)
+        await session.update_config(lambda _: updated_project)
 
     return await tool_result("export_content", Result.ok(result.value, instruction=instruction))

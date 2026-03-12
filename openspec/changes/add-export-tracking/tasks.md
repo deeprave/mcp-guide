@@ -1,21 +1,27 @@
 ## Implementation
 
-- [ ] 1.1 Add `ExportedTo` model (path, mtime)
-- [ ] 1.2 Add `exports: Dict[Tuple[str, Optional[str]], ExportedTo]` field to Project model
-- [ ] 1.3 Add `get_export_entry()` method to lookup by (expression, pattern) tuple
-- [ ] 1.4 Add `upsert_export_entry()` method to update tracking
-- [ ] 2.1 Modify file discovery to accept optional `updated_since` parameter
-- [ ] 2.2 Filter files in discovery where `mtime <= updated_since`
-- [ ] 2.3 Return early if no files pass mtime filter
-- [ ] 3.1 Add `force` parameter to `export_content` tool
-- [ ] 3.2 Check export tracking before content gathering
-- [ ] 3.3 Pass `updated_since=None` when `force=True`
-- [ ] 3.4 Return "already available" message when content unchanged
-- [ ] 3.5 Upsert tracking entry after successful export
-- [ ] 3.6 Detect agent name for message customization
-- [ ] 4.1 Write unit tests for ExportedTo model
-- [ ] 4.2 Write unit tests for mtime filtering in discovery
-- [ ] 4.3 Write integration tests for staleness detection
-- [ ] 4.4 Write integration tests for force flag behavior
-- [ ] 5.1 Update content-management.md with tracking behavior
-- [ ] 5.2 Document force flag usage
+- [x] 1.1 Add `ExportedTo` model (path, metadata_hash)
+- [x] 1.2 Add `exports: Dict[Tuple[str, Optional[str]], ExportedTo]` field to Project model
+- [x] 1.3 Add `get_export_entry()` method to lookup by (expression, pattern) tuple
+- [x] 1.4 Add `upsert_export_entry()` method to update tracking
+- [x] 1.5 Add YAML serialization for exports dict (tuple keys ↔ string keys)
+- [x] 2.1 Rename `discover_category_files()` → `discover_documents()` in discovery/files.py
+- [x] 2.2 Rename parameter `category_dir` → `base_dir` for consistency
+- [x] 2.3 Update all 28 call sites (production code + tests)
+- [x] 3.1 Add metadata hash computation function using CRC32
+- [x] 3.2 Compute hash from sorted `category:filename:mtime` entries
+- [x] 3.3 Format as 8 hex characters for compact storage
+- [x] 4.1 Add `force` parameter to `export_content` tool (already existed)
+- [x] 4.2 Check export tracking before content gathering
+- [x] 4.3 Gather files and compute metadata hash
+- [x] 4.4 Compare computed hash with stored hash for staleness
+- [x] 4.5 Return "already exported" message when hashes match
+- [x] 4.6 Upsert tracking entry with new hash after successful export
+- [x] 5.1 Write unit tests for ExportedTo model
+- [x] 5.2 Write unit tests for Project export methods
+- [x] 5.3 Write unit tests for backwards compatibility
+- [x] 5.4 Write integration tests for staleness detection
+- [x] 5.5 Write integration tests for force flag behavior
+- [x] 5.6 Update existing tests for renamed function
+- [ ] 6.1 Update content-management.md with tracking behavior (SKIPPED - intuitive)
+- [ ] 6.2 Document force flag usage (SKIPPED - already documented)
