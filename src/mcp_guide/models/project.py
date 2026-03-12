@@ -19,13 +19,13 @@ class ExportedTo:
 
     Attributes:
         path: Export destination path
-        mtime: Unix timestamp of most recent file in export
+        metadata_hash: CRC32 hash of file metadata (category:filename:mtime)
     """
 
     model_config = ConfigDict(extra="ignore")
 
     path: str
-    mtime: float
+    metadata_hash: str
 
 
 @pydantic_dataclass(frozen=True)
@@ -241,17 +241,17 @@ class Project:
         """
         return self.exports.get((expression, pattern))
 
-    def upsert_export_entry(self, expression: str, pattern: Optional[str], path: str, mtime: float) -> "Project":
+    def upsert_export_entry(self, expression: str, pattern: Optional[str], path: str, metadata_hash: str) -> "Project":
         """Add or update export tracking entry.
 
         Args:
             expression: Category or collection expression
             pattern: Optional file pattern
             path: Export destination path
-            mtime: Unix timestamp of most recent file
+            metadata_hash: CRC32 hash of file metadata
 
         Returns:
             New Project with updated exports
         """
-        new_exports = {**self.exports, (expression, pattern): ExportedTo(path=path, mtime=mtime)}
+        new_exports = {**self.exports, (expression, pattern): ExportedTo(path=path, metadata_hash=metadata_hash)}
         return replace(self, exports=new_exports)

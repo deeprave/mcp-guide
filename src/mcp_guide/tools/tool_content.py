@@ -4,6 +4,7 @@
 
 import contextlib
 import logging
+import zlib
 from pathlib import Path
 from typing import Optional
 
@@ -37,6 +38,25 @@ from mcp_guide.tools.tool_result import tool_result
 logger = logging.getLogger(__name__)
 
 __all__ = ["ContentArgs", "internal_get_content"]
+
+
+def compute_metadata_hash(files: list[FileInfo], docroot: Path) -> str:
+    """Compute CRC32 hash of file metadata.
+
+    Args:
+        files: List of FileInfo objects
+        docroot: Document root path to compute relative paths from
+
+    Returns:
+        8-character hex string (CRC32 hash)
+    """
+    if not files:
+        return "00000000"
+
+    entries = [f"{f.path.relative_to(docroot).as_posix()}:{f.mtime.timestamp()}" for f in files]
+    entries.sort()
+    data = "|".join(entries).encode()
+    return f"{zlib.crc32(data):08x}"
 
 
 class ContentArgs(ToolArguments):
@@ -242,6 +262,7 @@ async def export_content(
     """
     session = await get_or_create_session(ctx)
     project = await session.get_project()
+    docroot = Path(await session.get_docroot())
 
     # Check for existing export (staleness detection)
     export_entry = project.get_export_entry(args.expression, args.pattern)
@@ -253,26 +274,16 @@ async def export_content(
     if not result.success:
         return await tool_result("export_content", result)
 
-    # Extract max mtime from gathered files (if available in result metadata)
-    max_mtime = 0.0
+    # Compute metadata hash from gathered files (if available in result metadata)
+    metadata_hash = "00000000"
     if hasattr(result, "metadata") and result.metadata and "files" in result.metadata:
         files = result.metadata["files"]
         if files:
-            max_mtime = max(f.mtime.timestamp() for f in files)
+            metadata_hash = compute_metadata_hash(files, docroot)
 
     # Check staleness if not forced
-    if not args.force and export_entry and max_mtime > 0 and max_mtime <= export_entry.mtime:
+    if not args.force and export_entry and metadata_hash != "00000000" and metadata_hash == export_entry.metadata_hash:
         # Content hasn't changed since last export
-        agent_name = ""
-        try:
-            from mcp_guide.mcp_context import get_cached_mcp_context
-
-            cached = get_cached_mcp_context()
-            if cached and cached.agent_info:
-                agent_name = cached.agent_info.normalized_name.lower()
-        except (AttributeError, LookupError):
-            pass
-
         message = f"Content for '{args.expression}' already exported to {export_entry.path}. Use force=True to overwrite or if file is missing."
 
         return await tool_result("export_content", Result.ok(message))
@@ -331,8 +342,8 @@ async def export_content(
     )
 
     # Update export tracking
-    if max_mtime > 0:
-        updated_project = project.upsert_export_entry(args.expression, args.pattern, output_path, max_mtime)
+    if metadata_hash != "00000000":
+        updated_project = project.upsert_export_entry(args.expression, args.pattern, output_path, metadata_hash)
         await session.update_config(lambda _: updated_project)
 
     return await tool_result("export_content", Result.ok(result.value, instruction=instruction))

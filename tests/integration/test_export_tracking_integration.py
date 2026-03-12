@@ -21,7 +21,7 @@ class TestExportStalenessIntegration:
 
         # After implementing export flow, this would create tracking
         # For now, test the model behavior
-        updated = project.upsert_export_entry("docs", None, "/export.md", 1234567890.5)
+        updated = project.upsert_export_entry("docs", None, "/export.md", "a3f5c8d1")
         assert updated.get_export_entry("docs", None) is not None
 
     async def test_repeated_export_without_changes_returns_message(self, session_temp_dir):
@@ -32,8 +32,8 @@ class TestExportStalenessIntegration:
         project = await session.get_project()
 
         # Simulate existing export
-        exported = ExportedTo(path="/export.md", mtime=9999999999.0)  # Future time
-        updated = project.upsert_export_entry("docs", None, "/export.md", 9999999999.0)
+        exported = ExportedTo(path="/export.md", metadata_hash="ffffffff")  # Future time
+        updated = project.upsert_export_entry("docs", None, "/export.md", "ffffffff")
         await session.update_config(lambda _: updated)
 
         # Verify tracking entry exists
@@ -50,22 +50,22 @@ class TestExportStalenessIntegration:
         project = await session.get_project()
 
         # Simulate old export with old mtime
-        updated = project.upsert_export_entry("docs", None, "/export.md", 1000.0)
+        updated = project.upsert_export_entry("docs", None, "/export.md", "00001000")
         await session.update_config(lambda _: updated)
 
         # New files with newer mtime would trigger re-export
-        # (tested via max_mtime > export_entry.mtime logic)
+        # (tested via max_mtime > export_entry.metadata_hash logic)
         project = await session.get_project()
         entry = project.get_export_entry("docs", None)
-        assert entry.mtime == 1000.0
+        assert entry.metadata_hash == "00001000"
 
         # Simulate newer export
-        updated = project.upsert_export_entry("docs", None, "/export.md", 2000.0)
+        updated = project.upsert_export_entry("docs", None, "/export.md", "00002000")
         await session.update_config(lambda _: updated)
 
         project = await session.get_project()
         entry = project.get_export_entry("docs", None)
-        assert entry.mtime == 2000.0
+        assert entry.metadata_hash == "00002000"
 
     async def test_force_flag_bypasses_staleness_check(self, session_temp_dir):
         """Test that force=True bypasses staleness detection."""
@@ -75,12 +75,12 @@ class TestExportStalenessIntegration:
         project = await session.get_project()
 
         # Create tracking entry
-        updated = project.upsert_export_entry("docs", None, "/export.md", 9999999999.0)
+        updated = project.upsert_export_entry("docs", None, "/export.md", "ffffffff")
         await session.update_config(lambda _: updated)
 
         # With force=True, export should proceed regardless of staleness
         # This is tested by the export_content tool logic:
-        # if not args.force and export_entry and max_mtime <= export_entry.mtime
+        # if not args.force and export_entry and max_mtime <= export_entry.metadata_hash
         # When force=True, the condition is False, so staleness check is skipped
 
         project = await session.get_project()
@@ -95,8 +95,8 @@ class TestExportStalenessIntegration:
         project = await session.get_project()
 
         # Create two tracking entries with different patterns
-        updated = project.upsert_export_entry("docs", None, "/export1.md", 1000.0)
-        updated = updated.upsert_export_entry("docs", "*.md", "/export2.md", 2000.0)
+        updated = project.upsert_export_entry("docs", None, "/export1.md", "00001000")
+        updated = updated.upsert_export_entry("docs", "*.md", "/export2.md", "00002000")
         await session.update_config(lambda _: updated)
 
         project = await session.get_project()
@@ -107,8 +107,8 @@ class TestExportStalenessIntegration:
         assert entry2 is not None
         assert entry1.path == "/export1.md"
         assert entry2.path == "/export2.md"
-        assert entry1.mtime == 1000.0
-        assert entry2.mtime == 2000.0
+        assert entry1.metadata_hash == "00001000"
+        assert entry2.metadata_hash == "00002000"
 
     async def test_tracking_persists_across_session_reload(self, session_temp_dir):
         """Test that export tracking persists when project config is reloaded."""
@@ -117,7 +117,7 @@ class TestExportStalenessIntegration:
         # First session - create tracking
         session1 = await get_or_create_session()
         project1 = await session1.get_project()
-        updated = project1.upsert_export_entry("docs", None, "/export.md", 1234567890.5)
+        updated = project1.upsert_export_entry("docs", None, "/export.md", "a3f5c8d1")
         await session1.update_config(lambda _: updated)
 
         # Second session - verify tracking persists
@@ -127,7 +127,7 @@ class TestExportStalenessIntegration:
 
         assert entry is not None
         assert entry.path == "/export.md"
-        assert entry.mtime == 1234567890.5
+        assert entry.metadata_hash == "a3f5c8d1"
 
 
 @pytest.mark.asyncio
