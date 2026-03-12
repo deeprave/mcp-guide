@@ -19,7 +19,7 @@ class ExportedTo:
 
     Attributes:
         path: Export destination path
-        metadata_hash: CRC32 hash of file metadata (category:filename:mtime)
+        metadata_hash: CRC32 hash of file metadata as "{docroot_relative_path}:{mtime}" entries joined by "|"
     """
 
     model_config = ConfigDict(extra="ignore")
