@@ -6,10 +6,10 @@ The `export_content` tool (added in `add-knowledge-export`) allows agents to exp
 
 ## Goals
 
-- Track successful exports per project (expression, path, timestamp)
-- Detect when exported content is still current (no file changes since export)
-- Return early with "already available" message when content unchanged
-- Minimal overhead: leverage existing file discovery with mtime filtering
+- Track successful exports per project (expression, path, metadata hash)
+- Detect when exported content is unchanged (comprehensive change detection)
+- Return early with "already exported" message when content unchanged
+- Minimal overhead: single hash comparison instead of file-by-file checks
 
 ## Non-Goals
 
@@ -27,76 +27,119 @@ Export tracking stored in project config as dict mapping (expression, pattern) t
 
 ```yaml
 exports:
-  '["docs", null]':
+  docs::
     path: ".knowledge/docs.md"
-    mtime: 1710072000.0
-  '["docs", "*.md"]':
+    metadata_hash: "a3f5c8d1"
+  docs:*.md:
     path: ".knowledge/docs-md.md"
-    mtime: 1710071000.0
+    metadata_hash: "b2e4f9a7"
 ```
 
 **Rationale:**
 - Tuple key `(expression, pattern)` captures uniqueness (pattern affects content)
-- Pattern is None if not provided
+- Pattern is None if not provided (serialized as empty string after colon)
 - Simple dict lookup by tuple
-- YAML serializes tuples as JSON arrays
+- YAML serialization converts tuple keys to strings "expr:pat" for compatibility
 
 **Alternatives considered:**
 - Expression-only key → wrong, pattern affects content returned
 - List of records → requires linear search, allows duplicates
 - Separate tracking file → unnecessary complexity
 
-### Staleness Detection: mtime Filtering
+### Staleness Detection: Metadata Hash
 
-Pass `updated_since` timestamp to file discovery. Discovery filters files where `mtime <= updated_since` during traversal.
+Compute CRC32 hash of file metadata (category:filename:mtime) for all gathered files. Compare with stored hash.
 
 ```python
-# In discovery.py
-if updated_since and file_stat.st_mtime <= updated_since:
-    continue  # Skip unchanged file
+def compute_metadata_hash(files: list[FileInfo]) -> str:
+    entries = sorted(
+        f"{f.category.name}:{f.path.name}:{f.mtime.timestamp()}"
+        for f in files
+    )
+    data = "|".join(entries).encode()
+    return f"{zlib.crc32(data):08x}"  # 8 hex chars
 ```
 
 **Rationale:**
-- Generic parameter name: `updated_since` describes filtering behavior
-- Simple: single comparison per file during existing traversal
-- Efficient: no separate stat calls, no content hashing
-- Sufficient: mtime changes indicate content changes
+- **Comprehensive detection:** Catches file modifications, additions, deletions, pattern changes, collection changes
+- **Efficient:** Single hash comparison vs file-by-file checks
+- **Compact:** 8 hex characters (CRC32) vs 32 (MD5) or 64 (SHA256)
+- **Fast:** CRC32 is faster than cryptographic hashes
+- **Sufficient:** Collision risk (~1 in 4B) acceptable, user can force override
 
-**Force flag:** Pass `updated_since=None` to bypass filtering
+**What it detects:**
+- ✅ File modified (mtime changes)
+- ✅ File added (new entry in hash input)
+- ✅ File deleted (missing entry in hash input)
+- ✅ Pattern changed (different files match)
+- ✅ Collection membership changed (different categories)
+- ✅ Category configuration changed (affects file discovery)
+- ✅ Old file copied (new filename, even with old mtime)
+
+**Force flag:** Bypasses hash comparison entirely
 
 **Alternatives considered:**
-- Content hashing → expensive, unnecessary precision
-- Separate staleness check → duplicate traversal overhead
-- Compare file count only → misses updates to existing files
+- **mtime filtering only** → misses additions/deletions/config changes
+- **File list tracking** → larger storage, more complex comparison
+- **Config hash + mtime** → doesn't catch file additions/deletions
+- **Content hashing** → expensive, unnecessary precision
+- **MD5/SHA256** → longer hashes (32/64 chars), slower, overkill for this use case
 
-### Early Return: "Already Available" Message
+### Early Return: "Already Exported" Message
 
-When all files filtered out (no changes detected):
+When computed hash matches stored hash:
 
 ```
-Content already exported to .knowledge/docs.md (exported 2m ago, no changes detected)
+Content for 'docs' already exported to .knowledge/docs.md. Use force=True to overwrite or if file is missing.
 ```
 
-For kiro-cli/q-dev agents, append: "and indexed in knowledge base"
+**Rationale:**
+- Informative: tells user where content was exported
+- Actionable: explains how to override
+- Honest: doesn't claim knowledge about indexing status (we only track exports)
 
-**Rationale:** Informative, actionable, agent-specific context
+**Removed:** "indexed in knowledge base" claim - we don't track indexing, only exports
 
 ### Force Flag: Override Staleness Check
 
-`force=True` bypasses tracking lookup and staleness check, always exports.
+`force=True` bypasses tracking lookup and hash comparison, always exports.
 
-**Rationale:** Allows manual refresh when needed (e.g., template changes, flag changes)
+**Rationale:** Allows manual refresh when needed (e.g., template changes, flag changes, hash collision)
 
 ## Risks / Trade-offs
 
-**Risk:** mtime-based staleness may miss changes if file touched without content change
-**Mitigation:** `force` flag allows manual override; false positives (unnecessary export) are acceptable
+**Risk:** CRC32 collision causes false positive (skip export when content actually changed)
+**Mitigation:**
+- Collision probability ~1 in 4 billion
+- User can use `force=True` to override
+- False positive is annoying but not catastrophic
 
 **Risk:** Export tracking grows unbounded
 **Mitigation:** Deferred to future change if needed; typical projects have <100 exports
 
-**Trade-off:** Storing full expression + pattern vs hash
-**Decision:** Store full expression/pattern for debuggability and potential query tool
+**Trade-off:** CRC32 vs cryptographic hash
+**Decision:** CRC32 sufficient - 8 chars vs 32/64, faster, collision risk acceptable
+
+**Trade-off:** Hash before or after rendering
+**Decision:** Hash after gathering but before rendering - still wastes gathering work when stale, but keeps implementation simple. Future optimization could hash before rendering.
+
+## Implementation Notes
+
+### YAML Serialization
+
+Tuple keys must be converted to strings for YAML compatibility:
+- Serialize: `(expr, pat)` → `"expr:pat"` (empty string if pat is None)
+- Deserialize: `"expr:pat"` → `(expr, pat if pat else None)`
+
+Handled in `_project_to_dict()` and `_dict_to_project()` in session.py.
+
+### Hash Algorithm
+
+CRC32 chosen over MD5/SHA256:
+- **Size:** 8 hex chars vs 32/64
+- **Speed:** Faster than cryptographic hashes
+- **Collision risk:** Acceptable for this use case
+- **Stdlib:** `zlib.crc32()` available in Python stdlib
 
 ## Migration Plan
 

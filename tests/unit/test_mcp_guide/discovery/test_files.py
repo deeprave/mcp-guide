@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from mcp_guide.discovery.files import FileInfo, discover_category_files
+from mcp_guide.discovery.files import FileInfo, discover_documents
 
 
 def test_fileinfo_has_category_field():
@@ -46,7 +46,7 @@ async def test_directory_not_found():
     """Test that missing directory raises FileNotFoundError."""
     non_existent = Path("/non/existent/directory")
     with pytest.raises(FileNotFoundError):
-        await discover_category_files(non_existent, ["*.txt"])
+        await discover_documents(non_existent, ["*.txt"])
 
 
 @pytest.mark.asyncio
@@ -54,7 +54,7 @@ async def test_relative_path_raises_error():
     """Test that relative path raises ValueError."""
     relative_path = Path("relative/path")
     with pytest.raises(ValueError, match="must be absolute"):
-        await discover_category_files(relative_path, ["*.txt"])
+        await discover_documents(relative_path, ["*.txt"])
 
 
 @pytest.mark.asyncio
@@ -64,13 +64,13 @@ async def test_template_extension_patterns_raise_error(tmp_path):
 
     for ext in template_extensions:
         with pytest.raises(ValueError, match="should not include template extensions"):
-            await discover_category_files(tmp_path, [f"*.md{ext}"])
+            await discover_documents(tmp_path, [f"*.md{ext}"])
 
 
 @pytest.mark.asyncio
 async def test_no_matches_returns_empty_list(tmp_path):
     """Test that no matches returns empty list."""
-    result = await discover_category_files(tmp_path, ["*.txt"])
+    result = await discover_documents(tmp_path, ["*.txt"])
     assert result == []
 
 
@@ -79,7 +79,7 @@ async def test_discover_single_file(tmp_path):
     """Test discovering a single file."""
     (tmp_path / "test.md").write_text("# Test")
 
-    result = await discover_category_files(tmp_path, ["*.md"])
+    result = await discover_documents(tmp_path, ["*.md"])
 
     assert len(result) == 1
     assert result[0].path == Path("test.md")
@@ -93,7 +93,7 @@ async def test_discover_multiple_files(tmp_path):
     (tmp_path / "file1.md").write_text("# File 1")
     (tmp_path / "file2.md").write_text("# File 2")
 
-    result = await discover_category_files(tmp_path, ["*.md"])
+    result = await discover_documents(tmp_path, ["*.md"])
 
     assert len(result) == 2
     paths = {f.path for f in result}
@@ -107,7 +107,7 @@ async def test_multiple_patterns(tmp_path):
     (tmp_path / "doc.md").write_text("# Doc")
     (tmp_path / "data.yaml").write_text("key: value")
 
-    result = await discover_category_files(tmp_path, ["*.md", "*.yaml"])
+    result = await discover_documents(tmp_path, ["*.md", "*.yaml"])
 
     assert len(result) == 2
     paths = {f.path for f in result}
@@ -122,7 +122,7 @@ async def test_discover_in_subdirectories(tmp_path):
     subdir.mkdir()
     (subdir / "nested.md").write_text("# Nested")
 
-    result = await discover_category_files(tmp_path, ["**/*.md"])
+    result = await discover_documents(tmp_path, ["**/*.md"])
 
     assert len(result) == 1
     assert result[0].path == Path("sub/nested.md")
@@ -133,7 +133,7 @@ async def test_discover_template_file(tmp_path):
     """Test discovering template file."""
     (tmp_path / "doc.md.mustache").write_text("# Template")
 
-    result = await discover_category_files(tmp_path, ["*.md"])
+    result = await discover_documents(tmp_path, ["*.md"])
 
     assert len(result) == 1
     assert result[0].path == Path("doc.md.mustache")
@@ -146,7 +146,7 @@ async def test_prefer_non_template_over_template(tmp_path):
     (tmp_path / "doc.md").write_text("# Real")
     (tmp_path / "doc.md.mustache").write_text("# Template")
 
-    result = await discover_category_files(tmp_path, ["*.md"])
+    result = await discover_documents(tmp_path, ["*.md"])
 
     assert len(result) == 1
     assert result[0].path == Path("doc.md")
@@ -159,7 +159,7 @@ async def test_template_replacement_when_both_exist(tmp_path):
     (tmp_path / "file.txt").write_text("Real")
     (tmp_path / "file.txt.mustache").write_text("Template")
 
-    result = await discover_category_files(tmp_path, ["*.txt"])
+    result = await discover_documents(tmp_path, ["*.txt"])
 
     assert len(result) == 1
     assert result[0].path == Path("file.txt")
@@ -172,7 +172,7 @@ async def test_relative_paths(tmp_path):
     subdir.mkdir()
     (subdir / "file.txt").write_text("content")
 
-    result = await discover_category_files(tmp_path, ["**/*.txt"])
+    result = await discover_documents(tmp_path, ["**/*.txt"])
 
     assert len(result) == 1
     assert result[0].path == Path("subdir/file.txt")
@@ -184,7 +184,7 @@ async def test_empty_patterns_returns_empty(tmp_path):
     """Test empty patterns list returns empty results."""
     (tmp_path / "file.txt").write_text("content")
 
-    result = await discover_category_files(tmp_path, [])
+    result = await discover_documents(tmp_path, [])
 
     assert result == []
 
@@ -208,7 +208,7 @@ async def test_integration_realistic_category(tmp_path):
     (tests_dir / "test_main.py").write_text("def test(): pass")
 
     # Search for Python files
-    result = await discover_category_files(tmp_path, ["**/*.py"])
+    result = await discover_documents(tmp_path, ["**/*.py"])
 
     assert len(result) == 3
     paths = {r.path for r in result}
@@ -236,7 +236,7 @@ async def test_same_filename_different_directories(tmp_path):
     (subdir1 / "doc.md").write_text("# Doc 1")
     (subdir2 / "doc.md").write_text("# Doc 2")
 
-    result = await discover_category_files(tmp_path, ["**/*.md"])
+    result = await discover_documents(tmp_path, ["**/*.md"])
 
     # Should return BOTH files, not just one
     assert len(result) == 2
@@ -258,7 +258,7 @@ async def test_template_deduplication_in_subdirectory(tmp_path):
     (subdir / "doc.md").write_text("# Real")
     (subdir / "doc.md.mustache").write_text("# Template")
 
-    result = await discover_category_files(tmp_path, ["**/*.md"])
+    result = await discover_documents(tmp_path, ["**/*.md"])
 
     # Should only return non-template version
     assert len(result) == 1
@@ -275,9 +275,61 @@ async def test_template_preference_different_directories(tmp_path):
     (tmp_path / "subdir1" / "doc.md").write_text("real")
     (tmp_path / "subdir2" / "doc.md.mustache").write_text("template")
 
-    result = await discover_category_files(tmp_path, ["**/*.md"])
+    result = await discover_documents(tmp_path, ["**/*.md"])
 
     # Should return both files (they're in different directories)
     assert len(result) == 2
     paths = {r.path for r in result}
     assert paths == {Path("subdir1/doc.md"), Path("subdir2/doc.md.mustache")}
+
+
+@pytest.mark.asyncio
+async def test_updated_since_none_returns_all(tmp_path):
+    """Test updated_since=None returns all files."""
+    (tmp_path / "file1.md").write_text("content1")
+    (tmp_path / "file2.md").write_text("content2")
+
+    result = await discover_documents(tmp_path, ["*.md"], updated_since=None)
+
+    assert len(result) == 2
+
+
+@pytest.mark.asyncio
+async def test_updated_since_filters_old_files(tmp_path):
+    """Test updated_since filters files with mtime <= threshold."""
+    import time
+
+    # Create first file
+    file1 = tmp_path / "old.md"
+    file1.write_text("old content")
+    old_mtime = file1.stat().st_mtime
+
+    # Wait and create second file
+    time.sleep(0.1)
+    file2 = tmp_path / "new.md"
+    file2.write_text("new content")
+
+    # Filter using old file's mtime
+    result = await discover_documents(tmp_path, ["*.md"], updated_since=old_mtime)
+
+    # Should only return new file
+    assert len(result) == 1
+    assert result[0].path == Path("new.md")
+
+
+@pytest.mark.asyncio
+async def test_updated_since_returns_empty_when_all_filtered(tmp_path):
+    """Test updated_since returns empty list when all files filtered."""
+    import time
+
+    file1 = tmp_path / "file1.md"
+    file1.write_text("content")
+
+    # Get current time after file creation
+    time.sleep(0.1)
+    current_time = time.time()
+
+    # All files should be filtered
+    result = await discover_documents(tmp_path, ["*.md"], updated_since=current_time)
+
+    assert len(result) == 0

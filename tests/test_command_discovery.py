@@ -24,7 +24,7 @@ class TestCommandDiscovery:
             (commands_dir / "help.md").write_text("# Help Command\nShows available commands.")
             (commands_dir / "status.mustache").write_text("# Status\nSystem status information.")
 
-            # Mock discover_category_files to return our test files
+            # Mock discover_documents to return our test files
             mock_files = [
                 FileInfo(
                     path=Path("help.md"),  # Relative path
@@ -46,7 +46,7 @@ class TestCommandDiscovery:
                 ),
             ]
 
-            with patch("mcp_guide.discovery.commands.discover_category_files", new=AsyncMock(return_value=mock_files)):
+            with patch("mcp_guide.discovery.commands.discover_documents", new=AsyncMock(return_value=mock_files)):
                 # Import and test the function (to be implemented)
                 from mcp_guide.discovery.commands import discover_commands
 
@@ -89,7 +89,7 @@ class TestCommandDiscovery:
                 ),
             ]
 
-            with patch("mcp_guide.discovery.commands.discover_category_files", new=AsyncMock(return_value=mock_files)):
+            with patch("mcp_guide.discovery.commands.discover_documents", new=AsyncMock(return_value=mock_files)):
                 from mcp_guide.discovery.commands import discover_commands
 
                 commands = await discover_commands(commands_dir)
@@ -131,7 +131,7 @@ This command shows all available commands.
                 )
             ]
 
-            with patch("mcp_guide.discovery.commands.discover_category_files", new=AsyncMock(return_value=mock_files)):
+            with patch("mcp_guide.discovery.commands.discover_documents", new=AsyncMock(return_value=mock_files)):
                 from mcp_guide.discovery.commands import discover_commands
 
                 commands = await discover_commands(commands_dir)
@@ -165,7 +165,7 @@ This command shows all available commands.
                 )
             ]
 
-            with patch("mcp_guide.discovery.commands.discover_category_files", new=AsyncMock(return_value=mock_files)):
+            with patch("mcp_guide.discovery.commands.discover_documents", new=AsyncMock(return_value=mock_files)):
                 from mcp_guide.discovery.commands import discover_commands
 
                 commands = await discover_commands(commands_dir)
@@ -227,7 +227,7 @@ description: Workflow command
             mock_context = {"workflow": True, "feature": False}
 
             with (
-                patch("mcp_guide.discovery.commands.discover_category_files", new=AsyncMock(return_value=mock_files)),
+                patch("mcp_guide.discovery.commands.discover_documents", new=AsyncMock(return_value=mock_files)),
                 patch("mcp_guide.render.cache.get_template_contexts", new=AsyncMock(return_value=mock_context)),
             ):
                 from mcp_guide.discovery.commands import discover_commands

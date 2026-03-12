@@ -14,6 +14,21 @@ from mcp_guide.models.constants import _NAME_REGEX, DEFAULT_ALLOWED_WRITE_PATHS
 
 
 @pydantic_dataclass(frozen=True)
+class ExportedTo:
+    """Export tracking entry.
+
+    Attributes:
+        path: Export destination path
+        mtime: Unix timestamp of most recent file in export
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    path: str
+    mtime: float
+
+
+@pydantic_dataclass(frozen=True)
 class Category:
     """Category configuration.
 
@@ -96,6 +111,7 @@ class Project:
     additional_read_paths: list[str] = field(default_factory=list)
     openspec_validated: bool = False
     openspec_version: Optional[str] = None
+    exports: dict[tuple[str, Optional[str]], ExportedTo] = field(default_factory=dict)
 
     @field_validator("name")
     @classmethod
@@ -212,3 +228,30 @@ class Project:
         updated_collection = updater(self.collections[name])
         new_collections = {**self.collections, name: updated_collection}
         return replace(self, collections=new_collections)
+
+    def get_export_entry(self, expression: str, pattern: Optional[str]) -> Optional[ExportedTo]:
+        """Get export tracking entry.
+
+        Args:
+            expression: Category or collection expression
+            pattern: Optional file pattern
+
+        Returns:
+            ExportedTo entry if found, None otherwise
+        """
+        return self.exports.get((expression, pattern))
+
+    def upsert_export_entry(self, expression: str, pattern: Optional[str], path: str, mtime: float) -> "Project":
+        """Add or update export tracking entry.
+
+        Args:
+            expression: Category or collection expression
+            pattern: Optional file pattern
+            path: Export destination path
+            mtime: Unix timestamp of most recent file
+
+        Returns:
+            New Project with updated exports
+        """
+        new_exports = {**self.exports, (expression, pattern): ExportedTo(path=path, mtime=mtime)}
+        return replace(self, exports=new_exports)

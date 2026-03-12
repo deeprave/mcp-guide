@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Callable, Optional
 
 from mcp_guide.core.mcp_log import get_logger
-from mcp_guide.discovery.files import FileInfo, discover_category_files
+from mcp_guide.discovery.files import FileInfo, discover_documents
 from mcp_guide.models import resolve_all_flags
 from mcp_guide.render.content import RenderedContent
 from mcp_guide.render.context import TemplateContext
@@ -22,7 +22,7 @@ async def discover_single_file(
     display_name: str,
 ) -> list[FileInfo]:
     """Discover a single file matching pattern, raising an error if multiple or none found."""
-    files = await discover_category_files(category_path, [pattern])
+    files = await discover_documents(category_path, [pattern])
 
     if not files:
         raise FileNotFoundError(f"No template found matching pattern '{pattern}' in {display_name}")

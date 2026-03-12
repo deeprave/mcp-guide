@@ -147,7 +147,7 @@ class TestCommandErrorHandling:
             patch("mcp_guide.session.get_or_create_session", new=AsyncMock()) as mock_session,
             patch("mcp_guide.prompts.guide_prompt.resolve_all_flags", new=AsyncMock()) as mock_resolve_flags,
             patch("mcp_guide.discovery.commands.discover_command_files", new=AsyncMock()) as mock_discover_files,
-            patch("mcp_guide.prompts.guide_prompt.discover_category_files", new=AsyncMock()) as mock_files,
+            patch("mcp_guide.prompts.guide_prompt.discover_documents", new=AsyncMock()) as mock_files,
             patch("mcp_guide.prompts.guide_prompt.get_template_contexts", new=AsyncMock()) as mock_context,
             patch("mcp_guide.render.cache.get_template_contexts", new=AsyncMock()) as mock_discover_context,
             patch("mcp_guide.prompts.guide_prompt.render_template", new=AsyncMock()) as mock_render,
@@ -229,7 +229,7 @@ class TestCommandErrorHandling:
             patch("mcp_guide.prompts.guide_prompt.resolve_all_flags", new=AsyncMock()) as mock_resolve_flags,
             patch("mcp_guide.prompts.guide_prompt.discover_commands", new=AsyncMock(return_value=[])),
             patch("mcp_guide.prompts.guide_prompt.get_template_contexts", new=AsyncMock()) as mock_context,
-            patch("mcp_guide.prompts.guide_prompt.discover_category_files", new=AsyncMock()) as mock_discover,
+            patch("mcp_guide.prompts.guide_prompt.discover_documents", new=AsyncMock()) as mock_discover,
         ):
             # Mock session methods
             mock_session_obj = AsyncMock()
