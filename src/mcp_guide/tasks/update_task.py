@@ -122,7 +122,7 @@ class McpUpdateTask:
 
         # Render update prompt template
         context = TemplateContext()
-        rendered = await render_content("_update", "", context)
+        rendered = await render_content("_update", "_system", context)
 
         if rendered:
             self._instruction_id = await self.task_manager.queue_instruction_with_ack(rendered.content)
