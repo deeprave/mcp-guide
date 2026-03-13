@@ -124,6 +124,12 @@ async def internal_get_content(
     if not args.force:
         export_entry = project.get_export_entry(args.expression, args.pattern)
         if export_entry:
+            # Get the original content to extract its instruction
+            original_result = await internal_get_content(
+                ContentArgs(expression=args.expression, pattern=args.pattern, force=True), ctx
+            )
+            original_instruction = original_result.instruction if original_result.success else None
+
             # Content has been exported - return reference instructions
             from mcp_guide.render.context import TemplateContext
             from mcp_guide.render.rendering import render_content
@@ -136,6 +142,7 @@ async def internal_get_content(
                         "exists": True,
                         "expression": args.expression,
                         "pattern": args.pattern,
+                        "instruction": original_instruction,
                     }
                 }
             )
@@ -323,6 +330,9 @@ async def export_content(
     # Check staleness if not forced (path changes also require force=True)
     if not args.force and export_entry and metadata_hash is not None and metadata_hash == export_entry.metadata_hash:
         # Content hasn't changed since last export - use template for consistency
+        # Get original instruction from the content
+        original_instruction = result.instruction if result.success else None
+
         from mcp_guide.render.context import TemplateContext
         from mcp_guide.render.rendering import render_content
 
@@ -334,6 +344,7 @@ async def export_content(
                     "exists": True,
                     "expression": args.expression,
                     "pattern": args.pattern,
+                    "instruction": original_instruction,
                 }
             }
         )

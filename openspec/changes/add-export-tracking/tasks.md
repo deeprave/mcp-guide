@@ -23,5 +23,5 @@
 - [x] 5.4 Write integration tests for staleness detection
 - [x] 5.5 Write integration tests for force flag behavior
 - [x] 5.6 Update existing tests for renamed function
-- [ ] 6.1 Update content-management.md with tracking behavior (SKIPPED - intuitive)
-- [ ] 6.2 Document force flag usage (SKIPPED - already documented)
+- [x] 6.1 Update content-management.md with tracking behavior
+- [x] 6.2 Document force flag usage

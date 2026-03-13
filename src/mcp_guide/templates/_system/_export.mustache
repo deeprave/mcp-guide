@@ -1,7 +1,7 @@
 ---
 type: agent/instruction
 instruction: >
-  {{#export.exists}}Reference exported content or write to file{{else}}Write content to file{{/export.exists}}
+  {{#export.exists}}Reference exported content or write to file{{else}}Write content to file{{/export.exists}}{{#export.instruction}}. {{export.instruction}}{{/export.instruction}}
 ---
 {{#export.exists}}{{! Content has been exported before }}
 Content for '{{export.expression}}' has been exported to `{{export.path}}`.
