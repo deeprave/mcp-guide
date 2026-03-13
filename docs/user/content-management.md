@@ -174,6 +174,12 @@ export_content(expression="api-guide", path="api.md", force=True)  # Overwrite e
 
 When `path` is omitted, the tool uses the `path-export` flag value plus a generated filename based on the expression. For Goose agents, this defaults to `~/.goose/projects/{project-hash}/knowledge/`, allowing knowledge to persist across sessions.
 
+**Export Tracking:**
+
+Exported expressions and their components are tracked automatically. When content is exported, mcp-guide records a metadata hash based on the source files and their modification times. On subsequent exports of the same expression, the hash is compared — if unchanged, the export is skipped with a message directing the agent to the existing file. Use `force=True` to bypass this check.
+
+For agents with knowledge indexing capabilities (such as Kiro and Q Developer), the export template provides instructions to index the exported file into the agent's knowledge base. Once indexed, `get_content` returns a reference to the knowledge entry rather than re-delivering the full content, reducing context usage. The agent can use `force=True` on `get_content` to retrieve the full content when needed.
+
 **Security:**
 
 Export file paths are automatically added to `allowed_write_paths` (the specific file, not the entire directory). Path traversal (`../`, `..\\`) is blocked in path flag values. System directories (`/etc`, `/sys`) are blocked for absolute paths.

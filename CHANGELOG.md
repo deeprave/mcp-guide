@@ -2,15 +2,22 @@
 
 All notable changes to mcp-guide will be documented in this file.
 
-## [1.1.0] - 2026-03-05
+## [1.1.0] TBD
 
 ### Added
 - Permission management MCP tools (`add_permission_path`, `remove_permission_path`)
 - Guide prompt parser now supports space-separated flag values (`--flag value` in addition to `--flag=value`)
+- Export tracking: exported content is tracked to enable efficient content referencing
+- Knowledge indexing support: agents with indexing capabilities (Kiro, Q Developer) receive instructions to index exported content
 
 ### Changed
 - Refactored prompt templates to provide a more consistent user experience
 - Command templates now declare required arguments via `argrequired` frontmatter field
+- Removed introspection mcp tools, consolidated management tools
+- Drastically simplified and reduced the size of mcp tool descriptions
+- Remove the default "guide_" prefix on tools
+- Fixed an issue with the internal task manager statistics (and :project display)
+- Refactored internals to provide clear and more consistent template rendering
 
 ### Fixed
 - Template consistency: all command examples now use `{{@}}guide` prefix

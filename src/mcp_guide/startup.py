@@ -32,7 +32,7 @@ async def handle_project_load(session: "Session") -> None:
 
     # Render template (filtering automatic via requires-*)
     file_info = FileInfo(
-        path=Path("_startup"),
+        path=Path("_system/_startup"),
         category=None,
         size=0,
         content_size=0,

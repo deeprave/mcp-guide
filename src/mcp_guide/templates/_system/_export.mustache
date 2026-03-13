@@ -1,0 +1,20 @@
+---
+type: agent/instruction
+instruction: >
+  {{#export.exists}}Reference exported content or write to file{{else}}Write content to file{{/export.exists}}
+---
+{{#export.exists}}{{! Content has been exported before }}
+Content for '{{export.expression}}' has been exported to `{{export.path}}`.
+
+If you have a `knowledge` tool available:
+- Check if '{{export.expression}}' is already indexed in your knowledge base
+- If not indexed, add it: `knowledge(command="add", name="{{export.expression}}", value="{{export.path}}")`
+- This allows you to reference this content in future responses
+
+The user can read the file directly from `{{export.path}}` if needed.
+{{/export.exists}}{{^export.exists}}{{! First time export }}
+Write the content below to `{{export.path}}`{{#export.force}} (overwrite if it already exists){{/export.force}}{{^export.force}} (create only - do not overwrite if it exists){{/export.force}}.
+
+If you have a `knowledge` tool available, consider indexing this content for future reference:
+`knowledge(command="add", name="{{export.expression}}", value="{{export.path}}")`
+{{/export.exists}}

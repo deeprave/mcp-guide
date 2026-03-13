@@ -283,14 +283,11 @@ async def discover_documents(
         expanded_patterns.extend(get_file_extension_patterns(pattern))
     matched_paths = await safe_glob_search(base_dir, expanded_patterns)
 
-    # Resolve base_dir for consistent path calculations
-    base_dir_resolved = base_dir.resolve()
-
     # Group by full relative path and prefer non-template over template
     # Note: safe_glob_search returns sorted results, so non-template always comes before template
     files_by_path: dict[str, Path] = {}
     for matched_path in matched_paths:
-        relative_path = matched_path.relative_to(base_dir_resolved)
+        relative_path = matched_path.relative_to(base_dir)
 
         # Calculate the key: full relative path without template extension
         path_str = str(relative_path)
@@ -306,7 +303,7 @@ async def discover_documents(
     results = []
     for matched_path in files_by_path.values():
         stat_result = await aiofiles.os.stat(matched_path)
-        relative_path = matched_path.relative_to(base_dir_resolved)
+        relative_path = matched_path.relative_to(base_dir)
 
         # Calculate name (full relative path without template extension)
         name = relative_path.as_posix()

@@ -5,6 +5,7 @@
 import contextlib
 import logging
 import zlib
+from dataclasses import replace as dc_replace
 from pathlib import Path
 from typing import Optional
 
@@ -21,7 +22,9 @@ from mcp_guide.content.utils import (
 from mcp_guide.core.tool_arguments import ToolArguments
 from mcp_guide.core.tool_decorator import toolfunc
 from mcp_guide.discovery.files import FileInfo
+from mcp_guide.filesystem.read_write_security import ReadWriteSecurityPolicy, SecurityError
 from mcp_guide.models import CategoryNotFoundError, CollectionNotFoundError, ExpressionParseError, FileReadError
+from mcp_guide.models.project import Project
 from mcp_guide.render.cache import get_template_context_if_needed
 from mcp_guide.result import Result
 from mcp_guide.result_constants import (
@@ -40,11 +43,20 @@ logger = logging.getLogger(__name__)
 __all__ = ["ContentArgs", "internal_get_content"]
 
 
+def _build_expression(expression: str, pattern: Optional[str]) -> str:
+    """Build a gather expression by appending pattern to each sub-expression."""
+    if not pattern:
+        return expression
+    if "," in expression:
+        return ",".join(f"{p.strip()}/{pattern}" for p in expression.split(","))
+    return f"{expression}/{pattern}"
+
+
 def compute_metadata_hash(files: list[FileInfo], docroot: Path) -> Optional[str]:
     """Compute CRC32 hash of file metadata.
 
     Args:
-        files: List of FileInfo objects
+        files: List of FileInfo objects (paths relative to category dir)
         docroot: Document root path to compute relative paths from
 
     Returns:
@@ -53,8 +65,7 @@ def compute_metadata_hash(files: list[FileInfo], docroot: Path) -> Optional[str]
     if not files:
         return None
 
-    docroot_resolved = docroot.resolve()
-    entries = [f"{f.path.resolve().relative_to(docroot_resolved).as_posix()}:{f.mtime.timestamp()}" for f in files]
+    entries = [f"{f.path.as_posix()}:{f.mtime.timestamp()}" for f in files]
     entries.sort()
     data = "|".join(entries).encode()
     return f"{zlib.crc32(data):08x}"
@@ -76,6 +87,11 @@ class ContentArgs(ToolArguments):
         None,
         description="Optional glob pattern to filter files (e.g., '*.md'). "
         "Overrides default patterns for all matched categories.",
+    )
+    force: bool = Field(
+        False,
+        description="If True, return full content even if exported. "
+        "If False (default), return reference to exported content when available.",
     )
 
 
@@ -105,19 +121,34 @@ async def internal_get_content(
     project = await session.get_project()
     docroot = Path(await session.get_docroot())
 
+    # Check if content has been exported (unless force=True)
+    if not args.force:
+        export_entry = project.get_export_entry(args.expression, args.pattern)
+        if export_entry:
+            # Content has been exported - return reference instructions
+            from mcp_guide.render.context import TemplateContext
+            from mcp_guide.render.rendering import render_content
+
+            context = TemplateContext(
+                {
+                    "export": {
+                        "path": export_entry.path,
+                        "force": False,
+                        "exists": True,
+                        "expression": args.expression,
+                        "pattern": args.pattern,
+                    }
+                }
+            )
+
+            rendered = await render_content("_export", "_system", context)
+            if rendered:
+                return Result.ok(rendered.content, instruction=rendered.instruction)
+
     try:
         # Use gather_content to handle comma-separated expressions
         # If a pattern is provided, append it to the expression
-        expression = args.expression
-        if args.pattern:
-            # Apply each pattern to all expressions
-            if "," in expression:
-                # Multiple expressions - apply the pattern to each
-                parts = [f"{part.strip()}/{args.pattern}" for part in expression.split(",")]
-                expression = ",".join(parts)
-            else:
-                # Single expression
-                expression = f"{expression}/{args.pattern}"
+        expression = _build_expression(args.expression, args.pattern)
 
         files = await gather_content(session, project, expression)
 
@@ -268,19 +299,22 @@ async def export_content(
     # Check for existing export (staleness detection)
     export_entry = project.get_export_entry(args.expression, args.pattern)
 
-    # Get rendered content
-    content_args = ContentArgs(expression=args.expression, pattern=args.pattern)
+    # Get rendered content (force=True to bypass export check)
+    content_args = ContentArgs(expression=args.expression, pattern=args.pattern, force=True)
     result = await internal_get_content(content_args, ctx)
 
     if not result.success:
         return await tool_result("export_content", result)
 
-    # Compute metadata hash from gathered files (if available in result metadata)
-    metadata_hash: Optional[str] = None
-    if hasattr(result, "metadata") and result.metadata and "files" in result.metadata:
-        files = result.metadata["files"]
-        if files:
-            metadata_hash = compute_metadata_hash(files, docroot)
+    # Compute metadata hash by gathering files for this expression
+    gather_expression = _build_expression(args.expression, args.pattern)
+
+    gathered_files: list[FileInfo] = []
+    try:
+        gathered_files = await gather_content(session, project, gather_expression)
+    except Exception:
+        pass
+    metadata_hash = compute_metadata_hash(gathered_files, docroot)
 
     # Check staleness if not forced (path changes also require force=True)
     if not args.force and export_entry and metadata_hash is not None and metadata_hash == export_entry.metadata_hash:
@@ -317,34 +351,39 @@ async def export_content(
     # (project already fetched above)
 
     # Check if path is already permitted by testing against security policy
-    from mcp_guide.filesystem.read_write_security import ReadWriteSecurityPolicy, SecurityError
+    def _apply_updates(p: Project) -> Project:
+        pol = ReadWriteSecurityPolicy(
+            write_allowed_paths=p.allowed_write_paths,
+            additional_read_paths=p.additional_read_paths,
+        )
+        try:
+            pol.validate_write_path(output_path)
+        except SecurityError:
+            logger.info(f"Added {output_path} to allowed_write_paths")
+            p = dc_replace(p, allowed_write_paths=[*p.allowed_write_paths, output_path])
+        if metadata_hash is not None:
+            p = p.upsert_export_entry(args.expression, args.pattern, output_path, metadata_hash)
+        return p
 
-    policy = ReadWriteSecurityPolicy(
-        write_allowed_paths=project.allowed_write_paths,
-        additional_read_paths=project.additional_read_paths,
+    await session.update_config(_apply_updates)
+
+    # Render instruction from template
+    from mcp_guide.render.context import TemplateContext
+    from mcp_guide.render.rendering import render_content
+
+    context = TemplateContext(
+        {
+            "export": {
+                "path": output_path,
+                "force": args.force,
+                "exists": export_entry is not None,
+                "expression": args.expression,
+                "pattern": args.pattern,
+            }
+        }
     )
 
-    # Try to validate - if it raises SecurityError, path is not covered
-    try:
-        policy.validate_write_path(output_path)
-    except SecurityError:
-        # Path not allowed - add it
-        from dataclasses import replace as dc_replace
-
-        updated = dc_replace(project, allowed_write_paths=[*project.allowed_write_paths, output_path])
-        await session.update_config(lambda _: updated)
-        logger.info(f"Added {output_path} to allowed_write_paths")
-
-    # Build instruction
-    instruction = (
-        f"Write the content below to `{output_path}` (overwrite if it already exists)"
-        if args.force
-        else f"Write the content below to `{output_path}` (create only - do not overwrite if it exists)"
-    )
-
-    # Update export tracking
-    if metadata_hash is not None:
-        updated_project = project.upsert_export_entry(args.expression, args.pattern, output_path, metadata_hash)
-        await session.update_config(lambda _: updated_project)
+    rendered = await render_content("_export", "_system", context)
+    instruction = rendered.instruction if rendered else None
 
     return await tool_result("export_content", Result.ok(result.value, instruction=instruction))

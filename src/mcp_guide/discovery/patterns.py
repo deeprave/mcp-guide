@@ -10,7 +10,6 @@ from anyio import Path as AsyncPath
 
 from mcp_guide.config_constants import COMMANDS_DIR, MAX_DOCUMENTS_PER_GLOB, MAX_GLOB_DEPTH
 from mcp_guide.core.mcp_log import get_logger
-from mcp_guide.lazy_path import LazyPath
 
 logger = get_logger(__name__)
 
@@ -87,6 +86,9 @@ async def _process_match(
 ) -> bool:
     """Process a single glob match and add to results if valid.
 
+    Uses resolved paths only for deduplication (so symlinks to the same
+    target aren't counted twice), but stores the original unresolved path.
+
     Returns:
         True if file was added, False otherwise
     """
@@ -96,7 +98,7 @@ async def _process_match(
     if not is_valid_file(match_path):
         return False
 
-    # Resolve symlinks and deduplicate
+    # Resolve only for deduplication
     try:
         resolved_path = match_path.resolve()
     except OSError as e:
@@ -106,18 +108,17 @@ async def _process_match(
     if resolved_path in seen_files:
         return False
 
-    # Check depth limit
+    # Check depth limit using the unresolved path
     try:
-        relative_path = resolved_path.relative_to(search_dir.resolve())
+        relative_path = match_path.relative_to(search_dir)
         depth = len(relative_path.parts) - 1  # Subtract 1 for file itself
         if depth > MAX_GLOB_DEPTH:
             return False
     except ValueError:
-        # Path is outside search_dir, skip
-        logger.debug(f"Skipping file outside search directory: {resolved_path}")
+        logger.debug(f"Skipping file outside search directory: {match_path}")
         return False
 
-    matched_files.append(resolved_path)
+    matched_files.append(match_path)
     seen_files.add(resolved_path)
     return True
 
@@ -127,15 +128,16 @@ async def _walk_with_depth_limit(search_dir: Path, pattern: str) -> List[Path]:
 
     Uses os.walk() with manual depth tracking to prevent DOS from deep traversal.
     Only traverses up to MAX_GLOB_DEPTH levels.
+
+    Paths are returned relative to search_dir as-given (symlinks not resolved).
     """
     matched_paths: List[Path] = []
-    search_dir_resolved = search_dir  # Already resolved by caller
 
     # Check if pattern contains ** (recursive)
     if "**" not in pattern:
         # Non-recursive: use glob directly (safe, only checks one level)
-        for match_str in glob.iglob(pattern, root_dir=search_dir_resolved, recursive=False):
-            matched_paths.append(search_dir_resolved / match_str)
+        for match_str in glob.iglob(pattern, root_dir=search_dir, recursive=False):
+            matched_paths.append(search_dir / match_str)
         return matched_paths
 
     # Recursive pattern: use os.walk with depth limit
@@ -157,17 +159,17 @@ async def _walk_with_depth_limit(search_dir: Path, pattern: str) -> List[Path]:
         prefix = ""
         file_pattern = "*"
 
-    start_dir = search_dir_resolved / prefix if prefix else search_dir_resolved
+    start_dir = search_dir / prefix if prefix else search_dir
 
     if not await AsyncPath(start_dir).exists():
         return matched_paths
 
-    for root, dirs, files in os.walk(start_dir):
-        root_path = Path(root).resolve()  # Resolve to handle symlinks
+    for root, dirs, files in os.walk(start_dir, followlinks=True):
+        root_path = Path(root)
 
         # Calculate depth relative to search_dir
         try:
-            relative = root_path.relative_to(search_dir_resolved)
+            relative = root_path.relative_to(search_dir)
             depth = len(relative.parts)
         except ValueError:
             # Outside search_dir, skip
@@ -195,8 +197,9 @@ async def safe_glob_search(search_dir: Path, patterns: List[str]) -> List[Path]:
     Returns:
         List of Path objects matching patterns, limited to MAX_DOCUMENTS_PER_GLOB
     """
-    # Resolve search_dir once to handle ~ and ${VAR} expansion
-    search_dir_resolved = LazyPath(search_dir).resolve()
+    # Expand ~ and ${VAR} without resolving symlinks
+    expanded = os.path.expandvars(str(search_dir))
+    search_dir_expanded = Path(expanded).expanduser()
 
     matched_files: List[Path] = []
     seen_files: Set[Path] = set()
@@ -210,7 +213,7 @@ async def safe_glob_search(search_dir: Path, patterns: List[str]) -> List[Path]:
 
         # Use depth-limited walk for safety
         try:
-            candidate_paths = await _walk_with_depth_limit(search_dir_resolved, pattern)
+            candidate_paths = await _walk_with_depth_limit(search_dir_expanded, pattern)
         except Exception as e:
             logger.warning(f"Pattern '{pattern}' failed: {e}")
             continue
@@ -220,7 +223,7 @@ async def safe_glob_search(search_dir: Path, patterns: List[str]) -> List[Path]:
                 logger.warning(f"Reached maximum document limit ({MAX_DOCUMENTS_PER_GLOB}) for glob search")
                 break
 
-            if await _process_match(match_path, search_dir_resolved, seen_files, matched_files):
+            if await _process_match(match_path, search_dir_expanded, seen_files, matched_files):
                 matches_found = True
 
         # If no matches and pattern has no extension, try with .* wildcard
@@ -228,7 +231,7 @@ async def safe_glob_search(search_dir: Path, patterns: List[str]) -> List[Path]:
             wildcard_pattern = f"{pattern}.*"
 
             try:
-                candidate_paths = await _walk_with_depth_limit(search_dir_resolved, wildcard_pattern)
+                candidate_paths = await _walk_with_depth_limit(search_dir_expanded, wildcard_pattern)
             except Exception as e:
                 logger.warning(f"Pattern '{wildcard_pattern}' failed: {e}")
                 continue
@@ -240,6 +243,6 @@ async def safe_glob_search(search_dir: Path, patterns: List[str]) -> List[Path]:
                     )
                     break
 
-                await _process_match(match_path, search_dir_resolved, seen_files, matched_files)
+                await _process_match(match_path, search_dir_expanded, seen_files, matched_files)
 
     return matched_files

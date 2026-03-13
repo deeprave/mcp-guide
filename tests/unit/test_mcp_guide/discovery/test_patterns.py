@@ -276,8 +276,8 @@ class TestSymlinkAndBoundaryBehavior:
         assert len(resolved_paths) == len(set(resolved_paths))
 
     @pytest.mark.asyncio
-    async def test_symlink_pointing_outside_search_dir_is_skipped(self, temp_project_dir):
-        """A symlink inside search_dir pointing outside it should be ignored."""
+    async def test_symlink_pointing_outside_search_dir_is_included(self, temp_project_dir):
+        """A symlink inside search_dir pointing outside is discovered (security checked later)."""
         # Arrange
         search_dir = temp_project_dir / "search"
         search_dir.mkdir()
@@ -287,14 +287,15 @@ class TestSymlinkAndBoundaryBehavior:
         outside_file = outside_dir / "outside.txt"
         outside_file.write_text("outside")
 
-        bad_symlink = search_dir / "link_to_outside.txt"
-        bad_symlink.symlink_to(outside_file)
+        symlink = search_dir / "link_to_outside.txt"
+        symlink.symlink_to(outside_file)
 
         # Act
         matches = await safe_glob_search(search_dir, ["**/*.txt"])
 
-        # Assert
-        assert matches == []
+        # Assert - symlink is discovered; security validation is done at file resolve time
+        assert len(matches) == 1
+        assert matches[0] == symlink
 
 
 class TestDepthLimit:

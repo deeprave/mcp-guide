@@ -460,7 +460,8 @@ Examples:
     pattern = kwargs.get("pattern")
     if isinstance(pattern, int):
         pattern = str(pattern)
-    content_args_obj = ContentArgs(expression=category, pattern=pattern)
+    force = bool(kwargs.get("force", False))
+    content_args_obj = ContentArgs(expression=category, pattern=pattern, force=force)
     return await internal_get_content(content_args_obj, ctx)
 
 

@@ -58,7 +58,7 @@ class StartupInstructionListener:
             # render_content handles requires-* filtering automatically
             rendered = await render_content(
                 pattern="_startup",
-                category_dir="",  # Templates are in docroot
+                category_dir="_system",  # Templates are in _system directory
             )
 
             if rendered and rendered.content.strip():
