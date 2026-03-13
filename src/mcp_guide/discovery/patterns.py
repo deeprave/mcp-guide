@@ -132,6 +132,7 @@ async def _walk_with_depth_limit(search_dir: Path, pattern: str) -> List[Path]:
     Paths are returned relative to search_dir as-given (symlinks not resolved).
     """
     matched_paths: List[Path] = []
+    visited_dirs: set[Path] = set()  # Track resolved directories to avoid symlink cycles
 
     # Check if pattern contains ** (recursive)
     if "**" not in pattern:
@@ -166,6 +167,19 @@ async def _walk_with_depth_limit(search_dir: Path, pattern: str) -> List[Path]:
 
     for root, dirs, files in os.walk(start_dir, followlinks=True):
         root_path = Path(root)
+
+        # Guard against symlink cycles by tracking resolved paths
+        try:
+            root_real = root_path.resolve()
+        except OSError:
+            logger.warning("Failed to resolve path %s during glob discovery; skipping", root_path)
+            dirs[:] = []
+            continue
+
+        if root_real in visited_dirs:
+            dirs[:] = []
+            continue
+        visited_dirs.add(root_real)
 
         # Calculate depth relative to search_dir
         try:

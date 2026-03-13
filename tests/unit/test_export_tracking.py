@@ -162,7 +162,7 @@ class TestMetadataHashComputation:
                 ),
             ]
 
-        hash_val = compute_metadata_hash(files, docroot)
+        hash_val = compute_metadata_hash(files)
         assert expected(hash_val) if callable(expected) else hash_val == expected
 
     def test_same_filename_different_paths(self, tmp_path):
@@ -202,8 +202,8 @@ class TestMetadataHashComputation:
             ),
         ]
 
-        hash1 = compute_metadata_hash(files1, docroot)
-        hash2 = compute_metadata_hash(files2, docroot)
+        hash1 = compute_metadata_hash(files1)
+        hash2 = compute_metadata_hash(files2)
         assert hash1 != hash2, "Files with same name in different directories must have different hashes"
 
 
