@@ -3,7 +3,6 @@
 """Unified content access tool - get_content."""
 
 import contextlib
-import logging
 import zlib
 from dataclasses import replace as dc_replace
 from pathlib import Path
@@ -19,6 +18,7 @@ from mcp_guide.content.utils import (
     extract_and_deduplicate_instructions,
     read_and_render_file_contents,
 )
+from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.core.tool_arguments import ToolArguments
 from mcp_guide.core.tool_decorator import toolfunc
 from mcp_guide.discovery.files import FileInfo
@@ -38,7 +38,7 @@ from mcp_guide.result_constants import (
 from mcp_guide.session import get_or_create_session
 from mcp_guide.tools.tool_result import tool_result
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 __all__ = ["ContentArgs", "internal_get_content"]
 

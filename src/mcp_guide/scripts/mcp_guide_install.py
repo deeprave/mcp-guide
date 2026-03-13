@@ -101,6 +101,7 @@ async def main(command: str, docroot: str | None, configdir: str | None, interac
 
     from mcp_guide import __version__
     from mcp_guide.config_paths import get_config_dir, get_docroot
+    from mcp_guide.core.mcp_log import get_logger
     from mcp_guide.installer.core import (
         ORIGINAL_ARCHIVE,
         install_templates,
@@ -110,7 +111,7 @@ async def main(command: str, docroot: str | None, configdir: str | None, interac
     )
     from mcp_guide.installer.integration import install_and_create_config
 
-    logger = logging.getLogger(__name__)
+    logger = get_logger(__name__)
 
     try:
         # Resolve config directory and file
