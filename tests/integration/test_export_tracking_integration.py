@@ -119,7 +119,7 @@ class TestExportStalenessIntegration:
 
             # First call - should succeed and create tracking entry
             result1 = await export_content(args, None)
-            assert "already exported" not in result1
+            assert "has been exported" not in result1
 
             session = await get_or_create_session()
             project = await session.get_project()
@@ -129,9 +129,9 @@ class TestExportStalenessIntegration:
 
             # Second call - same hash, should return stale message
             result2 = await export_content(args, None)
-            assert "already exported" in result2
+            assert "has been exported" in result2
 
             # force=True bypasses staleness check
             args_force = ExportContentArgs(expression="docs", path="output.md", force=True)
             result3 = await export_content(args_force, None)
-            assert "already exported" not in result3
+            assert "has been exported" not in result3

@@ -52,12 +52,11 @@ def _build_expression(expression: str, pattern: Optional[str]) -> str:
     return f"{expression}/{pattern}"
 
 
-def compute_metadata_hash(files: list[FileInfo], docroot: Path) -> Optional[str]:
-    """Compute CRC32 hash of file metadata.
+def compute_metadata_hash(files: list[FileInfo]) -> Optional[str]:
+    """Compute CRC32 hash of file metadata for staleness detection.
 
     Args:
-        files: List of FileInfo objects (paths relative to category dir)
-        docroot: Document root path to compute relative paths from
+        files: List of FileInfo objects with paths as-is from discovery
 
     Returns:
         8-character hex string (CRC32 hash), or None if files is empty
@@ -294,7 +293,6 @@ async def export_content(
     """
     session = await get_or_create_session(ctx)
     project = await session.get_project()
-    docroot = Path(await session.get_docroot())
 
     # Check for existing export (staleness detection)
     export_entry = project.get_export_entry(args.expression, args.pattern)
@@ -312,15 +310,40 @@ async def export_content(
     gathered_files: list[FileInfo] = []
     try:
         gathered_files = await gather_content(session, project, gather_expression)
-    except Exception:
-        pass
-    metadata_hash = compute_metadata_hash(gathered_files, docroot)
+    except Exception as exc:
+        logger.warning(
+            "Failed to gather content for metadata hash for expression '%s' (pattern='%s'): %s",
+            args.expression,
+            args.pattern,
+            exc,
+            exc_info=True,
+        )
+    metadata_hash = compute_metadata_hash(gathered_files)
 
     # Check staleness if not forced (path changes also require force=True)
     if not args.force and export_entry and metadata_hash is not None and metadata_hash == export_entry.metadata_hash:
-        # Content hasn't changed since last export
-        message = f"Content for '{args.expression}' already exported to {export_entry.path}. Use force=True to overwrite or if file is missing."
+        # Content hasn't changed since last export - use template for consistency
+        from mcp_guide.render.context import TemplateContext
+        from mcp_guide.render.rendering import render_content
 
+        context = TemplateContext(
+            {
+                "export": {
+                    "path": export_entry.path,
+                    "force": False,
+                    "exists": True,
+                    "expression": args.expression,
+                    "pattern": args.pattern,
+                }
+            }
+        )
+
+        rendered = await render_content("_export", "_system", context)
+        if rendered:
+            return await tool_result("export_content", Result.ok(rendered.content, instruction=rendered.instruction))
+
+        # Fallback if template fails
+        message = f"Content for '{args.expression}' already exported to {export_entry.path}. Use force=True to overwrite or if file is missing."
         return await tool_result("export_content", Result.ok(message))
 
     # Resolve agent name
