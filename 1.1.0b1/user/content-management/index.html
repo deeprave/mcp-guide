@@ -1329,6 +1329,9 @@ If the document has <code>type: agent/instruction</code> (and most are), the doc
 </ul>
 <p><strong>Path defaulting:</strong></p>
 <p>When <code>path</code> is omitted, the tool uses the <code>path-export</code> flag value plus a generated filename based on the expression. For Goose agents, this defaults to <code>~/.goose/projects/{project-hash}/knowledge/</code>, allowing knowledge to persist across sessions.</p>
+<p><strong>Export Tracking:</strong></p>
+<p>Exported expressions and their components are tracked automatically. When content is exported, mcp-guide records a metadata hash based on the source files and their modification times. On subsequent exports of the same expression, the hash is compared — if unchanged, the export is skipped with a message directing the agent to the existing file. Use <code>force=True</code> to bypass this check.</p>
+<p>For agents with knowledge indexing capabilities (such as Kiro and Q Developer), the export template provides instructions to index the exported file into the agent's knowledge base. Once indexed, <code>get_content</code> returns a reference to the knowledge entry rather than re-delivering the full content, reducing context usage. The agent can use <code>force=True</code> on <code>get_content</code> to retrieve the full content when needed.</p>
 <p><strong>Security:</strong></p>
 <p>Export file paths are automatically added to <code>allowed_write_paths</code> (the specific file, not the entire directory). Path traversal (<code>../</code>, <code>..\\</code>) is blocked in path flag values. System directories (<code>/etc</code>, <code>/sys</code>) are blocked for absolute paths.</p>
 <h2 id="next-steps">Next Steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h2>
