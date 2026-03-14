@@ -502,7 +502,7 @@ async def list_exports(
             "pattern": pattern,
             "file": p.name,
             "path": str(p.parent),
-            "exported_at": exported_to.exported_at or None,
+            "exported_at": exported_to.exported_at,
             "stale_state": stale_state.value,
         }
         exports.append(export_dict)

@@ -125,7 +125,7 @@ class TemplateFunctions:
         _, var_name = self._parse_template_args(text)
 
         if var_name not in self.context:
-            raise KeyError(f"Variable not found in context: {var_name}")
+            return ""
 
         value = self.context[var_name]
         if not value:
