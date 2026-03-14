@@ -493,7 +493,8 @@ async def list_exports(
                 stale_state = StaleState.UNKNOWN
             elif current_hash != exported_to.metadata_hash:
                 stale_state = StaleState.STALE
-        except Exception:
+        except Exception as e:
+            logger.warning("list_exports: staleness check failed for %r: %s", expression, e, exc_info=True)
             stale_state = StaleState.UNKNOWN
 
         p = PurePath(exported_to.path)
@@ -502,6 +503,7 @@ async def list_exports(
             "pattern": pattern,
             "file": p.name,
             "path": str(p.parent),
+            "dest": exported_to.path,
             "exported_at": exported_to.exported_at,
             "stale_state": stale_state.value,
         }
