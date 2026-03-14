@@ -517,8 +517,8 @@ async def list_exports(
             rendered = await render_content("_exports-format", "_system", context)
             if rendered:
                 return await tool_result("list_exports", Result.ok(rendered.content))
-        except Exception:
-            pass  # Fall through to JSON
+        except Exception as e:
+            logger.warning(f"list_exports: template rendering failed, falling back to JSON: {e}")
 
     return await tool_result("list_exports", Result.ok(exports))
 

@@ -13,7 +13,6 @@ from mcp_guide.core.tool_decorator import toolfunc
 from mcp_guide.guide import GuideMCP
 from mcp_guide.render.cache import invalidate_template_context_cache
 from mcp_guide.result import Result
-from mcp_guide.result_constants import INSTRUCTION_DISPLAY_ONLY
 from mcp_guide.tools.tool_result import tool_result
 
 try:
@@ -109,7 +108,6 @@ async def internal_client_info(args: GetClientInfoArgs, ctx: Optional[Context] =
 
         result = Result.ok(data)
         result.message = markdown
-        result.instruction = INSTRUCTION_DISPLAY_ONLY
         return result
     except (AttributeError, KeyError, TypeError) as e:
         logger.exception("Error retrieving client info")

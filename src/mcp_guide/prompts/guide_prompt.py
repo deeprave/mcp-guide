@@ -24,7 +24,6 @@ from mcp_guide.result_constants import (
     ERROR_FILE_ERROR,
     ERROR_NOT_FOUND,
     ERROR_TEMPLATE,
-    INSTRUCTION_DISPLAY_ONLY,
     INSTRUCTION_FILE_ERROR,
     INSTRUCTION_NOTFOUND_ERROR,
     INSTRUCTION_TEMPLATE_ERROR,
@@ -320,14 +319,16 @@ async def _execute_command(
         kwargs, args, parse_errors = parse_command_arguments(argv, argrequired=argrequired)
         if parse_errors:
             error_msg = "; ".join(parse_errors)
-            return Result.failure(f"Argument parsing failed: {error_msg}", error_type="validation")
+            result: Result[Any] = Result.failure(f"Argument parsing failed: {error_msg}", error_type="validation")
+            return result
 
         # Check minimum required positional arguments
         minargs = frontmatter.get("minargs", 0)
         if isinstance(minargs, int) and len(args) < minargs:
             usage = frontmatter.get("usage", "")
             msg = f"Missing required argument\n\nUsage: {usage}" if usage else "Missing required argument"
-            return Result.failure(msg, error_type="validation")
+            result = Result.failure(msg, error_type="validation")
+            return result
 
     # Build template context
     base_context = await get_template_contexts()
@@ -403,7 +404,6 @@ async def _handle_command_request(argv: list[str], ctx: Optional["Context"]) -> 
 
     if not raw_command_path:
         result: Result[Any] = Result.failure("Command name cannot be empty", error_type="validation")
-        result.instruction = INSTRUCTION_DISPLAY_ONLY
         return result
 
     # Validate and sanitize
@@ -412,13 +412,11 @@ async def _handle_command_request(argv: list[str], ctx: Optional["Context"]) -> 
     error, command_path = validate_command_path_full(raw_command_path)
     if error:
         result = Result.failure(f"Security validation failed: {error}", error_type="security")
-        result.instruction = INSTRUCTION_DISPLAY_ONLY
         return result
 
     # Validate context
     if ctx is None:
         result = Result.failure("Context is required for command execution", error_type="validation")
-        result.instruction = INSTRUCTION_DISPLAY_ONLY
         return result
 
     return await handle_command(command_path, argv=argv[1:], ctx=ctx)
@@ -441,7 +439,6 @@ async def _handle_content_request(argv: list[str], ctx: Optional["Context"]) -> 
     if parse_errors:
         error_msg = "; ".join(parse_errors)
         result: Result[str] = Result.failure(f"Flag parsing failed: {error_msg}", error_type="validation")
-        result.instruction = INSTRUCTION_DISPLAY_ONLY
         return result
 
     # Join content args as the category expression
@@ -459,7 +456,6 @@ Examples:
   @guide docs,examples           # Get multiple categories with default patterns
 """
         result = Result.ok(help_text)
-        result.instruction = INSTRUCTION_DISPLAY_ONLY
         return result
 
     # Create content args with pattern support
@@ -485,7 +481,6 @@ async def _route_guide_request(argv: list[str], ctx: Optional["Context"]) -> Res
 
         error_msg = f"The guide prompt requires one or more arguments. Use {prompt_prefix}guide :help to list commands"
         result: Result[Any] = Result.failure(error_msg, error_type="validation")
-        result.instruction = INSTRUCTION_DISPLAY_ONLY
         return result
 
     # Check for command prefix
