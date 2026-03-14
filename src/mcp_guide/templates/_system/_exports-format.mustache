@@ -1,0 +1,19 @@
+---
+type: user/information
+---
+{{#table}}
+| Expression | File | Path | Status |{{#verbose}} Exported |{{/verbose}}
+|------------|------|------|--------|{{#verbose}}----------|{{/verbose}}
+{{#exports}}
+| {{expression}}{{#pattern}} ({{pattern}}){{/pattern}} | `{{file}}` | `{{path}}` | {{stale_state}} |{{#verbose}} {{#time_ago}}{{exported_at}}{{/time_ago}} |{{/verbose}}
+{{/exports}}
+{{/table}}
+{{^table}}
+{{#exports}}
+- **{{expression}}**{{#pattern}} ({{pattern}}){{/pattern}} → `{{path}}/{{file}}` [{{stale_state}}]{{#verbose}}
+  - Exported: {{#time_ago}}{{exported_at}}{{/time_ago}}{{/verbose}}
+{{/exports}}
+{{/table}}
+{{^exports}}
+No exports tracked.
+{{/exports}}

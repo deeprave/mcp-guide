@@ -309,6 +309,7 @@ async def _execute_command(
     # If raw argv provided, parse arguments using frontmatter argrequired
     if argv is not None:
         argrequired = None
+        frontmatter: dict[str, Any] = {}
         try:
             frontmatter = await file_info.get_frontmatter() or {}
             argrequired_value = frontmatter.get("argrequired")
@@ -319,9 +320,14 @@ async def _execute_command(
         kwargs, args, parse_errors = parse_command_arguments(argv, argrequired=argrequired)
         if parse_errors:
             error_msg = "; ".join(parse_errors)
-            result: Result[Any] = Result.failure(f"Argument parsing failed: {error_msg}", error_type="validation")
-            result.instruction = INSTRUCTION_DISPLAY_ONLY
-            return result
+            return Result.failure(f"Argument parsing failed: {error_msg}", error_type="validation")
+
+        # Check minimum required positional arguments
+        minargs = frontmatter.get("minargs", 0)
+        if isinstance(minargs, int) and len(args) < minargs:
+            usage = frontmatter.get("usage", "")
+            msg = f"Missing required argument\n\nUsage: {usage}" if usage else "Missing required argument"
+            return Result.failure(msg, error_type="validation")
 
     # Build template context
     base_context = await get_template_contexts()

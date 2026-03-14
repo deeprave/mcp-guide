@@ -1,14 +1,15 @@
 ## 1. Implementation
-- [ ] 1.1 Add `list_exports` tool to `tool_content.py` that returns raw export data
-- [ ] 1.2 Add `remove_export` tool to `tool_content.py` that removes tracking entries
-- [ ] 1.3 Create `_system/_exports-format.mustache` template for formatting export lists
-- [ ] 1.4 Move `export_content.mustache` to `_commands/export/add.mustache` with alias 'export'
-- [ ] 1.5 Create `_commands/export/list.mustache` command template
-- [ ] 1.6 Create `_commands/export/remove.mustache` command template
-- [ ] 1.7 Write tests for `list_exports` tool (empty, single, multiple, with glob filter)
-- [ ] 1.8 Write tests for `remove_export` tool (success, not found, exact match required)
-- [ ] 1.9 Write tests for staleness detection
-- [ ] 1.10 Add `parse_options` utility to `tool_result.py` for reusable option parsing
-- [ ] 1.11 Update tool registration to include new tools
-- [ ] 1.12 Run full test suite and verify all pass
-- [ ] 1.13 Manual testing of export workflow
+- [x] 1.1 Add `list_exports` tool to `tool_content.py` that returns raw export data
+- [x] 1.2 Add `remove_export` tool to `tool_content.py` that removes tracking entries
+- [x] 1.3 Create `_system/_exports-format.mustache` template for formatting export lists
+- [x] 1.4 Move `export_content.mustache` to `_commands/export/add.mustache` with alias 'export'
+- [x] 1.5 Create `_commands/export/list.mustache` command template
+- [x] 1.6 Create `_commands/export/remove.mustache` command template
+- [x] 1.7 Write tests for `list_exports` tool (empty, single, multiple, with glob filter)
+- [x] 1.8 Write tests for `remove_export` tool (success, not found, exact match required)
+- [x] 1.9 Write tests for staleness detection
+- [x] 1.10 Add `parse_options` utility to `tool_result.py` for reusable option parsing
+- [x] 1.11 Write tests for `parse_options` (parametrized)
+- [x] 1.12 Split export path into `file` (filename) and `path` (directory)
+- [ ] 1.13 Run full test suite and verify all pass
+- [ ] 1.14 Manual testing of export workflow

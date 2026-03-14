@@ -236,3 +236,44 @@ Description: {{#truncate}}50{{description}}{{/truncate}}
         assert "December 25, 2023" in result
         assert "This is a very long project description that shoul..." in result
         assert "```python\ndef main():" in result
+
+
+class TestTimeAgoLambda:
+    """Tests for time_ago lambda function."""
+
+    def _make(self, value):
+        return TemplateFunctions(ChainMap({"ts": value}))
+
+    @pytest.mark.parametrize(
+        "value",
+        [None, 0, 0.0],
+        ids=["none", "zero_int", "zero_float"],
+    )
+    def test_time_ago_falsy_returns_unknown(self, value):
+        result = self._make(value).time_ago("{{ts}}")
+        assert result == "unknown"
+
+    def test_time_ago_minutes(self):
+        import time
+
+        ts = time.time() - 90  # 1m30s ago
+        result = self._make(ts).time_ago("{{ts}}")
+        assert result == "1m ago"
+
+    def test_time_ago_hours(self):
+        import time
+
+        ts = time.time() - 3700  # ~1h1m ago
+        result = self._make(ts).time_ago("{{ts}}")
+        assert result == "1h1m ago"
+
+    def test_time_ago_days(self):
+        import time
+
+        ts = time.time() - 86400 * 2 - 3600  # 2d1h ago
+        result = self._make(ts).time_ago("{{ts}}")
+        assert result == "2d1h ago"
+
+    def test_time_ago_invalid_type_raises(self):
+        with pytest.raises(TypeError):
+            self._make("not-a-timestamp").time_ago("{{ts}}")

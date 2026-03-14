@@ -181,6 +181,7 @@ async def render_template_content(
                 "pad_right": _safe_lambda(functions.pad_right),
                 "contains": _safe_lambda(functions.contains),
                 "equals": _safe_lambda(functions.equals),
+                "time_ago": _safe_lambda(functions.time_ago),
             }
         )
 

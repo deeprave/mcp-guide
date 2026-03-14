@@ -1,0 +1,19 @@
+---
+type: agent/instruction
+description: List all tracked content exports
+usage: ":export/list [--glob <pattern>] [--verbose] [--table] [--raw]"
+category: project
+argrequired:
+  - glob
+---
+List Content Exports
+
+Call the `{{tool_prefix}}list_exports` tool{{#kwargs.glob}} with glob filter{{/kwargs.glob}}:
+
+```
+{{tool_prefix}}list_exports({{#kwargs.glob}}
+    glob="{{kwargs.glob}}",{{/kwargs.glob}}
+    {{^kwargs.raw}}options=["formatted"{{#kwargs.verbose}}, "verbose"{{/kwargs.verbose}}{{#kwargs.table}}, "table"{{/kwargs.table}}]{{/kwargs.raw}}{{#kwargs.raw}}options=[]{{/kwargs.raw}})
+```
+
+The tool returns export entries with expression, pattern, path, timestamp, and staleness indicator.
