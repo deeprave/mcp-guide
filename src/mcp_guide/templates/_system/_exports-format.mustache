@@ -10,7 +10,7 @@ type: user/information
 {{/table}}
 {{^table}}
 {{#exports}}
-- **{{expression}}**{{#pattern}} ({{pattern}}){{/pattern}} → `{{path}}/{{file}}` [{{stale_state}}]{{#verbose}}
+- **{{expression}}**{{#pattern}} ({{pattern}}){{/pattern}} → `{{dest}}` [{{stale_state}}]{{#verbose}}
   - Exported: {{#time_ago}}{{exported_at}}{{/time_ago}}{{/verbose}}
 {{/exports}}
 {{/table}}

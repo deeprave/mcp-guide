@@ -324,7 +324,7 @@ async def _execute_command(
 
         # Check minimum required positional arguments
         minargs = frontmatter.get("minargs", 0)
-        if isinstance(minargs, int) and len(args) < minargs:
+        if isinstance(minargs, int) and minargs > 0 and len(args) < minargs:
             usage = frontmatter.get("usage", "")
             msg = f"Missing required argument\n\nUsage: {usage}" if usage else "Missing required argument"
             result = Result.failure(msg, error_type="validation")
