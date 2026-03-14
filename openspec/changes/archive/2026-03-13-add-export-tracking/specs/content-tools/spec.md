@@ -52,8 +52,6 @@ The metadata hash SHALL detect changes from:
 - **WHEN** file with old mtime added to category
 - **THEN** metadata hash changes (new filename entry) and export proceeds
 
-## MODIFIED Requirements
-
 ### Requirement: export_content Tool
 
 The system SHALL provide an `export_content` tool that exports rendered content to files for knowledge indexing.

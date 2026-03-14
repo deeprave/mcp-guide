@@ -117,13 +117,13 @@ The system SHALL configure MCP_TOOL_PREFIX early in mcp_guide startup.
 
 #### Scenario: Default prefix configuration
 - **WHEN** mcp_guide starts and MCP_TOOL_PREFIX not set
-- **THEN** _configure_environment() sets MCP_TOOL_PREFIX="guide"
-- **AND** configuration happens before server initialization
+- **THEN** default tool prefix is empty string (no prefix)
+- **AND** tools are registered without any prefix
 
 #### Scenario: User-provided prefix preserved
-- **WHEN** mcp_guide starts and MCP_TOOL_PREFIX already set
-- **THEN** existing value is preserved
-- **AND** no override occurs
+- **WHEN** mcp_guide starts and MCP_TOOL_PREFIX is set to a non-empty value
+- **THEN** existing value is used as the tool prefix
+- **AND** tools are registered with that prefix
 
 ### Requirement: Tool Integration Pattern
 The system SHALL integrate tool collection with FastMCP registration in server.py.
@@ -248,48 +248,35 @@ The system SHALL allow prompts to call existing tools directly without decorator
 ### Requirement: Tool Description Standard for AI Agents
 The system SHALL provide a standardized format for tool descriptions that enables AI agents to correctly understand and invoke tools without trial-and-error.
 
-#### Scenario: Description structure
+#### Scenario: Concise description structure
 - **WHEN** a tool is documented
-- **THEN** description includes four sections in order:
-  1. Full description of purpose and use cases (markdown format)
-  2. JSON Schema for arguments (code fence with type annotation)
-  3. General usage instructions (marked as code)
-  4. Concrete examples with explanations (marked as code)
-- **AND** each section is clearly labeled
+- **THEN** the docstring on the registered tool function contains a concise description (2-4 sentences)
+- **AND** the description covers what the tool does and when to use it
+- **AND** hand-written JSON Schema sections are NOT included in the docstring (redundant with auto-generated Arguments)
+- **AND** Usage Instructions and Concrete Examples sections are NOT included (verbose, not MCP best practice)
+
+#### Scenario: Auto-generated arguments section
+- **WHEN** a tool is registered via `@toolfunc`
+- **THEN** `build_description` appends a `## Arguments` block generated from Pydantic field descriptions
+- **AND** this is the single source of parameter documentation for agents
+- **AND** the combined description (concise docstring + auto-generated Arguments) is registered with FastMCP
 
 #### Scenario: Template availability
 - **WHEN** developer creates new tool
-- **THEN** `src/mcp_guide/tools/README.md` provides complete template
-- **AND** template shows proper formatting for all four sections
-- **AND** template includes example of Pydantic Field descriptions
+- **THEN** `src/mcp_guide/tools/README.md` provides the concise description standard
+- **AND** template shows correct docstring placement on the registered function (not `internal_*`)
+- **AND** template includes example of Pydantic Field descriptions that generate the Arguments section
 
-#### Scenario: Tool module references
-- **WHEN** tool module is created or updated
-- **THEN** module includes comment pointing to README template
-- **AND** comment appears near tool definition
+#### Scenario: Docstring placement
+- **WHEN** a tool has an `internal_*` implementation function
+- **THEN** the agent-facing docstring is on the registered `@toolfunc` function
+- **AND** the `internal_*` function may have a minimal or no docstring
 
 #### Scenario: Complete field descriptions
 - **WHEN** tool argument model is defined with Pydantic
 - **THEN** every field includes `Field(description="...")` parameter
 - **AND** description explains field purpose and valid values
-- **AND** generated JSON Schema includes all field descriptions
-
-#### Scenario: Schema presentation
-- **WHEN** JSON Schema is included in tool description
-- **THEN** schema is in code fence with appropriate type label
-- **AND** schema shows complete Pydantic-generated structure
-- **AND** schema is not open to interpretation
-
-#### Scenario: Usage instructions clarity
-- **WHEN** usage instructions are provided
-- **THEN** instructions are marked as code for clarity
-- **AND** instructions explain general patterns for tool invocation
-
-#### Scenario: Example completeness
-- **WHEN** examples are provided
-- **THEN** examples include concrete values (not placeholders)
-- **AND** each example includes explanation of what it demonstrates
-- **AND** examples are marked as code
+- **AND** generated `## Arguments` block includes all field descriptions
 
 ### Requirement: Slash Syntax Content Retrieval
 The system SHALL support `category/pattern` syntax as shorthand for two-parameter content retrieval.
@@ -314,4 +301,23 @@ The system SHALL support comma-separated expressions for retrieving content from
 - **WHEN** `get_content("lang/python,docs/api,guidelines")` is called
 - **THEN** content SHALL be retrieved from all three specifications
 - **AND** results SHALL be aggregated in order
+
+### Requirement: CategoryCollection Args Cross-Field Validation
+`CategoryCollectionAddArgs`, `CategoryCollectionChangeArgs`, and `CategoryCollectionUpdateArgs` SHALL reject incompatible field combinations at model construction time with a descriptive `ValueError`.
+
+Fields that are category-only (`dir`, `patterns`, `new_dir`, `new_patterns`, `add_patterns`, `remove_patterns`) MUST NOT be provided when `type='collection'`.
+
+Fields that are collection-only (`categories`, `new_categories`, `add_categories`, `remove_categories`) MUST NOT be provided when `type='category'`.
+
+#### Scenario: Category-only fields rejected for collection type
+- **WHEN** `CategoryCollectionAddArgs(type='collection', name='all', dir='docs/')` is constructed
+- **THEN** a `ValueError` is raised indicating `dir` is not valid for `type='collection'`
+
+#### Scenario: Collection-only fields rejected for category type
+- **WHEN** `CategoryCollectionAddArgs(type='category', name='docs', categories=['guidelines', 'specs'])` is constructed
+- **THEN** a `ValueError` is raised indicating `categories` is not valid for `type='category'`
+
+#### Scenario: Compatible fields accepted
+- **WHEN** `CategoryCollectionAddArgs(type='category', name='docs', dir='docs/')` is constructed
+- **THEN** no error is raised
 
