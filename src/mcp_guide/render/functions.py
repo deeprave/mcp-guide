@@ -1,6 +1,7 @@
 """Template lambda functions for Mustache templates."""
 
 from collections import ChainMap
+from datetime import datetime, timezone
 from typing import Any, Optional
 
 
@@ -118,6 +119,33 @@ class TemplateFunctions:
 
         actual = str(self.context[var_name])
         return render(text) if render and substring.strip() in actual else ""
+
+    def time_ago(self, text: str, render: Optional[Any] = None) -> str:
+        """Format timestamp as relative time: {{#time_ago}}{{exported_at}}{{/time_ago}}"""
+        _, var_name = self._parse_template_args(text)
+
+        if var_name not in self.context:
+            raise KeyError(f"Variable not found in context: {var_name}")
+
+        value = self.context[var_name]
+        if not value:
+            return "unknown"
+        if isinstance(value, (int, float)):
+            dt = datetime.fromtimestamp(value, tz=timezone.utc)
+        else:
+            raise TypeError(f"Variable {var_name} is not a numeric timestamp")
+
+        delta = datetime.now(timezone.utc) - dt
+        days = delta.days
+        hours = delta.seconds // 3600
+        minutes = (delta.seconds % 3600) // 60
+
+        if days > 0:
+            return f"{days}d{hours}h ago"
+        elif hours > 0:
+            return f"{hours}h{minutes}m ago"
+        else:
+            return f"{minutes}m ago"
 
     def _get_nested_value(self, var_name: str) -> Optional[str]:
         """Get value from context, supporting dot notation for nested keys.

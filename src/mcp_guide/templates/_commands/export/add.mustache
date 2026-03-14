@@ -2,21 +2,13 @@
 type: agent/instruction
 Description: Export content from a collection or category to a file
 usage: ":export <expression> <path> [--pattern <pattern>] [--force]"
+aliases:
+  - export
+category: project
+minargs: 2
 argrequired:
   - pattern
 ---
-{{^args.0.value}}
-**Error:** Missing required argument: expression
-
-Usage: {{@}}guide :export <expression> <path> [--pattern <pattern>] [--force]
-{{/args.0.value}}
-{{#args.0.value}}
-{{^args.1.value}}
-**Error:** Missing required argument: path
-
-Usage: {{@}}guide :export <expression> <path> [--pattern <pattern>] [--force]
-{{/args.1.value}}
-{{#args.1.value}}
 Export Content to File
 
 Call the `{{tool_prefix}}export_content` tool with these arguments:
@@ -31,5 +23,3 @@ Call the `{{tool_prefix}}export_content` tool with these arguments:
 ```
 
 Follow the returned instructions to write the content to the specified path.
-{{/args.1.value}}
-{{/args.0.value}}

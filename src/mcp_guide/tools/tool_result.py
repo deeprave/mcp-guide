@@ -13,6 +13,27 @@ logger = get_logger(__name__)
 T = TypeVar("T")
 
 
+def parse_options(options: list[str]) -> dict[str, str | bool]:
+    """Convert a list of display options into a template context dict.
+
+    Supports truthy flags and key=value pairs for flexible template rendering.
+
+    Args:
+        options: List of option strings, e.g. ["verbose", "limit=10"]
+
+    Returns:
+        Dict mapping option names to True (flags) or string values (key=value pairs)
+    """
+    result: dict[str, str | bool] = {}
+    for opt in options:
+        if "=" in opt:
+            key, value = opt.split("=", 1)
+            result[key] = value
+        else:
+            result[opt] = True
+    return result
+
+
 async def tool_result(tool_name: str, result: "Result[T]") -> str:
     """Process and log tool result before converting to JSON string.
 

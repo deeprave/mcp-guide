@@ -3,8 +3,10 @@
 """Unified content access tool - get_content."""
 
 import contextlib
+import time
 import zlib
 from dataclasses import replace as dc_replace
+from enum import Enum
 from pathlib import Path
 from typing import Optional
 
@@ -36,11 +38,19 @@ from mcp_guide.result_constants import (
     INSTRUCTION_PATTERN_ERROR,
 )
 from mcp_guide.session import get_or_create_session
-from mcp_guide.tools.tool_result import tool_result
+from mcp_guide.tools.tool_result import parse_options, tool_result
 
 logger = get_logger(__name__)
 
 __all__ = ["ContentArgs", "internal_get_content"]
+
+
+class StaleState(str, Enum):
+    """Staleness state for an export entry."""
+
+    OK = "ok"
+    STALE = "stale"
+    UNKNOWN = "unknown"
 
 
 def _build_expression(expression: str, pattern: Optional[str]) -> str:
@@ -396,7 +406,9 @@ async def export_content(
             logger.info(f"Added {output_path} to allowed_write_paths")
             p = dc_replace(p, allowed_write_paths=[*p.allowed_write_paths, output_path])
         if metadata_hash is not None:
-            p = p.upsert_export_entry(args.expression, args.pattern, output_path, metadata_hash)
+            p = p.upsert_export_entry(
+                args.expression, args.pattern, output_path, metadata_hash, exported_at=time.time()
+            )
         return p
 
     await session.update_config(_apply_updates)
@@ -421,3 +433,136 @@ async def export_content(
     instruction = rendered.instruction if rendered else None
 
     return await tool_result("export_content", Result.ok(result.value, instruction=instruction))
+
+
+class ListExportsArgs(ToolArguments):
+    """Arguments for list_exports tool."""
+
+    glob: str | None = Field(
+        None,
+        description="Optional glob pattern to filter exports by expression, pattern, or path.",
+    )
+    options: list[str] = Field(
+        default_factory=list,
+        description="Display options passed to template (e.g. verbose, table). If non-empty, renders formatted output.",
+    )
+
+
+@toolfunc(ListExportsArgs)
+async def list_exports(
+    args: ListExportsArgs,
+    ctx: Optional[Context] = None,  # type: ignore[type-arg]
+) -> str:
+    """List all tracked content exports with metadata.
+
+    Returns export entries with expression, pattern, path, timestamp, and staleness indicator.
+    Optional glob filtering matches against expression, pattern, or path.
+    """
+    from fnmatch import fnmatch
+    from pathlib import PurePath
+
+    session = await get_or_create_session(ctx)
+    project = await session.get_project()
+
+    # Build list of export dicts
+    exports = []
+    for (expression, pattern), exported_to in project.exports.items():
+        # Apply glob filter if provided
+        if args.glob:
+            matches = False
+            # Check expression
+            if fnmatch(expression.lower(), args.glob.lower()):
+                matches = True
+            # Check pattern
+            if pattern and fnmatch(pattern.lower(), args.glob.lower()):
+                matches = True
+            # Check path
+            if fnmatch(exported_to.path.lower(), args.glob.lower()):
+                matches = True
+
+            if not matches:
+                continue
+
+        # Compute staleness
+        stale_state = StaleState.OK
+        try:
+            gather_expression = _build_expression(expression, pattern)
+            files = await gather_content(session, project, gather_expression)
+            current_hash = compute_metadata_hash(files)
+            if current_hash is None:
+                stale_state = StaleState.UNKNOWN
+            elif current_hash != exported_to.metadata_hash:
+                stale_state = StaleState.STALE
+        except Exception:
+            stale_state = StaleState.UNKNOWN
+
+        p = PurePath(exported_to.path)
+        export_dict = {
+            "expression": expression,
+            "pattern": pattern,
+            "file": p.name,
+            "path": str(p.parent),
+            "exported_at": exported_to.exported_at or None,
+            "stale_state": stale_state.value,
+        }
+        exports.append(export_dict)
+
+    # Render using template if options provided
+    if args.options:
+        try:
+            from mcp_guide.render.context import TemplateContext
+            from mcp_guide.render.rendering import render_content
+
+            context = TemplateContext({"exports": exports, **parse_options(args.options)})
+            rendered = await render_content("_exports-format", "_system", context)
+            if rendered:
+                return await tool_result("list_exports", Result.ok(rendered.content))
+        except Exception:
+            pass  # Fall through to JSON
+
+    return await tool_result("list_exports", Result.ok(exports))
+
+
+class RemoveExportArgs(ToolArguments):
+    """Arguments for remove_export tool."""
+
+    expression: str = Field(
+        ...,
+        description="Content expression to remove from export tracking.",
+    )
+    pattern: str | None = Field(
+        None,
+        description="Optional pattern to match. Must match exactly if provided.",
+    )
+
+
+@toolfunc(RemoveExportArgs)
+async def remove_export(
+    args: RemoveExportArgs,
+    ctx: Optional[Context] = None,  # type: ignore[type-arg]
+) -> str:
+    """Remove export tracking entry from Project.exports.
+
+    Removes only the tracking entry, not the actual exported file.
+    Requires exact match of expression and pattern (if provided).
+    """
+    session = await get_or_create_session(ctx)
+    project = await session.get_project()
+
+    # Build key
+    key = (args.expression, args.pattern)
+
+    # Check if exists
+    if key not in project.exports:
+        return await tool_result(
+            "remove_export",
+            Result.failure(
+                error=f"Export not found: expression='{args.expression}', pattern={args.pattern}",
+                error_type="not_found",
+            ),
+        )
+
+    # Remove entry
+    await session.update_config(lambda p: dc_replace(p, exports={k: v for k, v in p.exports.items() if k != key}))
+
+    return await tool_result("remove_export", Result.ok(f"Removed export tracking for '{args.expression}'"))

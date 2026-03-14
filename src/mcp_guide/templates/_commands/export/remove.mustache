@@ -1,0 +1,21 @@
+---
+type: agent/instruction
+description: Remove export tracking entry
+usage: ":export/remove <expression> [--pattern <pattern>]"
+category: project
+minargs: 1
+argrequired:
+  - pattern
+---
+Remove Export Tracking
+
+Call the `{{tool_prefix}}remove_export` tool:
+
+```
+{{tool_prefix}}remove_export(
+    expression="{{args.0.value}}"{{#kwargs.pattern}},
+    pattern="{{kwargs.pattern}}"{{/kwargs.pattern}}
+)
+```
+
+This removes the tracking entry only, not the exported file.
