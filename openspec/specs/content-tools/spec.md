@@ -323,7 +323,7 @@ Detection SHALL:
 - Gather files for the expression/pattern
 - Compute metadata hash from gathered files
 - Compare with stored hash from previous export
-- Content is stale if hashes match
+- Content is stale if hashes differ
 
 The metadata hash SHALL detect changes from:
 - File modifications (mtime changes)

@@ -60,7 +60,7 @@ class TestGuidePromptIntegration:
         assert "guide prompt requires one or more arguments" in result["error"]
         assert ":help" in result["error"]
         assert result["error_type"] == "validation"
-        assert result["instruction"] == INSTRUCTION_DISPLAY_ONLY
+        assert result["instruction"] == INSTRUCTION_ERROR_MESSAGE
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
@@ -115,7 +115,7 @@ class TestGuidePromptIntegration:
         assert expected_error in result["error"]
         if scenario == "empty_string":
             assert ":help" in result["error"]
-            assert result["instruction"] == INSTRUCTION_DISPLAY_ONLY
+            assert result["instruction"] == INSTRUCTION_ERROR_MESSAGE
 
     @pytest.mark.asyncio
     async def test_guide_prompt_with_arguments_reserved(self, guide_function) -> None:
