@@ -2,25 +2,29 @@
 
 All notable changes to mcp-guide will be documented in this file.
 
-## [1.1.0] TBD
+## [1.1.0] - 2026-03-16
 
 ### Added
-- Permission management MCP tools (`add_permission_path`, `remove_permission_path`)
+- Permission management MCP tools (`add_permission_path`, `remove_permission_path`) with file-level write permissions
+- Export management tools (`list_exports`, `remove_export`) with staleness detection
+- Export commands reorganised under `:export/` (`:export/add`, `:export/list`, `:export/remove`)
+- `_error` template lambda for structured validation errors in command templates
 - Guide prompt parser now supports space-separated flag values (`--flag value` in addition to `--flag=value`)
 - Export tracking: exported content is tracked to enable efficient content referencing
 - Knowledge indexing support: agents with indexing capabilities (Kiro, Q Developer) receive instructions to index exported content
 
 ### Changed
-- Refactored prompt templates to provide a more consistent user experience
+- Reduced MCP tool count from 39 to 28 by consolidating management and introspection tools
+- Simplified and reduced the size of MCP tool descriptions
+- Removed the default "guide_" prefix on tools
 - Command templates now declare required arguments via `argrequired` frontmatter field
-- Removed introspection mcp tools, consolidated management tools
-- Drastically simplified and reduced the size of mcp tool descriptions
-- Remove the default "guide_" prefix on tools
-- Fixed an issue with the internal task manager statistics (and :project display)
-- Refactored internals to provide clear and more consistent template rendering
+- Refactored frontmatter processing and template rendering internals
 
 ### Fixed
 - Template consistency: all command examples now use `{{@}}guide` prefix
+- Task manager statistics display in `:project` status command
+- `time_ago` template lambda edge cases in export list output
+- Frontmatter rendering in command template partials
 
 ## [1.0.0] - 2026-03-04
 
