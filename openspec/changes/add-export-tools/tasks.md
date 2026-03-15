@@ -11,5 +11,5 @@
 - [x] 1.10 Add `parse_options` utility to `tool_result.py` for reusable option parsing
 - [x] 1.11 Write tests for `parse_options` (parametrized)
 - [x] 1.12 Split export path into `file` (filename) and `path` (directory)
-- [ ] 1.13 Run full test suite and verify all pass
-- [ ] 1.14 Manual testing of export workflow
+- [x] 1.13 Run full test suite and verify all pass
+- [x] 1.14 Manual testing of export workflow

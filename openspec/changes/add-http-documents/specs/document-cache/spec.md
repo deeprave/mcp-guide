@@ -2,36 +2,69 @@
 
 ## ADDED Requirements
 
-### Requirement: Session-Based Cache
-The system SHALL maintain an in-memory cache of documents per session.
+### Requirement: Persistent Document Cache
+The system SHALL maintain a persistent document cache in a single-file compact format (SQLite) in the XDG cache directory.
 
-#### Scenario: Cache document content
-- **WHEN** document is successfully retrieved
-- **THEN** content is cached with hash key
-- **AND** cache persists for session duration
+Each cache entry SHALL store:
+- Source URL
+- Assigned pattern name
+- Category and project association
+- Markdown content
+- Fetch timestamp
+- Refresh interval
+- Stale flag
+- HTTP metadata (Last-Modified, ETag) for staleness checking
 
-#### Scenario: Cache negative result
-- **WHEN** document is not found or fails permanently
-- **THEN** negative result is cached with hash key
-- **AND** prevents repeated failed requests
+#### Scenario: Cache document after successful fetch
+- **WHEN** agent sends converted markdown content via `send_file_content`
+- **THEN** content is stored in persistent cache with full metadata
+- **AND** stale flag is set to false
 
-### Requirement: Cache Invalidation
-The system SHALL invalidate cache when session ends or project switches.
+#### Scenario: Cache persists across sessions
+- **WHEN** MCP session restarts
+- **THEN** previously cached documents are available immediately
+- **AND** no re-fetch is required for fresh documents
 
-#### Scenario: Session end cache clear
-- **WHEN** session ends
-- **THEN** all cached documents are evicted
+### Requirement: Cache Retrieval
+The system SHALL retrieve cached documents by category and pattern for inclusion in content delivery.
 
-#### Scenario: Project switch cache clear
-- **WHEN** project is switched
-- **THEN** all cached documents are evicted
+#### Scenario: Retrieve cached document
+- **WHEN** content delivery requests a URL-backed pattern
+- **THEN** cached markdown content is returned
+- **AND** retrieval is fast (indexed lookup)
 
-### Requirement: Optional Persistent Cache
-The system SHALL support optional persistent cache in XDG_CACHE directory for cross-session reuse.
+#### Scenario: Missing cache entry
+- **WHEN** a URL-backed pattern has no cache entry
+- **THEN** system instructs agent to fetch and cache the document
 
-#### Scenario: Persistent cache hit
-- **WHEN** document is in persistent cache
-- **THEN** content is loaded from cache
-- **AND** hash key ensures unambiguous reference
+### Requirement: Cache Eviction
+The system SHALL evict cache entries when the corresponding URL/pattern is removed from a category.
 
-**Note:** This cache is shared between client documents (`add-client-documents`) and HTTPS documents (`add-http-documents`). Whichever change is implemented first creates this capability.
+#### Scenario: URL pattern removed from category
+- **WHEN** a URL/pattern is removed via `category_update` or `category_change`
+- **THEN** the corresponding cache entry MAY be evicted
+
+### Requirement: Document Refresh Tool
+The system SHALL provide a tool for the agent to refresh stale documents.
+
+The refresh tool SHALL:
+- List documents that are marked stale
+- Accept re-fetched content from the agent to update the cache
+- Clear the stale flag after successful refresh
+
+#### Scenario: List stale documents
+- **WHEN** refresh tool is called without arguments
+- **THEN** system returns list of stale documents with source URLs
+
+#### Scenario: Refresh stale document
+- **WHEN** agent re-fetches a stale URL and submits updated markdown
+- **THEN** cache entry is updated with new content and timestamp
+- **AND** stale flag is cleared
+
+### Requirement: send_file_content Document Format
+The system SHALL define a specific file format for `send_file_content` that the document handler task can intercept and route to the cache.
+
+#### Scenario: Agent submits fetched URL content
+- **WHEN** agent calls `send_file_content` with the document cache format
+- **THEN** document handler task intercepts the submission
+- **AND** content is stored in the persistent cache

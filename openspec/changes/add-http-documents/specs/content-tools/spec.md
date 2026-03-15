@@ -2,37 +2,29 @@
 
 ## MODIFIED Requirements
 
-### Requirement: HTTPS Document Queuing
-The system SHALL queue uncached HTTPS document references before delivering category content.
+### Requirement: get_category_content Tool
+The `get_category_content` tool SHALL include cached URL documents alongside local files when delivering category content.
 
-#### Scenario: Queue uncached HTTPS documents
-- **WHEN** `get_category_content` is called with HTTPS patterns
-- **THEN** system identifies uncached HTTPS documents
-- **AND** queues server-side fetch requests for missing documents
+#### Scenario: Category with cached URL documents
+- **WHEN** `get_category_content` is called for a category with URL patterns
+- **AND** all URL documents are cached
+- **THEN** cached URL content is included alongside local file content
 
-### Requirement: HTTPS Document Fetching with Retry
-The system SHALL fetch HTTPS documents server-side with retry logic for temporary failures.
+#### Scenario: Category with uncached URL documents
+- **WHEN** `get_category_content` is called and a URL document is not yet cached
+- **THEN** system instructs agent to fetch the URL and submit via `send_file_content`
+- **AND** local content is delivered immediately
 
-#### Scenario: Successful HTTPS fetch
-- **WHEN** HTTPS document is fetched successfully
-- **THEN** content is cached
-- **AND** included in category content
+### Requirement: get_content Tool
+The `get_content` tool SHALL include cached URL documents when resolving categories and collections.
 
-#### Scenario: Temporary failure with retry
-- **WHEN** HTTPS fetch fails with timeout or network error
-- **THEN** system retries the request
-- **AND** caches result after retry attempts
+#### Scenario: Collection with URL-enabled categories
+- **WHEN** `get_content` resolves a collection containing categories with URL patterns
+- **THEN** cached URL documents are included in the aggregated content
 
-#### Scenario: Permanent failure without retry
-- **WHEN** HTTPS fetch fails with 404 or 500 status
-- **THEN** system does NOT retry
-- **AND** caches negative result
+### Requirement: export_content Tool
+The `export_content` tool SHALL include cached URL documents in exported content.
 
-### Requirement: HTTPS Document Delivery
-The system SHALL deliver all content (server and HTTPS) after fetching uncached HTTPS documents.
-
-#### Scenario: Deliver mixed content
-- **WHEN** all HTTPS documents are cached (positive or negative)
-- **THEN** system delivers server documents
-- **AND** delivers cached HTTPS documents
-- **AND** excludes failed/missing HTTPS documents
+#### Scenario: Export category with URL documents
+- **WHEN** `export_content` is called for a category with cached URL documents
+- **THEN** exported content includes both local and cached URL documents

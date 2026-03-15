@@ -1,27 +1,32 @@
-# Change: HTTPS Document References in Categories
+# Change: URL Document References in Categories
 
 ## Why
 
-Categories currently only reference server-side documents. Need ability to reference remote HTTPS documents with security controls (allowlist/blocklist) and session-based caching.
+Categories currently only reference local server-side documents. Projects need the ability to include content from remote URLs as category documents. The agent fetches and converts content to markdown at category add time, and the MCP caches it persistently for fast retrieval. A background task monitors source URLs for changes using HTTP headers and flags stale documents for refresh.
 
 ## What Changes
 
-- Extend Category model with `https` dict for HTTPS document patterns
-- Add server-side HTTPS fetching with retry logic for temporary failures
-- Add allowlist/blocklist security configuration (global and per-project)
-- Add session-based cache for HTTPS documents (positive and negative results)
-- Modify `get_category_content` to queue and fetch uncached HTTPS documents before delivery
-- Enforce HTTPS-only (no HTTP support)
+- Extend Category model with `urls` dict mapping patterns to URL references (with per-document refresh interval, default 7 days)
+- All pattern-modifying tools (`category_add`, `category_change`, `category_update`, and collection equivalents) accept URL parameters
+- At add time: MCP instructs agent to fetch URL → agent converts to markdown → agent sends back via `send_file_content` with interceptable format → MCP caches persistently
+- If fetch fails at add time, the URL/pattern is not added
+- Persistent cache in single-file compact format (SQLite) in XDG cache directory with full metadata
+- Background "document handler" task checks `Last-Modified` / `ETag` headers when refresh interval expires — marks documents stale only, does not re-fetch
+- Stale documents continue to be served; staleness is flagged in listing tools
+- `get_category_content`, `get_content`, `export_content` serve cached URL content alongside local files
+- A refresh tool allows the agent to re-fetch stale documents
+- Protocol-agnostic: HTTP and HTTPS URLs accepted, agent security is relied upon
 
 ## Impact
 
-- Affected specs: `category-tools` (MODIFIED), `content-tools` (MODIFIED), `document-cache` (ADDED), `https-document-security` (ADDED)
+- Affected specs: `category-tools` (MODIFIED), `content-tools` (MODIFIED), `models` (MODIFIED), `document-cache` (ADDED), `document-handler-task` (ADDED)
 - Affected code:
-  - `src/mcp_guide/models/category.py` (add https field)
-  - `src/mcp_guide/tools/tool_category.py` (validation on add)
-  - `src/mcp_guide/tools/tool_content.py` (queue/fetch HTTPS docs)
-  - `src/mcp_guide/cache/` (new module for document cache)
-  - `src/mcp_guide/security/https_policy.py` (new module for allowlist/blocklist)
-  - Configuration files (global and project-level security settings)
+  - Category model (add urls field)
+  - All category/collection tools that modify patterns (add URL handling)
+  - Content delivery pipeline (include cached documents)
+  - New persistent document cache module
+  - New document handler background task
+  - `send_file_content` interception for URL document format
+- **Prerequisite:** `refactor-session-project` should be completed first to clean up session/project separation
 
 **Note:** This change shares cache infrastructure with `add-client-documents`. Whichever is implemented first creates the cache mechanism.
