@@ -77,9 +77,10 @@ async def render_template(
             # Raise exception with detailed error context
             raise RuntimeError(f"Template rendering failed: {result.error}")
         assert result.value is not None, "Result value should not be None when success is True"
-        rendered_content, partial_frontmatter_list = result.value
+        rendered_content, partial_frontmatter_list, template_errors = result.value
     else:
         rendered_content = processed.content
+        template_errors = []
 
     return RenderedContent(
         frontmatter=processed.frontmatter,
@@ -89,4 +90,5 @@ async def render_template(
         template_path=file_info.path,
         template_name=file_info.path.name,
         partial_frontmatter=partial_frontmatter_list,
+        errors=template_errors,
     )

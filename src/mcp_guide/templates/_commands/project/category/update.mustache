@@ -23,7 +23,7 @@ remove_patterns: {{kwargs.remove_patterns}}
 {{/kwargs.remove_patterns}}
 {{/args.0.value}}
 {{^args.0.value}}
-{{b}}Error:{{b}} Missing required argument: name
+{{#_error}}Missing required argument: name{{/_error}}
 
 {{b}}Usage:{{b}} {{@}}guide :project/category/update <name> [--add-patterns=<patterns>] [--remove-patterns=<patterns>]
 

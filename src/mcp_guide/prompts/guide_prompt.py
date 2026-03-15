@@ -86,6 +86,9 @@ async def get_command_help(command_context: TemplateContext, commands_dir: Path,
         if rendered is None:
             return Result.failure("Failed to render help template", error_type="render_error")
 
+        if rendered.errors:
+            logger.warning("get_command_help: template signaled errors that will be discarded: %s", rendered.errors)
+
         return Result.ok(rendered.content, instruction=rendered.instruction)
 
     except Exception as e:
@@ -389,6 +392,15 @@ async def _execute_command(
             f"Command '{command_path}' not found",
             error_type=ERROR_NOT_FOUND,
             instruction=INSTRUCTION_NOTFOUND_ERROR,
+        )
+
+    # Check for application-level errors signaled via {{#_error}} lambda
+    if rendered.errors:
+        errors = rendered.errors
+        return Result.failure(
+            "\n".join(errors),
+            error_type="validation",
+            error_data={"errors": errors},
         )
 
     # Extract content and instruction from RenderedContent

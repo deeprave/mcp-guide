@@ -23,7 +23,7 @@ remove_categories: {{kwargs.remove_categories}}
 {{/kwargs.remove_categories}}
 {{/args.0.value}}
 {{^args.0.value}}
-{{b}}Error:{{b}} Missing required argument: name
+{{#_error}}Missing required argument: name{{/_error}}
 
 {{b}}Usage:{{b}} {{@}}guide :project/collection/update <name> [--add-categories=<categories>] [--remove-categories=<categories>]
 

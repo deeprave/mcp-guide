@@ -14,7 +14,7 @@ Use the category_remove tool with:
 name: '{{args.0.value}}'
 {{/args.0.value}}
 {{^args.0.value}}
-{{b}}Error:{{b}} Missing required argument: name
+{{#_error}}Missing required argument: name{{/_error}}
 
 {{b}}Usage:{{b}} {{@}}guide :project/category/remove <name>
 

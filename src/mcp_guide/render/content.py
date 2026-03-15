@@ -25,11 +25,13 @@ class RenderedContent(Content):
         template_path: Path to the template file
         template_name: Name of the template file
         partial_frontmatter: List of frontmatter from included partials
+        errors: Application-level errors signaled via {{#_error}} lambda
     """
 
     template_path: Path
     template_name: str
     partial_frontmatter: list[dict[str, Any]] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
 
     @property
     def template_type(self) -> str:

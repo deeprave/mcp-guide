@@ -27,7 +27,7 @@ value: true
 {{/args.1.value}}
 {{/args.0.value}}
 {{^args.0.value}}
-{{b}}Error:{{b}} Missing required argument: flag-name
+{{#_error}}Missing required argument: flag-name{{/_error}}
 
 {{b}}Usage:{{b}} {{@}}guide :flags/feature/set <flag-name> [<value>|--value=<value>]
 

@@ -4,6 +4,10 @@ from collections import ChainMap
 from datetime import datetime, timezone
 from typing import Any, Optional
 
+from mcp_guide.core.mcp_log import get_logger
+
+logger = get_logger(__name__)
+
 
 class SyntaxHighlighter:
     """Syntax highlighter with Pygments integration."""
@@ -26,6 +30,18 @@ class TemplateFunctions:
         """Initialize with ChainMap context."""
         self.context = context
         self.highlighter = SyntaxHighlighter()
+        self.errors: list[str] = []
+
+    def _error(self, text: str, render: Optional[Any] = None) -> str:
+        """Signal an application-level error: {{#_error}}message{{/_error}}"""
+        try:
+            message = render(text) if render else text
+        except Exception as e:
+            logger.warning("_error lambda: render failed: %s", e)
+            return ""
+        if message:
+            self.errors.append(message)
+        return ""
 
     def _parse_template_args(self, text: str) -> tuple[str, str]:
         """Parse mustache-style lambda body into (arg, variable_name).
