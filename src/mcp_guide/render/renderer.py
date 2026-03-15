@@ -173,7 +173,7 @@ async def render_template_content(
 
         # Create template functions and inject into context with error handling
         functions = TemplateFunctions(final_context)
-        stem = Path(file_path).stem
+        stem = Path(file_path).stem if file_path else "template"
         template_context = final_context.new_child(
             {
                 "template_name": stem.lstrip("_"),

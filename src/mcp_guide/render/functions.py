@@ -2,7 +2,7 @@
 
 from collections import ChainMap
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 from mcp_guide.core.mcp_log import get_logger
 
@@ -32,7 +32,7 @@ class TemplateFunctions:
         self.highlighter = SyntaxHighlighter()
         self.errors: list[str] = []
 
-    def _error(self, text: str, render: Optional[Any] = None) -> str:
+    def _error(self, text: str, render: Callable[[str], str] | None = None) -> str:
         """Signal an application-level error: {{#_error}}message{{/_error}}"""
         try:
             message = render(text) if render else text
