@@ -177,7 +177,7 @@ class TestSafeLambdaWrapper:
         result = await render_template_content("Date: {{#format_date}}%Y-{{invalid_date}}{{/format_date}}", context)
 
         assert result.is_ok()
-        rendered_content, _ = result.value
+        rendered_content, _, _ = result.value
         assert "[Template Error (" in rendered_content
         assert "not a datetime object" in rendered_content
 
@@ -189,7 +189,7 @@ class TestSafeLambdaWrapper:
         result = await render_template_content("{{#truncate}}-5{{text}}{{/truncate}}", context)
 
         assert result.is_ok()
-        rendered_content, _ = result.value
+        rendered_content, _, _ = result.value
         assert "[Template Error (" in rendered_content
 
     async def test_safe_lambda_error_handling_highlight_code(self):
@@ -200,7 +200,7 @@ class TestSafeLambdaWrapper:
         result = await render_template_content("{{#highlight_code}}py@thon{{code}}{{/highlight_code}}", context)
 
         assert result.is_ok()
-        rendered_content, _ = result.value
+        rendered_content, _, _ = result.value
         assert "[Template Error (" in rendered_content
 
     def test_full_template_rendering_with_lambdas(self):
@@ -277,3 +277,74 @@ class TestTimeAgoLambda:
     def test_time_ago_invalid_type_raises(self):
         with pytest.raises(TypeError):
             self._make("not-a-timestamp").time_ago("{{ts}}")
+
+
+class TestErrorLambda:
+    """Tests for the _error template lambda."""
+
+    def _make(self, extra: dict | None = None) -> TemplateFunctions:
+        return TemplateFunctions(ChainMap(extra or {}))
+
+    def test_error_appends_message(self):
+        fn = self._make()
+        result = fn._error("something went wrong", render=lambda t: t)
+        assert result == ""
+        assert fn.errors == ["something went wrong"]
+
+    def test_error_returns_empty_string(self):
+        fn = self._make()
+        assert fn._error("msg", render=lambda t: t) == ""
+
+    def test_error_accumulates_multiple(self):
+        fn = self._make()
+        fn._error("first", render=lambda t: t)
+        fn._error("second", render=lambda t: t)
+        assert fn.errors == ["first", "second"]
+
+    def test_error_empty_message_not_appended(self):
+        fn = self._make()
+        fn._error("", render=lambda t: t)
+        assert fn.errors == []
+
+    def test_error_uses_render_callable(self):
+        fn = self._make({"name": "world"})
+        fn._error("hello {{name}}", render=lambda t: "hello world")
+        assert fn.errors == ["hello world"]
+
+    @pytest.mark.asyncio
+    async def test_error_propagates_via_rendered_content(self):
+        """_error in template body propagates to RenderedContent.errors."""
+        from mcp_guide.render.context import TemplateContext
+
+        template = "{{#_error}}missing arg{{/_error}}"
+        ctx = TemplateContext({})
+        result = await render_template_content(template, ctx)
+        assert result.success
+        assert result.value is not None
+        rendered_text, _, errors = result.value
+        assert rendered_text == ""
+        assert errors == ["missing arg"]
+
+    @pytest.mark.asyncio
+    async def test_template_name_injected(self):
+        """template_name is injected as the stem of file_path."""
+        from mcp_guide.render.context import TemplateContext
+
+        template = "{{template_name}}"
+        ctx = TemplateContext({})
+        result = await render_template_content(template, ctx, file_path="path/to/_my-command.mustache")
+        assert result.success
+        assert result.value is not None
+        rendered_text, _, _ = result.value
+        assert rendered_text == "my-command"
+
+    @pytest.mark.asyncio
+    async def test_no_error_gives_empty_list(self):
+        """No _error invocation → empty errors list."""
+        from mcp_guide.render.context import TemplateContext
+
+        result = await render_template_content("hello", TemplateContext({}))
+        assert result.success
+        assert result.value is not None
+        _, _, errors = result.value
+        assert errors == []

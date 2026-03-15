@@ -15,7 +15,7 @@ Run `openspec validate {{args.0.value}} --strict --no-interactive` and send the 
 Run `openspec validate {{workflow.issue}} --strict --no-interactive` and send the result using {{tool_prefix}}send_file_content with path `.openspec-validate.txt`
 {{/workflow.issue}}
 {{^workflow.issue}}
-{{b}}Error:{{b}} No change-id provided and no current workflow issue set.
+{{#_error}}No change-id provided and no current workflow issue set.{{/_error}}
 
 Usage: `{{agent.prefix}}guide :openspec/validate <change-id>`
 

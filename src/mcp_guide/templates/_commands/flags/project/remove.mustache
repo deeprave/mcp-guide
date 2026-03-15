@@ -15,7 +15,7 @@ feature_name: '{{args.0.value}}'
 value: null
 {{/args.0.value}}
 {{^args.0.value}}
-{{b}}Error:{{b}} Missing required argument: flag-name
+{{#_error}}Missing required argument: flag-name{{/_error}}
 
 {{b}}Usage:{{b}} {{@}}guide :flags/project/remove <flag-name>
 

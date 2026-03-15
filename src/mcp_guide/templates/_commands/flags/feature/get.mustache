@@ -17,7 +17,7 @@ If the value contains wildcards (* ? [), returns dict of matching flags.
 Otherwise returns single flag value.
 {{/args.0.value}}
 {{^args.0.value}}
-{{b}}Error:{{b}} Missing required argument: flag-name-or-pattern
+{{#_error}}Missing required argument: flag-name-or-pattern{{/_error}}
 
 {{b}}Usage:{{b}} {{@}}guide :flags/feature/get <flag-name-or-pattern>
 

@@ -28,7 +28,7 @@ Run `openspec status --change {{args.0.value}} --json` and send the result using
 Run `openspec status --change {{workflow.issue}} --json` and send the result using {{tool_prefix}}send_file_content with path `.openspec-status.json` to refresh the cache, then re-render this template to display the results.
 {{/workflow.issue}}
 {{^workflow.issue}}
-{{b}}Error:{{b}} No change-id provided and no current workflow issue set.
+{{#_error}}No change-id provided and no current workflow issue set.{{/_error}}
 
 Usage: `{{agent.prefix}}guide :openspec/status <change-id>`
 

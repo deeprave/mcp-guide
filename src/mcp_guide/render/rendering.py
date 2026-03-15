@@ -101,4 +101,7 @@ async def render_content(
         logger.debug(f"Template {files[0].path} filtered by requires-* directives")
         return None
 
+    if rendered.errors:
+        logger.warning("Template %s signaled errors that will be discarded: %s", files[0].path, rendered.errors)
+
     return rendered

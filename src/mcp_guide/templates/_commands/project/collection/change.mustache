@@ -27,7 +27,7 @@ new_description: '{{kwargs.new_description}}'
 {{/kwargs.new_description}}
 {{/args.0.value}}
 {{^args.0.value}}
-{{b}}Error:{{b}} Missing required argument: name
+{{#_error}}Missing required argument: name{{/_error}}
 
 {{b}}Usage:{{b}} {{@}}guide :project/collection/change <name> [--new-name=<name>] [--new-categories=<categories>] [--new-description=<text>]
 

@@ -95,7 +95,7 @@ async def render_template_content(
     partials: Optional[Dict[str, str]] = None,
     metadata: Optional[Dict[str, Any]] = None,
     base_dir: Optional[Path] = None,
-) -> Result[tuple[str, list[Dict[str, Any]]]]:
+) -> Result[tuple[str, list[Dict[str, Any]], list[str]]]:
     """Render template content with context.
 
     Args:
@@ -173,8 +173,11 @@ async def render_template_content(
 
         # Create template functions and inject into context with error handling
         functions = TemplateFunctions(final_context)
+        stem = Path(file_path).stem
         template_context = final_context.new_child(
             {
+                "template_name": stem.lstrip("_"),
+                "_error": functions._error,
                 "format_date": _safe_lambda(functions.format_date),
                 "truncate": _safe_lambda(functions.truncate),
                 "highlight_code": _safe_lambda(functions.highlight_code),
@@ -200,7 +203,7 @@ async def render_template_content(
             if name in partial_frontmatter_by_name
         ]
 
-        return Result.ok((rendered, partial_frontmatter_list))
+        return Result.ok((rendered, partial_frontmatter_list, functions.errors))
 
     except ChevronError as e:
         # Enhanced Chevron-specific error handling with line context
@@ -287,7 +290,7 @@ async def render_template_with_context_chain(
     category_name: Optional[str] = None,
     file_info: Optional[FileInfo] = None,
     file_path: str = "<template>",
-) -> Result[tuple[str, list[Dict[str, Any]]]]:
+) -> Result[tuple[str, list[Dict[str, Any]], list[str]]]:
     """Render template content with automatically built context chain.
 
     Args:

@@ -15,7 +15,7 @@ permission_type: 'read'
 path: '{{args.0.value}}'
 {{/args.0.value}}
 {{^args.0.value}}
-{{b}}Error:{{b}} Missing required argument: path
+{{#_error}}Missing required argument: path{{/_error}}
 
 {{b}}Usage:{{b}} {{@}}guide :project/perm/read/remove <path>
 

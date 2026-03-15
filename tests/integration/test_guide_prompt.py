@@ -280,3 +280,31 @@ class TestGuidePromptIntegration:
             assert "Argument parsing failed" in result["error"]
             assert "--bad=" in result["error"]
             assert "=value" in result["error"]
+
+    @pytest.mark.asyncio
+    async def test_execute_command_returns_failure_on_template_errors(self, guide_function) -> None:
+        """_execute_command should return Result.failure when rendered.errors is non-empty."""
+        from pathlib import Path
+        from unittest.mock import AsyncMock, patch
+
+        from mcp_guide.render.content import RenderedContent
+        from mcp_guide.render.frontmatter import Frontmatter
+
+        mock_ctx = MagicMock()
+        rendered = RenderedContent(
+            frontmatter=Frontmatter({}),
+            frontmatter_length=0,
+            content="",
+            content_length=0,
+            template_path=Path("fake/command.mustache"),
+            template_name="command.mustache",
+            errors=["Missing required argument: name"],
+        )
+
+        with patch("mcp_guide.prompts.guide_prompt.render_template", new=AsyncMock(return_value=rendered)):
+            result_str = await guide_function(":project/category/add", ctx=mock_ctx)
+
+        result = json.loads(result_str)
+        assert result["success"] is False
+        assert result["error_type"] == "validation"
+        assert result["error_data"]["errors"] == ["Missing required argument: name"]
