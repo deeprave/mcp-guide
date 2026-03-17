@@ -39,7 +39,7 @@ def promptfunc(description: Optional[str] = None) -> Callable[[Callable[..., Any
     """
 
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
-        prompt_name = func.__name__
+        prompt_name = func.__name__  # ty: ignore[unresolved-attribute]
         prompt_description = description or func.__doc__
 
         metadata = PromptMetadata(name=prompt_name, func=func, description=prompt_description)

@@ -193,7 +193,7 @@ async def render_template_content(
 
         # Render template with Chevron (TemplateContext works as ChainMap)
         logger.trace(f"Rendering template {file_path} with partials: {list(processed_partials.keys())}")
-        rendered = chevron.render(content, template_context, partials_dict=tracking_partials)  # type: ignore[arg-type]
+        rendered = chevron.render(content, template_context, partials_dict=tracking_partials)
         logger.trace(f"Template {file_path} rendered content ({len(rendered)} chars): {rendered[:1024]}")
 
         # Only collect frontmatter from partials that were actually rendered

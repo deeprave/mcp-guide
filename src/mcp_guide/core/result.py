@@ -133,7 +133,7 @@ class Result(Generic[T]):
             if self.value is not None:
                 result["value"] = self.value
         else:
-            result = {
+            result: dict[str, Any] = {
                 "success": False,
                 "error": self.error,
                 "error_type": self.error_type,

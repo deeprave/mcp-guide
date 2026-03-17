@@ -82,9 +82,9 @@ def get_formatter_from_flag(format_type: ContentFormat) -> ContentFormatter:
     """
     logger.trace(f"get_formatter_from_flag: format_type={format_type!r}")
     if format_type == ContentFormat.PLAIN:
-        return PlainFormatter()
+        return PlainFormatter()  # ty: ignore[invalid-return-type]
     elif format_type == ContentFormat.MIME:
-        return MimeFormatter()
+        return MimeFormatter()  # ty: ignore[invalid-return-type]
     else:
         return BaseFormatter()
 

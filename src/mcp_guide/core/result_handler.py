@@ -39,7 +39,7 @@ def validate_result(
 
     def decorator(fn: Callable[..., Awaitable[T]]) -> Callable[..., Awaitable[Result[T]]]:
         if not inspect.iscoroutinefunction(fn):
-            raise TypeError(f"validate_result only supports async functions, got {fn.__name__}")
+            raise TypeError(f"validate_result only supports async functions, got {fn.__name__}")  # ty: ignore[unresolved-attribute]
 
         @wraps(fn)
         async def wrapper(*args: object, **kwargs: object) -> Result[T]:

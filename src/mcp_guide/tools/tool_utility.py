@@ -18,8 +18,7 @@ from mcp_guide.tools.tool_result import tool_result
 try:
     from mcp.server.fastmcp import Context
 except ImportError:
-    Context = None  # type: ignore
-
+    Context = None  # ty: ignore[invalid-assignment]
 logger = get_logger(__name__)
 
 __all__ = ["internal_client_info"]
@@ -31,7 +30,7 @@ class GetClientInfoArgs(ToolArguments):
     verbose: bool = Field(default=False, description="Unused parameter for compatibility")
 
 
-async def internal_client_info(args: GetClientInfoArgs, ctx: Optional[Context] = None) -> Result[dict]:  # type: ignore[type-arg]
+async def internal_client_info(args: GetClientInfoArgs, ctx: Optional[Context] = None) -> Result[dict]:
     """Get information about the MCP client/agent.
 
     Captures agent name, version, and prompt prefix from the MCP session.
@@ -106,7 +105,7 @@ async def internal_client_info(args: GetClientInfoArgs, ctx: Optional[Context] =
 
 
 @toolfunc(GetClientInfoArgs)
-async def client_info(args: GetClientInfoArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
+async def client_info(args: GetClientInfoArgs, ctx: Optional[Context] = None) -> str:
     """Get information about the MCP client/agent.
 
     Captures agent name, version, and prompt prefix from the MCP session.

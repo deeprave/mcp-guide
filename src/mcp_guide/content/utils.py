@@ -146,7 +146,7 @@ async def read_and_render_file_contents(
 
             # noinspection PyBroadException
             try:
-                resolved_flags = await resolve_all_flags(template_context.session)
+                resolved_flags = await resolve_all_flags(template_context.session)  # ty: ignore[invalid-argument-type]
                 requirements_context |= resolved_flags
             except Exception:
                 # Fallback to project flags if resolution fails

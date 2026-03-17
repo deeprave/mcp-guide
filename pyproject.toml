@@ -94,24 +94,12 @@ select = ["I", "F401"]  # I = isort, F401 = unused imports
 [tool.ruff.lint.isort]
 known-first-party = ["mcp_guide"]
 
-[tool.mypy]
-python_version = "3.13"
-mypy_path = "src"
-files = ["src"]
-strict = true
-namespace_packages = true
+[tool.ty.analysis]
+respect-type-ignore-comments = false
+allowed-unresolved-imports = ["fastmcp.**", "uuid_extensions", "debugpy", "patch_ng"]
 
-[[tool.mypy.overrides]]
-module = "fastmcp"
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = "uuid_extensions"
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = "debugpy"
-ignore_missing_imports = true
+[tool.ty.terminal]
+error-on-warning = true
 
 [dependency-groups]
 dev = [
@@ -119,10 +107,8 @@ dev = [
     "pytest-cov>=7.0.0",
     "coverage>=7.10.7",
     "ruff>=0.13.2",
-    "mypy>=1.18.2",
+    "ty",
     "pre-commit>=4.0.0",
-    "types-pyyaml>=6.0.12.20250915",
-    "types-chevron>=0.14.2.20250103",
     "watchdog>=6.0.0",
     "bandit>=1.9.2",
     "pyright>=1.1.407",

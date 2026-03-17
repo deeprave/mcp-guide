@@ -10,8 +10,7 @@ from mcp_guide.core.mcp_log import get_logger
 try:
     from mcp.server.fastmcp import Context
 except ImportError:
-    Context = None  # type: ignore
-
+    Context = None  # ty: ignore[invalid-assignment]
 if TYPE_CHECKING:
     from mcp_guide.agent_detection import AgentInfo
 
@@ -26,7 +25,7 @@ _bootstrap_agent_info: ContextVar[Optional["AgentInfo"]] = ContextVar("_bootstra
 _bootstrap_client_params: ContextVar[Optional[dict[str, Any]]] = ContextVar("_bootstrap_client_params", default=None)
 
 
-async def cache_mcp_globals(ctx: Optional["Context"] = None) -> bool:  # type: ignore[type-arg]
+async def cache_mcp_globals(ctx: Optional["Context"] = None) -> bool:
     """Cache MCP globals (roots, agent info, client params) if context available.
 
     Writes to the current session if one exists, otherwise stores in module-level
@@ -60,7 +59,7 @@ async def cache_mcp_globals(ctx: Optional["Context"] = None) -> bool:  # type: i
                 agent_info = detect_agent(client_params)
                 logger.debug(f"Agent info detected: {agent_info.name if agent_info else 'None'}")
             except Exception as agent_e:
-                logger.debug(f"Agent detection failed: {agent_e}")
+                logger.error(f"Agent detection failed: {agent_e}", exc_info=True)
 
         # Try to extract roots (this may fail for CLI agents)
         try:
@@ -71,16 +70,18 @@ async def cache_mcp_globals(ctx: Optional["Context"] = None) -> bool:  # type: i
         except Exception as roots_e:
             logger.debug(f"Failed to get roots (expected for CLI agents): {roots_e}")
 
-    except AttributeError:
+    except AttributeError as e:
         # Client doesn't support basic context - try to get just agent info
+        logger.warning(f"Client context attribute error, attempting fallback: {e}")
         try:
             if hasattr(ctx, "session") and hasattr(ctx.session, "client_params") and ctx.session.client_params:
                 client_params = ctx.session.client_params
                 agent_info = detect_agent(client_params)
-        except Exception:
+        except Exception as fallback_e:
+            logger.error(f"Fallback agent detection failed: {fallback_e}", exc_info=True)
             return False
     except Exception as e:
-        logger.debug(f"Failed to cache MCP globals: {e}")
+        logger.error(f"Failed to cache MCP globals: {e}", exc_info=True)
         return False
 
     # Write to session if one exists, otherwise bootstrap cache
@@ -90,11 +91,16 @@ async def cache_mcp_globals(ctx: Optional["Context"] = None) -> bool:  # type: i
     if session is not None:
         session.roots = roots
         session.agent_info = agent_info
-        session.client_params = client_params
+        session.client_params = client_params  # ty: ignore[invalid-assignment]
+
+        # Invalidate template context cache so next render picks up new MCP data
+        from mcp_guide.render.cache import invalidate_template_context_cache
+
+        invalidate_template_context_cache()
     else:
         _bootstrap_roots.set(roots)
         _bootstrap_agent_info.set(agent_info)
-        _bootstrap_client_params.set(client_params)
+        _bootstrap_client_params.set(client_params)  # ty: ignore[invalid-argument-type]
 
     return True
 

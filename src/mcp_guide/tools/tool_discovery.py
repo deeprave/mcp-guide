@@ -13,7 +13,7 @@ from mcp_guide.result import Result
 try:
     from mcp.server.fastmcp import Context
 except ImportError:
-    Context = None  # type: ignore
+    Context = None  # ty: ignore[invalid-assignment]
 
 
 class ListToolsArgs(ToolArguments):
@@ -34,7 +34,7 @@ class ListResourcesArgs(ToolArguments):
     ...
 
 
-async def list_tools(args: ListToolsArgs, ctx: Optional[Context] = None) -> str:  # type: ignore
+async def list_tools(args: ListToolsArgs, ctx: Optional[Context] = None) -> str:
     """List all registered MCP tools.
 
     Returns tool names, descriptions, and optionally argument schemas.
@@ -57,14 +57,14 @@ async def list_tools(args: ListToolsArgs, ctx: Optional[Context] = None) -> str:
         if args.include_args and registration.metadata.args_class:
             # Get schema from Pydantic model
             if hasattr(registration.metadata.args_class, "model_json_schema"):
-                tool_info["args_schema"] = registration.metadata.args_class.model_json_schema()
+                tool_info["args_schema"] = registration.metadata.args_class.model_json_schema()  # ty: ignore[call-non-callable]
 
         tools.append(tool_info)
 
     return Result.ok({"tools": tools, "count": len(tools)}).to_json_str()
 
 
-async def list_prompts(args: ListPromptsArgs, ctx: Optional[Context] = None) -> str:  # type: ignore
+async def list_prompts(args: ListPromptsArgs, ctx: Optional[Context] = None) -> str:
     """List all registered MCP prompts.
 
     Returns prompt names and descriptions.
@@ -89,7 +89,7 @@ async def list_prompts(args: ListPromptsArgs, ctx: Optional[Context] = None) -> 
     return Result.ok({"prompts": prompts, "count": len(prompts)}).to_json_str()
 
 
-async def list_resources(args: ListResourcesArgs, ctx: Optional[Context] = None) -> str:  # type: ignore
+async def list_resources(args: ListResourcesArgs, ctx: Optional[Context] = None) -> str:
     """List all registered MCP resources.
 
     Returns resource names, URI templates, and descriptions.

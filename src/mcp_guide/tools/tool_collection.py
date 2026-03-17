@@ -27,9 +27,7 @@ if TYPE_CHECKING:
 try:
     from mcp.server.fastmcp import Context
 except ImportError:
-    Context = None  # type: ignore
-
-
+    Context = None  # ty: ignore[invalid-assignment]
 __all__ = [
     "internal_collection_list",
     "internal_collection_add",
@@ -45,7 +43,7 @@ class CollectionListArgs(ToolArguments):
     verbose: bool = Field(default=True, description="If True, return full details; if False, return names only")
 
 
-async def internal_collection_list(args: CollectionListArgs, ctx: Optional[Context] = None) -> Result[list]:  # type: ignore
+async def internal_collection_list(args: CollectionListArgs, ctx: Optional[Context] = None) -> Result[list]:
     """List all collections in the current project.
 
     Args:
@@ -80,7 +78,7 @@ async def internal_collection_list(args: CollectionListArgs, ctx: Optional[Conte
     return Result.ok(collections)
 
 
-async def collection_list(args: CollectionListArgs, ctx: Optional[Context] = None) -> str:  # type: ignore
+async def collection_list(args: CollectionListArgs, ctx: Optional[Context] = None) -> str:
     """List all collections in the current project.
 
     Retrieves collection information from the current project configuration.
@@ -137,7 +135,7 @@ class CollectionAddArgs(ToolArguments):
     )
 
 
-async def internal_collection_add(args: CollectionAddArgs, ctx: Optional[Context] = None) -> Result[str]:  # type: ignore
+async def internal_collection_add(args: CollectionAddArgs, ctx: Optional[Context] = None) -> Result[str]:
     """Add a new collection to the current project.
 
     Args:
@@ -205,7 +203,7 @@ async def internal_collection_add(args: CollectionAddArgs, ctx: Optional[Context
     return Result.ok(f"Collection '{args.name}' added successfully")
 
 
-async def collection_add(args: CollectionAddArgs, ctx: Optional[Context] = None) -> str:  # type: ignore
+async def collection_add(args: CollectionAddArgs, ctx: Optional[Context] = None) -> str:
     """Add a new collection to the current project.
 
     Args:
@@ -225,7 +223,7 @@ class CollectionRemoveArgs(ToolArguments):
     name: str = Field(..., description="Name of the collection to remove")
 
 
-async def internal_collection_remove(args: CollectionRemoveArgs, ctx: Optional[Context] = None) -> Result[str]:  # type: ignore
+async def internal_collection_remove(args: CollectionRemoveArgs, ctx: Optional[Context] = None) -> Result[str]:
     """Remove a collection from the current project.
 
     Args:
@@ -254,7 +252,7 @@ async def internal_collection_remove(args: CollectionRemoveArgs, ctx: Optional[C
     return Result.ok(f"Collection '{args.name}' removed successfully")
 
 
-async def collection_remove(args: CollectionRemoveArgs, ctx: Optional[Context] = None) -> str:  # type: ignore
+async def collection_remove(args: CollectionRemoveArgs, ctx: Optional[Context] = None) -> str:
     """Remove a collection from the current project.
 
     Args:
@@ -279,7 +277,7 @@ class CollectionChangeArgs(ToolArguments):
     )
 
 
-async def internal_collection_change(args: CollectionChangeArgs, ctx: Optional[Context] = None) -> Result[str]:  # type: ignore
+async def internal_collection_change(args: CollectionChangeArgs, ctx: Optional[Context] = None) -> Result[str]:
     """Change properties of an existing collection.
 
     Can change name, description, or categories.
@@ -382,7 +380,7 @@ async def internal_collection_change(args: CollectionChangeArgs, ctx: Optional[C
     return Result.ok(change_msg)
 
 
-async def collection_change(args: CollectionChangeArgs, ctx: Optional[Context] = None) -> str:  # type: ignore
+async def collection_change(args: CollectionChangeArgs, ctx: Optional[Context] = None) -> str:
     """Change properties of an existing collection.
 
     Can change name, description, or categories.
@@ -412,7 +410,7 @@ class CollectionUpdateArgs(ToolArguments):
     )
 
 
-async def internal_collection_update(args: CollectionUpdateArgs, ctx: Optional[Context] = None) -> Result[str]:  # type: ignore
+async def internal_collection_update(args: CollectionUpdateArgs, ctx: Optional[Context] = None) -> Result[str]:
     """Update collection categories incrementally.
 
     Add or remove categories from a collection without replacing the entire list.
@@ -489,7 +487,7 @@ async def internal_collection_update(args: CollectionUpdateArgs, ctx: Optional[C
     return Result.ok(f"Collection '{args.name}' categories updated successfully")
 
 
-async def collection_update(args: CollectionUpdateArgs, ctx: Optional[Context] = None) -> str:  # type: ignore
+async def collection_update(args: CollectionUpdateArgs, ctx: Optional[Context] = None) -> str:
     """Update collection categories incrementally.
 
     Add or remove categories from a collection without replacing the entire list.

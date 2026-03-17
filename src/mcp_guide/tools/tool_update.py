@@ -16,8 +16,7 @@ from mcp_guide.tools.tool_result import tool_result
 try:
     from mcp.server.fastmcp import Context
 except ImportError:
-    Context = None  # type: ignore
-
+    Context = None  # ty: ignore[invalid-assignment]
 __all__ = ["internal_update_documents", "update_documents"]
 
 
@@ -29,8 +28,8 @@ class UpdateDocumentsArgs(ToolArguments):
 
 async def internal_update_documents(
     args: UpdateDocumentsArgs,
-    ctx: Optional[Context] = None,  # type: ignore
-) -> Result[dict]:  # type: ignore[type-arg]
+    ctx: Optional[Context] = None,
+) -> Result[dict]:
     """Update documentation files in the current project.
 
     Checks for version changes and updates files using smart merge strategy.
@@ -77,7 +76,7 @@ async def internal_update_documents(
 @toolfunc(UpdateDocumentsArgs)
 async def update_documents(
     args: UpdateDocumentsArgs,
-    ctx: Optional[Context] = None,  # type: ignore
+    ctx: Optional[Context] = None,
 ) -> str:
     """Update documentation files in the current project.
 

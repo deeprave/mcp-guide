@@ -10,8 +10,7 @@ if TYPE_CHECKING:
 try:
     from mcp.server.fastmcp import Context
 except ImportError:
-    Context = None  # type: ignore
-
+    Context = None  # ty: ignore[invalid-assignment]
 from mcp_guide import __version__
 from mcp_guide.context.tasks import ClientContextTask  # noqa: F401 - imported for @task_init decorator side effects
 from mcp_guide.core.mcp_log import get_logger
@@ -46,7 +45,7 @@ async def guide_lifespan(server: GuideMCP) -> AsyncIterator[dict[str, Any]]:
         try:
             await handler()
         except Exception as e:
-            logger.error(f"Startup handler {handler.__name__} failed: {e}", exc_info=True)
+            logger.error(f"Startup handler {handler.__name__} failed: {e}", exc_info=True)  # ty: ignore[unresolved-attribute]
 
     yield {}  # Server runs
 
@@ -122,7 +121,7 @@ class _ResourcesProxy:
                 return func
 
             return decorator
-        return self._instance.resource(*args, **kwargs)  # type: ignore[no-any-return]
+        return self._instance.resource(*args, **kwargs)
 
 
 # Module-level instances for imports

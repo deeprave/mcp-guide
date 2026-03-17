@@ -215,7 +215,7 @@ logging.setLoggerClass(LoggerWithTrace)
 
 def get_logger(name: str) -> LoggerWithTrace:
     """Get a logger with trace method support."""
-    return logging.getLogger(name)  # type: ignore[return-value]
+    return logging.getLogger(name)  # ty: ignore[invalid-return-type]
 
 
 def configure_logger_hierarchy(app_name: str) -> None:
@@ -240,10 +240,9 @@ def configure_logger_hierarchy(app_name: str) -> None:
 
     # Store patterns for future logger creation
     if not hasattr(logging, "_mcp_app_patterns"):
-        logging._mcp_app_patterns = []  # type: ignore
+        logging._mcp_app_patterns = []  # ty: ignore[unresolved-attribute]
     # noinspection PyProtectedMember
-    logging._mcp_app_patterns.append(app_name)  # type: ignore
-
+    logging._mcp_app_patterns.append(app_name)  # ty: ignore[unresolved-attribute]
     # Monkey-patch getLogger to configure new loggers
     original_getLogger = logging.getLogger
 
@@ -257,7 +256,7 @@ def configure_logger_hierarchy(app_name: str) -> None:
                     break
         return _logger
 
-    logging.getLogger = patched_getLogger
+    logging.getLogger = patched_getLogger  # ty: ignore[invalid-assignment]
 
 
 def create_console_handler() -> logging.Handler:

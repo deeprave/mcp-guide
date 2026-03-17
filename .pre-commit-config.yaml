@@ -19,12 +19,12 @@ repos:
 
   - repo: local
     hooks:
-      - id: mypy-check
-        name: mypy
-        entry: uv run mypy src/
+      - id: ty
+        name: ty type checker
+        entry: ty check src/
         language: system
-        types: [python]
         pass_filenames: false
+        types: [python]
 
   - repo: https://github.com/deeprave/osvcheck
     rev: v1.0.1
@@ -37,7 +37,7 @@ repos:
       - id: validate-pyproject
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.5
+    rev: v0.15.6
     hooks:
       - id: ruff-check
         args:

@@ -84,7 +84,7 @@ class ServerConfig:
     ssl_keyfile: Optional[str] = None
 
     # Error tracking for deferred logging
-    cli_error: Optional[click.ClickException] = None
+    cli_error: Optional[click.ClickException | click.exceptions.Exit | click.exceptions.Abort] = None
     should_exit: bool = False
 
 
@@ -246,10 +246,10 @@ def parse_args() -> ServerConfig:
         config.should_exit = True
         # Exit code 0 means help/version, non-zero means error
         if e.exit_code != 0:
-            config.cli_error = e  # type: ignore[assignment]
+            config.cli_error = e
     except click.Abort as e:
         # Ctrl+C - store for deferred handling
-        config.cli_error = e  # type: ignore[assignment]
+        config.cli_error = e
         config.should_exit = True
     except click.ClickException as e:
         # UsageError, BadParameter, etc - store for deferred logging

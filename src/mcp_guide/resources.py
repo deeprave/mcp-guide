@@ -8,8 +8,7 @@ from mcp_guide.core.resource_decorator import resourcefunc
 try:
     from mcp.server.fastmcp import Context
 except ImportError:
-    Context = None  # type: ignore
-
+    Context = None  # ty: ignore[invalid-assignment]
 from mcp_guide.tools.tool_content import ContentArgs, internal_get_content
 
 logger = get_logger(__name__)

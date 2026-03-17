@@ -17,11 +17,9 @@ Run tests, make code adjustments, and execute all code quality checks. All tests
 
 {{h2}}Quality Requirements
 - {{b}}All tests must pass{{b}} without warnings or errors
-- {{b}}All code quality checks{{b}} must pass:
-  - Linting (ruff check)
-  - Type checking (mypy)
-  - Code formatting (ruff format)
-  - Test coverage requirements
+- {{b}}All code quality checks{{b}} configured for the language must pass
+- Code formatting requirements
+- Test coverage requirements
 
 {{h2}}Automatic Transitions
 {{#workflow.phases.review}}- {{b}}→ {{workflow.phases.check.next}}:{{b}} Automatically transitions to {{workflow.phases.check.next}} phase once all tests complete and pass{{/workflow.phases.review}}
@@ -33,11 +31,7 @@ Run tests, make code adjustments, and execute all code quality checks. All tests
 
 {{h2}}Workflow
 1. Run all tests and ensure they pass
-2. Execute code quality checks:
-   - `ruff check` - linting
-   - `mypy` - type checking
-   - `ruff format` - formatting
-   - Test coverage analysis
+2. Execute all code quality checks
 3. Make minor adjustments to fix any issues
 4. Re-run checks until all pass
 {{#workflow.phases.review}}5. Auto-transition to {{workflow.phases.check.next}} phase when complete{{/workflow.phases.review}}
@@ -46,7 +40,7 @@ Run tests, make code adjustments, and execute all code quality checks. All tests
 - [ ] All tests passing
 - [ ] Linting checks pass
 - [ ] Type checking passes
-- [ ] Code formatting correct
+- [ ] Code formatting is correct
 - [ ] Coverage requirements met
 
 ---

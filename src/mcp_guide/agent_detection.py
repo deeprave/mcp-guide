@@ -78,8 +78,8 @@ def detect_agent(client_params: Union[dict[str, Any], Any]) -> AgentInfo:
     # Handle Pydantic model (InitializeRequestParams)
     if hasattr(client_params, "clientInfo"):
         client_info = client_params.clientInfo
-        name = client_info.name if client_info else "Unknown"
-        version = client_info.version if client_info else None
+        name = client_info.name if client_info else "Unknown"  # ty: ignore[unresolved-attribute]
+        version = client_info.version if client_info else None  # ty: ignore[unresolved-attribute]
     # Handle dict format (for tests)
     elif isinstance(client_params, dict):
         client_info = client_params.get("clientInfo", {})

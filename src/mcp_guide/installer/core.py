@@ -6,7 +6,7 @@ from pathlib import Path
 from zipfile import ZipFile
 
 import anyio
-import patch_ng as patch  # type: ignore[import-untyped]
+import patch_ng as patch
 from anyio import Path as AsyncPath
 
 from mcp_guide.core.mcp_log import get_logger
