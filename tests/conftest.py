@@ -356,10 +356,10 @@ def reset_bootstrap_mcp_cache():
     """Reset bootstrap MCP cache between tests to prevent pollution."""
     import mcp_guide.mcp_context
 
-    mcp_guide.mcp_context._bootstrap_roots = []
-    mcp_guide.mcp_context._bootstrap_agent_info = None
-    mcp_guide.mcp_context._bootstrap_client_params = None
+    mcp_guide.mcp_context._bootstrap_roots.set([])
+    mcp_guide.mcp_context._bootstrap_agent_info.set(None)
+    mcp_guide.mcp_context._bootstrap_client_params.set(None)
     yield
-    mcp_guide.mcp_context._bootstrap_roots = []
-    mcp_guide.mcp_context._bootstrap_agent_info = None
-    mcp_guide.mcp_context._bootstrap_client_params = None
+    mcp_guide.mcp_context._bootstrap_roots.set([])
+    mcp_guide.mcp_context._bootstrap_agent_info.set(None)
+    mcp_guide.mcp_context._bootstrap_client_params.set(None)

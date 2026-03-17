@@ -1,5 +1,6 @@
 """MCP context data structures and management."""
 
+from contextvars import ContextVar
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 from urllib.parse import urlparse
@@ -18,10 +19,11 @@ logger = get_logger(__name__)
 
 
 # Bootstrap cache for MCP data extracted before session exists.
+# Uses ContextVar for per-task isolation (safe under HTTP transport with concurrent clients).
 # Consumed by get_or_create_session after session creation.
-_bootstrap_roots: list[Any] = []
-_bootstrap_agent_info: Optional["AgentInfo"] = None
-_bootstrap_client_params: Optional[dict[str, Any]] = None
+_bootstrap_roots: ContextVar[list[Any]] = ContextVar("_bootstrap_roots", default=[])
+_bootstrap_agent_info: ContextVar[Optional["AgentInfo"]] = ContextVar("_bootstrap_agent_info", default=None)
+_bootstrap_client_params: ContextVar[Optional[dict[str, Any]]] = ContextVar("_bootstrap_client_params", default=None)
 
 
 async def cache_mcp_globals(ctx: Optional["Context"] = None) -> bool:  # type: ignore[type-arg]
@@ -36,8 +38,6 @@ async def cache_mcp_globals(ctx: Optional["Context"] = None) -> bool:  # type: i
     Returns:
         True if context was available and cached, False otherwise
     """
-    global _bootstrap_roots, _bootstrap_agent_info, _bootstrap_client_params
-
     if ctx is None:
         return False
 
@@ -92,20 +92,19 @@ async def cache_mcp_globals(ctx: Optional["Context"] = None) -> bool:  # type: i
         session.agent_info = agent_info
         session.client_params = client_params
     else:
-        _bootstrap_roots = roots
-        _bootstrap_agent_info = agent_info
-        _bootstrap_client_params = client_params
+        _bootstrap_roots.set(roots)
+        _bootstrap_agent_info.set(agent_info)
+        _bootstrap_client_params.set(client_params)
 
     return True
 
 
 def consume_bootstrap_mcp_data() -> tuple[list[Any], Optional["AgentInfo"], Optional[dict[str, Any]]]:
     """Consume bootstrap MCP data and clear it. Called after session creation."""
-    global _bootstrap_roots, _bootstrap_agent_info, _bootstrap_client_params
-    data = (_bootstrap_roots, _bootstrap_agent_info, _bootstrap_client_params)
-    _bootstrap_roots = []
-    _bootstrap_agent_info = None
-    _bootstrap_client_params = None
+    data = (_bootstrap_roots.get(), _bootstrap_agent_info.get(), _bootstrap_client_params.get())
+    _bootstrap_roots.set([])
+    _bootstrap_agent_info.set(None)
+    _bootstrap_client_params.set(None)
     return data
 
 
@@ -116,7 +115,7 @@ def _get_roots() -> list[Any]:
     session = get_active_session()
     if session is not None:
         return session.roots
-    return _bootstrap_roots
+    return _bootstrap_roots.get()
 
 
 async def resolve_project_name() -> str:

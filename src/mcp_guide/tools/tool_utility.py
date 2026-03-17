@@ -73,7 +73,7 @@ async def internal_client_info(args: GetClientInfoArgs, ctx: Optional[Context] =
             # Update session with agent info
             from mcp_guide.session import get_session
 
-            session = await get_session()
+            session = await get_session(ctx)
             session.agent_info = agent_info
             session.client_params = ctx.session.client_params
 
