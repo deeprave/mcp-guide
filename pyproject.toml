@@ -95,7 +95,7 @@ select = ["I", "F401"]  # I = isort, F401 = unused imports
 known-first-party = ["mcp_guide"]
 
 [tool.ty.analysis]
-respect-type-ignore-comments = false
+respect-type-ignore-comments = true
 allowed-unresolved-imports = ["fastmcp.**", "uuid_extensions", "debugpy", "patch_ng"]
 
 [tool.ty.terminal]

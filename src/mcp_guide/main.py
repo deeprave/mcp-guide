@@ -1,8 +1,11 @@
 """Main entry point for mcp-guide MCP server."""
 
 import asyncio
+import inspect
 import os
 import sys
+
+import click
 
 from mcp_guide.cli import ServerConfig, parse_args
 from mcp_guide.core.mcp_log import get_logger
@@ -56,11 +59,10 @@ def _handle_cli_error(config: ServerConfig) -> None:
         sys.exit(130)
     else:
         # Log error and continue with defaults
-        error_msg = (
-            config.cli_error.format_message()  # ty: ignore[call-non-callable]
-            if hasattr(config.cli_error, "format_message")
-            else str(config.cli_error)
-        )
+        if isinstance(config.cli_error, click.ClickException):
+            error_msg = config.cli_error.format_message()
+        else:
+            error_msg = str(config.cli_error)
         logger.error(f"CLI error: {error_msg}")
         logger.warning("Continuing with default configuration due to CLI error")
 
@@ -96,8 +98,10 @@ async def async_main(config: ServerConfig) -> None:
         await transport.start()
 
         # For HTTP/HTTPS transports, wait for the server to complete
-        if hasattr(transport, "server_task") and transport.server_task:
-            await transport.server_task  # ty: ignore[invalid-await]
+        if hasattr(transport, "server_task"):
+            server_task = transport.server_task
+            if server_task and inspect.isawaitable(server_task):
+                await server_task
     except MissingDependencyError as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)

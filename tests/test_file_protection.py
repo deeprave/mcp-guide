@@ -1,5 +1,7 @@
 """Tests for production file protection mechanism."""
 
+import pytest
+
 from .conftest import REAL_PATHS
 
 
@@ -41,3 +43,43 @@ def test_can_safely_modify_test_paths(tmp_path, session_temp_dir):
     # If we get here without pytest.exit(), protection is working correctly
     assert test_file.exists()
     test_file.unlink()
+
+
+def test_lock_file_events_are_ignored(monkeypatch):
+    """Verify .lock file events do not terminate the test session."""
+    from types import SimpleNamespace
+
+    from .conftest import ProductionFileHandler
+
+    exit_called = False
+
+    def mock_exit(*args, **kwargs):
+        nonlocal exit_called
+        exit_called = True
+
+    monkeypatch.setattr(pytest, "exit", mock_exit)
+
+    handler = ProductionFileHandler()
+    handler.on_any_event(SimpleNamespace(src_path="/some/path/config.lock", event_type="modified"))
+
+    assert not exit_called, "pytest.exit should not be called for .lock files"
+
+
+def test_non_lock_file_events_trigger_exit(monkeypatch):
+    """Verify non-.lock file events still terminate the test session."""
+    from types import SimpleNamespace
+
+    from .conftest import ProductionFileHandler
+
+    exit_called = False
+
+    def mock_exit(*args, **kwargs):
+        nonlocal exit_called
+        exit_called = True
+
+    monkeypatch.setattr(pytest, "exit", mock_exit)
+
+    handler = ProductionFileHandler()
+    handler.on_any_event(SimpleNamespace(src_path="/some/path/config.yaml", event_type="modified"))
+
+    assert exit_called, "pytest.exit should be called for non-.lock files"
