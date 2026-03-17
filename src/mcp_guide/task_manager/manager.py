@@ -464,7 +464,7 @@ class TaskManager:
         if hasattr(data, "value") and hasattr(data, "success"):
             # It's a Result object
             result_data = data.value if data.success else {}
-            actual_data = result_data if isinstance(result_data, dict) else {}
+            actual_data = result_data if isinstance(result_data, dict) else {}  # ty: ignore[invalid-assignment]
         else:
             # It's already a dict
             actual_data = data if isinstance(data, dict) else {}
@@ -759,7 +759,7 @@ class TaskManager:
             returned and a warning will be logged.
         """
         # Collect all exact-type matches to detect non-unique registrations
-        matches: list[T] = [
+        matches: list[T] = [  # ty: ignore[invalid-assignment]
             subscription.subscriber
             for subscription in self._subscriptions
             if type(subscription.subscriber) is task_type

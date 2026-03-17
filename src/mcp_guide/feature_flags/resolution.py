@@ -45,7 +45,6 @@ def get_target_project(project_param: Optional[str], session: Any) -> Optional[s
     """
     if project_param is None:
         # None means current project
-        return session.project_name  # type: ignore[no-any-return]
-
+        return session.project_name
     # Return parameter as-is ("*" for global, specific name for specific project)
     return project_param

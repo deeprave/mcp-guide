@@ -24,8 +24,7 @@ from mcp_guide.tools.tool_result import tool_result
 try:
     from mcp.server.fastmcp import Context
 except ImportError:
-    Context = None  # type: ignore
-
+    Context = None  # ty: ignore[invalid-assignment]
 __all__ = [
     "internal_get_project_flag",
     "internal_set_project_flag",
@@ -100,7 +99,7 @@ def _filter_flags_by_pattern(
 
 async def internal_list_project_flags(
     args: ListFlagsArgs,
-    ctx: Optional[Context] = None,  # type: ignore[type-arg]
+    ctx: Optional[Context] = None,
 ) -> Result[FeatureValue | dict[str, FeatureValue] | None]:
     """List project feature flags based on project context and parameters."""
     from mcp_guide.session import get_session
@@ -137,7 +136,7 @@ async def internal_list_project_flags(
 
 
 @toolfunc(ListFlagsArgs)
-async def list_project_flags(args: ListFlagsArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
+async def list_project_flags(args: ListFlagsArgs, ctx: Optional[Context] = None) -> str:
     """List project feature flags based on project context and parameters.
 
     Returns flags set for the current project. Use active=True to include resolved values
@@ -147,7 +146,7 @@ async def list_project_flags(args: ListFlagsArgs, ctx: Optional[Context] = None)
     return await tool_result("list_project_flags", result)
 
 
-async def internal_set_project_flag(args: SetFlagArgs, ctx: Optional[Context] = None) -> Result[str]:  # type: ignore[type-arg]
+async def internal_set_project_flag(args: SetFlagArgs, ctx: Optional[Context] = None) -> Result[str]:
     """Set or remove a project feature flag."""
     # Validate flag arguments
     if not validate_flag_name(args.feature_name):
@@ -193,7 +192,7 @@ async def internal_set_project_flag(args: SetFlagArgs, ctx: Optional[Context] = 
 
 
 @toolfunc(SetFlagArgs)
-async def set_project_flag(args: SetFlagArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
+async def set_project_flag(args: SetFlagArgs, ctx: Optional[Context] = None) -> str:
     """Set or remove a project feature flag.
 
     Sets a flag value for the current project, or removes it if value=None. Flag names must
@@ -204,7 +203,7 @@ async def set_project_flag(args: SetFlagArgs, ctx: Optional[Context] = None) -> 
     return await tool_result("set_project_flag", result)
 
 
-async def internal_get_project_flag(args: GetFlagArgs, ctx: Optional[Context] = None) -> Result[FeatureValue | None]:  # type: ignore[type-arg]
+async def internal_get_project_flag(args: GetFlagArgs, ctx: Optional[Context] = None) -> Result[FeatureValue | None]:
     """Get a project feature flag value with resolution hierarchy."""
     from mcp_guide.session import get_session
 
@@ -230,13 +229,13 @@ async def internal_get_project_flag(args: GetFlagArgs, ctx: Optional[Context] = 
         )
 
 
-async def get_project_flag(args: GetFlagArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
+async def get_project_flag(args: GetFlagArgs, ctx: Optional[Context] = None) -> str:
     """Get a project feature flag value with resolution hierarchy."""
     result = await internal_get_project_flag(args, ctx)
     return await tool_result("get_project_flag", result)
 
 
-async def internal_set_feature_flag(args: SetFeatureFlagArgs, ctx: Optional[Context] = None) -> Result[str]:  # type: ignore[type-arg]
+async def internal_set_feature_flag(args: SetFeatureFlagArgs, ctx: Optional[Context] = None) -> Result[str]:
     """Set or remove a global feature flag."""
     # Validate flag arguments
     if not validate_flag_name(args.feature_name):
@@ -290,7 +289,7 @@ async def internal_set_feature_flag(args: SetFeatureFlagArgs, ctx: Optional[Cont
 
 
 @toolfunc(SetFeatureFlagArgs)
-async def set_feature_flag(args: SetFeatureFlagArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
+async def set_feature_flag(args: SetFeatureFlagArgs, ctx: Optional[Context] = None) -> str:
     """Set or remove a global feature flag.
 
     Sets a flag value globally (applies to all projects), or removes it if value=None. Flag names
@@ -303,7 +302,7 @@ async def set_feature_flag(args: SetFeatureFlagArgs, ctx: Optional[Context] = No
 
 async def internal_get_feature_flag(
     args: GetFeatureFlagArgs,
-    ctx: Optional[Context] = None,  # type: ignore[type-arg]
+    ctx: Optional[Context] = None,
 ) -> Result[FeatureValue | None]:
     """Get a global feature flag value."""
     from mcp_guide.session import get_session
@@ -330,7 +329,7 @@ async def internal_get_feature_flag(
         )
 
 
-async def get_feature_flag(args: GetFeatureFlagArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
+async def get_feature_flag(args: GetFeatureFlagArgs, ctx: Optional[Context] = None) -> str:
     """Get a global feature flag value."""
     result = await internal_get_feature_flag(args, ctx)
     return await tool_result("get_feature_flag", result)
@@ -338,7 +337,7 @@ async def get_feature_flag(args: GetFeatureFlagArgs, ctx: Optional[Context] = No
 
 async def internal_list_feature_flags(
     args: ListFeatureFlagsArgs,
-    ctx: Optional[Context] = None,  # type: ignore[type-arg]
+    ctx: Optional[Context] = None,
 ) -> Result[FeatureValue | dict[str, FeatureValue] | None]:
     """List global feature flags."""
     from mcp_guide.session import get_session
@@ -367,7 +366,7 @@ async def internal_list_feature_flags(
 
 
 @toolfunc(ListFeatureFlagsArgs)
-async def list_feature_flags(args: ListFeatureFlagsArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
+async def list_feature_flags(args: ListFeatureFlagsArgs, ctx: Optional[Context] = None) -> str:
     """List global feature flags.
 
     Returns flags set globally (apply to all projects). Supports glob pattern filtering.

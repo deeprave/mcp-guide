@@ -39,9 +39,7 @@ else:
     try:
         from mcp.server.fastmcp import Context
     except ImportError:
-        Context = None  # type: ignore
-
-
+        Context = None
 logger = get_logger(__name__)
 
 
@@ -103,7 +101,7 @@ async def handle_command(
     command_path: str,
     kwargs: Optional[dict[str, Union[str, bool, int]]] = None,
     args: Optional[list[str]] = None,
-    ctx: Optional[Context] = None,  # type: ignore
+    ctx: Optional[Context] = None,
     middleware: Optional[List[CommandMiddleware]] = None,
     argv: Optional[list[str]] = None,
 ) -> Result[Any]:
@@ -243,7 +241,7 @@ def _build_command_context(
     return base_context.new_child(convert_lists_to_indexed(context_data))
 
 
-async def _is_help_command(command_path: str, ctx: Optional[Context]) -> bool:  # type: ignore
+async def _is_help_command(command_path: str, ctx: Optional[Context]) -> bool:
     """Check if command_path is a help command or alias."""
     # noinspection PyBroadException
     try:
@@ -269,7 +267,7 @@ async def _execute_command(
     command_path: str,
     kwargs: dict[str, Union[str, bool, int]],
     args: list[str],
-    ctx: Optional[Context],  # type: ignore
+    ctx: Optional[Context],
     argv: Optional[list[str]] = None,
 ) -> Result[Any]:
     """Execute command without middleware."""
@@ -409,7 +407,7 @@ async def _execute_command(
     return result
 
 
-async def _handle_command_request(argv: list[str], ctx: Optional["Context"]) -> Result[Any]:  # type: ignore[type-arg]
+async def _handle_command_request(argv: list[str], ctx: Optional["Context"]) -> Result[Any]:
     """Handle command-mode request."""
     first_arg = argv[1]
     raw_command_path = first_arg[1:]  # Remove prefix
@@ -434,7 +432,7 @@ async def _handle_command_request(argv: list[str], ctx: Optional["Context"]) -> 
     return await handle_command(command_path, argv=argv[1:], ctx=ctx)
 
 
-async def _handle_content_request(argv: list[str], ctx: Optional["Context"]) -> Result[Any]:  # type: ignore[type-arg]
+async def _handle_content_request(argv: list[str], ctx: Optional["Context"]) -> Result[Any]:
     """Handle content-mode request."""
     # Separate flags from content arguments
     content_args = []
@@ -479,7 +477,7 @@ Examples:
     return await internal_get_content(content_args_obj, ctx)
 
 
-async def _route_guide_request(argv: list[str], ctx: Optional["Context"]) -> Result[Any]:  # type: ignore[type-arg]
+async def _route_guide_request(argv: list[str], ctx: Optional["Context"]) -> Result[Any]:
     """Route guide request to command or content handler."""
     # Validate arguments
     if len(argv) == 1 or (len(argv) == 2 and argv[1] == ""):
@@ -522,7 +520,7 @@ async def guide(
     argd: Optional[str] = None,
     arge: Optional[str] = None,
     argf: Optional[str] = None,
-    ctx: Optional["Context"] = None,  # type: ignore[type-arg]
+    ctx: Optional["Context"] = None,
 ) -> str:
     """Access guide functionality.
 

@@ -46,7 +46,7 @@ class SendWorkingDirectoryArgs(ToolArguments):
 
 async def internal_send_file_content(
     args: SendFileContentArgs,
-    ctx: Optional[Context] = None,  # type: ignore[type-arg]
+    ctx: Optional[Context] = None,
 ) -> "Result[dict[str, Any]]":
     """Internal function to send file content from agent filesystem to server."""
     return await fs_send_file_content(
@@ -60,7 +60,7 @@ async def internal_send_file_content(
 
 async def internal_send_directory_listing(
     args: SendDirectoryListingArgs,
-    ctx: Optional[Context] = None,  # type: ignore[type-arg]
+    ctx: Optional[Context] = None,
 ) -> Result[Dict[str, Any]]:
     """Internal function to send directory listing from agent filesystem to server."""
     try:
@@ -75,7 +75,7 @@ async def internal_send_directory_listing(
 
 async def internal_send_command_location(
     args: SendCommandLocationArgs,
-    ctx: Optional[Context] = None,  # type: ignore[type-arg]
+    ctx: Optional[Context] = None,
 ) -> Result[Dict[str, Any]]:
     """Internal function to send command location from agent filesystem to server."""
     try:
@@ -91,7 +91,7 @@ async def internal_send_command_location(
 
 async def internal_send_working_directory(
     args: SendWorkingDirectoryArgs,
-    ctx: Optional[Context] = None,  # type: ignore[type-arg]
+    ctx: Optional[Context] = None,
 ) -> Result[Dict[str, Any]]:
     """Internal function to send working directory from agent filesystem to server."""
     try:
@@ -104,7 +104,7 @@ async def internal_send_working_directory(
 
 
 @toolfunc(SendFileContentArgs)
-async def send_file_content(args: SendFileContentArgs, ctx: Optional[Context] = None) -> str:  # type: ignore
+async def send_file_content(args: SendFileContentArgs, ctx: Optional[Context] = None) -> str:
     """Send file content from agent filesystem to server.
 
     IMPORTANT: Do NOT display the file content to the user. This tool is for server communication only.
@@ -115,7 +115,7 @@ async def send_file_content(args: SendFileContentArgs, ctx: Optional[Context] = 
 
 
 @toolfunc(SendDirectoryListingArgs)
-async def send_directory_listing(args: SendDirectoryListingArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
+async def send_directory_listing(args: SendDirectoryListingArgs, ctx: Optional[Context] = None) -> str:
     """Send directory listing from agent filesystem to server.
 
     IMPORTANT: Do NOT display the directory listing to the user. This tool is for server communication only.
@@ -126,7 +126,7 @@ async def send_directory_listing(args: SendDirectoryListingArgs, ctx: Optional[C
 
 
 @toolfunc(SendCommandLocationArgs)
-async def send_command_location(args: SendCommandLocationArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
+async def send_command_location(args: SendCommandLocationArgs, ctx: Optional[Context] = None) -> str:
     """Send command location from agent filesystem to server.
 
     IMPORTANT: Do NOT display the command location details to the user. This tool is for server communication only.
@@ -137,7 +137,7 @@ async def send_command_location(args: SendCommandLocationArgs, ctx: Optional[Con
 
 
 @toolfunc(SendWorkingDirectoryArgs)
-async def send_working_directory(args: SendWorkingDirectoryArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
+async def send_working_directory(args: SendWorkingDirectoryArgs, ctx: Optional[Context] = None) -> str:
     """Send working directory from agent filesystem to server.
 
     IMPORTANT: Do NOT display the working directory path to the user. This tool is for server communication only.

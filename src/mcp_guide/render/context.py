@@ -88,15 +88,15 @@ class TemplateContext(ChainMap[str, Any]):
         if m is None:
             m = {}
         if isinstance(m, dict):
-            self._validate_mapping(m)
-        return TemplateContext(m, *self.maps)  # type: ignore[arg-type]
+            self._validate_mapping(m)  # ty: ignore[invalid-argument-type]
+        return TemplateContext(m, *self.maps)  # ty: ignore[invalid-argument-type]
 
     @property
-    def parents(self) -> Optional["TemplateContext"]:  # type: ignore[override]
+    def parents(self) -> Optional["TemplateContext"]:
         """Return parent contexts as TemplateContext or None if root."""
         parent_maps = super().parents
         # ChainMap always has at least one map, check if it's meaningful
-        return None if len(self.maps) <= 1 else TemplateContext(*parent_maps.maps)  # type: ignore[arg-type]
+        return None if len(self.maps) <= 1 else TemplateContext(*parent_maps.maps)  # ty: ignore[invalid-argument-type]
 
     def __getitem__(self, key: str) -> Any:
         """Get item with soft deletion sentinel handling."""
@@ -122,15 +122,15 @@ class TemplateContext(ChainMap[str, Any]):
         except KeyError:
             return default
 
-    def keys(self) -> Generator[str, None, None]:  # type: ignore[override]
+    def keys(self) -> Generator[str, None, None]:  # ty: ignore[invalid-method-override]
         """Return keys view excluding soft-deleted keys."""
         return (k for k in super().keys() if k in self)
 
-    def items(self) -> Generator[Tuple[str, Any], None, None]:  # type: ignore[override]
+    def items(self) -> Generator[Tuple[str, Any], None, None]:  # ty: ignore[invalid-method-override]
         """Return items view excluding soft-deleted keys."""
         return ((k, v) for k, v in super().items() if k in self)
 
-    def values(self) -> Generator[Any, None, None]:  # type: ignore[override]
+    def values(self) -> Generator[Any, None, None]:  # ty: ignore[invalid-method-override]
         """Return values view excluding soft-deleted keys."""
         return (v for k, v in super().items() if k in self)
 

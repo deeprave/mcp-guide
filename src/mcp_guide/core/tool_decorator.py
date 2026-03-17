@@ -17,8 +17,7 @@ if TYPE_CHECKING:
 try:
     from mcp.server.fastmcp import Context
 except ImportError:
-    Context = None  # type: ignore
-
+    Context = None  # ty: ignore[invalid-assignment]
 logger = get_logger(__name__)
 
 
@@ -132,13 +131,13 @@ class ExtMcpToolDecorator:
             # Auto-generate description from args_class if provided
             final_description = description
             if args_class is not None and description is None and hasattr(args_class, "build_description"):
-                final_description = args_class.build_description(func)
+                final_description = args_class.build_description(func)  # ty: ignore[call-non-callable]
 
             # Determine prefix
             tool_prefix = prefix if prefix is not None else get_tool_prefix().rstrip("_")
 
             # Build tool name
-            tool_name = f"{tool_prefix}_{func.__name__}" if tool_prefix else func.__name__
+            tool_name = f"{tool_prefix}_{func.__name__}" if tool_prefix else func.__name__  # ty: ignore[unresolved-attribute]
 
             # Create wrapper that FastMCP will register
             # FastMCP will create schema from wrapper's signature
@@ -157,7 +156,7 @@ class ExtMcpToolDecorator:
                             # FastMCP validates and constructs args, we just pass it through
                             result = await func(args, ctx)
                             logger.debug(f"Tool {tool_name} completed successfully")
-                            return result  # type: ignore[no-any-return]
+                            return result
                         except Exception as e:
                             # Defense-in-depth: catch validation errors that might slip through
                             from pydantic import ValidationError as PydanticValidationError
@@ -195,7 +194,7 @@ class ExtMcpToolDecorator:
                         try:
                             result = await func(ctx=ctx)
                             logger.debug(f"Tool {tool_name} completed successfully")
-                            return result  # type: ignore[no-any-return]
+                            return result
                         except Exception as e:
                             logger.error(f"Tool {tool_name} failed: {e}")
                             raise
@@ -239,16 +238,16 @@ def toolfunc(
             return func
 
         if not inspect.iscoroutinefunction(func):
-            raise TypeError(f"Tool {func.__name__} must be async")
+            raise TypeError(f"Tool {func.__name__} must be async")  # ty: ignore[unresolved-attribute]
 
         # Auto-generate description
         final_description = description
         if args_class is not None and description is None and hasattr(args_class, "build_description"):
-            final_description = args_class.build_description(func)
+            final_description = args_class.build_description(func)  # ty: ignore[call-non-callable]
 
         # Determine prefix and tool name
         tool_prefix = prefix if prefix is not None else get_tool_prefix().rstrip("_")
-        tool_name = f"{tool_prefix}_{func.__name__}" if tool_prefix else func.__name__
+        tool_name = f"{tool_prefix}_{func.__name__}" if tool_prefix else func.__name__  # ty: ignore[unresolved-attribute]
 
         # Create wrapped function with logging/validation
         wrapped: Callable[..., Coroutine[Any, Any, str]]
@@ -261,7 +260,7 @@ def toolfunc(
                 try:
                     result = await func(args, ctx)
                     logger.debug(f"Tool {tool_name} completed successfully")
-                    return result  # type: ignore[no-any-return]
+                    return result
                 except Exception as e:
                     from pydantic import ValidationError as PydanticValidationError
 
@@ -293,7 +292,7 @@ def toolfunc(
                 try:
                     result = await func(ctx=ctx)
                     logger.debug(f"Tool {tool_name} completed successfully")
-                    return result  # type: ignore[no-any-return]
+                    return result
                 except Exception as e:
                     logger.error(f"Tool {tool_name} failed: {e}")
                     raise

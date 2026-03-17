@@ -106,7 +106,7 @@ class ContentArgs(ToolArguments):
 
 async def internal_get_content(
     args: ContentArgs,
-    ctx: Optional[Context] = None,  # type: ignore[type-arg]
+    ctx: Optional[Context] = None,
 ) -> Result[str]:
     """Get content from collections and categories (unified access).
 
@@ -238,7 +238,7 @@ async def internal_get_content(
 @toolfunc(ContentArgs)
 async def get_content(
     args: ContentArgs,
-    ctx: Optional[Context] = None,  # type: ignore[type-arg]
+    ctx: Optional[Context] = None,
 ) -> str:
     """Get content from collections and categories.
 
@@ -301,7 +301,7 @@ def _resolve_export_path(path: str, session_agent_name: str, resolved_export_fla
 @toolfunc(ExportContentArgs)
 async def export_content(
     args: ExportContentArgs,
-    ctx: Optional[Context] = None,  # type: ignore[type-arg]
+    ctx: Optional[Context] = None,
 ) -> str:
     """Export rendered content to a file for knowledge indexing.
 
@@ -448,7 +448,7 @@ class ListExportsArgs(ToolArguments):
 @toolfunc(ListExportsArgs)
 async def list_exports(
     args: ListExportsArgs,
-    ctx: Optional[Context] = None,  # type: ignore[type-arg]
+    ctx: Optional[Context] = None,
 ) -> str:
     """List all tracked content exports with metadata.
 
@@ -538,7 +538,7 @@ class RemoveExportArgs(ToolArguments):
 @toolfunc(RemoveExportArgs)
 async def remove_export(
     args: RemoveExportArgs,
-    ctx: Optional[Context] = None,  # type: ignore[type-arg]
+    ctx: Optional[Context] = None,
 ) -> str:
     """Remove export tracking entry from Project.exports.
 

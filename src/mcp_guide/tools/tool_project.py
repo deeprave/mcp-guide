@@ -25,9 +25,7 @@ from mcp_guide.tools.tool_result import tool_result
 try:
     from mcp.server.fastmcp import Context
 except ImportError:
-    Context = None  # type: ignore
-
-
+    Context = None  # ty: ignore[invalid-assignment]
 __all__ = [
     "internal_get_project",
     "internal_set_project",
@@ -83,7 +81,7 @@ class CloneProjectArgs(ToolArguments):
     force: bool = Field(default=False, description="If True, bypass safeguards")
 
 
-async def internal_get_project(args: GetCurrentProjectArgs, ctx: Optional[Context] = None) -> Result[dict]:  # type: ignore[type-arg]
+async def internal_get_project(args: GetCurrentProjectArgs, ctx: Optional[Context] = None) -> Result[dict]:
     """Get information about the currently active project.
 
     Returns project name, collections, and categories. Use verbose=True for
@@ -115,7 +113,7 @@ async def internal_get_project(args: GetCurrentProjectArgs, ctx: Optional[Contex
 
 
 @toolfunc(GetCurrentProjectArgs)
-async def get_project(args: GetCurrentProjectArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
+async def get_project(args: GetCurrentProjectArgs, ctx: Optional[Context] = None) -> str:
     """Get information about the currently active project.
 
     Returns project name, collections, and categories. Use verbose=True for
@@ -125,7 +123,7 @@ async def get_project(args: GetCurrentProjectArgs, ctx: Optional[Context] = None
     return await tool_result("get_project", result)
 
 
-async def internal_set_project(args: SetCurrentProjectArgs, ctx: Optional[Context] = None) -> Result[dict[str, Any]]:  # type: ignore[type-arg]
+async def internal_set_project(args: SetCurrentProjectArgs, ctx: Optional[Context] = None) -> Result[dict[str, Any]]:
     """Switch to a different project by name.
 
     Creates new project with default categories if it doesn't exist. Use verbose=True
@@ -169,7 +167,7 @@ async def internal_set_project(args: SetCurrentProjectArgs, ctx: Optional[Contex
 
 
 @toolfunc(SetCurrentProjectArgs)
-async def set_project(args: SetCurrentProjectArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
+async def set_project(args: SetCurrentProjectArgs, ctx: Optional[Context] = None) -> str:
     """Switch to a different project by name.
 
     Creates new project with default categories if it doesn't exist. Use verbose=True
@@ -179,7 +177,7 @@ async def set_project(args: SetCurrentProjectArgs, ctx: Optional[Context] = None
     return await tool_result("set_project", result)
 
 
-async def internal_list_projects(args: ListProjectsArgs, ctx: Optional[Context] = None) -> Result[dict]:  # type: ignore[type-arg]
+async def internal_list_projects(args: ListProjectsArgs, ctx: Optional[Context] = None) -> Result[dict]:
     """List all available projects.
 
     Returns project names (non-verbose) or full project details (verbose).
@@ -197,7 +195,7 @@ async def internal_list_projects(args: ListProjectsArgs, ctx: Optional[Context] 
 
 
 @toolfunc(ListProjectsArgs)
-async def list_projects(args: ListProjectsArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
+async def list_projects(args: ListProjectsArgs, ctx: Optional[Context] = None) -> str:
     """List all available projects.
 
     Returns project names (non-verbose) or full project details (verbose).
@@ -207,7 +205,7 @@ async def list_projects(args: ListProjectsArgs, ctx: Optional[Context] = None) -
     return await tool_result("list_projects", result)
 
 
-async def internal_list_project(args: ListProjectArgs, ctx: Optional[Context] = None) -> Result[dict[str, Any]]:  # type: ignore[type-arg]
+async def internal_list_project(args: ListProjectArgs, ctx: Optional[Context] = None) -> Result[dict[str, Any]]:
     """Get information about a specific project by name.
 
     Returns project details without switching the current project.
@@ -260,7 +258,7 @@ async def internal_list_project(args: ListProjectArgs, ctx: Optional[Context] = 
 
 
 @toolfunc(ListProjectArgs)
-async def list_project(args: ListProjectArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
+async def list_project(args: ListProjectArgs, ctx: Optional[Context] = None) -> str:
     """Get information about a specific project by name.
 
     Returns project details without switching the current project.
@@ -270,7 +268,7 @@ async def list_project(args: ListProjectArgs, ctx: Optional[Context] = None) -> 
     return await tool_result("list_project", result)
 
 
-async def internal_clone_project(args: CloneProjectArgs, ctx: Optional[Context] = None) -> Result[dict]:  # type: ignore[type-arg]
+async def internal_clone_project(args: CloneProjectArgs, ctx: Optional[Context] = None) -> Result[dict]:
     """Copy project configuration from one project to another.
 
     Clones categories and collections from source project to target project.
@@ -521,7 +519,7 @@ async def internal_clone_project(args: CloneProjectArgs, ctx: Optional[Context] 
 
 
 @toolfunc(CloneProjectArgs)
-async def clone_project(args: CloneProjectArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
+async def clone_project(args: CloneProjectArgs, ctx: Optional[Context] = None) -> str:
     """Copy project configuration from one project to another.
 
     Clones categories and collections from source project to target project.
@@ -619,7 +617,7 @@ class UseProjectProfileArgs(ToolArguments):
     profile: str = Field(description="Name of the profile to apply (e.g., 'python', 'jira', 'tdd')")
 
 
-async def internal_use_project_profile(args: UseProjectProfileArgs, ctx: Optional[Context] = None) -> Result[str]:  # type: ignore[type-arg]
+async def internal_use_project_profile(args: UseProjectProfileArgs, ctx: Optional[Context] = None) -> Result[str]:
     """Apply a profile to the current project.
 
     Profiles are additive - they add categories and collections without removing existing ones.
@@ -657,7 +655,7 @@ async def internal_use_project_profile(args: UseProjectProfileArgs, ctx: Optiona
 
 
 @toolfunc(UseProjectProfileArgs)
-async def use_project_profile(args: UseProjectProfileArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
+async def use_project_profile(args: UseProjectProfileArgs, ctx: Optional[Context] = None) -> str:
     """Apply a profile to the current project.
 
     Profiles are composable and additive - they add categories and collections
@@ -676,7 +674,7 @@ class ListProfilesArgs(ToolArguments):
     )
 
 
-async def internal_list_profiles(args: ListProfilesArgs, ctx: Optional[Context] = None) -> Result[list[str]]:  # type: ignore[type-arg]
+async def internal_list_profiles(args: ListProfilesArgs, ctx: Optional[Context] = None) -> Result[list[str]]:
     """List available profiles.
 
     Args:
@@ -710,7 +708,7 @@ async def internal_list_profiles(args: ListProfilesArgs, ctx: Optional[Context] 
 
 
 @toolfunc(ListProfilesArgs)
-async def list_profiles(args: ListProfilesArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
+async def list_profiles(args: ListProfilesArgs, ctx: Optional[Context] = None) -> str:
     """List available profiles.
 
     Returns names of pre-configured project profiles. Optionally filter by category name
@@ -726,7 +724,7 @@ class ShowProfileArgs(ToolArguments):
     profile: str = Field(description="Name of the profile to show")
 
 
-async def internal_show_profile(args: ShowProfileArgs, ctx: Optional[Context] = None) -> Result[dict[str, Any]]:  # type: ignore[type-arg]
+async def internal_show_profile(args: ShowProfileArgs, ctx: Optional[Context] = None) -> Result[dict[str, Any]]:
     """Show profile details.
 
     Args:
@@ -772,7 +770,7 @@ async def internal_show_profile(args: ShowProfileArgs, ctx: Optional[Context] = 
 
 
 @toolfunc(ShowProfileArgs)
-async def show_profile(args: ShowProfileArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
+async def show_profile(args: ShowProfileArgs, ctx: Optional[Context] = None) -> str:
     """Show profile details.
 
     Returns complete profile configuration including categories and collections that
@@ -799,7 +797,7 @@ class RemovePermissionPathArgs(ToolArguments):
     path: str = Field(description="Path to remove from permissions")
 
 
-async def internal_add_permission_path(args: AddPermissionPathArgs, ctx: Optional[Context] = None) -> Result:  # type: ignore[type-arg]
+async def internal_add_permission_path(args: AddPermissionPathArgs, ctx: Optional[Context] = None) -> Result:
     """Add path to project permissions.
 
     Args:
@@ -849,7 +847,7 @@ async def internal_add_permission_path(args: AddPermissionPathArgs, ctx: Optiona
     return Result.ok(f"Added '{args.path}' to {args.permission_type} permissions")
 
 
-async def internal_remove_permission_path(args: RemovePermissionPathArgs, ctx: Optional[Context] = None) -> Result:  # type: ignore[type-arg]
+async def internal_remove_permission_path(args: RemovePermissionPathArgs, ctx: Optional[Context] = None) -> Result:
     """Remove path from project permissions.
 
     Args:
@@ -882,7 +880,7 @@ async def internal_remove_permission_path(args: RemovePermissionPathArgs, ctx: O
 
 
 @toolfunc(AddPermissionPathArgs)
-async def add_permission_path(args: AddPermissionPathArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
+async def add_permission_path(args: AddPermissionPathArgs, ctx: Optional[Context] = None) -> str:
     """Add path to project permissions.
 
     Grants read or write permission for the specified path in the current project.
@@ -893,7 +891,7 @@ async def add_permission_path(args: AddPermissionPathArgs, ctx: Optional[Context
 
 
 @toolfunc(RemovePermissionPathArgs)
-async def remove_permission_path(args: RemovePermissionPathArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
+async def remove_permission_path(args: RemovePermissionPathArgs, ctx: Optional[Context] = None) -> str:
     """Remove path from project permissions.
 
     Revokes read or write permission for the specified path in the current project.

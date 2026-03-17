@@ -56,7 +56,11 @@ def _handle_cli_error(config: ServerConfig) -> None:
         sys.exit(130)
     else:
         # Log error and continue with defaults
-        error_msg = config.cli_error.format_message()
+        error_msg = (
+            config.cli_error.format_message()  # ty: ignore[call-non-callable]
+            if hasattr(config.cli_error, "format_message")
+            else str(config.cli_error)
+        )
         logger.error(f"CLI error: {error_msg}")
         logger.warning("Continuing with default configuration due to CLI error")
 
@@ -93,7 +97,7 @@ async def async_main(config: ServerConfig) -> None:
 
         # For HTTP/HTTPS transports, wait for the server to complete
         if hasattr(transport, "server_task") and transport.server_task:
-            await transport.server_task
+            await transport.server_task  # ty: ignore[invalid-await]
     except MissingDependencyError as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)

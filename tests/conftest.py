@@ -89,6 +89,9 @@ class ProductionFileHandler(FileSystemEventHandler):
 
     def on_any_event(self, event):
         """Terminate test session if production file is touched."""
+        # Ignore transient lock files created by running mcp-guide server instances
+        if event.src_path.endswith(".lock"):
+            return
         pytest.exit(
             f"PRODUCTION FILE MODIFIED: {event.src_path}\n"
             f"Event type: {event.event_type}\n"

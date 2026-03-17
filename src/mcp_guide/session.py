@@ -24,8 +24,7 @@ from mcp_guide.utils.project_hash import (
 try:
     from mcp.server.fastmcp import Context
 except ImportError:
-    Context = None  # type: ignore
-
+    Context = None  # ty: ignore[invalid-assignment]
 # Module-level flag to control default profile application
 _enable_default_profile = True
 
@@ -60,7 +59,7 @@ class Session:
             setattr(cls, "_config_manager", cls._ConfigManager(config_dir=config_dir))
         elif config_dir is not None:
             getattr(cls, "_config_manager").reconfigure(config_dir=config_dir)
-        return getattr(cls, "_config_manager")  # type: ignore[no-any-return]
+        return getattr(cls, "_config_manager")
 
     class _ConfigManager:
         """Private ConfigManager implementation."""
@@ -567,7 +566,7 @@ class Session:
                         config_path=config_file_path, callback=self._on_config_file_changed, poll_interval=1.0
                     )
                     self._watcher_task = None
-                    self._watcher_lock = asyncio.Lock()
+                    self._watcher_lock = asyncio.Lock()  # ty: ignore[unresolved-attribute]
 
             asyncio.create_task(_setup_watcher())
         except (asyncio.InvalidStateError, OSError, AttributeError) as e:
@@ -579,7 +578,7 @@ class Session:
     async def _ensure_watcher_started(self) -> None:
         """Ensure config watcher is started."""
         if self._config_watcher and hasattr(self, "_watcher_lock"):
-            async with self._watcher_lock:
+            async with self._watcher_lock:  # ty: ignore[invalid-context-manager]
                 if self._watcher_task is None or self._watcher_task.done():
                     self._watcher_task = asyncio.create_task(self._config_watcher.start())
 
@@ -759,7 +758,7 @@ _active_session: ContextVar[Optional[Session]] = ContextVar("_active_session", d
 
 
 async def get_or_create_session(
-    ctx: Optional["Context"] = None,  # type: ignore[type-arg]
+    ctx: Optional["Context"] = None,
     project_name: Optional[str] = None,
     *,
     _config_dir_for_tests: Optional[str] = None,
@@ -813,7 +812,7 @@ async def get_or_create_session(
 
 
 async def get_session(
-    ctx: Optional["Context"] = None,  # type: ignore[type-arg]
+    ctx: Optional["Context"] = None,
     *,
     project_name: Optional[str] = None,
     _config_dir_for_tests: Optional[str] = None,
@@ -861,7 +860,7 @@ async def remove_current_session() -> None:
     _active_session.set(None)
 
 
-async def set_project(project_name: str, ctx: Optional["Context"] = None) -> Result[Project]:  # type: ignore[type-arg]
+async def set_project(project_name: str, ctx: Optional["Context"] = None) -> Result[Project]:
     """Set/load a project by name.
 
     Args:

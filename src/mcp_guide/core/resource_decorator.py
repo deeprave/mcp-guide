@@ -43,7 +43,7 @@ def resourcefunc(
     """
 
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
-        resource_name = func.__name__
+        resource_name = func.__name__  # ty: ignore[unresolved-attribute]
 
         metadata = ResourceMetadata(name=resource_name, uri_template=uri_template, func=func, description=description)
         _RESOURCE_REGISTRY[resource_name] = ResourceRegistration(metadata=metadata)

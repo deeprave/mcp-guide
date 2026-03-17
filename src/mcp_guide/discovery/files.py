@@ -120,7 +120,7 @@ class FileInfo:
         if content is _SENTINEL:
             self._content: Optional[str] = None
         else:
-            self._content = content  # type: ignore[assignment]
+            self._content = content  # ty: ignore[invalid-assignment]
         self._frontmatter = frontmatter
         self._load_error: Optional[str] = None
         # Track if content was explicitly provided (even if None)

@@ -4,7 +4,7 @@
 
 from dataclasses import replace
 from pathlib import Path
-from typing import Any, Literal, Optional, Union, cast
+from typing import Any, Literal, Optional, Union
 
 from anyio import Path as AsyncPath
 from pydantic import Field, model_validator
@@ -42,9 +42,7 @@ from mcp_guide.tools.tool_result import tool_result
 try:
     from mcp.server.fastmcp import Context
 except ImportError:
-    Context = None  # type: ignore
-
-
+    Context = None  # ty: ignore[invalid-assignment]
 __all__ = [
     "internal_category_list",
     "internal_category_add",
@@ -77,7 +75,7 @@ class CategoryListFilesArgs(ToolArguments):
     name: str = Field(description="Name of the category to list files from")
 
 
-async def internal_category_list(args: CategoryListArgs, ctx: Optional[Context] = None) -> Result[list]:  # type: ignore
+async def internal_category_list(args: CategoryListArgs, ctx: Optional[Context] = None) -> Result[list]:
     """List all categories in the current project.
 
     Args:
@@ -98,25 +96,22 @@ async def internal_category_list(args: CategoryListArgs, ctx: Optional[Context] 
 
     categories: Union[list[dict[str, Union[str, list[str], None]]], list[str]]
     if args.verbose:
-        categories = cast(
-            list[dict[str, Union[str, list[str], None]]],
-            [
-                {
-                    "name": name,  # Inject name from dict key
-                    "dir": category.dir,
-                    "patterns": list(category.patterns),  # Convert to list[str]
-                    "description": category.description,
-                }
-                for name, category in project.categories.items()  # Use dict.items()
-            ],
-        )
+        categories = [
+            {
+                "name": name,  # Inject name from dict key
+                "dir": category.dir,
+                "patterns": list(category.patterns),  # Convert to list[str]
+                "description": category.description,
+            }
+            for name, category in project.categories.items()  # Use dict.items()
+        ]
     else:
         categories = list(project.categories.keys())  # Use dict.keys()
 
     return Result.ok(categories)
 
 
-async def category_list(args: CategoryListArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
+async def category_list(args: CategoryListArgs, ctx: Optional[Context] = None) -> str:
     """List all categories in the current project.
 
     Retrieves category information from the current project configuration.
@@ -171,7 +166,7 @@ class CategoryAddArgs(ToolArguments):
     description: Optional[str] = Field(None, description="Optional description of the category's purpose")
 
 
-async def internal_category_add(args: CategoryAddArgs, ctx: Optional[Context] = None) -> Result[str]:  # type: ignore
+async def internal_category_add(args: CategoryAddArgs, ctx: Optional[Context] = None) -> Result[str]:
     """Add a new category to the current project.
 
     Args:
@@ -248,7 +243,7 @@ async def internal_category_add(args: CategoryAddArgs, ctx: Optional[Context] = 
     return Result.ok(f"Category '{args.name}' added successfully")
 
 
-async def category_add(args: CategoryAddArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
+async def category_add(args: CategoryAddArgs, ctx: Optional[Context] = None) -> str:
     """Add a new category to the current project.
 
     Creates a new category with specified configuration including name,
@@ -323,7 +318,7 @@ class CategoryRemoveArgs(ToolArguments):
     name: str = Field(..., description="Name of the category to remove")
 
 
-async def internal_category_remove(args: CategoryRemoveArgs, ctx: Optional[Context] = None) -> Result[str]:  # type: ignore
+async def internal_category_remove(args: CategoryRemoveArgs, ctx: Optional[Context] = None) -> Result[str]:
     """Remove a category from the current project.
 
     Removes the specified category and automatically removes it from all collections.
@@ -368,7 +363,7 @@ async def internal_category_remove(args: CategoryRemoveArgs, ctx: Optional[Conte
     return Result.ok(f"Category '{args.name}' removed successfully")
 
 
-async def category_remove(args: CategoryRemoveArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
+async def category_remove(args: CategoryRemoveArgs, ctx: Optional[Context] = None) -> str:
     """Remove a category from the current project.
 
     Removes the specified category and automatically removes it from all collections.
@@ -398,7 +393,7 @@ class CategoryChangeArgs(ToolArguments):
     new_description: Optional[str] = Field(None, description="New description for the category")
 
 
-async def internal_category_change(args: CategoryChangeArgs, ctx: Optional[Context] = None) -> Result[str]:  # type: ignore
+async def internal_category_change(args: CategoryChangeArgs, ctx: Optional[Context] = None) -> Result[str]:
     """Change properties of an existing category.
 
     Args:
@@ -540,7 +535,7 @@ async def internal_category_change(args: CategoryChangeArgs, ctx: Optional[Conte
     return Result.ok(change_msg)
 
 
-async def category_change(args: CategoryChangeArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
+async def category_change(args: CategoryChangeArgs, ctx: Optional[Context] = None) -> str:
     """Change properties of an existing category.
 
     Args:
@@ -562,7 +557,7 @@ class CategoryUpdateArgs(ToolArguments):
     remove_patterns: Optional[list[str]] = Field(None, description="File patterns to remove from the category")
 
 
-async def internal_category_update(args: CategoryUpdateArgs, ctx: Optional[Context] = None) -> Result[str]:  # type: ignore
+async def internal_category_update(args: CategoryUpdateArgs, ctx: Optional[Context] = None) -> Result[str]:
     """Update category patterns incrementally.
 
     Args:
@@ -630,7 +625,7 @@ async def internal_category_update(args: CategoryUpdateArgs, ctx: Optional[Conte
     return Result.ok(f"Category '{args.name}' patterns updated successfully")
 
 
-async def category_update(args: CategoryUpdateArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
+async def category_update(args: CategoryUpdateArgs, ctx: Optional[Context] = None) -> str:
     """Update category patterns incrementally.
 
     Args:
@@ -646,7 +641,7 @@ async def category_update(args: CategoryUpdateArgs, ctx: Optional[Context] = Non
 
 async def internal_category_list_files(
     args: CategoryListFilesArgs,
-    ctx: Optional[Context] = None,  # type: ignore[type-arg]
+    ctx: Optional[Context] = None,
 ) -> Result[list[dict[str, Any]]]:
     """List all files in a category directory.
 
@@ -704,7 +699,7 @@ async def internal_category_list_files(
 
 
 @toolfunc(CategoryListFilesArgs)
-async def category_list_files(args: CategoryListFilesArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
+async def category_list_files(args: CategoryListFilesArgs, ctx: Optional[Context] = None) -> str:
     """List all files in a category directory.
 
     Returns file information including names, sizes, and modification times for all
@@ -716,7 +711,7 @@ async def category_list_files(args: CategoryListFilesArgs, ctx: Optional[Context
 
 async def internal_category_content(
     args: CategoryContentArgs,
-    ctx: Optional[Context] = None,  # type: ignore[type-arg]
+    ctx: Optional[Context] = None,
 ) -> Result[str]:
     """Get content from a category.
 
@@ -821,7 +816,7 @@ async def internal_category_content(
 @toolfunc(CategoryContentArgs)
 async def category_content(
     args: CategoryContentArgs,
-    ctx: Optional[Context] = None,  # type: ignore[type-arg]
+    ctx: Optional[Context] = None,
 ) -> str:
     """Get content from a category.
 
@@ -844,8 +839,8 @@ class CategoryCollectionListArgs(ToolArguments):
 
 async def internal_category_collection_list(
     args: CategoryCollectionListArgs,
-    ctx: Optional[Context] = None,  # type: ignore[type-arg]
-) -> Result[list]:  # type: ignore[type-arg]
+    ctx: Optional[Context] = None,
+) -> Result[list]:
     """List categories or collections based on type."""
     if args.type == "category":
         category_args = CategoryListArgs(verbose=args.verbose)
@@ -860,7 +855,7 @@ async def internal_category_collection_list(
 @toolfunc(CategoryCollectionListArgs)
 async def category_collection_list(
     args: CategoryCollectionListArgs,
-    ctx: Optional[Context] = None,  # type: ignore[type-arg]
+    ctx: Optional[Context] = None,
 ) -> str:
     """List all categories or collections in the current project.
 
@@ -880,7 +875,7 @@ class CategoryCollectionRemoveArgs(ToolArguments):
 
 async def internal_category_collection_remove(
     args: CategoryCollectionRemoveArgs,
-    ctx: Optional[Context] = None,  # type: ignore[type-arg]
+    ctx: Optional[Context] = None,
 ) -> Result[str]:
     """Remove a category or collection based on type."""
     if args.type == "category":
@@ -896,7 +891,7 @@ async def internal_category_collection_remove(
 @toolfunc(CategoryCollectionRemoveArgs)
 async def category_collection_remove(
     args: CategoryCollectionRemoveArgs,
-    ctx: Optional[Context] = None,  # type: ignore[type-arg]
+    ctx: Optional[Context] = None,
 ) -> str:
     """Remove a category or collection from the current project.
 
@@ -929,7 +924,7 @@ class CategoryCollectionAddArgs(ToolArguments):
 
 async def internal_category_collection_add(
     args: CategoryCollectionAddArgs,
-    ctx: Optional[Context] = None,  # type: ignore[type-arg]
+    ctx: Optional[Context] = None,
 ) -> Result[str]:
     """Add a category or collection based on type."""
     if args.type == "category":
@@ -954,7 +949,7 @@ async def internal_category_collection_add(
 @toolfunc(CategoryCollectionAddArgs)
 async def category_collection_add(
     args: CategoryCollectionAddArgs,
-    ctx: Optional[Context] = None,  # type: ignore[type-arg]
+    ctx: Optional[Context] = None,
 ) -> str:
     """Add a new category or collection to the current project.
 
@@ -989,7 +984,7 @@ class CategoryCollectionChangeArgs(ToolArguments):
 
 async def internal_category_collection_change(
     args: CategoryCollectionChangeArgs,
-    ctx: Optional[Context] = None,  # type: ignore[type-arg]
+    ctx: Optional[Context] = None,
 ) -> Result[str]:
     """Change a category or collection based on type."""
     if args.type == "category":
@@ -1016,7 +1011,7 @@ async def internal_category_collection_change(
 @toolfunc(CategoryCollectionChangeArgs)
 async def category_collection_change(
     args: CategoryCollectionChangeArgs,
-    ctx: Optional[Context] = None,  # type: ignore[type-arg]
+    ctx: Optional[Context] = None,
 ) -> str:
     """Change properties of an existing category or collection.
 
@@ -1049,7 +1044,7 @@ class CategoryCollectionUpdateArgs(ToolArguments):
 
 async def internal_category_collection_update(
     args: CategoryCollectionUpdateArgs,
-    ctx: Optional[Context] = None,  # type: ignore[type-arg]
+    ctx: Optional[Context] = None,
 ) -> Result[str]:
     """Update a category or collection based on type."""
     if args.type == "category":
@@ -1073,7 +1068,7 @@ async def internal_category_collection_update(
 @toolfunc(CategoryCollectionUpdateArgs)
 async def category_collection_update(
     args: CategoryCollectionUpdateArgs,
-    ctx: Optional[Context] = None,  # type: ignore[type-arg]
+    ctx: Optional[Context] = None,
 ) -> str:
     """Update category or collection incrementally.
 
