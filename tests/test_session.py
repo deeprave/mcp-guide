@@ -7,7 +7,7 @@ import pytest
 import mcp_guide.session
 from mcp_guide.session import (
     Session,
-    get_or_create_session,
+    get_session,
     set_project,
 )
 
@@ -51,7 +51,7 @@ class TestSetProject:
 
 
 class TestGetOrCreateSession:
-    """Tests for get_or_create_session function."""
+    """Tests for get_session function."""
 
     @pytest.mark.asyncio
     async def test_creates_session_with_explicit_name(self, tmp_path, monkeypatch):
@@ -64,7 +64,7 @@ class TestGetOrCreateSession:
 
         monkeypatch.setattr(Session, "__init__", mock_session_init)
 
-        session = await get_or_create_session(project_name="explicit-project", _config_dir_for_tests=str(tmp_path))
+        session = await get_session(project_name="explicit-project", _config_dir_for_tests=str(tmp_path))
         assert session.project_name == "explicit-project"
 
     @pytest.mark.asyncio
@@ -83,7 +83,7 @@ class TestGetOrCreateSession:
         mock_root.uri = "file:///home/user/detected-project"
         mock_ctx.session.list_roots = AsyncMock(return_value=MagicMock(roots=[mock_root]))
 
-        session = await get_or_create_session(ctx=mock_ctx)
+        session = await get_session(ctx=mock_ctx)
         assert session.project_name == "detected-project"
 
     @pytest.mark.asyncio
@@ -97,15 +97,14 @@ class TestGetOrCreateSession:
 
         monkeypatch.setattr(Session, "__init__", mock_session_init)
 
-        session1 = await get_or_create_session(project_name="same-project")
-        session2 = await get_or_create_session(project_name="same-project")
+        session1 = await get_session(project_name="same-project")
+        session2 = await get_session(project_name="same-project")
 
         assert session1 is session2
 
     @pytest.mark.asyncio
-    async def test_creates_different_sessions_for_different_projects(self, tmp_path, monkeypatch):
-        """Creates separate sessions for different projects."""
-        # Mock the session creation to use test directory
+    async def test_returns_same_session_ignoring_project_name(self, tmp_path, monkeypatch):
+        """Second call returns existing session regardless of project_name."""
         original_session_init = Session.__init__
 
         def mock_session_init(self, project_name, *, _config_dir_for_tests=None):
@@ -113,12 +112,11 @@ class TestGetOrCreateSession:
 
         monkeypatch.setattr(Session, "__init__", mock_session_init)
 
-        session1 = await get_or_create_session(project_name="project1")
-        session2 = await get_or_create_session(project_name="project2")
+        session1 = await get_session(project_name="project1")
+        session2 = await get_session(project_name="project2")
 
-        assert session1 is not session2
+        assert session1 is session2
         assert session1.project_name == "project1"
-        assert session2.project_name == "project2"
 
 
 class TestProjectNameDetection:
@@ -185,11 +183,11 @@ class TestProjectNameDetection:
 
     @pytest.mark.asyncio
     async def test_caches_roots_info(self):
-        """Caches entire roots list and derived project name."""
-        import mcp_guide.session
+        """Caches entire roots list in bootstrap cache when no session exists."""
+        import mcp_guide.mcp_context
 
-        # Reset cache
-        mcp_guide.mcp_context.set_cached_mcp_context(None)
+        # Clear bootstrap cache
+        mcp_guide.mcp_context._bootstrap_roots = []
 
         mock_ctx = MagicMock()
         mock_root = MagicMock()
@@ -198,10 +196,6 @@ class TestProjectNameDetection:
 
         await mcp_guide.mcp_context.cache_mcp_globals(mock_ctx)
 
-        # Check cache was populated with roots (project name is resolved separately)
-        cached = mcp_guide.mcp_context.get_cached_mcp_context()
-        assert cached is not None
-        assert len(cached.roots) == 1
-        assert str(cached.roots[0].uri) == "file:///home/user/cached-project"
-        # Project name is empty until _resolve_project_name is called
-        assert cached.project_name == ""
+        # Check bootstrap cache was populated with roots
+        assert len(mcp_guide.mcp_context._bootstrap_roots) == 1
+        assert str(mcp_guide.mcp_context._bootstrap_roots[0].uri) == "file:///home/user/cached-project"

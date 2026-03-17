@@ -36,7 +36,7 @@ from mcp_guide.result_constants import (
     INSTRUCTION_NOTFOUND_ERROR,
     INSTRUCTION_PATTERN_ERROR,
 )
-from mcp_guide.session import get_or_create_session
+from mcp_guide.session import get_session
 from mcp_guide.tools.tool_result import tool_result
 
 try:
@@ -90,7 +90,7 @@ async def internal_category_list(args: CategoryListArgs, ctx: Optional[Context] 
         - If verbose=False: list of category names only
     """
     try:
-        session = await get_or_create_session(ctx)
+        session = await get_session(ctx)
     except ValueError as e:
         return Result.failure(str(e), error_type=ERROR_NO_PROJECT)
 
@@ -183,7 +183,7 @@ async def internal_category_add(args: CategoryAddArgs, ctx: Optional[Context] = 
     """
 
     try:
-        session = await get_or_create_session(ctx)
+        session = await get_session(ctx)
     except ValueError as e:
         return Result.failure(str(e), error_type=ERROR_NO_PROJECT)
 
@@ -341,7 +341,7 @@ async def internal_category_remove(args: CategoryRemoveArgs, ctx: Optional[Conte
     """
 
     try:
-        session = await get_or_create_session(ctx)
+        session = await get_session(ctx)
     except ValueError as e:
         return Result.failure(str(e), error_type=ERROR_NO_PROJECT)
 
@@ -410,7 +410,7 @@ async def internal_category_change(args: CategoryChangeArgs, ctx: Optional[Conte
     """
 
     try:
-        session = await get_or_create_session(ctx)
+        session = await get_session(ctx)
     except ValueError as e:
         return Result.failure(str(e), error_type=ERROR_NO_PROJECT)
 
@@ -574,7 +574,7 @@ async def internal_category_update(args: CategoryUpdateArgs, ctx: Optional[Conte
     """
 
     try:
-        session = await get_or_create_session(ctx)
+        session = await get_session(ctx)
     except ValueError as e:
         return Result.failure(str(e), error_type=ERROR_NO_PROJECT)
 
@@ -659,7 +659,7 @@ async def internal_category_list_files(
     """
     # Get session
     try:
-        session = await get_or_create_session(ctx)
+        session = await get_session(ctx)
     except ValueError as e:
         return Result.failure(str(e), error_type=ERROR_NO_PROJECT)
 
@@ -729,7 +729,7 @@ async def internal_category_content(
     """
     # Get session
     try:
-        session = await get_or_create_session(ctx)
+        session = await get_session(ctx)
     except ValueError as e:
         return Result.failure(str(e), error_type=ERROR_NO_PROJECT)
 

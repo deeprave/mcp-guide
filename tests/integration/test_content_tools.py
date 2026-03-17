@@ -7,7 +7,7 @@ import pytest
 from mcp.shared.memory import create_connected_server_and_client_session
 
 from mcp_guide.models import Category, Collection
-from mcp_guide.session import get_or_create_session, remove_current_session
+from mcp_guide.session import get_session, remove_current_session
 from mcp_guide.tools.tool_content import ContentArgs
 from tests.conftest import call_mcp_tool
 
@@ -31,7 +31,7 @@ async def test_get_content_category_only(mcp_server, tmp_path, monkeypatch):
 
     monkeypatch.setenv("PWD", "/fake/path/test")
 
-    session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
+    session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
 
     # Add category
     await session.update_config(lambda p: p.with_category("guide", Category(dir="guide", patterns=["*.md"])))
@@ -47,7 +47,7 @@ async def test_get_content_category_only(mcp_server, tmp_path, monkeypatch):
         assert response["success"] is True
         assert "Project Guidelines" in response["value"]
 
-    await remove_current_session("test")
+    await remove_current_session()
 
 
 @pytest.mark.anyio
@@ -57,7 +57,7 @@ async def test_get_content_collection_only(mcp_server, tmp_path, monkeypatch):
 
     monkeypatch.setenv("PWD", "/fake/path/test")
 
-    session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
+    session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
 
     # Add categories and collection
     await session.update_config(
@@ -80,7 +80,7 @@ async def test_get_content_collection_only(mcp_server, tmp_path, monkeypatch):
         assert "Project Guidelines" in response["value"]
         assert "Python Guide" in response["value"]
 
-    await remove_current_session("test")
+    await remove_current_session()
 
 
 @pytest.mark.anyio
@@ -90,7 +90,7 @@ async def test_get_content_both_match_deduplicates(mcp_server, tmp_path, monkeyp
 
     monkeypatch.setenv("PWD", "/fake/path/test")
 
-    session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
+    session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
 
     # Add category "guide" and collection "guide" containing "guide" category
     await session.update_config(
@@ -115,7 +115,7 @@ async def test_get_content_both_match_deduplicates(mcp_server, tmp_path, monkeyp
         # If not de-duplicated, would appear 4 times
         assert content.count("guidelines.md") <= 3  # Allow for MIME headers
 
-    await remove_current_session("test")
+    await remove_current_session()
 
 
 @pytest.mark.anyio
@@ -125,7 +125,7 @@ async def test_get_content_pattern_override(mcp_server, tmp_path, monkeypatch):
 
     monkeypatch.setenv("PWD", "/fake/path/test")
 
-    session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
+    session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
 
     # Add category with multiple file types
     await session.update_config(
@@ -145,7 +145,7 @@ async def test_get_content_pattern_override(mcp_server, tmp_path, monkeypatch):
         assert "Jira Integration" in response["value"]
         assert "jira-settings.yaml" not in response["value"]  # YAML file should be excluded
 
-    await remove_current_session("test")
+    await remove_current_session()
 
 
 @pytest.mark.anyio
@@ -153,7 +153,7 @@ async def test_get_content_empty_result(mcp_server, tmp_path, monkeypatch):
     """Test get_content with no matching files."""
     monkeypatch.setenv("PWD", "/fake/path/test")
 
-    session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
+    session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
 
     # Add category with no files
     await session.update_config(lambda p: p.with_category("empty", Category(dir="empty", patterns=["*.md"])))
@@ -172,7 +172,7 @@ async def test_get_content_empty_result(mcp_server, tmp_path, monkeypatch):
         assert "No matching content found" in response["value"]
         assert "instruction" in response
 
-    await remove_current_session("test")
+    await remove_current_session()
 
 
 @pytest.mark.anyio
@@ -182,7 +182,7 @@ async def test_get_content_nested_collection(mcp_server, tmp_path, monkeypatch):
 
     monkeypatch.setenv("PWD", "/fake/path/test")
 
-    session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
+    session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
 
     # Add categories and nested collections
     await session.update_config(
@@ -206,7 +206,7 @@ async def test_get_content_nested_collection(mcp_server, tmp_path, monkeypatch):
         assert "Project Guidelines" in response["value"]  # From guide (via docs collection)
         assert "Python Guide" in response["value"]  # From lang
 
-    await remove_current_session("test")
+    await remove_current_session()
 
 
 @pytest.mark.anyio
@@ -216,7 +216,7 @@ async def test_get_content_circular_collection_reference(mcp_server, tmp_path, m
 
     monkeypatch.setenv("PWD", "/fake/path/test")
 
-    session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
+    session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
 
     # Add categories and circular collections
     await session.update_config(
@@ -241,4 +241,4 @@ async def test_get_content_circular_collection_reference(mcp_server, tmp_path, m
         assert "Project Guidelines" in response["value"]  # From guide
         assert "Python Guide" in response["value"]  # From lang
 
-    await remove_current_session("test")
+    await remove_current_session()

@@ -27,7 +27,7 @@ async def test_session(tmp_path):
     """Create test session with sample project."""
     from mcp_guide.tools.tool_category import CategoryAddArgs, internal_category_add
 
-    session = Session("test", _config_dir_for_tests=str(tmp_path))
+    session = await Session.create_session("test", _config_dir_for_tests=str(tmp_path))
     await session.get_project()
     set_current_session(session)
 
@@ -36,7 +36,7 @@ async def test_session(tmp_path):
     await internal_category_add(args)
 
     yield session
-    await remove_current_session("test")
+    await remove_current_session()
 
 
 @pytest.mark.asyncio

@@ -10,7 +10,7 @@ from mcp_guide.core.tool_decorator import toolfunc
 from mcp_guide.installer.core import ORIGINAL_ARCHIVE, perform_locked_update, read_version
 from mcp_guide.result import Result
 from mcp_guide.result_constants import ERROR_NO_PROJECT, INSTRUCTION_NO_PROJECT
-from mcp_guide.session import get_or_create_session
+from mcp_guide.session import get_session
 from mcp_guide.tools.tool_result import tool_result
 
 try:
@@ -44,7 +44,7 @@ async def internal_update_documents(
         Result containing update statistics
     """
     try:
-        session = await get_or_create_session(ctx)
+        session = await get_session(ctx)
     except ValueError as e:
         return Result.failure(
             error=str(e),

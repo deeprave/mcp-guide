@@ -91,7 +91,7 @@ class TestClientContextManagerCreation:
         mock_flags.list = AsyncMock(return_value={"allow-client-info": True})
         mock_session.feature_flags.return_value = mock_flags
 
-        with patch("mcp_guide.session.get_current_session", return_value=mock_session):
+        with patch("mcp_guide.session.get_session", return_value=mock_session):
             # Create ClientContextTask instance
             ClientContextTask(task_manager=mock_task_manager)
 

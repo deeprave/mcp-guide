@@ -44,9 +44,9 @@ class TestGetProject:
     @pytest.mark.asyncio
     async def test_no_context_error(self):
         """Test get_project with no project context."""
-        # Mock get_or_create_session to raise ValueError
+        # Mock get_session to raise ValueError
         with patch(
-            "mcp_guide.tools.tool_project.get_or_create_session",
+            "mcp_guide.tools.tool_project.get_session",
             side_effect=ValueError("Project context not available"),
         ):
             args = GetCurrentProjectArgs(verbose=False)
@@ -71,7 +71,7 @@ class TestGetProject:
         project_name = "test-project" if has_data else "empty-project"
         monkeypatch.setenv("PWD", f"/fake/path/{project_name}")
 
-        session = Session(project_name, _config_dir_for_tests=str(tmp_path))
+        session = await Session.create_session(project_name, _config_dir_for_tests=str(tmp_path))
         await session.get_project()
         set_current_session(session)
 
@@ -122,7 +122,7 @@ class TestGetProject:
                 assert result["value"]["collections"] == []
                 assert result["value"]["categories"] == []
         finally:
-            await remove_current_session(project_name)
+            await remove_current_session()
 
     @pytest.mark.parametrize(
         "verbose,expected_type",
@@ -136,7 +136,7 @@ class TestGetProject:
         """Test get_project flag output format based on verbose flag."""
         monkeypatch.setenv("PWD", "/fake/path/test-project")
 
-        session = Session("test-project", _config_dir_for_tests=str(tmp_path))
+        session = await Session.create_session("test-project", _config_dir_for_tests=str(tmp_path))
         await session.get_project()
         set_current_session(session)
 
@@ -169,14 +169,14 @@ class TestGetProject:
                     # Non-verbose: list of names
                     assert set(flags) == {"debug", "env", "global_flag"}
             finally:
-                await remove_current_session("test-project")
+                await remove_current_session()
 
     @pytest.mark.asyncio
     async def test_project_flags_override_global_flags(self, tmp_path: Path, monkeypatch):
         """Test project flags take precedence over global flags."""
         monkeypatch.setenv("PWD", "/fake/path/test-project")
 
-        session = Session("test-project", _config_dir_for_tests=str(tmp_path))
+        session = await Session.create_session("test-project", _config_dir_for_tests=str(tmp_path))
         await session.get_project()
         set_current_session(session)
 
@@ -202,7 +202,7 @@ class TestGetProject:
                 flags = result["value"]["flags"]
                 assert flags["shared_flag"] == "project_value"
             finally:
-                await remove_current_session("test-project")
+                await remove_current_session()
 
 
 class TestSetProject:
@@ -374,7 +374,7 @@ class TestListProject:
     @pytest.mark.parametrize(
         "name,verbose,mock_setup",
         [
-            (None, False, lambda: patch("mcp_guide.tools.tool_project.get_or_create_session")),  # current project
+            (None, False, lambda: patch("mcp_guide.tools.tool_project.get_session")),  # current project
             (
                 "other-project",
                 False,
@@ -483,7 +483,7 @@ class TestCloneProject:
                 "nonexistent",
                 None,
                 lambda: patch(
-                    "mcp_guide.tools.tool_project.get_or_create_session",
+                    "mcp_guide.tools.tool_project.get_session",
                     new=AsyncMock(
                         return_value=AsyncMock(
                             get_all_projects=AsyncMock(
@@ -502,7 +502,7 @@ class TestCloneProject:
                 "source",
                 "current",
                 lambda: patch(
-                    "mcp_guide.tools.tool_project.get_or_create_session",
+                    "mcp_guide.tools.tool_project.get_session",
                     new=AsyncMock(
                         return_value=AsyncMock(get_all_projects=AsyncMock(side_effect=Exception("config read failed")))
                     ),
@@ -544,7 +544,7 @@ class TestCloneProject:
         mock_session.get_project = AsyncMock(return_value=current_proj)
         mock_session.save_project = AsyncMock(side_effect=OSError("config write failed"))
 
-        with patch("mcp_guide.tools.tool_project.get_or_create_session", new=AsyncMock(return_value=mock_session)):
+        with patch("mcp_guide.tools.tool_project.get_session", new=AsyncMock(return_value=mock_session)):
             args = CloneProjectArgs(from_project="source", to_project="current", merge=True)
             result_str = await clone_project(args)
             result = json.loads(result_str)
@@ -576,7 +576,7 @@ class TestCloneProject:
         mock_session.save_project = AsyncMock()
 
         with patch(
-            "mcp_guide.tools.tool_project.get_or_create_session",
+            "mcp_guide.tools.tool_project.get_session",
             side_effect=[ValueError("No current project"), mock_session, ValueError("No current project")],
         ):
             args = CloneProjectArgs(from_project="source", to_project="target", merge=True, force=True)
@@ -597,7 +597,7 @@ class TestCloneProject:
         mock_session_replace.save_project = AsyncMock()
 
         with patch(
-            "mcp_guide.tools.tool_project.get_or_create_session",
+            "mcp_guide.tools.tool_project.get_session",
             side_effect=[ValueError("No current project"), mock_session_replace, ValueError("No current project")],
         ):
             args_replace = CloneProjectArgs(from_project="source", to_project="target", merge=False, force=True)
@@ -612,7 +612,7 @@ class TestCloneProject:
     async def test_1arg_mode_no_current_project(self):
         """Test clone_project 1-arg mode when no current project is available."""
         with patch(
-            "mcp_guide.tools.tool_project.get_or_create_session",
+            "mcp_guide.tools.tool_project.get_session",
             new=AsyncMock(side_effect=ValueError("No current project")),
         ):
             args = CloneProjectArgs(from_project="source", to_project=None)

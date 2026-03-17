@@ -1,27 +1,28 @@
 # Change: Separate session identity from project context
 
 ## Why
-`Session` currently conflates two distinct concerns: the MCP client session (agent info,
-roots, client params) and the project context (project name, categories, collections, flags).
-Switching projects tears down and recreates the session, which is wrong — the client
-connection hasn't changed. This also forces MCP context data (`CachedMcpContext`) to live
-as a module-level global, which breaks correctness for HTTP transport with multiple
-concurrent clients.
+`Session` currently conflates two concerns: the MCP client connection and the project
+context. The ContextVar holds a `dict[str, Session]` keyed by project name, so switching
+projects creates a new session — but the client connection hasn't changed. This also
+forces MCP context (`CachedMcpContext`) into a separate module-level global, which breaks
+correctness for HTTP transport with multiple concurrent clients.
+
+A client retains the same session from start to end. Project changes occur within that
+session.
 
 ## What Changes
-- Add session-scoped fields to `Session`: `agent_info`, `roots`, `client_params`
-- `cache_mcp_globals` writes MCP context into the current session instead of a module global
-- `_build_agent_context` reads agent info from the session
-- Project switching updates `session.project_name` and reloads project data without
-  replacing the session object
-- Remove `CachedMcpContext`, `get_cached_mcp_context`, `set_cached_mcp_context` from
-  `mcp_context.py` once all reads/writes go through `Session`
+- Unify `get_or_create_session` and `get_current_session` into a single `get_session()`
+  function. Creates on first call, returns existing on subsequent calls. Never returns None.
+- Change ContextVar from `dict[str, Session]` to a single `Optional[Session]`
+- Project switching updates project fields on the existing session, not replacing it
+- Move MCP context (agent_info, roots, client_params) from `CachedMcpContext` module
+  global into `Session`
+- Remove `CachedMcpContext`, `get_cached_mcp_context`, `set_cached_mcp_context`
 
 ## Impact
 - Affected specs: `session-management`
-- Affected code: `src/mcp_guide/session.py`, `src/mcp_guide/mcp_context.py`,
-  `src/mcp_guide/render/cache.py`, `src/mcp_guide/tools/tool_utility.py`,
-  `src/mcp_guide/prompts/guide_prompt.py`
-- **BREAKING**: None — internal refactor, no public API change
-- Fixes correctness for HTTP transport (multiple concurrent clients each get their own
-  session with their own agent info)
+- Affected code: `session.py`, `mcp_context.py`, all tool modules, `render/cache.py`,
+  `prompts/guide_prompt.py`, `tools/tool_collection.py`, `discovery/commands.py`,
+  `render/rendering.py`, plus ~35 test files
+- **BREAKING**: None — internal refactor, no MCP tool API change
+- Fixes correctness for HTTP transport (concurrent client isolation)

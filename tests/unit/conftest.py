@@ -102,4 +102,4 @@ async def project_dir(tmp_path: Path, monkeypatch) -> AsyncGenerator[Path, None]
 
     yield test_project_dir
 
-    await remove_current_session(project_name)
+    await remove_current_session()

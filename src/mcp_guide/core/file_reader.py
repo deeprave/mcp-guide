@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-import aiofiles
+from anyio import Path as AsyncPath
 
 
 async def read_file_content(file_path: Path) -> str:
@@ -43,5 +43,4 @@ async def read_file_content(file_path: Path) -> str:
             ...
         UnicodeDecodeError: ...
     """
-    async with aiofiles.open(file_path, mode="r", encoding="utf-8") as f:
-        return await f.read()
+    return await AsyncPath(file_path).read_text(encoding="utf-8")

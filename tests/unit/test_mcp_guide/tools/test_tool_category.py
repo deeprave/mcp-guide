@@ -21,7 +21,7 @@ from mcp_guide.tools.tool_category import (
 async def test_session_with_categories(tmp_path_factory):
     """Module-level fixture providing a session with sample categories."""
     tmp_path = tmp_path_factory.mktemp("category_tests")
-    session = Session("test", _config_dir_for_tests=str(tmp_path))
+    session = await Session.create_session("test", _config_dir_for_tests=str(tmp_path))
     await session.get_project()
     set_current_session(session)
 
@@ -33,7 +33,7 @@ async def test_session_with_categories(tmp_path_factory):
     await internal_category_add(api_args)
 
     yield session
-    await remove_current_session("test")
+    await remove_current_session()
 
 
 @pytest.fixture(autouse=True)
@@ -54,7 +54,7 @@ class TestCategoryList:
     @pytest.mark.asyncio
     async def test_list_empty_categories(self, tmp_path: Path) -> None:
         """List empty categories returns empty list."""
-        session = Session("test", _config_dir_for_tests=str(tmp_path))
+        session = await Session.create_session("test", _config_dir_for_tests=str(tmp_path))
         # Create empty project
         await session.get_project()
 
@@ -76,7 +76,7 @@ class TestCategoryList:
                 patterns=["*.md", "*.txt"],
             )
         }
-        session = Session("test", _config_dir_for_tests=str(tmp_path))
+        session = await Session.create_session("test", _config_dir_for_tests=str(tmp_path))
 
         # Add a category to the project
         from mcp_guide.tools.tool_category import CategoryAddArgs, category_add
@@ -100,7 +100,7 @@ class TestCategoryList:
     @pytest.mark.asyncio
     async def test_list_multiple_categories(self, tmp_path: Path) -> None:
         """List multiple categories returns all."""
-        session = Session("test", _config_dir_for_tests=str(tmp_path))
+        session = await Session.create_session("test", _config_dir_for_tests=str(tmp_path))
 
         # Add multiple categories to the project
         from mcp_guide.tools.tool_category import CategoryAddArgs, category_add
@@ -119,25 +119,10 @@ class TestCategoryList:
         assert result_dict["value"][0]["name"] == "docs"
         assert result_dict["value"][1]["name"] == "src"
 
-    def test_no_active_session_error(self, monkeypatch: MonkeyPatch) -> None:
-        """No active session returns error."""
-        import asyncio
-
-        # Unset PWD and CWD so get_or_create_session fails
-        monkeypatch.delenv("PWD", raising=False)
-        monkeypatch.delenv("CWD", raising=False)
-
-        args = CategoryListArgs()
-        result_str = asyncio.run(category_list(args))
-        result_dict = json.loads(result_str)
-
-        assert result_dict["success"] is False
-        assert result_dict["error_type"] == "no_project"
-
     @pytest.mark.asyncio
     async def test_result_pattern_response(self, tmp_path: Path) -> None:
         """Returns Result.ok with proper structure."""
-        session = Session("test", _config_dir_for_tests=str(tmp_path))
+        session = await Session.create_session("test", _config_dir_for_tests=str(tmp_path))
         await session.get_project()
         # Project setup handled by Session
         set_current_session(session)
@@ -163,7 +148,7 @@ class TestCategoryAdd:
         """Add category with minimal args."""
         from mcp_guide.tools.tool_category import CategoryAddArgs, category_add
 
-        session = Session("test", _config_dir_for_tests=str(tmp_path))
+        session = await Session.create_session("test", _config_dir_for_tests=str(tmp_path))
         await session.get_project()
         # Project setup handled by Session
         set_current_session(session)
@@ -185,7 +170,7 @@ class TestCategoryAdd:
         """Add category with all args."""
         from mcp_guide.tools.tool_category import CategoryAddArgs, category_add
 
-        session = Session("test", _config_dir_for_tests=str(tmp_path))
+        session = await Session.create_session("test", _config_dir_for_tests=str(tmp_path))
         await session.get_project()
         # Project setup handled by Session
         set_current_session(session)
@@ -204,7 +189,7 @@ class TestCategoryAdd:
         """When dir is omitted, it defaults to name."""
         from mcp_guide.tools.tool_category import CategoryAddArgs, category_add
 
-        session = Session("test", _config_dir_for_tests=str(tmp_path))
+        session = await Session.create_session("test", _config_dir_for_tests=str(tmp_path))
         await session.get_project()
         # Project setup handled by Session
         set_current_session(session)
@@ -225,7 +210,7 @@ class TestCategoryAdd:
         """Add category with multiple patterns."""
         from mcp_guide.tools.tool_category import CategoryAddArgs, category_add
 
-        session = Session("test", _config_dir_for_tests=str(tmp_path))
+        session = await Session.create_session("test", _config_dir_for_tests=str(tmp_path))
         await session.get_project()
         # Project setup handled by Session
         set_current_session(session)
@@ -242,7 +227,7 @@ class TestCategoryAdd:
         """Reject duplicate category name."""
         from mcp_guide.tools.tool_category import CategoryAddArgs, category_add
 
-        session = Session("test", _config_dir_for_tests=str(tmp_path))
+        session = await Session.create_session("test", _config_dir_for_tests=str(tmp_path))
         set_current_session(session)
 
         # First, add a category
@@ -274,7 +259,7 @@ class TestCategoryAdd:
         """Reject invalid category names."""
         from mcp_guide.tools.tool_category import CategoryAddArgs, category_add
 
-        session = Session("test", _config_dir_for_tests=str(tmp_path))
+        session = await Session.create_session("test", _config_dir_for_tests=str(tmp_path))
         await session.get_project()
         set_current_session(session)
 
@@ -304,7 +289,7 @@ class TestCategoryAdd:
         """Reject invalid directory, description, and pattern values."""
         from mcp_guide.tools.tool_category import CategoryAddArgs, category_add
 
-        session = Session("test", _config_dir_for_tests=str(tmp_path))
+        session = await Session.create_session("test", _config_dir_for_tests=str(tmp_path))
         await session.get_project()
         set_current_session(session)
 
@@ -323,7 +308,7 @@ class TestCategoryAdd:
         """Allow empty patterns list."""
         from mcp_guide.tools.tool_category import CategoryAddArgs, category_add
 
-        session = Session("test", _config_dir_for_tests=str(tmp_path))
+        session = await Session.create_session("test", _config_dir_for_tests=str(tmp_path))
         await session.get_project()
         # Project setup handled by Session
         set_current_session(session)
@@ -343,7 +328,7 @@ class TestCategoryAdd:
 
         from mcp_guide.tools.tool_category import CategoryAddArgs, category_add
 
-        session = Session("test", _config_dir_for_tests=str(tmp_path))
+        session = await Session.create_session("test", _config_dir_for_tests=str(tmp_path))
         await session.get_project()
         # Project setup handled by Session
         set_current_session(session)
@@ -359,20 +344,6 @@ class TestCategoryAdd:
         update_mock.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_category_add_no_session(self, monkeypatch: MonkeyPatch) -> None:
-        """No active session returns error."""
-        from mcp_guide.tools.tool_category import CategoryAddArgs, category_add
-
-        monkeypatch.delenv("PWD", raising=False)
-        monkeypatch.delenv("CWD", raising=False)
-
-        args = CategoryAddArgs(name="docs", dir="docs", patterns=["*.md"])
-        result_str = await category_add(args)
-        result_dict = json.loads(result_str)
-
-        assert result_dict["success"] is False
-        assert result_dict["error_type"] == "no_project"
-
     @pytest.mark.asyncio
     async def test_category_add_save_failure(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Handle save failure gracefully."""
@@ -380,7 +351,7 @@ class TestCategoryAdd:
 
         from mcp_guide.tools.tool_category import CategoryAddArgs, category_add
 
-        session = Session("test", _config_dir_for_tests=str(tmp_path))
+        session = await Session.create_session("test", _config_dir_for_tests=str(tmp_path))
         await session.get_project()
         # Project setup handled by Session
         set_current_session(session)
@@ -409,7 +380,7 @@ class TestCategoryRemove:
         """Remove existing category."""
         from mcp_guide.tools.tool_category import CategoryRemoveArgs, category_remove
 
-        session = Session("test", _config_dir_for_tests=str(tmp_path))
+        session = await Session.create_session("test", _config_dir_for_tests=str(tmp_path))
         await session.get_project()
         docs_category = Category(dir="docs", patterns=["*.md"])
         # Project setup handled by Session
@@ -435,7 +406,7 @@ class TestCategoryRemove:
         """Reject removing non-existent category."""
         from mcp_guide.tools.tool_category import CategoryRemoveArgs, category_remove
 
-        session = Session("test", _config_dir_for_tests=str(tmp_path))
+        session = await Session.create_session("test", _config_dir_for_tests=str(tmp_path))
         await session.get_project()
         # Project setup handled by Session
         set_current_session(session)
@@ -454,7 +425,7 @@ class TestCategoryRemove:
         """Remove category from single collection."""
         from mcp_guide.tools.tool_category import CategoryRemoveArgs, category_remove
 
-        session = Session("test", _config_dir_for_tests=str(tmp_path))
+        session = await Session.create_session("test", _config_dir_for_tests=str(tmp_path))
         project = await session.get_project()
         # Add category and collection properly
         project.categories["docs"] = Category(dir="docs", patterns=["*.md"])
@@ -475,7 +446,7 @@ class TestCategoryRemove:
         """Remove category from multiple collections."""
         from mcp_guide.tools.tool_category import CategoryRemoveArgs, category_remove
 
-        session = Session("test", _config_dir_for_tests=str(tmp_path))
+        session = await Session.create_session("test", _config_dir_for_tests=str(tmp_path))
         project = await session.get_project()
         # Add categories and collections properly
         project.categories["docs"] = Category(dir="docs", patterns=["*.md"])
@@ -500,7 +471,7 @@ class TestCategoryRemove:
         """Remove category not in any collection."""
         from mcp_guide.tools.tool_category import CategoryRemoveArgs, category_remove
 
-        session = Session("test", _config_dir_for_tests=str(tmp_path))
+        session = await Session.create_session("test", _config_dir_for_tests=str(tmp_path))
         project = await session.get_project()
         # Add categories and collection properly
         project.categories["docs"] = Category(dir="docs", patterns=["*.md"])
@@ -524,7 +495,7 @@ class TestCategoryRemove:
 
         from mcp_guide.tools.tool_category import CategoryRemoveArgs, category_remove
 
-        session = Session("test", _config_dir_for_tests=str(tmp_path))
+        session = await Session.create_session("test", _config_dir_for_tests=str(tmp_path))
         project = await session.get_project()
         # Add category properly
         project.categories["docs"] = Category(dir="docs", patterns=["*.md"])
@@ -554,7 +525,7 @@ class TestCategoryChange:
         """Change category name (rename)."""
         from mcp_guide.tools.tool_category import CategoryChangeArgs, category_change
 
-        session = Session("test", _config_dir_for_tests=str(tmp_path))
+        session = await Session.create_session("test", _config_dir_for_tests=str(tmp_path))
         project = await session.get_project()
         # Add category properly
         project.categories["docs"] = Category(dir="docs", patterns=["*.md"], description="Documentation")
@@ -576,7 +547,7 @@ class TestCategoryChange:
         """Change category directory."""
         from mcp_guide.tools.tool_category import CategoryChangeArgs, category_change
 
-        session = Session("test", _config_dir_for_tests=str(tmp_path))
+        session = await Session.create_session("test", _config_dir_for_tests=str(tmp_path))
         project = await session.get_project()
         # Add category properly
         project.categories["docs"] = Category(dir="docs", patterns=["*.md"])
@@ -596,7 +567,7 @@ class TestCategoryChange:
         """Change category description."""
         from mcp_guide.tools.tool_category import CategoryChangeArgs, category_change
 
-        session = Session("test", _config_dir_for_tests=str(tmp_path))
+        session = await Session.create_session("test", _config_dir_for_tests=str(tmp_path))
         project = await session.get_project()
         # Add category properly
         project.categories["docs"] = Category(dir="docs", patterns=["*.md"], description="Old")
@@ -616,7 +587,7 @@ class TestCategoryChange:
         """Clear category description with empty string."""
         from mcp_guide.tools.tool_category import CategoryChangeArgs, category_change
 
-        session = Session("test", _config_dir_for_tests=str(tmp_path))
+        session = await Session.create_session("test", _config_dir_for_tests=str(tmp_path))
         project = await session.get_project()
         # Add category properly
         project.categories["docs"] = Category(dir="docs", patterns=["*.md"], description="Documentation")
@@ -635,7 +606,7 @@ class TestCategoryChange:
         """Replace category patterns."""
         from mcp_guide.tools.tool_category import CategoryChangeArgs, category_change
 
-        session = Session("test", _config_dir_for_tests=str(tmp_path))
+        session = await Session.create_session("test", _config_dir_for_tests=str(tmp_path))
         project = await session.get_project()
         # Add category properly
         project.categories["docs"] = Category(dir="docs", patterns=["*.md"])

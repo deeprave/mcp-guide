@@ -29,7 +29,7 @@ def mcp_server(mcp_server_factory):
 @pytest_asyncio.fixture
 async def test_session(tmp_path):
     """Create test session with sample project."""
-    session = Session("test", _config_dir_for_tests=str(tmp_path))
+    session = await Session.create_session("test", _config_dir_for_tests=str(tmp_path))
 
     # Initialize project properly to set _project_key
     await session.get_project()
@@ -37,7 +37,7 @@ async def test_session(tmp_path):
     set_current_session(session)
     yield session
     # Properly cleanup async session
-    await remove_current_session("test")
+    await remove_current_session()
 
 
 @pytest.mark.anyio

@@ -13,7 +13,7 @@ from anyio import Path as AsyncPath
 from mcp_guide.core.file_reader import read_file_content
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.file_lock import lock_update
-from mcp_guide.mcp_context import cache_mcp_globals
+from mcp_guide.mcp_context import cache_mcp_globals, consume_bootstrap_mcp_data
 from mcp_guide.models import _NAME_REGEX, Project, SessionState
 from mcp_guide.utils.project_hash import (
     calculate_project_hash,
@@ -30,6 +30,7 @@ except ImportError:
 _enable_default_profile = True
 
 if TYPE_CHECKING:
+    from mcp_guide.agent_detection import AgentInfo
     from mcp_guide.feature_flags.protocol import FeatureFlags
     from mcp_guide.session_listener import SessionListener
 
@@ -480,8 +481,20 @@ class Session:
             self._ensure_config_dir()
             await lock_update(self.config_file, _save)
 
-    def __init__(self, project_name: str, *, _config_dir_for_tests: Optional[str] = None):
-        """Initialise a new session with the project name and optional test config directory."""
+    @classmethod
+    async def create_session(cls, project_name: str, *, _config_dir_for_tests: Optional[str] = None) -> "Session":
+        """Create a new session with the project loaded.
+
+        Args:
+            project_name: Name of the project to load
+            _config_dir_for_tests: Optional config directory for test isolation
+
+        Returns:
+            Session with project loaded
+
+        Raises:
+            InvalidProjectNameError: If project name is invalid
+        """
         # Import here to avoid circular dependency with validation module
         from mcp_guide.validation import InvalidProjectNameError
 
@@ -492,16 +505,54 @@ class Session:
                 f"Project name '{project_name}' must contain only alphanumeric characters, underscores, and hyphens"
             )
 
-        self.project_name = project_name
-        self._project_key: Optional[str] = None  # Track project key with hash
+        config_manager = cls._get_config_manager(_config_dir_for_tests)
+        _key, project = await config_manager.get_or_create_project_config(project_name)
+        return cls(project, _config_dir_for_tests=_config_dir_for_tests)
+
+    def __init__(self, project: Project, *, _config_dir_for_tests: Optional[str] = None):
+        """Initialise a session with a loaded project. Use create_session() to create."""
+        self.__project: Project = project
+        self._project_dirty = False
         self._state = SessionState()
         self._config_watcher: Optional[ConfigWatcher] = None
         self._watcher_task: Optional["asyncio.Task[None]"] = None
-        self.__project: Optional[Project] = None
+
+        # MCP context fields (populated by cache_mcp_globals)
+        self.roots: list[Any] = []
+        self.agent_info: Optional["AgentInfo"] = None
+        self.client_params: Optional[dict[str, Any]] = None
 
         # Initialize config manager with test directory if provided
         if _config_dir_for_tests is not None:
             self._get_config_manager(_config_dir_for_tests)
+
+    @property
+    def project_name(self) -> str:
+        """Get the current project name."""
+        return self.__project.name
+
+    async def switch_project(self, project_name: str) -> None:
+        """Switch this session to a different project.
+
+        Args:
+            project_name: Name of the project to switch to
+
+        Raises:
+            InvalidProjectNameError: If project name is invalid
+        """
+        from mcp_guide.validation import InvalidProjectNameError
+
+        if not project_name or not project_name.strip():
+            raise InvalidProjectNameError("Project name cannot be empty")
+        if not _NAME_REGEX.match(project_name):
+            raise InvalidProjectNameError(
+                f"Project name '{project_name}' must contain only alphanumeric characters, underscores, and hyphens"
+            )
+
+        config_manager = self._get_config_manager()
+        _key, project = await config_manager.get_or_create_project_config(project_name)
+        self.__project = project
+        self._notify_listeners()
 
     def _setup_config_watcher(self) -> None:
         """Setup config file watcher for automatic reload on external changes."""
@@ -532,17 +583,11 @@ class Session:
                     self._watcher_task = asyncio.create_task(self._config_watcher.start())
 
     def _on_config_file_changed(self, file_path: str) -> None:
-        """Handle config file changes by invalidating cache and notifying sessions."""
-        if self.__project is None:
-            return  # Already invalidated
-
-        logger.warning(f"Configuration file changed externally: {file_path} - reloading session {self.project_name}")
-
-        # Invalidate cached project and project key
-        self.__project = None
-        self._project_key = None
-
-        # Notify all listeners of the change
+        """Handle config file changes by marking project stale."""
+        logger.warning(
+            f"Configuration file changed externally: {file_path} - marking session {self.project_name} dirty"
+        )
+        self._project_dirty = True
         self._notify_listeners()
 
     @classmethod
@@ -597,14 +642,10 @@ class Session:
             self._config_watcher = None
 
     async def get_project(self) -> Project:
-        """Get project configuration and track project key."""
+        """Get the current project configuration, reloading if stale."""
         await self._ensure_watcher_started()
-        if self.__project is None:
-            config_manager = self._get_config_manager()
-
-            project_key, project_data = await config_manager.get_or_create_project_config(self.project_name)
-            self._project_key = project_key
-            self.__project = project_data
+        if self._project_dirty:
+            await self.invalidate_cache()
         return self.__project
 
     def has_current_session(self) -> bool:
@@ -620,11 +661,11 @@ class Session:
         project = await self.get_project()
         updated_project = updater(project)
 
-        if self._project_key is None:
-            raise ValueError("Project key not available - call get_project() first")
+        if project.key is None:
+            raise ValueError("Project key not available")
 
         config_manager = self._get_config_manager()
-        await config_manager.save_project_config(self._project_key, updated_project)
+        await config_manager.save_project_config(project.key, updated_project)
         self.__project = updated_project
 
         # Notify listeners of config change
@@ -645,21 +686,27 @@ class Session:
         return await config_manager.get_all_project_configs()
 
     async def save_project(self, project: Project) -> None:
-        """Save project configuration using tracked project key."""
-        if self._project_key is None:
-            raise ValueError("Project key not available - call get_project() first")
+        """Save project configuration using project's key."""
+        if project.key is None:
+            raise ValueError("Project key not available")
 
         config_manager = self._get_config_manager()
-        await config_manager.save_project_config(self._project_key, project)
-        self.__project = project  # Update cache
+        await config_manager.save_project_config(project.key, project)
+
+        # Update cache only if saving the session's own project
+        if self.__project is not None and project.key == self.__project.key:
+            self.__project = project
 
         # Notify listeners of config change
         self._notify_config_changed()
 
-    def invalidate_cache(self) -> None:
-        """Invalidate the cached project configuration."""
-        self.__project = None
-        self._project_key = None
+    async def invalidate_cache(self) -> None:
+        """Reload the project configuration from disk."""
+        name = self.__project.name
+        config_manager = self._get_config_manager()
+        _key, project = await config_manager.get_or_create_project_config(name)
+        self.__project = project
+        self._project_dirty = False
 
         # Setup config file watcher
         self._setup_config_watcher()
@@ -707,7 +754,7 @@ class Session:
 
 
 # ContextVar for async task-local session tracking
-active_sessions: ContextVar[dict[str, Session]] = ContextVar("active_sessions")
+_active_session: ContextVar[Optional[Session]] = ContextVar("_active_session", default=None)
 
 
 async def get_or_create_session(
@@ -720,29 +767,34 @@ async def get_or_create_session(
 
     Args:
         ctx: Optional MCP Context (for roots detection)
-        project_name: Optional explicit project name (for set_project calls)
+        project_name: Optional explicit project name (for initial creation)
         _config_dir_for_tests: Optional config directory for test isolation (keyword-only)
 
     Returns:
-        Session for the project
+        Session (existing or newly created)
 
     Raises:
         ValueError: If project name cannot be determined
     """
-    # Determine project name
+    # Return existing session if one exists
+    existing_session = _active_session.get()
+    if existing_session is not None:
+        return existing_session
+
+    # Determine project name for new session
     if project_name is None:
-        # Cache MCP globals if context provided
         if ctx:
             await cache_mcp_globals(ctx)
         project_name = await resolve_project_name()
 
-    # Check if session already exists for this project
-    existing_session = get_current_session(project_name)
-    if existing_session is not None:
-        return existing_session
+    # Create new session with project loaded
+    session = await Session.create_session(project_name, _config_dir_for_tests=_config_dir_for_tests)
 
-    # Create new session
-    session = Session(project_name, _config_dir_for_tests=_config_dir_for_tests)
+    # Transfer bootstrap MCP data to session
+    roots, agent_info, client_params = consume_bootstrap_mcp_data()
+    session.roots = roots
+    session.agent_info = agent_info
+    session.client_params = client_params
 
     # Register template context cache as listener (class-level, only once)
     from mcp_guide.render.cache import template_context_cache
@@ -759,24 +811,36 @@ async def get_or_create_session(
     return session
 
 
-def get_current_session(project_name: Optional[str] = None) -> Optional[Session]:
-    """Get current session for project from ContextVar.
+async def get_session(
+    ctx: Optional["Context"] = None,  # type: ignore[type-arg]
+    *,
+    project_name: Optional[str] = None,
+    _config_dir_for_tests: Optional[str] = None,
+) -> Session:
+    """Get the current session, creating one if none exists.
+
+    This is the primary entry point for session access. On first call it creates
+    a session with auto-resolved project name and caches MCP context from ctx.
+    On subsequent calls it returns the existing session.
 
     Args:
-        project_name: Name of the project. If None, returns first available session.
+        ctx: Optional MCP Context (for roots detection on first creation)
+        project_name: Optional explicit project name (for initial creation or set_project)
+        _config_dir_for_tests: Optional config directory for test isolation
 
     Returns:
-        Session if exists in current async context, None otherwise
-
-    Note:
-        Sessions are isolated per async task using ContextVar.
-        Each task has its own session storage.
+        The current Session (never None)
     """
-    sessions = active_sessions.get({})
-    if project_name is not None:
-        return sessions.get(project_name)
-    # Return first available session if no project name specified
-    return next(iter(sessions.values())) if sessions else None
+    return await get_or_create_session(ctx, project_name, _config_dir_for_tests=_config_dir_for_tests)
+
+
+def get_active_session() -> Optional[Session]:
+    """Return the current session if one exists, without creating one.
+
+    This is for internal use by code that runs during session creation
+    (e.g. mcp_context bootstrap) where await get_session() would recurse.
+    """
+    return _active_session.get()
 
 
 def set_current_session(session: Session) -> None:
@@ -784,25 +848,16 @@ def set_current_session(session: Session) -> None:
 
     Args:
         session: Session to store in the current async context
-
-    Note:
-        Creates a copy of the session dict to avoid mutating parent context.
-        Sessions are isolated per async task.
     """
-    # Copy to avoid mutating parent context's dict
-    sessions = dict(active_sessions.get({}))
-    sessions[session.project_name] = session
-    active_sessions.set(sessions)
+    _active_session.set(session)
 
 
-async def remove_current_session(project_name: str) -> None:
-    """Remove session from ContextVar and cleanup its resources."""
-    # Copy to avoid mutating parent context's dict
-    sessions = dict(active_sessions.get({}))
-    if session := sessions.pop(project_name, None):
+async def remove_current_session() -> None:
+    """Clear the current session from ContextVar and cleanup its resources."""
+    session = _active_session.get()
+    if session is not None:
         await session.cleanup()
-
-    active_sessions.set(sessions)
+    _active_session.set(None)
 
 
 async def set_project(project_name: str, ctx: Optional["Context"] = None) -> Result[Project]:  # type: ignore[type-arg]
@@ -823,7 +878,8 @@ async def set_project(project_name: str, ctx: Optional["Context"] = None) -> Res
     from mcp_guide.validation import InvalidProjectNameError
 
     try:
-        session = await get_or_create_session(ctx=ctx, project_name=project_name)
+        session = await get_session(ctx=ctx)
+        await session.switch_project(project_name)
         project = await session.get_project()
         return Result.ok(project)
     except (InvalidProjectNameError, ValueError) as e:

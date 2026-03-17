@@ -9,45 +9,25 @@ from pydantic import Field
 
 from mcp_guide.core.tool_arguments import ToolArguments
 from mcp_guide.core.validation import ArgValidationError, validate_description
-from mcp_guide.models import Collection, NoProjectError
+from mcp_guide.models import Collection
 from mcp_guide.result import Result
 from mcp_guide.result_constants import (
     ERROR_NO_PROJECT,
     ERROR_NOT_FOUND,
     ERROR_SAVE,
 )
-from mcp_guide.session import get_current_session, get_or_create_session
+from mcp_guide.session import get_session
 from mcp_guide.tools.tool_result import tool_result
 from mcp_guide.validation import validate_categories_exist
 
 if TYPE_CHECKING:
     from mcp.server.fastmcp import Context
 
-    from mcp_guide.session import Session
 
 try:
     from mcp.server.fastmcp import Context
 except ImportError:
     Context = None  # type: ignore
-
-
-async def _get_session(ctx: Optional[Any] = None) -> Optional["Session"]:
-    """Get session, preferring current session if available."""
-    try:
-        session = get_current_session()
-        if session is not None:
-            return session
-    except ValueError:
-        pass
-    return await get_or_create_session(ctx)
-
-
-async def _get_session_or_fail(ctx: Optional[Any] = None) -> "Session":
-    """Get session or raise NoProjectError if not available."""
-    session = await _get_session(ctx)
-    if session is None:
-        raise NoProjectError("No session available")
-    return session
 
 
 __all__ = [
@@ -78,7 +58,7 @@ async def internal_collection_list(args: CollectionListArgs, ctx: Optional[Conte
         - If verbose=False: list of collection names only
     """
     try:
-        session = await _get_session_or_fail(ctx)
+        session = await get_session(ctx)
     except ValueError as e:
         return Result.failure(str(e), error_type=ERROR_NO_PROJECT)
 
@@ -178,7 +158,7 @@ async def internal_collection_add(args: CollectionAddArgs, ctx: Optional[Context
     categories = list(dict.fromkeys(expanded_categories))
 
     try:
-        session = await _get_session_or_fail(ctx)
+        session = await get_session(ctx)
     except ValueError as e:
         return Result.failure(str(e), error_type=ERROR_NO_PROJECT)
 
@@ -256,7 +236,7 @@ async def internal_collection_remove(args: CollectionRemoveArgs, ctx: Optional[C
         Result containing success message
     """
     try:
-        session = await _get_session_or_fail(ctx)
+        session = await get_session(ctx)
     except ValueError as e:
         return Result.failure(str(e), error_type=ERROR_NO_PROJECT)
 
@@ -314,7 +294,7 @@ async def internal_collection_change(args: CollectionChangeArgs, ctx: Optional[C
         Result containing success message
     """
     try:
-        session = await _get_session_or_fail(ctx)
+        session = await get_session(ctx)
     except ValueError as e:
         return Result.failure(str(e), error_type=ERROR_NO_PROJECT)
 
@@ -446,7 +426,7 @@ async def internal_collection_update(args: CollectionUpdateArgs, ctx: Optional[C
         Result containing success message
     """
     try:
-        session = await _get_session_or_fail(ctx)
+        session = await get_session(ctx)
     except ValueError as e:
         return Result.failure(str(e), error_type=ERROR_NO_PROJECT)
 

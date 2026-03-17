@@ -18,11 +18,11 @@ async def test_session(tmp_path):
     import uuid
 
     project_name = f"test-{uuid.uuid4().hex[:8]}"
-    session = Session(project_name, _config_dir_for_tests=str(tmp_path))
+    session = await Session.create_session(project_name, _config_dir_for_tests=str(tmp_path))
     await session.get_project()
     set_current_session(session)
     yield session
-    await remove_current_session(project_name)
+    await remove_current_session()
 
 
 @pytest.mark.asyncio

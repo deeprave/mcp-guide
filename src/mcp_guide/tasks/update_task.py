@@ -67,10 +67,10 @@ class McpUpdateTask:
                 return EventResult(result=True)
 
             # Get current project
-            from mcp_guide.session import get_or_create_session
+            from mcp_guide.session import get_session
 
             try:
-                session = await get_or_create_session()
+                session = await get_session()
             except (ValueError, AttributeError):
                 logger.debug("No session available for update check")
                 return EventResult(result=True)

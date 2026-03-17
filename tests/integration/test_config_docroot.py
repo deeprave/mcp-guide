@@ -7,7 +7,7 @@ from mcp_guide.session import Session
 
 async def test_new_config_has_docroot(tmp_path):
     """Test new config file includes docroot field."""
-    session = Session("test-project", _config_dir_for_tests=str(tmp_path))
+    session = await Session.create_session("test-project", _config_dir_for_tests=str(tmp_path))
 
     # Create a project to trigger config file creation
     await session.get_project()
@@ -24,7 +24,7 @@ async def test_new_config_has_docroot(tmp_path):
 
 async def test_saving_project_preserves_docroot(tmp_path):
     """Test saving a project preserves existing docroot."""
-    session = Session("test-project", _config_dir_for_tests=str(tmp_path))
+    session = await Session.create_session("test-project", _config_dir_for_tests=str(tmp_path))
 
     # Create initial project
     project = await session.get_project()
@@ -47,7 +47,7 @@ async def test_saving_project_preserves_docroot(tmp_path):
 
 async def test_docroot_with_tilde_preserved(tmp_path):
     """Test docroot with tilde is preserved."""
-    session = Session("test-project", _config_dir_for_tests=str(tmp_path))
+    session = await Session.create_session("test-project", _config_dir_for_tests=str(tmp_path))
 
     # Create project
     await session.get_project()
@@ -60,7 +60,7 @@ async def test_docroot_with_tilde_preserved(tmp_path):
     config_file.write_text(yaml.dump(data))
 
     # Create another project
-    session2 = Session("another-project", _config_dir_for_tests=str(tmp_path))
+    session2 = await Session.create_session("another-project", _config_dir_for_tests=str(tmp_path))
     await session2.get_project()
 
     # Verify tilde path preserved
@@ -71,7 +71,7 @@ async def test_docroot_with_tilde_preserved(tmp_path):
 
 async def test_docroot_with_env_var_preserved(tmp_path):
     """Test docroot with environment variable is preserved."""
-    session = Session("test-project", _config_dir_for_tests=str(tmp_path))
+    session = await Session.create_session("test-project", _config_dir_for_tests=str(tmp_path))
 
     # Create project
     await session.get_project()

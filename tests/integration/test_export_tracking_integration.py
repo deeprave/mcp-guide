@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from mcp_guide.result import Result
-from mcp_guide.session import get_or_create_session
+from mcp_guide.session import get_session
 from mcp_guide.tools.tool_content import ExportContentArgs, export_content
 
 
@@ -15,7 +15,7 @@ class TestExportStalenessIntegration:
 
     async def test_first_export_creates_tracking_entry(self, session_temp_dir):
         """Test that first export creates a tracking entry."""
-        session = await get_or_create_session()
+        session = await get_session()
         project = await session.get_project()
 
         assert project.get_export_entry("docs", None) is None
@@ -25,7 +25,7 @@ class TestExportStalenessIntegration:
 
     async def test_repeated_export_without_changes_returns_message(self, session_temp_dir):
         """Test that repeated export without file changes returns already exported message."""
-        session = await get_or_create_session()
+        session = await get_session()
         project = await session.get_project()
 
         updated = project.upsert_export_entry("docs", None, "/export.md", "ffffffff")
@@ -38,7 +38,7 @@ class TestExportStalenessIntegration:
 
     async def test_export_after_file_modification_proceeds(self, session_temp_dir):
         """Test that export proceeds when files have been modified."""
-        session = await get_or_create_session()
+        session = await get_session()
         project = await session.get_project()
 
         updated = project.upsert_export_entry("docs", None, "/export.md", "00001000")
@@ -58,7 +58,7 @@ class TestExportStalenessIntegration:
 
     async def test_force_flag_bypasses_staleness_check(self, session_temp_dir):
         """Test that force=True bypasses staleness detection."""
-        session = await get_or_create_session()
+        session = await get_session()
         project = await session.get_project()
 
         updated = project.upsert_export_entry("docs", None, "/export.md", "ffffffff")
@@ -70,7 +70,7 @@ class TestExportStalenessIntegration:
 
     async def test_different_patterns_tracked_separately(self, session_temp_dir):
         """Test that different patterns for same expression are tracked separately."""
-        session = await get_or_create_session()
+        session = await get_session()
         project = await session.get_project()
 
         updated = project.upsert_export_entry("docs", None, "/export1.md", "00001000")
@@ -90,12 +90,12 @@ class TestExportStalenessIntegration:
 
     async def test_tracking_persists_across_session_reload(self, session_temp_dir):
         """Test that export tracking persists when project config is reloaded."""
-        session1 = await get_or_create_session()
+        session1 = await get_session()
         project1 = await session1.get_project()
         updated = project1.upsert_export_entry("docs", None, "/export.md", "a3f5c8d1")
         await session1.update_config(lambda _: updated)
 
-        session2 = await get_or_create_session()
+        session2 = await get_session()
         project2 = await session2.get_project()
         entry = project2.get_export_entry("docs", None)
 
@@ -121,7 +121,7 @@ class TestExportStalenessIntegration:
             result1 = await export_content(args, None)
             assert "has been exported" not in result1
 
-            session = await get_or_create_session()
+            session = await get_session()
             project = await session.get_project()
             entry = project.get_export_entry("docs", None)
             assert entry is not None

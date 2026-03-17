@@ -33,7 +33,7 @@ class TestProjectResolution:
             }
             config_file.write_text(yaml.dump(config))
 
-            session = Session("my-project", _config_dir_for_tests=tmp_dir)
+            session = await Session.create_session("my-project", _config_dir_for_tests=tmp_dir)
             project = await session.get_project()
 
             assert project.name == "my-project"
@@ -76,7 +76,7 @@ class TestProjectResolution:
                     # Return hash that matches second project
                     mock_calc_hash.return_value = "fedcba0987654321" * 4
 
-                    session = Session("my-project", _config_dir_for_tests=tmp_dir)
+                    session = await Session.create_session("my-project", _config_dir_for_tests=tmp_dir)
                     project = await session.get_project()
 
                     assert project.name == "my-project"
@@ -92,7 +92,7 @@ class TestProjectResolution:
             config = {"docroot": str(tmp_dir), "projects": {}}
             config_file.write_text(yaml.dump(config))
 
-            session = Session("new-project", _config_dir_for_tests=tmp_dir)
+            session = await Session.create_session("new-project", _config_dir_for_tests=tmp_dir)
             project = await session.get_project()
 
             assert project.name == "new-project"
@@ -121,8 +121,8 @@ class TestProjectResolution:
                     # Return different hash
                     mock_calc_hash.return_value = "different_hash_value" * 4
 
-                    session = Session("my-project", _config_dir_for_tests=tmp_dir)
-                    session = Session("my-project", _config_dir_for_tests=tmp_dir)
+                    session = await Session.create_session("my-project", _config_dir_for_tests=tmp_dir)
+                    session = await Session.create_session("my-project", _config_dir_for_tests=tmp_dir)
                     project = await session.get_project()
 
                     # Should create new project with different hash
@@ -159,7 +159,7 @@ class TestProjectResolution:
             with patch("mcp_guide.mcp_context.resolve_project_path") as mock_resolve_path:
                 mock_resolve_path.side_effect = ValueError("Cannot determine path")
 
-                session = Session("my-project", _config_dir_for_tests=tmp_dir)
+                session = await Session.create_session("my-project", _config_dir_for_tests=tmp_dir)
                 project = await session.get_project()
 
                 # Should still work - will use fallback path for hash calculation
@@ -170,7 +170,7 @@ class TestProjectResolution:
         """Configuration errors fall back gracefully."""
         with tempfile.TemporaryDirectory() as tmp_dir:
             # Don't create config file to trigger error handling
-            session = Session("my-project", _config_dir_for_tests=tmp_dir)
+            session = await Session.create_session("my-project", _config_dir_for_tests=tmp_dir)
             project = await session.get_project()
 
             # Should create new project even with missing config

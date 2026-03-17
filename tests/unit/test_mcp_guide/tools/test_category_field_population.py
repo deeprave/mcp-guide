@@ -70,7 +70,7 @@ async def test_category_field_set_on_fileinfo(tmp_path: Path, monkeypatch: Monke
     import mcp_guide.tools.tool_category
 
     monkeypatch.setattr(mcp_guide.tools.tool_category, "read_and_render_file_contents", capture_read_contents)
-    monkeypatch.setattr("mcp_guide.tools.tool_category.get_or_create_session", mock_get_session)
+    monkeypatch.setattr("mcp_guide.tools.tool_category.get_session", mock_get_session)
 
     # Call tool
     args = CategoryContentArgs(expression="guide")

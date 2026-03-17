@@ -54,7 +54,7 @@ def setup_config_isolation(tmp_path_factory):
 @pytest.fixture(scope="module")
 async def test_session_with_data(setup_config_isolation):
     """Module-level fixture providing a session with sample data."""
-    session = Session("test-project", _config_dir_for_tests=str(_test_config_dir))
+    session = await Session.create_session("test-project", _config_dir_for_tests=str(_test_config_dir))
     await session.get_project()
     set_current_session(session)
 
@@ -63,7 +63,7 @@ async def test_session_with_data(setup_config_isolation):
     await internal_category_add(args)
 
     yield session
-    await remove_current_session("test-project")
+    await remove_current_session()
     # Ensure all file handles are closed before cleanup
     import asyncio
     import gc
@@ -393,9 +393,9 @@ async def test_clone_replace_safeguard(mcp_server, monkeypatch):
         # Create project_alpha_safeguard with direct manipulation for reliability
         await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_alpha_safeguard"))
         from mcp_guide.models import Category
-        from mcp_guide.session import get_or_create_session
+        from mcp_guide.session import get_session
 
-        session = await get_or_create_session()
+        session = await get_session()
         project = await session.get_project()
         project.categories["docs"] = Category(dir="docs", patterns=["*.md"])
         await session.save_project(project)
@@ -403,7 +403,7 @@ async def test_clone_replace_safeguard(mcp_server, monkeypatch):
         # Create project_beta_safeguard with content - use direct manipulation for reliability
         monkeypatch.setenv("PWD", "/fake/path/project_beta")
         await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_beta_safeguard"))
-        session = await get_or_create_session()
+        session = await get_session()
         project = await session.get_project()
         project.categories["tests"] = Category(dir="tests", patterns=["test_*.py"])
         await session.save_project(project)
@@ -437,9 +437,9 @@ async def test_clone_replace_force(mcp_server):
 
         # Add category to project_alpha_force - use direct project manipulation for reliability
         from mcp_guide.models import Category
-        from mcp_guide.session import get_or_create_session
+        from mcp_guide.session import get_session
 
-        session = await get_or_create_session()
+        session = await get_session()
         project = await session.get_project()
         project.categories["docs"] = Category(dir="docs", patterns=["*.md"])
         await session.save_project(project)
@@ -450,7 +450,7 @@ async def test_clone_replace_force(mcp_server):
         await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_beta_force"))
 
         # Add category to project_beta - use direct project manipulation for reliability
-        session = await get_or_create_session()
+        session = await get_session()
         project = await session.get_project()
         project.categories["tests"] = Category(dir="tests", patterns=["test_*.py"])
         await session.save_project(project)
@@ -460,14 +460,14 @@ async def test_clone_replace_force(mcp_server):
         # Ensure both projects exist and have the expected content before cloning
         # Re-setup project_alpha_force to ensure it has docs category
         await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_alpha_force"))
-        session = await get_or_create_session()
+        session = await get_session()
         project = await session.get_project()
         project.categories["docs"] = Category(dir="docs", patterns=["*.md"])
         await session.save_project(project)
 
         # Re-setup project_beta_force to ensure it has tests category
         await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_beta_force"))
-        session = await get_or_create_session()
+        session = await get_session()
         project = await session.get_project()
         project.categories["tests"] = Category(dir="tests", patterns=["test_*.py"])
         await session.save_project(project)

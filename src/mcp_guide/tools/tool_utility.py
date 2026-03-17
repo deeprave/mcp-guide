@@ -70,21 +70,12 @@ async def internal_client_info(args: GetClientInfoArgs, ctx: Optional[Context] =
             # Invalidate template cache so next render picks up agent info
             invalidate_template_context_cache()
 
-            # Update cached_mcp_context with agent info
-            from time import time
+            # Update session with agent info
+            from mcp_guide.session import get_session
 
-            from mcp_guide.mcp_context import CachedMcpContext, get_cached_mcp_context, set_cached_mcp_context
-
-            existing = get_cached_mcp_context()
-            set_cached_mcp_context(
-                CachedMcpContext(
-                    roots=existing.roots if existing else [],
-                    project_name=existing.project_name if existing else "",
-                    agent_info=agent_info,
-                    client_params=ctx.session.client_params,
-                    timestamp=time(),
-                )
-            )
+            session = await get_session()
+            session.agent_info = agent_info
+            session.client_params = ctx.session.client_params
 
         # Build structured data
         mcp_name = mcp.name if mcp.name else "guide"
