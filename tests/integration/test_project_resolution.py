@@ -122,7 +122,6 @@ class TestProjectResolution:
                     mock_calc_hash.return_value = "different_hash_value" * 4
 
                     session = await Session.create_session("my-project", _config_dir_for_tests=tmp_dir)
-                    session = await Session.create_session("my-project", _config_dir_for_tests=tmp_dir)
                     project = await session.get_project()
 
                     # Should create new project with different hash

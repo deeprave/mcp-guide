@@ -187,7 +187,7 @@ class TestProjectNameDetection:
         import mcp_guide.mcp_context
 
         # Clear bootstrap cache
-        mcp_guide.mcp_context._bootstrap_roots = []
+        mcp_guide.mcp_context._bootstrap_roots.set([])
 
         mock_ctx = MagicMock()
         mock_root = MagicMock()
@@ -197,5 +197,6 @@ class TestProjectNameDetection:
         await mcp_guide.mcp_context.cache_mcp_globals(mock_ctx)
 
         # Check bootstrap cache was populated with roots
-        assert len(mcp_guide.mcp_context._bootstrap_roots) == 1
-        assert str(mcp_guide.mcp_context._bootstrap_roots[0].uri) == "file:///home/user/cached-project"
+        cached_roots = mcp_guide.mcp_context._bootstrap_roots.get()
+        assert len(cached_roots) == 1
+        assert str(cached_roots[0].uri) == "file:///home/user/cached-project"
