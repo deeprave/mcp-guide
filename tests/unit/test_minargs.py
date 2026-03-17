@@ -5,13 +5,13 @@ import os
 import pytest
 
 from mcp_guide.prompts.guide_prompt import _execute_command
-from mcp_guide.session import get_or_create_session
+from mcp_guide.session import get_session
 
 
 @pytest.fixture
 async def cmd_docroot(session_temp_dir):
     """Provide a session-backed docroot with a _commands dir."""
-    session = await get_or_create_session()
+    session = await get_session()
     docroot = await session.get_docroot()
     os.makedirs(f"{docroot}/_commands", exist_ok=True)
     return docroot

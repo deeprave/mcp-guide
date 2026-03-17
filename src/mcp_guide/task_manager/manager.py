@@ -243,9 +243,9 @@ class TaskManager:
         logger.info("Initializing task manager at server startup")
 
         # Establish session using PWD/CWD
-        from mcp_guide.session import get_or_create_session
+        from mcp_guide.session import get_session
 
-        self._session = await get_or_create_session()
+        self._session = await get_session()
         logger.debug(f"Established session for project: {self._session.project_name}")
 
         # Load resolved flags

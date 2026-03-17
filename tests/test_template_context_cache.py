@@ -16,12 +16,12 @@ class TestTemplateContextCache:
 
         cache = TemplateContextCache()
 
-        # Mock get_current_session to return session with project
+        # Mock get_session to return session with project
         mock_session = Mock()
         mock_project = Project(name="test-project", categories={}, collections={})
         mock_session.get_project = AsyncMock(return_value=mock_project)
 
-        with patch("mcp_guide.session.get_current_session", return_value=mock_session):
+        with patch("mcp_guide.session.get_session", return_value=mock_session):
             # Get project context
             context = await cache._build_project_context()
 
@@ -33,8 +33,8 @@ class TestTemplateContextCache:
         """Test that _build_project_context handles missing project gracefully."""
         cache = TemplateContextCache()
 
-        # Mock get_or_create_session to return None
-        with patch("mcp_guide.session.get_or_create_session", return_value=None):
+        # Mock get_session to return None
+        with patch("mcp_guide.session.get_session", return_value=None):
             # Should not raise exception
             context = await cache._build_project_context()
 
@@ -48,11 +48,11 @@ class TestTemplateContextCache:
 
         cache = TemplateContextCache()
 
-        # Mock get_current_session to return session that raises exception on get_project
+        # Mock get_session to return session that raises exception on get_project
         mock_session = Mock()
         mock_session.get_project = AsyncMock(side_effect=ValueError("No project"))
 
-        with patch("mcp_guide.session.get_current_session", return_value=mock_session):
+        with patch("mcp_guide.session.get_session", return_value=mock_session):
             # Should not raise exception
             context = await cache._build_project_context()
 
@@ -68,7 +68,7 @@ class TestTemplateContextCache:
 
         cache = TemplateContextCache()
 
-        # Mock get_current_session to return session with project that has flags
+        # Mock get_session to return session with project that has flags
         mock_session = Mock()
         mock_project = Project(
             name="test-project",
@@ -78,7 +78,7 @@ class TestTemplateContextCache:
         )
         mock_session.get_project = AsyncMock(return_value=mock_project)
 
-        with patch("mcp_guide.session.get_current_session", return_value=mock_session):
+        with patch("mcp_guide.session.get_session", return_value=mock_session):
             # Get project context
             context = await cache._build_project_context()
 
@@ -106,13 +106,13 @@ class TestTemplateContextCache:
 
         cache = TemplateContextCache()
 
-        # Mock get_current_session to return session with project without flags
+        # Mock get_session to return session with project without flags
         mock_session = Mock()
         mock_project = Project(name="test-project", categories={}, collections={})
         # No project_flags attribute set
         mock_session.get_project = AsyncMock(return_value=mock_project)
 
-        with patch("mcp_guide.session.get_current_session", return_value=mock_session):
+        with patch("mcp_guide.session.get_session", return_value=mock_session):
             # Get project context
             context = await cache._build_project_context()
 
@@ -129,9 +129,9 @@ class TestTemplateContextCache:
 
         cache = TemplateContextCache()
 
-        # Mock get_current_session to raise an expected exception
+        # Mock get_session to raise an expected exception
         with patch(
-            "mcp_guide.session.get_current_session",
+            "mcp_guide.session.get_session",
             side_effect=AttributeError("missing attribute"),
         ):
             # Should not raise exception
@@ -149,9 +149,9 @@ class TestTemplateContextCache:
 
         cache = TemplateContextCache()
 
-        # Mock get_current_session to raise a generic unexpected exception
+        # Mock get_session to raise a generic unexpected exception
         with patch(
-            "mcp_guide.session.get_current_session",
+            "mcp_guide.session.get_session",
             side_effect=Exception("unexpected error"),
         ):
             # Should propagate the exception naturally
@@ -168,12 +168,12 @@ class TestTemplateContextCache:
 
         cache = TemplateContextCache()
 
-        # Mock get_current_session to return session with project
+        # Mock get_session to return session with project
         mock_session = Mock()
         mock_project = Project(name="test-project", categories={}, collections={})
         mock_session.get_project = AsyncMock(return_value=mock_project)
 
-        with patch("mcp_guide.session.get_current_session", return_value=mock_session):
+        with patch("mcp_guide.session.get_session", return_value=mock_session):
             # Get layered contexts
             context = await cache.get_template_contexts()
 
@@ -194,12 +194,12 @@ class TestTemplateContextCache:
 
         invalidate_template_context_cache()
 
-        # Mock get_current_session to return session with project
+        # Mock get_session to return session with project
         mock_session = Mock()
         mock_project = Project(name="project-value", categories={}, collections={})
         mock_session.get_project = AsyncMock(return_value=mock_project)
 
-        with patch("mcp_guide.session.get_current_session", return_value=mock_session):
+        with patch("mcp_guide.session.get_session", return_value=mock_session):
             # Get layered contexts
             context = await cache.get_template_contexts()
 
@@ -234,7 +234,7 @@ class TestTemplateContextCache:
         mock_project = Project(name="test-project", categories={"docs": test_category}, collections={})
         mock_session.get_project = AsyncMock(return_value=mock_project)
 
-        with patch("mcp_guide.session.get_current_session", return_value=mock_session):
+        with patch("mcp_guide.session.get_session", return_value=mock_session):
             # Get category context
             context = await cache._build_category_context("docs")
 
@@ -257,7 +257,7 @@ class TestTemplateContextCache:
         mock_project = Project(name="test-project", categories={}, collections={})
         mock_session.get_project = AsyncMock(return_value=mock_project)
 
-        with patch("mcp_guide.session.get_current_session", return_value=mock_session):
+        with patch("mcp_guide.session.get_session", return_value=mock_session):
             # Should not raise exception
             context = await cache._build_category_context("nonexistent")
 
@@ -278,12 +278,13 @@ class TestTemplateContextCache:
 
         invalidate_template_context_cache()
 
-        # Mock get_current_session to return session with project
+        # Mock get_session to return session with project
         mock_session = Mock()
+        mock_session.agent_info = None  # No agent info
         mock_project = Project(name="integration-test", categories={}, collections={})
         mock_session.get_project = AsyncMock(return_value=mock_project)
 
-        with patch("mcp_guide.session.get_current_session", return_value=mock_session):
+        with patch("mcp_guide.session.get_session", return_value=mock_session):
             # Get complete layered contexts
             context = await cache.get_template_contexts()
 
@@ -436,7 +437,7 @@ class TestTemplateContextCache:
         )
 
         with (
-            patch("mcp_guide.session.get_or_create_session", return_value=mock_session),
+            patch("mcp_guide.session.get_session", return_value=mock_session),
             patch("mcp_guide.models.resolve_all_flags", return_value={"workflow": True}),
             patch("mcp_guide.task_manager.get_task_manager") as mock_tm,
             patch("mcp_guide.mcp_context.resolve_project_path", return_value="/test/path"),
@@ -481,7 +482,7 @@ class TestTemplateContextCache:
         )
 
         with (
-            patch("mcp_guide.session.get_or_create_session", return_value=mock_session),
+            patch("mcp_guide.session.get_session", return_value=mock_session),
             patch("mcp_guide.models.resolve_all_flags", return_value={"workflow": True}),
             patch("mcp_guide.task_manager.get_task_manager") as mock_tm,
             patch("mcp_guide.mcp_context.resolve_project_path", return_value="/test/path"),
@@ -529,7 +530,7 @@ class TestTemplateContextCache:
         custom_consent = {"planning": ["entry", "exit"], "check": ["entry"]}
 
         with (
-            patch("mcp_guide.session.get_or_create_session", return_value=mock_session),
+            patch("mcp_guide.session.get_session", return_value=mock_session),
             patch(
                 "mcp_guide.models.resolve_all_flags",
                 return_value={"workflow": True, "workflow-consent": custom_consent},
@@ -575,7 +576,7 @@ class TestTemplateContextCache:
         )
 
         with (
-            patch("mcp_guide.session.get_or_create_session", return_value=mock_session),
+            patch("mcp_guide.session.get_session", return_value=mock_session),
             patch("mcp_guide.models.resolve_all_flags", return_value={"workflow": True}),
             patch("mcp_guide.task_manager.get_task_manager") as mock_tm,
             patch("mcp_guide.mcp_context.resolve_project_path", return_value="/test/path"),
@@ -617,7 +618,7 @@ class TestTemplateContextCache:
         )
 
         with (
-            patch("mcp_guide.session.get_or_create_session", return_value=mock_session),
+            patch("mcp_guide.session.get_session", return_value=mock_session),
             patch("mcp_guide.models.resolve_all_flags", return_value={"workflow": True}),
             patch("mcp_guide.task_manager.get_task_manager") as mock_tm,
             patch("mcp_guide.mcp_context.resolve_project_path", return_value="/test/path"),
@@ -656,7 +657,7 @@ class TestTemplateContextCache:
         )
 
         with (
-            patch("mcp_guide.session.get_or_create_session", return_value=mock_session),
+            patch("mcp_guide.session.get_session", return_value=mock_session),
             patch("mcp_guide.models.resolve_all_flags", return_value={"workflow": True}),
             patch("mcp_guide.task_manager.get_task_manager") as mock_tm,
             patch("mcp_guide.mcp_context.resolve_project_path", return_value="/test/path"),

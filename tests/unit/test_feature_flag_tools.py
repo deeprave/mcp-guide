@@ -39,7 +39,7 @@ class TestListFlagsTool:
         """Test listing current project flags with active=True (merged)."""
         args = ListFlagsArgs(active=True)
 
-        with patch("mcp_guide.session.get_or_create_session") as mock_session_func:
+        with patch("mcp_guide.session.get_session") as mock_session_func:
             mock_session = Mock()
             mock_session_func.return_value = mock_session
             mock_session.project_name = "test-project"
@@ -72,7 +72,7 @@ class TestListFlagsTool:
         """Test listing current project flags with active=False (project only)."""
         args = ListFlagsArgs(active=False)
 
-        with patch("mcp_guide.session.get_or_create_session") as mock_session_func:
+        with patch("mcp_guide.session.get_session") as mock_session_func:
             mock_session = Mock()
             mock_session_func.return_value = mock_session
             mock_session.project_name = "test-project"
@@ -93,7 +93,7 @@ class TestListFlagsTool:
         """Test listing specific flag by name."""
         args = ListFlagsArgs(feature_name="specific_flag")
 
-        with patch("mcp_guide.session.get_or_create_session") as mock_session_func:
+        with patch("mcp_guide.session.get_session") as mock_session_func:
             mock_session = Mock()
             mock_session_func.return_value = mock_session
 
@@ -117,7 +117,7 @@ class TestListFlagsTool:
         """Test error when no current project and project=None."""
         args = ListFlagsArgs()
 
-        with patch("mcp_guide.session.get_or_create_session") as mock_session_func:
+        with patch("mcp_guide.session.get_session") as mock_session_func:
             mock_session_func.side_effect = ValueError("No current project available")
 
             result_json = await list_project_flags(args)
@@ -145,7 +145,7 @@ class TestTestSetProjectFlagTool:
         """Test setting flag with different values."""
         args = SetFlagArgs(feature_name="test_flag", value=value)
 
-        with patch("mcp_guide.session.get_or_create_session") as mock_session_func:
+        with patch("mcp_guide.session.get_session") as mock_session_func:
             mock_session = Mock()
             mock_session_func.return_value = mock_session
 
@@ -174,7 +174,7 @@ class TestTestSetProjectFlagTool:
         # Construct without providing value parameter to test default
         args = SetFlagArgs(feature_name="test_flag")
 
-        with patch("mcp_guide.session.get_or_create_session") as mock_session_func:
+        with patch("mcp_guide.session.get_session") as mock_session_func:
             mock_session = Mock()
             mock_session_func.return_value = mock_session
 
@@ -210,7 +210,7 @@ class TestTestGetProjectFlagTool:
         """Test getting flag with project → global resolution."""
         args = GetFlagArgs(feature_name="test_flag")
 
-        with patch("mcp_guide.session.get_or_create_session") as mock_session_func:
+        with patch("mcp_guide.session.get_session") as mock_session_func:
             mock_session = Mock()
             mock_session_func.return_value = mock_session
             mock_session.project_name = "test-project"
@@ -236,7 +236,7 @@ class TestTestGetProjectFlagTool:
         """Test getting flag that doesn't exist."""
         args = GetFlagArgs(feature_name="nonexistent")
 
-        with patch("mcp_guide.session.get_or_create_session") as mock_session_func:
+        with patch("mcp_guide.session.get_session") as mock_session_func:
             mock_session = Mock()
             mock_session_func.return_value = mock_session
 

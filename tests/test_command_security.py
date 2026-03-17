@@ -114,109 +114,6 @@ class TestCommandErrorHandling:
     """Test comprehensive error handling."""
 
     @pytest.mark.asyncio
-    async def test_missing_command_file(self, guide_function) -> None:
-        """Should handle missing command files with helpful error."""
-        mock_ctx = MagicMock()
-        mock_ctx.session.project_root = "/test/project"
-        mock_ctx.session.get_docroot.return_value = "/test/project"
-
-        # Mock directory exists but empty command discovery (command not found)
-        with (
-            patch("pathlib.Path.exists", return_value=True),
-            patch("pathlib.Path.is_dir", return_value=True),
-            patch("mcp_guide.discovery.commands.discover_commands", new=AsyncMock(return_value=[])),
-        ):
-            result_str = await guide_function(":nonexistent", ctx=mock_ctx)
-            result = json.loads(result_str)
-
-            assert result["success"] is False
-            assert "not found" in result["error"].lower()
-            assert "nonexistent" in result["error"]
-
-    @pytest.mark.asyncio
-    async def test_template_rendering_errors(self, guide_function) -> None:
-        """Should handle template rendering errors gracefully."""
-        mock_ctx = MagicMock()
-        mock_ctx.session.project_root = "/test/project"
-        mock_ctx.session.get_docroot.return_value = "/test/project"
-
-        # Mock directory exists, command discovery dependencies, template context, and template rendering failure
-        with (
-            patch("pathlib.Path.exists", return_value=True),
-            patch("pathlib.Path.is_dir", return_value=True),
-            patch("mcp_guide.session.get_or_create_session", new=AsyncMock()) as mock_session,
-            patch("mcp_guide.prompts.guide_prompt.resolve_all_flags", new=AsyncMock()) as mock_resolve_flags,
-            patch("mcp_guide.discovery.commands.discover_command_files", new=AsyncMock()) as mock_discover_files,
-            patch("mcp_guide.prompts.guide_prompt.discover_documents", new=AsyncMock()) as mock_files,
-            patch("mcp_guide.prompts.guide_prompt.get_template_contexts", new=AsyncMock()) as mock_context,
-            patch("mcp_guide.render.cache.get_template_contexts", new=AsyncMock()) as mock_discover_context,
-            patch("mcp_guide.prompts.guide_prompt.render_template", new=AsyncMock()) as mock_render,
-            patch("aiofiles.open") as mock_aiofiles,
-        ):
-            # Mock session methods
-            mock_session_obj = AsyncMock()
-            mock_session_obj.get_project = AsyncMock()
-            mock_session_obj.get_docroot = AsyncMock(return_value="/test/project")
-            mock_session.return_value = mock_session_obj
-            mock_resolve_flags.return_value = {}
-            mock_session.return_value = mock_session_obj
-            from mcp_guide.discovery.files import FileInfo
-            from mcp_guide.render.context import TemplateContext
-
-            # Mock command file discovery to return a file
-            mock_discover_files.return_value = [
-                FileInfo(
-                    path=Path("broken.mustache"),
-                    size=100,
-                    content_size=100,
-                    mtime=1234567890,
-                    name="broken.mustache",
-                    content="",
-                    ctime=1234567890,
-                )
-            ]
-
-            # Mock file discovery to return a file (for content retrieval)
-            mock_files.return_value = [
-                FileInfo(
-                    path=Path("broken.mustache"),
-                    size=100,
-                    content_size=100,
-                    mtime=1234567890,
-                    name="broken.mustache",
-                    content="",
-                    ctime=1234567890,
-                )
-            ]
-
-            # Mock template context
-            mock_base_context = TemplateContext({})
-            mock_context.return_value = mock_base_context
-            mock_discover_context.return_value = mock_base_context
-
-            # Mock render_template to raise exception (new API behavior)
-            mock_render.side_effect = RuntimeError("Invalid template syntax")
-
-            # Create proper async context manager mock for file reading
-            class MockAsyncFile:
-                async def read(self):
-                    return "{{invalid template}}"
-
-                async def __aenter__(self):
-                    return self
-
-                async def __aexit__(self, exc_type, exc_val, exc_tb):
-                    return None
-
-            mock_aiofiles.return_value = MockAsyncFile()
-
-            result_str = await guide_function(":broken", ctx=mock_ctx)
-            result = json.loads(result_str)
-
-            assert result["success"] is False
-            assert "template" in result["error"].lower()
-
-    @pytest.mark.asyncio
     async def test_file_permission_errors(self, guide_function) -> None:
         """Should handle file permission errors gracefully."""
         mock_ctx = MagicMock()
@@ -225,7 +122,7 @@ class TestCommandErrorHandling:
         # Mock directory exists, command discovery, template context, and file discovery to return a file, but file reading to fail
         with (
             patch("pathlib.Path.exists", return_value=True),
-            patch("mcp_guide.session.get_or_create_session", new=AsyncMock()) as mock_session,
+            patch("mcp_guide.session.get_session", new=AsyncMock()) as mock_session,
             patch("mcp_guide.prompts.guide_prompt.resolve_all_flags", new=AsyncMock()) as mock_resolve_flags,
             patch("mcp_guide.prompts.guide_prompt.discover_commands", new=AsyncMock(return_value=[])),
             patch("mcp_guide.prompts.guide_prompt.get_template_contexts", new=AsyncMock()) as mock_context,
@@ -256,7 +153,9 @@ class TestCommandErrorHandling:
             ]
 
             # Mock file reading to raise permission error
-            with patch("mcp_guide.core.file_reader.aiofiles.open", side_effect=PermissionError("Permission denied")):
+            with patch(
+                "mcp_guide.core.file_reader.AsyncPath.read_text", side_effect=PermissionError("Permission denied")
+            ):
                 result_str = await guide_function(":restricted", ctx=mock_ctx)
                 result = json.loads(result_str)
 

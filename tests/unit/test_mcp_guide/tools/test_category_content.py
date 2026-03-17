@@ -143,11 +143,11 @@ async def test_tool_returns_result_ok_on_success(tmp_path, monkeypatch):
         name="test", categories={"docs": Category(dir=".", name="docs", patterns=["README"])}, collections={}
     )
 
-    # Mock get_or_create_session
+    # Mock get_session
     async def mock_get_session(ctx=None):
         return create_mock_session(project, tmp_path)
 
-    monkeypatch.setattr("mcp_guide.tools.tool_category.get_or_create_session", mock_get_session)
+    monkeypatch.setattr("mcp_guide.tools.tool_category.get_session", mock_get_session)
 
     # Call tool
     args = CategoryContentArgs(expression="docs")
@@ -178,7 +178,7 @@ async def test_category_not_found_returns_failure(tmp_path, monkeypatch):
     async def mock_get_session(ctx=None):
         return create_mock_session(project, tmp_path)
 
-    monkeypatch.setattr("mcp_guide.tools.tool_category.get_or_create_session", mock_get_session)
+    monkeypatch.setattr("mcp_guide.tools.tool_category.get_session", mock_get_session)
 
     # Call tool with non-existent category
     args = CategoryContentArgs(expression="nonexistent")
@@ -211,7 +211,7 @@ async def test_no_matches_returns_failure(tmp_path, monkeypatch):
     async def mock_get_session(ctx=None):
         return create_mock_session(project, tmp_path)
 
-    monkeypatch.setattr("mcp_guide.tools.tool_category.get_or_create_session", mock_get_session)
+    monkeypatch.setattr("mcp_guide.tools.tool_category.get_session", mock_get_session)
 
     # Test 1: Default patterns - should return success
     args = CategoryContentArgs(expression="docs")
@@ -294,7 +294,7 @@ async def test_file_read_error_scenarios(tmp_path, monkeypatch, scenario, patter
                 raise error
         return MockAsyncFile()
 
-    monkeypatch.setattr("mcp_guide.tools.tool_category.get_or_create_session", mock_get_session)
+    monkeypatch.setattr("mcp_guide.tools.tool_category.get_session", mock_get_session)
     monkeypatch.setattr("mcp_guide.core.file_reader.read_file_content", mock_read_error)
     monkeypatch.setattr("mcp_guide.render.frontmatter.aiofiles.open", mock_aiofiles_open)
 
@@ -333,7 +333,7 @@ async def test_error_responses_include_all_fields(tmp_path, monkeypatch):
     async def mock_get_session(ctx=None):
         return create_mock_session(project, tmp_path)
 
-    monkeypatch.setattr("mcp_guide.tools.tool_category.get_or_create_session", mock_get_session)
+    monkeypatch.setattr("mcp_guide.tools.tool_category.get_session", mock_get_session)
 
     # Call tool
     args = CategoryContentArgs(expression="test")

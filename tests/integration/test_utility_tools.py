@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 from mcp.shared.memory import create_connected_server_and_client_session
 
-from mcp_guide.session import get_or_create_session, remove_current_session
+from mcp_guide.session import get_session, remove_current_session
 from mcp_guide.tools.tool_utility import GetClientInfoArgs
 from tests.conftest import call_mcp_tool
 
@@ -26,9 +26,9 @@ def mcp_server(mcp_server_factory):
 @pytest.fixture
 async def test_session(tmp_path: Path):
     """Create test session with isolated config."""
-    session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
+    session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
     yield session
-    await remove_current_session("test")
+    await remove_current_session()
 
 
 @pytest.mark.anyio

@@ -455,8 +455,8 @@ class TestUpdateCommand:
         # Arrange
         import asyncio
 
-        import aiofiles
         import yaml
+        from anyio import Path as AsyncPath
 
         from mcp_guide.scripts.mcp_guide_install import cli
 
@@ -476,8 +476,7 @@ class TestUpdateCommand:
         config_file = configdir / "config.yaml"
 
         async def read_config() -> dict[str, str]:
-            async with aiofiles.open(config_file, encoding="utf-8") as f:
-                content = await f.read()
+            content = await AsyncPath(config_file).read_text(encoding="utf-8")
             return yaml.safe_load(content)
 
         config = asyncio.run(read_config())

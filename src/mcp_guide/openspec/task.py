@@ -81,9 +81,9 @@ class OpenSpecTask:
             return
 
         # Check if already validated
-        from mcp_guide.session import get_or_create_session
+        from mcp_guide.session import get_session
 
-        session = await get_or_create_session()
+        session = await get_session()
         project = await session.get_project()
 
         # Load persisted version if available
@@ -305,9 +305,9 @@ class OpenSpecTask:
 
                 # Mark validation as complete if project.md exists
                 if self._project_enabled:
-                    from mcp_guide.session import get_or_create_session
+                    from mcp_guide.session import get_session
 
-                    session = await get_or_create_session()
+                    session = await get_session()
                     project = await session.get_project()
 
                     if not project.openspec_validated:
@@ -447,7 +447,7 @@ class OpenSpecTask:
         Args:
             content: Output from openspec --version command
         """
-        from mcp_guide.session import get_or_create_session
+        from mcp_guide.session import get_session
 
         try:
             # Extract semantic version (e.g., "1.2.3" or "v1.2.3")
@@ -459,7 +459,7 @@ class OpenSpecTask:
                 logger.info(f"OpenSpec version: {self._version}")
 
                 # Store version in project config
-                session = await get_or_create_session()
+                session = await get_session()
                 project = await session.get_project()
                 if project.openspec_version != self._version:
                     await session.update_config(lambda p: replace(p, openspec_version=self._version))

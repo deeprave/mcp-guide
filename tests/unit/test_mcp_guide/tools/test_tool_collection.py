@@ -9,8 +9,7 @@ from _pytest.monkeypatch import MonkeyPatch
 from mcp_guide.models import Category, Collection
 from mcp_guide.session import (
     Session,
-    get_current_session,
-    get_or_create_session,
+    get_session,
     remove_current_session,
     set_current_session,
 )
@@ -27,7 +26,7 @@ from mcp_guide.tools.tool_collection import (
 async def test_session_with_data(tmp_path_factory):
     """Module-level fixture providing a session with sample data."""
     tmp_path = tmp_path_factory.mktemp("collection_tests")
-    session = Session("test", _config_dir_for_tests=str(tmp_path))
+    session = await Session.create_session("test", _config_dir_for_tests=str(tmp_path))
     await session.get_project()
     set_current_session(session)
 
@@ -45,13 +44,14 @@ async def test_session_with_data(tmp_path_factory):
     await session.save_project(project)
 
     yield session
-    await remove_current_session("test")
+    await remove_current_session()
 
 
 @pytest.fixture(autouse=True)
-async def setup_session(test_session_with_data):
+async def setup_session(test_session_with_data, monkeypatch):
     """Auto-use fixture to ensure session is set for each test."""
     set_current_session(test_session_with_data)
+    monkeypatch.setenv("PWD", "/fake/path/test")
     yield
 
 
@@ -100,7 +100,7 @@ class TestCollectionList:
     async def test_empty_collections_returns_empty_list(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Empty collections list should return empty list."""
         # Clear collections for this test
-        session = get_current_session()
+        session = await get_session()
         project = await session.get_project()
         project.collections.clear()
         await session.save_project(project)
@@ -117,7 +117,7 @@ class TestCollectionList:
     @pytest.mark.asyncio
     async def test_collection_with_empty_categories(self, test_session_with_data: Session) -> None:
         """Collection with empty categories list should return empty list in categories field."""
-        session = get_current_session()
+        session = await get_session()
         project = await session.get_project()
         project.collections.clear()
         project.collections["empty"] = Collection(categories=[], description="No categories")
@@ -134,8 +134,8 @@ class TestCollectionList:
     @pytest.mark.asyncio
     async def test_no_active_session_error(self, monkeypatch: MonkeyPatch) -> None:
         """No active session returns error."""
-        # Clear current session and unset PWD/CWD so get_or_create_session fails
-        await remove_current_session("test")
+        # Clear current session and unset PWD/CWD so get_session fails
+        await remove_current_session()
         monkeypatch.delenv("PWD", raising=False)
         monkeypatch.delenv("CWD", raising=False)
 
@@ -154,7 +154,7 @@ class TestCollectionAdd:
     async def test_add_collection_name_only(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Create collection with just name."""
         # Clear existing collections for this test
-        session = get_current_session()
+        session = await get_session()
         project = await session.get_project()
         project.collections.clear()
         await session.save_project(project)
@@ -180,7 +180,7 @@ class TestCollectionAdd:
     async def test_add_collection_with_description(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Create collection with name and description."""
         # Clear existing collections for this test
-        session = get_current_session()
+        session = await get_session()
         project = await session.get_project()
         project.collections.clear()
         await session.save_project(project)
@@ -202,7 +202,7 @@ class TestCollectionAdd:
     @pytest.mark.asyncio
     async def test_add_collection_with_categories(self, test_session_with_data: Session) -> None:
         """Create collection with valid categories."""
-        session = get_current_session()
+        session = await get_session()
         project = await session.get_project()
         project.collections.clear()
         await session.save_project(project)
@@ -222,7 +222,7 @@ class TestCollectionAdd:
     @pytest.mark.asyncio
     async def test_add_collection_deduplicates_categories(self, test_session_with_data: Session) -> None:
         """Duplicate categories should be deduplicated while preserving order."""
-        session = get_current_session()
+        session = await get_session()
         project = await session.get_project()
         project.collections.clear()
         await session.save_project(project)
@@ -241,7 +241,7 @@ class TestCollectionAdd:
     @pytest.mark.asyncio
     async def test_add_collection_duplicate_name_error(self, test_session_with_data: Session) -> None:
         """Duplicate collection name should return validation error."""
-        session = get_current_session()
+        session = await get_session()
         project = await session.get_project()
         project.collections.clear()
         # Add existing collection via proper API
@@ -277,7 +277,7 @@ class TestCollectionAdd:
         self, test_session_with_data: Session, description: str, error_contains: str
     ) -> None:
         """Description validation should reject invalid values."""
-        session = get_current_session()
+        session = await get_session()
         project = await session.get_project()
         project.collections.clear()
         await session.save_project(project)
@@ -299,7 +299,7 @@ class TestCollectionAdd:
     @pytest.mark.asyncio
     async def test_add_collection_nonexistent_categories(self, test_session_with_data: Session) -> None:
         """Non-existent categories should return validation error."""
-        session = get_current_session()
+        session = await get_session()
         project = await session.get_project()
         project.collections.clear()
         await session.save_project(project)
@@ -325,7 +325,7 @@ class TestCollectionAdd:
     @pytest.mark.asyncio
     async def test_add_collection_no_session_error(self, monkeypatch: MonkeyPatch) -> None:
         """No active session should return error."""
-        await remove_current_session("test")
+        await remove_current_session()
         monkeypatch.delenv("PWD", raising=False)
         monkeypatch.delenv("CWD", raising=False)
 
@@ -339,10 +339,10 @@ class TestCollectionAdd:
     @pytest.mark.asyncio
     async def test_add_collection_invalid_name(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Invalid collection name should return validation error."""
-        from mcp_guide.session import get_or_create_session
+        from mcp_guide.session import get_session
 
         monkeypatch.setenv("PWD", "/fake/path/test")
-        session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
+        session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
         await session.update_config(lambda p: p)
 
         # Capture original project state
@@ -364,7 +364,7 @@ class TestCollectionAdd:
     @pytest.mark.asyncio
     async def test_add_collection_save_error(self, test_session_with_data: Session, monkeypatch: MonkeyPatch) -> None:
         """Configuration save failure should return ERROR_SAVE."""
-        session = get_current_session()
+        session = await get_session()
         project = await session.get_project()
         project.collections.clear()
         await session.save_project(project)
@@ -393,7 +393,7 @@ class TestCollectionRemove:
         from mcp_guide.tools.tool_collection import CollectionRemoveArgs, collection_remove
 
         monkeypatch.setenv("PWD", "/fake/path/test")
-        session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
+        session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
         backend_collection = {"name": "backend", "categories": ["api"], "description": "Backend"}
         await session.update_config(lambda p: p.with_collection("backend", backend_collection))
@@ -414,7 +414,7 @@ class TestCollectionRemove:
         from mcp_guide.tools.tool_collection import CollectionRemoveArgs, collection_remove
 
         monkeypatch.setenv("PWD", "/fake/path/test")
-        session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
+        session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
         await session.update_config(lambda p: p)
 
         args = CollectionRemoveArgs(name="nonexistent")
@@ -431,7 +431,7 @@ class TestCollectionRemove:
         """Reject when no session exists."""
         from mcp_guide.tools.tool_collection import CollectionRemoveArgs, collection_remove
 
-        await remove_current_session("test")
+        await remove_current_session()
         monkeypatch.delenv("PWD", raising=False)
         monkeypatch.delenv("CWD", raising=False)
 
@@ -448,7 +448,7 @@ class TestCollectionRemove:
         from mcp_guide.tools.tool_collection import CollectionRemoveArgs, collection_remove
 
         monkeypatch.setenv("PWD", "/fake/path/test")
-        session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
+        session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
         backend_collection = Collection(categories=[], description="Backend")
         await session.update_config(lambda p: p.with_collection("backend", backend_collection))
@@ -471,7 +471,7 @@ class TestCollectionRemove:
         from mcp_guide.tools.tool_collection import CollectionRemoveArgs, collection_remove
 
         monkeypatch.setenv("PWD", "/fake/path/test")
-        session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
+        session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
         backend_collection = Collection(categories=[], description="Backend")
         await session.update_config(lambda p: p.with_collection("backend", backend_collection))
@@ -498,7 +498,7 @@ class TestCollectionChange:
         from mcp_guide.tools.tool_collection import CollectionChangeArgs, collection_change
 
         monkeypatch.setenv("PWD", "/fake/path/test")
-        session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
+        session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
         backend_collection = {"name": "backend", "categories": ["api"], "description": "Backend code"}
         await session.update_config(lambda p: p.with_collection("backend", backend_collection))
@@ -523,7 +523,7 @@ class TestCollectionChange:
         """Change collection description only."""
         from mcp_guide.tools.tool_collection import CollectionChangeArgs, collection_change
 
-        session = get_current_session()
+        session = await get_session()
         project = await session.get_project()
         project.collections.clear()
         project.collections["backend"] = Collection(categories=["api"], description="Old desc")
@@ -547,7 +547,7 @@ class TestCollectionChange:
         from mcp_guide.tools.tool_collection import CollectionChangeArgs, collection_change
 
         monkeypatch.setenv("PWD", "/fake/path/test")
-        session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
+        session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
         backend_collection = Collection(categories=[], description="Some desc")
         await session.update_config(lambda p: p.with_collection("backend", backend_collection))
@@ -567,7 +567,7 @@ class TestCollectionChange:
         from mcp_guide.tools.tool_collection import CollectionChangeArgs, collection_change
 
         monkeypatch.setenv("PWD", "/fake/path/test")
-        session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
+        session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
         api_cat = Category(dir="api", patterns=["*.py"])
         tests_cat = Category(dir="tests", patterns=["test_*.py"])
@@ -598,7 +598,7 @@ class TestCollectionChange:
         from mcp_guide.tools.tool_collection import CollectionChangeArgs, collection_change
 
         monkeypatch.setenv("PWD", "/fake/path/test")
-        session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
+        session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
         api_cat = Category(dir="api", patterns=["*.py"])
         tests_cat = Category(dir="tests", patterns=["test_*.py"])
@@ -625,7 +625,7 @@ class TestCollectionChange:
         from mcp_guide.tools.tool_collection import CollectionChangeArgs, collection_change
 
         monkeypatch.setenv("PWD", "/fake/path/test")
-        session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
+        session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
         api_cat = Category(dir="api", patterns=["*.py"])
         await session.update_config(lambda p: p.with_category("api", api_cat))
@@ -654,7 +654,7 @@ class TestCollectionChange:
         from mcp_guide.tools.tool_collection import CollectionChangeArgs, collection_change
 
         monkeypatch.setenv("PWD", "/fake/path/test")
-        session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
+        session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
         backend_collection = Collection(categories=[], description="")
         await session.update_config(lambda p: p.with_collection("backend", backend_collection))
@@ -673,7 +673,7 @@ class TestCollectionChange:
         from mcp_guide.tools.tool_collection import CollectionChangeArgs, collection_change
 
         monkeypatch.setenv("PWD", "/fake/path/test")
-        session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
+        session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
         await session.update_config(lambda p: p)
 
         args = CollectionChangeArgs(name="nonexistent", new_name="new")
@@ -690,7 +690,7 @@ class TestCollectionChange:
         from mcp_guide.tools.tool_collection import CollectionChangeArgs, collection_change
 
         monkeypatch.setenv("PWD", "/fake/path/test")
-        session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
+        session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
         backend_collection = Collection(categories=[], description="")
         frontend_collection = Collection(categories=[], description="")
@@ -712,7 +712,7 @@ class TestCollectionChange:
         from mcp_guide.tools.tool_collection import CollectionChangeArgs, collection_change
 
         monkeypatch.setenv("PWD", "/fake/path/test")
-        session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
+        session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
         backend_collection = Collection(categories=[], description=None)
         await session.update_config(lambda p: p.with_collection("backend", backend_collection))
@@ -731,7 +731,7 @@ class TestCollectionChange:
         from mcp_guide.tools.tool_collection import CollectionChangeArgs, collection_change
 
         monkeypatch.setenv("PWD", "/fake/path/test")
-        session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
+        session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
         backend_collection = Collection(categories=[], description="")
         await session.update_config(lambda p: p.with_collection("backend", backend_collection))
@@ -749,7 +749,7 @@ class TestCollectionChange:
         """Reject when no session exists."""
         from mcp_guide.tools.tool_collection import CollectionChangeArgs, collection_change
 
-        await remove_current_session("test")
+        await remove_current_session()
         monkeypatch.delenv("PWD", raising=False)
         monkeypatch.delenv("CWD", raising=False)
 
@@ -769,7 +769,7 @@ class TestCollectionChange:
 
         from mcp_guide.tools.tool_collection import CollectionChangeArgs, collection_change
 
-        session = get_current_session()
+        session = await get_session()
         project = await session.get_project()
         project.collections.clear()
         project.collections["backend"] = Collection(categories=[], description=None)
@@ -794,7 +794,7 @@ class TestCollectionChange:
         from mcp_guide.tools.tool_collection import CollectionChangeArgs, collection_change
 
         monkeypatch.setenv("PWD", "/fake/path/test")
-        session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
+        session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
         backend_collection = Collection(categories=[], description="")
         await session.update_config(lambda p: p.with_collection("backend", backend_collection))
@@ -810,7 +810,7 @@ class TestCollectionChange:
         """Allow changing to empty categories list."""
         from mcp_guide.tools.tool_collection import CollectionChangeArgs, collection_change
 
-        session = get_current_session()
+        session = await get_session()
         project = await session.get_project()
         project.collections.clear()
         project.collections["backend"] = Collection(categories=["api"], description="")
@@ -835,7 +835,7 @@ class TestCollectionUpdate:
         from mcp_guide.tools.tool_collection import CollectionUpdateArgs, collection_update
 
         monkeypatch.setenv("PWD", "/fake/path/test")
-        session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
+        session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
         # Create categories using dict format
         await session.update_config(
@@ -865,7 +865,7 @@ class TestCollectionUpdate:
         from mcp_guide.tools.tool_collection import CollectionUpdateArgs, collection_update
 
         monkeypatch.setenv("PWD", "/fake/path/test")
-        session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
+        session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
         api_cat = Category(dir="api", patterns=["*.py"])
         tests_cat = Category(dir="tests", patterns=["test_*.py"])
@@ -891,7 +891,7 @@ class TestCollectionUpdate:
         from mcp_guide.tools.tool_collection import CollectionUpdateArgs, collection_update
 
         monkeypatch.setenv("PWD", "/fake/path/test")
-        session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
+        session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
         api_cat = Category(dir="api", patterns=["*.py"])
         await session.update_config(lambda p: p.with_category("api", api_cat))
@@ -914,7 +914,7 @@ class TestCollectionUpdate:
         from mcp_guide.tools.tool_collection import CollectionUpdateArgs, collection_update
 
         monkeypatch.setenv("PWD", "/fake/path/test")
-        session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
+        session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
         api_cat = Category(dir="api", patterns=["*.py"])
         tests_cat = Category(dir="tests", patterns=["test_*.py"])
@@ -943,7 +943,7 @@ class TestCollectionUpdate:
         from mcp_guide.tools.tool_collection import CollectionUpdateArgs, collection_update
 
         monkeypatch.setenv("PWD", "/fake/path/test")
-        session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
+        session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
         api_cat = Category(dir="api", patterns=["*.py"])
         tests_cat = Category(dir="tests", patterns=["test_*.py"])
@@ -968,7 +968,7 @@ class TestCollectionUpdate:
         from mcp_guide.tools.tool_collection import CollectionUpdateArgs, collection_update
 
         monkeypatch.setenv("PWD", "/fake/path/test")
-        session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
+        session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
         api_cat = Category(dir="api", patterns=["*.py"])
         tests_cat = Category(dir="tests", patterns=["test_*.py"])
@@ -995,7 +995,7 @@ class TestCollectionUpdate:
         from mcp_guide.tools.tool_collection import CollectionUpdateArgs, collection_update
 
         monkeypatch.setenv("PWD", "/fake/path/test")
-        session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
+        session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
         api_cat = Category(dir="api", patterns=["*.py"])
         tests_cat = Category(dir="tests", patterns=["test_*.py"])
@@ -1022,7 +1022,7 @@ class TestCollectionUpdate:
         from mcp_guide.tools.tool_collection import CollectionUpdateArgs, collection_update
 
         monkeypatch.setenv("PWD", "/fake/path/test")
-        session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
+        session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
         api_cat = Category(dir="api", patterns=["*.py"])
         tests_cat = Category(dir="tests", patterns=["test_*.py"])
@@ -1050,7 +1050,7 @@ class TestCollectionUpdate:
         from mcp_guide.tools.tool_collection import CollectionUpdateArgs, collection_update
 
         monkeypatch.setenv("PWD", "/fake/path/test")
-        session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
+        session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
         api_cat = Category(dir="api", patterns=["*.py"])
         tests_cat = Category(dir="tests", patterns=["test_*.py"])
@@ -1079,7 +1079,7 @@ class TestCollectionUpdate:
         from mcp_guide.tools.tool_collection import CollectionUpdateArgs, collection_update
 
         monkeypatch.setenv("PWD", "/fake/path/test")
-        session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
+        session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
         api_cat = Category(dir="api", patterns=["*.py"])
         docs_cat = Category(dir="docs", patterns=["*.md"])
@@ -1106,7 +1106,7 @@ class TestCollectionUpdate:
         """Reject non-existent collection."""
         from mcp_guide.tools.tool_collection import CollectionUpdateArgs, collection_update
 
-        session = get_current_session()
+        session = await get_session()
         project = await session.get_project()
         project.collections.clear()
         await session.save_project(project)
@@ -1124,7 +1124,7 @@ class TestCollectionUpdate:
         from mcp_guide.tools.tool_collection import CollectionUpdateArgs, collection_update
 
         monkeypatch.setenv("PWD", "/fake/path/test")
-        session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
+        session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
         backend_collection = {"name": "backend", "categories": ["api"], "description": None}
         await session.update_config(lambda p: p.with_collection("backend", backend_collection))
@@ -1144,7 +1144,7 @@ class TestCollectionUpdate:
         from mcp_guide.tools.tool_collection import CollectionUpdateArgs, collection_update
 
         monkeypatch.setenv("PWD", "/fake/path/test")
-        session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
+        session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
         backend_collection = Collection(categories=[], description=None)
         await session.update_config(lambda p: p.with_collection("backend", backend_collection))
@@ -1162,7 +1162,7 @@ class TestCollectionUpdate:
         """Reject when no session exists."""
         from mcp_guide.tools.tool_collection import CollectionUpdateArgs, collection_update
 
-        await remove_current_session("test")
+        await remove_current_session()
         monkeypatch.delenv("PWD", raising=False)
         monkeypatch.delenv("CWD", raising=False)
 
@@ -1181,7 +1181,7 @@ class TestCollectionUpdate:
         from mcp_guide.tools.tool_collection import CollectionUpdateArgs, collection_update
 
         monkeypatch.setenv("PWD", "/fake/path/test")
-        session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
+        session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
         api_cat = Category(dir="api", patterns=["*.py"])
         await session.update_config(lambda p: p.with_category("api", api_cat))
@@ -1208,7 +1208,7 @@ class TestCollectionUpdate:
         from mcp_guide.tools.tool_collection import CollectionUpdateArgs, collection_update
 
         monkeypatch.setenv("PWD", "/fake/path/test")
-        session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
+        session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
         api_cat = Category(dir="api", patterns=["*.py"])
         await session.update_config(lambda p: p.with_category("api", api_cat))

@@ -14,7 +14,7 @@ class TestFeatureFlagsViaSession:
     async def test_get_global_flags_empty_default(self):
         """Test getting global flags returns empty dict by default."""
         with tempfile.TemporaryDirectory() as temp_dir:
-            session = Session("test-project", _config_dir_for_tests=temp_dir)
+            session = await Session.create_session("test-project", _config_dir_for_tests=temp_dir)
 
             flags_proxy = session.feature_flags()
             flags = await flags_proxy.list()
@@ -24,7 +24,7 @@ class TestFeatureFlagsViaSession:
     async def test_set_and_get_global_flag(self):
         """Test setting and getting global flags."""
         with tempfile.TemporaryDirectory() as temp_dir:
-            session = Session("test-project", _config_dir_for_tests=temp_dir)
+            session = await Session.create_session("test-project", _config_dir_for_tests=temp_dir)
             flags_proxy = session.feature_flags()
 
             # Set a flag
@@ -43,7 +43,7 @@ class TestFeatureFlagsViaSession:
     async def test_remove_global_flag(self):
         """Test removing global flags."""
         with tempfile.TemporaryDirectory() as temp_dir:
-            session = Session("test-project", _config_dir_for_tests=temp_dir)
+            session = await Session.create_session("test-project", _config_dir_for_tests=temp_dir)
             flags_proxy = session.feature_flags()
 
             # Set flags
@@ -60,7 +60,7 @@ class TestFeatureFlagsViaSession:
     async def test_get_project_flags_empty_default(self):
         """Test getting project flags returns empty dict by default."""
         with tempfile.TemporaryDirectory() as temp_dir:
-            session = Session("test-project", _config_dir_for_tests=temp_dir)
+            session = await Session.create_session("test-project", _config_dir_for_tests=temp_dir)
 
             flags_proxy = session.project_flags("test_project")
             flags = await flags_proxy.list()
@@ -70,7 +70,7 @@ class TestFeatureFlagsViaSession:
     async def test_set_and_get_project_flag(self):
         """Test setting and getting project flags."""
         with tempfile.TemporaryDirectory() as temp_dir:
-            session = Session("test-project", _config_dir_for_tests=temp_dir)
+            session = await Session.create_session("test-project", _config_dir_for_tests=temp_dir)
             flags_proxy = session.project_flags("test_project")
 
             # Set a flag
@@ -84,7 +84,7 @@ class TestFeatureFlagsViaSession:
     async def test_remove_project_flag(self):
         """Test removing project flags."""
         with tempfile.TemporaryDirectory() as temp_dir:
-            session = Session("test-project", _config_dir_for_tests=temp_dir)
+            session = await Session.create_session("test-project", _config_dir_for_tests=temp_dir)
             flags_proxy = session.project_flags("test_project")
 
             # Set flags
@@ -102,7 +102,7 @@ class TestFeatureFlagsViaSession:
         """Test that configuration persists across sessions."""
         with tempfile.TemporaryDirectory() as temp_dir:
             # First session - set flags
-            session1 = Session("test-project", _config_dir_for_tests=temp_dir)
+            session1 = await Session.create_session("test-project", _config_dir_for_tests=temp_dir)
             global_proxy1 = session1.feature_flags()
             project_proxy1 = session1.project_flags("test_project")
 
@@ -110,7 +110,7 @@ class TestFeatureFlagsViaSession:
             await project_proxy1.set("project_persistent", True)
 
             # Second session - verify persistence
-            session2 = Session("test-project", _config_dir_for_tests=temp_dir)
+            session2 = await Session.create_session("test-project", _config_dir_for_tests=temp_dir)
             global_proxy2 = session2.feature_flags()
             project_proxy2 = session2.project_flags("test_project")
 

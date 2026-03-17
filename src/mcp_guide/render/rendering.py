@@ -10,7 +10,7 @@ from mcp_guide.models import resolve_all_flags
 from mcp_guide.render.content import RenderedContent
 from mcp_guide.render.context import TemplateContext
 from mcp_guide.render.template import render_template
-from mcp_guide.session import get_current_session, get_or_create_session
+from mcp_guide.session import get_session
 
 logger = get_logger(__name__)
 
@@ -61,7 +61,7 @@ async def render_content(
     Raises:
         FileNotFoundError: No template matches pattern or multiple matches found (default behaviour)
     """
-    session = await get_or_create_session()
+    session = await get_session()
     docroot = Path(await session.get_docroot())
     category_path = docroot / category_dir
     display_name = category_name or category_dir
@@ -72,8 +72,8 @@ async def render_content(
     else:
         files = await discover_files(category_path, pattern, docroot, display_name)
 
-    current_session = get_current_session()
-    requirements_context = await resolve_all_flags(current_session)  # type: ignore[arg-type]
+    current_session = await get_session()
+    requirements_context = await resolve_all_flags(current_session)
 
     # Process context if callback provided (augments extra_context)
     context = extra_context

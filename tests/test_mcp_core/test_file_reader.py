@@ -66,18 +66,11 @@ async def test_invalid_utf8_raises_error(tmp_path: Path) -> None:
 @pytest.mark.asyncio
 async def test_permission_error(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test that permission errors are raised in a platform-independent way."""
-    from contextlib import asynccontextmanager
-    from typing import AsyncIterator
 
-    import aiofiles
-
-    @asynccontextmanager
-    async def _raise_permission_error(*args: object, **kwargs: object) -> AsyncIterator[None]:
+    async def _raise_permission_error(*args: object, **kwargs: object) -> str:
         raise PermissionError("mocked permission error")
-        yield  # Required for asynccontextmanager, though not reached
 
-    # Force aiofiles.open to raise PermissionError regardless of OS permissions
-    monkeypatch.setattr(aiofiles, "open", _raise_permission_error)
+    monkeypatch.setattr("mcp_guide.core.file_reader.AsyncPath.read_text", _raise_permission_error)
 
     with pytest.raises(PermissionError):
         await read_file_content(Path("noperm.txt"))

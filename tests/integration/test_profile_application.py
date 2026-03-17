@@ -4,7 +4,7 @@ import pytest
 import pytest_asyncio
 
 import mcp_guide.session
-from mcp_guide.session import get_or_create_session, remove_current_session
+from mcp_guide.session import get_session, remove_current_session
 
 
 @pytest.fixture(scope="module")
@@ -28,10 +28,10 @@ async def test_session(tmp_path, monkeypatch, enable_default_profile):
 
     monkeypatch.setattr("mcp_guide.session.resolve_project_name", mock_resolve)
 
-    # Use get_or_create_session to properly register the session
-    session = await get_or_create_session(project_name="test", _config_dir_for_tests=str(tmp_path))
+    # Use get_session to properly register the session
+    session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
     yield session
-    await remove_current_session("test")
+    await remove_current_session()
 
 
 @pytest.mark.asyncio

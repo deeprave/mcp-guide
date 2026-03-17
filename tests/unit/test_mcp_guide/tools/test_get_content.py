@@ -80,7 +80,7 @@ async def test_get_content_collection_only(tmp_path, monkeypatch):
     async def mock_get_session(ctx=None):
         return create_mock_session(tmp_path, project_data)
 
-    monkeypatch.setattr("mcp_guide.tools.tool_content.get_or_create_session", mock_get_session)
+    monkeypatch.setattr("mcp_guide.tools.tool_content.get_session", mock_get_session)
 
     # Call tool
     args = ContentArgs(expression="all")
@@ -108,7 +108,7 @@ async def test_get_content_category_only(tmp_path, monkeypatch):
     async def mock_get_session(ctx=None):
         return create_mock_session(tmp_path, project_data)
 
-    monkeypatch.setattr("mcp_guide.tools.tool_content.get_or_create_session", mock_get_session)
+    monkeypatch.setattr("mcp_guide.tools.tool_content.get_session", mock_get_session)
 
     # Call tool
     args = ContentArgs(expression="guide")
@@ -136,7 +136,7 @@ async def test_get_content_deduplicates(tmp_path, monkeypatch):
     async def mock_get_session(ctx=None):
         return create_mock_session(tmp_path, project_data)
 
-    monkeypatch.setattr("mcp_guide.tools.tool_content.get_or_create_session", mock_get_session)
+    monkeypatch.setattr("mcp_guide.tools.tool_content.get_session", mock_get_session)
 
     # Call tool
     args = ContentArgs(expression="guide")
@@ -165,7 +165,7 @@ async def test_get_content_empty_result(tmp_path, monkeypatch):
     async def mock_get_session(ctx=None):
         return create_mock_session(tmp_path, project_data)
 
-    monkeypatch.setattr("mcp_guide.tools.tool_content.get_or_create_session", mock_get_session)
+    monkeypatch.setattr("mcp_guide.tools.tool_content.get_session", mock_get_session)
 
     # Call tool
     args = ContentArgs(expression="empty")
@@ -197,7 +197,7 @@ async def test_get_content_pattern_override(tmp_path, monkeypatch):
     async def mock_get_session(ctx=None):
         return create_mock_session(tmp_path, project_data)
 
-    monkeypatch.setattr("mcp_guide.tools.tool_content.get_or_create_session", mock_get_session)
+    monkeypatch.setattr("mcp_guide.tools.tool_content.get_session", mock_get_session)
 
     # Call tool with pattern override to only get README
     args = ContentArgs(expression="docs", pattern="README")
@@ -238,7 +238,7 @@ async def test_get_content_metadata_scenarios(tmp_path, monkeypatch, scenario, e
     async def mock_get_session(ctx=None):
         return create_mock_session(tmp_path, project_data)
 
-    monkeypatch.setattr("mcp_guide.tools.tool_content.get_or_create_session", mock_get_session)
+    monkeypatch.setattr("mcp_guide.tools.tool_content.get_session", mock_get_session)
 
     # Call tool
     args = ContentArgs(expression=expression)
@@ -286,7 +286,7 @@ async def test_get_content_flag_resolution(tmp_path, monkeypatch, project_flags,
     async def mock_get_session(ctx=None):
         return create_mock_session(tmp_path, project_data, project_flags, feature_flags)
 
-    monkeypatch.setattr("mcp_guide.tools.tool_content.get_or_create_session", mock_get_session)
+    monkeypatch.setattr("mcp_guide.tools.tool_content.get_session", mock_get_session)
 
     # Call tool
     args = ContentArgs(expression="docs")

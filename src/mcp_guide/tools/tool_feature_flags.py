@@ -103,10 +103,10 @@ async def internal_list_project_flags(
     ctx: Optional[Context] = None,  # type: ignore[type-arg]
 ) -> Result[FeatureValue | dict[str, FeatureValue] | None]:
     """List project feature flags based on project context and parameters."""
-    from mcp_guide.session import get_or_create_session
+    from mcp_guide.session import get_session
 
     try:
-        session = await get_or_create_session(ctx)
+        session = await get_session(ctx)
     except ValueError as e:
         return Result.failure(str(e), error_type=ERROR_NO_PROJECT, instruction=INSTRUCTION_NO_PROJECT)
 
@@ -164,10 +164,10 @@ async def internal_set_project_flag(args: SetFlagArgs, ctx: Optional[Context] = 
             instruction=INSTRUCTION_VALIDATION_ERROR,
         )
 
-    from mcp_guide.session import get_or_create_session
+    from mcp_guide.session import get_session
 
     try:
-        session = await get_or_create_session(ctx)
+        session = await get_session(ctx)
     except ValueError as e:
         return Result.failure(str(e), error_type=ERROR_NO_PROJECT, instruction=INSTRUCTION_NO_PROJECT)
 
@@ -206,10 +206,10 @@ async def set_project_flag(args: SetFlagArgs, ctx: Optional[Context] = None) -> 
 
 async def internal_get_project_flag(args: GetFlagArgs, ctx: Optional[Context] = None) -> Result[FeatureValue | None]:  # type: ignore[type-arg]
     """Get a project feature flag value with resolution hierarchy."""
-    from mcp_guide.session import get_or_create_session
+    from mcp_guide.session import get_session
 
     try:
-        session = await get_or_create_session(ctx)
+        session = await get_session(ctx)
     except ValueError as e:
         return Result.failure(str(e), error_type=ERROR_NO_PROJECT, instruction=INSTRUCTION_NO_PROJECT)
 
@@ -253,10 +253,10 @@ async def internal_set_feature_flag(args: SetFeatureFlagArgs, ctx: Optional[Cont
             instruction=INSTRUCTION_VALIDATION_ERROR,
         )
 
-    from mcp_guide.session import get_or_create_session
+    from mcp_guide.session import get_session
 
     try:
-        session = await get_or_create_session(ctx)
+        session = await get_session(ctx)
     except ValueError as e:
         return Result.failure(str(e), error_type=ERROR_NO_PROJECT, instruction=INSTRUCTION_NO_PROJECT)
 
@@ -306,10 +306,10 @@ async def internal_get_feature_flag(
     ctx: Optional[Context] = None,  # type: ignore[type-arg]
 ) -> Result[FeatureValue | None]:
     """Get a global feature flag value."""
-    from mcp_guide.session import get_or_create_session
+    from mcp_guide.session import get_session
 
     try:
-        session = await get_or_create_session(ctx)
+        session = await get_session(ctx)
     except ValueError as e:
         return Result.failure(str(e), error_type=ERROR_NO_PROJECT, instruction=INSTRUCTION_NO_PROJECT)
 
@@ -341,10 +341,10 @@ async def internal_list_feature_flags(
     ctx: Optional[Context] = None,  # type: ignore[type-arg]
 ) -> Result[FeatureValue | dict[str, FeatureValue] | None]:
     """List global feature flags."""
-    from mcp_guide.session import get_or_create_session
+    from mcp_guide.session import get_session
 
     try:
-        session = await get_or_create_session(ctx)
+        session = await get_session(ctx)
     except ValueError as e:
         return Result.failure(str(e), error_type=ERROR_NO_PROJECT, instruction=INSTRUCTION_NO_PROJECT)
 

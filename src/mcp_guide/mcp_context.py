@@ -1,6 +1,5 @@
 """MCP context data structures and management."""
 
-from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 from urllib.parse import urlparse
@@ -18,35 +17,18 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-@dataclass
-class CachedMcpContext:
-    """Comprehensive MCP context cache."""
-
-    roots: list[Any]  # list[Root] when available
-    project_name: str
-    agent_info: Optional["AgentInfo"]
-    client_params: Optional[dict[str, Any]]
-    timestamp: float
-
-
-# Module-level global for MCP context cache — persists across requests.
-# MCP stdio transport processes one request at a time, so no locking is needed.
-_cached_mcp_context: Optional[CachedMcpContext] = None
-
-
-def get_cached_mcp_context() -> Optional[CachedMcpContext]:
-    """Return the cached MCP context."""
-    return _cached_mcp_context
-
-
-def set_cached_mcp_context(value: Optional[CachedMcpContext]) -> None:
-    """Set the cached MCP context."""
-    global _cached_mcp_context
-    _cached_mcp_context = value
+# Bootstrap cache for MCP data extracted before session exists.
+# Consumed by get_or_create_session after session creation.
+_bootstrap_roots: list[Any] = []
+_bootstrap_agent_info: Optional["AgentInfo"] = None
+_bootstrap_client_params: Optional[dict[str, Any]] = None
 
 
 async def cache_mcp_globals(ctx: Optional["Context"] = None) -> bool:  # type: ignore[type-arg]
     """Cache MCP globals (roots, agent info, client params) if context available.
+
+    Writes to the current session if one exists, otherwise stores in module-level
+    bootstrap variables for transfer to session after creation.
 
     Args:
         ctx: Optional MCP Context (FastMCP auto-injects in tools)
@@ -54,15 +36,14 @@ async def cache_mcp_globals(ctx: Optional["Context"] = None) -> bool:  # type: i
     Returns:
         True if context was available and cached, False otherwise
     """
+    global _bootstrap_roots, _bootstrap_agent_info, _bootstrap_client_params
+
     if ctx is None:
         return False
 
-    from time import time
-
     from mcp_guide.agent_detection import detect_agent
 
-    # Initialize variables for comprehensive context
-    roots = []
+    roots: list[Any] = []
     agent_info = None
     client_params = None
 
@@ -89,50 +70,60 @@ async def cache_mcp_globals(ctx: Optional["Context"] = None) -> bool:  # type: i
                     roots = list(roots_result.roots)
         except Exception as roots_e:
             logger.debug(f"Failed to get roots (expected for CLI agents): {roots_e}")
-            # Continue - we can still cache agent info
-
-        # Cache MCP context (even if roots failed)
-        set_cached_mcp_context(
-            CachedMcpContext(
-                roots=roots,
-                project_name="",  # Will be set by resolve_project_name
-                agent_info=agent_info,
-                client_params=client_params,
-                timestamp=time(),
-            )
-        )
-        return True
 
     except AttributeError:
-        # Client doesn't support basic context - try to cache just agent info
+        # Client doesn't support basic context - try to get just agent info
         try:
             if hasattr(ctx, "session") and hasattr(ctx.session, "client_params") and ctx.session.client_params:
                 client_params = ctx.session.client_params
                 agent_info = detect_agent(client_params)
-                set_cached_mcp_context(
-                    CachedMcpContext(
-                        roots=[],
-                        project_name="",
-                        agent_info=agent_info,
-                        client_params=client_params,
-                        timestamp=time(),
-                    )
-                )
-                return True
         except Exception:
-            # Cache write failed, continue without caching
-            pass
-        return False
+            return False
     except Exception as e:
         logger.debug(f"Failed to cache MCP globals: {e}")
         return False
 
+    # Write to session if one exists, otherwise bootstrap cache
+    from mcp_guide.session import get_active_session
+
+    session = get_active_session()
+    if session is not None:
+        session.roots = roots
+        session.agent_info = agent_info
+        session.client_params = client_params
+    else:
+        _bootstrap_roots = roots
+        _bootstrap_agent_info = agent_info
+        _bootstrap_client_params = client_params
+
+    return True
+
+
+def consume_bootstrap_mcp_data() -> tuple[list[Any], Optional["AgentInfo"], Optional[dict[str, Any]]]:
+    """Consume bootstrap MCP data and clear it. Called after session creation."""
+    global _bootstrap_roots, _bootstrap_agent_info, _bootstrap_client_params
+    data = (_bootstrap_roots, _bootstrap_agent_info, _bootstrap_client_params)
+    _bootstrap_roots = []
+    _bootstrap_agent_info = None
+    _bootstrap_client_params = None
+    return data
+
+
+def _get_roots() -> list[Any]:
+    """Get roots from session if available, otherwise from bootstrap cache."""
+    from mcp_guide.session import get_active_session
+
+    session = get_active_session()
+    if session is not None and session.roots:
+        return session.roots
+    return _bootstrap_roots
+
 
 async def resolve_project_name() -> str:
-    """Resolve project name from cached context or environment fallbacks.
+    """Resolve project name from roots or environment fallbacks.
 
     Resolution priority:
-    1. Client roots (via cached MCP Context) - PRIMARY
+    1. Client roots (session or bootstrap) - PRIMARY
     2. PWD environment variable - FALLBACK
 
     Returns:
@@ -143,28 +134,16 @@ async def resolve_project_name() -> str:
     """
     import os
 
-    # Priority 1: Client roots from cached context
-    cached = get_cached_mcp_context()
-    if cached and cached.roots:
-        first_root = cached.roots[0]
+    roots = _get_roots()
+    if roots:
+        first_root = roots[0]
         if str(first_root.uri).startswith("file://"):
             parsed = urlparse(str(first_root.uri))
-            project_path = Path(parsed.path)
-            project_name = project_path.name
+            project_name = Path(parsed.path).name
             if project_name:
-                # Update cached context with resolved project name
-                set_cached_mcp_context(
-                    CachedMcpContext(
-                        roots=cached.roots,
-                        project_name=project_name,
-                        agent_info=cached.agent_info,
-                        client_params=cached.client_params,
-                        timestamp=cached.timestamp,
-                    )
-                )
                 return project_name
 
-    # Priority 2: PWD environment variable
+    # Fallback: PWD environment variable
     pwd = os.environ.get("PWD")
     if pwd and Path(pwd).is_absolute():
         return Path(pwd).name
@@ -183,15 +162,14 @@ async def resolve_project_path() -> Path:
     """
     import os
 
-    # Priority 1: Client roots from cached context
-    cached = get_cached_mcp_context()
-    if cached and cached.roots:
-        first_root = cached.roots[0]
+    roots = _get_roots()
+    if roots:
+        first_root = roots[0]
         if str(first_root.uri).startswith("file://"):
             parsed = urlparse(str(first_root.uri))
             return Path(parsed.path).resolve()
 
-    # Priority 2: PWD environment variable
+    # Fallback: PWD environment variable
     pwd = os.environ.get("PWD")
     if pwd and Path(pwd).is_absolute():
         return Path(pwd).resolve()

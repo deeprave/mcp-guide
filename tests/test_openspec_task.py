@@ -237,7 +237,7 @@ class TestOpenSpecTask:
         }
 
         with (
-            patch("mcp_guide.session.get_or_create_session") as mock_session,
+            patch("mcp_guide.session.get_session") as mock_session,
             patch.object(task, "request_project_check", new_callable=AsyncMock) as mock_request_project,
         ):
             mock_project = MagicMock()

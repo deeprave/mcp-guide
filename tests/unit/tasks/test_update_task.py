@@ -33,7 +33,7 @@ async def test_update_task_no_project():
     task_manager.requires_flag.return_value = True
     task_manager.unsubscribe = AsyncMock()
 
-    with patch("mcp_guide.session.get_or_create_session") as mock_session:
+    with patch("mcp_guide.session.get_session") as mock_session:
         mock_session.side_effect = ValueError("No project")
 
         task = McpUpdateTask(task_manager)
@@ -57,7 +57,7 @@ async def test_update_task_no_version_file(tmp_path):
     session = Mock()
     session.get_docroot = AsyncMock(return_value=str(tmp_path))
 
-    with patch("mcp_guide.session.get_or_create_session", return_value=session):
+    with patch("mcp_guide.session.get_session", return_value=session):
         with patch("mcp_guide.render.rendering.render_content", new_callable=AsyncMock) as mock_render:
             mock_content = Mock()
             mock_content.content = "Update prompt"
@@ -89,7 +89,7 @@ async def test_update_task_version_mismatch(tmp_path):
     with open(version_file, "w") as f:
         f.write("0.0.1")
 
-    with patch("mcp_guide.session.get_or_create_session", return_value=session):
+    with patch("mcp_guide.session.get_session", return_value=session):
         with patch("mcp_guide.render.rendering.render_content", new_callable=AsyncMock) as mock_render:
             mock_content = Mock()
             mock_content.content = "Update prompt"
@@ -123,7 +123,7 @@ async def test_update_task_version_current(tmp_path):
 
         f.write(__version__)
 
-    with patch("mcp_guide.session.get_or_create_session", return_value=session):
+    with patch("mcp_guide.session.get_session", return_value=session):
         task = McpUpdateTask(task_manager)
         result = await task.handle_event(EventType.TIMER_ONCE, {})
 

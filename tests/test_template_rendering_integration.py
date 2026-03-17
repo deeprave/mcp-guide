@@ -26,7 +26,7 @@ Phase tracking is enabled!
         mock_session = Mock()
         mock_session.get_project = AsyncMock(return_value=mock_project)
 
-        with patch("mcp_guide.session.get_current_session", return_value=mock_session):
+        with patch("mcp_guide.session.get_session", return_value=mock_session):
             # Get template context with project flags
             context = await get_template_contexts()
 
@@ -54,7 +54,7 @@ Phase tracking is enabled!
         mock_session = Mock()
         mock_session.get_project = AsyncMock(return_value=mock_project)
 
-        with patch("mcp_guide.session.get_current_session", return_value=mock_session):
+        with patch("mcp_guide.session.get_session", return_value=mock_session):
             # Get template context with project flags
             context = await get_template_contexts()
 
@@ -87,7 +87,7 @@ Phase tracking is enabled!
         mock_session = Mock()
         mock_session.get_project = AsyncMock(return_value=mock_project)
 
-        with patch("mcp_guide.session.get_current_session", return_value=mock_session):
+        with patch("mcp_guide.session.get_session", return_value=mock_session):
             # Get template context with project flags
             context = await get_template_contexts()
 

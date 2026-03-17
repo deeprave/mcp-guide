@@ -28,7 +28,7 @@ from mcp_guide.result_constants import (
     INSTRUCTION_NOTFOUND_ERROR,
     INSTRUCTION_TEMPLATE_ERROR,
 )
-from mcp_guide.session import get_current_session, get_or_create_session
+from mcp_guide.session import get_session
 from mcp_guide.tools.tool_content import ContentArgs, internal_get_content
 
 if TYPE_CHECKING:
@@ -247,7 +247,7 @@ async def _is_help_command(command_path: str, ctx: Optional[Context]) -> bool:  
     """Check if command_path is a help command or alias."""
     # noinspection PyBroadException
     try:
-        session = await get_or_create_session(ctx)
+        session = await get_session(ctx)
         docroot = Path(await session.get_docroot())
         commands_dir = docroot / COMMANDS_DIR
         commands = await discover_commands(commands_dir)
@@ -273,11 +273,11 @@ async def _execute_command(
     argv: Optional[list[str]] = None,
 ) -> Result[Any]:
     """Execute command without middleware."""
-    from mcp_guide.session import get_or_create_session
+    from mcp_guide.session import get_session
 
     # Initialise session and get paths
     try:
-        session = await get_or_create_session(ctx)
+        session = await get_session(ctx)
         docroot = Path(await session.get_docroot())
     except ValueError as e:
         return Result.failure(str(e), error_type="context")
@@ -344,8 +344,8 @@ async def _execute_command(
         return await get_command_help(command_context, commands_dir, docroot)
 
     # Get resolved flags for requires-* checking
-    current_session = get_current_session()
-    requirements_context: dict[str, FeatureValue] = await resolve_all_flags(current_session)  # type: ignore[arg-type]
+    current_session = await get_session()
+    requirements_context: dict[str, FeatureValue] = await resolve_all_flags(current_session)
 
     # Render template using new API
     try:
@@ -483,13 +483,13 @@ async def _route_guide_request(argv: list[str], ctx: Optional["Context"]) -> Res
     """Route guide request to command or content handler."""
     # Validate arguments
     if len(argv) == 1 or (len(argv) == 2 and argv[1] == ""):
-        # Get prompt prefix from cached agent info
-        from mcp_guide.mcp_context import get_cached_mcp_context
+        # Get prompt prefix from session agent info
+        from mcp_guide.session import get_session
 
         prompt_prefix = "@"  # Default
-        cached = get_cached_mcp_context()
-        if cached and cached.agent_info:
-            prompt_prefix = cached.agent_info.prompt_prefix.replace("{mcp_name}", "guide")
+        session = await get_session()
+        if session.agent_info:
+            prompt_prefix = session.agent_info.prompt_prefix.replace("{mcp_name}", "guide")
 
         error_msg = f"The guide prompt requires one or more arguments. Use {prompt_prefix}guide :help to list commands"
         result: Result[Any] = Result.failure(error_msg, error_type="validation")

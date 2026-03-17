@@ -145,7 +145,7 @@ class TestTaskManagerOnInit:
         task_manager = TaskManager()
 
         with (
-            patch("mcp_guide.session.get_or_create_session", new_callable=AsyncMock) as mock_session,
+            patch("mcp_guide.session.get_session", new_callable=AsyncMock) as mock_session,
             patch("mcp_guide.models.resolve_all_flags", return_value={}),
         ):
             mock_session.return_value = Mock(pwd="/test/path")
@@ -173,7 +173,7 @@ class TestTaskManagerOnInit:
         task_manager._subscriptions.append(subscription)
 
         with (
-            patch("mcp_guide.session.get_or_create_session", new_callable=AsyncMock) as mock_session,
+            patch("mcp_guide.session.get_session", new_callable=AsyncMock) as mock_session,
             patch("mcp_guide.models.resolve_all_flags", return_value={}),
         ):
             mock_session.return_value = Mock(pwd="/test/path", project_name="test")

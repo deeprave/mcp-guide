@@ -10,7 +10,6 @@ from mcp_guide import __version__
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.discovery.files import FileInfo
 from mcp_guide.feature_flags.constants import FLAG_WORKFLOW, FLAG_WORKFLOW_CONSENT, FLAG_WORKFLOW_FILE
-from mcp_guide.mcp_context import get_cached_mcp_context
 from mcp_guide.render.context import TemplateContext
 from mcp_guide.result_constants import (
     INSTRUCTION_AGENT_INSTRUCTIONS,
@@ -98,48 +97,30 @@ class TemplateContextCache(SessionListener):
         tool_prefix = get_tool_prefix()
         agent_vars["tool_prefix"] = tool_prefix
 
-        # Try to get agent information from global ContextVar
+        # Try to get agent and styling information from session
+        styling_value = "plain"
         try:
-            cached_context = get_cached_mcp_context()
-            if cached_context and cached_context.agent_info:
-                agent_info = cached_context.agent_info
-                # Resolve the prompt prefix template with actual MCP name
+            from mcp_guide.feature_flags.constants import FLAG_CONTENT_STYLE
+            from mcp_guide.models import resolve_all_flags
+            from mcp_guide.session import get_session
+
+            session = await get_session()
+
+            if session.agent_info:
+                agent_info = session.agent_info
                 resolved_prefix = agent_info.prompt_prefix.replace("{mcp_name}", "guide")
-                agent_vars["@"] = resolved_prefix  # Set @ to the resolved prefix
+                agent_vars["@"] = resolved_prefix
                 agent_vars["agent"] = {
                     "name": agent_info.name,
-                    "class": agent_info.normalized_name,  # agent.class for canonical form
+                    "class": agent_info.normalized_name,
                     "version": agent_info.version or "",
                     "prefix": resolved_prefix,
                 }
-        except (AttributeError, KeyError, ValueError) as e:
-            # Agent detection failed - log and use @ symbol only
-            logger.debug(f"Agent detection failed: {e}")
 
-        # Add template styling variables based on content-style feature flag
-
-        # Get current project and feature flags for resolution
-        try:
-            # Import here to avoid circular dependency with session module
-            from mcp_guide.feature_flags.constants import FLAG_CONTENT_STYLE
-            from mcp_guide.models import resolve_all_flags
-            from mcp_guide.session import get_or_create_session
-
-            session = await get_or_create_session(None)
-            if session is not None:
-                resolved_flags = await resolve_all_flags(session)
-                styling_value = resolved_flags.get(FLAG_CONTENT_STYLE, "plain")
-            else:
-                styling_value = "plain"
-        except (ConnectionError, TimeoutError) as e:
-            logger.warning(f"Session connection failed, using default styling: {e}")
-            styling_value = "plain"
-        except (KeyError, AttributeError) as e:
-            logger.warning(f"Flag resolution failed, using default styling: {e}")
-            styling_value = "plain"
+            resolved_flags = await resolve_all_flags(session)
+            styling_value = resolved_flags.get(FLAG_CONTENT_STYLE, "plain")
         except Exception as e:
-            logger.error(f"Unexpected error resolving {FLAG_CONTENT_STYLE} flag: {e}")
-            styling_value = "plain"
+            logger.debug(f"Session/agent context failed, using defaults: {e}")
 
         # Convert to enum and get styling variables
         # Import here to avoid circular dependency with formatters module
@@ -204,7 +185,7 @@ class TemplateContextCache(SessionListener):
     async def _build_project_context(self) -> "TemplateContext":
         """Build project context with current project data."""
         from mcp_guide.render.context import TemplateContext
-        from mcp_guide.session import get_or_create_session
+        from mcp_guide.session import get_session
 
         # Extract project information from current session using public API
         project_name = ""
@@ -218,7 +199,7 @@ class TemplateContextCache(SessionListener):
         project_flag_values = []
 
         try:
-            session = await get_or_create_session(None)
+            session = await get_session(None)
             if session:
                 project = await session.get_project()
 
@@ -461,12 +442,12 @@ class TemplateContextCache(SessionListener):
     async def _build_category_context(self, category_name: str) -> "TemplateContext":
         """Build category context with category data (not cached)."""
         from mcp_guide.render.context import TemplateContext
-        from mcp_guide.session import get_or_create_session
+        from mcp_guide.session import get_session
 
         # Extract category information from current session's project
         category_data = {"name": "", "dir": "", "patterns": [], "description": ""}
         try:
-            session = await get_or_create_session(None)
+            session = await get_session(None)
             if session:
                 project = await session.get_project()
                 # Find category by name using dict lookup
@@ -487,12 +468,12 @@ class TemplateContextCache(SessionListener):
     async def _build_collection_context(self, collection_name: str) -> "TemplateContext":
         """Build collection context with collection data (not cached)."""
         from mcp_guide.render.context import TemplateContext
-        from mcp_guide.session import get_or_create_session
+        from mcp_guide.session import get_session
 
         # Extract collection information from current session's project
         collection_data = {"name": "", "categories": [], "description": ""}
         try:
-            session = await get_or_create_session(None)
+            session = await get_session(None)
             if session:
                 project = await session.get_project()
                 # Find collection by name using dict lookup

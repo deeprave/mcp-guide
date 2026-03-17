@@ -37,7 +37,7 @@ from mcp_guide.result_constants import (
     INSTRUCTION_NOTFOUND_ERROR,
     INSTRUCTION_PATTERN_ERROR,
 )
-from mcp_guide.session import get_or_create_session
+from mcp_guide.session import get_session
 from mcp_guide.tools.tool_result import parse_options, tool_result
 
 logger = get_logger(__name__)
@@ -122,7 +122,7 @@ async def internal_get_content(
     """
     # Get session
     try:
-        session = await get_or_create_session(ctx)
+        session = await get_session(ctx)
     except ValueError as e:
         return Result.failure(str(e), error_type=ERROR_NO_PROJECT)
 
@@ -308,7 +308,7 @@ async def export_content(
     Reuses get_content logic to gather and render content, then returns it with
     an instruction to write to the resolved path.
     """
-    session = await get_or_create_session(ctx)
+    session = await get_session(ctx)
     project = await session.get_project()
 
     # Check for existing export (staleness detection)
@@ -370,11 +370,8 @@ async def export_content(
     # Resolve agent name
     agent_name = ""
     try:
-        from mcp_guide.mcp_context import get_cached_mcp_context
-
-        cached = get_cached_mcp_context()
-        if cached and cached.agent_info:
-            agent_name = cached.agent_info.normalized_name.lower()
+        if session.agent_info:
+            agent_name = session.agent_info.normalized_name.lower()
     except (AttributeError, LookupError) as e:
         logger.warning(f"Agent detection failed, using default export path: {e}")
 
@@ -461,7 +458,7 @@ async def list_exports(
     from fnmatch import fnmatch
     from pathlib import PurePath
 
-    session = await get_or_create_session(ctx)
+    session = await get_session(ctx)
     project = await session.get_project()
 
     # Build list of export dicts
@@ -548,7 +545,7 @@ async def remove_export(
     Removes only the tracking entry, not the actual exported file.
     Requires exact match of expression and pattern (if provided).
     """
-    session = await get_or_create_session(ctx)
+    session = await get_session(ctx)
     project = await session.get_project()
 
     # Build key

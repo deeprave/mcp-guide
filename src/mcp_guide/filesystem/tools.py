@@ -8,7 +8,7 @@ from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.core.result import Result
 from mcp_guide.filesystem.cache import FileCache
 from mcp_guide.filesystem.read_write_security import ReadWriteSecurityPolicy
-from mcp_guide.session import get_or_create_session
+from mcp_guide.session import get_session
 
 logger = get_logger(__name__)
 
@@ -52,7 +52,7 @@ async def send_file_content(
         )
 
     try:
-        session = await get_or_create_session(context)
+        session = await get_session(context)
         project = await session.get_project()
 
         # Validate path against security policy
@@ -151,7 +151,7 @@ async def send_directory_listing(
         )
 
     try:
-        session = await get_or_create_session(context)
+        session = await get_session(context)
         project = await session.get_project()
 
         # Get project root for client path resolution

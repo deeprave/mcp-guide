@@ -18,7 +18,7 @@ from mcp_guide.result_constants import (
     INSTRUCTION_NO_PROJECT,
     INSTRUCTION_NOTFOUND_ERROR,
 )
-from mcp_guide.session import get_or_create_session, list_all_projects
+from mcp_guide.session import get_session, list_all_projects
 from mcp_guide.session import set_project as session_set_project
 from mcp_guide.tools.tool_result import tool_result
 
@@ -97,7 +97,7 @@ async def internal_get_project(args: GetCurrentProjectArgs, ctx: Optional[Contex
         Result containing project information
     """
     try:
-        session = await get_or_create_session(ctx)
+        session = await get_session(ctx)
     except ValueError as e:
         return Result.failure(
             str(e),
@@ -147,7 +147,7 @@ async def internal_set_project(args: SetCurrentProjectArgs, ctx: Optional[Contex
         # Get session for flag resolution
         session = None
         try:
-            session = await get_or_create_session(ctx)
+            session = await get_session(ctx)
         except ValueError:
             # Continue with session=None, which will include empty flags
             pass
@@ -192,7 +192,7 @@ async def internal_list_projects(args: ListProjectsArgs, ctx: Optional[Context] 
     Returns:
         Result containing projects list or dict
     """
-    session = await get_or_create_session(ctx)
+    session = await get_session(ctx)
     return await list_all_projects(verbose=args.verbose, session=session)
 
 
@@ -227,7 +227,7 @@ async def internal_list_project(args: ListProjectArgs, ctx: Optional[Context] = 
 
         if args.name is None:
             # Get current project - always need session
-            session = await get_or_create_session(ctx)
+            session = await get_session(ctx)
             project = await session.get_project()
             project_name = session.project_name
         else:
@@ -237,7 +237,7 @@ async def internal_list_project(args: ListProjectArgs, ctx: Optional[Context] = 
             session = None
             if args.verbose:
                 try:
-                    session = await get_or_create_session(ctx)
+                    session = await get_session(ctx)
                 except Exception:
                     pass
 
@@ -319,7 +319,7 @@ async def internal_clone_project(args: CloneProjectArgs, ctx: Optional[Context] 
 
     # Get session to access configuration
     try:
-        session = await get_or_create_session(ctx)
+        session = await get_session(ctx)
     except ValueError as e:
         # If we can't get session for current project, we still need to proceed
         # for 2-arg mode where we're not using current project
@@ -335,7 +335,7 @@ async def internal_clone_project(args: CloneProjectArgs, ctx: Optional[Context] 
             all_projects = await session.get_all_projects()
         else:
             # 2-arg mode without current project - create temporary session
-            temp_session = await get_or_create_session(ctx, project_name=args.from_project)
+            temp_session = await get_session(ctx, project_name=args.from_project)
             all_projects = await temp_session.get_all_projects()
             session = temp_session
     except Exception as e:
@@ -387,7 +387,7 @@ async def internal_clone_project(args: CloneProjectArgs, ctx: Optional[Context] 
     if args.to_project is None:
         # 1-arg mode: clone to current project
         try:
-            session = await get_or_create_session(ctx)
+            session = await get_session(ctx)
             current_project = await session.get_project()
             target_name = current_project.name
             target_project = current_project
@@ -447,7 +447,7 @@ async def internal_clone_project(args: CloneProjectArgs, ctx: Optional[Context] 
 
         # Check if target is current project
         try:
-            session = await get_or_create_session(ctx)
+            session = await get_session(ctx)
             current_project = await session.get_project()
             is_current_project = target_name == current_project.name
         except ValueError:
@@ -501,8 +501,8 @@ async def internal_clone_project(args: CloneProjectArgs, ctx: Optional[Context] 
     # Invalidate cache if current project was modified
     if is_current_project:
         try:
-            session = await get_or_create_session(ctx)
-            session.invalidate_cache()
+            session = await get_session(ctx)
+            await session.invalidate_cache()
         except ValueError:
             pass
 
@@ -634,7 +634,7 @@ async def internal_use_project_profile(args: UseProjectProfileArgs, ctx: Optiona
     """
     from mcp_guide.models.profile import Profile
 
-    session = await get_or_create_session(ctx)
+    session = await get_session(ctx)
 
     # Get current project
     project = await session.get_project()
@@ -812,7 +812,7 @@ async def internal_add_permission_path(args: AddPermissionPathArgs, ctx: Optiona
     from mcp_guide.models.project import Project
 
     # Get current project
-    session = await get_or_create_session(ctx)
+    session = await get_session(ctx)
     project = await session.get_project()
     if not project:
         return Result.failure(ERROR_NO_PROJECT, INSTRUCTION_NO_PROJECT)
@@ -860,7 +860,7 @@ async def internal_remove_permission_path(args: RemovePermissionPathArgs, ctx: O
         Result with success message
     """
     # Get current project
-    session = await get_or_create_session(ctx)
+    session = await get_session(ctx)
     project = await session.get_project()
     if not project:
         return Result.failure(ERROR_NO_PROJECT, INSTRUCTION_NO_PROJECT)

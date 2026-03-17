@@ -352,10 +352,14 @@ def guide_function():
 
 
 @pytest.fixture(autouse=True)
-def reset_cached_mcp_context():
-    """Reset module-level MCP context cache between tests to prevent pollution."""
+def reset_bootstrap_mcp_cache():
+    """Reset bootstrap MCP cache between tests to prevent pollution."""
     import mcp_guide.mcp_context
 
-    mcp_guide.mcp_context.set_cached_mcp_context(None)
+    mcp_guide.mcp_context._bootstrap_roots = []
+    mcp_guide.mcp_context._bootstrap_agent_info = None
+    mcp_guide.mcp_context._bootstrap_client_params = None
     yield
-    mcp_guide.mcp_context.set_cached_mcp_context(None)
+    mcp_guide.mcp_context._bootstrap_roots = []
+    mcp_guide.mcp_context._bootstrap_agent_info = None
+    mcp_guide.mcp_context._bootstrap_client_params = None

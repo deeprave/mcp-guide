@@ -51,9 +51,7 @@ Indexed args: {{#args}}{{#first}}FIRST: {{/first}}{{value}}{{^last}} {{/last}}{{
         with (
             patch("mcp_guide.prompts.guide_prompt.get_template_contexts", new=AsyncMock()) as mock_context,
             patch("mcp_guide.render.template.get_template_contexts", new=AsyncMock()) as mock_render_context,
-            patch(
-                "mcp_guide.session.get_or_create_session", new=AsyncMock(return_value=mock_ctx.session)
-            ) as mock_session,
+            patch("mcp_guide.session.get_session", new=AsyncMock(return_value=mock_ctx.session)) as mock_session,
         ):
             from mcp_guide.render.context import TemplateContext
 
@@ -83,9 +81,7 @@ Indexed args: {{#args}}{{#first}}FIRST: {{/first}}{{value}}{{^last}} {{/last}}{{
         with (
             patch("mcp_guide.prompts.guide_prompt.get_template_contexts", new=AsyncMock()) as mock_context,
             patch("mcp_guide.render.template.get_template_contexts", new=AsyncMock()) as mock_render_context,
-            patch(
-                "mcp_guide.session.get_or_create_session", new=AsyncMock(return_value=mock_ctx.session)
-            ) as mock_session,
+            patch("mcp_guide.session.get_session", new=AsyncMock(return_value=mock_ctx.session)) as mock_session,
         ):
             from mcp_guide.render.context import TemplateContext
 
@@ -123,9 +119,7 @@ Indexed args: {{#args}}{{#first}}FIRST: {{/first}}{{value}}{{^last}} {{/last}}{{
         with (
             patch("mcp_guide.prompts.guide_prompt.get_template_contexts", new=AsyncMock()) as mock_context,
             patch("mcp_guide.render.template.get_template_contexts", new=AsyncMock()) as mock_render_context,
-            patch(
-                "mcp_guide.session.get_or_create_session", new=AsyncMock(return_value=mock_ctx.session)
-            ) as mock_session,
+            patch("mcp_guide.session.get_session", new=AsyncMock(return_value=mock_ctx.session)) as mock_session,
         ):
             from mcp_guide.render.context import TemplateContext
 
@@ -196,9 +190,7 @@ Current project: {{project.name}}
         with (
             patch("mcp_guide.prompts.guide_prompt.get_template_contexts", new=AsyncMock()) as mock_context,
             patch("mcp_guide.render.template.get_template_contexts", new=AsyncMock()) as mock_render_context,
-            patch(
-                "mcp_guide.session.get_or_create_session", new=AsyncMock(return_value=mock_ctx.session)
-            ) as mock_session,
+            patch("mcp_guide.session.get_session", new=AsyncMock(return_value=mock_ctx.session)) as mock_session,
         ):
             from mcp_guide.render.context import TemplateContext
 
@@ -218,9 +210,7 @@ Current project: {{project.name}}
         with (
             patch("mcp_guide.prompts.guide_prompt.get_template_contexts", new=AsyncMock()) as mock_context,
             patch("mcp_guide.render.template.get_template_contexts", new=AsyncMock()) as mock_render_context,
-            patch(
-                "mcp_guide.session.get_or_create_session", new=AsyncMock(return_value=mock_ctx.session)
-            ) as mock_session,
+            patch("mcp_guide.session.get_session", new=AsyncMock(return_value=mock_ctx.session)) as mock_session,
         ):
             from mcp_guide.render.context import TemplateContext
 
@@ -261,9 +251,7 @@ includes:
         with (
             patch("mcp_guide.prompts.guide_prompt.get_template_contexts", new=AsyncMock()) as mock_context,
             patch("mcp_guide.render.template.get_template_contexts", new=AsyncMock()) as mock_render_context,
-            patch(
-                "mcp_guide.session.get_or_create_session", new=AsyncMock(return_value=mock_ctx.session)
-            ) as mock_session,
+            patch("mcp_guide.session.get_session", new=AsyncMock(return_value=mock_ctx.session)) as mock_session,
         ):
             from mcp_guide.render.context import TemplateContext
 

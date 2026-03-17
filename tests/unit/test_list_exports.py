@@ -5,7 +5,7 @@ from dataclasses import replace as dc_replace
 
 import pytest
 
-from mcp_guide.session import get_or_create_session
+from mcp_guide.session import get_session
 from mcp_guide.tools.tool_content import ListExportsArgs, list_exports
 
 
@@ -22,7 +22,7 @@ async def test_list_exports_empty(session_temp_dir):
 async def test_list_exports_single(session_temp_dir):
     """Test list_exports returns array with one export entry."""
     # Setup: Add export entry to project
-    session = await get_or_create_session()
+    session = await get_session()
     project = await session.get_project()
     updated = project.upsert_export_entry("docs", None, "/export.md", "a3f5c8d1")
     await session.update_config(lambda _: updated)
@@ -48,7 +48,7 @@ async def test_list_exports_with_timestamp(session_temp_dir, tmp_path):
     import time
 
     # Setup: Add export entry with a known timestamp
-    session = await get_or_create_session()
+    session = await get_session()
     project = await session.get_project()
     ts = time.time()
     updated = project.upsert_export_entry("docs", None, str(tmp_path / "export.md"), "a3f5c8d1", exported_at=ts)
@@ -71,7 +71,7 @@ async def test_list_exports_staleness(session_temp_dir, tmp_path):
     # Create a category with a file
     from mcp_guide.models.project import Category
 
-    session = await get_or_create_session()
+    session = await get_session()
 
     # Clear any existing exports
     project = await session.get_project()
@@ -111,7 +111,7 @@ async def test_list_exports_staleness(session_temp_dir, tmp_path):
 @pytest.mark.asyncio
 async def test_list_exports_glob_filter(session_temp_dir, tmp_path):
     """Test list_exports filters by glob pattern."""
-    session = await get_or_create_session()
+    session = await get_session()
 
     # Clear exports and add multiple
     project = await session.get_project()

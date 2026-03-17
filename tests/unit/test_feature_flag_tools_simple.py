@@ -17,7 +17,7 @@ class TestSimple:
         args = ListFlagsArgs()
 
         # Mock the session and config manager
-        with patch("mcp_guide.session.get_or_create_session") as mock_session_func:
+        with patch("mcp_guide.session.get_session") as mock_session_func:
             mock_session = Mock()
             mock_session_func.return_value = mock_session
 
