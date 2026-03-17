@@ -60,7 +60,7 @@ class TestOnInitDecorator:
 class TestLifespanExecution:
     """Test guide_lifespan() context manager execution."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_lifespan_executes_handlers(self):
         """Test that lifespan executes all registered handlers."""
         from mcp_guide.guide import GuideMCP
@@ -87,7 +87,7 @@ class TestLifespanExecution:
         assert handler1_called
         assert handler2_called
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_lifespan_continues_on_handler_error(self):
         """Test that lifespan continues executing handlers even if one fails."""
         from mcp_guide.guide import GuideMCP
@@ -116,7 +116,7 @@ class TestLifespanExecution:
 class TestTaskManagerOnInit:
     """Test TaskManager.on_init() method."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     @pytest.mark.parametrize(
         "scenario,flags,expected",
         [
@@ -136,7 +136,7 @@ class TestTaskManagerOnInit:
 
         assert task_manager.requires_flag("test-flag") is expected
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_task_manager_on_init_establishes_session(self):
         """Test that TaskManager.on_init() establishes session."""
         from mcp_guide.task_manager.manager import TaskManager
@@ -155,7 +155,7 @@ class TestTaskManagerOnInit:
             mock_session.assert_called_once()
             assert task_manager.session is not None
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_task_manager_on_init_calls_task_on_init(self):
         """Test that TaskManager.on_init() calls on_init() on registered tasks."""
         from mcp_guide.task_manager.manager import TaskManager
@@ -186,7 +186,7 @@ class TestTaskManagerOnInit:
 class TestTaskOnInit:
     """Test task on_init() implementations."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_openspec_task_on_init_checks_flag(self):
         """Test that OpenSpecTask.on_init() checks flag and unsubscribes if disabled."""
         from mcp_guide.openspec.task import OpenSpecTask
@@ -202,7 +202,7 @@ class TestTaskOnInit:
         mock_task_manager.unsubscribe.assert_called_once_with(task)
         assert task._flag_checked
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_workflow_task_on_init_queues_setup(self):
         """Test that WorkflowMonitorTask.on_init() queues setup instruction when enabled."""
         from mcp_guide.workflow.tasks import WorkflowMonitorTask
@@ -224,7 +224,7 @@ class TestTaskOnInit:
             mock_task_manager.queue_instruction_with_ack.assert_called_once_with("setup content")
             assert task._setup_done
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_workflow_task_on_init_unsubscribes_when_disabled(self):
         """Test that WorkflowMonitorTask.on_init() unsubscribes when flag is disabled."""
         from mcp_guide.workflow.tasks import WorkflowMonitorTask
@@ -241,7 +241,7 @@ class TestTaskOnInit:
         mock_task_manager.requires_flag.assert_called_once_with("workflow")
         mock_task_manager.unsubscribe.assert_called_once_with(task)
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_client_context_task_on_init_requests_info_when_enabled(self):
         """Test that ClientContextTask.on_init() requests OS info when flag is enabled."""
         from mcp_guide.context.tasks import ClientContextTask
@@ -262,7 +262,7 @@ class TestTaskOnInit:
             assert task._os_info_requested
             assert task._flag_checked
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_client_context_task_on_init_unsubscribes_when_disabled(self):
         """Test that ClientContextTask.on_init() unsubscribes when flag is disabled."""
         from mcp_guide.context.tasks import ClientContextTask

@@ -15,7 +15,7 @@ from mcp_guide.session import (
 class TestSetProject:
     """Tests for set_project tool function."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_set_project_creates_and_loads(self, tmp_path, monkeypatch):
         """set_project creates/loads project successfully."""
         # Mock the session creation to use test directory
@@ -31,7 +31,7 @@ class TestSetProject:
         assert result.is_ok()
         assert result.value.name == "new-project"
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_set_project_with_invalid_name(self, tmp_path, monkeypatch):
         """set_project returns error for invalid project name."""
         from mcp_guide.result_constants import ERROR_INVALID_NAME
@@ -53,7 +53,7 @@ class TestSetProject:
 class TestGetOrCreateSession:
     """Tests for get_session function."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_creates_session_with_explicit_name(self, tmp_path, monkeypatch):
         """Creates session when explicit project_name provided."""
         # Mock the session creation to use test directory
@@ -67,7 +67,7 @@ class TestGetOrCreateSession:
         session = await get_session(project_name="explicit-project", _config_dir_for_tests=str(tmp_path))
         assert session.project_name == "explicit-project"
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_creates_session_from_context(self, tmp_path, monkeypatch):
         """Creates session by detecting name from context."""
         # Mock the session creation to use test directory
@@ -86,7 +86,7 @@ class TestGetOrCreateSession:
         session = await get_session(ctx=mock_ctx)
         assert session.project_name == "detected-project"
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_returns_existing_session(self, tmp_path, monkeypatch):
         """Returns existing session if already created."""
         # Mock the session creation to use test directory
@@ -102,7 +102,7 @@ class TestGetOrCreateSession:
 
         assert session1 is session2
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_returns_same_session_ignoring_project_name(self, tmp_path, monkeypatch):
         """Second call returns existing session regardless of project_name."""
         original_session_init = Session.__init__
@@ -122,7 +122,7 @@ class TestGetOrCreateSession:
 class TestProjectNameDetection:
     """Tests for cache_mcp_globals function."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_determine_from_client_roots(self):
         """Project name determined from MCP client roots (PRIMARY)."""
         # Mock Context with roots
@@ -137,7 +137,7 @@ class TestProjectNameDetection:
         project_name = await mcp_guide.mcp_context.resolve_project_name()
         assert project_name == "my-project"
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_determine_from_pwd_fallback(self, monkeypatch):
         """Project name determined from PWD as LAST FALLBACK."""
         monkeypatch.setenv("PWD", "/home/user/test-project")
@@ -149,7 +149,7 @@ class TestProjectNameDetection:
         project_name = await mcp_guide.mcp_context.resolve_project_name()
         assert project_name == "test-project"
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_pwd_must_be_absolute(self, monkeypatch):
         """PWD must be absolute path - reject relative paths."""
         monkeypatch.setenv("PWD", "./relative/path")
@@ -157,7 +157,7 @@ class TestProjectNameDetection:
         with pytest.raises(ValueError, match="Project context not available"):
             await mcp_guide.mcp_context.resolve_project_name()
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_error_when_no_source_available(self, monkeypatch):
         """Raises ValueError with instruction when no source available."""
         monkeypatch.delenv("PWD", raising=False)
@@ -165,7 +165,7 @@ class TestProjectNameDetection:
         with pytest.raises(ValueError, match="Call set_project"):
             await mcp_guide.mcp_context.resolve_project_name()
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_handles_client_roots_exception(self, monkeypatch):
         """Gracefully handles exception from client roots."""
         monkeypatch.setenv("PWD", "/home/user/fallback-project")
@@ -181,7 +181,7 @@ class TestProjectNameDetection:
         project_name = await mcp_guide.mcp_context.resolve_project_name()
         assert project_name == "fallback-project"
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_caches_roots_info(self):
         """Caches entire roots list in bootstrap cache when no session exists."""
         import mcp_guide.mcp_context

@@ -8,7 +8,7 @@ import pytest
 class TestInstallAndCreateConfig:
     """Tests for install_and_create_config function."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_install_and_create_config_creates_templates_and_config(self, tmp_path: Path) -> None:
         """Test that install_and_create_config creates templates and config file."""
         # Arrange
@@ -25,7 +25,7 @@ class TestInstallAndCreateConfig:
         assert "docroot:" in content
         assert "projects:" in content
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_install_and_create_config_installs_templates(self, tmp_path: Path) -> None:
         """Test that install_and_create_config installs template files."""
         # Arrange
@@ -48,7 +48,7 @@ class TestInstallAndCreateConfig:
         assert docroot.exists()
         assert (docroot / "_commands").exists()
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_install_and_create_config_creates_archive(self, tmp_path: Path) -> None:
         """Test that install_and_create_config creates originals archive."""
         # Arrange
@@ -72,7 +72,7 @@ class TestInstallAndCreateConfig:
         archive_path = docroot / ORIGINAL_ARCHIVE
         assert archive_path.exists()
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_install_and_create_config_writes_version(self, tmp_path: Path) -> None:
         """Test that install_and_create_config writes version file."""
         # Arrange

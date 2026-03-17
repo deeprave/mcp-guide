@@ -17,6 +17,7 @@ class TestTemplateStylingFlag:
         cache = TemplateContextCache()
         return cache
 
+    @pytest.mark.anyio
     async def test_template_styling_plain_mode(self, template_cache):
         """Test content-style=plain suppresses all formatting."""
         # Mock session methods to return flags
@@ -47,6 +48,7 @@ class TestTemplateStylingFlag:
             assert context["h5"] == ""
             assert context["h6"] == ""
 
+    @pytest.mark.anyio
     async def test_template_styling_headings_mode(self, template_cache):
         """Test content-style=headings shows headings but no bold/italic."""
         with patch("mcp_guide.session.get_active_session") as mock_get_session:
@@ -76,6 +78,7 @@ class TestTemplateStylingFlag:
             assert context["h5"] == "##### "
             assert context["h6"] == "###### "
 
+    @pytest.mark.anyio
     async def test_template_styling_full_mode(self, template_cache):
         """Test content-style=full enables all formatting."""
         with patch("mcp_guide.session.get_active_session") as mock_get_session:
@@ -105,6 +108,7 @@ class TestTemplateStylingFlag:
             assert context["h5"] == "##### "
             assert context["h6"] == "###### "
 
+    @pytest.mark.anyio
     async def test_template_styling_default_plain(self, template_cache):
         """Test content-style defaults to plain when flag not set."""
         with patch("mcp_guide.session.get_active_session") as mock_get_session:
@@ -132,6 +136,7 @@ class TestTemplateStylingFlag:
             assert context["h5"] == ""
             assert context["h6"] == ""
 
+    @pytest.mark.anyio
     @pytest.mark.parametrize(
         "error_scenario,mock_setup",
         [

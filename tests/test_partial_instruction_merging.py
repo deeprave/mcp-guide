@@ -8,7 +8,7 @@ from mcp_guide.discovery.files import FileInfo
 from mcp_guide.render.template import render_template
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 class TestPartialInstructionMerging:
     """Test that partial frontmatter instructions are properly merged with parent instructions."""
 

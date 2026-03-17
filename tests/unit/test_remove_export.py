@@ -9,7 +9,7 @@ from mcp_guide.session import get_session
 from mcp_guide.tools.tool_content import RemoveExportArgs, remove_export
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_remove_export_success(session_temp_dir):
     """Test remove_export removes tracking entry."""
     session = await get_session()
@@ -30,7 +30,7 @@ async def test_remove_export_success(session_temp_dir):
     assert project.get_export_entry("docs", None) is None
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_remove_export_not_found(session_temp_dir):
     """Test remove_export returns error when entry not found."""
     session = await get_session()
@@ -47,7 +47,7 @@ async def test_remove_export_not_found(session_temp_dir):
     assert data["success"] is False
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_remove_export_with_pattern(session_temp_dir):
     """Test remove_export with exact pattern match."""
     session = await get_session()

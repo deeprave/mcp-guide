@@ -2,6 +2,8 @@
 
 from unittest.mock import AsyncMock, Mock, patch
 
+import pytest
+
 from mcp_guide.models import Project
 from mcp_guide.render.cache import get_template_contexts, invalidate_template_context_cache
 from mcp_guide.render.renderer import render_template_content
@@ -14,6 +16,7 @@ class TestTemplateRenderingWithFlags:
         """Clear template context cache before each test."""
         invalidate_template_context_cache()
 
+    @pytest.mark.anyio
     async def test_template_renders_with_phase_tracking_flag_true(self) -> None:
         """Test that template content renders when phase-tracking flag is true."""
         # Create a simple template with conditional content using dict format
@@ -43,6 +46,7 @@ Phase tracking is enabled!
                 rendered_content, _, _ = result.value
                 assert "Phase tracking is enabled!" in rendered_content
 
+    @pytest.mark.anyio
     async def test_template_does_not_render_with_phase_tracking_flag_false(self) -> None:
         """Test that template content does not render when phase-tracking flag is false."""
         # Create a simple template with conditional content
@@ -74,6 +78,7 @@ Phase tracking is enabled!
                 # Should be empty or just whitespace
                 assert rendered_content.strip() == ""
 
+    @pytest.mark.anyio
     async def test_template_does_not_render_with_missing_flag(self) -> None:
         """Test that template content does not render when flag is missing."""
         # Create a simple template with conditional content

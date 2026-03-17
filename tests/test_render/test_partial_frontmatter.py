@@ -8,7 +8,7 @@ from mcp_guide.render.partials import load_partial_content
 from mcp_guide.render.renderer import render_template_content
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 class TestPartialFrontmatter:
     """Test partial loading with frontmatter."""
 
@@ -55,7 +55,7 @@ class TestPartialFrontmatter:
         assert frontmatter.get("instruction") == "Show this"
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_partial_regular_instruction_does_not_override_parent(tmp_path):
     """Test that partial with regular instruction does not override parent instruction."""
 
@@ -82,7 +82,7 @@ async def test_partial_regular_instruction_does_not_override_parent(tmp_path):
     assert parent_metadata["instruction"] == "Parent instruction"
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_partial_instruction_rendered_with_context(tmp_path):
     """Test that partial instruction/description fields are rendered as templates."""
     partial_file = tmp_path / "_test.mustache"
@@ -96,7 +96,7 @@ async def test_partial_instruction_rendered_with_context(tmp_path):
     assert frontmatter.get("description") == "Project test"
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_unused_partial_instruction_not_applied(tmp_path):
     """Bug fix: partial instruction must NOT be applied when partial isn't rendered.
 
@@ -131,7 +131,7 @@ async def test_unused_partial_instruction_not_applied(tmp_path):
     assert partial_frontmatter_list == []
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_used_partial_instruction_is_applied(tmp_path):
     """Partial instruction IS applied when partial is actually rendered via {{>partial}}."""
 
@@ -162,7 +162,7 @@ async def test_used_partial_instruction_is_applied(tmp_path):
     assert partial_frontmatter_list[0].get("instruction") == "^ Run client_info tool"
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_partial_instruction_placeholders_resolved(tmp_path):
     """Bug fix: placeholders like {{tool_prefix}} in partial instructions must be resolved."""
 

@@ -58,7 +58,7 @@ async def setup_session(test_session_with_data, monkeypatch):
 class TestCollectionList:
     """Tests for collection_list tool."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_verbose_true_returns_full_details(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """verbose=True should return full collection details."""
         monkeypatch.setenv("PWD", "/fake/path/test")
@@ -84,7 +84,7 @@ class TestCollectionList:
             "description": "Empty collection",
         }
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_verbose_false_returns_names_only(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """verbose=False should return just collection names."""
         monkeypatch.setenv("PWD", "/fake/path/test")
@@ -96,7 +96,7 @@ class TestCollectionList:
         assert result_dict["success"] is True
         assert result_dict["value"] == ["backend", "documentation", "empty"]
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_empty_collections_returns_empty_list(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Empty collections list should return empty list."""
         # Clear collections for this test
@@ -114,7 +114,7 @@ class TestCollectionList:
         assert result_dict["success"] is True
         assert result_dict["value"] == []
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_collection_with_empty_categories(self, test_session_with_data: Session) -> None:
         """Collection with empty categories list should return empty list in categories field."""
         session = await get_session()
@@ -131,7 +131,7 @@ class TestCollectionList:
         assert len(result_dict["value"]) == 1
         assert result_dict["value"][0]["categories"] == []
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_no_active_session_error(self, monkeypatch: MonkeyPatch) -> None:
         """No active session returns error."""
         # Clear current session and unset PWD/CWD so get_session fails
@@ -150,7 +150,7 @@ class TestCollectionList:
 class TestCollectionAdd:
     """Tests for collection_add tool."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_add_collection_name_only(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Create collection with just name."""
         # Clear existing collections for this test
@@ -176,7 +176,7 @@ class TestCollectionAdd:
         assert project.collections["backend"].categories == []
         assert project.collections["backend"].description is None
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_add_collection_with_description(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Create collection with name and description."""
         # Clear existing collections for this test
@@ -199,7 +199,7 @@ class TestCollectionAdd:
         assert "docs" in project.collections
         assert project.collections["docs"].description == "Documentation files"
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_add_collection_with_categories(self, test_session_with_data: Session) -> None:
         """Create collection with valid categories."""
         session = await get_session()
@@ -219,7 +219,7 @@ class TestCollectionAdd:
         assert "backend" in project.collections
         assert project.collections["backend"].categories == ["api", "tests"]
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_add_collection_deduplicates_categories(self, test_session_with_data: Session) -> None:
         """Duplicate categories should be deduplicated while preserving order."""
         session = await get_session()
@@ -238,7 +238,7 @@ class TestCollectionAdd:
         project = await session.get_project()
         assert project.collections[list(project.collections.keys())[0]].categories == ["api", "tests", "docs"]
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_add_collection_duplicate_name_error(self, test_session_with_data: Session) -> None:
         """Duplicate collection name should return validation error."""
         session = await get_session()
@@ -264,7 +264,7 @@ class TestCollectionAdd:
         assert len(project.collections) == len(original_collections)
         assert project.collections == original_collections
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     @pytest.mark.parametrize(
         "description,error_contains",
         [
@@ -296,7 +296,7 @@ class TestCollectionAdd:
         project = await session.get_project()
         assert len(project.collections) == len(original_collections)
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_add_collection_nonexistent_categories(self, test_session_with_data: Session) -> None:
         """Non-existent categories should return validation error."""
         session = await get_session()
@@ -322,7 +322,7 @@ class TestCollectionAdd:
         project = await session.get_project()
         assert len(project.collections) == len(original_collections)
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_add_collection_no_session_error(self, monkeypatch: MonkeyPatch) -> None:
         """No active session should return error."""
         await remove_current_session()
@@ -336,7 +336,7 @@ class TestCollectionAdd:
         assert result_dict["success"] is False
         assert result_dict["error_type"] == "no_project"
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_add_collection_invalid_name(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Invalid collection name should return validation error."""
         from mcp_guide.session import get_session
@@ -361,7 +361,7 @@ class TestCollectionAdd:
         project = await session.get_project()
         assert len(project.collections) == len(original_collections)
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_add_collection_save_error(self, test_session_with_data: Session, monkeypatch: MonkeyPatch) -> None:
         """Configuration save failure should return ERROR_SAVE."""
         session = await get_session()
@@ -387,7 +387,7 @@ class TestCollectionAdd:
 class TestCollectionRemove:
     """Tests for collection_remove tool."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_collection_remove_existing(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Remove existing collection."""
         from mcp_guide.tools.tool_collection import CollectionRemoveArgs, collection_remove
@@ -408,7 +408,7 @@ class TestCollectionRemove:
         project = await session.get_project()
         assert len(project.collections) == 0
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_collection_remove_nonexistent(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Reject removing non-existent collection."""
         from mcp_guide.tools.tool_collection import CollectionRemoveArgs, collection_remove
@@ -426,7 +426,7 @@ class TestCollectionRemove:
         assert "does not exist" in result_dict["error"]
         assert "nonexistent" in result_dict["error"]
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_collection_remove_no_session(self, monkeypatch: MonkeyPatch) -> None:
         """Reject when no session exists."""
         from mcp_guide.tools.tool_collection import CollectionRemoveArgs, collection_remove
@@ -442,7 +442,7 @@ class TestCollectionRemove:
         assert result_dict["success"] is False
         assert result_dict["error_type"] == "no_project"
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_collection_remove_auto_saves(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Verify configuration is automatically saved."""
         from mcp_guide.tools.tool_collection import CollectionRemoveArgs, collection_remove
@@ -463,7 +463,7 @@ class TestCollectionRemove:
         project = await session.get_project()
         assert len(project.collections) == 0
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_collection_remove_save_failure(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Handle save failure gracefully."""
         from unittest.mock import AsyncMock
@@ -492,7 +492,7 @@ class TestCollectionRemove:
 class TestCollectionChange:
     """Tests for collection_change tool."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_change_collection_name_only(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Change collection name only."""
         from mcp_guide.tools.tool_collection import CollectionChangeArgs, collection_change
@@ -518,7 +518,7 @@ class TestCollectionChange:
         assert project.collections[list(project.collections.keys())[0]].categories == ["api"]
         assert project.collections[list(project.collections.keys())[0]].description == "Backend code"
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_change_collection_description_only(self, test_session_with_data: Session) -> None:
         """Change collection description only."""
         from mcp_guide.tools.tool_collection import CollectionChangeArgs, collection_change
@@ -541,7 +541,7 @@ class TestCollectionChange:
         assert project.collections["backend"].description == "New desc"
         assert project.collections["backend"].categories == ["api"]
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_change_collection_clear_description(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Clear description with empty string."""
         from mcp_guide.tools.tool_collection import CollectionChangeArgs, collection_change
@@ -561,7 +561,7 @@ class TestCollectionChange:
         project = await session.get_project()
         assert project.collections[list(project.collections.keys())[0]].description is None
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_change_collection_categories_only(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Change categories only."""
         from mcp_guide.tools.tool_collection import CollectionChangeArgs, collection_change
@@ -592,7 +592,7 @@ class TestCollectionChange:
         assert "backend" in project.collections
         assert project.collections[list(project.collections.keys())[0]].description == "Backend"
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_change_collection_deduplicates_categories(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Deduplicate categories while preserving order."""
         from mcp_guide.tools.tool_collection import CollectionChangeArgs, collection_change
@@ -619,7 +619,7 @@ class TestCollectionChange:
         project = await session.get_project()
         assert project.collections[list(project.collections.keys())[0]].categories == ["api", "tests", "docs"]
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_change_collection_multiple_fields(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Change multiple fields together."""
         from mcp_guide.tools.tool_collection import CollectionChangeArgs, collection_change
@@ -648,7 +648,7 @@ class TestCollectionChange:
         assert project.collections[list(project.collections.keys())[0]].description == "New"
         assert project.collections[list(project.collections.keys())[0]].categories == ["api"]
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_change_collection_no_changes(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Reject when no changes provided."""
         from mcp_guide.tools.tool_collection import CollectionChangeArgs, collection_change
@@ -667,7 +667,7 @@ class TestCollectionChange:
         assert result_dict["error_type"] == "validation_error"
         assert "at least one change" in result_dict["error"].lower()
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_change_collection_nonexistent(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Reject changing non-existent collection."""
         from mcp_guide.tools.tool_collection import CollectionChangeArgs, collection_change
@@ -684,7 +684,7 @@ class TestCollectionChange:
         assert result_dict["error_type"] == "not_found"
         assert "does not exist" in result_dict["error"]
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_change_collection_duplicate_name(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Reject renaming to existing collection name."""
         from mcp_guide.tools.tool_collection import CollectionChangeArgs, collection_change
@@ -706,7 +706,7 @@ class TestCollectionChange:
         assert result_dict["error_type"] == "validation_error"
         assert "already exists" in result_dict["error"]
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_change_collection_invalid_new_name(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Reject invalid new_name that fails Collection validation."""
         from mcp_guide.tools.tool_collection import CollectionChangeArgs, collection_change
@@ -725,7 +725,7 @@ class TestCollectionChange:
         assert result_dict["error_type"] == "validation_error"
         assert "name" in result_dict["error"].lower()
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_change_collection_invalid_categories(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Reject non-existent categories."""
         from mcp_guide.tools.tool_collection import CollectionChangeArgs, collection_change
@@ -744,7 +744,7 @@ class TestCollectionChange:
         assert result_dict["error_type"] == "validation_error"
         assert "does not exist" in result_dict["error"]
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_change_collection_no_session(self, monkeypatch: MonkeyPatch) -> None:
         """Reject when no session exists."""
         from mcp_guide.tools.tool_collection import CollectionChangeArgs, collection_change
@@ -760,7 +760,7 @@ class TestCollectionChange:
         assert result_dict["success"] is False
         assert result_dict["error_type"] == "no_project"
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_change_collection_save_failure(
         self, test_session_with_data: Session, monkeypatch: MonkeyPatch
     ) -> None:
@@ -788,7 +788,7 @@ class TestCollectionChange:
         assert "Failed to save" in result_dict["error"]
         assert underlying_message in result_dict["error"]
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_change_collection_same_name(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Allow renaming to same name (no-op)."""
         from mcp_guide.tools.tool_collection import CollectionChangeArgs, collection_change
@@ -805,7 +805,7 @@ class TestCollectionChange:
 
         assert result_dict["success"] is True
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_change_collection_empty_categories(self, test_session_with_data: Session) -> None:
         """Allow changing to empty categories list."""
         from mcp_guide.tools.tool_collection import CollectionChangeArgs, collection_change
@@ -829,7 +829,7 @@ class TestCollectionChange:
 class TestCollectionUpdate:
     """Tests for collection_update tool."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_update_collection_add_single_category(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Add single category to collection."""
         from mcp_guide.tools.tool_collection import CollectionUpdateArgs, collection_update
@@ -859,7 +859,7 @@ class TestCollectionUpdate:
         project = await session.get_project()
         assert project.collections["backend"].categories == ["api", "tests"]
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_update_collection_remove_single_category(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Remove single category from collection."""
         from mcp_guide.tools.tool_collection import CollectionUpdateArgs, collection_update
@@ -883,7 +883,7 @@ class TestCollectionUpdate:
         project = await session.get_project()
         assert project.collections[list(project.collections.keys())[0]].categories == ["api"]
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_update_collection_remove_nonexistent_idempotent(
         self, tmp_path: Path, monkeypatch: MonkeyPatch
     ) -> None:
@@ -908,7 +908,7 @@ class TestCollectionUpdate:
         project = await session.get_project()
         assert project.collections[list(project.collections.keys())[0]].categories == ["api"]
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_update_collection_add_and_remove(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Add and remove categories together."""
         from mcp_guide.tools.tool_collection import CollectionUpdateArgs, collection_update
@@ -935,7 +935,7 @@ class TestCollectionUpdate:
         project = await session.get_project()
         assert project.collections[list(project.collections.keys())[0]].categories == ["api", "docs"]
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_update_collection_add_and_remove_same_category(
         self, tmp_path: Path, monkeypatch: MonkeyPatch
     ) -> None:
@@ -962,7 +962,7 @@ class TestCollectionUpdate:
         project = await session.get_project()
         assert project.collections[list(project.collections.keys())[0]].categories == ["api", "tests"]
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_update_collection_add_multiple_categories(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Add multiple categories."""
         from mcp_guide.tools.tool_collection import CollectionUpdateArgs, collection_update
@@ -989,7 +989,7 @@ class TestCollectionUpdate:
         project = await session.get_project()
         assert project.collections[list(project.collections.keys())[0]].categories == ["api", "tests", "docs"]
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_update_collection_remove_multiple_categories(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Remove multiple categories."""
         from mcp_guide.tools.tool_collection import CollectionUpdateArgs, collection_update
@@ -1016,7 +1016,7 @@ class TestCollectionUpdate:
         project = await session.get_project()
         assert project.collections[list(project.collections.keys())[0]].categories == ["api"]
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_update_collection_deduplicates_categories(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Deduplicate categories after operations."""
         from mcp_guide.tools.tool_collection import CollectionUpdateArgs, collection_update
@@ -1044,7 +1044,7 @@ class TestCollectionUpdate:
         project = await session.get_project()
         assert project.collections[list(project.collections.keys())[0]].categories == ["api", "tests", "docs"]
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_update_collection_skip_adding_duplicate(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Skip adding duplicate category."""
         from mcp_guide.tools.tool_collection import CollectionUpdateArgs, collection_update
@@ -1071,7 +1071,7 @@ class TestCollectionUpdate:
         project = await session.get_project()
         assert project.collections[list(project.collections.keys())[0]].categories == ["api", "tests", "docs"]
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_update_collection_deduplicates_add_categories_argument(
         self, tmp_path: Path, monkeypatch: MonkeyPatch
     ) -> None:
@@ -1101,7 +1101,7 @@ class TestCollectionUpdate:
         assert project.collections[list(project.collections.keys())[0]].categories.count("docs") == 1
         assert project.collections[list(project.collections.keys())[0]].categories == ["api", "docs"]
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_update_collection_not_found(self, test_session_with_data: Session) -> None:
         """Reject non-existent collection."""
         from mcp_guide.tools.tool_collection import CollectionUpdateArgs, collection_update
@@ -1118,7 +1118,7 @@ class TestCollectionUpdate:
         assert result_dict["success"] is False
         assert result_dict["error_type"] == "not_found"
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_update_collection_no_operations(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Reject when no operations provided."""
         from mcp_guide.tools.tool_collection import CollectionUpdateArgs, collection_update
@@ -1138,7 +1138,7 @@ class TestCollectionUpdate:
         # Check that validation errors are present
         assert "validation error" in result_dict["error"].lower()
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_update_collection_invalid_categories(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Reject non-existent categories."""
         from mcp_guide.tools.tool_collection import CollectionUpdateArgs, collection_update
@@ -1157,7 +1157,7 @@ class TestCollectionUpdate:
         assert result_dict["error_type"] == "validation_error"
         assert "does not exist" in result_dict["error"]
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_update_collection_no_session(self, monkeypatch: MonkeyPatch) -> None:
         """Reject when no session exists."""
         from mcp_guide.tools.tool_collection import CollectionUpdateArgs, collection_update
@@ -1173,7 +1173,7 @@ class TestCollectionUpdate:
         assert result_dict["success"] is False
         assert result_dict["error_type"] == "no_project"
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_update_collection_save_failure(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Handle save failure gracefully."""
         from unittest.mock import AsyncMock
@@ -1202,7 +1202,7 @@ class TestCollectionUpdate:
         assert "Failed to save" in result_dict["error"]
         assert underlying_message in result_dict["error"]
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_update_collection_empty_result(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Allow empty categories result."""
         from mcp_guide.tools.tool_collection import CollectionUpdateArgs, collection_update

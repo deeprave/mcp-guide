@@ -9,7 +9,7 @@ import pytest
 class TestHelpSystem:
     """Test help system integration."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_help_command_basic(self, guide_function) -> None:
         """Should execute help command and show available commands."""
         mock_ctx = MagicMock()

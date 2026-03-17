@@ -4,7 +4,6 @@ import asyncio
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
-import aiofiles
 from anyio import Path as AsyncPath
 
 from mcp_guide.core.mcp_log import get_logger
@@ -112,8 +111,7 @@ async def discover_commands(commands_dir: Path) -> List[Dict[str, Any]]:
             try:
                 # Read file content to parse front matter
                 file_path = commands_dir / file_info.path
-                async with aiofiles.open(file_path, "r", encoding="utf-8") as f:
-                    content = await f.read()
+                content = await AsyncPath(file_path).read_text(encoding="utf-8")
 
                 parsed = parse_content_with_frontmatter(content)
                 front_matter = parsed.frontmatter

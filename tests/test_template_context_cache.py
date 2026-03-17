@@ -10,6 +10,7 @@ from mcp_guide.render.cache import TemplateContextCache
 class TestTemplateContextCache:
     """Test TemplateContextCache class functionality."""
 
+    @pytest.mark.anyio
     async def test_build_project_context_returns_project_name(self) -> None:
         """Test that _build_project_context returns project name in context."""
         from mcp_guide.models import Project
@@ -29,6 +30,7 @@ class TestTemplateContextCache:
             assert "project" in context
             assert context["project"]["name"] == "test-project"
 
+    @pytest.mark.anyio
     async def test_build_project_context_handles_missing_project(self) -> None:
         """Test that _build_project_context handles missing project gracefully."""
         cache = TemplateContextCache()
@@ -42,6 +44,7 @@ class TestTemplateContextCache:
             assert "project" in context
             assert context["project"]["name"] == ""
 
+    @pytest.mark.anyio
     async def test_build_project_context_with_session_without_project_returns_empty_name(self) -> None:
         """Test that _build_project_context handles session without cached project."""
         from unittest.mock import patch
@@ -60,6 +63,7 @@ class TestTemplateContextCache:
             assert "project" in context
             assert context["project"]["name"] == ""
 
+    @pytest.mark.anyio
     async def test_build_project_context_includes_project_flags(self) -> None:
         """Test that _build_project_context includes project flags in context."""
         from unittest.mock import patch
@@ -98,6 +102,7 @@ class TestTemplateContextCache:
             assert context["project"]["project_flags"]["phase-tracking"] is True
             assert context["project"]["project_flags"]["debug-mode"] is False
 
+    @pytest.mark.anyio
     async def test_build_project_context_handles_missing_flags(self) -> None:
         """Test that _build_project_context handles projects without flags gracefully."""
         from unittest.mock import patch
@@ -123,6 +128,7 @@ class TestTemplateContextCache:
             assert "project_flags" in context["project"]
             assert context["project"]["project_flags"] == {}
 
+    @pytest.mark.anyio
     async def test_build_project_context_handles_expected_exception(self) -> None:
         """Test that _build_project_context swallows expected exceptions and returns empty project context."""
         from unittest.mock import patch
@@ -141,6 +147,7 @@ class TestTemplateContextCache:
             assert "project" in context
             assert context["project"]["name"] == ""
 
+    @pytest.mark.anyio
     async def test_build_project_context_allows_unexpected_exception_to_propagate(self) -> None:
         """Test that _build_project_context allows unexpected exceptions to propagate naturally."""
         from unittest.mock import patch
@@ -160,6 +167,7 @@ class TestTemplateContextCache:
 
             assert "unexpected error" in str(exc_info.value)
 
+    @pytest.mark.anyio
     async def test_project_context_accessible_in_layered_contexts(self) -> None:
         """Test that project context is accessible in the layered context chain."""
         from unittest.mock import patch
@@ -181,6 +189,7 @@ class TestTemplateContextCache:
             assert "project" in context
             assert context["project"]["name"] == "test-project"
 
+    @pytest.mark.anyio
     async def test_context_precedence_project_overrides_agent_overrides_system(self) -> None:
         """Test that project context values override agent and system values in precedence order."""
         from unittest.mock import patch
@@ -212,6 +221,7 @@ class TestTemplateContextCache:
             assert "server" in context
             assert "os" in context["server"]
 
+    @pytest.mark.anyio
     async def test_build_category_context_method_exists(self) -> None:
         """Test that _build_category_context method exists."""
         cache = TemplateContextCache()
@@ -220,6 +230,7 @@ class TestTemplateContextCache:
         assert hasattr(cache, "_build_category_context")
         assert callable(getattr(cache, "_build_category_context"))
 
+    @pytest.mark.anyio
     async def test_build_category_context_returns_category_data(self) -> None:
         """Test that _build_category_context returns category data in context."""
         from unittest.mock import patch
@@ -244,6 +255,7 @@ class TestTemplateContextCache:
             assert context["category"]["dir"] == "./docs/"
             assert context["category"]["patterns"][0]["value"] == "*.md"
 
+    @pytest.mark.anyio
     async def test_build_category_context_handles_missing_category(self) -> None:
         """Test that _build_category_context handles missing category gracefully."""
         from unittest.mock import patch
@@ -265,6 +277,7 @@ class TestTemplateContextCache:
             assert "category" in context
             assert context["category"]["name"] == ""
 
+    @pytest.mark.anyio
     async def test_complete_context_chain_provides_all_context_types(self) -> None:
         """Test that complete context chain provides access to all context types."""
         from unittest.mock import patch
@@ -373,6 +386,7 @@ class TestTemplateContextCache:
         assert abs(timestamp - expected_timestamp) < 1e-9
         assert abs(timestamp_ms - expected_timestamp_ms) < 1e-6
 
+    @pytest.mark.anyio
     @pytest.mark.parametrize(
         "scenario,is_available,has_task",
         [
@@ -416,6 +430,7 @@ class TestTemplateContextCache:
                 # When task not registered, openspec is False (disabled)
                 assert context["openspec"] is False
 
+    @pytest.mark.anyio
     async def test_workflow_context_with_phase_booleans(self) -> None:
         """Test workflow context includes phase-specific boolean flags for configured phases."""
         from mcp_guide.models import Project
@@ -461,6 +476,7 @@ class TestTemplateContextCache:
             assert context["workflow"]["check"] is True
             assert context["workflow"]["review"] is True
 
+    @pytest.mark.anyio
     async def test_workflow_context_with_consent_structure(self) -> None:
         """Test workflow context includes consent with entry/exit structure."""
         from mcp_guide.models import Project
@@ -507,6 +523,7 @@ class TestTemplateContextCache:
             assert context["workflow"]["consent"]["discussion"]["entry"] is False
             assert context["workflow"]["consent"]["discussion"]["exit"] is False
 
+    @pytest.mark.anyio
     async def test_workflow_context_with_custom_consent(self) -> None:
         """Test workflow context with custom consent configuration."""
         from mcp_guide.models import Project
@@ -555,6 +572,7 @@ class TestTemplateContextCache:
             assert context["workflow"]["consent"]["check"]["entry"] is True
             assert context["workflow"]["consent"]["check"]["exit"] is False
 
+    @pytest.mark.anyio
     async def test_workflow_context_with_current_phase_consent(self) -> None:
         """Test workflow context includes current phase consent flags."""
         from mcp_guide.models import Project
@@ -597,6 +615,7 @@ class TestTemplateContextCache:
             assert context["workflow"]["consent"]["entry"] is True
             assert context["workflow"]["consent"]["exit"] is False
 
+    @pytest.mark.anyio
     async def test_workflow_context_includes_next_phase(self) -> None:
         """Test workflow context includes next phase in sequence."""
         from mcp_guide.models import Project
@@ -636,6 +655,7 @@ class TestTemplateContextCache:
             assert "workflow" in context
             assert context["workflow"]["next"] == "check"
 
+    @pytest.mark.anyio
     async def test_workflow_next_wraps_around(self) -> None:
         """Test workflow.next wraps from last phase to first phase."""
         from mcp_guide.models import Project

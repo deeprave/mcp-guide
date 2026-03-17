@@ -10,7 +10,7 @@ from mcp_guide.render.context import TemplateContext
 from mcp_guide.render.template import render_template
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_render_template_simple():
     """Test render_template with a simple template file."""
     # Create a test template file
@@ -41,7 +41,7 @@ async def test_render_template_simple():
         test_file.unlink(missing_ok=True)
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 @pytest.mark.parametrize(
     "scenario,project_flags,expected_result",
     [
@@ -50,7 +50,6 @@ async def test_render_template_simple():
         ("flag_falsy", {"feature": False}, None),
     ],
 )
-@pytest.mark.asyncio
 async def test_render_template_requires_flag(scenario, project_flags, expected_result):
     """Test render_template with different required flag scenarios."""
     test_file = Path(f"tests/fixtures/test_requires_{scenario}.mustache")
@@ -80,7 +79,7 @@ async def test_render_template_requires_flag(scenario, project_flags, expected_r
         test_file.unlink(missing_ok=True)
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_render_template_requires_list_scalar_match():
     """Test list requirement with scalar value - should match if in list."""
     test_file = Path("tests/fixtures/test_requires_list_scalar.mustache")
@@ -115,7 +114,7 @@ async def test_render_template_requires_list_scalar_match():
         test_file.unlink(missing_ok=True)
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_render_template_requires_list_with_list_any_match():
     """Test list requirement with list value - should match if ANY required in actual."""
     test_file = Path("tests/fixtures/test_requires_list_list.mustache")
@@ -150,7 +149,7 @@ async def test_render_template_requires_list_with_list_any_match():
         test_file.unlink(missing_ok=True)
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_render_template_requires_list_with_dict_any_key():
     """Test list requirement with dict value - should match if ANY required key exists."""
     test_file = Path("tests/fixtures/test_requires_list_dict.mustache")
@@ -185,7 +184,7 @@ async def test_render_template_requires_list_with_dict_any_key():
         test_file.unlink(missing_ok=True)
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_render_template_instruction_with_variable():
     """Test that template variables in frontmatter instruction field are rendered."""
     test_file = Path("tests/fixtures/test_instruction_var.mustache")
@@ -221,7 +220,7 @@ async def test_render_template_instruction_with_variable():
         test_file.unlink(missing_ok=True)
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_render_template_description_with_variable():
     """Test that template variables in frontmatter description field are rendered."""
     test_file = Path("tests/fixtures/test_description_var.mustache")
@@ -254,7 +253,7 @@ async def test_render_template_description_with_variable():
         test_file.unlink(missing_ok=True)
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_render_template_instruction_with_conditional():
     """Test that conditionals in frontmatter instruction field are rendered."""
     test_file = Path("tests/fixtures/test_instruction_conditional.mustache")
@@ -290,6 +289,7 @@ async def test_render_template_instruction_with_conditional():
         test_file.unlink(missing_ok=True)
 
 
+@pytest.mark.anyio
 async def test_render_template_instruction_non_string_ignored():
     """Test that non-string instruction values are not rendered and don't cause errors."""
     test_file = Path("tests/fixtures/test_instruction_non_string.mustache")

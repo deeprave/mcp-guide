@@ -11,7 +11,7 @@ from mcp_guide.render.template import render_template
 class TestPartialResolutionIntegration:
     """Test that partials resolve correctly relative to template files."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_partial_resolves_relative_to_template(self, tmp_path):
         """Test partial resolution uses template's parent directory, not commands root."""
         # Create directory structure:
@@ -64,7 +64,7 @@ includes:
         assert result is not None
         assert "Project: test-project" in result.content
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_deeply_nested_template_partial_resolution(self, tmp_path):
         """Test partial resolution works for templates in deeply nested directories."""
         # Create structure:

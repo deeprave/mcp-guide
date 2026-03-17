@@ -82,7 +82,7 @@ class TestPriorityQueueing:
         yield manager
         TaskManager._reset_for_testing()
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_priority_inserts_at_front(self, task_manager):
         """Priority=True inserts at front."""
         await task_manager.queue_instruction("first")
@@ -91,7 +91,7 @@ class TestPriorityQueueing:
         instructions = task_manager._pending_instructions
         assert instructions == ["urgent", "first"]
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_multiple_priority_maintains_order(self, task_manager):
         """Multiple priority instructions maintain insertion order."""
         await task_manager.queue_instruction("first")
@@ -101,7 +101,7 @@ class TestPriorityQueueing:
         instructions = task_manager._pending_instructions
         assert instructions == ["urgent2", "urgent1", "first"]
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_deduplication_with_priority(self, task_manager):
         """Deduplication works with priority."""
         await task_manager.queue_instruction("instruction")

@@ -16,7 +16,7 @@ class TestMonitoringReminder:
         yield
         TaskManager._reset_for_testing()
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_duplicate_instruction_prevention(self) -> None:
         """Test that duplicate instructions are not queued."""
         manager = TaskManager()
@@ -32,7 +32,7 @@ class TestMonitoringReminder:
         assert "Test instruction" in manager._pending_instructions
         assert "Different instruction" in manager._pending_instructions
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_monitoring_reminder_timer_event(self) -> None:
         """Test that timer events trigger monitoring reminders."""
         task = WorkflowMonitorTask(".guide.yaml")
@@ -41,7 +41,7 @@ class TestMonitoringReminder:
         assert hasattr(task, "handle_event")
         assert callable(task.handle_event)
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_monitoring_reminder_no_duplicates(self) -> None:
         """Test that WorkflowMonitorTask exists and is functional."""
         task = WorkflowMonitorTask(".guide.yaml")

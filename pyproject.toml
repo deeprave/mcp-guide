@@ -9,9 +9,8 @@ requires-python = ">=3.11"
 dependencies = [
     "mcp[cli]>=1.16.0",
     "pydantic>=2.0",
+    "anyio>=4.5",
     "pyyaml>=6.0",
-    "aioshutil>=1.6",
-    "aiofiles>=23.2.1",
     "chevron>=0.14.0",
     "click>=8.3.0",
     "uuid7>=0.1.0",
@@ -72,7 +71,6 @@ wheel-exclude = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
-asyncio_mode = "auto"
 filterwarnings = ["error"]
 addopts = [
     "--strict-markers",
@@ -118,13 +116,11 @@ ignore_missing_imports = true
 [dependency-groups]
 dev = [
     "pytest>=8.4.2",
-    "pytest-asyncio>=1.2.0",
     "pytest-cov>=7.0.0",
     "coverage>=7.10.7",
     "ruff>=0.13.2",
     "mypy>=1.18.2",
     "pre-commit>=4.0.0",
-    "types-aiofiles>=24.1.0.20250822",
     "types-pyyaml>=6.0.12.20250915",
     "types-chevron>=0.14.2.20250103",
     "watchdog>=6.0.0",

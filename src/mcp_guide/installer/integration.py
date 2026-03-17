@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-import aiofiles
+import anyio
 
 
 async def install_and_create_config(config_file: Path, docroot: Path | None = None) -> None:
@@ -28,5 +28,4 @@ async def install_and_create_config(config_file: Path, docroot: Path | None = No
 
     # Create config file
     config_file.parent.mkdir(parents=True, exist_ok=True)
-    async with aiofiles.open(config_file, "w", encoding="utf-8") as f:
-        await f.write(f"docroot: {docroot}\nprojects: {{}}\n")
+    await anyio.Path(config_file).write_text(f"docroot: {docroot}\nprojects: {{}}\n", encoding="utf-8")

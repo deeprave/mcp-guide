@@ -95,7 +95,7 @@ Content here"""
 class TestReadContentWithFrontmatter:
     """Test read_content_with_frontmatter function."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_read_valid_file(self, tmp_path):
         """Test reading a file with frontmatter."""
         test_file = tmp_path / "test.md"
@@ -113,7 +113,7 @@ This is a test."""
         assert result.frontmatter == {"title": "Test File", "type": "user/information"}
         assert result.content == "# Test Content\nThis is a test."
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_read_nonexistent_file(self, tmp_path):
         """Test reading a nonexistent file."""
         nonexistent = tmp_path / "nonexistent.md"

@@ -17,7 +17,7 @@ class TestWorkflowMonitorTask:
         """Test WorkflowMonitorTask can be created."""
         assert monitor_task.get_name() == "WorkflowMonitorTask"
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_workflow_monitor_task_handles_events(self, monitor_task) -> None:
         """Test WorkflowMonitorTask handles events correctly."""
         # Test file content event handling
@@ -26,7 +26,7 @@ class TestWorkflowMonitorTask:
         )
         assert result.result is True
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_workflow_monitor_task_ignores_unrelated_events(self, monitor_task) -> None:
         """Test WorkflowMonitorTask ignores unrelated events and leaves state unchanged."""
         import copy

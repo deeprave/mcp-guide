@@ -45,7 +45,7 @@ Indexed args: {{#args}}{{#first}}FIRST: {{/first}}{{value}}{{^last}} {{/last}}{{
 
         return commands_dir
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_command_vs_content_routing(self, mock_ctx, commands_setup, guide_function):
         """Test that commands and content are routed correctly."""
         with (
@@ -75,7 +75,7 @@ Indexed args: {{#args}}{{#first}}FIRST: {{/first}}{{value}}{{^last}} {{/last}}{{
                 assert result["success"] is True
                 mock_get_content.assert_called_once()
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_argument_parsing_integration(self, mock_ctx, commands_setup, guide_function):
         """Test argument parsing with real command execution."""
         with (
@@ -98,7 +98,7 @@ Indexed args: {{#args}}{{#first}}FIRST: {{/first}}{{value}}{{^last}} {{/last}}{{
             assert "Args: arg1 arg2 arg3" in result["value"]
             assert "Indexed args: FIRST: arg1 arg2 arg3 LAST" in result["value"]
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_security_validation_integration(self, mock_ctx, guide_function):
         """Test security validation in real command flow."""
         # Test directory traversal prevention
@@ -113,7 +113,7 @@ Indexed args: {{#args}}{{#first}}FIRST: {{/first}}{{value}}{{^last}} {{/last}}{{
         assert result["success"] is False
         assert "security validation failed" in result["error"].lower()
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_help_system_integration(self, mock_ctx, commands_setup, guide_function):
         """Test help system with real command discovery."""
         with (
@@ -150,7 +150,7 @@ Available commands:
             assert "test: Test command" in result["value"]
             assert "help: Show help information" in result["value"]
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_multiple_expressions_regression(self, mock_ctx, guide_function):
         """Test that multiple expressions still work for content."""
         with patch("mcp_guide.prompts.guide_prompt.internal_get_content") as mock_get_content:
@@ -167,7 +167,7 @@ Available commands:
             call_args = mock_get_content.call_args[0]
             assert "docs,examples,tests" in str(call_args)
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_subcommand_integration(self, mock_ctx, commands_setup, guide_function):
         """Test subcommand routing and execution."""
         # Create subcommand directory and template
@@ -204,7 +204,7 @@ Current project: {{project.name}}
             assert "Project Information:" in result["value"]
             assert "Current project: test-project" in result["value"]
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_semicolon_prefix_integration(self, mock_ctx, commands_setup, guide_function):
         """Test semicolon prefix works the same as colon."""
         with (
@@ -225,7 +225,7 @@ Current project: {{project.name}}
             assert "Test command executed successfully!" in result["value"]
             assert "Verbose mode enabled." in result["value"]
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_partial_resolution_via_guide_command(self, mock_ctx, commands_setup, guide_function):
         """End-to-end test: partials resolve correctly when invoked via guide command path."""
         # Create directory structure with partial

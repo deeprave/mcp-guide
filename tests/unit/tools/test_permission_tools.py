@@ -25,7 +25,7 @@ async def test_session(tmp_path):
     await remove_current_session()
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 @pytest.mark.parametrize(
     "permission_type,path,expected_success",
     [
@@ -61,7 +61,7 @@ async def test_add_permission_path(permission_type, path, expected_success, test
         assert not result.success, f"Expected failure for {permission_type}:{path}"
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_add_permission_path_rejects_system_directory(monkeypatch, test_session):
     """Test that system directories are rejected for read permissions."""
 
@@ -79,7 +79,7 @@ async def test_add_permission_path_rejects_system_directory(monkeypatch, test_se
     assert "System directory not allowed" in result.error_type
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_add_permission_path_validate_error_mapped_to_invalid_path(test_session):
     """Test that Project validator errors are mapped to INVALID_PATH Result."""
     # Use a path that will trigger validation error (path traversal)
@@ -92,7 +92,7 @@ async def test_add_permission_path_validate_error_mapped_to_invalid_path(test_se
     assert "traversal" in result.error_type.lower() or "outside" in result.error_type.lower()
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_add_permission_path_duplicate(test_session):
     """Test adding duplicate path succeeds silently."""
     # Add path first time
@@ -106,7 +106,7 @@ async def test_add_permission_path_duplicate(test_session):
     assert "already" in result2.value.lower()
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 @pytest.mark.parametrize(
     "permission_type,path",
     [
@@ -137,7 +137,7 @@ async def test_remove_permission_path(permission_type, path, test_session):
         assert path not in project.additional_read_paths, "Path should be removed from read paths"
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_remove_permission_path_invalid_type(test_session):
     """Test that invalid permission type is rejected at parse time by Literal type."""
     import pytest
@@ -149,7 +149,7 @@ async def test_remove_permission_path_invalid_type(test_session):
     assert "literal_error" in str(exc_info.value)
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_write_permission_file_vs_directory(test_session):
     """Test that file and directory write permissions work correctly."""
     from mcp_guide.filesystem.read_write_security import ReadWriteSecurityPolicy, SecurityError

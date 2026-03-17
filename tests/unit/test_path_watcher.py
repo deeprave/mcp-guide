@@ -26,7 +26,7 @@ class TestPathWatcherBasic:
             watcher = PathWatcher(tmp_dir)
             assert watcher.path == tmp_dir
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_path_watcher_raises_error_for_non_existent_paths(self):
         """PathWatcher raises error for non-existent paths on first check."""
         non_existent_path = "/this/path/does/not/exist"
@@ -35,7 +35,7 @@ class TestPathWatcherBasic:
         with pytest.raises(FileNotFoundError):
             await watcher.has_changed()
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_path_watcher_tracks_initial_mtime_and_inode(self):
         """PathWatcher tracks initial mtime and inode after first check."""
         with tempfile.NamedTemporaryFile() as tmp_file:
@@ -54,7 +54,7 @@ class TestPathWatcherBasic:
 class TestPathWatcherChangeDetection:
     """Test PathWatcher change detection functionality."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_path_watcher_detects_file_mtime_changes(self):
         """PathWatcher detects file mtime changes."""
         with tempfile.NamedTemporaryFile(mode="w", delete=False) as tmp_file:
@@ -78,7 +78,7 @@ class TestPathWatcherChangeDetection:
             # Clean up
             os.unlink(tmp_file.name)
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_path_watcher_detects_file_inode_changes(self):
         """PathWatcher detects file inode changes (rename/replace)."""
         with tempfile.NamedTemporaryFile(mode="w", delete=False) as tmp_file:
@@ -106,7 +106,7 @@ class TestPathWatcherChangeDetection:
             # Clean up
             os.unlink(original_name)
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_path_watcher_detects_directory_mtime_changes(self):
         """PathWatcher detects directory mtime changes."""
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -125,7 +125,7 @@ class TestPathWatcherChangeDetection:
             has_changed = await watcher.has_changed()
             assert has_changed is True
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_path_watcher_ignores_unchanged_files(self):
         """PathWatcher ignores unchanged files."""
         with tempfile.NamedTemporaryFile() as tmp_file:
@@ -148,7 +148,7 @@ class TestPathWatcherCallbackSystem:
             watcher = PathWatcher(tmp_file.name, callback=callback)
             assert callback in watcher._callbacks
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_callback_is_invoked_when_changes_are_detected(self):
         """Callback is invoked when changes are detected."""
         callback = Mock()
@@ -176,7 +176,7 @@ class TestPathWatcherCallbackSystem:
             # Clean up
             os.unlink(tmp_file.name)
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_callback_receives_path_as_parameter(self):
         """Callback receives path as parameter."""
         callback = Mock()
@@ -208,7 +208,7 @@ class TestPathWatcherCallbackSystem:
             # Clean up
             os.unlink(original_name)
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_multiple_callbacks_can_be_registered(self):
         """Multiple callbacks can be registered."""
         callback1 = Mock()
@@ -239,7 +239,7 @@ class TestPathWatcherCallbackSystem:
             # Clean up
             os.unlink(tmp_file.name)
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_callback_exceptions_dont_crash_watcher(self):
         """Callback exceptions don't crash watcher."""
 
@@ -271,7 +271,7 @@ class TestPathWatcherCallbackSystem:
 class TestPathWatcherAsyncTaskManagement:
     """Test PathWatcher async task management functionality."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_path_watcher_doesnt_start_monitoring_until_start_called(self):
         """PathWatcher doesn't start monitoring until start() is called."""
         with tempfile.NamedTemporaryFile() as tmp_file:
@@ -281,7 +281,7 @@ class TestPathWatcherAsyncTaskManagement:
             assert watcher._task is None
             assert watcher.is_running() is False
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_start_creates_and_runs_asyncio_task(self):
         """start() creates and runs asyncio task."""
         with tempfile.NamedTemporaryFile() as tmp_file:
@@ -297,7 +297,7 @@ class TestPathWatcherAsyncTaskManagement:
             # Clean up
             await watcher.stop()
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_multiple_start_calls_dont_create_duplicate_tasks(self):
         """Multiple start() calls don't create duplicate tasks."""
         with tempfile.NamedTemporaryFile() as tmp_file:
@@ -317,7 +317,7 @@ class TestPathWatcherAsyncTaskManagement:
             # Clean up
             await watcher.stop()
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_task_polls_at_configurable_intervals(self):
         """Task polls at configurable intervals."""
         callback = Mock()
@@ -351,7 +351,7 @@ class TestPathWatcherAsyncTaskManagement:
 class TestPathWatcherSingleInstanceManagement:
     """Test PathWatcher single instance management."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_only_one_path_watcher_per_path_allowed(self):
         """Only one PathWatcher per path is allowed."""
         from mcp_guide.core.watcher_registry import get_global_registry
@@ -371,7 +371,7 @@ class TestPathWatcherSingleInstanceManagement:
             # Clean up
             await registry.unregister(tmp_file.name)
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_attempting_duplicate_watcher_raises_appropriate_error(self):
         """Attempting duplicate watcher raises appropriate error."""
         from mcp_guide.core.watcher_registry import WatcherRegistry
@@ -391,7 +391,7 @@ class TestPathWatcherSingleInstanceManagement:
             assert "PathWatcher already exists" in str(exc_info.value)
             assert tmp_file.name in str(exc_info.value)
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_watcher_registry_tracks_active_instances(self):
         """Watcher registry tracks active instances."""
         from mcp_guide.core.watcher_registry import WatcherRegistry
@@ -414,7 +414,7 @@ class TestPathWatcherSingleInstanceManagement:
             await registry.unregister(tmp_file1.name)
             await registry.unregister(tmp_file2.name)
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_registry_cleanup_when_watchers_are_stopped(self):
         """Registry cleanup when watchers are stopped."""
         from mcp_guide.core.watcher_registry import WatcherRegistry
@@ -439,7 +439,7 @@ class TestPathWatcherSingleInstanceManagement:
 
     """Test PathWatcher task lifecycle management."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_stop_method_cleanly_terminates_monitoring_task(self):
         """stop() method cleanly terminates monitoring task."""
         with tempfile.NamedTemporaryFile() as tmp_file:
@@ -454,7 +454,7 @@ class TestPathWatcherSingleInstanceManagement:
             assert watcher.is_running() is False
             assert watcher._task is None
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_task_can_be_restarted_after_being_stopped(self):
         """Task can be restarted after being stopped."""
         with tempfile.NamedTemporaryFile() as tmp_file:
@@ -478,7 +478,7 @@ class TestPathWatcherSingleInstanceManagement:
             # Clean up
             await watcher.stop()
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_path_watcher_handles_task_exceptions_gracefully(self):
         """PathWatcher handles task exceptions gracefully."""
         with tempfile.NamedTemporaryFile() as tmp_file:

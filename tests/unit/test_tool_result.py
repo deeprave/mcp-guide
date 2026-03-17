@@ -11,6 +11,7 @@ from mcp_guide.tools.tool_result import tool_result
 class TestToolResult:
     """Tests for tool_result function."""
 
+    @pytest.mark.anyio
     async def test_returns_json_string(self) -> None:
         """Test that tool_result returns a JSON string."""
         result = Result.ok(value={"data": "test"})
@@ -21,6 +22,7 @@ class TestToolResult:
         assert parsed["success"] is True
         assert parsed["value"] == {"data": "test"}
 
+    @pytest.mark.anyio
     async def test_logs_result_at_trace_level(self, caplog: pytest.LogCaptureFixture) -> None:
         """Test that tool_result logs at TRACE level."""
         import logging
@@ -33,6 +35,7 @@ class TestToolResult:
         # Note: TRACE level logs may not appear in caplog depending on configuration
         # This test verifies the function doesn't raise errors during logging
 
+    @pytest.mark.anyio
     async def test_handles_failure_result(self) -> None:
         """Test that tool_result handles failure results."""
         result = Result.failure(error="Something went wrong", error_type="test_error")
@@ -43,6 +46,7 @@ class TestToolResult:
         assert parsed["error"] == "Something went wrong"
         assert parsed["error_type"] == "test_error"
 
+    @pytest.mark.anyio
     async def test_handles_result_with_instruction(self) -> None:
         """Test that tool_result preserves instruction field."""
         result = Result.ok(value={"data": "test"}, instruction="Do something")
@@ -51,6 +55,7 @@ class TestToolResult:
         parsed = json.loads(output)
         assert parsed["instruction"] == "Do something"
 
+    @pytest.mark.anyio
     async def test_handles_result_with_message(self) -> None:
         """Test that tool_result preserves message field."""
         result = Result.ok(value={"data": "test"}, message="Operation completed")

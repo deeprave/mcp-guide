@@ -3,6 +3,8 @@
 from datetime import datetime
 from pathlib import Path
 
+import pytest
+
 from mcp_guide.discovery.files import FileInfo
 
 
@@ -38,6 +40,7 @@ def test_format_single_method_exists():
     assert callable(formatter.format_single)
 
 
+@pytest.mark.anyio
 async def test_format_empty_list():
     """Test that empty list returns empty string."""
     from mcp_guide.content.formatters.plain import PlainFormatter
@@ -47,6 +50,7 @@ async def test_format_empty_list():
     assert result == ""
 
 
+@pytest.mark.anyio
 async def test_format_single_file_returns_content():
     """Test that single file returns content unchanged."""
     from mcp_guide.content.formatters.plain import PlainFormatter
@@ -65,6 +69,7 @@ async def test_format_single_file_returns_content():
     assert result == content
 
 
+@pytest.mark.anyio
 async def test_format_single_preserves_line_endings():
     """Test that line endings are preserved."""
     from mcp_guide.content.formatters.plain import PlainFormatter
@@ -83,6 +88,7 @@ async def test_format_single_preserves_line_endings():
     assert result == content
 
 
+@pytest.mark.anyio
 async def test_format_single_preserves_whitespace():
     """Test that whitespace is preserved."""
     from mcp_guide.content.formatters.plain import PlainFormatter
@@ -101,6 +107,7 @@ async def test_format_single_preserves_whitespace():
     assert result == content
 
 
+@pytest.mark.anyio
 async def test_format_single_no_headers():
     """Test that no headers are added."""
     from mcp_guide.content.formatters.plain import PlainFormatter
@@ -124,6 +131,7 @@ async def test_format_single_no_headers():
     assert result == content
 
 
+@pytest.mark.anyio
 async def test_format_single_empty_file():
     """Test that empty files work correctly."""
     from mcp_guide.content.formatters.plain import PlainFormatter
@@ -141,6 +149,7 @@ async def test_format_single_empty_file():
     assert result == ""
 
 
+@pytest.mark.anyio
 async def test_format_single_none_content():
     """Test that None content returns empty string."""
     from mcp_guide.content.formatters.plain import PlainFormatter
@@ -158,6 +167,7 @@ async def test_format_single_none_content():
     assert result == ""
 
 
+@pytest.mark.anyio
 async def test_format_multiple_two_files():
     """Test formatting two files with separators."""
     from mcp_guide.content.formatters.plain import PlainFormatter
@@ -185,6 +195,7 @@ async def test_format_multiple_two_files():
     assert result == expected
 
 
+@pytest.mark.anyio
 async def test_format_multiple_three_files():
     """Test formatting three files with separators."""
     from mcp_guide.content.formatters.plain import PlainFormatter
@@ -207,6 +218,7 @@ async def test_format_multiple_three_files():
     assert result == expected
 
 
+@pytest.mark.anyio
 async def test_format_multiple_uses_basename():
     """Test that separator uses basename not full path."""
     from mcp_guide.content.formatters.plain import PlainFormatter
@@ -236,6 +248,7 @@ async def test_format_multiple_uses_basename():
     assert "other/path" not in result
 
 
+@pytest.mark.anyio
 async def test_format_multiple_preserves_content():
     """Test that content is preserved exactly in multiple files."""
     from mcp_guide.content.formatters.plain import PlainFormatter

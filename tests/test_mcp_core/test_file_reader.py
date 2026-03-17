@@ -7,7 +7,7 @@ import pytest
 from mcp_guide.core.file_reader import read_file_content
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_read_utf8_file(tmp_path: Path) -> None:
     """Test reading UTF-8 text file."""
     file = tmp_path / "test.txt"
@@ -19,7 +19,7 @@ async def test_read_utf8_file(tmp_path: Path) -> None:
     assert result == content
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_read_empty_file(tmp_path: Path) -> None:
     """Test reading empty file."""
     file = tmp_path / "empty.txt"
@@ -30,7 +30,7 @@ async def test_read_empty_file(tmp_path: Path) -> None:
     assert result == ""
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_preserves_line_endings_and_whitespace(tmp_path: Path) -> None:
     """Test that line endings and whitespace are preserved."""
     file = tmp_path / "whitespace.txt"
@@ -42,7 +42,7 @@ async def test_preserves_line_endings_and_whitespace(tmp_path: Path) -> None:
     assert result == content
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_binary_file_raises_error(tmp_path: Path) -> None:
     """Test that binary files raise UnicodeDecodeError."""
     file = tmp_path / "binary.bin"
@@ -52,7 +52,7 @@ async def test_binary_file_raises_error(tmp_path: Path) -> None:
         await read_file_content(file)
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_invalid_utf8_raises_error(tmp_path: Path) -> None:
     """Test that invalid UTF-8 raises UnicodeDecodeError."""
     file = tmp_path / "invalid.txt"
@@ -63,7 +63,7 @@ async def test_invalid_utf8_raises_error(tmp_path: Path) -> None:
         await read_file_content(file)
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_permission_error(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test that permission errors are raised in a platform-independent way."""
 
@@ -76,7 +76,7 @@ async def test_permission_error(monkeypatch: pytest.MonkeyPatch) -> None:
         await read_file_content(Path("noperm.txt"))
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_missing_file_raises_error(tmp_path: Path) -> None:
     """Test that missing files raise FileNotFoundError."""
     file = tmp_path / "missing.txt"
@@ -85,7 +85,7 @@ async def test_missing_file_raises_error(tmp_path: Path) -> None:
         await read_file_content(file)
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_large_file(tmp_path: Path) -> None:
     """Test reading large file (1MB)."""
     file = tmp_path / "large.txt"
@@ -97,7 +97,7 @@ async def test_large_file(tmp_path: Path) -> None:
     assert len(result) == len(content)
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_unicode_content(tmp_path: Path) -> None:
     """Test reading file with Unicode characters."""
     file = tmp_path / "unicode.txt"
@@ -109,7 +109,7 @@ async def test_unicode_content(tmp_path: Path) -> None:
     assert result == content
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_various_line_endings(tmp_path: Path) -> None:
     """Test files with different line endings are normalized by Python text mode."""
     file = tmp_path / "mixed.txt"

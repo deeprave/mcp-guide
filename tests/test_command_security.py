@@ -10,7 +10,7 @@ import pytest
 class TestCommandSecurity:
     """Test command security validation."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_directory_traversal_prevention(self, guide_function) -> None:
         """Should prevent directory traversal attacks."""
         mock_ctx = MagicMock()
@@ -33,7 +33,7 @@ class TestCommandSecurity:
             assert result["success"] is False
             assert "security" in result["error"].lower() or "invalid" in result["error"].lower()
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_absolute_path_prevention(self, guide_function) -> None:
         """Should prevent absolute path commands."""
         mock_ctx = MagicMock()
@@ -53,7 +53,7 @@ class TestCommandSecurity:
             assert result["success"] is False
             assert "security" in result["error"].lower() or "invalid" in result["error"].lower()
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_special_character_validation(self, guide_function) -> None:
         """Should reject commands with dangerous special characters."""
         mock_ctx = MagicMock()
@@ -77,7 +77,7 @@ class TestCommandSecurity:
             assert result["success"] is False
             assert "security" in result["error"].lower() or "invalid" in result["error"].lower()
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_valid_command_names_allowed(self, guide_function) -> None:
         """Should allow valid command names."""
         mock_ctx = MagicMock()
@@ -113,7 +113,7 @@ class TestCommandSecurity:
 class TestCommandErrorHandling:
     """Test comprehensive error handling."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_file_permission_errors(self, guide_function) -> None:
         """Should handle file permission errors gracefully."""
         mock_ctx = MagicMock()
@@ -162,7 +162,7 @@ class TestCommandErrorHandling:
                 assert result["success"] is False
                 assert "error reading" in result["error"].lower() or "permission" in result["error"].lower()
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_malformed_argument_edge_cases(self, guide_function) -> None:
         """Should handle malformed arguments gracefully."""
         mock_ctx = MagicMock()

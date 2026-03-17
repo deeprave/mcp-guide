@@ -14,6 +14,7 @@ from mcp_guide.render.partials import (
 class TestPartialPathResolution:
     """Test partial path resolution utilities."""
 
+    @pytest.mark.anyio
     async def test_resolve_partial_paths(self, tmp_path):
         """Test basic partial path resolution."""
         # Create temporary template structure
@@ -44,6 +45,7 @@ class TestPartialPathResolution:
         assert "partials" in str(resolved[0])
         assert "partials" in str(resolved[1])
 
+    @pytest.mark.anyio
     async def test_resolve_partial_paths_nested(self, tmp_path):
         """Test partial path resolution with nested directories."""
         # Create temporary nested template structure
@@ -79,6 +81,7 @@ class TestPartialPathResolution:
 class TestPartialSecurity:
     """Test security validation for partial paths."""
 
+    @pytest.mark.anyio
     async def test_reject_absolute_paths(self):
         """Test that absolute paths are rejected."""
         template_path = Path("templates/status.mustache")
@@ -89,6 +92,7 @@ class TestPartialSecurity:
 
         assert "Absolute paths not allowed" in str(exc_info.value)
 
+    @pytest.mark.anyio
     async def test_reject_paths_outside_docroot(self):
         """Test that paths outside docroot are rejected."""
         template_path = Path("templates/status.mustache")
@@ -99,6 +103,7 @@ class TestPartialSecurity:
 
         assert "outside docroot" in str(exc_info.value)
 
+    @pytest.mark.anyio
     async def test_allow_relative_paths_within_docroot(self, tmp_path):
         """Test that relative paths within docroot are allowed."""
         # Create temporary template structure
@@ -128,6 +133,7 @@ class TestPartialSecurity:
 class TestPartialLoading:
     """Test partial content loading."""
 
+    @pytest.mark.anyio
     async def test_load_partial_content_missing_file(self):
         """Test loading non-existent partial raises error."""
         partial_path = Path("nonexistent/_partial.mustache")
@@ -138,6 +144,7 @@ class TestPartialLoading:
 
         assert "nonexistent/_partial.mustache" in str(exc_info.value)
 
+    @pytest.mark.anyio
     async def test_load_partial_content_success(self, tmp_path):
         """Test successfully loading an existing partial file."""
         # Create a temporary partial file with known content

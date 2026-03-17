@@ -41,7 +41,7 @@ def test_fileinfo_category_can_be_set():
     assert file_info.category.name == "docs"
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_directory_not_found():
     """Test that missing directory raises FileNotFoundError."""
     non_existent = Path("/non/existent/directory")
@@ -49,7 +49,7 @@ async def test_directory_not_found():
         await discover_documents(non_existent, ["*.txt"])
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_relative_path_raises_error():
     """Test that relative path raises ValueError."""
     relative_path = Path("relative/path")
@@ -57,7 +57,7 @@ async def test_relative_path_raises_error():
         await discover_documents(relative_path, ["*.txt"])
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_template_extension_patterns_raise_error(tmp_path):
     """Test that patterns with template extensions raise ValueError."""
     template_extensions = [".mustache", ".hbs", ".handlebars", ".chevron"]
@@ -67,14 +67,14 @@ async def test_template_extension_patterns_raise_error(tmp_path):
             await discover_documents(tmp_path, [f"*.md{ext}"])
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_no_matches_returns_empty_list(tmp_path):
     """Test that no matches returns empty list."""
     result = await discover_documents(tmp_path, ["*.txt"])
     assert result == []
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_discover_single_file(tmp_path):
     """Test discovering a single file."""
     (tmp_path / "test.md").write_text("# Test")
@@ -87,7 +87,7 @@ async def test_discover_single_file(tmp_path):
     assert result[0].size > 0
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_discover_multiple_files(tmp_path):
     """Test discovering multiple files."""
     (tmp_path / "file1.md").write_text("# File 1")
@@ -101,7 +101,7 @@ async def test_discover_multiple_files(tmp_path):
     assert Path("file2.md") in paths
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_multiple_patterns(tmp_path):
     """Test multiple patterns."""
     (tmp_path / "doc.md").write_text("# Doc")
@@ -115,7 +115,7 @@ async def test_multiple_patterns(tmp_path):
     assert Path("data.yaml") in paths
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_discover_in_subdirectories(tmp_path):
     """Test discovering files in subdirectories."""
     subdir = tmp_path / "sub"
@@ -128,7 +128,7 @@ async def test_discover_in_subdirectories(tmp_path):
     assert result[0].path == Path("sub/nested.md")
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_discover_template_file(tmp_path):
     """Test discovering template file."""
     (tmp_path / "doc.md.mustache").write_text("# Template")
@@ -140,7 +140,7 @@ async def test_discover_template_file(tmp_path):
     assert result[0].name == "doc.md"
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_prefer_non_template_over_template(tmp_path):
     """Test that non-template is preferred when both exist."""
     (tmp_path / "doc.md").write_text("# Real")
@@ -153,7 +153,7 @@ async def test_prefer_non_template_over_template(tmp_path):
     assert result[0].name == "doc.md"
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_template_replacement_when_both_exist(tmp_path):
     """Test template is excluded when non-template exists."""
     (tmp_path / "file.txt").write_text("Real")
@@ -165,7 +165,7 @@ async def test_template_replacement_when_both_exist(tmp_path):
     assert result[0].path == Path("file.txt")
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_relative_paths(tmp_path):
     """Test paths are relative to category_dir."""
     subdir = tmp_path / "subdir"
@@ -179,7 +179,7 @@ async def test_relative_paths(tmp_path):
     assert not result[0].path.is_absolute()
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_empty_patterns_returns_empty(tmp_path):
     """Test empty patterns list returns empty results."""
     (tmp_path / "file.txt").write_text("content")
@@ -189,7 +189,7 @@ async def test_empty_patterns_returns_empty(tmp_path):
     assert result == []
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_integration_realistic_category(tmp_path):
     """Test realistic category structure with multiple file types and subdirectories."""
     from datetime import datetime
@@ -225,7 +225,7 @@ async def test_integration_realistic_category(tmp_path):
         assert not file_info.path.is_absolute()
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_same_filename_different_directories(tmp_path):
     """Test that files with same name in different directories are both returned."""
     subdir1 = tmp_path / "subdir1"
@@ -248,7 +248,7 @@ async def test_same_filename_different_directories(tmp_path):
     assert "subdir2/doc.md" in names
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_template_deduplication_in_subdirectory(tmp_path):
     """Test that template deduplication works correctly in subdirectories."""
     subdir = tmp_path / "subdir"
@@ -266,7 +266,7 @@ async def test_template_deduplication_in_subdirectory(tmp_path):
     assert result[0].name == "subdir/doc.md"
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_template_preference_different_directories(tmp_path):
     """Test template preference is per-directory, not global."""
     # Create template in one dir, non-template in another

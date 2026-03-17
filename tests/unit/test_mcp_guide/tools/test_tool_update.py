@@ -7,7 +7,7 @@ import pytest
 from mcp_guide.tools.tool_update import UpdateDocumentsArgs, internal_update_documents
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_update_documents_no_project():
     """Test update_documents fails when no project is active."""
     ctx = Mock()
@@ -21,7 +21,7 @@ async def test_update_documents_no_project():
         assert result.error_type == "no_project"
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_update_documents_already_current_version(tmp_path):
     """Test update_documents skips update when version is current."""
     ctx = Mock()
@@ -44,7 +44,7 @@ async def test_update_documents_already_current_version(tmp_path):
         assert "Already at version" in value["message"]
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_update_documents_new_version(tmp_path):
     """Test update_documents performs update when version differs."""
     ctx = Mock()
@@ -77,7 +77,7 @@ async def test_update_documents_new_version(tmp_path):
             assert value["stats"] == mock_stats
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_update_documents_no_version_file(tmp_path):
     """Test update_documents performs update when no version file exists."""
     ctx = Mock()
@@ -105,7 +105,7 @@ async def test_update_documents_no_version_file(tmp_path):
             assert value["stats"]["installed"] == 15
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_update_documents_creates_docroot(tmp_path):
     """Test update_documents delegates to perform_locked_update which creates docroot."""
     ctx = Mock()
@@ -126,7 +126,7 @@ async def test_update_documents_creates_docroot(tmp_path):
             mock_update.assert_called_once_with(docroot, docroot / ".original.zip")
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_update_documents_writes_version_after_update(tmp_path):
     """Test update_documents writes version file after successful update."""
     ctx = Mock()

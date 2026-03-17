@@ -10,7 +10,7 @@ from mcp_guide.guide import GuideMCP
 from mcp_guide.tools.tool_utility import GetClientInfoArgs, client_info
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_client_info_no_cache():
     """Test client_info detects and caches agent info."""
     # Create mock context
@@ -45,7 +45,7 @@ async def test_client_info_no_cache():
     assert ctx.fastmcp.agent_info.name == "Kiro CLI"
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_client_info_with_cache():
     """Test client_info returns cached agent info."""
     # Create mock context with cached agent info
@@ -67,7 +67,7 @@ async def test_client_info_with_cache():
     assert "Different Agent" not in result["message"]
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_client_info_no_client_params():
     """Test client_info handles missing client_params."""
     ctx = Mock()
@@ -83,7 +83,7 @@ async def test_client_info_no_client_params():
     assert "No client information available" in result["error"]
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_client_info_no_context():
     """Test client_info handles missing context."""
     result_str = await client_info(args=GetClientInfoArgs(), ctx=None)
@@ -93,7 +93,7 @@ async def test_client_info_no_context():
     assert "Context not available" in result["error"]
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_client_info_wrong_server_type():
     """Test client_info handles non-GuideMCP server."""
     ctx = Mock()
@@ -107,7 +107,7 @@ async def test_client_info_wrong_server_type():
     assert "Server must be GuideMCP instance" in result["error"]
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_client_info_dict_without_client_info():
     """Test client_info with dict missing clientInfo."""
     ctx = Mock()

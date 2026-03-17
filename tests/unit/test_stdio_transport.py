@@ -15,7 +15,7 @@ def test_stdio_transport_implements_protocol():
     assert isinstance(transport, Transport)
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_stdio_transport_lifecycle():
     """Test StdioTransport start/stop lifecycle."""
     mock_server = Mock()

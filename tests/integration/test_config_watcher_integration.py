@@ -7,7 +7,7 @@ import pytest
 from mcp_guide.session import get_session, remove_current_session
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_config_watcher_integration(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     """Test that session works correctly."""
     # Create a session
@@ -24,7 +24,7 @@ async def test_config_watcher_integration(tmp_path: Path, caplog: pytest.LogCapt
     await remove_current_session()
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_config_watcher_cleanup(tmp_path: Path) -> None:
     """Test that session cleanup works correctly."""
     # Create a session

@@ -63,6 +63,7 @@ def test_schema_validates_correctly():
     assert args.pattern == "*.md"
 
 
+@pytest.mark.anyio
 async def test_get_content_collection_only(tmp_path, monkeypatch):
     """Test get_content with collection-only match."""
     # Create test files
@@ -91,6 +92,7 @@ async def test_get_content_collection_only(tmp_path, monkeypatch):
     assert result["success"] is True
 
 
+@pytest.mark.anyio
 async def test_get_content_category_only(tmp_path, monkeypatch):
     """Test get_content with category-only match."""
     # Create test files
@@ -119,6 +121,7 @@ async def test_get_content_category_only(tmp_path, monkeypatch):
     assert result["success"] is True
 
 
+@pytest.mark.anyio
 async def test_get_content_deduplicates(tmp_path, monkeypatch):
     """Test get_content deduplicates when name matches both collection and category."""
     # Create test files
@@ -149,6 +152,7 @@ async def test_get_content_deduplicates(tmp_path, monkeypatch):
     assert "# Test" in result["value"]
 
 
+@pytest.mark.anyio
 async def test_get_content_empty_result(tmp_path, monkeypatch):
     """Test get_content with no matching files."""
     # Create empty category directory
@@ -178,6 +182,7 @@ async def test_get_content_empty_result(tmp_path, monkeypatch):
     assert "instruction" in result
 
 
+@pytest.mark.anyio
 async def test_get_content_pattern_override(tmp_path, monkeypatch):
     """Test get_content with pattern override."""
     # Create test files
@@ -212,6 +217,7 @@ async def test_get_content_pattern_override(tmp_path, monkeypatch):
     assert "Tutorial content" not in result["value"]
 
 
+@pytest.mark.anyio
 @pytest.mark.parametrize(
     "scenario,expression,has_collection",
     [
@@ -250,6 +256,7 @@ async def test_get_content_metadata_scenarios(tmp_path, monkeypatch, scenario, e
     assert "# Test" in result["value"]
 
 
+@pytest.mark.anyio
 @pytest.mark.parametrize(
     "project_flags,feature_flags,expected_format",
     [

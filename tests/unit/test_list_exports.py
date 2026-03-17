@@ -9,7 +9,7 @@ from mcp_guide.session import get_session
 from mcp_guide.tools.tool_content import ListExportsArgs, list_exports
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_list_exports_empty(session_temp_dir):
     """Test list_exports returns empty array when no exports exist."""
     args = ListExportsArgs(glob=None)
@@ -18,7 +18,7 @@ async def test_list_exports_empty(session_temp_dir):
     assert "[]" in result or '"value": []' in result
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_list_exports_single(session_temp_dir):
     """Test list_exports returns array with one export entry."""
     # Setup: Add export entry to project
@@ -42,7 +42,7 @@ async def test_list_exports_single(session_temp_dir):
     assert exports[0]["path"] == "/"
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_list_exports_with_timestamp(session_temp_dir, tmp_path):
     """Test list_exports includes exported_at timestamp stored at export time."""
     import time
@@ -65,7 +65,7 @@ async def test_list_exports_with_timestamp(session_temp_dir, tmp_path):
     assert exports[0]["exported_at"] == pytest.approx(ts)
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_list_exports_staleness(session_temp_dir, tmp_path):
     """Test list_exports computes staleness indicator."""
     # Create a category with a file
@@ -108,7 +108,7 @@ async def test_list_exports_staleness(session_temp_dir, tmp_path):
     assert exports[0]["stale_state"] == "stale"
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_list_exports_glob_filter(session_temp_dir, tmp_path):
     """Test list_exports filters by glob pattern."""
     session = await get_session()

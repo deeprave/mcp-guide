@@ -9,7 +9,7 @@ import pytest
 class TestCommandTemplates:
     """Test command template rendering and functionality."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_status_command_template(self, guide_function) -> None:
         """Should render status command template with system information."""
         mock_ctx = MagicMock()
@@ -48,7 +48,7 @@ class TestCommandTemplates:
             assert "Current Project:" in result["value"]
             assert "Available Commands" in result["value"]
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_create_collection_command_with_args(self, guide_function) -> None:
         """Should handle create/collection command with arguments."""
         mock_ctx = MagicMock()
@@ -77,7 +77,7 @@ Collection created successfully!"""
             assert "Create Collection: my-docs" in result["value"]
             assert "docs, examples" in result["value"]
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_template_rendering_error(self, guide_function) -> None:
         """Should handle template rendering errors gracefully."""
         mock_ctx = MagicMock()

@@ -9,7 +9,6 @@ if TYPE_CHECKING:
 
 _SENTINEL = object()  # Sentinel value for distinguishing unset parameters
 
-import aiofiles.os
 from anyio import Path as AsyncPath
 
 from mcp_guide.discovery.patterns import safe_glob_search
@@ -33,27 +32,25 @@ async def resolve_file_with_extensions(base_path: Path) -> Path | None:
     Returns:
         Resolved path if found, None otherwise
     """
-    from aiofiles.os import path as aiopath
-
     # Try exact filename first
-    if await aiopath.exists(base_path):
+    if await AsyncPath(base_path).exists():
         return base_path
 
     # Try .md
     md_path = base_path.with_suffix(".md")
-    if await aiopath.exists(md_path):
+    if await AsyncPath(md_path).exists():
         return md_path
 
     # Try template extensions
     for ext in TEMPLATE_EXTENSIONS:
         ext_path = base_path.with_suffix(ext)
-        if await aiopath.exists(ext_path):
+        if await AsyncPath(ext_path).exists():
             return ext_path
 
     # Try .md + template extensions
     for ext in TEMPLATE_EXTENSIONS:
         md_ext_path = base_path.with_suffix(f".md{ext}")
-        if await aiopath.exists(md_ext_path):
+        if await AsyncPath(md_ext_path).exists():
             return md_ext_path
 
     return None
@@ -302,7 +299,7 @@ async def discover_documents(
     # Extract metadata for deduplicated files
     results = []
     for matched_path in files_by_path.values():
-        stat_result = await aiofiles.os.stat(matched_path)
+        stat_result = await AsyncPath(matched_path).stat()
         relative_path = matched_path.relative_to(base_dir)
 
         # Calculate name (full relative path without template extension)

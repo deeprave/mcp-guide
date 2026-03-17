@@ -33,8 +33,7 @@ def parse_result_json(json_str: str) -> Result:
 class TestListFlagsTool:
     """Test list_project_flags MCP tool."""
 
-    @pytest.mark.asyncio
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_list_flags_current_project_active(self):
         """Test listing current project flags with active=True (merged)."""
         args = ListFlagsArgs(active=True)
@@ -67,7 +66,7 @@ class TestListFlagsTool:
             expected = {"global_flag": True, "project_flag": False, "shared_flag": "project_override"}
             assert result.value == expected
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_list_flags_current_project_project_only(self):
         """Test listing current project flags with active=False (project only)."""
         args = ListFlagsArgs(active=False)
@@ -88,7 +87,7 @@ class TestListFlagsTool:
             assert result.success is True
             assert result.value == {"project_flag": False, "project_string": "value"}
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_list_flags_specific_flag_name(self):
         """Test listing specific flag by name."""
         args = ListFlagsArgs(feature_name="specific_flag")
@@ -112,7 +111,7 @@ class TestListFlagsTool:
             assert result.success is True
             assert result.value == ["list", "value"]  # Single value, not dict
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_list_flags_no_current_project_error(self):
         """Test error when no current project and project=None."""
         args = ListFlagsArgs()
@@ -131,7 +130,7 @@ class TestListFlagsTool:
 class TestTestSetProjectFlagTool:
     """Test set_flag MCP tool."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     @pytest.mark.parametrize(
         "scenario,value,expected_msg,mock_method",
         [
@@ -168,7 +167,7 @@ class TestTestSetProjectFlagTool:
             else:
                 mock_flags_proxy.remove.assert_called_once_with("test_flag")
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_set_flag_defaults_to_true(self):
         """Test that value defaults to True when omitted."""
         # Construct without providing value parameter to test default
@@ -189,7 +188,7 @@ class TestTestSetProjectFlagTool:
             assert "Flag 'test_flag' set to True" in result.value
             mock_flags_proxy.set.assert_called_once_with("test_flag", True)
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_set_flag_validation_error(self):
         """Test validation error for invalid flag name."""
         args = SetFlagArgs(feature_name="invalid.flag", value=True)
@@ -205,7 +204,7 @@ class TestTestSetProjectFlagTool:
 class TestTestGetProjectFlagTool:
     """Test get_flag MCP tool."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_get_flag_with_resolution(self):
         """Test getting flag with project → global resolution."""
         args = GetFlagArgs(feature_name="test_flag")
@@ -231,7 +230,7 @@ class TestTestGetProjectFlagTool:
             assert result.success is True
             assert result.value == "global_value"
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_get_flag_not_found(self):
         """Test getting flag that doesn't exist."""
         args = GetFlagArgs(feature_name="nonexistent")

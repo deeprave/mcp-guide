@@ -1,7 +1,6 @@
 """Integration tests for profile application."""
 
 import pytest
-import pytest_asyncio
 
 import mcp_guide.session
 from mcp_guide.session import get_session, remove_current_session
@@ -16,7 +15,7 @@ def enable_default_profile():
     mcp_guide.session._enable_default_profile = original
 
 
-@pytest_asyncio.fixture
+@pytest.fixture
 async def test_session(tmp_path, monkeypatch, enable_default_profile):
     """Create a test session."""
     # Set PWD to tmp_path to avoid picking up real project
@@ -34,7 +33,7 @@ async def test_session(tmp_path, monkeypatch, enable_default_profile):
     await remove_current_session()
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 class TestProfileApplication:
     """Tests for applying profiles to projects."""
 

@@ -6,7 +6,7 @@ from mcp_guide.core.result_handler import validate_result
 from mcp_guide.core.validation import ArgValidationError
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_non_validation_error_is_propagated():
     """Non-ArgValidationError exceptions should propagate unchanged."""
 
@@ -30,7 +30,7 @@ def test_sync_function_raises_type_error():
 class TestValidateResult:
     """Tests for validate_result decorator."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_success_returns_ok_result(self):
         """Successful function returns Result.ok."""
 
@@ -42,7 +42,7 @@ class TestValidateResult:
         assert result.is_ok()
         assert result.value == "success"
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_validation_error_returns_failure_result(self):
         """ArgValidationError is caught and wrapped in Result.failure."""
 
@@ -56,7 +56,7 @@ class TestValidateResult:
         assert result.error_type == "validation_error"
         assert result.error_data == {"validation_errors": [{"field": "input", "message": "Invalid input"}]}
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_success_instruction_added(self):
         """Success instruction is added to successful results."""
 
@@ -67,7 +67,7 @@ class TestValidateResult:
         result = await success_fn()
         assert result.instruction == "All good"
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_failure_instruction_added(self):
         """Failure instruction is added to failed results."""
 

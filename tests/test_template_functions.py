@@ -170,6 +170,7 @@ class TestTemplateFunctionsSecurity:
 class TestSafeLambdaWrapper:
     """Test safe lambda wrapper functionality."""
 
+    @pytest.mark.anyio
     async def test_safe_lambda_error_handling(self):
         """Test that safe lambda wrapper catches and formats errors."""
         context = ChainMap({"invalid_date": "not_a_date"})
@@ -181,6 +182,7 @@ class TestSafeLambdaWrapper:
         assert "[Template Error (" in rendered_content
         assert "not a datetime object" in rendered_content
 
+    @pytest.mark.anyio
     async def test_safe_lambda_error_handling_truncate(self):
         """Test that safe lambda wrapper catches and formats errors for truncate."""
         # Negative length should trigger a validation error inside truncate
@@ -192,6 +194,7 @@ class TestSafeLambdaWrapper:
         rendered_content, _, _ = result.value
         assert "[Template Error (" in rendered_content
 
+    @pytest.mark.anyio
     async def test_safe_lambda_error_handling_highlight_code(self):
         """Test that safe lambda wrapper catches and formats errors for highlight_code."""
         # Invalid language name (contains invalid characters) should trigger a validation error
@@ -311,7 +314,7 @@ class TestErrorLambda:
         fn._error("hello {{name}}", render=lambda t: "hello world")
         assert fn.errors == ["hello world"]
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_error_propagates_via_rendered_content(self):
         """_error in template body propagates to RenderedContent.errors."""
         from mcp_guide.render.context import TemplateContext
@@ -325,7 +328,7 @@ class TestErrorLambda:
         assert rendered_text == ""
         assert errors == ["missing arg"]
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_template_name_injected(self):
         """template_name is injected as the stem of file_path."""
         from mcp_guide.render.context import TemplateContext
@@ -338,7 +341,7 @@ class TestErrorLambda:
         rendered_text, _, _ = result.value
         assert rendered_text == "my-command"
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_no_error_gives_empty_list(self):
         """No _error invocation → empty errors list."""
         from mcp_guide.render.context import TemplateContext

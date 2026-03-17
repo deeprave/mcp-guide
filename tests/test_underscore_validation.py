@@ -5,7 +5,7 @@ import pytest
 from mcp_guide.tools.tool_category import CategoryAddArgs, CategoryChangeArgs, category_add, category_change
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_category_add_rejects_underscore_prefix(tmp_path):
     """Test that category_add rejects names starting with underscore."""
     args = CategoryAddArgs(name="_commands")
@@ -15,7 +15,7 @@ async def test_category_add_rejects_underscore_prefix(tmp_path):
     assert "Category names cannot start with underscore (reserved for system use)" in result
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_category_change_rejects_underscore_prefix(tmp_path):
     """Test that category_change rejects new names starting with underscore."""
     # First create a valid category

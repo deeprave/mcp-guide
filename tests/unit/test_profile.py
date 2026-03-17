@@ -96,7 +96,7 @@ unsupported_field: value
             Profile.from_yaml("test", yaml_content)
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 class TestProfileLoad:
     """Tests for Profile.load."""
 
@@ -151,7 +151,7 @@ categories:
             profile_module.get_profiles_dir = original_get_profiles_dir
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 class TestDiscoverProfiles:
     """Tests for discover_profiles."""
 

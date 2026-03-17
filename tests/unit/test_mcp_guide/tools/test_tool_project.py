@@ -41,7 +41,7 @@ class TestGetProject:
         args = GetCurrentProjectArgs()
         assert args.verbose is False
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_no_context_error(self):
         """Test get_project with no project context."""
         # Mock get_session to raise ValueError
@@ -65,7 +65,7 @@ class TestGetProject:
             (False, False),  # empty project
         ],
     )
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_get_project_output(self, verbose: bool, has_data: bool, tmp_path: Path, monkeypatch):
         """Test get_project output format based on verbose flag and data presence."""
         project_name = "test-project" if has_data else "empty-project"
@@ -131,7 +131,7 @@ class TestGetProject:
             (False, list),  # non-verbose: flags as list of names
         ],
     )
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_flags_output(self, verbose: bool, expected_type: type, tmp_path: Path, monkeypatch):
         """Test get_project flag output format based on verbose flag."""
         monkeypatch.setenv("PWD", "/fake/path/test-project")
@@ -171,7 +171,7 @@ class TestGetProject:
             finally:
                 await remove_current_session()
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_project_flags_override_global_flags(self, tmp_path: Path, monkeypatch):
         """Test project flags take precedence over global flags."""
         monkeypatch.setenv("PWD", "/fake/path/test-project")
@@ -225,7 +225,7 @@ class TestSetProject:
         assert args.name == "test-project"
         assert args.verbose is False
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     @pytest.mark.parametrize(
         "scenario,verbose,has_data",
         [
@@ -270,7 +270,7 @@ class TestSetProject:
                 assert result["value"]["collections"] == []
                 assert result["value"]["categories"] == []
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     @pytest.mark.parametrize(
         "error_type,error_msg",
         [
@@ -329,7 +329,7 @@ class TestListProjects:
             ),
         ],
     )
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_list_projects_success(self, verbose: bool, mock_data: dict, expected_check):
         """Test list_projects output format based on verbose flag."""
         mock_result = Result.ok(mock_data)
@@ -342,7 +342,7 @@ class TestListProjects:
             assert result["success"] is True
             assert expected_check(result)
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_list_projects_error(self):
         """Test list_projects propagates errors from list_all_projects."""
         mock_result = Result.failure("Failed to read configuration: Permission denied")
@@ -399,7 +399,7 @@ class TestListProject:
             ),  # verbose mode
         ],
     )
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_list_project_success(self, name, verbose, mock_setup):
         """Test list_project with different name and verbose combinations."""
         from mcp_guide.models import Project
@@ -418,7 +418,7 @@ class TestListProject:
             if verbose:
                 assert isinstance(result["value"]["categories"], dict)
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_list_project_project_not_found(self):
         """Test list_project error propagation."""
 
@@ -474,7 +474,7 @@ class TestCloneProjectArgs:
 class TestCloneProject:
     """Tests for clone_project tool."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     @pytest.mark.parametrize(
         "error_type,from_project,to_project,mock_setup,expected_error_type,expected_msg",
         [
@@ -512,7 +512,7 @@ class TestCloneProject:
             ),
         ],
     )
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_clone_project_errors(
         self, error_type, from_project, to_project, mock_setup, expected_error_type, expected_msg
     ):
@@ -532,7 +532,7 @@ class TestCloneProject:
         if expected_msg:
             assert expected_msg in result["error"].lower()
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_config_write_error(self):
         """clone_project returns config_write_error when save_project raises OSError."""
         source_proj = Project(name="source", categories={}, collections={})
@@ -552,7 +552,7 @@ class TestCloneProject:
             assert result["success"] is False
             assert result["error_type"] == "config_write_error"
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_clone_project_collection_statistics(self):
         """Exercise collection cloning/merging statistics for merge and replace modes."""
         # Source project collections: one shared with target, one source-only
@@ -608,7 +608,7 @@ class TestCloneProject:
             assert result_replace["value"]["collections_added"] == 2  # Both source collections
             assert result_replace["value"]["collections_overwritten"] == 0  # Replace mode
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_1arg_mode_no_current_project(self):
         """Test clone_project 1-arg mode when no current project is available."""
         with patch(

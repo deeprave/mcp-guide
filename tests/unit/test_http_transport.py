@@ -56,7 +56,7 @@ def test_http_transport_with_api_mcp_path():
     assert transport.path_prefix == "api/mcp"
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_http_transport_lifecycle():
     """Test HttpTransport start/stop lifecycle."""
     import asyncio

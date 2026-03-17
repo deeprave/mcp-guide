@@ -36,7 +36,7 @@ class TestTaskManagerInstantiation:
 class TestAgentDataInterception:
     """Test agent data interception and event dispatch."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_dispatch_event_with_interest(self, task_manager: TaskManager, mock_task: MockSubscriber) -> None:
         """Test handling data with interested task."""
         task_manager.subscribe(mock_task, EventType.FS_FILE_CONTENT)
@@ -51,7 +51,7 @@ class TestAgentDataInterception:
         assert event_type == EventType.FS_FILE_CONTENT
         assert data == {"path": "test.txt", "content": "data"}
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_bit_flag_filtering(self, task_manager: TaskManager, mock_task: MockSubscriber) -> None:
         """Test bit-flag pre-filtering."""
         task_manager.subscribe(mock_task, EventType.FS_FILE_CONTENT)
@@ -63,7 +63,7 @@ class TestAgentDataInterception:
         assert len(result) == 0
         assert len(mock_task.received_events) == 0
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_multiple_subscribers_same_event(self, task_manager: TaskManager) -> None:
         """Test multiple subscribers receiving the same event."""
         subscriber1 = MockSubscriber("sub1")

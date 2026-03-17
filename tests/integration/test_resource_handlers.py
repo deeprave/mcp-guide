@@ -17,7 +17,7 @@ def mcp_server(mcp_server_factory: Callable[[list[str]], Any]) -> Any:
 class TestResourceHandlers:
     """Integration tests for MCP resource handlers."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_guide_resource_success(self, mcp_server: Any) -> None:
         """guide:// resource should delegate to internal_get_content."""
         mock_ctx = MagicMock()
@@ -38,7 +38,7 @@ class TestResourceHandlers:
             assert content_args.pattern == "readme"
             assert result == "Test content from collection"
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_guide_resource_no_document(self, mcp_server: Any) -> None:
         """guide:// resource should handle empty document parameter."""
         mock_ctx = MagicMock()
@@ -59,7 +59,7 @@ class TestResourceHandlers:
             assert content_args.pattern is None
             assert result == "All docs content"
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_guide_resource_content_error(self, mcp_server: Any) -> None:
         """guide:// resource should handle internal_get_content errors."""
         mock_ctx = MagicMock()
@@ -72,7 +72,7 @@ class TestResourceHandlers:
 
             assert result == "Collection not found"
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_guide_resource_exception_handling(self, mcp_server: Any) -> None:
         """guide:// resource should handle unexpected exceptions."""
         mock_ctx = MagicMock()
@@ -86,7 +86,7 @@ class TestResourceHandlers:
 
             assert "Unexpected error: Unexpected error" in result
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_guide_resource_value_error_handling(self, mcp_server: Any) -> None:
         """guide:// resource should handle ValueError specifically."""
         mock_ctx = MagicMock()
@@ -98,7 +98,7 @@ class TestResourceHandlers:
 
             assert result == "Error: Invalid value"
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_guide_resource_file_not_found_error_handling(self, mcp_server: Any) -> None:
         """guide:// resource should handle FileNotFoundError specifically."""
         mock_ctx = MagicMock()
@@ -112,7 +112,7 @@ class TestResourceHandlers:
 
             assert result == "Error: File not found"
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_guide_resource_permission_error_handling(self, mcp_server: Any) -> None:
         """guide:// resource should handle PermissionError specifically."""
         mock_ctx = MagicMock()
@@ -126,7 +126,7 @@ class TestResourceHandlers:
 
             assert result == "Error: Permission denied"
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_guide_resource_empty_result(self, mcp_server: Any) -> None:
         """guide:// resource should handle empty content results."""
         mock_ctx = MagicMock()
@@ -139,7 +139,7 @@ class TestResourceHandlers:
 
             assert result == ""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     @pytest.mark.e2e
     @pytest.mark.slow
     async def test_mcp_client_can_list_resources(self, tmp_path: Any) -> None:

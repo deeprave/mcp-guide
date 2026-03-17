@@ -6,7 +6,6 @@ Tests feature flag tools through MCP protocol with real session management.
 import json
 
 import pytest
-import pytest_asyncio
 from mcp.shared.memory import create_connected_server_and_client_session
 
 from mcp_guide.session import Session, remove_current_session, set_current_session
@@ -26,7 +25,7 @@ def mcp_server(mcp_server_factory):
     return mcp_server_factory(["tool_feature_flags"])
 
 
-@pytest_asyncio.fixture
+@pytest.fixture
 async def test_session(tmp_path):
     """Create test session with sample project."""
     session = await Session.create_session("test", _config_dir_for_tests=str(tmp_path))
@@ -138,6 +137,7 @@ async def test_remove_flag_via_mcp(mcp_server, test_session, monkeypatch):
         assert response.get("value") is None
 
 
+@pytest.mark.anyio
 @pytest.mark.parametrize(
     "pattern,flags_to_set,expected_matches",
     [
@@ -193,6 +193,7 @@ async def test_list_flags_with_glob_pattern(
         )
 
 
+@pytest.mark.anyio
 async def test_list_flags_exact_match_returns_single_value(mcp_server, test_session, monkeypatch):
     """Test that exact match (no wildcards) returns single value, not dict."""
     monkeypatch.setenv("PWD", "/fake/path/test")

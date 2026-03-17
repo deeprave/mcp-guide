@@ -5,7 +5,7 @@ import hashlib
 from pathlib import Path
 from zipfile import ZipFile
 
-import aiofiles
+import anyio
 import patch_ng as patch  # type: ignore[import-untyped]
 from anyio import Path as AsyncPath
 
@@ -67,9 +67,8 @@ async def _backup_file(path: Path) -> Path:
         Path to the created backup file
     """
     backup_path = get_backup_path(path)
-    async with aiofiles.open(path, "rb") as src:
-        async with aiofiles.open(backup_path, "wb") as dst:
-            await dst.write(await src.read())
+    data = await anyio.Path(path).read_bytes()
+    await anyio.Path(backup_path).write_bytes(data)
     return backup_path
 
 
@@ -83,7 +82,7 @@ async def compute_file_hash(filepath: Path) -> str:
         Hexadecimal digest of the file's SHA256 hash
     """
     hasher = hashlib.sha256()
-    async with aiofiles.open(filepath, "rb") as f:
+    async with await anyio.open_file(filepath, "rb") as f:
         while chunk := await f.read(8192):
             hasher.update(chunk)
     return hasher.hexdigest()
@@ -183,11 +182,9 @@ async def compute_diff(original: Path, current: Path) -> str:
     Returns:
         Unified diff as string
     """
-    async with aiofiles.open(original, "r") as f:
-        original_lines = (await f.read()).splitlines(keepends=True)
+    original_lines = (await anyio.Path(original).read_text()).splitlines(keepends=True)
 
-    async with aiofiles.open(current, "r") as f:
-        current_lines = (await f.read()).splitlines(keepends=True)
+    current_lines = (await anyio.Path(current).read_text()).splitlines(keepends=True)
 
     diff_lines = difflib.unified_diff(
         original_lines,
@@ -277,8 +274,7 @@ async def _extract_original_to_temp(archive_path: Path, rel_path: str, dest: Pat
     """
     original_content = await extract_from_archive(archive_path, rel_path)
     original_temp = dest.parent / f".{dest.name}.original"
-    async with aiofiles.open(original_temp, "wb") as f:
-        await f.write(original_content)
+    await anyio.Path(original_temp).write_bytes(original_content)
     return original_temp
 
 
@@ -319,10 +315,8 @@ async def _copy_file_with_permissions(source: Path, dest: Path) -> None:
     """
     adest = AsyncPath(dest)
     await adest.parent.mkdir(parents=True, exist_ok=True)
-    async with aiofiles.open(source, "rb") as src:
-        content = await src.read()
-    async with aiofiles.open(dest, "wb") as dst:
-        await dst.write(content)
+    content = await anyio.Path(source).read_bytes()
+    await anyio.Path(dest).write_bytes(content)
     asource = AsyncPath(source)
     source_stat = await asource.stat()
     dest.chmod(source_stat.st_mode)
@@ -344,8 +338,8 @@ async def install_file(
     """
     # Try to read as text to detect binary files
     try:
-        async with aiofiles.open(source, "r", encoding="utf-8") as f:
-            await f.read(1)  # Test read
+        async with await anyio.open_file(source, "rb") as f:
+            (await f.read(1024)).decode("utf-8")
     except UnicodeDecodeError:
         logger.warning(f"Skipping binary file: {source}")
         return "skipped_binary"
@@ -439,8 +433,7 @@ async def write_version(docroot: Path, version: str) -> None:
         version: Version string to write
     """
     version_path = docroot / VERSION_FILE
-    async with aiofiles.open(version_path, "w", encoding="utf-8") as f:
-        await f.write(version)
+    await anyio.Path(version_path).write_text(version, encoding="utf-8")
 
 
 async def read_version(docroot: Path) -> str | None:
@@ -455,8 +448,7 @@ async def read_version(docroot: Path) -> str | None:
     version_path = docroot / VERSION_FILE
     if not version_path.exists():
         return None
-    async with aiofiles.open(version_path, "r", encoding="utf-8") as f:
-        return (await f.read()).strip()
+    return (await anyio.Path(version_path).read_text(encoding="utf-8")).strip()
 
 
 async def perform_locked_update(docroot: Path, archive_path: Path) -> dict[str, int]:

@@ -13,7 +13,7 @@ from mcp_guide.session import Session
 class TestProjectResolution:
     """Test end-to-end project resolution with hash disambiguation."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_single_project_resolution(self):
         """Single project with name resolves correctly."""
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -38,7 +38,7 @@ class TestProjectResolution:
 
             assert project.name == "my-project"
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_multiple_projects_hash_verification(self):
         """Multiple projects with same name resolve by hash."""
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -82,7 +82,7 @@ class TestProjectResolution:
                     assert project.name == "my-project"
                     assert project.hash == "fedcba0987654321" * 4
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_no_matching_project_creation(self):
         """Non-existent project name creates new project."""
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -98,7 +98,7 @@ class TestProjectResolution:
             assert project.name == "new-project"
             assert project.hash is not None  # Should have calculated a hash
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_hash_mismatch_fallback(self):
         """Hash mismatch falls back to name for new project creation."""
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -128,7 +128,7 @@ class TestProjectResolution:
                     assert project.name == "my-project"
                     assert project.hash == "different_hash_value" * 4
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_path_resolution_failure_fallback(self):
         """Path resolution failure falls back gracefully."""
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -164,7 +164,7 @@ class TestProjectResolution:
                 # Should still work - will use fallback path for hash calculation
                 assert project.name == "my-project"
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_config_error_fallback(self):
         """Configuration errors fall back gracefully."""
         with tempfile.TemporaryDirectory() as tmp_dir:

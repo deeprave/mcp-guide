@@ -76,7 +76,7 @@ class TestStaleLockDetection:
 class TestLockUpdate:
     """Tests for lock_update function."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_lock_update_basic(self, tmp_path):
         """lock_update should execute function with locking."""
         test_file = tmp_path / "test.txt"
@@ -92,7 +92,7 @@ class TestLockUpdate:
         assert result == "done"
         assert test_file.read_text() == "initial updated"
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_lock_update_creates_and_removes_lock(self, tmp_path):
         """lock_update should create and remove lock file."""
         test_file = tmp_path / "test.txt"
@@ -109,7 +109,7 @@ class TestLockUpdate:
         # Lock should be removed after execution
         assert not lock_file.exists()
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_lock_update_removes_lock_on_error(self, tmp_path):
         """lock_update should remove lock even if function raises error."""
         test_file = tmp_path / "test.txt"
@@ -125,7 +125,7 @@ class TestLockUpdate:
         # Lock should be removed even after error
         assert not lock_file.exists()
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_lock_update_waits_for_lock(self, tmp_path):
         """lock_update should wait if lock exists."""
         test_file = tmp_path / "test.txt"
@@ -154,7 +154,7 @@ class TestLockUpdate:
         # Both should complete in order
         assert results == ["started", "finished", "started", "finished"]
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_lock_update_removes_stale_lock(self, tmp_path):
         """lock_update should remove stale lock and proceed."""
         test_file = tmp_path / "test.txt"

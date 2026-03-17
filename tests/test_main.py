@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_async_main_exists() -> None:
     """Test that async_main function exists and is callable."""
     from mcp_guide.main import async_main
@@ -14,7 +14,7 @@ async def test_async_main_exists() -> None:
     assert callable(async_main)
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_async_main_has_one_parameter() -> None:
     """Test that async_main has one required parameter (config)."""
     from mcp_guide.main import async_main

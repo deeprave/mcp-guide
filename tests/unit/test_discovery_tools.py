@@ -46,7 +46,6 @@ async def test_list_tools_returns_registered_tools():
 
 
 @pytest.mark.anyio
-@pytest.mark.anyio
 async def test_list_tools_with_args_schema():
     """Test that list_tools includes argument schemas when requested."""
     from mcp_guide.core.tool_decorator import _TOOL_REGISTRY
@@ -77,7 +76,6 @@ async def test_list_tools_with_args_schema():
         clear_tool_registry()
 
 
-@pytest.mark.anyio
 @pytest.mark.anyio
 async def test_list_prompts_returns_registered_prompts():
     """Test that list_prompts returns all registered prompts."""
