@@ -114,7 +114,7 @@ def _get_roots() -> list[Any]:
     from mcp_guide.session import get_active_session
 
     session = get_active_session()
-    if session is not None and session.roots:
+    if session is not None:
         return session.roots
     return _bootstrap_roots
 

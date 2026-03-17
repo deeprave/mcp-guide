@@ -102,9 +102,11 @@ class TemplateContextCache(SessionListener):
         try:
             from mcp_guide.feature_flags.constants import FLAG_CONTENT_STYLE
             from mcp_guide.models import resolve_all_flags
-            from mcp_guide.session import get_session
+            from mcp_guide.session import get_active_session
 
-            session = await get_session()
+            session = get_active_session()
+            if session is None:
+                raise RuntimeError("No active session")
 
             if session.agent_info:
                 agent_info = session.agent_info
