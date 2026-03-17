@@ -1,3 +1,19 @@
+## ADDED Requirements
+
+### Requirement: Unified Session Access
+The system SHALL provide a single `get_session()` async function that replaces both
+`get_or_create_session` and `get_current_session`.
+
+#### Scenario: Signature
+- **WHEN** `get_session` is defined
+- **THEN** its signature SHALL be `async def get_session(ctx=None, *, project_name=None, _config_dir_for_tests=None) -> Session`
+- **AND** it SHALL never return None
+
+#### Scenario: Tool usage
+- **WHEN** a tool needs the session
+- **THEN** it calls `session = await get_session(ctx)`
+- **AND** no separate helper functions are needed
+
 ## MODIFIED Requirements
 
 ### Requirement: Session Non-Singleton
@@ -39,20 +55,6 @@ The system SHALL track the active session per async task using a single-valued C
 - **THEN** the existing session is returned
 - **AND** creation arguments (`ctx`, `project_name`, `_config_dir_for_tests`) are ignored
 
-### Requirement: Unified Session Access
-The system SHALL provide a single `get_session()` async function that replaces both
-`get_or_create_session` and `get_current_session`.
-
-#### Scenario: Signature
-- **WHEN** `get_session` is defined
-- **THEN** its signature SHALL be `async def get_session(ctx=None, *, project_name=None, _config_dir_for_tests=None) -> Session`
-- **AND** it SHALL never return None
-
-#### Scenario: Tool usage
-- **WHEN** a tool needs the session
-- **THEN** it calls `session = await get_session(ctx)`
-- **AND** no separate helper functions are needed
-
 ### Requirement: MCP Context Deduplication
 The system SHALL store MCP session context (agent info, roots, client params) on the
 Session object rather than in a separate module-level global.
@@ -93,10 +95,4 @@ than ConfigManager injection.
 - **THEN** tests SHALL pass `_config_dir_for_tests` to `get_session()` or `Session` constructor
 - **AND** tests SHALL NOT create or inject ConfigManager instances directly
 
-## REMOVED Requirements
 
-### Requirement: MCP Context Deduplication (old ContextVar-based)
-**Reason**: Replaced by session-scoped storage. `CachedMcpContext` and the module-level
-`_cached_mcp_context` global are removed.
-**Migration**: Read/write agent info via `session.agent_info` instead of
-`get_cached_mcp_context()` / `set_cached_mcp_context()`.

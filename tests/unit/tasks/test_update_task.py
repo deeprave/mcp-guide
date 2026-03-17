@@ -8,7 +8,7 @@ from mcp_guide.task_manager.interception import EventType
 from mcp_guide.tasks.update_task import McpUpdateTask
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_update_task_disabled_without_flag():
     """Test task is disabled when autoupdate flag is not set."""
     task_manager = Mock()
@@ -25,7 +25,7 @@ async def test_update_task_disabled_without_flag():
     assert result.result is True
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_update_task_no_project():
     """Test task handles missing project gracefully."""
     task_manager = Mock()
@@ -45,7 +45,7 @@ async def test_update_task_no_project():
         assert result.result is True
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_update_task_no_version_file(tmp_path):
     """Test task prompts when no version file exists."""
     task_manager = Mock()
@@ -72,7 +72,7 @@ async def test_update_task_no_version_file(tmp_path):
             assert result.result is True
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_update_task_version_mismatch(tmp_path):
     """Test task prompts when version differs."""
     task_manager = Mock()
@@ -104,7 +104,7 @@ async def test_update_task_version_mismatch(tmp_path):
             assert result.result is True
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_update_task_version_current(tmp_path):
     """Test task skips prompt when version is current."""
     task_manager = Mock()

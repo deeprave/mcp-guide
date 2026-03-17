@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import AsyncGenerator, Generator
 
 import pytest
-import pytest_asyncio
 
 
 @pytest.fixture
@@ -72,7 +71,7 @@ def unique_category_name(request):
     return f"cat_{hash_val}"
 
 
-@pytest_asyncio.fixture
+@pytest.fixture
 async def project_dir(tmp_path: Path, monkeypatch) -> AsyncGenerator[Path, None]:
     """Set up isolated project directory with PWD and CWD.
 

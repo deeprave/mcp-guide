@@ -27,7 +27,7 @@ async def _run(docroot, args, minargs):
     return await _execute_command("test", {}, args, None, argv=[":test", *args])
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 @pytest.mark.parametrize(
     "minargs, args",
     [(1, []), (2, ["expr"])],
@@ -39,7 +39,7 @@ async def test_minargs_rejects_too_few_args(cmd_docroot, minargs, args):
     assert "Missing required argument" in (result.error or "")
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 @pytest.mark.parametrize(
     "minargs, args",
     [(0, []), (1, ["expr"]), (2, ["a", "b"]), ("bad", [])],

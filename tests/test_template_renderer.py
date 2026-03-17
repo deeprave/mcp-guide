@@ -41,6 +41,7 @@ class TestTemplateDetection:
 class TestTemplatePartials:
     """Test template rendering with partials."""
 
+    @pytest.mark.anyio
     async def test_render_template_with_partials(self):
         """Test template rendering with partials."""
         content = "{{>project}}"
@@ -54,6 +55,7 @@ class TestTemplatePartials:
         assert rendered_content == "Project: test-project"
         assert partial_frontmatter == []
 
+    @pytest.mark.anyio
     async def test_render_template_missing_partial(self):
         """Test template rendering with missing partial."""
         content = "{{>missing}}"
@@ -96,6 +98,7 @@ class TestPartialNameExtraction:
 class TestTemplateRendering:
     """Test template content rendering."""
 
+    @pytest.mark.anyio
     async def test_render_template_content_success(self):
         """Test successful template rendering."""
         content = "Hello {{name}}!"
@@ -107,6 +110,7 @@ class TestTemplateRendering:
         rendered_content, _, _ = result.value
         assert rendered_content == "Hello World!"
 
+    @pytest.mark.anyio
     async def test_render_template_content_with_lambda_functions(self):
         """Test template rendering with lambda functions."""
         content = "Created: {{#format_date}}%Y-%m-%d{{event_date}}{{/format_date}}"
@@ -118,6 +122,7 @@ class TestTemplateRendering:
         rendered_content, _, _ = result.value
         assert "2023-12-25" in rendered_content
 
+    @pytest.mark.anyio
     async def test_render_template_content_syntax_error(self):
         """Test template rendering with syntax error."""
         content = "Hello {{#unclosed_section}}!"
@@ -130,6 +135,7 @@ class TestTemplateRendering:
         assert "Template syntax error" in result.error
         assert ">>>    1 |" in result.error  # Check for line context
 
+    @pytest.mark.anyio
     async def test_template_context_integration_in_pipeline(self):
         """Test that TemplateContext is properly integrated in rendering pipeline."""
         content = "Hello {{name}}! Project: {{project.name}}"
@@ -141,6 +147,7 @@ class TestTemplateRendering:
         rendered_content, _, _ = result.value
         assert rendered_content == "Hello World! Project: test-project"
 
+    @pytest.mark.anyio
     async def test_lambda_functions_injection_in_pipeline(self):
         """Test that lambda functions are properly injected and work in pipeline."""
         from datetime import datetime
@@ -171,6 +178,7 @@ class TestTemplateRendering:
             rendered_content, _, _ = result.value
             assert rendered_content == expected, f"Expected '{expected}', got '{rendered_content}'"
 
+    @pytest.mark.anyio
     async def test_render_template_content_missing_variable(self):
         """Test template rendering with missing variable."""
         content = "Hello {{missing_var}}!"
@@ -183,6 +191,7 @@ class TestTemplateRendering:
         rendered_content, _, _ = result.value
         assert rendered_content == "Hello !"
 
+    @pytest.mark.anyio
     async def test_render_template_content_accepts_template_context(self):
         """Test that render_template_content accepts TemplateContext."""
         content = "Hello {{name}}!"
@@ -198,6 +207,7 @@ class TestTemplateRendering:
 class TestContextChainRendering:
     """Test context chain wrapper functions."""
 
+    @pytest.mark.anyio
     async def test_render_template_with_context_chain_builds_base_context(self) -> None:
         """Test that wrapper builds system → agent → project context chain."""
         content = "Hello {{project.name}}!"
@@ -212,6 +222,7 @@ class TestContextChainRendering:
             rendered_content, _, _ = result.value
             assert rendered_content == "Hello test-project!"
 
+    @pytest.mark.anyio
     async def test_render_template_with_context_chain_adds_category_context(self) -> None:
         """Test that wrapper adds category context when category_name provided."""
         content = "Category: {{category.name}}"
@@ -229,6 +240,7 @@ class TestContextChainRendering:
             rendered_content, _, _ = result.value
             assert rendered_content == "Category: docs"
 
+    @pytest.mark.anyio
     async def test_render_template_with_context_chain_adds_transient_context(self) -> None:
         """Test that wrapper adds transient context with timestamps."""
         content = "Rendered at: {{timestamp}}"
@@ -316,6 +328,7 @@ class TestFileContextIsolation:
         # Verify they don't interfere
         assert isolated1["file"]["size"] != isolated2["file"]["size"]
 
+    @pytest.mark.anyio
     async def test_render_template_with_context_chain_includes_file_context(self) -> None:
         """Test that wrapper includes file context when FileInfo provided."""
         content = "File: {{file.name}} ({{file.size}} bytes)"

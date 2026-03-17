@@ -49,6 +49,7 @@ def test_mime_formatter_structure(check_type: str):
         assert callable(formatter.format_single)
 
 
+@pytest.mark.anyio
 async def test_format_empty_list(docroot):
     """Test that empty list returns empty string."""
     from mcp_guide.content.formatters.mime import MimeFormatter
@@ -58,6 +59,7 @@ async def test_format_empty_list(docroot):
     assert result == ""
 
 
+@pytest.mark.anyio
 async def test_format_single_file_delegates(mock_category, docroot):
     """Test that single file delegates to format_single."""
     from mcp_guide.content.formatters.mime import MimeFormatter
@@ -78,6 +80,7 @@ async def test_format_single_file_delegates(mock_category, docroot):
     assert "test content" in result
 
 
+@pytest.mark.anyio
 async def test_format_single_markdown_file(mock_category, docroot):
     """Test formatting a single markdown file with MIME headers."""
     from mcp_guide.content.formatters.mime import MimeFormatter
@@ -105,6 +108,7 @@ async def test_format_single_markdown_file(mock_category, docroot):
     assert result.endswith(content)
 
 
+@pytest.mark.anyio
 async def test_format_single_text_file(docroot):
     """Test formatting a text file."""
     from mcp_guide.content.formatters.mime import MimeFormatter
@@ -127,6 +131,7 @@ async def test_format_single_text_file(docroot):
     assert "Content-Location: guide://docs/notes.txt" in result
 
 
+@pytest.mark.anyio
 async def test_format_single_unknown_extension(docroot):
     """Test formatting file with unknown extension defaults to text/plain."""
     from mcp_guide.content.formatters.mime import MimeFormatter
@@ -148,6 +153,7 @@ async def test_format_single_unknown_extension(docroot):
     assert "Content-Type: text/plain" in result
 
 
+@pytest.mark.anyio
 async def test_format_single_utf8_content(docroot):
     """Test Content-Length correctly counts UTF-8 bytes."""
     from mcp_guide.content.formatters.mime import MimeFormatter
@@ -171,6 +177,7 @@ async def test_format_single_utf8_content(docroot):
     assert byte_count > len(content)  # Verify multi-byte counting
 
 
+@pytest.mark.anyio
 async def test_format_single_uses_content_size_not_content_length(docroot):
     """Test that Content-Length uses content_size field, not calculated length."""
     from mcp_guide.content.formatters.mime import MimeFormatter
@@ -197,6 +204,7 @@ async def test_format_single_uses_content_size_not_content_length(docroot):
     assert "Content-Length: 50" not in result
 
 
+@pytest.mark.anyio
 async def test_format_multiple_main_header(mock_category, docroot):
     """Test that multiple files have multipart/mixed header with boundary."""
     from mcp_guide.content.formatters.mime import MimeFormatter
@@ -230,6 +238,7 @@ async def test_format_multiple_main_header(mock_category, docroot):
     assert "Content-Type: multipart/mixed; boundary=" in lines[0]
 
 
+@pytest.mark.anyio
 async def test_format_multiple_boundary_format(mock_category, docroot):
     """Test that boundary follows UUID format and is used correctly."""
     from mcp_guide.content.formatters.mime import MimeFormatter
@@ -272,6 +281,7 @@ async def test_format_multiple_boundary_format(mock_category, docroot):
     assert f"--{boundary}--" in result  # Closing boundary
 
 
+@pytest.mark.anyio
 async def test_format_multiple_part_headers(mock_category, docroot):
     """Test that each part has proper MIME headers."""
     from mcp_guide.content.formatters.mime import MimeFormatter
@@ -310,6 +320,7 @@ async def test_format_multiple_part_headers(mock_category, docroot):
     assert f"Content-Length: {len(files[1].content.encode('utf-8'))}" in result
 
 
+@pytest.mark.anyio
 async def test_format_multiple_uses_actual_content_length(mock_category, docroot):
     """Test that multiple files use actual content length for Content-Length headers.
 
@@ -352,6 +363,7 @@ async def test_format_multiple_uses_actual_content_length(mock_category, docroot
     assert "Content-Length: 200" not in result
 
 
+@pytest.mark.anyio
 async def test_format_multiple_crlf_line_endings(mock_category, docroot):
     """Test that CRLF line endings are used throughout."""
     from mcp_guide.content.formatters.mime import MimeFormatter
@@ -386,6 +398,7 @@ async def test_format_multiple_crlf_line_endings(mock_category, docroot):
     assert len(lines) > 5  # Should have multiple lines
 
 
+@pytest.mark.anyio
 async def test_format_multiple_content_preserved(mock_category, docroot):
     """Test that content is preserved exactly in multipart format."""
     from mcp_guide.content.formatters.mime import MimeFormatter

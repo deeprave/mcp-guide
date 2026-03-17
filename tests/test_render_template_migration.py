@@ -17,7 +17,7 @@ from mcp_guide.render.frontmatter import Frontmatter
 class TestRenderTemplateAPIIntegration:
     """Test that content_utils uses the render_template API."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_read_and_render_uses_render_template_api(self):
         """Verify read_and_render_file_contents calls render_template API with correct arguments."""
         with tempfile.TemporaryDirectory() as temp_dir:

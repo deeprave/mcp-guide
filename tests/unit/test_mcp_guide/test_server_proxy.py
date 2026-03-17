@@ -11,7 +11,7 @@ from mcp_guide.server import _ToolsProxy
 class TestToolsProxy:
     """Tests for _ToolsProxy lazy initialization."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_tool_before_set_instance_returns_noop(self) -> None:
         """Test that tool() before set_instance returns no-op decorator."""
         proxy = _ToolsProxy()

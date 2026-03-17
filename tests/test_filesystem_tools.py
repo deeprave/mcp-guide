@@ -19,7 +19,7 @@ from mcp_guide.tools.tool_filesystem import (
 class TestSendFileContentTool:
     """Tests for internal_send_file_content function."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     @patch("mcp_guide.tools.tool_filesystem.fs_send_file_content")
     async def test_send_file_content_success(self, mock_send):
         """internal_send_file_content should call underlying function."""
@@ -50,7 +50,7 @@ class TestSendFileContentTool:
             encoding="utf-8",
         )
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     @patch("mcp_guide.tools.tool_filesystem.fs_send_file_content")
     async def test_send_file_content_error(self, mock_send):
         """internal_send_file_content should handle errors."""
@@ -70,7 +70,7 @@ class TestSendFileContentTool:
 class TestSendDirectoryListingTool:
     """Tests for internal_send_directory_listing function."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     @patch("mcp_guide.tools.tool_filesystem.fs_send_directory_listing")
     async def test_send_directory_listing_success(self, mock_send):
         """internal_send_directory_listing should call underlying function."""
@@ -98,7 +98,7 @@ class TestSendDirectoryListingTool:
 
         mock_send.assert_called_once_with(context=None, path="docs/", files=entries)
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     @patch("mcp_guide.tools.tool_filesystem.fs_send_directory_listing")
     async def test_send_directory_listing_error(self, mock_send):
         """internal_send_directory_listing should handle errors."""
@@ -116,7 +116,7 @@ class TestSendDirectoryListingTool:
 class TestSendCommandLocationTool:
     """Tests for internal_send_command_location function."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     @patch("mcp_guide.tools.tool_filesystem.fs_send_command_location")
     async def test_send_command_location_success_found(self, mock_send):
         """internal_send_command_location should handle found commands."""
@@ -145,7 +145,7 @@ class TestSendCommandLocationTool:
             found=True,
         )
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     @patch("mcp_guide.tools.tool_filesystem.fs_send_command_location")
     async def test_send_command_location_success_not_found(self, mock_send):
         """internal_send_command_location should handle missing commands."""
@@ -174,7 +174,7 @@ class TestSendCommandLocationTool:
             found=False,
         )
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     @patch("mcp_guide.tools.tool_filesystem.fs_send_command_location")
     async def test_send_command_location_error(self, mock_send):
         """internal_send_command_location should handle errors."""
@@ -192,7 +192,7 @@ class TestSendCommandLocationTool:
 class TestSendWorkingDirectoryTool:
     """Tests for internal_send_working_directory function."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     @patch("mcp_guide.tools.tool_filesystem.fs_send_working_directory")
     async def test_send_working_directory_success(self, mock_send):
         """internal_send_working_directory should call underlying function."""
@@ -212,7 +212,7 @@ class TestSendWorkingDirectoryTool:
             working_directory="/home/user/project",
         )
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     @patch("mcp_guide.tools.tool_filesystem.fs_send_working_directory")
     async def test_send_working_directory_error(self, mock_send):
         """internal_send_working_directory should handle errors."""

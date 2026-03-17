@@ -51,7 +51,7 @@ class TestCategoryList:
         """Setup and teardown for each test."""
         yield
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_list_empty_categories(self, tmp_path: Path) -> None:
         """List empty categories returns empty list."""
         session = await Session.create_session("test", _config_dir_for_tests=str(tmp_path))
@@ -67,7 +67,7 @@ class TestCategoryList:
         assert result_dict["success"] is True
         assert result_dict["value"] == []
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_list_single_category(self, tmp_path: Path) -> None:
         """List single category returns all fields."""
         categories_dict = {
@@ -97,7 +97,7 @@ class TestCategoryList:
         assert result_dict["value"][0]["patterns"] == ["*.md", "*.txt"]
         assert result_dict["value"][0]["description"] is None
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_list_multiple_categories(self, tmp_path: Path) -> None:
         """List multiple categories returns all."""
         session = await Session.create_session("test", _config_dir_for_tests=str(tmp_path))
@@ -119,7 +119,7 @@ class TestCategoryList:
         assert result_dict["value"][0]["name"] == "docs"
         assert result_dict["value"][1]["name"] == "src"
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_result_pattern_response(self, tmp_path: Path) -> None:
         """Returns Result.ok with proper structure."""
         session = await Session.create_session("test", _config_dir_for_tests=str(tmp_path))
@@ -143,7 +143,7 @@ class TestCategoryAdd:
         """Setup and teardown for each test."""
         yield
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_category_add_minimal(self, tmp_path: Path) -> None:
         """Add category with minimal args."""
         from mcp_guide.tools.tool_category import CategoryAddArgs, category_add
@@ -165,7 +165,7 @@ class TestCategoryAdd:
         assert (await session.get_project()).categories["docs"].patterns == ["README"]
         assert (await session.get_project()).categories["docs"].description is None
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_category_add_with_description(self, tmp_path: Path) -> None:
         """Add category with all args."""
         from mcp_guide.tools.tool_category import CategoryAddArgs, category_add
@@ -184,7 +184,7 @@ class TestCategoryAdd:
         assert "api" in (await session.get_project()).categories
         assert (await session.get_project()).categories["api"].description == "API documentation"
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_category_add_dir_defaults_to_name(self, tmp_path: Path) -> None:
         """When dir is omitted, it defaults to name."""
         from mcp_guide.tools.tool_category import CategoryAddArgs, category_add
@@ -205,7 +205,7 @@ class TestCategoryAdd:
         assert (await session.get_project()).categories["docs"].dir == "docs/"
         assert "docs" in (await session.get_project()).categories
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_category_add_multiple_patterns(self, tmp_path: Path) -> None:
         """Add category with multiple patterns."""
         from mcp_guide.tools.tool_category import CategoryAddArgs, category_add
@@ -222,7 +222,7 @@ class TestCategoryAdd:
         assert result_dict["success"] is True
         assert (await session.get_project()).categories["code"].patterns == ["*.py", "*.pyx", "*.pyi"]
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_category_add_duplicate_name(self, tmp_path: Path) -> None:
         """Reject duplicate category name."""
         from mcp_guide.tools.tool_category import CategoryAddArgs, category_add
@@ -243,7 +243,7 @@ class TestCategoryAdd:
         assert len((await session.get_project()).categories) == 1
         assert (await session.get_project()).categories["docs"].dir == "documentation/"
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     @pytest.mark.parametrize(
         "invalid_name,error_contains",
         [
@@ -273,6 +273,7 @@ class TestCategoryAdd:
             assert error_contains in result_dict["error"]
         assert len((await session.get_project()).categories) == 0
 
+    @pytest.mark.anyio
     @pytest.mark.parametrize(
         "field,value",
         [
@@ -303,7 +304,7 @@ class TestCategoryAdd:
         assert result_dict["error_type"] == "validation_error"
         assert len((await session.get_project()).categories) == 0
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_category_add_empty_patterns(self, tmp_path: Path) -> None:
         """Allow empty patterns list."""
         from mcp_guide.tools.tool_category import CategoryAddArgs, category_add
@@ -321,7 +322,7 @@ class TestCategoryAdd:
         assert len((await session.get_project()).categories) == 1
         assert (await session.get_project()).categories["docs"].patterns == []
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_category_add_auto_saves(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Auto-save after successful add."""
         from unittest.mock import AsyncMock
@@ -343,8 +344,7 @@ class TestCategoryAdd:
         assert result_dict["success"] is True
         update_mock.assert_called_once()
 
-    @pytest.mark.asyncio
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_category_add_save_failure(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Handle save failure gracefully."""
         from unittest.mock import AsyncMock
@@ -375,7 +375,7 @@ class TestCategoryRemove:
         """Setup and teardown for each test."""
         yield
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_category_remove_existing(self, tmp_path: Path) -> None:
         """Remove existing category."""
         from mcp_guide.tools.tool_category import CategoryRemoveArgs, category_remove
@@ -401,7 +401,7 @@ class TestCategoryRemove:
         assert "removed successfully" in result_dict["value"]
         assert len((await session.get_project()).categories) == 0
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_category_remove_nonexistent(self, tmp_path: Path) -> None:
         """Reject removing non-existent category."""
         from mcp_guide.tools.tool_category import CategoryRemoveArgs, category_remove
@@ -420,7 +420,7 @@ class TestCategoryRemove:
         assert "does not exist" in result_dict["error"]
         assert len((await session.get_project()).categories) == 0
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_category_remove_updates_single_collection(self, tmp_path: Path) -> None:
         """Remove category from single collection."""
         from mcp_guide.tools.tool_category import CategoryRemoveArgs, category_remove
@@ -441,7 +441,7 @@ class TestCategoryRemove:
         assert len((await session.get_project()).collections) == 1
         assert (await session.get_project()).collections["all"].categories == []
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_category_remove_updates_multiple_collections(self, tmp_path: Path) -> None:
         """Remove category from multiple collections."""
         from mcp_guide.tools.tool_category import CategoryRemoveArgs, category_remove
@@ -466,7 +466,7 @@ class TestCategoryRemove:
         assert (await session.get_project()).collections["backend"].categories == ["tests"]
         assert (await session.get_project()).collections["frontend"].categories == ["docs"]
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_category_remove_not_in_collections(self, tmp_path: Path) -> None:
         """Remove category not in any collection."""
         from mcp_guide.tools.tool_category import CategoryRemoveArgs, category_remove
@@ -488,7 +488,7 @@ class TestCategoryRemove:
         assert "api" in (await session.get_project()).categories
         assert (await session.get_project()).collections["backend"].categories == ["api"]
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_category_remove_auto_saves(self, tmp_path: Path, monkeypatch) -> None:
         """Verify category removal is persisted."""
         from unittest.mock import AsyncMock
@@ -520,7 +520,7 @@ class TestCategoryChange:
         """Setup and teardown for each test."""
         yield
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_category_change_name(self, tmp_path: Path) -> None:
         """Change category name (rename)."""
         from mcp_guide.tools.tool_category import CategoryChangeArgs, category_change
@@ -542,7 +542,7 @@ class TestCategoryChange:
         assert doc_cat.patterns == ["*.md"]
         assert doc_cat.description == "Documentation"
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_category_change_dir(self, tmp_path: Path) -> None:
         """Change category directory."""
         from mcp_guide.tools.tool_category import CategoryChangeArgs, category_change
@@ -562,7 +562,7 @@ class TestCategoryChange:
         assert doc_cat.dir == "documentation/"
         assert doc_cat.patterns == ["*.md"]
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_category_change_description(self, tmp_path: Path) -> None:
         """Change category description."""
         from mcp_guide.tools.tool_category import CategoryChangeArgs, category_change
@@ -582,7 +582,7 @@ class TestCategoryChange:
         assert doc_cat.description == "New description"
         assert doc_cat.dir == "docs/"
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_category_change_clear_description(self, tmp_path: Path) -> None:
         """Clear category description with empty string."""
         from mcp_guide.tools.tool_category import CategoryChangeArgs, category_change
@@ -601,7 +601,7 @@ class TestCategoryChange:
         doc_cat = (await session.get_project()).categories["docs"]
         assert doc_cat.description is None
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_category_change_patterns(self, tmp_path: Path, monkeypatch) -> None:
         """Replace category patterns."""
         from mcp_guide.tools.tool_category import CategoryChangeArgs, category_change
@@ -715,7 +715,8 @@ class TestCategoryCollectionArgsValidation:
             "update_collection_with_remove_patterns",
         ],
     )
-    def test_incompatible_field_validation(
+    @pytest.mark.anyio
+    async def test_incompatible_field_validation(
         self, args_class: str, type_value: str, invalid_field: str, invalid_value, error_match: str
     ) -> None:
         """Reject incompatible fields based on type."""
@@ -748,7 +749,8 @@ class TestCategoryCollectionArgsValidation:
             "update_valid_collection",
         ],
     )
-    def test_valid_field_combinations(self, args_class: str, type_value: str, valid_fields: dict) -> None:
+    @pytest.mark.anyio
+    async def test_valid_field_combinations(self, args_class: str, type_value: str, valid_fields: dict) -> None:
         """Accept valid field combinations."""
         from mcp_guide.tools import tool_category
 

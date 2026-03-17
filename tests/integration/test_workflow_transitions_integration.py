@@ -12,7 +12,7 @@ from mcp_guide.workflow.schema import WorkflowState
 class TestWorkflowPhasesIntegration:
     """Integration tests for workflow.phases, workflow.next, and workflow.consent in template context."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_workflow_phases_in_template_context(self):
         """Test that workflow.phases, workflow.next, and workflow.consent are available in template context."""
         # Mock task manager with workflow state
@@ -56,7 +56,7 @@ class TestWorkflowPhasesIntegration:
         assert "implementation" in consent  # implementation has entry consent
         assert "review" in consent  # review has exit consent
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_workflow_next_with_consent(self):
         """Test workflow.next includes consent when next phase requires it."""
         # Mock task manager - planning phase, next is implementation (has entry consent)
@@ -81,7 +81,7 @@ class TestWorkflowPhasesIntegration:
         # Current phase should have exit consent (propagated from next entry)
         assert consent["exit"] is True
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_workflow_consent_propagation(self):
         """Test that next phase entry consent sets current phase exit consent."""
         # Mock task manager - discussion phase, next is planning with entry consent
@@ -106,7 +106,7 @@ class TestWorkflowPhasesIntegration:
         # Current phase should have exit consent (propagated)
         assert consent["exit"] is True
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_workflow_phases_with_custom_config(self):
         """Test workflow.phases with custom phase configuration."""
         # Mock task manager with custom workflow flag and consent
@@ -139,7 +139,7 @@ class TestWorkflowPhasesIntegration:
         assert consent["planning"] is True
         assert consent["implementation"] is True
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_workflow_phases_empty_when_disabled(self):
         """Test workflow.phases/next/consent are empty when workflow is disabled."""
         task_manager = Mock()

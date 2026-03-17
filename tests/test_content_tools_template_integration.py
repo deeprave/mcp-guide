@@ -14,7 +14,7 @@ from mcp_guide.render.context import TemplateContext
 class TestContentToolsTemplateIntegration:
     """Test template rendering integration in content tools."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_read_and_render_file_contents_with_templates(self):
         """Test that read_and_render_file_contents processes templates correctly."""
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -29,7 +29,7 @@ class TestContentToolsTemplateIntegration:
 
             # Create FileInfo objects
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_read_and_render_with_includes(self, tmp_path):
         """Test content processing with includes in frontmatter."""
         # Create partials directory in a temporary working directory (docroot)
@@ -82,7 +82,7 @@ Current status: active""")
             if partials_dir.exists():
                 partials_dir.rmdir()
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_read_and_render_file_contents_template_error_handling(self):
         """Test that template errors are handled gracefully."""
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -111,7 +111,7 @@ Current status: active""")
             # Verify file was skipped (not in files list)
             assert len(files) == 0
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_read_and_render_file_contents_invalid_context_validation(self):
         """Test that invalid template context is properly validated."""
         with tempfile.TemporaryDirectory() as temp_dir:

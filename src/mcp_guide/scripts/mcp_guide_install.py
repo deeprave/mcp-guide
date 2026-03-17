@@ -97,7 +97,7 @@ def cli(
 
 async def main(command: str, docroot: str | None, configdir: str | None, interactive: bool) -> None:
     """Main installation logic."""
-    import aiofiles
+    import anyio
 
     from mcp_guide import __version__
     from mcp_guide.config_paths import get_config_dir, get_docroot
@@ -126,8 +126,7 @@ async def main(command: str, docroot: str | None, configdir: str | None, interac
                 raise SystemExit(1)
 
             # Read docroot from config
-            async with aiofiles.open(config_file, encoding="utf-8") as f:
-                config_content = await f.read()
+            config_content = await anyio.Path(config_file).read_text(encoding="utf-8")
             config = yaml.safe_load(config_content)
             docroot_path = Path(docroot) if docroot else Path(config["docroot"])
         else:
@@ -186,12 +185,10 @@ async def main(command: str, docroot: str | None, configdir: str | None, interac
 
             # Update config if docroot changed
             if custom_docroot:
-                async with aiofiles.open(config_file, encoding="utf-8") as f:
-                    config_content = await f.read()
+                config_content = await anyio.Path(config_file).read_text(encoding="utf-8")
                 config = yaml.safe_load(config_content) or {}
                 config["docroot"] = str(docroot_path)
-                async with aiofiles.open(config_file, "w", encoding="utf-8") as f:
-                    await f.write(yaml.safe_dump(config))
+                await anyio.Path(config_file).write_text(yaml.safe_dump(config), encoding="utf-8")
 
             # Log summary statistics at INFO level
             parts = []

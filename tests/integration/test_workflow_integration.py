@@ -81,7 +81,7 @@ def reset_task_manager() -> Generator[None, None, None]:
 class TestWorkflowIntegration:
     """Test complete workflow state processing integration."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_file_content_caching(self, mock_context: AsyncMock, workflow_content: str) -> None:
         """Test that file content is properly cached."""
 
@@ -104,7 +104,7 @@ class TestWorkflowIntegration:
                 error_msgs = logs.get_messages(logging.WARNING)
                 pytest.fail(f"Unexpected warnings/errors during caching: {error_msgs}")
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_task_manager_receives_data(self, mock_context: AsyncMock, workflow_content: str) -> None:
         """Test that TaskManager receives file content data."""
 
@@ -151,7 +151,7 @@ class TestWorkflowIntegration:
                 error_msgs = logs.get_messages(logging.WARNING)
                 pytest.fail(f"Unexpected warnings/errors in TaskManager: {error_msgs}")
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_workflow_task_updates_cache(self, mock_context: AsyncMock, workflow_content: str) -> None:
         """Test that WorkflowMonitorTask correctly updates TaskManager cache."""
         with LogCapture() as logs:

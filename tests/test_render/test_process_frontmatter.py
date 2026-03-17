@@ -7,7 +7,7 @@ from mcp_guide.render.context import TemplateContext
 from mcp_guide.render.frontmatter import process_file, process_frontmatter
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_process_frontmatter_basic():
     """Test basic frontmatter parsing without requirements."""
     content = """---
@@ -26,7 +26,7 @@ Content here"""
     assert result.content_length == 12  # Length of "Content here"
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 @pytest.mark.parametrize(
     "requirements_context,expected_none",
     [
@@ -49,7 +49,7 @@ Content"""
         assert result is not None
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 @pytest.mark.parametrize(
     "field_name,template,context_data,expected",
     [
@@ -71,7 +71,7 @@ Content"""
     assert result.frontmatter[field_name] == expected
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_process_frontmatter_empty_context():
     """Test that empty render context doesn't trigger field rendering."""
     content = """---
@@ -86,7 +86,7 @@ Content"""
     assert result.frontmatter["instruction"] == "Hello {{missing}}"
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_process_file_non_template(tmp_path):
     """Test process_file with a non-template markdown file."""
     # Create a simple markdown file
@@ -111,7 +111,7 @@ async def test_process_file_non_template(tmp_path):
     assert result.frontmatter == {}
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 @pytest.mark.parametrize(
     "requirements_context,expected_none",
     [

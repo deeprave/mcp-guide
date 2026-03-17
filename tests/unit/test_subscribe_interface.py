@@ -22,7 +22,7 @@ class MockSubscriber:
         return True
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_subscribe_basic(task_manager):
     """Test basic event subscription."""
     subscriber = MockSubscriber()
@@ -35,7 +35,7 @@ async def test_subscribe_basic(task_manager):
     assert subscription.event_types == EventType.FS_FILE_CONTENT
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_subscribe_multiple_event_types(task_manager):
     """Test subscription with multiple EventTypes."""
     subscriber = MockSubscriber()
@@ -49,7 +49,7 @@ async def test_subscribe_multiple_event_types(task_manager):
     assert subscription.event_types == event_types
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_subscribe_timer_event(task_manager):
     """Test timer event subscription."""
     subscriber = MockSubscriber()
@@ -64,7 +64,7 @@ async def test_subscribe_timer_event(task_manager):
     assert timer_sub.interval == 1.0
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_subscribe_timer_with_other_events(task_manager):
     """Test timer subscription with additional event types."""
     subscriber = MockSubscriber()
@@ -80,7 +80,7 @@ async def test_subscribe_timer_with_other_events(task_manager):
     assert timer_sub.interval == 0.5
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_subscribe_multiple_subscribers(task_manager):
     """Test multiple subscribers for same event type."""
     subscriber1 = MockSubscriber("sub1")
@@ -92,7 +92,7 @@ async def test_subscribe_multiple_subscribers(task_manager):
     assert len(task_manager._subscriptions) == 2
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_unsubscribe_all(task_manager):
     """Test unsubscribe removes all subscriptions for subscriber."""
     subscriber = MockSubscriber()
@@ -110,7 +110,7 @@ async def test_unsubscribe_all(task_manager):
     assert len(task_manager._subscriptions) == 0
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_unsubscribe_specific_subscriber(task_manager):
     """Test unsubscribe only removes subscriptions for specific subscriber."""
     subscriber1 = MockSubscriber("sub1")
@@ -129,7 +129,7 @@ async def test_unsubscribe_specific_subscriber(task_manager):
     assert remaining_sub.subscriber is subscriber2
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_subscribe_weak_reference_cleanup(task_manager):
     """Test strong reference behavior (changed from weak references)."""
     subscriber = MockSubscriber()
@@ -149,7 +149,7 @@ async def test_subscribe_weak_reference_cleanup(task_manager):
     assert id(task_manager._subscriptions[0].subscriber) == subscriber_id
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_subscribe_auto_timer_event_type(task_manager):
     """Test automatic timer event type assignment when not provided."""
     subscriber = MockSubscriber()
@@ -167,7 +167,7 @@ async def test_subscribe_auto_timer_event_type(task_manager):
     assert timer_sub.original_event_types & EventType.FS_FILE_CONTENT
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_subscribe_parameter_validation(task_manager):
     """Test parameter validation for subscribe method."""
     subscriber = MockSubscriber()
@@ -180,7 +180,7 @@ async def test_subscribe_parameter_validation(task_manager):
         task_manager.subscribe(subscriber, EventType.TIMER, timer_interval=-1.0)
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_unique_timer_event_assignment(task_manager):
     """Test each timer subscription gets unique EventType."""
     subscriber1 = MockSubscriber("sub1")
@@ -203,7 +203,7 @@ async def test_unique_timer_event_assignment(task_manager):
     assert timer2_event & 262144  # Second unique bit (2^18)
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_timer_bit_allocation_starts_at_2_16(task_manager):
     """Test timer unique bits start at 2^17 (131072)."""
     subscriber = MockSubscriber()
@@ -220,7 +220,7 @@ async def test_timer_bit_allocation_starts_at_2_16(task_manager):
     assert unique_bits >= 131072  # Must be 2^17 or higher
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_timer_original_event_types_preserved(task_manager):
     """Test original event_types are preserved for filtering."""
     subscriber = MockSubscriber()
@@ -235,7 +235,7 @@ async def test_timer_original_event_types_preserved(task_manager):
     assert timer_sub.original_event_types == original_events
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_multiple_timer_unique_assignment(task_manager):
     """Test multiple timers get sequential unique bits."""
 

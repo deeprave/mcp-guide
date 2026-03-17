@@ -11,7 +11,7 @@ from mcp_guide.tools.tool_feature_flags import ListFlagsArgs, list_project_flags
 class TestSimple:
     """Simple test to verify basic functionality."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_list_flags_basic(self):
         """Basic test for list_project_flags function."""
         args = ListFlagsArgs()

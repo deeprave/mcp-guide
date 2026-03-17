@@ -37,7 +37,7 @@ def create_mock_session(tmp_path, project_data):
     return MockSession()
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_category_field_set_on_fileinfo(tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
     """Test that category field is set on FileInfo objects."""
     # Create test files

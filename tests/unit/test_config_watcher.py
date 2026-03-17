@@ -11,7 +11,7 @@ from mcp_guide.watchers.config_watcher import ConfigWatcher
 class TestConfigWatcher:
     """Test ConfigWatcher functionality."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_config_watcher_requires_existing_file(self):
         """ConfigWatcher requires config file to exist on first check."""
         non_existent_config = "/nonexistent/config.yaml"
@@ -20,7 +20,7 @@ class TestConfigWatcher:
         with pytest.raises(FileNotFoundError, match="Path does not exist"):
             await watcher.has_changed()
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_config_watcher_detects_file_changes(self, tmp_path):
         """ConfigWatcher detects when config file is modified."""
         config_file = tmp_path / "config.yaml"
@@ -43,7 +43,7 @@ class TestConfigWatcher:
         # Should detect change
         callback.assert_called_with(str(config_file))
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_multiple_callbacks_receive_notifications(self, tmp_path):
         """Multiple callbacks can be registered and all receive notifications."""
         config_file = tmp_path / "config.yaml"
@@ -70,7 +70,7 @@ class TestConfigWatcher:
         callback1.assert_called_with(str(config_file))
         callback2.assert_called_with(str(config_file))
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_callback_exceptions_dont_crash_watcher(self, tmp_path):
         """Callback exceptions don't crash the watcher."""
         config_file = tmp_path / "config.yaml"
@@ -98,7 +98,7 @@ class TestConfigWatcher:
         # Good callback should still be called despite failing callback
         good_callback.assert_called_with(str(config_file))
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_watcher_lifecycle_management(self, tmp_path):
         """Watcher can be started and stopped properly."""
         config_file = tmp_path / "config.yaml"

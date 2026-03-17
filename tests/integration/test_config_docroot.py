@@ -1,10 +1,12 @@
 """Integration tests for docroot in config file."""
 
+import pytest
 import yaml
 
 from mcp_guide.session import Session
 
 
+@pytest.mark.anyio
 async def test_new_config_has_docroot(tmp_path):
     """Test new config file includes docroot field."""
     session = await Session.create_session("test-project", _config_dir_for_tests=str(tmp_path))
@@ -22,6 +24,7 @@ async def test_new_config_has_docroot(tmp_path):
     assert data["docroot"]  # Should have a value
 
 
+@pytest.mark.anyio
 async def test_saving_project_preserves_docroot(tmp_path):
     """Test saving a project preserves existing docroot."""
     session = await Session.create_session("test-project", _config_dir_for_tests=str(tmp_path))
@@ -45,6 +48,7 @@ async def test_saving_project_preserves_docroot(tmp_path):
     assert data["docroot"] == "~/custom-docs"
 
 
+@pytest.mark.anyio
 async def test_docroot_with_tilde_preserved(tmp_path):
     """Test docroot with tilde is preserved."""
     session = await Session.create_session("test-project", _config_dir_for_tests=str(tmp_path))
@@ -69,6 +73,7 @@ async def test_docroot_with_tilde_preserved(tmp_path):
     assert data["docroot"] == "~/my-docs"
 
 
+@pytest.mark.anyio
 async def test_docroot_with_env_var_preserved(tmp_path):
     """Test docroot with environment variable is preserved."""
     session = await Session.create_session("test-project", _config_dir_for_tests=str(tmp_path))

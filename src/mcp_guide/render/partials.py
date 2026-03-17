@@ -128,10 +128,7 @@ async def load_partial_content(
     logger.trace(f"Resolved final partial path: {final_path}")
 
     try:
-        import aiofiles
-
-        async with aiofiles.open(final_path, "r", encoding="utf-8") as f:
-            content = await f.read()
+        content = await final_path.read_text(encoding="utf-8")
 
         # Process frontmatter: parse, check requirements, render instruction/description
         from mcp_guide.render.context import TemplateContext

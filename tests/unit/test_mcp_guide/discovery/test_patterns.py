@@ -11,7 +11,7 @@ from mcp_guide.discovery.patterns import safe_glob_search
 class TestBasicPatternMatching:
     """Tests for basic glob pattern matching."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_simple_wildcard_pattern(self, temp_project_dir):
         """Test simple wildcard pattern matches correct files."""
         # Arrange
@@ -29,7 +29,7 @@ class TestBasicPatternMatching:
         result_names = {p.name for p in results}
         assert result_names == {"file1.md", "file2.md"}
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_no_matches_empty_list(self, temp_project_dir):
         """Test no matches returns empty list."""
         # Arrange
@@ -43,7 +43,7 @@ class TestBasicPatternMatching:
         # Assert
         assert results == []
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_multiple_patterns(self, temp_project_dir):
         """Test multiple patterns combine results."""
         # Arrange
@@ -65,7 +65,7 @@ class TestBasicPatternMatching:
 class TestRecursivePatterns:
     """Tests for recursive glob patterns."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_non_recursive_default(self, temp_project_dir):
         """Test non-recursive pattern only matches top level."""
         # Arrange
@@ -83,7 +83,7 @@ class TestRecursivePatterns:
         assert len(results) == 1
         assert results[0].name == "file.md"
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_recursive_with_doublestar(self, temp_project_dir):
         """Test recursive pattern with ** matches nested files."""
         # Arrange
@@ -106,7 +106,7 @@ class TestRecursivePatterns:
 class TestHiddenFileExclusion:
     """Tests for hidden file and special directory exclusion."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_exclude_dot_files(self, temp_project_dir):
         """Test dot files are excluded."""
         # Arrange
@@ -122,7 +122,7 @@ class TestHiddenFileExclusion:
         assert len(results) == 1
         assert results[0].name == "visible.md"
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_exclude_dunder_files(self, temp_project_dir):
         """Test dunder files/dirs are excluded."""
         # Arrange
@@ -140,7 +140,7 @@ class TestHiddenFileExclusion:
         assert len(results) == 1
         assert results[0].name == "normal.md"
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_allow_hidden_parent_directory(self, temp_project_dir):
         """Test files under hidden parent directories are allowed."""
         # Arrange
@@ -160,7 +160,7 @@ class TestHiddenFileExclusion:
         assert "visible.md" in names
         assert "file.md" in names
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_safe_glob_search_expands_tilde_in_search_dir(self, temp_project_dir, monkeypatch):
         """Ensure search_dir using ~ is expanded via LazyPath."""
         monkeypatch.setenv("HOME", str(temp_project_dir))
@@ -181,7 +181,7 @@ class TestHiddenFileExclusion:
         recursive_results = await safe_glob_search(search_dir, ["**/*.md"])
         assert sorted(p.name for p in recursive_results) == ["nested.md", "root.md"]
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_safe_glob_search_expands_env_var_in_search_dir(self, temp_project_dir, monkeypatch):
         """Ensure search_dir using ${VAR} is expanded via LazyPath."""
         monkeypatch.setenv("DOCROOT", str(temp_project_dir))
@@ -202,7 +202,7 @@ class TestHiddenFileExclusion:
         recursive_results = await safe_glob_search(search_dir, ["**/*.md"])
         assert sorted(p.name for p in recursive_results) == ["env-nested.md", "env-root.md"]
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_exclude_dunder_parent_directory(self, temp_project_dir):
         """Test files under dunder parent directories are excluded."""
         # Arrange
@@ -232,7 +232,7 @@ class TestExtensionlessFallback:
             ("no_fallback", ["intro.md", "intro.txt"], "intro.txt", "intro.txt"),
         ],
     )
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_extensionless_pattern_behavior(
         self, scenario: str, files: list, pattern: str, expected_name: str, temp_project_dir
     ):
@@ -254,7 +254,7 @@ class TestExtensionlessFallback:
 class TestSymlinkAndBoundaryBehavior:
     """Tests for symlink resolution, deduplication, and boundary checks."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_symlink_inside_search_dir_is_deduplicated(self, temp_project_dir):
         """A symlink to a file inside search_dir should appear only once."""
         # Arrange
@@ -275,7 +275,7 @@ class TestSymlinkAndBoundaryBehavior:
         resolved_paths = [p.resolve() for p in matches]
         assert len(resolved_paths) == len(set(resolved_paths))
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_symlink_pointing_outside_search_dir_is_included(self, temp_project_dir):
         """A symlink inside search_dir pointing outside is discovered (security checked later)."""
         # Arrange
@@ -301,7 +301,7 @@ class TestSymlinkAndBoundaryBehavior:
 class TestDepthLimit:
     """Tests for MAX_GLOB_DEPTH enforcement."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_respect_max_depth(self, temp_project_dir):
         """Test files beyond MAX_GLOB_DEPTH are excluded."""
         # Arrange
@@ -339,7 +339,7 @@ class TestDepthLimit:
 class TestDocumentLimit:
     """Tests for MAX_DOCUMENTS_PER_GLOB enforcement."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_stop_at_max_documents(self, temp_project_dir):
         """Ensure a single pattern is truncated at MAX_DOCUMENTS_PER_GLOB."""
         # Arrange
@@ -356,7 +356,7 @@ class TestDocumentLimit:
         # Assert
         assert len(results) == MAX_DOCUMENTS_PER_GLOB
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_combined_patterns_respects_global_limit(self, temp_project_dir):
         """Ensure MAX_DOCUMENTS_PER_GLOB is applied across all patterns."""
         # Arrange
@@ -381,7 +381,7 @@ class TestDocumentLimit:
 class TestUnderscoreFiltering:
     """Tests for underscore filtering behavior in commands vs partials."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_general_files_allow_underscore_prefixes(self, temp_project_dir):
         """Test that general file discovery allows underscore-prefixed files (for partials)."""
         # Arrange
@@ -399,7 +399,7 @@ class TestUnderscoreFiltering:
         names = {p.name for p in results}
         assert names == {"normal.md", "_partial.md", "_helper.txt"}
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_command_validation_excludes_underscore_files(self, temp_project_dir):
         """Test that command validation excludes underscore-prefixed files."""
         from mcp_guide.discovery.patterns import is_valid_command
@@ -415,7 +415,7 @@ class TestUnderscoreFiltering:
         assert is_valid_command(normal_file) is True
         assert is_valid_command(underscore_file) is False
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_command_validation_excludes_underscore_directories(self, temp_project_dir):
         """Test that command validation excludes files in underscore directories."""
         from mcp_guide.discovery.patterns import is_valid_command
@@ -431,7 +431,7 @@ class TestUnderscoreFiltering:
         assert is_valid_command(normal_path) is True
         assert is_valid_command(underscore_path) is False
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_partial_validation_allows_underscore_files(self, temp_project_dir):
         """Test that partial validation allows underscore-prefixed files."""
         from mcp_guide.discovery.patterns import is_valid_partial
@@ -447,7 +447,7 @@ class TestUnderscoreFiltering:
         assert is_valid_partial(normal_file) is True
         assert is_valid_partial(underscore_file) is True
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_allow_underscore_in_middle_of_names(self, temp_project_dir):
         """Test that underscores in middle of names are allowed."""
         # Arrange

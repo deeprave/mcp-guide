@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-import aiofiles
+import anyio
 import yaml
 
 from mcp_guide.core.mcp_log import get_logger
@@ -142,8 +142,7 @@ async def read_content_with_frontmatter(file_path: Path) -> Content:
         Content object with parsed frontmatter and clean content
     """
     try:
-        async with aiofiles.open(file_path, "r", encoding="utf-8") as f:
-            raw_content = await f.read()
+        raw_content = await anyio.Path(file_path).read_text(encoding="utf-8")
         return parse_content_with_frontmatter(raw_content)
     except (OSError, UnicodeDecodeError) as e:
         logger.error(f"Could not read file {file_path}: {e}")
@@ -376,7 +375,6 @@ async def process_file(
         PermissionError: If file can't be read
         UnicodeDecodeError: If file isn't valid UTF-8
     """
-    async with aiofiles.open(file_info.path, "r", encoding="utf-8") as f:
-        content = await f.read()
+    content = await anyio.Path(file_info.path).read_text(encoding="utf-8")
 
     return await process_frontmatter(content, requirements_context, render_context)

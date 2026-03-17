@@ -12,7 +12,7 @@ from mcp_guide.discovery.files import FileInfo
 class TestCommandDiscovery:
     """Test command discovery in _commands directory."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_discover_commands_basic(self) -> None:
         """Should discover basic commands in _commands directory."""
         # Create temporary directory structure
@@ -56,7 +56,7 @@ class TestCommandDiscovery:
                 assert any(cmd["name"] == "help" for cmd in commands)
                 assert any(cmd["name"] == "status" for cmd in commands)
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_discover_subcommands(self) -> None:
         """Should discover subcommands in nested directories."""
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -98,7 +98,7 @@ class TestCommandDiscovery:
                 assert any(cmd["name"] == "create/category" for cmd in commands)
                 assert any(cmd["name"] == "create/collection" for cmd in commands)
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_discover_commands_with_front_matter(self) -> None:
         """Should extract metadata from front matter."""
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -143,7 +143,7 @@ This command shows all available commands.
                 assert cmd["usage"] == ":help [command]"
                 assert len(cmd["examples"]) == 2
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_discover_commands_without_front_matter(self) -> None:
         """Should handle commands without front matter gracefully."""
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -177,7 +177,7 @@ This command shows all available commands.
                 assert cmd["usage"] == ""
                 assert cmd["examples"] == []
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_discover_commands_filters_by_requirements(self) -> None:
         """Should filter commands based on requires-* frontmatter."""
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -242,7 +242,7 @@ description: Workflow command
 class TestCommandDiscoveryCaching:
     """Test command discovery caching with guide-development flag."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_cache_behavior_documented(self) -> None:
         """Document cache behavior with guide-development flag.
 

@@ -564,6 +564,7 @@ async def test_category_content_file_read_error(mcp_server, tmp_path, monkeypatc
 # File Listing Tests
 
 
+@pytest.mark.anyio
 async def test_category_list_files_success(mcp_server, tmp_path, monkeypatch):
     """Test successful file listing in category."""
     from .test_data_generator import generate_test_files
@@ -596,6 +597,7 @@ async def test_category_list_files_success(mcp_server, tmp_path, monkeypatch):
     await remove_current_session()
 
 
+@pytest.mark.anyio
 async def test_category_list_files_mixed_file_types(mcp_server, tmp_path, monkeypatch):
     """Test file listing with mixed file types and subdirectories."""
     from .test_data_generator import generate_test_files
@@ -639,6 +641,7 @@ async def test_category_list_files_mixed_file_types(mcp_server, tmp_path, monkey
     await remove_current_session()
 
 
+@pytest.mark.anyio
 async def test_category_list_files_output_format(mcp_server, tmp_path, monkeypatch):
     """Test 2-column output format with path and size."""
     monkeypatch.setenv("PWD", "/fake/path/test")
@@ -682,6 +685,7 @@ async def test_category_list_files_output_format(mcp_server, tmp_path, monkeypat
     await remove_current_session()
 
 
+@pytest.mark.anyio
 async def test_category_list_files_category_not_found_integration(mcp_server, tmp_path, monkeypatch):
     """Test category not found error through MCP."""
     monkeypatch.setenv("PWD", "/fake/path/test")
@@ -703,6 +707,7 @@ async def test_category_list_files_category_not_found_integration(mcp_server, tm
 # Expression Parsing Tests
 
 
+@pytest.mark.anyio
 async def test_category_content_with_pattern_expression(mcp_server, tmp_path, monkeypatch):
     """Test category_content with category/pattern expression."""
     from .test_data_generator import generate_test_files
@@ -726,6 +731,7 @@ async def test_category_content_with_pattern_expression(mcp_server, tmp_path, mo
         assert "Project Guidelines" in response["value"]
 
 
+@pytest.mark.anyio
 async def test_category_content_with_multiple_patterns(mcp_server, tmp_path, monkeypatch):
     """Test category_content with multiple patterns using +."""
     from .test_data_generator import generate_test_files
@@ -750,6 +756,7 @@ async def test_category_content_with_multiple_patterns(mcp_server, tmp_path, mon
         assert "Feature 1 Guidelines" in response["value"]
 
 
+@pytest.mark.anyio
 async def test_category_content_with_multiple_expressions(mcp_server, tmp_path, monkeypatch):
     """Test category_content with multiple comma-separated expressions."""
     from .test_data_generator import generate_test_files

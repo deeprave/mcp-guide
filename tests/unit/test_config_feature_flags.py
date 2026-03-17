@@ -10,7 +10,7 @@ from mcp_guide.session import Session
 class TestFeatureFlagsViaSession:
     """Test feature flags functionality through proper Session interface."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_get_global_flags_empty_default(self):
         """Test getting global flags returns empty dict by default."""
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -20,7 +20,7 @@ class TestFeatureFlagsViaSession:
             flags = await flags_proxy.list()
             assert flags == {}
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_set_and_get_global_flag(self):
         """Test setting and getting global flags."""
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -39,7 +39,7 @@ class TestFeatureFlagsViaSession:
             flags = await flags_proxy.list()
             assert flags == {"test_flag": True, "string_flag": "test_value"}
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_remove_global_flag(self):
         """Test removing global flags."""
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -56,7 +56,7 @@ class TestFeatureFlagsViaSession:
             flags = await flags_proxy.list()
             assert flags == {"flag2": False}
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_get_project_flags_empty_default(self):
         """Test getting project flags returns empty dict by default."""
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -66,7 +66,7 @@ class TestFeatureFlagsViaSession:
             flags = await flags_proxy.list()
             assert flags == {}
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_set_and_get_project_flag(self):
         """Test setting and getting project flags."""
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -80,7 +80,7 @@ class TestFeatureFlagsViaSession:
             flags = await flags_proxy.list()
             assert flags == {"project_flag": "value"}
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_remove_project_flag(self):
         """Test removing project flags."""
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -97,7 +97,7 @@ class TestFeatureFlagsViaSession:
             flags = await flags_proxy.list()
             assert flags == {"flag2": False}
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_config_persistence(self):
         """Test that configuration persists across sessions."""
         with tempfile.TemporaryDirectory() as temp_dir:

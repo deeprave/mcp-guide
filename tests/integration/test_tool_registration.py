@@ -6,7 +6,6 @@ Tests that tools are correctly registered and invocable through MCP protocol.
 import json
 
 import pytest
-import pytest_asyncio
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
@@ -22,7 +21,7 @@ def production_mode():
     enable_test_mode()  # Restore test mode for other tests
 
 
-@pytest_asyncio.fixture
+@pytest.fixture
 async def test_session(tmp_path):
     """Create test session with sample project."""
     from mcp_guide.tools.tool_category import CategoryAddArgs, internal_category_add
@@ -39,7 +38,7 @@ async def test_session(tmp_path):
     await remove_current_session()
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_server_starts_and_registers_tools(test_session):
     """Test that server starts and tools are registered.
 
@@ -65,7 +64,7 @@ async def test_server_starts_and_registers_tools(test_session):
     assert hasattr(server, "tool")
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_tool_registration_with_fastmcp():
     """Test that tools register correctly with FastMCP instance."""
     from mcp_guide.cli import ServerConfig
@@ -85,7 +84,7 @@ async def test_tool_registration_with_fastmcp():
     assert hasattr(server, "tool")
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_auto_generated_description():
     """Test that tool descriptions are auto-generated from args class."""
     from mcp_guide.cli import ServerConfig
@@ -105,7 +104,7 @@ async def test_auto_generated_description():
     assert "List all categories" in description
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_mcp_client_can_list_and_call_tools(test_session, tmp_path):
     """Test end-to-end MCP protocol: client connects, lists tools, calls tool.
 

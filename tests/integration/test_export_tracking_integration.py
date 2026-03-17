@@ -9,7 +9,7 @@ from mcp_guide.session import get_session
 from mcp_guide.tools.tool_content import ExportContentArgs, export_content
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 class TestExportStalenessIntegration:
     """Integration tests for export staleness detection."""
 

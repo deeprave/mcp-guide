@@ -20,7 +20,7 @@ from mcp_guide.installer.core import (
 class TestFileHashing:
     """Tests for file hashing functionality."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_compute_file_hash_returns_sha256_hex_digest(self, tmp_path: Path) -> None:
         """Test that compute_file_hash returns SHA256 hex digest of file content."""
         # Arrange
@@ -35,7 +35,7 @@ class TestFileHashing:
         # Assert
         assert result == expected_hash
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_compare_files_returns_true_for_identical_files(self, tmp_path: Path) -> None:
         """Test that compare_files returns True when files have identical content."""
         # Arrange
@@ -55,7 +55,7 @@ class TestFileHashing:
 class TestArchiveOperations:
     """Tests for zip archive operations."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_create_archive_stores_files_in_zip(self, tmp_path: Path) -> None:
         """Test that create_archive stores files in a zip archive."""
         # Arrange
@@ -80,7 +80,7 @@ class TestArchiveOperations:
             assert zf.read("file1.txt").decode() == "Content 1"
             assert zf.read("file2.txt").decode() == "Content 2"
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_create_archive_includes_readme(self, tmp_path: Path) -> None:
         """Test that create_archive includes a README.md explaining the archive."""
         # Arrange
@@ -102,7 +102,7 @@ class TestArchiveOperations:
             assert "original files" in readme_content.lower()
             assert "do not modify" in readme_content.lower()
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_extract_from_archive_retrieves_file_content(self, tmp_path: Path) -> None:
         """Test that extract_from_archive retrieves file content from zip."""
         # Arrange
@@ -123,7 +123,7 @@ class TestArchiveOperations:
             ("missing.txt", False),
         ],
     )
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_file_exists_in_archive(self, filename: str, expected: bool, tmp_path: Path) -> None:
         """Test file_exists_in_archive returns correct boolean."""
         archive_path = tmp_path / "archive.zip"
@@ -138,7 +138,7 @@ class TestArchiveOperations:
 class TestDiffOperations:
     """Tests for diff computation and application."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_compute_diff_generates_unified_diff(self, tmp_path: Path) -> None:
         """Test that compute_diff generates unified diff between two files."""
         # Arrange
@@ -186,7 +186,7 @@ class TestDiffOperations:
             ),
         ],
     )
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_apply_diff(
         self, target_content: str, diff_content: str, expected_success: bool, expected_result, tmp_path: Path
     ) -> None:
@@ -204,7 +204,7 @@ class TestDiffOperations:
 class TestTemplateDiscovery:
     """Tests for template discovery."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_get_templates_path_returns_package_directory(self) -> None:
         """Test that get_templates_path returns the templates directory from package."""
         # Arrange
@@ -218,7 +218,7 @@ class TestTemplateDiscovery:
         assert templates_path.is_dir()
         assert templates_path.name == "templates"
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_list_template_files_returns_all_files(self) -> None:
         """Test that list_template_files returns all files recursively."""
         # Arrange
@@ -238,7 +238,7 @@ class TestTemplateDiscovery:
 class TestFileInstallation:
     """Tests for file installation."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_install_file_creates_directories(self, tmp_path: Path) -> None:
         """Test that install_file creates parent directories if needed."""
         # Arrange
@@ -257,7 +257,7 @@ class TestFileInstallation:
         assert dest.read_text() == "content"
         assert dest.parent.exists()
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_install_directory_copies_tree(self, tmp_path: Path) -> None:
         """Test that install_directory copies entire directory tree."""
         # Arrange
@@ -278,7 +278,7 @@ class TestFileInstallation:
         assert (dest_dir / "file1.txt").read_text() == "content1"
         assert (dest_dir / "subdir" / "file2.txt").read_text() == "content2"
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_install_file_skips_binary_files(self, tmp_path: Path) -> None:
         """Test that install_file skips binary files with warning."""
         # Arrange
@@ -296,7 +296,7 @@ class TestFileInstallation:
         assert result == "skipped_binary"  # Returns status string
         assert not dest.exists()
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_install_file_preserves_permissions(self, tmp_path: Path) -> None:
         """Test that install_file preserves file permissions."""
         # Arrange
@@ -318,7 +318,7 @@ class TestFileInstallation:
 class TestInstallationOrchestration:
     """Tests for installation orchestration."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_install_templates_performs_first_install(self, tmp_path: Path) -> None:
         """Test that install_templates performs first-time installation."""
         # Arrange
@@ -336,7 +336,7 @@ class TestInstallationOrchestration:
         assert "installed" in result
         assert result["installed"] > 0
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_update_documents_uses_smart_strategy(self, tmp_path: Path) -> None:
         """Test that update_documents uses smart update strategy."""
         # Arrange
@@ -366,7 +366,6 @@ class TestInstallationOrchestration:
 class TestInstallFileSmartUpdate:
     """Tests for install_file smart update strategy."""
 
-    @pytest.mark.asyncio
     @pytest.mark.parametrize(
         "scenario,should_raise",
         [
@@ -375,7 +374,7 @@ class TestInstallFileSmartUpdate:
             ("nonexistent_path", False),
         ],
     )
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_docroot_safety_check(self, scenario: str, should_raise: bool, tmp_path: Path) -> None:
         """Test docroot safety validation with various path scenarios."""
         from mcp_guide.installer.core import get_templates_path, validate_docroot_safety
@@ -431,7 +430,7 @@ class TestInstallFileSmartUpdate:
             "no_archive_conflict",
         ],
     )
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_install_file_return_statuses(
         self, scenario, source_content, dest_content, archive_content, expected_status, check_backup, tmp_path: Path
     ) -> None:
@@ -477,7 +476,7 @@ class TestInstallFileSmartUpdate:
             backup = tmp_path / "orig.dest.txt"
             assert backup.exists()
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_install_file_uses_archive_name_for_subdirectory_files(self, tmp_path: Path) -> None:
         """Test that install_file uses archive_name parameter for correct archive lookup."""
         # Arrange
@@ -507,7 +506,7 @@ class TestInstallFileSmartUpdate:
         assert "version: 2" in content  # New version applied
         assert "user_setting: custom" in content  # User setting preserved
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_install_file_handles_same_filename_in_different_directories(self, tmp_path: Path) -> None:
         """Test that files with same name in different directories are handled correctly."""
         # Arrange

@@ -65,7 +65,7 @@ class TestClientContextTaskConditional:
     See tests/unit/test_on_init.py for on_init() behavior tests.
     """
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_task_subscribes_on_creation(self):
         """Test that task subscribes when created."""
         mock_task_manager = Mock()

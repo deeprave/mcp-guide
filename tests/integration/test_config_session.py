@@ -11,7 +11,7 @@ from mcp_guide.session import Session, get_session, set_current_session
 class TestConfigSessionIntegration:
     """End-to-end integration tests."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_end_to_end_workflow(self, tmp_path):
         """Test complete workflow: create session, update config, save, reload."""
         # Create session with test config directory
@@ -35,7 +35,7 @@ class TestConfigSessionIntegration:
         cached_project = await session.get_project()
         assert len(cached_project.categories) == 1
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_concurrent_sessions_different_projects(self, tmp_path):
         """Test concurrent sessions on different projects work correctly."""
         results = []
@@ -83,7 +83,7 @@ class TestConfigSessionIntegration:
         assert len(project1.categories) == 1
         assert len(project2.categories) == 1
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_file_locking_prevents_corruption(self, tmp_path):
         """Test that config lock prevents read-modify-write race conditions."""
         # Create initial session and project

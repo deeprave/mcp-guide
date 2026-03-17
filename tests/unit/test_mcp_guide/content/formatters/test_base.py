@@ -12,14 +12,14 @@ from mcp_guide.discovery.files import FileInfo
 class TestBaseFormatter:
     """Test BaseFormatter functionality."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_format_empty_list(self):
         """Test format method with empty file list."""
         formatter = BaseFormatter()
         result = await formatter.format([], "test")
         assert result == ""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_format_single_file(self):
         """Test format method with single file."""
         formatter = BaseFormatter()
@@ -34,7 +34,7 @@ class TestBaseFormatter:
         result = await formatter.format([file_info], "test")
         assert result == "Hello World"
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_format_multiple_files(self):
         """Test format method with multiple files."""
         formatter = BaseFormatter()
@@ -49,7 +49,7 @@ class TestBaseFormatter:
         result = await formatter.format(files, "test")
         assert result == "First\nSecond"
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_format_with_none_content(self):
         """Test format method handles None content."""
         formatter = BaseFormatter()
@@ -67,7 +67,7 @@ class TestBaseFormatter:
         result = await formatter.format(files, "test")
         assert result == "First\n\nThird"
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_format_with_trailing_newlines(self):
         """Test format method with files that already have trailing newlines."""
         formatter = BaseFormatter()

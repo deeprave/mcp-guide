@@ -1,5 +1,6 @@
 """Tests for category_content tool."""
 
+import anyio
 import pytest
 from pydantic import ValidationError
 
@@ -116,6 +117,7 @@ def test_instructions_prevent_futile_remediation():
     )
 
 
+@pytest.mark.anyio
 async def test_category_content_function_exists():
     """Test that category_content function exists."""
     from mcp_guide.tools.tool_category import category_content
@@ -124,6 +126,7 @@ async def test_category_content_function_exists():
     assert callable(category_content)
 
 
+@pytest.mark.anyio
 async def test_tool_returns_result_ok_on_success(tmp_path, monkeypatch):
     """Test that tool returns Result.ok() with content on success."""
     import json
@@ -160,6 +163,7 @@ async def test_tool_returns_result_ok_on_success(tmp_path, monkeypatch):
     assert "Test Content" in result["value"]
 
 
+@pytest.mark.anyio
 async def test_category_not_found_returns_failure(tmp_path, monkeypatch):
     """Test that category not found returns Result.failure()."""
     import json
@@ -192,6 +196,7 @@ async def test_category_not_found_returns_failure(tmp_path, monkeypatch):
     assert "nonexistent" in result["error"]
 
 
+@pytest.mark.anyio
 async def test_no_matches_returns_failure(tmp_path, monkeypatch):
     """Test that no matches with default patterns returns success, with pattern override returns failure."""
     import json
@@ -230,6 +235,7 @@ async def test_no_matches_returns_failure(tmp_path, monkeypatch):
     assert "*.txt" in result["value"]
 
 
+@pytest.mark.anyio
 @pytest.mark.parametrize(
     "scenario,patterns,error_map",
     [
@@ -277,26 +283,17 @@ async def test_file_read_error_scenarios(tmp_path, monkeypatch, scenario, patter
                 raise error
         return "content"
 
-    # Mock aiofiles.open to raise errors based on error_map (for non-templates via process_file)
-    class MockAsyncFile:
-        async def __aenter__(self):
-            return self
+    # Mock anyio.Path.read_text to raise errors based on error_map (for non-templates via process_file)
 
-        async def __aexit__(self, *args):
-            pass
-
-        async def read(self):
-            return "content"
-
-    def mock_aiofiles_open(path, *args, **kwargs):
+    async def mock_read_text(self, encoding=None):
         for filename, error in error_map.items():
-            if filename in str(path):
+            if filename in str(self):
                 raise error
-        return MockAsyncFile()
+        return "content"
 
     monkeypatch.setattr("mcp_guide.tools.tool_category.get_session", mock_get_session)
     monkeypatch.setattr("mcp_guide.core.file_reader.read_file_content", mock_read_error)
-    monkeypatch.setattr("mcp_guide.render.frontmatter.aiofiles.open", mock_aiofiles_open)
+    monkeypatch.setattr(anyio.Path, "read_text", mock_read_text)
 
     # Call tool
     args = CategoryContentArgs(expression="docs")
@@ -317,6 +314,7 @@ async def test_file_read_error_scenarios(tmp_path, monkeypatch, scenario, patter
         assert ";" in result["error"]
 
 
+@pytest.mark.anyio
 async def test_error_responses_include_all_fields(tmp_path, monkeypatch):
     """Test that error responses include error_type, instruction, and message."""
     import json

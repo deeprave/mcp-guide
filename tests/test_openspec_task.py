@@ -50,7 +50,7 @@ def mock_session():
 class TestOpenSpecTask:
     """Test OpenSpec CLI detection task."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_init_subscribes_to_events(self, mock_task_manager):
         """Test that task subscribes to events."""
         task = OpenSpecTask(mock_task_manager)
@@ -65,7 +65,7 @@ class TestOpenSpecTask:
         assert call[0][1] & EventType.TIMER
         assert call[0][2] == 3600.0  # 60 min interval
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_get_name(self, mock_task_manager):
         """Test task name."""
         task = OpenSpecTask(mock_task_manager)
@@ -80,7 +80,7 @@ class TestOpenSpecTask:
 
             mock_task_manager.unsubscribe.assert_not_called()
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_handle_event_cli_found(self, mock_task_manager):
         """Test handling CLI found response."""
         task = OpenSpecTask(mock_task_manager)
@@ -95,7 +95,7 @@ class TestOpenSpecTask:
             mock_task_manager.set_cached_data.assert_called_once_with("openspec_available", True)
             mock_request.assert_called_once()
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_handle_event_cli_not_found_no_project_check(self, mock_task_manager):
         """Test CLI not found does not trigger project check."""
         task = OpenSpecTask(mock_task_manager)
@@ -113,7 +113,7 @@ class TestOpenSpecTask:
             mock_request.assert_not_called()
             assert task._project_requested is False
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_handle_event_cli_not_found(self, mock_task_manager):
         """Test handling CLI not found response."""
         task = OpenSpecTask(mock_task_manager)
@@ -126,13 +126,13 @@ class TestOpenSpecTask:
         assert task.is_available() is False
         mock_task_manager.set_cached_data.assert_called_once_with("openspec_available", False)
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_is_available_returns_none_before_check(self, mock_task_manager):
         """Test that is_available returns None before CLI check completes."""
         task = OpenSpecTask(mock_task_manager)
         assert task.is_available() is None
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_handle_event_ignores_unsubscribed_events(self, mock_task_manager):
         """Test that task ignores events it doesn't subscribe to."""
         task = OpenSpecTask(mock_task_manager)
@@ -145,7 +145,7 @@ class TestOpenSpecTask:
         assert result is None
         mock_task_manager.set_cached_data.assert_not_called()
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_handle_event_non_openspec_file(self, mock_task_manager):
         """Test handling non-OpenSpec files."""
         task = OpenSpecTask(mock_task_manager)
@@ -160,7 +160,7 @@ class TestOpenSpecTask:
         assert result is None
         assert task.is_project_enabled() is None
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_handle_event_project_missing_project_md(self, mock_task_manager):
         """Test that project is not enabled without project.md."""
         task = OpenSpecTask(mock_task_manager)
@@ -168,19 +168,19 @@ class TestOpenSpecTask:
         # Simulate no project.md file received
         assert task.is_project_enabled() is None
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_is_project_enabled_returns_none_before_check(self, mock_task_manager):
         """Test that is_project_enabled returns None before project check completes."""
         task = OpenSpecTask(mock_task_manager)
         assert task.is_project_enabled() is None
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_get_version_returns_none_initially(self, mock_task_manager):
         """Test that get_version returns None initially."""
         task = OpenSpecTask(mock_task_manager)
         assert task.get_version() is None
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     @pytest.mark.parametrize(
         "content,expected_version",
         [
@@ -189,7 +189,6 @@ class TestOpenSpecTask:
             ("invalid version", None),
         ],
     )
-    @pytest.mark.asyncio
     async def test_handle_event_version_parsing(self, content: str, expected_version, mock_task_manager):
         """Test parsing various version formats."""
         task = OpenSpecTask(mock_task_manager)
@@ -205,7 +204,7 @@ class TestOpenSpecTask:
         else:
             mock_task_manager.set_cached_data.assert_called_with("openspec_version", expected_version)
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_version_comparison(self, mock_task_manager):
         """Test semantic version comparison."""
         task = OpenSpecTask(mock_task_manager)
@@ -226,7 +225,7 @@ class TestOpenSpecTask:
         task._version = None
         assert task.meets_minimum_version("1.0.0") is False
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_version_persistence(self, mock_task_manager):
         """Test that version is stored in project config."""
         task = OpenSpecTask(mock_task_manager)
@@ -256,7 +255,7 @@ class TestOpenSpecTask:
         mock_session_instance.update_config.assert_called_once()
         mock_request_project.assert_called_once()
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_handle_event_changes_json_caches_data(self, mock_task_manager):
         """Test handling changes JSON caches the data."""
         task = OpenSpecTask(mock_task_manager)
@@ -303,13 +302,13 @@ class TestOpenSpecTask:
             assert len(cached["complete"]) == 1
             mock_task_manager.set_cached_data.assert_called()
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_get_changes_returns_none_when_no_cache(self, mock_task_manager):
         """Test get_changes returns None when cache is empty."""
         task = OpenSpecTask(mock_task_manager)
         assert task.get_changes() is None
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     @pytest.mark.parametrize(
         "scenario,has_cache,current_time,timestamp,expected",
         [
@@ -318,7 +317,6 @@ class TestOpenSpecTask:
             ("stale", True, 5000.0, 100.0, False),
         ],
     )
-    @pytest.mark.asyncio
     async def test_is_cache_valid(
         self, scenario: str, has_cache: bool, current_time, timestamp, expected: bool, mock_task_manager
     ):
@@ -333,7 +331,7 @@ class TestOpenSpecTask:
         else:
             assert task.is_cache_valid() is expected
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_timer_event_calls_changes_reminder_when_enabled(self, mock_task_manager):
         """Test TIMER event with 3600s interval calls changes reminder when project enabled."""
         task = OpenSpecTask(mock_task_manager)
@@ -347,7 +345,7 @@ class TestOpenSpecTask:
             assert result.result is True
             mock_reminder.assert_called_once()
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_timer_event_triggers_reminder(self, mock_task_manager):
         """Test TIMER event triggers changes reminder."""
         task = OpenSpecTask(mock_task_manager)
@@ -361,7 +359,7 @@ class TestOpenSpecTask:
             assert result.result is True
             mock_reminder.assert_called_once()
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_timer_event_requests_changes_when_cache_stale(self, mock_task_manager):
         """Test TIMER event invalidates cache when stale."""
         task = OpenSpecTask(mock_task_manager)
@@ -374,7 +372,7 @@ class TestOpenSpecTask:
         assert result.result is True
         assert task._changes_timestamp is None  # Cache invalidated
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_timer_event_skips_invalidation_when_cache_valid(self, mock_task_manager):
         """Test TIMER event does not invalidate cache when still valid."""
         import time
@@ -403,7 +401,7 @@ class TestOpenSpecResponseFormatting:
         manager.get_cached_data = MagicMock(return_value=None)
         return manager
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_format_status_response_complete(self, mock_task_manager):
         """Test formatting complete status response."""
         task = OpenSpecTask(mock_task_manager)
@@ -435,7 +433,7 @@ class TestOpenSpecResponseFormatting:
             assert call_args[0][0] == "_status-format"
             assert "extra_context" in call_args[1]
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_format_status_response_in_progress(self, mock_task_manager):
         """Test formatting in-progress status response."""
         task = OpenSpecTask(mock_task_manager)
@@ -463,7 +461,7 @@ class TestOpenSpecResponseFormatting:
             assert call_args[0][0] == "_status-format"
             assert "extra_context" in call_args[1]
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_format_changes_list_response(self, mock_task_manager):
         """Test formatting changes list response including sorting and derived fields."""
         task = OpenSpecTask(mock_task_manager)
@@ -507,7 +505,7 @@ class TestOpenSpecResponseFormatting:
             assert len(cached["complete"]) == 1
             assert len(cached["in_progress"]) == 1
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_format_changes_list_empty(self, mock_task_manager):
         """Test caching empty changes list."""
         task = OpenSpecTask(mock_task_manager)
@@ -530,7 +528,7 @@ class TestOpenSpecResponseFormatting:
             cached = task.get_changes()
             assert cached == {"in_progress": [], "draft": [], "complete": []}
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_format_show_response(self, mock_task_manager):
         """Test formatting show response."""
         task = OpenSpecTask(mock_task_manager)
@@ -556,7 +554,7 @@ class TestOpenSpecResponseFormatting:
             assert call_args[0][0] == "_show-format"
             assert "extra_context" in call_args[1]
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_format_error_response(self, mock_task_manager):
         """Test formatting error response."""
         task = OpenSpecTask(mock_task_manager)
@@ -586,7 +584,7 @@ class TestOpenSpecResponseFormatting:
             assert context["error"] == error_data["error"]
             assert context["message"] == error_data["message"]
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_format_malformed_json(self, mock_task_manager):
         """Test handling malformed JSON."""
         task = OpenSpecTask(mock_task_manager)

@@ -12,7 +12,7 @@ from mcp_guide.result_constants import INSTRUCTION_DISPLAY_ONLY, INSTRUCTION_ERR
 class TestGuidePromptIntegration:
     """Integration tests for @guide prompt."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_guide_prompt_with_command(self, guide_function) -> None:
         """@guide prompt should call internal_get_content with command parameter."""
         mock_ctx = MagicMock()
@@ -34,7 +34,7 @@ class TestGuidePromptIntegration:
             assert result["value"] == "Test content from category"
             assert result["instruction"] == INSTRUCTION_DISPLAY_ONLY
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_guide_prompt_with_error(self, guide_function) -> None:
         """@guide prompt should handle internal_get_content errors gracefully."""
         mock_ctx = MagicMock()
@@ -48,7 +48,7 @@ class TestGuidePromptIntegration:
             assert result["error"] == "Category not found"
             assert result["instruction"] == INSTRUCTION_ERROR_MESSAGE
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_guide_prompt_without_command(self, guide_function) -> None:
         """@guide prompt should return usage error when no arguments given."""
         mock_ctx = MagicMock()
@@ -62,7 +62,7 @@ class TestGuidePromptIntegration:
         assert result["error_type"] == "validation"
         assert result["instruction"] == INSTRUCTION_ERROR_MESSAGE
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     @pytest.mark.parametrize(
         "scenario,args,kwargs,expected_expression",
         [
@@ -77,7 +77,6 @@ class TestGuidePromptIntegration:
             ),
         ],
     )
-    @pytest.mark.asyncio
     async def test_argv_parsing(self, guide_function, scenario, args, kwargs, expected_expression) -> None:
         """Test argv parsing with different argument scenarios."""
         mock_ctx = MagicMock()
@@ -92,7 +91,7 @@ class TestGuidePromptIntegration:
             content_args = args_call[0]
             assert content_args.expression == expected_expression
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     @pytest.mark.parametrize(
         "scenario,command,expected_error",
         [
@@ -102,7 +101,6 @@ class TestGuidePromptIntegration:
         ],
         ids=["empty_string", "colon_only", "semicolon_only"],
     )
-    @pytest.mark.asyncio
     async def test_guide_prompt_empty_command_scenarios(
         self, guide_function, scenario, command, expected_error
     ) -> None:
@@ -117,7 +115,7 @@ class TestGuidePromptIntegration:
             assert ":help" in result["error"]
             assert result["instruction"] == INSTRUCTION_ERROR_MESSAGE
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_guide_prompt_with_arguments_reserved(self, guide_function) -> None:
         """@guide prompt should use all arguments for content access."""
         mock_ctx = MagicMock()
@@ -137,7 +135,7 @@ class TestGuidePromptIntegration:
             assert result["value"] == "Test content"
             assert result["instruction"] == INSTRUCTION_DISPLAY_ONLY
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_guide_prompt_with_content_result(self, guide_function) -> None:
         """@guide prompt should handle Result objects directly."""
         mock_ctx = MagicMock()
@@ -151,7 +149,7 @@ class TestGuidePromptIntegration:
             assert result["value"] == "Plain text content, not JSON"
             assert result["instruction"] == INSTRUCTION_DISPLAY_ONLY
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_guide_prompt_with_empty_content(self, guide_function) -> None:
         """@guide prompt should handle empty content in successful Result."""
         mock_ctx = MagicMock()
@@ -165,7 +163,7 @@ class TestGuidePromptIntegration:
             assert result["value"] == ""
             assert result["instruction"] == INSTRUCTION_DISPLAY_ONLY
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_guide_prompt_with_multiple_expressions(self, guide_function) -> None:
         """@guide prompt should join multiple expressions with commas."""
         mock_ctx = MagicMock()
@@ -188,7 +186,7 @@ class TestGuidePromptIntegration:
             assert result["value"] == "Combined content"
             assert result["instruction"] == INSTRUCTION_DISPLAY_ONLY
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_guide_prompt_with_colon_command(self, guide_function) -> None:
         """@guide prompt should route :command to separate command handler."""
         mock_ctx = MagicMock()
@@ -208,7 +206,7 @@ class TestGuidePromptIntegration:
             assert result["success"] is True
             assert result["value"] == "Help content"
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_guide_prompt_with_semicolon_command(self, guide_function) -> None:
         """@guide prompt should route ;command to separate command handler."""
         mock_ctx = MagicMock()
@@ -224,7 +222,7 @@ class TestGuidePromptIntegration:
             assert call_kwargs[0][0] == "status"
             assert call_kwargs[1]["argv"] == [";status"]
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_guide_prompt_with_subcommand(self, guide_function) -> None:
         """@guide prompt should handle subcommands like :create/category."""
         mock_ctx = MagicMock()
@@ -240,7 +238,7 @@ class TestGuidePromptIntegration:
             assert call_kwargs[0][0] == "create/category"
             assert call_kwargs[1]["argv"] == [":create/category"]
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_guide_prompt_with_command_arguments(self, guide_function) -> None:
         """@guide prompt should pass raw argv to handle_command for deferred parsing."""
         mock_ctx = MagicMock()
@@ -263,7 +261,7 @@ class TestGuidePromptIntegration:
                 "arg2",
             ]
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_guide_prompt_with_parse_errors(self, guide_function) -> None:
         """@guide prompt should return failure for argument parsing errors via _execute_command."""
         mock_ctx = MagicMock()
@@ -281,7 +279,7 @@ class TestGuidePromptIntegration:
             assert "--bad=" in result["error"]
             assert "=value" in result["error"]
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_execute_command_returns_failure_on_template_errors(self, guide_function) -> None:
         """_execute_command should return Result.failure when rendered.errors is non-empty."""
         from pathlib import Path

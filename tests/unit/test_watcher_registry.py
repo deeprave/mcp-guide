@@ -11,7 +11,7 @@ from mcp_guide.core.watcher_registry import WatcherRegistry, get_global_registry
 class TestWatcherRegistry:
     """Test WatcherRegistry functionality."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_registry_prevents_duplicate_watchers_for_same_path(self):
         """Registry prevents duplicate watchers for same path."""
         registry = WatcherRegistry()
@@ -26,7 +26,7 @@ class TestWatcherRegistry:
             with pytest.raises(ValueError, match="PathWatcher already exists"):
                 await registry.register(tmp_file.name, watcher2)
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_registry_allows_different_paths(self):
         """Registry allows watchers for different paths."""
         registry = WatcherRegistry()
@@ -43,7 +43,7 @@ class TestWatcherRegistry:
             assert await registry.get(tmp_file1.name) is watcher1
             assert await registry.get(tmp_file2.name) is watcher2
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_registry_get_returns_existing_watcher(self):
         """Registry get() returns existing watcher."""
         registry = WatcherRegistry()
@@ -55,7 +55,7 @@ class TestWatcherRegistry:
             retrieved = await registry.get(tmp_file.name)
             assert retrieved is watcher
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_registry_get_returns_none_for_nonexistent_path(self):
         """Registry get() returns None for nonexistent path."""
         registry = WatcherRegistry()
@@ -63,7 +63,7 @@ class TestWatcherRegistry:
         result = await registry.get("/nonexistent/path")
         assert result is None
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_registry_unregister_removes_watcher(self):
         """Registry unregister() removes watcher."""
         registry = WatcherRegistry()
@@ -79,7 +79,7 @@ class TestWatcherRegistry:
             await registry.unregister(tmp_file.name)
             assert await registry.get(tmp_file.name) is None
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_registry_cleanup_stopped_removes_inactive_watchers(self):
         """Registry cleanup_stopped() removes inactive watchers."""
         registry = WatcherRegistry()
@@ -105,7 +105,7 @@ class TestWatcherRegistry:
             # Clean up
             await watcher1.stop()
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_get_or_create_creates_new_watcher(self):
         """get_or_create() creates new watcher when none exists."""
         registry = WatcherRegistry()
@@ -124,7 +124,7 @@ class TestWatcherRegistry:
             assert isinstance(watcher, PathWatcher)
             assert await registry.get(tmp_file.name) is watcher
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_get_or_create_returns_existing_watcher(self):
         """get_or_create() returns existing watcher if it exists."""
         registry = WatcherRegistry()

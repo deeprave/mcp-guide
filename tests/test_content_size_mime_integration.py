@@ -22,6 +22,7 @@ def docroot(tmp_path):
     return tmp_path
 
 
+@pytest.mark.anyio
 async def test_mime_formatter_uses_content_size_single_file(mock_category, docroot):
     """Test MIME formatter uses content_size for single file Content-Length."""
     content = "Test content"
@@ -47,6 +48,7 @@ async def test_mime_formatter_uses_content_size_single_file(mock_category, docro
     assert content in result
 
 
+@pytest.mark.anyio
 async def test_mime_formatter_uses_content_size_multiple_files(mock_category, docroot):
     """Test MIME formatter uses content_size for multiple files Content-Length."""
     files = [
@@ -84,6 +86,7 @@ async def test_mime_formatter_uses_content_size_multiple_files(mock_category, do
     assert "Content-Length: 300" not in result
 
 
+@pytest.mark.anyio
 async def test_content_size_equals_size_when_no_frontmatter(mock_category, docroot):
     """Test that when content_size equals size, behavior is correct."""
     content = "No frontmatter here"
@@ -107,6 +110,7 @@ async def test_content_size_equals_size_when_no_frontmatter(mock_category, docro
     assert content in result
 
 
+@pytest.mark.anyio
 async def test_content_size_different_from_calculated_length(mock_category, docroot):
     """Test edge case where content_size differs from calculated content length."""
     # This could happen if content was modified after content_size was set

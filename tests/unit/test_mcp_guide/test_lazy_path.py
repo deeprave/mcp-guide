@@ -8,6 +8,7 @@ import pytest
 from mcp_guide.lazy_path import LazyPath
 
 
+@pytest.mark.anyio
 async def test_lazypath_with_tilde():
     """Test LazyPath with tilde path."""
     lazy = LazyPath("~/test/path")
@@ -16,6 +17,7 @@ async def test_lazypath_with_tilde():
     assert lazy.expanduser().startswith(str(Path.home()))
 
 
+@pytest.mark.anyio
 async def test_lazypath_with_environment_variable():
     """Test LazyPath with environment variable."""
     os.environ["TEST_VAR"] = "/test/value"
@@ -24,6 +26,7 @@ async def test_lazypath_with_environment_variable():
     assert lazy.expandvars() == "/test/value/path"
 
 
+@pytest.mark.anyio
 async def test_lazypath_resolve_expands_both():
     """Test LazyPath.resolve() expands both tilde and env vars."""
     os.environ["TEST_VAR"] = "subdir"
@@ -35,6 +38,7 @@ async def test_lazypath_resolve_expands_both():
     assert "subdir" in str(resolved)
 
 
+@pytest.mark.anyio
 async def test_lazypath_is_absolute_after_expansion():
     """Test LazyPath.is_absolute() checks after expansion."""
     lazy_tilde = LazyPath("~/test")
@@ -48,6 +52,7 @@ async def test_lazypath_is_absolute_after_expansion():
     assert not lazy_relative.is_absolute()
 
 
+@pytest.mark.anyio
 async def test_lazypath_lazy_evaluation():
     """Test LazyPath doesn't resolve until .resolve() is called."""
     lazy = LazyPath("~/test")
@@ -56,6 +61,7 @@ async def test_lazypath_lazy_evaluation():
     assert lazy._resolved_path is not None
 
 
+@pytest.mark.anyio
 async def test_lazypath_caches_resolved_path():
     """Test LazyPath caches resolved path after first resolution."""
     lazy = LazyPath("~/test")
@@ -64,6 +70,7 @@ async def test_lazypath_caches_resolved_path():
     assert first is second
 
 
+@pytest.mark.anyio
 async def test_lazypath_str_returns_original():
     """Test __str__ returns original path string."""
     original = "~/test/${VAR}/path"
@@ -71,12 +78,14 @@ async def test_lazypath_str_returns_original():
     assert str(lazy) == original
 
 
+@pytest.mark.anyio
 async def test_lazypath_repr():
     """Test __repr__ format."""
     lazy = LazyPath("~/test")
     assert repr(lazy) == "LazyPath('~/test')"
 
 
+@pytest.mark.anyio
 async def test_lazypath_from_path_object():
     """Test LazyPath can be created from Path object."""
     path = Path("~/test")
@@ -84,6 +93,7 @@ async def test_lazypath_from_path_object():
     assert str(lazy) == "~/test"
 
 
+@pytest.mark.anyio
 async def test_lazypath_resolve_no_expand():
     """Test LazyPath.resolve(expand=False) doesn't expand variables."""
     os.environ["TEST_VAR"] = "value"
@@ -95,6 +105,7 @@ async def test_lazypath_resolve_no_expand():
         lazy.resolve(expand=False, strict=True)
 
 
+@pytest.mark.anyio
 async def test_lazypath_resolve_strict():
     """Test LazyPath.resolve(strict=True) raises if path doesn't exist."""
     lazy = LazyPath("~/nonexistent_path_12345")
@@ -102,6 +113,7 @@ async def test_lazypath_resolve_strict():
         lazy.resolve(strict=True)
 
 
+@pytest.mark.anyio
 async def test_lazypath_expanduser_only():
     """Test expanduser() only expands tilde, not env vars."""
     os.environ["TEST_VAR"] = "value"
@@ -111,6 +123,7 @@ async def test_lazypath_expanduser_only():
     assert "${TEST_VAR}" in expanded
 
 
+@pytest.mark.anyio
 async def test_lazypath_expandvars_only():
     """Test expandvars() only expands env vars, not tilde."""
     os.environ["TEST_VAR"] = "value"

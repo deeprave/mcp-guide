@@ -8,7 +8,7 @@ from mcp.client.session import ClientSession
 from mcp.client.stdio import StdioServerParameters, stdio_client
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_server_starts_with_trace_logging(tmp_path: Path, installer_config: Path) -> None:
     """Test server starts successfully with TRACE logging enabled."""
     log_file = tmp_path / "test.log"
@@ -35,7 +35,7 @@ async def test_server_starts_with_trace_logging(tmp_path: Path, installer_config
             assert "Log level: TRACE" in log_content
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_server_starts_with_json_logging(tmp_path: Path, installer_config: Path) -> None:
     """Test server starts with JSON logging format."""
     log_file = tmp_path / "test-json.log"
@@ -64,7 +64,7 @@ async def test_server_starts_with_json_logging(tmp_path: Path, installer_config:
             assert '"message":' in log_content
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_server_starts_without_logging(tmp_path: Path, installer_config: Path) -> None:
     """Test server starts successfully without file logging."""
     server_params = StdioServerParameters(
@@ -79,7 +79,7 @@ async def test_server_starts_without_logging(tmp_path: Path, installer_config: P
             assert result.serverInfo.name == "guide"
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_log_file_appends_on_multiple_starts(tmp_path: Path, installer_config: Path) -> None:
     """Test log file is appended to on multiple server starts."""
     log_file = tmp_path / "append-test.log"

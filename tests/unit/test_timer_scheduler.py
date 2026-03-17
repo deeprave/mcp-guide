@@ -38,7 +38,7 @@ def reset_task_manager() -> None:
 class TestTimerEventScheduling:
     """Test timer event scheduling system."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_timer_subscription_creates_timer_task(self) -> None:
         """Test timer subscription creates background timer task."""
         manager = TaskManager()
@@ -52,7 +52,7 @@ class TestTimerEventScheduling:
         assert timer_sub.interval == 0.1
         assert timer_sub.event_types & EventType.TIMER
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_timer_events_generated_at_intervals(self) -> None:
         """Test timer events are generated at specified intervals."""
         with patch("time.time") as mock_time:
@@ -79,7 +79,7 @@ class TestTimerEventScheduling:
             # Should have received 2 timer events
             assert len(subscriber.received_events) == 2
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_timer_cleanup_on_unsubscribe(self) -> None:
         """Test timer cleanup when subscriber unsubscribes."""
         manager = TaskManager()
@@ -93,7 +93,7 @@ class TestTimerEventScheduling:
         timer_subscriptions = [sub for sub in manager._subscriptions if sub.is_timer()]
         assert len(timer_subscriptions) == 0
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_multiple_timer_subscribers(self) -> None:
         """Test multiple timer subscribers with different intervals."""
         manager = TaskManager()
@@ -111,7 +111,7 @@ class TestTimerEventScheduling:
         assert 0.05 in intervals
         assert 0.1 in intervals
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_timer_event_payload_structure(self) -> None:
         """Test timer event payload contains expected data."""
         manager = TaskManager()
@@ -136,7 +136,7 @@ class TestTimerEventScheduling:
         assert "timer_interval" in received_payload
         assert received_payload["timer_interval"] == 0.05
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_timer_subscriber_isolation(self) -> None:
         """Test timer events only go to specific subscriber."""
         manager = TaskManager()
@@ -162,7 +162,7 @@ class TestTimerEventScheduling:
         timer2_unique = timer2_sub.event_types ^ EventType.TIMER
         assert timer1_unique != timer2_unique
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_timer_subscription_without_interval_no_timer(self) -> None:
         """Test subscription without timer_interval doesn't create timer."""
         manager = TaskManager()

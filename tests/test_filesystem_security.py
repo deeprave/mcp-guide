@@ -107,7 +107,7 @@ class TestSecurityPolicy:
 
         assert "read_file denied" in caplog.text
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_symlink_validation_allowed_target(self):
         """SecurityPolicy should validate symlinks with allowed targets."""
         policy = SecurityPolicy(["docs/"])
@@ -121,7 +121,7 @@ class TestSecurityPolicy:
         result = await policy.validate_path_with_symlinks("docs/link.md", "read")
         assert result == "docs/link.md"  # Simplified implementation returns original path
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_symlink_validation_disallowed_target(self):
         """SecurityPolicy should handle symlinks (simplified implementation)."""
         policy = SecurityPolicy(["docs/"])
@@ -130,7 +130,7 @@ class TestSecurityPolicy:
         result = await policy.validate_path_with_symlinks("docs/link.md", "read")
         assert result == "docs/link.md"
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_symlink_validation_no_target(self):
         """SecurityPolicy should handle symlinks (simplified implementation)."""
         policy = SecurityPolicy(["docs/"])
@@ -139,7 +139,7 @@ class TestSecurityPolicy:
         result = await policy.validate_path_with_symlinks("docs/broken_link.md", "read")
         assert result == "docs/broken_link.md"
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_regular_file_validation_via_symlink_method(self):
         """SecurityPolicy should handle regular files via symlink validation method."""
         policy = SecurityPolicy(["docs/"])

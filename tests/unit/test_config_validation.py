@@ -9,7 +9,7 @@ from mcp_guide.session import Session
 class TestConfigValidation:
     """Test input validation in configuration methods."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_set_project_flag_invalid_name(self, tmp_path):
         """Test that project flags reject invalid flag names."""
         session = await Session.create_session("test", _config_dir_for_tests=str(tmp_path))
@@ -17,7 +17,7 @@ class TestConfigValidation:
         with pytest.raises(ValidationError, match="Invalid feature flag name"):
             await flags.set("invalid.name", True)
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_set_project_flag_invalid_value(self, tmp_path):
         """Test that project flags reject invalid flag values."""
         session = await Session.create_session("test", _config_dir_for_tests=str(tmp_path))
@@ -25,7 +25,7 @@ class TestConfigValidation:
         with pytest.raises(ValidationError):
             await flags.set("valid-name", 123)
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_valid_inputs_accepted(self, tmp_path):
         """Test that valid inputs are accepted."""
         session = await Session.create_session("test", _config_dir_for_tests=str(tmp_path))
