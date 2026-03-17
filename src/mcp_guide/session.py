@@ -552,6 +552,7 @@ class Session:
         config_manager = self._get_config_manager()
         _key, project = await config_manager.get_or_create_project_config(project_name)
         self.__project = project
+        self._project_dirty = False
         self._notify_listeners()
 
     def _setup_config_watcher(self) -> None:

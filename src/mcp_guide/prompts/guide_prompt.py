@@ -28,7 +28,7 @@ from mcp_guide.result_constants import (
     INSTRUCTION_NOTFOUND_ERROR,
     INSTRUCTION_TEMPLATE_ERROR,
 )
-from mcp_guide.session import get_session
+from mcp_guide.session import get_active_session, get_session
 from mcp_guide.tools.tool_content import ContentArgs, internal_get_content
 
 if TYPE_CHECKING:
@@ -344,8 +344,8 @@ async def _execute_command(
         return await get_command_help(command_context, commands_dir, docroot)
 
     # Get resolved flags for requires-* checking
-    current_session = await get_session()
-    requirements_context: dict[str, FeatureValue] = await resolve_all_flags(current_session)
+    current_session = get_active_session()
+    requirements_context: dict[str, FeatureValue] = await resolve_all_flags(current_session) if current_session else {}
 
     # Render template using new API
     try:

@@ -59,9 +59,9 @@ async def discover_commands(commands_dir: Path) -> List[Dict[str, Any]]:
     try:
         from mcp_guide.feature_flags.constants import FLAG_GUIDE_DEVELOPMENT
         from mcp_guide.models import resolve_all_flags
-        from mcp_guide.session import get_session
+        from mcp_guide.session import get_active_session
 
-        session = await get_session()
+        session = get_active_session()
         if session:
             flags = await resolve_all_flags(session)
             dev_mode = bool(flags.get(FLAG_GUIDE_DEVELOPMENT, False))
