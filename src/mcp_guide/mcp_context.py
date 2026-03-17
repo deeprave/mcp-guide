@@ -89,14 +89,21 @@ async def cache_mcp_globals(ctx: Optional["Context"] = None) -> bool:
 
     session = get_active_session()
     if session is not None:
+        # Only invalidate template context cache if MCP globals actually changed
+        changed = (
+            getattr(session, "roots", None) != roots
+            or getattr(session, "agent_info", None) != agent_info
+            or getattr(session, "client_params", None) != client_params
+        )
+
         session.roots = roots
         session.agent_info = agent_info
         session.client_params = client_params  # ty: ignore[invalid-assignment]
 
-        # Invalidate template context cache so next render picks up new MCP data
-        from mcp_guide.render.cache import invalidate_template_context_cache
+        if changed:
+            from mcp_guide.render.cache import invalidate_template_context_cache
 
-        invalidate_template_context_cache()
+            invalidate_template_context_cache()
     else:
         _bootstrap_roots.set(roots)
         _bootstrap_agent_info.set(agent_info)
