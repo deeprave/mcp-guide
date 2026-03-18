@@ -2,6 +2,8 @@
 
 from unittest.mock import AsyncMock, Mock, patch
 
+import pytest
+
 from mcp_guide.context.tasks import ClientContextTask
 from mcp_guide.decorators import task_init
 from mcp_guide.task_manager import TaskManager
@@ -48,9 +50,10 @@ class TestTaskManagerAutoRegistration:
         # TaskManager should be importable and have get_name or similar
         assert TaskManager is not None
 
-    def test_task_manager_auto_registers_on_creation(self):
+    @pytest.mark.anyio
+    async def test_task_manager_auto_registers_on_creation(self):
         """Test that TaskManager can be created."""
-        TaskManager._reset_for_testing()
+        await TaskManager._reset_for_testing()
         manager = TaskManager()
         assert manager is not None
 

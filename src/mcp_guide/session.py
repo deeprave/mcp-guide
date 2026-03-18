@@ -516,6 +516,7 @@ class Session:
         self._watcher_task: Optional["asyncio.Task[None]"] = None
         self._listeners: list["SessionListener"] = []
         self._template_cache: Optional["TemplateContextCache"] = None
+        self.command_cache: dict[str, tuple[float, list[dict[str, Any]]]] = {}
 
         # MCP context fields (populated by cache_mcp_globals)
         self.roots: list[Any] = []

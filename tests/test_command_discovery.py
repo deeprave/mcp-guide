@@ -244,24 +244,20 @@ class TestCommandDiscoveryCaching:
 
     @pytest.mark.anyio
     async def test_cache_behavior_documented(self) -> None:
-        """Document cache behavior with guide-development flag.
-
-        This test verifies the caching mechanism exists and works.
-        Detailed behavior testing is covered by integration tests.
-        """
+        """Document cache behavior: results are cached in the session's command_cache."""
         with tempfile.TemporaryDirectory() as temp_dir:
             commands_dir = Path(temp_dir) / "_commands"
             commands_dir.mkdir()
             (commands_dir / "test.md").write_text("# Test")
 
-            from mcp_guide.discovery.commands import _command_cache, discover_commands
+            from unittest.mock import Mock
 
-            # Clear cache
-            _command_cache.clear()
+            from mcp_guide.discovery.commands import discover_commands
 
-            # First call - populates cache
-            result1 = await discover_commands(commands_dir)
-            assert len(result1) > 0
+            mock_session = Mock()
+            mock_session.command_cache = {}
 
-            # Verify cache was populated
-            assert len(_command_cache) > 0
+            with patch("mcp_guide.session.get_active_session", return_value=mock_session):
+                result1 = await discover_commands(commands_dir)
+                assert len(result1) > 0
+                assert len(mock_session.command_cache) > 0

@@ -11,13 +11,9 @@ import pytest
 
 @pytest.fixture
 def task_manager():
-    """Create a fresh TaskManager for each test.
-
-    Resets the TaskManager singleton before each test to ensure isolation.
-    """
+    """Create a fresh TaskManager for each test."""
     from mcp_guide.task_manager.manager import TaskManager
 
-    TaskManager._reset_for_testing()
     return TaskManager()
 
 

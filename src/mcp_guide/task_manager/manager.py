@@ -1,9 +1,9 @@
 """TaskManager for coordinating agent communication."""
 
 import asyncio
-import threading
 import time
 import zlib
+from contextvars import ContextVar
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, TypeVar, Union
 
@@ -159,22 +159,8 @@ class TrackedInstruction:
 class TaskManager:
     """Generic task coordination system."""
 
-    _instance: Optional["TaskManager"] = None
-    _initialized: bool = False
-    _lock = threading.Lock()
-
-    def __new__(cls) -> "TaskManager":
-        if cls._instance is None:
-            with cls._lock:
-                if cls._instance is None:
-                    cls._instance = super().__new__(cls)
-        return cls._instance
-
     def __init__(self) -> None:
         """Initialize TaskManager."""
-        if self._initialized:
-            return
-        self._initialized = True
 
         self._pending_instructions: List[str] = []
         self._cache: Dict[str, Any] = {}  # Keyed storage for task data
@@ -271,29 +257,14 @@ class TaskManager:
         logger.info(f"Task manager initialization complete. Initialized {len(self._subscriptions)} tasks")
 
     @classmethod
-    def _reset_for_testing(cls) -> None:
-        """Reset singleton for testing. DO NOT USE IN PRODUCTION."""
-        # Clean up existing instance resources before resetting
-        if cls._instance is not None:
-            # Reset instance state
-            cls._instance._next_timer_id = 1
-            cls._instance._subscriptions = []
-            cls._instance._pending_instructions = []
-            cls._instance._cache = {}
-            cls._instance._task_stats = {}
-            cls._instance._peak_task_count = 0
-            cls._instance._total_timer_runs = 0
-
-            try:
-                # Try to clean up in current event loop
-                loop = asyncio.get_running_loop()
-                loop.create_task(cls._instance.cleanup())
-            except RuntimeError:
-                # No running event loop, create one temporarily
-                asyncio.run(cls._instance.cleanup())
-
-        cls._instance = None
-        cls._initialized = False
+    async def _reset_for_testing(cls) -> None:
+        """Reset the task manager ContextVar for testing."""
+        try:
+            await _task_manager.get().cleanup()
+        except LookupError:
+            pass
+        finally:
+            _task_manager.set(cls())
 
     def _get_subscriber_name(self, subscriber: TaskSubscriber) -> str:
         """Get a readable name for the subscriber."""
@@ -834,6 +805,11 @@ class TaskManager:
                 break
 
 
+_task_manager: ContextVar[TaskManager] = ContextVar("_task_manager")
+
+
 def get_task_manager() -> TaskManager:
-    """Get the singleton TaskManager instance."""
-    return TaskManager()
+    """Get the per-task TaskManager instance, creating one if needed."""
+    from mcp_guide.utils import get_or_create
+
+    return get_or_create(_task_manager, TaskManager)
