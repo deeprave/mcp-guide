@@ -47,53 +47,63 @@ async def discover_commands(commands_dir: Path) -> list[dict[str, Any]]:
     except Exception:
         pass  # Will load later if needed for requirements
 
-    effective_mtime: float = 0.0  # Initialize with default value
+    effective_mtime: float = 0.0
 
-    # Check if development mode is enabled
-    dev_mode = False
+    # Resolve session first (independent of feature flag availability)
     session = None
     try:
-        from mcp_guide.feature_flags.constants import FLAG_GUIDE_DEVELOPMENT
-        from mcp_guide.models import resolve_all_flags
         from mcp_guide.session import get_active_session
 
         session = get_active_session()
+    except Exception:
+        pass
+
+    command_cache = session.command_cache if session is not None else None
+
+    # Check if development mode is enabled
+    dev_mode = False
+    try:
+        from mcp_guide.feature_flags.constants import FLAG_GUIDE_DEVELOPMENT
+        from mcp_guide.models import resolve_all_flags
+
         if session:
             flags = await resolve_all_flags(session)
             dev_mode = bool(flags.get(FLAG_GUIDE_DEVELOPMENT, False))
     except Exception:
         pass
 
-    command_cache = session.command_cache if session is not None else None
-
     # In production mode, use cache if available without mtime checks
     if command_cache is not None and not dev_mode and cache_key in command_cache:
         return command_cache[cache_key][1]
 
-    try:
-        # Check both directory mtime AND max file mtime (only in dev mode).
-        # Offload recursive stat walk to a thread to avoid blocking the event loop.
-        current_mtime = (await AsyncPath(commands_dir).stat()).st_mtime
+    effective_mtime: float = 0.0
 
-        def _max_file_mtime(base: Path, fallback: float) -> float:
-            result = fallback
-            for f in base.rglob("*"):
-                if f.is_file():
-                    try:
-                        result = max(result, f.stat().st_mtime)
-                    except OSError:
-                        continue
-            return result
+    # In dev mode, use mtime to invalidate stale cache entries
+    if dev_mode and command_cache is not None:
+        try:
+            current_mtime = (await AsyncPath(commands_dir).stat()).st_mtime
 
-        max_file_mtime = await asyncio.to_thread(_max_file_mtime, commands_dir, current_mtime)
-        effective_mtime = max(current_mtime, max_file_mtime)
+            def _max_file_mtime(base: Path, fallback: float) -> float:
+                result = fallback
+                for f in base.rglob("*"):
+                    if f.is_file():
+                        try:
+                            result = max(result, f.stat().st_mtime)
+                        except OSError:
+                            continue
+                return result
 
-        if command_cache is not None and cache_key in command_cache:
-            cached_mtime, cached_commands = command_cache[cache_key]
-            if cached_mtime >= effective_mtime:
-                return cached_commands
-    except OSError:
-        pass
+            effective_mtime = max(
+                current_mtime,
+                await asyncio.to_thread(_max_file_mtime, commands_dir, current_mtime),
+            )
+
+            if cache_key in command_cache:
+                cached_mtime, cached_commands = command_cache[cache_key]
+                if cached_mtime >= effective_mtime:
+                    return cached_commands
+        except OSError:
+            pass
 
     # Discover command files (excluding underscore-prefixed files)
     files = await discover_command_files(commands_dir, ["**/*"])
@@ -143,8 +153,8 @@ async def discover_commands(commands_dir: Path) -> list[dict[str, Any]]:
                 examples = front_matter.get("examples", [])
                 aliases = front_matter.get("aliases", [])
                 category = front_matter.get("category", "general")
-        except (OSError, ValueError) as e:
-            # Collect I/O and parsing errors for aggregated logging
+        except Exception as e:
+            # Collect errors for aggregated logging; skip bad files rather than aborting discovery
             error_files.append(f"{file_path}: {e}")
             continue
 

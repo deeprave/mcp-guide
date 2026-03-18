@@ -244,20 +244,94 @@ class TestCommandDiscoveryCaching:
 
     @pytest.mark.anyio
     async def test_cache_behavior_documented(self) -> None:
-        """Document cache behavior: results are cached in the session's command_cache."""
+        """Cache is per-session: each session gets its own cache; no-session path works too."""
         with tempfile.TemporaryDirectory() as temp_dir:
             commands_dir = Path(temp_dir) / "_commands"
             commands_dir.mkdir()
             (commands_dir / "test.md").write_text("# Test")
 
-            from unittest.mock import Mock
+            from mcp_guide.discovery.commands import discover_commands
+
+            class _Session:
+                def __init__(self) -> None:
+                    self.command_cache: dict = {}
+
+            session_1 = _Session()
+            session_2 = _Session()
+
+            # Session 1 gets its cache populated
+            with patch("mcp_guide.session.get_active_session", return_value=session_1):
+                result1 = await discover_commands(commands_dir)
+            assert len(result1) > 0
+            assert len(session_1.command_cache) > 0
+            assert session_2.command_cache == {}
+
+            # Session 2 gets its own independent cache
+            with patch("mcp_guide.session.get_active_session", return_value=session_2):
+                result2 = await discover_commands(commands_dir)
+            assert len(result2) > 0
+            assert len(session_2.command_cache) > 0
+            assert session_1.command_cache is not session_2.command_cache
+
+            # No-session path: discovery still works, neither cache is mutated
+            snap1 = dict(session_1.command_cache)
+            snap2 = dict(session_2.command_cache)
+            with patch("mcp_guide.session.get_active_session", return_value=None):
+                result_no_session = await discover_commands(commands_dir)
+            assert len(result_no_session) > 0
+            assert session_1.command_cache == snap1
+            assert session_2.command_cache == snap2
+
+    @pytest.mark.anyio
+    async def test_stat_oserror_completes_without_caching(self) -> None:
+        """OSError on directory stat is handled gracefully; cache is not populated."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            commands_dir = Path(temp_dir) / "_commands"
+            commands_dir.mkdir()
+            (commands_dir / "test.md").write_text("# Test")
 
             from mcp_guide.discovery.commands import discover_commands
 
-            mock_session = Mock()
-            mock_session.command_cache = {}
+            class _Session:
+                def __init__(self) -> None:
+                    self.command_cache: dict = {}
 
-            with patch("mcp_guide.session.get_active_session", return_value=mock_session):
-                result1 = await discover_commands(commands_dir)
-                assert len(result1) > 0
-                assert len(mock_session.command_cache) > 0
+            session = _Session()
+
+            with (
+                patch("mcp_guide.session.get_active_session", return_value=session),
+                patch("mcp_guide.discovery.commands.asyncio.to_thread", side_effect=OSError("stat failed")),
+            ):
+                result = await discover_commands(commands_dir)
+
+            # Discovery completes without raising even when mtime stat fails
+            assert isinstance(result, list)
+
+    @pytest.mark.anyio
+    async def test_frontmatter_error_skips_file_and_suppresses_cache(self) -> None:
+        """Parsing errors are aggregated; cache is not populated when any file fails."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            commands_dir = Path(temp_dir) / "_commands"
+            commands_dir.mkdir()
+            (commands_dir / "test.md").write_text("# Test")
+
+            from mcp_guide.discovery.commands import discover_commands
+
+            class _Session:
+                def __init__(self) -> None:
+                    self.command_cache: dict = {}
+
+            session = _Session()
+
+            with (
+                patch("mcp_guide.session.get_active_session", return_value=session),
+                patch(
+                    "mcp_guide.discovery.commands.parse_content_with_frontmatter",
+                    side_effect=ValueError("bad frontmatter"),
+                ),
+            ):
+                result = await discover_commands(commands_dir)
+
+            # Bad files are skipped; cache not populated due to errors
+            assert result == []
+            assert session.command_cache == {}
