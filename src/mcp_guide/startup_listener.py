@@ -1,6 +1,5 @@
 """Startup instruction listener for automatic content injection."""
 
-import asyncio
 from typing import TYPE_CHECKING
 
 from mcp_guide.core.mcp_log import get_logger
@@ -16,18 +15,13 @@ logger = get_logger(__name__)
 class StartupInstructionListener:
     """Listener that renders and queues startup instructions. One instance per session."""
 
-    def __init__(self) -> None:
-        self._tasks: set[asyncio.Task[None]] = set()
-
-    def on_config_changed(self, session: "Session") -> None:
+    async def on_config_changed(self, session: "Session") -> None:
         """No-op — startup instructions don't re-fire on config changes."""
         pass
 
-    def on_project_changed(self, session: "Session", old_project: str, new_project: str) -> None:
+    async def on_project_changed(self, session: "Session", old_project: str, new_project: str) -> None:
         """Render and queue startup instructions when a project is loaded."""
-        task = asyncio.create_task(self._render_and_queue(session))
-        self._tasks.add(task)
-        task.add_done_callback(self._tasks.discard)
+        await self._render_and_queue(session)
 
     async def _render_and_queue(self, session: "Session") -> None:
         """Render startup template and queue instruction if content is non-blank.

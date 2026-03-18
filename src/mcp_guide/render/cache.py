@@ -34,12 +34,12 @@ class TemplateContextCache(SessionListener):
         """Invalidate the cached template context."""
         self._cache = None
 
-    def on_project_changed(self, session: "Session", old_project: str, new_project: str) -> None:
+    async def on_project_changed(self, session: "Session", old_project: str, new_project: str) -> None:
         """Invalidate cache when project switches."""
         self.invalidate()
         logger.debug(f"Template context cache invalidated: project switch {old_project} -> {new_project}")
 
-    def on_config_changed(self, session: "Session") -> None:
+    async def on_config_changed(self, session: "Session") -> None:
         """Invalidate cache when project configuration changes."""
         self.invalidate()
         logger.debug(f"Template context cache invalidated due to config change: {session.project_name}")

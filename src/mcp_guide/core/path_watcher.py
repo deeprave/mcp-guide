@@ -2,7 +2,7 @@
 
 import asyncio
 from pathlib import Path
-from typing import Callable, List, Optional, Union
+from typing import Awaitable, Callable, List, Optional, Union
 
 from anyio import Path as AsyncPath
 
@@ -11,17 +11,18 @@ from mcp_guide.core.mcp_log import get_logger
 logger = get_logger(__name__)
 
 
+WatcherCallback = Callable[[str], Optional[Awaitable[None]]]
+
+
 class PathWatcher:
     """Generic watcher for monitoring file or directory changes."""
 
-    def __init__(
-        self, path: Union[str, Path], callback: Optional[Callable[[str], None]] = None, poll_interval: float = 1.0
-    ):
+    def __init__(self, path: Union[str, Path], callback: Optional[WatcherCallback] = None, poll_interval: float = 1.0):
         """Initialize PathWatcher with a file or directory path.
 
         Args:
             path: File or directory path to monitor
-            callback: Optional callback function to invoke on changes
+            callback: Optional callback function to invoke on changes (sync or async)
             poll_interval: Polling interval in seconds (default: 1.0)
 
         Raises:
@@ -31,7 +32,7 @@ class PathWatcher:
         self.poll_interval = poll_interval
 
         # Initialize callback system
-        self._callbacks: List[Callable[[str], None]] = []
+        self._callbacks: List[WatcherCallback] = []
         if callback:
             self._callbacks.append(callback)
 
@@ -44,17 +45,18 @@ class PathWatcher:
         self._last_inode: Optional[int] = None
         self._initialized = False
 
-    def add_callback(self, callback: Callable[[str], None]) -> None:
+    def add_callback(self, callback: WatcherCallback) -> None:
         """Add a callback to be invoked when changes are detected."""
         self._callbacks.append(callback)
 
-    def _invoke_callbacks(self) -> None:
+    async def _invoke_callbacks(self) -> None:
         """Invoke all registered callbacks with path."""
         for callback in self._callbacks:
             try:
-                callback(self.path)
+                result = callback(self.path)
+                if asyncio.iscoroutine(result) or asyncio.isfuture(result):
+                    await result
             except Exception as e:
-                # Callback exceptions should not crash the watcher
                 logger.exception(f"Error in callback for path {self.path}: {e}")
 
     async def has_changed(self) -> bool:
@@ -79,7 +81,7 @@ class PathWatcher:
         try:
             if not await async_path.exists():
                 # File was deleted - trigger callback
-                self._invoke_callbacks()
+                await self._invoke_callbacks()
                 return True
 
             stat = await async_path.stat()
@@ -96,14 +98,14 @@ class PathWatcher:
                 self._last_inode = current_inode
 
                 # Invoke callbacks
-                self._invoke_callbacks()
+                await self._invoke_callbacks()
 
                 return True
 
             return False
         except (OSError, FileNotFoundError):
             # File was deleted or became inaccessible after initialization
-            self._invoke_callbacks()
+            await self._invoke_callbacks()
             return True
 
     async def start(self) -> None:

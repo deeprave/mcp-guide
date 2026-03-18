@@ -567,7 +567,7 @@ class Session:
         _key, project = await config_manager.get_or_create_project_config(project_name)
         self.__project = project
         self._project_dirty = False
-        self._notify_project_changed(old_project, project_name)
+        await self._notify_project_changed(old_project, project_name)
 
     def _setup_config_watcher(self) -> None:
         """Setup config file watcher for automatic reload on external changes."""
@@ -597,13 +597,13 @@ class Session:
                 if self._watcher_task is None or self._watcher_task.done():
                     self._watcher_task = asyncio.create_task(self._config_watcher.start())
 
-    def _on_config_file_changed(self, file_path: str) -> None:
+    async def _on_config_file_changed(self, file_path: str) -> None:
         """Handle config file changes by marking project stale."""
         logger.warning(
             f"Configuration file changed externally: {file_path} - marking session {self.project_name} dirty"
         )
         self._project_dirty = True
-        self._notify_config_changed()
+        await self._notify_config_changed()
 
     def add_listener(self, listener: "SessionListener") -> None:
         """Add a session change listener."""
@@ -622,19 +622,19 @@ class Session:
         """
         self._listeners.clear()
 
-    def _notify_project_changed(self, old_project: str, new_project: str) -> None:
+    async def _notify_project_changed(self, old_project: str, new_project: str) -> None:
         """Notify all listeners of project change."""
         for listener in self._listeners:
             try:
-                listener.on_project_changed(self, old_project, new_project)
+                await listener.on_project_changed(self, old_project, new_project)
             except Exception as e:
                 logger.debug(f"Project change listener notification failed: {e}")
 
-    def _notify_config_changed(self) -> None:
+    async def _notify_config_changed(self) -> None:
         """Notify all listeners of config change."""
         for listener in self._listeners:
             try:
-                listener.on_config_changed(self)
+                await listener.on_config_changed(self)
             except Exception as e:
                 logger.debug(f"Config change listener notification failed: {e}")
 
@@ -681,7 +681,7 @@ class Session:
         self.__project = updated_project
 
         # Notify listeners of config change
-        self._notify_config_changed()
+        await self._notify_config_changed()
 
     def get_state(self) -> SessionState:
         """Get mutable session state."""
@@ -710,7 +710,7 @@ class Session:
             self.__project = project
 
         # Notify listeners of config change
-        self._notify_config_changed()
+        await self._notify_config_changed()
 
     async def invalidate_cache(self) -> None:
         """Reload the project configuration from disk."""
@@ -811,9 +811,6 @@ async def get_or_create_session(
     session.agent_info = agent_info
     session.client_params = client_params
 
-    # Ensure per-session template cache is initialised (lazy via property)
-    _ = session.template_cache
-
     # Register per-session startup instruction listener
     from mcp_guide.startup_listener import StartupInstructionListener
 
@@ -823,7 +820,7 @@ async def get_or_create_session(
     set_current_session(session)
 
     # Notify listeners of initial project load
-    session._notify_project_changed("", session.project_name)
+    await session._notify_project_changed("", session.project_name)
 
     return session
 

@@ -9,7 +9,7 @@ if TYPE_CHECKING:
 class SessionListener(Protocol):
     """Protocol for objects that listen to session changes."""
 
-    def on_project_changed(self, session: "Session", old_project: str, new_project: str) -> None:
+    async def on_project_changed(self, session: "Session", old_project: str, new_project: str) -> None:
         """Called when switch_project() changes the active project.
 
         Args:
@@ -19,7 +19,7 @@ class SessionListener(Protocol):
         """
         ...
 
-    def on_config_changed(self, session: "Session") -> None:
+    async def on_config_changed(self, session: "Session") -> None:
         """Called when project configuration changes.
 
         Args:

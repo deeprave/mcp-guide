@@ -1,14 +1,14 @@
 """Configuration file watcher that extends PathWatcher with config features."""
 
-from typing import Callable, Optional
+from typing import Optional
 
-from mcp_guide.core.path_watcher import PathWatcher
+from mcp_guide.core.path_watcher import PathWatcher, WatcherCallback
 
 
 class ConfigWatcher(PathWatcher):
     """Configuration file watcher with lazy path validation."""
 
-    def __init__(self, config_path: str, callback: Optional[Callable[[str], None]] = None, poll_interval: float = 1.0):
+    def __init__(self, config_path: str, callback: Optional[WatcherCallback] = None, poll_interval: float = 1.0):
         """Initialize ConfigWatcher.
 
         Args:
