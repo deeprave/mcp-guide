@@ -23,28 +23,25 @@ from mcp_guide.workflow.flags import parse_workflow_phases, substitute_variables
 
 logger = get_logger(__name__)
 
-# Module-level cache for template context (shared across all async tasks)
-# ContextVar would be task-local and wouldn't share invalidations across requests
-_template_context_cache: Optional["TemplateContext"] = None
-
-
-def invalidate_template_context_cache() -> None:
-    """Invalidate the template context cache globally."""
-    global _template_context_cache
-    _template_context_cache = None
-
 
 class TemplateContextCache(SessionListener):
-    """Template context cache that listens to session changes."""
+    """Template context cache that listens to session changes. One instance per session."""
 
-    def on_session_changed(self, session: "Session") -> None:
-        """Invalidate cache when session changes."""
-        invalidate_template_context_cache()
-        logger.debug(f"Template context cache invalidated for project: {session.project_name}")
+    def __init__(self) -> None:
+        self._cache: Optional["TemplateContext"] = None
+
+    def invalidate(self) -> None:
+        """Invalidate the cached template context."""
+        self._cache = None
+
+    def on_project_changed(self, session: "Session", old_project: str, new_project: str) -> None:
+        """Invalidate cache when project switches."""
+        self.invalidate()
+        logger.debug(f"Template context cache invalidated: project switch {old_project} -> {new_project}")
 
     def on_config_changed(self, session: "Session") -> None:
         """Invalidate cache when project configuration changes."""
-        invalidate_template_context_cache()
+        self.invalidate()
         logger.debug(f"Template context cache invalidated due to config change: {session.project_name}")
 
     async def _build_system_context(self) -> "TemplateContext":
@@ -501,13 +498,11 @@ class TemplateContextCache(SessionListener):
         Returns:
             TemplateContext with layered contexts (system → agent → project → category)
         """
-        global _template_context_cache
-
         # Check cache first (only for non-category contexts)
         if category_name is None:
-            if _template_context_cache is not None:
+            if self._cache is not None:
                 logger.trace("TemplateContextCache: Returning cached context")
-                return _template_context_cache
+                return self._cache
             logger.trace("TemplateContextCache: No cached context, building new one")
 
         # Build contexts
@@ -525,7 +520,7 @@ class TemplateContextCache(SessionListener):
             layered_context = category_context.new_child(layered_context)
         else:
             # Cache only when no category context (base contexts only)
-            _template_context_cache = layered_context
+            self._cache = layered_context
 
         return layered_context
 
@@ -576,8 +571,22 @@ class TemplateContextCache(SessionListener):
         return TemplateContext(transient_vars)
 
 
-# Global instance for use across the application
-template_context_cache = TemplateContextCache()
+def _get_session_cache() -> Optional[TemplateContextCache]:
+    """Get the TemplateContextCache from the current session, if available."""
+    from mcp_guide.session import get_active_session
+
+    session = get_active_session()
+    if session is None:
+        return None
+    cache = getattr(session, "template_cache", None)
+    return cache if isinstance(cache, TemplateContextCache) else None
+
+
+def invalidate_template_context_cache() -> None:
+    """Invalidate the template context cache for the current session."""
+    cache = _get_session_cache()
+    if cache:
+        cache.invalidate()
 
 
 def invalidate_template_contexts() -> None:
@@ -614,4 +623,16 @@ async def get_template_contexts(category_name: Optional[str] = None) -> Template
     Returns:
         TemplateContext with layered contexts
     """
-    return await template_context_cache.get_template_contexts(category_name)
+    cache = _get_session_cache()
+    if cache is None:
+        # Fallback: create a temporary cache (no session yet)
+        cache = TemplateContextCache()
+    return await cache.get_template_contexts(category_name)
+
+
+def get_transient_context() -> TemplateContext:
+    """Get transient context with timestamps from the current session's cache."""
+    cache = _get_session_cache()
+    if cache is None:
+        cache = TemplateContextCache()
+    return cache.get_transient_context()

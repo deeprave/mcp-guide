@@ -14,38 +14,20 @@ logger = get_logger(__name__)
 
 
 class StartupInstructionListener:
-    """Listener that renders and queues startup instructions when sessions are created."""
+    """Listener that renders and queues startup instructions. One instance per session."""
 
     def __init__(self) -> None:
-        """Initialize the startup instruction listener."""
-        self._processed_sessions: set[str] = set()
         self._tasks: set[asyncio.Task[None]] = set()
 
-    def on_session_changed(self, session: "Session") -> None:
-        """Handle session change by rendering and queueing startup template.
+    def on_config_changed(self, session: "Session") -> None:
+        """No-op — startup instructions don't re-fire on config changes."""
+        pass
 
-        Args:
-            session: The session that changed
-        """
-        # Avoid processing the same session multiple times
-        if session.project_name in self._processed_sessions:
-            return
-
-        self._processed_sessions.add(session.project_name)
-
-        # Create async task and track it
+    def on_project_changed(self, session: "Session", old_project: str, new_project: str) -> None:
+        """Render and queue startup instructions when a project is loaded."""
         task = asyncio.create_task(self._render_and_queue(session))
         self._tasks.add(task)
         task.add_done_callback(self._tasks.discard)
-
-    def on_config_changed(self, session: "Session") -> None:
-        """Handle config change (no-op for startup instructions).
-
-        Args:
-            session: The session whose config changed
-        """
-        # Startup instructions only trigger on session creation, not config changes
-        pass
 
     async def _render_and_queue(self, session: "Session") -> None:
         """Render startup template and queue instruction if content is non-blank.

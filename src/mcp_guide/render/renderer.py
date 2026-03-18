@@ -280,9 +280,9 @@ def _build_file_context(file_info: FileInfo) -> TemplateContext:
 
 def _build_transient_context() -> TemplateContext:
     """Build transient context with current timestamp."""
-    from mcp_guide.render.cache import template_context_cache
+    from mcp_guide.render.cache import get_transient_context
 
-    return template_context_cache.get_transient_context()
+    return get_transient_context()
 
 
 async def render_template_with_context_chain(
