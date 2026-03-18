@@ -1,6 +1,7 @@
 """Filesystem MCP tools for agent-server interaction."""
 
 import time
+from contextvars import ContextVar
 from pathlib import Path
 from typing import Any, Dict, Optional, Union
 
@@ -9,11 +10,15 @@ from mcp_guide.core.result import Result
 from mcp_guide.filesystem.cache import FileCache
 from mcp_guide.filesystem.read_write_security import ReadWriteSecurityPolicy
 from mcp_guide.session import get_session
+from mcp_guide.utils import get_or_create
 
 logger = get_logger(__name__)
 
-# Global cache instance for server-side caching
-_file_cache = FileCache()
+_file_cache: ContextVar[FileCache] = ContextVar("_file_cache")
+
+
+def _get_file_cache() -> FileCache:
+    return get_or_create(_file_cache, FileCache)
 
 
 async def send_file_content(
@@ -83,7 +88,7 @@ async def send_file_content(
         if mtime is None:
             mtime = time.time()
 
-        _file_cache.put(validated_path, content, mtime)
+        _get_file_cache().put(validated_path, content, mtime)
 
         # Dispatch event to task manager
         from mcp_guide.task_manager import EventType, get_task_manager

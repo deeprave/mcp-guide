@@ -10,11 +10,11 @@ class TestMonitoringReminder:
     """Test monitoring reminder functionality."""
 
     @pytest.fixture(autouse=True)
-    def reset_task_manager(self) -> None:
+    async def reset_task_manager(self) -> None:
         """Reset TaskManager singleton before each test."""
-        TaskManager._reset_for_testing()
+        await TaskManager._reset_for_testing()
         yield
-        TaskManager._reset_for_testing()
+        await TaskManager._reset_for_testing()
 
     @pytest.mark.anyio
     async def test_duplicate_instruction_prevention(self) -> None:

@@ -6,16 +6,17 @@ from mcp_guide.task_manager import get_task_manager
 
 
 @pytest.fixture(autouse=True)
-def reset_task_manager():
+async def reset_task_manager():
     """Reset TaskManager singleton before each test."""
     from mcp_guide.task_manager.manager import TaskManager
 
-    TaskManager._reset_for_testing()
+    await TaskManager._reset_for_testing()
     yield
-    TaskManager._reset_for_testing()
+    await TaskManager._reset_for_testing()
 
 
-def test_workflow_task_registration():
+@pytest.mark.anyio
+async def test_workflow_task_registration():
     """Test that workflow monitoring can be started."""
 
     # This should work synchronously
@@ -30,7 +31,8 @@ def test_workflow_task_registration():
     print("About to start workflow monitoring...")
 
 
-def test_basic_task_manager():
+@pytest.mark.anyio
+async def test_basic_task_manager():
     """Test basic TaskManager functionality."""
     task_manager = get_task_manager()
 
@@ -46,7 +48,8 @@ def test_basic_task_manager():
     print(f"Registrations list exists: {registrations is not None}")
 
 
-def test_workflow_task_creation():
+@pytest.mark.anyio
+async def test_workflow_task_creation():
     """Test WorkflowMonitorTask creation."""
     from mcp_guide.workflow.tasks import WorkflowMonitorTask
 

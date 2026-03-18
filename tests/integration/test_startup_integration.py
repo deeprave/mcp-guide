@@ -77,10 +77,10 @@ class TestPriorityQueueing:
     @pytest.fixture
     async def task_manager(self):
         """Create task manager instance."""
-        TaskManager._reset_for_testing()
+        await TaskManager._reset_for_testing()
         manager = TaskManager()
         yield manager
-        TaskManager._reset_for_testing()
+        await TaskManager._reset_for_testing()
 
     @pytest.mark.anyio
     async def test_priority_inserts_at_front(self, task_manager):

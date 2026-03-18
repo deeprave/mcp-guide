@@ -130,7 +130,7 @@ class TestTaskManagerOnInit:
         """Test that requires_flag() returns correct value based on flag state."""
         from mcp_guide.task_manager.manager import TaskManager
 
-        TaskManager._reset_for_testing()
+        await TaskManager._reset_for_testing()
         task_manager = TaskManager()
         task_manager._resolved_flags = flags
 
@@ -141,7 +141,7 @@ class TestTaskManagerOnInit:
         """Test that TaskManager.on_init() establishes session."""
         from mcp_guide.task_manager.manager import TaskManager
 
-        TaskManager._reset_for_testing()
+        await TaskManager._reset_for_testing()
         task_manager = TaskManager()
 
         with (
@@ -161,7 +161,7 @@ class TestTaskManagerOnInit:
         from mcp_guide.task_manager.manager import TaskManager
         from mcp_guide.task_manager.subscription import Subscription
 
-        TaskManager._reset_for_testing()
+        await TaskManager._reset_for_testing()
         task_manager = TaskManager()
 
         mock_task = Mock()

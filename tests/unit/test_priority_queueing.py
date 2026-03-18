@@ -12,11 +12,11 @@ class TestPriorityQueueing:
     async def task_manager(self):
         """Create task manager instance."""
         # Reset singleton state for clean test
-        TaskManager._reset_for_testing()
+        await TaskManager._reset_for_testing()
         manager = TaskManager()
         yield manager
         # Clean up after test
-        TaskManager._reset_for_testing()
+        await TaskManager._reset_for_testing()
 
     @pytest.mark.anyio
     async def test_default_appends(self, task_manager):

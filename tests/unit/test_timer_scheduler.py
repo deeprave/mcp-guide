@@ -28,11 +28,11 @@ class MockTimerSubscriber:
 
 
 @pytest.fixture(autouse=True)
-def reset_task_manager() -> None:
+async def reset_task_manager() -> None:
     """Reset TaskManager singleton before each test."""
-    TaskManager._reset_for_testing()
+    await TaskManager._reset_for_testing()
     yield
-    TaskManager._reset_for_testing()
+    await TaskManager._reset_for_testing()
 
 
 class TestTimerEventScheduling:

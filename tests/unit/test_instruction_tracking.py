@@ -8,17 +8,18 @@ from mcp_guide.task_manager.manager import TaskManager, TrackedInstruction
 
 
 @pytest.fixture(autouse=True)
-def reset_task_manager():
+async def reset_task_manager():
     """Reset TaskManager singleton between tests."""
-    TaskManager._reset_for_testing()
+    await TaskManager._reset_for_testing()
     yield
-    TaskManager._reset_for_testing()
+    await TaskManager._reset_for_testing()
 
 
 class TestTrackedInstruction:
     """Test TrackedInstruction dataclass."""
 
-    def test_tracked_instruction_creation(self):
+    @pytest.mark.anyio
+    async def test_tracked_instruction_creation(self):
         """Test creating a TrackedInstruction."""
         current_time = time.time()
         instr = TrackedInstruction(
@@ -118,7 +119,8 @@ class TestTaskManagerTracking:
         # Should not raise exception
         await manager.acknowledge_instruction("nonexistent-id")
 
-    def test_is_queue_empty_when_empty(self):
+    @pytest.mark.anyio
+    async def test_is_queue_empty_when_empty(self):
         """Test is_queue_empty returns True when queue is empty."""
         manager = TaskManager()
 

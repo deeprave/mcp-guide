@@ -1,7 +1,7 @@
 """Integration tests for workflow state processing flow."""
 
 import logging
-from typing import Any, Generator
+from typing import Any
 from unittest.mock import AsyncMock
 
 import pytest
@@ -69,13 +69,13 @@ queue:
 
 
 @pytest.fixture(autouse=True)
-def reset_task_manager() -> Generator[None, None, None]:
+async def reset_task_manager() -> None:
     """Reset TaskManager singleton before each test."""
     from mcp_guide.task_manager.manager import TaskManager
 
-    TaskManager._reset_for_testing()
+    await TaskManager._reset_for_testing()
     yield
-    TaskManager._reset_for_testing()
+    await TaskManager._reset_for_testing()
 
 
 class TestWorkflowIntegration:
