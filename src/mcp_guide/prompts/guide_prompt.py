@@ -85,7 +85,7 @@ async def get_command_help(command_context: TemplateContext, commands_dir: Path,
             return Result.failure("Failed to render help template", error_type="render_error")
 
         if rendered.errors:
-            logger.warning("get_command_help: template signaled errors that will be discarded: %s", rendered.errors)
+            rendered.log_discarded_errors("get_command_help")
 
         return Result.ok(rendered.content, instruction=rendered.instruction)
 
