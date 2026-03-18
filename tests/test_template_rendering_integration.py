@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 
 from mcp_guide.models import Project
-from mcp_guide.render.cache import get_template_contexts, invalidate_template_context_cache
+from mcp_guide.render.cache import TemplateContextCache, get_template_contexts, invalidate_template_context_cache
 from mcp_guide.render.renderer import render_template_content
 
 
@@ -32,6 +32,7 @@ Phase tracking is enabled!
         # Mock session
         mock_session = Mock()
         mock_session.get_project = AsyncMock(return_value=mock_project)
+        mock_session.template_cache = TemplateContextCache()
 
         with patch("mcp_guide.session.get_session", return_value=mock_session):
             with patch("mcp_guide.session.get_active_session", return_value=mock_session):
@@ -62,6 +63,7 @@ Phase tracking is enabled!
         # Mock session
         mock_session = Mock()
         mock_session.get_project = AsyncMock(return_value=mock_project)
+        mock_session.template_cache = TemplateContextCache()
 
         with patch("mcp_guide.session.get_session", return_value=mock_session):
             with patch("mcp_guide.session.get_active_session", return_value=mock_session):
@@ -97,6 +99,7 @@ Phase tracking is enabled!
         # Mock session
         mock_session = Mock()
         mock_session.get_project = AsyncMock(return_value=mock_project)
+        mock_session.template_cache = TemplateContextCache()
 
         with patch("mcp_guide.session.get_session", return_value=mock_session):
             with patch("mcp_guide.session.get_active_session", return_value=mock_session):

@@ -578,8 +578,7 @@ def _get_session_cache() -> Optional[TemplateContextCache]:
     session = get_active_session()
     if session is None:
         return None
-    cache = getattr(session, "template_cache", None)
-    return cache if isinstance(cache, TemplateContextCache) else None
+    return session.template_cache
 
 
 def invalidate_template_context_cache() -> None:

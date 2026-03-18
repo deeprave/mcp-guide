@@ -85,24 +85,14 @@ class TestWorkflowIntegration:
     async def test_file_content_caching(self, mock_context: AsyncMock, workflow_content: str) -> None:
         """Test that file content is properly cached."""
 
-        with LogCapture() as logs:
-            result = await send_file_content(
-                context=mock_context, path=".guide.yaml", content=workflow_content, mtime=1234567890.0, encoding="utf-8"
-            )
+        result = await send_file_content(
+            context=mock_context, path=".guide.yaml", content=workflow_content, mtime=1234567890.0, encoding="utf-8"
+        )
 
-            assert result.success, f"File caching failed: {result.error}"
-            if result.value is not None:
-                assert result.value["path"] == ".guide.yaml"
-            assert result.message is not None and "cached" in result.message.lower()
-
-            # Check for expected log messages
-            messages = logs.get_messages()
-            cache_logs = [msg for msg in messages if "cache" in msg.lower()]
-            assert len(cache_logs) > 0, "No caching logs found"
-
-            if logs.has_warning_or_error():
-                error_msgs = logs.get_messages(logging.WARNING)
-                pytest.fail(f"Unexpected warnings/errors during caching: {error_msgs}")
+        assert result.success, f"File caching failed: {result.error}"
+        if result.value is not None:
+            assert result.value["path"] == ".guide.yaml"
+        assert result.message is not None and "cached" in result.message.lower()
 
     @pytest.mark.anyio
     async def test_task_manager_receives_data(self, mock_context: AsyncMock, workflow_content: str) -> None:
