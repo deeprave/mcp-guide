@@ -64,7 +64,6 @@ async def render_template(
     if frontmatter_vars:
         final_context = final_context.new_child(frontmatter_vars)
     # Render template or return as-is
-    partial_frontmatter_list: list[Dict[str, Any]] = []
     if is_template_file(file_info):
         result = await render_template_content(
             content=processed.content,
@@ -74,12 +73,12 @@ async def render_template(
             base_dir=base_dir,
         )
         if not result.success:
-            # Raise exception with detailed error context
             raise RuntimeError(f"Template rendering failed: {result.error}")
         assert result.value is not None, "Result value should not be None when success is True"
         rendered_content, partial_frontmatter_list, template_errors = result.value
     else:
         rendered_content = processed.content
+        partial_frontmatter_list = []
         template_errors = []
 
     return RenderedContent(

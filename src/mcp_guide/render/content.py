@@ -4,8 +4,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Optional
 
+from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.render.frontmatter import Content, resolve_instruction
 from mcp_guide.result_constants import AGENT_INSTRUCTION
+
+logger = get_logger(__name__)
 
 FM_INSTRUCTION = "instruction"
 FM_TYPE = "type"
@@ -86,3 +89,8 @@ class RenderedContent(Content):
     def aliases(self) -> Optional[list[str]]:
         """Get command aliases from frontmatter."""
         return self.frontmatter.get_list(FM_ALIASES)
+
+    def log_discarded_errors(self, source: str) -> None:
+        """Log and acknowledge any template errors that won't be surfaced to the client."""
+        if self.errors:
+            logger.warning("%s: template signaled errors that will be discarded: %s", source, self.errors)

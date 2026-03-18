@@ -2,7 +2,7 @@
 
 from collections import ChainMap
 from datetime import datetime, timezone
-from typing import Any, Callable, Optional
+from typing import Any, Callable
 
 from mcp_guide.core.mcp_log import get_logger
 
@@ -68,7 +68,7 @@ class TemplateFunctions:
 
         return arg_part, var_name
 
-    def format_date(self, text: str, render: Optional[Any] = None) -> str:
+    def format_date(self, text: str, render: Callable[[str], str] | None = None) -> str:
         """Format dates: {{#format_date}}%Y-%m-%d{{created_at}}{{/format_date}}"""
         format_str, var_name = self._parse_template_args(text)
 
@@ -81,7 +81,7 @@ class TemplateFunctions:
 
         return str(date_value.strftime(format_str))
 
-    def truncate(self, text: str, render: Optional[Any] = None) -> str:
+    def truncate(self, text: str, render: Callable[[str], str] | None = None) -> str:
         """Truncate with ellipses: {{#truncate}}50{{description}}{{/truncate}}"""
         length_str, var_name = self._parse_template_args(text)
 
@@ -99,7 +99,7 @@ class TemplateFunctions:
         value = str(self.context[var_name])
         return value[:max_len] + "..." if len(value) > max_len else value
 
-    def highlight_code(self, text: str, render: Optional[Any] = None) -> str:
+    def highlight_code(self, text: str, render: Callable[[str], str] | None = None) -> str:
         """Syntax highlight: {{#highlight_code}}python{{code_snippet}}{{/highlight_code}}"""
         language, var_name = self._parse_template_args(text)
 
@@ -112,7 +112,7 @@ class TemplateFunctions:
         code = str(self.context[var_name])
         return f"```{language}\n{code}\n```"
 
-    def pad_right(self, text: str, render: Optional[Any] = None) -> str:
+    def pad_right(self, text: str, render: Callable[[str], str] | None = None) -> str:
         """Pad string to fixed width: {{#pad_right}}20{{command_name}}{{/pad_right}}"""
         try:
             width_str, var_name = self._parse_template_args(text)
@@ -126,7 +126,7 @@ class TemplateFunctions:
         except ValueError as e:
             return f"[Pad Error: {e}]"
 
-    def contains(self, text: str, render: Optional[Any] = None) -> str:
+    def contains(self, text: str, render: Callable[[str], str] | None = None) -> str:
         """Check if value contains substring: {{#contains}}substring{{variable}}{{/contains}}"""
         substring, var_name = self._parse_template_args(text)
 
@@ -136,7 +136,7 @@ class TemplateFunctions:
         actual = str(self.context[var_name])
         return render(text) if render and substring.strip() in actual else ""
 
-    def time_ago(self, text: str, render: Optional[Any] = None) -> str:
+    def time_ago(self, text: str, render: Callable[[str], str] | None = None) -> str:
         """Format timestamp as relative time: {{#time_ago}}{{exported_at}}{{/time_ago}}"""
         _, var_name = self._parse_template_args(text)
 
@@ -163,7 +163,7 @@ class TemplateFunctions:
         else:
             return f"{minutes}m ago"
 
-    def _get_nested_value(self, var_name: str) -> Optional[str]:
+    def _get_nested_value(self, var_name: str) -> str | None:
         """Get value from context, supporting dot notation for nested keys.
 
         Args:
@@ -183,7 +183,7 @@ class TemplateFunctions:
             value = value.get(part)
         return str(value) if value is not None else None
 
-    def equals(self, text: str, render: Optional[Any] = None) -> str:
+    def equals(self, text: str, render: Callable[[str], str] | None = None) -> str:
         """Compare values: {{#equals}}value{{variable}}{{/equals}}
 
         Returns the rendered section content if values match, empty string otherwise.

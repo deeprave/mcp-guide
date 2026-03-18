@@ -102,6 +102,6 @@ async def render_content(
         return None
 
     if rendered.errors:
-        logger.warning("Template %s signaled errors that will be discarded: %s", files[0].path, rendered.errors)
+        rendered.log_discarded_errors(f"Template {files[0].path}")
 
     return rendered
