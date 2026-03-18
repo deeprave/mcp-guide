@@ -259,16 +259,6 @@ def create_server(config: "ServerConfig") -> GuideMCP:
         task_manager = get_task_manager()
         await task_manager.on_init()
 
-    # Register startup instruction listener (class-level, once)
-    @mcp.on_init()
-    async def register_startup_listener() -> None:
-        """Register startup instruction listener with Session class."""
-        from mcp_guide.session import Session
-        from mcp_guide.startup_listener import StartupInstructionListener
-
-        startup_listener = StartupInstructionListener()
-        Session.add_listener(startup_listener)
-
     # Register tools with MCP
     from mcp_guide.core.tool_decorator import register_tools
 

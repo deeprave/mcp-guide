@@ -5,7 +5,7 @@ import contextlib
 import dataclasses
 from contextvars import ContextVar
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, ClassVar, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Optional, Union
 
 import yaml
 from anyio import Path as AsyncPath
@@ -31,6 +31,7 @@ _enable_default_profile = True
 if TYPE_CHECKING:
     from mcp_guide.agent_detection import AgentInfo
     from mcp_guide.feature_flags.protocol import FeatureFlags
+    from mcp_guide.render.cache import TemplateContextCache
     from mcp_guide.session_listener import SessionListener
 
 # Keep old import for compatibility during transition
@@ -49,8 +50,6 @@ class DocrootError(RuntimeError):
 
 class Session:
     """Per-project runtime session with encapsulated configuration management."""
-
-    _listeners: ClassVar[list["SessionListener"]] = []
 
     @classmethod
     def _get_config_manager(cls, config_dir: Optional[str] = None) -> "Session._ConfigManager":
@@ -515,6 +514,8 @@ class Session:
         self._state = SessionState()
         self._config_watcher: Optional[ConfigWatcher] = None
         self._watcher_task: Optional["asyncio.Task[None]"] = None
+        self._listeners: list["SessionListener"] = []
+        self._template_cache: Optional["TemplateContextCache"] = None
 
         # MCP context fields (populated by cache_mcp_globals)
         self.roots: list[Any] = []
@@ -529,6 +530,16 @@ class Session:
     def project_name(self) -> str:
         """Get the current project name."""
         return self.__project.name
+
+    @property
+    def template_cache(self) -> "TemplateContextCache":
+        """Get or create the per-session template context cache."""
+        if self._template_cache is None:
+            from mcp_guide.render.cache import TemplateContextCache
+
+            self._template_cache = TemplateContextCache()
+            self.add_listener(self._template_cache)
+        return self._template_cache
 
     async def switch_project(self, project_name: str) -> None:
         """Switch this session to a different project.
@@ -548,11 +559,15 @@ class Session:
                 f"Project name '{project_name}' must contain only alphanumeric characters, underscores, and hyphens"
             )
 
+        old_project = self.__project.name
+        if project_name == old_project:
+            return
+
         config_manager = self._get_config_manager()
         _key, project = await config_manager.get_or_create_project_config(project_name)
         self.__project = project
         self._project_dirty = False
-        self._notify_listeners()
+        self._notify_project_changed(old_project, project_name)
 
     def _setup_config_watcher(self) -> None:
         """Setup config file watcher for automatic reload on external changes."""
@@ -588,35 +603,32 @@ class Session:
             f"Configuration file changed externally: {file_path} - marking session {self.project_name} dirty"
         )
         self._project_dirty = True
-        self._notify_listeners()
+        self._notify_config_changed()
 
-    @classmethod
-    def add_listener(cls, listener: "SessionListener") -> None:
-        """Add a session change listener (class-level)."""
-        if listener not in cls._listeners:
-            cls._listeners.append(listener)
+    def add_listener(self, listener: "SessionListener") -> None:
+        """Add a session change listener."""
+        if listener not in self._listeners:
+            self._listeners.append(listener)
 
-    @classmethod
-    def remove_listener(cls, listener: "SessionListener") -> None:
-        """Remove a session change listener (class-level)."""
-        if listener in cls._listeners:
-            cls._listeners.remove(listener)
+    def remove_listener(self, listener: "SessionListener") -> None:
+        """Remove a session change listener."""
+        if listener in self._listeners:
+            self._listeners.remove(listener)
 
-    @classmethod
-    def clear_listeners(cls) -> None:
-        """Clear all session listeners (class-level).
+    def clear_listeners(self) -> None:
+        """Clear all session listeners.
 
         Primarily for testing to ensure clean state between tests.
         """
-        cls._listeners.clear()
+        self._listeners.clear()
 
-    def _notify_listeners(self) -> None:
-        """Notify all listeners of session change."""
+    def _notify_project_changed(self, old_project: str, new_project: str) -> None:
+        """Notify all listeners of project change."""
         for listener in self._listeners:
             try:
-                listener.on_session_changed(self)
+                listener.on_project_changed(self, old_project, new_project)
             except Exception as e:
-                logger.debug(f"Listener notification failed: {e}")
+                logger.debug(f"Project change listener notification failed: {e}")
 
     def _notify_config_changed(self) -> None:
         """Notify all listeners of config change."""
@@ -779,6 +791,9 @@ async def get_or_create_session(
     # Return existing session if one exists
     existing_session = _active_session.get()
     if existing_session is not None:
+        # Update MCP context if available and agent not yet detected
+        if ctx and existing_session.agent_info is None:
+            await cache_mcp_globals(ctx)
         return existing_session
 
     # Determine project name for new session
@@ -796,17 +811,19 @@ async def get_or_create_session(
     session.agent_info = agent_info
     session.client_params = client_params
 
-    # Register template context cache as listener (class-level, only once)
-    from mcp_guide.render.cache import template_context_cache
+    # Ensure per-session template cache is initialised (lazy via property)
+    _ = session.template_cache
 
-    if template_context_cache not in Session._listeners:
-        Session.add_listener(template_context_cache)
+    # Register per-session startup instruction listener
+    from mcp_guide.startup_listener import StartupInstructionListener
+
+    session.add_listener(StartupInstructionListener())
 
     # Store in ContextVar
     set_current_session(session)
 
-    # Notify listeners of session change
-    session._notify_listeners()
+    # Notify listeners of initial project load
+    session._notify_project_changed("", session.project_name)
 
     return session
 
