@@ -31,6 +31,10 @@ class TestWorkflowMonitorTask:
         """Test WorkflowMonitorTask ignores unrelated events and leaves state unchanged."""
         import copy
 
+        # Capture initial state before dispatching any events
+        exclude = {"task_manager"}
+        initial_filtered = {k: v for k, v in monitor_task.__dict__.items() if k not in exclude}
+
         # Non-matching file content event (different path)
         result_file_content = await monitor_task.handle_event(
             EventType.FS_FILE_CONTENT,
@@ -47,7 +51,5 @@ class TestWorkflowMonitorTask:
 
         # Ensure state has not changed after handling unrelated events
         # Exclude task_manager (contains asyncio.Task, not picklable and not relevant state)
-        exclude = {"task_manager"}
-        initial_filtered = {k: v for k, v in monitor_task.__dict__.items() if k not in exclude}
         final_filtered = {k: v for k, v in monitor_task.__dict__.items() if k not in exclude}
         assert copy.deepcopy(final_filtered) == copy.deepcopy(initial_filtered)
