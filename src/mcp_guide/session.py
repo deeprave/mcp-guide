@@ -811,6 +811,14 @@ async def get_or_create_session(
         # Update MCP context if available and agent not yet detected
         if ctx and existing_session.agent_info is None:
             await cache_mcp_globals(ctx)
+        # Ensure registry is populated even if session was created without ctx
+        if ctx is not None:
+            try:
+                register_session(ctx.session, existing_session)
+            except (AttributeError, TypeError):
+                pass
+            except RuntimeError as exc:
+                logger.warning("Failed to register guide session for cross-task lookup: %s", exc)
         return existing_session
 
     # Determine project name for new session
@@ -840,8 +848,10 @@ async def get_or_create_session(
     if ctx is not None:
         try:
             register_session(ctx.session, session)
-        except (RuntimeError, AttributeError):
-            pass
+        except AttributeError:
+            pass  # ctx.session not available in this context (e.g. tests)
+        except (RuntimeError, TypeError) as exc:
+            logger.warning("Failed to register guide session for cross-task lookup: %s", exc)
 
     # Notify listeners of initial project load
     await session._notify_project_changed("", session.project_name)

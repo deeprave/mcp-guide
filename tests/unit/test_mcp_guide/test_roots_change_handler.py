@@ -1,14 +1,13 @@
 """Tests for roots/list_changed notification handler."""
 
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 
-def _make_root(uri: str) -> MagicMock:
-    root = MagicMock()
-    root.uri = uri
-    return root
+def _make_root(uri: str) -> SimpleNamespace:
+    return SimpleNamespace(uri=uri)
 
 
 def _make_mcp_session(roots: list) -> MagicMock:
@@ -46,7 +45,7 @@ async def test_roots_changed_switches_project() -> None:
     finally:
         _current_notification_session.reset(token)
 
-    assert guide_session.roots == new_roots
+    assert [r.uri for r in guide_session.roots] == ["file:///home/user/new-project"]
     guide_session.switch_project.assert_awaited_once_with("new-project")
     guide_session.template_cache.invalidate.assert_called_once()
 
@@ -70,3 +69,21 @@ async def test_roots_unchanged_is_noop() -> None:
 
     guide_session.switch_project.assert_not_awaited()
     guide_session.template_cache.invalidate.assert_not_called()
+
+
+def test_create_server_installs_roots_hooks() -> None:
+    """create_server patches _handle_message and registers the roots handler."""
+    from mcp.types import RootsListChangedNotification
+
+    from mcp_guide.cli import ServerConfig
+    from mcp_guide.server import _handle_roots_changed, create_server
+
+    mcp = create_server(ServerConfig())
+    low_level = mcp._mcp_server
+
+    assert getattr(low_level._handle_message, "_roots_patched", False), (
+        "_handle_message was not patched by create_server"
+    )
+    assert low_level.notification_handlers.get(RootsListChangedNotification) is _handle_roots_changed, (
+        "RootsListChangedNotification handler not registered"
+    )
