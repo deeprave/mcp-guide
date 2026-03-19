@@ -242,7 +242,7 @@ async def internal_category_add(args: CategoryAddArgs, ctx: Optional[Context] = 
         category_dir = docroot / validated_dir
         await AsyncPath(category_dir).mkdir(parents=True, exist_ok=True)
     except OSError as exc:
-        _log_dir_error(logger, exc, args.name, validated_dir)
+        _log_dir_error(logger, exc, args.name, category_dir)
     try:
         # Use new dict-based with_category method
         await session.update_config(lambda p: p.with_category(args.name, category))
@@ -510,7 +510,7 @@ async def internal_category_change(args: CategoryChangeArgs, ctx: Optional[Conte
             category_dir = docroot / args.new_dir
             await AsyncPath(category_dir).mkdir(parents=True, exist_ok=True)
         except OSError as exc:
-            _log_dir_error(logger, exc, args.name, args.new_dir)
+            _log_dir_error(logger, exc, args.name, category_dir)
 
     def update_category_and_collections(p: Project) -> Project:
         # Remove old category

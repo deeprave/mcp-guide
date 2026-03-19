@@ -64,9 +64,10 @@ async def internal_client_info(args: GetClientInfoArgs, ctx: Optional[Context] =
                 return Result.failure("No client information available")
 
             cp = ctx.session.client_params
-            agent_info = detect_agent(cp)
+            normalized_cp = cp.model_dump() if isinstance(cp, BaseModel) else cp
+            agent_info = detect_agent(normalized_cp)
             session.agent_info = agent_info
-            session.client_params = cp.model_dump() if isinstance(cp, BaseModel) else cp
+            session.client_params = normalized_cp
             invalidate_template_context_cache()
 
         # Build structured data
