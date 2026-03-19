@@ -89,18 +89,20 @@ async def cache_mcp_globals(ctx: Optional["Context"] = None) -> bool:
 
     session = get_active_session()
     if session is not None:
+        from pydantic import BaseModel
+
+        normalized_params = client_params.model_dump() if isinstance(client_params, BaseModel) else client_params
+
         # Only invalidate template context cache if MCP globals actually changed
         changed = (
             getattr(session, "roots", None) != roots
             or getattr(session, "agent_info", None) != agent_info
-            or getattr(session, "client_params", None) != client_params
+            or getattr(session, "client_params", None) != normalized_params
         )
 
         session.roots = roots
         session.agent_info = agent_info
-        from pydantic import BaseModel
-
-        session.client_params = client_params.model_dump() if isinstance(client_params, BaseModel) else client_params  # ty: ignore[invalid-assignment]
+        session.client_params = normalized_params  # ty: ignore[invalid-assignment]
 
         if changed:
             from mcp_guide.render.cache import invalidate_template_context_cache
