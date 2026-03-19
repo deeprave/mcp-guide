@@ -21,11 +21,11 @@ from mcp_guide.tools.tool_result import tool_result
 from mcp_guide.validation import validate_categories_exist
 
 if TYPE_CHECKING:
-    from mcp.server.fastmcp import Context
+    from fastmcp import Context
 
 
 try:
-    from mcp.server.fastmcp import Context
+    from fastmcp import Context
 except ImportError:
     Context = None  # ty: ignore[invalid-assignment]
 __all__ = [

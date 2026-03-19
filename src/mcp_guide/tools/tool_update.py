@@ -14,7 +14,7 @@ from mcp_guide.session import get_session
 from mcp_guide.tools.tool_result import tool_result
 
 try:
-    from mcp.server.fastmcp import Context
+    from fastmcp import Context
 except ImportError:
     Context = None  # ty: ignore[invalid-assignment]
 __all__ = ["internal_update_documents", "update_documents"]

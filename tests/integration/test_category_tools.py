@@ -11,7 +11,7 @@ import json
 from pathlib import Path
 
 import pytest
-from mcp.shared.memory import create_connected_server_and_client_session
+from fastmcp.client import Client, FastMCPTransport
 
 from mcp_guide.models import Category
 from mcp_guide.session import get_session, remove_current_session
@@ -55,7 +55,7 @@ async def test_add_category_via_mcp(mcp_server, test_session, monkeypatch):
     """Test adding category through MCP client."""
     monkeypatch.setenv("PWD", "/fake/path/test")
 
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         args = CategoryCollectionAddArgs(type="category", name="api", dir="src/api", patterns=["*.py"])
         result = await call_mcp_tool(client, "category_collection_add", args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
@@ -69,7 +69,7 @@ async def test_list_categories_via_mcp(mcp_server, test_session, monkeypatch):
     """Test listing categories through MCP client."""
     monkeypatch.setenv("PWD", "/fake/path/test")
 
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         args1 = CategoryCollectionAddArgs(type="category", name="api", dir="src/api", patterns=["*.py"])
         await call_mcp_tool(client, "category_collection_add", args1)
         args2 = CategoryCollectionAddArgs(type="category", name="docs", dir="docs", patterns=["*.md"])
@@ -90,7 +90,7 @@ async def test_update_category_via_mcp(mcp_server, test_session, monkeypatch):
     """Test updating category through MCP client."""
     monkeypatch.setenv("PWD", "/fake/path/test")
 
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         args1 = CategoryCollectionAddArgs(type="category", name="api", dir="src/api", patterns=["*.py"])
         await call_mcp_tool(client, "category_collection_add", args1)
 
@@ -107,7 +107,7 @@ async def test_remove_category_via_mcp(mcp_server, test_session, monkeypatch):
     """Test removing category through MCP client."""
     monkeypatch.setenv("PWD", "/fake/path/test")
 
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         args1 = CategoryCollectionAddArgs(type="category", name="api", dir="src/api", patterns=["*.py"])
         await call_mcp_tool(client, "category_collection_add", args1)
 
@@ -127,7 +127,7 @@ async def test_category_management_workflow(mcp_server, test_session, monkeypatc
     """Test complete category management workflow."""
     monkeypatch.setenv("PWD", "/fake/path/test")
 
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         # Add category
         args = CategoryCollectionAddArgs(type="category", name="api", dir="src/api", patterns=["*.py"])
         result = await call_mcp_tool(client, "category_collection_add", args)
@@ -198,7 +198,7 @@ async def test_category_error_scenarios(mcp_server, test_session, monkeypatch, s
     """Test various category operation error scenarios."""
     monkeypatch.setenv("PWD", "/fake/path/test")
 
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         if setup_fn:
             await setup_fn(client)
 
@@ -230,7 +230,7 @@ async def test_category_persists_after_add(mcp_server, tmp_path, monkeypatch):
     # Create session and add category
     session1 = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         args = CategoryCollectionAddArgs(type="category", name="api", dir="src/api", patterns=["*.py"])
         await call_mcp_tool(client, "category_collection_add", args)
 
@@ -255,7 +255,7 @@ async def test_category_persists_after_update(mcp_server, tmp_path, monkeypatch)
     # Create session and add/update category
     session1 = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         args1 = CategoryCollectionAddArgs(type="category", name="api", dir="src/api", patterns=["*.py"])
         await call_mcp_tool(client, "category_collection_add", args1)
         args2 = CategoryCollectionUpdateArgs(type="category", name="api", add_patterns=["*.pyi"])
@@ -280,7 +280,7 @@ async def test_category_removed_persists(mcp_server, tmp_path, monkeypatch):
     # Create session and add/remove category
     session1 = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         args1 = CategoryCollectionAddArgs(type="category", name="api", dir="src/api", patterns=["*.py"])
         await call_mcp_tool(client, "category_collection_add", args1)
         args2 = CategoryCollectionRemoveArgs(type="category", name="api")
@@ -304,7 +304,7 @@ async def test_multiple_operations_persist(mcp_server, tmp_path, monkeypatch):
     # Create session with multiple operations
     session1 = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         args1 = CategoryCollectionAddArgs(type="category", name="api", dir="src/api", patterns=["*.py"])
         await call_mcp_tool(client, "category_collection_add", args1)
         args2 = CategoryCollectionAddArgs(type="category", name="docs", dir="docs", patterns=["*.md"])
@@ -335,7 +335,7 @@ async def test_category_removal_preserves_collections(mcp_server, tmp_path, monk
 
     session1 = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         args1 = CategoryCollectionAddArgs(type="category", name="api", dir="src/api", patterns=["*.py"])
         await call_mcp_tool(client, "category_collection_add", args1)
         args2 = CategoryCollectionAddArgs(type="category", name="docs", dir="docs", patterns=["*.md"])
@@ -367,7 +367,7 @@ async def test_update_category_preserves_collections(mcp_server, tmp_path, monke
 
     session1 = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
 
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         args1 = CategoryCollectionAddArgs(type="category", name="api", dir="src/api", patterns=["*.py"])
         await call_mcp_tool(client, "category_collection_add", args1)
         args2 = CategoryCollectionAddArgs(type="collection", name="backend", categories=["api"])
@@ -405,7 +405,7 @@ async def test_category_content_not_found(mcp_server, tmp_path, monkeypatch):
     docroot = Path(tmp_path.resolve()) / "docs"
     generate_test_files(docroot)
 
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         args = CategoryContentArgs(expression="nonexistent")
         result = await call_mcp_tool(client, "category_content", args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
@@ -432,7 +432,7 @@ async def test_category_content_empty_category(mcp_server, tmp_path, monkeypatch
     docroot = Path(tmp_path.resolve()) / "docs"
     generate_test_files(docroot)
 
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         args = CategoryContentArgs(expression="guide")
         result = await call_mcp_tool(client, "category_content", args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
@@ -458,7 +458,7 @@ async def test_category_content_success_single_file(mcp_server, tmp_path, monkey
     docroot = Path(tmp_path.resolve()) / "docs"
     generate_test_files(docroot)
 
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         args = CategoryContentArgs(expression="lang")
         result = await call_mcp_tool(client, "category_content", args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
@@ -485,7 +485,7 @@ async def test_category_content_success_multiple_files(mcp_server, tmp_path, mon
     docroot = Path(tmp_path.resolve()) / "docs"
     generate_test_files(docroot)
 
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         args = CategoryContentArgs(expression="context")
         result = await call_mcp_tool(client, "category_content", args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
@@ -513,7 +513,7 @@ async def test_category_content_pattern_override(mcp_server, tmp_path, monkeypat
     docroot = Path(tmp_path.resolve()) / "docs"
     generate_test_files(docroot)
 
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         # Request only files matching "guidelines-*"
         args = CategoryContentArgs(expression="guide", pattern="guidelines-*")
         result = await call_mcp_tool(client, "category_content", args)
@@ -546,7 +546,7 @@ async def test_category_content_file_read_error(mcp_server, tmp_path, monkeypatc
     os.chmod(test_file, 0o000)
 
     try:
-        async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+        async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
             args = CategoryContentArgs(expression="docs")
             result = await call_mcp_tool(client, "category_content", args)
             response = json.loads(result.content[0].text)  # type: ignore[union-attr]
@@ -578,7 +578,7 @@ async def test_category_list_files_success(mcp_server, tmp_path, monkeypatch):
     # Add category with pattern matching files
     await session.update_config(lambda p: p.with_category("guide", Category(dir="guide", patterns=["general*"])))
 
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         args = CategoryListFilesArgs(name="guide")
         result = await call_mcp_tool(client, "category_list_files", args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
@@ -619,7 +619,7 @@ async def test_category_list_files_mixed_file_types(mcp_server, tmp_path, monkey
     # Add category that matches all files
     await session.update_config(lambda p: p.with_category("guide", Category(dir="guide", patterns=["**/*"])))
 
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         args = CategoryListFilesArgs(name="guide")
         result = await call_mcp_tool(client, "category_list_files", args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
@@ -657,7 +657,7 @@ async def test_category_list_files_output_format(mcp_server, tmp_path, monkeypat
 
     await session.update_config(lambda p: p.with_category("test", Category(dir="test", patterns=["*"])))
 
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         args = CategoryListFilesArgs(name="test")
         result = await call_mcp_tool(client, "category_list_files", args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
@@ -692,7 +692,7 @@ async def test_category_list_files_category_not_found_integration(mcp_server, tm
 
     session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
 
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         args = CategoryListFilesArgs(name="nonexistent")
         result = await call_mcp_tool(client, "category_list_files", args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
@@ -721,7 +721,7 @@ async def test_category_content_with_pattern_expression(mcp_server, tmp_path, mo
     # Add category
     await session.update_config(lambda p: p.with_category("guide", Category(dir="guide", patterns=["*.md"])))
 
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         # Test with pattern expression
         args = CategoryContentArgs(expression="guide/guidelines.md")
         result = await call_mcp_tool(client, "category_content", args)
@@ -745,7 +745,7 @@ async def test_category_content_with_multiple_patterns(mcp_server, tmp_path, mon
     # Add category
     await session.update_config(lambda p: p.with_category("guide", Category(dir="guide", patterns=["*.md"])))
 
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         # Test with multiple patterns
         args = CategoryContentArgs(expression="guide/guidelines.md+guidelines-feature1.md")
         result = await call_mcp_tool(client, "category_content", args)
@@ -774,7 +774,7 @@ async def test_category_content_with_multiple_expressions(mcp_server, tmp_path, 
         )
     )
 
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         # Test with multiple expressions
         args = CategoryContentArgs(expression="guide/guidelines.md,lang/python.md")
         result = await call_mcp_tool(client, "category_content", args)

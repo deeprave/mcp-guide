@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 import pytest
-from mcp.shared.memory import create_connected_server_and_client_session
+from fastmcp.client import Client, FastMCPTransport
 
 from mcp_guide.models import Category, Collection
 from mcp_guide.session import get_session, remove_current_session
@@ -39,7 +39,7 @@ async def test_get_content_category_only(mcp_server, tmp_path, monkeypatch):
     docroot = Path(tmp_path.resolve()) / "docs"
     generate_test_files(docroot)
 
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         args = ContentArgs(expression="guide")
         result = await call_mcp_tool(client, "get_content", args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
@@ -71,7 +71,7 @@ async def test_get_content_collection_only(mcp_server, tmp_path, monkeypatch):
     docroot = Path(tmp_path.resolve()) / "docs"
     generate_test_files(docroot)
 
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         args = ContentArgs(expression="all")
         result = await call_mcp_tool(client, "get_content", args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
@@ -102,7 +102,7 @@ async def test_get_content_both_match_deduplicates(mcp_server, tmp_path, monkeyp
     docroot = Path(tmp_path.resolve()) / "docs"
     generate_test_files(docroot)
 
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         args = ContentArgs(expression="guide")
         result = await call_mcp_tool(client, "get_content", args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
@@ -135,7 +135,7 @@ async def test_get_content_pattern_override(mcp_server, tmp_path, monkeypatch):
     docroot = Path(tmp_path.resolve()) / "docs"
     generate_test_files(docroot)
 
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         # Call with pattern override to only get .md files
         args = ContentArgs(expression="context", pattern="*.md")
         result = await call_mcp_tool(client, "get_content", args)
@@ -163,7 +163,7 @@ async def test_get_content_empty_result(mcp_server, tmp_path, monkeypatch):
     empty_dir = docroot / "empty"
     empty_dir.mkdir(parents=True, exist_ok=True)
 
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         args = ContentArgs(expression="empty")
         result = await call_mcp_tool(client, "get_content", args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
@@ -197,7 +197,7 @@ async def test_get_content_nested_collection(mcp_server, tmp_path, monkeypatch):
     docroot = Path(tmp_path.resolve()) / "docs"
     generate_test_files(docroot)
 
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         args = ContentArgs(expression="all")
         result = await call_mcp_tool(client, "get_content", args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
@@ -231,7 +231,7 @@ async def test_get_content_circular_collection_reference(mcp_server, tmp_path, m
     docroot = Path(tmp_path.resolve()) / "docs"
     generate_test_files(docroot)
 
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         args = ContentArgs(expression="col1")
         result = await call_mcp_tool(client, "get_content", args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]

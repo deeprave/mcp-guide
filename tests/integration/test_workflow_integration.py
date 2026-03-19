@@ -5,7 +5,7 @@ from typing import Any
 from unittest.mock import AsyncMock
 
 import pytest
-from mcp.server.fastmcp import Context
+from fastmcp import Context
 
 from mcp_guide.filesystem.tools import send_file_content
 from mcp_guide.task_manager import get_task_manager

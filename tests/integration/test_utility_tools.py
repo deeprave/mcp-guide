@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 import pytest
-from mcp.shared.memory import create_connected_server_and_client_session
+from fastmcp.client import Client, FastMCPTransport
 
 from mcp_guide.session import get_session, remove_current_session
 from mcp_guide.tools.tool_utility import GetClientInfoArgs
@@ -34,7 +34,7 @@ async def test_session(tmp_path: Path):
 @pytest.mark.anyio
 async def test_client_info_returns_agent_info(mcp_server, test_session):
     """Test that client_info returns agent information from MCP client."""
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         args = GetClientInfoArgs()
         result = await call_mcp_tool(client, "client_info", args)
 
@@ -67,7 +67,7 @@ async def test_client_info_returns_agent_info(mcp_server, test_session):
 @pytest.mark.anyio
 async def test_client_info_caches_agent_info(mcp_server, test_session):
     """Test that client_info caches agent info across multiple calls."""
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         args = GetClientInfoArgs()
 
         # First call

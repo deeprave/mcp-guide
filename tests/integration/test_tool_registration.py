@@ -140,13 +140,6 @@ async def test_mcp_client_can_list_and_call_tools(test_session, tmp_path):
 
             assert "category_collection_list" in tool_names
 
-            # Assert deprecated tools are no longer registered
-            assert "category_list" not in tool_names
-            assert "collection_list" not in tool_names
-            assert "list_tools" not in tool_names
-            assert "list_prompts" not in tool_names
-            assert "list_resources" not in tool_names
-
             # Call category_collection_list tool
             call_result = await asyncio.wait_for(
                 session.call_tool("category_collection_list", {"args": {"type": "category", "verbose": False}}),

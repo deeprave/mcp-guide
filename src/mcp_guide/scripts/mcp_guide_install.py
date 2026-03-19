@@ -2,7 +2,6 @@
 """MCP Guide installer script."""
 
 import asyncio
-import logging
 from pathlib import Path
 
 import click
@@ -16,7 +15,7 @@ def setup_installer_logging(verbose: bool, quiet: bool) -> None:
         verbose: Enable DEBUG level logging
         quiet: Enable WARNING level logging only
     """
-    from mcp_guide.core.mcp_log import create_console_handler, create_formatter, get_log_level
+    from mcp_guide.core.mcp_log import create_console_handler, create_formatter, get_log_level, get_logger
 
     # Determine log level
     if verbose:
@@ -33,7 +32,7 @@ def setup_installer_logging(verbose: bool, quiet: bool) -> None:
     handler.setLevel(get_log_level(level))
 
     # Configure installer logger (not root) to avoid impacting other loggers
-    installer_logger = logging.getLogger("mcp_guide.installer")
+    installer_logger = get_logger("mcp_guide.installer")
     installer_logger.setLevel(get_log_level(level))
 
     # Remove any existing handlers to avoid duplicate log output when this

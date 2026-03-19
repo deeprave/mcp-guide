@@ -443,7 +443,7 @@ def add_trace_to_context() -> None:
             sanitized = _sanitize_log_message(message)
             await self.log(level="debug", message=f"[TRACE] {sanitized}")
 
-        Context.trace = trace
+        Context.trace = trace  # ty: ignore[unresolved-attribute]
     except ImportError:
         pass
 

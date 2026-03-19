@@ -22,7 +22,7 @@ from mcp_guide.utils.project_hash import (
 )
 
 try:
-    from mcp.server.fastmcp import Context
+    from fastmcp import Context
 except ImportError:
     Context = None  # ty: ignore[invalid-assignment]
 # Module-level flag to control default profile application

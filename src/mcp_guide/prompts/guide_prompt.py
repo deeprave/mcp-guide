@@ -34,10 +34,10 @@ from mcp_guide.tools.tool_content import ContentArgs, internal_get_content
 if TYPE_CHECKING:
     from typing import Any
 
-    from mcp.server.fastmcp import Context
+    from fastmcp import Context
 else:
     try:
-        from mcp.server.fastmcp import Context
+        from fastmcp import Context
     except ImportError:
         Context = None
 logger = get_logger(__name__)

@@ -2,6 +2,7 @@
 
 """Category management tools."""
 
+import errno
 from dataclasses import replace
 from pathlib import Path
 from typing import Any, Literal, Optional, Union
@@ -12,6 +13,7 @@ from pydantic import Field, model_validator
 from mcp_guide.content.formatters.selection import ContentFormat, get_formatter_from_flag
 from mcp_guide.content.gathering import gather_content
 from mcp_guide.content.utils import read_and_render_file_contents
+from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.core.tool_arguments import ToolArguments
 from mcp_guide.core.tool_decorator import toolfunc
 from mcp_guide.core.validation import (
@@ -40,9 +42,19 @@ from mcp_guide.session import get_session
 from mcp_guide.tools.tool_result import tool_result
 
 try:
-    from mcp.server.fastmcp import Context
+    from fastmcp import Context
 except ImportError:
     Context = None  # ty: ignore[invalid-assignment]
+logger = get_logger(__name__)
+
+_SERIOUS_ERRNOS = {errno.EACCES, errno.EPERM, errno.EROFS}
+
+
+def _log_dir_error(log, exc: OSError, category: str, path: object) -> None:
+    level = log.warning if exc.errno in _SERIOUS_ERRNOS else log.debug
+    level("Failed to create directory for category '%s' at %s: %s", category, path, exc)
+
+
 __all__ = [
     "internal_category_list",
     "internal_category_add",
@@ -229,11 +241,8 @@ async def internal_category_add(args: CategoryAddArgs, ctx: Optional[Context] = 
         docroot = Path(await session.get_docroot())
         category_dir = docroot / validated_dir
         await AsyncPath(category_dir).mkdir(parents=True, exist_ok=True)
-    except Exception:
-        # Directory creation failed (e.g., in test environment) - continue anyway
-        # The directory will be created when actually needed for file operations
-        pass
-
+    except OSError as exc:
+        _log_dir_error(logger, exc, args.name, validated_dir)
     try:
         # Use new dict-based with_category method
         await session.update_config(lambda p: p.with_category(args.name, category))
@@ -500,10 +509,8 @@ async def internal_category_change(args: CategoryChangeArgs, ctx: Optional[Conte
             docroot = Path(await session.get_docroot())
             category_dir = docroot / args.new_dir
             await AsyncPath(category_dir).mkdir(parents=True, exist_ok=True)
-        except Exception:
-            # Directory creation failed (e.g., in test environment) - continue anyway
-            # The directory will be created when actually needed for file operations
-            pass
+        except OSError as exc:
+            _log_dir_error(logger, exc, args.name, args.new_dir)
 
     def update_category_and_collections(p: Project) -> Project:
         # Remove old category

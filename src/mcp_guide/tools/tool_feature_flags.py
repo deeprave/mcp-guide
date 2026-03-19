@@ -22,7 +22,7 @@ from mcp_guide.result_constants import (
 from mcp_guide.tools.tool_result import tool_result
 
 try:
-    from mcp.server.fastmcp import Context
+    from fastmcp import Context
 except ImportError:
     Context = None  # ty: ignore[invalid-assignment]
 __all__ = [

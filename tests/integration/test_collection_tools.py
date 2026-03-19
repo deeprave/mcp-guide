@@ -11,7 +11,7 @@ import json
 from pathlib import Path
 
 import pytest
-from mcp.shared.memory import create_connected_server_and_client_session
+from fastmcp.client import Client, FastMCPTransport
 
 from mcp_guide.models import Category
 from mcp_guide.session import get_session, remove_current_session
@@ -64,7 +64,7 @@ async def test_add_collection_via_mcp(mcp_server, test_session, monkeypatch):
     """Test adding collection through MCP client."""
     monkeypatch.setenv("PWD", "/fake/path/test")
 
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         args = CategoryCollectionAddArgs(
             type="collection", name="backend", categories=["api", "tests"], description="Backend code"
         )
@@ -78,7 +78,7 @@ async def test_list_collections_via_mcp(mcp_server, test_session, monkeypatch):
     """Test listing collections through MCP client."""
     monkeypatch.setenv("PWD", "/fake/path/test")
 
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         # Add collection
         args1 = CategoryCollectionAddArgs(
             type="collection", name="backend", categories=["api", "tests"], description="Backend code"
@@ -103,7 +103,7 @@ async def test_update_collection_via_mcp(mcp_server, test_session, monkeypatch):
 
     monkeypatch.setenv("PWD", "/fake/path/test")
 
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         # Add collection
         args1 = CategoryCollectionAddArgs(type="collection", name="backend", categories=["api", "tests"])
         await call_mcp_tool(client, "category_collection_add", args1)
@@ -128,7 +128,7 @@ async def test_remove_collection_via_mcp(mcp_server, test_session, monkeypatch):
 
     monkeypatch.setenv("PWD", "/fake/path/test")
 
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         # Add collection
         args1 = CategoryCollectionAddArgs(type="collection", name="backend", categories=["api"])
         await call_mcp_tool(client, "category_collection_add", args1)
@@ -153,7 +153,7 @@ async def test_collection_management_workflow(mcp_server, test_session, monkeypa
 
     monkeypatch.setenv("PWD", "/fake/path/test")
 
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         # Add
         args = CategoryCollectionAddArgs(
             type="collection", name="backend", categories=["api", "tests"], description="Backend code"
@@ -200,7 +200,7 @@ async def test_add_collection_invalid_category_fails(mcp_server, test_session, m
 
     monkeypatch.setenv("PWD", "/fake/path/test")
 
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         args = CategoryCollectionAddArgs(type="collection", name="backend", categories=["nonexistent"])
         result = await call_mcp_tool(client, "category_collection_add", args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
@@ -215,7 +215,7 @@ async def test_update_collection_invalid_category_fails(mcp_server, test_session
 
     monkeypatch.setenv("PWD", "/fake/path/test")
 
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         # Add valid collection
         args1 = CategoryCollectionAddArgs(type="collection", name="backend", categories=["api"])
         await call_mcp_tool(client, "category_collection_add", args1)
@@ -235,7 +235,7 @@ async def test_validation_errors_return_proper_format(mcp_server, test_session, 
 
     monkeypatch.setenv("PWD", "/fake/path/test")
 
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         args = CategoryCollectionAddArgs(type="collection", name="backend", categories=["nonexistent"])
         result = await call_mcp_tool(client, "category_collection_add", args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
@@ -261,7 +261,7 @@ async def test_collection_persists_after_add(mcp_server, tmp_path, monkeypatch):
     session1 = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
     await session1.update_config(lambda p: p.with_category("api", Category(dir="src/api", patterns=["*.py"])))
 
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         args = CategoryCollectionAddArgs(type="collection", name="backend", categories=["api"])
         await call_mcp_tool(client, "category_collection_add", args)
 
@@ -288,7 +288,7 @@ async def test_collection_persists_after_update(mcp_server, tmp_path, monkeypatc
         )
     )
 
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         args1 = CategoryCollectionAddArgs(type="collection", name="backend", categories=["api"])
         await call_mcp_tool(client, "category_collection_add", args1)
         args2 = CategoryCollectionUpdateArgs(type="collection", name="backend", add_categories=["docs"])
@@ -314,7 +314,7 @@ async def test_collection_removed_persists(mcp_server, tmp_path, monkeypatch):
     session1 = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
     await session1.update_config(lambda p: p.with_category("api", Category(dir="src/api", patterns=["*.py"])))
 
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         args1 = CategoryCollectionAddArgs(type="collection", name="backend", categories=["api"])
         await call_mcp_tool(client, "category_collection_add", args1)
         args2 = CategoryCollectionRemoveArgs(type="collection", name="backend")
@@ -343,7 +343,7 @@ async def test_multiple_operations_persist(mcp_server, tmp_path, monkeypatch):
         )
     )
 
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         args1 = CategoryCollectionAddArgs(type="collection", name="backend", categories=["api"])
         await call_mcp_tool(client, "category_collection_add", args1)
         args2 = CategoryCollectionAddArgs(type="collection", name="frontend", categories=["docs"])
@@ -413,7 +413,7 @@ async def test_collection_error_scenarios(
     """Test various collection operation error scenarios."""
     monkeypatch.setenv("PWD", "/fake/path/test")
 
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         if setup_fn:
             await setup_fn(client)
 
@@ -446,7 +446,7 @@ async def test_collection_removal_preserves_categories(mcp_server, tmp_path, mon
     session1 = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
     await session1.update_config(lambda p: p.with_category("api", Category(dir="src/api", patterns=["*.py"])))
 
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         args1 = CategoryCollectionAddArgs(type="collection", name="backend", categories=["api"])
         await call_mcp_tool(client, "category_collection_add", args1)
         args2 = CategoryCollectionRemoveArgs(type="collection", name="backend")

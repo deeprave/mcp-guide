@@ -7,11 +7,11 @@ from pydantic import Field
 from mcp_guide.core.prompt_decorator import get_prompt_registry
 from mcp_guide.core.resource_decorator import get_resource_registry
 from mcp_guide.core.tool_arguments import ToolArguments
-from mcp_guide.core.tool_decorator import get_tool_registry
+from mcp_guide.core.tool_decorator import get_tool_registry, toolfunc
 from mcp_guide.result import Result
 
 try:
-    from mcp.server.fastmcp import Context
+    from fastmcp import Context
 except ImportError:
     Context = None  # ty: ignore[invalid-assignment]
 
@@ -34,6 +34,7 @@ class ListResourcesArgs(ToolArguments):
     ...
 
 
+@toolfunc(ListToolsArgs)
 async def list_tools(args: ListToolsArgs, ctx: Optional[Context] = None) -> str:
     """List all registered MCP tools.
 
@@ -64,6 +65,7 @@ async def list_tools(args: ListToolsArgs, ctx: Optional[Context] = None) -> str:
     return Result.ok({"tools": tools, "count": len(tools)}).to_json_str()
 
 
+@toolfunc(ListPromptsArgs)
 async def list_prompts(args: ListPromptsArgs, ctx: Optional[Context] = None) -> str:
     """List all registered MCP prompts.
 
@@ -89,6 +91,7 @@ async def list_prompts(args: ListPromptsArgs, ctx: Optional[Context] = None) -> 
     return Result.ok({"prompts": prompts, "count": len(prompts)}).to_json_str()
 
 
+@toolfunc(ListResourcesArgs)
 async def list_resources(args: ListResourcesArgs, ctx: Optional[Context] = None) -> str:
     """List all registered MCP resources.
 
