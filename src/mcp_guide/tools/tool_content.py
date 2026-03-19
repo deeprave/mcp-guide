@@ -10,7 +10,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Optional
 
-from mcp.server.fastmcp import Context
+from fastmcp import Context
 from pydantic import Field
 
 from mcp_guide.content.formatters.selection import ContentFormat, get_formatter_from_flag

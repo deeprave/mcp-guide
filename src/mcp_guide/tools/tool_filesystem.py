@@ -2,7 +2,7 @@
 
 from typing import Any, Dict, Optional
 
-from mcp.server.fastmcp import Context
+from fastmcp import Context
 from pydantic import Field
 
 from mcp_guide.core.tool_arguments import ToolArguments

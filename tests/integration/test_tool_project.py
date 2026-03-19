@@ -10,7 +10,7 @@ Tests project tools through the MCP protocol interface to verify:
 from unittest.mock import patch
 
 import pytest
-from mcp.shared.memory import create_connected_server_and_client_session
+from fastmcp.client import Client, FastMCPTransport
 
 from mcp_guide.session import Session, remove_current_session, set_current_session
 from mcp_guide.tools.tool_category import CategoryAddArgs, CategoryCollectionAddArgs, internal_category_add
@@ -151,11 +151,11 @@ async def test_get_project_verbose_modes(mcp_server, monkeypatch, verbose):
     """Test getting current project with different verbose modes."""
     monkeypatch.setenv("PWD", "/fake/path/test")
 
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         args = GetCurrentProjectArgs(verbose=verbose)
         result = await call_mcp_tool(client, "get_project", args)
 
-        assert result.isError is False
+        assert result.is_error is False
         content = result.content[0].text  # type: ignore[union-attr]
         assert "collections" in content or "categories" in content
 
@@ -172,7 +172,7 @@ async def test_get_project_verbose_modes(mcp_server, monkeypatch, verbose):
 async def test_list_projects_verbose_modes(mcp_server, verbose, setup_projects):
     """Test listing all projects with different verbose modes."""
 
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         # Create test projects
         for project in setup_projects:
             await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name=project))
@@ -180,7 +180,7 @@ async def test_list_projects_verbose_modes(mcp_server, verbose, setup_projects):
         args = ListProjectsArgs(verbose=verbose)
         result = await call_mcp_tool(client, "list_projects", args)
 
-        assert result.isError is False
+        assert result.is_error is False
         content = result.content[0].text  # type: ignore[union-attr]
         for project in setup_projects:
             assert project in content
@@ -193,7 +193,7 @@ async def test_list_project_by_name(mcp_server, monkeypatch):
     """Test getting specific project details by name."""
     monkeypatch.setenv("PWD", "/fake/path/project_alpha")
 
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         # Create project_alpha with categories
         await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_alpha"))
         await call_mcp_tool(
@@ -210,7 +210,7 @@ async def test_list_project_by_name(mcp_server, monkeypatch):
         args = ListProjectArgs(name="project_alpha")
         result = await call_mcp_tool(client, "list_project", args)
 
-        assert result.isError is False
+        assert result.is_error is False
         content = result.content[0].text  # type: ignore[union-attr]
         assert "docs" in content
         assert "api" in content
@@ -224,7 +224,7 @@ async def test_switch_to_existing_project(mcp_server, monkeypatch):
     """Test switching to an existing project."""
     monkeypatch.setenv("PWD", "/fake/path/project_alpha")
 
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         # Create project_alpha
         await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_alpha"))
 
@@ -236,7 +236,7 @@ async def test_switch_to_existing_project(mcp_server, monkeypatch):
         monkeypatch.setenv("PWD", "/fake/path/project_alpha")
         result = await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_alpha"))
 
-        assert result.isError is False
+        assert result.is_error is False
         content = result.content[0].text  # type: ignore[union-attr]
         assert "project_alpha" in content
 
@@ -250,10 +250,10 @@ async def test_switch_to_existing_project(mcp_server, monkeypatch):
 async def test_switch_creates_new_project(mcp_server):
     """Test switching to non-existent project creates it."""
 
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         result = await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="new_project"))
 
-        assert result.isError is False
+        assert result.is_error is False
         content = result.content[0].text  # type: ignore[union-attr]
         assert "new_project" in content
 
@@ -267,7 +267,7 @@ async def test_switch_creates_new_project(mcp_server):
 async def test_switch_verbose_mode(mcp_server):
     """Test switching with verbose mode returns full details."""
 
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         # Create project_beta with some content
         await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_beta"))
         await call_mcp_tool(
@@ -279,7 +279,7 @@ async def test_switch_verbose_mode(mcp_server):
 
         result = await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_beta", verbose=True))
 
-        assert result.isError is False
+        assert result.is_error is False
         content = result.content[0].text  # type: ignore[union-attr]
         assert "project_beta" in content
         assert "categories" in content or "collections" in content
@@ -293,7 +293,7 @@ async def test_clone_to_current_merge(mcp_server, monkeypatch):
     """Test cloning to current project with merge mode."""
     monkeypatch.setenv("PWD", "/fake/path/project_alpha")
 
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         # Create project_alpha with content
         await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_alpha"))
         await call_mcp_tool(
@@ -314,7 +314,7 @@ async def test_clone_to_current_merge(mcp_server, monkeypatch):
         # Clone alpha to current (gamma)
         result = await call_mcp_tool(client, "clone_project", CloneProjectArgs(from_project="project_alpha"))
 
-        assert result.isError is False
+        assert result.is_error is False
         content = result.content[0].text  # type: ignore[union-attr]
         assert "categories_added" in content
         assert "2" in content  # 2 categories added
@@ -324,7 +324,7 @@ async def test_clone_to_current_merge(mcp_server, monkeypatch):
 async def test_clone_to_different_merge(mcp_server):
     """Test cloning to different project with merge mode."""
 
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         # Create project_alpha with content
         await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_alpha"))
         await call_mcp_tool(
@@ -346,7 +346,7 @@ async def test_clone_to_different_merge(mcp_server):
             client, "clone_project", CloneProjectArgs(from_project="project_alpha", to_project="project_gamma")
         )
 
-        assert result.isError is False
+        assert result.is_error is False
 
         # Verify gamma has alpha's config
         verify_result = await call_mcp_tool(client, "list_project", ListProjectArgs(name="project_gamma"))
@@ -358,7 +358,7 @@ async def test_clone_to_different_merge(mcp_server):
 async def test_clone_with_conflicts(mcp_server):
     """Test cloning with overlapping category names shows warnings."""
 
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         # Create project_alpha with docs category
         await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_alpha"))
         await call_mcp_tool(
@@ -370,7 +370,9 @@ async def test_clone_with_conflicts(mcp_server):
         # Create project_beta with different docs category
         await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_beta"))
         await call_mcp_tool(
-            client, "category_add", CategoryAddArgs(name="docs", dir="documentation", patterns=["*.md", "*.rst"])
+            client,
+            "category_collection_add",
+            CategoryCollectionAddArgs(type="category", name="docs", dir="documentation", patterns=["*.md", "*.rst"]),
         )
         await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="test"))
 
@@ -379,7 +381,7 @@ async def test_clone_with_conflicts(mcp_server):
             client, "clone_project", CloneProjectArgs(from_project="project_alpha", to_project="project_beta")
         )
 
-        assert result.isError is False
+        assert result.is_error is False
         content = result.content[0].text  # type: ignore[union-attr]
         assert "conflict" in content.lower() or "warning" in content.lower()
 
@@ -389,7 +391,7 @@ async def test_clone_replace_safeguard(mcp_server, monkeypatch):
     """Test clone replace mode without force triggers safeguard."""
     monkeypatch.setenv("PWD", "/fake/path/project_alpha")
 
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         # Create project_alpha_safeguard with direct manipulation for reliability
         await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_alpha_safeguard"))
         from mcp_guide.models import Category
@@ -415,7 +417,7 @@ async def test_clone_replace_safeguard(mcp_server, monkeypatch):
             CloneProjectArgs(from_project="project_alpha_safeguard", to_project="project_beta_safeguard", merge=False),
         )
 
-        assert result.isError is False  # MCP call succeeds
+        assert result.is_error is False  # MCP call succeeds
         content = result.content[0].text  # type: ignore[union-attr]
         # The safeguard should either fail or show warnings - accept either behavior
         if '"success": false' in content:
@@ -431,7 +433,7 @@ async def test_clone_replace_safeguard(mcp_server, monkeypatch):
 async def test_clone_replace_force(mcp_server):
     """Test clone replace mode with force overrides safeguard."""
 
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         # Create project_alpha_force with clean state
         await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_alpha_force"))
 
@@ -483,7 +485,7 @@ async def test_clone_replace_force(mcp_server):
             ),
         )
 
-        assert result.isError is False
+        assert result.is_error is False
 
         # Verify beta_force now has only alpha_force's config - use direct verification for reliability
         # Switch to project_beta_force through MCP client to ensure proper context
@@ -508,7 +510,7 @@ async def test_clone_replace_force(mcp_server):
 async def test_clone_updates_cache(mcp_server):
     """Test cloning to current project updates cache."""
 
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         # Create project_alpha with content
         await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_alpha"))
         await call_mcp_tool(
@@ -542,7 +544,7 @@ async def test_complete_multi_project_workflow(mcp_server, monkeypatch):
     """Test complete workflow: list → switch → clone → verify."""
     monkeypatch.setenv("PWD", "/fake/path/project_alpha")
 
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         # Create project_alpha with content
         await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_alpha"))
         await call_mcp_tool(
@@ -566,11 +568,11 @@ async def test_complete_multi_project_workflow(mcp_server, monkeypatch):
 
         # Switch to gamma (already there)
         switch_result = await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_gamma"))
-        assert switch_result.isError is False
+        assert switch_result.is_error is False
 
         # Clone alpha to current
         clone_result = await call_mcp_tool(client, "clone_project", CloneProjectArgs(from_project="project_alpha"))
-        assert clone_result.isError is False
+        assert clone_result.is_error is False
 
         # Verify current project has cloned config
         verify_result = await call_mcp_tool(client, "get_project", GetCurrentProjectArgs(verbose=True))

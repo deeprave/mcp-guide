@@ -23,7 +23,7 @@ from mcp_guide.session import set_project as session_set_project
 from mcp_guide.tools.tool_result import tool_result
 
 try:
-    from mcp.server.fastmcp import Context
+    from fastmcp import Context
 except ImportError:
     Context = None  # ty: ignore[invalid-assignment]
 __all__ = [

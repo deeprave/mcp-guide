@@ -1,47 +1,19 @@
-"""GuideMCP - Extended FastMCP server with agent info caching."""
+"""GuideMCP - Extended FastMCP server."""
 
-from typing import TYPE_CHECKING, Any, Awaitable, Callable, Optional
+from typing import Any, Awaitable, Callable
 
-from mcp.server import FastMCP
-
-if TYPE_CHECKING:
-    from mcp_guide.agent_detection import AgentInfo
+from fastmcp import FastMCP
 
 
 class GuideMCP(FastMCP):
-    """Extended FastMCP with agent info caching.
+    """Extended FastMCP with startup handler registration."""
 
-    Adds agent_info attribute to cache client/agent information
-    across tool calls within a session.
-    """
-
-    def __init__(self, name: str, *args: Any, **kwargs: Any) -> None:
+    def __init__(self, name: str | None = None, *args: Any, **kwargs: Any) -> None:
         super().__init__(name, *args, **kwargs)
-        self.agent_info: Optional["AgentInfo"] = None
         self._startup_handlers: list[Callable[[], Awaitable[None]]] = []
 
-    def set_instructions(self, instructions: str) -> None:
-        """Set server instructions sent to client during initialization.
-
-        Args:
-            instructions: Instructions text to send to the agent
-        """
-        self._mcp_server.instructions = instructions
-
     def on_init(self) -> Callable[[Callable[[], Awaitable[None]]], Callable[[], Awaitable[None]]]:
-        """Decorator to register startup initialization handlers.
-
-        Handlers are executed during server startup before any client connections.
-
-        Example:
-            @guide.on_init()
-            async def initialize_something():
-                # Initialization code here
-                pass
-
-        Returns:
-            Decorator function that registers the handler
-        """
+        """Decorator to register startup initialization handlers."""
 
         def decorator(func: Callable[[], Awaitable[None]]) -> Callable[[], Awaitable[None]]:
             self._startup_handlers.append(func)

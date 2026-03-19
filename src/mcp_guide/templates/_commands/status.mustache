@@ -10,7 +10,7 @@ includes:
 {{h1}}System Status
 
 {{b}}MCP Guide:{{b}} `v{{server.version}}`
-{{b}}Agent:{{b}} `{{#agent}}{{agent.name}}{{#agent.version}} v{{agent.version}}{{/agent.version}}{{/agent}}{{^agent}}Not detected{{/agent}}`
+{{b}}Agent:{{b}} `{{#agent}}{{agent.name}}{{#agent.version}} v{{agent.version}}{{/agent.version}}{{/agent}}{{^agent}}Not yet detected{{/agent}}`
 {{b}}Command Prefix:{{b}} `{{#agent}}{{agent.prefix}}{{/agent}}{{^agent}}{{@}}{{/agent}}`
 {{b}}Tool Prefix:{{b}} `{{#tool_prefix}}{{tool_prefix}}{{/tool_prefix}}{{^tool_prefix}}None{{/tool_prefix}}`
 {{b}}Project:{{b}} `{{project.name}}`
@@ -18,4 +18,14 @@ includes:
 
 {{>client-info}}
 {{/agent}}
-{{#workflow.phase}}{{>workflow-status}}{{>taskmanager}}{{/workflow.phase}}
+{{#workflow}}{{#workflow.phase}}{{>workflow-status}}{{>taskmanager}}{{/workflow.phase}}{{^workflow.phase}}
+
+Workflow details not yet detected.
+
+Please try `:status` again.
+{{/workflow.phase}}{{/workflow}}{{^workflow}}
+
+Workflow details not yet detected.
+
+Please try `:status` again.
+{{/workflow}}

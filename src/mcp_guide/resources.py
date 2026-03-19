@@ -1,12 +1,12 @@
 """MCP resource handlers for guide:// URI scheme."""
 
-from typing import Any, Optional
+from typing import Optional
 
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.core.resource_decorator import resourcefunc
 
 try:
-    from mcp.server.fastmcp import Context
+    from fastmcp import Context
 except ImportError:
     Context = None  # ty: ignore[invalid-assignment]
 from mcp_guide.tools.tool_content import ContentArgs, internal_get_content
@@ -15,7 +15,7 @@ logger = get_logger(__name__)
 
 
 @resourcefunc("guide://{collection}/{document}")
-async def guide_resource(collection: str, document: str = "", ctx: Optional["Context[Any, Any, Any]"] = None) -> str:
+async def guide_resource(collection: str, document: str = "", ctx: Optional["Context"] = None) -> str:
     """Read content from guide:// URI.
 
     Args:

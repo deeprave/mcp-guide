@@ -8,7 +8,7 @@ from urllib.parse import urlparse
 from mcp_guide.core.mcp_log import get_logger
 
 try:
-    from mcp.server.fastmcp import Context
+    from fastmcp import Context
 except ImportError:
     Context = None  # ty: ignore[invalid-assignment]
 if TYPE_CHECKING:
@@ -98,7 +98,9 @@ async def cache_mcp_globals(ctx: Optional["Context"] = None) -> bool:
 
         session.roots = roots
         session.agent_info = agent_info
-        session.client_params = client_params  # ty: ignore[invalid-assignment]
+        from pydantic import BaseModel
+
+        session.client_params = client_params.model_dump() if isinstance(client_params, BaseModel) else client_params  # ty: ignore[invalid-assignment]
 
         if changed:
             from mcp_guide.render.cache import invalidate_template_context_cache

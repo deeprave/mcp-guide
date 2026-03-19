@@ -1,6 +1,6 @@
 """Tests for server creation."""
 
-from mcp.server import FastMCP
+from fastmcp import FastMCP
 
 
 def test_create_server_returns_fastmcp() -> None:

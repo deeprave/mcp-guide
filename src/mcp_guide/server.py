@@ -8,7 +8,7 @@ if TYPE_CHECKING:
     from mcp_guide.cli import ServerConfig
 
 try:
-    from mcp.server.fastmcp import Context
+    from fastmcp import Context
 except ImportError:
     Context = None  # ty: ignore[invalid-assignment]
 from mcp_guide import __version__

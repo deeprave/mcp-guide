@@ -6,7 +6,7 @@ Tests feature flag tools through MCP protocol with real session management.
 import json
 
 import pytest
-from mcp.shared.memory import create_connected_server_and_client_session
+from fastmcp.client import Client, FastMCPTransport
 
 from mcp_guide.session import Session, remove_current_session, set_current_session
 from mcp_guide.tools.tool_feature_flags import ListFlagsArgs, SetFlagArgs
@@ -44,7 +44,7 @@ async def test_set_project_flag_via_mcp(mcp_server, test_session, monkeypatch):
     """Test setting feature flag through MCP client."""
     monkeypatch.setenv("PWD", "/fake/path/test")
 
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         # Set a project flag
         args = SetFlagArgs(feature_name="test_flag", value=True)
         result = await call_mcp_tool(client, "set_project_flag", args)
@@ -59,7 +59,7 @@ async def test_list_project_flags_via_mcp(mcp_server, test_session, monkeypatch)
     """Test listing feature flags through MCP client."""
     monkeypatch.setenv("PWD", "/fake/path/test")
 
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         # First set a flag
         set_args = SetFlagArgs(feature_name="list_test", value="test_value")
         await call_mcp_tool(client, "set_project_flag", set_args)
@@ -79,7 +79,7 @@ async def test_get_project_flag_via_mcp(mcp_server, test_session, monkeypatch):
     """Test getting feature flag through MCP client using list_project_flags with feature_name."""
     monkeypatch.setenv("PWD", "/fake/path/test")
 
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         # First set a flag
         set_args = SetFlagArgs(feature_name="get_test", value=["list", "value"])
         await call_mcp_tool(client, "set_project_flag", set_args)
@@ -98,7 +98,7 @@ async def test_flag_validation_via_mcp(mcp_server, test_session, monkeypatch):
     """Test flag validation through MCP client."""
     monkeypatch.setenv("PWD", "/fake/path/test")
 
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         # Try to set flag with invalid name (contains period)
         args = SetFlagArgs(feature_name="invalid.flag", value=True)
         result = await call_mcp_tool(client, "set_project_flag", args)
@@ -114,7 +114,7 @@ async def test_remove_flag_via_mcp(mcp_server, test_session, monkeypatch):
     """Test removing feature flag through MCP client."""
     monkeypatch.setenv("PWD", "/fake/path/test")
 
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         # First set a flag
         set_args = SetFlagArgs(feature_name="remove_test", value=True)
         await call_mcp_tool(client, "set_project_flag", set_args)
@@ -171,7 +171,7 @@ async def test_list_flags_with_glob_pattern(
     """Test listing flags with glob pattern filtering."""
     monkeypatch.setenv("PWD", "/fake/path/test")
 
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         # Set flags
         for flag_name, flag_value in flags_to_set:
             await call_mcp_tool(client, "set_project_flag", SetFlagArgs(feature_name=flag_name, value=flag_value))
@@ -198,7 +198,7 @@ async def test_list_flags_exact_match_returns_single_value(mcp_server, test_sess
     """Test that exact match (no wildcards) returns single value, not dict."""
     monkeypatch.setenv("PWD", "/fake/path/test")
 
-    async with create_connected_server_and_client_session(mcp_server, raise_exceptions=True) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         # Set a flag
         await call_mcp_tool(client, "set_project_flag", SetFlagArgs(feature_name="workflow", value=True))
 
