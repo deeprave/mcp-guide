@@ -8,6 +8,11 @@ The system SHALL implement Session as a non-singleton class. One Session exists 
 client connection. In HTTP transport, each concurrent client has its own Session via
 ContextVar task isolation.
 
+Each Session instance SHALL own its own listener list and manage listener registration
+as instance methods (`add_listener`, `remove_listener`, `clear_listeners`).
+
+Listeners SHALL NOT be shared across Session instances.
+
 #### Scenario: Session creation
 - **WHEN** `get_session()` is called and no session exists in the current async context
 - **THEN** a new Session is created with auto-resolved project name
@@ -23,6 +28,12 @@ ContextVar task isolation.
 - **WHEN** multiple clients connect via HTTP transport
 - **THEN** each client has its own Session instance via ContextVar task isolation
 - **AND** session state for one client does not affect another
+- **AND** each session has its own listener list and cache state
+
+#### Scenario: Listener isolation
+- **WHEN** Session A registers a listener
+- **THEN** that listener is only notified of changes on Session A
+- **AND** Session B's listeners are unaffected
 
 ### Requirement: Lazy Config Loading
 The system SHALL load project config lazily via async method.
@@ -148,4 +159,70 @@ The system SHALL provide a single `get_session()` async function that replaces b
 - **WHEN** a tool needs the session
 - **THEN** it calls `session = await get_session(ctx)`
 - **AND** no separate helper functions are needed
+
+### Requirement: Per-Task File Cache
+The system SHALL maintain file cache state per async task using a ContextVar, not as a
+module-level singleton.
+
+Each client connection SHALL have its own `FileCache` instance. File content sent by
+one agent SHALL NOT be visible to another.
+
+#### Scenario: File cache isolation
+- **WHEN** Client A sends file content via `send_file_content`
+- **THEN** the content is cached in Client A's task-local FileCache
+- **AND** Client B's FileCache does not contain Client A's files
+
+### Requirement: Per-Task Task Manager
+The system SHALL maintain a TaskManager instance per async task using a ContextVar, not
+as a class-level singleton.
+
+Each client connection SHALL have its own TaskManager with isolated instruction queue,
+timer tasks, and event dispatch.
+
+#### Scenario: Task manager isolation
+- **WHEN** Client A queues an instruction via the task manager
+- **THEN** only Client A receives that instruction
+- **AND** Client B's task manager is unaffected
+
+#### Scenario: On-demand creation
+- **WHEN** `get_task_manager()` is called and no manager exists in the current task
+- **THEN** a new TaskManager is created and stored in the ContextVar
+
+### Requirement: Session Listener Protocol
+The system SHALL define a `SessionListener` protocol with two notification methods:
+
+- `on_project_changed(session, old_project, new_project)` — called when a project is loaded or switched
+- `on_config_changed(session)` — called when project configuration is modified
+
+Listeners SHALL be registered per-session via `session.add_listener(listener)`.
+
+#### Scenario: Initial project load notification
+- **WHEN** a session is created with its initial project
+- **THEN** `on_project_changed(session, "", project_name)` is called on all session listeners
+
+#### Scenario: Project switch notification
+- **WHEN** `switch_project()` is called and the project name differs from the current one
+- **THEN** `on_project_changed(session, old_name, new_name)` is called on all session listeners
+
+#### Scenario: Same project switch is no-op
+- **WHEN** `switch_project()` is called with the same project name
+- **THEN** no listener notifications are fired
+
+### Requirement: Per-Session Template Context Cache
+The system SHALL maintain template context cache state per-session, not as a module-level global.
+
+`TemplateContextCache` SHALL be instantiated per session and registered as a session listener.
+Cache invalidation on one session SHALL NOT affect other sessions.
+
+#### Scenario: Cache isolation between sessions
+- **WHEN** Session A switches project and invalidates its template cache
+- **THEN** Session B's template cache is unaffected
+
+#### Scenario: Cache invalidation on project change
+- **WHEN** `on_project_changed` is called on the template cache listener
+- **THEN** the cache is invalidated for that session only
+
+#### Scenario: Cache invalidation on config change
+- **WHEN** `on_config_changed` is called on the template cache listener
+- **THEN** the cache is invalidated for that session only
 

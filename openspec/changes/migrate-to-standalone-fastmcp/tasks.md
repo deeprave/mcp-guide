@@ -4,9 +4,8 @@
 
 ## 1. Investigation Spike
 - [ ] 1.1 Install `fastmcp` in dev environment and verify import compatibility
-- [ ] 1.2 Check FastMCP 3.x public API for setting server instructions (resolve `_mcp_server` access)
-- [ ] 1.3 Check `ExtMcpToolDecorator` compatibility with FastMCP 3.x
-- [ ] 1.4 Identify any `mcp[cli]` CLI commands in use that need replacement
+- [ ] 1.2 Check `ExtMcpToolDecorator` compatibility with FastMCP 3.x
+- [ ] 1.3 Identify any `mcp[cli]` CLI commands in use that need replacement
 
 ## 2. Dependency Update
 - [ ] 2.1 Replace `mcp[cli]>=1.16.0` with `fastmcp>=3.1.0` in pyproject.toml
@@ -14,9 +13,10 @@
 - [ ] 2.3 Run `uv lock` and verify dependency resolution
 
 ## 3. Core Refactoring
-- [ ] 3.1 Update `GuideMCP` in guide.py — change import, fix `set_instructions()` to use public API
-- [ ] 3.2 Update transports/stdio.py — change FastMCP import
-- [ ] 3.3 Update server.py — change Context import and any constructor patterns
+- [ ] 3.1 Update `GuideMCP` in guide.py — change import, remove `set_instructions()` (dead code, also removes `_mcp_server` private access), remove `agent_info` attribute (shared mutable state bug — breaks multi-client HTTP)
+- [ ] 3.2 Update `tool_utility.py` — remove `mcp.agent_info` cache read/write; read `agent_info` from `session.agent_info` directly (already populated by `mcp_context.py` bootstrap)
+- [ ] 3.3 Update transports/stdio.py — change FastMCP import
+- [ ] 3.4 Update server.py — change Context import and any constructor patterns
 
 ## 4. Import Updates
 - [ ] 4.1 Update all `from mcp.server.fastmcp import Context` to `from fastmcp import Context` across tool files, prompts, resources, session, mcp_context, and core/tool_decorator
