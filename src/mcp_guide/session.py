@@ -6,6 +6,7 @@ import dataclasses
 from contextvars import ContextVar
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Optional, Union
+from weakref import WeakKeyDictionary as _WeakKeyDictionary
 
 import yaml
 from anyio import Path as AsyncPath
@@ -769,6 +770,21 @@ class Session:
 # ContextVar for async task-local session tracking
 _active_session: ContextVar[Optional[Session]] = ContextVar("_active_session", default=None)
 
+# Registry mapping MiddlewareServerSession → Session for cross-task lookup (e.g. notification handlers).
+# WeakKeyDictionary ensures entries are removed automatically when the MCP session is GC'd.
+
+_session_registry: "_WeakKeyDictionary[Any, Session]" = _WeakKeyDictionary()
+
+
+def register_session(mcp_session: Any, session: Session) -> None:
+    """Register a guide Session against its MiddlewareServerSession."""
+    _session_registry[mcp_session] = session
+
+
+def get_session_by_mcp_session(mcp_session: Any) -> Optional[Session]:
+    """Look up a guide Session by its MiddlewareServerSession object."""
+    return _session_registry.get(mcp_session)
+
 
 async def get_or_create_session(
     ctx: Optional["Context"] = None,
@@ -819,6 +835,13 @@ async def get_or_create_session(
 
     # Store in ContextVar
     set_current_session(session)
+
+    # Register for cross-task lookup (e.g. notification handlers)
+    if ctx is not None:
+        try:
+            register_session(ctx.session, session)
+        except (RuntimeError, AttributeError):
+            pass
 
     # Notify listeners of initial project load
     await session._notify_project_changed("", session.project_name)

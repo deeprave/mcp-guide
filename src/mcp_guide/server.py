@@ -2,6 +2,7 @@
 
 import os
 from contextlib import asynccontextmanager
+from contextvars import ContextVar
 from typing import TYPE_CHECKING, Any, AsyncIterator, Callable, Optional
 
 if TYPE_CHECKING:
@@ -25,6 +26,50 @@ from mcp_guide.tasks.update_task import McpUpdateTask  # noqa: F401 - imported f
 from mcp_guide.workflow.tasks import WorkflowMonitorTask  # noqa: F401 - imported for @task_init decorator side effects
 
 logger = get_logger(__name__)
+
+# Holds the MiddlewareServerSession for the current notification dispatch task.
+# Set by the patched _handle_message; read by _handle_roots_changed.
+_current_notification_session: ContextVar[Optional[Any]] = ContextVar("_current_notification_session", default=None)
+
+
+async def _handle_roots_changed(_notification: Any) -> None:
+    """Handle roots/list_changed notification: switch project if roots changed."""
+    from mcp_guide.mcp_context import project_name_from_roots
+    from mcp_guide.session import get_session_by_mcp_session
+
+    mcp_session = _current_notification_session.get()
+    if mcp_session is None:
+        return
+
+    session = get_session_by_mcp_session(mcp_session)
+    if session is None:
+        # No session yet — next session creation calls list_roots() via cache_mcp_globals,
+        # so the updated roots will be picked up naturally.
+        logger.debug(
+            "roots/list_changed received before session exists; roots will be picked up on next session creation"
+        )
+        return
+
+    try:
+        roots_result = await mcp_session.list_roots()
+        new_roots = list(roots_result.roots)
+    except Exception as e:
+        logger.debug("Failed to list roots in roots_changed handler: %s", e)
+        return
+
+    if new_roots == session.roots:
+        return
+
+    session.roots = new_roots
+
+    new_name = project_name_from_roots(new_roots)
+    if new_name and new_name != session.project_name:
+        try:
+            await session.switch_project(new_name)
+        except Exception as e:
+            logger.warning("Failed to switch project to '%s': %s", new_name, e)
+
+    session.template_cache.invalidate()
 
 
 @asynccontextmanager
@@ -274,5 +319,30 @@ def create_server(config: "ServerConfig") -> GuideMCP:
 
     register_prompts(mcp)
     register_resources(mcp)
+
+    # Patch _handle_message to capture the MiddlewareServerSession in a ContextVar
+    # so that notification handlers can look up the per-client guide Session.
+    from mcp import types as mcp_types
+
+    _orig_handle_message = mcp._mcp_server._handle_message
+
+    async def _patched_handle_message(*args: Any, **kwargs: Any) -> None:
+        # message is 1st positional arg, session is 2nd — resilient to future SDK signature changes
+        message = args[0] if args else kwargs.get("message")
+        session = args[1] if len(args) > 1 else kwargs.get("session")
+        if isinstance(message, mcp_types.ClientNotification) and session is not None:
+            token = _current_notification_session.set(session)
+            try:
+                return await _orig_handle_message(*args, **kwargs)
+            finally:
+                _current_notification_session.reset(token)
+        return await _orig_handle_message(*args, **kwargs)
+
+    mcp._mcp_server._handle_message = _patched_handle_message  # ty: ignore[invalid-assignment]
+
+    # Register roots/list_changed notification handler
+    from mcp.types import RootsListChangedNotification
+
+    mcp._mcp_server.notification_handlers[RootsListChangedNotification] = _handle_roots_changed
 
     return mcp
