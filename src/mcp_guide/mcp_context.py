@@ -135,6 +135,17 @@ def _get_roots() -> list[Any]:
     return _bootstrap_roots.get()
 
 
+def project_name_from_roots(roots: list[Any]) -> Optional[str]:
+    """Extract project name from the first file:// root URI, or None."""
+    if roots:
+        first_root = roots[0]
+        if str(first_root.uri).startswith("file://"):
+            name = Path(urlparse(str(first_root.uri)).path).name
+            if name:
+                return name
+    return None
+
+
 async def resolve_project_name() -> str:
     """Resolve project name from roots or environment fallbacks.
 
@@ -151,13 +162,9 @@ async def resolve_project_name() -> str:
     import os
 
     roots = _get_roots()
-    if roots:
-        first_root = roots[0]
-        if str(first_root.uri).startswith("file://"):
-            parsed = urlparse(str(first_root.uri))
-            project_name = Path(parsed.path).name
-            if project_name:
-                return project_name
+    project_name = project_name_from_roots(roots)
+    if project_name:
+        return project_name
 
     # Fallback: PWD environment variable
     pwd = os.environ.get("PWD")
