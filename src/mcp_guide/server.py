@@ -52,7 +52,7 @@ async def _handle_roots_changed(_notification: Any) -> None:
 
     try:
         roots_result = await mcp_session.list_roots()
-        new_roots = list(roots_result.roots)
+        new_roots = list(roots_result.roots or [])
     except Exception as e:
         logger.debug("Failed to list roots in roots_changed handler: %s", e)
         return
@@ -322,27 +322,38 @@ def create_server(config: "ServerConfig") -> GuideMCP:
 
     # Patch _handle_message to capture the MiddlewareServerSession in a ContextVar
     # so that notification handlers can look up the per-client guide Session.
+    # Guard: skip if already patched (sentinel) or required attributes are absent.
     from mcp import types as mcp_types
 
-    _orig_handle_message = mcp._mcp_server._handle_message
+    low_level = mcp._mcp_server
+    if not hasattr(low_level, "_handle_message") or not hasattr(low_level, "notification_handlers"):
+        logger.warning("MCP server missing expected attributes; roots change handler not registered")
+    elif not getattr(low_level._handle_message, "_roots_patched", False):
+        import inspect
 
-    async def _patched_handle_message(*args: Any, **kwargs: Any) -> None:
-        # message is 1st positional arg, session is 2nd — resilient to future SDK signature changes
-        message = args[0] if args else kwargs.get("message")
-        session = args[1] if len(args) > 1 else kwargs.get("session")
-        if isinstance(message, mcp_types.ClientNotification) and session is not None:
-            token = _current_notification_session.set(session)
+        _orig_handle_message = low_level._handle_message
+        _sig = inspect.signature(_orig_handle_message)
+
+        async def _patched_handle_message(*args: Any, **kwargs: Any) -> None:
             try:
+                bound = _sig.bind_partial(*args, **kwargs)
+                message = bound.arguments.get("message")
+                session = bound.arguments.get("session")
+            except TypeError:
                 return await _orig_handle_message(*args, **kwargs)
-            finally:
-                _current_notification_session.reset(token)
-        return await _orig_handle_message(*args, **kwargs)
+            if isinstance(message, mcp_types.ClientNotification) and session is not None:
+                token = _current_notification_session.set(session)
+                try:
+                    return await _orig_handle_message(*args, **kwargs)
+                finally:
+                    _current_notification_session.reset(token)
+            return await _orig_handle_message(*args, **kwargs)
 
-    mcp._mcp_server._handle_message = _patched_handle_message  # ty: ignore[invalid-assignment]
+        _patched_handle_message._roots_patched = True  # ty: ignore[unresolved-attribute]
+        low_level._handle_message = _patched_handle_message  # ty: ignore[invalid-assignment]
 
-    # Register roots/list_changed notification handler
-    from mcp.types import RootsListChangedNotification
+        from mcp.types import RootsListChangedNotification
 
-    mcp._mcp_server.notification_handlers[RootsListChangedNotification] = _handle_roots_changed
+        low_level.notification_handlers[RootsListChangedNotification] = _handle_roots_changed
 
     return mcp
