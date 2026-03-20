@@ -11,7 +11,7 @@ Schema:
 - `source` TEXT NOT NULL — origin path (file path or URL)
 - `source_type` TEXT NOT NULL — `'file'` or `'url'`
 - `content` TEXT NOT NULL — markdown content
-- `metadata` BLOB DEFAULT '{}' — JSONB for source-specific fields (etag, last-modified, content-type, etc.)
+- `metadata` BLOB DEFAULT NULL — JSON-encoded source-specific fields (etag, last-modified, content-type, etc.)
 - `created_at` TEXT NOT NULL — ISO 8601 timestamp
 - `updated_at` TEXT NOT NULL — ISO 8601 timestamp
 - UNIQUE constraint on (category, name)
@@ -29,7 +29,7 @@ Schema:
 
 ### Requirement: Document Store CRUD Operations
 
-The system SHALL provide async functions to add, get, update, remove, and list documents in the store.
+The system SHALL provide functions to add, get, update, remove, and list documents in the store.
 
 #### Scenario: Add a document
 - **WHEN** `add_document(category, name, source, source_type, content, metadata)` is called

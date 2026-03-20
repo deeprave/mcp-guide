@@ -71,6 +71,15 @@ _.remove_current_session  # used in test teardown across many test files
 _.initialize_task_manager  # registered as @mcp.on_init() callback, never called directly
 _.plan  # Pydantic model field on WorkflowState; populated from .guide.yaml
 
+# Document store public API (consumed by tool layer in subsequent issues)
+_.add_document
+_.get_document
+_.remove_document
+_.list_documents
+_.created_at  # DocumentRecord dataclass field
+_.updated_at  # DocumentRecord dataclass field
+_.row_factory  # sqlite3.Connection attribute
+
 # Module-level names
 _.__all__
 _.main

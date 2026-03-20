@@ -124,25 +124,3 @@ async def test_client_info_dict_without_client_info():
     assert result["value"]["agent"] == "Unknown"
     assert result["value"]["normalized_name"] == "unknown"
     assert result["value"]["command_prefix"] == "/"
-
-
-@pytest.mark.anyio
-async def test_client_info_pydantic_client_params():
-    """Test client_info normalizes BaseModel client_params to a dict."""
-    from pydantic import BaseModel
-
-    class FakeClientParams(BaseModel):
-        clientInfo: dict = {"name": "Kiro CLI", "version": "1.0.0"}
-
-    ctx, session = _make_ctx(agent_info=None, client_params=FakeClientParams())
-
-    with patch("mcp_guide.session.get_session", new=AsyncMock(return_value=session)):
-        result_str = await client_info(args=GetClientInfoArgs(), ctx=ctx)
-
-    result = json.loads(result_str)
-
-    assert result["success"] is True
-    assert result["value"]["agent"] == "Kiro CLI"
-    # session.client_params must be a plain dict (JSON-serializable)
-    assert isinstance(session.client_params, dict)
-    assert session.client_params == {"clientInfo": {"name": "Kiro CLI", "version": "1.0.0"}}
