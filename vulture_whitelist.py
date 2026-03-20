@@ -3,7 +3,7 @@
 
 # Pydantic
 _.model_config  # BaseModel/BaseSettings config dict
-_.validate_type_fields  # field_validator
+_.validate_type_fields  # @model_validator on Pydantic models
 
 # Type aliases (used in annotations)
 _.YamlValue

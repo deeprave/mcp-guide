@@ -559,7 +559,7 @@ class TestCollectionChange:
         result = await internal_collection_change(args)
 
         if not result.success:
-            print(f"Error: {result_dict.get('error', 'Unknown error')}")
+            print(f"Error: {result.error}")
         assert result.success is True
 
         project = await session.get_project()
