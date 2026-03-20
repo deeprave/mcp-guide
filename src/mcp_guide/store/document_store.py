@@ -5,9 +5,14 @@ import sqlite3
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Optional
+from typing import Literal, Optional
 
 from mcp_guide.config_paths import get_documents_db
+from mcp_guide.store.executor import run_in_thread
+
+SourceType = Literal["file", "url"]
+
+_VALID_SOURCE_TYPES: frozenset[str] = frozenset({"file", "url"})
 
 _CREATE_TABLE = """
 CREATE TABLE IF NOT EXISTS documents (
@@ -26,6 +31,11 @@ CREATE INDEX IF NOT EXISTS idx_documents_category ON documents (category);
 CREATE INDEX IF NOT EXISTS idx_documents_name ON documents (name);
 """
 
+# Additive-only migrations — use ALTER TABLE ... ADD COLUMN IF NOT EXISTS.
+# Never drop, rename, or change column types (requires table rebuild).
+_MIGRATIONS = """
+"""
+
 
 @dataclass
 class DocumentRecord:
@@ -40,18 +50,15 @@ class DocumentRecord:
     updated_at: str
 
 
-_initialized: set[Path] = set()
-
-
 def _get_conn(db_path: Optional[Path] = None) -> sqlite3.Connection:
-    """Open connection and ensure schema exists (schema created once per db path)."""
+    """Open connection and ensure schema exists."""
     path = db_path or get_documents_db()
     path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(path)
     conn.row_factory = sqlite3.Row
-    if path not in _initialized:
-        conn.executescript(_CREATE_TABLE)
-        _initialized.add(path)
+    conn.executescript(_CREATE_TABLE)
+    if _MIGRATIONS.strip():
+        conn.executescript(_MIGRATIONS)
     return conn
 
 
@@ -73,7 +80,7 @@ def _row_to_record(row: sqlite3.Row) -> DocumentRecord:
     )
 
 
-def add_document(
+def _add_document(
     category: str,
     name: str,
     source: str,
@@ -82,7 +89,10 @@ def add_document(
     metadata: Optional[dict] = None,
     db_path: Optional[Path] = None,
 ) -> DocumentRecord:
-    """Insert or update a document. Returns the stored record."""
+    if not category or not name:
+        raise ValueError("category and name must be non-empty")
+    if source_type not in _VALID_SOURCE_TYPES:
+        raise ValueError(f"source_type must be one of {sorted(_VALID_SOURCE_TYPES)}, got {source_type!r}")
     now = _now()
     meta_json = json.dumps(metadata) if metadata else None
     conn = _get_conn(db_path)
@@ -107,8 +117,7 @@ def add_document(
     return _row_to_record(row)
 
 
-def get_document(category: str, name: str, db_path: Optional[Path] = None) -> Optional[DocumentRecord]:
-    """Return document by (category, name), or None if not found."""
+def _get_document(category: str, name: str, db_path: Optional[Path] = None) -> Optional[DocumentRecord]:
     conn = _get_conn(db_path)
     try:
         row = conn.execute("SELECT * FROM documents WHERE category = ? AND name = ?", (category, name)).fetchone()
@@ -117,8 +126,7 @@ def get_document(category: str, name: str, db_path: Optional[Path] = None) -> Op
     return _row_to_record(row) if row else None
 
 
-def remove_document(category: str, name: str, db_path: Optional[Path] = None) -> bool:
-    """Delete document by (category, name). Returns True if a row was deleted."""
+def _remove_document(category: str, name: str, db_path: Optional[Path] = None) -> bool:
     conn = _get_conn(db_path)
     try:
         with conn:
@@ -129,8 +137,7 @@ def remove_document(category: str, name: str, db_path: Optional[Path] = None) ->
     return rowcount > 0
 
 
-def list_documents(category: Optional[str] = None, db_path: Optional[Path] = None) -> list[DocumentRecord]:
-    """List documents, optionally filtered by category."""
+def _list_documents(category: Optional[str] = None, db_path: Optional[Path] = None) -> list[DocumentRecord]:
     conn = _get_conn(db_path)
     try:
         if category is not None:
@@ -140,3 +147,34 @@ def list_documents(category: Optional[str] = None, db_path: Optional[Path] = Non
     finally:
         conn.close()
     return [_row_to_record(r) for r in rows]
+
+
+# --- Async public API ---
+
+
+async def add_document(
+    category: str,
+    name: str,
+    source: str,
+    source_type: SourceType,
+    content: str,
+    metadata: Optional[dict] = None,
+    db_path: Optional[Path] = None,
+) -> DocumentRecord:
+    """Insert or update a document. Returns the stored record."""
+    return await run_in_thread(_add_document, category, name, source, source_type, content, metadata, db_path)
+
+
+async def get_document(category: str, name: str, db_path: Optional[Path] = None) -> Optional[DocumentRecord]:
+    """Return document by (category, name), or None if not found."""
+    return await run_in_thread(_get_document, category, name, db_path)
+
+
+async def remove_document(category: str, name: str, db_path: Optional[Path] = None) -> bool:
+    """Delete document by (category, name). Returns True if a row was deleted."""
+    return await run_in_thread(_remove_document, category, name, db_path)
+
+
+async def list_documents(category: Optional[str] = None, db_path: Optional[Path] = None) -> list[DocumentRecord]:
+    """List documents, optionally filtered by category."""
+    return await run_in_thread(_list_documents, category, db_path)
