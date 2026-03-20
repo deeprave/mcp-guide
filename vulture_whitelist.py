@@ -79,7 +79,6 @@ _.list_documents
 _.created_at  # DocumentRecord dataclass field
 _.updated_at  # DocumentRecord dataclass field
 _.row_factory  # sqlite3.Connection attribute
-
 # Module-level names
 _.__all__
 _.main
