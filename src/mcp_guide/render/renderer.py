@@ -8,7 +8,6 @@ from chevron import ChevronError
 
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.discovery.files import TEMPLATE_EXTENSIONS, FileInfo
-from mcp_guide.render.cache import get_template_contexts
 from mcp_guide.render.context import TemplateContext
 from mcp_guide.render.frontmatter import get_frontmatter_includes
 from mcp_guide.render.functions import TemplateFunctions
@@ -40,20 +39,6 @@ class _TrackingDict(Dict[str, _VT]):
         if isinstance(key, str):
             self.accessed[key] = None
         return super().__contains__(key)
-
-
-def get_partial_name(include_path: str | Path) -> str:
-    """Extract partial name from include path.
-
-    Args:
-        include_path: Path to the partial file
-
-    Returns:
-        Partial name with leading underscore removed if present
-    """
-    path = Path(include_path)
-    stem = path.stem
-    return stem[1:] if stem.startswith("_") else stem
 
 
 def is_template_file(file_info: FileInfo) -> bool:
@@ -254,76 +239,3 @@ def _extract_line_context(content: str, error_msg: str) -> str:
         context_lines.append(f"{prefix}{i + 1:4d} | {lines[i]}")
 
     return "\n" + "\n".join(context_lines)
-
-
-def _build_file_context(file_info: FileInfo) -> TemplateContext:
-    """Build file context with file metadata.
-
-    Args:
-        file_info: FileInfo containing file metadata
-
-    Returns:
-        TemplateContext with file variables
-    """
-    file_vars = {
-        "file": {
-            "path": str(file_info.path),
-            "name": file_info.name,
-            "size": file_info.size,
-            "mtime": file_info.mtime.strftime("%Y-%m-%d %H:%M:%S"),
-            "extension": file_info.path.suffix,
-            "is_template": is_template_file(file_info),
-        }
-    }
-    return TemplateContext(file_vars)
-
-
-def _build_transient_context() -> TemplateContext:
-    """Build transient context with current timestamp."""
-    from mcp_guide.render.cache import get_transient_context
-
-    return get_transient_context()
-
-
-async def render_template_with_context_chain(
-    content: str,
-    category_name: Optional[str] = None,
-    file_info: Optional[FileInfo] = None,
-    file_path: str = "<template>",
-) -> Result[tuple[str, list[Dict[str, Any]], list[str]]]:
-    """Render template content with automatically built context chain.
-
-    Args:
-        content: Template content to render
-        category_name: Optional category name for category-specific context
-        file_info: Optional FileInfo for file-specific context
-        file_path: File path for error reporting (used when file_info not provided)
-
-    Returns:
-        Result with tuple of (rendered content, list of partial frontmatter)
-    """
-    try:
-        # Build base context chain (system → agent → project → category)
-        base_context = await get_template_contexts(category_name)
-
-        # Add file context if FileInfo provided
-        if file_info is not None:
-            file_context = _build_file_context(file_info)
-            base_context = file_context.new_child(base_context)
-            # Use file path from FileInfo for error reporting
-            file_path = str(file_info.path)
-
-        # Add transient context (timestamps, render time)
-        transient_context = _build_transient_context()
-        full_context = transient_context.new_child(base_context)
-
-        # Render using the core renderer
-        return await render_template_content(content, full_context, file_path)
-
-    except Exception as e:
-        return Result.failure(
-            error=f"Context chain building failed for {file_path}: {str(e)}",
-            error_type="context_error",
-            exception=e,
-            instruction=INSTRUCTION_VALIDATION_ERROR,
-        )

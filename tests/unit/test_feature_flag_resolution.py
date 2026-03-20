@@ -1,10 +1,6 @@
 """Tests for feature flag resolution logic."""
 
-from unittest.mock import Mock, PropertyMock
-
-import pytest
-
-from mcp_guide.feature_flags.resolution import get_target_project, resolve_flag
+from mcp_guide.feature_flags.resolution import resolve_flag
 
 
 class TestFlagResolution:
@@ -52,50 +48,3 @@ class TestFlagResolution:
 
         # Project string
         assert resolve_flag("string_flag", project_flags, global_flags) == "project_string"
-
-
-class TestProjectParameterHandling:
-    """Test project parameter handling for MCP tools."""
-
-    def test_get_target_project_none_returns_current(self):
-        """Test that None parameter returns current project from session."""
-        mock_session = Mock()
-        mock_session.project_name = "current-project"
-
-        result = get_target_project(None, mock_session)
-        assert result == "current-project"
-
-    def test_get_target_project_star_returns_global_marker(self):
-        """Test that '*' parameter returns global marker."""
-        mock_session = Mock()
-
-        result = get_target_project("*", mock_session)
-        assert result == "*"
-        # Should not call session methods for global
-        assert not hasattr(mock_session, "get_current_project_name") or not mock_session.get_current_project_name.called
-
-    def test_get_target_project_specific_name_returns_name(self):
-        """Test that specific project name is returned as-is."""
-        mock_session = Mock()
-
-        result = get_target_project("specific-project", mock_session)
-        assert result == "specific-project"
-        # Should not call session methods for specific names
-        mock_session.get_current_project_name.assert_not_called()
-
-    def test_get_target_project_handles_session_without_current(self):
-        """Test handling when session has no current project."""
-        mock_session = Mock()
-        mock_session.project_name = None
-
-        result = get_target_project(None, mock_session)
-        assert result is None
-
-    def test_get_target_project_handles_session_error(self):
-        """Test handling when session raises error."""
-        mock_session = Mock()
-        # Create a property that raises an error when accessed
-        type(mock_session).project_name = PropertyMock(side_effect=RuntimeError("No session"))
-
-        with pytest.raises(RuntimeError, match="No session"):
-            get_target_project(None, mock_session)

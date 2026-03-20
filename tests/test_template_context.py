@@ -114,37 +114,3 @@ class TestTemplateContext:
         # Grandchild should also have TemplateContext parents
         grandchild = child.new_child({"grandchild": "value"})
         assert isinstance(grandchild.parents, TemplateContext)
-
-    def test_soft_delete_and_hard_delete_methods(self):
-        """Test soft_delete() and hard_delete() methods with sentinel masking."""
-        parent = TemplateContext({"shared_key": "parent_value", "parent_only": "parent"})
-        child = parent.new_child({"shared_key": "child_value", "child_only": "child"})
-
-        # Before deletion - child overrides parent
-        assert child["shared_key"] == "child_value"
-        assert child["parent_only"] == "parent"
-        assert child["child_only"] == "child"
-
-        # Soft delete - key appears missing even if in parent
-        child.soft_delete("shared_key")
-        with pytest.raises(KeyError):
-            _ = child["shared_key"]  # Should raise KeyError even though parent has it
-
-        # soft_delete / hard_delete must reject non-string keys
-        ctx = TemplateContext({"k": "v"})
-        with pytest.raises(TypeError, match="Context keys must be strings"):
-            ctx.soft_delete(123)
-
-        with pytest.raises(TypeError, match="Context keys must be strings"):
-            ctx.hard_delete(123)
-
-        # Hard delete - reveals parent value
-        child.hard_delete("shared_key")  # Remove soft deletion
-        child["shared_key"] = "new_child_value"  # Add it back
-        child.hard_delete("shared_key")  # Hard delete
-        assert child["shared_key"] == "parent_value"  # Should see parent value
-
-        # Test deletion of key not in parent
-        child.soft_delete("child_only")
-        with pytest.raises(KeyError):
-            _ = child["child_only"]

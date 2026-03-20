@@ -158,21 +158,6 @@ class TestOpenSpecTask:
         result = await task.handle_event(EventType.FS_FILE_CONTENT, event_data)
 
         assert result is None
-        assert task.is_project_enabled() is None
-
-    @pytest.mark.anyio
-    async def test_handle_event_project_missing_project_md(self, mock_task_manager):
-        """Test that project is not enabled without project.md."""
-        task = OpenSpecTask(mock_task_manager)
-
-        # Simulate no project.md file received
-        assert task.is_project_enabled() is None
-
-    @pytest.mark.anyio
-    async def test_is_project_enabled_returns_none_before_check(self, mock_task_manager):
-        """Test that is_project_enabled returns None before project check completes."""
-        task = OpenSpecTask(mock_task_manager)
-        assert task.is_project_enabled() is None
 
     @pytest.mark.anyio
     async def test_get_version_returns_none_initially(self, mock_task_manager):

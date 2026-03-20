@@ -229,12 +229,6 @@ async def internal_get_project_flag(args: GetFlagArgs, ctx: Optional[Context] = 
         )
 
 
-async def get_project_flag(args: GetFlagArgs, ctx: Optional[Context] = None) -> str:
-    """Get a project feature flag value with resolution hierarchy."""
-    result = await internal_get_project_flag(args, ctx)
-    return await tool_result("get_project_flag", result)
-
-
 async def internal_set_feature_flag(args: SetFeatureFlagArgs, ctx: Optional[Context] = None) -> Result[str]:
     """Set or remove a global feature flag."""
     # Validate flag arguments
@@ -327,12 +321,6 @@ async def internal_get_feature_flag(
         return Result.failure(
             f"Failed to get global flag: {e}", error_type="unexpected_error", instruction=INSTRUCTION_DISPLAY_ONLY
         )
-
-
-async def get_feature_flag(args: GetFeatureFlagArgs, ctx: Optional[Context] = None) -> str:
-    """Get a global feature flag value."""
-    result = await internal_get_feature_flag(args, ctx)
-    return await tool_result("get_feature_flag", result)
 
 
 async def internal_list_feature_flags(

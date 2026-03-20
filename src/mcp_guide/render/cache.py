@@ -464,31 +464,6 @@ class TemplateContextCache(SessionListener):
         category_vars = {"category": category_data}
         return TemplateContext(category_vars)
 
-    async def _build_collection_context(self, collection_name: str) -> "TemplateContext":
-        """Build collection context with collection data (not cached)."""
-        from mcp_guide.render.context import TemplateContext
-        from mcp_guide.session import get_session
-
-        # Extract collection information from current session's project
-        collection_data = {"name": "", "categories": [], "description": ""}
-        try:
-            session = await get_session(None)
-            if session:
-                project = await session.get_project()
-                # Find collection by name using dict lookup
-                if collection_name in project.collections:
-                    collection = project.collections[collection_name]
-                    collection_data = {
-                        "name": collection_name,  # Inject name from dict key
-                        "categories": collection.categories,
-                        "description": getattr(collection, "description", ""),
-                    }
-        except (AttributeError, ValueError, RuntimeError) as e:
-            logger.debug(f"Failed to get collection from session: {e}")
-
-        collection_vars = {"collection": collection_data}
-        return TemplateContext(collection_vars)
-
     async def get_template_contexts(self, category_name: Optional[str] = None) -> "TemplateContext":
         """Get layered template contexts for rendering.
 

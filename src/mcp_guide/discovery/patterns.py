@@ -65,19 +65,6 @@ def is_valid_command(path: Path) -> bool:
     return True
 
 
-def is_valid_partial(path: Path) -> bool:
-    """Check if file should be considered a valid partial.
-
-    Args:
-        path: File path to check
-
-    Returns:
-        True if file is a valid partial, False if should be excluded
-    """
-    # Apply general file validity rules
-    return is_valid_file(path)
-
-
 async def _process_match(
     match_path: Path,
     search_dir: Path,

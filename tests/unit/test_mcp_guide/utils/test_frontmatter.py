@@ -4,7 +4,6 @@ import pytest
 
 from mcp_guide.render.frontmatter import (
     Content,
-    get_frontmatter_instruction,
     parse_content_with_frontmatter,
     read_content_with_frontmatter,
 )
@@ -124,32 +123,6 @@ This is a test."""
         assert result.frontmatter_length == 0
         assert result.content == ""
         assert result.content_length == 0
-
-
-class TestGetFrontmatterInstruction:
-    """Test get_frontmatter_instruction function."""
-
-    def test_with_instruction(self):
-        """Test extracting instruction from frontmatter."""
-        frontmatter = {"instruction": "Do something", "title": "Test"}
-        result = get_frontmatter_instruction(frontmatter)
-        assert result == "Do something"
-
-    def test_without_instruction(self):
-        """Test frontmatter without instruction."""
-        frontmatter = {"title": "Test", "description": "A test"}
-        result = get_frontmatter_instruction(frontmatter)
-        assert result is None
-
-    def test_none_frontmatter(self):
-        """Test with None frontmatter."""
-        result = get_frontmatter_instruction(None)
-        assert result is None
-
-    def test_empty_frontmatter(self):
-        """Test with empty frontmatter."""
-        result = get_frontmatter_instruction({})
-        assert result is None
 
 
 class TestContentDataclass:

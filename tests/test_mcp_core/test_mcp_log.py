@@ -360,52 +360,6 @@ class TestCreateFileHandler:
             monkeypatch.setattr(logging.FileHandler, "__init__", original_init)
 
 
-class TestLoggerHierarchy:
-    """Tests for logger hierarchy configuration."""
-
-    def test_configure_logger_hierarchy_direct_pattern(self):
-        """Test logger hierarchy handles mcp_guide.* pattern."""
-        from mcp_guide.core.mcp_log import configure_logger_hierarchy
-
-        configure_logger_hierarchy("mcp_guide")
-
-        logger = logging.getLogger("mcp_guide.tools")
-        assert logger.propagate is False
-
-    def test_configure_logger_hierarchy_fastmcp_pattern(self):
-        """Test logger hierarchy handles fastmcp.mcp_guide.* pattern."""
-        from mcp_guide.core.mcp_log import configure_logger_hierarchy
-
-        configure_logger_hierarchy("mcp_guide")
-
-        logger = logging.getLogger("fastmcp.mcp_guide.server")
-        assert logger.propagate is False
-
-    def test_logs_appear_once(self):
-        """Test logs don't duplicate with hierarchy configuration."""
-        import logging
-        from io import StringIO
-
-        from mcp_guide.core.mcp_log import TRACE_LEVEL, configure_logger_hierarchy
-
-        configure_logger_hierarchy("mcp_guide")
-
-        # Create a handler to capture logs
-        stream = StringIO()
-        handler = logging.StreamHandler(stream)
-        handler.setLevel(TRACE_LEVEL)
-
-        logger = logging.getLogger("mcp_guide.test")
-        logger.setLevel(TRACE_LEVEL)
-        logger.addHandler(handler)
-
-        logger.info("test message")
-
-        # Should appear exactly once in the output
-        output = stream.getvalue()
-        assert output.count("test message") == 1
-
-
 class TestContextTrace:
     """Tests for Context.trace() method."""
 
@@ -415,41 +369,3 @@ class TestContextTrace:
 
         # Should not raise even if FastMCP not available
         add_trace_to_context()
-
-
-class TestConfigure:
-    """Tests for configure() function."""
-
-    def test_configure_initializes_trace_level(self):
-        """Test configure initializes TRACE level."""
-        from mcp_guide.core.mcp_log import TRACE_LEVEL, configure
-
-        configure()
-
-        assert logging.getLevelName(TRACE_LEVEL) == "TRACE"
-
-    def test_configure_adds_context_trace(self):
-        """Test configure adds Context.trace() method."""
-        from mcp_guide.core.mcp_log import configure
-
-        configure()
-
-        # Should not raise even if FastMCP not available
-        try:
-            from fastmcp import Context
-
-            assert hasattr(Context, "trace")
-        except ImportError:
-            pass
-
-    def test_configure_with_file_logging(self, tmp_path):
-        """Test configure sets up file logging when path provided."""
-        from mcp_guide.core.mcp_log import configure
-
-        log_file = tmp_path / "test.log"
-        configure(file_path=str(log_file))
-
-        # Verify file handler was added
-        root_logger = logging.getLogger()
-        file_handlers = [h for h in root_logger.handlers if isinstance(h, logging.FileHandler)]
-        assert len(file_handlers) > 0

@@ -17,7 +17,6 @@ from mcp_guide.result_constants import (
     ERROR_SAVE,
 )
 from mcp_guide.session import get_session
-from mcp_guide.tools.tool_result import tool_result
 from mcp_guide.validation import validate_categories_exist
 
 if TYPE_CHECKING:
@@ -76,52 +75,6 @@ async def internal_collection_list(args: CollectionListArgs, ctx: Optional[Conte
         collections = list(project.collections.keys())  # Use dict.keys()
 
     return Result.ok(collections)
-
-
-async def collection_list(args: CollectionListArgs, ctx: Optional[Context] = None) -> str:
-    """List all collections in the current project.
-
-    Retrieves collection information from the current project configuration.
-    Useful for discovering available collections before accessing content.
-
-    ## JSON Schema
-
-    ```json
-    {
-      "type": "object",
-      "properties": {
-        "verbose": {
-          "type": "boolean",
-          "description": "If True, return full details; if False, return names only"
-        }
-      }
-    }
-    ```
-
-    ## Usage Instructions
-
-    ```python
-    # List collection names only
-    await collection_list(CollectionListArgs(verbose=False))
-
-    # List full collection details
-    await collection_list(CollectionListArgs(verbose=True))
-    ```
-
-    ## Concrete Examples
-
-    ```python
-    # Example 1: Get collection names for overview
-    result = await collection_list(CollectionListArgs(verbose=False))
-    # Returns: ["getting-started", "advanced", "reference"]
-
-    # Example 2: Get full collection information
-    result = await collection_list(CollectionListArgs(verbose=True))
-    # Returns: [{"name": "getting-started", "categories": ["docs", "examples"], "description": "Beginner content"}]
-    ```
-    """
-    result = await internal_collection_list(args, ctx)
-    return await tool_result("collection_list", result)
 
 
 class CollectionAddArgs(ToolArguments):
@@ -203,20 +156,6 @@ async def internal_collection_add(args: CollectionAddArgs, ctx: Optional[Context
     return Result.ok(f"Collection '{args.name}' added successfully")
 
 
-async def collection_add(args: CollectionAddArgs, ctx: Optional[Context] = None) -> str:
-    """Add a new collection to the current project.
-
-    Args:
-        args: Tool arguments with name, description, and categories
-        ctx: MCP Context (auto-injected by FastMCP)
-
-    Returns:
-        Result containing success message
-    """
-    result = await internal_collection_add(args, ctx)
-    return await tool_result("collection_add", result)
-
-
 class CollectionRemoveArgs(ToolArguments):
     """Arguments for collection_remove tool."""
 
@@ -250,20 +189,6 @@ async def internal_collection_remove(args: CollectionRemoveArgs, ctx: Optional[C
         return Result.failure(f"Failed to save project configuration: {e}", error_type=ERROR_SAVE)
 
     return Result.ok(f"Collection '{args.name}' removed successfully")
-
-
-async def collection_remove(args: CollectionRemoveArgs, ctx: Optional[Context] = None) -> str:
-    """Remove a collection from the current project.
-
-    Args:
-        args: Tool arguments with collection name
-        ctx: MCP Context (auto-injected by FastMCP)
-
-    Returns:
-        Result containing success message
-    """
-    result = await internal_collection_remove(args, ctx)
-    return await tool_result("collection_remove", result)
 
 
 class CollectionChangeArgs(ToolArguments):
@@ -380,24 +305,6 @@ async def internal_collection_change(args: CollectionChangeArgs, ctx: Optional[C
     return Result.ok(change_msg)
 
 
-async def collection_change(args: CollectionChangeArgs, ctx: Optional[Context] = None) -> str:
-    """Change properties of an existing collection.
-
-    Can change name, description, or categories.
-    At least one new value must be provided.
-    Changes are saved to the project configuration immediately.
-
-    Args:
-        args: Tool arguments with collection name and optional new values
-        ctx: MCP Context (auto-injected by FastMCP)
-
-    Returns:
-        Result containing success message
-    """
-    result = await internal_collection_change(args, ctx)
-    return await tool_result("collection_change", result)
-
-
 class CollectionUpdateArgs(ToolArguments):
     """Arguments for collection_update tool."""
 
@@ -485,20 +392,3 @@ async def internal_collection_update(args: CollectionUpdateArgs, ctx: Optional[C
         return Result.failure(f"Failed to save project configuration: {e}", error_type=ERROR_SAVE)
 
     return Result.ok(f"Collection '{args.name}' categories updated successfully")
-
-
-async def collection_update(args: CollectionUpdateArgs, ctx: Optional[Context] = None) -> str:
-    """Update collection categories incrementally.
-
-    Add or remove categories from a collection without replacing the entire list.
-    Categories are removed first, then added (avoiding duplicates).
-
-    Args:
-        args: Tool arguments with name and optional add/remove lists
-        ctx: MCP Context (auto-injected by FastMCP)
-
-    Returns:
-        Result containing success message
-    """
-    result = await internal_collection_update(args, ctx)
-    return await tool_result("collection_update", result)

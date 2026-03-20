@@ -1,7 +1,6 @@
 """Core project models."""
 
 import os
-from collections.abc import Callable
 from dataclasses import field, replace
 from typing import Optional
 
@@ -213,22 +212,6 @@ class Project:
     def without_collection(self, name: str) -> "Project":
         """Return new Project with collection removed."""
         new_collections = {k: v for k, v in self.collections.items() if k != name}
-        return replace(self, collections=new_collections)
-
-    def update_category(self, name: str, updater: Callable[[Category], Category]) -> "Project":
-        """Return new Project with category updated."""
-        if name not in self.categories:
-            raise KeyError(f"Category '{name}' not found")
-        updated_category = updater(self.categories[name])
-        new_categories = {**self.categories, name: updated_category}
-        return replace(self, categories=new_categories)
-
-    def update_collection(self, name: str, updater: Callable[[Collection], Collection]) -> "Project":
-        """Return new Project with collection updated."""
-        if name not in self.collections:
-            raise KeyError(f"Collection '{name}' not found")
-        updated_collection = updater(self.collections[name])
-        new_collections = {**self.collections, name: updated_collection}
         return replace(self, collections=new_collections)
 
     def get_export_entry(self, expression: str, pattern: Optional[str]) -> Optional[ExportedTo]:

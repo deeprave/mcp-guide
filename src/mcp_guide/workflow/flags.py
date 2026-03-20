@@ -3,7 +3,6 @@
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Optional, Union
 
-from mcp_guide.core.result import Result
 from mcp_guide.feature_flags.constants import (
     FLAG_STARTUP_INSTRUCTION,
     FLAG_WORKFLOW,
@@ -12,7 +11,6 @@ from mcp_guide.feature_flags.constants import (
 )
 from mcp_guide.feature_flags.types import FeatureValue
 from mcp_guide.feature_flags.validators import register_flag_validator
-from mcp_guide.filesystem.read_write_security import ReadWriteSecurityPolicy, SecurityError
 from mcp_guide.workflow.constants import (
     DEFAULT_WORKFLOW_PHASES,
     PHASE_CHECK,
@@ -23,7 +21,7 @@ from mcp_guide.workflow.constants import (
 )
 
 if TYPE_CHECKING:
-    from mcp_guide.models.project import Project
+    pass
 
 # Valid phase names for validation
 VALID_PHASES = {
@@ -115,31 +113,6 @@ def parse_workflow_phases(workflow_flag: Union[bool, list[str]]) -> WorkflowConf
     return WorkflowConfig(enabled=True, phases=validated_phases)
 
 
-def validate_workflow_file_path(workflow_file: str, allowed_write_paths: list[str]) -> str:
-    """Validate workflow file path against security policy.
-
-    Args:
-        workflow_file: Path to workflow state file
-        allowed_write_paths: List of allowed write directories
-
-    Returns:
-        Validated path
-
-    Raises:
-        SecurityError: If path violates security policy
-        ValueError: If allowed_write_paths is invalid
-    """
-    try:
-        policy = ReadWriteSecurityPolicy(write_allowed_paths=allowed_write_paths)
-        return policy.validate_write_path(workflow_file)
-    except SecurityError:
-        # Let security errors bubble up with their important messages
-        raise
-    except (TypeError, ValueError) as e:
-        # ReadWriteSecurityPolicy constructor validation errors
-        raise ValueError(f"workflow-file flag validation failed due to configuration error: {e}") from e
-
-
 def _validate_workflow_flag(value: FeatureValue, is_project: bool) -> bool:
     """Validate workflow flag value with semantic checks."""
     if not isinstance(value, (bool, list)):
@@ -206,66 +179,6 @@ def _validate_workflow_consent_flag(value: FeatureValue, is_project: bool) -> bo
         return True
 
     return False
-
-
-def parse_startup_expression(expr: str) -> tuple[list[str], list[str]]:
-    """Parse startup expression into categories and collections.
-
-    Args:
-        expr: Expression like "docs,@guidelines,examples/README*"
-
-    Returns:
-        Tuple of (categories, collections)
-    """
-    if not expr or not expr.strip():
-        return ([], [])
-
-    categories = []
-    collections = []
-
-    for part in expr.split(","):
-        part = part.strip()
-        if not part:
-            continue
-
-        if part.startswith("@"):
-            # Collection
-            collections.append(part[1:])
-        else:
-            # Category (strip pattern if present)
-            if "/" in part:
-                part = part.split("/")[0]
-            categories.append(part)
-
-    return (categories, collections)
-
-
-def validate_startup_expression(expr: str, project: "Project") -> Result[None]:
-    """Validate startup expression against project.
-
-    Args:
-        expr: Expression to validate
-        project: Project to validate against
-
-    Returns:
-        Result indicating success or error
-    """
-    if not expr or not expr.strip():
-        return Result.ok(None)
-
-    categories, collections = parse_startup_expression(expr)
-
-    # Validate categories exist
-    for cat in categories:
-        if cat not in project.categories:
-            return Result.failure(f"Category '{cat}' not found in project")
-
-    # Validate collections exist
-    for coll in collections:
-        if coll not in project.collections:
-            return Result.failure(f"Collection '{coll}' not found in project")
-
-    return Result.ok(None)
 
 
 def _validate_startup_instruction_flag(value: FeatureValue, is_project: bool) -> bool:

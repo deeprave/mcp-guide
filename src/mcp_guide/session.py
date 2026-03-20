@@ -15,7 +15,7 @@ from mcp_guide.core.file_reader import read_file_content
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.file_lock import lock_update
 from mcp_guide.mcp_context import cache_mcp_globals, consume_bootstrap_mcp_data
-from mcp_guide.models import _NAME_REGEX, Project, SessionState
+from mcp_guide.models import _NAME_REGEX, Project
 from mcp_guide.utils.project_hash import (
     calculate_project_hash,
     extract_name_from_key,
@@ -512,7 +512,6 @@ class Session:
         """Initialise a session with a loaded project. Use create_session() to create."""
         self.__project: Project = project
         self._project_dirty = False
-        self._state = SessionState()
         self._config_watcher: Optional[ConfigWatcher] = None
         self._watcher_task: Optional["asyncio.Task[None]"] = None
         self._listeners: list["SessionListener"] = []
@@ -612,18 +611,6 @@ class Session:
         if listener not in self._listeners:
             self._listeners.append(listener)
 
-    def remove_listener(self, listener: "SessionListener") -> None:
-        """Remove a session change listener."""
-        if listener in self._listeners:
-            self._listeners.remove(listener)
-
-    def clear_listeners(self) -> None:
-        """Clear all session listeners.
-
-        Primarily for testing to ensure clean state between tests.
-        """
-        self._listeners.clear()
-
     async def _notify_project_changed(self, old_project: str, new_project: str) -> None:
         """Notify all listeners of project change."""
         for listener in self._listeners:
@@ -662,14 +649,6 @@ class Session:
             await self.invalidate_cache()
         return self.__project
 
-    def has_current_session(self) -> bool:
-        """Check if session has a current project loaded."""
-        return self.__project is not None
-
-    def is_watching_config(self) -> bool:
-        """Check if session is actively watching config file changes."""
-        return self._config_watcher is not None
-
     async def update_config(self, updater: Callable[[Project], Project]) -> None:
         """Update project config using functional pattern."""
         project = await self.get_project()
@@ -684,10 +663,6 @@ class Session:
 
         # Notify listeners of config change
         await self._notify_config_changed()
-
-    def get_state(self) -> SessionState:
-        """Get mutable session state."""
-        return self._state
 
     async def get_docroot(self) -> str:
         """Get document root path for the project."""

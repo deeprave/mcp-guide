@@ -10,7 +10,7 @@ from mcp_guide.tools.tool_feature_flags import (
     GetFlagArgs,
     ListFlagsArgs,
     SetFlagArgs,
-    get_project_flag,
+    internal_get_project_flag,
     list_project_flags,
     set_project_flag,
 )
@@ -224,8 +224,7 @@ class TestTestGetProjectFlagTool:
             mock_global_proxy.list = AsyncMock(return_value={"test_flag": "global_value"})
             mock_session.feature_flags.return_value = mock_global_proxy
 
-            result_json = await get_project_flag(args)
-            result = parse_result_json(result_json)
+            result = await internal_get_project_flag(args)
 
             assert result.success is True
             assert result.value == "global_value"
@@ -248,8 +247,7 @@ class TestTestGetProjectFlagTool:
             mock_global_proxy.list = AsyncMock(return_value={})  # No global flags
             mock_session.feature_flags.return_value = mock_global_proxy
 
-            result_json = await get_project_flag(args)
-            result = parse_result_json(result_json)
+            result = await internal_get_project_flag(args)
 
             assert result.success is True
             assert result.value is None

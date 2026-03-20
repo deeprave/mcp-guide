@@ -3,17 +3,14 @@
 from pathlib import Path
 from typing import Optional
 
-from mcp_guide.content.formatters.selection import ContentFormat, get_formatter_from_flag
-from mcp_guide.content.utils import read_and_render_file_contents, resolve_patterns
+from mcp_guide.content.utils import resolve_patterns
 from mcp_guide.discovery.files import FileInfo, discover_documents
 from mcp_guide.models import (
     CategoryNotFoundError,
     DocumentExpression,
     ExpressionParseError,
-    FileReadError,
     Project,
 )
-from mcp_guide.render.cache import get_template_context_if_needed
 from mcp_guide.session import Session
 
 
@@ -225,40 +222,3 @@ async def gather_category_fileinfos(
         file.category = category
 
     return files
-
-
-async def render_fileinfos(
-    files: list[FileInfo],
-    context_name: str,
-    category_dir: Path,
-    docroot: Path,
-    format_type: ContentFormat,
-) -> str:
-    """Common function to render FileInfo list to formatted content.
-
-    Args:
-        files: List of FileInfo objects to render
-        context_name: Name for context (category or expression)
-        category_dir: Directory path for reading files
-        docroot: Document root for security validation
-        format_type: Content format to use
-
-    Returns:
-        Formatted content string
-
-    Raises:
-        FileReadError: If file reading fails
-    """
-    if not files:
-        return f"No content found for '{context_name}'"
-
-    # Read file content with template rendering
-    template_context = await get_template_context_if_needed(files, context_name)
-    file_read_errors = await read_and_render_file_contents(files, category_dir, docroot, template_context)
-
-    if file_read_errors:
-        raise FileReadError(f"Failed to read files: {'; '.join(file_read_errors)}")
-
-    # Format content
-    formatter = get_formatter_from_flag(format_type)
-    return await formatter.format(files, docroot)

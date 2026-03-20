@@ -409,22 +409,6 @@ async def install_file(
     return "conflict"
 
 
-async def install_directory(source: Path, dest: Path) -> None:
-    """Install entire directory tree.
-
-    Args:
-        source: Source directory
-        dest: Destination directory
-    """
-    adest = AsyncPath(dest)
-    await adest.mkdir(parents=True, exist_ok=True)
-    for item in source.rglob("*"):
-        if item.is_file():
-            rel_path = item.relative_to(source)
-            dest_file = dest / rel_path
-            await install_file(item, dest_file)
-
-
 async def write_version(docroot: Path, version: str) -> None:
     """Write version file to docroot.
 

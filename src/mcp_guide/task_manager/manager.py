@@ -711,10 +711,6 @@ class TaskManager:
             invalidate_template_context_cache()
             logger.trace(f"Template context cache invalidated due to {key} change")
 
-    def clear_cached_data(self, key: str) -> None:
-        """Clear cached data by key."""
-        self._cache.pop(key, None)
-
     def get_task_by_type(self, task_type: type[T]) -> Optional[T]:
         """Get a task instance by its type.
 

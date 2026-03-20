@@ -93,26 +93,6 @@ def resolve_patterns(override_pattern: Optional[str], default_patterns: list[str
     return [override_pattern] if override_pattern else default_patterns
 
 
-async def read_file_contents(
-    files: list[FileInfo],
-    base_dir: Path,
-    docroot: Path,
-    category_prefix: Optional[str] = None,
-) -> list[str]:
-    """Read content for FileInfo objects and optionally prefix basenames.
-
-    Args:
-        files: List of FileInfo objects to read
-        base_dir: Base directory for resolving file paths
-        docroot: Document root for security validation
-        category_prefix: Optional prefix to add to basenames (e.g. "category")
-
-    Returns:
-        List of error messages for files that failed to read
-    """
-    return await read_and_render_file_contents(files, base_dir, docroot, None, category_prefix)
-
-
 async def read_and_render_file_contents(
     files: list[FileInfo],
     base_dir: Path,

@@ -2,7 +2,7 @@
 
 import pytest
 
-from mcp_guide.workflow.flags import parse_workflow_phases, substitute_variables, validate_workflow_file_path
+from mcp_guide.workflow.flags import parse_workflow_phases, substitute_variables
 
 
 class TestVariableSubstitution:
@@ -56,29 +56,6 @@ class TestWorkflowPhases:
         invalid_phases = ["discussion", "invalid-phase", "implementation"]
         with pytest.raises(ValueError, match="Invalid phase name: 'invalid-phase'"):
             parse_workflow_phases(invalid_phases)
-
-
-class TestWorkflowFileSecurity:
-    """Test workflow file path security validation."""
-
-    def test_validate_allowed_relative_path(self):
-        """Test validation passes for relative paths in allowed directories."""
-        allowed_paths = ["config/"]  # Directory with trailing slash like defaults
-        workflow_file = "config/.guide.yaml"  # File in allowed directory
-
-        # Should pass validation for relative path in allowed directory
-        result = validate_workflow_file_path(workflow_file, allowed_paths)
-        assert result == workflow_file
-
-    def test_validate_rejects_unsafe_path(self):
-        """Test validation rejects paths outside allowed directories."""
-        from mcp_guide.filesystem.read_write_security import SecurityError
-
-        allowed_paths = ["config/"]
-        unsafe_path = "/etc/passwd"
-
-        with pytest.raises(SecurityError, match="Write to absolute path not allowed"):
-            validate_workflow_file_path(unsafe_path, allowed_paths)
 
 
 class TestWorkflowFlagValidation:
