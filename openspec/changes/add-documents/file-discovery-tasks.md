@@ -8,10 +8,10 @@
 
 ## 2. FileInfo content_loader support
 
-- [ ] 2.1 Add `content_loader: Optional[Callable[[], Awaitable[Optional[str]]]]` parameter to `FileInfo.__init__`
-- [ ] 2.2 Update `_load_content_if_needed()` to use `content_loader` when provided (before filesystem fallback)
-- [ ] 2.3 Add `source: str = "file"` attribute to `FileInfo`
-- [ ] 2.4 Add tests for FileInfo with content_loader
+- [x] 2.1 Add `content_loader: Optional[Callable[[], Awaitable[Optional[str]]]]` parameter to `FileInfo.__init__`
+- [x] 2.2 Update `_load_content_if_needed()` to use `content_loader` when provided (before filesystem fallback)
+- [x] 2.3 Add `source: str = "file"` attribute to `FileInfo`
+- [x] 2.4 Add tests for FileInfo with content_loader
 
 ## 3. Discovery refactor
 

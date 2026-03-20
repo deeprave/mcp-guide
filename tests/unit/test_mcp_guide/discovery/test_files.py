@@ -1,5 +1,6 @@
 """Tests for file discovery utilities."""
 
+from datetime import datetime
 from pathlib import Path
 
 import pytest
@@ -9,8 +10,6 @@ from mcp_guide.discovery.files import FileInfo, discover_documents
 
 def test_fileinfo_has_category_field():
     """Test that FileInfo has category field."""
-    from datetime import datetime
-
     file_info = FileInfo(
         path=Path("test.md"),
         size=100,
@@ -24,8 +23,6 @@ def test_fileinfo_has_category_field():
 
 def test_fileinfo_category_can_be_set():
     """Test that category field can be set."""
-    from datetime import datetime
-
     from mcp_guide.models.project import Category
 
     category = Category(dir="docs/", patterns=["README"], name="docs")
@@ -39,6 +36,72 @@ def test_fileinfo_category_can_be_set():
     )
     assert file_info.category == category
     assert file_info.category.name == "docs"
+
+
+def test_fileinfo_source_defaults_to_file():
+    """Test that source defaults to 'file'."""
+    fi = FileInfo(path=Path("test.md"), size=0, content_size=0, mtime=datetime.now(), name="test.md")
+    assert fi.source == "file"
+
+
+def test_fileinfo_source_can_be_set():
+    """Test that source can be set to a custom value."""
+    fi = FileInfo(path=Path("test.md"), size=0, content_size=0, mtime=datetime.now(), name="test.md", source="store")
+    assert fi.source == "store"
+
+
+@pytest.mark.anyio
+async def test_content_loader_called_on_get_content():
+    """Test that content_loader is called when getting content."""
+
+    async def loader() -> str | None:
+        return "loaded content"
+
+    fi = FileInfo(
+        path=Path("test.md"), size=0, content_size=0, mtime=datetime.now(), name="test.md", content_loader=loader
+    )
+    result = await fi.get_content()
+    assert result == "loaded content"
+    assert fi.size == len("loaded content")
+
+
+@pytest.mark.anyio
+async def test_content_loader_returning_none():
+    """Test that content_loader returning None is handled."""
+
+    async def loader() -> str | None:
+        return None
+
+    fi = FileInfo(
+        path=Path("test.md"), size=0, content_size=0, mtime=datetime.now(), name="test.md", content_loader=loader
+    )
+    result = await fi.get_content()
+    assert result is None
+
+
+@pytest.mark.anyio
+async def test_content_loader_error_sets_load_error():
+    """Test that content_loader errors are captured."""
+
+    async def loader() -> str | None:
+        raise RuntimeError("store unavailable")
+
+    fi = FileInfo(
+        path=Path("test.md"), size=0, content_size=0, mtime=datetime.now(), name="test.md", content_loader=loader
+    )
+    with pytest.raises(OSError, match="store unavailable"):
+        await fi.get_content()
+
+
+@pytest.mark.anyio
+async def test_no_content_loader_falls_back_to_filesystem(tmp_path):
+    """Test that without content_loader, filesystem read is used."""
+    test_file = tmp_path / "test.md"
+    test_file.write_text("# From disk")
+
+    fi = FileInfo(path=test_file, size=0, content_size=0, mtime=datetime.now(), name="test.md")
+    result = await fi.get_content()
+    assert result == "# From disk"
 
 
 @pytest.mark.anyio

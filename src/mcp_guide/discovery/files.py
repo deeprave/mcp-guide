@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, Optional, Union
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Dict, Optional, Union
 
 if TYPE_CHECKING:
     from mcp_guide.models.project import Category
@@ -106,6 +106,8 @@ class FileInfo:
         ctime: Optional[datetime] = None,
         content: Union[str, None, object] = _SENTINEL,
         frontmatter: Optional[Dict[str, Any]] = None,
+        content_loader: Optional[Callable[[], Awaitable[Optional[str]]]] = None,
+        source: str = "file",
     ):
         """Initialize FileInfo with optional legacy content and frontmatter parameters."""
         self.path = path
@@ -115,6 +117,8 @@ class FileInfo:
         self.name = name
         self.category = category
         self.ctime = ctime
+        self.source = source
+        self._content_loader = content_loader
 
         # Private attributes for lazy loading
         if content is _SENTINEL:
@@ -168,25 +172,36 @@ class FileInfo:
 
     async def _load_content_if_needed(self) -> None:
         """Internal method to load content if not already loaded."""
-        # If content was explicitly set (even to None), don't try to load from file
+        # If content was explicitly set (even to None), don't try to load
         if self._content_explicitly_set:
             return
 
         if self._content is not None:
             return
 
+        # Try content_loader first (e.g. from document store)
+        if self._content_loader is not None:
+            try:
+                self._content = await self._content_loader()
+                if self._content is not None:
+                    self.size = len(self._content)
+                self._load_error = None
+                return
+            except Exception as e:
+                self._content = None
+                self._load_error = str(e)
+                return
+
+        # Fall back to filesystem read
         from mcp_guide.core import read_file_content
 
-        file_path = self.path
-
         try:
-            self._content = await read_file_content(file_path)
+            self._content = await read_file_content(self.path)
             if self._content is not None:
                 self.size = len(self._content)
+            self._load_error = None
         except (OSError, PermissionError, FileNotFoundError) as e:
-            # Set content to None to indicate loading failed
             self._content = None
-            # Store the error for later retrieval
             self._load_error = str(e)
 
     def _parse_frontmatter_if_needed(self) -> None:
