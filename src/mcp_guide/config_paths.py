@@ -87,3 +87,15 @@ def get_docroot(config_dir: Optional[str] = None) -> Path:
         return Path(__docroot)
 
     return get_config_file(config_dir).parent / "docs"
+
+
+def get_documents_db(config_dir: Optional[str] = None) -> Path:
+    """Get document store database path.
+
+    Args:
+        config_dir: Optional override directory for testing
+
+    Returns:
+        Path to documents.db file
+    """
+    return get_config_dir(config_dir) / "documents.db"
