@@ -4,7 +4,7 @@ import pytest
 
 from mcp_guide.core.validation import ArgValidationError
 from mcp_guide.models import Category, Project
-from mcp_guide.validation import validate_categories_exist, validate_category_exists
+from mcp_guide.validation import validate_categories_exist
 
 
 @pytest.fixture
@@ -18,38 +18,6 @@ def test_project():
             "tests": Category(dir="tests", patterns=["test_*.py"]),
         },
     )
-
-
-class TestValidateCategoryExists:
-    """Tests for validate_category_exists function."""
-
-    def test_category_exists_no_error(self, test_project):
-        """Category exists, no error should be raised."""
-        validate_category_exists(test_project, "docs")
-        validate_category_exists(test_project, "api")
-        validate_category_exists(test_project, "tests")
-
-    def test_category_not_exists_raises_error(self, test_project):
-        """Category doesn't exist, should raise ArgValidationError."""
-        with pytest.raises(ArgValidationError) as exc_info:
-            validate_category_exists(test_project, "nonexistent")
-
-        assert len(exc_info.value.errors) == 1
-        assert exc_info.value.errors[0]["field"] == "category"
-        assert "nonexistent" in exc_info.value.errors[0]["message"]
-        assert "does not exist" in exc_info.value.errors[0]["message"]
-
-    def test_no_categories_defined_raises_error(self):
-        """No categories defined on the project should still raise a clear ArgValidationError."""
-        empty_project = Project(name="empty-project", categories={})
-
-        with pytest.raises(ArgValidationError) as exc_info:
-            validate_category_exists(empty_project, "any-category")
-
-        assert len(exc_info.value.errors) == 1
-        assert exc_info.value.errors[0]["field"] == "category"
-        assert "any-category" in exc_info.value.errors[0]["message"]
-        assert "does not exist" in exc_info.value.errors[0]["message"]
 
 
 class TestValidateCategoriesExist:

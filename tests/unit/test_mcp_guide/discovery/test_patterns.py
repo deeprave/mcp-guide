@@ -432,22 +432,6 @@ class TestUnderscoreFiltering:
         assert is_valid_command(underscore_path) is False
 
     @pytest.mark.anyio
-    async def test_partial_validation_allows_underscore_files(self, temp_project_dir):
-        """Test that partial validation allows underscore-prefixed files."""
-        from mcp_guide.discovery.patterns import is_valid_partial
-
-        # Arrange
-        test_dir = temp_project_dir / "test_partials"
-        test_dir.mkdir()
-
-        normal_file = test_dir / "header.md"
-        underscore_file = test_dir / "_footer.md"
-
-        # Act & Assert
-        assert is_valid_partial(normal_file) is True
-        assert is_valid_partial(underscore_file) is True
-
-    @pytest.mark.anyio
     async def test_allow_underscore_in_middle_of_names(self, temp_project_dir):
         """Test that underscores in middle of names are allowed."""
         # Arrange

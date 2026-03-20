@@ -1,6 +1,6 @@
 """Feature flag resolution logic."""
 
-from typing import Any, Optional
+from typing import Optional
 
 from mcp_guide.feature_flags.types import FeatureValue
 
@@ -28,23 +28,3 @@ def resolve_flag(
 
     # Not found
     return None
-
-
-def get_target_project(project_param: Optional[str], session: Any) -> Optional[str]:
-    """Get target project name from parameter using convention.
-
-    Args:
-        project_param: Project parameter from tool call
-        session: Session object for current project access
-
-    Returns:
-        Target project name, "*" for global, or None if no current project
-
-    Raises:
-        RuntimeError: If session access fails
-    """
-    if project_param is None:
-        # None means current project
-        return session.project_name
-    # Return parameter as-is ("*" for global, specific name for specific project)
-    return project_param

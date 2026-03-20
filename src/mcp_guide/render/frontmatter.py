@@ -149,23 +149,6 @@ async def read_content_with_frontmatter(file_path: Path) -> Content:
         return Content(frontmatter=Frontmatter(), frontmatter_length=0, content="", content_length=0)
 
 
-def get_frontmatter_instruction(frontmatter: Optional[Dict[str, Any]]) -> Optional[str]:
-    """Extract instruction field from frontmatter metadata.
-
-    Args:
-        frontmatter: Parsed frontmatter dictionary
-
-    Returns:
-        Instruction string or None if not found
-    """
-    from mcp_guide.render.content import FM_INSTRUCTION
-
-    if not frontmatter:
-        return None
-    instruction = frontmatter.get(FM_INSTRUCTION)
-    return instruction if isinstance(instruction, str) else None
-
-
 def get_frontmatter_type(frontmatter: Optional[Dict[str, Any]]) -> Optional[str]:
     """Extract type field from frontmatter metadata.
 
@@ -179,21 +162,6 @@ def get_frontmatter_type(frontmatter: Optional[Dict[str, Any]]) -> Optional[str]
         return None
     type_value = frontmatter.get("type")
     return type_value if isinstance(type_value, str) else None
-
-
-def get_frontmatter_description(frontmatter: Optional[Dict[str, Any]]) -> Optional[str]:
-    """Extract description field from frontmatter metadata.
-
-    Args:
-        frontmatter: Parsed frontmatter dictionary
-
-    Returns:
-        Description string or None if not found
-    """
-    if not frontmatter:
-        return None
-    description = frontmatter.get("description")
-    return description if isinstance(description, str) else None
 
 
 def get_frontmatter_includes(frontmatter: Optional[Dict[str, Any]]) -> Optional[List[str]]:
@@ -268,22 +236,6 @@ async def get_frontmatter_description_from_file(file_path: Path) -> Optional[str
         return None
     description = content.frontmatter.get("description")
     return description if isinstance(description, str) else None
-
-
-def validate_content_type(content_type: Optional[str]) -> bool:
-    """Validate if content type is one of the supported types.
-
-    Args:
-        content_type: Content type string to validate
-
-    Returns:
-        True if valid, False otherwise
-    """
-    if not content_type:
-        return False
-
-    valid_types = {USER_INFO, AGENT_INFO, AGENT_INSTRUCTION, AGENT_REQUIREMENTS}
-    return content_type in valid_types
 
 
 def get_default_instruction_for_type(content_type: Optional[str]) -> str:

@@ -2,7 +2,6 @@
 
 import hashlib
 from pathlib import Path
-from typing import Optional
 
 
 def calculate_project_hash(path: str) -> str:
@@ -22,34 +21,6 @@ def calculate_project_hash(path: str) -> str:
     # Normalize path to ensure consistent hashing
     normalized_path = str(Path(path).resolve())
     return hashlib.sha256(normalized_path.encode("utf-8")).hexdigest()
-
-
-async def verify_project_hash(project_hash: Optional[str], current_path: Optional[str] = None) -> bool:
-    """Verify if a stored project hash matches the current project path.
-
-    Args:
-        project_hash: Stored hash to verify
-        current_path: Current path (if None, will be resolved)
-
-    Returns:
-        True if hash matches, False otherwise
-    """
-    if not project_hash:
-        return False
-
-    try:
-        if current_path is None:
-            from mcp_guide.mcp_context import resolve_project_path
-
-            resolved_path = await resolve_project_path()
-            current_path = str(resolved_path)
-
-        current_hash = calculate_project_hash(current_path)
-        return project_hash == current_hash
-
-    except ValueError:
-        # Cannot verify - assume mismatch
-        return False
 
 
 def generate_project_key(name: str, hash_value: str) -> str:

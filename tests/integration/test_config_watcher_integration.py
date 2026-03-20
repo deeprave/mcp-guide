@@ -17,9 +17,6 @@ async def test_config_watcher_integration(tmp_path: Path, caplog: pytest.LogCapt
     initial_project = await session.get_project()
     assert initial_project.name == "test-watcher"
 
-    # Verify session works correctly
-    assert session.has_current_session()
-
     # Cleanup
     await remove_current_session()
 
@@ -32,9 +29,6 @@ async def test_config_watcher_cleanup(tmp_path: Path) -> None:
 
     # Get project to initialize session
     await session.get_project()
-
-    # Verify session is active
-    assert session.has_current_session()
 
     # Cleanup
     await remove_current_session()

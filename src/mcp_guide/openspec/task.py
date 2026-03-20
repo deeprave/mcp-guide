@@ -113,14 +113,6 @@ class OpenSpecTask:
         """
         return self._available
 
-    def is_project_enabled(self) -> Optional[bool]:
-        """Check if OpenSpec project is initialized.
-
-        Returns:
-            True if project initialized, False if not, None if not yet checked.
-        """
-        return self._project_enabled
-
     def get_version(self) -> Optional[str]:
         """Get OpenSpec CLI version.
 
@@ -484,56 +476,6 @@ class OpenSpecTask:
             if self._version_instruction_id:
                 await self.task_manager.acknowledge_instruction(self._version_instruction_id)
                 self._version_instruction_id = None
-
-    async def _format_status_response(self, data: dict[str, Any]) -> RenderedContent | None:
-        """Format OpenSpec status response using template.
-
-        Args:
-            data: Parsed JSON from openspec status command
-
-        Returns:
-            RenderedContent with formatted content, or None if filtered by requires-*
-        """
-        return await render_openspec_template("_status-format", extra_context=TemplateContext(data))
-
-    async def _format_changes_list_response(self, data: dict[str, Any]) -> RenderedContent | None:
-        """Format OpenSpec changes list response using template.
-
-        Args:
-            data: Parsed JSON from openspec list command
-
-        Returns:
-            RenderedContent with formatted content, or None if filtered by requires-*
-        """
-        changes = data.get("changes", [])
-
-        # Sort: in-progress first, then by last modified (newest first)
-        # Step 1: Sort by lastModified descending (newest first)
-        # Step 2: Stable sort by status to put in-progress first
-        sorted_changes = sorted(changes, key=lambda c: c.get("lastModified", ""), reverse=True)
-        sorted_changes = sorted(sorted_changes, key=lambda c: c.get("status") != "in-progress")
-
-        # Add formatted fields for template
-        for change in sorted_changes:
-            completed = change.get("completedTasks", 0)
-            total = change.get("totalTasks", 0)
-            change["progress"] = f"{completed}/{total}" if total > 0 else "N/A"
-            last_mod = change.get("lastModified", "")
-            change["lastModified"] = last_mod[:10] if last_mod else "N/A"
-
-        context = {"has_changes": len(sorted_changes) > 0, "sorted_changes": sorted_changes}
-        return await render_openspec_template("_changes-format", extra_context=TemplateContext(context))
-
-    async def _format_show_response(self, data: dict[str, Any]) -> RenderedContent | None:
-        """Format OpenSpec show response using template.
-
-        Args:
-            data: Parsed JSON from openspec show command
-
-        Returns:
-            RenderedContent with formatted content, or None if filtered by requires-*
-        """
-        return await render_openspec_template("_show-format", extra_context=TemplateContext(data))
 
     async def _format_error_response(self, data: dict[str, Any]) -> RenderedContent | None:
         """Format OpenSpec CLI error using template.

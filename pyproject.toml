@@ -129,9 +129,10 @@ ignore_decorators = [
   "@tools.tool",
   "@mcp.tool",
   "@mcp.prompt",
+  "@resourcefunc",
+  "@promptfunc",
+  "@task_init",
+  "@field_validator",
 ]
-ignore_names = [
-  "__all__",
-  "main",
-]
-min_confidence = 80
+
+min_confidence = 60

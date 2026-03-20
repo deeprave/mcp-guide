@@ -1,7 +1,7 @@
 """Template partial utilities for path resolution and content loading."""
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, List
+from typing import TYPE_CHECKING, Any
 
 from anyio import Path as AsyncPath
 
@@ -17,70 +17,6 @@ class PartialNotFoundError(Exception):
     """Raised when a partial template file cannot be found."""
 
     pass
-
-
-async def resolve_partial_paths(template_path: Path, includes: List[str], docroot: Path | None = None) -> List[Path]:
-    """Resolve partial paths relative to template file with extension resolution.
-
-    Args:
-        template_path: Path to the template file
-        includes: List of partial paths to resolve (without extensions)
-        docroot: Root directory for security validation (defaults to current working directory)
-
-    Returns:
-        List of resolved absolute paths to partial files
-
-    Raises:
-        PartialNotFoundError: If partial path is outside docroot or invalid
-    """
-    template_dir = template_path.parent
-    if docroot is None:
-        docroot = Path.cwd()
-    docroot = docroot.resolve()
-    resolved_paths = []
-
-    for include in includes:
-        logger.trace(f"Processing include: {include}")
-        # Reject absolute paths
-        if include.startswith("/"):
-            raise PartialNotFoundError(f"Absolute paths not allowed: {include}")
-
-        # Resolve base path relative to the template directory
-        base_path = template_dir / include
-        logger.trace(f"Base path before underscore check: {base_path}")
-
-        # Add an underscore prefix to basename if not already present
-        if not base_path.name.startswith("_"):
-            base_path = base_path.parent / f"_{base_path.name}"
-            logger.trace(f"Added underscore prefix: {base_path}")
-
-        # Check security first - resolve to absolute path and validate against docroot
-        temp_resolved = base_path.resolve()
-        logger.trace(f"Resolved absolute path: {temp_resolved}")
-        try:
-            temp_resolved.relative_to(docroot)
-            logger.trace(f"Security check passed for: {temp_resolved}")
-        except ValueError as e:
-            logger.trace(f"Security check failed - path outside docroot: {include}")
-            raise PartialNotFoundError(f"Partial path outside docroot: {include}") from e
-
-        # Use common extension resolution function
-        from mcp_guide.discovery.files import resolve_file_with_extensions
-
-        found_path = await resolve_file_with_extensions(base_path)
-
-        if found_path is None:
-            logger.trace(f"No partial file found for include: {include}")
-            raise PartialNotFoundError(f"Partial template not found: {include} (tried all extension patterns)")
-
-        # Resolve to an absolute path
-        partial_path = found_path.resolve()
-        logger.trace(f"Final resolved partial path: {partial_path}")
-
-        resolved_paths.append(partial_path)
-
-    logger.trace(f"All resolved partial paths: {resolved_paths}")
-    return resolved_paths
 
 
 async def load_partial_content(

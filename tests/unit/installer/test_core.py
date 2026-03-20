@@ -258,27 +258,6 @@ class TestFileInstallation:
         assert dest.parent.exists()
 
     @pytest.mark.anyio
-    async def test_install_directory_copies_tree(self, tmp_path: Path) -> None:
-        """Test that install_directory copies entire directory tree."""
-        # Arrange
-        from mcp_guide.installer.core import install_directory
-
-        source_dir = tmp_path / "source"
-        source_dir.mkdir()
-        (source_dir / "file1.txt").write_text("content1")
-        (source_dir / "subdir").mkdir()
-        (source_dir / "subdir" / "file2.txt").write_text("content2")
-
-        dest_dir = tmp_path / "dest"
-
-        # Act
-        await install_directory(source_dir, dest_dir)
-
-        # Assert
-        assert (dest_dir / "file1.txt").read_text() == "content1"
-        assert (dest_dir / "subdir" / "file2.txt").read_text() == "content2"
-
-    @pytest.mark.anyio
     async def test_install_file_skips_binary_files(self, tmp_path: Path) -> None:
         """Test that install_file skips binary files with warning."""
         # Arrange

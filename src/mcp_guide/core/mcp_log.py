@@ -28,28 +28,18 @@ CRITICAL = logging.CRITICAL
 # Track if the TRACE level has been initialised
 _trace_initialized = False
 
-# Module-level storage for logging configuration
-_saved_logging_config: dict[str, Any] | None = None
-
 # Guard flag to prevent double-cleanup
 _cleanup_done = False
 
 
 def _cleanup_logging() -> None:
     """Clean up logging handlers on shutdown."""
-    global _saved_logging_config, _cleanup_done
+    global _cleanup_done
 
     if _cleanup_done:
         return
     _cleanup_done = True
 
-    if _saved_logging_config:
-        if _saved_logging_config.get("console_handler"):
-            with contextlib.suppress(Exception):
-                _saved_logging_config["console_handler"].close()
-        if _saved_logging_config.get("file_handler"):
-            with contextlib.suppress(Exception):
-                _saved_logging_config["file_handler"].close()
     # Close all root logger handlers
     for handler in logging.getLogger().handlers[:]:
         with contextlib.suppress(Exception):
@@ -218,47 +208,6 @@ def get_logger(name: str) -> LoggerWithTrace:
     return logging.getLogger(name)  # ty: ignore[invalid-return-type]
 
 
-def configure_logger_hierarchy(app_name: str) -> None:
-    """Configure logger hierarchy to prevent duplication.
-
-    Sets propagate=False on application loggers to prevent FastMCP duplication.
-    Handles both direct pattern (app_name.*) and FastMCP pattern (fastmcp.app_name.*).
-
-    Args:
-        app_name: Application name (e.g., 'mcp_guide')
-    """
-    # Configure existing loggers
-    for logger_name in list(logging.Logger.manager.loggerDict.keys()):
-        if logger_name.startswith(app_name) or logger_name.startswith(f"fastmcp.{app_name}"):
-            logger = logging.getLogger(logger_name)
-            logger.propagate = False
-
-    # Configure root application loggers
-    for pattern in [app_name, f"fastmcp.{app_name}"]:
-        logger = logging.getLogger(pattern)
-        logger.propagate = False
-
-    # Store patterns for future logger creation
-    if not hasattr(logging, "_mcp_app_patterns"):
-        logging._mcp_app_patterns = []  # ty: ignore[unresolved-attribute]
-    # noinspection PyProtectedMember
-    logging._mcp_app_patterns.append(app_name)  # ty: ignore[unresolved-attribute]
-    # Monkey-patch getLogger to configure new loggers
-    original_getLogger = logging.getLogger
-
-    def patched_getLogger(name: str | None = None) -> logging.Logger:
-        _logger = original_getLogger(name)
-        if name and hasattr(logging, "_mcp_app_patterns"):
-            # noinspection PyProtectedMember
-            for _pattern in logging._mcp_app_patterns:
-                if name.startswith(_pattern) or name.startswith(f"fastmcp.{_pattern}"):
-                    _logger.propagate = False
-                    break
-        return _logger
-
-    logging.getLogger = patched_getLogger  # ty: ignore[invalid-assignment]
-
-
 def create_console_handler() -> logging.Handler:
     """Create a console handler with RichHandler if available."""
     try:
@@ -369,66 +318,6 @@ def get_uvicorn_log_config(log_level: str = "info", use_json: bool = False) -> d
     }
 
 
-def save_logging_config(
-    console_handler: logging.Handler | None,
-    file_handler: logging.Handler | None,
-    app_name: str | None = None,
-) -> None:
-    """Save logging configuration for restoration after FastMCP init.
-
-    Args:
-        console_handler: Console handler to save
-        file_handler: File handler to save
-        app_name: Application name for logger hierarchy (optional)
-    """
-    global _saved_logging_config
-    _saved_logging_config = {
-        "console_handler": console_handler,
-        "file_handler": file_handler,
-        "app_name": app_name,
-    }
-
-
-def _configure_fastmcp_log_levels() -> None:
-    """Set FastMCP logger levels to match the root logger level.
-
-    Only updates loggers that are more verbose than root level.
-    Skips NOTSET loggers to preserve parent inheritance.
-    """
-    root_level = logging.getLogger().level
-
-    for logger_name in logging.Logger.manager.loggerDict:
-        if logger_name.startswith("fastmcp") or logger_name.startswith("mcp."):
-            logger = logging.getLogger(logger_name)
-            current_level = logger.level
-
-            # Skip NOTSET (0) - it means inherit from the parent
-            if current_level != logging.NOTSET and current_level < root_level:
-                logger.setLevel(root_level)
-
-
-def restore_logging_config() -> None:
-    """Restore logging configuration after FastMCP initialization."""
-    global _saved_logging_config
-
-    if _saved_logging_config is None:
-        return
-
-    root = logging.getLogger()
-
-    # Add our handlers back
-    if _saved_logging_config["console_handler"]:
-        root.addHandler(_saved_logging_config["console_handler"])
-    if _saved_logging_config["file_handler"]:
-        root.addHandler(_saved_logging_config["file_handler"])
-
-    # Configure FastMCP logger levels
-    _configure_fastmcp_log_levels()
-
-    if app_name := _saved_logging_config.get("app_name"):
-        configure_logger_hierarchy(app_name)
-
-
 def add_trace_to_context() -> None:
     """Add a trace () method to the FastMCP Context class.
 
@@ -446,29 +335,3 @@ def add_trace_to_context() -> None:
         Context.trace = trace  # ty: ignore[unresolved-attribute]
     except ImportError:
         pass
-
-
-def configure(
-    file_path: str | None = None, level: str = "INFO", json_format: bool = False, app_name: str | None = None
-) -> None:
-    """Configure the logging system.
-
-    Args:
-        file_path: Optional path to log file
-        level: Logging level (TRACE, DEBUG, INFO, WARN, ERROR)
-        json_format: Use JSON formatting if True
-        app_name: Application name for logger hierarchy (e.g., 'mcp_guide')
-    """
-    add_trace_to_context()
-
-    if file_path:
-        handler = create_file_handler(file_path)
-        formatter = create_formatter(json_format)
-        handler.setFormatter(formatter)
-        handler.setLevel(get_log_level(level))
-        root = logging.getLogger()
-        root.setLevel(get_log_level(level))
-        root.addHandler(handler)
-
-    if app_name:
-        configure_logger_hierarchy(app_name)

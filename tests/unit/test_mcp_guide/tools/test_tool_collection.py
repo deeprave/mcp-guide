@@ -1,6 +1,5 @@
 """Tests for collection management tools."""
 
-import json
 from pathlib import Path
 
 import pytest
@@ -16,8 +15,7 @@ from mcp_guide.session import (
 from mcp_guide.tools.tool_collection import (
     CollectionAddArgs,
     CollectionListArgs,
-    collection_add,
-    collection_list,
+    internal_collection_add,
     internal_collection_list,
 )
 
@@ -90,11 +88,10 @@ class TestCollectionList:
         monkeypatch.setenv("PWD", "/fake/path/test")
 
         args = CollectionListArgs(verbose=False)
-        result_str = await collection_list(args)
-        result_dict = json.loads(result_str)
+        result = await internal_collection_list(args)
 
-        assert result_dict["success"] is True
-        assert result_dict["value"] == ["backend", "documentation", "empty"]
+        assert result.success is True
+        assert result.value == ["backend", "documentation", "empty"]
 
     @pytest.mark.anyio
     async def test_empty_collections_returns_empty_list(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
@@ -108,11 +105,10 @@ class TestCollectionList:
         monkeypatch.setenv("PWD", "/fake/path/test")
 
         args = CollectionListArgs()
-        result_str = await collection_list(args)
-        result_dict = json.loads(result_str)
+        result = await internal_collection_list(args)
 
-        assert result_dict["success"] is True
-        assert result_dict["value"] == []
+        assert result.success is True
+        assert result.value == []
 
     @pytest.mark.anyio
     async def test_collection_with_empty_categories(self, test_session_with_data: Session) -> None:
@@ -124,12 +120,11 @@ class TestCollectionList:
         await session.save_project(project)
 
         args = CollectionListArgs(verbose=True)
-        result_str = await collection_list(args)
-        result_dict = json.loads(result_str)
+        result = await internal_collection_list(args)
 
-        assert result_dict["success"] is True
-        assert len(result_dict["value"]) == 1
-        assert result_dict["value"][0]["categories"] == []
+        assert result.success is True
+        assert len(result.value) == 1
+        assert result.value[0]["categories"] == []
 
     @pytest.mark.anyio
     async def test_no_active_session_error(self, monkeypatch: MonkeyPatch) -> None:
@@ -140,11 +135,10 @@ class TestCollectionList:
         monkeypatch.delenv("CWD", raising=False)
 
         args = CollectionListArgs()
-        result_str = await collection_list(args)
-        result_dict = json.loads(result_str)
+        result = await internal_collection_list(args)
 
-        assert result_dict["success"] is False
-        assert result_dict["error_type"] == "no_project"
+        assert result.success is False
+        assert result.error_type == "no_project"
 
 
 class TestCollectionAdd:
@@ -162,12 +156,11 @@ class TestCollectionAdd:
         monkeypatch.setenv("PWD", "/fake/path/test")
 
         args = CollectionAddArgs(name="backend")
-        result_str = await collection_add(args)
-        result_dict = json.loads(result_str)
+        result = await internal_collection_add(args)
 
-        assert result_dict["success"] is True
-        assert "backend" in result_dict["value"]
-        assert "added successfully" in result_dict["value"]
+        assert result.success is True
+        assert "backend" in result.value
+        assert "added successfully" in result.value
 
         # Verify collection exists in project
         project = await session.get_project()
@@ -188,10 +181,9 @@ class TestCollectionAdd:
         monkeypatch.setenv("PWD", "/fake/path/test")
 
         args = CollectionAddArgs(name="docs", description="Documentation files")
-        result_str = await collection_add(args)
-        result_dict = json.loads(result_str)
+        result = await internal_collection_add(args)
 
-        assert result_dict["success"] is True
+        assert result.success is True
 
         # Verify description is set
         project = await session.get_project()
@@ -208,10 +200,9 @@ class TestCollectionAdd:
         await session.save_project(project)
 
         args = CollectionAddArgs(name="backend", categories=["api", "tests"])
-        result_str = await collection_add(args)
-        result_dict = json.loads(result_str)
+        result = await internal_collection_add(args)
 
-        assert result_dict["success"] is True
+        assert result.success is True
 
         # Verify categories are set
         project = await session.get_project()
@@ -229,10 +220,9 @@ class TestCollectionAdd:
 
         # Pass duplicates: api, tests, api, docs, tests
         args = CollectionAddArgs(name="backend", categories=["api", "tests", "api", "docs", "tests"])
-        result_str = await collection_add(args)
-        result_dict = json.loads(result_str)
+        result = await internal_collection_add(args)
 
-        assert result_dict["success"] is True
+        assert result.success is True
 
         # Verify only unique categories stored, order preserved
         project = await session.get_project()
@@ -252,12 +242,11 @@ class TestCollectionAdd:
         original_collections = original_project.collections
 
         args = CollectionAddArgs(name="backend")
-        result_str = await collection_add(args)
-        result_dict = json.loads(result_str)
+        result = await internal_collection_add(args)
 
-        assert result_dict["success"] is False
-        assert result_dict["error_type"] == "validation_error"
-        assert "already exists" in result_dict["error"]
+        assert result.success is False
+        assert result.error_type == "validation_error"
+        assert "already exists" in result.error
 
         # Project state should be unchanged after failed validation
         project = await session.get_project()
@@ -286,12 +275,11 @@ class TestCollectionAdd:
         original_collections = original_project.collections
 
         args = CollectionAddArgs(name="backend", description=description)
-        result_str = await collection_add(args)
-        result_dict = json.loads(result_str)
+        result = await internal_collection_add(args)
 
-        assert result_dict["success"] is False
-        assert result_dict["error_type"] == "validation_error"
-        assert error_contains in result_dict["error"]
+        assert result.success is False
+        assert result.error_type == "validation_error"
+        assert error_contains in result.error
 
         project = await session.get_project()
         assert len(project.collections) == len(original_collections)
@@ -311,12 +299,11 @@ class TestCollectionAdd:
         original_collections = original_project.collections
 
         args = CollectionAddArgs(name="backend", categories=["api", "nonexistent"])
-        result_str = await collection_add(args)
-        result_dict = json.loads(result_str)
+        result = await internal_collection_add(args)
 
-        assert result_dict["success"] is False
-        assert result_dict["error_type"] == "validation_error"
-        assert "does not exist" in result_dict["error"]
+        assert result.success is False
+        assert result.error_type == "validation_error"
+        assert "does not exist" in result.error
 
         # Project state should be unchanged
         project = await session.get_project()
@@ -330,11 +317,10 @@ class TestCollectionAdd:
         monkeypatch.delenv("CWD", raising=False)
 
         args = CollectionAddArgs(name="backend")
-        result_str = await collection_add(args)
-        result_dict = json.loads(result_str)
+        result = await internal_collection_add(args)
 
-        assert result_dict["success"] is False
-        assert result_dict["error_type"] == "no_project"
+        assert result.success is False
+        assert result.error_type == "no_project"
 
     @pytest.mark.anyio
     async def test_add_collection_invalid_name(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
@@ -351,11 +337,10 @@ class TestCollectionAdd:
 
         # Test name too long
         args = CollectionAddArgs(name="x" * 31)
-        result_str = await collection_add(args)
-        result_dict = json.loads(result_str)
+        result = await internal_collection_add(args)
 
-        assert result_dict["success"] is False
-        assert result_dict["error_type"] == "validation_error"
+        assert result.success is False
+        assert result.error_type == "validation_error"
 
         # Project state should be unchanged
         project = await session.get_project()
@@ -376,12 +361,11 @@ class TestCollectionAdd:
         monkeypatch.setattr(session, "update_config", mock_update_config)
 
         args = CollectionAddArgs(name="backend")
-        result_str = await collection_add(args)
-        result_dict = json.loads(result_str)
+        result = await internal_collection_add(args)
 
-        assert result_dict["success"] is False
-        assert result_dict["error_type"] == "save_error"
-        assert "Failed to save" in result_dict["error"]
+        assert result.success is False
+        assert result.error_type == "save_error"
+        assert "Failed to save" in result.error
 
 
 class TestCollectionRemove:
@@ -390,7 +374,7 @@ class TestCollectionRemove:
     @pytest.mark.anyio
     async def test_collection_remove_existing(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Remove existing collection."""
-        from mcp_guide.tools.tool_collection import CollectionRemoveArgs, collection_remove
+        from mcp_guide.tools.tool_collection import CollectionRemoveArgs, internal_collection_remove
 
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
@@ -399,11 +383,10 @@ class TestCollectionRemove:
         await session.update_config(lambda p: p.with_collection("backend", backend_collection))
 
         args = CollectionRemoveArgs(name="backend")
-        result_str = await collection_remove(args)
-        result_dict = json.loads(result_str)
+        result = await internal_collection_remove(args)
 
-        assert result_dict["success"] is True
-        assert "removed successfully" in result_dict["value"]
+        assert result.success is True
+        assert "removed successfully" in result.value
 
         project = await session.get_project()
         assert len(project.collections) == 0
@@ -411,41 +394,39 @@ class TestCollectionRemove:
     @pytest.mark.anyio
     async def test_collection_remove_nonexistent(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Reject removing non-existent collection."""
-        from mcp_guide.tools.tool_collection import CollectionRemoveArgs, collection_remove
+        from mcp_guide.tools.tool_collection import CollectionRemoveArgs, internal_collection_remove
 
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
         await session.update_config(lambda p: p)
 
         args = CollectionRemoveArgs(name="nonexistent")
-        result_str = await collection_remove(args)
-        result_dict = json.loads(result_str)
+        result = await internal_collection_remove(args)
 
-        assert result_dict["success"] is False
-        assert result_dict["error_type"] == "not_found"
-        assert "does not exist" in result_dict["error"]
-        assert "nonexistent" in result_dict["error"]
+        assert result.success is False
+        assert result.error_type == "not_found"
+        assert "does not exist" in result.error
+        assert "nonexistent" in result.error
 
     @pytest.mark.anyio
     async def test_collection_remove_no_session(self, monkeypatch: MonkeyPatch) -> None:
         """Reject when no session exists."""
-        from mcp_guide.tools.tool_collection import CollectionRemoveArgs, collection_remove
+        from mcp_guide.tools.tool_collection import CollectionRemoveArgs, internal_collection_remove
 
         await remove_current_session()
         monkeypatch.delenv("PWD", raising=False)
         monkeypatch.delenv("CWD", raising=False)
 
         args = CollectionRemoveArgs(name="backend")
-        result_str = await collection_remove(args)
-        result_dict = json.loads(result_str)
+        result = await internal_collection_remove(args)
 
-        assert result_dict["success"] is False
-        assert result_dict["error_type"] == "no_project"
+        assert result.success is False
+        assert result.error_type == "no_project"
 
     @pytest.mark.anyio
     async def test_collection_remove_auto_saves(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Verify configuration is automatically saved."""
-        from mcp_guide.tools.tool_collection import CollectionRemoveArgs, collection_remove
+        from mcp_guide.tools.tool_collection import CollectionRemoveArgs, internal_collection_remove
 
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
@@ -454,10 +435,9 @@ class TestCollectionRemove:
         await session.update_config(lambda p: p.with_collection("backend", backend_collection))
 
         args = CollectionRemoveArgs(name="backend")
-        result_str = await collection_remove(args)
-        result_dict = json.loads(result_str)
+        result = await internal_collection_remove(args)
 
-        assert result_dict["success"] is True
+        assert result.success is True
 
         # Verify collection removed (cache updated by update_config)
         project = await session.get_project()
@@ -468,7 +448,7 @@ class TestCollectionRemove:
         """Handle save failure gracefully."""
         from unittest.mock import AsyncMock
 
-        from mcp_guide.tools.tool_collection import CollectionRemoveArgs, collection_remove
+        from mcp_guide.tools.tool_collection import CollectionRemoveArgs, internal_collection_remove
 
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
@@ -481,12 +461,11 @@ class TestCollectionRemove:
         monkeypatch.setattr(session, "update_config", update_mock)
 
         args = CollectionRemoveArgs(name="backend")
-        result_str = await collection_remove(args)
-        result_dict = json.loads(result_str)
+        result = await internal_collection_remove(args)
 
-        assert result_dict["success"] is False
-        assert result_dict["error_type"] == "save_error"
-        assert "Failed to save project configuration" in result_dict["error"]
+        assert result.success is False
+        assert result.error_type == "save_error"
+        assert "Failed to save project configuration" in result.error
 
 
 class TestCollectionChange:
@@ -495,7 +474,7 @@ class TestCollectionChange:
     @pytest.mark.anyio
     async def test_change_collection_name_only(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Change collection name only."""
-        from mcp_guide.tools.tool_collection import CollectionChangeArgs, collection_change
+        from mcp_guide.tools.tool_collection import CollectionChangeArgs, internal_collection_change
 
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
@@ -504,13 +483,12 @@ class TestCollectionChange:
         await session.update_config(lambda p: p.with_collection("backend", backend_collection))
 
         args = CollectionChangeArgs(name="backend", new_name="backend-api")
-        result_str = await collection_change(args)
-        result_dict = json.loads(result_str)
+        result = await internal_collection_change(args)
 
-        assert result_dict["success"] is True
-        assert "renamed" in result_dict["value"]
-        assert "backend" in result_dict["value"]
-        assert "backend-api" in result_dict["value"]
+        assert result.success is True
+        assert "renamed" in result.value
+        assert "backend" in result.value
+        assert "backend-api" in result.value
 
         project = await session.get_project()
         assert len(project.collections) == 1
@@ -521,7 +499,7 @@ class TestCollectionChange:
     @pytest.mark.anyio
     async def test_change_collection_description_only(self, test_session_with_data: Session) -> None:
         """Change collection description only."""
-        from mcp_guide.tools.tool_collection import CollectionChangeArgs, collection_change
+        from mcp_guide.tools.tool_collection import CollectionChangeArgs, internal_collection_change
 
         session = await get_session()
         project = await session.get_project()
@@ -530,11 +508,10 @@ class TestCollectionChange:
         await session.save_project(project)
 
         args = CollectionChangeArgs(name="backend", new_description="New desc")
-        result_str = await collection_change(args)
-        result_dict = json.loads(result_str)
+        result = await internal_collection_change(args)
 
-        assert result_dict["success"] is True
-        assert "updated successfully" in result_dict["value"]
+        assert result.success is True
+        assert "updated successfully" in result.value
 
         project = await session.get_project()
         assert "backend" in project.collections
@@ -544,7 +521,7 @@ class TestCollectionChange:
     @pytest.mark.anyio
     async def test_change_collection_clear_description(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Clear description with empty string."""
-        from mcp_guide.tools.tool_collection import CollectionChangeArgs, collection_change
+        from mcp_guide.tools.tool_collection import CollectionChangeArgs, internal_collection_change
 
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
@@ -553,10 +530,9 @@ class TestCollectionChange:
         await session.update_config(lambda p: p.with_collection("backend", backend_collection))
 
         args = CollectionChangeArgs(name="backend", new_description="")
-        result_str = await collection_change(args)
-        result_dict = json.loads(result_str)
+        result = await internal_collection_change(args)
 
-        assert result_dict["success"] is True
+        assert result.success is True
 
         project = await session.get_project()
         assert project.collections[list(project.collections.keys())[0]].description is None
@@ -564,7 +540,7 @@ class TestCollectionChange:
     @pytest.mark.anyio
     async def test_change_collection_categories_only(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Change categories only."""
-        from mcp_guide.tools.tool_collection import CollectionChangeArgs, collection_change
+        from mcp_guide.tools.tool_collection import CollectionChangeArgs, internal_collection_change
 
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
@@ -580,12 +556,11 @@ class TestCollectionChange:
         await session.update_config(lambda p: p.with_collection("backend", backend_collection))
 
         args = CollectionChangeArgs(name="backend", new_categories=["api", "tests"])
-        result_str = await collection_change(args)
-        result_dict = json.loads(result_str)
+        result = await internal_collection_change(args)
 
-        if not result_dict["success"]:
+        if not result.success:
             print(f"Error: {result_dict.get('error', 'Unknown error')}")
-        assert result_dict["success"] is True
+        assert result.success is True
 
         project = await session.get_project()
         assert project.collections[list(project.collections.keys())[0]].categories == ["api", "tests"]
@@ -595,7 +570,7 @@ class TestCollectionChange:
     @pytest.mark.anyio
     async def test_change_collection_deduplicates_categories(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Deduplicate categories while preserving order."""
-        from mcp_guide.tools.tool_collection import CollectionChangeArgs, collection_change
+        from mcp_guide.tools.tool_collection import CollectionChangeArgs, internal_collection_change
 
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
@@ -611,10 +586,9 @@ class TestCollectionChange:
         await session.update_config(lambda p: p.with_collection("backend", backend_collection))
 
         args = CollectionChangeArgs(name="backend", new_categories=["api", "tests", "api", "docs", "tests"])
-        result_str = await collection_change(args)
-        result_dict = json.loads(result_str)
+        result = await internal_collection_change(args)
 
-        assert result_dict["success"] is True
+        assert result.success is True
 
         project = await session.get_project()
         assert project.collections[list(project.collections.keys())[0]].categories == ["api", "tests", "docs"]
@@ -622,7 +596,7 @@ class TestCollectionChange:
     @pytest.mark.anyio
     async def test_change_collection_multiple_fields(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Change multiple fields together."""
-        from mcp_guide.tools.tool_collection import CollectionChangeArgs, collection_change
+        from mcp_guide.tools.tool_collection import CollectionChangeArgs, internal_collection_change
 
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
@@ -636,11 +610,10 @@ class TestCollectionChange:
         args = CollectionChangeArgs(
             name="backend", new_name="backend-api", new_description="New", new_categories=["api"]
         )
-        result_str = await collection_change(args)
-        result_dict = json.loads(result_str)
+        result = await internal_collection_change(args)
 
-        assert result_dict["success"] is True
-        assert "renamed" in result_dict["value"]
+        assert result.success is True
+        assert "renamed" in result.value
 
         project = await session.get_project()
         assert len(project.collections) == 1
@@ -651,7 +624,7 @@ class TestCollectionChange:
     @pytest.mark.anyio
     async def test_change_collection_no_changes(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Reject when no changes provided."""
-        from mcp_guide.tools.tool_collection import CollectionChangeArgs, collection_change
+        from mcp_guide.tools.tool_collection import CollectionChangeArgs, internal_collection_change
 
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
@@ -660,34 +633,32 @@ class TestCollectionChange:
         await session.update_config(lambda p: p.with_collection("backend", backend_collection))
 
         args = CollectionChangeArgs(name="backend")
-        result_str = await collection_change(args)
-        result_dict = json.loads(result_str)
+        result = await internal_collection_change(args)
 
-        assert result_dict["success"] is False
-        assert result_dict["error_type"] == "validation_error"
-        assert "at least one change" in result_dict["error"].lower()
+        assert result.success is False
+        assert result.error_type == "validation_error"
+        assert "at least one change" in result.error.lower()
 
     @pytest.mark.anyio
     async def test_change_collection_nonexistent(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Reject changing non-existent collection."""
-        from mcp_guide.tools.tool_collection import CollectionChangeArgs, collection_change
+        from mcp_guide.tools.tool_collection import CollectionChangeArgs, internal_collection_change
 
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
         await session.update_config(lambda p: p)
 
         args = CollectionChangeArgs(name="nonexistent", new_name="new")
-        result_str = await collection_change(args)
-        result_dict = json.loads(result_str)
+        result = await internal_collection_change(args)
 
-        assert result_dict["success"] is False
-        assert result_dict["error_type"] == "not_found"
-        assert "does not exist" in result_dict["error"]
+        assert result.success is False
+        assert result.error_type == "not_found"
+        assert "does not exist" in result.error
 
     @pytest.mark.anyio
     async def test_change_collection_duplicate_name(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Reject renaming to existing collection name."""
-        from mcp_guide.tools.tool_collection import CollectionChangeArgs, collection_change
+        from mcp_guide.tools.tool_collection import CollectionChangeArgs, internal_collection_change
 
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
@@ -699,17 +670,16 @@ class TestCollectionChange:
         )
 
         args = CollectionChangeArgs(name="backend", new_name="frontend")
-        result_str = await collection_change(args)
-        result_dict = json.loads(result_str)
+        result = await internal_collection_change(args)
 
-        assert result_dict["success"] is False
-        assert result_dict["error_type"] == "validation_error"
-        assert "already exists" in result_dict["error"]
+        assert result.success is False
+        assert result.error_type == "validation_error"
+        assert "already exists" in result.error
 
     @pytest.mark.anyio
     async def test_change_collection_invalid_new_name(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Reject invalid new_name that fails Collection validation."""
-        from mcp_guide.tools.tool_collection import CollectionChangeArgs, collection_change
+        from mcp_guide.tools.tool_collection import CollectionChangeArgs, internal_collection_change
 
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
@@ -718,17 +688,16 @@ class TestCollectionChange:
         await session.update_config(lambda p: p.with_collection("backend", backend_collection))
 
         args = CollectionChangeArgs(name="backend", new_name="")
-        result_str = await collection_change(args)
-        result_dict = json.loads(result_str)
+        result = await internal_collection_change(args)
 
-        assert result_dict["success"] is False
-        assert result_dict["error_type"] == "validation_error"
-        assert "name" in result_dict["error"].lower()
+        assert result.success is False
+        assert result.error_type == "validation_error"
+        assert "name" in result.error.lower()
 
     @pytest.mark.anyio
     async def test_change_collection_invalid_categories(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Reject non-existent categories."""
-        from mcp_guide.tools.tool_collection import CollectionChangeArgs, collection_change
+        from mcp_guide.tools.tool_collection import CollectionChangeArgs, internal_collection_change
 
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
@@ -737,28 +706,26 @@ class TestCollectionChange:
         await session.update_config(lambda p: p.with_collection("backend", backend_collection))
 
         args = CollectionChangeArgs(name="backend", new_categories=["nonexistent"])
-        result_str = await collection_change(args)
-        result_dict = json.loads(result_str)
+        result = await internal_collection_change(args)
 
-        assert result_dict["success"] is False
-        assert result_dict["error_type"] == "validation_error"
-        assert "does not exist" in result_dict["error"]
+        assert result.success is False
+        assert result.error_type == "validation_error"
+        assert "does not exist" in result.error
 
     @pytest.mark.anyio
     async def test_change_collection_no_session(self, monkeypatch: MonkeyPatch) -> None:
         """Reject when no session exists."""
-        from mcp_guide.tools.tool_collection import CollectionChangeArgs, collection_change
+        from mcp_guide.tools.tool_collection import CollectionChangeArgs, internal_collection_change
 
         await remove_current_session()
         monkeypatch.delenv("PWD", raising=False)
         monkeypatch.delenv("CWD", raising=False)
 
         args = CollectionChangeArgs(name="backend", new_name="new")
-        result_str = await collection_change(args)
-        result_dict = json.loads(result_str)
+        result = await internal_collection_change(args)
 
-        assert result_dict["success"] is False
-        assert result_dict["error_type"] == "no_project"
+        assert result.success is False
+        assert result.error_type == "no_project"
 
     @pytest.mark.anyio
     async def test_change_collection_save_failure(
@@ -767,7 +734,7 @@ class TestCollectionChange:
         """Handle save failure gracefully."""
         from unittest.mock import AsyncMock
 
-        from mcp_guide.tools.tool_collection import CollectionChangeArgs, collection_change
+        from mcp_guide.tools.tool_collection import CollectionChangeArgs, internal_collection_change
 
         session = await get_session()
         project = await session.get_project()
@@ -780,18 +747,17 @@ class TestCollectionChange:
         monkeypatch.setattr(session, "update_config", update_mock)
 
         args = CollectionChangeArgs(name="backend", new_name="new")
-        result_str = await collection_change(args)
-        result_dict = json.loads(result_str)
+        result = await internal_collection_change(args)
 
-        assert result_dict["success"] is False
-        assert result_dict["error_type"] == "save_error"
-        assert "Failed to save" in result_dict["error"]
-        assert underlying_message in result_dict["error"]
+        assert result.success is False
+        assert result.error_type == "save_error"
+        assert "Failed to save" in result.error
+        assert underlying_message in result.error
 
     @pytest.mark.anyio
     async def test_change_collection_same_name(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Allow renaming to same name (no-op)."""
-        from mcp_guide.tools.tool_collection import CollectionChangeArgs, collection_change
+        from mcp_guide.tools.tool_collection import CollectionChangeArgs, internal_collection_change
 
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
@@ -800,15 +766,14 @@ class TestCollectionChange:
         await session.update_config(lambda p: p.with_collection("backend", backend_collection))
 
         args = CollectionChangeArgs(name="backend", new_name="backend")
-        result_str = await collection_change(args)
-        result_dict = json.loads(result_str)
+        result = await internal_collection_change(args)
 
-        assert result_dict["success"] is True
+        assert result.success is True
 
     @pytest.mark.anyio
     async def test_change_collection_empty_categories(self, test_session_with_data: Session) -> None:
         """Allow changing to empty categories list."""
-        from mcp_guide.tools.tool_collection import CollectionChangeArgs, collection_change
+        from mcp_guide.tools.tool_collection import CollectionChangeArgs, internal_collection_change
 
         session = await get_session()
         project = await session.get_project()
@@ -817,10 +782,9 @@ class TestCollectionChange:
         await session.save_project(project)
 
         args = CollectionChangeArgs(name="backend", new_categories=[])
-        result_str = await collection_change(args)
-        result_dict = json.loads(result_str)
+        result = await internal_collection_change(args)
 
-        assert result_dict["success"] is True
+        assert result.success is True
 
         project = await session.get_project()
         assert project.collections[list(project.collections.keys())[0]].categories == []
@@ -832,7 +796,7 @@ class TestCollectionUpdate:
     @pytest.mark.anyio
     async def test_update_collection_add_single_category(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Add single category to collection."""
-        from mcp_guide.tools.tool_collection import CollectionUpdateArgs, collection_update
+        from mcp_guide.tools.tool_collection import CollectionUpdateArgs, internal_collection_update
 
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
@@ -850,11 +814,10 @@ class TestCollectionUpdate:
         )
 
         args = CollectionUpdateArgs(name="backend", add_categories=["tests"])
-        result_str = await collection_update(args)
-        result_dict = json.loads(result_str)
+        result = await internal_collection_update(args)
 
-        assert result_dict["success"] is True
-        assert "updated successfully" in result_dict["value"]
+        assert result.success is True
+        assert "updated successfully" in result.value
 
         project = await session.get_project()
         assert project.collections["backend"].categories == ["api", "tests"]
@@ -862,7 +825,7 @@ class TestCollectionUpdate:
     @pytest.mark.anyio
     async def test_update_collection_remove_single_category(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Remove single category from collection."""
-        from mcp_guide.tools.tool_collection import CollectionUpdateArgs, collection_update
+        from mcp_guide.tools.tool_collection import CollectionUpdateArgs, internal_collection_update
 
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
@@ -875,10 +838,9 @@ class TestCollectionUpdate:
         await session.update_config(lambda p: p.with_collection("backend", backend_collection))
 
         args = CollectionUpdateArgs(name="backend", remove_categories=["tests"])
-        result_str = await collection_update(args)
-        result_dict = json.loads(result_str)
+        result = await internal_collection_update(args)
 
-        assert result_dict["success"] is True
+        assert result.success is True
 
         project = await session.get_project()
         assert project.collections[list(project.collections.keys())[0]].categories == ["api"]
@@ -888,7 +850,7 @@ class TestCollectionUpdate:
         self, tmp_path: Path, monkeypatch: MonkeyPatch
     ) -> None:
         """Remove non-existent category is idempotent."""
-        from mcp_guide.tools.tool_collection import CollectionUpdateArgs, collection_update
+        from mcp_guide.tools.tool_collection import CollectionUpdateArgs, internal_collection_update
 
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
@@ -900,10 +862,9 @@ class TestCollectionUpdate:
         await session.update_config(lambda p: p.with_collection("backend", backend_collection))
 
         args = CollectionUpdateArgs(name="backend", remove_categories=["tests"])
-        result_str = await collection_update(args)
-        result_dict = json.loads(result_str)
+        result = await internal_collection_update(args)
 
-        assert result_dict["success"] is True
+        assert result.success is True
 
         project = await session.get_project()
         assert project.collections[list(project.collections.keys())[0]].categories == ["api"]
@@ -911,7 +872,7 @@ class TestCollectionUpdate:
     @pytest.mark.anyio
     async def test_update_collection_add_and_remove(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Add and remove categories together."""
-        from mcp_guide.tools.tool_collection import CollectionUpdateArgs, collection_update
+        from mcp_guide.tools.tool_collection import CollectionUpdateArgs, internal_collection_update
 
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
@@ -927,10 +888,9 @@ class TestCollectionUpdate:
         await session.update_config(lambda p: p.with_collection("backend", backend_collection))
 
         args = CollectionUpdateArgs(name="backend", remove_categories=["tests"], add_categories=["docs"])
-        result_str = await collection_update(args)
-        result_dict = json.loads(result_str)
+        result = await internal_collection_update(args)
 
-        assert result_dict["success"] is True
+        assert result.success is True
 
         project = await session.get_project()
         assert project.collections[list(project.collections.keys())[0]].categories == ["api", "docs"]
@@ -940,7 +900,7 @@ class TestCollectionUpdate:
         self, tmp_path: Path, monkeypatch: MonkeyPatch
     ) -> None:
         """Same category in both add and remove results in it being present (remove then add)."""
-        from mcp_guide.tools.tool_collection import CollectionUpdateArgs, collection_update
+        from mcp_guide.tools.tool_collection import CollectionUpdateArgs, internal_collection_update
 
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
@@ -954,10 +914,9 @@ class TestCollectionUpdate:
 
         # Remove "tests" then add "tests" - should result in "tests" being present
         args = CollectionUpdateArgs(name="backend", remove_categories=["tests"], add_categories=["tests"])
-        result_str = await collection_update(args)
-        result_dict = json.loads(result_str)
+        result = await internal_collection_update(args)
 
-        assert result_dict["success"] is True
+        assert result.success is True
 
         project = await session.get_project()
         assert project.collections[list(project.collections.keys())[0]].categories == ["api", "tests"]
@@ -965,7 +924,7 @@ class TestCollectionUpdate:
     @pytest.mark.anyio
     async def test_update_collection_add_multiple_categories(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Add multiple categories."""
-        from mcp_guide.tools.tool_collection import CollectionUpdateArgs, collection_update
+        from mcp_guide.tools.tool_collection import CollectionUpdateArgs, internal_collection_update
 
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
@@ -981,10 +940,9 @@ class TestCollectionUpdate:
         await session.update_config(lambda p: p.with_collection("backend", backend_collection))
 
         args = CollectionUpdateArgs(name="backend", add_categories=["tests", "docs"])
-        result_str = await collection_update(args)
-        result_dict = json.loads(result_str)
+        result = await internal_collection_update(args)
 
-        assert result_dict["success"] is True
+        assert result.success is True
 
         project = await session.get_project()
         assert project.collections[list(project.collections.keys())[0]].categories == ["api", "tests", "docs"]
@@ -992,7 +950,7 @@ class TestCollectionUpdate:
     @pytest.mark.anyio
     async def test_update_collection_remove_multiple_categories(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Remove multiple categories."""
-        from mcp_guide.tools.tool_collection import CollectionUpdateArgs, collection_update
+        from mcp_guide.tools.tool_collection import CollectionUpdateArgs, internal_collection_update
 
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
@@ -1008,10 +966,9 @@ class TestCollectionUpdate:
         await session.update_config(lambda p: p.with_collection("backend", backend_collection))
 
         args = CollectionUpdateArgs(name="backend", remove_categories=["tests", "docs"])
-        result_str = await collection_update(args)
-        result_dict = json.loads(result_str)
+        result = await internal_collection_update(args)
 
-        assert result_dict["success"] is True
+        assert result.success is True
 
         project = await session.get_project()
         assert project.collections[list(project.collections.keys())[0]].categories == ["api"]
@@ -1019,7 +976,7 @@ class TestCollectionUpdate:
     @pytest.mark.anyio
     async def test_update_collection_deduplicates_categories(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Deduplicate categories after operations."""
-        from mcp_guide.tools.tool_collection import CollectionUpdateArgs, collection_update
+        from mcp_guide.tools.tool_collection import CollectionUpdateArgs, internal_collection_update
 
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
@@ -1036,10 +993,9 @@ class TestCollectionUpdate:
         await session.update_config(lambda p: p.with_collection("backend", backend_collection))
 
         args = CollectionUpdateArgs(name="backend", add_categories=["docs"])
-        result_str = await collection_update(args)
-        result_dict = json.loads(result_str)
+        result = await internal_collection_update(args)
 
-        assert result_dict["success"] is True
+        assert result.success is True
 
         project = await session.get_project()
         assert project.collections[list(project.collections.keys())[0]].categories == ["api", "tests", "docs"]
@@ -1047,7 +1003,7 @@ class TestCollectionUpdate:
     @pytest.mark.anyio
     async def test_update_collection_skip_adding_duplicate(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Skip adding duplicate category."""
-        from mcp_guide.tools.tool_collection import CollectionUpdateArgs, collection_update
+        from mcp_guide.tools.tool_collection import CollectionUpdateArgs, internal_collection_update
 
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
@@ -1063,10 +1019,9 @@ class TestCollectionUpdate:
         await session.update_config(lambda p: p.with_collection("backend", backend_collection))
 
         args = CollectionUpdateArgs(name="backend", add_categories=["api", "docs"])
-        result_str = await collection_update(args)
-        result_dict = json.loads(result_str)
+        result = await internal_collection_update(args)
 
-        assert result_dict["success"] is True
+        assert result.success is True
 
         project = await session.get_project()
         assert project.collections[list(project.collections.keys())[0]].categories == ["api", "tests", "docs"]
@@ -1076,7 +1031,7 @@ class TestCollectionUpdate:
         self, tmp_path: Path, monkeypatch: MonkeyPatch
     ) -> None:
         """Input add_categories argument with duplicates is deduplicated."""
-        from mcp_guide.tools.tool_collection import CollectionUpdateArgs, collection_update
+        from mcp_guide.tools.tool_collection import CollectionUpdateArgs, internal_collection_update
 
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
@@ -1090,10 +1045,9 @@ class TestCollectionUpdate:
 
         # Pass duplicates in add_categories
         args = CollectionUpdateArgs(name="backend", add_categories=["api", "api", "docs"])
-        result_str = await collection_update(args)
-        result_dict = json.loads(result_str)
+        result = await internal_collection_update(args)
 
-        assert result_dict["success"] is True
+        assert result.success is True
 
         project = await session.get_project()
         # "api" should not be duplicated, "docs" should be added exactly once
@@ -1104,7 +1058,7 @@ class TestCollectionUpdate:
     @pytest.mark.anyio
     async def test_update_collection_not_found(self, test_session_with_data: Session) -> None:
         """Reject non-existent collection."""
-        from mcp_guide.tools.tool_collection import CollectionUpdateArgs, collection_update
+        from mcp_guide.tools.tool_collection import CollectionUpdateArgs, internal_collection_update
 
         session = await get_session()
         project = await session.get_project()
@@ -1112,16 +1066,15 @@ class TestCollectionUpdate:
         await session.save_project(project)
 
         args = CollectionUpdateArgs(name="backend", add_categories=["api"])
-        result_str = await collection_update(args)
-        result_dict = json.loads(result_str)
+        result = await internal_collection_update(args)
 
-        assert result_dict["success"] is False
-        assert result_dict["error_type"] == "not_found"
+        assert result.success is False
+        assert result.error_type == "not_found"
 
     @pytest.mark.anyio
     async def test_update_collection_no_operations(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Reject when no operations provided."""
-        from mcp_guide.tools.tool_collection import CollectionUpdateArgs, collection_update
+        from mcp_guide.tools.tool_collection import CollectionUpdateArgs, internal_collection_update
 
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
@@ -1130,18 +1083,17 @@ class TestCollectionUpdate:
         await session.update_config(lambda p: p.with_collection("backend", backend_collection))
 
         args = CollectionUpdateArgs(name="backend")
-        result_str = await collection_update(args)
-        result_dict = json.loads(result_str)
+        result = await internal_collection_update(args)
 
-        assert result_dict["success"] is False
-        assert result_dict["error_type"] == "validation_error"
+        assert result.success is False
+        assert result.error_type == "validation_error"
         # Check that validation errors are present
-        assert "validation error" in result_dict["error"].lower()
+        assert "validation error" in result.error.lower()
 
     @pytest.mark.anyio
     async def test_update_collection_invalid_categories(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Reject non-existent categories."""
-        from mcp_guide.tools.tool_collection import CollectionUpdateArgs, collection_update
+        from mcp_guide.tools.tool_collection import CollectionUpdateArgs, internal_collection_update
 
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
@@ -1150,35 +1102,33 @@ class TestCollectionUpdate:
         await session.update_config(lambda p: p.with_collection("backend", backend_collection))
 
         args = CollectionUpdateArgs(name="backend", add_categories=["nonexistent"])
-        result_str = await collection_update(args)
-        result_dict = json.loads(result_str)
+        result = await internal_collection_update(args)
 
-        assert result_dict["success"] is False
-        assert result_dict["error_type"] == "validation_error"
-        assert "does not exist" in result_dict["error"]
+        assert result.success is False
+        assert result.error_type == "validation_error"
+        assert "does not exist" in result.error
 
     @pytest.mark.anyio
     async def test_update_collection_no_session(self, monkeypatch: MonkeyPatch) -> None:
         """Reject when no session exists."""
-        from mcp_guide.tools.tool_collection import CollectionUpdateArgs, collection_update
+        from mcp_guide.tools.tool_collection import CollectionUpdateArgs, internal_collection_update
 
         await remove_current_session()
         monkeypatch.delenv("PWD", raising=False)
         monkeypatch.delenv("CWD", raising=False)
 
         args = CollectionUpdateArgs(name="backend", add_categories=["api"])
-        result_str = await collection_update(args)
-        result_dict = json.loads(result_str)
+        result = await internal_collection_update(args)
 
-        assert result_dict["success"] is False
-        assert result_dict["error_type"] == "no_project"
+        assert result.success is False
+        assert result.error_type == "no_project"
 
     @pytest.mark.anyio
     async def test_update_collection_save_failure(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Handle save failure gracefully."""
         from unittest.mock import AsyncMock
 
-        from mcp_guide.tools.tool_collection import CollectionUpdateArgs, collection_update
+        from mcp_guide.tools.tool_collection import CollectionUpdateArgs, internal_collection_update
 
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
@@ -1194,18 +1144,17 @@ class TestCollectionUpdate:
         monkeypatch.setattr(session, "update_config", update_mock)
 
         args = CollectionUpdateArgs(name="backend", add_categories=["api"])
-        result_str = await collection_update(args)
-        result_dict = json.loads(result_str)
+        result = await internal_collection_update(args)
 
-        assert result_dict["success"] is False
-        assert result_dict["error_type"] == "save_error"
-        assert "Failed to save" in result_dict["error"]
-        assert underlying_message in result_dict["error"]
+        assert result.success is False
+        assert result.error_type == "save_error"
+        assert "Failed to save" in result.error
+        assert underlying_message in result.error
 
     @pytest.mark.anyio
     async def test_update_collection_empty_result(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Allow empty categories result."""
-        from mcp_guide.tools.tool_collection import CollectionUpdateArgs, collection_update
+        from mcp_guide.tools.tool_collection import CollectionUpdateArgs, internal_collection_update
 
         monkeypatch.setenv("PWD", "/fake/path/test")
         session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
@@ -1217,10 +1166,9 @@ class TestCollectionUpdate:
         await session.update_config(lambda p: p.with_collection("backend", backend_collection))
 
         args = CollectionUpdateArgs(name="backend", remove_categories=["api"])
-        result_str = await collection_update(args)
-        result_dict = json.loads(result_str)
+        result = await internal_collection_update(args)
 
-        assert result_dict["success"] is True
+        assert result.success is True
 
         project = await session.get_project()
         assert project.collections[list(project.collections.keys())[0]].categories == []

@@ -123,52 +123,6 @@ async def internal_category_list(args: CategoryListArgs, ctx: Optional[Context] 
     return Result.ok(categories)
 
 
-async def category_list(args: CategoryListArgs, ctx: Optional[Context] = None) -> str:
-    """List all categories in the current project.
-
-    Retrieves category information from the current project configuration.
-    Useful for discovering available categories before accessing content.
-
-    ## JSON Schema
-
-    ```json
-    {
-      "type": "object",
-      "properties": {
-        "verbose": {
-          "type": "boolean",
-          "description": "If True, return full details; if False, return names only"
-        }
-      }
-    }
-    ```
-
-    ## Usage Instructions
-
-    ```python
-    # List category names only
-    await category_list(CategoryListArgs(verbose=False))
-
-    # List full category details
-    await category_list(CategoryListArgs(verbose=True))
-    ```
-
-    ## Concrete Examples
-
-    ```python
-    # Example 1: Get category names for overview
-    result = await category_list(CategoryListArgs(verbose=False))
-    # Returns: ["docs", "examples", "tests"]
-
-    # Example 2: Get full category information
-    result = await category_list(CategoryListArgs(verbose=True))
-    # Returns: [{"name": "docs", "dir": "docs", "patterns": ["*.md"], "description": "Documentation files"}]
-    ```
-    """
-    result = await internal_category_list(args, ctx)
-    return await tool_result("category_list", result)
-
-
 class CategoryAddArgs(ToolArguments):
     """Arguments for category_add tool."""
 
@@ -252,75 +206,6 @@ async def internal_category_add(args: CategoryAddArgs, ctx: Optional[Context] = 
     return Result.ok(f"Category '{args.name}' added successfully")
 
 
-async def category_add(args: CategoryAddArgs, ctx: Optional[Context] = None) -> str:
-    """Add a new category to the current project.
-
-    Creates a new category with specified configuration including name,
-    directory path, file patterns, and optional description.
-
-    ## JSON Schema
-
-    ```json
-    {
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "string",
-          "description": "Name of the category to create"
-        },
-        "dir": {
-          "type": "string",
-          "description": "Directory path relative to docroot (defaults to category name)"
-        },
-        "patterns": {
-          "type": "array",
-          "items": {"type": "string"},
-          "description": "File patterns to match (e.g., ['*.md', '*.txt'])"
-        },
-        "description": {
-          "type": "string",
-          "description": "Optional description of the category's purpose"
-        }
-      },
-      "required": ["name"]
-    }
-    ```
-
-    ## Usage Instructions
-
-    ```python
-    # Basic category creation
-    await category_add(CategoryAddArgs(name="docs"))
-
-    # Category with custom directory and patterns
-    await category_add(CategoryAddArgs(
-        name="api-docs",
-        dir="documentation/api",
-        patterns=["*.md", "*.yaml"]
-    ))
-    ```
-
-    ## Concrete Examples
-
-    ```python
-    # Example 1: Create simple documentation category
-    result = await category_add(CategoryAddArgs(name="docs"))
-    # Creates category "docs" using directory "docs" with default patterns
-
-    # Example 2: Create specialized category with custom configuration
-    result = await category_add(CategoryAddArgs(
-        name="tutorials",
-        dir="content/tutorials",
-        patterns=["*.md", "*.rst"],
-        description="Step-by-step tutorial content"
-    ))
-    # Creates category with custom directory and file patterns
-    ```
-    """
-    result = await internal_category_add(args, ctx)
-    return await tool_result("category_add", result)
-
-
 class CategoryRemoveArgs(ToolArguments):
     """Arguments for category_remove tool."""
 
@@ -370,26 +255,6 @@ async def internal_category_remove(args: CategoryRemoveArgs, ctx: Optional[Conte
         return Result.failure(f"Failed to save project configuration: {e}", error_type=ERROR_SAVE)
 
     return Result.ok(f"Category '{args.name}' removed successfully")
-
-
-async def category_remove(args: CategoryRemoveArgs, ctx: Optional[Context] = None) -> str:
-    """Remove a category from the current project.
-
-    Removes the specified category and automatically removes it from all collections.
-    Changes are saved to the project configuration immediately.
-
-    Args:
-        args: Tool arguments with category name
-        ctx: MCP Context (auto-injected by FastMCP)
-
-    Returns:
-        Result containing success message
-
-    Examples:
-        >>> category_remove(name="docs")
-    """
-    result = await internal_category_remove(args, ctx)
-    return await tool_result("category_remove", result)
 
 
 class CategoryChangeArgs(ToolArguments):
@@ -542,20 +407,6 @@ async def internal_category_change(args: CategoryChangeArgs, ctx: Optional[Conte
     return Result.ok(change_msg)
 
 
-async def category_change(args: CategoryChangeArgs, ctx: Optional[Context] = None) -> str:
-    """Change properties of an existing category.
-
-    Args:
-        args: Tool arguments with name and optional new values
-        ctx: MCP Context (auto-injected by FastMCP)
-
-    Returns:
-        Result containing success message
-    """
-    result = await internal_category_change(args, ctx)
-    return await tool_result("category_change", result)
-
-
 class CategoryUpdateArgs(ToolArguments):
     """Arguments for category_update tool."""
 
@@ -630,20 +481,6 @@ async def internal_category_update(args: CategoryUpdateArgs, ctx: Optional[Conte
         return Result.failure(f"Failed to save project configuration: {e}", error_type=ERROR_SAVE)
 
     return Result.ok(f"Category '{args.name}' patterns updated successfully")
-
-
-async def category_update(args: CategoryUpdateArgs, ctx: Optional[Context] = None) -> str:
-    """Update category patterns incrementally.
-
-    Args:
-        args: Tool arguments with name and pattern changes
-        ctx: MCP Context (auto-injected by FastMCP)
-
-    Returns:
-        Result containing success message
-    """
-    result = await internal_category_update(args, ctx)
-    return await tool_result("category_update", result)
 
 
 async def internal_category_list_files(

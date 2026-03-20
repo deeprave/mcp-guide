@@ -13,13 +13,6 @@ __config_dir: Optional[str] = None
 __docroot: Optional[str] = None
 
 
-def _reset_overrides() -> None:
-    """Reset configuration overrides. For testing only."""
-    global __config_dir, __docroot
-    __config_dir = None
-    __docroot = None
-
-
 def set_config_dir(config_dir: str) -> None:
     """Set configuration directory override.
 
