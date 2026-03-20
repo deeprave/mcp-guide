@@ -181,16 +181,11 @@ class FileInfo:
 
         # Try content_loader first (e.g. from document store)
         if self._content_loader is not None:
-            try:
-                self._content = await self._content_loader()
-                if self._content is not None:
-                    self.size = len(self._content)
-                self._load_error = None
-                return
-            except Exception as e:
-                self._content = None
-                self._load_error = str(e)
-                return
+            self._content = await self._content_loader()
+            if self._content is not None:
+                self.size = len(self._content)
+            self._load_error = None
+            return
 
         # Fall back to filesystem read
         from mcp_guide.core import read_file_content

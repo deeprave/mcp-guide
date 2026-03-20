@@ -80,8 +80,8 @@ async def test_content_loader_returning_none():
 
 
 @pytest.mark.anyio
-async def test_content_loader_error_sets_load_error():
-    """Test that content_loader errors are captured."""
+async def test_content_loader_error_propagates():
+    """Test that content_loader errors propagate directly."""
 
     async def loader() -> str | None:
         raise RuntimeError("store unavailable")
@@ -89,7 +89,7 @@ async def test_content_loader_error_sets_load_error():
     fi = FileInfo(
         path=Path("test.md"), size=0, content_size=0, mtime=datetime.now(), name="test.md", content_loader=loader
     )
-    with pytest.raises(OSError, match="store unavailable"):
+    with pytest.raises(RuntimeError, match="store unavailable"):
         await fi.get_content()
 
 
