@@ -2,7 +2,7 @@
 
 import json
 import sqlite3
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal, Optional
@@ -44,10 +44,10 @@ class DocumentRecord:
     name: str
     source: str
     source_type: str
-    content: Optional[str]
     metadata: dict
     created_at: str
     updated_at: str
+    content: Optional[str] = None
 
 
 def _get_conn(db_path: Optional[Path] = None) -> sqlite3.Connection:
@@ -66,19 +66,39 @@ def _now() -> str:
     return datetime.now(UTC).isoformat()
 
 
-# Column list excluding content — must stay in sync with _CREATE_TABLE schema.
-_FIELDS_NO_CONTENT = "id, category, name, source, source_type, metadata, created_at, updated_at"
+# Derive metadata-only query from DocumentRecord fields, excluding content.
+_METADATA_FIELDS = tuple(f.name for f in fields(DocumentRecord) if f.name != "content")
+_SELECT_METADATA = "SELECT " + ", ".join(_METADATA_FIELDS) + " FROM documents"  # nosec B608
+
+
+def _parse_metadata(raw: str | None) -> dict:
+    return json.loads(raw) if raw else {}
 
 
 def _row_to_record(row: sqlite3.Row) -> DocumentRecord:
+    """Convert a full row (with content) to DocumentRecord."""
     return DocumentRecord(
         id=row["id"],
         category=row["category"],
         name=row["name"],
         source=row["source"],
         source_type=row["source_type"],
-        content=row["content"] if "content" in row.keys() else None,
-        metadata=json.loads(row["metadata"]) if row["metadata"] else {},
+        metadata=_parse_metadata(row["metadata"]),
+        created_at=row["created_at"],
+        updated_at=row["updated_at"],
+        content=row["content"],
+    )
+
+
+def _row_to_metadata_record(row: sqlite3.Row) -> DocumentRecord:
+    """Convert a content-less row to DocumentRecord (content remains None)."""
+    return DocumentRecord(
+        id=row["id"],
+        category=row["category"],
+        name=row["name"],
+        source=row["source"],
+        source_type=row["source_type"],
+        metadata=_parse_metadata(row["metadata"]),
         created_at=row["created_at"],
         updated_at=row["updated_at"],
     )
@@ -125,12 +145,12 @@ def _get_document(category: str, name: str, db_path: Optional[Path] = None) -> O
     conn = _get_conn(db_path)
     try:
         row = conn.execute(
-            f"SELECT {_FIELDS_NO_CONTENT} FROM documents WHERE category = ? AND name = ?",  # nosec B608
+            _SELECT_METADATA + " WHERE category = ? AND name = ?",
             (category, name),
         ).fetchone()
     finally:
         conn.close()
-    return _row_to_record(row) if row else None
+    return _row_to_metadata_record(row) if row else None
 
 
 def _get_document_content(category: str, name: str, db_path: Optional[Path] = None) -> Optional[str]:
@@ -161,16 +181,14 @@ def _list_documents(category: Optional[str] = None, db_path: Optional[Path] = No
     try:
         if category is not None:
             rows = conn.execute(
-                f"SELECT {_FIELDS_NO_CONTENT} FROM documents WHERE category = ? ORDER BY name",  # nosec B608
+                _SELECT_METADATA + " WHERE category = ? ORDER BY name",
                 (category,),
             ).fetchall()
         else:
-            rows = conn.execute(
-                f"SELECT {_FIELDS_NO_CONTENT} FROM documents ORDER BY category, name"  # nosec B608
-            ).fetchall()
+            rows = conn.execute(_SELECT_METADATA + " ORDER BY category, name").fetchall()
     finally:
         conn.close()
-    return [_row_to_record(r) for r in rows]
+    return [_row_to_metadata_record(r) for r in rows]
 
 
 # --- Async public API ---
