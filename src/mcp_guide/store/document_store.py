@@ -44,7 +44,7 @@ class DocumentRecord:
     name: str
     source: str
     source_type: str
-    content: str
+    content: Optional[str]
     metadata: dict
     created_at: str
     updated_at: str
@@ -66,6 +66,10 @@ def _now() -> str:
     return datetime.now(UTC).isoformat()
 
 
+# Column list excluding content — must stay in sync with _CREATE_TABLE schema.
+_FIELDS_NO_CONTENT = "id, category, name, source, source_type, metadata, created_at, updated_at"
+
+
 def _row_to_record(row: sqlite3.Row) -> DocumentRecord:
     return DocumentRecord(
         id=row["id"],
@@ -73,7 +77,7 @@ def _row_to_record(row: sqlite3.Row) -> DocumentRecord:
         name=row["name"],
         source=row["source"],
         source_type=row["source_type"],
-        content=row["content"],
+        content=row["content"] if "content" in row.keys() else None,
         metadata=json.loads(row["metadata"]) if row["metadata"] else {},
         created_at=row["created_at"],
         updated_at=row["updated_at"],
@@ -120,10 +124,25 @@ def _add_document(
 def _get_document(category: str, name: str, db_path: Optional[Path] = None) -> Optional[DocumentRecord]:
     conn = _get_conn(db_path)
     try:
-        row = conn.execute("SELECT * FROM documents WHERE category = ? AND name = ?", (category, name)).fetchone()
+        row = conn.execute(
+            f"SELECT {_FIELDS_NO_CONTENT} FROM documents WHERE category = ? AND name = ?",  # nosec B608
+            (category, name),
+        ).fetchone()
     finally:
         conn.close()
     return _row_to_record(row) if row else None
+
+
+def _get_document_content(category: str, name: str, db_path: Optional[Path] = None) -> Optional[str]:
+    conn = _get_conn(db_path)
+    try:
+        row = conn.execute(
+            "SELECT content FROM documents WHERE category = ? AND name = ?",
+            (category, name),
+        ).fetchone()
+    finally:
+        conn.close()
+    return row["content"] if row else None
 
 
 def _remove_document(category: str, name: str, db_path: Optional[Path] = None) -> bool:
@@ -141,9 +160,14 @@ def _list_documents(category: Optional[str] = None, db_path: Optional[Path] = No
     conn = _get_conn(db_path)
     try:
         if category is not None:
-            rows = conn.execute("SELECT * FROM documents WHERE category = ? ORDER BY name", (category,)).fetchall()
+            rows = conn.execute(
+                f"SELECT {_FIELDS_NO_CONTENT} FROM documents WHERE category = ? ORDER BY name",  # nosec B608
+                (category,),
+            ).fetchall()
         else:
-            rows = conn.execute("SELECT * FROM documents ORDER BY category, name").fetchall()
+            rows = conn.execute(
+                f"SELECT {_FIELDS_NO_CONTENT} FROM documents ORDER BY category, name"  # nosec B608
+            ).fetchall()
     finally:
         conn.close()
     return [_row_to_record(r) for r in rows]
@@ -166,8 +190,13 @@ async def add_document(
 
 
 async def get_document(category: str, name: str, db_path: Optional[Path] = None) -> Optional[DocumentRecord]:
-    """Return document by (category, name), or None if not found."""
+    """Return document by (category, name) without content, or None if not found."""
     return await run_in_thread(_get_document, category, name, db_path)
+
+
+async def get_document_content(category: str, name: str, db_path: Optional[Path] = None) -> Optional[str]:
+    """Return document content by (category, name), or None if not found."""
+    return await run_in_thread(_get_document_content, category, name, db_path)
 
 
 async def remove_document(category: str, name: str, db_path: Optional[Path] = None) -> bool:

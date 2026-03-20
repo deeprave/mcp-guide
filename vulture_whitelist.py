@@ -74,6 +74,7 @@ _.plan  # Pydantic model field on WorkflowState; populated from .guide.yaml
 # Document store public API (consumed by tool layer in subsequent issues)
 _.add_document
 _.get_document
+_.get_document_content
 _.remove_document
 _.list_documents
 _.created_at  # DocumentRecord dataclass field

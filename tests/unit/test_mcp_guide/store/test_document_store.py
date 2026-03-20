@@ -5,6 +5,7 @@ import pytest
 from mcp_guide.store.document_store import (
     add_document,
     get_document,
+    get_document_content,
     list_documents,
     remove_document,
 )
@@ -26,7 +27,19 @@ async def test_add_and_get_round_trip(db):
     fetched = await get_document("docs", "readme", db_path=db)
     assert fetched is not None
     assert fetched.id == record.id
-    assert fetched.content == "# Hello"
+    assert fetched.content is None  # get_document excludes content
+
+
+@pytest.mark.anyio
+async def test_get_document_content_returns_content(db):
+    await add_document("docs", "readme", "/path/readme.md", "file", "# Hello", db_path=db)
+    content = await get_document_content("docs", "readme", db_path=db)
+    assert content == "# Hello"
+
+
+@pytest.mark.anyio
+async def test_get_document_content_missing_returns_none(db):
+    assert await get_document_content("docs", "nonexistent", db_path=db) is None
 
 
 @pytest.mark.anyio
@@ -36,6 +49,9 @@ async def test_upsert_updates_content_and_timestamp(db):
     assert second.content == "v2"
     assert second.id == first.id
     assert second.updated_at >= first.updated_at
+
+    content = await get_document_content("docs", "readme", db_path=db)
+    assert content == "v2"
 
 
 @pytest.mark.anyio
@@ -64,6 +80,7 @@ async def test_list_by_category(db):
     results = await list_documents("docs", db_path=db)
     assert len(results) == 2
     assert {r.name for r in results} == {"a", "b"}
+    assert all(r.content is None for r in results)  # list excludes content
 
 
 @pytest.mark.anyio
@@ -73,6 +90,7 @@ async def test_list_all(db):
 
     results = await list_documents(db_path=db)
     assert len(results) == 2
+    assert all(r.content is None for r in results)
 
 
 @pytest.mark.anyio
