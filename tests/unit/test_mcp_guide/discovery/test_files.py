@@ -105,6 +105,46 @@ async def test_no_content_loader_falls_back_to_filesystem(tmp_path):
 
 
 @pytest.mark.anyio
+async def test_filesystem_load_error_cleared_on_retry(tmp_path):
+    """Test that _load_error is cleared when a retry succeeds after initial failure."""
+    test_file = tmp_path / "test.md"
+
+    fi = FileInfo(path=test_file, size=0, content_size=0, mtime=datetime.now(), name="test.md")
+    # First call fails — file doesn't exist
+    with pytest.raises(OSError):
+        await fi.get_content()
+
+    # Create the file and reset state so retry is attempted
+    test_file.write_text("# Retry success")
+    fi._content = None
+    fi._content_explicitly_set = False
+
+    result = await fi.get_content()
+    assert result == "# Retry success"
+
+
+@pytest.mark.anyio
+async def test_content_loader_takes_precedence_over_filesystem(tmp_path):
+    """Test that content_loader is preferred over filesystem when both are available."""
+    test_file = tmp_path / "test.md"
+    test_file.write_text("# From disk")
+
+    async def loader() -> str | None:
+        return "# From loader"
+
+    fi = FileInfo(
+        path=test_file,
+        size=0,
+        content_size=0,
+        mtime=datetime.now(),
+        name="test.md",
+        content_loader=loader,
+    )
+    result = await fi.get_content()
+    assert result == "# From loader"
+
+
+@pytest.mark.anyio
 async def test_directory_not_found():
     """Test that missing directory raises FileNotFoundError."""
     non_existent = Path("/non/existent/directory")

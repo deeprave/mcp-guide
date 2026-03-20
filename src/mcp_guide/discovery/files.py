@@ -93,6 +93,8 @@ class FileInfo:
         name: Relative path without template extension (for agent display)
         category: Category object for accessing directory and configuration
         ctime: File metadata change time (platform-dependent; Unix: inode change time, Windows: creation time)
+        source: Content origin identifier (e.g. "file", "store")
+        content_loader: Optional async callback for loading content from non-filesystem sources
     """
 
     def __init__(
