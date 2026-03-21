@@ -429,35 +429,8 @@ async def test_discover_document_stored_returns_matching_records():
 
 
 @pytest.mark.anyio
-async def test_discover_document_stored_case_insensitive():
-    """Test that stored document matching is case-insensitive."""
-    from unittest.mock import AsyncMock, patch
-
-    from mcp_guide.discovery.files import discover_document_stored
-    from mcp_guide.store.document_store import DocumentRecord
-
-    records = [
-        DocumentRecord(
-            id=1,
-            category="docs",
-            name="README.md",
-            source="x",
-            source_type="url",
-            metadata={},
-            created_at="2025-01-01T00:00:00",
-            updated_at="2025-06-01T00:00:00",
-        ),
-    ]
-    with patch("mcp_guide.discovery.files.list_documents", new=AsyncMock(return_value=records)):
-        result = await discover_document_stored("docs", ["*.md"])
-
-    assert len(result) == 1
-    assert result[0].name == "README.md"
-
-
-@pytest.mark.anyio
 async def test_discover_document_stored_bare_name_matches_with_extension():
-    """Test that a bare pattern like 'readme' matches 'readme.md'."""
+    """Test that a bare pattern like 'readme' matches 'readme.md' via get_file_extension_patterns."""
     from unittest.mock import AsyncMock, patch
 
     from mcp_guide.discovery.files import discover_document_stored
@@ -484,13 +457,23 @@ async def test_discover_document_stored_bare_name_matches_with_extension():
             created_at="2025-01-01T00:00:00",
             updated_at="2025-06-01T00:00:00",
         ),
+        DocumentRecord(
+            id=3,
+            category="docs",
+            name="readme.md.mustache",
+            source="x",
+            source_type="text",
+            metadata={},
+            created_at="2025-01-01T00:00:00",
+            updated_at="2025-06-01T00:00:00",
+        ),
     ]
     with patch("mcp_guide.discovery.files.list_documents", new=AsyncMock(return_value=records)):
         result = await discover_document_stored("docs", ["readme"])
 
-    assert len(result) == 2
+    assert len(result) == 3
     names = {r.name for r in result}
-    assert names == {"readme.md", "readme"}
+    assert names == {"readme.md", "readme", "readme.md.mustache"}
 
 
 @pytest.mark.anyio

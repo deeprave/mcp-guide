@@ -11,6 +11,7 @@ if TYPE_CHECKING:
 
 _SENTINEL = object()  # Sentinel value for distinguishing unset parameters
 
+import anyio
 from anyio import Path as AsyncPath
 
 from mcp_guide.discovery.patterns import safe_glob_search
@@ -258,32 +259,15 @@ class FileInfo:
         self._frontmatter = value
 
 
-def _matches_stored_pattern(name: str, pattern: str) -> bool:
-    """Case-insensitive pattern match for stored document names.
-
-    Stored documents use logical names without template extensions.
-    Bare patterns without an extension (e.g. "readme") also match
-    names with any extension (e.g. "readme.md").
-    """
-    name_lower = name.lower()
-    pattern_lower = pattern.lower()
-    if fnmatch(name_lower, pattern_lower):
-        return True
-    # Bare name without extension or glob chars → also match name.*
-    if "." not in pattern and "*" not in pattern and "?" not in pattern:
-        return fnmatch(name_lower, pattern_lower + ".*")
-    return False
-
-
 async def discover_document_stored(
     category: str,
     patterns: list[str],
 ) -> list[FileInfo]:
     """Discover documents from the document store.
 
-    Matching is case-insensitive. Stored documents use logical names
-    (no template extensions), so pattern expansion for templates is
-    not applied here.
+    Uses the same pattern expansion as filesystem discovery
+    (get_file_extension_patterns) including template extension variants.
+    Matching is case-sensitive, consistent with filesystem behaviour.
 
     Args:
         category: Category name to query
@@ -292,10 +276,14 @@ async def discover_document_stored(
     Returns:
         List of FileInfo with content_loader and source="store"
     """
+    expanded: list[str] = []
+    for p in patterns:
+        expanded.extend(get_file_extension_patterns(p))
+
     records = await list_documents(category)
     results = []
     for record in records:
-        if not any(_matches_stored_pattern(record.name, p) for p in patterns):
+        if not any(fnmatch(record.name, ep) for ep in expanded):
             continue
         mtime = datetime.fromisoformat(record.updated_at)
         loader = partial(get_document_content, record.category, record.name)
@@ -332,10 +320,24 @@ async def discover_documents(
     # No cross-source deduplication: filesystem files and stored documents are
     # distinct by design. The store's uniqueness constraint prevents duplicates
     # within the store, and users do not store existing category files.
-    files = await discover_document_files(base_dir, patterns)
-    if category is not None:
-        files.extend(await discover_document_stored(category, patterns))
-    return files
+    if category is None:
+        return await discover_document_files(base_dir, patterns)
+
+    file_results: list[FileInfo] = []
+    store_results: list[FileInfo] = []
+
+    async with anyio.create_task_group() as tg:
+
+        async def _files() -> None:
+            file_results.extend(await discover_document_files(base_dir, patterns))
+
+        async def _stored() -> None:
+            store_results.extend(await discover_document_stored(category, patterns))
+
+        tg.start_soon(_files)
+        tg.start_soon(_stored)
+
+    return file_results + store_results
 
 
 async def discover_document_files(
