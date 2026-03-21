@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS documents (
     source_type TEXT NOT NULL,
     content     TEXT NOT NULL,
     metadata    BLOB DEFAULT NULL,
+    mtime       REAL DEFAULT NULL,
     created_at  TEXT NOT NULL,
     updated_at  TEXT NOT NULL,
     UNIQUE (category, name)
@@ -48,6 +49,7 @@ class DocumentRecord:
     created_at: str
     updated_at: str
     content: Optional[str] = None
+    mtime: Optional[float] = None
 
 
 def _get_conn(db_path: Optional[Path] = None) -> sqlite3.Connection:
@@ -58,7 +60,13 @@ def _get_conn(db_path: Optional[Path] = None) -> sqlite3.Connection:
     conn.row_factory = sqlite3.Row
     conn.executescript(_CREATE_TABLE)
     if _MIGRATIONS.strip():
-        conn.executescript(_MIGRATIONS)
+        for statement in _MIGRATIONS.strip().split(";"):
+            statement = statement.strip()
+            if statement:
+                try:
+                    conn.execute(statement)
+                except sqlite3.OperationalError:
+                    pass  # Column already exists — migration already applied
     return conn
 
 
@@ -87,6 +95,7 @@ def _row_to_record(row: sqlite3.Row) -> DocumentRecord:
         created_at=row["created_at"],
         updated_at=row["updated_at"],
         content=row["content"],
+        mtime=row["mtime"],
     )
 
 
@@ -101,6 +110,7 @@ def _row_to_metadata_record(row: sqlite3.Row) -> DocumentRecord:
         metadata=_parse_metadata(row["metadata"]),
         created_at=row["created_at"],
         updated_at=row["updated_at"],
+        mtime=row["mtime"],
     )
 
 
@@ -111,6 +121,7 @@ def _add_document(
     source_type: str,
     content: str,
     metadata: Optional[dict] = None,
+    mtime: Optional[float] = None,
     db_path: Optional[Path] = None,
 ) -> DocumentRecord:
     if not category or not name:
@@ -124,16 +135,17 @@ def _add_document(
         with conn:
             conn.execute(
                 """
-                INSERT INTO documents (category, name, source, source_type, content, metadata, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO documents (category, name, source, source_type, content, metadata, mtime, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT (category, name) DO UPDATE SET
                     source      = excluded.source,
                     source_type = excluded.source_type,
                     content     = excluded.content,
                     metadata    = excluded.metadata,
+                    mtime       = excluded.mtime,
                     updated_at  = excluded.updated_at
                 """,
-                (category, name, source, source_type, content, meta_json, now, now),
+                (category, name, source, source_type, content, meta_json, mtime, now, now),
             )
             row = conn.execute(
                 "SELECT * FROM documents WHERE category = ? AND name = ?",
@@ -207,10 +219,11 @@ async def add_document(
     source_type: SourceType,
     content: str,
     metadata: Optional[dict] = None,
+    mtime: Optional[float] = None,
     db_path: Optional[Path] = None,
 ) -> DocumentRecord:
     """Insert or update a document. Returns the stored record."""
-    return await run_in_thread(_add_document, category, name, source, source_type, content, metadata, db_path)
+    return await run_in_thread(_add_document, category, name, source, source_type, content, metadata, mtime, db_path)
 
 
 async def get_document(category: str, name: str, db_path: Optional[Path] = None) -> Optional[DocumentRecord]:

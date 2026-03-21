@@ -21,6 +21,7 @@ from mcp_guide.openspec.task import OpenSpecTask  # noqa: F401 - imported for @t
 
 # Import task managers early to trigger @task_init decorators
 from mcp_guide.task_manager import TaskManager  # noqa: F401 - imported for initialization side effects
+from mcp_guide.tasks.document_task import DocumentTask  # noqa: F401 - imported for @task_init decorator side effects
 from mcp_guide.tasks.retry_task import RetryTask  # noqa: F401 - imported for @task_init decorator side effects
 from mcp_guide.tasks.update_task import McpUpdateTask  # noqa: F401 - imported for @task_init decorator side effects
 from mcp_guide.workflow.tasks import WorkflowMonitorTask  # noqa: F401 - imported for @task_init decorator side effects

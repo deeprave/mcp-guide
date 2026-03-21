@@ -27,6 +27,7 @@ from mcp_guide.tools import (  # noqa: F401
     tool_collection,
     tool_content,
     tool_discovery,
+    tool_document,
     tool_feature_flags,
     tool_filesystem,
     tool_project,

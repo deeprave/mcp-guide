@@ -22,7 +22,7 @@ from mcp_guide.core.validation import (
     validate_directory_path,
     validate_pattern,
 )
-from mcp_guide.discovery.files import FileInfo, discover_document_files
+from mcp_guide.discovery.files import FileInfo, discover_document_files, discover_document_stored, discover_documents
 from mcp_guide.feature_flags.constants import FLAG_CONTENT_FORMAT
 from mcp_guide.feature_flags.utils import get_resolved_flag_value
 from mcp_guide.models import Category, CategoryNotFoundError, FileReadError, Project
@@ -85,6 +85,9 @@ class CategoryListFilesArgs(ToolArguments):
     """Arguments for category_list_files tool."""
 
     name: str = Field(description="Name of the category to list files from")
+    source: Optional[Literal["files", "stored"]] = Field(
+        default=None, description="Filter by source: 'files' (filesystem only), 'stored' (store only), or omit for both"
+    )
 
 
 async def internal_category_list(args: CategoryListArgs, ctx: Optional[Context] = None) -> Result[list]:
@@ -518,19 +521,28 @@ async def internal_category_list_files(
     # Discover files using **/* pattern to get all files
     docroot = Path(await session.get_docroot())
     category_dir = docroot / category.dir
-    files = await discover_document_files(category_dir, ["**/*"])
+
+    if args.source == "stored":
+        files = await discover_document_stored(args.name, ["**/*"])
+    elif args.source == "files":
+        files = await discover_document_files(category_dir, ["**/*"])
+    else:
+        files = await discover_documents(category_dir, ["**/*"], category=args.name)
 
     # Format as list of file info dictionaries with descriptions
     file_list = []
     for file in files:
-        # Extract description from front-matter
-        full_path = category_dir / file.path
-        description = await get_frontmatter_description_from_file(full_path)
+        # Extract description from front-matter (filesystem files only)
+        description = None
+        if file.source != "store":
+            full_path = category_dir / file.path
+            description = await get_frontmatter_description_from_file(full_path)
 
-        file_info = {
+        file_info: dict[str, Any] = {
             "path": file.name,
             "size": file.size,
             "basename": Path(file.name).name,
+            "source": file.source or "file",
         }
 
         # Only add description if it exists
