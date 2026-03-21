@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from mcp_guide.discovery.files import FileInfo, discover_documents
+from mcp_guide.discovery.files import FileInfo, discover_document_files
 
 
 def test_fileinfo_has_category_field():
@@ -149,7 +149,7 @@ async def test_directory_not_found():
     """Test that missing directory raises FileNotFoundError."""
     non_existent = Path("/non/existent/directory")
     with pytest.raises(FileNotFoundError):
-        await discover_documents(non_existent, ["*.txt"])
+        await discover_document_files(non_existent, ["*.txt"])
 
 
 @pytest.mark.anyio
@@ -157,7 +157,7 @@ async def test_relative_path_raises_error():
     """Test that relative path raises ValueError."""
     relative_path = Path("relative/path")
     with pytest.raises(ValueError, match="must be absolute"):
-        await discover_documents(relative_path, ["*.txt"])
+        await discover_document_files(relative_path, ["*.txt"])
 
 
 @pytest.mark.anyio
@@ -167,13 +167,13 @@ async def test_template_extension_patterns_raise_error(tmp_path):
 
     for ext in template_extensions:
         with pytest.raises(ValueError, match="should not include template extensions"):
-            await discover_documents(tmp_path, [f"*.md{ext}"])
+            await discover_document_files(tmp_path, [f"*.md{ext}"])
 
 
 @pytest.mark.anyio
 async def test_no_matches_returns_empty_list(tmp_path):
     """Test that no matches returns empty list."""
-    result = await discover_documents(tmp_path, ["*.txt"])
+    result = await discover_document_files(tmp_path, ["*.txt"])
     assert result == []
 
 
@@ -182,7 +182,7 @@ async def test_discover_single_file(tmp_path):
     """Test discovering a single file."""
     (tmp_path / "test.md").write_text("# Test")
 
-    result = await discover_documents(tmp_path, ["*.md"])
+    result = await discover_document_files(tmp_path, ["*.md"])
 
     assert len(result) == 1
     assert result[0].path == Path("test.md")
@@ -196,7 +196,7 @@ async def test_discover_multiple_files(tmp_path):
     (tmp_path / "file1.md").write_text("# File 1")
     (tmp_path / "file2.md").write_text("# File 2")
 
-    result = await discover_documents(tmp_path, ["*.md"])
+    result = await discover_document_files(tmp_path, ["*.md"])
 
     assert len(result) == 2
     paths = {f.path for f in result}
@@ -210,7 +210,7 @@ async def test_multiple_patterns(tmp_path):
     (tmp_path / "doc.md").write_text("# Doc")
     (tmp_path / "data.yaml").write_text("key: value")
 
-    result = await discover_documents(tmp_path, ["*.md", "*.yaml"])
+    result = await discover_document_files(tmp_path, ["*.md", "*.yaml"])
 
     assert len(result) == 2
     paths = {f.path for f in result}
@@ -225,7 +225,7 @@ async def test_discover_in_subdirectories(tmp_path):
     subdir.mkdir()
     (subdir / "nested.md").write_text("# Nested")
 
-    result = await discover_documents(tmp_path, ["**/*.md"])
+    result = await discover_document_files(tmp_path, ["**/*.md"])
 
     assert len(result) == 1
     assert result[0].path == Path("sub/nested.md")
@@ -236,7 +236,7 @@ async def test_discover_template_file(tmp_path):
     """Test discovering template file."""
     (tmp_path / "doc.md.mustache").write_text("# Template")
 
-    result = await discover_documents(tmp_path, ["*.md"])
+    result = await discover_document_files(tmp_path, ["*.md"])
 
     assert len(result) == 1
     assert result[0].path == Path("doc.md.mustache")
@@ -249,7 +249,7 @@ async def test_prefer_non_template_over_template(tmp_path):
     (tmp_path / "doc.md").write_text("# Real")
     (tmp_path / "doc.md.mustache").write_text("# Template")
 
-    result = await discover_documents(tmp_path, ["*.md"])
+    result = await discover_document_files(tmp_path, ["*.md"])
 
     assert len(result) == 1
     assert result[0].path == Path("doc.md")
@@ -262,7 +262,7 @@ async def test_template_replacement_when_both_exist(tmp_path):
     (tmp_path / "file.txt").write_text("Real")
     (tmp_path / "file.txt.mustache").write_text("Template")
 
-    result = await discover_documents(tmp_path, ["*.txt"])
+    result = await discover_document_files(tmp_path, ["*.txt"])
 
     assert len(result) == 1
     assert result[0].path == Path("file.txt")
@@ -275,7 +275,7 @@ async def test_relative_paths(tmp_path):
     subdir.mkdir()
     (subdir / "file.txt").write_text("content")
 
-    result = await discover_documents(tmp_path, ["**/*.txt"])
+    result = await discover_document_files(tmp_path, ["**/*.txt"])
 
     assert len(result) == 1
     assert result[0].path == Path("subdir/file.txt")
@@ -287,7 +287,7 @@ async def test_empty_patterns_returns_empty(tmp_path):
     """Test empty patterns list returns empty results."""
     (tmp_path / "file.txt").write_text("content")
 
-    result = await discover_documents(tmp_path, [])
+    result = await discover_document_files(tmp_path, [])
 
     assert result == []
 
@@ -311,7 +311,7 @@ async def test_integration_realistic_category(tmp_path):
     (tests_dir / "test_main.py").write_text("def test(): pass")
 
     # Search for Python files
-    result = await discover_documents(tmp_path, ["**/*.py"])
+    result = await discover_document_files(tmp_path, ["**/*.py"])
 
     assert len(result) == 3
     paths = {r.path for r in result}
@@ -339,7 +339,7 @@ async def test_same_filename_different_directories(tmp_path):
     (subdir1 / "doc.md").write_text("# Doc 1")
     (subdir2 / "doc.md").write_text("# Doc 2")
 
-    result = await discover_documents(tmp_path, ["**/*.md"])
+    result = await discover_document_files(tmp_path, ["**/*.md"])
 
     # Should return BOTH files, not just one
     assert len(result) == 2
@@ -361,7 +361,7 @@ async def test_template_deduplication_in_subdirectory(tmp_path):
     (subdir / "doc.md").write_text("# Real")
     (subdir / "doc.md.mustache").write_text("# Template")
 
-    result = await discover_documents(tmp_path, ["**/*.md"])
+    result = await discover_document_files(tmp_path, ["**/*.md"])
 
     # Should only return non-template version
     assert len(result) == 1
@@ -378,9 +378,218 @@ async def test_template_preference_different_directories(tmp_path):
     (tmp_path / "subdir1" / "doc.md").write_text("real")
     (tmp_path / "subdir2" / "doc.md.mustache").write_text("template")
 
-    result = await discover_documents(tmp_path, ["**/*.md"])
+    result = await discover_document_files(tmp_path, ["**/*.md"])
 
     # Should return both files (they're in different directories)
     assert len(result) == 2
     paths = {r.path for r in result}
     assert paths == {Path("subdir1/doc.md"), Path("subdir2/doc.md.mustache")}
+
+
+# --- Tests for discover_document_stored ---
+
+
+@pytest.mark.anyio
+async def test_discover_document_stored_returns_matching_records():
+    """Test that stored documents matching patterns are returned as FileInfo."""
+    from unittest.mock import AsyncMock, patch
+
+    from mcp_guide.discovery.files import discover_document_stored
+    from mcp_guide.store.document_store import DocumentRecord
+
+    records = [
+        DocumentRecord(
+            id=1,
+            category="docs",
+            name="guide.md",
+            source="http://example.com",
+            source_type="url",
+            metadata={},
+            created_at="2025-01-01T00:00:00",
+            updated_at="2025-06-01T00:00:00",
+        ),
+        DocumentRecord(
+            id=2,
+            category="docs",
+            name="notes.txt",
+            source="manual",
+            source_type="text",
+            metadata={},
+            created_at="2025-01-01T00:00:00",
+            updated_at="2025-06-01T00:00:00",
+        ),
+    ]
+    with patch("mcp_guide.discovery.files.list_documents", new=AsyncMock(return_value=records)):
+        result = await discover_document_stored("docs", ["*.md"])
+
+    assert len(result) == 1
+    assert result[0].name == "guide.md"
+    assert result[0].source == "store"
+    assert result[0].path == Path("guide.md")
+
+
+@pytest.mark.anyio
+async def test_discover_document_stored_case_insensitive():
+    """Test that stored document matching is case-insensitive."""
+    from unittest.mock import AsyncMock, patch
+
+    from mcp_guide.discovery.files import discover_document_stored
+    from mcp_guide.store.document_store import DocumentRecord
+
+    records = [
+        DocumentRecord(
+            id=1,
+            category="docs",
+            name="README.md",
+            source="x",
+            source_type="url",
+            metadata={},
+            created_at="2025-01-01T00:00:00",
+            updated_at="2025-06-01T00:00:00",
+        ),
+    ]
+    with patch("mcp_guide.discovery.files.list_documents", new=AsyncMock(return_value=records)):
+        result = await discover_document_stored("docs", ["*.md"])
+
+    assert len(result) == 1
+    assert result[0].name == "README.md"
+
+
+@pytest.mark.anyio
+async def test_discover_document_stored_bare_name_matches_with_extension():
+    """Test that a bare pattern like 'readme' matches 'readme.md'."""
+    from unittest.mock import AsyncMock, patch
+
+    from mcp_guide.discovery.files import discover_document_stored
+    from mcp_guide.store.document_store import DocumentRecord
+
+    records = [
+        DocumentRecord(
+            id=1,
+            category="docs",
+            name="readme.md",
+            source="x",
+            source_type="url",
+            metadata={},
+            created_at="2025-01-01T00:00:00",
+            updated_at="2025-06-01T00:00:00",
+        ),
+        DocumentRecord(
+            id=2,
+            category="docs",
+            name="readme",
+            source="x",
+            source_type="text",
+            metadata={},
+            created_at="2025-01-01T00:00:00",
+            updated_at="2025-06-01T00:00:00",
+        ),
+    ]
+    with patch("mcp_guide.discovery.files.list_documents", new=AsyncMock(return_value=records)):
+        result = await discover_document_stored("docs", ["readme"])
+
+    assert len(result) == 2
+    names = {r.name for r in result}
+    assert names == {"readme.md", "readme"}
+
+
+@pytest.mark.anyio
+async def test_discover_document_stored_empty_when_no_match():
+    """Test that no results returned when patterns don't match."""
+    from unittest.mock import AsyncMock, patch
+
+    from mcp_guide.discovery.files import discover_document_stored
+    from mcp_guide.store.document_store import DocumentRecord
+
+    records = [
+        DocumentRecord(
+            id=1,
+            category="docs",
+            name="guide.md",
+            source="x",
+            source_type="url",
+            metadata={},
+            created_at="2025-01-01T00:00:00",
+            updated_at="2025-06-01T00:00:00",
+        ),
+    ]
+    with patch("mcp_guide.discovery.files.list_documents", new=AsyncMock(return_value=records)):
+        result = await discover_document_stored("docs", ["*.yaml"])
+
+    assert result == []
+
+
+@pytest.mark.anyio
+async def test_discover_document_stored_has_content_loader():
+    """Test that returned FileInfo has a working content_loader."""
+    from unittest.mock import AsyncMock, patch
+
+    from mcp_guide.discovery.files import discover_document_stored
+    from mcp_guide.store.document_store import DocumentRecord
+
+    records = [
+        DocumentRecord(
+            id=1,
+            category="docs",
+            name="guide.md",
+            source="x",
+            source_type="url",
+            metadata={},
+            created_at="2025-01-01T00:00:00",
+            updated_at="2025-06-01T00:00:00",
+        ),
+    ]
+    with (
+        patch("mcp_guide.discovery.files.list_documents", new=AsyncMock(return_value=records)),
+        patch("mcp_guide.discovery.files.get_document_content", new=AsyncMock(return_value="# Guide")) as mock_get,
+    ):
+        result = await discover_document_stored("docs", ["*.md"])
+        content = await result[0].get_content()
+
+    assert content == "# Guide"
+    mock_get.assert_called_once_with("docs", "guide.md")
+
+
+# --- Tests for merged discover_documents ---
+
+
+@pytest.mark.anyio
+async def test_discover_documents_without_category(tmp_path):
+    """Test that discover_documents without category only returns filesystem files."""
+    from mcp_guide.discovery.files import discover_documents
+
+    (tmp_path / "readme.md").write_text("# Hello")
+    result = await discover_documents(tmp_path, ["*.md"])
+
+    assert len(result) == 1
+    assert result[0].name == "readme.md"
+    assert result[0].source == "file"
+
+
+@pytest.mark.anyio
+async def test_discover_documents_with_category_combines_sources(tmp_path):
+    """Test that discover_documents with category returns both filesystem and stored."""
+    from unittest.mock import AsyncMock, patch
+
+    from mcp_guide.discovery.files import discover_documents
+    from mcp_guide.store.document_store import DocumentRecord
+
+    (tmp_path / "local.md").write_text("# Local")
+    records = [
+        DocumentRecord(
+            id=1,
+            category="docs",
+            name="remote.md",
+            source="x",
+            source_type="url",
+            metadata={},
+            created_at="2025-01-01T00:00:00",
+            updated_at="2025-06-01T00:00:00",
+        ),
+    ]
+    with patch("mcp_guide.discovery.files.list_documents", new=AsyncMock(return_value=records)):
+        result = await discover_documents(tmp_path, ["*.md"], category="docs")
+
+    assert len(result) == 2
+    sources = {fi.source for fi in result}
+    assert sources == {"file", "store"}

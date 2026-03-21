@@ -17,8 +17,8 @@ _VALID_SOURCE_TYPES: frozenset[str] = frozenset({"file", "url"})
 _CREATE_TABLE = """
 CREATE TABLE IF NOT EXISTS documents (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    category    TEXT NOT NULL,
-    name        TEXT NOT NULL,
+    category    TEXT NOT NULL COLLATE NOCASE,
+    name        TEXT NOT NULL COLLATE NOCASE,
     source      TEXT NOT NULL,
     source_type TEXT NOT NULL,
     content     TEXT NOT NULL,
@@ -135,7 +135,10 @@ def _add_document(
                 """,
                 (category, name, source, source_type, content, meta_json, now, now),
             )
-            row = conn.execute("SELECT * FROM documents WHERE category = ? AND name = ?", (category, name)).fetchone()
+            row = conn.execute(
+                "SELECT * FROM documents WHERE category = ? AND name = ?",
+                (category, name),
+            ).fetchone()
     finally:
         conn.close()
     return _row_to_record(row)
@@ -169,7 +172,10 @@ def _remove_document(category: str, name: str, db_path: Optional[Path] = None) -
     conn = _get_conn(db_path)
     try:
         with conn:
-            cursor = conn.execute("DELETE FROM documents WHERE category = ? AND name = ?", (category, name))
+            cursor = conn.execute(
+                "DELETE FROM documents WHERE category = ? AND name = ?",
+                (category, name),
+            )
         rowcount = cursor.rowcount
     finally:
         conn.close()

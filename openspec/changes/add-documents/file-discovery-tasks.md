@@ -15,8 +15,8 @@
 
 ## 3. Discovery refactor
 
-- [ ] 3.1 Rename `discover_documents()` → `discover_document_files()` (filesystem only)
-- [ ] 3.2 Update all call sites to use `discover_document_files()`
-- [ ] 3.3 Add `discover_document_stored(category, patterns)` — queries store, returns `FileInfo` list with content_loader and `source="store"`
-- [ ] 3.4 Add merged `discover_documents(base_dir, patterns, category)` combining both sources
-- [ ] 3.5 Update existing discovery tests for rename, add tests for stored and merged discovery
+- [x] 3.1 Rename `discover_documents()` → `discover_document_files()` (filesystem only)
+- [x] 3.2 Update all call sites to use `discover_document_files()`
+- [x] 3.3 Add `discover_document_stored(category, patterns)` — queries store, returns `FileInfo` list with content_loader and `source="store"`
+- [x] 3.4 Add merged `discover_documents(base_dir, patterns, category)` combining both sources
+- [x] 3.5 Update existing discovery tests for rename, add tests for stored and merged discovery
