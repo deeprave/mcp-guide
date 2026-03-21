@@ -2,6 +2,24 @@
 
 All notable changes to mcp-guide will be documented in this file.
 
+## [1.2.0] - TBD
+
+### Added
+- SQLite document store for persistent document storage with async API
+- Stored document discovery with pattern matching consistent with filesystem discovery
+- `roots/list_changed` notification handler to detect project switches
+
+### Changed
+- Migrated from vendored `mcp.server.fastmcp` to standalone `fastmcp` package
+- Refactoring for better multiple client support (http server)
+- Removed dead code across ther codebase
+
+### Fixed
+- Session access semantics and bootstrap data isolation
+- Startup issue with session initialization
+- Render module type errors and centralized error logging
+
+
 ## [1.1.0] - 2026-03-16
 
 ### Added
@@ -19,12 +37,18 @@ All notable changes to mcp-guide will be documented in this file.
 - Removed the default "guide_" prefix on tools
 - Command templates now declare required arguments via `argrequired` frontmatter field
 - Refactored frontmatter processing and template rendering internals
+- Removed introspection mcp tools, consolidated management tools
+- Drastically simplified and reduced the size of mcp tool descriptions
+- Remove the default "guide_" prefix on tools
+- Fixed an issue with the internal task manager statistics (and :project display)
+- Refactored internals to provide clear and more consistent template rendering
 
 ### Fixed
 - Template consistency: all command examples now use `{{@}}guide` prefix
 - Task manager statistics display in `:project` status command
 - `time_ago` template lambda edge cases in export list output
 - Frontmatter rendering in command template partials
+
 
 ## [1.0.0] - 2026-03-04
 
@@ -66,6 +90,7 @@ All notable changes to mcp-guide will be documented in this file.
 - Phase-specific template content showing when phase not in workflow configuration
 - Scripts not working correctly with uvx due to missing package data
 - Docroot safety check prevents updates when docroot equals template source path
+
 
 ## [0.9.0] - 2026-02-16
 
