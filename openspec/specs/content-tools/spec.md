@@ -4,33 +4,37 @@
 TBD - created by archiving change add-content-tools. Update Purpose after archive.
 ## Requirements
 ### Requirement: get_content Tool
+The get_content tool SHALL accept an optional `force` boolean parameter to control export-aware behavior.
 
-The system SHALL provide a `get_content` tool that retrieves content from either a category or collection.
-
-Arguments:
-- `category_or_collection` (required, string): Name of category or ID of collection
-- `pattern` (optional, string): Glob pattern to filter content
-
-The tool SHALL:
-- Try to resolve as category first, then collection
-- Use default patterns if pattern argument is omitted
-- Return Result pattern response
-
-#### Scenario: Category content retrieval
-- **WHEN** category_or_collection matches a category name
-- **THEN** return content from that category using specified or default patterns
+The get_content tool SHALL provide unified access to content from collections and categories through a single interface.
 
 #### Scenario: Collection content retrieval
-- **WHEN** category_or_collection matches a collection ID
-- **THEN** return content from that collection
+- **WHEN** expression matches a collection name
+- **THEN** content from all categories in the collection is returned
+- **AND** files are deduplicated across categories
+
+#### Scenario: Category content retrieval
+- **WHEN** expression matches a category name
+- **THEN** content from that category is returned
 
 #### Scenario: Pattern override
-- **WHEN** pattern argument is provided
-- **THEN** use pattern instead of default category patterns
+- **WHEN** pattern parameter is provided
+- **THEN** only files matching the pattern are included
+- **AND** category default patterns are ignored
 
-#### Scenario: Not found
-- **WHEN** category_or_collection matches neither category nor collection
-- **THEN** return Result.failure with error_type "not_found" and instruction to present error to user
+#### Scenario: Default behavior checks exports
+- **WHEN** get_content is called without force parameter (defaults to False)
+- **AND** the requested expression has been exported
+- **THEN** the tool returns reference instructions instead of full content
+
+#### Scenario: Force returns full content
+- **WHEN** get_content is called with force=True
+- **AND** the requested expression has been exported
+- **THEN** the tool returns the full rendered content as normal
+
+#### Scenario: No export entry behaves normally
+- **WHEN** get_content is called for an expression that has not been exported
+- **THEN** the tool returns full rendered content regardless of force parameter value
 
 ### Requirement: get_category_content Tool
 
@@ -297,6 +301,98 @@ Future expansion (reserved):
 - **WHEN** designing tool argument schemas
 - **THEN** accommodate future document-specific arguments
 
+<<<<<<< Updated upstream
+=======
+### Requirement: System Template Category
+The template system SHALL provide a `_system` category for non-feature-specific system templates.
+
+#### Scenario: System templates are discoverable
+- **WHEN** the template system initializes
+- **THEN** templates in `_system/` directory are discoverable and renderable
+
+#### Scenario: Startup template moved to system category
+- **WHEN** startup instructions are requested
+- **THEN** the system uses `_system/startup.mustache`
+
+#### Scenario: Update template moved to system category
+- **WHEN** update instructions are requested
+- **THEN** the system uses `_system/update.mustache`
+
+### Requirement: Export Instruction Template
+The system SHALL provide a single template at `_system/_export.mustache` for all export-related instructions.
+
+#### Scenario: Export template receives context
+- **WHEN** export_content or get_content renders export instructions
+- **THEN** `_system/_export.mustache` template receives export.path, export.force, export.exists, export.expression, and export.pattern
+
+#### Scenario: Template handles export_content instructions
+- **WHEN** export_content renders instructions
+- **THEN** template provides file write instructions based on export.force flag
+
+#### Scenario: Template handles get_content references
+- **WHEN** get_content detects exported content
+- **THEN** template provides reference instructions to existing export
+
+#### Scenario: Knowledge indexing instructions for kiro/q-dev
+- **WHEN** knowledge tool is available (detected by agent)
+- **THEN** template instructs agent to check knowledge base first
+
+#### Scenario: Direct file access fallback
+- **WHEN** knowledge tool is not available
+- **THEN** template provides file path for direct access
+
+#### Scenario: Overwrite vs create instructions
+- **WHEN** export.force=True
+- **THEN** template instructs to overwrite existing file
+- **WHEN** export.force=False
+- **THEN** template instructs to create only (do not overwrite)
+
+### Requirement: Export Content Tool Template Rendering
+
+The export_content tool SHALL check export tracking before rendering to avoid redundant exports.
+
+The tool SHALL:
+- Check export tracking for matching (expression, pattern) tuple
+- Gather files and compute metadata hash
+- If stored hash matches computed hash, return "already exported" message
+- If `force=true`, bypass staleness check
+- On successful export, upsert tracking entry with computed metadata hash
+
+The export_content tool SHALL render instructions via template instead of hardcoding instruction strings.
+
+Arguments:
+- `expression` (required, string): Content expression
+- `path` (required, string): Export destination path
+- `pattern` (optional, string): Glob pattern filter
+- `force` (optional, boolean): Override staleness check (default: false)
+
+#### Scenario: Instructions rendered from template
+- **WHEN** export_content completes successfully
+- **THEN** instructions are rendered from `_system/_export.mustache` template
+- **AND** template receives export.path, export.force, export.exists, export.expression, and export.pattern
+
+#### Scenario: Backward compatibility maintained
+- **WHEN** export_content is called
+- **THEN** behavior remains consistent with previous implementation
+- **AND** all existing tests pass
+
+#### Scenario: Export with unchanged content
+- **WHEN** content previously exported and metadata hash unchanged
+- **THEN** return message "Content for '{expression}' already exported to {path}. Use force=True to overwrite or if file is missing."
+
+#### Scenario: Export with force flag
+- **WHEN** `force=true` provided
+- **THEN** bypass staleness check and export content
+
+#### Scenario: Export with changed content
+- **WHEN** metadata hash differs from stored hash
+- **THEN** export content and update tracking metadata
+
+#### Scenario: First export
+- **WHEN** (expression, pattern) tuple not previously exported
+- **THEN** export content and create tracking entry
+
+>>>>>>> Stashed changes
 ### Requirement: Export Tracking Storage
 
 The system SHALL store export tracking metadata in project configuration as a dict mapping (expression, pattern) tuple to export metadata.
@@ -323,7 +419,11 @@ Detection SHALL:
 - Gather files for the expression/pattern
 - Compute metadata hash from gathered files
 - Compare with stored hash from previous export
+<<<<<<< Updated upstream
 - Content is stale if hashes differ
+=======
+- Content is stale if hashes match
+>>>>>>> Stashed changes
 
 The metadata hash SHALL detect changes from:
 - File modifications (mtime changes)
@@ -349,6 +449,7 @@ The metadata hash SHALL detect changes from:
 - **WHEN** file with old mtime added to category
 - **THEN** metadata hash changes (new filename entry) and export proceeds
 
+<<<<<<< Updated upstream
 ### Requirement: export_content Tool
 
 The system SHALL provide an `export_content` tool that exports rendered content to files for knowledge indexing.
@@ -464,3 +565,5 @@ The system SHALL provide a `remove_export` tool that removes export tracking ent
 - **THEN** the actual exported file is NOT deleted
 - **AND** only the tracking entry is removed from `Project.exports`
 
+=======
+>>>>>>> Stashed changes

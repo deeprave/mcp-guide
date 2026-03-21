@@ -52,15 +52,15 @@ The metadata hash SHALL detect changes from:
 - **WHEN** file with old mtime added to category
 - **THEN** metadata hash changes (new filename entry) and export proceeds
 
+<<<<<<< Updated upstream
 ### Requirement: export_content Tool
+=======
+## MODIFIED Requirements
 
-The system SHALL provide an `export_content` tool that exports rendered content to files for knowledge indexing.
+### Requirement: Export Content Tool Template Rendering
+>>>>>>> Stashed changes
 
-Arguments:
-- `expression` (required, string): Content expression
-- `path` (required, string): Export destination path
-- `pattern` (optional, string): Glob pattern filter
-- `force` (optional, boolean): Override staleness check (default: false)
+The export_content tool SHALL check export tracking before rendering to avoid redundant exports.
 
 The tool SHALL:
 - Check export tracking for matching (expression, pattern) tuple
@@ -68,6 +68,24 @@ The tool SHALL:
 - If stored hash matches computed hash, return "already exported" message
 - If `force=true`, bypass staleness check
 - On successful export, upsert tracking entry with computed metadata hash
+
+The export_content tool SHALL render instructions via template instead of hardcoding instruction strings.
+
+Arguments:
+- `expression` (required, string): Content expression
+- `path` (required, string): Export destination path
+- `pattern` (optional, string): Glob pattern filter
+- `force` (optional, boolean): Override staleness check (default: false)
+
+#### Scenario: Instructions rendered from template
+- **WHEN** export_content completes successfully
+- **THEN** instructions are rendered from `_system/_export.mustache` template
+- **AND** template receives export.path, export.force, export.exists, export.expression, and export.pattern
+
+#### Scenario: Backward compatibility maintained
+- **WHEN** export_content is called
+- **THEN** behavior remains consistent with previous implementation
+- **AND** all existing tests pass
 
 #### Scenario: Export with unchanged content
 - **WHEN** content previously exported and metadata hash unchanged

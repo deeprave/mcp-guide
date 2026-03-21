@@ -340,11 +340,19 @@ Collection context SHALL be None when file is accessed directly via category.
 - **THEN** collection context is None and collection variables render as empty
 
 ### Requirement: Template Context Variables
+<<<<<<< Updated upstream
 The system SHALL provide `tool_prefix` variable in agent context for dynamic MCP tool references.
 
 #### Scenario: Tool prefix available in templates
 - **WHEN** template accesses `{{tool_prefix}}`
 - **THEN** the configured MCP_TOOL_PREFIX value SHALL be available
+=======
+The system SHALL provide a `tool_prefix` variable in the agent template context for dynamic MCP tool references.
+
+#### Scenario: Tool prefix available in templates
+- **WHEN** a template is rendered
+- **THEN** `{{tool_prefix}}` is available in the template context
+>>>>>>> Stashed changes
 
 ### Requirement: Dynamic Tool References
 Templates SHALL support dynamic tool name construction using the tool_prefix variable.
