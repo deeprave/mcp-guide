@@ -1,6 +1,8 @@
 """File discovery utilities for finding files in category directories."""
 
 from datetime import datetime
+from fnmatch import fnmatch
+from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Awaitable, Callable, Dict, Optional, Union
 
@@ -12,6 +14,7 @@ _SENTINEL = object()  # Sentinel value for distinguishing unset parameters
 from anyio import Path as AsyncPath
 
 from mcp_guide.discovery.patterns import safe_glob_search
+from mcp_guide.store.document_store import get_document_content, list_documents
 
 # Template file extensions
 TEMPLATE_EXTENSIONS = (".mustache", ".hbs", ".handlebars", ".chevron")
@@ -255,7 +258,87 @@ class FileInfo:
         self._frontmatter = value
 
 
+def _matches_stored_pattern(name: str, pattern: str) -> bool:
+    """Case-insensitive pattern match for stored document names.
+
+    Stored documents use logical names without template extensions.
+    Bare patterns without an extension (e.g. "readme") also match
+    names with any extension (e.g. "readme.md").
+    """
+    name_lower = name.lower()
+    pattern_lower = pattern.lower()
+    if fnmatch(name_lower, pattern_lower):
+        return True
+    # Bare name without extension or glob chars → also match name.*
+    if "." not in pattern and "*" not in pattern and "?" not in pattern:
+        return fnmatch(name_lower, pattern_lower + ".*")
+    return False
+
+
+async def discover_document_stored(
+    category: str,
+    patterns: list[str],
+) -> list[FileInfo]:
+    """Discover documents from the document store.
+
+    Matching is case-insensitive. Stored documents use logical names
+    (no template extensions), so pattern expansion for templates is
+    not applied here.
+
+    Args:
+        category: Category name to query
+        patterns: Glob patterns to filter document names
+
+    Returns:
+        List of FileInfo with content_loader and source="store"
+    """
+    records = await list_documents(category)
+    results = []
+    for record in records:
+        if not any(_matches_stored_pattern(record.name, p) for p in patterns):
+            continue
+        mtime = datetime.fromisoformat(record.updated_at)
+        loader = partial(get_document_content, record.category, record.name)
+        results.append(
+            FileInfo(
+                path=Path(record.name),
+                size=0,
+                content_size=0,
+                mtime=mtime,
+                name=record.name,
+                ctime=datetime.fromisoformat(record.created_at),
+                content_loader=loader,
+                source="store",
+            )
+        )
+    return results
+
+
 async def discover_documents(
+    base_dir: Path,
+    patterns: list[str],
+    category: Optional[str] = None,
+) -> list[FileInfo]:
+    """Discover documents from filesystem and optionally the document store.
+
+    Args:
+        base_dir: Absolute path to base directory for filesystem discovery
+        patterns: Glob patterns to match files
+        category: If provided, also query the document store for this category
+
+    Returns:
+        Combined list of FileInfo from both sources
+    """
+    # No cross-source deduplication: filesystem files and stored documents are
+    # distinct by design. The store's uniqueness constraint prevents duplicates
+    # within the store, and users do not store existing category files.
+    files = await discover_document_files(base_dir, patterns)
+    if category is not None:
+        files.extend(await discover_document_stored(category, patterns))
+    return files
+
+
+async def discover_document_files(
     base_dir: Path,
     patterns: list[str],
 ) -> list[FileInfo]:

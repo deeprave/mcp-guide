@@ -80,6 +80,10 @@ _.list_documents
 _.created_at  # DocumentRecord dataclass field
 _.updated_at  # DocumentRecord dataclass field
 _.row_factory  # sqlite3.Connection attribute
+
+# Discovery public API (consumed by content gathering in subsequent issues)
+_.discover_documents
+_.discover_document_stored
 # Module-level names
 _.__all__
 _.main

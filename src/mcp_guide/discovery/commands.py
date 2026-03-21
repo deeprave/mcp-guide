@@ -7,7 +7,7 @@ from typing import Any
 from anyio import Path as AsyncPath
 
 from mcp_guide.core.mcp_log import get_logger
-from mcp_guide.discovery.files import discover_documents
+from mcp_guide.discovery.files import discover_document_files
 from mcp_guide.discovery.patterns import is_valid_command
 from mcp_guide.render.frontmatter import parse_content_with_frontmatter
 
@@ -16,7 +16,7 @@ logger = get_logger(__name__)
 
 async def discover_command_files(commands_dir: Path, patterns: list[str]) -> list[Any]:
     """Discover command files, filtering out underscore-prefixed files and directories."""
-    all_files = await discover_documents(commands_dir, patterns)
+    all_files = await discover_document_files(commands_dir, patterns)
     # Filter to only include valid command files
     return [file_info for file_info in all_files if is_valid_command(file_info.path)]
 

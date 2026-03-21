@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Optional
 
 from mcp_guide.content.utils import resolve_patterns
-from mcp_guide.discovery.files import FileInfo, discover_documents
+from mcp_guide.discovery.files import FileInfo, discover_document_files
 from mcp_guide.models import (
     CategoryNotFoundError,
     DocumentExpression,
@@ -215,7 +215,7 @@ async def gather_category_fileinfos(
     # Discover files
     docroot = Path(await session.get_docroot())
     category_dir = docroot / category.dir
-    files = await discover_documents(category_dir, resolved_patterns)
+    files = await discover_document_files(category_dir, resolved_patterns)
 
     # Set category object on all FileInfo objects
     for file in files:

@@ -12,7 +12,7 @@ from mcp_guide.config_constants import COMMANDS_DIR
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.core.prompt_decorator import promptfunc
 from mcp_guide.discovery.commands import discover_commands
-from mcp_guide.discovery.files import FileInfo, discover_documents
+from mcp_guide.discovery.files import FileInfo, discover_document_files
 from mcp_guide.feature_flags.types import FeatureValue
 from mcp_guide.models import resolve_all_flags
 from mcp_guide.prompts.command_parser import parse_command_arguments
@@ -166,7 +166,7 @@ async def _discover_command_file(commands_dir: Path, command_path: str) -> Resul
     """Discover the command file by path."""
     pattern = f"{command_path}.*"
     try:
-        files = await discover_documents(commands_dir, [pattern])
+        files = await discover_document_files(commands_dir, [pattern])
     except Exception as e:
         return Result.failure(f"Error discovering command files: {e}", error_type="file_error")
 
