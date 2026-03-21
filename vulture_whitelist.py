@@ -84,6 +84,7 @@ _.row_factory  # sqlite3.Connection attribute
 # Discovery public API (consumed by content gathering in subsequent issues)
 _.discover_documents
 _.discover_document_stored
+_.DocumentTask
 # Module-level names
 _.__all__
 _.main

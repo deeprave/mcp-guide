@@ -120,3 +120,44 @@ async def test_empty_category_raises(db):
 async def test_empty_name_raises(db):
     with pytest.raises(ValueError, match="name"):
         await add_document("docs", "", "/path", "file", "content", db_path=db)
+
+
+@pytest.mark.anyio
+async def test_mtime_stored_on_add(db):
+    """mtime is persisted and returned on add."""
+    record = await add_document("docs", "readme", "/path", "file", "content", mtime=1700000000.5, db_path=db)
+    assert record.mtime == 1700000000.5
+
+
+@pytest.mark.anyio
+async def test_mtime_returned_on_get(db):
+    """mtime is included in metadata-only get."""
+    await add_document("docs", "readme", "/path", "file", "content", mtime=1700000000.0, db_path=db)
+    fetched = await get_document("docs", "readme", db_path=db)
+    assert fetched is not None
+    assert fetched.mtime == 1700000000.0
+
+
+@pytest.mark.anyio
+async def test_mtime_returned_on_list(db):
+    """mtime is included in list results."""
+    await add_document("docs", "a", "/path", "file", "content", mtime=100.0, db_path=db)
+    await add_document("docs", "b", "/path", "file", "content", db_path=db)
+    results = await list_documents("docs", db_path=db)
+    assert results[0].mtime == 100.0
+    assert results[1].mtime is None
+
+
+@pytest.mark.anyio
+async def test_mtime_defaults_to_none(db):
+    """mtime defaults to None when not provided."""
+    record = await add_document("docs", "readme", "/path", "file", "content", db_path=db)
+    assert record.mtime is None
+
+
+@pytest.mark.anyio
+async def test_mtime_updated_on_upsert(db):
+    """mtime is updated when document is upserted."""
+    await add_document("docs", "readme", "/path", "file", "v1", mtime=100.0, db_path=db)
+    record = await add_document("docs", "readme", "/path", "file", "v2", mtime=200.0, db_path=db)
+    assert record.mtime == 200.0
