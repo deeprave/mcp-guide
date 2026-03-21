@@ -2,7 +2,7 @@
 
 ### Requirement: The system SHALL provide a `get_category_content` tool that retrieves content from a specific category.
 
-The tool SHALL include stored documents matching the category alongside filesystem files when delivering content.
+The tool SHALL include stored documents matching the category alongside filesystem files when delivering content. Stored documents with a `type` metadata field SHALL be handled according to that type during content rendering.
 
 #### Scenario: Category content includes stored documents
 - **WHEN** `get_category_content` is called for a category that has stored documents

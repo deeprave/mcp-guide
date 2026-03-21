@@ -12,75 +12,76 @@ from uuid_extensions import uuid7
 from mcp_guide.discovery.files import TEMPLATE_EXTENSIONS, FileInfo
 
 
+def detect_text_subtype(content: str) -> str:
+    """Detect specific text subtype from content.
+
+    Args:
+        content: File content (without frontmatter)
+
+    Returns:
+        MIME type string (e.g., 'text/markdown', 'text/csv', 'application/json')
+    """
+    content = content.strip()
+    if not content:
+        return "text/plain"
+
+    # JSON: strict parse (limit to reasonable size to avoid expensive parsing)
+    if content[0] in ("{", "[", '"') and len(content) < 1_000_000:
+        try:
+            json.loads(content)
+            return "application/json"
+        except json.JSONDecodeError:
+            pass
+
+    # TOML: strict parse (must fail JSON first)
+    try:
+        result = tomllib.loads(content)
+        if result:  # Require at least one key
+            return "application/toml"
+    except tomllib.TOMLDecodeError:
+        pass
+
+    # CSV: sniff for delimited structure
+    try:
+        sample = "\n".join(content.splitlines()[:20])
+        dialect = csv.Sniffer().sniff(sample, delimiters=",\t|;")
+        reader = csv.reader(io.StringIO(content), dialect)
+        rows = [row for _, row in zip(range(5), reader)]
+        col_counts = [len(r) for r in rows]
+        if len(rows) >= 2 and max(col_counts) >= 2 and min(col_counts) >= 2:
+            return "text/csv"
+    except csv.Error:
+        pass
+
+    # YAML: strict parse (JSON already ruled out)
+    try:
+        import yaml
+
+        result = yaml.safe_load(content)
+        if isinstance(result, (dict, list)):
+            return "text/yaml"
+    except (yaml.YAMLError, ImportError):
+        pass
+
+    # Markdown: heuristic pattern match
+    markdown_patterns = [
+        r"^#{1,6}\s+\S",  # ATX headings
+        r"^\s*[-*+]\s+\S",  # Unordered lists
+        r"^\s*\d+\.\s+\S",  # Ordered lists
+        r"^```",  # Fenced code blocks
+        r"\*\*.+\*\*",  # Bold
+        r"\[.+\]\(.+\)",  # Links
+    ]
+    lines = content.splitlines()
+    matches = sum(1 for line in lines if any(re.search(p, line, re.MULTILINE) for p in markdown_patterns))
+    if matches >= 2 or (len(lines) > 0 and matches / len(lines) > 0.1):
+        return "text/markdown"
+
+    return "text/plain"
+
+
 class MimeFormatter:
     """Formats file content with MIME headers."""
-
-    def _detect_text_subtype(self, content: str) -> str:
-        """Detect specific text subtype from content.
-
-        Args:
-            content: File content (without frontmatter)
-
-        Returns:
-            MIME type string (e.g., 'text/markdown', 'text/csv', 'application/json')
-        """
-        content = content.strip()
-        if not content:
-            return "text/plain"
-
-        # JSON: strict parse (limit to reasonable size to avoid expensive parsing)
-        if content[0] in ("{", "[", '"') and len(content) < 1_000_000:
-            try:
-                json.loads(content)
-                return "application/json"
-            except json.JSONDecodeError:
-                pass
-
-        # TOML: strict parse (must fail JSON first)
-        try:
-            result = tomllib.loads(content)
-            if result:  # Require at least one key
-                return "application/toml"
-        except tomllib.TOMLDecodeError:
-            pass
-
-        # CSV: sniff for delimited structure
-        try:
-            sample = "\n".join(content.splitlines()[:20])
-            dialect = csv.Sniffer().sniff(sample, delimiters=",\t|;")
-            reader = csv.reader(io.StringIO(content), dialect)
-            rows = [row for _, row in zip(range(5), reader)]
-            col_counts = [len(r) for r in rows]
-            if len(rows) >= 2 and max(col_counts) >= 2 and min(col_counts) >= 2:
-                return "text/csv"
-        except csv.Error:
-            pass
-
-        # YAML: strict parse (JSON already ruled out)
-        try:
-            import yaml
-
-            result = yaml.safe_load(content)
-            if isinstance(result, (dict, list)):
-                return "text/yaml"
-        except (yaml.YAMLError, ImportError):
-            pass
-
-        # Markdown: heuristic pattern match
-        markdown_patterns = [
-            r"^#{1,6}\s+\S",  # ATX headings
-            r"^\s*[-*+]\s+\S",  # Unordered lists
-            r"^\s*\d+\.\s+\S",  # Ordered lists
-            r"^```",  # Fenced code blocks
-            r"\*\*.+\*\*",  # Bold
-            r"\[.+\]\(.+\)",  # Links
-        ]
-        lines = content.splitlines()
-        matches = sum(1 for line in lines if any(re.search(p, line, re.MULTILINE) for p in markdown_patterns))
-        if matches >= 2 or (len(lines) > 0 and matches / len(lines) > 0.1):
-            return "text/markdown"
-
-        return "text/plain"
 
     def _get_appropriate_extension(self, detected_type: str) -> str:
         """Get file extension for detected content type.
@@ -178,7 +179,7 @@ class MimeFormatter:
                 break
 
         # Detect content type and add appropriate extension if needed
-        detected_type = self._detect_text_subtype(content)
+        detected_type = detect_text_subtype(content)
         appropriate_ext = self._get_appropriate_extension(detected_type)
 
         if appropriate_ext and not doc_path_str.endswith(appropriate_ext):
@@ -232,7 +233,7 @@ class MimeFormatter:
                     break
 
             # Detect content type and add appropriate extension if needed
-            detected_type = self._detect_text_subtype(content)
+            detected_type = detect_text_subtype(content)
             appropriate_ext = self._get_appropriate_extension(detected_type)
 
             if appropriate_ext and not doc_path_str.endswith(appropriate_ext):
