@@ -54,8 +54,8 @@ Required arguments:
 The system SHALL provide a `:document/list` command that instructs the agent to list stored documents in a category using `category_list_files` with source filter `stored`.
 
 Required arguments:
-- `name` — category name to list documents from
+- `category` — category name to list documents from
 
 #### Scenario: List stored documents
 - **WHEN** user invokes `:document/list docs`
-- **THEN** agent calls category_list_files with name=docs, source=stored
+- **THEN** agent calls category_list_files with category=docs, source=stored
