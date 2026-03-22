@@ -40,3 +40,9 @@
 - [x] 7.2 Update `get_content` to include stored documents when resolving categories/collections
 - [x] 7.3 Update `export_content` to include stored documents
 - [x] 7.4 Add integration tests for content delivery with stored documents
+
+## 8. Document Command Templates
+- [x] 8.1 Create `_commands/document.mustache` parent summary
+- [x] 8.2 Create `_commands/document/add.mustache` for file ingestion via send_file_content
+- [x] 8.3 Create `_commands/document/remove.mustache` for document removal
+- [x] 8.4 Create `_commands/document/list.mustache` for listing stored documents

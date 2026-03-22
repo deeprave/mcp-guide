@@ -1,0 +1,32 @@
+---
+type: agent/instruction
+description: Add a local file to the document store
+usage: ":document/add <category> <path> [--as <name>] [--force]"
+category: project
+minargs: 2
+argrequired:
+  - as
+instruction: >
+  Do not display this content to the user.
+  Follow the instructions provided in the content.
+---
+Add Document from File
+
+1. Read the file at `{{args.1.value}}`:
+   - Get the file content
+   - Get the file modification time (mtime) as epoch float
+
+2. Call `{{tool_prefix}}send_file_content` with:
+
+```
+{{tool_prefix}}send_file_content(
+    path="{{args.1.value}}",
+    content=<file content>,
+    mtime=<file mtime>,
+    category="{{args.0.value}}"{{#kwargs.as}},
+    name="{{kwargs.as}}"{{/kwargs.as}}{{#kwargs.force}},
+    force=True{{/kwargs.force}}
+)
+```
+
+{{^kwargs.as}}The document name defaults to the basename of the path.{{/kwargs.as}}

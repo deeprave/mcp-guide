@@ -579,7 +579,7 @@ async def test_category_list_files_success(mcp_server, tmp_path, monkeypatch):
     await session.update_config(lambda p: p.with_category("guide", Category(dir="guide", patterns=["general*"])))
 
     async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
-        args = CategoryListFilesArgs(name="guide")
+        args = CategoryListFilesArgs(category="guide")
         result = await call_mcp_tool(client, "category_list_files", args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
 
@@ -620,7 +620,7 @@ async def test_category_list_files_mixed_file_types(mcp_server, tmp_path, monkey
     await session.update_config(lambda p: p.with_category("guide", Category(dir="guide", patterns=["**/*"])))
 
     async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
-        args = CategoryListFilesArgs(name="guide")
+        args = CategoryListFilesArgs(category="guide")
         result = await call_mcp_tool(client, "category_list_files", args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
 
@@ -658,7 +658,7 @@ async def test_category_list_files_output_format(mcp_server, tmp_path, monkeypat
     await session.update_config(lambda p: p.with_category("test", Category(dir="test", patterns=["*"])))
 
     async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
-        args = CategoryListFilesArgs(name="test")
+        args = CategoryListFilesArgs(category="test")
         result = await call_mcp_tool(client, "category_list_files", args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
 
@@ -693,7 +693,7 @@ async def test_category_list_files_category_not_found_integration(mcp_server, tm
     session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
 
     async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
-        args = CategoryListFilesArgs(name="nonexistent")
+        args = CategoryListFilesArgs(category="nonexistent")
         result = await call_mcp_tool(client, "category_list_files", args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
 

@@ -1,0 +1,20 @@
+---
+type: agent/instruction
+description: List stored documents in a category
+usage: ":document/list <category>"
+category: project
+minargs: 1
+instruction: >
+  Do not display this content to the user.
+  Follow the instructions provided in the content.
+---
+List Stored Documents
+
+Call the `{{tool_prefix}}category_list_files` tool:
+
+```
+{{tool_prefix}}category_list_files(
+    category="{{args.0.value}}",
+    source="stored"
+)
+```
