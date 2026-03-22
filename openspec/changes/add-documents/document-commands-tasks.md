@@ -21,6 +21,6 @@ Add prompt command templates for managing stored documents via the agent. Templa
 
 ## 4. Document List Command
 
-- [x] 4.1 Create `_commands/document/list.mustache` — type `agent/instruction`, usage `:document/list <name>`
-  - minargs: 1 (category name)
-  - Instruct agent to call `category_list_files` with name and source=stored
+- [x] 4.1 Create `_commands/document/list.mustache` — type `agent/instruction`, usage `:document/list <category>`
+  - minargs: 1 (category)
+  - Instruct agent to call `category_list_files` with category and source=stored
