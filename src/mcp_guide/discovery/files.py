@@ -249,6 +249,11 @@ class FileInfo:
             self.size = len(value)
 
     @property
+    def content_loader(self) -> Optional[Callable[[], Awaitable[Optional[str]]]]:
+        """Return the content_loader callback, or None for filesystem-backed files."""
+        return self._content_loader
+
+    @property
     def frontmatter(self) -> Optional[Dict[str, Any]]:
         """Synchronous access to frontmatter (only use when already loaded)."""
         return self._frontmatter

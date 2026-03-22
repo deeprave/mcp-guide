@@ -323,10 +323,16 @@ async def process_file(
         ProcessedFrontmatter if requirements met, None if filtered
 
     Raises:
-        FileNotFoundError: If file doesn't exist
+        FileNotFoundError: If file doesn't exist and has no content_loader
         PermissionError: If file can't be read
         UnicodeDecodeError: If file isn't valid UTF-8
     """
-    content = await anyio.Path(file_info.path).read_text(encoding="utf-8")
+    # Use content_loader if available (e.g. stored documents have no filesystem backing).
+    # Stored documents carry a content_loader callback that fetches content from the DB.
+    content_loader = getattr(file_info, "content_loader", None)
+    if content_loader is not None:
+        content = await content_loader() or ""
+    else:
+        content = await anyio.Path(file_info.path).read_text(encoding="utf-8")
 
     return await process_frontmatter(content, requirements_context, render_context)

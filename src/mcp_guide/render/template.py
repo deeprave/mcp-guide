@@ -35,7 +35,13 @@ async def render_template(
         RuntimeError: If template rendering fails
         Exception: Other errors during processing
     """
-    content = await read_file_content(file_info.path)
+    # Use content_loader if available (e.g. stored documents have no filesystem backing).
+    # Stored documents carry a content_loader callback that fetches content from the DB.
+    content_loader = getattr(file_info, "content_loader", None)
+    if content_loader is not None:
+        content = await content_loader() or ""
+    else:
+        content = await read_file_content(file_info.path)
 
     # Build context for frontmatter field rendering
     base_context = await get_template_contexts()
