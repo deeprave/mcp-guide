@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any, Optional
 from mcp_guide.content.formatters.mime import detect_text_subtype
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.decorators import task_init
+from mcp_guide.render.frontmatter import parse_content_with_frontmatter
 from mcp_guide.session import get_session
 from mcp_guide.store.document_store import add_document, get_document
 from mcp_guide.task_manager.interception import EventType
@@ -58,6 +59,16 @@ class DocumentTask:
         content = data.get("content", "")
         mtime = data.get("mtime")
         force = data.get("force", False)
+
+        # Validate types for agent-provided data
+        if not isinstance(category, str):
+            return EventResult(result=False, message=f"category must be a string, got {type(category).__name__}")
+        if not isinstance(source, str):
+            return EventResult(result=False, message=f"source must be a string, got {type(source).__name__}")
+        if mtime is not None:
+            if isinstance(mtime, bool) or not isinstance(mtime, (int, float)):
+                return EventResult(result=False, message=f"mtime must be numeric, got {type(mtime).__name__}")
+            mtime = float(mtime)
         doc_type = data.get("type", _DEFAULT_DOC_TYPE)
         name = data.get("name") or Path(data.get("path", "")).name
 
@@ -82,10 +93,20 @@ class DocumentTask:
                 if mtime < existing.mtime:
                     return EventResult(result=False, message=f"Document {category}/{name} is newer than source")
 
-        # Auto-detect content-type
+        # Parse and strip frontmatter from content
+        parsed = parse_content_with_frontmatter(content)
+        content = parsed.content
+
+        # Auto-detect content-type on stripped content
         content_type = detect_text_subtype(content)
 
-        metadata = {"content-type": content_type, "type": doc_type}
+        # Merge metadata: frontmatter < event metadata < auto-detected fields
+        metadata = {
+            **parsed.frontmatter,
+            **(data.get("metadata") or {}),
+            "content-type": content_type,
+            "type": doc_type,
+        }
 
         # Determine source_type from source string
         source_type = "url" if source.startswith(("http://", "https://")) else "file"

@@ -5,12 +5,12 @@
 ### Kiro/Q-Dev
 - **Tool**: `knowledge` tool
 - **Detection**: Tool availability check
-- **Capabilities**: 
+- **Capabilities**:
   - Semantic search using MiniLLM
   - Keyword search using BM25
   - Persistent storage across sessions
   - Commands: show, add, remove, search, update, status
-- **Usage Pattern**: 
+- **Usage Pattern**:
   ```
   knowledge(command="search", query="...", context_id="...")
   ```

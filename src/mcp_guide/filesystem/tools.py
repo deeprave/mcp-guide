@@ -22,7 +22,16 @@ def _get_file_cache() -> FileCache:
 
 
 async def send_file_content(
-    context: Any, path: str, content: str, mtime: Optional[float] = None, encoding: str = "utf-8"
+    context: Any,
+    path: str,
+    content: str,
+    mtime: Optional[float] = None,
+    encoding: str = "utf-8",
+    category: Optional[str] = None,
+    source: Optional[str] = None,
+    name: Optional[str] = None,
+    type: Optional[str] = None,
+    force: Optional[bool] = None,
 ) -> "Result[dict[str, Any]]":
     """Agent tool to send file content from its filesystem to the server.
 
@@ -102,6 +111,17 @@ async def send_file_content(
                 "content": content,
                 "mtime": mtime,
                 "encoding": encoding,
+                **{
+                    k: v
+                    for k, v in [
+                        ("category", category),
+                        ("source", source),
+                        ("name", name),
+                        ("type", type),
+                        ("force", force),
+                    ]
+                    if v is not None
+                },
             },
         )
 

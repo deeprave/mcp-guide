@@ -48,6 +48,44 @@ class TestSendFileContentTool:
             content="# Hello World\nThis is a test file.",
             mtime=None,
             encoding="utf-8",
+            category=None,
+            source=None,
+            name=None,
+            type=None,
+            force=None,
+        )
+
+    @pytest.mark.anyio
+    @patch("mcp_guide.tools.tool_filesystem.fs_send_file_content")
+    async def test_send_file_content_forwards_ingestion_fields(self, mock_send):
+        """internal_send_file_content should forward document ingestion fields."""
+        from mcp_guide.result import Result
+
+        mock_send.return_value = Result.ok({"path": "doc.md"})
+
+        args = SendFileContentArgs(
+            path="doc.md",
+            content="content",
+            category="docs",
+            source="agent",
+            name="my-doc.md",
+            type="agent/instruction",
+            force=True,
+        )
+
+        await internal_send_file_content(args)
+
+        mock_send.assert_called_once_with(
+            context=None,
+            path="doc.md",
+            content="content",
+            mtime=None,
+            encoding="utf-8",
+            category="docs",
+            source="agent",
+            name="my-doc.md",
+            type="agent/instruction",
+            force=True,
         )
 
     @pytest.mark.anyio
