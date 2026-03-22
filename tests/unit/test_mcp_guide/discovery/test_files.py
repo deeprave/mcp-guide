@@ -386,6 +386,70 @@ async def test_template_preference_different_directories(tmp_path):
     assert paths == {Path("subdir1/doc.md"), Path("subdir2/doc.md.mustache")}
 
 
+# --- Tests for read_raw ---
+
+
+@pytest.mark.anyio
+async def test_read_raw_with_content_loader():
+    """Test read_raw returns content from content_loader."""
+
+    async def loader() -> str | None:
+        return "raw loaded content"
+
+    fi = FileInfo(
+        path=Path("test.md"), size=0, content_size=0, mtime=datetime.now(), name="test.md", content_loader=loader
+    )
+    result = await fi.read_raw()
+    assert result == "raw loaded content"
+
+
+@pytest.mark.anyio
+async def test_read_raw_loader_returns_none_raises():
+    """Test read_raw raises FileNotFoundError when loader returns None."""
+
+    async def loader() -> str | None:
+        return None
+
+    fi = FileInfo(
+        path=Path("test.md"), size=0, content_size=0, mtime=datetime.now(), name="test.md", content_loader=loader
+    )
+    with pytest.raises(FileNotFoundError, match="No content available"):
+        await fi.read_raw()
+
+
+@pytest.mark.anyio
+async def test_read_raw_loader_error_propagates():
+    """Test read_raw propagates content_loader exceptions."""
+
+    async def loader() -> str | None:
+        raise RuntimeError("store unavailable")
+
+    fi = FileInfo(
+        path=Path("test.md"), size=0, content_size=0, mtime=datetime.now(), name="test.md", content_loader=loader
+    )
+    with pytest.raises(RuntimeError, match="store unavailable"):
+        await fi.read_raw()
+
+
+@pytest.mark.anyio
+async def test_read_raw_falls_back_to_filesystem(tmp_path):
+    """Test read_raw reads from filesystem when no content_loader."""
+    test_file = tmp_path / "test.md"
+    test_file.write_text("# From disk")
+
+    fi = FileInfo(path=test_file, size=0, content_size=0, mtime=datetime.now(), name="test.md")
+    result = await fi.read_raw()
+    assert result == "# From disk"
+
+
+@pytest.mark.anyio
+async def test_read_raw_filesystem_missing_raises():
+    """Test read_raw raises when filesystem file doesn't exist."""
+    fi = FileInfo(path=Path("/nonexistent/file.md"), size=0, content_size=0, mtime=datetime.now(), name="file.md")
+    with pytest.raises(FileNotFoundError):
+        await fi.read_raw()
+
+
 # --- Tests for discover_document_stored ---
 
 

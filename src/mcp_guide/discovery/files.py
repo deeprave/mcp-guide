@@ -214,8 +214,9 @@ class FileInfo:
             Raw content string
 
         Raises:
-            FileNotFoundError: If file doesn't exist
-            OSError: If content cannot be loaded
+            FileNotFoundError: If file doesn't exist or loader returns None
+            OSError: If content cannot be loaded from the filesystem
+            Exception: Any exception from content_loader is propagated
         """
         if self._content_loader is not None:
             content = await self._content_loader()
