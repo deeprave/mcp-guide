@@ -84,7 +84,7 @@ class CategoryContentArgs(ToolArguments):
 class CategoryListFilesArgs(ToolArguments):
     """Arguments for category_list_files tool."""
 
-    name: str = Field(description="Name of the category to list files from")
+    category: str = Field(description="Name of the category to list files from")
     source: Optional[Literal["files", "stored"]] = Field(
         default=None, description="Filter by source: 'files' (filesystem only), 'stored' (store only), or omit for both"
     )
@@ -509,10 +509,10 @@ async def internal_category_list_files(
     project = await session.get_project()
 
     # Resolve category
-    category = project.categories.get(args.name)
+    category = project.categories.get(args.category)
     if category is None:
         result: Result[list[dict[str, Any]]] = Result.failure(
-            f"Category '{args.name}' not found in project",
+            f"Category '{args.category}' not found in project",
             error_type=ERROR_NOT_FOUND,
             instruction=INSTRUCTION_NOTFOUND_ERROR,
         )
@@ -523,11 +523,11 @@ async def internal_category_list_files(
     category_dir = docroot / category.dir
 
     if args.source == "stored":
-        files = await discover_document_stored(args.name, ["**/*"])
+        files = await discover_document_stored(args.category, ["**/*"])
     elif args.source == "files":
         files = await discover_document_files(category_dir, ["**/*"])
     else:
-        files = await discover_documents(category_dir, ["**/*"], category=args.name)
+        files = await discover_documents(category_dir, ["**/*"], category=args.category)
 
     # Format as list of file info dictionaries with descriptions
     file_list = []
