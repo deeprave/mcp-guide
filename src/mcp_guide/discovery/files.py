@@ -205,6 +205,27 @@ class FileInfo:
             self._content = None
             self._load_error = str(e)
 
+    async def read_raw(self) -> str:
+        """Read raw content from source without frontmatter processing.
+
+        Uses content_loader for stored documents, filesystem for files.
+
+        Returns:
+            Raw content string
+
+        Raises:
+            FileNotFoundError: If file doesn't exist
+            OSError: If content cannot be loaded
+        """
+        if self._content_loader is not None:
+            content = await self._content_loader()
+            if content is None:
+                raise FileNotFoundError(f"No content available for {self.path}")
+            return content
+        from mcp_guide.core import read_file_content
+
+        return await read_file_content(self.path)
+
     def _parse_frontmatter_if_needed(self) -> None:
         """Internal method to parse frontmatter if not already parsed."""
         if self._frontmatter is not None or self._content is None:
