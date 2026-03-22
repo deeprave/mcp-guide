@@ -327,6 +327,6 @@ async def process_file(
         PermissionError: If file can't be read
         UnicodeDecodeError: If file isn't valid UTF-8
     """
-    content = await anyio.Path(file_info.path).read_text(encoding="utf-8")
+    content = await file_info.read_raw()
 
     return await process_frontmatter(content, requirements_context, render_context)

@@ -3,7 +3,6 @@
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from mcp_guide.core.file_reader import read_file_content
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.discovery.files import FileInfo
 from mcp_guide.render.cache import get_template_contexts
@@ -35,7 +34,7 @@ async def render_template(
         RuntimeError: If template rendering fails
         Exception: Other errors during processing
     """
-    content = await read_file_content(file_info.path)
+    content = await file_info.read_raw()
 
     # Build context for frontmatter field rendering
     base_context = await get_template_contexts()
