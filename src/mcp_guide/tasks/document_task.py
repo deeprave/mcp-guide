@@ -61,6 +61,22 @@ class DocumentTask:
         doc_type = data.get("type", _DEFAULT_DOC_TYPE)
         name = data.get("name") or Path(data.get("path", "")).name
 
+        # Type validation/coercion to guard against agent-provided non-string values
+        if not isinstance(category, str):
+            return EventResult(result=False, message=f"Invalid category type: expected str, got {type(category).__name__}")
+        if not isinstance(source, str):
+            return EventResult(result=False, message=f"Invalid source type: expected str, got {type(source).__name__}")
+        if not isinstance(content, str):
+            try:
+                content = str(content)
+            except Exception:
+                return EventResult(result=False, message="content could not be coerced to string")
+        if mtime is not None:
+            # bool is a subclass of int in Python, so the bool guard must come first
+            if isinstance(mtime, bool) or not isinstance(mtime, (int, float)):
+                return EventResult(result=False, message=f"Invalid mtime type: expected number, got {type(mtime).__name__}")
+            mtime = float(mtime)
+
         if not name:
             return EventResult(result=False, message="Document name could not be determined")
 

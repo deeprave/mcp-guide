@@ -32,9 +32,12 @@ CREATE INDEX IF NOT EXISTS idx_documents_category ON documents (category);
 CREATE INDEX IF NOT EXISTS idx_documents_name ON documents (name);
 """
 
-# Additive-only migrations — use ALTER TABLE ... ADD COLUMN IF NOT EXISTS.
+# Additive-only migrations — use ALTER TABLE ... ADD COLUMN.
 # Never drop, rename, or change column types (requires table rebuild).
+# SQLite supports "ADD COLUMN IF NOT EXISTS" from 3.35.0 (2021-03-12).
+# For broader compatibility we catch the "duplicate column name" error instead.
 _MIGRATIONS = """
+ALTER TABLE documents ADD COLUMN mtime REAL DEFAULT NULL;
 """
 
 
@@ -65,8 +68,13 @@ def _get_conn(db_path: Optional[Path] = None) -> sqlite3.Connection:
             if statement:
                 try:
                     conn.execute(statement)
-                except sqlite3.OperationalError:
-                    pass  # Column already exists — migration already applied
+                except sqlite3.OperationalError as exc:
+                    msg = str(exc).lower()
+                    # Ignore migrations that have already been applied
+                    # (e.g., duplicate column or object already exists).
+                    if "duplicate column name" in msg or "already exists" in msg:
+                        continue
+                    raise
     return conn
 
 

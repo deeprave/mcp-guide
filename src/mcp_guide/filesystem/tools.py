@@ -22,7 +22,16 @@ def _get_file_cache() -> FileCache:
 
 
 async def send_file_content(
-    context: Any, path: str, content: str, mtime: Optional[float] = None, encoding: str = "utf-8"
+    context: Any,
+    path: str,
+    content: str,
+    mtime: Optional[float] = None,
+    encoding: str = "utf-8",
+    category: Optional[str] = None,
+    source: Optional[str] = None,
+    name: Optional[str] = None,
+    doc_type: Optional[str] = None,
+    force: bool = False,
 ) -> "Result[dict[str, Any]]":
     """Agent tool to send file content from its filesystem to the server.
 
@@ -30,12 +39,20 @@ async def send_file_content(
     The agent reads the file from its local filesystem and uses this tool to send
     the content to the server.
 
+    When category and source are provided the content is also ingested into the
+    document store via a FS_FILE_CONTENT event.
+
     Args:
         context: MCP context
         path: File path that was requested
         content: File content from agent's filesystem
         mtime: File modification time
         encoding: File encoding
+        category: Category to store document in (enables document ingestion)
+        source: Source path or URL of the document
+        name: Document name override (defaults to filename)
+        doc_type: Document type for ingestion
+        force: Force overwrite even if mtime is unchanged
 
     Returns:
         Result with cached file metadata
@@ -94,15 +111,28 @@ async def send_file_content(
         from mcp_guide.task_manager import EventType, get_task_manager
         from mcp_guide.task_manager.manager import aggregate_event_results
 
+        event_data: dict[str, Any] = {
+            "path": validated_path,
+            "content": content,
+            "mtime": mtime,
+            "encoding": encoding,
+        }
+        # Include document ingestion fields when category and source are provided
+        if category is not None:
+            event_data["category"] = category
+        if source is not None:
+            event_data["source"] = source
+        if name is not None:
+            event_data["name"] = name
+        if doc_type is not None:
+            event_data["type"] = doc_type
+        if force:
+            event_data["force"] = force
+
         task_manager = get_task_manager()
         event_results = await task_manager.dispatch_event(
             EventType.FS_FILE_CONTENT,
-            {
-                "path": validated_path,
-                "content": content,
-                "mtime": mtime,
-                "encoding": encoding,
-            },
+            event_data,
         )
 
         # Aggregate results

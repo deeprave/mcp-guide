@@ -1,8 +1,11 @@
 """Tests for document_store CRUD operations."""
 
+import sqlite3
+
 import pytest
 
 from mcp_guide.store.document_store import (
+    _get_conn,
     add_document,
     get_document,
     get_document_content,
@@ -161,3 +164,54 @@ async def test_mtime_updated_on_upsert(db):
     await add_document("docs", "readme", "/path", "file", "v1", mtime=100.0, db_path=db)
     record = await add_document("docs", "readme", "/path", "file", "v2", mtime=200.0, db_path=db)
     assert record.mtime == 200.0
+
+
+@pytest.mark.anyio
+async def test_migration_adds_mtime_to_existing_db(tmp_path):
+    """Opening a pre-existing DB without mtime column runs the migration."""
+    db = tmp_path / "legacy.db"
+    # Create a legacy schema without the mtime column
+    conn = sqlite3.connect(db)
+    conn.executescript("""
+        CREATE TABLE IF NOT EXISTS documents (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            category    TEXT NOT NULL COLLATE NOCASE,
+            name        TEXT NOT NULL COLLATE NOCASE,
+            source      TEXT NOT NULL,
+            source_type TEXT NOT NULL,
+            content     TEXT NOT NULL,
+            metadata    BLOB DEFAULT NULL,
+            created_at  TEXT NOT NULL,
+            updated_at  TEXT NOT NULL,
+            UNIQUE (category, name)
+        );
+        CREATE INDEX IF NOT EXISTS idx_documents_category ON documents (category);
+        CREATE INDEX IF NOT EXISTS idx_documents_name ON documents (name);
+    """)
+    conn.execute(
+        "INSERT INTO documents (category, name, source, source_type, content, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        ("docs", "old.md", "/path", "file", "# Old", "2020-01-01T00:00:00+00:00", "2020-01-01T00:00:00+00:00"),
+    )
+    conn.commit()
+    conn.close()
+
+    # Opening the DB via _get_conn should run the migration
+    conn2 = _get_conn(db)
+    conn2.close()
+
+    # Verify the mtime column now exists and returns NULL for the old row
+    record = await get_document("docs", "old.md", db_path=db)
+    assert record is not None
+    assert record.mtime is None
+
+
+@pytest.mark.anyio
+async def test_migration_is_idempotent(tmp_path):
+    """Running migration on a DB that already has the mtime column is a no-op."""
+    db = tmp_path / "new.db"
+    # First open creates the schema with mtime already included
+    _get_conn(db).close()
+    # Second open should not raise even though mtime already exists
+    _get_conn(db).close()
+    record = await add_document("docs", "readme.md", "/path", "file", "content", mtime=1.0, db_path=db)
+    assert record.mtime == 1.0

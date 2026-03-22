@@ -155,8 +155,9 @@ async def gather_content(
         else:
             raise CategoryNotFoundError(expr.name)
 
-    # De-duplicate by absolute path
-    seen_paths = set()
+    # De-duplicate by (absolute path, source) so stored and filesystem documents
+    # with the same name are both preserved (no cross-source deduplication).
+    seen_paths: set[tuple] = set()
     unique_files = []
     docroot = Path(await session.get_docroot())
 
@@ -166,9 +167,10 @@ async def gather_content(
             category = file.category
             category_dir = docroot / category.dir
             absolute_path = category_dir / file.path  # Construct actual absolute path
+            dedup_key = (absolute_path, getattr(file, "source", "file"))
 
-            if absolute_path not in seen_paths:
-                seen_paths.add(absolute_path)
+            if dedup_key not in seen_paths:
+                seen_paths.add(dedup_key)
                 unique_files.append(file)
 
     return unique_files

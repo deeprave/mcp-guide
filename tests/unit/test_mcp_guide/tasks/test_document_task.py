@@ -290,3 +290,61 @@ async def test_url_source_type_detected(task):
 
     assert result.result is True
     assert mock_add.call_args.kwargs["source_type"] == "url"
+
+
+@pytest.mark.anyio
+async def test_non_string_category_rejected(task):
+    """Non-string category returns error result."""
+    result = await task.handle_event(EventType.FS_FILE_CONTENT, _base_event_data(category=123))
+    assert result is not None
+    assert result.result is False
+    assert "category" in result.message
+
+
+@pytest.mark.anyio
+async def test_non_string_source_rejected(task):
+    """Non-string source returns error result."""
+    result = await task.handle_event(EventType.FS_FILE_CONTENT, _base_event_data(source=42))
+    assert result is not None
+    assert result.result is False
+    assert "source" in result.message
+
+
+@pytest.mark.anyio
+async def test_non_numeric_mtime_rejected(task):
+    """Non-numeric mtime returns error result."""
+    result = await task.handle_event(EventType.FS_FILE_CONTENT, _base_event_data(mtime="not-a-number"))
+    assert result is not None
+    assert result.result is False
+    assert "mtime" in result.message
+
+
+@pytest.mark.anyio
+async def test_integer_mtime_coerced_to_float(task):
+    """Integer mtime is coerced to float and document is stored."""
+    project = _make_project(categories={"docs": object()})
+    session = _make_session(project)
+    record = DocumentRecord(
+        id=1,
+        category="docs",
+        name="readme.md",
+        source="/original/readme.md",
+        source_type="file",
+        metadata={},
+        created_at="",
+        updated_at="",
+        content="# Hello",
+        mtime=1700000000.0,
+    )
+
+    with (
+        patch("mcp_guide.tasks.document_task.get_session", return_value=session),
+        patch("mcp_guide.tasks.document_task.get_document", return_value=None),
+        patch("mcp_guide.tasks.document_task.add_document", return_value=record) as mock_add,
+    ):
+        result = await task.handle_event(EventType.FS_FILE_CONTENT, _base_event_data(mtime=1700000000))
+
+    assert result is not None
+    assert result.result is True
+    call_kwargs = mock_add.call_args
+    assert isinstance(call_kwargs.kwargs["mtime"], float)
