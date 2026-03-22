@@ -290,3 +290,194 @@ async def test_url_source_type_detected(task):
 
     assert result.result is True
     assert mock_add.call_args.kwargs["source_type"] == "url"
+
+
+@pytest.mark.anyio
+async def test_frontmatter_stripped_from_content(task):
+    """Frontmatter is stripped from content before storage."""
+    project = _make_project(categories={"docs": object()})
+    session = _make_session(project)
+    record = DocumentRecord(
+        id=1,
+        category="docs",
+        name="readme.md",
+        source="/path",
+        source_type="file",
+        metadata={},
+        created_at="",
+        updated_at="",
+        content="Body text",
+        mtime=100.0,
+    )
+    content_with_fm = "---\ntitle: Test\n---\nBody text"
+
+    with (
+        patch("mcp_guide.tasks.document_task.get_session", return_value=session),
+        patch("mcp_guide.tasks.document_task.get_document", return_value=None),
+        patch("mcp_guide.tasks.document_task.add_document", return_value=record) as mock_add,
+    ):
+        result = await task.handle_event(EventType.FS_FILE_CONTENT, _base_event_data(content=content_with_fm))
+
+    assert result.result is True
+    assert mock_add.call_args.kwargs["content"] == "Body text"
+
+
+@pytest.mark.anyio
+async def test_frontmatter_merged_into_metadata(task):
+    """Frontmatter fields are included in stored metadata."""
+    project = _make_project(categories={"docs": object()})
+    session = _make_session(project)
+    record = DocumentRecord(
+        id=1,
+        category="docs",
+        name="readme.md",
+        source="/path",
+        source_type="file",
+        metadata={},
+        created_at="",
+        updated_at="",
+        content="Body",
+        mtime=100.0,
+    )
+    content_with_fm = "---\ntitle: My Doc\nauthor: Someone\n---\nBody"
+
+    with (
+        patch("mcp_guide.tasks.document_task.get_session", return_value=session),
+        patch("mcp_guide.tasks.document_task.get_document", return_value=None),
+        patch("mcp_guide.tasks.document_task.add_document", return_value=record) as mock_add,
+    ):
+        await task.handle_event(EventType.FS_FILE_CONTENT, _base_event_data(content=content_with_fm))
+
+    metadata = mock_add.call_args.kwargs["metadata"]
+    assert metadata["title"] == "My Doc"
+    assert metadata["author"] == "Someone"
+
+
+@pytest.mark.anyio
+async def test_event_metadata_overrides_frontmatter(task):
+    """Event-supplied metadata takes precedence over frontmatter."""
+    project = _make_project(categories={"docs": object()})
+    session = _make_session(project)
+    record = DocumentRecord(
+        id=1,
+        category="docs",
+        name="readme.md",
+        source="/path",
+        source_type="file",
+        metadata={},
+        created_at="",
+        updated_at="",
+        content="Body",
+        mtime=100.0,
+    )
+    content_with_fm = "---\ntitle: From Frontmatter\n---\nBody"
+
+    with (
+        patch("mcp_guide.tasks.document_task.get_session", return_value=session),
+        patch("mcp_guide.tasks.document_task.get_document", return_value=None),
+        patch("mcp_guide.tasks.document_task.add_document", return_value=record) as mock_add,
+    ):
+        await task.handle_event(
+            EventType.FS_FILE_CONTENT,
+            _base_event_data(content=content_with_fm, metadata={"title": "From Event"}),
+        )
+
+    assert mock_add.call_args.kwargs["metadata"]["title"] == "From Event"
+
+
+@pytest.mark.anyio
+async def test_no_frontmatter_unchanged(task):
+    """Content without frontmatter is stored as-is."""
+    project = _make_project(categories={"docs": object()})
+    session = _make_session(project)
+    record = DocumentRecord(
+        id=1,
+        category="docs",
+        name="readme.md",
+        source="/path",
+        source_type="file",
+        metadata={},
+        created_at="",
+        updated_at="",
+        content="# Hello",
+        mtime=100.0,
+    )
+
+    with (
+        patch("mcp_guide.tasks.document_task.get_session", return_value=session),
+        patch("mcp_guide.tasks.document_task.get_document", return_value=None),
+        patch("mcp_guide.tasks.document_task.add_document", return_value=record) as mock_add,
+    ):
+        await task.handle_event(EventType.FS_FILE_CONTENT, _base_event_data(content="# Hello"))
+
+    assert mock_add.call_args.kwargs["content"] == "# Hello"
+
+
+@pytest.mark.anyio
+async def test_non_string_category_rejected(task):
+    """Non-string category returns error."""
+    result = await task.handle_event(EventType.FS_FILE_CONTENT, _base_event_data(category=123))
+    assert result is not None
+    assert result.result is False
+    assert "category must be a string" in result.message
+
+
+@pytest.mark.anyio
+async def test_non_string_source_rejected(task):
+    """Non-string source returns error."""
+    result = await task.handle_event(EventType.FS_FILE_CONTENT, _base_event_data(source=42))
+    assert result is not None
+    assert result.result is False
+    assert "source must be a string" in result.message
+
+
+@pytest.mark.anyio
+async def test_non_numeric_mtime_rejected(task):
+    """Non-numeric mtime returns error."""
+    project = _make_project(categories={"docs": object()})
+    session = _make_session(project)
+
+    with patch("mcp_guide.tasks.document_task.get_session", return_value=session):
+        result = await task.handle_event(EventType.FS_FILE_CONTENT, _base_event_data(mtime="not-a-number"))
+
+    assert result is not None
+    assert result.result is False
+    assert "mtime must be numeric" in result.message
+
+
+@pytest.mark.anyio
+async def test_bool_mtime_rejected(task):
+    """Bool mtime is rejected despite bool being subclass of int."""
+    result = await task.handle_event(EventType.FS_FILE_CONTENT, _base_event_data(mtime=True))
+    assert result is not None
+    assert result.result is False
+    assert "mtime must be numeric" in result.message
+
+
+@pytest.mark.anyio
+async def test_int_mtime_coerced_to_float(task):
+    """Integer mtime is coerced to float."""
+    project = _make_project(categories={"docs": object()})
+    session = _make_session(project)
+    record = DocumentRecord(
+        id=1,
+        category="docs",
+        name="readme.md",
+        source="/original/readme.md",
+        source_type="file",
+        metadata={},
+        created_at="",
+        updated_at="",
+        content="# Hello",
+        mtime=1700000000.0,
+    )
+
+    with (
+        patch("mcp_guide.tasks.document_task.get_session", return_value=session),
+        patch("mcp_guide.tasks.document_task.get_document", return_value=None),
+        patch("mcp_guide.tasks.document_task.add_document", return_value=record) as mock_add,
+    ):
+        result = await task.handle_event(EventType.FS_FILE_CONTENT, _base_event_data(mtime=1700000000))
+
+    assert result.result is True
+    assert isinstance(mock_add.call_args.kwargs["mtime"], float)

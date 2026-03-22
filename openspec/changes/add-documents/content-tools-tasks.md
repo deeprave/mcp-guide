@@ -51,3 +51,40 @@ Update content tools to serve stored documents alongside filesystem files.
 - [x] 5.2 Verify `get_content` works via collection → category → discover_documents chain
 - [x] 5.3 Verify `export_content` includes stored documents (should follow from 5.1)
 - [x] 5.4 Add integration tests for content delivery with stored documents
+
+## Section 6: Frontmatter Handling in Document Ingestion
+
+Parse and strip frontmatter from document content during ingestion, merging into metadata with correct precedence.
+
+- [x] 6.1 Parse content with `parse_content_with_frontmatter()` in `DocumentTask.handle_event`
+- [x] 6.2 Strip frontmatter from content before storage (use `parsed.content`)
+- [x] 6.3 Merge metadata: `{**parsed.frontmatter, **event_metadata, "content-type": ..., "type": ...}`
+- [x] 6.4 Run `detect_text_subtype` on stripped content (not raw)
+- [x] 6.5 Add tests: content with frontmatter stripped, frontmatter merged into metadata, event metadata overrides frontmatter, content without frontmatter unchanged
+
+## Section 7: Fix Cross-Source Dedup in Content Gathering
+
+The dedup in `gather_content` uses a single `absolute_path` key for all files. Filesystem files and stored documents have different natural keys and must be deduped separately:
+- Filesystem files: dedup by absolute path (unchanged)
+- Stored documents: dedup by `(category_name, document_name)` — their natural uniqueness key
+
+- [x] 7.1 Separate dedup: filesystem files by `absolute_path`, stored documents by `(category, name)`
+- [x] 7.2 Add test: stored and filesystem file with same name both appear in output
+- [x] 7.3 Add test: same stored document via overlapping collections is deduped
+
+## Section 8: Wire send_file_content for Document Ingestion
+
+Add optional document ingestion fields to `SendFileContentArgs` and forward through the `FS_FILE_CONTENT` event payload so agents can trigger `DocumentTask` via the existing tool.
+
+- [x] 8.1 Add optional `category`, `source`, `name`, `type`, `force` fields to `SendFileContentArgs`
+- [x] 8.2 Add matching parameters to `send_file_content()` in `filesystem/tools.py`
+- [x] 8.3 Forward non-None fields into the event data dict
+- [x] 8.4 Add test: event data includes ingestion fields when provided
+
+## Section 9: Type Validation in DocumentTask
+
+Guard against agent-provided non-string/non-numeric values in event data.
+
+- [x] 9.1 Validate `category` and `source` are strings, return error if not
+- [x] 9.2 Validate `mtime` is numeric (guard against bool subclass of int), coerce int to float
+- [x] 9.3 Add tests: non-string category, non-string source, non-numeric mtime, int mtime coerced to float

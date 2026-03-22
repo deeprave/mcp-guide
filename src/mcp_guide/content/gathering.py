@@ -155,18 +155,23 @@ async def gather_content(
         else:
             raise CategoryNotFoundError(expr.name)
 
-    # De-duplicate by absolute path
-    seen_paths = set()
+    # De-duplicate: filesystem files by absolute path, stored documents by (category, name)
+    seen_paths: set[Path] = set()
+    seen_docs: set[tuple[str, str]] = set()
     unique_files = []
     docroot = Path(await session.get_docroot())
 
     for file in all_files:
-        # Get category to determine directory
-        if file.category and file.category.name in project.categories:
-            category = file.category
-            category_dir = docroot / category.dir
-            absolute_path = category_dir / file.path  # Construct actual absolute path
-
+        if not file.category or file.category.name not in project.categories:
+            continue
+        if file.source == "store":
+            doc_key = (file.category.name, file.name)
+            if doc_key not in seen_docs:
+                seen_docs.add(doc_key)
+                unique_files.append(file)
+        else:
+            category_dir = docroot / file.category.dir
+            absolute_path = category_dir / file.path
             if absolute_path not in seen_paths:
                 seen_paths.add(absolute_path)
                 unique_files.append(file)

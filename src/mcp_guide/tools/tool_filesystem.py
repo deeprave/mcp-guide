@@ -22,6 +22,11 @@ class SendFileContentArgs(ToolArguments):
     content: str = Field(description="File content from agent's filesystem")
     mtime: Optional[float] = Field(default=None, description="File modification time")
     encoding: str = Field(default="utf-8", description="File encoding")
+    category: Optional[str] = Field(default=None, description="Category for document ingestion")
+    source: Optional[str] = Field(default=None, description="Source identifier for document ingestion")
+    name: Optional[str] = Field(default=None, description="Document name override")
+    type: Optional[str] = Field(default=None, description="Document type (e.g. agent/instruction)")
+    force: Optional[bool] = Field(default=None, description="Force overwrite regardless of mtime")
 
 
 class SendDirectoryListingArgs(ToolArguments):
@@ -55,6 +60,11 @@ async def internal_send_file_content(
         content=args.content,
         mtime=args.mtime,
         encoding=args.encoding,
+        category=args.category,
+        source=args.source,
+        name=args.name,
+        type=args.type,
+        force=args.force,
     )
 
 
