@@ -414,21 +414,17 @@ async def test_no_frontmatter_unchanged(task):
 
 
 @pytest.mark.anyio
-async def test_non_string_category_rejected(task):
-    """Non-string category returns error."""
+async def test_non_string_category_not_matched(task):
+    """Non-string category is not matched as a document ingestion event."""
     result = await task.handle_event(EventType.FS_FILE_CONTENT, _base_event_data(category=123))
-    assert result is not None
-    assert result.result is False
-    assert "category must be a string" in result.message
+    assert result is None
 
 
 @pytest.mark.anyio
-async def test_non_string_source_rejected(task):
-    """Non-string source returns error."""
+async def test_non_string_source_not_matched(task):
+    """Non-string source is not matched as a document ingestion event."""
     result = await task.handle_event(EventType.FS_FILE_CONTENT, _base_event_data(source=42))
-    assert result is not None
-    assert result.result is False
-    assert "source must be a string" in result.message
+    assert result is None
 
 
 @pytest.mark.anyio

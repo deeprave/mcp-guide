@@ -50,8 +50,10 @@ class DocumentTask:
         if not (event_type & EventType.FS_FILE_CONTENT):
             return None
 
-        # Only match events with required metadata fields
+        # Only match events with required metadata fields (must be present and strings)
         if not _REQUIRED_FIELDS.issubset(data):
+            return None
+        if not all(isinstance(data[f], str) for f in _REQUIRED_FIELDS):
             return None
 
         category = data["category"]
@@ -61,10 +63,6 @@ class DocumentTask:
         force = data.get("force", False)
 
         # Validate types for agent-provided data
-        if not isinstance(category, str):
-            return EventResult(result=False, message=f"category must be a string, got {type(category).__name__}")
-        if not isinstance(source, str):
-            return EventResult(result=False, message=f"source must be a string, got {type(source).__name__}")
         if mtime is not None:
             if isinstance(mtime, bool) or not isinstance(mtime, (int, float)):
                 return EventResult(result=False, message=f"mtime must be numeric, got {type(mtime).__name__}")
@@ -72,10 +70,10 @@ class DocumentTask:
         doc_type = data.get("type", _DEFAULT_DOC_TYPE)
         name = data.get("name") or Path(data.get("path", "")).name
 
-        if not name:
+        if not isinstance(name, str) or not name:
             return EventResult(result=False, message="Document name could not be determined")
 
-        if doc_type not in _VALID_DOC_TYPES:
+        if not isinstance(doc_type, str) or doc_type not in _VALID_DOC_TYPES:
             return EventResult(result=False, message=f"Invalid document type: {doc_type!r}")
 
         # Validate category exists
@@ -101,9 +99,12 @@ class DocumentTask:
         content_type = detect_text_subtype(content)
 
         # Merge metadata: frontmatter < event metadata < auto-detected fields
+        event_metadata = data.get("metadata") or {}
+        if not isinstance(event_metadata, dict):
+            return EventResult(result=False, message=f"metadata must be a mapping, got {type(event_metadata).__name__}")
         metadata = {
             **parsed.frontmatter,
-            **(data.get("metadata") or {}),
+            **event_metadata,
             "content-type": content_type,
             "type": doc_type,
         }

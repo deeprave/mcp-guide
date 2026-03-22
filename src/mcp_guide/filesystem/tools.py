@@ -45,6 +45,11 @@ async def send_file_content(
         content: File content from agent's filesystem
         mtime: File modification time
         encoding: File encoding
+        category: Optional category for document ingestion
+        source: Optional source identifier for document ingestion
+        name: Optional document name override
+        type: Optional document type (e.g. agent/instruction)
+        force: Optional flag to force overwrite regardless of mtime
 
     Returns:
         Result with cached file metadata
@@ -107,7 +112,7 @@ async def send_file_content(
         event_results = await task_manager.dispatch_event(
             EventType.FS_FILE_CONTENT,
             {
-                "path": validated_path,
+                "path": str(validated_path),
                 "content": content,
                 "mtime": mtime,
                 "encoding": encoding,

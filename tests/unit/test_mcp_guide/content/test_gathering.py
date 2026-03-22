@@ -77,11 +77,7 @@ async def test_stored_doc_deduped_across_overlapping_collections(tmp_path, monke
         },
     )
 
-    call_count = 0
-
     async def mock_discover(category_dir, patterns, category=None):
-        nonlocal call_count
-        call_count += 1
         stored = _make_file("notes.md", source="store")
         stored.category = project.categories["docs"]
         return [stored]
