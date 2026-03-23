@@ -1,0 +1,13 @@
+schema: spec-driven
+
+context: |
+  Tech stack: uv, python, mustache templates
+  Testing: pytest, anyio, coverage
+  Style: Model Context Protocol
+  Purpose: Document server and development workflow support
+
+rules:
+  specs:
+    - follow given/when/then format
+    - referemce existing patterns before inventing new
+
