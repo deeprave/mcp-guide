@@ -61,6 +61,7 @@ class DocumentTask:
         category = data["category"]
         source = data.get("source", _DEFAULT_SOURCE)
         if not isinstance(source, str):
+            logger.warning("Non-string source %r coerced to %r", data.get("source"), _DEFAULT_SOURCE)
             source = _DEFAULT_SOURCE
         content = data.get("content", "")
         mtime = data.get("mtime")
