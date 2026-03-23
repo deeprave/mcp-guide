@@ -19,7 +19,7 @@ All notable changes to mcp-guide will be documented in this file.
 - Migrated from vendored `mcp.server.fastmcp` to standalone `fastmcp` package
 - Renamed `category_list_files` parameter from `name` to `category`
 - Refactoring for better multiple client support (http server)
-- Removed dead code across ther codebase
+- Removed dead code across the codebase
 
 ### Fixed
 - Session access semantics and bootstrap data isolation

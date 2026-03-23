@@ -1,6 +1,6 @@
 """Filesystem interaction tools for agent-server communication."""
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Literal, Optional
 
 from fastmcp import Context
 from pydantic import Field
@@ -25,7 +25,9 @@ class SendFileContentArgs(ToolArguments):
     category: Optional[str] = Field(default=None, description="Category for document ingestion")
     source: Optional[str] = Field(default=None, description="Source identifier for document ingestion")
     name: Optional[str] = Field(default=None, description="Document name override")
-    type: Optional[str] = Field(default=None, description="Document type (e.g. agent/instruction)")
+    type: Optional[Literal["agent/instruction", "agent/information", "user/information"]] = Field(
+        default=None, description="Document type"
+    )
     force: Optional[bool] = Field(default=None, description="Force overwrite regardless of mtime")
     metadata: Optional[dict[str, Any]] = Field(default=None, description="Arbitrary metadata to attach to the document")
 
