@@ -9,7 +9,7 @@ mcp-guide is designed to work with AI agents via the Model Context Protocol (MCP
 ### Common JSON configuration
 
 This JSON block can be used with most AI CLI agents to add the MCP server.
-It requires uv, Python 3.11+ to be installed, and the "uvx" command to be available on the PATH.
+It requires uv, Python 3.12+ to be installed, and the "uvx" command to be available on the PATH.
 
 mcp-guide supports three transport modes:
 

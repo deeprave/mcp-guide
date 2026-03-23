@@ -7,10 +7,17 @@ All notable changes to mcp-guide will be documented in this file.
 ### Added
 - SQLite document store for persistent document storage with async API
 - Stored document discovery with pattern matching consistent with filesystem discovery
+- Document management commands (`:document/add`, `:document/remove`, `:document/list`)
+- `send_file_content` document ingestion with automatic `source` defaulting to `"file"`
+- `category_list_files` source filter for listing filesystem-only, store-only, or both
 - `roots/list_changed` notification handler to detect project switches
+
+### Breaking
+- Minimum Python version raised from 3.11 to 3.12 (`PurePosixPath.full_match()` required for stored document pattern matching)
 
 ### Changed
 - Migrated from vendored `mcp.server.fastmcp` to standalone `fastmcp` package
+- Renamed `category_list_files` parameter from `name` to `category`
 - Refactoring for better multiple client support (http server)
 - Removed dead code across ther codebase
 

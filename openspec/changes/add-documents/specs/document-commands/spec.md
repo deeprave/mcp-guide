@@ -19,15 +19,24 @@ Required arguments:
 Optional arguments:
 - `--as <name>` — override the stored document name (default: basename of path)
 - `--force` — overwrite existing document regardless of mtime
+- `--metadata <object>` — arbitrary key-value metadata to attach to the document
+- `--agent-info` — set document type to `agent/information`
+- `--agent-instruction` — set document type to `agent/instruction` (the default)
+- `--user-info` — set document type to `user/information`
+
+The type flags (`--agent-info`, `--agent-instruction`, `--user-info`) are mutually exclusive. If multiple are specified, the last one wins.
+
+The `send_file_content` MCP tool SHALL accept an optional `metadata` parameter (dict) which is merged with any frontmatter metadata parsed from the file content.
 
 The command SHALL instruct the agent to:
 1. Read the file content and mtime from the specified path
-2. Call `send_file_content` with the file content, path, category, name, and mtime
+2. Call `send_file_content` with the file content, path, category, name, mtime, type, and metadata
 3. Include force flag if specified
+4. Parse the `--metadata` value into a dict before passing to the tool
 
 #### Scenario: Add a document with defaults
 - **WHEN** user invokes `:document/add docs /path/to/file.md`
-- **THEN** agent reads the file and calls send_file_content with category=docs, name derived from basename
+- **THEN** agent reads the file and calls send_file_content with category=docs, name derived from basename, type=agent/instruction
 
 #### Scenario: Add a document with name override
 - **WHEN** user invokes `:document/add docs /path/to/file.md --as guide.md`
@@ -36,6 +45,18 @@ The command SHALL instruct the agent to:
 #### Scenario: Force overwrite
 - **WHEN** user invokes `:document/add docs /path/to/file.md --force`
 - **THEN** agent calls send_file_content with force=true
+
+#### Scenario: Add with metadata
+- **WHEN** user invokes `:document/add docs /path/to/file.md --metadata '{requires-workflow: true}'`
+- **THEN** agent parses the metadata string into a dict and calls send_file_content with metadata={"requires-workflow": true}
+
+#### Scenario: Add with document type
+- **WHEN** user invokes `:document/add docs /path/to/file.md --user-info`
+- **THEN** agent calls send_file_content with type=user/information
+
+#### Scenario: Metadata merges with frontmatter
+- **WHEN** a file has frontmatter metadata and `--metadata` is also provided
+- **THEN** the event metadata from `--metadata` takes precedence over frontmatter values for overlapping keys
 
 ### Requirement: Document Remove Command
 

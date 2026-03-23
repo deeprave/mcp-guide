@@ -32,6 +32,7 @@ async def send_file_content(
     name: Optional[str] = None,
     type: Optional[str] = None,
     force: Optional[bool] = None,
+    metadata: Optional[dict[str, Any]] = None,
 ) -> "Result[dict[str, Any]]":
     """Agent tool to send file content from its filesystem to the server.
 
@@ -50,6 +51,7 @@ async def send_file_content(
         name: Optional document name override
         type: Optional document type (e.g. agent/instruction)
         force: Optional flag to force overwrite regardless of mtime
+        metadata: Optional arbitrary metadata dict to attach to the document
 
     Returns:
         Result with cached file metadata
@@ -124,6 +126,7 @@ async def send_file_content(
                         ("name", name),
                         ("type", type),
                         ("force", force),
+                        ("metadata", metadata),
                     ]
                     if v is not None
                 },

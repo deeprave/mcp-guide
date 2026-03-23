@@ -53,6 +53,7 @@ class TestSendFileContentTool:
             name=None,
             type=None,
             force=None,
+            metadata=None,
         )
 
     @pytest.mark.anyio
@@ -86,6 +87,7 @@ class TestSendFileContentTool:
             name="my-doc.md",
             type="agent/instruction",
             force=True,
+            metadata=None,
         )
 
     @pytest.mark.anyio
