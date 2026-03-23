@@ -1,9 +1,8 @@
 """File discovery utilities for finding files in category directories."""
 
 from datetime import datetime
-from fnmatch import fnmatch
 from functools import partial
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING, Any, Awaitable, Callable, Dict, Optional, Union
 
 if TYPE_CHECKING:
@@ -305,7 +304,7 @@ async def discover_document_stored(
     records = await list_documents(category)
     results = []
     for record in records:
-        if not any(fnmatch(record.name, ep) for ep in expanded):
+        if not any(PurePosixPath(record.name).full_match(ep) for ep in expanded):
             continue
         mtime = datetime.fromisoformat(record.updated_at)
         loader = partial(get_document_content, record.category, record.name)

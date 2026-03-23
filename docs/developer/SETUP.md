@@ -4,7 +4,7 @@ This guide covers setting up mcp-guide for development.
 
 ## Prerequisites
 
-- **Python 3.11+** - Required for modern Python features (3.13+ recommended)
+- **Python 3.12+** - Required for modern Python features (3.13+ recommended)
 - **uv** - Fast Python package installer and runner
 
 ## Setup

@@ -8,10 +8,15 @@ Add prompt command templates for managing stored documents via the agent. Templa
 
 ## 2. Document Add Command
 
-- [x] 2.1 Create `_commands/document/add.mustache` — type `agent/instruction`, usage `:document/add <category> <path> [--as <name>] [--force]`
-  - minargs: 2 (category, path)
-  - argrequired for `--as`
-  - Instruct agent to: read file content and mtime from `path`, call `send_file_content` with content, path, category, name (from `--as` or basename of path), mtime, and optional force
+- [x] 2.1 Create `_commands/document/add.mustache` — base template with category, path, --as, --force
+
+### 2a. Metadata and Type Extensions
+
+- [x] 2a.1 Add `metadata` field to `SendFileContentArgs` and thread through `send_file_content` to event dispatch
+- [x] 2a.2 Add `--metadata`, `--agent-info`, `--agent-instruction`, `--user-info` flags to `add.mustache`
+  - argrequired for `--metadata`
+  - Type flags are mutually exclusive; default is `agent/instruction`
+  - Template instructs agent to parse metadata string into a dict
 
 ## 3. Document Remove Command
 

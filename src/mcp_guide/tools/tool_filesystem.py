@@ -27,6 +27,7 @@ class SendFileContentArgs(ToolArguments):
     name: Optional[str] = Field(default=None, description="Document name override")
     type: Optional[str] = Field(default=None, description="Document type (e.g. agent/instruction)")
     force: Optional[bool] = Field(default=None, description="Force overwrite regardless of mtime")
+    metadata: Optional[dict[str, Any]] = Field(default=None, description="Arbitrary metadata to attach to the document")
 
 
 class SendDirectoryListingArgs(ToolArguments):
@@ -65,6 +66,7 @@ async def internal_send_file_content(
         name=args.name,
         type=args.type,
         force=args.force,
+        metadata=args.metadata,
     )
 
 

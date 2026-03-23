@@ -46,7 +46,7 @@ def task():
 
 @pytest.mark.anyio
 async def test_ignores_event_without_required_metadata(task):
-    """Events without category+source metadata are not matched."""
+    """Events without category metadata are not matched."""
     result = await task.handle_event(EventType.FS_FILE_CONTENT, {"path": "/tmp/file.md", "content": "hi"})
     assert result is None
 
@@ -421,10 +421,44 @@ async def test_non_string_category_not_matched(task):
 
 
 @pytest.mark.anyio
-async def test_non_string_source_not_matched(task):
-    """Non-string source is not matched as a document ingestion event."""
+async def test_non_string_source_uses_default(task):
+    """Non-string source falls back to default 'file'."""
     result = await task.handle_event(EventType.FS_FILE_CONTENT, _base_event_data(source=42))
-    assert result is None
+    assert result is not None
+    assert "does not exist" in result.message
+
+
+@pytest.mark.anyio
+async def test_missing_source_defaults_to_file(task):
+    """Absent source key defaults to 'file' and ingestion proceeds."""
+    project = _make_project(categories={"docs": object()})
+    session = _make_session(project)
+    record = DocumentRecord(
+        id=1,
+        category="docs",
+        name="readme.md",
+        source="file",
+        source_type="file",
+        metadata={},
+        created_at="",
+        updated_at="",
+        content="# Hello",
+        mtime=1700000000.0,
+    )
+    data = _base_event_data()
+    del data["source"]
+
+    with (
+        patch("mcp_guide.tasks.document_task.get_session", return_value=session),
+        patch("mcp_guide.tasks.document_task.get_document", return_value=None),
+        patch("mcp_guide.tasks.document_task.add_document", return_value=record) as mock_add,
+    ):
+        result = await task.handle_event(EventType.FS_FILE_CONTENT, data)
+
+    assert result is not None
+    assert result.result is True
+    assert mock_add.call_args.kwargs["source"] == "file"
+    assert mock_add.call_args.kwargs["source_type"] == "file"
 
 
 @pytest.mark.anyio

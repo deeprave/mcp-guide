@@ -18,7 +18,9 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 # Required metadata fields that distinguish a document ingestion event
-_REQUIRED_FIELDS = frozenset({"category", "source"})
+_REQUIRED_FIELDS = frozenset({"category"})
+
+_DEFAULT_SOURCE = "file"
 
 _DEFAULT_DOC_TYPE = "agent/instruction"
 _VALID_DOC_TYPES = frozenset({"agent/instruction", "agent/information", "user/information"})
@@ -57,7 +59,9 @@ class DocumentTask:
             return None
 
         category = data["category"]
-        source = data["source"]
+        source = data.get("source", _DEFAULT_SOURCE)
+        if not isinstance(source, str):
+            source = _DEFAULT_SOURCE
         content = data.get("content", "")
         mtime = data.get("mtime")
         force = data.get("force", False)
