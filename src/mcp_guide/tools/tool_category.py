@@ -20,6 +20,7 @@ from mcp_guide.core.validation import (
     ArgValidationError,
     validate_description,
     validate_directory_path,
+    validate_name,
     validate_pattern,
 )
 from mcp_guide.discovery.files import FileInfo, discover_document_files, discover_document_stored, discover_documents
@@ -155,24 +156,7 @@ async def internal_category_add(args: CategoryAddArgs, ctx: Optional[Context] = 
 
     try:
         # Validate name is not empty
-        if not args.name or not args.name.strip():
-            raise ArgValidationError([{"field": "name", "message": "Category name cannot be empty"}])
-
-        # Validate name doesn't start with underscore (reserved for system categories)
-        if args.name.startswith("_"):
-            raise ArgValidationError(
-                [{"field": "name", "message": "Category names cannot start with underscore (reserved for system use)"}]
-            )
-
-        # Validate name doesn't contain invalid characters
-        if "/" in args.name or "\\" in args.name or " " in args.name or "!" in args.name:
-            raise ArgValidationError(
-                [{"field": "name", "message": "Category name cannot contain spaces or special characters"}]
-            )
-
-        # Validate name length
-        if len(args.name) > 30:
-            raise ArgValidationError([{"field": "name", "message": "Category name must be 30 characters or less"}])
+        validate_name(args.name, "name", "Category")
 
         # Use dict lookup for O(1) duplicate detection
         if args.name in project.categories:
@@ -307,31 +291,7 @@ async def internal_category_change(args: CategoryChangeArgs, ctx: Optional[Conte
     try:
         if args.new_name is not None:
             # Validate new name is not empty
-            if not args.new_name or not args.new_name.strip():
-                raise ArgValidationError([{"field": "new_name", "message": "Category name cannot be empty"}])
-
-            # Validate new name doesn't start with underscore (reserved for system categories)
-            if args.new_name.startswith("_"):
-                raise ArgValidationError(
-                    [
-                        {
-                            "field": "new_name",
-                            "message": "Category names cannot start with underscore (reserved for system use)",
-                        }
-                    ]
-                )
-
-            # Validate new name doesn't contain invalid characters
-            if "/" in args.new_name or "\\" in args.new_name or " " in args.new_name or "!" in args.new_name:
-                raise ArgValidationError(
-                    [{"field": "new_name", "message": "Category name cannot contain spaces or special characters"}]
-                )
-
-            # Validate new name length
-            if len(args.new_name) > 30:
-                raise ArgValidationError(
-                    [{"field": "new_name", "message": "Category name must be 30 characters or less"}]
-                )
+            validate_name(args.new_name, "new_name", "Category")
 
             if args.new_name in project.categories and args.new_name != args.name:
                 raise ArgValidationError(

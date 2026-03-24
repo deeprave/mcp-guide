@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any, Optional
 from pydantic import Field
 
 from mcp_guide.core.tool_arguments import ToolArguments
-from mcp_guide.core.validation import ArgValidationError, validate_description
+from mcp_guide.core.validation import ArgValidationError, validate_description, validate_name
 from mcp_guide.models import Collection
 from mcp_guide.result import Result
 from mcp_guide.result_constants import (
@@ -117,29 +117,7 @@ async def internal_collection_add(args: CollectionAddArgs, ctx: Optional[Context
 
     try:
         # Validate name is not empty
-        if not args.name or not args.name.strip():
-            raise ArgValidationError([{"field": "name", "message": "Collection name cannot be empty"}])
-
-        # Validate name doesn't start with underscore (reserved for system use)
-        if args.name.startswith("_"):
-            raise ArgValidationError(
-                [
-                    {
-                        "field": "name",
-                        "message": "Collection names cannot start with underscore (reserved for system use)",
-                    }
-                ]
-            )
-
-        # Validate name doesn't contain invalid characters
-        if "/" in args.name or "\\" in args.name or " " in args.name or "!" in args.name:
-            raise ArgValidationError(
-                [{"field": "name", "message": "Collection name cannot contain spaces or special characters"}]
-            )
-
-        # Validate name length
-        if len(args.name) > 30:
-            raise ArgValidationError([{"field": "name", "message": "Collection name must be 30 characters or less"}])
+        validate_name(args.name, "name", "Collection")
 
         # Use dict lookup for O(1) duplicate detection
         if args.name in project.collections:
@@ -251,31 +229,7 @@ async def internal_collection_change(args: CollectionChangeArgs, ctx: Optional[C
     try:
         if args.new_name is not None:
             # Validate new name is not empty
-            if not args.new_name or not args.new_name.strip():
-                raise ArgValidationError([{"field": "new_name", "message": "Collection name cannot be empty"}])
-
-            # Validate new name doesn't start with underscore (reserved for system use)
-            if args.new_name.startswith("_"):
-                raise ArgValidationError(
-                    [
-                        {
-                            "field": "new_name",
-                            "message": "Collection names cannot start with underscore (reserved for system use)",
-                        }
-                    ]
-                )
-
-            # Validate new name doesn't contain invalid characters
-            if "/" in args.new_name or "\\" in args.new_name or " " in args.new_name or "!" in args.new_name:
-                raise ArgValidationError(
-                    [{"field": "new_name", "message": "Collection name cannot contain spaces or special characters"}]
-                )
-
-            # Validate new name length
-            if len(args.new_name) > 30:
-                raise ArgValidationError(
-                    [{"field": "new_name", "message": "Collection name must be 30 characters or less"}]
-                )
+            validate_name(args.new_name, "new_name", "Collection")
 
             if args.new_name in project.collections and args.new_name != args.name:
                 raise ArgValidationError(
