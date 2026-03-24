@@ -104,6 +104,10 @@ class TestQueryParams:
         with pytest.raises(ValueError, match="Multiple values for query parameter"):
             parse_guide_uri("guide://_status?verbose=true&verbose=false", COMMANDS)
 
+    def test_empty_param_key_raises(self) -> None:
+        with pytest.raises(ValueError, match="Empty query parameter key"):
+            parse_guide_uri("guide://_status?=value", COMMANDS)
+
 
 class TestValidation:
     """URI validation tests."""

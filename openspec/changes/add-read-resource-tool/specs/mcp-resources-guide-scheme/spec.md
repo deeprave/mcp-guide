@@ -34,7 +34,7 @@ The underscore prefix in the URI path SHALL distinguish command URIs from conten
 
 #### Scenario: Command with positional args
 - **WHEN** agent calls `read_resource` with URI `guide://_perm/write-add/docs/`
-- **THEN** tool executes `perm/write-add` command with args `["docs/"]`
+- **THEN** tool executes `perm/write-add` command with args `["docs"]`
 
 #### Scenario: Command with keyword args
 - **WHEN** agent calls `read_resource` with URI `guide://_status?verbose=true`
@@ -68,7 +68,7 @@ Query parameters SHALL be parsed as keyword arguments with boolean inference (`?
 #### Scenario: Command path resolution with args
 - **WHEN** URI is `guide://_perm/write-add/docs/`
 - **AND** command cache contains `perm/write-add`
-- **THEN** parser returns command_path="perm/write-add", args=["docs/"], is_command=True
+- **THEN** parser returns command_path="perm/write-add", args=["docs"], is_command=True
 
 #### Scenario: Boolean query param without value
 - **WHEN** URI query contains `?verbose`
