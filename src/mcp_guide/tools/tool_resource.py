@@ -50,20 +50,26 @@ async def internal_read_resource(args: ReadResourceArgs, ctx: Optional[Context] 
         Result containing resolved content or command output
     """
     try:
-        # Discover commands only for command URIs (underscore prefix after scheme)
-        command_names: list[str] | None = None
-        if args.uri.startswith("guide://_"):
-            session = await get_session(ctx)
-            docroot = Path(await session.get_docroot())
-            commands_dir = docroot / COMMANDS_DIR
-            commands = await discover_commands(commands_dir)
-            command_names = [cmd["name"] for cmd in commands]
-
-        parsed = parse_guide_uri(args.uri, command_names)
+        # First parse without command names to determine URI type
+        parsed = parse_guide_uri(args.uri)
     except ValueError as e:
         return Result.failure(str(e), error_type=ERROR_VALIDATION)
 
     if parsed.is_command:
+        if ctx is None:
+            return Result.failure("Context is required for command URIs", error_type=ERROR_VALIDATION)
+        try:
+            session = await get_session(ctx)
+            docroot = Path(await session.get_docroot())
+            commands_dir = docroot / COMMANDS_DIR
+            commands = await discover_commands(commands_dir)
+            command_names: list[str] = [cmd["name"] for cmd in commands]
+            for cmd in commands:
+                command_names.extend(cmd.get("aliases", []))
+            parsed = parse_guide_uri(args.uri, command_names)
+        except ValueError as e:
+            return Result.failure(str(e), error_type=ERROR_VALIDATION)
+
         return await handle_command(
             parsed.expression,
             kwargs=dict(parsed.kwargs),

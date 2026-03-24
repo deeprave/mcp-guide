@@ -22,6 +22,14 @@ class TestContentUri:
         result = parse_guide_uri("guide://lang/python/style")
         assert result == GuideUri(is_command=False, expression="lang", pattern="python/style")
 
+    def test_trailing_slash_stripped_from_pattern(self) -> None:
+        result = parse_guide_uri("guide://docs/readme/")
+        assert result == GuideUri(is_command=False, expression="docs", pattern="readme")
+
+    def test_trailing_slash_only_pattern_becomes_none(self) -> None:
+        result = parse_guide_uri("guide://docs/")
+        assert result == GuideUri(is_command=False, expression="docs", pattern=None)
+
 
 class TestCommandUri:
     """Command URI parsing tests."""
@@ -29,6 +37,14 @@ class TestCommandUri:
     def test_simple_command(self) -> None:
         result = parse_guide_uri("guide://_project", COMMANDS)
         assert result == GuideUri(is_command=True, expression="project")
+
+    def test_command_path_property(self) -> None:
+        result = parse_guide_uri("guide://_project", COMMANDS)
+        assert result.command_path == "project"
+
+    def test_command_path_none_for_content(self) -> None:
+        result = parse_guide_uri("guide://docs")
+        assert result.command_path is None
 
     def test_command_with_args(self) -> None:
         result = parse_guide_uri("guide://_perm/write-add/docs/", COMMANDS)
@@ -49,6 +65,16 @@ class TestCommandUri:
     def test_no_match_uses_first_segment(self) -> None:
         result = parse_guide_uri("guide://_unknown/arg1", COMMANDS)
         assert result == GuideUri(is_command=True, expression="unknown", args=["arg1"])
+
+    def test_empty_command_names_raises(self) -> None:
+        with pytest.raises(ValueError, match="Command not found"):
+            parse_guide_uri("guide://_foo/bar", [])
+
+    def test_no_command_names_raises(self) -> None:
+        """First parse (without command_names) detects command URI without resolving."""
+        result = parse_guide_uri("guide://_foo")
+        assert result.is_command is True
+        assert result.expression == "foo"
 
 
 class TestQueryParams:
@@ -74,6 +100,10 @@ class TestQueryParams:
         result = parse_guide_uri("guide://_openspec/show?change=my-feature&verbose=true", COMMANDS)
         assert result.kwargs == {"change": "my-feature", "verbose": True}
 
+    def test_duplicate_param_raises(self) -> None:
+        with pytest.raises(ValueError, match="Multiple values for query parameter"):
+            parse_guide_uri("guide://_status?verbose=true&verbose=false", COMMANDS)
+
 
 class TestValidation:
     """URI validation tests."""
@@ -89,3 +119,7 @@ class TestValidation:
     def test_empty_command_path(self) -> None:
         with pytest.raises(ValueError, match="Empty command path"):
             parse_guide_uri("guide://_")
+
+    def test_empty_netloc_raises(self) -> None:
+        with pytest.raises(ValueError, match="missing category or collection"):
+            parse_guide_uri("guide:///foo/bar")

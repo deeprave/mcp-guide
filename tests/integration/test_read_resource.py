@@ -26,18 +26,13 @@ class TestReadResourceContent:
         with patch(
             "mcp_guide.tools.tool_resource.internal_get_content", new=AsyncMock(return_value=mock_result)
         ) as mock_get:
-            with patch("mcp_guide.tools.tool_resource.get_session", new=AsyncMock()) as mock_session:
-                session = mock_session.return_value
-                session.get_docroot = AsyncMock(return_value="/fake")
+            args = ReadResourceArgs(uri="guide://docs")
+            result = await internal_read_resource(args)
 
-                with patch("mcp_guide.tools.tool_resource.discover_commands", new=AsyncMock(return_value=[])):
-                    args = ReadResourceArgs(uri="guide://docs")
-                    result = await internal_read_resource(args)
-
-                    mock_get.assert_called_once()
-                    content_args = mock_get.call_args[0][0]
-                    assert content_args.expression == "docs"
-                    assert content_args.pattern is None
+            mock_get.assert_called_once()
+            content_args = mock_get.call_args[0][0]
+            assert content_args.expression == "docs"
+            assert content_args.pattern is None
 
     @pytest.mark.anyio
     async def test_content_uri_with_pattern(self, mcp_server: Any) -> None:
@@ -47,17 +42,12 @@ class TestReadResourceContent:
         with patch(
             "mcp_guide.tools.tool_resource.internal_get_content", new=AsyncMock(return_value=mock_result)
         ) as mock_get:
-            with patch("mcp_guide.tools.tool_resource.get_session", new=AsyncMock()) as mock_session:
-                session = mock_session.return_value
-                session.get_docroot = AsyncMock(return_value="/fake")
+            args = ReadResourceArgs(uri="guide://docs/readme")
+            result = await internal_read_resource(args)
 
-                with patch("mcp_guide.tools.tool_resource.discover_commands", new=AsyncMock(return_value=[])):
-                    args = ReadResourceArgs(uri="guide://docs/readme")
-                    result = await internal_read_resource(args)
-
-                    content_args = mock_get.call_args[0][0]
-                    assert content_args.expression == "docs"
-                    assert content_args.pattern == "readme"
+            content_args = mock_get.call_args[0][0]
+            assert content_args.expression == "docs"
+            assert content_args.pattern == "readme"
 
 
 class TestReadResourceCommand:
@@ -75,10 +65,11 @@ class TestReadResourceCommand:
                 session.get_docroot = AsyncMock(return_value="/fake")
 
                 with patch("mcp_guide.tools.tool_resource.discover_commands", new=AsyncMock(return_value=commands)):
+                    mock_ctx = AsyncMock()
                     args = ReadResourceArgs(uri="guide://_project")
-                    result = await internal_read_resource(args)
+                    result = await internal_read_resource(args, ctx=mock_ctx)
 
-                    mock_cmd.assert_called_once_with("project", kwargs={}, args=[], ctx=None)
+                    mock_cmd.assert_called_once_with("project", kwargs={}, args=[], ctx=mock_ctx)
 
     @pytest.mark.anyio
     async def test_command_uri_with_args_and_kwargs(self, mcp_server: Any) -> None:
@@ -92,11 +83,12 @@ class TestReadResourceCommand:
                 session.get_docroot = AsyncMock(return_value="/fake")
 
                 with patch("mcp_guide.tools.tool_resource.discover_commands", new=AsyncMock(return_value=commands)):
+                    mock_ctx = AsyncMock()
                     args = ReadResourceArgs(uri="guide://_openspec/show/my-change?verbose=true")
-                    result = await internal_read_resource(args)
+                    result = await internal_read_resource(args, ctx=mock_ctx)
 
                     mock_cmd.assert_called_once_with(
-                        "openspec/show", kwargs={"verbose": True}, args=["my-change"], ctx=None
+                        "openspec/show", kwargs={"verbose": True}, args=["my-change"], ctx=mock_ctx
                     )
 
 
@@ -106,14 +98,19 @@ class TestReadResourceValidation:
     @pytest.mark.anyio
     async def test_invalid_scheme(self, mcp_server: Any) -> None:
         """Non-guide:// URI should return validation error."""
-        with patch("mcp_guide.tools.tool_resource.get_session", new=AsyncMock()) as mock_session:
-            session = mock_session.return_value
-            session.get_docroot = AsyncMock(return_value="/fake")
+        args = ReadResourceArgs(uri="http://example.com")
+        result = await internal_read_resource(args)
 
-            with patch("mcp_guide.tools.tool_resource.discover_commands", new=AsyncMock(return_value=[])):
-                args = ReadResourceArgs(uri="http://example.com")
-                result = await internal_read_resource(args)
+        assert result.success is False
+        assert result.error_type == "validation_error"
+        assert "guide://" in result.error
 
-                assert result.success is False
-                assert result.error_type == "validation_error"
-                assert "guide://" in result.error
+    @pytest.mark.anyio
+    async def test_command_uri_without_context(self, mcp_server: Any) -> None:
+        """Command URI without ctx should return clear error."""
+        args = ReadResourceArgs(uri="guide://_project")
+        result = await internal_read_resource(args, ctx=None)
+
+        assert result.success is False
+        assert result.error_type == "validation_error"
+        assert "Context" in result.error
