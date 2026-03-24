@@ -33,6 +33,7 @@ class TestReadResourceContent:
             content_args = mock_get.call_args[0][0]
             assert content_args.expression == "docs"
             assert content_args.pattern is None
+            assert result is mock_result
 
     @pytest.mark.anyio
     async def test_content_uri_with_pattern(self, mcp_server: Any) -> None:
@@ -48,6 +49,7 @@ class TestReadResourceContent:
             content_args = mock_get.call_args[0][0]
             assert content_args.expression == "docs"
             assert content_args.pattern == "readme"
+            assert result is mock_result
 
 
 class TestReadResourceCommand:
@@ -70,6 +72,7 @@ class TestReadResourceCommand:
                     result = await internal_read_resource(args, ctx=mock_ctx)
 
                     mock_cmd.assert_called_once_with("project", kwargs={}, args=[], ctx=mock_ctx)
+                    assert result is mock_result
 
     @pytest.mark.anyio
     async def test_command_uri_with_args_and_kwargs(self, mcp_server: Any) -> None:
@@ -90,6 +93,7 @@ class TestReadResourceCommand:
                     mock_cmd.assert_called_once_with(
                         "openspec/show", kwargs={"verbose": True}, args=["my-change"], ctx=mock_ctx
                     )
+                    assert result is mock_result
 
 
 class TestReadResourceValidation:

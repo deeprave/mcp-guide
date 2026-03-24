@@ -14,6 +14,10 @@ ERR_INVALID_PATTERN_COMPONENT = "Invalid pattern component: {}"
 ERR_DESCRIPTION_TOO_LONG = "Description exceeds {} characters"
 ERR_INVALID_CHARACTERS = "Description contains quote characters"
 
+# Name validation constants
+_INVALID_NAME_CHARS = frozenset("/\\ !")
+_MAX_NAME_LENGTH = 30
+
 # Default instruction for validation errors
 DEFAULT_INSTRUCTION = "Return error to user without attempting remediation"
 
@@ -178,3 +182,34 @@ def validate_pattern(pattern: str) -> str:
             raise ArgValidationError([{"field": "pattern", "message": ERR_INVALID_PATTERN_COMPONENT.format(part)}])
 
     return pattern
+
+
+def validate_name(name: str, field: str, entity: str) -> str:
+    """Validate a category or collection name.
+
+    Args:
+        name: Name to validate
+        field: Field name for error reporting (e.g. "name", "new_name")
+        entity: Entity type for messages (e.g. "Category", "Collection")
+
+    Returns:
+        Validated name
+
+    Raises:
+        ArgValidationError: If name is invalid
+    """
+    if not name or not name.strip():
+        raise ArgValidationError([{"field": field, "message": f"{entity} name cannot be empty"}])
+    if name.startswith("_"):
+        raise ArgValidationError(
+            [{"field": field, "message": f"{entity} names cannot start with underscore (reserved for system use)"}]
+        )
+    if _INVALID_NAME_CHARS.intersection(name):
+        raise ArgValidationError(
+            [{"field": field, "message": f"{entity} name cannot contain spaces or special characters"}]
+        )
+    if len(name) > _MAX_NAME_LENGTH:
+        raise ArgValidationError(
+            [{"field": field, "message": f"{entity} name must be {_MAX_NAME_LENGTH} characters or less"}]
+        )
+    return name
