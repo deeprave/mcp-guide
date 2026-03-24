@@ -13,7 +13,7 @@ from mcp_guide.render.frontmatter import get_frontmatter_includes
 from mcp_guide.render.functions import TemplateFunctions
 from mcp_guide.render.partials import PartialNotFoundError, load_partial_content
 from mcp_guide.result import Result
-from mcp_guide.result_constants import INSTRUCTION_VALIDATION_ERROR
+from mcp_guide.result_constants import ERROR_TEMPLATE, INSTRUCTION_VALIDATION_ERROR
 
 logger = get_logger(__name__)
 
@@ -199,7 +199,7 @@ async def render_template_content(
         logger.error(full_error)
         return Result.failure(
             error=full_error,
-            error_type="template_error",
+            error_type=ERROR_TEMPLATE,
             exception=e,
             instruction=f"Fix template syntax in {file_path}. Check for unclosed sections, mismatched tags, or invalid mustache syntax.",
         )
@@ -208,7 +208,7 @@ async def render_template_content(
         logger.warning(f"Template rendering error in {file_path}: {str(e)}")
         return Result.failure(
             error=f"Template rendering failed for {file_path}: {str(e)}",
-            error_type="template_error",
+            error_type=ERROR_TEMPLATE,
             exception=e,
             instruction=INSTRUCTION_VALIDATION_ERROR,
         )

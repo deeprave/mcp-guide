@@ -14,7 +14,11 @@ from mcp_guide.feature_flags.types import FeatureValue
 from mcp_guide.feature_flags.validators import validate_flag_name, validate_flag_value
 from mcp_guide.result import Result
 from mcp_guide.result_constants import (
+    ERROR_CONFIG_READ,
+    ERROR_CONFIG_WRITE,
     ERROR_NO_PROJECT,
+    ERROR_UNEXPECTED,
+    ERROR_VALIDATION,
     INSTRUCTION_DISPLAY_ONLY,
     INSTRUCTION_NO_PROJECT,
     INSTRUCTION_VALIDATION_ERROR,
@@ -125,12 +129,12 @@ async def internal_list_project_flags(
         return Result.ok(_filter_flags_by_pattern(flags, args.feature_name))
 
     except OSError as e:
-        return Result.failure(f"Failed to read configuration: {e}", error_type="config_read_error")
+        return Result.failure(f"Failed to read configuration: {e}", error_type=ERROR_CONFIG_READ)
 
     except Exception as e:
         return Result.failure(
             f"Failed to list flags: {e}",
-            error_type="unexpected_error",
+            error_type=ERROR_UNEXPECTED,
             instruction=INSTRUCTION_DISPLAY_ONLY,
         )
 
@@ -152,14 +156,14 @@ async def internal_set_project_flag(args: SetFlagArgs, ctx: Optional[Context] = 
     if not validate_flag_name(args.feature_name):
         return Result.failure(
             f"Invalid flag name '{args.feature_name}'. Flag names must contain only alphanumeric characters, hyphens, and underscores (no periods).",
-            error_type="validation_error",
+            error_type=ERROR_VALIDATION,
             instruction=INSTRUCTION_VALIDATION_ERROR,
         )
 
     if args.value is not None and not validate_flag_value(args.value):
         return Result.failure(
             f"Invalid flag value type. Must be bool, str, list[str], or dict[str, str].",
-            error_type="validation_error",
+            error_type=ERROR_VALIDATION,
             instruction=INSTRUCTION_VALIDATION_ERROR,
         )
 
@@ -183,11 +187,11 @@ async def internal_set_project_flag(args: SetFlagArgs, ctx: Optional[Context] = 
             return Result.ok(f"Flag '{args.feature_name}' set to {repr(args.value)}")
 
     except OSError as e:
-        return Result.failure(f"Failed to save configuration: {e}", error_type="config_write_error")
+        return Result.failure(f"Failed to save configuration: {e}", error_type=ERROR_CONFIG_WRITE)
 
     except Exception as e:
         return Result.failure(
-            f"Failed to set flag: {e}", error_type="unexpected_error", instruction=INSTRUCTION_DISPLAY_ONLY
+            f"Failed to set flag: {e}", error_type=ERROR_UNEXPECTED, instruction=INSTRUCTION_DISPLAY_ONLY
         )
 
 
@@ -221,11 +225,11 @@ async def internal_get_project_flag(args: GetFlagArgs, ctx: Optional[Context] = 
         return Result.ok(value)
 
     except OSError as e:
-        return Result.failure(f"Failed to read configuration: {e}", error_type="config_read_error")
+        return Result.failure(f"Failed to read configuration: {e}", error_type=ERROR_CONFIG_READ)
 
     except Exception as e:
         return Result.failure(
-            f"Failed to get flag: {e}", error_type="unexpected_error", instruction=INSTRUCTION_DISPLAY_ONLY
+            f"Failed to get flag: {e}", error_type=ERROR_UNEXPECTED, instruction=INSTRUCTION_DISPLAY_ONLY
         )
 
 
@@ -235,14 +239,14 @@ async def internal_set_feature_flag(args: SetFeatureFlagArgs, ctx: Optional[Cont
     if not validate_flag_name(args.feature_name):
         return Result.failure(
             f"Invalid flag name '{args.feature_name}'. Flag names must contain only alphanumeric characters, hyphens, and underscores (no periods).",
-            error_type="validation_error",
+            error_type=ERROR_VALIDATION,
             instruction=INSTRUCTION_VALIDATION_ERROR,
         )
 
     if args.value is not None and not validate_flag_value(args.value):
         return Result.failure(
             f"Invalid flag value type. Must be bool, str, list[str], or dict[str, str].",
-            error_type="validation_error",
+            error_type=ERROR_VALIDATION,
             instruction=INSTRUCTION_VALIDATION_ERROR,
         )
 
@@ -274,11 +278,11 @@ async def internal_set_feature_flag(args: SetFeatureFlagArgs, ctx: Optional[Cont
             return Result.ok(f"Global flag '{args.feature_name}' set to {repr(normalized_value)}")
 
     except OSError as e:
-        return Result.failure(f"Failed to save configuration: {e}", error_type="config_write_error")
+        return Result.failure(f"Failed to save configuration: {e}", error_type=ERROR_CONFIG_WRITE)
 
     except Exception as e:
         return Result.failure(
-            f"Failed to set global flag: {e}", error_type="unexpected_error", instruction=INSTRUCTION_DISPLAY_ONLY
+            f"Failed to set global flag: {e}", error_type=ERROR_UNEXPECTED, instruction=INSTRUCTION_DISPLAY_ONLY
         )
 
 
@@ -315,11 +319,11 @@ async def internal_get_feature_flag(
         return Result.ok(value)
 
     except OSError as e:
-        return Result.failure(f"Failed to read configuration: {e}", error_type="config_read_error")
+        return Result.failure(f"Failed to read configuration: {e}", error_type=ERROR_CONFIG_READ)
 
     except Exception as e:
         return Result.failure(
-            f"Failed to get global flag: {e}", error_type="unexpected_error", instruction=INSTRUCTION_DISPLAY_ONLY
+            f"Failed to get global flag: {e}", error_type=ERROR_UNEXPECTED, instruction=INSTRUCTION_DISPLAY_ONLY
         )
 
 
@@ -343,12 +347,12 @@ async def internal_list_feature_flags(
         return Result.ok(_filter_flags_by_pattern(flags, args.feature_name))
 
     except OSError as e:
-        return Result.failure(f"Failed to read configuration: {e}", error_type="config_read_error")
+        return Result.failure(f"Failed to read configuration: {e}", error_type=ERROR_CONFIG_READ)
 
     except Exception as e:
         return Result.failure(
             f"Failed to list global flags: {e}",
-            error_type="unexpected_error",
+            error_type=ERROR_UNEXPECTED,
             instruction=INSTRUCTION_DISPLAY_ONLY,
         )
 

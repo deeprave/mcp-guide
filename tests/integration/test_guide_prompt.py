@@ -59,7 +59,7 @@ class TestGuidePromptIntegration:
         assert result["success"] is False
         assert "guide prompt requires one or more arguments" in result["error"]
         assert ":help" in result["error"]
-        assert result["error_type"] == "validation"
+        assert result["error_type"] == "validation_error"
         assert result["instruction"] == INSTRUCTION_ERROR_MESSAGE
 
     @pytest.mark.anyio
@@ -268,7 +268,7 @@ class TestGuidePromptIntegration:
 
         # Mock _execute_command to simulate parse error from deferred parsing
         error_result = Result.failure(
-            "Argument parsing failed: Invalid flag: --bad=; Missing key: =value", error_type="validation"
+            "Argument parsing failed: Invalid flag: --bad=; Missing key: =value", error_type="validation_error"
         )
         with patch("mcp_guide.prompts.guide_prompt._execute_command", new=AsyncMock(return_value=error_result)):
             result_str = await guide_function(":create", "--bad=", "=value", ctx=mock_ctx)
@@ -304,5 +304,5 @@ class TestGuidePromptIntegration:
 
         result = json.loads(result_str)
         assert result["success"] is False
-        assert result["error_type"] == "validation"
+        assert result["error_type"] == "validation_error"
         assert result["error_data"]["errors"] == ["Missing required argument: name"]

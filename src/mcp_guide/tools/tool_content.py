@@ -557,7 +557,7 @@ async def remove_export(
             "remove_export",
             Result.failure(
                 error=f"Export not found: expression='{args.expression}', pattern={args.pattern}",
-                error_type="not_found",
+                error_type=ERROR_NOT_FOUND,
             ),
         )
 

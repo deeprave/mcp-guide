@@ -96,14 +96,14 @@ class TestSendFileContentTool:
         """internal_send_file_content should handle errors."""
         from mcp_guide.result import Result
 
-        mock_send.return_value = Result.failure(error="Test error", error_type="unknown")
+        mock_send.return_value = Result.failure(error="Test error", error_type="unexpected_error")
 
         args = SendFileContentArgs(path="docs/readme.md", content="content")
 
         result = await internal_send_file_content(args)
 
         assert result.success is False
-        assert result.error_type == "unknown"
+        assert result.error_type == "unexpected_error"
         assert "Test error" in result.error
 
 
@@ -149,7 +149,7 @@ class TestSendDirectoryListingTool:
         result = await internal_send_directory_listing(args)
 
         assert result.success is False
-        assert result.error_type == "unknown"
+        assert result.error_type == "unexpected_error"
         assert "Test error" in result.error
 
 
@@ -225,7 +225,7 @@ class TestSendCommandLocationTool:
         result = await internal_send_command_location(args)
 
         assert result.success is False
-        assert result.error_type == "unknown"
+        assert result.error_type == "unexpected_error"
         assert "Test error" in result.error
 
 
@@ -263,5 +263,5 @@ class TestSendWorkingDirectoryTool:
         result = await internal_send_working_directory(args)
 
         assert result.success is False
-        assert result.error_type == "unknown"
+        assert result.error_type == "unexpected_error"
         assert "Test error" in result.error

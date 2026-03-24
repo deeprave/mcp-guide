@@ -8,7 +8,7 @@ from functools import cache, wraps
 from typing import TYPE_CHECKING, Any, Callable, Coroutine, Optional, Union
 
 from mcp_guide.core.mcp_log import get_logger
-from mcp_guide.result_constants import INSTRUCTION_VALIDATION_ERROR
+from mcp_guide.result_constants import ERROR_VALIDATION, INSTRUCTION_VALIDATION_ERROR
 from mcp_guide.task_manager.manager import get_task_manager
 
 if TYPE_CHECKING:
@@ -173,7 +173,7 @@ class ExtMcpToolDecorator:
                                 ]
                                 error_result: Result[Any] = Result.failure(
                                     f"Invalid tool arguments: {len(error_details)} validation error(s)",
-                                    error_type="validation_error",
+                                    error_type=ERROR_VALIDATION,
                                     instruction=INSTRUCTION_VALIDATION_ERROR,
                                 )
                                 error_result.error_data = {"validation_errors": error_details}
@@ -273,7 +273,7 @@ def toolfunc(
                         ]
                         error_result: Result[Any] = Result.failure(
                             f"Invalid tool arguments: {len(error_details)} validation error(s)",
-                            error_type="validation_error",
+                            error_type=ERROR_VALIDATION,
                             instruction=INSTRUCTION_VALIDATION_ERROR,
                         )
                         error_result.error_data = {"validation_errors": error_details}

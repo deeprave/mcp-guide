@@ -11,10 +11,14 @@ from mcp_guide.core.tool_decorator import toolfunc
 from mcp_guide.models import Category, Collection, Project, format_project_data
 from mcp_guide.result import Result
 from mcp_guide.result_constants import (
+    ERROR_CONFIG_READ,
+    ERROR_CONFIG_WRITE,
     ERROR_INVALID_NAME,
     ERROR_NO_PROJECT,
     ERROR_NOT_FOUND,
+    ERROR_PROJECT,
     ERROR_SAFEGUARD,
+    ERROR_UNEXPECTED,
     INSTRUCTION_NO_PROJECT,
     INSTRUCTION_NOTFOUND_ERROR,
 )
@@ -160,7 +164,7 @@ async def internal_set_project(args: SetCurrentProjectArgs, ctx: Optional[Contex
     # Convert Result[Project] error to Result[dict] error while preserving metadata
     return Result.failure(
         set_result.error or "Unknown error",
-        error_type=set_result.error_type or "unknown_error",
+        error_type=set_result.error_type or ERROR_UNEXPECTED,
         instruction=set_result.instruction,
         message=set_result.message,
     )
@@ -254,7 +258,7 @@ async def internal_list_project(args: ListProjectArgs, ctx: Optional[Context] = 
 
         return Result.ok(data)
     except Exception as e:
-        return Result.failure(str(e), error_type="project_error")
+        return Result.failure(str(e), error_type=ERROR_PROJECT)
 
 
 @toolfunc(ListProjectArgs)
@@ -337,7 +341,7 @@ async def internal_clone_project(args: CloneProjectArgs, ctx: Optional[Context] 
             all_projects = await temp_session.get_all_projects()
             session = temp_session
     except Exception as e:
-        return Result.failure(f"Failed to read configuration: {e}", error_type="config_read_error")
+        return Result.failure(f"Failed to read configuration: {e}", error_type=ERROR_CONFIG_READ)
 
     # Resolve source project
     try:
@@ -378,7 +382,7 @@ async def internal_clone_project(args: CloneProjectArgs, ctx: Optional[Context] 
                     instruction=INSTRUCTION_NOTFOUND_ERROR,
                 )
     except Exception as e:
-        return Result.failure(f"Failed to read configuration: {e}", error_type="config_read_error")
+        return Result.failure(f"Failed to read configuration: {e}", error_type=ERROR_CONFIG_READ)
 
     # Determine target project
     is_current_project = False
@@ -494,7 +498,7 @@ async def internal_clone_project(args: CloneProjectArgs, ctx: Optional[Context] 
     try:
         await session.save_project(updated_project)
     except OSError as e:
-        return Result.failure(f"Failed to save configuration: {e}", error_type="config_write_error")
+        return Result.failure(f"Failed to save configuration: {e}", error_type=ERROR_CONFIG_WRITE)
 
     # Invalidate cache if current project was modified
     if is_current_project:

@@ -120,6 +120,17 @@ async def internal_collection_add(args: CollectionAddArgs, ctx: Optional[Context
         if not args.name or not args.name.strip():
             raise ArgValidationError([{"field": "name", "message": "Collection name cannot be empty"}])
 
+        # Validate name doesn't start with underscore (reserved for system use)
+        if args.name.startswith("_"):
+            raise ArgValidationError(
+                [
+                    {
+                        "field": "name",
+                        "message": "Collection names cannot start with underscore (reserved for system use)",
+                    }
+                ]
+            )
+
         # Validate name doesn't contain invalid characters
         if "/" in args.name or "\\" in args.name or " " in args.name or "!" in args.name:
             raise ArgValidationError(
@@ -242,6 +253,17 @@ async def internal_collection_change(args: CollectionChangeArgs, ctx: Optional[C
             # Validate new name is not empty
             if not args.new_name or not args.new_name.strip():
                 raise ArgValidationError([{"field": "new_name", "message": "Collection name cannot be empty"}])
+
+            # Validate new name doesn't start with underscore (reserved for system use)
+            if args.new_name.startswith("_"):
+                raise ArgValidationError(
+                    [
+                        {
+                            "field": "new_name",
+                            "message": "Collection names cannot start with underscore (reserved for system use)",
+                        }
+                    ]
+                )
 
             # Validate new name doesn't contain invalid characters
             if "/" in args.new_name or "\\" in args.new_name or " " in args.new_name or "!" in args.new_name:
