@@ -1,17 +1,35 @@
 {{b}}Project: {{project.name}}{{b}}
 
 {{h2}}Collections
+{{#kwargs.table}}
+| Collection | Description | Categories |
+|------------|-------------|------------|
+{{#project.collections}}
+| `{{name}}` | {{description}} | {{#categories}}`{{value}}`{{^last}}, {{/last}}{{/categories}} |
+{{/project.collections}}
+{{/kwargs.table}}
+{{^kwargs.table}}
 {{#project.collections}}
 - {{b}}`{{name}}`{{b}}: {{description}}
 {{#kwargs.verbose}}
 {{#categories}}{{#first}} - {{/first}}`{{value}}`{{^last}}, {{/last}}{{/categories}}
 {{/kwargs.verbose}}
 {{/project.collections}}
+{{/kwargs.table}}
 
 {{h2}}Categories
+{{#kwargs.table}}
+| Category | Description | Directory | Patterns |
+|----------|-------------|-----------|----------|
+{{#project.categories}}
+| `{{name}}` | {{description}} | `{{dir}}` | {{#patterns}}`{{value}}`{{^last}}, {{/last}}{{/patterns}} |
+{{/project.categories}}
+{{/kwargs.table}}
+{{^kwargs.table}}
 {{#project.categories}}
 - `{{name}}`: {{#kwargs.verbose}}dir=`{{dir}}` [{{#patterns}}`{{value}}`{{^last}}, {{/last}}{{/patterns}}] {{/kwargs.verbose}}{{description}}
 {{/project.categories}}
+{{/kwargs.table}}
 
 {{b}}Project Flags:{{b}}
 {{#project.project_flag_values}}
