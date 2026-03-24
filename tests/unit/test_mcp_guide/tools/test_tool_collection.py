@@ -347,6 +347,21 @@ class TestCollectionAdd:
         assert len(project.collections) == len(original_collections)
 
     @pytest.mark.anyio
+    async def test_add_collection_underscore_prefix_rejected(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
+        """Collection names starting with underscore should be rejected."""
+        from mcp_guide.session import get_session
+
+        monkeypatch.setenv("PWD", "/fake/path/test")
+        await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
+
+        args = CollectionAddArgs(name="_system")
+        result = await internal_collection_add(args)
+
+        assert result.success is False
+        assert result.error_type == "validation_error"
+        assert "underscore" in result.error.lower()
+
+    @pytest.mark.anyio
     async def test_add_collection_save_error(self, test_session_with_data: Session, monkeypatch: MonkeyPatch) -> None:
         """Configuration save failure should return ERROR_SAVE."""
         session = await get_session()
@@ -693,6 +708,24 @@ class TestCollectionChange:
         assert result.success is False
         assert result.error_type == "validation_error"
         assert "name" in result.error.lower()
+
+    @pytest.mark.anyio
+    async def test_change_collection_underscore_prefix_rejected(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
+        """Reject renaming collection to underscore-prefixed name."""
+        from mcp_guide.tools.tool_collection import CollectionChangeArgs, internal_collection_change
+
+        monkeypatch.setenv("PWD", "/fake/path/test")
+        session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
+
+        backend_collection = Collection(categories=[], description=None)
+        await session.update_config(lambda p: p.with_collection("backend", backend_collection))
+
+        args = CollectionChangeArgs(name="backend", new_name="_reserved")
+        result = await internal_collection_change(args)
+
+        assert result.success is False
+        assert result.error_type == "validation_error"
+        assert "underscore" in result.error.lower()
 
     @pytest.mark.anyio
     async def test_change_collection_invalid_categories(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:

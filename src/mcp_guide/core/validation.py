@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from mcp_guide.core.result import Result
+from mcp_guide.result_constants import ERROR_VALIDATION
 
 # Error messages
 ERR_ABSOLUTE_PATH = "Absolute paths are not allowed"
@@ -60,7 +61,7 @@ class ArgValidationError(ValueError):
         """
         result: Result[Any] = Result.failure(
             error=message or self.message,
-            error_type="validation_error",
+            error_type=ERROR_VALIDATION,
             instruction=instruction or self.instruction,
         )
         result.error_data = {"validation_errors": self.errors}

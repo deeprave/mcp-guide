@@ -9,6 +9,7 @@ from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.core.result import Result
 from mcp_guide.filesystem.cache import FileCache
 from mcp_guide.filesystem.read_write_security import ReadWriteSecurityPolicy
+from mcp_guide.result_constants import ERROR_CACHE, ERROR_UNEXPECTED, ERROR_VALIDATION
 from mcp_guide.session import get_session
 from mcp_guide.utils import get_or_create
 
@@ -67,7 +68,7 @@ async def send_file_content(
         logger.debug(f"Validation errors in send_file_content: {errors}")
         return Result.failure(
             error="Missing or invalid field(s)",
-            error_type="validation_error",
+            error_type=ERROR_VALIDATION,
             error_data=errors,
             instruction="Please correct these validation issues and resubmit your response",
         )
@@ -145,7 +146,7 @@ async def send_file_content(
         )
 
     except Exception as e:
-        return Result.failure(error=f"Failed to cache file content: {str(e)}", error_type="cache_failure")
+        return Result.failure(error=f"Failed to cache file content: {str(e)}", error_type=ERROR_CACHE)
 
 
 async def send_directory_listing(
@@ -178,7 +179,7 @@ async def send_directory_listing(
         logger.debug(f"Validation errors in send_directory_listing: {errors}")
         return Result.failure(
             error="Missing or invalid field(s)",
-            error_type="validation_error",
+            error_type=ERROR_VALIDATION,
             error_data=errors,
             instruction="Please correct these validation issues and resubmit your response",
         )
@@ -242,7 +243,7 @@ async def send_directory_listing(
         )
 
     except Exception as e:
-        return Result.failure(error=f"Failed to provide directory listing: {str(e)}", error_type="unknown")
+        return Result.failure(error=f"Failed to provide directory listing: {str(e)}", error_type=ERROR_UNEXPECTED)
 
 
 async def send_command_location(
@@ -268,7 +269,7 @@ async def send_command_location(
         logger.debug(f"Validation errors in send_command_location: {errors}")
         return Result.failure(
             error="Missing or invalid field(s)",
-            error_type="validation_error",
+            error_type=ERROR_VALIDATION,
             error_data=errors,
             instruction="Please correct these validation issues and resubmit your response",
         )
@@ -302,7 +303,7 @@ async def send_command_location(
         )
 
     except Exception as e:
-        return Result.failure(error=f"Failed to provide command location: {str(e)}", error_type="unknown")
+        return Result.failure(error=f"Failed to provide command location: {str(e)}", error_type=ERROR_UNEXPECTED)
 
 
 async def send_working_directory(context: Any, working_directory: str) -> "Result[Dict[str, Any]]":
@@ -324,7 +325,7 @@ async def send_working_directory(context: Any, working_directory: str) -> "Resul
         logger.debug(f"Validation errors in send_working_directory: {errors}")
         return Result.failure(
             error="Missing or invalid field(s)",
-            error_type="validation_error",
+            error_type=ERROR_VALIDATION,
             error_data=errors,
             instruction="Please correct these validation issues and resubmit your response",
         )
@@ -354,7 +355,7 @@ async def send_working_directory(context: Any, working_directory: str) -> "Resul
         )
 
     except Exception as e:
-        return Result.failure(error=f"Failed to provide working directory: {str(e)}", error_type="unknown")
+        return Result.failure(error=f"Failed to provide working directory: {str(e)}", error_type=ERROR_UNEXPECTED)
 
 
 async def send_found_files(
@@ -382,7 +383,7 @@ async def send_found_files(
         logger.debug(f"Validation errors in send_found_files: {errors}")
         return Result.failure(
             error="Missing or invalid field(s)",
-            error_type="validation_error",
+            error_type=ERROR_VALIDATION,
             error_data=errors,
             instruction="Please correct these validation issues and resubmit your response",
         )
@@ -418,7 +419,7 @@ async def send_found_files(
         )
 
     except Exception as e:
-        return Result.failure(error=f"Failed to provide found files: {str(e)}", error_type="unknown")
+        return Result.failure(error=f"Failed to provide found files: {str(e)}", error_type=ERROR_UNEXPECTED)
 
 
 async def set_filesystem_trust_mode(trust_all: bool) -> str:

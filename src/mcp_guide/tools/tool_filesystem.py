@@ -12,6 +12,7 @@ from mcp_guide.filesystem.tools import send_directory_listing as fs_send_directo
 from mcp_guide.filesystem.tools import send_file_content as fs_send_file_content
 from mcp_guide.filesystem.tools import send_working_directory as fs_send_working_directory
 from mcp_guide.result import Result
+from mcp_guide.result_constants import ERROR_UNEXPECTED
 from mcp_guide.tools.tool_result import tool_result
 
 
@@ -84,7 +85,7 @@ async def internal_send_directory_listing(
             files=args.entries,
         )
     except Exception as e:
-        return Result.failure(error=f"Error processing directory listing: {str(e)}", error_type="unknown")
+        return Result.failure(error=f"Error processing directory listing: {str(e)}", error_type=ERROR_UNEXPECTED)
 
 
 async def internal_send_command_location(
@@ -100,7 +101,7 @@ async def internal_send_command_location(
             found=args.location is not None,
         )
     except Exception as e:
-        return Result.failure(error=f"Error processing command location: {str(e)}", error_type="unknown")
+        return Result.failure(error=f"Error processing command location: {str(e)}", error_type=ERROR_UNEXPECTED)
 
 
 async def internal_send_working_directory(
@@ -114,7 +115,7 @@ async def internal_send_working_directory(
             working_directory=args.path,
         )
     except Exception as e:
-        return Result.failure(error=f"Error processing working directory: {str(e)}", error_type="unknown")
+        return Result.failure(error=f"Error processing working directory: {str(e)}", error_type=ERROR_UNEXPECTED)
 
 
 @toolfunc(SendFileContentArgs)

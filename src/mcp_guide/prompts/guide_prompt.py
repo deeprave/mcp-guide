@@ -21,9 +21,13 @@ from mcp_guide.render.cache import get_template_contexts
 from mcp_guide.render.context import TemplateContext, convert_lists_to_indexed
 from mcp_guide.result import Result
 from mcp_guide.result_constants import (
+    ERROR_CONTEXT,
     ERROR_FILE_ERROR,
     ERROR_NOT_FOUND,
+    ERROR_RENDER,
+    ERROR_SECURITY,
     ERROR_TEMPLATE,
+    ERROR_VALIDATION,
     INSTRUCTION_FILE_ERROR,
     INSTRUCTION_NOTFOUND_ERROR,
     INSTRUCTION_TEMPLATE_ERROR,
@@ -65,11 +69,11 @@ async def get_command_help(command_context: TemplateContext, commands_dir: Path,
         # Discover the help command file through the proper discovery system
         help_result = await _discover_command_file(commands_dir, "help")
         if not help_result.success:
-            return Result.failure("Help template not found", error_type="not_found")
+            return Result.failure("Help template not found", error_type=ERROR_NOT_FOUND)
 
         help_file_info = help_result.value
         if help_file_info is None:
-            return Result.failure("Help template not found", error_type="not_found")
+            return Result.failure("Help template not found", error_type=ERROR_NOT_FOUND)
 
         help_file_info.resolve(commands_dir, docroot)
 
@@ -82,7 +86,7 @@ async def get_command_help(command_context: TemplateContext, commands_dir: Path,
         )
 
         if rendered is None:
-            return Result.failure("Failed to render help template", error_type="render_error")
+            return Result.failure("Failed to render help template", error_type=ERROR_RENDER)
 
         if rendered.errors:
             rendered.log_discarded_errors("get_command_help")
@@ -90,7 +94,7 @@ async def get_command_help(command_context: TemplateContext, commands_dir: Path,
         return Result.ok(rendered.content, instruction=rendered.instruction)
 
     except Exception as e:
-        return Result.failure(str(e), error_type="context")
+        return Result.failure(str(e), error_type=ERROR_CONTEXT)
 
 
 # MCP compatibility limit for variable arguments
@@ -168,10 +172,10 @@ async def _discover_command_file(commands_dir: Path, command_path: str) -> Resul
     try:
         files = await discover_document_files(commands_dir, [pattern])
     except Exception as e:
-        return Result.failure(f"Error discovering command files: {e}", error_type="file_error")
+        return Result.failure(f"Error discovering command files: {e}", error_type=ERROR_FILE_ERROR)
 
     if not files:
-        return Result.failure(f"Command not found: {command_path}", error_type="not_found")
+        return Result.failure(f"Command not found: {command_path}", error_type=ERROR_NOT_FOUND)
 
     return Result.ok(files[0])
 
@@ -278,11 +282,11 @@ async def _execute_command(
         session = await get_session(ctx)
         docroot = Path(await session.get_docroot())
     except ValueError as e:
-        return Result.failure(str(e), error_type="context")
+        return Result.failure(str(e), error_type=ERROR_CONTEXT)
 
     commands_dir = docroot / COMMANDS_DIR
     if not await AsyncPath(commands_dir).exists():
-        return Result.failure(f"Commands directory not found: {COMMANDS_DIR}", error_type="not_found")
+        return Result.failure(f"Commands directory not found: {COMMANDS_DIR}", error_type=ERROR_NOT_FOUND)
 
     # Discover commands and try the direct template file first (higher precedence)
     commands = await discover_commands(commands_dir)
@@ -301,7 +305,7 @@ async def _execute_command(
         return file_result
     file_info = file_result.value
     if not file_info:
-        return Result.failure("No file info returned", error_type="file_error")
+        return Result.failure("No file info returned", error_type=ERROR_FILE_ERROR)
 
     # Set the base path for content loading
     file_info.resolve(commands_dir, docroot)
@@ -320,7 +324,7 @@ async def _execute_command(
         kwargs, args, parse_errors = parse_command_arguments(argv, argrequired=argrequired)
         if parse_errors:
             error_msg = "; ".join(parse_errors)
-            result: Result[Any] = Result.failure(f"Argument parsing failed: {error_msg}", error_type="validation")
+            result: Result[Any] = Result.failure(f"Argument parsing failed: {error_msg}", error_type=ERROR_VALIDATION)
             return result
 
         # Check minimum required positional arguments
@@ -328,7 +332,7 @@ async def _execute_command(
         if isinstance(minargs, int) and minargs > 0 and len(args) < minargs:
             usage = frontmatter.get("usage", "")
             msg = f"Missing required argument\n\nUsage: {usage}" if usage else "Missing required argument"
-            result = Result.failure(msg, error_type="validation")
+            result = Result.failure(msg, error_type=ERROR_VALIDATION)
             return result
 
     # Build template context
@@ -397,7 +401,7 @@ async def _execute_command(
         errors = rendered.errors
         return Result.failure(
             "\n".join(errors),
-            error_type="validation",
+            error_type=ERROR_VALIDATION,
             error_data={"errors": errors},
         )
 
@@ -413,7 +417,7 @@ async def _handle_command_request(argv: list[str], ctx: Optional["Context"]) -> 
     raw_command_path = first_arg[1:]  # Remove prefix
 
     if not raw_command_path:
-        result: Result[Any] = Result.failure("Command name cannot be empty", error_type="validation")
+        result: Result[Any] = Result.failure("Command name cannot be empty", error_type=ERROR_VALIDATION)
         return result
 
     # Validate and sanitize
@@ -421,12 +425,12 @@ async def _handle_command_request(argv: list[str], ctx: Optional["Context"]) -> 
 
     error, command_path = validate_command_path_full(raw_command_path)
     if error:
-        result = Result.failure(f"Security validation failed: {error}", error_type="security")
+        result = Result.failure(f"Security validation failed: {error}", error_type=ERROR_SECURITY)
         return result
 
     # Validate context
     if ctx is None:
-        result = Result.failure("Context is required for command execution", error_type="validation")
+        result = Result.failure(f"Context is required for command execution", error_type=ERROR_VALIDATION)
         return result
 
     return await handle_command(command_path, argv=argv[1:], ctx=ctx)
@@ -448,7 +452,7 @@ async def _handle_content_request(argv: list[str], ctx: Optional["Context"]) -> 
     kwargs, _, parse_errors = parse_command_arguments(flags)
     if parse_errors:
         error_msg = "; ".join(parse_errors)
-        result: Result[str] = Result.failure(f"Flag parsing failed: {error_msg}", error_type="validation")
+        result: Result[str] = Result.failure(f"Flag parsing failed: {error_msg}", error_type=ERROR_VALIDATION)
         return result
 
     # Join content args as the category expression
@@ -490,7 +494,7 @@ async def _route_guide_request(argv: list[str], ctx: Optional["Context"]) -> Res
             prompt_prefix = session.agent_info.prompt_prefix.replace("{mcp_name}", "guide")
 
         error_msg = f"The guide prompt requires one or more arguments. Use {prompt_prefix}guide :help to list commands"
-        result: Result[Any] = Result.failure(error_msg, error_type="validation")
+        result: Result[Any] = Result.failure(error_msg, error_type=ERROR_VALIDATION)
         return result
 
     # Check for command prefix

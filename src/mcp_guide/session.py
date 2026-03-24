@@ -897,7 +897,7 @@ async def set_project(project_name: str, ctx: Optional["Context"] = None) -> Res
         Creates or loads project configuration.
         Use when project cannot be auto-detected from context.
     """
-    from mcp_guide.result_constants import ERROR_INVALID_NAME
+    from mcp_guide.result_constants import ERROR_INVALID_NAME, ERROR_PROJECT_LOAD
     from mcp_guide.validation import InvalidProjectNameError
 
     try:
@@ -908,7 +908,7 @@ async def set_project(project_name: str, ctx: Optional["Context"] = None) -> Res
     except (InvalidProjectNameError, ValueError) as e:
         return Result.failure(str(e), error_type=ERROR_INVALID_NAME)
     except Exception as e:
-        return Result.failure(str(e), error_type="project_load_error")
+        return Result.failure(str(e), error_type=ERROR_PROJECT_LOAD)
 
 
 async def list_all_projects(session: "Session", verbose: bool = False) -> Result[dict[str, Any]]:
@@ -924,7 +924,7 @@ async def list_all_projects(session: "Session", verbose: bool = False) -> Result
         Result with projects dict
     """
     from mcp_guide.models import format_project_data
-    from mcp_guide.result_constants import ERROR_INVALID_NAME
+    from mcp_guide.result_constants import ERROR_CONFIG_READ, ERROR_INVALID_NAME, ERROR_UNEXPECTED
 
     try:
         # Verbose: get all project configs in one atomic read
@@ -955,9 +955,9 @@ async def list_all_projects(session: "Session", verbose: bool = False) -> Result
             projects_data[name] = await format_project_data(all_projects[name], verbose=True, session=session)
         return Result.ok({"projects": projects_data})
     except OSError as e:
-        return Result.failure(f"Failed to read configuration: {e}", error_type="config_read_error")
+        return Result.failure(f"Failed to read configuration: {e}", error_type=ERROR_CONFIG_READ)
     except ValueError as e:
         return Result.failure(str(e), error_type=ERROR_INVALID_NAME)
     except Exception as e:
         logger.exception("Unexpected error listing projects")
-        return Result.failure(f"Error listing projects: {e}", error_type="unexpected_error")
+        return Result.failure(f"Error listing projects: {e}", error_type=ERROR_UNEXPECTED)

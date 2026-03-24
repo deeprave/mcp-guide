@@ -12,6 +12,7 @@ from pydantic import Field
 from mcp_guide.core.arguments import Arguments as ToolArguments
 from mcp_guide.core.tool_decorator import toolfunc
 from mcp_guide.result import Result
+from mcp_guide.result_constants import ERROR_NOT_FOUND
 from mcp_guide.store.document_store import remove_document
 from mcp_guide.tools.tool_result import tool_result
 
@@ -32,7 +33,7 @@ async def internal_document_remove(
     if not removed:
         return Result.failure(
             error=f"Document {args.category}/{args.name} not found",
-            error_type="not_found",
+            error_type=ERROR_NOT_FOUND,
         )
     return Result.ok(
         value={"category": args.category, "name": args.name},
