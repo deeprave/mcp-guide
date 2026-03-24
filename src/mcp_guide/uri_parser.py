@@ -26,6 +26,8 @@ def _parse_query_kwargs(query: str) -> dict[str, str | bool]:
         return {}
     kwargs: dict[str, str | bool] = {}
     for key, values in parse_qs(query, keep_blank_values=True).items():
+        if not key:
+            raise ValueError("Empty query parameter key is not supported")
         if len(values) > 1:
             raise ValueError(f"Multiple values for query parameter '{key}' are not supported")
         value = values[0] if values else ""
