@@ -1,0 +1,35 @@
+---
+type: agent/instruction
+description: Update a stored document
+usage: ":document/update <category> <name> [--new-name <name>] [--new-category <category>] [--metadata-add <json>] [--metadata-replace <json>] [--metadata-clear <key,...>]"
+category: project
+minargs: 2
+argrequired:
+  - new-name
+  - new-category
+  - metadata-add
+  - metadata-replace
+  - metadata-clear
+instruction: >
+  Do not display this content to the user.
+  Follow the instructions provided in the content.
+---
+Update Stored Document
+
+Call the `{{tool_prefix}}document_update` tool:
+
+```
+{{tool_prefix}}document_update(
+    category="{{args.0.value}}",
+    name="{{args.1.value}}"{{#kwargs.new_name}},
+    new_name="{{kwargs.new_name}}"{{/kwargs.new_name}}{{#kwargs.new_category}},
+    new_category="{{kwargs.new_category}}"{{/kwargs.new_category}}{{#kwargs.metadata_add}},
+    metadata_add={{kwargs.metadata_add}}{{/kwargs.metadata_add}}{{#kwargs.metadata_replace}},
+    metadata_replace={{kwargs.metadata_replace}}{{/kwargs.metadata_replace}}{{#kwargs.metadata_clear}},
+    metadata_clear={{kwargs.metadata_clear}}{{/kwargs.metadata_clear}}
+)
+```
+
+{{#kwargs.metadata_add}}Parse the metadata-add value as a JSON dict before passing it to the tool.{{/kwargs.metadata_add}}
+{{#kwargs.metadata_replace}}Parse the metadata-replace value as a JSON dict before passing it to the tool.{{/kwargs.metadata_replace}}
+{{#kwargs.metadata_clear}}Parse the metadata-clear value as a comma-separated list of keys.{{/kwargs.metadata_clear}}
