@@ -1,5 +1,5 @@
 ## 1. Guide URI instruction template
-- [x] 1.1 Create `_system/guide-uri.mustache` template (type: `agent/information`) explaining guide:// URI scheme and read_resource tool
+- [x] 1.1 Create `_system/_guide-uri.mustache` template (type: `agent/information`) explaining guide:// URI scheme and read_resource tool
 - [x] 1.2 Reference MCP `resources/list` as discovery mechanism, explain read_resource as resolution tool
 
 ## 2. GuideUriListener
