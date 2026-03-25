@@ -5,12 +5,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 from urllib.parse import urlparse
 
+from fastmcp import Context
+
 from mcp_guide.core.mcp_log import get_logger
 
-try:
-    from fastmcp import Context
-except ImportError:
-    Context = None  # ty: ignore[invalid-assignment]
 if TYPE_CHECKING:
     from mcp_guide.agent_detection import AgentInfo
 

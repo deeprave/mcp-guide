@@ -2,13 +2,10 @@
 
 from typing import Optional
 
+from fastmcp import Context
+
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.core.resource_decorator import resourcefunc
-
-try:
-    from fastmcp import Context
-except ImportError:
-    Context = None  # ty: ignore[invalid-assignment]
 from mcp_guide.tools.tool_content import ContentArgs, internal_get_content
 
 logger = get_logger(__name__)

@@ -2,12 +2,8 @@
 
 from typing import Any, Optional
 
-try:
-    from mcp.server.fastmcp import Context
-except ImportError:
-    Context = None  # ty: ignore[invalid-assignment]
-
-from pydantic import Field
+from fastmcp import Context
+from pydantic import Field, model_validator
 
 from mcp_guide.core.arguments import Arguments as ToolArguments
 from mcp_guide.core.tool_decorator import toolfunc
@@ -32,6 +28,16 @@ class DocumentUpdateArgs(ToolArguments):
     )
     metadata_clear: Optional[list[str]] = Field(default=None, description="List of metadata keys to remove")
 
+    @model_validator(mode="after")
+    def validate_mutations(self) -> "DocumentUpdateArgs":
+        has_rename = self.new_name is not None or self.new_category is not None
+        meta_ops = sum(x is not None for x in (self.metadata_add, self.metadata_replace, self.metadata_clear))
+        if not has_rename and meta_ops == 0:
+            raise ValueError("At least one mutation parameter is required")
+        if meta_ops > 1:
+            raise ValueError("metadata_add, metadata_replace, and metadata_clear are mutually exclusive")
+        return self
+
 
 async def internal_document_update(
     args: DocumentUpdateArgs,
@@ -42,7 +48,7 @@ async def internal_document_update(
     if args.new_category is not None:
         from mcp_guide.session import get_session
 
-        session = await get_session()
+        session = await get_session(ctx)
         project = await session.get_project()
         if args.new_category not in project.categories:
             return Result.failure(error=f"Category {args.new_category!r} does not exist")
@@ -68,7 +74,7 @@ async def internal_document_update(
 
     return Result.ok(
         value={"category": record.category, "name": record.name, "metadata": record.metadata},
-        message=f"Document {args.category}/{args.name} updated",
+        message=f"Document {record.category}/{record.name} updated",
     )
 
 

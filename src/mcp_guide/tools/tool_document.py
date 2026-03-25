@@ -2,11 +2,7 @@
 
 from typing import Any, Optional
 
-try:
-    from mcp.server.fastmcp import Context
-except ImportError:
-    Context = None  # ty: ignore[invalid-assignment]
-
+from fastmcp import Context
 from pydantic import Field
 
 from mcp_guide.core.arguments import Arguments as ToolArguments

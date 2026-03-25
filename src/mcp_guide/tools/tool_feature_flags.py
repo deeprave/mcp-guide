@@ -5,6 +5,7 @@
 from fnmatch import fnmatch
 from typing import Optional
 
+from fastmcp import Context
 from pydantic import Field
 
 from mcp_guide.core.tool_arguments import ToolArguments
@@ -25,10 +26,6 @@ from mcp_guide.result_constants import (
 )
 from mcp_guide.tools.tool_result import tool_result
 
-try:
-    from fastmcp import Context
-except ImportError:
-    Context = None  # ty: ignore[invalid-assignment]
 __all__ = [
     "internal_get_project_flag",
     "internal_set_project_flag",

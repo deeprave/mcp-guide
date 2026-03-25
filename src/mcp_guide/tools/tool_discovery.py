@@ -2,6 +2,7 @@
 
 from typing import Any, Optional
 
+from fastmcp import Context
 from pydantic import Field
 
 from mcp_guide.core.prompt_decorator import get_prompt_registry
@@ -9,11 +10,6 @@ from mcp_guide.core.resource_decorator import get_resource_registry
 from mcp_guide.core.tool_arguments import ToolArguments
 from mcp_guide.core.tool_decorator import get_tool_registry, toolfunc
 from mcp_guide.result import Result
-
-try:
-    from fastmcp import Context
-except ImportError:
-    Context = None  # ty: ignore[invalid-assignment]
 
 
 class ListToolsArgs(ToolArguments):

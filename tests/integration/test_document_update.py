@@ -5,6 +5,7 @@ from typing import Any, Callable
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from pydantic import ValidationError
 
 from mcp_guide.tools.tool_document_update import DocumentUpdateArgs, internal_document_update
 
@@ -69,11 +70,5 @@ class TestDocumentUpdate:
 
     @pytest.mark.anyio
     async def test_mutual_exclusivity_error(self, mcp_server: Any) -> None:
-        with patch(
-            "mcp_guide.tools.tool_document_update.update_document",
-            new=AsyncMock(side_effect=ValueError("mutually exclusive")),
-        ):
-            args = DocumentUpdateArgs(category="docs", name="file.md", metadata_add={"a": "1"}, metadata_clear=["b"])
-            result = await internal_document_update(args)
-            assert result.success is False
-            assert "mutually exclusive" in result.error
+        with pytest.raises(ValidationError, match="mutually exclusive"):
+            DocumentUpdateArgs(category="docs", name="file.md", metadata_add={"a": "1"}, metadata_clear=["b"])

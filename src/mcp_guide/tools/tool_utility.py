@@ -4,6 +4,7 @@
 
 from typing import Optional
 
+from fastmcp import Context
 from pydantic import BaseModel, Field
 
 from mcp_guide.agent_detection import detect_agent, format_agent_info
@@ -15,10 +16,6 @@ from mcp_guide.render.cache import invalidate_template_context_cache
 from mcp_guide.result import Result
 from mcp_guide.tools.tool_result import tool_result
 
-try:
-    from fastmcp import Context
-except ImportError:
-    Context = None  # ty: ignore[invalid-assignment]
 logger = get_logger(__name__)
 
 __all__ = ["internal_client_info"]

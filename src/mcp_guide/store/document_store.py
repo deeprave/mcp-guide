@@ -242,11 +242,11 @@ def _update_document(
             target_cat = new_category if new_category is not None else category
             target_name = new_name if new_name is not None else name
 
-            # Check collision if renaming/moving
+            # Check collision if renaming/moving, excluding the current row (handles case-only renames)
             if target_cat != category or target_name != name:
                 existing = conn.execute(
-                    "SELECT 1 FROM documents WHERE category = ? AND name = ?",
-                    (target_cat, target_name),
+                    "SELECT 1 FROM documents WHERE category = ? AND name = ? AND NOT (category = ? AND name = ?)",
+                    (target_cat, target_name, category, name),
                 ).fetchone()
                 if existing:
                     raise ValueError(f"Document {target_cat}/{target_name} already exists")

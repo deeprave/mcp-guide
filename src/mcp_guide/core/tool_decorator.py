@@ -14,10 +14,6 @@ from mcp_guide.task_manager.manager import get_task_manager
 if TYPE_CHECKING:
     pass
 
-try:
-    from fastmcp import Context
-except ImportError:
-    Context = None  # ty: ignore[invalid-assignment]
 logger = get_logger(__name__)
 
 

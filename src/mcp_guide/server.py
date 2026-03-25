@@ -8,10 +8,6 @@ from typing import TYPE_CHECKING, Any, AsyncIterator, Callable, Optional
 if TYPE_CHECKING:
     from mcp_guide.cli import ServerConfig
 
-try:
-    from fastmcp import Context
-except ImportError:
-    Context = None  # ty: ignore[invalid-assignment]
 from mcp_guide import __version__
 from mcp_guide.context.tasks import ClientContextTask  # noqa: F401 - imported for @task_init decorator side effects
 from mcp_guide.core.mcp_log import get_logger

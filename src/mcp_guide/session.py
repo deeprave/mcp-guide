@@ -10,6 +10,7 @@ from weakref import WeakKeyDictionary as _WeakKeyDictionary
 
 import yaml
 from anyio import Path as AsyncPath
+from fastmcp import Context
 
 from mcp_guide.core.file_reader import read_file_content
 from mcp_guide.core.mcp_log import get_logger
@@ -22,10 +23,6 @@ from mcp_guide.utils.project_hash import (
     generate_project_key,
 )
 
-try:
-    from fastmcp import Context
-except ImportError:
-    Context = None  # ty: ignore[invalid-assignment]
 # Module-level flag to control default profile application
 _enable_default_profile = True
 
