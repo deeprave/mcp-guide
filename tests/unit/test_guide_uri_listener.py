@@ -30,7 +30,9 @@ class TestGuideUriListener:
         mock_task_manager = AsyncMock()
 
         with (
-            patch("mcp_guide.guide_uri_listener.render_content", return_value=mock_rendered) as mock_render,
+            patch(
+                "mcp_guide.guide_uri_listener.render_content", new_callable=AsyncMock, return_value=mock_rendered
+            ) as mock_render,
             patch("mcp_guide.guide_uri_listener.get_task_manager", return_value=mock_task_manager),
         ):
             await listener.on_project_changed(session, "old", "new")
@@ -50,7 +52,7 @@ class TestGuideUriListener:
         mock_task_manager = AsyncMock()
 
         with (
-            patch("mcp_guide.guide_uri_listener.render_content", return_value=mock_rendered),
+            patch("mcp_guide.guide_uri_listener.render_content", new_callable=AsyncMock, return_value=mock_rendered),
             patch("mcp_guide.guide_uri_listener.get_task_manager", return_value=mock_task_manager),
         ):
             await listener.on_project_changed(session, "old", "new")
@@ -64,7 +66,11 @@ class TestGuideUriListener:
         session = MagicMock()
         session.project_name = "test"
 
-        with patch("mcp_guide.guide_uri_listener.render_content", side_effect=FileNotFoundError("not found")):
+        with patch(
+            "mcp_guide.guide_uri_listener.render_content",
+            new_callable=AsyncMock,
+            side_effect=FileNotFoundError("not found"),
+        ):
             # Should not raise
             await listener.on_project_changed(session, "old", "new")
 
@@ -75,6 +81,10 @@ class TestGuideUriListener:
         session = MagicMock()
         session.project_name = "test"
 
-        with patch("mcp_guide.guide_uri_listener.render_content", side_effect=RuntimeError("render failed")):
+        with patch(
+            "mcp_guide.guide_uri_listener.render_content",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("render failed"),
+        ):
             # Should not raise
             await listener.on_project_changed(session, "old", "new")

@@ -5,6 +5,8 @@ from datetime import datetime, timezone
 from typing import Any, Callable
 
 from mcp_guide.core.mcp_log import get_logger
+from mcp_guide.core.tool_decorator import get_tool_prefix
+from mcp_guide.feature_flags.constants import FLAG_CONTENT_ACCESSOR
 
 logger = get_logger(__name__)
 
@@ -203,7 +205,7 @@ class TemplateFunctions:
     def resource(self, text: str, render: Callable[[str], str] | None = None) -> str:
         """Render content reference: {{#resource}}expression{{/resource}}
 
-        Returns guide://expression URI by default, or get_content("expression")
+        Returns guide://expression URI by default, or tool_prefix + get_content("expression")
         when the content-accessor flag is true.
         """
         expression = render(text).strip() if render else text.strip()
@@ -211,6 +213,6 @@ class TemplateFunctions:
             return ""
 
         flags = self.context.get("flags", {})
-        if flags.get("content-accessor"):
-            return f'get_content("{expression}")'
+        if flags.get(FLAG_CONTENT_ACCESSOR):
+            return f'{get_tool_prefix()}get_content("{expression}")'
         return f"guide://{expression}"

@@ -2,10 +2,12 @@
 
 from collections import ChainMap
 from datetime import datetime
+from unittest.mock import patch
 
 import chevron
 import pytest
 
+from mcp_guide.core.tool_decorator import get_tool_prefix
 from mcp_guide.render.functions import SyntaxHighlighter, TemplateFunctions
 from mcp_guide.render.renderer import render_template_content
 
@@ -379,6 +381,17 @@ class TestResourceLambda:
 
         result = functions.resource("guidelines", lambda t: t)
         assert result == 'get_content("guidelines")'
+
+    def test_flag_true_with_tool_prefix(self):
+        """Flag true should prepend tool prefix to get_content() call."""
+        context = ChainMap({"flags": {"content-accessor": True}})
+        functions = TemplateFunctions(context)
+
+        get_tool_prefix.cache_clear()
+        with patch.dict("os.environ", {"MCP_TOOL_PREFIX": "mcp_guide"}):
+            result = functions.resource("guidelines", lambda t: t)
+        get_tool_prefix.cache_clear()
+        assert result == 'mcp_guide_get_content("guidelines")'
 
     def test_comma_expression_with_flag_false(self):
         """Comma expressions should render as guide:// URI when flag is false."""
