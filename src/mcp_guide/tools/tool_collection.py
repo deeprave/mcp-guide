@@ -3,8 +3,9 @@
 """Collection management tools."""
 
 from dataclasses import replace
-from typing import TYPE_CHECKING, Any, Optional
+from typing import Any, Optional
 
+from fastmcp import Context
 from pydantic import Field
 
 from mcp_guide.core.tool_arguments import ToolArguments
@@ -19,14 +20,6 @@ from mcp_guide.result_constants import (
 from mcp_guide.session import get_session
 from mcp_guide.validation import validate_categories_exist
 
-if TYPE_CHECKING:
-    from fastmcp import Context
-
-
-try:
-    from fastmcp import Context
-except ImportError:
-    Context = None  # ty: ignore[invalid-assignment]
 __all__ = [
     "internal_collection_list",
     "internal_collection_add",

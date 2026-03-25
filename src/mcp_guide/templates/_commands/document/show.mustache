@@ -20,8 +20,10 @@ Call the `{{tool_prefix}}category_list_files` tool:
 )
 ```
 
-Display the full document detail to the user including:
-- Category and name
-- Source and source type
-- Created and updated timestamps
-- All metadata entries
+After the tool call completes, inspect the result:
+- If the result is empty, tell the user the stored document was not found
+- Otherwise display the full document detail including:
+  - Category and name
+  - Source and source type
+  - Created and updated timestamps
+  - All metadata entries

@@ -5,6 +5,7 @@
 from pathlib import Path
 from typing import Any, Optional
 
+from fastmcp import Context
 from pydantic import Field
 
 from mcp_guide.config_constants import COMMANDS_DIR
@@ -19,11 +20,6 @@ from mcp_guide.session import get_session
 from mcp_guide.tools.tool_content import ContentArgs, internal_get_content
 from mcp_guide.tools.tool_result import tool_result
 from mcp_guide.uri_parser import parse_guide_uri
-
-try:
-    from fastmcp import Context
-except ImportError:
-    Context = None  # ty: ignore[invalid-assignment]
 
 logger = get_logger(__name__)
 

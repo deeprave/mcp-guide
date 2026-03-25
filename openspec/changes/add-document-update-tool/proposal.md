@@ -41,7 +41,7 @@ New `_commands/document/show` template that displays full detail for an existing
 
 ### 3. document_update command
 
-New `_commands/document/update` template that handles all mutation combinations (rename, move, metadata operations) with appropriate output for each.
+New `_commands/document/update` template that handles rename, move, and metadata operations with appropriate output for each.
 
 ### 2. Store description in category_list_files
 
@@ -75,4 +75,4 @@ In `category_list_files`, when `file.source == "store"`, retrieve description fr
 - Documents can be renamed, moved between categories, and have metadata updated without re-ingestion
 - Collisions on rename/move are detected and reported as errors
 - `category_list_files` shows descriptions for stored documents
-- Metadata operations (add, replace, clear) work independently and in combination
+- Metadata operations (add, replace, clear) each work correctly when used alone

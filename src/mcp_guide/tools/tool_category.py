@@ -5,9 +5,11 @@
 import errno
 from dataclasses import replace
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, Literal, Optional, Union
 
 from anyio import Path as AsyncPath
+from fastmcp import Context
 from pydantic import Field, model_validator
 
 from mcp_guide.content.formatters.selection import ContentFormat, get_formatter_from_flag
@@ -23,7 +25,7 @@ from mcp_guide.core.validation import (
     validate_name,
     validate_pattern,
 )
-from mcp_guide.discovery.files import FileInfo, discover_document_files, discover_document_stored, discover_documents
+from mcp_guide.discovery.files import FileInfo, discover_document_files, discover_documents
 from mcp_guide.feature_flags.constants import FLAG_CONTENT_FORMAT
 from mcp_guide.feature_flags.utils import get_resolved_flag_value
 from mcp_guide.models import Category, CategoryNotFoundError, FileReadError, Project
@@ -43,10 +45,6 @@ from mcp_guide.session import get_session
 from mcp_guide.store.document_store import list_documents
 from mcp_guide.tools.tool_result import tool_result
 
-try:
-    from fastmcp import Context
-except ImportError:
-    Context = None  # ty: ignore[invalid-assignment]
 logger = get_logger(__name__)
 
 _SERIOUS_ERRNOS = {errno.EACCES, errno.EPERM, errno.EROFS}
@@ -485,16 +483,19 @@ async def internal_category_list_files(
     category_dir = docroot / category.dir
 
     if args.source == "stored":
-        files = await discover_document_stored(args.category, ["**/*"])
+        # Fetch records directly — avoids redundant discovery + second query
+        all_records = await list_documents(args.category)
+        stored_records = {r.name: r for r in all_records}
+        files = [SimpleNamespace(name=r.name, size=0, path=Path(r.name), source="store") for r in all_records]
     elif args.source == "files":
         files = await discover_document_files(category_dir, ["**/*"])
+        stored_records = {}
     else:
         files = await discover_documents(category_dir, ["**/*"], category=args.category)
-
-    # Pre-fetch all stored doc records in one query to avoid N+1
-    stored_records = (
-        {r.name: r for r in await list_documents(args.category)} if any(f.source == "store" for f in files) else {}
-    )
+        # Pre-fetch stored doc records for enrichment (only if store files present)
+        stored_records = (
+            {r.name: r for r in await list_documents(args.category)} if any(f.source == "store" for f in files) else {}
+        )
 
     # Format as list of file info dictionaries with descriptions
     file_list = []

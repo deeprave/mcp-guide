@@ -4,6 +4,7 @@
 
 from typing import Any, Literal, Optional
 
+from fastmcp import Context
 from pydantic import Field
 
 from mcp_guide.core.tool_arguments import ToolArguments
@@ -26,10 +27,6 @@ from mcp_guide.session import get_session, list_all_projects
 from mcp_guide.session import set_project as session_set_project
 from mcp_guide.tools.tool_result import tool_result
 
-try:
-    from fastmcp import Context
-except ImportError:
-    Context = None  # ty: ignore[invalid-assignment]
 __all__ = [
     "internal_get_project",
     "internal_set_project",

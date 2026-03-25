@@ -8,6 +8,7 @@ from mcp_guide.store.document_store import (
     get_document_content,
     list_documents,
     remove_document,
+    update_document,
 )
 
 
@@ -164,8 +165,6 @@ async def test_mtime_updated_on_upsert(db):
 
 
 # --- update_document tests ---
-
-from mcp_guide.store.document_store import update_document
 
 
 @pytest.mark.anyio

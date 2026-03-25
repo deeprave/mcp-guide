@@ -139,6 +139,7 @@ ignore_decorators = [
   "@promptfunc",
   "@task_init",
   "@field_validator",
+  "@model_validator",
 ]
 
 min_confidence = 60

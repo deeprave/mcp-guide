@@ -7,8 +7,9 @@ T = TypeVar("T")
 def get_or_create(var: ContextVar[T], factory: Callable[[], T]) -> T:
     """Get the value of a ContextVar, creating and storing it via factory if unset.
 
-    Uses Token.MISSING to detect absence, so ContextVars with a default value are
-    handled correctly (the factory is still called on first use per-task).
+    If the ContextVar has no value set and no default, calls factory() to create
+    a value, stores it via var.set(), and returns it. If the ContextVar already
+    has a value or a default, returns that directly without calling factory.
     """
     try:
         return var.get()
