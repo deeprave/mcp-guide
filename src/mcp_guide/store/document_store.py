@@ -80,7 +80,8 @@ _SELECT_METADATA = "SELECT " + ", ".join(_METADATA_FIELDS) + " FROM documents"  
 
 
 def _parse_metadata(raw: str | None) -> dict:
-    return json.loads(raw) if raw else {}
+    result = json.loads(raw) if raw else {}
+    return result if isinstance(result, dict) else {}
 
 
 def _row_to_record(row: sqlite3.Row) -> DocumentRecord:
@@ -272,7 +273,7 @@ def _update_document(
             ).fetchone()
     finally:
         conn.close()
-    return _row_to_metadata_record(updated)
+    return _row_to_metadata_record(updated) if updated else None
 
 
 # --- Async public API ---
