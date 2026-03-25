@@ -209,6 +209,72 @@ def _list_documents(category: Optional[str] = None, db_path: Optional[Path] = No
     return [_row_to_metadata_record(r) for r in rows]
 
 
+def _update_document(
+    category: str,
+    name: str,
+    *,
+    new_name: Optional[str] = None,
+    new_category: Optional[str] = None,
+    metadata_add: Optional[dict] = None,
+    metadata_replace: Optional[dict] = None,
+    metadata_clear: Optional[list[str]] = None,
+    db_path: Optional[Path] = None,
+) -> Optional[DocumentRecord]:
+    # Validate at least one mutation
+    has_rename = new_name is not None or new_category is not None
+    meta_ops = sum(x is not None for x in (metadata_add, metadata_replace, metadata_clear))
+    if not has_rename and meta_ops == 0:
+        raise ValueError("At least one mutation parameter is required")
+    if meta_ops > 1:
+        raise ValueError("metadata_add, metadata_replace, and metadata_clear are mutually exclusive")
+
+    conn = _get_conn(db_path)
+    try:
+        with conn:
+            row = conn.execute(
+                _SELECT_METADATA + " WHERE category = ? AND name = ?",
+                (category, name),
+            ).fetchone()
+            if not row:
+                return None
+
+            target_cat = new_category if new_category is not None else category
+            target_name = new_name if new_name is not None else name
+
+            # Check collision if renaming/moving
+            if target_cat != category or target_name != name:
+                existing = conn.execute(
+                    "SELECT 1 FROM documents WHERE category = ? AND name = ?",
+                    (target_cat, target_name),
+                ).fetchone()
+                if existing:
+                    raise ValueError(f"Document {target_cat}/{target_name} already exists")
+
+            # Apply metadata mutation
+            metadata = _parse_metadata(row["metadata"])
+            if metadata_clear is not None:
+                for key in metadata_clear:
+                    metadata.pop(key, None)
+            elif metadata_replace is not None:
+                metadata = metadata_replace
+            elif metadata_add is not None:
+                metadata.update(metadata_add)
+
+            now = _now()
+            meta_json = json.dumps(metadata) if metadata is not None else None
+            conn.execute(
+                "UPDATE documents SET category = ?, name = ?, metadata = ?, updated_at = ? WHERE category = ? AND name = ?",
+                (target_cat, target_name, meta_json, now, category, name),
+            )
+            updated = conn.execute(
+                _SELECT_METADATA + " WHERE category = ? AND name = ?",
+                (target_cat, target_name),
+            ).fetchone()
+    finally:
+        conn.close()
+    return _row_to_metadata_record(updated)
+
+
 # --- Async public API ---
 
 
@@ -244,3 +310,28 @@ async def remove_document(category: str, name: str, db_path: Optional[Path] = No
 async def list_documents(category: Optional[str] = None, db_path: Optional[Path] = None) -> list[DocumentRecord]:
     """List documents, optionally filtered by category."""
     return await run_in_thread(_list_documents, category, db_path)
+
+
+async def update_document(
+    category: str,
+    name: str,
+    *,
+    new_name: Optional[str] = None,
+    new_category: Optional[str] = None,
+    metadata_add: Optional[dict] = None,
+    metadata_replace: Optional[dict] = None,
+    metadata_clear: Optional[list[str]] = None,
+    db_path: Optional[Path] = None,
+) -> Optional[DocumentRecord]:
+    """Update a document in-place. Returns updated record, or None if not found."""
+    return await run_in_thread(
+        _update_document,
+        category,
+        name,
+        new_name=new_name,
+        new_category=new_category,
+        metadata_add=metadata_add,
+        metadata_replace=metadata_replace,
+        metadata_clear=metadata_clear,
+        db_path=db_path,
+    )

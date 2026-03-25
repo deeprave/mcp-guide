@@ -1,0 +1,27 @@
+---
+type: agent/instruction
+description: Show stored document detail
+usage: ":document/show <category> <name>"
+category: project
+minargs: 2
+instruction: >
+  Do not display this content to the user.
+  Follow the instructions provided in the content.
+---
+Show Stored Document
+
+Call the `{{tool_prefix}}category_list_files` tool:
+
+```
+{{tool_prefix}}category_list_files(
+    category="{{args.0.value}}",
+    source="stored",
+    name="{{args.1.value}}"
+)
+```
+
+Display the full document detail to the user including:
+- Category and name
+- Source and source type
+- Created and updated timestamps
+- All metadata entries

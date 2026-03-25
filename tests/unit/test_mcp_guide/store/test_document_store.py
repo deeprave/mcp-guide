@@ -161,3 +161,89 @@ async def test_mtime_updated_on_upsert(db):
     await add_document("docs", "readme", "/path", "file", "v1", mtime=100.0, db_path=db)
     record = await add_document("docs", "readme", "/path", "file", "v2", mtime=200.0, db_path=db)
     assert record.mtime == 200.0
+
+
+# --- update_document tests ---
+
+from mcp_guide.store.document_store import update_document
+
+
+@pytest.mark.anyio
+async def test_update_rename(db):
+    await add_document("docs", "old.md", "/path", "file", "content", db_path=db)
+    result = await update_document("docs", "old.md", new_name="new.md", db_path=db)
+    assert result is not None
+    assert result.name == "new.md"
+    assert result.category == "docs"
+    assert await get_document("docs", "old.md", db_path=db) is None
+
+
+@pytest.mark.anyio
+async def test_update_move(db):
+    await add_document("docs", "file.md", "/path", "file", "content", db_path=db)
+    # Ensure target category row exists (store doesn't validate categories)
+    result = await update_document("docs", "file.md", new_category="guides", db_path=db)
+    assert result is not None
+    assert result.category == "guides"
+    assert await get_document("docs", "file.md", db_path=db) is None
+
+
+@pytest.mark.anyio
+async def test_update_rename_and_move(db):
+    await add_document("docs", "old.md", "/path", "file", "content", db_path=db)
+    result = await update_document("docs", "old.md", new_name="new.md", new_category="guides", db_path=db)
+    assert result is not None
+    assert result.name == "new.md"
+    assert result.category == "guides"
+
+
+@pytest.mark.anyio
+async def test_update_metadata_add(db):
+    await add_document("docs", "file.md", "/path", "file", "content", metadata={"a": "1"}, db_path=db)
+    result = await update_document("docs", "file.md", metadata_add={"b": "2"}, db_path=db)
+    assert result is not None
+    assert result.metadata == {"a": "1", "b": "2"}
+
+
+@pytest.mark.anyio
+async def test_update_metadata_replace(db):
+    await add_document("docs", "file.md", "/path", "file", "content", metadata={"a": "1"}, db_path=db)
+    result = await update_document("docs", "file.md", metadata_replace={"x": "9"}, db_path=db)
+    assert result is not None
+    assert result.metadata == {"x": "9"}
+
+
+@pytest.mark.anyio
+async def test_update_metadata_clear(db):
+    await add_document("docs", "file.md", "/path", "file", "content", metadata={"a": "1", "b": "2"}, db_path=db)
+    result = await update_document("docs", "file.md", metadata_clear=["a"], db_path=db)
+    assert result is not None
+    assert result.metadata == {"b": "2"}
+
+
+@pytest.mark.anyio
+async def test_update_collision_raises(db):
+    await add_document("docs", "a.md", "/path", "file", "A", db_path=db)
+    await add_document("docs", "b.md", "/path", "file", "B", db_path=db)
+    with pytest.raises(ValueError, match="already exists"):
+        await update_document("docs", "a.md", new_name="b.md", db_path=db)
+
+
+@pytest.mark.anyio
+async def test_update_not_found(db):
+    result = await update_document("docs", "missing.md", new_name="x.md", db_path=db)
+    assert result is None
+
+
+@pytest.mark.anyio
+async def test_update_no_mutation_raises(db):
+    await add_document("docs", "file.md", "/path", "file", "content", db_path=db)
+    with pytest.raises(ValueError, match="At least one mutation"):
+        await update_document("docs", "file.md", db_path=db)
+
+
+@pytest.mark.anyio
+async def test_update_multiple_metadata_ops_raises(db):
+    await add_document("docs", "file.md", "/path", "file", "content", db_path=db)
+    with pytest.raises(ValueError, match="mutually exclusive"):
+        await update_document("docs", "file.md", metadata_add={"a": "1"}, metadata_clear=["b"], db_path=db)

@@ -16,6 +16,7 @@ dependencies = [
     "uuid7>=0.1.0",
     "patch-ng>=1.19.0",
     "packaging>=24.0",
+    "pygments>=2.19.2",
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -120,6 +121,9 @@ dev = [
 debug = [
     "debugpy>=1.8.0",
 ]
+
+[tool.osvcheck.exceptions]
+pygments = { expires = 2026-04-30, reason = "CWE-1333 ReDOS not yet fixed" }
 
 [tool.vulture]
 exclude = [

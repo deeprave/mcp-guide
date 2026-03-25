@@ -40,6 +40,7 @@ from mcp_guide.result_constants import (
     INSTRUCTION_PATTERN_ERROR,
 )
 from mcp_guide.session import get_session
+from mcp_guide.store.document_store import list_documents
 from mcp_guide.tools.tool_result import tool_result
 
 try:
@@ -89,6 +90,7 @@ class CategoryListFilesArgs(ToolArguments):
     source: Optional[Literal["files", "stored"]] = Field(
         default=None, description="Filter by source: 'files' (filesystem only), 'stored' (store only), or omit for both"
     )
+    name: Optional[str] = Field(default=None, description="Filter by document name (exact match)")
 
 
 async def internal_category_list(args: CategoryListArgs, ctx: Optional[Context] = None) -> Result[list]:
@@ -489,14 +491,16 @@ async def internal_category_list_files(
     else:
         files = await discover_documents(category_dir, ["**/*"], category=args.category)
 
+    # Pre-fetch all stored doc records in one query to avoid N+1
+    stored_records = (
+        {r.name: r for r in await list_documents(args.category)} if any(f.source == "store" for f in files) else {}
+    )
+
     # Format as list of file info dictionaries with descriptions
     file_list = []
     for file in files:
-        # Extract description from front-matter (filesystem files only)
-        description = None
-        if file.source != "store":
-            full_path = category_dir / file.path
-            description = await get_frontmatter_description_from_file(full_path)
+        if args.name is not None and file.name != args.name:
+            continue
 
         file_info: dict[str, Any] = {
             "path": file.name,
@@ -505,9 +509,22 @@ async def internal_category_list_files(
             "source": file.source or "file",
         }
 
-        # Only add description if it exists
-        if description:
-            file_info["description"] = description
+        if file.source == "store":
+            record = stored_records.get(file.name)
+            if record is not None:
+                metadata = record.metadata or {}
+                if metadata.get("description"):
+                    file_info["description"] = metadata["description"]
+                file_info["metadata"] = metadata
+                file_info["source_type"] = record.source_type
+                file_info["source_path"] = record.source
+                file_info["created_at"] = record.created_at
+                file_info["updated_at"] = record.updated_at
+        else:
+            full_path = category_dir / file.path
+            description = await get_frontmatter_description_from_file(full_path)
+            if description:
+                file_info["description"] = description
 
         file_list.append(file_info)
 
