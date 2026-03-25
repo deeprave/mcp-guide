@@ -205,7 +205,7 @@ async def read_and_render_file_contents(
                     continue
 
                 file_info.content = processed.content
-                file_info.frontmatter = processed.frontmatter
+                file_info.frontmatter = processed.frontmatter or file_info.frontmatter
 
             # Update content_size to reflect the final content size after all processing
             content = file_info.content or ""

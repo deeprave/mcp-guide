@@ -27,7 +27,7 @@ repos:
         types: [python]
 
   - repo: https://github.com/deeprave/osvcheck
-    rev: v1.0.1
+    rev: v1.2.0
     hooks:
       - id: osvcheck
 

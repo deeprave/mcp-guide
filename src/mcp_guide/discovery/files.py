@@ -228,7 +228,7 @@ class FileInfo:
 
     def _parse_frontmatter_if_needed(self) -> None:
         """Internal method to parse frontmatter if not already parsed."""
-        if self._frontmatter is not None or self._content is None:
+        if self._frontmatter is not None or self._content is None or self.source == "store":
             return
 
         from mcp_guide.render.frontmatter import parse_content_with_frontmatter
@@ -318,6 +318,7 @@ async def discover_document_stored(
                 ctime=datetime.fromisoformat(record.created_at),
                 content_loader=loader,
                 source="store",
+                frontmatter=record.metadata or {},
             )
         )
     return results
