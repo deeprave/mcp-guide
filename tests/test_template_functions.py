@@ -351,3 +351,71 @@ class TestErrorLambda:
         assert result.value is not None
         _, _, errors = result.value
         assert errors == []
+
+
+class TestResourceLambda:
+    """Test resource template lambda."""
+
+    def test_default_renders_guide_uri(self):
+        """Default (no flag) should render as guide:// URI."""
+        context = ChainMap({"flags": {}})
+        functions = TemplateFunctions(context)
+
+        result = functions.resource("guidelines", lambda t: t)
+        assert result == "guide://guidelines"
+
+    def test_flag_false_renders_guide_uri(self):
+        """Explicit false flag should render as guide:// URI."""
+        context = ChainMap({"flags": {"content-accessor": False}})
+        functions = TemplateFunctions(context)
+
+        result = functions.resource("guidelines", lambda t: t)
+        assert result == "guide://guidelines"
+
+    def test_flag_true_renders_get_content(self):
+        """Flag true should render as get_content() call."""
+        context = ChainMap({"flags": {"content-accessor": True}})
+        functions = TemplateFunctions(context)
+
+        result = functions.resource("guidelines", lambda t: t)
+        assert result == 'get_content("guidelines")'
+
+    def test_comma_expression_with_flag_false(self):
+        """Comma expressions should render as guide:// URI when flag is false."""
+        context = ChainMap({"flags": {}})
+        functions = TemplateFunctions(context)
+
+        result = functions.resource("guide,lang,context", lambda t: t)
+        assert result == "guide://guide,lang,context"
+
+    def test_comma_expression_with_flag_true(self):
+        """Comma expressions should render as get_content() when flag is true."""
+        context = ChainMap({"flags": {"content-accessor": True}})
+        functions = TemplateFunctions(context)
+
+        result = functions.resource("guide,lang,context", lambda t: t)
+        assert result == 'get_content("guide,lang,context")'
+
+    def test_empty_expression_returns_empty(self):
+        """Empty expression should return empty string."""
+        context = ChainMap({"flags": {}})
+        functions = TemplateFunctions(context)
+
+        result = functions.resource("  ", lambda t: t)
+        assert result == ""
+
+    def test_no_flags_in_context(self):
+        """Missing flags key should default to guide:// URI."""
+        context = ChainMap({})
+        functions = TemplateFunctions(context)
+
+        result = functions.resource("guidelines", lambda t: t)
+        assert result == "guide://guidelines"
+
+    def test_render_none_uses_raw_text(self):
+        """When render is None, should use raw text directly."""
+        context = ChainMap({"flags": {}})
+        functions = TemplateFunctions(context)
+
+        result = functions.resource("guidelines")
+        assert result == "guide://guidelines"

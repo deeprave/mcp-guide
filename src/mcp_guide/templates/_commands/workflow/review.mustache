@@ -24,7 +24,7 @@ includes:
 {{b}}Review Instructions:{{b}}
   — You MUST NOT consider previous conversational history when conducting this review.
     {{b}}This review must be done with a fresh look without consideration of previous work, including any fixes and tests.{{b}}
-  — Use {{tool_prefix}}get_content("code-review") to access code review guidelines.
+  — Use {{#resource}}code-review{{/resource}} to access code review guidelines.
   — Read {{workflow.file}} to understand the current issue context {{#workflow.issue}}(issue: {{workflow.issue}}).{{/workflow.issue}}
   — Analyse changes against HEAD and create or update review artifact in `{{#workflow.issue}}{{path.documents}}{{workflow.issue}}-review.md{{/workflow.issue}}{{^workflow.issue}}{{path.documents}}{{/workflow.issue}}`
 

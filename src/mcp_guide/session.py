@@ -813,6 +813,11 @@ async def get_or_create_session(
 
     session.add_listener(StartupInstructionListener())
 
+    # Register per-session guide URI instruction listener
+    from mcp_guide.guide_uri_listener import GuideUriListener
+
+    session.add_listener(GuideUriListener())
+
     # Store in ContextVar
     set_current_session(session)
 
