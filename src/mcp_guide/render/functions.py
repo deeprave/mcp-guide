@@ -199,3 +199,18 @@ class TemplateFunctions:
             var_end = text.find("}}") + 2
             return str(render(text[var_end:]))
         return ""
+
+    def resource(self, text: str, render: Callable[[str], str] | None = None) -> str:
+        """Render content reference: {{#resource}}expression{{/resource}}
+
+        Returns guide://expression URI by default, or get_content("expression")
+        when the content-accessor flag is true.
+        """
+        expression = render(text).strip() if render else text.strip()
+        if not expression:
+            return ""
+
+        flags = self.context.get("flags", {})
+        if flags.get("content-accessor"):
+            return f'get_content("{expression}")'
+        return f"guide://{expression}"

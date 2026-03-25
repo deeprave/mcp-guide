@@ -17,7 +17,6 @@ class StartupInstructionListener:
 
     async def on_config_changed(self, session: "Session") -> None:
         """No-op — startup instructions don't re-fire on config changes."""
-        pass
 
     async def on_project_changed(self, session: "Session", old_project: str, new_project: str) -> None:
         """Render and queue startup instructions when a project is loaded."""

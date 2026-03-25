@@ -8,7 +8,7 @@
 
 - Agents have no automatic way to learn about the `guide://` URI scheme. MCP `resources/list` is ignored by most agents. The `read_resource` tool description alone is insufficient — agents don't proactively connect `guide://` URIs encountered in content with a tool called `read_resource`.
 - Templates currently hardcode `get_content("expression")` references via `{{tool_prefix}}get_content`. With `read_resource` now available, templates should be able to render content references as `guide://` URIs instead, giving agents a choice of access method. This needs to be switchable via feature flag.
-- Complex expressions (comma-separated collections/categories) are not valid as guide:// URIs since commas are not valid in the URI authority field. The lambda must fall back to `get_content()` for these.
+- ~~Complex expressions with commas~~ — commas are valid in URI authority fields, so no fallback is needed.
 
 ## What Changes
 
@@ -32,7 +32,6 @@
 - Controlled by `content-accessor` feature flag:
   - `false` (default): renders as `guide://expression` URI
   - `true`: renders as `get_content("expression")`
-- For MVP, complex expressions containing commas always fall back to `get_content("expression")` regardless of flag, since guide:// URIs don't support comma-separated values in the authority field
 - Replace existing `{{tool_prefix}}get_content("...")` references in templates with `{{#resource}}...{{/resource}}`
 
 ## Technical Approach
@@ -48,8 +47,7 @@ Follows the same pattern as `StartupInstructionListener`:
 ### Resource lambda
 
 - Implemented as a class-based lambda in `render/functions.py` following existing lambda patterns
-- Receives the expression text, checks for commas → if present, always renders `get_content("expr")`
-- Otherwise checks `content-accessor` flag value to determine rendering format
+- Receives the expression text, checks `content-accessor` flag value to determine rendering format
 - Registered in template context as `resource`
 
 ## Success Criteria
@@ -57,4 +55,3 @@ Follows the same pattern as `StartupInstructionListener`:
 - Agent receives guide:// URI instruction on first tool call without user action
 - Templates render content references as `guide://` URIs by default
 - Setting `content-accessor: true` switches to `get_content()` rendering
-- Complex expressions with commas always render as `get_content()`

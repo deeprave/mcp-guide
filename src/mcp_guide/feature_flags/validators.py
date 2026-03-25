@@ -6,6 +6,7 @@ from typing import Callable, Dict
 from mcp_guide.feature_flags.constants import (
     FLAG_ALLOW_CLIENT_INFO,
     FLAG_AUTOUPDATE,
+    FLAG_CONTENT_ACCESSOR,
     FLAG_CONTENT_FORMAT,
     FLAG_CONTENT_STYLE,
     FLAG_GUIDE_DEVELOPMENT,
@@ -303,5 +304,6 @@ register_flag_validator(FLAG_CONTENT_STYLE, validate_template_styling)
 register_flag_validator(FLAG_ALLOW_CLIENT_INFO, validate_allow_client_info, FlagScope.FEATURE_ONLY)
 register_flag_validator(FLAG_AUTOUPDATE, validate_autoupdate, FlagScope.FEATURE_ONLY)
 register_flag_validator(FLAG_GUIDE_DEVELOPMENT, validate_boolean_flag)
+register_flag_validator(FLAG_CONTENT_ACCESSOR, validate_boolean_flag)
 register_flag_validator(FLAG_PATH_DOCUMENTS, validate_path_flag, normaliser=normalise_path_flag)
 register_flag_validator(FLAG_PATH_EXPORT, validate_path_flag, normaliser=normalise_path_flag)

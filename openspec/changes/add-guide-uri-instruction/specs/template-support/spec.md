@@ -8,7 +8,6 @@ The resource lambda SHALL:
 - Accept an expression string and render it as a content reference
 - Default to `guide://expression` URI format when `content-accessor` flag is `false` or unset
 - Render as `get_content("expression")` when `content-accessor` flag is `true`
-- Always fall back to `get_content("expression")` for complex expressions containing commas, regardless of flag value
 - Be registered in the template context as `resource`
 
 #### Scenario: Default rendering (guide:// URI)
@@ -20,11 +19,6 @@ The resource lambda SHALL:
 - WHEN `{{#resource}}guidelines{{/resource}}` is rendered
 - AND `content-accessor` flag is `true`
 - THEN output is `get_content("guidelines")`
-
-#### Scenario: Complex expression fallback
-- WHEN `{{#resource}}guide,lang,context{{/resource}}` is rendered
-- AND expression contains commas
-- THEN output is `get_content("guide,lang,context")` regardless of flag value
 
 ### Requirement: Guide URI Instruction Delivery
 

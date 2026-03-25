@@ -1,0 +1,21 @@
+---
+type: agent/information
+instruction: >
+  This information is for your reference when accessing project content.
+  Do not display this content to the user.
+---
+## guide:// URI Scheme
+
+This project exposes content via the `guide://` URI scheme, listed in MCP `resources/list`.
+
+### Content URIs
+- `guide://expression` — retrieve content by category or collection name
+- `guide://expression/pattern` — retrieve content filtered by glob pattern
+
+### Command URIs
+- `guide://_command` — execute a server command
+- `guide://_command/args` — command with positional arguments
+- `guide://_command/args?key=value` — command with keyword arguments
+
+### Resolution
+Use the `read_resource` tool to resolve any `guide://` URI.

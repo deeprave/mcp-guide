@@ -170,6 +170,7 @@ async def render_template_content(
                 "contains": _safe_lambda(functions.contains),
                 "equals": _safe_lambda(functions.equals),
                 "time_ago": _safe_lambda(functions.time_ago),
+                "resource": _safe_lambda(functions.resource),
             }
         )
 
