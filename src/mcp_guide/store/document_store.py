@@ -8,7 +8,10 @@ from pathlib import Path
 from typing import Literal, Optional
 
 from mcp_guide.config_paths import get_documents_db
+from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.store.executor import run_in_thread
+
+logger = get_logger(__name__)
 
 SourceType = Literal["file", "url"]
 
@@ -42,6 +45,10 @@ _MIGRATIONS = """
 class UpsertResult:
     record: Optional["DocumentRecord"] = None
     skipped_reason: Optional[str] = None
+
+    def __post_init__(self) -> None:
+        if (self.record is None) == (self.skipped_reason is None):
+            raise ValueError("Exactly one of record or skipped_reason must be set")
 
     @property
     def skipped(self) -> bool:
@@ -153,9 +160,13 @@ def _add_document(
                 ).fetchone()
                 if existing is not None and existing["mtime"] is not None:
                     if mtime == existing["mtime"]:
-                        return UpsertResult(skipped_reason=f"Document {category}/{name} unchanged (same mtime)")
+                        reason = f"Document {category}/{name} unchanged (same mtime)"
+                        logger.debug(reason)
+                        return UpsertResult(skipped_reason=reason)
                     if mtime < existing["mtime"]:
-                        return UpsertResult(skipped_reason=f"Document {category}/{name} is newer than source")
+                        reason = f"Document {category}/{name} is newer than source"
+                        logger.debug(reason)
+                        return UpsertResult(skipped_reason=reason)
 
             conn.execute(
                 """

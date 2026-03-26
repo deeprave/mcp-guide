@@ -99,7 +99,7 @@ async def test_rejects_same_mtime(task):
 
     assert result is not None
     assert result.result is False
-    assert "unchanged" in result.message
+    assert result.message == "Document docs/readme.md unchanged (same mtime)"
 
 
 @pytest.mark.anyio
