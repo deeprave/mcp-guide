@@ -11,6 +11,7 @@ All notable changes to mcp-guide will be documented in this file.
 - `send_file_content` document ingestion with automatic `source` defaulting to `"file"`
 - `category_list_files` source filter for listing filesystem-only, store-only, or both
 - `roots/list_changed` notification handler to detect project switches
+- Advertised `guide://` command resource template for MCP resource discovery
 
 ### Breaking
 - Minimum Python version raised from 3.11 to 3.12 (`PurePosixPath.full_match()` required for stored document pattern matching)
@@ -25,6 +26,7 @@ All notable changes to mcp-guide will be documented in this file.
 - Session access semantics and bootstrap data isolation
 - Startup issue with session initialization
 - Render module type errors and centralized error logging
+- Direct MCP resource handling for `guide://_command` URIs
 
 
 ## [1.1.0] - 2026-03-16

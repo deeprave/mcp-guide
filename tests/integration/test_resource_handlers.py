@@ -1,5 +1,6 @@
 """Integration tests for MCP resource handlers."""
 
+from types import SimpleNamespace
 from typing import Any, Callable
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -140,6 +141,75 @@ class TestResourceHandlers:
             assert result == ""
 
     @pytest.mark.anyio
+    async def test_guide_command_resource_routes_simple_command_uri(self, mcp_server: Any) -> None:
+        """Command resource should delegate to internal_read_resource."""
+        mock_ctx = MagicMock()
+        mock_result = Result.ok("project info")
+
+        with patch(
+            "mcp_guide.resources.internal_read_resource", new=AsyncMock(return_value=mock_result)
+        ) as mock_read_resource:
+            from mcp_guide.resources import guide_command_resource
+
+            result = await guide_command_resource("project", mock_ctx)
+
+            mock_read_resource.assert_called_once()
+            args_call, kwargs_call = mock_read_resource.call_args
+            read_args = args_call[0]
+            assert read_args.uri == "guide://_project"
+            assert kwargs_call["ctx"] is mock_ctx
+            assert result == "project info"
+
+    @pytest.mark.anyio
+    async def test_guide_command_resource_uses_full_request_uri(self, mcp_server: Any) -> None:
+        """Command resource should preserve query params from the MCP request URI."""
+        request = SimpleNamespace(params=SimpleNamespace(uri="guide://_status?verbose=true"))
+        mock_ctx = MagicMock()
+        mock_ctx.request_context = SimpleNamespace(request=request)
+        mock_result = Result.ok("status output")
+
+        with patch(
+            "mcp_guide.resources.internal_read_resource", new=AsyncMock(return_value=mock_result)
+        ) as mock_read_resource:
+            from mcp_guide.resources import guide_command_resource
+
+            result = await guide_command_resource("status", mock_ctx)
+
+            read_args = mock_read_resource.call_args[0][0]
+            assert read_args.uri == "guide://_status?verbose=true"
+            assert result == "status output"
+
+    @pytest.mark.anyio
+    async def test_guide_command_resource_supports_path_args(self, mcp_server: Any) -> None:
+        """Command resource should preserve command path arguments."""
+        mock_ctx = MagicMock()
+        mock_result = Result.ok("category output")
+
+        with patch(
+            "mcp_guide.resources.internal_read_resource", new=AsyncMock(return_value=mock_result)
+        ) as mock_read_resource:
+            from mcp_guide.resources import guide_command_resource
+
+            result = await guide_command_resource("category/add/docs", mock_ctx)
+
+            read_args = mock_read_resource.call_args[0][0]
+            assert read_args.uri == "guide://_category/add/docs"
+            assert result == "category output"
+
+    @pytest.mark.anyio
+    async def test_guide_command_resource_returns_validation_errors(self, mcp_server: Any) -> None:
+        """Command resource should surface validation failures as text."""
+        mock_ctx = MagicMock()
+        mock_result = Result.failure("Command not found")
+
+        with patch("mcp_guide.resources.internal_read_resource", new=AsyncMock(return_value=mock_result)):
+            from mcp_guide.resources import guide_command_resource
+
+            result = await guide_command_resource("unknown", mock_ctx)
+
+            assert result == "Command not found"
+
+    @pytest.mark.anyio
     @pytest.mark.e2e
     @pytest.mark.slow
     async def test_mcp_client_can_list_resources(self, tmp_path: Any) -> None:
@@ -185,6 +255,11 @@ class TestResourceHandlers:
                     expected_template = "guide://{collection}/{document}"
                     assert expected_template in template_uris, (
                         f"Expected {expected_template} not found in {template_uris}"
+                    )
+
+                    expected_command_template = "guide://_{command_path*}"
+                    assert expected_command_template in template_uris, (
+                        f"Expected {expected_command_template} not found in {template_uris}"
                     )
         except (asyncio.TimeoutError, OSError) as e:
             pytest.skip(f"End-to-end MCP test skipped due to subprocess/timeout issue: {e}")
