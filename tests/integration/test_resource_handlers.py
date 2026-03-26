@@ -261,5 +261,15 @@ class TestResourceHandlers:
                     assert expected_command_template in template_uris, (
                         f"Expected {expected_command_template} not found in {template_uris}"
                     )
+
+                    project_result = await asyncio.wait_for(session.read_resource("guide://_project"), timeout=timeout)
+                    project_text = project_result.contents[0].text
+                    assert "Project" in project_text
+
+                    status_result = await asyncio.wait_for(
+                        session.read_resource("guide://_status?verbose=true"), timeout=timeout
+                    )
+                    status_text = status_result.contents[0].text
+                    assert "System Status" in status_text
         except (asyncio.TimeoutError, OSError) as e:
             pytest.skip(f"End-to-end MCP test skipped due to subprocess/timeout issue: {e}")
