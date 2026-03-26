@@ -12,7 +12,7 @@ from mcp_guide.tools.tool_resource import ReadResourceArgs, internal_read_resour
 logger = get_logger(__name__)
 
 
-def _get_request_uri(ctx: Optional["Context"]) -> str | None:
+def _get_request_uri(ctx: Optional[Context]) -> str | None:
     """Return the current MCP request URI when FastMCP exposes it."""
     if ctx is None or ctx.request_context is None:
         return None
@@ -26,16 +26,16 @@ def _get_request_uri(ctx: Optional["Context"]) -> str | None:
     return None
 
 
-async def _resolve_guide_uri(uri: str, ctx: Optional["Context"]) -> str:
+async def _resolve_guide_uri(uri: str, ctx: Optional[Context]) -> str:
     """Resolve a guide:// URI through the shared read_resource implementation."""
     result = await internal_read_resource(ReadResourceArgs(uri=uri), ctx=ctx)
     if not result.success:
         return result.error or "Resource retrieval failed"
-    return str(result.value) if result.value else ""
+    return str(result.value) if result.value is not None else ""
 
 
 @resourcefunc("guide://{collection}/{document}")
-async def guide_resource(collection: str, document: str = "", ctx: Optional["Context"] = None) -> str:
+async def guide_resource(collection: str, document: str = "", ctx: Optional[Context] = None) -> str:
     """Read content from guide:// URI.
 
     Args:
@@ -62,7 +62,7 @@ async def guide_resource(collection: str, document: str = "", ctx: Optional["Con
         if not result.success:
             return result.error or "Content retrieval failed"
 
-        return str(result.value) if result.value else ""
+        return str(result.value) if result.value is not None else ""
 
     except (ValueError, FileNotFoundError, PermissionError) as e:
         return f"Error: {str(e)}"
@@ -73,7 +73,7 @@ async def guide_resource(collection: str, document: str = "", ctx: Optional["Con
 
 
 @resourcefunc("guide://_{command_path*}")
-async def guide_command_resource(command_path: str, ctx: Optional["Context"] = None) -> str:
+async def guide_command_resource(command_path: str, ctx: Optional[Context] = None) -> str:
     """Read command output from guide:// command URIs.
 
     This template is advertised separately so MCP clients can discover command-shaped
