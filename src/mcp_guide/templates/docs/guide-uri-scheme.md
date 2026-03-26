@@ -9,7 +9,7 @@ guide://expression[/pattern]
 guide://_command[/args][?kwargs]
 ```
 
-- {{b}}expression{{b}}: Collection or category name for content URIs
+- {{b}}expression{{b}}: Content expression for content URIs, such as a category name, collection name, or combined expression like `docs,tasks`
 - {{b}}pattern{{b}}: Optional document pattern for content URIs
 - {{b}}_command{{b}}: Command name for command URIs
 - {{b}}args{{b}}: Optional positional command arguments
@@ -22,6 +22,7 @@ guide://lang              # All language guidelines
 guide://lang/python       # Python-specific content
 guide://docs              # All documentation
 guide://docs/readme       # README-related docs
+guide://docs,tasks        # Combined content expression
 guide://_project          # Run the project command
 guide://_status?verbose=true
 guide://_perm/write-add/docs/
