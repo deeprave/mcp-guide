@@ -29,12 +29,14 @@ Protected Paths (if they exist):
 import asyncio
 import os
 import shutil
+import sys
 import tempfile
 from pathlib import Path
 
 import pytest
 from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer
+from watchdog.observers.polling import PollingObserver
 
 # Export real path constants for test validation
 __all__ = [
@@ -100,6 +102,15 @@ class ProductionFileHandler(FileSystemEventHandler):
         )
 
 
+def _create_test_observer():
+    """Create a watchdog observer suitable for the current test platform."""
+    # Polling is sufficient for this safety-tripwire fixture and avoids the
+    # FSEvents teardown crash seen on macOS with Python 3.14.
+    if sys.platform == "darwin":
+        return PollingObserver(timeout=0.2)
+    return Observer()
+
+
 @pytest.fixture(scope="session", autouse=True)
 def protect_production_files():
     """Monitor REAL production paths and terminate tests if modified.
@@ -108,25 +119,32 @@ def protect_production_files():
     redirects environment variables to temporary directories.
     """
     handler = ProductionFileHandler()
-    observer = Observer()
+    observer = _create_test_observer()
+    watched_any = False
 
     # Monitor REAL production paths (captured before env modification)
     if REAL_PATHS["mcp_guide_config"].exists():
         observer.schedule(handler, str(REAL_PATHS["mcp_guide_config"]), recursive=False)
+        watched_any = True
 
     if REAL_PATHS["mcp_guide_docroot"].exists():
         observer.schedule(handler, str(REAL_PATHS["mcp_guide_docroot"]), recursive=True)
+        watched_any = True
 
     if REAL_PATHS["msg_config"].exists():
         observer.schedule(handler, str(REAL_PATHS["msg_config"]), recursive=False)
+        watched_any = True
 
     if REAL_PATHS["msg_docroot"].exists():
         observer.schedule(handler, str(REAL_PATHS["msg_docroot"]), recursive=True)
+        watched_any = True
 
-    observer.start()
+    if watched_any:
+        observer.start()
     yield
-    observer.stop()
-    observer.join()
+    if watched_any and observer.is_alive():
+        observer.stop()
+        observer.join(timeout=5)
 
 
 def pytest_configure(config):

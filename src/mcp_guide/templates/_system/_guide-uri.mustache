@@ -18,4 +18,5 @@ This project exposes content via the `guide://` URI scheme, listed in MCP `resou
 - `guide://_command/args?key=value` — command with keyword arguments
 
 ### Resolution
-Use the `read_resource` tool to resolve any `guide://` URI.
+- Prefer MCP resource discovery and direct resource reads when the client supports them.
+- Use the `read_resource` tool as a fallback for clients that only expose tools.
