@@ -115,6 +115,12 @@ class McpUpdateTask:
         """Called after tool execution - no-op."""
         pass
 
+    async def acknowledge_update(self) -> None:
+        """Acknowledge the update instruction to prevent retry loop."""
+        if self._instruction_id:
+            await self.task_manager.acknowledge_instruction(self._instruction_id)
+            self._instruction_id = None
+
     async def _prompt_update(self) -> None:
         """Queue update prompt instruction."""
         from mcp_guide.render.context import TemplateContext

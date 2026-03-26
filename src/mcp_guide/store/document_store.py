@@ -39,6 +39,16 @@ _MIGRATIONS = """
 
 
 @dataclass
+class UpsertResult:
+    record: Optional["DocumentRecord"] = None
+    skipped_reason: Optional[str] = None
+
+    @property
+    def skipped(self) -> bool:
+        return self.record is None
+
+
+@dataclass
 class DocumentRecord:
     id: int
     category: str
@@ -123,8 +133,9 @@ def _add_document(
     content: str,
     metadata: Optional[dict] = None,
     mtime: Optional[float] = None,
+    force: bool = False,
     db_path: Optional[Path] = None,
-) -> DocumentRecord:
+) -> UpsertResult:
     if not category or not name:
         raise ValueError("category and name must be non-empty")
     if source_type not in _VALID_SOURCE_TYPES:
@@ -134,6 +145,18 @@ def _add_document(
     conn = _get_conn(db_path)
     try:
         with conn:
+            # Conditional mtime check within the same transaction
+            if mtime is not None and not force:
+                existing = conn.execute(
+                    "SELECT mtime FROM documents WHERE category = ? AND name = ?",
+                    (category, name),
+                ).fetchone()
+                if existing is not None and existing["mtime"] is not None:
+                    if mtime == existing["mtime"]:
+                        return UpsertResult(skipped_reason=f"Document {category}/{name} unchanged (same mtime)")
+                    if mtime < existing["mtime"]:
+                        return UpsertResult(skipped_reason=f"Document {category}/{name} is newer than source")
+
             conn.execute(
                 """
                 INSERT INTO documents (category, name, source, source_type, content, metadata, mtime, created_at, updated_at)
@@ -154,7 +177,7 @@ def _add_document(
             ).fetchone()
     finally:
         conn.close()
-    return _row_to_record(row)
+    return UpsertResult(record=_row_to_record(row))
 
 
 def _get_document(category: str, name: str, db_path: Optional[Path] = None) -> Optional[DocumentRecord]:
@@ -287,10 +310,13 @@ async def add_document(
     content: str,
     metadata: Optional[dict] = None,
     mtime: Optional[float] = None,
+    force: bool = False,
     db_path: Optional[Path] = None,
-) -> DocumentRecord:
-    """Insert or update a document. Returns the stored record."""
-    return await run_in_thread(_add_document, category, name, source, source_type, content, metadata, mtime, db_path)
+) -> UpsertResult:
+    """Insert or update a document. Returns UpsertResult with record or skip reason."""
+    return await run_in_thread(
+        _add_document, category, name, source, source_type, content, metadata, mtime, force, db_path
+    )
 
 
 async def get_document(category: str, name: str, db_path: Optional[Path] = None) -> Optional[DocumentRecord]:

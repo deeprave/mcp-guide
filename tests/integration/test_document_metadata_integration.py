@@ -31,15 +31,11 @@ async def test_metadata_persisted_through_document_task(tmp_path):
         "metadata": {"author": "Override", "custom-key": "custom-value"},
     }
 
-    async def _get(c, n):
-        return await get_document(c, n, db_path=db)
-
     async def _add(**kw):
         return await _add_with_db(db, **kw)
 
     with (
         patch("mcp_guide.tasks.document_task.get_session", return_value=session),
-        patch("mcp_guide.tasks.document_task.get_document", side_effect=_get),
         patch("mcp_guide.tasks.document_task.add_document", side_effect=_add),
     ):
         result = await task.handle_event(EventType.FS_FILE_CONTENT, event_data)

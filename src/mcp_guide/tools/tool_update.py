@@ -62,6 +62,15 @@ async def internal_update_documents(
     # Perform locked update
     stats = await perform_locked_update(docroot, archive_path)
 
+    # Acknowledge update prompt to stop retry loop
+    from mcp_guide.task_manager.manager import get_task_manager
+    from mcp_guide.tasks.update_task import McpUpdateTask
+
+    task_manager = get_task_manager()
+    update_task = task_manager.get_task_by_type(McpUpdateTask)
+    if update_task:
+        await update_task.acknowledge_update()
+
     return Result.ok(
         value={
             "message": "Documentation updated successfully",

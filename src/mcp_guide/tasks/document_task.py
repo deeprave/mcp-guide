@@ -8,7 +8,7 @@ from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.decorators import task_init
 from mcp_guide.render.frontmatter import parse_content_with_frontmatter
 from mcp_guide.session import get_session
-from mcp_guide.store.document_store import add_document, get_document
+from mcp_guide.store.document_store import add_document
 from mcp_guide.task_manager.interception import EventType
 from mcp_guide.task_manager.manager import get_task_manager
 
@@ -87,15 +87,6 @@ class DocumentTask:
         if category not in project.categories:
             return EventResult(result=False, message=f"Category {category!r} does not exist")
 
-        # Check mtime staleness against existing document
-        if mtime is not None and not force:
-            existing = await get_document(category, name)
-            if existing is not None and existing.mtime is not None:
-                if mtime == existing.mtime:
-                    return EventResult(result=False, message=f"Document {category}/{name} unchanged (same mtime)")
-                if mtime < existing.mtime:
-                    return EventResult(result=False, message=f"Document {category}/{name} is newer than source")
-
         # Parse and strip frontmatter from content
         parsed = parse_content_with_frontmatter(content)
         content = parsed.content
@@ -117,7 +108,7 @@ class DocumentTask:
         # Determine source_type from source string
         source_type = "url" if source.startswith(("http://", "https://")) else "file"
 
-        record = await add_document(
+        result = await add_document(
             category=category,
             name=name,
             source=source,
@@ -125,7 +116,11 @@ class DocumentTask:
             content=content,
             metadata=metadata,
             mtime=mtime,
+            force=force,
         )
 
-        logger.info(f"Ingested document {record.category}/{record.name} (source={source_type})")
+        if result.skipped:
+            return EventResult(result=False, message=result.skipped_reason or f"Document {category}/{name} skipped")
+
+        logger.info(f"Ingested document {category}/{name} (source={source_type})")
         return EventResult(result=True, message=f"Document {category}/{name} stored successfully")
