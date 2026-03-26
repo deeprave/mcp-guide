@@ -9,7 +9,6 @@ from typing import TYPE_CHECKING, Any, Callable, Coroutine, Optional, Union
 
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.result_constants import ERROR_VALIDATION, INSTRUCTION_VALIDATION_ERROR
-from mcp_guide.task_manager.manager import get_task_manager
 
 if TYPE_CHECKING:
     pass
@@ -76,6 +75,10 @@ async def _call_on_tool(tool_name: str) -> None:
     Args:
         tool_name: Name of the tool being invoked
     """
+    # Import lazily to avoid a cold-import cycle:
+    # task_manager.manager imports render modules, which import this decorator.
+    from mcp_guide.task_manager.manager import get_task_manager
+
     task_manager = get_task_manager()
     try:
         logger.trace(f"Calling on_tool at start of {tool_name}")
