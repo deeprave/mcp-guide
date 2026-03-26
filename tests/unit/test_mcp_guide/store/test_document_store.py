@@ -19,7 +19,9 @@ def db(tmp_path):
 
 @pytest.mark.anyio
 async def test_add_and_get_round_trip(db):
-    record = await add_document("docs", "readme", "/path/readme.md", "file", "# Hello", db_path=db)
+    result = await add_document("docs", "readme", "/path/readme.md", "file", "# Hello", db_path=db)
+    assert not result.skipped
+    record = result.record
     assert record.category == "docs"
     assert record.name == "readme"
     assert record.content == "# Hello"
@@ -45,8 +47,8 @@ async def test_get_document_content_missing_returns_none(db):
 
 @pytest.mark.anyio
 async def test_upsert_updates_content_and_timestamp(db):
-    first = await add_document("docs", "readme", "/path/readme.md", "file", "v1", db_path=db)
-    second = await add_document("docs", "readme", "/path/readme.md", "file", "v2", db_path=db)
+    first = (await add_document("docs", "readme", "/path/readme.md", "file", "v1", db_path=db)).record
+    second = (await add_document("docs", "readme", "/path/readme.md", "file", "v2", db_path=db)).record
     assert second.content == "v2"
     assert second.id == first.id
     assert second.updated_at >= first.updated_at
@@ -97,8 +99,8 @@ async def test_list_all(db):
 @pytest.mark.anyio
 async def test_metadata_stored_and_retrieved(db):
     meta = {"etag": "abc123", "content-type": "text/markdown"}
-    record = await add_document("docs", "readme", "/path", "url", "content", metadata=meta, db_path=db)
-    assert record.metadata == meta
+    result = await add_document("docs", "readme", "/path", "url", "content", metadata=meta, db_path=db)
+    assert result.record.metadata == meta
 
     fetched = await get_document("docs", "readme", db_path=db)
     assert fetched is not None
@@ -126,8 +128,8 @@ async def test_empty_name_raises(db):
 @pytest.mark.anyio
 async def test_mtime_stored_on_add(db):
     """mtime is persisted and returned on add."""
-    record = await add_document("docs", "readme", "/path", "file", "content", mtime=1700000000.5, db_path=db)
-    assert record.mtime == 1700000000.5
+    result = await add_document("docs", "readme", "/path", "file", "content", mtime=1700000000.5, db_path=db)
+    assert result.record.mtime == 1700000000.5
 
 
 @pytest.mark.anyio
@@ -152,16 +154,16 @@ async def test_mtime_returned_on_list(db):
 @pytest.mark.anyio
 async def test_mtime_defaults_to_none(db):
     """mtime defaults to None when not provided."""
-    record = await add_document("docs", "readme", "/path", "file", "content", db_path=db)
-    assert record.mtime is None
+    result = await add_document("docs", "readme", "/path", "file", "content", db_path=db)
+    assert result.record.mtime is None
 
 
 @pytest.mark.anyio
 async def test_mtime_updated_on_upsert(db):
     """mtime is updated when document is upserted."""
     await add_document("docs", "readme", "/path", "file", "v1", mtime=100.0, db_path=db)
-    record = await add_document("docs", "readme", "/path", "file", "v2", mtime=200.0, db_path=db)
-    assert record.mtime == 200.0
+    result = await add_document("docs", "readme", "/path", "file", "v2", mtime=200.0, db_path=db)
+    assert result.record.mtime == 200.0
 
 
 # --- update_document tests ---
