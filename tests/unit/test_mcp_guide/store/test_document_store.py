@@ -166,6 +166,60 @@ async def test_mtime_updated_on_upsert(db):
     assert result.record.mtime == 200.0
 
 
+@pytest.mark.anyio
+async def test_same_mtime_skips_write(db):
+    """Existing document is preserved when the incoming mtime is unchanged."""
+    await add_document("docs", "readme", "/path", "file", "v1", mtime=100.0, db_path=db)
+
+    result = await add_document("docs", "readme", "/path", "file", "v2", mtime=100.0, db_path=db)
+
+    assert result.skipped is True
+    assert result.skipped_reason == "Document docs/readme unchanged (same mtime)"
+    content = await get_document_content("docs", "readme", db_path=db)
+    assert content == "v1"
+
+
+@pytest.mark.anyio
+async def test_older_mtime_skips_write(db):
+    """Existing document is preserved when the incoming source is older."""
+    await add_document("docs", "readme", "/path", "file", "v1", mtime=200.0, db_path=db)
+
+    result = await add_document("docs", "readme", "/path", "file", "v2", mtime=100.0, db_path=db)
+
+    assert result.skipped is True
+    assert result.skipped_reason == "Document docs/readme is newer than source"
+    content = await get_document_content("docs", "readme", db_path=db)
+    assert content == "v1"
+
+
+@pytest.mark.anyio
+async def test_force_bypasses_mtime_check(db):
+    """Force writes proceed even when the incoming source is older."""
+    await add_document("docs", "readme", "/path", "file", "v1", mtime=200.0, db_path=db)
+
+    result = await add_document("docs", "readme", "/path", "file", "v2", mtime=100.0, force=True, db_path=db)
+
+    assert result.skipped is False
+    assert result.record is not None
+    assert result.record.mtime == 100.0
+    content = await get_document_content("docs", "readme", db_path=db)
+    assert content == "v2"
+
+
+@pytest.mark.anyio
+async def test_missing_mtime_bypasses_staleness_check(db):
+    """Absent mtime values allow unconditional upserts."""
+    await add_document("docs", "readme", "/path", "file", "v1", mtime=200.0, db_path=db)
+
+    result = await add_document("docs", "readme", "/path", "file", "v2", db_path=db)
+
+    assert result.skipped is False
+    assert result.record is not None
+    assert result.record.mtime is None
+    content = await get_document_content("docs", "readme", db_path=db)
+    assert content == "v2"
+
+
 # --- update_document tests ---
 
 
