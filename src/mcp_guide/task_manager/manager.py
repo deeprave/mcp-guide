@@ -280,10 +280,12 @@ class TaskManager:
         event_types: EventType,
         timer_interval: Optional[float] = None,
         initial_delay: Optional[float] = None,
+        once_delay: Optional[float] = None,
     ) -> None:
         """Subscribe to events with optional timer support."""
         logger.trace(
-            f"TaskManager.subscribe: {subscriber.get_name()} subscribing to {event_types}, interval={timer_interval}"
+            f"TaskManager.subscribe: {subscriber.get_name()} subscribing to {event_types}, "
+            f"interval={timer_interval}, once_delay={once_delay}"
         )
 
         # Check if this exact subscriber instance with same event types is already registered
@@ -297,20 +299,26 @@ class TaskManager:
         # Parameter validation
         if timer_interval is not None and timer_interval <= 0:
             raise ValueError("Timer interval must be positive")
+        if once_delay is not None and once_delay <= 0:
+            raise ValueError("Once delay must be positive")
 
         subscriber_name = self._get_subscriber_name(subscriber)
         current_time = time.time()
 
         # Create appropriate subscription type
-        if timer_interval is not None:
+        if timer_interval is not None or once_delay is not None:
             # Assign unique timer bit for tracking
             unique_timer_bit = self._next_timer_id << 17  # Shift above TIMER (2^16)
             self._next_timer_id += 1
 
             # Add TIMER flag and unique bit to event_types
-            combined_event_types = event_types | EventType.TIMER | unique_timer_bit
+            combined_event_types = event_types | unique_timer_bit
+            if timer_interval is not None:
+                combined_event_types |= EventType.TIMER
+            if once_delay is not None:
+                combined_event_types |= EventType.TIMER_ONCE
 
-            subscription = Subscription(subscriber, combined_event_types, timer_interval, initial_delay)
+            subscription = Subscription(subscriber, combined_event_types, timer_interval, initial_delay, once_delay)
             subscription.original_event_types = event_types
             subscription.unique_timer_bit = unique_timer_bit
 
@@ -322,17 +330,19 @@ class TaskManager:
 
             # Track timer statistics - include unique_timer_bit to avoid collisions
             task_id = f"{subscriber_name}_{id(subscriber)}_{unique_timer_bit}"
-            delay = initial_delay if initial_delay is not None else timer_interval
-            self._task_stats[task_id] = {
+            stats: dict[str, Any] = {
                 "name": subscriber_name,
                 "type": "timer",
                 "started": current_time,
                 "last_data": current_time,
                 "interval": timer_interval,
                 "last_run": None,
-                "next_run": current_time + delay,
                 "run_count": 0,
             }
+            if timer_interval is not None:
+                delay = initial_delay if initial_delay is not None else timer_interval
+                stats["next_run"] = current_time + delay
+            self._task_stats[task_id] = stats
         else:
             regular_subscription = Subscription(subscriber, event_types)
             self._subscriptions.append(regular_subscription)
@@ -352,7 +362,7 @@ class TaskManager:
     async def start(self) -> None:
         """Start all timer tasks for subscribed tasks."""
         # Start timer task if any timer subscriptions exist
-        has_timer_subscriptions = any(sub.interval is not None for sub in self._subscriptions)
+        has_timer_subscriptions = any(sub.is_timer() for sub in self._subscriptions)
 
         if has_timer_subscriptions and (self._timer_task is None or self._timer_task.done()):
             self._timer_task = asyncio.create_task(self._timer_loop())
@@ -472,28 +482,33 @@ class TaskManager:
                 except Exception as e:
                     logger.warning(f"Error handling event in {subscriber.get_name()}: {e}")
 
-                # Check if this was a TIMER_ONCE event that was handled - remove timer flags
+                # Check if this was a TIMER_ONCE event that was handled - remove TIMER_ONCE flag only
                 if (
                     (data_type & EventType.TIMER_ONCE)
                     and (subscription.event_types & EventType.TIMER_ONCE)
                     and result is not None
                 ):
                     logger.trace(f"Removing TIMER_ONCE flag from {subscriber.get_name()}")
-                    subscription.event_types &= ~(EventType.TIMER_ONCE | EventType.TIMER)  # Remove both timer flags
-                    subscription.interval = None  # Stop timer from firing again
-                    subscription.next_fire_time = None
+                    subscription.event_types &= ~EventType.TIMER_ONCE
+                    subscription.once_fire_time = None
 
-                    # Update task stats - change to regular task
-                    subscriber_name = self._get_subscriber_name(subscriber)
-                    unique_bit = getattr(subscription, "unique_timer_bit", None)
-                    if unique_bit is not None:
-                        task_id = f"{subscriber_name}_{id(subscriber)}_{unique_bit}"
-                        if task_id in self._task_stats:
-                            self._task_stats[task_id]["type"] = "regular"
-                            self._task_stats[task_id].pop("interval", None)
-                            self._task_stats[task_id].pop("last_run", None)
-                            self._task_stats[task_id].pop("next_run", None)
-                            self._task_stats[task_id].pop("run_count", None)
+                    # Only clear timer machinery if no recurring TIMER remains
+                    if not (subscription.event_types & EventType.TIMER):
+                        subscription.interval = None
+                        subscription.next_fire_time = None
+
+                    # Update task stats - change to regular task only if no timer remains
+                    if not (subscription.event_types & EventType.TIMER):
+                        subscriber_name = self._get_subscriber_name(subscriber)
+                        unique_bit = getattr(subscription, "unique_timer_bit", None)
+                        if unique_bit is not None:
+                            task_id = f"{subscriber_name}_{id(subscriber)}_{unique_bit}"
+                            if task_id in self._task_stats:
+                                self._task_stats[task_id]["type"] = "regular"
+                                self._task_stats[task_id].pop("interval", None)
+                                self._task_stats[task_id].pop("last_run", None)
+                                self._task_stats[task_id].pop("next_run", None)
+                                self._task_stats[task_id].pop("run_count", None)
             else:
                 logger.trace(f"Event {data_type} does not match subscription {subscription.event_types}")
 
@@ -757,40 +772,61 @@ class TaskManager:
             current_time = time.time()
             next_fire_time = float("inf")
 
+            # Check whether project is bound — skip dispatch if not, but keep timers ticking
+            project_bound = self._session is not None and self._session.project_is_bound
+
             # Check each timer subscription
             for timer_sub in timer_subscriptions[:]:  # Copy to avoid modification during iteration
                 subscriber = timer_sub.subscriber
 
+                # Helper for stats tracking
+                subscriber_name = self._get_subscriber_name(subscriber)
+                unique_bit = getattr(timer_sub, "unique_timer_bit", None)
+                if unique_bit is not None:
+                    task_id = f"{subscriber_name}_{id(subscriber)}_{unique_bit}"
+                else:
+                    task_id = f"{subscriber_name}_{id(subscriber)}"
+
+                # Check recurring TIMER fire time
                 if timer_sub.next_fire_time is not None and current_time >= timer_sub.next_fire_time:
-                    # Fire timer event through regular dispatch mechanism
-                    payload = {"timer_interval": timer_sub.interval, "timestamp": current_time}
+                    if project_bound:
+                        payload = {"timer_interval": timer_sub.interval, "timestamp": current_time}
 
-                    # Update timer statistics
-                    subscriber_name = self._get_subscriber_name(subscriber)
-                    unique_bit = getattr(timer_sub, "unique_timer_bit", None)
-                    if unique_bit is not None:
-                        task_id = f"{subscriber_name}_{id(subscriber)}_{unique_bit}"
-                    else:
-                        task_id = f"{subscriber_name}_{id(subscriber)}"
-                    if task_id in self._task_stats:
-                        stats = self._task_stats[task_id]
-                        stats["last_run"] = current_time
-                        stats["run_count"] += 1
-                        self._total_timer_runs += 1
+                        if task_id in self._task_stats:
+                            stats = self._task_stats[task_id]
+                            stats["last_run"] = current_time
+                            stats["run_count"] += 1
+                            self._total_timer_runs += 1
 
-                    # Dispatch timer event using the same mechanism as regular events
-                    await self.dispatch_event(timer_sub.event_types, payload)
+                        await self.dispatch_event(timer_sub.event_types, payload)
 
-                    # Recalculate next fire time
                     timer_sub.update_next_fire_time()
 
-                    # Update next run time in statistics
-                    if task_id in self._task_stats:
+                    if project_bound and task_id in self._task_stats:
                         self._task_stats[task_id]["next_run"] = timer_sub.next_fire_time
 
-                # Track next fire time
+                # Check one-shot TIMER_ONCE fire time (independent of recurring timer)
+                if timer_sub.once_fire_time is not None and current_time >= timer_sub.once_fire_time:
+                    if project_bound:
+                        payload = {"timer_once": True, "timestamp": current_time}
+
+                        self._total_timer_runs += 1
+
+                        await self.dispatch_event(
+                            (timer_sub.event_types & ~EventType.TIMER) | EventType.TIMER_ONCE, payload
+                        )
+
+                        timer_sub.once_fire_time = None
+                    else:
+                        # Retry at once_interval until project is bound
+                        assert timer_sub.once_interval is not None
+                        timer_sub.once_fire_time = current_time + timer_sub.once_interval
+
+                # Track next fire time (earliest of both)
                 if timer_sub.next_fire_time is not None:
                     next_fire_time = min(next_fire_time, timer_sub.next_fire_time)
+                if timer_sub.once_fire_time is not None:
+                    next_fire_time = min(next_fire_time, timer_sub.once_fire_time)
 
             # Sleep until next timer
             if next_fire_time != float("inf"):

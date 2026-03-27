@@ -17,7 +17,9 @@ class Subscription:
     subscriber: "TaskSubscriber"
     event_types: EventType
     interval: Optional[float] = None
+    once_interval: Optional[float] = None
     next_fire_time: Optional[float] = field(init=False, default=None)
+    once_fire_time: Optional[float] = field(init=False, default=None)
     original_event_types: Optional[EventType] = None
     unique_timer_bit: Optional[int] = None
 
@@ -27,20 +29,26 @@ class Subscription:
         event_types: EventType,
         interval: Optional[float] = None,
         initial_delay: Optional[float] = None,
+        once_delay: Optional[float] = None,
     ):
         """Initialize subscription with strong reference to subscriber."""
         self.event_types = event_types
         self.subscriber = subscriber
         self.interval = interval
+        self.once_interval = once_delay
         if interval is not None:
             delay = initial_delay if initial_delay is not None else interval
             self.next_fire_time = time.time() + delay
         else:
             self.next_fire_time = None
+        if once_delay is not None:
+            self.once_fire_time = time.time() + once_delay
+        else:
+            self.once_fire_time = None
 
     def is_timer(self) -> bool:
         """Check if this is a timer subscription."""
-        return self.interval is not None
+        return self.interval is not None or self.once_fire_time is not None
 
     def update_next_fire_time(self) -> None:
         """Update next fire time for recurring timer."""
