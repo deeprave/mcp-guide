@@ -39,6 +39,12 @@ def test_normalize_agent_name_copilot():
     assert normalize_agent_name("copilot") == "copilot"
 
 
+def test_normalize_agent_name_codex():
+    """Test normalizing Codex agent names."""
+    assert normalize_agent_name("codex-mcp-client") == "codex"
+    assert normalize_agent_name("Codex CLI") == "codex"
+
+
 def test_normalize_agent_name_unknown():
     """Test normalising unknown agent names uses presented name."""
     assert normalize_agent_name("Unknown Agent") == "unknown-agent"
@@ -119,6 +125,17 @@ def test_detect_agent_claude():
     assert agent.normalized_name == "claude"
     assert agent.version == "2.0.0"
     assert agent.prompt_prefix == "/"
+
+
+def test_detect_agent_codex():
+    """Test detecting Codex agent."""
+    client_params = {"clientInfo": {"name": "codex-mcp-client", "version": "0.116.0"}}
+
+    agent = detect_agent(client_params)
+    assert agent.name == "codex-mcp-client"
+    assert agent.normalized_name == "codex"
+    assert agent.version == "0.116.0"
+    assert agent.prompt_prefix is None
 
 
 def test_detect_agent_no_version():
@@ -219,3 +236,12 @@ def test_format_agent_info_claude_prefix():
     formatted = format_agent_info(agent, "mcp-guide")
     assert "Claude Desktop" in formatted
     assert "/mcp-guide:" in formatted
+
+
+def test_format_agent_info_codex_prefix_none():
+    """Test formatting Codex agent with no prompt prefix."""
+    agent = AgentInfo(name="codex-mcp-client", normalized_name="codex", version="0.116.0", prompt_prefix=None)
+
+    formatted = format_agent_info(agent, "guide")
+    assert "codex-mcp-client" in formatted
+    assert "Command Prefix: None" in formatted

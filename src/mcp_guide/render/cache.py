@@ -107,7 +107,11 @@ class TemplateContextCache(SessionListener):
 
             if session.agent_info:
                 agent_info = session.agent_info
-                resolved_prefix = agent_info.prompt_prefix.replace("{mcp_name}", "guide")
+                resolved_prefix = (
+                    agent_info.prompt_prefix.replace("{mcp_name}", "guide")
+                    if agent_info.prompt_prefix is not None
+                    else ""
+                )
                 agent_vars["@"] = resolved_prefix
                 agent_vars["agent"] = {
                     "name": agent_info.name,
