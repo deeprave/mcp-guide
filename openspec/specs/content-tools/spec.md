@@ -301,8 +301,6 @@ Future expansion (reserved):
 - **WHEN** designing tool argument schemas
 - **THEN** accommodate future document-specific arguments
 
-<<<<<<< Updated upstream
-=======
 ### Requirement: System Template Category
 The template system SHALL provide a `_system` category for non-feature-specific system templates.
 
@@ -391,8 +389,6 @@ Arguments:
 #### Scenario: First export
 - **WHEN** (expression, pattern) tuple not previously exported
 - **THEN** export content and create tracking entry
-
->>>>>>> Stashed changes
 ### Requirement: Export Tracking Storage
 
 The system SHALL store export tracking metadata in project configuration as a dict mapping (expression, pattern) tuple to export metadata.
@@ -419,11 +415,7 @@ Detection SHALL:
 - Gather files for the expression/pattern
 - Compute metadata hash from gathered files
 - Compare with stored hash from previous export
-<<<<<<< Updated upstream
 - Content is stale if hashes differ
-=======
-- Content is stale if hashes match
->>>>>>> Stashed changes
 
 The metadata hash SHALL detect changes from:
 - File modifications (mtime changes)
@@ -448,40 +440,6 @@ The metadata hash SHALL detect changes from:
 #### Scenario: File added with old mtime
 - **WHEN** file with old mtime added to category
 - **THEN** metadata hash changes (new filename entry) and export proceeds
-
-<<<<<<< Updated upstream
-### Requirement: export_content Tool
-
-The system SHALL provide an `export_content` tool that exports rendered content to files for knowledge indexing.
-
-Arguments:
-- `expression` (required, string): Content expression
-- `path` (required, string): Export destination path
-- `pattern` (optional, string): Glob pattern filter
-- `force` (optional, boolean): Override staleness check (default: false)
-
-The tool SHALL:
-- Check export tracking for matching (expression, pattern) tuple
-- Gather files and compute metadata hash
-- If stored hash matches computed hash, return "already exported" message
-- If `force=true`, bypass staleness check
-- On successful export, upsert tracking entry with computed metadata hash
-
-#### Scenario: Export with unchanged content
-- **WHEN** content previously exported and metadata hash unchanged
-- **THEN** return message "Content for '{expression}' already exported to {path}. Use force=True to overwrite or if file is missing."
-
-#### Scenario: Export with force flag
-- **WHEN** `force=true` provided
-- **THEN** bypass staleness check and export content
-
-#### Scenario: Export with changed content
-- **WHEN** metadata hash differs from stored hash
-- **THEN** export content and update tracking metadata
-
-#### Scenario: First export
-- **WHEN** (expression, pattern) tuple not previously exported
-- **THEN** export content and create tracking entry
 
 ### Requirement: list_exports Tool
 The system SHALL provide a `list_exports` tool that returns a list of all tracked content exports with metadata. The tool accepts an `options` parameter (`list[str]`) that controls template rendering via `parse_options`.
@@ -564,6 +522,3 @@ The system SHALL provide a `remove_export` tool that removes export tracking ent
 - **WHEN** `remove_export` successfully removes tracking entry
 - **THEN** the actual exported file is NOT deleted
 - **AND** only the tracking entry is removed from `Project.exports`
-
-=======
->>>>>>> Stashed changes

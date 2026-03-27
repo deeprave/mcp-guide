@@ -52,13 +52,7 @@ The metadata hash SHALL detect changes from:
 - **WHEN** file with old mtime added to category
 - **THEN** metadata hash changes (new filename entry) and export proceeds
 
-<<<<<<< Updated upstream
-### Requirement: export_content Tool
-=======
-## MODIFIED Requirements
-
 ### Requirement: Export Content Tool Template Rendering
->>>>>>> Stashed changes
 
 The export_content tool SHALL check export tracking before rendering to avoid redundant exports.
 
