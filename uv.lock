@@ -925,7 +925,7 @@ wheels = [
 
 [[package]]
 name = "mcp-guide"
-version = "1.2.0rc1"
+version = "1.2.0rc2"
 source = { editable = "." }
 dependencies = [
     { name = "anyio" },

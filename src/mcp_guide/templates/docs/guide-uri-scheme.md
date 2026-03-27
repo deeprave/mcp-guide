@@ -25,7 +25,7 @@ guide://docs/readme       # README-related docs
 guide://docs,tasks        # Combined content expression
 guide://_project          # Run the project command
 guide://_status?verbose=true
-guide://_perm/write-add/docs/
+guide://_perm/write/add/docs/
 ```
 
 {{h2}}Usage

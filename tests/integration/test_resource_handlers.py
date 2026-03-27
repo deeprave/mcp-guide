@@ -271,5 +271,17 @@ class TestResourceHandlers:
                     )
                     status_text = status_result.contents[0].text
                     assert "System Status" in status_text
+
+                    missing_arg_result = await asyncio.wait_for(
+                        session.read_resource("guide://_perm/write/add"), timeout=timeout
+                    )
+                    missing_arg_text = missing_arg_result.contents[0].text
+                    assert "Missing required argument: path" in missing_arg_text
+
+                    invalid_command_result = await asyncio.wait_for(
+                        session.read_resource("guide://_unknown"), timeout=timeout
+                    )
+                    invalid_command_text = invalid_command_result.contents[0].text
+                    assert "Command not found" in invalid_command_text
         except (asyncio.TimeoutError, OSError) as e:
             pytest.skip(f"End-to-end MCP test skipped due to subprocess/timeout issue: {e}")
