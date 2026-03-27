@@ -11,7 +11,7 @@ includes:
 
 {{b}}MCP Guide:{{b}} `v{{server.version}}`
 {{b}}Agent:{{b}} `{{#agent}}{{agent.name}}{{#agent.version}} v{{agent.version}}{{/agent.version}}{{/agent}}{{^agent}}Not yet detected{{/agent}}`
-{{b}}Command Prefix:{{b}} `{{#agent}}{{agent.prefix}}{{/agent}}{{^agent}}{{@}}{{/agent}}`
+{{#agent.prefix}}{{b}}Command Prefix:{{b}} `{{#agent}}{{agent.prefix}}{{/agent}}{{^agent}}{{@}}{{/agent}}`{{/agent.prefix}}
 {{b}}Tool Prefix:{{b}} `{{#tool_prefix}}{{tool_prefix}}{{/tool_prefix}}{{^tool_prefix}}None{{/tool_prefix}}`
 {{b}}Project:{{b}} `{{project.name}}`
 {{^agent}}

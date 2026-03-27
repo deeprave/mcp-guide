@@ -124,3 +124,23 @@ async def test_client_info_dict_without_client_info():
     assert result["value"]["agent"] == "Unknown"
     assert result["value"]["normalized_name"] == "unknown"
     assert result["value"]["command_prefix"] == "/"
+
+
+@pytest.mark.anyio
+async def test_client_info_codex_reports_no_command_prefix():
+    """Test client_info reports no prompt prefix for Codex."""
+    ctx, session = _make_ctx(
+        agent_info=None,
+        client_params={"clientInfo": {"name": "codex-mcp-client", "version": "0.116.0"}},
+    )
+
+    with patch("mcp_guide.session.get_session", new=AsyncMock(return_value=session)):
+        result_str = await client_info(args=GetClientInfoArgs(), ctx=ctx)
+
+    result = json.loads(result_str)
+
+    assert result["success"] is True
+    assert result["value"]["agent"] == "codex-mcp-client"
+    assert result["value"]["normalized_name"] == "codex"
+    assert result["value"]["command_prefix"] is None
+    assert "Command Prefix: None" in result["message"]

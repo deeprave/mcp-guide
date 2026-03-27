@@ -487,9 +487,21 @@ async def _route_guide_request(argv: list[str], ctx: Optional["Context"]) -> Res
         prompt_prefix = "@"  # Default
         session = await get_session()
         if session.agent_info:
-            prompt_prefix = session.agent_info.prompt_prefix.replace("{mcp_name}", "guide")
+            prompt_prefix = (
+                session.agent_info.prompt_prefix.replace("{mcp_name}", "guide")
+                if session.agent_info.prompt_prefix is not None
+                else ""
+            )
 
-        error_msg = f"The guide prompt requires one or more arguments. Use {prompt_prefix}guide :help to list commands"
+        if prompt_prefix:
+            error_msg = (
+                f"The guide prompt requires one or more arguments. Use {prompt_prefix}guide :help to list commands"
+            )
+        else:
+            error_msg = (
+                "The guide prompt requires one or more arguments. "
+                "This client does not support prompts; use guide:// resources or tools instead."
+            )
         result: Result[Any] = Result.failure(error_msg, error_type=ERROR_VALIDATION)
         return result
 

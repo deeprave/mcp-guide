@@ -73,6 +73,8 @@ async def internal_client_info(args: GetClientInfoArgs, ctx: Optional[Context] =
         # For Claude: if mcp_name is "guide" (default), use "/" instead of "/guide:"
         if agent_info.normalized_name == "claude" and mcp_name == "guide":
             prompt_prefix = "/"
+        elif agent_info.prompt_prefix is None:
+            prompt_prefix = None
         else:
             prompt_prefix = agent_info.prompt_prefix.replace("{mcp_name}", mcp_name)
 

@@ -12,10 +12,11 @@ class AgentInfo:
     name: str
     normalized_name: str
     version: Optional[str]
-    prompt_prefix: str
+    prompt_prefix: Optional[str]
 
 
 AGENT_PATTERNS = [
+    (r"codex", "codex"),
     (r"q\s+dev", "q-dev"),
     (r"kiro", "kiro"),
     (r"claude", "claude"),
@@ -25,6 +26,7 @@ AGENT_PATTERNS = [
 ]
 
 AGENT_PREFIX_MAP = {
+    "codex": None,
     "q-dev": "@",
     "kiro": "@",
     "claude": "/",
@@ -97,7 +99,9 @@ def detect_agent(client_params: Union[dict[str, Any], Any]) -> AgentInfo:
 
 def format_agent_info(agent_info: AgentInfo, mcp_name: str) -> str:
     """Format agent info for display."""
-    prompt_prefix = agent_info.prompt_prefix.replace("{mcp_name}", mcp_name)
+    prompt_prefix = (
+        agent_info.prompt_prefix.replace("{mcp_name}", mcp_name) if agent_info.prompt_prefix is not None else "None"
+    )
 
     lines = [
         f"Agent: {agent_info.name}",

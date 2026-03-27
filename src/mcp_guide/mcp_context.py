@@ -150,7 +150,6 @@ async def resolve_project_name() -> str:
     Resolution priority:
     1. Client roots (session or bootstrap) - PRIMARY
     2. PWD environment variable - FALLBACK
-
     Returns:
         Project name string
 
