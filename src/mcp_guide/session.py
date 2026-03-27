@@ -530,6 +530,11 @@ class Session:
         return self.__project.name
 
     @property
+    def project_is_bound(self) -> bool:
+        """Whether the session is bound to a real project."""
+        return True
+
+    @property
     def template_cache(self) -> "TemplateContextCache":
         """Get or create the per-session template context cache."""
         if self._template_cache is None:
