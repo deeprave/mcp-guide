@@ -5,28 +5,29 @@ All notable changes to mcp-guide will be documented in this file.
 ## [1.2.0] - TBD
 
 ### Added
-- SQLite document store for persistent document storage with async API
-- Stored document discovery with pattern matching consistent with filesystem discovery
-- Document management commands (`:document/add`, `:document/remove`, `:document/list`)
-- `send_file_content` document ingestion with automatic `source` defaulting to `"file"`
-- `category_list_files` source filter for listing filesystem-only, store-only, or both
-- `roots/list_changed` notification handler to detect project switches
-- Advertised `guide://` command resource template for MCP resource discovery
+- Custom document ingest from local files, direct content, and URLs
+- Stored document support across content discovery and document management commands
+- Full `guide://` URI support through both MCP resources and the `read_resource` tool
+- Codex support via `guide://` command URIs for prompt-style command access
+- `roots/list_changed` handling for better multi-project IDE support
 
 ### Breaking
-- Minimum Python version raised from 3.11 to 3.12 (`PurePosixPath.full_match()` required for stored document pattern matching)
+- Minimum Python version raised from 3.11 to 3.12
+  - `PurePosixPath.full_match()` required for stored document pattern matching
 
 ### Changed
 - Migrated from vendored `mcp.server.fastmcp` to standalone `fastmcp` package
-- Renamed `category_list_files` parameter from `name` to `category`
-- Refactoring for better multiple client support (http server)
-- Removed dead code across the codebase
+- Stored document matching now behaves consistently with filesystem content discovery
+- `category_list_files` can report filesystem files, stored documents, or both
+- Internal session handling and multi-client support were improved for more reliable IDE and agent integration
 
 ### Fixed
-- Session access semantics and bootstrap data isolation
-- Startup issue with session initialization
-- Render module type errors and centralized error logging
+- Stale document writes are now rejected atomically during mtime-based upserts
+- Stored document frontmatter is preserved during content processing
+- Session/bootstrap isolation and startup reliability issues across clients
 - Direct MCP resource handling for `guide://_command` URIs
+- macOS test instability caused by `watchdog` teardown with Python 3.14
+- Sessions are now fully isolated, so shared mcp via http works reliably without previously existing problems
 
 
 ## [1.1.0] - 2026-03-16
