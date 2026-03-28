@@ -195,3 +195,68 @@ class TestProjectNameDetection:
         cached_roots = mcp_guide.mcp_context._bootstrap_roots.get()
         assert len(cached_roots) == 1
         assert str(cached_roots[0].uri) == "file:///home/user/cached-project"
+
+
+class TestUnboundSession:
+    """Tests for unbound session lifecycle."""
+
+    def test_session_starts_unbound(self):
+        """Session created without project is unbound."""
+        session = Session()
+        assert session.project_is_bound is False
+        assert session.project_name == "(unbound)"
+
+    @pytest.mark.anyio
+    async def test_get_project_raises_when_unbound(self):
+        """get_project raises NoProjectError on unbound session."""
+        from mcp_guide.models.exceptions import NoProjectError
+
+        session = Session()
+        with pytest.raises(NoProjectError):
+            await session.get_project()
+
+    @pytest.mark.anyio
+    async def test_switch_project_binds_session(self, tmp_path, monkeypatch):
+        """switch_project binds an unbound session."""
+        original_session_init = Session.__init__
+
+        def mock_session_init(self, *, _config_dir_for_tests=None):
+            return original_session_init(self, _config_dir_for_tests=str(tmp_path))
+
+        monkeypatch.setattr(Session, "__init__", mock_session_init)
+
+        session = Session()
+        assert session.project_is_bound is False
+
+        await session.switch_project("test-project")
+        assert session.project_is_bound is True
+        assert session.project_name == "test-project"
+
+    @pytest.mark.anyio
+    async def test_unbound_session_binds_when_ctx_arrives(self, tmp_path, monkeypatch):
+        """Unbound session binds when get_session is called with ctx."""
+        await mcp_guide.session.remove_current_session()
+        monkeypatch.delenv("PWD", raising=False)
+        monkeypatch.delenv("CWD", raising=False)
+
+        original_session_init = Session.__init__
+
+        def mock_session_init(self, *, _config_dir_for_tests=None):
+            return original_session_init(self, _config_dir_for_tests=str(tmp_path))
+
+        monkeypatch.setattr(Session, "__init__", mock_session_init)
+
+        # First call without ctx — creates unbound session
+        session = await get_session(_config_dir_for_tests=str(tmp_path))
+        assert session.project_is_bound is False
+
+        # Second call with ctx providing roots — triggers binding
+        mock_ctx = MagicMock()
+        mock_root = MagicMock()
+        mock_root.uri = f"file://{tmp_path}/my-project"
+        mock_ctx.session.list_roots = AsyncMock(return_value=MagicMock(roots=[mock_root]))
+
+        session2 = await get_session(ctx=mock_ctx, _config_dir_for_tests=str(tmp_path))
+        assert session2 is session
+        assert session.project_is_bound is True
+        assert session.project_name == "my-project"

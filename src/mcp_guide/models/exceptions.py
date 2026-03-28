@@ -1,7 +1,7 @@
 """Exception classes for models."""
 
 
-class NoProjectError(Exception):
+class NoProjectError(ValueError):
     """Raised when no project or session is available."""
 
     pass

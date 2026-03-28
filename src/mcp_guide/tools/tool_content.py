@@ -123,11 +123,11 @@ async def internal_get_content(
     # Get session
     try:
         session = await get_session(ctx)
+        project = await session.get_project()
     except ValueError as e:
         return Result.failure(str(e), error_type=ERROR_NO_PROJECT)
 
     # Get project
-    project = await session.get_project()
     docroot = Path(await session.get_docroot())
 
     # Check if content has been exported (unless force=True)

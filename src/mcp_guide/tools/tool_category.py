@@ -105,10 +105,9 @@ async def internal_category_list(args: CategoryListArgs, ctx: Optional[Context] 
     """
     try:
         session = await get_session(ctx)
+        project = await session.get_project()
     except ValueError as e:
         return Result.failure(str(e), error_type=ERROR_NO_PROJECT)
-
-    project = await session.get_project()
 
     categories: Union[list[dict[str, Union[str, list[str], None]]], list[str]]
     if args.verbose:
@@ -149,10 +148,9 @@ async def internal_category_add(args: CategoryAddArgs, ctx: Optional[Context] = 
 
     try:
         session = await get_session(ctx)
+        project = await session.get_project()
     except ValueError as e:
         return Result.failure(str(e), error_type=ERROR_NO_PROJECT)
-
-    project = await session.get_project()
 
     try:
         # Validate name is not empty
@@ -218,10 +216,9 @@ async def internal_category_remove(args: CategoryRemoveArgs, ctx: Optional[Conte
 
     try:
         session = await get_session(ctx)
+        project = await session.get_project()
     except ValueError as e:
         return Result.failure(str(e), error_type=ERROR_NO_PROJECT)
-
-    project = await session.get_project()
 
     # Use dict lookup for O(1) existence check
     if args.name not in project.categories:
@@ -267,10 +264,9 @@ async def internal_category_change(args: CategoryChangeArgs, ctx: Optional[Conte
 
     try:
         session = await get_session(ctx)
+        project = await session.get_project()
     except ValueError as e:
         return Result.failure(str(e), error_type=ERROR_NO_PROJECT)
-
-    project = await session.get_project()
 
     # Use dict lookup for O(1) existence check
     if args.name not in project.categories:
@@ -391,10 +387,9 @@ async def internal_category_update(args: CategoryUpdateArgs, ctx: Optional[Conte
 
     try:
         session = await get_session(ctx)
+        project = await session.get_project()
     except ValueError as e:
         return Result.failure(str(e), error_type=ERROR_NO_PROJECT)
-
-    project = await session.get_project()
 
     existing_category = project.categories.get(args.name)
     if existing_category is None:
