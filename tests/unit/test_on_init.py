@@ -183,27 +183,31 @@ class TestTaskManagerOnInit:
 
 
 class TestTaskInitialise:
-    """Test task _initialise() implementations (via TIMER_ONCE)."""
+    """Test task initialisation via TIMER_ONCE dispatch through handle_event."""
 
     @pytest.mark.anyio
     async def test_openspec_task_initialise_checks_flag(self):
-        """Test that OpenSpecTask._initialise() checks flag and unsubscribes if disabled."""
+        """Test that OpenSpecTask unsubscribes when flag is disabled via TIMER_ONCE."""
         from mcp_guide.openspec.task import OpenSpecTask
+        from mcp_guide.task_manager.interception import EventType
 
         mock_task_manager = Mock()
         mock_task_manager.requires_flag = Mock(return_value=False)
         mock_task_manager.unsubscribe = AsyncMock()
 
         task = OpenSpecTask(task_manager=mock_task_manager)
-        await task._initialise()
+        result = await task.handle_event(EventType.TIMER_ONCE, {})
 
+        assert result is not None
+        assert result.result is True
         mock_task_manager.requires_flag.assert_called_once_with("openspec")
         mock_task_manager.unsubscribe.assert_called_once_with(task)
         assert task._flag_checked
 
     @pytest.mark.anyio
     async def test_workflow_task_initialise_queues_setup(self):
-        """Test that WorkflowMonitorTask._initialise() queues setup instruction when enabled."""
+        """Test that WorkflowMonitorTask queues setup instruction via TIMER_ONCE."""
+        from mcp_guide.task_manager.interception import EventType
         from mcp_guide.workflow.tasks import WorkflowMonitorTask
 
         mock_task_manager = Mock()
@@ -216,8 +220,10 @@ class TestTaskInitialise:
             task = WorkflowMonitorTask()
             task.task_manager = mock_task_manager
 
-            await task._initialise()
+            result = await task.handle_event(EventType.TIMER_ONCE, {})
 
+            assert result is not None
+            assert result.result is True
             mock_task_manager.requires_flag.assert_called_once_with("workflow")
             mock_render.assert_called_once_with("monitoring-setup")
             mock_task_manager.queue_instruction_with_ack.assert_called_once_with("setup content")
@@ -225,7 +231,8 @@ class TestTaskInitialise:
 
     @pytest.mark.anyio
     async def test_workflow_task_initialise_unsubscribes_when_disabled(self):
-        """Test that WorkflowMonitorTask._initialise() unsubscribes when flag is disabled."""
+        """Test that WorkflowMonitorTask unsubscribes when flag is disabled via TIMER_ONCE."""
+        from mcp_guide.task_manager.interception import EventType
         from mcp_guide.workflow.tasks import WorkflowMonitorTask
 
         mock_task_manager = Mock()
@@ -235,15 +242,18 @@ class TestTaskInitialise:
         task = WorkflowMonitorTask()
         task.task_manager = mock_task_manager
 
-        await task._initialise()
+        result = await task.handle_event(EventType.TIMER_ONCE, {})
 
+        assert result is not None
+        assert result.result is True
         mock_task_manager.requires_flag.assert_called_once_with("workflow")
         mock_task_manager.unsubscribe.assert_called_once_with(task)
 
     @pytest.mark.anyio
     async def test_client_context_task_initialise_requests_info_when_enabled(self):
-        """Test that ClientContextTask._initialise() requests OS info when flag is enabled."""
+        """Test that ClientContextTask requests OS info via TIMER_ONCE when flag is enabled."""
         from mcp_guide.context.tasks import ClientContextTask
+        from mcp_guide.task_manager.interception import EventType
 
         mock_task_manager = Mock()
         mock_task_manager.requires_flag = Mock(return_value=True)
@@ -253,8 +263,10 @@ class TestTaskInitialise:
             mock_render.return_value = make_rendered_content("client context setup")
 
             task = ClientContextTask(task_manager=mock_task_manager)
-            await task._initialise()
+            result = await task.handle_event(EventType.TIMER_ONCE, {})
 
+            assert result is not None
+            assert result.result is True
             mock_task_manager.requires_flag.assert_called_once_with("allow-client-info")
             mock_render.assert_called_once_with("client-context-setup")
             mock_task_manager.queue_instruction_with_ack.assert_called_once_with("client context setup")
@@ -263,16 +275,19 @@ class TestTaskInitialise:
 
     @pytest.mark.anyio
     async def test_client_context_task_initialise_unsubscribes_when_disabled(self):
-        """Test that ClientContextTask._initialise() unsubscribes when flag is disabled."""
+        """Test that ClientContextTask unsubscribes via TIMER_ONCE when flag is disabled."""
         from mcp_guide.context.tasks import ClientContextTask
+        from mcp_guide.task_manager.interception import EventType
 
         mock_task_manager = Mock()
         mock_task_manager.requires_flag = Mock(return_value=False)
         mock_task_manager.unsubscribe = AsyncMock()
 
         task = ClientContextTask(task_manager=mock_task_manager)
-        await task._initialise()
+        result = await task.handle_event(EventType.TIMER_ONCE, {})
 
+        assert result is not None
+        assert result.result is True
         mock_task_manager.requires_flag.assert_called_once_with("allow-client-info")
         mock_task_manager.unsubscribe.assert_called_once_with(task)
         assert task._flag_checked
