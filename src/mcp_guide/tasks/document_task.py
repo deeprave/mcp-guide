@@ -39,9 +39,6 @@ class DocumentTask:
     def get_name(self) -> str:
         return "DocumentTask"
 
-    async def on_init(self) -> None:
-        pass
-
     async def on_tool(self) -> None:
         pass
 

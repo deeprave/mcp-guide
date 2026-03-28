@@ -156,8 +156,8 @@ class TestTaskManagerOnInit:
             assert task_manager.session is not None
 
     @pytest.mark.anyio
-    async def test_task_manager_on_init_calls_task_on_init(self):
-        """Test that TaskManager.on_init() calls on_init() on registered tasks."""
+    async def test_task_manager_on_init_does_not_call_task_on_init(self):
+        """Test that TaskManager.on_init() no longer calls on_init() on tasks."""
         from mcp_guide.task_manager.manager import TaskManager
         from mcp_guide.task_manager.subscription import Subscription
 
@@ -168,7 +168,6 @@ class TestTaskManagerOnInit:
         mock_task.on_init = AsyncMock()
         mock_task.get_name = Mock(return_value="MockTask")
 
-        # Create a subscription for the mock task
         subscription = Subscription(mock_task, 0, None, None)
         task_manager._subscriptions.append(subscription)
 
@@ -180,15 +179,15 @@ class TestTaskManagerOnInit:
 
             await task_manager.on_init()
 
-            mock_task.on_init.assert_called_once()
+            mock_task.on_init.assert_not_called()
 
 
-class TestTaskOnInit:
-    """Test task on_init() implementations."""
+class TestTaskInitialise:
+    """Test task _initialise() implementations (via TIMER_ONCE)."""
 
     @pytest.mark.anyio
-    async def test_openspec_task_on_init_checks_flag(self):
-        """Test that OpenSpecTask.on_init() checks flag and unsubscribes if disabled."""
+    async def test_openspec_task_initialise_checks_flag(self):
+        """Test that OpenSpecTask._initialise() checks flag and unsubscribes if disabled."""
         from mcp_guide.openspec.task import OpenSpecTask
 
         mock_task_manager = Mock()
@@ -196,15 +195,15 @@ class TestTaskOnInit:
         mock_task_manager.unsubscribe = AsyncMock()
 
         task = OpenSpecTask(task_manager=mock_task_manager)
-        await task.on_init()
+        await task._initialise()
 
         mock_task_manager.requires_flag.assert_called_once_with("openspec")
         mock_task_manager.unsubscribe.assert_called_once_with(task)
         assert task._flag_checked
 
     @pytest.mark.anyio
-    async def test_workflow_task_on_init_queues_setup(self):
-        """Test that WorkflowMonitorTask.on_init() queues setup instruction when enabled."""
+    async def test_workflow_task_initialise_queues_setup(self):
+        """Test that WorkflowMonitorTask._initialise() queues setup instruction when enabled."""
         from mcp_guide.workflow.tasks import WorkflowMonitorTask
 
         mock_task_manager = Mock()
@@ -217,7 +216,7 @@ class TestTaskOnInit:
             task = WorkflowMonitorTask()
             task.task_manager = mock_task_manager
 
-            await task.on_init()
+            await task._initialise()
 
             mock_task_manager.requires_flag.assert_called_once_with("workflow")
             mock_render.assert_called_once_with("monitoring-setup")
@@ -225,8 +224,8 @@ class TestTaskOnInit:
             assert task._setup_done
 
     @pytest.mark.anyio
-    async def test_workflow_task_on_init_unsubscribes_when_disabled(self):
-        """Test that WorkflowMonitorTask.on_init() unsubscribes when flag is disabled."""
+    async def test_workflow_task_initialise_unsubscribes_when_disabled(self):
+        """Test that WorkflowMonitorTask._initialise() unsubscribes when flag is disabled."""
         from mcp_guide.workflow.tasks import WorkflowMonitorTask
 
         mock_task_manager = Mock()
@@ -236,14 +235,14 @@ class TestTaskOnInit:
         task = WorkflowMonitorTask()
         task.task_manager = mock_task_manager
 
-        await task.on_init()
+        await task._initialise()
 
         mock_task_manager.requires_flag.assert_called_once_with("workflow")
         mock_task_manager.unsubscribe.assert_called_once_with(task)
 
     @pytest.mark.anyio
-    async def test_client_context_task_on_init_requests_info_when_enabled(self):
-        """Test that ClientContextTask.on_init() requests OS info when flag is enabled."""
+    async def test_client_context_task_initialise_requests_info_when_enabled(self):
+        """Test that ClientContextTask._initialise() requests OS info when flag is enabled."""
         from mcp_guide.context.tasks import ClientContextTask
 
         mock_task_manager = Mock()
@@ -254,7 +253,7 @@ class TestTaskOnInit:
             mock_render.return_value = make_rendered_content("client context setup")
 
             task = ClientContextTask(task_manager=mock_task_manager)
-            await task.on_init()
+            await task._initialise()
 
             mock_task_manager.requires_flag.assert_called_once_with("allow-client-info")
             mock_render.assert_called_once_with("client-context-setup")
@@ -263,8 +262,8 @@ class TestTaskOnInit:
             assert task._flag_checked
 
     @pytest.mark.anyio
-    async def test_client_context_task_on_init_unsubscribes_when_disabled(self):
-        """Test that ClientContextTask.on_init() unsubscribes when flag is disabled."""
+    async def test_client_context_task_initialise_unsubscribes_when_disabled(self):
+        """Test that ClientContextTask._initialise() unsubscribes when flag is disabled."""
         from mcp_guide.context.tasks import ClientContextTask
 
         mock_task_manager = Mock()
@@ -272,7 +271,7 @@ class TestTaskOnInit:
         mock_task_manager.unsubscribe = AsyncMock()
 
         task = ClientContextTask(task_manager=mock_task_manager)
-        await task.on_init()
+        await task._initialise()
 
         mock_task_manager.requires_flag.assert_called_once_with("allow-client-info")
         mock_task_manager.unsubscribe.assert_called_once_with(task)

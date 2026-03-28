@@ -55,26 +55,26 @@ class WorkflowMonitorTask:
         self._reminder_instruction_id: Optional[str] = None
 
         # Subscribe self to task manager for workflow monitoring with 15s initial delay
-        self.task_manager.subscribe(self, EventType.TIMER | EventType.FS_FILE_CONTENT, WORKFLOW_INTERVAL, 15.0)
+        self.task_manager.subscribe(
+            self, EventType.TIMER | EventType.FS_FILE_CONTENT, WORKFLOW_INTERVAL, 15.0, once_interval=1.0
+        )
 
     async def on_tool(self) -> None:
         """Called after tool/prompt execution.
 
-        Flag checking and setup are now handled in on_init() at server startup.
+        Flag checking and setup are now handled in _initialise() via TIMER_ONCE.
         """
         pass
 
-    async def on_init(self) -> None:
-        """Initialize task at server startup.
+    async def _initialise(self) -> "EventResult":
+        """Perform one-shot initialisation via TIMER_ONCE."""
+        from mcp_guide.task_manager.manager import EventResult
 
-        Checks if workflow is enabled and queues setup instructions if so.
-        """
         if not self.task_manager.requires_flag(FLAG_WORKFLOW):
             await self.task_manager.unsubscribe(self)
             logger.debug(f"WorkflowMonitorTask disabled - {FLAG_WORKFLOW} flag not set")
-            return
+            return EventResult(result=True)
 
-        # Get workflow file path from flags
         from mcp_guide.feature_flags.constants import FLAG_WORKFLOW_FILE
 
         workflow_file = (
@@ -82,7 +82,6 @@ class WorkflowMonitorTask:
         )
         if workflow_file and isinstance(workflow_file, str):
             self.workflow_file_path = workflow_file
-            # Cache the workflow file path for template context
             self.task_manager.set_cached_data("workflow_file_path", workflow_file)
             logger.debug(f"WorkflowMonitorTask using workflow file from flag: {workflow_file}")
 
@@ -92,12 +91,17 @@ class WorkflowMonitorTask:
                 self._setup_instruction_id = await self.task_manager.queue_instruction_with_ack(rendered.content)
             self._setup_done = True
             logger.debug("WorkflowMonitorTask initialized")
+        return EventResult(result=True)
 
     async def handle_event(self, event_type: "EventType", data: dict[str, Any]) -> "EventResult | None":
         """Handle task manager events."""
         from mcp_guide.task_manager.manager import EventResult
 
         logger.trace(f"WorkflowMonitorTask received event: {event_type} for path: {data.get('path', 'unknown')}")
+
+        # Handle one-shot init
+        if event_type & EventType.TIMER_ONCE:
+            return await self._initialise()
 
         # Handle timer events
         if event_type & EventType.TIMER:

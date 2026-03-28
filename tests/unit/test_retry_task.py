@@ -26,7 +26,6 @@ class TestRetryTask:
 
         task = RetryTask(task_manager)
         assert hasattr(task, "get_name")
-        assert hasattr(task, "on_init")
         assert hasattr(task, "on_tool")
         assert hasattr(task, "handle_event")
 

@@ -40,14 +40,3 @@ class TaskSubscriber(Protocol):
         Default implementation does nothing.
         """
         ...
-
-    async def on_init(self) -> None:
-        """Called once during server startup initialization.
-
-        Tasks can implement this to perform one-time initialization before
-        any client connections are accepted. This is called after the task
-        manager has established a session and loaded resolved flags.
-
-        Default implementation does nothing.
-        """
-        ...

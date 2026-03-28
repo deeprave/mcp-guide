@@ -46,7 +46,7 @@ class TestWorkflowMonitorTaskAcknowledgement:
 
         with patch("mcp_guide.workflow.tasks.render_workflow_template", new_callable=AsyncMock) as mock_render:
             mock_render.return_value = make_rendered_content("setup content")
-            await task.on_init()
+            await task._initialise()
 
         assert task._setup_instruction_id is not None
         assert task._setup_instruction_id in manager._tracked_instructions
@@ -61,7 +61,7 @@ class TestWorkflowMonitorTaskAcknowledgement:
 
         with patch("mcp_guide.workflow.tasks.render_workflow_template", new_callable=AsyncMock) as mock_render:
             mock_render.return_value = make_rendered_content("setup content")
-            await task.on_init()
+            await task._initialise()
 
         instruction_id = task._setup_instruction_id
 

@@ -30,8 +30,8 @@ class ClientContextTask:
         self._os_instruction_id: Optional[str] = None
         self._context_instruction_id: Optional[str] = None
 
-        # Subscribe to file content events
-        self.task_manager.subscribe(self, EventType.FS_FILE_CONTENT)
+        # Subscribe to file content events and one-shot init
+        self.task_manager.subscribe(self, EventType.FS_FILE_CONTENT, once_interval=1.0)
 
     def get_name(self) -> str:
         """Get a readable name for the task."""
@@ -40,25 +40,25 @@ class ClientContextTask:
     async def on_tool(self) -> None:
         """Called after tool/prompt execution.
 
-        Flag checking is now handled in on_init() at server startup.
+        Flag checking is now handled in _initialise() via TIMER_ONCE.
         """
         pass
 
-    async def on_init(self) -> None:
-        """Initialize task at server startup.
+    async def _initialise(self) -> "EventResult":
+        """Perform one-shot initialisation via TIMER_ONCE."""
+        from mcp_guide.task_manager.manager import EventResult
 
-        Checks if client info collection is enabled and requests OS info if so.
-        """
         if not self.task_manager.requires_flag(FLAG_ALLOW_CLIENT_INFO):
             await self.task_manager.unsubscribe(self)
             logger.debug(f"ClientContextTask disabled - {FLAG_ALLOW_CLIENT_INFO} flag not set")
             self._flag_checked = True
-            return
+            return EventResult(result=True)
 
         if not self._os_info_requested:
             await self.request_basic_os_info()
             self._os_info_requested = True
         self._flag_checked = True
+        return EventResult(result=True)
 
     async def request_basic_os_info(self) -> None:
         """Request basic OS information from client."""
@@ -72,6 +72,10 @@ class ClientContextTask:
         from pathlib import Path
 
         from mcp_guide.task_manager.manager import EventResult
+
+        # Handle one-shot init
+        if event_type & EventType.TIMER_ONCE:
+            return await self._initialise()
 
         # Handle file content events
         if event_type & EventType.FS_FILE_CONTENT:
