@@ -68,7 +68,7 @@ _._reset_for_testing
 _.send_found_files
 _.set_filesystem_trust_mode
 _.remove_current_session  # used in test teardown across many test files
-_.initialize_task_manager  # registered as @mcp.on_init() callback, never called directly
+_.on_init  # GuideMCP startup decorator — no current callers but infrastructure retained
 _.plan  # Pydantic model field on WorkflowState; populated from .guide.yaml
 
 # Document store public API (consumed by tool layer in subsequent issues)

@@ -71,16 +71,14 @@ class WorkflowMonitorTask(InitialisableMixin):
         """Check flag and queue setup instruction if enabled."""
         from mcp_guide.task_manager.manager import EventResult
 
-        if not self.task_manager.requires_flag(FLAG_WORKFLOW):
+        if not await self.task_manager.requires_flag(FLAG_WORKFLOW):
             await self.task_manager.unsubscribe(self)
             logger.debug(f"WorkflowMonitorTask disabled - {FLAG_WORKFLOW} flag not set")
             return EventResult(result=True)
 
         from mcp_guide.feature_flags.constants import FLAG_WORKFLOW_FILE
 
-        workflow_file = (
-            self.task_manager.resolved_flags.get(FLAG_WORKFLOW_FILE) if self.task_manager.resolved_flags else None
-        )
+        workflow_file = (await self.task_manager.resolved_flags()).get(FLAG_WORKFLOW_FILE)
         if workflow_file and isinstance(workflow_file, str):
             self.workflow_file_path = workflow_file
             self.task_manager.set_cached_data("workflow_file_path", workflow_file)

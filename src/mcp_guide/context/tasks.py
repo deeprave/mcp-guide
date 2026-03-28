@@ -45,7 +45,7 @@ class ClientContextTask(InitialisableMixin):
         """Check flag and request OS info if enabled."""
         from mcp_guide.task_manager.manager import EventResult
 
-        if not self.task_manager.requires_flag(FLAG_ALLOW_CLIENT_INFO):
+        if not await self.task_manager.requires_flag(FLAG_ALLOW_CLIENT_INFO):
             await self.task_manager.unsubscribe(self)
             logger.debug(f"ClientContextTask disabled - {FLAG_ALLOW_CLIENT_INFO} flag not set")
             self._flag_checked = True

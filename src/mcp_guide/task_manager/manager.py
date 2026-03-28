@@ -5,12 +5,17 @@ import time
 import zlib
 from contextvars import ContextVar
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, TypeVar, Union
 
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.core.result import Result
 from mcp_guide.decorators import task_init
+from mcp_guide.models import resolve_all_flags
 from mcp_guide.render.content import RenderedContent
+from mcp_guide.session import get_active_session, get_session
+
+if TYPE_CHECKING:
+    from mcp_guide.session import Session
 
 from .interception import EventType
 from .protocol import TaskSubscriber
@@ -178,9 +183,8 @@ class TaskManager:
         self._peak_task_count = 0
         self._total_timer_runs = 0
 
-        # Server initialization state
-        self._session: Optional[Any] = None  # Session established during on_init()
-        self._resolved_flags: Optional[Dict[str, Any]] = None  # Flags loaded during on_init()
+        # Lazy flag resolution cache (invalidated by SessionListener callbacks)
+        self._resolved_flags: Optional[Dict[str, Any]] = None
 
         # Start timer tasks
         try:
@@ -190,25 +194,26 @@ class TaskManager:
             # No loop yet, will start when needed
             pass
 
-    @property
-    def session(self) -> Optional[Any]:
-        """Get the session established during server initialization.
+    async def resolved_flags(self) -> Dict[str, Any]:
+        """Lazily resolve and cache feature flags.
+
+        On first call, obtains the session, registers as a listener for
+        invalidation, and resolves all flags. Subsequent calls return cached.
 
         Returns:
-            Session instance or None if not yet initialized
+            Dictionary of resolved flags
         """
-        return self._session
-
-    @property
-    def resolved_flags(self) -> Optional[Dict[str, Any]]:
-        """Get the resolved flags loaded during server initialization.
-
-        Returns:
-            Dictionary of resolved flags or None if not yet initialized
-        """
+        if self._resolved_flags is None:
+            session = await get_session()
+            session.add_listener(self)
+            try:
+                self._resolved_flags = await resolve_all_flags(session)
+            except Exception as e:
+                logger.exception(f"Failed to load resolved flags: {e}")
+                self._resolved_flags = {}
         return self._resolved_flags
 
-    def requires_flag(self, flag_name: str) -> bool:
+    async def requires_flag(self, flag_name: str) -> bool:
         """Check if a feature flag is enabled.
 
         Args:
@@ -217,35 +222,15 @@ class TaskManager:
         Returns:
             True if flag is enabled, False otherwise
         """
-        if not self.resolved_flags:
-            return False
-        return bool(self.resolved_flags.get(flag_name, False))
+        return bool((await self.resolved_flags()).get(flag_name, False))
 
-    async def on_init(self) -> None:
-        """Initialize task manager at server startup.
+    async def on_project_changed(self, session: "Session", old_project: str, new_project: str) -> None:
+        """Invalidate cached flags when the project changes."""
+        self._resolved_flags = None
 
-        Establishes session and loads resolved flags. Task initialisation
-        is handled by each task's TIMER_ONCE handler.
-        """
-        logger.info("Initializing task manager at server startup")
-
-        # Establish session using PWD/CWD
-        from mcp_guide.session import get_session
-
-        self._session = await get_session()
-        logger.debug(f"Established session for project: {self._session.project_name}")
-
-        # Load resolved flags
-        try:
-            from mcp_guide.models import resolve_all_flags
-
-            self._resolved_flags = await resolve_all_flags(self._session)
-            logger.debug(f"Loaded {len(self._resolved_flags)} resolved flags")
-        except Exception as e:
-            logger.warning(f"Failed to load resolved flags: {e}")
-            self._resolved_flags = {}
-
-        logger.info(f"Task manager initialization complete. {len(self._subscriptions)} tasks subscribed")
+    async def on_config_changed(self, session: "Session") -> None:
+        """Invalidate cached flags when project config changes."""
+        self._resolved_flags = None
 
     @classmethod
     async def _reset_for_testing(cls) -> None:
@@ -770,7 +755,8 @@ class TaskManager:
             next_fire_time = float("inf")
 
             # Check whether project is bound — skip dispatch if not, but keep timers ticking
-            project_bound = self._session is not None and self._session.project_is_bound
+            active_session = get_active_session()
+            project_bound = active_session is not None and active_session.project_is_bound
 
             # Check each timer subscription
             for timer_sub in timer_subscriptions[:]:  # Copy to avoid modification during iteration
