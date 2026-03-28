@@ -18,11 +18,10 @@ class TestSetProject:
     @pytest.mark.anyio
     async def test_set_project_creates_and_loads(self, tmp_path, monkeypatch):
         """set_project creates/loads project successfully."""
-        # Mock the session creation to use test directory
         original_session_init = Session.__init__
 
-        def mock_session_init(self, project_name, *, _config_dir_for_tests=None):
-            return original_session_init(self, project_name, _config_dir_for_tests=str(tmp_path))
+        def mock_session_init(self, *, _config_dir_for_tests=None):
+            return original_session_init(self, _config_dir_for_tests=str(tmp_path))
 
         monkeypatch.setattr(Session, "__init__", mock_session_init)
 
@@ -36,11 +35,10 @@ class TestSetProject:
         """set_project returns error for invalid project name."""
         from mcp_guide.result_constants import ERROR_INVALID_NAME
 
-        # Mock the session creation to use test directory
         original_session_init = Session.__init__
 
-        def mock_session_init(self, project_name, *, _config_dir_for_tests=None):
-            return original_session_init(self, project_name, _config_dir_for_tests=str(tmp_path))
+        def mock_session_init(self, *, _config_dir_for_tests=None):
+            return original_session_init(self, _config_dir_for_tests=str(tmp_path))
 
         monkeypatch.setattr(Session, "__init__", mock_session_init)
 
@@ -56,11 +54,10 @@ class TestGetOrCreateSession:
     @pytest.mark.anyio
     async def test_creates_session_with_explicit_name(self, tmp_path, monkeypatch):
         """Creates session when explicit project_name provided."""
-        # Mock the session creation to use test directory
         original_session_init = Session.__init__
 
-        def mock_session_init(self, project_name, *, _config_dir_for_tests=None):
-            return original_session_init(self, project_name, _config_dir_for_tests=str(tmp_path))
+        def mock_session_init(self, *, _config_dir_for_tests=None):
+            return original_session_init(self, _config_dir_for_tests=str(tmp_path))
 
         monkeypatch.setattr(Session, "__init__", mock_session_init)
 
@@ -70,11 +67,10 @@ class TestGetOrCreateSession:
     @pytest.mark.anyio
     async def test_creates_session_from_context(self, tmp_path, monkeypatch):
         """Creates session by detecting name from context."""
-        # Mock the session creation to use test directory
         original_session_init = Session.__init__
 
-        def mock_session_init(self, project_name, *, _config_dir_for_tests=None):
-            return original_session_init(self, project_name, _config_dir_for_tests=str(tmp_path))
+        def mock_session_init(self, *, _config_dir_for_tests=None):
+            return original_session_init(self, _config_dir_for_tests=str(tmp_path))
 
         monkeypatch.setattr(Session, "__init__", mock_session_init)
 
@@ -89,11 +85,10 @@ class TestGetOrCreateSession:
     @pytest.mark.anyio
     async def test_returns_existing_session(self, tmp_path, monkeypatch):
         """Returns existing session if already created."""
-        # Mock the session creation to use test directory
         original_session_init = Session.__init__
 
-        def mock_session_init(self, project_name, *, _config_dir_for_tests=None):
-            return original_session_init(self, project_name, _config_dir_for_tests=str(tmp_path))
+        def mock_session_init(self, *, _config_dir_for_tests=None):
+            return original_session_init(self, _config_dir_for_tests=str(tmp_path))
 
         monkeypatch.setattr(Session, "__init__", mock_session_init)
 
@@ -107,8 +102,8 @@ class TestGetOrCreateSession:
         """Second call returns existing session regardless of project_name."""
         original_session_init = Session.__init__
 
-        def mock_session_init(self, project_name, *, _config_dir_for_tests=None):
-            return original_session_init(self, project_name, _config_dir_for_tests=str(tmp_path))
+        def mock_session_init(self, *, _config_dir_for_tests=None):
+            return original_session_init(self, _config_dir_for_tests=str(tmp_path))
 
         monkeypatch.setattr(Session, "__init__", mock_session_init)
 
