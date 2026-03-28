@@ -7,6 +7,7 @@ from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.decorators import task_init
 from mcp_guide.feature_flags.constants import FLAG_WORKFLOW
 from mcp_guide.task_manager import EventType, get_task_manager
+from mcp_guide.task_manager.protocol import DEFAULT_ONCE_INTERVAL, InitialisableMixin
 from mcp_guide.workflow.change_detection import ChangeEvent, detect_workflow_changes
 from mcp_guide.workflow.constants import DEFAULT_WORKFLOW_FILE
 from mcp_guide.workflow.instruction_generator import get_instruction_template_for_change
@@ -25,7 +26,7 @@ WORKFLOW_INTERVAL = 600.0  # 10 minutes
 
 
 @task_init
-class WorkflowMonitorTask:
+class WorkflowMonitorTask(InitialisableMixin):
     """Scheduled background monitoring task for workflow state changes."""
 
     # noinspection PyMethodMayBeStatic
@@ -56,18 +57,18 @@ class WorkflowMonitorTask:
 
         # Subscribe self to task manager for workflow monitoring with 15s initial delay
         self.task_manager.subscribe(
-            self, EventType.TIMER | EventType.FS_FILE_CONTENT, WORKFLOW_INTERVAL, 15.0, once_interval=1.0
+            self,
+            EventType.TIMER | EventType.FS_FILE_CONTENT,
+            WORKFLOW_INTERVAL,
+            15.0,
+            once_interval=DEFAULT_ONCE_INTERVAL,
         )
 
     async def on_tool(self) -> None:
-        """Called after tool/prompt execution.
-
-        Flag checking and setup are now handled in _initialise() via TIMER_ONCE.
-        """
         pass
 
     async def _initialise(self) -> "EventResult":
-        """Perform one-shot initialisation via TIMER_ONCE."""
+        """Check flag and queue setup instruction if enabled."""
         from mcp_guide.task_manager.manager import EventResult
 
         if not self.task_manager.requires_flag(FLAG_WORKFLOW):
@@ -99,9 +100,8 @@ class WorkflowMonitorTask:
 
         logger.trace(f"WorkflowMonitorTask received event: {event_type} for path: {data.get('path', 'unknown')}")
 
-        # Handle one-shot init
-        if event_type & EventType.TIMER_ONCE:
-            return await self._initialise()
+        if result := await self._handle_timer_once(event_type):
+            return result
 
         # Handle timer events
         if event_type & EventType.TIMER:

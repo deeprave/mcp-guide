@@ -61,7 +61,7 @@ class TestAllowClientInfoValidator:
 class TestClientContextTaskConditional:
     """Test ClientContextTask conditional subscription.
 
-    Note: Flag checking is handled in _initialise() via TIMER_ONCE.
+    Note: Flag checking is handled via InitialisableMixin TIMER_ONCE dispatch.
     See tests/unit/test_on_init.py for initialisation behavior tests.
     """
 

@@ -7,6 +7,9 @@ if TYPE_CHECKING:
 
 from .interception import EventType
 
+# Standard interval for one-shot task initialisation via TIMER_ONCE
+DEFAULT_ONCE_INTERVAL = 1.0
+
 
 @runtime_checkable
 class TaskSubscriber(Protocol):
@@ -40,3 +43,23 @@ class TaskSubscriber(Protocol):
         Default implementation does nothing.
         """
         ...
+
+
+class InitialisableMixin:
+    """Mixin for tasks that perform one-shot initialisation via TIMER_ONCE.
+
+    Subclasses implement _initialise() and this mixin wires TIMER_ONCE
+    dispatch in handle_event to call it exactly once.
+    """
+
+    async def _initialise(self) -> "EventResult":
+        """Perform one-shot initialisation. Override in subclass."""
+        from mcp_guide.task_manager.manager import EventResult
+
+        return EventResult(result=True)
+
+    async def _handle_timer_once(self, event_type: EventType) -> "EventResult | None":
+        """Dispatch TIMER_ONCE to _initialise(). Call from handle_event."""
+        if event_type & EventType.TIMER_ONCE:
+            return await self._initialise()
+        return None

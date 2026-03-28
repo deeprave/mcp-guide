@@ -434,4 +434,4 @@ async def set_filesystem_trust_mode(trust_all: bool) -> str:
             "Use '/tools trust-all false' to re-enable security restrictions."
         )
     else:
-        return "✅ FILESYSTEM SECURITY RESTORED\nFilesystem access is now restricted to allowed paths only."
+        return "✅ FILESYSTEM SECURITY RESTORED\nFilesystem access restricted to allowed paths only."

@@ -13,6 +13,7 @@ from mcp_guide.openspec.rendering import render_openspec_template
 from mcp_guide.render.content import RenderedContent
 from mcp_guide.render.context import TemplateContext
 from mcp_guide.task_manager import EventType, get_task_manager
+from mcp_guide.task_manager.protocol import DEFAULT_ONCE_INTERVAL, InitialisableMixin
 
 if TYPE_CHECKING:
     from mcp_guide.task_manager import TaskManager
@@ -26,7 +27,7 @@ CHANGES_CHECK_INTERVAL = 3600.0  # 60 minutes
 
 
 @task_init
-class OpenSpecTask:
+class OpenSpecTask(InitialisableMixin):
     """Task for detecting OpenSpec CLI availability."""
 
     def __init__(self, task_manager: Optional["TaskManager"] = None):
@@ -56,7 +57,7 @@ class OpenSpecTask:
             self,
             EventType.FS_COMMAND | EventType.FS_FILE_CONTENT | EventType.FS_DIRECTORY | EventType.TIMER,
             CHANGES_CHECK_INTERVAL,
-            once_interval=1.0,
+            once_interval=DEFAULT_ONCE_INTERVAL,
         )
 
     def get_name(self) -> str:
@@ -64,14 +65,10 @@ class OpenSpecTask:
         return "OpenSpecTask"
 
     async def on_tool(self) -> None:
-        """Called after tool/prompt execution.
-
-        Flag checking is now handled in _initialise() via TIMER_ONCE.
-        """
         pass
 
     async def _initialise(self) -> "EventResult":
-        """Perform deferred initialization on first TIMER_ONCE dispatch."""
+        """Check flag and perform deferred initialization."""
         from mcp_guide.task_manager.manager import EventResult
 
         if not self.task_manager.requires_flag(FLAG_OPENSPEC):
@@ -249,9 +246,8 @@ class OpenSpecTask:
         """Handle task manager events."""
         from mcp_guide.task_manager.manager import EventResult
 
-        # Handle one-shot init
-        if event_type & EventType.TIMER_ONCE:
-            return await self._initialise()
+        if result := await self._handle_timer_once(event_type):
+            return result
 
         # Handle timer events for changes monitoring
         if event_type & EventType.TIMER:

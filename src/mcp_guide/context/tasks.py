@@ -7,6 +7,7 @@ from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.decorators import task_init
 from mcp_guide.feature_flags.constants import FLAG_ALLOW_CLIENT_INFO
 from mcp_guide.task_manager import EventType, get_task_manager
+from mcp_guide.task_manager.protocol import DEFAULT_ONCE_INTERVAL, InitialisableMixin
 
 if TYPE_CHECKING:
     from mcp_guide.task_manager import TaskManager
@@ -16,7 +17,7 @@ logger = get_logger(__name__)
 
 
 @task_init
-class ClientContextTask:
+class ClientContextTask(InitialisableMixin):
     """Task for collecting client context information."""
 
     def __init__(self, task_manager: Optional["TaskManager"] = None):
@@ -31,21 +32,17 @@ class ClientContextTask:
         self._context_instruction_id: Optional[str] = None
 
         # Subscribe to file content events and one-shot init
-        self.task_manager.subscribe(self, EventType.FS_FILE_CONTENT, once_interval=1.0)
+        self.task_manager.subscribe(self, EventType.FS_FILE_CONTENT, once_interval=DEFAULT_ONCE_INTERVAL)
 
     def get_name(self) -> str:
         """Get a readable name for the task."""
         return "ClientContextTask"
 
     async def on_tool(self) -> None:
-        """Called after tool/prompt execution.
-
-        Flag checking is now handled in _initialise() via TIMER_ONCE.
-        """
         pass
 
     async def _initialise(self) -> "EventResult":
-        """Perform one-shot initialisation via TIMER_ONCE."""
+        """Check flag and request OS info if enabled."""
         from mcp_guide.task_manager.manager import EventResult
 
         if not self.task_manager.requires_flag(FLAG_ALLOW_CLIENT_INFO):
@@ -73,9 +70,8 @@ class ClientContextTask:
 
         from mcp_guide.task_manager.manager import EventResult
 
-        # Handle one-shot init
-        if event_type & EventType.TIMER_ONCE:
-            return await self._initialise()
+        if result := await self._handle_timer_once(event_type):
+            return result
 
         # Handle file content events
         if event_type & EventType.FS_FILE_CONTENT:
