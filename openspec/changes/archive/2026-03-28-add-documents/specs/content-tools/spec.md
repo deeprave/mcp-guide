@@ -1,6 +1,6 @@
 ## MODIFIED Requirements
 
-### Requirement: The system SHALL provide a `get_category_content` tool that retrieves content from a specific category.
+### Requirement: get_category_content Tool
 
 The tool SHALL include stored documents matching the category alongside filesystem files when delivering content. Stored documents with a `type` metadata field SHALL be handled according to that type during content rendering.
 
@@ -12,7 +12,7 @@ The tool SHALL include stored documents matching the category alongside filesyst
 - **WHEN** `get_category_content` is called for a category with no stored documents
 - **THEN** behaviour is unchanged — only filesystem files are returned
 
-### Requirement: The system SHALL provide a `get_content` tool that retrieves content from either a category or collection.
+### Requirement: get_content Tool
 
 The tool SHALL include stored documents when resolving categories and collections.
 
@@ -20,7 +20,7 @@ The tool SHALL include stored documents when resolving categories and collection
 - **WHEN** `get_content` resolves a collection containing categories with stored documents
 - **THEN** stored documents are included in the aggregated content
 
-### Requirement: The system SHALL provide an `export_content` tool that exports rendered content to files for knowledge indexing.
+### Requirement: Export Content Tool Template Rendering
 
 The tool SHALL include stored documents in exported content.
 

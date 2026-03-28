@@ -4,66 +4,24 @@
 TBD - created by archiving change add-content-tools. Update Purpose after archive.
 ## Requirements
 ### Requirement: get_content Tool
-The get_content tool SHALL accept an optional `force` boolean parameter to control export-aware behavior.
 
-The get_content tool SHALL provide unified access to content from collections and categories through a single interface.
+The tool SHALL include stored documents when resolving categories and collections.
 
-#### Scenario: Collection content retrieval
-- **WHEN** expression matches a collection name
-- **THEN** content from all categories in the collection is returned
-- **AND** files are deduplicated across categories
-
-#### Scenario: Category content retrieval
-- **WHEN** expression matches a category name
-- **THEN** content from that category is returned
-
-#### Scenario: Pattern override
-- **WHEN** pattern parameter is provided
-- **THEN** only files matching the pattern are included
-- **AND** category default patterns are ignored
-
-#### Scenario: Default behavior checks exports
-- **WHEN** get_content is called without force parameter (defaults to False)
-- **AND** the requested expression has been exported
-- **THEN** the tool returns reference instructions instead of full content
-
-#### Scenario: Force returns full content
-- **WHEN** get_content is called with force=True
-- **AND** the requested expression has been exported
-- **THEN** the tool returns the full rendered content as normal
-
-#### Scenario: No export entry behaves normally
-- **WHEN** get_content is called for an expression that has not been exported
-- **THEN** the tool returns full rendered content regardless of force parameter value
+#### Scenario: Collection content includes stored documents
+- **WHEN** `get_content` resolves a collection containing categories with stored documents
+- **THEN** stored documents are included in the aggregated content
 
 ### Requirement: get_category_content Tool
 
-The system SHALL provide a `get_category_content` tool that retrieves content from a specific category.
+The tool SHALL include stored documents matching the category alongside filesystem files when delivering content. Stored documents with a `type` metadata field SHALL be handled according to that type during content rendering.
 
-Arguments:
-- `category` (required, string): Category name
-- `pattern` (optional, string): Glob pattern to filter content
+#### Scenario: Category content includes stored documents
+- **WHEN** `get_category_content` is called for a category that has stored documents
+- **THEN** stored document content is included alongside filesystem file content
 
-The tool SHALL:
-- Resolve category by name
-- Use default patterns if pattern argument is omitted
-- Return Result pattern response
-
-#### Scenario: Category found with default patterns
-- **WHEN** category exists and pattern is omitted
-- **THEN** return content matching category's default patterns
-
-#### Scenario: Category found with custom pattern
-- **WHEN** category exists and pattern is provided
-- **THEN** return content matching custom pattern
-
-#### Scenario: Category not found
-- **WHEN** category does not exist
-- **THEN** return Result.failure with error_type "not_found" and instruction to present error to user
-
-#### Scenario: No content matches
-- **WHEN** category exists but no content matches pattern
-- **THEN** return Result.failure with error_type "no_matches" and instruction to present error to user
+#### Scenario: Category content with no stored documents
+- **WHEN** `get_category_content` is called for a category with no stored documents
+- **THEN** behaviour is unchanged — only filesystem files are returned
 
 ### Requirement: get_collection_content Tool
 
@@ -347,48 +305,12 @@ The system SHALL provide a single template at `_system/_export.mustache` for all
 
 ### Requirement: Export Content Tool Template Rendering
 
-The export_content tool SHALL check export tracking before rendering to avoid redundant exports.
+The tool SHALL include stored documents in exported content.
 
-The tool SHALL:
-- Check export tracking for matching (expression, pattern) tuple
-- Gather files and compute metadata hash
-- If stored hash matches computed hash, return "already exported" message
-- If `force=true`, bypass staleness check
-- On successful export, upsert tracking entry with computed metadata hash
+#### Scenario: Export includes stored documents
+- **WHEN** `export_content` is called for a category with stored documents
+- **THEN** exported content includes both filesystem and stored documents
 
-The export_content tool SHALL render instructions via template instead of hardcoding instruction strings.
-
-Arguments:
-- `expression` (required, string): Content expression
-- `path` (required, string): Export destination path
-- `pattern` (optional, string): Glob pattern filter
-- `force` (optional, boolean): Override staleness check (default: false)
-
-#### Scenario: Instructions rendered from template
-- **WHEN** export_content completes successfully
-- **THEN** instructions are rendered from `_system/_export.mustache` template
-- **AND** template receives export.path, export.force, export.exists, export.expression, and export.pattern
-
-#### Scenario: Backward compatibility maintained
-- **WHEN** export_content is called
-- **THEN** behavior remains consistent with previous implementation
-- **AND** all existing tests pass
-
-#### Scenario: Export with unchanged content
-- **WHEN** content previously exported and metadata hash unchanged
-- **THEN** return message "Content for '{expression}' already exported to {path}. Use force=True to overwrite or if file is missing."
-
-#### Scenario: Export with force flag
-- **WHEN** `force=true` provided
-- **THEN** bypass staleness check and export content
-
-#### Scenario: Export with changed content
-- **WHEN** metadata hash differs from stored hash
-- **THEN** export content and update tracking metadata
-
-#### Scenario: First export
-- **WHEN** (expression, pattern) tuple not previously exported
-- **THEN** export content and create tracking entry
 ### Requirement: Export Tracking Storage
 
 The system SHALL store export tracking metadata in project configuration as a dict mapping (expression, pattern) tuple to export metadata.
@@ -522,3 +444,123 @@ The system SHALL provide a `remove_export` tool that removes export tracking ent
 - **WHEN** `remove_export` successfully removes tracking entry
 - **THEN** the actual exported file is NOT deleted
 - **AND** only the tracking entry is removed from `Project.exports`
+
+### Requirement: Document Update Tool
+
+The MCP server SHALL provide a `document_update` tool that mutates stored documents in-place.
+
+The tool SHALL require `category` and `name` parameters identifying the existing document.
+
+The tool SHALL require at least one mutation parameter to be provided.
+
+#### Scenario: Rename document
+- **WHEN** agent calls `document_update` with category="docs", name="old.md", new_name="new.md"
+- **THEN** the document is renamed and the updated record is returned
+
+#### Scenario: Move document to different category
+- **WHEN** agent calls `document_update` with category="docs", name="file.md", new_category="guides"
+- **AND** category "guides" exists
+- **THEN** the document is moved and the updated record is returned
+
+#### Scenario: Rename and move simultaneously
+- **WHEN** agent calls `document_update` with category="docs", name="old.md", new_name="new.md", new_category="guides"
+- **THEN** both category and name are updated atomically
+
+#### Scenario: Collision on rename/move
+- **WHEN** agent calls `document_update` with a target (category, name) that already exists
+- **THEN** tool returns an error indicating the target already exists
+
+#### Scenario: Document not found
+- **WHEN** agent calls `document_update` with a (category, name) that does not exist
+- **THEN** tool returns a not-found error
+
+#### Scenario: No mutation parameters
+- **WHEN** agent calls `document_update` with only category and name
+- **THEN** tool returns a validation error
+
+### Requirement: Document Metadata Mutation
+
+The `document_update` tool SHALL support three mutually exclusive metadata operations: add, replace, and clear.
+
+Specifying more than one metadata operation SHALL be a validation error.
+
+#### Scenario: Add metadata entries
+- **WHEN** agent calls `document_update` with metadata_add={"author": "alice"}
+- **THEN** the entries are merged into existing metadata
+
+#### Scenario: Replace metadata
+- **WHEN** agent calls `document_update` with metadata_replace={"type": "user/information"}
+- **THEN** the entire metadata dict is replaced
+
+#### Scenario: Clear metadata keys
+- **WHEN** agent calls `document_update` with metadata_clear=["draft", "temp"]
+- **THEN** the specified keys are removed from metadata
+
+#### Scenario: Multiple metadata operations rejected
+- **WHEN** agent calls `document_update` with both metadata_add and metadata_clear
+- **THEN** tool returns a validation error indicating metadata operations are mutually exclusive
+
+### Requirement: Store Description in Listings
+
+The `category_list_files` tool SHALL surface descriptions for store-sourced documents by reading from the document record's metadata.
+
+#### Scenario: Stored document with description
+- **WHEN** a stored document has metadata containing "description"
+- **THEN** `category_list_files` includes the description in the file listing
+
+#### Scenario: Stored document without description
+- **WHEN** a stored document has no "description" in metadata
+- **THEN** `category_list_files` omits the description field for that entry
+
+### Requirement: Document Show Command
+
+The server SHALL provide a `document/show` command that displays full detail for a stored document.
+
+The output SHALL include category, name, source, source_type, metadata, created_at, updated_at, and content size.
+
+#### Scenario: Show existing document
+- **WHEN** agent executes `document/show` with category and name
+- **THEN** command returns all document fields and metadata
+
+#### Scenario: Show non-existent document
+- **WHEN** agent executes `document/show` with a (category, name) that does not exist
+- **THEN** command returns a not-found error
+
+### Requirement: Document Update Command
+
+The server SHALL provide a `document/update` command template that renders output for all mutation combinations.
+
+The template SHALL handle rename, move, and metadata operation results.
+
+#### Scenario: Update command output
+- **WHEN** a document is successfully updated via `document_update`
+- **THEN** the `document/update` command template renders the mutation summary
+
+### Requirement: Document upsert mtime check is atomic
+
+The document store `add_document` operation SHALL perform mtime staleness checks within the same transaction as the write, eliminating the TOCTOU race between a separate read and write.
+
+When `mtime` is provided and `force` is not set, the store SHALL compare against the existing row's mtime before writing.
+
+#### Scenario: Skip write when mtime unchanged
+- **WHEN** a document is added with mtime equal to the existing document's mtime
+- **AND** force is not set
+- **THEN** the write is skipped and a staleness indicator is returned
+
+#### Scenario: Skip write when source is older
+- **WHEN** a document is added with mtime older than the existing document's mtime
+- **AND** force is not set
+- **THEN** the write is skipped and a staleness indicator is returned
+
+#### Scenario: Write proceeds when source is newer
+- **WHEN** a document is added with mtime newer than the existing document's mtime
+- **THEN** the document is upserted normally
+
+#### Scenario: Force bypasses mtime check
+- **WHEN** a document is added with force set
+- **THEN** the document is upserted regardless of mtime comparison
+
+#### Scenario: No mtime provided
+- **WHEN** a document is added without an mtime value
+- **THEN** the document is upserted unconditionally
+

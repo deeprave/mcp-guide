@@ -430,64 +430,88 @@ Category tools SHALL:
 
 The system SHALL provide a `category_list_files` tool that lists all files in a category directory.
 
-**Arguments Schema:**
-```python
-class CategoryListFilesArgs(ToolArguments):
-    name: str = Field(description="Name of the category to list files from")
-```
+The tool SHALL accept an optional `source` filter parameter to control which entries are returned:
+- `files` — filesystem files only (current behaviour)
+- `stored` — stored documents only
+- No filter (default) — both filesystem files and stored documents
 
-**Response Format:**
-- Success: `Result.ok(list[dict])` where each dict contains:
-  - `path`: str - Relative path from category directory
-  - `size`: int - File size in bytes
-  - `basename`: str - Filename with .mustache extension removed if applicable
-- Failure: `Result.failure(message, error_type)` with appropriate error_type
+Each entry in the response SHALL indicate its source (`file` or `store`).
 
-The tool SHALL:
-- Validate category exists in project configuration
-- Use existing file discovery mechanism with pattern `**/*`
-- Return list of files with path and size information
-- Strip `.mustache` extension from basenames in output
-- Respect existing scan limits (MAX_DOCUMENTS_PER_GLOB, MAX_GLOB_DEPTH)
-- Return Result pattern response
+#### Scenario: List all sources (default)
+- **WHEN** `category_list_files` is called without a source filter
+- **THEN** output includes both filesystem files and stored documents
+- **AND** each entry indicates its source
 
-#### Scenario: List files in existing category
-- **WHEN** category exists and contains files
-- **THEN** return list of files with relative paths and sizes
+#### Scenario: List filesystem files only
+- **WHEN** `category_list_files` is called with source filter `files`
+- **THEN** only filesystem files are returned
 
-#### Scenario: Category not found
-- **WHEN** category doesn't exist in project
-- **THEN** return Result.failure with error_type "not_found"
+#### Scenario: List stored documents only
+- **WHEN** `category_list_files` is called with source filter `stored`
+- **THEN** only stored documents are returned
 
-#### Scenario: Empty category directory
-- **WHEN** category directory exists but contains no files
-- **THEN** return empty list with success
+#### Scenario: No stored documents exist
+- **WHEN** `category_list_files` is called for a category with no stored documents
+- **THEN** behaviour is unchanged — only filesystem files are listed
 
-#### Scenario: Template file basename stripping
-- **WHEN** category contains template files (.mustache)
-- **THEN** return basename without .mustache extension
+### Requirement: Document Remove Tool
 
-#### Scenario: Subdirectory traversal
-- **WHEN** category contains files in subdirectories
-- **THEN** return relative paths including subdirectory structure
+The system SHALL provide a `document_remove` MCP tool to delete a document from the store by category and name.
 
-#### Scenario: Scan limits respected
-- **WHEN** category contains more than MAX_DOCUMENTS_PER_GLOB files
-- **THEN** return up to limit and log warning
+#### Scenario: Remove an existing document
+- **WHEN** `document_remove` is called with a valid category and name
+- **THEN** the document is removed from the store
+- **AND** a success result is returned
 
-#### Scenario: No active session
-- **WHEN** tool is called without active session
-- **THEN** return Result.failure with error_type "no_session"
+#### Scenario: Remove a non-existent document
+- **WHEN** `document_remove` is called with a non-existent category/name
+- **THEN** an error result is returned
 
-#### Scenario: Output format
-- **WHEN** files are found
-- **THEN** return 2-column format with path and size information
+### Requirement: Document Ingestion via Task Manager
 
-#### Scenario: Invalid category name validation
-- **WHEN** category name is empty or contains invalid characters
-- **THEN** return Result.failure with error_type "validation_error"
+The system SHALL provide a `DocumentTask` registered with the task manager that listens for `FS_FILE_CONTENT` events and ingests documents into the store.
 
-#### Scenario: Large file count handling
-- **WHEN** category contains many files approaching scan limits
-- **THEN** return files up to limit and include appropriate messaging
+The task SHALL match events based on the presence of required metadata fields, not path patterns. Other tasks listening for `FS_FILE_CONTENT` continue to receive the event independently.
+
+Required fields in event data:
+- `category` — must reference an existing category (validated)
+- `name` — document name as stored; defaults to basename of the path if not provided
+- `source` — origin identifier (file path or URL)
+- `mtime` — source modification time (epoch float)
+- `content` — document body
+
+Optional fields:
+- `force` — overwrite regardless of mtime (default false)
+- `type` — frontmatter type: `agent/instruction` (default), `agent/information`, `user/information`
+
+Content-Type SHALL be auto-detected from the content using the public `detect_text_subtype` function from `mcp_guide.content.formatters.mime` and stored in the metadata JSON blob. This function MUST NOT be accessed as a private method.
+
+#### Scenario: Ingest a new document
+- **WHEN** a `FS_FILE_CONTENT` event contains the required metadata fields
+- **AND** no document with that category/name exists
+- **THEN** the document is added to the store with auto-detected content-type
+- **AND** the event result confirms successful ingestion
+
+#### Scenario: Update with newer mtime
+- **WHEN** a `FS_FILE_CONTENT` event matches an existing document
+- **AND** the event mtime is newer than the stored mtime
+- **THEN** the document content, metadata, and mtime are updated
+
+#### Scenario: Reject update with same mtime
+- **WHEN** a `FS_FILE_CONTENT` event matches an existing document
+- **AND** the event mtime equals the stored mtime
+- **AND** force is not set
+- **THEN** the event result returns an error indicating no change
+
+#### Scenario: Force overwrite
+- **WHEN** a `FS_FILE_CONTENT` event contains force=true
+- **THEN** the document is updated regardless of mtime comparison
+
+#### Scenario: Invalid category
+- **WHEN** a `FS_FILE_CONTENT` event references a non-existent category
+- **THEN** the event result returns a validation error
+
+#### Scenario: Event without required metadata
+- **WHEN** a `FS_FILE_CONTENT` event lacks the required metadata fields
+- **THEN** the DocumentTask does not match and the event passes through to other listeners
 

@@ -1,5 +1,8 @@
-## MODIFIED Requirements
+# http-documents Specification
 
+## Purpose
+TBD - created by archiving change add-documents. Update Purpose after archive.
+## Requirements
 ### Requirement: Document Add URL Command
 
 The system SHALL provide a `:document/add-url` command template that instructs the agent to fetch content from a URL, convert it to markdown, and ingest it via `send_file_content`.
@@ -33,3 +36,4 @@ The system SHALL provide a `:document/add-url` command template that instructs t
 #### Scenario: Force overwrite
 - **WHEN** `--force` is specified
 - **THEN** the document SHALL be ingested regardless of existing mtime
+

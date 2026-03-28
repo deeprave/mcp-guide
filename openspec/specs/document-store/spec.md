@@ -1,5 +1,8 @@
-## MODIFIED Requirements
+# document-store Specification
 
+## Purpose
+TBD - created by archiving change add-documents. Update Purpose after archive.
+## Requirements
 ### Requirement: Document Store Schema
 
 The system SHALL maintain a persistent SQLite database (`documents.db`) in the config directory with a single `documents` table.
@@ -38,3 +41,4 @@ The `metadata` JSON blob SHALL store:
 - **WHEN** a document is added with a (category, name) that already exists
 - **THEN** the existing row is updated with new content, metadata, and mtime
 - **AND** `updated_at` is set to the current timestamp
+

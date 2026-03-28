@@ -5,27 +5,24 @@ TBD - created by archiving change add-export-tracking. Update Purpose after arch
 ## Requirements
 ### Requirement: Document Discovery Function
 
-The system SHALL provide a `discover_documents()` function that discovers files in a directory with metadata.
+The system SHALL provide a `discover_documents()` function that discovers files from both the filesystem and the document store, merged into a unified result.
 
-**Function signature:**
-```python
-async def discover_documents(
-    base_dir: Path,
-    patterns: list[str],
-) -> list[FileInfo]
-```
+The function SHALL be composed of two sub-functions:
+- `discover_document_files(base_dir, patterns)` — filesystem discovery (existing behaviour)
+- `discover_document_stored(category, patterns)` — query document store by category, filtered by patterns
 
-Arguments:
-- `base_dir` (required, Path): Absolute path to base directory
-- `patterns` (required, list[str]): Glob patterns to match files
+The merged function applies category and pattern filtering uniformly to both sources.
 
-The function SHALL:
-- Validate `base_dir` is absolute and exists
-- Expand patterns to include template variants
-- Deduplicate template/non-template pairs (prefer non-template)
-- Return list of FileInfo with metadata (path, size, mtime, name)
+#### Scenario: Discover filesystem files
+- **WHEN** `discover_document_files(base_dir, patterns)` is called
+- **THEN** files matching patterns in the directory are returned with FileInfo metadata
 
-#### Scenario: Discover all matching files
-- **WHEN** patterns provided
-- **THEN** return all files matching patterns with metadata
+#### Scenario: Discover stored documents
+- **WHEN** `discover_document_stored(category, patterns)` is called
+- **THEN** documents matching the category and patterns are returned from the store
+
+#### Scenario: Merged discovery
+- **WHEN** `discover_documents()` is called with both filesystem and store context
+- **THEN** results from both sources are combined
+- **AND** each result indicates its source (filesystem or store)
 
