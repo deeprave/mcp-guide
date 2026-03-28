@@ -204,13 +204,13 @@ class TaskManager:
             Dictionary of resolved flags
         """
         if self._resolved_flags is None:
-            session = await get_session()
-            session.add_listener(self)
             try:
+                session = await get_session()
+                session.add_listener(self)
                 self._resolved_flags = await resolve_all_flags(session)
             except Exception as e:
                 logger.exception(f"Failed to load resolved flags: {e}")
-                self._resolved_flags = {}
+                return {}
         return self._resolved_flags
 
     async def requires_flag(self, flag_name: str) -> bool:
