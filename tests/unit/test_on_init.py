@@ -148,13 +148,22 @@ class TestTaskManagerOnInit:
         mock_session.add_listener = Mock()
 
         with (
-            patch("mcp_guide.task_manager.manager.get_session", new_callable=AsyncMock, return_value=mock_session),
             patch(
-                "mcp_guide.task_manager.manager.resolve_all_flags", new_callable=AsyncMock, return_value={"flag": True}
-            ),
+                "mcp_guide.task_manager.manager.get_session", new_callable=AsyncMock, return_value=mock_session
+            ) as mock_get_session,
+            patch(
+                "mcp_guide.task_manager.manager.resolve_all_flags",
+                new_callable=AsyncMock,
+                return_value={"flag": True},
+            ) as mock_resolve_flags,
         ):
-            flags = await task_manager.resolved_flags()
-            assert flags == {"flag": True}
+            flags_first = await task_manager.resolved_flags()
+            flags_second = await task_manager.resolved_flags()
+
+            assert flags_first == {"flag": True}
+            assert flags_second is flags_first
+            mock_get_session.assert_awaited_once()
+            mock_resolve_flags.assert_awaited_once()
             mock_session.add_listener.assert_called_once_with(task_manager)
 
     @pytest.mark.anyio
