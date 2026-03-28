@@ -208,14 +208,14 @@ async def test_force_bypasses_mtime_check(db):
 
 @pytest.mark.anyio
 async def test_missing_mtime_bypasses_staleness_check(db):
-    """Absent mtime values allow unconditional upserts."""
+    """Absent mtime values allow unconditional upserts, preserving existing mtime."""
     await add_document("docs", "readme", "/path", "file", "v1", mtime=200.0, db_path=db)
 
     result = await add_document("docs", "readme", "/path", "file", "v2", db_path=db)
 
     assert result.skipped is False
     assert result.record is not None
-    assert result.record.mtime is None
+    assert result.record.mtime == 200.0
     content = await get_document_content("docs", "readme", db_path=db)
     assert content == "v2"
 

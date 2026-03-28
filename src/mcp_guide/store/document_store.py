@@ -177,7 +177,7 @@ def _add_document(
                     source_type = excluded.source_type,
                     content     = excluded.content,
                     metadata    = excluded.metadata,
-                    mtime       = excluded.mtime,
+                    mtime       = COALESCE(excluded.mtime, documents.mtime),
                     updated_at  = excluded.updated_at
                 """,
                 (category, name, source, source_type, content, meta_json, mtime, now, now),
