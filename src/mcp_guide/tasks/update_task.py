@@ -34,7 +34,7 @@ class McpUpdateTask:
         self._instruction_id: Optional[str] = None
 
         # Subscribe to one-shot timer with 1-second delay to check for updates after startup
-        self.task_manager.subscribe(self, EventType.TIMER_ONCE, timer_interval=1.0)
+        self.task_manager.subscribe(self, EventType.TIMER_ONCE, once_interval=1.0)
 
     def get_name(self) -> str:
         """Get task name.

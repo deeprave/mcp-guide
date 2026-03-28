@@ -29,20 +29,20 @@ class Subscription:
         event_types: EventType,
         interval: Optional[float] = None,
         initial_delay: Optional[float] = None,
-        once_delay: Optional[float] = None,
+        once_interval: Optional[float] = None,
     ):
         """Initialize subscription with strong reference to subscriber."""
         self.event_types = event_types
         self.subscriber = subscriber
         self.interval = interval
-        self.once_interval = once_delay
+        self.once_interval = once_interval
         if interval is not None:
             delay = initial_delay if initial_delay is not None else interval
             self.next_fire_time = time.time() + delay
         else:
             self.next_fire_time = None
-        if once_delay is not None:
-            self.once_fire_time = time.time() + once_delay
+        if once_interval is not None:
+            self.once_fire_time = time.time() + once_interval
         else:
             self.once_fire_time = None
 
