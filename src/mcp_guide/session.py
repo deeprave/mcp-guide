@@ -800,6 +800,14 @@ async def get_or_create_session(
         # Update MCP context if available and agent not yet detected
         if ctx and existing_session.agent_info is None:
             await cache_mcp_globals(ctx)
+        # Bind unbound session when context becomes available
+        if ctx and not existing_session.project_is_bound:
+            await cache_mcp_globals(ctx)
+            try:
+                resolved_name = await resolve_project_name()
+                await existing_session.switch_project(resolved_name)
+            except ValueError:
+                pass  # Still can't resolve — remain unbound
         # Ensure registry is populated even if session was created without ctx
         if ctx is not None:
             try:
@@ -814,10 +822,16 @@ async def get_or_create_session(
     if project_name is None:
         if ctx:
             await cache_mcp_globals(ctx)
-        project_name = await resolve_project_name()
+        try:
+            project_name = await resolve_project_name()
+        except ValueError:
+            pass  # No project context available — create unbound session
 
-    # Create new session with project loaded
-    session = await Session.create_session(project_name, _config_dir_for_tests=_config_dir_for_tests)
+    # Create session, binding project if name was resolved
+    if project_name is not None:
+        session = await Session.create_session(project_name, _config_dir_for_tests=_config_dir_for_tests)
+    else:
+        session = Session(_config_dir_for_tests=_config_dir_for_tests)
 
     # Transfer bootstrap MCP data to session
     roots, agent_info, client_params = consume_bootstrap_mcp_data()
@@ -847,8 +861,9 @@ async def get_or_create_session(
         except (RuntimeError, TypeError) as exc:
             logger.warning("Failed to register guide session for cross-task lookup: %s", exc)
 
-    # Notify listeners of initial project load
-    await session._notify_project_changed("", session.project_name)
+    # Notify listeners of initial project load (only when bound)
+    if session.project_is_bound:
+        await session._notify_project_changed("", session.project_name)
 
     return session
 

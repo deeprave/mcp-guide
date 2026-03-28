@@ -49,10 +49,9 @@ async def internal_collection_list(args: CollectionListArgs, ctx: Optional[Conte
     """
     try:
         session = await get_session(ctx)
+        project = await session.get_project()
     except ValueError as e:
         return Result.failure(str(e), error_type=ERROR_NO_PROJECT)
-
-    project = await session.get_project()
 
     collections: Any
     if args.verbose:
@@ -103,10 +102,9 @@ async def internal_collection_add(args: CollectionAddArgs, ctx: Optional[Context
 
     try:
         session = await get_session(ctx)
+        project = await session.get_project()
     except ValueError as e:
         return Result.failure(str(e), error_type=ERROR_NO_PROJECT)
-
-    project = await session.get_project()
 
     try:
         # Validate name is not empty
@@ -156,10 +154,9 @@ async def internal_collection_remove(args: CollectionRemoveArgs, ctx: Optional[C
     """
     try:
         session = await get_session(ctx)
+        project = await session.get_project()
     except ValueError as e:
         return Result.failure(str(e), error_type=ERROR_NO_PROJECT)
-
-    project = await session.get_project()
 
     # Use dict lookup for O(1) existence check
     if args.name not in project.collections:
@@ -200,10 +197,9 @@ async def internal_collection_change(args: CollectionChangeArgs, ctx: Optional[C
     """
     try:
         session = await get_session(ctx)
+        project = await session.get_project()
     except ValueError as e:
         return Result.failure(str(e), error_type=ERROR_NO_PROJECT)
-
-    project = await session.get_project()
 
     existing_collection = project.collections.get(args.name)
     if existing_collection is None:
@@ -301,10 +297,9 @@ async def internal_collection_update(args: CollectionUpdateArgs, ctx: Optional[C
     """
     try:
         session = await get_session(ctx)
+        project = await session.get_project()
     except ValueError as e:
         return Result.failure(str(e), error_type=ERROR_NO_PROJECT)
-
-    project = await session.get_project()
 
     existing_collection = project.collections.get(args.name)
     if existing_collection is None:

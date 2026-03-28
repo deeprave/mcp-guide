@@ -97,14 +97,13 @@ async def internal_get_project(args: GetCurrentProjectArgs, ctx: Optional[Contex
     """
     try:
         session = await get_session(ctx)
+        project = await session.get_project()
     except ValueError as e:
         return Result.failure(
             str(e),
             error_type=ERROR_NO_PROJECT,
             instruction=INSTRUCTION_NO_PROJECT,
         )
-
-    project = await session.get_project()
 
     result_dict = await format_project_data(project, verbose=args.verbose, session=session)
     # Include project name in response for single project operations
