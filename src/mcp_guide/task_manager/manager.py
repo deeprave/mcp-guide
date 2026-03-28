@@ -222,9 +222,10 @@ class TaskManager:
         return bool(self.resolved_flags.get(flag_name, False))
 
     async def on_init(self) -> None:
-        """Initialize task manager and all registered tasks at server startup.
+        """Initialize task manager at server startup.
 
-        Establishes session, loads resolved flags, and calls on_init() on all tasks.
+        Establishes session and loads resolved flags. Task initialisation
+        is handled by each task's TIMER_ONCE handler.
         """
         logger.info("Initializing task manager at server startup")
 
@@ -244,17 +245,7 @@ class TaskManager:
             logger.warning(f"Failed to load resolved flags: {e}")
             self._resolved_flags = {}
 
-        # Initialize all registered tasks (iterate over snapshot to handle unsubscribes)
-        for subscription in list(self._subscriptions):
-            task = subscription.subscriber
-            try:
-                if hasattr(task, "on_init"):
-                    await task.on_init()
-                    logger.debug(f"Initialized task: {task.get_name()}")
-            except Exception as e:
-                logger.error(f"Failed to initialize task {task.get_name()}: {e}", exc_info=True)
-
-        logger.info(f"Task manager initialization complete. Initialized {len(self._subscriptions)} tasks")
+        logger.info(f"Task manager initialization complete. {len(self._subscriptions)} tasks subscribed")
 
     @classmethod
     async def _reset_for_testing(cls) -> None:

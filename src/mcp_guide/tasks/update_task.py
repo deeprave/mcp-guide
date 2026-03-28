@@ -107,10 +107,6 @@ class McpUpdateTask:
             # Unsubscribe after handling one-shot timer
             await self.task_manager.unsubscribe(self)
 
-    async def on_init(self) -> None:
-        """Initialize task at server startup - no-op (work done in handle_event)."""
-        pass
-
     async def on_tool(self) -> None:
         """Called after tool execution - no-op."""
         pass

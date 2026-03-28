@@ -42,10 +42,6 @@ class RetryTask:
         """
         return "RetryTask"
 
-    async def on_init(self) -> None:
-        """Initialize task - no-op."""
-        pass
-
     async def on_tool(self) -> None:
         """Called after tool execution - no-op."""
         pass

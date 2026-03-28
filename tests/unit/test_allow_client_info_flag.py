@@ -61,8 +61,8 @@ class TestAllowClientInfoValidator:
 class TestClientContextTaskConditional:
     """Test ClientContextTask conditional subscription.
 
-    Note: Flag checking is now handled in on_init() at server startup.
-    See tests/unit/test_on_init.py for on_init() behavior tests.
+    Note: Flag checking is handled in _initialise() via TIMER_ONCE.
+    See tests/unit/test_on_init.py for initialisation behavior tests.
     """
 
     @pytest.mark.anyio

@@ -56,6 +56,7 @@ class OpenSpecTask:
             self,
             EventType.FS_COMMAND | EventType.FS_FILE_CONTENT | EventType.FS_DIRECTORY | EventType.TIMER,
             CHANGES_CHECK_INTERVAL,
+            once_interval=1.0,
         )
 
     def get_name(self) -> str:
@@ -65,45 +66,39 @@ class OpenSpecTask:
     async def on_tool(self) -> None:
         """Called after tool/prompt execution.
 
-        Flag checking is now handled in on_init() at server startup.
+        Flag checking is now handled in _initialise() via TIMER_ONCE.
         """
         pass
 
-    async def on_init(self) -> None:
-        """Initialize task at server startup.
+    async def _initialise(self) -> "EventResult":
+        """Perform deferred initialization on first TIMER_ONCE dispatch."""
+        from mcp_guide.task_manager.manager import EventResult
 
-        Checks if OpenSpec is enabled via flags and unsubscribes if disabled.
-        """
         if not self.task_manager.requires_flag(FLAG_OPENSPEC):
             await self.task_manager.unsubscribe(self)
             logger.debug(f"OpenSpecTask disabled - {FLAG_OPENSPEC} flag not set")
             self._flag_checked = True
-            return
+            return EventResult(result=True)
 
-        # Check if already validated
         from mcp_guide.session import get_session
 
         session = await get_session()
         project = await session.get_project()
 
-        # Load persisted version if available
         if project.openspec_version:
             self._version = project.openspec_version
             self.task_manager.set_cached_data("openspec_version", self._version)
             logger.debug(f"Loaded persisted OpenSpec version: {self._version}")
 
-        # If validated, check version at least once per session
         if project.openspec_validated:
-            # Always check version once per session to ensure accuracy
             if not self._version_requested:
                 self._version_requested = True
                 await self.request_version_check()
-            # Cache invalidation handled by timer, data fetched on-demand
-        # Otherwise request CLI availability check (version check happens after CLI is confirmed)
         elif not self._cli_requested:
             await self.request_cli_check()
             self._cli_requested = True
         self._flag_checked = True
+        return EventResult(result=True)
 
     def is_available(self) -> Optional[bool]:
         """Check if OpenSpec CLI is available.
@@ -253,6 +248,10 @@ class OpenSpecTask:
     async def handle_event(self, event_type: EventType, data: dict[str, Any]) -> "EventResult | None":
         """Handle task manager events."""
         from mcp_guide.task_manager.manager import EventResult
+
+        # Handle one-shot init
+        if event_type & EventType.TIMER_ONCE:
+            return await self._initialise()
 
         # Handle timer events for changes monitoring
         if event_type & EventType.TIMER:
