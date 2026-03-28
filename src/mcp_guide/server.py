@@ -292,15 +292,6 @@ def create_server(config: "ServerConfig") -> GuideMCP:
     tools.set_instance(tool_decorator)
     resources.set_instance(mcp)
 
-    # Register task manager initialization
-    @mcp.on_init()
-    async def initialize_task_manager() -> None:
-        """Initialize task manager and all registered tasks."""
-        from mcp_guide.task_manager.manager import get_task_manager
-
-        task_manager = get_task_manager()
-        await task_manager.on_init()
-
     # Register tools with MCP
     from mcp_guide.core.tool_decorator import register_tools
 

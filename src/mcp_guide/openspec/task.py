@@ -71,7 +71,7 @@ class OpenSpecTask(InitialisableMixin):
         """Check flag and perform deferred initialization."""
         from mcp_guide.task_manager.manager import EventResult
 
-        if not self.task_manager.requires_flag(FLAG_OPENSPEC):
+        if not await self.task_manager.requires_flag(FLAG_OPENSPEC):
             await self.task_manager.unsubscribe(self)
             logger.debug(f"OpenSpecTask disabled - {FLAG_OPENSPEC} flag not set")
             self._flag_checked = True

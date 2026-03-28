@@ -114,7 +114,7 @@ class TestLifespanExecution:
 
 
 class TestTaskManagerOnInit:
-    """Test TaskManager.on_init() method."""
+    """Test TaskManager flag resolution."""
 
     @pytest.mark.anyio
     @pytest.mark.parametrize(
@@ -134,52 +134,54 @@ class TestTaskManagerOnInit:
         task_manager = TaskManager()
         task_manager._resolved_flags = flags
 
-        assert task_manager.requires_flag("test-flag") is expected
+        assert await task_manager.requires_flag("test-flag") is expected
 
     @pytest.mark.anyio
-    async def test_task_manager_on_init_establishes_session(self):
-        """Test that TaskManager.on_init() establishes session."""
+    async def test_resolved_flags_lazy_resolution(self):
+        """Test that resolved_flags() lazily resolves on first call and caches."""
         from mcp_guide.task_manager.manager import TaskManager
 
         await TaskManager._reset_for_testing()
         task_manager = TaskManager()
 
+        mock_session = Mock()
+        mock_session.add_listener = Mock()
+
         with (
-            patch("mcp_guide.session.get_session", new_callable=AsyncMock) as mock_session,
-            patch("mcp_guide.models.resolve_all_flags", return_value={}),
+            patch("mcp_guide.task_manager.manager.get_session", new_callable=AsyncMock, return_value=mock_session),
+            patch(
+                "mcp_guide.task_manager.manager.resolve_all_flags", new_callable=AsyncMock, return_value={"flag": True}
+            ),
         ):
-            mock_session.return_value = Mock(pwd="/test/path")
-
-            await task_manager.on_init()
-
-            mock_session.assert_called_once()
-            assert task_manager.session is not None
+            flags = await task_manager.resolved_flags()
+            assert flags == {"flag": True}
+            mock_session.add_listener.assert_called_once_with(task_manager)
 
     @pytest.mark.anyio
-    async def test_task_manager_on_init_does_not_call_task_on_init(self):
-        """Test that TaskManager.on_init() no longer calls on_init() on tasks."""
+    async def test_resolved_flags_cache_invalidated_on_project_change(self):
+        """Test that on_project_changed clears the cached flags."""
         from mcp_guide.task_manager.manager import TaskManager
-        from mcp_guide.task_manager.subscription import Subscription
 
         await TaskManager._reset_for_testing()
         task_manager = TaskManager()
+        task_manager._resolved_flags = {"old": True}
 
-        mock_task = Mock()
-        mock_task.on_init = AsyncMock()
-        mock_task.get_name = Mock(return_value="MockTask")
+        await task_manager.on_project_changed(Mock(), "old", "new")
 
-        subscription = Subscription(mock_task, 0, None, None)
-        task_manager._subscriptions.append(subscription)
+        assert task_manager._resolved_flags is None
 
-        with (
-            patch("mcp_guide.session.get_session", new_callable=AsyncMock) as mock_session,
-            patch("mcp_guide.models.resolve_all_flags", return_value={}),
-        ):
-            mock_session.return_value = Mock(pwd="/test/path", project_name="test")
+    @pytest.mark.anyio
+    async def test_resolved_flags_cache_invalidated_on_config_change(self):
+        """Test that on_config_changed clears the cached flags."""
+        from mcp_guide.task_manager.manager import TaskManager
 
-            await task_manager.on_init()
+        await TaskManager._reset_for_testing()
+        task_manager = TaskManager()
+        task_manager._resolved_flags = {"cached": True}
 
-            mock_task.on_init.assert_not_called()
+        await task_manager.on_config_changed(Mock())
+
+        assert task_manager._resolved_flags is None
 
 
 class TestTaskInitialise:
@@ -192,7 +194,7 @@ class TestTaskInitialise:
         from mcp_guide.task_manager.interception import EventType
 
         mock_task_manager = Mock()
-        mock_task_manager.requires_flag = Mock(return_value=False)
+        mock_task_manager.requires_flag = AsyncMock(return_value=False)
         mock_task_manager.unsubscribe = AsyncMock()
 
         task = OpenSpecTask(task_manager=mock_task_manager)
@@ -211,7 +213,8 @@ class TestTaskInitialise:
         from mcp_guide.workflow.tasks import WorkflowMonitorTask
 
         mock_task_manager = Mock()
-        mock_task_manager.requires_flag = Mock(return_value=True)
+        mock_task_manager.requires_flag = AsyncMock(return_value=True)
+        mock_task_manager.resolved_flags = AsyncMock(return_value={"workflow": True})
         mock_task_manager.queue_instruction_with_ack = AsyncMock(return_value="test-id")
 
         with patch("mcp_guide.workflow.tasks.render_workflow_template") as mock_render:
@@ -236,7 +239,7 @@ class TestTaskInitialise:
         from mcp_guide.workflow.tasks import WorkflowMonitorTask
 
         mock_task_manager = Mock()
-        mock_task_manager.requires_flag = Mock(return_value=False)
+        mock_task_manager.requires_flag = AsyncMock(return_value=False)
         mock_task_manager.unsubscribe = AsyncMock()
 
         task = WorkflowMonitorTask()
@@ -256,7 +259,7 @@ class TestTaskInitialise:
         from mcp_guide.task_manager.interception import EventType
 
         mock_task_manager = Mock()
-        mock_task_manager.requires_flag = Mock(return_value=True)
+        mock_task_manager.requires_flag = AsyncMock(return_value=True)
         mock_task_manager.queue_instruction_with_ack = AsyncMock(return_value="test-id")
 
         with patch("mcp_guide.context.tasks.render_context_template") as mock_render:
@@ -280,7 +283,7 @@ class TestTaskInitialise:
         from mcp_guide.task_manager.interception import EventType
 
         mock_task_manager = Mock()
-        mock_task_manager.requires_flag = Mock(return_value=False)
+        mock_task_manager.requires_flag = AsyncMock(return_value=False)
         mock_task_manager.unsubscribe = AsyncMock()
 
         task = ClientContextTask(task_manager=mock_task_manager)

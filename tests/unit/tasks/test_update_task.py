@@ -13,7 +13,7 @@ async def test_update_task_disabled_without_flag():
     """Test task is disabled when autoupdate flag is not set."""
     task_manager = Mock()
     task_manager.subscribe = Mock()
-    task_manager.requires_flag.return_value = False
+    task_manager.requires_flag = AsyncMock(return_value=False)
     task_manager.unsubscribe = AsyncMock()
 
     task = McpUpdateTask(task_manager)
@@ -30,7 +30,7 @@ async def test_update_task_no_project():
     """Test task handles missing project gracefully."""
     task_manager = Mock()
     task_manager.subscribe = Mock()
-    task_manager.requires_flag.return_value = True
+    task_manager.requires_flag = AsyncMock(return_value=True)
     task_manager.unsubscribe = AsyncMock()
 
     with patch("mcp_guide.session.get_session") as mock_session:
@@ -50,7 +50,7 @@ async def test_update_task_no_version_file(tmp_path):
     """Test task prompts when no version file exists."""
     task_manager = Mock()
     task_manager.subscribe = Mock()
-    task_manager.requires_flag.return_value = True
+    task_manager.requires_flag = AsyncMock(return_value=True)
     task_manager.queue_instruction_with_ack = AsyncMock(return_value="test-id")
     task_manager.unsubscribe = AsyncMock()
 
@@ -77,7 +77,7 @@ async def test_update_task_version_mismatch(tmp_path):
     """Test task prompts when version differs."""
     task_manager = Mock()
     task_manager.subscribe = Mock()
-    task_manager.requires_flag.return_value = True
+    task_manager.requires_flag = AsyncMock(return_value=True)
     task_manager.queue_instruction_with_ack = AsyncMock(return_value="test-id")
     task_manager.unsubscribe = AsyncMock()
 
@@ -109,7 +109,7 @@ async def test_update_task_version_current(tmp_path):
     """Test task skips prompt when version is current."""
     task_manager = Mock()
     task_manager.subscribe = Mock()
-    task_manager.requires_flag.return_value = True
+    task_manager.requires_flag = AsyncMock(return_value=True)
     task_manager.queue_instruction_with_ack = AsyncMock()
     task_manager.unsubscribe = AsyncMock()
 

@@ -62,7 +62,7 @@ class McpUpdateTask:
 
         try:
             # Check if autoupdate flag is enabled
-            if not self.task_manager.requires_flag(FLAG_AUTOUPDATE):
+            if not await self.task_manager.requires_flag(FLAG_AUTOUPDATE):
                 logger.debug(f"McpUpdateTask disabled - {FLAG_AUTOUPDATE} flag not set")
                 return EventResult(result=True)
 
