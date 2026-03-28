@@ -17,6 +17,7 @@ from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.file_lock import lock_update
 from mcp_guide.mcp_context import cache_mcp_globals, consume_bootstrap_mcp_data
 from mcp_guide.models import _NAME_REGEX, Project
+from mcp_guide.models.delegate import ProjectDelegate
 from mcp_guide.utils.project_hash import (
     calculate_project_hash,
     extract_name_from_key,
@@ -503,11 +504,13 @@ class Session:
 
         config_manager = cls._get_config_manager(_config_dir_for_tests)
         _key, project = await config_manager.get_or_create_project_config(project_name)
-        return cls(project, _config_dir_for_tests=_config_dir_for_tests)
+        session = cls(_config_dir_for_tests=_config_dir_for_tests)
+        session.bind_project(project)
+        return session
 
-    def __init__(self, project: Project, *, _config_dir_for_tests: Optional[str] = None):
-        """Initialise a session with a loaded project. Use create_session() to create."""
-        self.__project: Project = project
+    def __init__(self, *, _config_dir_for_tests: Optional[str] = None):
+        """Initialise a session. Starts unbound — call bind_project() or switch_project() to bind."""
+        self.__delegate: ProjectDelegate = ProjectDelegate()
         self._project_dirty = False
         self._config_watcher: Optional[ConfigWatcher] = None
         self._watcher_task: Optional["asyncio.Task[None]"] = None
@@ -527,12 +530,12 @@ class Session:
     @property
     def project_name(self) -> str:
         """Get the current project name."""
-        return self.__project.name
+        return self.__delegate.name
 
     @property
     def project_is_bound(self) -> bool:
         """Whether the session is bound to a real project."""
-        return True
+        return self.__delegate.is_bound
 
     @property
     def template_cache(self) -> "TemplateContextCache":
@@ -562,15 +565,20 @@ class Session:
                 f"Project name '{project_name}' must contain only alphanumeric characters, underscores, and hyphens"
             )
 
-        old_project = self.__project.name
+        old_project = self.__delegate.name
         if project_name == old_project:
             return
 
         config_manager = self._get_config_manager()
         _key, project = await config_manager.get_or_create_project_config(project_name)
-        self.__project = project
+        self.__delegate.bind(project)
         self._project_dirty = False
         await self._notify_project_changed(old_project, project_name)
+
+    def bind_project(self, project: Project) -> None:
+        """Bind a project to this session. Internal use by create_session and get_or_create_session."""
+        self.__delegate.bind(project)
+        self._project_dirty = False
 
     def _setup_config_watcher(self) -> None:
         """Setup config file watcher for automatic reload on external changes."""
@@ -645,11 +653,15 @@ class Session:
             self._config_watcher = None
 
     async def get_project(self) -> Project:
-        """Get the current project configuration, reloading if stale."""
+        """Get the current project configuration, reloading if stale.
+
+        Raises:
+            NoProjectError: If no project is bound to this session.
+        """
         await self._ensure_watcher_started()
         if self._project_dirty:
             await self.invalidate_cache()
-        return self.__project
+        return self.__delegate.project
 
     async def update_config(self, updater: Callable[[Project], Project]) -> None:
         """Update project config using functional pattern."""
@@ -661,7 +673,7 @@ class Session:
 
         config_manager = self._get_config_manager()
         await config_manager.save_project_config(project.key, updated_project)
-        self.__project = updated_project
+        self.__delegate.bind(updated_project)
 
         # Notify listeners of config change
         await self._notify_config_changed()
@@ -685,18 +697,18 @@ class Session:
         await config_manager.save_project_config(project.key, project)
 
         # Update cache only if saving the session's own project
-        if self.__project is not None and project.key == self.__project.key:
-            self.__project = project
+        if self.__delegate.is_bound and project.key == self.__delegate.project.key:
+            self.__delegate.bind(project)
 
         # Notify listeners of config change
         await self._notify_config_changed()
 
     async def invalidate_cache(self) -> None:
         """Reload the project configuration from disk."""
-        name = self.__project.name
+        name = self.__delegate.project.name  # raises NoProjectError if unbound
         config_manager = self._get_config_manager()
         _key, project = await config_manager.get_or_create_project_config(name)
-        self.__project = project
+        self.__delegate.bind(project)
         self._project_dirty = False
 
         # Setup config file watcher
