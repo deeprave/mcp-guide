@@ -17,7 +17,7 @@ from mcp_guide.result_constants import (
     ERROR_NOT_FOUND,
     ERROR_SAVE,
 )
-from mcp_guide.session import get_session
+from mcp_guide.tools.tool_helpers import get_session_and_project
 from mcp_guide.validation import validate_categories_exist
 
 __all__ = [
@@ -47,11 +47,9 @@ async def internal_collection_list(args: CollectionListArgs, ctx: Optional[Conte
         - If verbose=True: list of collection dictionaries with name, categories, description
         - If verbose=False: list of collection names only
     """
-    try:
-        session = await get_session(ctx)
-        project = await session.get_project()
-    except ValueError as e:
-        return Result.failure(str(e), error_type=ERROR_NO_PROJECT)
+    session, project = await get_session_and_project(ctx)
+    if project is None:
+        return Result.failure("No project available", error_type=ERROR_NO_PROJECT)
 
     collections: Any
     if args.verbose:
@@ -100,11 +98,9 @@ async def internal_collection_add(args: CollectionAddArgs, ctx: Optional[Context
     # Deduplicate while preserving order
     categories = list(dict.fromkeys(expanded_categories))
 
-    try:
-        session = await get_session(ctx)
-        project = await session.get_project()
-    except ValueError as e:
-        return Result.failure(str(e), error_type=ERROR_NO_PROJECT)
+    session, project = await get_session_and_project(ctx)
+    if project is None:
+        return Result.failure("No project available", error_type=ERROR_NO_PROJECT)
 
     try:
         # Validate name is not empty
@@ -152,11 +148,9 @@ async def internal_collection_remove(args: CollectionRemoveArgs, ctx: Optional[C
     Returns:
         Result containing success message
     """
-    try:
-        session = await get_session(ctx)
-        project = await session.get_project()
-    except ValueError as e:
-        return Result.failure(str(e), error_type=ERROR_NO_PROJECT)
+    session, project = await get_session_and_project(ctx)
+    if project is None:
+        return Result.failure("No project available", error_type=ERROR_NO_PROJECT)
 
     # Use dict lookup for O(1) existence check
     if args.name not in project.collections:
@@ -195,11 +189,9 @@ async def internal_collection_change(args: CollectionChangeArgs, ctx: Optional[C
     Returns:
         Result containing success message
     """
-    try:
-        session = await get_session(ctx)
-        project = await session.get_project()
-    except ValueError as e:
-        return Result.failure(str(e), error_type=ERROR_NO_PROJECT)
+    session, project = await get_session_and_project(ctx)
+    if project is None:
+        return Result.failure("No project available", error_type=ERROR_NO_PROJECT)
 
     existing_collection = project.collections.get(args.name)
     if existing_collection is None:
@@ -295,11 +287,9 @@ async def internal_collection_update(args: CollectionUpdateArgs, ctx: Optional[C
     Returns:
         Result containing success message
     """
-    try:
-        session = await get_session(ctx)
-        project = await session.get_project()
-    except ValueError as e:
-        return Result.failure(str(e), error_type=ERROR_NO_PROJECT)
+    session, project = await get_session_and_project(ctx)
+    if project is None:
+        return Result.failure("No project available", error_type=ERROR_NO_PROJECT)
 
     existing_collection = project.collections.get(args.name)
     if existing_collection is None:

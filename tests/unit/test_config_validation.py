@@ -2,8 +2,7 @@
 
 import pytest
 from pydantic_core import ValidationError
-
-from mcp_guide.session import Session
+from tests.helpers import create_test_session
 
 
 class TestConfigValidation:
@@ -12,7 +11,7 @@ class TestConfigValidation:
     @pytest.mark.anyio
     async def test_set_project_flag_invalid_name(self, tmp_path):
         """Test that project flags reject invalid flag names."""
-        session = await Session.create_session("test", _config_dir_for_tests=str(tmp_path))
+        session = await create_test_session("test", _config_dir_for_tests=str(tmp_path))
         flags = session.project_flags("test-project")
         with pytest.raises(ValidationError, match="Invalid feature flag name"):
             await flags.set("invalid.name", True)
@@ -20,7 +19,7 @@ class TestConfigValidation:
     @pytest.mark.anyio
     async def test_set_project_flag_invalid_value(self, tmp_path):
         """Test that project flags reject invalid flag values."""
-        session = await Session.create_session("test", _config_dir_for_tests=str(tmp_path))
+        session = await create_test_session("test", _config_dir_for_tests=str(tmp_path))
         flags = session.project_flags("test-project")
         with pytest.raises(ValidationError):
             await flags.set("valid-name", 123)
@@ -28,7 +27,7 @@ class TestConfigValidation:
     @pytest.mark.anyio
     async def test_valid_inputs_accepted(self, tmp_path):
         """Test that valid inputs are accepted."""
-        session = await Session.create_session("test", _config_dir_for_tests=str(tmp_path))
+        session = await create_test_session("test", _config_dir_for_tests=str(tmp_path))
         project_flags = session.project_flags("test-project")
         # These should not raise exceptions
         await project_flags.set("valid-name", True)

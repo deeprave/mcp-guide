@@ -10,7 +10,8 @@ from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
 from mcp_guide.core.tool_decorator import disable_test_mode, enable_test_mode
-from mcp_guide.session import Session, remove_current_session, set_current_session
+from mcp_guide.session import remove_current_session, set_current_session
+from tests.helpers import create_test_session
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -26,7 +27,7 @@ async def test_session(tmp_path):
     """Create test session with sample project."""
     from mcp_guide.tools.tool_category import CategoryAddArgs, internal_category_add
 
-    session = await Session.create_session("test", _config_dir_for_tests=str(tmp_path))
+    session = await create_test_session("test", _config_dir_for_tests=str(tmp_path))
     await session.get_project()
     set_current_session(session)
 

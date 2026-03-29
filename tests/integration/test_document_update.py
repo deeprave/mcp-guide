@@ -34,7 +34,7 @@ class TestDocumentUpdate:
         session = AsyncMock()
         session.get_project = AsyncMock(return_value=project)
 
-        with patch("mcp_guide.session.get_session", return_value=session):
+        with patch("mcp_guide.tools.tool_helpers.get_session", return_value=session):
             args = DocumentUpdateArgs(category="docs", name="file.md", new_category="nonexistent")
             result = await internal_document_update(args)
             assert result.success is False

@@ -2,19 +2,20 @@
 
 import pytest
 
-from mcp_guide.session import Session, remove_current_session, set_current_session
+from mcp_guide.session import remove_current_session, set_current_session
 from mcp_guide.tools.tool_category import (
     CategoryAddArgs,
     CategoryChangeArgs,
     internal_category_add,
     internal_category_change,
 )
+from tests.helpers import create_test_session
 
 
 @pytest.mark.anyio
 async def test_category_add_rejects_underscore_prefix(tmp_path):
     """Test that category_add rejects names starting with underscore."""
-    session = await Session.create_session("test", _config_dir_for_tests=str(tmp_path))
+    session = await create_test_session("test", _config_dir_for_tests=str(tmp_path))
     await session.get_project()
     set_current_session(session)
 
@@ -28,7 +29,7 @@ async def test_category_add_rejects_underscore_prefix(tmp_path):
 @pytest.mark.anyio
 async def test_category_change_rejects_underscore_prefix(tmp_path):
     """Test that category_change rejects new names starting with underscore."""
-    session = await Session.create_session("test", _config_dir_for_tests=str(tmp_path))
+    session = await create_test_session("test", _config_dir_for_tests=str(tmp_path))
     await session.get_project()
     set_current_session(session)
 

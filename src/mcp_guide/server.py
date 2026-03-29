@@ -30,8 +30,7 @@ _current_notification_session: ContextVar[Optional[Any]] = ContextVar("_current_
 
 
 async def _handle_roots_changed(_notification: Any) -> None:
-    """Handle roots/list_changed notification: switch project if roots changed."""
-    from mcp_guide.mcp_context import project_name_from_roots
+    """Handle roots/list_changed notification: bind or switch project if roots changed."""
     from mcp_guide.session import get_session_by_mcp_session
 
     mcp_session = _current_notification_session.get()
@@ -40,8 +39,6 @@ async def _handle_roots_changed(_notification: Any) -> None:
 
     session = get_session_by_mcp_session(mcp_session)
     if session is None:
-        # No session yet — next session creation calls list_roots() via cache_mcp_globals,
-        # so the updated roots will be picked up naturally.
         logger.debug(
             "roots/list_changed received before session exists; roots will be picked up on next session creation"
         )
@@ -57,15 +54,7 @@ async def _handle_roots_changed(_notification: Any) -> None:
     if new_roots == session.roots:
         return
 
-    session.roots = new_roots
-
-    new_name = project_name_from_roots(new_roots)
-    if new_name and new_name != session.project_name:
-        try:
-            await session.switch_project(new_name)
-        except Exception as e:
-            logger.warning("Failed to switch project to '%s': %s", new_name, e)
-
+    await session.try_bind_from_roots(new_roots)
     session.template_cache.invalidate()
 
 

@@ -37,7 +37,7 @@ from mcp_guide.result_constants import (
     INSTRUCTION_NOTFOUND_ERROR,
     INSTRUCTION_PATTERN_ERROR,
 )
-from mcp_guide.session import get_session
+from mcp_guide.tools.tool_helpers import get_session_and_project
 from mcp_guide.tools.tool_result import parse_options, tool_result
 
 logger = get_logger(__name__)
@@ -120,12 +120,9 @@ async def internal_get_content(
     Returns:
         Result containing formatted content or error
     """
-    # Get session
-    try:
-        session = await get_session(ctx)
-        project = await session.get_project()
-    except ValueError as e:
-        return Result.failure(str(e), error_type=ERROR_NO_PROJECT)
+    session, project = await get_session_and_project(ctx)
+    if project is None:
+        return Result.failure("No project available", error_type=ERROR_NO_PROJECT)
 
     # Get project
     docroot = Path(await session.get_docroot())
@@ -308,8 +305,9 @@ async def export_content(
     Reuses get_content logic to gather and render content, then returns it with
     an instruction to write to the resolved path.
     """
-    session = await get_session(ctx)
-    project = await session.get_project()
+    session, project = await get_session_and_project(ctx)
+    if project is None:
+        return await tool_result("export_content", Result.failure("No project available", error_type=ERROR_NO_PROJECT))
 
     # Check for existing export (staleness detection)
     export_entry = project.get_export_entry(args.expression, args.pattern)
@@ -458,8 +456,9 @@ async def list_exports(
     from fnmatch import fnmatch
     from pathlib import PurePath
 
-    session = await get_session(ctx)
-    project = await session.get_project()
+    session, project = await get_session_and_project(ctx)
+    if project is None:
+        return await tool_result("list_exports", Result.failure("No project available", error_type=ERROR_NO_PROJECT))
 
     # Build list of export dicts
     exports = []
@@ -545,8 +544,9 @@ async def remove_export(
     Removes only the tracking entry, not the actual exported file.
     Requires exact match of expression and pattern (if provided).
     """
-    session = await get_session(ctx)
-    project = await session.get_project()
+    session, project = await get_session_and_project(ctx)
+    if project is None:
+        return await tool_result("remove_export", Result.failure("No project available", error_type=ERROR_NO_PROJECT))
 
     # Build key
     key = (args.expression, args.pattern)

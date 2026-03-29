@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 from _pytest.monkeypatch import MonkeyPatch
+from tests.helpers import create_test_session
 
 from mcp_guide.models import Category, Collection
 from mcp_guide.session import (
@@ -24,7 +25,7 @@ from mcp_guide.tools.tool_collection import (
 async def test_session_with_data(tmp_path_factory):
     """Module-level fixture providing a session with sample data."""
     tmp_path = tmp_path_factory.mktemp("collection_tests")
-    session = await Session.create_session("test", _config_dir_for_tests=str(tmp_path))
+    session = await create_test_session("test", _config_dir_for_tests=str(tmp_path))
     await session.get_project()
     set_current_session(session)
 

@@ -80,7 +80,7 @@ async def test_name_filter_limits_results():
     )
 
     with (
-        patch("mcp_guide.tools.tool_category.get_session", return_value=session),
+        patch("mcp_guide.tools.tool_helpers.get_session", return_value=session),
         patch("mcp_guide.tools.tool_category.list_documents", new=AsyncMock(return_value=[record_a, record_b])),
     ):
         args = CategoryListFilesArgs(category="docs", source="stored", name="a.md")
@@ -105,7 +105,7 @@ async def test_stored_doc_enriched_with_metadata():
     )
 
     with (
-        patch("mcp_guide.tools.tool_category.get_session", return_value=session),
+        patch("mcp_guide.tools.tool_helpers.get_session", return_value=session),
         patch("mcp_guide.tools.tool_category.list_documents", new=AsyncMock(return_value=[record])),
     ):
         args = CategoryListFilesArgs(category="docs", source="stored")
