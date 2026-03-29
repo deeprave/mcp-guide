@@ -8,9 +8,10 @@ import json
 import pytest
 from fastmcp.client import Client, FastMCPTransport
 
-from mcp_guide.session import Session, remove_current_session, set_current_session
+from mcp_guide.session import remove_current_session, set_current_session
 from mcp_guide.tools.tool_feature_flags import ListFlagsArgs, SetFlagArgs
 from tests.conftest import call_mcp_tool
+from tests.helpers import create_test_session
 
 
 @pytest.fixture
@@ -28,7 +29,7 @@ def mcp_server(mcp_server_factory):
 @pytest.fixture
 async def test_session(tmp_path):
     """Create test session with sample project."""
-    session = await Session.create_session("test", _config_dir_for_tests=str(tmp_path))
+    session = await create_test_session("test", _config_dir_for_tests=str(tmp_path))
 
     # Initialize project properly to set _project_key
     await session.get_project()

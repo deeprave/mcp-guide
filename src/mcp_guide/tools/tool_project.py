@@ -25,6 +25,7 @@ from mcp_guide.result_constants import (
 )
 from mcp_guide.session import get_session, list_all_projects
 from mcp_guide.session import set_project as session_set_project
+from mcp_guide.tools.tool_helpers import get_session_and_project
 from mcp_guide.tools.tool_result import tool_result
 
 __all__ = [
@@ -95,12 +96,10 @@ async def internal_get_project(args: GetCurrentProjectArgs, ctx: Optional[Contex
     Returns:
         Result containing project information
     """
-    try:
-        session = await get_session(ctx)
-        project = await session.get_project()
-    except ValueError as e:
+    session, project = await get_session_and_project(ctx)
+    if project is None:
         return Result.failure(
-            str(e),
+            "No project available",
             error_type=ERROR_NO_PROJECT,
             instruction=INSTRUCTION_NO_PROJECT,
         )
@@ -632,10 +631,9 @@ async def internal_use_project_profile(args: UseProjectProfileArgs, ctx: Optiona
     """
     from mcp_guide.models.profile import Profile
 
-    session = await get_session(ctx)
-
-    # Get current project
-    project = await session.get_project()
+    session, project = await get_session_and_project(ctx)
+    if project is None:
+        return Result.failure("No project available", error_type=ERROR_NO_PROJECT, instruction=INSTRUCTION_NO_PROJECT)
 
     # Load profile
     try:
@@ -809,10 +807,8 @@ async def internal_add_permission_path(args: AddPermissionPathArgs, ctx: Optiona
     """
     from mcp_guide.models.project import Project
 
-    # Get current project
-    session = await get_session(ctx)
-    project = await session.get_project()
-    if not project:
+    session, project = await get_session_and_project(ctx)
+    if project is None:
         return Result.failure(ERROR_NO_PROJECT, INSTRUCTION_NO_PROJECT)
 
     # Check if already exists (silent success)
@@ -857,10 +853,8 @@ async def internal_remove_permission_path(args: RemovePermissionPathArgs, ctx: O
     Returns:
         Result with success message
     """
-    # Get current project
-    session = await get_session(ctx)
-    project = await session.get_project()
-    if not project:
+    session, project = await get_session_and_project(ctx)
+    if project is None:
         return Result.failure(ERROR_NO_PROJECT, INSTRUCTION_NO_PROJECT)
 
     # Remove path based on type (silent success if not found)

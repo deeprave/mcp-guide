@@ -12,7 +12,7 @@ from unittest.mock import patch
 import pytest
 from fastmcp.client import Client, FastMCPTransport
 
-from mcp_guide.session import Session, remove_current_session, set_current_session
+from mcp_guide.session import remove_current_session, set_current_session
 from mcp_guide.tools.tool_category import CategoryAddArgs, CategoryCollectionAddArgs, internal_category_add
 from mcp_guide.tools.tool_project import (
     CloneProjectArgs,
@@ -22,6 +22,7 @@ from mcp_guide.tools.tool_project import (
     SetCurrentProjectArgs,
 )
 from tests.conftest import assert_tool_registered, call_mcp_tool
+from tests.helpers import create_test_session
 
 # Module-level patches
 _config_file_patch = None
@@ -54,7 +55,7 @@ def setup_config_isolation(tmp_path_factory):
 @pytest.fixture(scope="module")
 async def test_session_with_data(setup_config_isolation):
     """Module-level fixture providing a session with sample data."""
-    session = await Session.create_session("test-project", _config_dir_for_tests=str(_test_config_dir))
+    session = await create_test_session("test-project", _config_dir_for_tests=str(_test_config_dir))
     await session.get_project()
     set_current_session(session)
 

@@ -1,8 +1,9 @@
 """Tests for permission management tools."""
 
 import pytest
+from tests.helpers import create_test_session
 
-from mcp_guide.session import Session, remove_current_session, set_current_session
+from mcp_guide.session import remove_current_session, set_current_session
 from mcp_guide.tools.tool_project import (
     AddPermissionPathArgs,
     RemovePermissionPathArgs,
@@ -18,7 +19,7 @@ async def test_session(tmp_path):
     import uuid
 
     project_name = f"test-{uuid.uuid4().hex[:8]}"
-    session = await Session.create_session(project_name, _config_dir_for_tests=str(tmp_path))
+    session = await create_test_session(project_name, _config_dir_for_tests=str(tmp_path))
     await session.get_project()
     set_current_session(session)
     yield session

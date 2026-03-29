@@ -41,8 +41,8 @@ from mcp_guide.result_constants import (
     INSTRUCTION_NOTFOUND_ERROR,
     INSTRUCTION_PATTERN_ERROR,
 )
-from mcp_guide.session import get_session
 from mcp_guide.store.document_store import list_documents
+from mcp_guide.tools.tool_helpers import get_session_and_project
 from mcp_guide.tools.tool_result import tool_result
 
 logger = get_logger(__name__)
@@ -103,11 +103,9 @@ async def internal_category_list(args: CategoryListArgs, ctx: Optional[Context] 
         - If verbose=True: list of category dictionaries with name, dir, patterns, description
         - If verbose=False: list of category names only
     """
-    try:
-        session = await get_session(ctx)
-        project = await session.get_project()
-    except ValueError as e:
-        return Result.failure(str(e), error_type=ERROR_NO_PROJECT)
+    session, project = await get_session_and_project(ctx)
+    if project is None:
+        return Result.failure("No project available", error_type=ERROR_NO_PROJECT)
 
     categories: Union[list[dict[str, Union[str, list[str], None]]], list[str]]
     if args.verbose:
@@ -146,11 +144,9 @@ async def internal_category_add(args: CategoryAddArgs, ctx: Optional[Context] = 
         Result containing success message
     """
 
-    try:
-        session = await get_session(ctx)
-        project = await session.get_project()
-    except ValueError as e:
-        return Result.failure(str(e), error_type=ERROR_NO_PROJECT)
+    session, project = await get_session_and_project(ctx)
+    if project is None:
+        return Result.failure("No project available", error_type=ERROR_NO_PROJECT)
 
     try:
         # Validate name is not empty
@@ -214,11 +210,9 @@ async def internal_category_remove(args: CategoryRemoveArgs, ctx: Optional[Conte
         >>> category_remove(name="docs")
     """
 
-    try:
-        session = await get_session(ctx)
-        project = await session.get_project()
-    except ValueError as e:
-        return Result.failure(str(e), error_type=ERROR_NO_PROJECT)
+    session, project = await get_session_and_project(ctx)
+    if project is None:
+        return Result.failure("No project available", error_type=ERROR_NO_PROJECT)
 
     # Use dict lookup for O(1) existence check
     if args.name not in project.categories:
@@ -262,11 +256,9 @@ async def internal_category_change(args: CategoryChangeArgs, ctx: Optional[Conte
         Result containing success message
     """
 
-    try:
-        session = await get_session(ctx)
-        project = await session.get_project()
-    except ValueError as e:
-        return Result.failure(str(e), error_type=ERROR_NO_PROJECT)
+    session, project = await get_session_and_project(ctx)
+    if project is None:
+        return Result.failure("No project available", error_type=ERROR_NO_PROJECT)
 
     # Use dict lookup for O(1) existence check
     if args.name not in project.categories:
@@ -385,11 +377,9 @@ async def internal_category_update(args: CategoryUpdateArgs, ctx: Optional[Conte
         Result containing success message
     """
 
-    try:
-        session = await get_session(ctx)
-        project = await session.get_project()
-    except ValueError as e:
-        return Result.failure(str(e), error_type=ERROR_NO_PROJECT)
+    session, project = await get_session_and_project(ctx)
+    if project is None:
+        return Result.failure("No project available", error_type=ERROR_NO_PROJECT)
 
     existing_category = project.categories.get(args.name)
     if existing_category is None:
@@ -454,14 +444,9 @@ async def internal_category_list_files(
     Returns:
         Result containing list of file information
     """
-    # Get session
-    try:
-        session = await get_session(ctx)
-    except ValueError as e:
-        return Result.failure(str(e), error_type=ERROR_NO_PROJECT)
-
-    # Get project
-    project = await session.get_project()
+    session, project = await get_session_and_project(ctx)
+    if project is None:
+        return Result.failure("No project available", error_type=ERROR_NO_PROJECT)
 
     # Resolve category
     category = project.categories.get(args.category)
@@ -551,14 +536,9 @@ async def internal_category_content(
     Returns:
         Result containing formatted content or error
     """
-    # Get session
-    try:
-        session = await get_session(ctx)
-    except ValueError as e:
-        return Result.failure(str(e), error_type=ERROR_NO_PROJECT)
-
-    # Get project
-    project = await session.get_project()
+    session, project = await get_session_and_project(ctx)
+    if project is None:
+        return Result.failure("No project available", error_type=ERROR_NO_PROJECT)
 
     try:
         # Build expression with pattern override if provided

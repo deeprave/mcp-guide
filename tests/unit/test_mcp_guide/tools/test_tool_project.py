@@ -2,14 +2,15 @@
 
 import json
 from pathlib import Path
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from tests.helpers import create_test_session
 
 from mcp_guide.models import Category, Collection, Project
 from mcp_guide.result import Result
 from mcp_guide.result_constants import ERROR_SAFEGUARD
-from mcp_guide.session import Session, remove_current_session, set_current_session
+from mcp_guide.session import remove_current_session, set_current_session
 from mcp_guide.tools.tool_project import (
     CloneProjectArgs,
     GetCurrentProjectArgs,
@@ -44,10 +45,9 @@ class TestGetProject:
     @pytest.mark.anyio
     async def test_no_context_error(self):
         """Test get_project with no project context."""
-        # Mock get_session to raise ValueError
         with patch(
-            "mcp_guide.tools.tool_project.get_session",
-            side_effect=ValueError("Project context not available"),
+            "mcp_guide.tools.tool_project.get_session_and_project",
+            return_value=(MagicMock(), None),
         ):
             args = GetCurrentProjectArgs(verbose=False)
             result_str = await get_project(args)
@@ -55,7 +55,6 @@ class TestGetProject:
 
             assert result["success"] is False
             assert result["error_type"] == "no_project"
-            assert "Project context not available" in result["error"]
 
     @pytest.mark.parametrize(
         "verbose,has_data",
@@ -71,7 +70,7 @@ class TestGetProject:
         project_name = "test-project" if has_data else "empty-project"
         monkeypatch.setenv("PWD", f"/fake/path/{project_name}")
 
-        session = await Session.create_session(project_name, _config_dir_for_tests=str(tmp_path))
+        session = await create_test_session(project_name, _config_dir_for_tests=str(tmp_path))
         await session.get_project()
         set_current_session(session)
 
@@ -136,7 +135,7 @@ class TestGetProject:
         """Test get_project flag output format based on verbose flag."""
         monkeypatch.setenv("PWD", "/fake/path/test-project")
 
-        session = await Session.create_session("test-project", _config_dir_for_tests=str(tmp_path))
+        session = await create_test_session("test-project", _config_dir_for_tests=str(tmp_path))
         await session.get_project()
         set_current_session(session)
 
@@ -176,7 +175,7 @@ class TestGetProject:
         """Test project flags take precedence over global flags."""
         monkeypatch.setenv("PWD", "/fake/path/test-project")
 
-        session = await Session.create_session("test-project", _config_dir_for_tests=str(tmp_path))
+        session = await create_test_session("test-project", _config_dir_for_tests=str(tmp_path))
         await session.get_project()
         set_current_session(session)
 

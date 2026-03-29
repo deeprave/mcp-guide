@@ -5,17 +5,15 @@ Tool Implementation Pattern
 
 All tools should follow this pattern for session access:
 
-    from mcp_guide.session import get_session
+    from mcp_guide.tools.tool_helpers import get_session_and_project
 
     async def my_tool(ctx) -> dict:
-        session = await get_session(ctx)
+        session, project = await get_session_and_project(ctx)
+        if project is None:
+            return Result.failure("No project available", error_type=ERROR_NO_PROJECT)
 
-        project = await session.get_project()
         # Use project config...
-
         return {"success": True, "data": ...}
-
-Note: Actual tool implementations will be added in separate changes.
 """
 
 # Import Arguments as ToolArguments for backward compatibility
@@ -36,6 +34,7 @@ from mcp_guide.tools import (  # noqa: F401
     tool_update,
     tool_utility,
 )
+from mcp_guide.tools.tool_helpers import get_session_and_project
 from mcp_guide.tools.tool_result import prompt_result, tool_result
 
-__all__ = ["ToolArguments", "tool_result", "prompt_result"]
+__all__ = ["ToolArguments", "get_session_and_project", "tool_result", "prompt_result"]

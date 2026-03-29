@@ -21,8 +21,9 @@ def _make_mcp_session(roots: list) -> MagicMock:
 def _make_guide_session(project_name: str, roots: list) -> MagicMock:
     session = MagicMock()
     session.project_name = project_name
+    session.project_is_bound = True
     session.roots = roots
-    session.switch_project = AsyncMock()
+    session.try_bind_from_roots = AsyncMock(return_value=True)
     session.template_cache = MagicMock()
     return session
 
@@ -45,8 +46,7 @@ async def test_roots_changed_switches_project() -> None:
     finally:
         _current_notification_session.reset(token)
 
-    assert [r.uri for r in guide_session.roots] == ["file:///home/user/new-project"]
-    guide_session.switch_project.assert_awaited_once_with("new-project")
+    guide_session.try_bind_from_roots.assert_awaited_once_with(new_roots)
     guide_session.template_cache.invalidate.assert_called_once()
 
 
@@ -67,7 +67,7 @@ async def test_roots_unchanged_is_noop() -> None:
     finally:
         _current_notification_session.reset(token)
 
-    guide_session.switch_project.assert_not_awaited()
+    guide_session.try_bind_from_roots.assert_not_awaited()
     guide_session.template_cache.invalidate.assert_not_called()
 
 

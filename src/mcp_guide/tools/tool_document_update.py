@@ -8,7 +8,7 @@ from pydantic import Field, model_validator
 from mcp_guide.core.arguments import Arguments as ToolArguments
 from mcp_guide.core.tool_decorator import toolfunc
 from mcp_guide.result import Result
-from mcp_guide.result_constants import ERROR_NOT_FOUND
+from mcp_guide.result_constants import ERROR_NO_PROJECT, ERROR_NOT_FOUND
 from mcp_guide.store.document_store import update_document
 from mcp_guide.tools.tool_result import tool_result
 
@@ -46,10 +46,11 @@ async def internal_document_update(
     """Update a document in the store."""
     # Validate target category exists if moving
     if args.new_category is not None:
-        from mcp_guide.session import get_session
+        from mcp_guide.tools.tool_helpers import get_session_and_project
 
-        session = await get_session(ctx)
-        project = await session.get_project()
+        session, project = await get_session_and_project(ctx)
+        if project is None:
+            return Result.failure("No project available", error_type=ERROR_NO_PROJECT)
         if args.new_category not in project.categories:
             return Result.failure(error=f"Category {args.new_category!r} does not exist")
 

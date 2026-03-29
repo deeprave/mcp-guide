@@ -478,38 +478,8 @@ class Session:
             self._ensure_config_dir()
             await lock_update(self.config_file, _save)
 
-    @classmethod
-    async def create_session(cls, project_name: str, *, _config_dir_for_tests: Optional[str] = None) -> "Session":
-        """Create a new session with the project loaded.
-
-        Args:
-            project_name: Name of the project to load
-            _config_dir_for_tests: Optional config directory for test isolation
-
-        Returns:
-            Session with project loaded
-
-        Raises:
-            InvalidProjectNameError: If project name is invalid
-        """
-        # Import here to avoid circular dependency with validation module
-        from mcp_guide.validation import InvalidProjectNameError
-
-        if not project_name or not project_name.strip():
-            raise InvalidProjectNameError("Project name cannot be empty")
-        if not _NAME_REGEX.match(project_name):
-            raise InvalidProjectNameError(
-                f"Project name '{project_name}' must contain only alphanumeric characters, underscores, and hyphens"
-            )
-
-        config_manager = cls._get_config_manager(_config_dir_for_tests)
-        _key, project = await config_manager.get_or_create_project_config(project_name)
-        session = cls(_config_dir_for_tests=_config_dir_for_tests)
-        session.bind_project(project)
-        return session
-
     def __init__(self, *, _config_dir_for_tests: Optional[str] = None):
-        """Initialise a session. Starts unbound — call bind_project() or switch_project() to bind."""
+        """Initialise a session. Starts unbound — call switch_project() to bind."""
         self.__delegate: ProjectDelegate = ProjectDelegate()
         self._project_dirty = False
         self._config_watcher: Optional[ConfigWatcher] = None
@@ -575,10 +545,26 @@ class Session:
         self._project_dirty = False
         await self._notify_project_changed(old_project, project_name)
 
-    def bind_project(self, project: Project) -> None:
-        """Bind a project to this session. Internal use by create_session and get_or_create_session."""
-        self.__delegate.bind(project)
-        self._project_dirty = False
+    async def try_bind_from_roots(self, roots: list[Any]) -> bool:
+        """Attempt to bind or switch project based on roots.
+
+        Updates session roots, resolves project name, and binds/switches if needed.
+        Returns True if the session is bound after this call.
+        """
+        from mcp_guide.mcp_context import project_name_from_roots
+
+        self.roots = roots
+        new_name = project_name_from_roots(roots)
+        if not new_name:
+            return self.project_is_bound
+
+        if not self.project_is_bound or new_name != self.project_name:
+            try:
+                await self.switch_project(new_name)
+            except Exception as e:
+                logger.warning("Failed to bind/switch project to '%s': %s", new_name, e)
+
+        return self.project_is_bound
 
     def _setup_config_watcher(self) -> None:
         """Setup config file watcher for automatic reload on external changes."""
@@ -799,11 +785,7 @@ async def get_or_create_session(
             await cache_mcp_globals(ctx)
         # Bind unbound session when context becomes available
         if ctx and not existing_session.project_is_bound:
-            try:
-                resolved_name = await resolve_project_name()
-                await existing_session.switch_project(resolved_name)
-            except ValueError:
-                logger.debug("Session remains unbound — project context not yet available")
+            await existing_session.try_bind_from_roots(existing_session.roots)
         # Ensure registry is populated even if session was created without ctx
         if ctx is not None:
             try:
@@ -824,10 +806,9 @@ async def get_or_create_session(
             logger.debug("Creating unbound session — project context not available")
 
     # Create session, binding project if name was resolved
+    session = Session(_config_dir_for_tests=_config_dir_for_tests)
     if project_name is not None:
-        session = await Session.create_session(project_name, _config_dir_for_tests=_config_dir_for_tests)
-    else:
-        session = Session(_config_dir_for_tests=_config_dir_for_tests)
+        await session.switch_project(project_name)
 
     # Transfer bootstrap MCP data to session
     roots, agent_info, client_params = consume_bootstrap_mcp_data()
