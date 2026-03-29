@@ -789,25 +789,21 @@ async def get_or_create_session(
         _config_dir_for_tests: Optional config directory for test isolation (keyword-only)
 
     Returns:
-        Session (existing or newly created)
-
-    Raises:
-        ValueError: If project name cannot be determined
+        Session (existing or newly created, possibly unbound if project context unavailable)
     """
     # Return existing session if one exists
     existing_session = _active_session.get()
     if existing_session is not None:
-        # Update MCP context if available and agent not yet detected
-        if ctx and existing_session.agent_info is None:
+        # Update MCP context once if needed for agent detection or project binding
+        if ctx and (existing_session.agent_info is None or not existing_session.project_is_bound):
             await cache_mcp_globals(ctx)
         # Bind unbound session when context becomes available
         if ctx and not existing_session.project_is_bound:
-            await cache_mcp_globals(ctx)
             try:
                 resolved_name = await resolve_project_name()
                 await existing_session.switch_project(resolved_name)
             except ValueError:
-                pass  # Still can't resolve — remain unbound
+                logger.debug("Session remains unbound — project context not yet available")
         # Ensure registry is populated even if session was created without ctx
         if ctx is not None:
             try:
@@ -825,7 +821,7 @@ async def get_or_create_session(
         try:
             project_name = await resolve_project_name()
         except ValueError:
-            pass  # No project context available — create unbound session
+            logger.debug("Creating unbound session — project context not available")
 
     # Create session, binding project if name was resolved
     if project_name is not None:

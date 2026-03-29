@@ -202,9 +202,11 @@ class TestUnboundSession:
 
     def test_session_starts_unbound(self):
         """Session created without project is unbound."""
+        from mcp_guide.models.delegate import UNBOUND_PROJECT_NAME
+
         session = Session()
         assert session.project_is_bound is False
-        assert session.project_name == "(unbound)"
+        assert session.project_name == UNBOUND_PROJECT_NAME
 
     @pytest.mark.anyio
     async def test_get_project_raises_when_unbound(self):
@@ -253,7 +255,7 @@ class TestUnboundSession:
         # Second call with ctx providing roots — triggers binding
         mock_ctx = MagicMock()
         mock_root = MagicMock()
-        mock_root.uri = f"file://{tmp_path}/my-project"
+        mock_root.uri = (tmp_path / "my-project").as_uri()
         mock_ctx.session.list_roots = AsyncMock(return_value=MagicMock(roots=[mock_root]))
 
         session2 = await get_session(ctx=mock_ctx, _config_dir_for_tests=str(tmp_path))
