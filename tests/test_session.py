@@ -262,3 +262,60 @@ class TestUnboundSession:
         assert session2 is session
         assert session.project_is_bound is True
         assert session.project_name == "my-project"
+
+
+class TestTryBindFromRoots:
+    """Tests for Session.try_bind_from_roots edge cases."""
+
+    @pytest.mark.anyio
+    async def test_no_project_name_from_roots(self, tmp_path, monkeypatch):
+        """No project name resolved — roots updated, no switch, returns current bound state."""
+        session = Session(_config_dir_for_tests=str(tmp_path))
+        monkeypatch.setattr("mcp_guide.mcp_context.project_name_from_roots", lambda roots: None)
+
+        result = await session.try_bind_from_roots(["file:///some/path"])
+
+        assert session.roots == ["file:///some/path"]
+        assert result is False  # still unbound
+
+    @pytest.mark.anyio
+    async def test_same_project_name_no_switch(self, tmp_path, monkeypatch):
+        """Resolved name matches current project — switch_project not called."""
+        session = Session(_config_dir_for_tests=str(tmp_path))
+        await session.switch_project("my-project")
+        monkeypatch.setattr("mcp_guide.mcp_context.project_name_from_roots", lambda roots: "my-project")
+        session.switch_project = AsyncMock(side_effect=AssertionError("should not be called"))
+
+        result = await session.try_bind_from_roots(["file:///home/user/my-project"])
+
+        assert result is True
+        assert session.roots == ["file:///home/user/my-project"]
+
+    @pytest.mark.anyio
+    async def test_switch_project_error_swallowed(self, tmp_path, monkeypatch, caplog):
+        """switch_project raises — warning logged, returns current bound state."""
+        import logging
+
+        session = Session(_config_dir_for_tests=str(tmp_path))
+        monkeypatch.setattr("mcp_guide.mcp_context.project_name_from_roots", lambda roots: "bad-project")
+        monkeypatch.setattr(session, "switch_project", AsyncMock(side_effect=ValueError("config error")))
+
+        caplog.set_level(logging.WARNING)
+        result = await session.try_bind_from_roots(["file:///home/user/bad-project"])
+
+        assert result is False  # still unbound
+        assert any("Failed to bind/switch" in r.message for r in caplog.records)
+
+    @pytest.mark.anyio
+    async def test_binds_unbound_session(self, tmp_path, monkeypatch):
+        """Unbound session with valid roots binds successfully."""
+        session = Session(_config_dir_for_tests=str(tmp_path))
+        mock_root = MagicMock()
+        mock_root.uri = "file:///home/user/new-project"
+        monkeypatch.setattr("mcp_guide.mcp_context.project_name_from_roots", lambda roots: "new-project")
+
+        result = await session.try_bind_from_roots([mock_root])
+
+        assert result is True
+        assert session.project_is_bound is True
+        assert session.project_name == "new-project"

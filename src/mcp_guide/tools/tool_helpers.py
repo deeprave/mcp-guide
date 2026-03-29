@@ -2,6 +2,7 @@
 
 from typing import TYPE_CHECKING, Optional
 
+from mcp_guide.models.exceptions import NoProjectError
 from mcp_guide.session import get_session
 
 if TYPE_CHECKING:
@@ -16,5 +17,5 @@ async def get_session_and_project(ctx: Optional["Context"] = None) -> tuple["Ses
     session = await get_session(ctx)
     try:
         return session, await session.get_project()
-    except ValueError:
+    except NoProjectError:
         return session, None

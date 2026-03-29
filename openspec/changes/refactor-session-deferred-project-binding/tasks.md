@@ -25,7 +25,7 @@
 - [x] 4.1 Add `get_session_and_project` helper in `tool_helpers.py`
 - [x] 4.2 Refactor all tools to use `get_session_and_project` — fixes previously unguarded `get_project()` calls
 - [x] 4.3 Extract `try_bind_from_roots` on Session — single bind point used by both `get_or_create_session` and `_handle_roots_changed`
-- [x] 4.4 Remove `create_session` classmethod — `Session()` + `bind_project()` is the canonical path
+- [x] 4.4 Remove `create_session` and `bind_project` — `Session()` + `switch_project()` is the canonical path
 
 ## 5. Validation
 - [x] 5.1 Run full test suite, lint, format, type checks
