@@ -19,7 +19,8 @@ All notable changes to mcp-guide will be documented in this file.
 - Migrated from vendored `mcp.server.fastmcp` to standalone `fastmcp` package
 - Stored document matching now behaves consistently with filesystem content discovery
 - `category_list_files` can report filesystem files, stored documents, or both
-- Internal session handling and multi-client support were improved for more reliable IDE and agent integration
+- Server startup no longer requires project context to be immediately available, improving reliability across clients and IDEs
+- Consistent error responses across all tools when no project has been resolved yet
 
 ### Fixed
 - Stale document writes are now rejected atomically during mtime-based upserts
@@ -27,7 +28,8 @@ All notable changes to mcp-guide will be documented in this file.
 - Session/bootstrap isolation and startup reliability issues across clients
 - Direct MCP resource handling for `guide://_command` URIs
 - macOS test instability caused by `watchdog` teardown with Python 3.14
-- Sessions are now fully isolated, so shared mcp via http works reliably without previously existing problems
+- Sessions are now fully isolated, so shared MCP via HTTP works reliably
+- Server no longer fails on startup when MCP roots are not yet available
 
 
 ## [1.1.0] - 2026-03-16

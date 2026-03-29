@@ -562,7 +562,7 @@ class Session:
             try:
                 await self.switch_project(new_name)
             except Exception as e:
-                logger.warning("Failed to bind/switch project to '%s': %s", new_name, e)
+                logger.warning("Failed to bind/switch project to '%s': %s", new_name, e, exc_info=True)
 
         return self.project_is_bound
 
