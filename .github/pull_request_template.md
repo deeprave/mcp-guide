@@ -28,12 +28,3 @@ Pull Request Title Guidelines:
 
 ---
 
-## Review Guidelines
-
-When reviewing this PR, please format comments for AI agent consumption:
-- Use plain markdown (no HTML/CSS)
-- Include file paths and line numbers
-- Use code blocks with language tags
-- Keep formatting simple and copy-paste friendly
-
-See `.github/copilot-instructions.md` for detailed formatting guidelines.
