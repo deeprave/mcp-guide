@@ -122,9 +122,6 @@ debug = [
     "debugpy>=1.8.0",
 ]
 
-[tool.osvcheck.exceptions]
-pygments = { expires = "2026-04-30", reason = "CWE-1333 ReDOS not yet fixed" }
-
 [tool.vulture]
 exclude = [
   "tests/",
