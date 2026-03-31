@@ -66,31 +66,34 @@ class TestResolveContentDisposition:
 class TestPrependExportFrontmatter:
     """Tests for prepend_export_frontmatter serialisation."""
 
+    @staticmethod
+    def _parse_frontmatter(result: str) -> tuple[dict, str]:
+        frontmatter, body = result.split("---\n")[1:3]
+        return yaml.safe_load(frontmatter), body
+
     def test_returns_none_for_none_content(self):
         assert prepend_export_frontmatter(None, "user/information", None) is None
 
     def test_prepends_type_only(self):
         result = prepend_export_frontmatter("body", "agent/information", None)
-        frontmatter, body_part = result.split("---\n")[1:3]
-        assert yaml.safe_load(frontmatter) == {"type": "agent/information"}
-        assert body_part == "body"
+        parsed, body = self._parse_frontmatter(result)
+        assert parsed == {"type": "agent/information"}
+        assert body == "body"
 
     def test_prepends_type_and_instruction(self):
         result = prepend_export_frontmatter("body", "user/information", "Display this to the user")
-        frontmatter, body_part = result.split("---\n")[1:3]
-        parsed = yaml.safe_load(frontmatter)
+        parsed, body = self._parse_frontmatter(result)
         assert parsed["type"] == "user/information"
         assert parsed["instruction"] == "Display this to the user"
-        assert body_part == "body"
+        assert body == "body"
 
     def test_multiline_instruction(self):
         result = prepend_export_frontmatter("body", "agent/instruction", "Line one\nLine two")
-        frontmatter, body_part = result.split("---\n")[1:3]
-        parsed = yaml.safe_load(frontmatter)
+        parsed, body = self._parse_frontmatter(result)
         assert parsed["type"] == "agent/instruction"
         assert "Line one" in parsed["instruction"]
         assert "Line two" in parsed["instruction"]
-        assert body_part == "body"
+        assert body == "body"
 
     def test_no_disposition_no_instruction_returns_content_unchanged(self):
         assert prepend_export_frontmatter("body", None, None) == "body"
@@ -102,7 +105,6 @@ class TestPrependExportFrontmatter:
 
     def test_special_yaml_characters_in_instruction(self):
         result = prepend_export_frontmatter("body", "agent/instruction", 'Use key: value and "quotes"')
-        frontmatter, body_part = result.split("---\n")[1:3]
-        parsed = yaml.safe_load(frontmatter)
+        parsed, body = self._parse_frontmatter(result)
         assert parsed["instruction"] == 'Use key: value and "quotes"'
-        assert body_part == "body"
+        assert body == "body"
