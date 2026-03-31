@@ -4,6 +4,7 @@ from datetime import datetime
 from pathlib import Path
 
 import pytest
+import yaml
 
 from mcp_guide.content.utils import prepend_export_frontmatter, resolve_content_disposition
 from mcp_guide.discovery.files import FileInfo
@@ -70,19 +71,26 @@ class TestPrependExportFrontmatter:
 
     def test_prepends_type_only(self):
         result = prepend_export_frontmatter("body", "agent/information", None)
-        assert result == "---\ntype: agent/information\n---\nbody"
+        frontmatter, body_part = result.split("---\n")[1:3]
+        assert yaml.safe_load(frontmatter) == {"type": "agent/information"}
+        assert body_part == "body"
 
     def test_prepends_type_and_instruction(self):
         result = prepend_export_frontmatter("body", "user/information", "Display this to the user")
-        assert "type: user/information" in result
-        assert "instruction: Display this to the user" in result
-        assert result.startswith("---\n")
-        assert result.endswith("---\nbody")
+        frontmatter, body_part = result.split("---\n")[1:3]
+        parsed = yaml.safe_load(frontmatter)
+        assert parsed["type"] == "user/information"
+        assert parsed["instruction"] == "Display this to the user"
+        assert body_part == "body"
 
     def test_multiline_instruction(self):
         result = prepend_export_frontmatter("body", "agent/instruction", "Line one\nLine two")
-        assert "type: agent/instruction" in result
-        assert result.endswith("---\nbody")
+        frontmatter, body_part = result.split("---\n")[1:3]
+        parsed = yaml.safe_load(frontmatter)
+        assert parsed["type"] == "agent/instruction"
+        assert "Line one" in parsed["instruction"]
+        assert "Line two" in parsed["instruction"]
+        assert body_part == "body"
 
     def test_no_disposition_no_instruction_returns_content_unchanged(self):
         assert prepend_export_frontmatter("body", None, None) == "body"
@@ -94,11 +102,7 @@ class TestPrependExportFrontmatter:
 
     def test_special_yaml_characters_in_instruction(self):
         result = prepend_export_frontmatter("body", "agent/instruction", 'Use key: value and "quotes"')
-        assert result.startswith("---\n")
-        assert result.endswith("---\nbody")
-        # Should be valid YAML — no unquoted special chars breaking parsing
-        import yaml
-
-        frontmatter_text = result.split("---\n")[1]
-        parsed = yaml.safe_load(frontmatter_text)
+        frontmatter, body_part = result.split("---\n")[1:3]
+        parsed = yaml.safe_load(frontmatter)
         assert parsed["instruction"] == 'Use key: value and "quotes"'
+        assert body_part == "body"
