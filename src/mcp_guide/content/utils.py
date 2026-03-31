@@ -88,7 +88,7 @@ def prepend_export_frontmatter(
         fm["instruction"] = instruction
     if not fm:
         return content
-    return f"---\n{yaml.dump(fm, default_flow_style=False, allow_unicode=True).rstrip()}\n---\n{content}"
+    return f"---\n{yaml.safe_dump(fm, default_flow_style=False, allow_unicode=True, sort_keys=False).rstrip()}\n---\n{content}"
 
 
 def combine_instructions(instructions_with_importance: list[tuple[str, bool]]) -> Optional[str]:
