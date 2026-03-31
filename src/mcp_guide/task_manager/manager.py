@@ -1,6 +1,7 @@
 """TaskManager for coordinating agent communication."""
 
 import asyncio
+import contextlib
 import time
 import zlib
 from contextvars import ContextVar
@@ -12,7 +13,7 @@ from mcp_guide.core.result import Result
 from mcp_guide.decorators import task_init
 from mcp_guide.models import resolve_all_flags
 from mcp_guide.render.content import RenderedContent
-from mcp_guide.session import get_active_session, get_session
+from mcp_guide.session import get_session
 
 if TYPE_CHECKING:
     from mcp_guide.session import Session
@@ -111,10 +112,7 @@ def aggregate_event_results(results: list[EventResult]) -> Result[Any]:
         messages = [r.message for r in success_results if r.message]
         combined_message = _dedupe_and_combine_messages(messages)
 
-        # Concatenate rendered content from successful handlers
-        rendered_contents = [r.rendered_content for r in success_results if r.rendered_content]
-
-        if rendered_contents:
+        if rendered_contents := [r.rendered_content for r in success_results if r.rendered_content]:
             combined_content = "\n".join(rc.content for rc in rendered_contents)
             # Combine instructions using shared logic
             from mcp_guide.content.utils import combine_instructions
@@ -137,13 +135,11 @@ def aggregate_event_results(results: list[EventResult]) -> Result[Any]:
         # No rendered content but had successes
         return Result.ok(message=combined_message)
 
-    # No successes - aggregate failures
     elif failed_results:
         messages = [r.message for r in failed_results if r.message]
         combined_error = _dedupe_and_combine_messages(messages) or "All handlers failed"
         return Result.failure(error=combined_error)
 
-    # No results at all
     else:
         return Result.ok(instruction="")
 
@@ -185,14 +181,8 @@ class TaskManager:
 
         # Lazy flag resolution cache (invalidated by SessionListener callbacks)
         self._resolved_flags: Optional[Dict[str, Any]] = None
-
-        # Start timer tasks
-        try:
-            loop = asyncio.get_running_loop()
-            loop.create_task(self.start())
-        except RuntimeError:
-            # No loop yet, will start when needed
-            pass
+        # Session reference for timer loop (ContextVar not available in background tasks)
+        self._session: Optional["Session"] = None
 
     async def resolved_flags(self) -> Dict[str, Any]:
         """Lazily resolve and cache feature flags.
@@ -227,6 +217,7 @@ class TaskManager:
     async def on_project_changed(self, session: "Session", old_project: str, new_project: str) -> None:
         """Invalidate cached flags when the project changes."""
         self._resolved_flags = None
+        self._session = session
 
     async def on_config_changed(self, session: "Session") -> None:
         """Invalidate cached flags when project config changes."""
@@ -261,11 +252,11 @@ class TaskManager:
         """Subscribe to events with optional timer support."""
         logger.trace(
             f"TaskManager.subscribe: {subscriber.get_name()} subscribing to {event_types}, "
-            f"interval={timer_interval}, once_interval={once_interval}"
+            f"int={timer_interval}, delay={initial_delay}, once={once_interval}"
         )
 
         # Check if this exact subscriber instance with same event types is already registered
-        for existing_sub in self._subscriptions:
+        for existing_sub in self._subscriptions[:]:
             if existing_sub.subscriber is subscriber and existing_sub.event_types == event_types:
                 logger.debug(
                     f"Subscriber instance {subscriber.get_name()} already registered for {event_types}, skipping duplicate"
@@ -299,10 +290,6 @@ class TaskManager:
             subscription.unique_timer_bit = unique_timer_bit
 
             self._subscriptions.append(subscription)
-            logger.trace(
-                f"TaskManager.subscribe: Added timer subscription for {subscriber_name}, "
-                f"total: {len(self._subscriptions)}"
-            )
 
             # Track timer statistics - include unique_timer_bit to avoid collisions
             task_id = f"{subscriber_name}_{id(subscriber)}_{unique_timer_bit}"
@@ -341,6 +328,29 @@ class TaskManager:
         # Update peak count
         self._peak_task_count = max(self._peak_task_count, len(self._subscriptions))
 
+    async def unsubscribe(self, subscriber: TaskSubscriber) -> None:
+        """Remove all subscriptions for a subscriber."""
+        # Clean up statistics - remove all entries for this subscriber
+        subscriber_name = self._get_subscriber_name(subscriber)
+        subscriber_id = id(subscriber)
+        keys_to_remove = [k for k in self._task_stats.keys() if k.startswith(f"{subscriber_name}_{subscriber_id}")]
+        for key in keys_to_remove:
+            self._task_stats.pop(key, None)
+
+        # Remove all subscriptions for this subscriber
+        self._subscriptions = [sub for sub in self._subscriptions if sub.subscriber is not subscriber]
+        logger.debug(f"TaskManager.unsubscribe: {subscriber.get_name()}")
+
+        # Check if any timer subscriptions remain
+        has_timers = any(sub.is_timer() for sub in self._subscriptions)
+
+        # Stop timer task if no timer subscriptions remain
+        if not has_timers and self._timer_task and not self._timer_task.done():
+            self._timer_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._timer_task
+            self._timer_task = None
+
     async def start(self) -> None:
         """Start all timer tasks for subscribed tasks."""
         # Start timer task if any timer subscriptions exist
@@ -355,14 +365,10 @@ class TaskManager:
         await self.start()
 
         logger.trace(f"TaskManager.on_tool called, {len(self._subscriptions)} subscriptions")
-        for i, subscription in enumerate(self._subscriptions):
+        for subscription in self._subscriptions[:]:
             subscriber = subscription.subscriber
-            logger.trace(f"Subscription {i}: subscriber is {subscriber}")
             try:
-                subscriber_name = subscriber.get_name()
-                logger.trace(f"Calling on_tool for {subscriber_name}")
                 await subscriber.on_tool()
-                logger.trace(f"Completed on_tool for {subscriber_name}")
             except Exception as e:
                 logger.warning(f"Error in on_tool for {subscriber.get_name()}: {e}")
 
@@ -374,39 +380,13 @@ class TaskManager:
         """
         return len(self._subscriptions)
 
-    async def unsubscribe(self, subscriber: TaskSubscriber) -> None:
-        """Remove all subscriptions for a subscriber."""
-        # Clean up statistics - remove all entries for this subscriber
-        subscriber_name = self._get_subscriber_name(subscriber)
-        subscriber_id = id(subscriber)
-        keys_to_remove = [k for k in self._task_stats.keys() if k.startswith(f"{subscriber_name}_{subscriber_id}")]
-        for key in keys_to_remove:
-            self._task_stats.pop(key, None)
-
-        # Remove all subscriptions for this subscriber
-        self._subscriptions = [sub for sub in self._subscriptions if sub.subscriber is not subscriber]
-
-        # Check if any timer subscriptions remain
-        has_timers = any(sub.is_timer() for sub in self._subscriptions)
-
-        # Stop timer task if no timer subscriptions remain
-        if not has_timers and self._timer_task and not self._timer_task.done():
-            self._timer_task.cancel()
-            try:
-                await self._timer_task
-            except asyncio.CancelledError:
-                pass
-            self._timer_task = None
-
     async def cleanup(self) -> None:
         """Clean up resources and cancel running tasks."""
         # Cancel timer task if running
         if self._timer_task and not self._timer_task.done():
             self._timer_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._timer_task
-            except asyncio.CancelledError:
-                pass
             self._timer_task = None
 
     async def dispatch_event(
@@ -436,16 +416,14 @@ class TaskManager:
 
         # Check regular subscriptions and clean up dead references
         current_time = time.time()
-        active_subscriptions = []
         event_results: list[EventResult] = []
 
-        for subscription in self._subscriptions:
+        for subscription in self._subscriptions[:]:
             subscriber = subscription.subscriber
             if subscriber is None:
                 logger.trace("Subscription has dead weak reference, removing")
                 continue
 
-            active_subscriptions.append(subscription)
             logger.trace(f"Checking subscription: {subscriber.get_name()} with event_types {subscription.event_types}")
             if subscription.event_types & data_type:
                 logger.trace(
@@ -474,13 +452,10 @@ class TaskManager:
                     subscription.event_types &= ~EventType.TIMER_ONCE
                     subscription.once_fire_time = None
 
-                    # Only clear timer machinery if no recurring TIMER remains
                     if not (subscription.event_types & EventType.TIMER):
                         subscription.interval = None
                         subscription.next_fire_time = None
 
-                    # Update task stats - change to regular task only if no timer remains
-                    if not (subscription.event_types & EventType.TIMER):
                         subscriber_name = self._get_subscriber_name(subscriber)
                         unique_bit = getattr(subscription, "unique_timer_bit", None)
                         if unique_bit is not None:
@@ -494,16 +469,12 @@ class TaskManager:
             else:
                 logger.trace(f"Event {data_type} does not match subscription {subscription.event_types}")
 
-        # Update subscriptions list with only active ones
-        self._subscriptions = active_subscriptions
-
         logger.trace(f"Event {data_type} processed by {len(event_results)} subscribers")
 
         # Update statistics for processed subscribers
         for subscription in self._subscriptions:
             if subscription.event_types & data_type:
-                subscriber = subscription.subscriber
-                if subscriber:
+                if subscriber := subscription.subscriber:
                     subscriber_name = self._get_subscriber_name(subscriber)
                     # Use unique_timer_bit if this is a timer subscription
                     unique_bit = getattr(subscription, "unique_timer_bit", None)
@@ -742,7 +713,14 @@ class TaskManager:
 
     async def _timer_loop(self) -> None:
         """Main timer event loop - runs only while there are active timers."""
+        logger.debug("TaskManager._timer_loop: started")
+        try:
+            await self._timer_loop_inner()
+        except Exception as e:
+            logger.error(f"TaskManager._timer_loop: crashed: {e}", exc_info=True)
 
+    async def _timer_loop_inner(self) -> None:
+        """Inner timer loop implementation."""
         while True:
             # Get timer subscriptions
             timer_subscriptions = [sub for sub in self._subscriptions if sub.is_timer()]
@@ -755,8 +733,7 @@ class TaskManager:
             next_fire_time = float("inf")
 
             # Check whether project is bound — skip dispatch if not, but keep timers ticking
-            active_session = get_active_session()
-            project_bound = active_session is not None and active_session.project_is_bound
+            project_bound = self._session is not None and self._session.project_is_bound
 
             # Check each timer subscription
             for timer_sub in timer_subscriptions[:]:  # Copy to avoid modification during iteration
