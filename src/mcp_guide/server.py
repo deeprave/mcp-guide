@@ -233,6 +233,11 @@ def _configure_logging_after_fastmcp(config: "ServerConfig") -> None:
     # Register cleanup handlers
     register_cleanup_handlers()
 
+    # Replay any log records emitted before handlers were attached
+    from mcp_guide.core.mcp_log import flush_startup_buffer
+
+    flush_startup_buffer()
+
     # Log startup message
     logger.info(f"Starting mcp-guide server; version {__version__}")
     logger.debug(f"Log level: {config.log_level}, File: {config.log_file or 'none'}, JSON: {config.log_json}")

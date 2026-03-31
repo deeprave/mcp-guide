@@ -826,6 +826,11 @@ async def get_or_create_session(
 
     session.add_listener(GuideUriListener())
 
+    # Register TaskManager so it receives on_project_changed for timer loop
+    from mcp_guide.task_manager import get_task_manager
+
+    session.add_listener(get_task_manager())
+
     # Store in ContextVar
     set_current_session(session)
 

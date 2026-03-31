@@ -32,6 +32,44 @@ _trace_initialized = False
 _cleanup_done = False
 
 
+class StartupBufferingHandler(logging.Handler):
+    """Buffers log records emitted before logging is fully configured.
+
+    Attach to the root logger at module load time. After real handlers are
+    configured, call ``flush_startup_buffer()`` to replay the buffered
+    records (with their original timestamps) through those handlers.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(level=TRACE_LEVEL)
+        self.buffer: list[logging.LogRecord] = []
+
+    def emit(self, record: logging.LogRecord) -> None:
+        self.buffer.append(record)
+
+
+# Install immediately so every early log record is captured
+_startup_handler = StartupBufferingHandler()
+logging.getLogger().addHandler(_startup_handler)
+logging.getLogger().setLevel(TRACE_LEVEL)
+
+
+def flush_startup_buffer() -> None:
+    """Replay buffered startup records through the now-configured handlers, then remove the buffer."""
+    global _startup_handler
+    if _startup_handler is None:
+        return
+    root = logging.getLogger()
+    root.removeHandler(_startup_handler)
+    for record in _startup_handler.buffer:
+        target = logging.getLogger(record.name)
+        for handler in target.handlers or root.handlers:
+            if handler is not _startup_handler and record.levelno >= handler.level:
+                handler.handle(record)
+    _startup_handler.buffer.clear()
+    _startup_handler = None  # type: ignore[assignment]
+
+
 def _cleanup_logging() -> None:
     """Clean up logging handlers on shutdown."""
     global _cleanup_done
