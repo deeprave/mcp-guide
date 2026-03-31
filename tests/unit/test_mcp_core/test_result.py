@@ -115,3 +115,25 @@ class TestResultToJson:
         data = result.to_json()
 
         assert "error_data" not in data
+
+
+class TestResultDisposition:
+    """Tests for Result.disposition field."""
+
+    def test_ok_disposition_defaults_to_none(self):
+        result = Result.ok("value")
+        assert result.disposition is None
+
+    def test_ok_accepts_disposition_kwarg(self):
+        result = Result.ok("value", disposition="agent/instruction")
+        assert result.disposition == "agent/instruction"
+
+    def test_to_json_includes_disposition_when_set(self):
+        result = Result.ok("value", disposition="agent/information")
+        data = result.to_json()
+        assert data["disposition"] == "agent/information"
+
+    def test_to_json_omits_disposition_when_none(self):
+        result = Result.ok("value")
+        data = result.to_json()
+        assert "disposition" not in data

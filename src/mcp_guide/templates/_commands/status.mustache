@@ -20,9 +20,8 @@ includes:
 {{/agent}}
 {{#workflow}}{{#workflow.phase}}{{>workflow-status}}{{>taskmanager}}{{/workflow.phase}}{{^workflow.phase}}
 
-Workflow details not yet detected.
-
-Please try `:status` again.
+The workflow file not yet received from the agent.
+Send the contents of `{{workflow.file}}` using `send_file_content` to allow workflow tracking, then retry the `status` command.
 {{/workflow.phase}}{{/workflow}}{{^workflow}}
 
 Workflow details not yet detected.

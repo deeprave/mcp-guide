@@ -26,6 +26,7 @@ class Result(Generic[T]):
     message: Optional[str] = None
     arguments: Optional[str] = None
     instruction: Optional[str] = None
+    disposition: Optional[str] = None
     additional_agent_instructions: Optional[str] = None
     error_data: Optional[dict[str, Any]] = None
 
@@ -47,6 +48,7 @@ class Result(Generic[T]):
         message: Optional[str] = None,
         arguments: Optional[str] = None,
         instruction: Optional[str] = None,
+        disposition: Optional[str] = None,
         additional_agent_instructions: Optional[str] = None,
     ) -> "Result[T]":
         """Create a successful result.
@@ -56,6 +58,7 @@ class Result(Generic[T]):
             message: Optional message
             arguments: Optional arguments for agent
             instruction: Optional instruction for agent
+            disposition: Optional content disposition (e.g. user/information, agent/instruction)
             additional_agent_instructions: Optional side-band instruction for agent
 
         Returns:
@@ -67,6 +70,7 @@ class Result(Generic[T]):
             message=message,
             arguments=arguments,
             instruction=instruction if instruction is not None else cls.default_success_instruction,
+            disposition=disposition,
             additional_agent_instructions=additional_agent_instructions,
         )
 
@@ -151,6 +155,8 @@ class Result(Generic[T]):
             result["arguments"] = self.arguments
         if self.instruction:
             result["instruction"] = self.instruction
+        if self.disposition:
+            result["disposition"] = self.disposition
         if self.additional_agent_instructions:
             result["additional_agent_instructions"] = self.additional_agent_instructions
 

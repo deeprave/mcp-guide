@@ -18,7 +18,9 @@ from mcp_guide.content.gathering import gather_content
 from mcp_guide.content.utils import (
     create_file_read_error_result,
     extract_and_deduplicate_instructions,
+    prepend_export_frontmatter,
     read_and_render_file_contents,
+    resolve_content_disposition,
 )
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.core.tool_arguments import ToolArguments
@@ -150,6 +152,7 @@ async def internal_get_content(
                         "expression": args.expression,
                         "pattern": args.pattern,
                         "instruction": original_instruction,
+                        "type": original_result.disposition if original_result.success else None,
                     }
                 }
             )
@@ -221,8 +224,9 @@ async def internal_get_content(
 
         # Extract instructions from frontmatter
         instruction = extract_and_deduplicate_instructions(final_files)
+        disposition = resolve_content_disposition(final_files)
 
-        return Result.ok(content, instruction=instruction)
+        return Result.ok(content, instruction=instruction, disposition=disposition)
 
     except ExpressionParseError as e:
         return Result.failure(str(e), error_type=ERROR_NO_PROJECT)
@@ -353,6 +357,7 @@ async def export_content(
                     "expression": args.expression,
                     "pattern": args.pattern,
                     "instruction": original_instruction,
+                    "type": result.disposition,
                 }
             }
         )
@@ -420,6 +425,7 @@ async def export_content(
                 "exists": export_entry is not None,
                 "expression": args.expression,
                 "pattern": args.pattern,
+                "type": result.disposition,
             }
         }
     )
@@ -427,7 +433,10 @@ async def export_content(
     rendered = await render_content("_export", "_system", context)
     instruction = rendered.instruction if rendered else None
 
-    return await tool_result("export_content", Result.ok(result.value, instruction=instruction))
+    # Prepend YAML frontmatter with resolved disposition and instruction
+    exported_value = prepend_export_frontmatter(result.value, result.disposition, result.instruction)
+
+    return await tool_result("export_content", Result.ok(exported_value, instruction=instruction))
 
 
 class ListExportsArgs(ToolArguments):

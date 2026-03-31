@@ -3,6 +3,8 @@
 from pathlib import Path
 from typing import Any, Optional
 
+import yaml
+
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.discovery.files import FileInfo
 from mcp_guide.render import render_template
@@ -14,8 +16,21 @@ from mcp_guide.render.frontmatter import (
 )
 from mcp_guide.render.renderer import is_template_file
 from mcp_guide.result import Result
+from mcp_guide.result_constants import (
+    AGENT_INFO,
+    AGENT_INSTRUCTION,
+    USER_INFO,
+)
 
 logger = get_logger(__name__)
+
+# Precedence for content disposition: higher value wins
+_TYPE_PRECEDENCE = {
+    USER_INFO: 0,
+    AGENT_INFO: 1,
+    AGENT_INSTRUCTION: 2,
+}
+_PRECEDENCE_TO_TYPE = {v: k for k, v in _TYPE_PRECEDENCE.items()}
 
 
 def extract_and_deduplicate_instructions(files: list[FileInfo]) -> Optional[str]:
@@ -38,6 +53,42 @@ def extract_and_deduplicate_instructions(files: list[FileInfo]) -> Optional[str]
             instructions_with_importance.append((instruction, is_important))
 
     return combine_instructions(instructions_with_importance)
+
+
+def resolve_content_disposition(files: list[FileInfo]) -> str:
+    """Resolve the aggregate content disposition across collected files.
+
+    Walks each file's frontmatter type and returns the highest-precedence value.
+
+    Args:
+        files: List of FileInfo objects with parsed frontmatter
+
+    Returns:
+        Highest-precedence type string, defaulting to user/information
+    """
+    max_precedence = 0
+    for file_info in files:
+        if not file_info.frontmatter:
+            continue
+        if (ft := get_frontmatter_type(file_info.frontmatter)) and ft in _TYPE_PRECEDENCE:
+            max_precedence = max(max_precedence, _TYPE_PRECEDENCE[ft])
+    return _PRECEDENCE_TO_TYPE[max_precedence]
+
+
+def prepend_export_frontmatter(
+    content: Optional[str], disposition: Optional[str], instruction: Optional[str]
+) -> Optional[str]:
+    """Prepend YAML frontmatter with disposition and instruction to exported content."""
+    if content is None:
+        return None
+    fm: dict[str, str] = {}
+    if disposition:
+        fm["type"] = disposition
+    if instruction:
+        fm["instruction"] = instruction
+    if not fm:
+        return content
+    return f"---\n{yaml.dump(fm, default_flow_style=False, allow_unicode=True).rstrip()}\n---\n{content}"
 
 
 def combine_instructions(instructions_with_importance: list[tuple[str, bool]]) -> Optional[str]:
