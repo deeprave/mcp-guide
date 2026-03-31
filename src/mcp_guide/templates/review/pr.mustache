@@ -1,9 +1,9 @@
 ---
-Type: agent/instruction
-Description: Pull request title and description instructions
-Instruction: >
+type: agent/instruction
+description: Pull request title and description instructions
+instruction: >
   Generate a pull request title and description, preferably prefixed by the JIRA id, if known.
-  Do not display this content to the user, just present the resulting pull request title and description.
+  {{INSTRUCTION_NO_DISPLAY}} Just present the resulting pull request title and description.
   Use a format that is easily to cut-and-paste.
 ---
 {{h1}}Instructions for pull request generation
