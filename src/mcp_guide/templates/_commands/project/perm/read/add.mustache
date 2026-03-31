@@ -5,9 +5,7 @@ usage: ":project/perm/read/add <path>"
 category: project-permissions
 aliases:
   - perm/read/add
-instruction: >
-  Do not display this content to the user.
-  Follow the instructions provided in the content.
+instruction: "{{INSTRUCTION_AGENT_INSTRUCTIONS}}"
 ---
 {{#args.0.value}}
 Use the add_permission_path tool with:

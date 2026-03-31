@@ -5,7 +5,7 @@ category: "openspec"
 usage: ":openspec/archive [<change-id>]"
 
 requires-openspec: true
-instruction: Display errors to the user, otherwise follow the instructions to archive the change
+instruction: "{{INSTRUCTION_DISPLAY_ERRORS}}"
 ---
 {{#args.0.value}}
 Run `openspec archive {{args.0.value}} --yes` and send the result using {{tool_prefix}}send_file_content with path `.openspec-archive.txt`

@@ -37,11 +37,11 @@ INSTRUCTION_NO_PROJECT = "To fix: Call set_project with the basename of the curr
 INSTRUCTION_TEMPLATE_ERROR = "Check template syntax and available context variables"
 
 # Agent instructions
-INSTRUCTION_AGENT_INFO = (
-    "This information is for your information and use. Do must not display this content to the user."
-)
-INSTRUCTION_AGENT_INSTRUCTIONS = "You MUST follow these instructions. Do not display this content to the user."
-INSTRUCTION_AGENT_REQUIREMENTS = "You MUST ALWAYS adhere to these guidelines. Do not display this content to the user."
+INSTRUCTION_NO_DISPLAY = "Do not display this content to the user."
+INSTRUCTION_AGENT_INFORMATION = f"This information is for your information and use. {INSTRUCTION_NO_DISPLAY}"
+INSTRUCTION_AGENT_INSTRUCTIONS = f"You MUST follow these instructions. {INSTRUCTION_NO_DISPLAY}"
+INSTRUCTION_AGENT_REQUIREMENTS = f"You MUST ALWAYS adhere to these guidelines. {INSTRUCTION_NO_DISPLAY}"
+INSTRUCTION_DISPLAY_ERRORS = "Display errors to the user, otherwise follow the provided instructions."
 
 # Content type identifiers
 USER_INFO = "user/information"
