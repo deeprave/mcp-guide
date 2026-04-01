@@ -8,7 +8,8 @@ from functools import cache, wraps
 from typing import TYPE_CHECKING, Any, Callable, Coroutine, Optional, Union
 
 from mcp_guide.core.mcp_log import get_logger
-from mcp_guide.result_constants import ERROR_VALIDATION, INSTRUCTION_VALIDATION_ERROR
+from mcp_guide.result_constants import ERROR_VALIDATION, INSTRUCTION_VALIDATION_ERROR, RESULT_NO_PROJECT
+from mcp_guide.session import get_session
 
 if TYPE_CHECKING:
     pass
@@ -90,15 +91,13 @@ async def _call_on_tool(tool_name: str) -> None:
 async def _check_project_bound(ctx: Optional[Any]) -> Optional[str]:
     """Return RESULT_NO_PROJECT JSON string if session is unbound, else None."""
     try:
-        from mcp_guide.session import get_session
-
         session = await get_session(ctx)
-        if not session.project_is_bound:
-            from mcp_guide.result_constants import RESULT_NO_PROJECT
+    except ValueError:
+        return RESULT_NO_PROJECT.to_json_str()
 
-            return RESULT_NO_PROJECT.to_json_str()
-    except Exception:
-        pass
+    if not session.project_is_bound:
+        return RESULT_NO_PROJECT.to_json_str()
+
     return None
 
 

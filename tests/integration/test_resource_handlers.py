@@ -109,7 +109,9 @@ class TestResourceHandlers:
 
             result = await guide_resource("docs", "readme", mock_ctx)
 
-            assert result == "Error: Invalid value"
+            parsed = _parse_result(result)
+            assert parsed["success"] is False
+            assert parsed["error"] == "Invalid value"
 
     @pytest.mark.anyio
     async def test_guide_resource_file_not_found_error_handling(self, mcp_server: Any) -> None:
@@ -123,7 +125,9 @@ class TestResourceHandlers:
 
             result = await guide_resource("docs", "readme", mock_ctx)
 
-            assert result == "Error: File not found"
+            parsed = _parse_result(result)
+            assert parsed["success"] is False
+            assert parsed["error"] == "File not found"
 
     @pytest.mark.anyio
     async def test_guide_resource_permission_error_handling(self, mcp_server: Any) -> None:
@@ -137,7 +141,9 @@ class TestResourceHandlers:
 
             result = await guide_resource("docs", "readme", mock_ctx)
 
-            assert result == "Error: Permission denied"
+            parsed = _parse_result(result)
+            assert parsed["success"] is False
+            assert parsed["error"] == "Permission denied"
 
     @pytest.mark.anyio
     async def test_guide_resource_empty_result(self, mcp_server: Any) -> None:
@@ -152,6 +158,7 @@ class TestResourceHandlers:
 
             parsed = _parse_result(result)
             assert parsed["success"] is True
+            assert parsed.get("value") is None
 
     @pytest.mark.anyio
     async def test_guide_command_resource_routes_simple_command_uri(self, mcp_server: Any) -> None:

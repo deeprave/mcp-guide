@@ -6,16 +6,16 @@ from fastmcp import Context
 
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.core.resource_decorator import resourcefunc
+from mcp_guide.result import Result
+from mcp_guide.task_manager.manager import get_task_manager
 from mcp_guide.tools.tool_content import ContentArgs, internal_get_content
 from mcp_guide.tools.tool_resource import ReadResourceArgs, internal_read_resource
 
 logger = get_logger(__name__)
 
 
-async def _process_and_serialize(result: "Result") -> str:  # ty: ignore[unresolved-reference]
+async def _process_and_serialize(result: Result) -> str:
     """Run a Result through the TaskManager pipeline and return JSON string."""
-    from mcp_guide.task_manager.manager import get_task_manager
-
     task_manager = get_task_manager()
     try:
         result = await task_manager.process_result(result)
@@ -71,11 +71,11 @@ async def guide_resource(collection: str, document: str = "", ctx: Optional[Cont
         return await _process_and_serialize(result)
 
     except (ValueError, FileNotFoundError, PermissionError) as e:
-        return f"Error: {str(e)}"
+        return Result.failure(str(e)).to_json_str()
     except Exception as e:
         # Log unexpected exceptions for debugging while still handling them
         logger.error(f"Unexpected error in guide_resource: {type(e).__name__}: {str(e)}", exc_info=True)
-        return f"Unexpected error: {str(e)}"
+        return Result.failure(f"Unexpected error: {str(e)}").to_json_str()
 
 
 @resourcefunc("guide://_{command_path*}")
@@ -89,7 +89,7 @@ async def guide_command_resource(command_path: str, ctx: Optional[Context] = Non
         uri = _get_request_uri(ctx) or f"guide://_{command_path}"
         return await _resolve_guide_uri(uri, ctx)
     except (ValueError, FileNotFoundError, PermissionError) as e:
-        return f"Error: {str(e)}"
+        return Result.failure(str(e)).to_json_str()
     except Exception as e:
         logger.error(f"Unexpected error in guide_command_resource: {type(e).__name__}: {str(e)}", exc_info=True)
-        return f"Unexpected error: {str(e)}"
+        return Result.failure(f"Unexpected error: {str(e)}").to_json_str()

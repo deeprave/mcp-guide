@@ -312,7 +312,7 @@ async def internal_clone_project(args: CloneProjectArgs, ctx: Optional[Context] 
     # Get session to access configuration
     try:
         session = await get_session(ctx)
-    except ValueError as e:
+    except ValueError:
         # If we can't get session for current project, we still need to proceed
         # for 2-arg mode where we're not using current project
         if args.to_project is None:
@@ -384,7 +384,7 @@ async def internal_clone_project(args: CloneProjectArgs, ctx: Optional[Context] 
             target_name = current_project.name
             target_project = current_project
             is_current_project = True
-        except ValueError as e:
+        except ValueError:
             return RESULT_NO_PROJECT
     else:
         # 2-arg mode: clone to specified project

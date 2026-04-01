@@ -6,6 +6,7 @@ import dataclasses
 import os
 from contextvars import ContextVar
 from pathlib import Path
+from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any, Callable, Optional, Union
 from weakref import WeakKeyDictionary as _WeakKeyDictionary
 
@@ -537,8 +538,6 @@ class Session:
             project_name = project_name[7:]
 
         if os.sep in project_name or (os.altsep and os.altsep in project_name):
-            from types import SimpleNamespace
-
             path = Path(project_name)
             if not path.is_absolute():
                 raise InvalidProjectNameError(
