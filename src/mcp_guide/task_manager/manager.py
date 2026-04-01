@@ -466,6 +466,9 @@ class TaskManager:
 
         logger.trace(f"Event {data_type} processed by {len(event_results)} subscribers")
 
+        # Compact dead weak references
+        self._subscriptions = [sub for sub in self._subscriptions if sub.subscriber is not None]
+
         # Update statistics for processed subscribers
         for subscription in self._subscriptions:
             if subscription.event_types & data_type:
@@ -711,8 +714,12 @@ class TaskManager:
         logger.debug("TaskManager._timer_loop: started")
         try:
             await self._timer_loop_inner()
+        except asyncio.CancelledError:
+            logger.debug("TaskManager._timer_loop: cancelled")
+            raise
         except Exception as e:
             logger.error(f"TaskManager._timer_loop: crashed: {e}", exc_info=True)
+            self._timer_task = None
 
     async def _timer_loop_inner(self) -> None:
         """Inner timer loop implementation."""

@@ -48,26 +48,39 @@ class StartupBufferingHandler(logging.Handler):
         self.buffer.append(record)
 
 
-# Install immediately so every early log record is captured
-_startup_handler = StartupBufferingHandler()
-logging.getLogger().addHandler(_startup_handler)
-logging.getLogger().setLevel(TRACE_LEVEL)
+# Install startup buffering only if the root logger has no handlers yet,
+# to avoid duplicate output from both immediate handling and later replay.
+_startup_handler: StartupBufferingHandler | None = None
+_original_root_level: int | None = None
+_root_logger = logging.getLogger()
+if not _root_logger.handlers:
+    _startup_handler = StartupBufferingHandler()
+    _original_root_level = _root_logger.level
+    _root_logger.addHandler(_startup_handler)
+    if _root_logger.level == logging.NOTSET or _root_logger.level > TRACE_LEVEL:
+        _root_logger.setLevel(TRACE_LEVEL)
 
 
 def flush_startup_buffer() -> None:
     """Replay buffered startup records through the now-configured handlers, then remove the buffer."""
-    global _startup_handler
+    global _startup_handler, _original_root_level
     if _startup_handler is None:
         return
     root = logging.getLogger()
     root.removeHandler(_startup_handler)
+    # Replay only to file handlers — stream handlers may write to stderr
+    # which is the MCP stdio transport channel
+    file_handlers = [h for h in root.handlers if isinstance(h, logging.FileHandler)]
     for record in _startup_handler.buffer:
-        target = logging.getLogger(record.name)
-        for handler in target.handlers or root.handlers:
-            if handler is not _startup_handler and record.levelno >= handler.level:
+        for handler in file_handlers:
+            if record.levelno >= handler.level:
                 handler.handle(record)
     _startup_handler.buffer.clear()
     _startup_handler = None  # type: ignore[assignment]
+    # Restore root logger level if we lowered it
+    if _original_root_level is not None:
+        root.setLevel(_original_root_level)
+    _original_root_level = None
 
 
 def _cleanup_logging() -> None:
