@@ -545,7 +545,7 @@ class Session:
                 )
             if ".." in path.parts:
                 raise InvalidProjectNameError(f"Path '{project_name}' must not contain directory traversals (..)")
-            self.roots = [SimpleNamespace(uri=f"file://{path}")]
+            self.roots = [SimpleNamespace(uri=path.as_uri())]
             project_name = path.name
 
         if not _NAME_REGEX.match(project_name):
