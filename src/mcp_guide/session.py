@@ -3,6 +3,7 @@
 import asyncio
 import contextlib
 import dataclasses
+import os
 from contextvars import ContextVar
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Optional, Union
@@ -530,6 +531,24 @@ class Session:
 
         if not project_name or not project_name.strip():
             raise InvalidProjectNameError("Project name cannot be empty")
+
+        # If a full path or file:// URI is provided, extract basename and update roots
+        if project_name.startswith("file://"):
+            project_name = project_name[7:]
+
+        if os.sep in project_name or (os.altsep and os.altsep in project_name):
+            from types import SimpleNamespace
+
+            path = Path(project_name)
+            if not path.is_absolute():
+                raise InvalidProjectNameError(
+                    f"Path '{project_name}' must be absolute (e.g. /path/to/project or file:///path/to/project)"
+                )
+            if ".." in path.parts:
+                raise InvalidProjectNameError(f"Path '{project_name}' must not contain directory traversals (..)")
+            self.roots = [SimpleNamespace(uri=f"file://{path}")]
+            project_name = path.name
+
         if not _NAME_REGEX.match(project_name):
             raise InvalidProjectNameError(
                 f"Project name '{project_name}' must contain only alphanumeric characters, underscores, and hyphens"
@@ -777,7 +796,7 @@ async def get_or_create_session(
     Returns:
         Session (existing or newly created, possibly unbound if project context unavailable)
     """
-    # Return existing session if one exists
+    # Return existing session if one exists in this async context
     existing_session = _active_session.get()
     if existing_session is not None:
         # Update MCP context once if needed for agent detection or project binding
@@ -795,6 +814,16 @@ async def get_or_create_session(
             except RuntimeError as exc:
                 logger.warning("Failed to register guide session for cross-task lookup: %s", exc)
         return existing_session
+
+    # Check registry for session from a different async context (e.g. sibling Task)
+    if ctx is not None:
+        try:
+            registry_session = get_session_by_mcp_session(ctx.session)
+            if registry_session is not None:
+                set_current_session(registry_session)
+                return registry_session
+        except (AttributeError, TypeError):
+            pass
 
     # Determine project name for new session
     if project_name is None:

@@ -13,9 +13,9 @@ from mcp_guide.core.validation import ArgValidationError, validate_description, 
 from mcp_guide.models import Collection
 from mcp_guide.result import Result
 from mcp_guide.result_constants import (
-    ERROR_NO_PROJECT,
     ERROR_NOT_FOUND,
     ERROR_SAVE,
+    RESULT_NO_PROJECT,
 )
 from mcp_guide.tools.tool_helpers import get_session_and_project
 from mcp_guide.validation import validate_categories_exist
@@ -49,7 +49,7 @@ async def internal_collection_list(args: CollectionListArgs, ctx: Optional[Conte
     """
     session, project = await get_session_and_project(ctx)
     if project is None:
-        return Result.failure("No project available", error_type=ERROR_NO_PROJECT)
+        return RESULT_NO_PROJECT
 
     collections: Any
     if args.verbose:
@@ -100,7 +100,7 @@ async def internal_collection_add(args: CollectionAddArgs, ctx: Optional[Context
 
     session, project = await get_session_and_project(ctx)
     if project is None:
-        return Result.failure("No project available", error_type=ERROR_NO_PROJECT)
+        return RESULT_NO_PROJECT
 
     try:
         # Validate name is not empty
@@ -150,7 +150,7 @@ async def internal_collection_remove(args: CollectionRemoveArgs, ctx: Optional[C
     """
     session, project = await get_session_and_project(ctx)
     if project is None:
-        return Result.failure("No project available", error_type=ERROR_NO_PROJECT)
+        return RESULT_NO_PROJECT
 
     # Use dict lookup for O(1) existence check
     if args.name not in project.collections:
@@ -191,7 +191,7 @@ async def internal_collection_change(args: CollectionChangeArgs, ctx: Optional[C
     """
     session, project = await get_session_and_project(ctx)
     if project is None:
-        return Result.failure("No project available", error_type=ERROR_NO_PROJECT)
+        return RESULT_NO_PROJECT
 
     existing_collection = project.collections.get(args.name)
     if existing_collection is None:
@@ -289,7 +289,7 @@ async def internal_collection_update(args: CollectionUpdateArgs, ctx: Optional[C
     """
     session, project = await get_session_and_project(ctx)
     if project is None:
-        return Result.failure("No project available", error_type=ERROR_NO_PROJECT)
+        return RESULT_NO_PROJECT
 
     existing_collection = project.collections.get(args.name)
     if existing_collection is None:

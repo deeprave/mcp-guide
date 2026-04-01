@@ -33,11 +33,11 @@ from mcp_guide.render.cache import get_template_context_if_needed
 from mcp_guide.result import Result
 from mcp_guide.result_constants import (
     ERROR_FILE_READ,
-    ERROR_NO_PROJECT,
     ERROR_NOT_FOUND,
     INSTRUCTION_FILE_ERROR,
     INSTRUCTION_NOTFOUND_ERROR,
     INSTRUCTION_PATTERN_ERROR,
+    RESULT_NO_PROJECT,
 )
 from mcp_guide.tools.tool_helpers import get_session_and_project
 from mcp_guide.tools.tool_result import parse_options, tool_result
@@ -124,7 +124,7 @@ async def internal_get_content(
     """
     session, project = await get_session_and_project(ctx)
     if project is None:
-        return Result.failure("No project available", error_type=ERROR_NO_PROJECT)
+        return RESULT_NO_PROJECT
 
     # Get project
     docroot = Path(await session.get_docroot())
@@ -229,7 +229,7 @@ async def internal_get_content(
         return Result.ok(content, instruction=instruction, disposition=disposition)
 
     except ExpressionParseError as e:
-        return Result.failure(str(e), error_type=ERROR_NO_PROJECT)
+        return Result.failure(str(e), error_type=ERROR_NOT_FOUND, instruction=INSTRUCTION_NOTFOUND_ERROR)
     except (CategoryNotFoundError, CollectionNotFoundError) as e:
         return Result.failure(str(e), error_type=ERROR_NOT_FOUND, instruction=INSTRUCTION_NOTFOUND_ERROR)
     except FileReadError as e:
@@ -311,7 +311,7 @@ async def export_content(
     """
     session, project = await get_session_and_project(ctx)
     if project is None:
-        return await tool_result("export_content", Result.failure("No project available", error_type=ERROR_NO_PROJECT))
+        return await tool_result("export_content", RESULT_NO_PROJECT)
 
     # Check for existing export (staleness detection)
     export_entry = project.get_export_entry(args.expression, args.pattern)
@@ -467,7 +467,7 @@ async def list_exports(
 
     session, project = await get_session_and_project(ctx)
     if project is None:
-        return await tool_result("list_exports", Result.failure("No project available", error_type=ERROR_NO_PROJECT))
+        return await tool_result("list_exports", RESULT_NO_PROJECT)
 
     # Build list of export dicts
     exports = []
@@ -555,7 +555,7 @@ async def remove_export(
     """
     session, project = await get_session_and_project(ctx)
     if project is None:
-        return await tool_result("remove_export", Result.failure("No project available", error_type=ERROR_NO_PROJECT))
+        return await tool_result("remove_export", RESULT_NO_PROJECT)
 
     # Build key
     key = (args.expression, args.pattern)

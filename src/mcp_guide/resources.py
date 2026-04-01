@@ -12,6 +12,18 @@ from mcp_guide.tools.tool_resource import ReadResourceArgs, internal_read_resour
 logger = get_logger(__name__)
 
 
+async def _process_and_serialize(result: "Result") -> str:  # ty: ignore[unresolved-reference]
+    """Run a Result through the TaskManager pipeline and return JSON string."""
+    from mcp_guide.task_manager.manager import get_task_manager
+
+    task_manager = get_task_manager()
+    try:
+        result = await task_manager.process_result(result)
+    except Exception as e:
+        logger.error(f"TaskManager processing failed for resource: {e}")
+    return result.to_json_str()
+
+
 def _get_request_uri(ctx: Optional[Context]) -> str | None:
     """Return the current MCP request URI when FastMCP exposes it."""
     if ctx is None or ctx.request_context is None:
@@ -29,9 +41,7 @@ def _get_request_uri(ctx: Optional[Context]) -> str | None:
 async def _resolve_guide_uri(uri: str, ctx: Optional[Context]) -> str:
     """Resolve a guide:// URI through the shared read_resource implementation."""
     result = await internal_read_resource(ReadResourceArgs(uri=uri), ctx=ctx)
-    if not result.success:
-        return result.error or "Resource retrieval failed"
-    return str(result.value) if result.value is not None else ""
+    return await _process_and_serialize(result)
 
 
 @resourcefunc("guide://{collection}/{document}")
@@ -58,11 +68,7 @@ async def guide_resource(collection: str, document: str = "", ctx: Optional[Cont
 
         # Delegate to internal content retrieval
         result = await internal_get_content(content_args, ctx)
-
-        if not result.success:
-            return result.error or "Content retrieval failed"
-
-        return str(result.value) if result.value is not None else ""
+        return await _process_and_serialize(result)
 
     except (ValueError, FileNotFoundError, PermissionError) as e:
         return f"Error: {str(e)}"

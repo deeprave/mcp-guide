@@ -17,12 +17,11 @@ from mcp_guide.result import Result
 from mcp_guide.result_constants import (
     ERROR_CONFIG_READ,
     ERROR_CONFIG_WRITE,
-    ERROR_NO_PROJECT,
     ERROR_UNEXPECTED,
     ERROR_VALIDATION,
     INSTRUCTION_DISPLAY_ONLY,
-    INSTRUCTION_NO_PROJECT,
     INSTRUCTION_VALIDATION_ERROR,
+    RESULT_NO_PROJECT,
 )
 from mcp_guide.tools.tool_result import tool_result
 
@@ -108,7 +107,7 @@ async def internal_list_project_flags(
     try:
         session = await get_session(ctx)
     except ValueError as e:
-        return Result.failure(str(e), error_type=ERROR_NO_PROJECT, instruction=INSTRUCTION_NO_PROJECT)
+        return RESULT_NO_PROJECT
 
     try:
         if args.active:
@@ -169,7 +168,7 @@ async def internal_set_project_flag(args: SetFlagArgs, ctx: Optional[Context] = 
     try:
         session = await get_session(ctx)
     except ValueError as e:
-        return Result.failure(str(e), error_type=ERROR_NO_PROJECT, instruction=INSTRUCTION_NO_PROJECT)
+        return RESULT_NO_PROJECT
 
     try:
         if args.value is None:
@@ -211,7 +210,7 @@ async def internal_get_project_flag(args: GetFlagArgs, ctx: Optional[Context] = 
     try:
         session = await get_session(ctx)
     except ValueError as e:
-        return Result.failure(str(e), error_type=ERROR_NO_PROJECT, instruction=INSTRUCTION_NO_PROJECT)
+        return RESULT_NO_PROJECT
 
     try:
         # Use resolution hierarchy: project → global → None
@@ -252,7 +251,7 @@ async def internal_set_feature_flag(args: SetFeatureFlagArgs, ctx: Optional[Cont
     try:
         session = await get_session(ctx)
     except ValueError as e:
-        return Result.failure(str(e), error_type=ERROR_NO_PROJECT, instruction=INSTRUCTION_NO_PROJECT)
+        return RESULT_NO_PROJECT
 
     # Normalize allow-client-info flag values
     normalized_value = args.value
@@ -305,7 +304,7 @@ async def internal_get_feature_flag(
     try:
         session = await get_session(ctx)
     except ValueError as e:
-        return Result.failure(str(e), error_type=ERROR_NO_PROJECT, instruction=INSTRUCTION_NO_PROJECT)
+        return RESULT_NO_PROJECT
 
     try:
         # Use global flags only, no resolution hierarchy
@@ -334,7 +333,7 @@ async def internal_list_feature_flags(
     try:
         session = await get_session(ctx)
     except ValueError as e:
-        return Result.failure(str(e), error_type=ERROR_NO_PROJECT, instruction=INSTRUCTION_NO_PROJECT)
+        return RESULT_NO_PROJECT
 
     try:
         # Global flags only, no merging with project flags
