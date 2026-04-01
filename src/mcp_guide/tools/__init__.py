@@ -10,7 +10,7 @@ All tools should follow this pattern for session access:
     async def my_tool(ctx) -> dict:
         session, project = await get_session_and_project(ctx)
         if project is None:
-            return Result.failure("No project available", error_type=ERROR_NO_PROJECT)
+            return RESULT_NO_PROJECT
 
         # Use project config...
         return {"success": True, "data": ...}

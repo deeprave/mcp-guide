@@ -1,5 +1,6 @@
 """Integration tests for MCP resource handlers."""
 
+import json
 from types import SimpleNamespace
 from typing import Any, Callable
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -7,6 +8,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from mcp_guide.result import Result
+
+
+def _parse_result(result_str: str) -> dict:
+    """Parse a JSON result string from a resource handler."""
+    return json.loads(result_str)
 
 
 @pytest.fixture(scope="module")
@@ -37,7 +43,9 @@ class TestResourceHandlers:
             content_args = args_call[0]
             assert content_args.expression == "docs"
             assert content_args.pattern == "readme"
-            assert result == "Test content from collection"
+            parsed = _parse_result(result)
+            assert parsed["success"] is True
+            assert parsed["value"] == "Test content from collection"
 
     @pytest.mark.anyio
     async def test_guide_resource_no_document(self, mcp_server: Any) -> None:
@@ -58,7 +66,9 @@ class TestResourceHandlers:
             content_args = args_call[0]
             assert content_args.expression == "docs"
             assert content_args.pattern is None
-            assert result == "All docs content"
+            parsed = _parse_result(result)
+            assert parsed["success"] is True
+            assert parsed["value"] == "All docs content"
 
     @pytest.mark.anyio
     async def test_guide_resource_content_error(self, mcp_server: Any) -> None:
@@ -71,7 +81,9 @@ class TestResourceHandlers:
 
             result = await guide_resource("nonexistent", "", mock_ctx)
 
-            assert result == "Collection not found"
+            parsed = _parse_result(result)
+            assert parsed["success"] is False
+            assert parsed["error"] == "Collection not found"
 
     @pytest.mark.anyio
     async def test_guide_resource_exception_handling(self, mcp_server: Any) -> None:
@@ -138,7 +150,8 @@ class TestResourceHandlers:
 
             result = await guide_resource("docs", "readme", mock_ctx)
 
-            assert result == ""
+            parsed = _parse_result(result)
+            assert parsed["success"] is True
 
     @pytest.mark.anyio
     async def test_guide_command_resource_routes_simple_command_uri(self, mcp_server: Any) -> None:
@@ -158,7 +171,9 @@ class TestResourceHandlers:
             read_args = args_call[0]
             assert read_args.uri == "guide://_project"
             assert kwargs_call["ctx"] is mock_ctx
-            assert result == "project info"
+            parsed = _parse_result(result)
+            assert parsed["success"] is True
+            assert parsed["value"] == "project info"
 
     @pytest.mark.anyio
     async def test_guide_command_resource_uses_full_request_uri(self, mcp_server: Any) -> None:
@@ -177,7 +192,9 @@ class TestResourceHandlers:
 
             read_args = mock_read_resource.call_args[0][0]
             assert read_args.uri == "guide://_status?verbose=true"
-            assert result == "status output"
+            parsed = _parse_result(result)
+            assert parsed["success"] is True
+            assert parsed["value"] == "status output"
 
     @pytest.mark.anyio
     async def test_guide_command_resource_supports_path_args(self, mcp_server: Any) -> None:
@@ -194,7 +211,9 @@ class TestResourceHandlers:
 
             read_args = mock_read_resource.call_args[0][0]
             assert read_args.uri == "guide://_category/add/docs"
-            assert result == "category output"
+            parsed = _parse_result(result)
+            assert parsed["success"] is True
+            assert parsed["value"] == "category output"
 
     @pytest.mark.anyio
     async def test_guide_command_resource_returns_validation_errors(self, mcp_server: Any) -> None:
@@ -207,7 +226,9 @@ class TestResourceHandlers:
 
             result = await guide_command_resource("unknown", mock_ctx)
 
-            assert result == "Command not found"
+            parsed = _parse_result(result)
+            assert parsed["success"] is False
+            assert parsed["error"] == "Command not found"
 
     @pytest.mark.anyio
     @pytest.mark.e2e

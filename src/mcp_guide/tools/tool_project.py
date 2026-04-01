@@ -15,13 +15,12 @@ from mcp_guide.result_constants import (
     ERROR_CONFIG_READ,
     ERROR_CONFIG_WRITE,
     ERROR_INVALID_NAME,
-    ERROR_NO_PROJECT,
     ERROR_NOT_FOUND,
     ERROR_PROJECT,
     ERROR_SAFEGUARD,
     ERROR_UNEXPECTED,
-    INSTRUCTION_NO_PROJECT,
     INSTRUCTION_NOTFOUND_ERROR,
+    RESULT_NO_PROJECT,
 )
 from mcp_guide.session import get_session, list_all_projects
 from mcp_guide.session import set_project as session_set_project
@@ -98,11 +97,7 @@ async def internal_get_project(args: GetCurrentProjectArgs, ctx: Optional[Contex
     """
     session, project = await get_session_and_project(ctx)
     if project is None:
-        return Result.failure(
-            "No project available",
-            error_type=ERROR_NO_PROJECT,
-            instruction=INSTRUCTION_NO_PROJECT,
-        )
+        return RESULT_NO_PROJECT
 
     result_dict = await format_project_data(project, verbose=args.verbose, session=session)
     # Include project name in response for single project operations
@@ -165,7 +160,7 @@ async def internal_set_project(args: SetCurrentProjectArgs, ctx: Optional[Contex
     )
 
 
-@toolfunc(SetCurrentProjectArgs)
+@toolfunc(SetCurrentProjectArgs, requires_project=False)
 async def set_project(args: SetCurrentProjectArgs, ctx: Optional[Context] = None) -> str:
     """Switch to a different project by name.
 
@@ -322,7 +317,7 @@ async def internal_clone_project(args: CloneProjectArgs, ctx: Optional[Context] 
         # for 2-arg mode where we're not using current project
         if args.to_project is None:
             # 1-arg mode requires current project
-            return Result.failure(str(e), error_type=ERROR_NO_PROJECT, instruction=INSTRUCTION_NO_PROJECT)
+            return RESULT_NO_PROJECT
         # For 2-arg mode, we'll create a temporary session later
         session = None
 
@@ -390,7 +385,7 @@ async def internal_clone_project(args: CloneProjectArgs, ctx: Optional[Context] 
             target_project = current_project
             is_current_project = True
         except ValueError as e:
-            return Result.failure(str(e), error_type=ERROR_NO_PROJECT, instruction=INSTRUCTION_NO_PROJECT)
+            return RESULT_NO_PROJECT
     else:
         # 2-arg mode: clone to specified project
         target_name = args.to_project
@@ -633,7 +628,7 @@ async def internal_use_project_profile(args: UseProjectProfileArgs, ctx: Optiona
 
     session, project = await get_session_and_project(ctx)
     if project is None:
-        return Result.failure("No project available", error_type=ERROR_NO_PROJECT, instruction=INSTRUCTION_NO_PROJECT)
+        return RESULT_NO_PROJECT
 
     # Load profile
     try:
@@ -809,7 +804,7 @@ async def internal_add_permission_path(args: AddPermissionPathArgs, ctx: Optiona
 
     session, project = await get_session_and_project(ctx)
     if project is None:
-        return Result.failure(ERROR_NO_PROJECT, INSTRUCTION_NO_PROJECT)
+        return RESULT_NO_PROJECT
 
     # Check if already exists (silent success)
     if args.permission_type == "write":
@@ -855,7 +850,7 @@ async def internal_remove_permission_path(args: RemovePermissionPathArgs, ctx: O
     """
     session, project = await get_session_and_project(ctx)
     if project is None:
-        return Result.failure(ERROR_NO_PROJECT, INSTRUCTION_NO_PROJECT)
+        return RESULT_NO_PROJECT
 
     # Remove path based on type (silent success if not found)
     if args.permission_type == "write":

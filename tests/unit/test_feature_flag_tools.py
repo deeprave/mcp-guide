@@ -124,7 +124,7 @@ class TestListFlagsTool:
 
             assert result.success is False
             assert result.error_type == "no_project"
-            assert "No current project" in result.error
+            assert "No project available" in result.error
 
 
 class TestTestSetProjectFlagTool:

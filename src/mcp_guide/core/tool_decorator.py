@@ -87,6 +87,21 @@ async def _call_on_tool(tool_name: str) -> None:
         logger.error(f"on_tool execution failed at start of {tool_name}: {e}")
 
 
+async def _check_project_bound(ctx: Optional[Any]) -> Optional[str]:
+    """Return RESULT_NO_PROJECT JSON string if session is unbound, else None."""
+    try:
+        from mcp_guide.session import get_session
+
+        session = await get_session(ctx)
+        if not session.project_is_bound:
+            from mcp_guide.result_constants import RESULT_NO_PROJECT
+
+            return RESULT_NO_PROJECT.to_json_str()
+    except Exception:
+        pass
+    return None
+
+
 class ExtMcpToolDecorator:
     """Extended MCP tool decorator with logging and prefix support.
 
@@ -217,6 +232,7 @@ def toolfunc(
     args_class: Optional[type] = None,
     description: Optional[str] = None,
     prefix: Optional[str] = None,
+    requires_project: bool = True,
 ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """Decorator for deferred tool registration.
 
@@ -256,6 +272,10 @@ def toolfunc(
             async def async_wrapper(args: Any, ctx: Optional[Any] = None) -> str:
                 logger.debug(f"Invoking async tool: {tool_name}")
                 await _call_on_tool(tool_name)
+                if requires_project:
+                    unbound = await _check_project_bound(ctx)
+                    if unbound is not None:
+                        return unbound
                 try:
                     result = await func(args, ctx)
                     logger.debug(f"Tool {tool_name} completed successfully")
@@ -288,6 +308,10 @@ def toolfunc(
             async def async_wrapper_no_args(ctx: Optional[Any] = None) -> str:
                 logger.debug(f"Invoking async tool: {tool_name}")
                 await _call_on_tool(tool_name)
+                if requires_project:
+                    unbound = await _check_project_bound(ctx)
+                    if unbound is not None:
+                        return unbound
                 try:
                     result = await func(ctx=ctx)
                     logger.debug(f"Tool {tool_name} completed successfully")
