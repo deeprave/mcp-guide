@@ -54,7 +54,7 @@ async def guide_resource(collection: str, document: str = "", ctx: Optional[Cont
         ctx: MCP context
 
     Returns:
-        Content text
+        JSON-serialized Result string
     """
     try:
         if collection.startswith("_"):

@@ -5,6 +5,7 @@ Tool Implementation Pattern
 
 All tools should follow this pattern for session access:
 
+    from mcp_guide.result_constants import RESULT_NO_PROJECT
     from mcp_guide.tools.tool_helpers import get_session_and_project
 
     async def my_tool(ctx) -> dict:
