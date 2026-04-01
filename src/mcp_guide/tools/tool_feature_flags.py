@@ -106,7 +106,7 @@ async def internal_list_project_flags(
 
     try:
         session = await get_session(ctx)
-    except ValueError as e:
+    except ValueError:
         return RESULT_NO_PROJECT
 
     try:
@@ -167,7 +167,7 @@ async def internal_set_project_flag(args: SetFlagArgs, ctx: Optional[Context] = 
 
     try:
         session = await get_session(ctx)
-    except ValueError as e:
+    except ValueError:
         return RESULT_NO_PROJECT
 
     try:
@@ -209,7 +209,7 @@ async def internal_get_project_flag(args: GetFlagArgs, ctx: Optional[Context] = 
 
     try:
         session = await get_session(ctx)
-    except ValueError as e:
+    except ValueError:
         return RESULT_NO_PROJECT
 
     try:
@@ -250,7 +250,7 @@ async def internal_set_feature_flag(args: SetFeatureFlagArgs, ctx: Optional[Cont
 
     try:
         session = await get_session(ctx)
-    except ValueError as e:
+    except ValueError:
         return RESULT_NO_PROJECT
 
     # Normalize allow-client-info flag values
@@ -303,7 +303,7 @@ async def internal_get_feature_flag(
 
     try:
         session = await get_session(ctx)
-    except ValueError as e:
+    except ValueError:
         return RESULT_NO_PROJECT
 
     try:
@@ -332,7 +332,7 @@ async def internal_list_feature_flags(
 
     try:
         session = await get_session(ctx)
-    except ValueError as e:
+    except ValueError:
         return RESULT_NO_PROJECT
 
     try:

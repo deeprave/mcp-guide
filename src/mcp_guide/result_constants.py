@@ -47,7 +47,8 @@ INSTRUCTION_NO_PROJECT = (
 )
 
 
-# Static Result for unbound project — use this everywhere instead of ad-hoc Result.failure()
+# Static Result for unbound project — safe as a constant because process_result
+# uses dataclasses.replace() which creates a copy, never mutating the original.
 def _make_no_project_result() -> "Result[Any]":
     from mcp_guide.core.result import Result
 
@@ -55,6 +56,8 @@ def _make_no_project_result() -> "Result[Any]":
 
 
 RESULT_NO_PROJECT: "Result[Any]" = _make_no_project_result()
+
+
 INSTRUCTION_TEMPLATE_ERROR = "Check template syntax and available context variables"
 
 # Agent instructions
