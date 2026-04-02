@@ -28,6 +28,22 @@ When you invoke the guide prompt with an expression that conains just a category
 | `@guide review` | Instructions for the agent to self-review code changes |
 | `@guide guidelines` | Composite request presenting coding standards, language-specific guides, and project context |
 
+## Guide URIs
+
+Not all agents support the `@guide` prompt. For agents that interact primarily through tools (like Codex), mcp-guide provides the `guide://` URI scheme as an alternative way to access the same content and commands.
+
+For example, `@guide commit` and `guide://commit` return the same content. Commands like `@guide :status` become `guide://_status`. If the agent can't read URIs directly, the `read_resource` tool works as a fallback.
+
+See [Guide URIs](guide-uris.md) for the full details.
+
+## Project Detection
+
+mcp-guide needs to know which project you're working in. Most CLI agents handle this automatically — they provide the current working directory and mcp-guide picks it up.
+
+Some agents (like Codex) don't provide this context. In that case, the agent needs to call `set_project` with the project path to get started. Without a project set, tools will return an error prompting the agent to do this first.
+
+See [Installation](installation.md#project-detection) for agent-specific setup details.
+
 ## Document Categories and Collections
 
 ### Categories
@@ -162,6 +178,8 @@ The docroot is on the MCP server's filesystem - if running in Docker or on a rem
 Now that you understand the basics:
 
 - Explore [Categories and Collections](categories-and-collections.md) to organise your content
+- Learn about [Guide URIs](guide-uris.md) for universal content access
+- Check out [Stored Documents](stored-documents.md) to add external content
 - Check out [Profiles](profiles.md) for pre-configured setups
 - Learn about [Commands](commands.md) for specialised functionality
 - Review [Workflows](workflows.md) if you want structured development phases

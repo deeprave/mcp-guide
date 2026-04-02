@@ -2,6 +2,10 @@
 
 The guide prompt provides a comprehensive command system for direct access to MCP documents and functionality. Commands let you view project information, manage content, control workflows, and configure permissions. All commands follow a consistent structure with built-in help.
 
+Not all agents support MCP prompts. All prompt commands are also available as `guide://` URI resources — for example, `@guide :status` is equivalent to `guide://_status`. See [Guide URIs](guide-uris.md) for details.
+
+**A note on prompt prefixes:** The examples in this document use `@guide` as the prompt prefix, but your agent may use a different prefix such as `/guide`. Treat `@` as a placeholder — use whatever prefix your agent provides.
+
 ## Command Structure
 
 Commands are invoked through the guide prompt with this syntax:
@@ -22,7 +26,7 @@ Commands support two syntaxes for flags with values:
 @guide :project
 @guide :flags
 @guide :create/category docs
-@guide :workflow/issue --tracking GUIDE-177
+@guide :workflow/issue --tracking MRP-177
 @guide :flags/project/set workflow --value=true
 ```
 
@@ -232,6 +236,64 @@ Removes a feature flag.
 - **content-style** - Markdown formatting: plain, headings, or full (Project and Feature)
 - **content-format** - Content MIME type: text or mime (Project and Feature)
 - **autoupdate** - Automatic content updates (Feature only)
+
+## Document Commands
+
+Document commands let you manage stored documents — content that lives in the document store rather than as files on disk. See [Stored Documents](stored-documents.md) for the full picture.
+
+**@guide :document**
+Shows available document commands.
+
+**@guide :document/add** _`<category> <path>`_
+Adds a local file to the document store in the specified category.
+
+**Examples:**
+```
+@guide :document/add docs /path/to/file.md
+@guide :document/add docs /path/to/file.md --as custom-name
+@guide :document/add docs /path/to/file.md --force
+@guide :document/add docs /path/to/file.md --agent-instruction
+```
+
+**@guide :document/add-url** _`<category> <url>`_
+Fetches content from a URL and stores it in the specified category.
+
+**Examples:**
+```
+@guide :document/add-url docs https://example.com/api-reference
+@guide :document/add-url docs https://example.com/guide --as api-guide
+```
+
+**@guide :document/list** _`<category>`_
+Lists stored documents in a category.
+
+**@guide :document/show** _`<category> <name>`_
+Displays the content of a stored document.
+
+**@guide :document/update** _`<category> <name>`_
+Updates a stored document's name, category, or metadata.
+
+**@guide :document/remove** _`<category> <name>`_
+Removes a stored document from a category.
+
+## Export Commands
+
+Export commands manage tracked content exports — rendered content saved to files for knowledge persistence. See [Content Management](content-management.md) for how exports work.
+
+**@guide :export/add** _`<expression> <path>`_
+Exports rendered content to a file and tracks it.
+
+**Examples:**
+```
+@guide :export/add docs documentation.md
+@guide :export/add architecture arch.md --force
+```
+
+**@guide :export/list**
+Lists all tracked exports with their expression, path, and staleness status.
+
+**@guide :export/remove** _`<expression>`_
+Removes an export tracking entry (does not delete the exported file).
 
 ## Filesystem Permissions
 
