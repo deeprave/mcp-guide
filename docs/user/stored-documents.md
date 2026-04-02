@@ -63,11 +63,11 @@ View a specific stored document:
 
 ## Source Filtering
 
-When listing files in a category, you can filter by source to see just filesystem documents, just stored documents, or both:
+When listing files in a category, you can filter by source to see just filesystem documents, just stored documents, or both. This is available through the `category_list_files` tool's `source` parameter:
 
-- **Filesystem only** — documents from the category's directory
-- **Stored only** — documents added via `:document/add` or `:document/add-url`
-- **Both** (default) — everything in the category
+- `source: "files"` — filesystem documents only
+- `source: "stored"` — stored documents only
+- Omit `source` — both (default)
 
 This is useful when you want to see what's been added to the store versus what exists on disk.
 
@@ -78,8 +78,8 @@ This is useful when you want to see what's been added to the store versus what e
 Update a stored document's name, category, or metadata:
 
 ```
-@guide :document/update docs my-document --name new-name
-@guide :document/update docs my-document --category other-category
+@guide :document/update docs my-document --new-name new-name
+@guide :document/update docs my-document --new-category other-category
 ```
 
 ### Removing

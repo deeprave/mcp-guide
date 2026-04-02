@@ -38,11 +38,7 @@ See [Guide URIs](guide-uris.md) for the full details.
 
 ## Project Detection
 
-mcp-guide needs to know which project you're working in. Most CLI agents handle this automatically — they provide the current working directory and mcp-guide picks it up.
-
-Some agents (like Codex) don't provide this context. In that case, the agent needs to call `set_project` with the project path to get started. Without a project set, tools will return an error prompting the agent to do this first.
-
-See [Installation](installation.md#project-detection) for agent-specific setup details.
+mcp-guide needs to know which project you're working in. Most CLI agents handle this automatically, but some (like Codex) require the agent to call `set_project` with the project path first. See [Installation — Project Detection](installation.md#project-detection) for details.
 
 ## Document Categories and Collections
 
