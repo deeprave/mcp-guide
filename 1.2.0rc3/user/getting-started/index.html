@@ -425,6 +425,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#guide-uris" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Guide URIs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#project-detection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Project Detection
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#document-categories-and-collections" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1035,6 +1057,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#guide-uris" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Guide URIs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#project-detection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Project Detection
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#document-categories-and-collections" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1231,6 +1275,12 @@ The prompt provides a means of interacting with the MCP, allowing you to query a
 </tr>
 </tbody>
 </table>
+<h2 id="guide-uris">Guide URIs<a class="headerlink" href="#guide-uris" title="Permanent link">&para;</a></h2>
+<p>Not all agents support the <code>@guide</code> prompt. For agents that interact primarily through tools (like Codex), mcp-guide provides the <code>guide://</code> URI scheme as an alternative way to access the same content and commands.</p>
+<p>For example, <code>@guide commit</code> and <code>guide://commit</code> return the same content. Commands like <code>@guide :status</code> become <code>guide://_status</code>. If the agent can't read URIs directly, the <code>read_resource</code> tool works as a fallback.</p>
+<p>See <a href="../guide-uris/">Guide URIs</a> for the full details.</p>
+<h2 id="project-detection">Project Detection<a class="headerlink" href="#project-detection" title="Permanent link">&para;</a></h2>
+<p>mcp-guide needs to know which project you're working in. Most CLI agents handle this automatically, but some (like Codex) require the agent to call <code>set_project</code> with the project path first. See <a href="../installation/#project-detection">Installation — Project Detection</a> for details.</p>
 <h2 id="document-categories-and-collections">Document Categories and Collections<a class="headerlink" href="#document-categories-and-collections" title="Permanent link">&para;</a></h2>
 <h3 id="categories">Categories<a class="headerlink" href="#categories" title="Permanent link">&para;</a></h3>
 <p>A <strong>category</strong> is a named group of documents with an associated directory (usually the same as the name), an optional description and zero or more patterns. The category name is limited to 30 printable unicode characters and cannot start with an underscore or hyphen and cannot contain whitespace.</p>
@@ -1386,6 +1436,8 @@ They are special in that use a <code>:</code> prefix in the <code>@guide</code> 
 <p>Now that you understand the basics:</p>
 <ul>
 <li>Explore <a href="../categories-and-collections/">Categories and Collections</a> to organise your content</li>
+<li>Learn about <a href="../guide-uris/">Guide URIs</a> for universal content access</li>
+<li>Check out <a href="../stored-documents/">Stored Documents</a> to add external content</li>
 <li>Check out <a href="../profiles/">Profiles</a> for pre-configured setups</li>
 <li>Learn about <a href="../commands/">Commands</a> for specialised functionality</li>
 <li>Review <a href="../workflows/">Workflows</a> if you want structured development phases</li>

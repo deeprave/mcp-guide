@@ -448,6 +448,28 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#project-detection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Project Detection
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#codex-setup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Codex Setup
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#streaming-mode-sse" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1080,6 +1102,28 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#project-detection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Project Detection
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#codex-setup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Codex Setup
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#streaming-mode-sse" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1346,7 +1390,30 @@ It requires uv, Python 3.12+ to be installed, and the "uvx" command to be availa
 <p>Configuration locations:
 - Kiro-CLI: <code>~/.kiro/settings/mcp.json</code>
 - Claude Code: <code>~/.claude/settings.json</code>
-- GitHub Copilot CLI: <code>~/.config/.copilot/mcp.json</code></p>
+- GitHub Copilot CLI: <code>~/.config/.copilot/mcp.json</code>
+- Codex: <code>~/.codex/config.json</code> (see <a href="#codex-setup">Codex Setup</a> below)</p>
+<h3 id="project-detection">Project Detection<a class="headerlink" href="#project-detection" title="Permanent link">&para;</a></h3>
+<p>Most CLI agents automatically tell mcp-guide which project you're working in — they provide the current working directory through MCP roots or environment variables, and mcp-guide picks it up without any extra configuration.</p>
+<p>Some agents (like Codex) don't provide this context. When that happens, the agent needs to call the <code>set_project</code> tool with the project's working directory to initialise the session:</p>
+<div class="codehilite"><pre><span></span><code>set_project(&quot;/path/to/your/project&quot;)
+</code></pre></div>
+
+<p>Once the project is set, all of mcp-guide's project-related functionality — categories, collections, feature flags, workflows — becomes available. Without it, tools will return an error asking the agent to set a project first.</p>
+<p>If you're using an agent that doesn't automatically detect the project, you can include a brief instruction in your agent's system prompt or project configuration to call <code>set_project</code> at the start of each session.</p>
+<h3 id="codex-setup">Codex Setup<a class="headerlink" href="#codex-setup" title="Permanent link">&para;</a></h3>
+<p><a href="https://github.com/openai/codex">Codex</a> communicates with MCP servers over STDIO but doesn't provide project context through MCP roots. mcp-guide handles this — the agent just needs to call <code>set_project</code> with the working directory path to get started.</p>
+<p>Add to <code>~/.codex/config.json</code>:</p>
+<div class="codehilite"><pre><span></span><code><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;mcpServers&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;mcp-guide&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nt">&quot;command&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;uvx&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;args&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;mcp-guide&quot;</span><span class="p">]</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p>Once connected, the agent should call <code>set_project</code> with the current project path. After that, <code>guide://</code> URIs become the primary way to access content and commands — see <a href="../guide-uris/">Guide URIs</a> for details.</p>
 <h3 id="streaming-mode-sse">Streaming Mode (SSE)<a class="headerlink" href="#streaming-mode-sse" title="Permanent link">&para;</a></h3>
 <h4 id="http-transport">HTTP transport<a class="headerlink" href="#http-transport" title="Permanent link">&para;</a></h4>
 <p>MCP client configuration (HTTP):</p>

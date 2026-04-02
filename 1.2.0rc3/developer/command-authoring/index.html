@@ -1306,11 +1306,11 @@ Note that all frontmatter fields are available as context variables within the t
 </code></pre></div>
 
 <p>With this declaration, both syntaxes work:
-- <code>@guide :workflow/issue --tracking GUIDE-177</code> ✓
-- <code>@guide :workflow/issue --tracking=GUIDE-177</code> ✓</p>
+- <code>@guide :workflow/issue --tracking MRP-177</code> ✓
+- <code>@guide :workflow/issue --tracking=MRP-177</code> ✓</p>
 <p>Without <code>argrequired</code>, only the equals syntax works:
-- <code>@guide :workflow/issue --tracking GUIDE-177</code> ✗ (parsed as boolean flag + positional arg)
-- <code>@guide :workflow/issue --tracking=GUIDE-177</code> ✓</p>
+- <code>@guide :workflow/issue --tracking MRP-177</code> ✗ (parsed as boolean flag + positional arg)
+- <code>@guide :workflow/issue --tracking=MRP-177</code> ✓</p>
 <h3 id="error-handling">Error Handling<a class="headerlink" href="#error-handling" title="Permanent link">&para;</a></h3>
 <p>When a flag is declared in <code>argrequired</code>:
 - Missing value: <code>Error: Flag --tracking requires a value</code>

@@ -1128,6 +1128,12 @@
 <td><code>boolean</code></td>
 <td><code>false</code></td>
 </tr>
+<tr>
+<td><code>content-accessor</code></td>
+<td>Controls how template <code>{{#resource}}</code> references are rendered. When <code>false</code> (default), renders as <code>guide://</code> URIs. When <code>true</code>, renders as tool calls using the configured tool prefix. Useful for agents that access content exclusively through tools.</td>
+<td><code>boolean</code></td>
+<td><code>false</code></td>
+</tr>
 </tbody>
 </table>
 <p><strong>Notes:</strong></p>

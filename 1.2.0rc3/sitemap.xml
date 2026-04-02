@@ -2,66 +2,74 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
          <loc>https://deeprave.github.io/mcp-guide/1.2.0rc3/</loc>
-         <lastmod>2026-04-01</lastmod>
+         <lastmod>2026-04-02</lastmod>
     </url>
     <url>
          <loc>https://deeprave.github.io/mcp-guide/1.2.0rc3/developer/DEBUGGING/</loc>
-         <lastmod>2026-04-01</lastmod>
+         <lastmod>2026-04-02</lastmod>
     </url>
     <url>
          <loc>https://deeprave.github.io/mcp-guide/1.2.0rc3/developer/SETUP/</loc>
-         <lastmod>2026-04-01</lastmod>
+         <lastmod>2026-04-02</lastmod>
     </url>
     <url>
          <loc>https://deeprave.github.io/mcp-guide/1.2.0rc3/developer/command-authoring/</loc>
-         <lastmod>2026-04-01</lastmod>
+         <lastmod>2026-04-02</lastmod>
     </url>
     <url>
          <loc>https://deeprave.github.io/mcp-guide/1.2.0rc3/developer/filesystem-access/</loc>
-         <lastmod>2026-04-01</lastmod>
+         <lastmod>2026-04-02</lastmod>
     </url>
     <url>
          <loc>https://deeprave.github.io/mcp-guide/1.2.0rc3/developer/template-rendering/</loc>
-         <lastmod>2026-04-01</lastmod>
+         <lastmod>2026-04-02</lastmod>
     </url>
     <url>
          <loc>https://deeprave.github.io/mcp-guide/1.2.0rc3/user/categories-and-collections/</loc>
-         <lastmod>2026-04-01</lastmod>
+         <lastmod>2026-04-02</lastmod>
     </url>
     <url>
          <loc>https://deeprave.github.io/mcp-guide/1.2.0rc3/user/commands/</loc>
-         <lastmod>2026-04-01</lastmod>
+         <lastmod>2026-04-02</lastmod>
     </url>
     <url>
          <loc>https://deeprave.github.io/mcp-guide/1.2.0rc3/user/content-management/</loc>
-         <lastmod>2026-04-01</lastmod>
+         <lastmod>2026-04-02</lastmod>
     </url>
     <url>
          <loc>https://deeprave.github.io/mcp-guide/1.2.0rc3/user/documents/</loc>
-         <lastmod>2026-04-01</lastmod>
+         <lastmod>2026-04-02</lastmod>
     </url>
     <url>
          <loc>https://deeprave.github.io/mcp-guide/1.2.0rc3/user/feature-flags/</loc>
-         <lastmod>2026-04-01</lastmod>
+         <lastmod>2026-04-02</lastmod>
     </url>
     <url>
          <loc>https://deeprave.github.io/mcp-guide/1.2.0rc3/user/getting-started/</loc>
-         <lastmod>2026-04-01</lastmod>
+         <lastmod>2026-04-02</lastmod>
+    </url>
+    <url>
+         <loc>https://deeprave.github.io/mcp-guide/1.2.0rc3/user/guide-uris/</loc>
+         <lastmod>2026-04-02</lastmod>
     </url>
     <url>
          <loc>https://deeprave.github.io/mcp-guide/1.2.0rc3/user/installation/</loc>
-         <lastmod>2026-04-01</lastmod>
+         <lastmod>2026-04-02</lastmod>
     </url>
     <url>
          <loc>https://deeprave.github.io/mcp-guide/1.2.0rc3/user/openspec/</loc>
-         <lastmod>2026-04-01</lastmod>
+         <lastmod>2026-04-02</lastmod>
     </url>
     <url>
          <loc>https://deeprave.github.io/mcp-guide/1.2.0rc3/user/profiles/</loc>
-         <lastmod>2026-04-01</lastmod>
+         <lastmod>2026-04-02</lastmod>
+    </url>
+    <url>
+         <loc>https://deeprave.github.io/mcp-guide/1.2.0rc3/user/stored-documents/</loc>
+         <lastmod>2026-04-02</lastmod>
     </url>
     <url>
          <loc>https://deeprave.github.io/mcp-guide/1.2.0rc3/user/workflows/</loc>
-         <lastmod>2026-04-01</lastmod>
+         <lastmod>2026-04-02</lastmod>
     </url>
 </urlset>

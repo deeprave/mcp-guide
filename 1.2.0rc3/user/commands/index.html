@@ -777,6 +777,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#document-commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Document Commands
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#export-commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Export Commands
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#filesystem-permissions" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1179,6 +1201,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#document-commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Document Commands
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#export-commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Export Commands
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#filesystem-permissions" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1283,6 +1327,8 @@
 
 <h1 id="prompt-commands">Prompt Commands<a class="headerlink" href="#prompt-commands" title="Permanent link">&para;</a></h1>
 <p>The guide prompt provides a comprehensive command system for direct access to MCP documents and functionality. Commands let you view project information, manage content, control workflows, and configure permissions. All commands follow a consistent structure with built-in help.</p>
+<p>Not all agents support MCP prompts. All prompt commands are also available as <code>guide://</code> URI resources — for example, <code>@guide :status</code> is equivalent to <code>guide://_status</code>. See <a href="../guide-uris/">Guide URIs</a> for details.</p>
+<p><strong>A note on prompt prefixes:</strong> The examples in this document use <code>@guide</code> as the prompt prefix, but your agent may use a different prefix such as <code>/guide</code>. Treat <code>@</code> as a placeholder — use whatever prefix your agent provides.</p>
 <h2 id="command-structure">Command Structure<a class="headerlink" href="#command-structure" title="Permanent link">&para;</a></h2>
 <p>Commands are invoked through the guide prompt with this syntax:</p>
 <div class="codehilite"><pre><span></span><code><span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">command</span><span class="w"> </span><span class="o">[</span><span class="n">args</span><span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="n">--flags</span><span class="o">]</span>
@@ -1298,7 +1344,7 @@ Commands support two syntaxes for flags with values:
 <span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">project</span>
 <span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">flags</span>
 <span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="k">create</span><span class="o">/</span><span class="n">category</span><span class="w"> </span><span class="n">docs</span>
-<span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">workflow</span><span class="o">/</span><span class="n">issue</span><span class="w"> </span><span class="c1">--tracking GUIDE-177</span>
+<span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">workflow</span><span class="o">/</span><span class="n">issue</span><span class="w"> </span><span class="c1">--tracking MRP-177</span>
 <span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">flags</span><span class="o">/</span><span class="n">project</span><span class="o">/</span><span class="k">set</span><span class="w"> </span><span class="n">workflow</span><span class="w"> </span><span class="c1">--value=true</span>
 </code></pre></div>
 
@@ -1454,6 +1500,47 @@ Removes a feature flag.</p>
 <li><strong>content-format</strong> - Content MIME type: text or mime (Project and Feature)</li>
 <li><strong>autoupdate</strong> - Automatic content updates (Feature only)</li>
 </ul>
+<h2 id="document-commands">Document Commands<a class="headerlink" href="#document-commands" title="Permanent link">&para;</a></h2>
+<p>Document commands let you manage stored documents — content that lives in the document store rather than as files on disk. See <a href="../stored-documents/">Stored Documents</a> for the full picture.</p>
+<p><strong>@guide :document</strong>
+Shows available document commands.</p>
+<p><strong>@guide :document/add</strong> <em><code>&lt;category&gt; &lt;path&gt;</code></em>
+Adds a local file to the document store in the specified category.</p>
+<p><strong>Examples:</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">document</span><span class="o">/</span><span class="k">add</span><span class="w"> </span><span class="n">docs</span><span class="w"> </span><span class="o">/</span><span class="k">path</span><span class="o">/</span><span class="k">to</span><span class="o">/</span><span class="k">file</span><span class="p">.</span><span class="n">md</span>
+<span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">document</span><span class="o">/</span><span class="k">add</span><span class="w"> </span><span class="n">docs</span><span class="w"> </span><span class="o">/</span><span class="k">path</span><span class="o">/</span><span class="k">to</span><span class="o">/</span><span class="k">file</span><span class="p">.</span><span class="n">md</span><span class="w"> </span><span class="c1">--as custom-name</span>
+<span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">document</span><span class="o">/</span><span class="k">add</span><span class="w"> </span><span class="n">docs</span><span class="w"> </span><span class="o">/</span><span class="k">path</span><span class="o">/</span><span class="k">to</span><span class="o">/</span><span class="k">file</span><span class="p">.</span><span class="n">md</span><span class="w"> </span><span class="c1">--force</span>
+<span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">document</span><span class="o">/</span><span class="k">add</span><span class="w"> </span><span class="n">docs</span><span class="w"> </span><span class="o">/</span><span class="k">path</span><span class="o">/</span><span class="k">to</span><span class="o">/</span><span class="k">file</span><span class="p">.</span><span class="n">md</span><span class="w"> </span><span class="c1">--agent-instruction</span>
+</code></pre></div>
+
+<p><strong>@guide :document/add-url</strong> <em><code>&lt;category&gt; &lt;url&gt;</code></em>
+Fetches content from a URL and stores it in the specified category.</p>
+<p><strong>Examples:</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">document</span><span class="o">/</span><span class="k">add</span><span class="o">-</span><span class="n">url</span><span class="w"> </span><span class="n">docs</span><span class="w"> </span><span class="nl">https</span><span class="p">:</span><span class="o">//</span><span class="n">example</span><span class="p">.</span><span class="n">com</span><span class="o">/</span><span class="n">api</span><span class="o">-</span><span class="n">reference</span>
+<span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">document</span><span class="o">/</span><span class="k">add</span><span class="o">-</span><span class="n">url</span><span class="w"> </span><span class="n">docs</span><span class="w"> </span><span class="nl">https</span><span class="p">:</span><span class="o">//</span><span class="n">example</span><span class="p">.</span><span class="n">com</span><span class="o">/</span><span class="n">guide</span><span class="w"> </span><span class="c1">--as api-guide</span>
+</code></pre></div>
+
+<p><strong>@guide :document/list</strong> <em><code>&lt;category&gt;</code></em>
+Lists stored documents in a category.</p>
+<p><strong>@guide :document/show</strong> <em><code>&lt;category&gt; &lt;name&gt;</code></em>
+Displays the content of a stored document.</p>
+<p><strong>@guide :document/update</strong> <em><code>&lt;category&gt; &lt;name&gt;</code></em>
+Updates a stored document's name, category, or metadata.</p>
+<p><strong>@guide :document/remove</strong> <em><code>&lt;category&gt; &lt;name&gt;</code></em>
+Removes a stored document from a category.</p>
+<h2 id="export-commands">Export Commands<a class="headerlink" href="#export-commands" title="Permanent link">&para;</a></h2>
+<p>Export commands manage tracked content exports — rendered content saved to files for knowledge persistence. See <a href="../content-management/">Content Management</a> for how exports work.</p>
+<p><strong>@guide :export/add</strong> <em><code>&lt;expression&gt; &lt;path&gt;</code></em>
+Exports rendered content to a file and tracks it.</p>
+<p><strong>Examples:</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="err">@</span><span class="n">guide</span><span class="w"> </span><span class="p">:</span><span class="k">export</span><span class="o">/</span><span class="n">add</span><span class="w"> </span><span class="n">docs</span><span class="w"> </span><span class="n">documentation</span><span class="o">.</span><span class="n">md</span>
+<span class="err">@</span><span class="n">guide</span><span class="w"> </span><span class="p">:</span><span class="k">export</span><span class="o">/</span><span class="n">add</span><span class="w"> </span><span class="n">architecture</span><span class="w"> </span><span class="n">arch</span><span class="o">.</span><span class="n">md</span><span class="w"> </span><span class="o">--</span><span class="n">force</span>
+</code></pre></div>
+
+<p><strong>@guide :export/list</strong>
+Lists all tracked exports with their expression, path, and staleness status.</p>
+<p><strong>@guide :export/remove</strong> <em><code>&lt;expression&gt;</code></em>
+Removes an export tracking entry (does not delete the exported file).</p>
 <h2 id="filesystem-permissions">Filesystem Permissions<a class="headerlink" href="#filesystem-permissions" title="Permanent link">&para;</a></h2>
 <p>mcp-guide implements built-in security controls to ensure agent instructions don't transgress security boundaries outside the project.</p>
 <h3 id="security-model">Security Model<a class="headerlink" href="#security-model" title="Permanent link">&para;</a></h3>
