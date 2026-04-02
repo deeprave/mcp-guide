@@ -72,6 +72,7 @@ Use the flag commands to get, set, and remove flags:
 | `allow-client-info` | Enables collection of client environment information (OS, hostname, user, git remotes). Privacy-sensitive. | `boolean` | `false` |
 | `autoupdate` | Enables automatic update prompting at startup when new documentation versions are available. Prompts agent to run the `update_documents` tool. Global only (cannot be set per-project). | `boolean` | `false` |
 | `guide-development` | Enables development features for mcp-guide itself. | `boolean` | `false` |
+| `content-accessor` | Controls how template `{{#resource}}` references are rendered. When `false` (default), renders as `guide://` URIs. When `true`, renders as tool calls using the configured tool prefix. Useful for agents that access content exclusively through tools. | `boolean` | `false` |
 
 **Notes:**
 

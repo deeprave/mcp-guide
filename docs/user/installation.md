@@ -66,6 +66,40 @@ Configuration locations:
 - Kiro-CLI: `~/.kiro/settings/mcp.json`
 - Claude Code: `~/.claude/settings.json`
 - GitHub Copilot CLI: `~/.config/.copilot/mcp.json`
+- Codex: `~/.codex/config.json` (see [Codex Setup](#codex-setup) below)
+
+### Project Detection
+
+Most CLI agents automatically tell mcp-guide which project you're working in — they provide the current working directory through MCP roots or environment variables, and mcp-guide picks it up without any extra configuration.
+
+Some agents (like Codex) don't provide this context. When that happens, the agent needs to call the `set_project` tool with the project's working directory to initialise the session:
+
+```
+set_project("/path/to/your/project")
+```
+
+Once the project is set, all of mcp-guide's project-related functionality — categories, collections, feature flags, workflows — becomes available. Without it, tools will return an error asking the agent to set a project first.
+
+If you're using an agent that doesn't automatically detect the project, you can include a brief instruction in your agent's system prompt or project configuration to call `set_project` at the start of each session.
+
+### Codex Setup
+
+[Codex](https://github.com/openai/codex) communicates with MCP servers over STDIO but doesn't provide project context through MCP roots. mcp-guide handles this — the agent just needs to call `set_project` with the working directory path to get started.
+
+Add to `~/.codex/config.json`:
+
+```json
+{
+  "mcpServers": {
+    "mcp-guide": {
+      "command": "uvx",
+      "args": ["mcp-guide"]
+    }
+  }
+}
+```
+
+Once connected, the agent should call `set_project` with the current project path. After that, `guide://` URIs become the primary way to access content and commands — see [Guide URIs](guide-uris.md) for details.
 
 ### Streaming Mode (SSE)
 
