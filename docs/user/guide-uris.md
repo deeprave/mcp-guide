@@ -45,7 +45,7 @@ Commands can accept positional arguments via path segments and keyword arguments
 
 ```
 guide://_help/flags              # Positional: help for the "flags" command
-guide://_flags/project/set?name=workflow&value=true   # Keyword arguments
+guide://_flags/project/set/workflow?value=true   # Positional + keyword arguments
 ```
 
 ## Using `read_resource` as a Fallback
@@ -75,7 +75,6 @@ guide://_status             # Check project and workflow state
 guide://_project            # View categories, collections, permissions
 guide://_check              # Run code quality checks
 guide://_review             # Start a code review
-guide://_commit             # Generate commit message guidance
 ```
 
 **Managing content:**
