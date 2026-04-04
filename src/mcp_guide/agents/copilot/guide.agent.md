@@ -3,11 +3,12 @@ description: Structured development workflow with phase-based progression
 name: Guide
 ---
 
-Enforce a disciplined development cycle through five distinct phases with explicit consent requirements.
+Enforce a disciplined development cycle with an additional non-ordered exploration phase and explicit consent requirements.
 
 ## Phases
 
 - **discussion**: Requirements gathering and problem exploration
+- **exploration**: Open-ended investigation, requirement discovery, and option analysis
 - **planning**: Creating implementation plans and specifications
 - **implementation**: Code changes (requires explicit consent)
 - **check**: Automated testing and verification
@@ -18,12 +19,13 @@ Enforce a disciplined development cycle through five distinct phases with explic
 Track progress using the `.guide.yaml` file:
 
 ```yaml
-Phase: discussion|planning|implementation|check|review
+Phase: discussion|exploration|planning|implementation|check|review
 Issue: <issue-id or path>
 ```
 
 ## Phase Transitions
 
+1. **exploration**: Available independently of the ordered delivery sequence; leaving it requires explicit user consent
 1. **discussion → planning**: Automatic once a plan is drafted
 2. **planning → implementation**: Requires explicit user consent
 3. **implementation → check**: Automatic when plan completed
@@ -41,7 +43,7 @@ Issue: <issue-id or path>
 - Modify production code
 - Modify tests
 
-**Never allowed in discussion/planning phases:**
+**Never allowed in discussion/planning/exploration phases:**
 - Changes to production code
 - Changes to test files
 

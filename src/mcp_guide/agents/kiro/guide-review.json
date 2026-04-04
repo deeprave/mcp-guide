@@ -6,7 +6,6 @@
   "resources": [
     "file://README.md",
     "file://AGENTS.md",
-    "file://openspec/AGENTS.md",
     "file://.kiro/rules/**/*.md",
     "file://~/.kiro/rules/**/*.md"
   ],

@@ -369,15 +369,33 @@ class TemplateContextCache(SessionListener):
                             workflow_consent_flag = DEFAULT_WORKFLOW_CONSENT
                         # Transform consent config for template access
                         consent_context = {}
-                        phase_names = parsed_config.phases  # List of phase name strings
+                        phase_names = parsed_config.phases  # List of available phase names
+                        ordered_phase_names = parsed_config.ordered_phases
                         for phase_name in phase_names:
                             consent_value = workflow_consent_flag.get(phase_name, [])
                             consent_list = [consent_value] if isinstance(consent_value, str) else consent_value
                             consent_context[phase_name] = {
                                 "entry": "entry" in consent_list,
                                 "exit": "exit" in consent_list,
+                                "any": ("entry" in consent_list) or ("exit" in consent_list),
                             }
                         workflow_config["consent"] = consent_context
+
+                        phases_context: dict[str, Any] = {}
+                        for phase_name in phase_names:
+                            phase_context: dict[str, Any] = {"enabled": True}
+                            if phase_name in ordered_phase_names:
+                                current_index = ordered_phase_names.index(phase_name)
+                                phase_context["next"] = ordered_phase_names[
+                                    (current_index + 1) % len(ordered_phase_names)
+                                ]
+                                phase_context["ordered"] = True
+                            else:
+                                phase_context["ordered"] = False
+                            phases_context[phase_name] = phase_context
+                        workflow_config["phases"] = phases_context
+                        workflow_config["phase_list"] = phase_names
+                        workflow_config["ordered_phase_list"] = ordered_phase_names
 
                         # Add boolean flag for each configured phase
                         for phase_name in phase_names:
@@ -398,17 +416,21 @@ class TemplateContextCache(SessionListener):
                                     "tracking": workflow_state.tracking,
                                     "description": workflow_state.description,
                                     "queue": workflow_state.queue,
+                                    "issue_is_exploratory": bool(
+                                        workflow_state.issue
+                                        and workflow_state.issue.startswith("explor")
+                                        and workflow_state.phase != "exploration"
+                                    ),
                                 }
                             )
 
                             # Calculate next phase
                             try:
-                                current_index = phase_names.index(workflow_state.phase)
-                                next_phase = phase_names[(current_index + 1) % len(phase_names)]
-                                workflow_config["next"] = next_phase
+                                current_index = ordered_phase_names.index(workflow_state.phase)
+                                next_phase = ordered_phase_names[(current_index + 1) % len(ordered_phase_names)]
+                                workflow_config["next"] = {"value": next_phase}
                             except ValueError:
-                                # Current phase not in configured phases, default to first phase
-                                workflow_config["next"] = phase_names[0] if phase_names else "discussion"
+                                workflow_config["next"] = None
 
                             # Add current phase consent flags
                             current_phase_consent = consent_context.get(

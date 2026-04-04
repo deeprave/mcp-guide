@@ -9,7 +9,7 @@ instruction: Follow this policy exactly. If {{workflow.file}} missing, create it
 {{h2}}File Format
 Development phases are tracked in {{workflow.file}}
 ```yaml
-phase: [{{#workflow.phases}}{{value}}{{^last}}|{{/last}}{{/workflow.phases}}]
+phase: [{{#workflow.phase_list}}{{value}}{{^last}}|{{/last}}{{/workflow.phase_list}}]
 issue: <current-issue>
 tracking: <tracker> <tracker-id>
 description: <optional-context>
@@ -39,6 +39,7 @@ queue:
 - Explicit user requests to change phases must always be honoured, regardless of consent semantics
 - Consent flags are instructions to the agent about when to ask permission, not restrictions on the user
 - Users can manually edit `{{workflow.file}}` to change phases at any time
+- `exploration` is available but not part of the standard ordered delivery sequence
 
 {{#workflow.discussion}}
 {{h3}}Discussion Phase
@@ -49,6 +50,18 @@ queue:
 - {{b}}EXPLICIT CONSENT OR REQUEST REQUIRED{{b}} before transition from discussion phase.
 {{/workflow.consent.discussion.exit}}
 {{/workflow.discussion}}
+
+{{#workflow.exploration}}
+{{h3}}Exploration Phase
+- Research-oriented, non-ordered workflow mode
+- Can modify: `{{workflow.file}}`, `openspec/`, `.todo/`
+- Cannot modify: production code, tests
+- Explore the codebase, documentation, and external references as needed
+- OpenSpec artifacts are allowed; implementation is not
+{{#workflow.consent.exploration.exit}}
+- {{b}}EXPLICIT CONSENT OR REQUEST REQUIRED{{b}} before transition from exploration phase.
+{{/workflow.consent.exploration.exit}}
+{{/workflow.exploration}}
 
 {{#workflow.planning}}
 {{h3}}Planning Phase

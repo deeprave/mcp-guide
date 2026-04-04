@@ -49,7 +49,6 @@ Agent configurations for [GitHub Copilot](https://github.com/features/copilot). 
 
 Agents typically have access to:
 - Project documentation (`README.md`, `AGENTS.md`)
-- OpenSpec documentation (`openspec/AGENTS.md`)
 - Project and user-specific rules (`.kiro/rules/**/*.md`, `~/.kiro/rules/**/*.md`)
 
 ### Agent Purposes

@@ -2,6 +2,7 @@
 
 import pytest
 
+from mcp_guide.feature_flags.types import FeatureValue
 from mcp_guide.workflow.flags import parse_workflow_phases, substitute_variables
 
 
@@ -39,10 +40,11 @@ class TestWorkflowPhases:
         assert result.phases == []
 
     def test_parse_true_uses_default_phases(self):
-        """Test workflow=true uses default sequence."""
+        """Test workflow=true uses default available and ordered phases."""
         result = parse_workflow_phases(True)
         assert result.enabled is True
-        assert result.phases == ["discussion", "planning", "implementation", "check", "review"]
+        assert result.phases == ["discussion", "exploration", "planning", "implementation", "check", "review"]
+        assert result.ordered_phases == ["discussion", "planning", "implementation", "check", "review"]
 
     def test_parse_custom_phases_valid(self):
         """Test parsing custom phase list with valid phases."""
@@ -130,7 +132,7 @@ class TestWorkflowConsentValidation:
         from mcp_guide.workflow.flags import _validate_workflow_consent_flag
 
         # Valid consent configuration with lists
-        consent = {"implementation": ["entry"], "review": ["exit"]}
+        consent: FeatureValue = {"implementation": ["entry"], "review": ["exit"]}
         assert _validate_workflow_consent_flag(consent, False) is True
 
         # Valid with both entry and exit
@@ -146,7 +148,7 @@ class TestWorkflowConsentValidation:
         from mcp_guide.workflow.flags import _validate_workflow_consent_flag
 
         # Invalid phase name
-        consent = {"invalid_phase": ["entry"]}
+        consent: FeatureValue = {"invalid_phase": ["entry"]}
         assert _validate_workflow_consent_flag(consent, False) is False
 
     def test_consent_flag_rejects_invalid_consent_type(self):
@@ -154,7 +156,7 @@ class TestWorkflowConsentValidation:
         from mcp_guide.workflow.flags import _validate_workflow_consent_flag
 
         # Invalid consent type in list
-        consent = {"implementation": ["invalid"]}
+        consent: FeatureValue = {"implementation": ["invalid"]}
         assert _validate_workflow_consent_flag(consent, False) is False
 
         # Invalid consent type as string
@@ -162,5 +164,5 @@ class TestWorkflowConsentValidation:
         assert _validate_workflow_consent_flag(consent, False) is False
 
         # Must be string or list, not other types
-        consent = {"implementation": 123}
-        assert _validate_workflow_consent_flag(consent, False) is False
+        consent: object = {"implementation": 123}
+        assert _validate_workflow_consent_flag(consent, False) is False  # ty: ignore[invalid-argument-type]

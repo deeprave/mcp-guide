@@ -22,8 +22,9 @@ Installs agents to `<dirname>/.kiro/agents/`.
 ### guide
 **Purpose**: Structured development workflow with phase-based progression
 
-The `guide` agent enforces a disciplined development cycle through five distinct phases:
+The `guide` agent enforces a disciplined development cycle with an additional non-ordered exploration phase:
 - **discussion**: Requirements gathering and problem exploration
+- **exploration**: Open-ended investigation, requirement discovery, and option analysis
 - **planning**: Creating implementation plans and specifications
 - **implementation**: Code changes (requires explicit consent)
 - **check**: Automated testing and verification
@@ -36,7 +37,7 @@ The `guide` agent enforces a disciplined development cycle through five distinct
 - Integrates with OpenSpec for specifications
 
 **Resources**:
-- `README.md`, `AGENTS.md`, `openspec/AGENTS.md`
+- `README.md`, `AGENTS.md`
 - `.kiro/rules/**/*.md` (project and user rules)
 
 **Pre-trusted Tools**: All standard tools plus git, guide, github, context7, sequentialthinking, and atlassian MCP servers
@@ -58,7 +59,7 @@ The `guide-review` agent performs thorough code reviews by comparing working tre
 - Provides specific file/line references and concrete fixes
 
 **Resources**:
-- `README.md`, `AGENTS.md`, `openspec/AGENTS.md`
+- `README.md`, `AGENTS.md`
 - `.kiro/rules/**/*.md` (project rules only)
 
 **Pre-trusted Tools**: Same as `guide` agent
@@ -81,7 +82,7 @@ The `guide-spec` agent specialises in systems analysis and technical specificati
 - Integrates with OpenSpec conventions
 
 **Resources**:
-- `README.md`, `AGENTS.md`, `openspec/AGENTS.md`
+- `README.md`, `AGENTS.md`
 - `.kiro/rules/**/*.md` (project rules only)
 - OpenSpec documentation via guide MCP
 

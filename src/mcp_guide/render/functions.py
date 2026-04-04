@@ -202,6 +202,23 @@ class TemplateFunctions:
             return str(render(text[var_end:]))
         return ""
 
+    def notequals(self, text: str, render: Callable[[str], str] | None = None) -> str:
+        """Compare values: {{#notequals}}value{{variable}}{{/notequals}}
+
+        Returns the rendered section content if values do not match, empty string otherwise.
+        """
+        expected, var_name = self._parse_template_args(text)
+        actual = self._get_nested_value(var_name)
+
+        if actual is None or actual == expected.strip():
+            return ""
+
+        # Render section content (everything after the variable reference)
+        if render:
+            var_end = text.find("}}") + 2
+            return str(render(text[var_end:]))
+        return ""
+
     def resource(self, text: str, render: Callable[[str], str] | None = None) -> str:
         """Render content reference: {{#resource}}expression{{/resource}}
 

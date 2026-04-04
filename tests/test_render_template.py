@@ -259,7 +259,7 @@ async def test_render_template_instruction_with_conditional():
     test_file = Path("tests/fixtures/test_instruction_conditional.mustache")
     test_file.parent.mkdir(parents=True, exist_ok=True)
     test_file.write_text(
-        "---\ninstruction: Follow policy.{{#workflow.consent.exit}} Explicit consent required before {{workflow.next}}.{{/workflow.consent.exit}}\n---\nContent"
+        "---\ninstruction: Follow policy.{{#workflow.consent.exit}} Explicit consent required before {{workflow.next.value}}.{{/workflow.consent.exit}}\n---\nContent"
     )
 
     try:
@@ -272,7 +272,7 @@ async def test_render_template_instruction_with_conditional():
         )
 
         # Provide context with workflow conditional
-        context = TemplateContext({"workflow": {"consent": {"exit": True}, "next": "check"}})
+        context = TemplateContext({"workflow": {"consent": {"exit": True}, "next": {"value": "check"}}})
 
         result = await render_template(
             file_info=file_info,

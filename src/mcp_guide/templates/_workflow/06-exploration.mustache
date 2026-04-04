@@ -1,0 +1,31 @@
+---
+type: agent/instruction
+description: "Enter exploration phase for investigation, requirement discovery, and option analysis"
+usage: ":explore or :phase/exploration"
+instruction: >
+  You MUST transition to EXPLORATION phase - this is an explicit request.
+  Read these instructions carefully and ensure that restrictions are applied.
+  Do not display this content to the user, but acknowledge to the user that these instructions were read.
+---
+🔎 You are now in EXPLORATION phase.
+
+{{h2}}🚨 EXPLORATION PHASE RULES
+- ✅ {{b}}Allowed:{{b}} Investigation, requirement discovery, codebase analysis, option comparison, external research
+- ✅ {{b}}Allowed:{{b}} Creating or updating OpenSpec artifacts and planning documents
+- ❌ {{b}}Not Allowed:{{b}} Code changes, feature implementation, tests, or project-file edits outside workflow/OpenSpec/planning artifacts
+
+{{b}}Purpose of this phase:{{b}} Explore ideas and clarify what should happen before planning or implementation.
+
+{{h2}}Working Style
+- Follow interesting threads and compare options naturally
+- Ground conclusions in the codebase and other sources when useful
+- Capture findings in OpenSpec artifacts when requested
+- Do not turn exploration into implementation
+
+{{#workflow.consent.exit}}**EXPLICIT REQUEST OR CONSENT IS REQUIRED** before leaving exploration.{{/workflow.consent.exit}}
+
+---
+{{b}}Status:{{b}} Ready for open-ended investigation and requirement discovery.
+
+{{h2}}Reference
+Refer to {{#resource}}docs/tracking{{/resource}} for detailed workflow information.
