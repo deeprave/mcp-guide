@@ -1,39 +1,18 @@
-# task-manager Specification
+## ADDED Requirements
 
-## Purpose
-TBD - created by archiving change refactor-dispatch-handler. Update Purpose after archive.
-## Requirements
-### Requirement: Result Construction from EventResult
-The system SHALL construct Result objects from EventResult list with aggregation.
+### Requirement: Deferred Project-Bound Initialization
+The task manager SHALL support startup before a real project is available.
 
-#### Scenario: Single EventResult with rendered content
-- WHEN EventResult contains rendered_content
-- THEN Result SHALL use:
-  - `success: True`
-  - `value: rendered_content.content`
-  - `instruction: rendered_content.instruction` (RenderedContent handles resolution)
-  - `message: EventResult.message` if present
+Project-independent startup work MAY run during server initialization, but
+project-sensitive initialization SHALL be deferred until the session is bound to a
+real project.
 
-#### Scenario: Single EventResult without rendered content
-- WHEN EventResult has no rendered_content
-- THEN Result SHALL have:
-  - `success: EventResult.result`
-  - `message: EventResult.message`
-  - `instruction: <default for success/failure>`
-  - `value: None`
+#### Scenario: Server startup without MCP context
+- **WHEN** the server runs startup hooks before any client request context exists
+- **THEN** task manager initialization SHALL complete without requiring immediate project resolution
+- **AND** no failure SHALL occur solely because client roots are not yet available
 
-#### Scenario: Multiple EventResults aggregation
-- WHEN dispatch returns multiple EventResults
-- THEN Result SHALL aggregate:
-  - Success if all EventResult.result are True
-  - Messages: Deduplicate and concatenate all EventResult.message values
-  - Content: Concatenate all rendered_content.content values in order (if any)
-  - Instruction: Use existing deduplication logic from render package for all rendered_content.instruction values
-
-#### Scenario: Mixed rendered and non-rendered results
-- WHEN some EventResults have rendered_content and others don't
-- THEN Result SHALL:
-  - Combine all messages (from both rendered and non-rendered)
-  - Combine all rendered content in order
-  - Use instruction deduplication on rendered_content.instruction values
-
+#### Scenario: First project-bound initialization
+- **WHEN** the session later binds to a real project
+- **THEN** the task manager SHALL initialize resolved flags and other project-sensitive state at that time
+- **AND** deferred initialization SHALL run at most once per project bind event

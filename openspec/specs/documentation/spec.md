@@ -1,41 +1,30 @@
-# documentation Specification
+## ADDED Requirements
 
-## Purpose
-TBD - created by archiving change restructure-documentation. Update Purpose after archive.
-## Requirements
-### Requirement: CHANGELOG.md
-The system SHALL provide a CHANGELOG.md file with feature-based release notes.
+### Requirement: Guide URI Documentation
+The system SHALL provide user documentation for the `guide://` URI scheme.
 
-#### Scenario: Initial release notes
-- **WHEN** CHANGELOG.md is created
-- **THEN** it contains 1.0.0 release overview
-- **AND** lists transport modes (STDIO, HTTP, HTTPS)
-- **AND** includes key features
-- **AND** provides succinct snapshot of capabilities
+#### Scenario: Content URI documentation
+- **WHEN** a user reads the guide URI documentation
+- **THEN** it describes content URIs (`guide://expression`, `guide://expression/pattern`)
+- **AND** it describes command URIs (`guide://_command`, `guide://_command/args`, `guide://_command/args?key=value`)
+- **AND** it documents the `read_resource` tool as a fallback for clients without native MCP resource support
 
-#### Scenario: Release note format
-- **WHEN** reading CHANGELOG.md
-- **THEN** content is feature-focused, not commit-based
-- **AND** content is brief and informative
-- **AND** content is not detailed user documentation
+#### Scenario: Codex-specific guidance
+- **WHEN** a Codex user reads the guide URI documentation
+- **THEN** it explains that `guide://` URIs are the primary method for executing commands in Codex
+- **AND** it provides practical examples
 
-### Requirement: Informative README
-The system SHALL provide a README.md optimized for PyPI display and discovery.
+### Requirement: Stored Document Documentation
+The system SHALL provide user documentation for stored documents and document ingest.
 
-#### Scenario: README structure
-- **WHEN** README.md is viewed
-- **THEN** it contains elevator pitch
-- **AND** lists key features
-- **AND** includes brief installation section
-- **AND** includes minimal quick start example
-- **AND** links to detailed documentation
+#### Scenario: Ingest documentation
+- **WHEN** a user reads the stored document documentation
+- **THEN** it describes how to ingest documents from local files, direct content, and URLs
+- **AND** it explains how stored documents integrate with content discovery
+- **AND** it documents `category_list_files` source filtering (`files`, `stored`, or both)
+- **AND** it documents `document_update` and `document_remove` tools
 
-#### Scenario: PyPI suitability
-- **WHEN** README.md is displayed on PyPI
-- **THEN** content is informative, not instructive
-- **AND** length is appropriate for overview
-- **AND** formatting renders correctly
-- **AND** links to detailed docs work
+## MODIFIED Requirements
 
 ### Requirement: Setup Documentation
 The system SHALL provide detailed setup and configuration documentation separate from README.
@@ -48,6 +37,7 @@ The system SHALL provide detailed setup and configuration documentation separate
 - **AND** covers Docker deployment
 - **AND** lists environment variables
 - **AND** includes troubleshooting section
+- **AND** includes Codex agent configuration
 
 #### Scenario: Instructive content
 - **WHEN** reading setup documentation
@@ -63,6 +53,7 @@ The system SHALL provide cohesive linking between all documentation.
 - **THEN** README links to setup docs
 - **AND** setup docs link to user docs
 - **AND** CHANGELOG links to relevant documentation
+- **AND** documentation index links to guide URI and stored document pages
 - **AND** all links are functional
 
 #### Scenario: Navigation
@@ -70,4 +61,3 @@ The system SHALL provide cohesive linking between all documentation.
 - **THEN** documentation structure guides them clearly
 - **AND** related content is easy to find
 - **AND** no duplicate or conflicting information exists
-
