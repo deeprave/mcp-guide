@@ -432,3 +432,35 @@ class TestResourceLambda:
 
         result = functions.resource("guidelines")
         assert result == "guide://guidelines"
+
+
+class TestEqualsLambdas:
+    """Test equals and notequals template lambdas."""
+
+    def test_equals_renders_section_when_values_match(self):
+        context = ChainMap({"workflow": {"issue": "same-issue"}})
+        functions = TemplateFunctions(context)
+
+        result = functions.equals("same-issue{{workflow.issue}}MATCH", lambda t: t)
+        assert result == "MATCH"
+
+    def test_equals_returns_empty_when_values_do_not_match(self):
+        context = ChainMap({"workflow": {"issue": "other-issue"}})
+        functions = TemplateFunctions(context)
+
+        result = functions.equals("same-issue{{workflow.issue}}MATCH", lambda t: t)
+        assert result == ""
+
+    def test_notequals_renders_section_when_values_do_not_match(self):
+        context = ChainMap({"workflow": {"issue": "other-issue"}})
+        functions = TemplateFunctions(context)
+
+        result = functions.notequals("same-issue{{workflow.issue}}DIFFERENT", lambda t: t)
+        assert result == "DIFFERENT"
+
+    def test_notequals_returns_empty_when_values_match(self):
+        context = ChainMap({"workflow": {"issue": "same-issue"}})
+        functions = TemplateFunctions(context)
+
+        result = functions.notequals("same-issue{{workflow.issue}}DIFFERENT", lambda t: t)
+        assert result == ""

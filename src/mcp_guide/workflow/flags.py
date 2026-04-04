@@ -12,9 +12,11 @@ from mcp_guide.feature_flags.constants import (
 from mcp_guide.feature_flags.types import FeatureValue
 from mcp_guide.feature_flags.validators import register_flag_validator
 from mcp_guide.workflow.constants import (
+    DEFAULT_ORDERED_WORKFLOW_PHASES,
     DEFAULT_WORKFLOW_PHASES,
     PHASE_CHECK,
     PHASE_DISCUSSION,
+    PHASE_EXPLORATION,
     PHASE_IMPLEMENTATION,
     PHASE_PLANNING,
     PHASE_REVIEW,
@@ -26,6 +28,7 @@ if TYPE_CHECKING:
 # Valid phase names for validation
 VALID_PHASES = {
     PHASE_DISCUSSION,
+    PHASE_EXPLORATION,
     PHASE_PLANNING,
     PHASE_IMPLEMENTATION,
     PHASE_CHECK,
@@ -39,6 +42,7 @@ class WorkflowConfig:
 
     enabled: bool
     phases: list[str]
+    ordered_phases: list[str]
 
 
 def validate_phase_name(phase: str) -> bool:
@@ -97,10 +101,14 @@ def parse_workflow_phases(workflow_flag: Union[bool, list[str]]) -> WorkflowConf
         ValueError: If any phase name is invalid
     """
     if workflow_flag is False:
-        return WorkflowConfig(enabled=False, phases=[])
+        return WorkflowConfig(enabled=False, phases=[], ordered_phases=[])
 
     if workflow_flag is True:
-        return WorkflowConfig(enabled=True, phases=DEFAULT_WORKFLOW_PHASES)
+        return WorkflowConfig(
+            enabled=True,
+            phases=DEFAULT_WORKFLOW_PHASES,
+            ordered_phases=DEFAULT_ORDERED_WORKFLOW_PHASES,
+        )
 
     # List of phases - validate each one
     validated_phases = []
@@ -110,7 +118,8 @@ def parse_workflow_phases(workflow_flag: Union[bool, list[str]]) -> WorkflowConf
         else:
             raise ValueError(f"Invalid phase name: '{phase}'. Valid phases are: {', '.join(sorted(VALID_PHASES))}")
 
-    return WorkflowConfig(enabled=True, phases=validated_phases)
+    ordered_phases = [phase for phase in validated_phases if phase != PHASE_EXPLORATION]
+    return WorkflowConfig(enabled=True, phases=validated_phases, ordered_phases=ordered_phases)
 
 
 def _validate_workflow_flag(value: FeatureValue, is_project: bool) -> bool:

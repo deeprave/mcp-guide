@@ -9,7 +9,7 @@ requires-workflow: true
 
 ## Format
 ```yaml
-phase: [discussion|planning|implementation|check|review]
+phase: [{{#workflow.phase_list}}{{value}}{{^last}}|{{/last}}{{/workflow.phase_list}}]
 issue: <current-issue-id>
 tracking: <tracker> <tracker-id>
 description: <optional-context>

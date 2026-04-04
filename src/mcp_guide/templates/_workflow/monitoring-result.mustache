@@ -6,3 +6,7 @@ requires-workflow: true
 You MUST send the COMPLETE content of {{workflow.file}} using the {{tool_prefix}}send_file_content tool whenever it changes.
 
 **Note:** Do NOT display the file content to the user when calling send_file_content - only show the confirmation message.
+{{#workflow.issue_is_exploratory}}
+
+The current issue appears exploratory. Suggest exploration mode to the user and ask whether they want to enter it. Do NOT switch automatically.
+{{/workflow.issue_is_exploratory}}

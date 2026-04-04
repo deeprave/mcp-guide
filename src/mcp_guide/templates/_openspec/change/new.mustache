@@ -18,10 +18,6 @@ Example: `{{agent.prefix}}guide :openspec/change/new add-user-authentication`
 {{#args.0.value}}
 # Creating Change: {{args.0.value}}
 
-**Instructions for Agent:**
-
-Read `openspec/AGENTS.md` section "Creating Change Proposals" for complete technical details on file structure, validation, and formatting requirements.
-
 **Your task:**
 
 Gather requirements from the user through conversation to understand:
@@ -31,7 +27,7 @@ Gather requirements from the user through conversation to understand:
 - Which specs are affected (check `openspec list --specs`)
 - Dependencies between specs if multiple are involved
 
-Once you have sufficient context, create the proposal following the structure documented in `openspec/AGENTS.md`.
+Once you have sufficient context, create the proposal following the standard openspec way.
 
 Keep it as a draft (no tasks.md) unless the user explicitly requests implementation planning.
 

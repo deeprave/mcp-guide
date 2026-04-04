@@ -1,26 +1,31 @@
 {{h2}}Phase Transitions
 
 {{#workflow.phases.discussion}}
-{{b}}discussion{{b}}{{#workflow.consent.discussion}} - Requires consent{{/workflow.consent.discussion}}{{^workflow.consent.discussion}} - Available{{/workflow.consent.discussion}}
+{{b}}discussion{{b}}{{#workflow.consent.discussion.any}} - Requires consent{{/workflow.consent.discussion.any}}{{^workflow.consent.discussion.any}} - Available{{/workflow.consent.discussion.any}}
  → {{workflow.phases.discussion.next}}
 {{/workflow.phases.discussion}}
 
+{{#workflow.phases.exploration}}
+{{b}}exploration{{b}}{{#workflow.consent.exploration.any}} - Requires consent{{/workflow.consent.exploration.any}}{{^workflow.consent.exploration.any}} - Available{{/workflow.consent.exploration.any}}
+{{#workflow.phases.exploration.ordered}} → {{workflow.phases.exploration.next}}{{/workflow.phases.exploration.ordered}}{{^workflow.phases.exploration.ordered}} - Non-ordered research phase{{/workflow.phases.exploration.ordered}}
+{{/workflow.phases.exploration}}
+
 {{#workflow.phases.planning}}
-{{b}}planning{{b}}{{#workflow.consent.planning}} - Requires consent{{/workflow.consent.planning}}{{^workflow.consent.planning}} - Available{{/workflow.consent.planning}}
+{{b}}planning{{b}}{{#workflow.consent.planning.any}} - Requires consent{{/workflow.consent.planning.any}}{{^workflow.consent.planning.any}} - Available{{/workflow.consent.planning.any}}
  → {{workflow.phases.planning.next}}
 {{/workflow.phases.planning}}
 
 {{#workflow.phases.implementation}}
-{{b}}implementation{{b}}{{#workflow.consent.implementation}} - Requires consent{{/workflow.consent.implementation}}{{^workflow.consent.implementation}} - Available{{/workflow.consent.implementation}}
+{{b}}implementation{{b}}{{#workflow.consent.implementation.any}} - Requires consent{{/workflow.consent.implementation.any}}{{^workflow.consent.implementation.any}} - Available{{/workflow.consent.implementation.any}}
  → {{workflow.phases.implementation.next}}
 {{/workflow.phases.implementation}}
 
 {{#workflow.phases.check}}
-{{b}}check{{b}}{{#workflow.consent.check}} - Requires consent{{/workflow.consent.check}}{{^workflow.consent.check}} - Available{{/workflow.consent.check}}
+{{b}}check{{b}}{{#workflow.consent.check.any}} - Requires consent{{/workflow.consent.check.any}}{{^workflow.consent.check.any}} - Available{{/workflow.consent.check.any}}
  → {{workflow.phases.check.next}}
 {{/workflow.phases.check}}
 
 {{#workflow.phases.review}}
-{{b}}review{{b}}{{#workflow.consent.review}} - Requires consent{{/workflow.consent.review}}{{^workflow.consent.review}} - Available{{/workflow.consent.review}}
+{{b}}review{{b}}{{#workflow.consent.review.any}} - Requires consent{{/workflow.consent.review.any}}{{^workflow.consent.review.any}} - Available{{/workflow.consent.review.any}}
  → {{workflow.phases.review.next}}
 {{/workflow.phases.review}}

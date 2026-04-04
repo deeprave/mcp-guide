@@ -22,12 +22,12 @@ Installs agents to `<dirname>/.github/agents/`.
 ### guide
 **Purpose**: Structured development workflow with phase-based progression
 
-Enforces a disciplined development cycle through five distinct phases with explicit consent requirements for implementation and review.
+Enforces a disciplined development cycle with an additional non-ordered exploration phase and explicit consent requirements for implementation and review.
 
 **Key Features**:
 - Tracks progress via `.guide.yaml` file
 - Requires explicit consent for implementation and review phases
-- Prevents code changes during discussion/planning phases
+- Prevents code changes during discussion/planning/exploration phases
 - Integrates with OpenSpec for specifications
 
 ---
