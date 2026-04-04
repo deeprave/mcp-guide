@@ -464,3 +464,34 @@ class TestEqualsLambdas:
 
         result = functions.notequals("same-issue{{workflow.issue}}DIFFERENT", lambda t: t)
         assert result == ""
+
+    def test_notequals_renders_section_when_actual_value_is_missing(self):
+        context = ChainMap({"workflow": {}})
+        functions = TemplateFunctions(context)
+
+        result = functions.notequals("same-issue{{workflow.issue}}DIFFERENT", lambda t: t)
+        assert result == "DIFFERENT"
+
+    def test_equals_renders_section_when_two_variables_match(self):
+        context = ChainMap(
+            {
+                "workflow": {"issue": "same-issue"},
+                "args": [{"value": "same-issue", "first": True, "last": True}],
+            }
+        )
+        functions = TemplateFunctions(context)
+
+        result = functions.equals("{{args.0.value}}{{workflow.issue}}MATCH", lambda t: t)
+        assert result == "MATCH"
+
+    def test_notequals_renders_section_when_two_variables_differ(self):
+        context = ChainMap(
+            {
+                "workflow": {"issue": "other-issue"},
+                "args": [{"value": "same-issue", "first": True, "last": True}],
+            }
+        )
+        functions = TemplateFunctions(context)
+
+        result = functions.notequals("{{args.0.value}}{{workflow.issue}}DIFFERENT", lambda t: t)
+        assert result == "DIFFERENT"
