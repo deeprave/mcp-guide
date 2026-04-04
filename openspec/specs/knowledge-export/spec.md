@@ -1,28 +1,42 @@
-# knowledge-export Specification
+## ADDED Requirements
 
-## Purpose
-TBD - created by archiving change add-knowledge-export. Update Purpose after archive.
-## Requirements
-### Requirement: export_content Tool
-The system SHALL provide an `export_content` tool that returns content with an instruction for the agent to write it to a specified path for knowledge indexing.
+### Requirement: Exported Content Frontmatter
 
-#### Scenario: Valid path export
-- **WHEN** `export_content` is called with a valid expression and a path within `allowed_write_paths`
-- **THEN** content is resolved using the same logic as `get_content`
-- **AND** full content is returned
-- **AND** the result includes an instruction directing the agent to write the content to the specified path
+The `export_content` tool SHALL prepend YAML frontmatter to exported payloads so exported files preserve the resolved content semantics of the collected documents.
 
-#### Scenario: Force overwrite
-- **WHEN** `export_content` is called with `force=True`
-- **THEN** the instruction permits the agent to overwrite an existing file at the path
+The exported frontmatter SHALL include:
+- `type`: the resolved exported content type
+- `instruction`: the resolved exported instruction
 
-#### Scenario: Create only (default)
-- **WHEN** `export_content` is called with `force=False` (default)
-- **THEN** the instruction directs the agent to write the file only if it does not already exist
+The exported payload beneath that frontmatter SHALL remain the same rendered content that `export_content` would otherwise return for the active content format.
 
-#### Scenario: Path not in allowed_write_paths
-- **WHEN** `export_content` is called with a path not in the project's `allowed_write_paths`
-- **THEN** content is NOT returned
-- **AND** Result.failure is returned with error_type "permission_denied"
-- **AND** instruction indicates the path must be added to `allowed_write_paths` first
+#### Scenario: Single document export preserves explicit metadata
+- **WHEN** `export_content` exports a single document with resolved type and instruction metadata
+- **THEN** the exported content begins with YAML frontmatter
+- **AND** the frontmatter contains the resolved `type`
+- **AND** the frontmatter contains the resolved `instruction`
+- **AND** the rendered body follows after the frontmatter
 
+#### Scenario: Export type defaults to user information
+- **WHEN** all collected documents resolve to `user/information`
+- **THEN** the exported frontmatter `type` is `user/information`
+
+#### Scenario: Agent information outranks user information
+- **WHEN** at least one collected document resolves to `agent/information`
+- **AND** no collected document resolves to `agent/instruction`
+- **THEN** the exported frontmatter `type` is `agent/information`
+
+#### Scenario: Agent instruction outranks all other types
+- **WHEN** at least one collected document resolves to `agent/instruction`
+- **THEN** the exported frontmatter `type` is `agent/instruction`
+
+#### Scenario: Export instruction reuses existing multi-document resolution
+- **WHEN** `export_content` exports multiple collected documents
+- **THEN** the exported frontmatter `instruction` is resolved using the existing instruction handling strategy
+- **AND** duplicate instruction content is removed
+- **AND** important instruction handling is preserved
+
+#### Scenario: Export preserves rendered payload format
+- **WHEN** `export_content` renders content using the active content-format setting
+- **THEN** the rendered payload beneath the export frontmatter preserves that format
+- **AND** adding export frontmatter does not change the selected body format

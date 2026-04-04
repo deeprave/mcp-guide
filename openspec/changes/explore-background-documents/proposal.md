@@ -1,61 +1,147 @@
-# Exploration: Background document imports
+# Exploration: Efficient document ingestion
 
 **Status**: Exploration
 **Priority**: Low
-**Complexity**: Unknown
+**Complexity**: High
 
 ## Problem
 
-Importing documents into the store is slow — typically 30s to a minute per document. The bottleneck is the LLM sitting in the data path as a dumb relay: it reads file content into its context window via `fs_read`, then copies it back out via `send_file_content`. The content is opaque payload that the LLM never needs to understand, analyse, or transform. This is an expensive round-trip through the most constrained resource in the pipeline.
+Document ingestion is currently too slow and too blocking to use comfortably, especially for batch imports. In common workflows a single ingest can take 30 to 60 seconds, and multi-document work compounds that delay.
 
-For batch imports the problem compounds — each document is sequential: read → compose tool call → wait for response → next.
+The current path forces content through the agent:
+
+1. acquire source content
+2. prepare or relay that content
+3. call `send_file_content`
+4. let the server ingest and store the artifact
+
+This creates two distinct issues:
+
+- the user experience is often too blocking
+- the stored artifact is not always optimized for later retrieval and use
+
+This exploration therefore treats ingestion as more than a transport problem. It is about how to produce useful stored artifacts while making the workflow tolerable in real clients.
+
+## Current understanding
+
+The exploration now supports several working conclusions:
+
+- Stored documents should default to prepared knowledge artifacts for later use.
+- `agent/information` should be the default target type for both local-file and URL ingestion.
+- Raw storage should remain available, but as an explicit preservation mode rather than the default path.
+- The server-side ingestion path appears shared and relatively lightweight.
+- The main complexity and likely bottleneck live on the client side.
+- Better UX is more likely to come from improved staging and handoff than from eliminating total work.
 
 ## Constraints
 
-- The MCP server cannot read the agent's filesystem. The server may be running in Docker (stdio or HTTP transport), on a remote host, or otherwise isolated from the agent's filesystem. A server-side import tool only works when client and server share a filesystem, which is one configuration among many.
-- MCP has no "pipe" or "tool chaining" primitive — there's no way to say "read this file and pass its content directly to this other tool call without the LLM seeing it." The LLM must mediate every tool-to-tool data transfer.
-- The actual store operation is already async — `send_file_content` dispatches an `FS_FILE_CONTENT` event that `DocumentTask` handles. The store side is not the bottleneck.
+- The MCP server cannot assume access to the agent's filesystem. The server may run in Docker, over HTTP, on a different host, or in any environment isolated from the agent.
+- Standard MCP tool usage requires the agent to mediate tool-to-tool data transfer. There is no portable MCP primitive that streams file content from one tool call to another without the agent participating.
+- `send_file_content` is the critical final ingestion step. Any optimized delegated path must still be able to complete that step against the active MCP session.
+- Agent and client capabilities differ materially. Some support delegation, subagents, or background work; others do not.
+- Cloud-hosted background work is not sufficient by itself. If it cannot complete `send_file_content` into the active session, it does not satisfy the delegated-ingestion requirement.
 
-## Approach: Agent-side delegation
+## Target client matrix
 
-Since the bottleneck is LLM mediation and we can't eliminate it, we can move it to a background agent:
+The exploration explicitly considers:
 
-1. Main agent determines what to import (file paths, URLs, category, metadata)
-2. Main agent delegates the mechanical read → send loop to a background agent
-3. Main agent continues with other work immediately
-4. Background agent handles the sequential I/O without blocking the conversation
+- Kiro
+- Kiro CLI
+- Codex
+- Codex App on macOS
+- Claude Code
+- Claude Desktop
+- Cursor
+- cursor-agent
+- GitHub Copilot
+- Gemini CLI
+- opencode-ai
+- Windsurf
+- Cascade
+- Cline
 
-### Agent platform support
+The current evidence suggests:
 
-- kiro-cli: `delegate` tool — spawns async background agents that share the same tools and permissions
-- Claude Code: background task capability
-- Codex: background capability
-- Other agents: likely to have equivalent mechanisms as the pattern matures
+- **Tier 1 strong delegated-ingestion candidates**
+  - Kiro / Kiro CLI
+  - Claude Code
+  - Codex local / in-session
+- **Currently out for strict delegated ingestion**
+  - Codex cloud
+  - GitHub Copilot
+  - Cursor / cursor-agent
+  - Claude Desktop
+  - Windsurf / Cascade
+  - opencode-ai
+  - Gemini CLI
+  - Cline
 
-The task description is natural language — mcp-guide doesn't need to know how the agent backgrounds it.
+This classification is specifically about end-to-end delegated ingestion, not about general agent quality.
 
-### mcp-guide's role
+Codex local / in-session was initially treated as conditional, but a direct background-worker test in Codex local behaved as desired: it created a separate worker, completed the requested work without blocking the main interaction, produced the requested output file, and later reported completion successfully. That is strong enough to keep Codex local in scope for first-pass optimized support.
 
-mcp-guide could provide a command template (e.g. `:document/import`) that:
-- Accepts a file list, category, and metadata parameters
-- Renders a structured task description optimised for delegation
-- The agent hands that description to whatever background mechanism it has
+Cursor / cursor-agent was initially kept as a conditional candidate because its documented background-agent model looked promising. A stricter retry that explicitly required true background execution and actual file writing returned `BACKGROUND_UNAVAILABLE`, and no file was written. That is strong enough to treat Cursor as fallback-only for now unless a different Cursor-specific workflow is found and validated.
 
-This keeps mcp-guide agent-agnostic — it composes the task, the agent handles execution.
+## Exploration goals
 
-## Open questions
+This change does not assume that "background import" is the correct solution. It explores the broader problem of how to make ingestion effective, useful, and tolerable.
 
-- Is a command template the right abstraction, or is this purely a workflow pattern to document?
-- Should the template generate agent-specific delegation syntax, or always natural language?
-- How do we handle progress/completion feedback from the background agent?
-- Can we batch multiple `send_file_content` calls in a single delegation task effectively?
-- Is there a way to reduce LLM involvement further — e.g. agent frameworks that support "blind relay" tool calls where content bypasses the context window?
-- How do we handle errors in the background (file not found, category doesn't exist, store collision)?
+The exploration should answer:
 
-## Exploration plan
+1. Which costs matter most:
+   - foreground blocking time,
+   - total completion time,
+   - context/token overhead,
+   - artifact usefulness,
+   - or operator effort?
+2. What should the system store by default:
+   - raw source material,
+   - or prepared knowledge artifacts?
+3. What is the right split between:
+   - local-file acquisition and preparation,
+   - URL acquisition and preparation,
+   - and shared server-side ingestion?
+4. Which clients can truly perform delegated ingestion end-to-end, including `send_file_content`?
+5. What fallback behavior is required when optimized delegated execution is unavailable?
 
-This should be explored on a separate git branch, not on main. Try different approaches:
-1. Manual delegation with explicit task descriptions
-2. Command template that generates delegation-ready instructions
-3. Test across available agent platforms (kiro-cli delegate as first target)
-4. Measure actual time savings vs current sequential approach
+## Candidate approach families
+
+The exploration should compare multiple architectural families:
+
+- Baseline inline ingestion with clearer guidance
+- Prepared-by-default ingestion using existing commands and better templates
+- Delegated/background ingestion for clients that can complete end-to-end ingestion
+- Helper abstractions that prepare manifests or structured task descriptions
+- Alternative transport or batching ideas that reduce relay cost
+- Platform-specific optimizations with explicit fallback
+
+## Non-goals for this change
+
+- Committing to a specific new command shape such as `document/import`
+- Assuming that moving work into the background solves total throughput
+- Assuming all clients with background work qualify for delegated ingestion
+- Designing around cloud-hosted background agents that cannot complete `send_file_content` into the active session
+
+## Key research questions
+
+- What minimum client capability is required for a true delegated-ingestion path?
+- Can one shared optimized delegated branch support both Kiro and Claude Code with only small wording differences?
+- Should the optimized branch describe only the behavior contract and let the client choose the native mechanism?
+- How should raw mode behave for local files, remote text, and remote sources that require conversion?
+- Which conclusions are strong enough to capture in OpenSpec now, and which still need more client validation?
+
+## Expected outcome
+
+This exploration should produce:
+
+1. A validated understanding of the ingestion pipeline and where the real bottlenecks are
+2. A clearer product stance on prepared artifacts versus raw preservation
+3. A client matrix focused on strict delegated-ingestion feasibility
+4. A behavior contract for:
+   - optimized delegated ingestion
+   - universal inline fallback
+5. A recommendation for whether to proceed with:
+   - no product change,
+   - improved workflow guidance,
+   - a narrow Tier-1 optimized path with fallback,
+   - or a broader follow-up change once more clients are validated
