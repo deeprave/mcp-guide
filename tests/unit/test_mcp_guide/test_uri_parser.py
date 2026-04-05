@@ -4,7 +4,16 @@ import pytest
 
 from mcp_guide.uri_parser import GuideUri, parse_guide_uri
 
-COMMANDS = ["project", "status", "help", "openspec/list", "openspec/show", "perm/write-add", "perm/read-add"]
+COMMANDS = [
+    "project",
+    "status",
+    "help",
+    "openspec/list",
+    "openspec/show",
+    "perm/write-add",
+    "perm/read-add",
+    "document/add-url",
+]
 
 
 class TestContentUri:
@@ -62,6 +71,14 @@ class TestCommandUri:
         result = parse_guide_uri("guide://_openspec/show/my-change", COMMANDS)
         assert result == GuideUri(is_command=True, expression="openspec/show", args=["my-change"])
 
+    def test_command_args_are_url_decoded(self) -> None:
+        result = parse_guide_uri("guide://_document/add-url/lang/https%3A%2F%2Fpython.org", COMMANDS)
+        assert result == GuideUri(
+            is_command=True,
+            expression="document/add-url",
+            args=["lang", "https://python.org"],
+        )
+
     def test_no_match_uses_first_segment(self) -> None:
         result = parse_guide_uri("guide://_unknown/arg1", COMMANDS)
         assert result == GuideUri(is_command=True, expression="unknown", args=["arg1"])
@@ -99,6 +116,10 @@ class TestQueryParams:
     def test_multiple_params(self) -> None:
         result = parse_guide_uri("guide://_openspec/show?change=my-feature&verbose=true", COMMANDS)
         assert result.kwargs == {"change": "my-feature", "verbose": True}
+
+    def test_hyphenated_query_param_is_normalized(self) -> None:
+        result = parse_guide_uri("guide://_document/add-url/lang?user-info=true", COMMANDS)
+        assert result.kwargs == {"user_info": True}
 
     def test_duplicate_param_raises(self) -> None:
         with pytest.raises(ValueError, match="Multiple values for query parameter"):

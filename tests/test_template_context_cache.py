@@ -431,6 +431,66 @@ class TestTemplateContextCache:
                 assert context["openspec"] is False
 
     @pytest.mark.anyio
+    async def test_build_agent_context_exposes_handoff_and_membership_flags(self) -> None:
+        """Test that agent context includes handoff and normalized membership flags."""
+        from mcp_guide.agent_detection import AgentInfo
+
+        cache = TemplateContextCache()
+        mock_session = Mock()
+        mock_session.agent_info = AgentInfo(
+            name="Kiro CLI",
+            normalized_name="q-dev",
+            version="1.0.0",
+            prompt_prefix="@",
+        )
+
+        with (
+            patch("mcp_guide.session.get_active_session", return_value=mock_session),
+            patch("mcp_guide.models.resolve_all_flags", return_value={}),
+            patch("mcp_guide.task_manager.get_task_manager") as mock_tm,
+        ):
+            mock_tm.return_value.get_task_statistics.return_value = {}
+            mock_tm.return_value.get_task_by_type.return_value = None
+
+            context = await cache._build_agent_context()
+
+            assert context["agent"]["class"] == "q-dev"
+            assert context["agent"]["prefix"] == "@"
+            assert context["agent"]["has_handoff"] is True
+            assert context["agent"]["is_q_dev"] is True
+            assert context["agent"]["is_kiro"] is True
+            assert context["agent"]["is_codex"] is False
+
+    @pytest.mark.anyio
+    async def test_build_agent_context_defaults_unknown_agent_to_no_handoff(self) -> None:
+        """Test that non-validated agents default to inline behavior."""
+        from mcp_guide.agent_detection import AgentInfo
+
+        cache = TemplateContextCache()
+        mock_session = Mock()
+        mock_session.agent_info = AgentInfo(
+            name="Custom Agent",
+            normalized_name="custom-agent",
+            version="1.0.0",
+            prompt_prefix="/",
+        )
+
+        with (
+            patch("mcp_guide.session.get_active_session", return_value=mock_session),
+            patch("mcp_guide.models.resolve_all_flags", return_value={}),
+            patch("mcp_guide.task_manager.get_task_manager") as mock_tm,
+        ):
+            mock_tm.return_value.get_task_statistics.return_value = {}
+            mock_tm.return_value.get_task_by_type.return_value = None
+
+            context = await cache._build_agent_context()
+
+            assert context["agent"]["class"] == "custom-agent"
+            assert context["agent"]["has_handoff"] is False
+            assert context["agent"]["is_unknown"] is False
+            assert context["agent"]["is_codex"] is False
+
+    @pytest.mark.anyio
     async def test_workflow_context_with_phase_booleans(self) -> None:
         """Test workflow context includes phase-specific boolean flags for configured phases."""
         from mcp_guide.models import Project

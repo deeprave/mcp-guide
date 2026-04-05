@@ -175,3 +175,27 @@ class TestTemplateRendering:
         assert result.is_ok()
         rendered_content, _, _ = result.value
         assert rendered_content == "Hello World!"
+
+    @pytest.mark.anyio
+    async def test_render_template_content_handoff_branch_renders(self):
+        """Test that handoff-aware content renders for supported clients."""
+        content = """{{#agent.has_handoff}}Separate execution is not available here; continuing inline instead.{{/agent.has_handoff}}"""
+        context = TemplateContext({"agent": {"has_handoff": True}})
+
+        result = await render_template_content(content, context)
+
+        assert result.is_ok()
+        rendered_content, _, _ = result.value
+        assert rendered_content == "Separate execution is not available here; continuing inline instead."
+
+    @pytest.mark.anyio
+    async def test_render_template_content_handoff_branch_omitted_for_fallback_clients(self):
+        """Test that handoff-only content is omitted for fallback clients."""
+        content = """{{#agent.has_handoff}}Separate execution is not available here; continuing inline instead.{{/agent.has_handoff}}"""
+        context = TemplateContext({"agent": {"has_handoff": False}})
+
+        result = await render_template_content(content, context)
+
+        assert result.is_ok()
+        rendered_content, _, _ = result.value
+        assert rendered_content == ""

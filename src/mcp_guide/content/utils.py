@@ -33,6 +33,18 @@ _TYPE_PRECEDENCE = {
 _PRECEDENCE_TO_TYPE = {v: k for k, v in _TYPE_PRECEDENCE.items()}
 
 
+class _ExportFrontmatterDumper(yaml.SafeDumper):
+    """YAML dumper that emits multiline strings in folded style."""
+
+
+def _represent_export_string(dumper: yaml.SafeDumper, data: str) -> yaml.nodes.ScalarNode:
+    style = ">" if "\n" in data else None
+    return dumper.represent_scalar("tag:yaml.org,2002:str", data, style=style)
+
+
+_ExportFrontmatterDumper.add_representer(str, _represent_export_string)
+
+
 def extract_and_deduplicate_instructions(files: list[FileInfo]) -> Optional[str]:
     """Extract instructions from frontmatter and deduplicate them.
 
@@ -85,10 +97,20 @@ def prepend_export_frontmatter(
     if disposition:
         fm["type"] = disposition
     if instruction:
-        fm["instruction"] = instruction
+        # Preserve multiline instruction structure for exported frontmatter, but
+        # normalize formatting-only whitespace so YAML remains readable.
+        lines = [line.strip() for line in instruction.splitlines() if line.strip()]
+        fm["instruction"] = "\n".join(lines)
     if not fm:
         return content
-    return f"---\n{yaml.safe_dump(fm, default_flow_style=False, allow_unicode=True, sort_keys=False).rstrip()}\n---\n{content}"
+    dumped = yaml.dump(
+        fm,
+        Dumper=_ExportFrontmatterDumper,
+        default_flow_style=False,
+        allow_unicode=True,
+        sort_keys=False,
+    ).rstrip()
+    return f"---\n{dumped}\n---\n{content}"
 
 
 def combine_instructions(instructions_with_importance: list[tuple[str, bool]]) -> Optional[str]:

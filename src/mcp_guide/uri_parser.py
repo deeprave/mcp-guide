@@ -1,7 +1,7 @@
 """URI parser for guide:// scheme."""
 
 from dataclasses import dataclass, field
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 
 
 @dataclass(frozen=True)
@@ -28,16 +28,17 @@ def _parse_query_kwargs(query: str) -> dict[str, str | bool]:
     for key, values in parse_qs(query, keep_blank_values=True).items():
         if not key:
             raise ValueError("Empty query parameter key is not supported")
+        normalized_key = key.replace("-", "_")
         if len(values) > 1:
-            raise ValueError(f"Multiple values for query parameter '{key}' are not supported")
+            raise ValueError(f"Multiple values for query parameter '{normalized_key}' are not supported")
         value = values[0] if values else ""
         match value.lower():
             case "" | "true":
-                kwargs[key] = True
+                kwargs[normalized_key] = True
             case "false":
-                kwargs[key] = False
+                kwargs[normalized_key] = False
             case _:
-                kwargs[key] = value
+                kwargs[normalized_key] = value
     return kwargs
 
 
@@ -54,6 +55,11 @@ def _resolve_command(path_segments: list[str], command_names: list[str]) -> tupl
             return candidate, path_segments[i:]
     # No match — use first segment as command, rest as args
     return path_segments[0], path_segments[1:]
+
+
+def _decode_path_segments(segments: list[str]) -> list[str]:
+    """Decode URI-encoded path segments used as command arguments."""
+    return [unquote(segment) for segment in segments]
 
 
 def parse_guide_uri(uri: str, command_names: list[str] | None = None) -> GuideUri:
@@ -85,7 +91,7 @@ def parse_guide_uri(uri: str, command_names: list[str] | None = None) -> GuideUr
 
     # Command URI: underscore prefix
     if full_path.startswith("_"):
-        segments = [s for s in full_path[1:].split("/") if s]
+        segments = _decode_path_segments([s for s in full_path[1:].split("/") if s])
         if not segments:
             raise ValueError("Empty command path in guide:// URI")
         kwargs = _parse_query_kwargs(parsed.query)

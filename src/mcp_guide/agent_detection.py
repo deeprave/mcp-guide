@@ -17,21 +17,23 @@ class AgentInfo:
 
 AGENT_PATTERNS = [
     (r"codex", "codex"),
-    (r"q\s+dev", "q-dev"),
-    (r"kiro", "kiro"),
+    (r"q\s+dev|kiro", "q-dev"),
     (r"claude", "claude"),
+    (r"cursor", "cursor"),
     (r"copilot", "copilot"),
     (r"gemini", "gemini"),
+    (r"opencode", "opencode"),
     (r"cascade|windsurf", "windsurf"),
 ]
 
 AGENT_PREFIX_MAP = {
     "codex": None,
     "q-dev": "@",
-    "kiro": "@",
     "claude": "/",
+    "cursor": "/",
     "copilot": "/",
     "gemini": "/",
+    "opencode": "/",
     "windsurf": "/",
     "unknown": "/",
 }

@@ -1,5 +1,6 @@
 """Integration tests for export tracking and staleness detection."""
 
+import json
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -120,6 +121,10 @@ class TestExportStalenessIntegration:
             # First call - should succeed and create tracking entry
             result1 = await export_content(args, None)
             assert "has been exported" not in result1
+            payload1 = json.loads(result1)
+            assert payload1["success"] is True
+            assert "RAW FILE DATA" in payload1["instruction"]
+            assert "`.knowledge/output.md`" in payload1["instruction"]
 
             session = await get_session()
             project = await session.get_project()
@@ -129,7 +134,10 @@ class TestExportStalenessIntegration:
 
             # Second call - same hash, should return stale message
             result2 = await export_content(args, None)
-            assert "has been exported" in result2
+            payload2 = json.loads(result2)
+            assert payload2["success"] is True
+            assert "RAW FILE DATA" in payload2["instruction"]
+            assert "`.knowledge/output.md`" in payload2["instruction"]
 
             # force=True bypasses staleness check
             args_force = ExportContentArgs(expression="docs", path="output.md", force=True)

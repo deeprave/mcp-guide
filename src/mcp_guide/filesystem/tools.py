@@ -74,32 +74,16 @@ async def send_file_content(
         )
 
     try:
-        session = await get_session(context)
-        project = await session.get_project()
-
-        # Validate path against security policy
-        # Get project root for client path resolution
-        from mcp_guide.mcp_context import resolve_project_path
-
-        project_root = await resolve_project_path()
-
-        # Create client_resolve function for security policy
-        def client_resolve_func(path: Union[str, Path]) -> Path:
-            from mcp_guide.utils.client_path import client_resolve
-
-            return client_resolve(path, project_root)
-
-        # Validate path against security policy
-        policy = ReadWriteSecurityPolicy(
-            write_allowed_paths=project.allowed_write_paths,
-            additional_read_paths=project.additional_read_paths,
-            client_resolve=client_resolve_func,
-        )
-
-        # Set project root for default read access
-        policy.set_project_root(str(project_root))
-
-        validated_path = policy.validate_read_path(path)
+        # Do not validate the provided path against filesystem read policy here.
+        #
+        # This tool runs on the return leg of the protocol: the content generator
+        # should already have applied any path validation when deciding what to read.
+        # The MCP server does not dereference the provided path in this tool; it is
+        # carried only for cache matching, event correlation, and downstream naming.
+        # Treating URI-like values as filesystem paths here causes incorrect
+        # normalization (for example `https://...` -> `https:/...`) without adding
+        # meaningful security protection.
+        validated_path = path
 
         # Cache the content provided by agent
         if mtime is None:
