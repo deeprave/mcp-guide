@@ -4,7 +4,7 @@
 **Priority**: Low
 **Complexity**: High
 
-## Problem
+## Why
 
 Document ingestion is currently too slow and too blocking to use comfortably, especially for batch imports. In common workflows a single ingest can take 30 to 60 seconds, and multi-document work compounds that delay.
 
@@ -21,6 +21,19 @@ This creates two distinct issues:
 - the stored artifact is not always optimized for later retrieval and use
 
 This exploration therefore treats ingestion as more than a transport problem. It is about how to produce useful stored artifacts while making the workflow tolerable in real clients.
+
+## What Changes
+
+This exploration evaluates efficient document ingestion approaches before introducing any new import-specific commands or tools.
+
+It focuses on:
+
+- clarifying the true bottlenecks in document ingestion
+- defining the default artifact model for stored documents
+- separating local-file and URL ingestion concerns
+- determining which clients can perform strict delegated ingestion end-to-end
+- defining the optimized delegated and universal fallback behavior contracts
+- producing a concrete recommendation for follow-on implementation work
 
 ## Current understanding
 
@@ -145,3 +158,17 @@ This exploration should produce:
    - improved workflow guidance,
    - a narrow Tier-1 optimized path with fallback,
    - or a broader follow-up change once more clients are validated
+
+## Outcome
+
+This exploration is complete.
+
+Its findings resulted in the follow-on implementation change:
+
+- `improve-ux-documents`
+
+The recommendation outcome was:
+
+- proceed with a narrow Tier-1 optimized path plus universal fallback
+- exploit those findings for document ingestion and export UX improvements in `improve-ux-documents`
+- treat the exploration as complete once its findings were captured and carried forward

@@ -1,3 +1,9 @@
+## Purpose
+
+Define the requirements and conclusion criteria for the document-ingestion exploration before follow-on implementation work proceeds.
+
+## Requirements
+
 ## ADDED Requirements
 
 ### Requirement: Research Efficient Document Import Approaches

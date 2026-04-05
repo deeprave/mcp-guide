@@ -6,37 +6,44 @@
 
 ## 2. Preserve and extend the template agent context
 - [x] 2.1 Confirm that existing `agent.class` and `agent.prefix` context is already exposed
-- [ ] 2.1 Extend agent context to expose `agent.has_handoff`
-- [ ] 2.2 Default `agent.has_handoff` to `false`
-- [ ] 2.3 Expose `agent.is_<normalized-name>` boolean flags for the examined client set
-- [ ] 2.4 Keep existing `agent.class` and `agent.prefix` behavior intact after the new flags are added
+- [x] 2.1 Extend agent context to expose `agent.has_handoff`
+- [x] 2.2 Default `agent.has_handoff` to `false`
+- [x] 2.3 Expose `agent.is_<normalized-name>` boolean flags for the examined client set
+- [x] 2.4 Keep existing `agent.class` and `agent.prefix` behavior intact after the new flags are added
 
 ## 3. Normalize the examined client set
-- [ ] 3.1 Review and update agent normalization patterns for the explored client set
-- [ ] 3.2 Preserve q-dev lineage handling for Amazon Q Developer, Kiro, and Kiro CLI
-- [ ] 3.3 Ensure normalized-name flags are derived from the canonical normalized name rather than raw client strings
-- [ ] 3.4 Verify that unknown agents still render safely with `agent.has_handoff=false`
+- [x] 3.1 Review and update agent normalization patterns for the explored client set
+- [x] 3.2 Preserve q-dev lineage handling for Amazon Q Developer, Kiro, and Kiro CLI
+- [x] 3.3 Ensure normalized-name flags are derived from the canonical normalized name rather than raw client strings
+- [x] 3.4 Verify that unknown agents still render safely with `agent.has_handoff=false`
 
 ## 4. Implement first-pass handoff support in templates
-- [ ] 4.1 Update `_commands/document/add.mustache` to branch on `agent.has_handoff`
-- [ ] 4.2 Update `_commands/document/add-url.mustache` to branch on `agent.has_handoff`
-- [ ] 4.3 Update `_commands/export/add.mustache` to branch on `agent.has_handoff`
-- [ ] 4.4 Review `_commands/document/update.mustache` and keep it inline unless a concrete handoff benefit is justified during implementation
-- [ ] 4.5 Add standardized fallback wording to the inline path
-- [ ] 4.6 Keep client-specific wording light and optional inside the shared handoff branch
+- [x] 4.1 Update `_commands/document/add.mustache` to branch on `agent.has_handoff`
+- [x] 4.2 Update `_commands/document/add-url.mustache` to branch on `agent.has_handoff`
+- [x] 4.3 Update `_commands/export/add.mustache` to branch on `agent.has_handoff`
+- [x] 4.4 Review `_commands/document/update.mustache` and keep it inline unless a concrete handoff benefit is justified during implementation
+- [x] 4.5 Add standardized fallback wording to the inline path
+- [x] 4.6 Keep client-specific wording light and optional inside the shared handoff branch
 
 ## 5. Validate the first-pass client set under the new templates
-- [ ] 5.1 Validate q-dev lineage behavior for the handoff branch
-- [ ] 5.2 Validate Claude Code behavior for the handoff branch
-- [ ] 5.3 Validate Codex local / in-session behavior for the handoff branch
-- [ ] 5.4 Validate that non-handoff clients fall back cleanly
-- [ ] 5.5 Validate that Cursor remains fallback-only under the new templates
-- [ ] 5.6 Validate that export handoff still writes the requested file and reports success/failure correctly
+- [x] 5.1 Validate q-dev lineage behavior and record that fallback currently works
+- [x] 5.2 Validate Claude Code behavior for the handoff branch
+- [x] 5.3 Validate Codex local / in-session behavior for the handoff branch
+- [x] 5.4 Validate that non-handoff clients fall back cleanly
+- [x] 5.5 Validate that Cursor remains fallback-only under the new templates
+- [x] 5.6 Validate that export handoff still writes the requested file and reports success/failure correctly
 
 ## 6. Capture follow-on scope explicitly
-- [ ] 6.1 Record that broader client validation continues separately from this change
-- [ ] 6.2 Leave non-validated clients on the inline fallback path
-- [ ] 6.3 Note any wording or behavior differences that justify a follow-up tuning change
+- [x] 6.1 Record that broader client validation continues separately from this change
+- [x] 6.2 Leave non-validated clients on the inline fallback path
+- [x] 6.3 Note any wording or behavior differences that justify a follow-up tuning change
+
+## Validation notes
+
+- Codex local / in-session is validated for end-to-end handoff, including `send_file_content`.
+- Claude Code is validated for separate execution / background-agent behavior, including export.
+- q-dev lineage remains enabled for handoff attempts. Current validation shows reliable fallback behavior, while background execution may improve as delegate support evolves.
+- Cursor remains fallback-only.
 
 ## Immediate implementation order
 
