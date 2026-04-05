@@ -99,7 +99,8 @@ def prepend_export_frontmatter(
     if instruction:
         # Preserve multiline instruction structure for exported frontmatter, but
         # normalize formatting-only whitespace so YAML remains readable.
-        lines = [line.strip() for line in instruction.splitlines() if line.strip()]
+        # Only strip trailing whitespace; preserve indentation and empty lines.
+        lines = [line.rstrip() for line in instruction.splitlines()]
         fm["instruction"] = "\n".join(lines)
     if not fm:
         return content

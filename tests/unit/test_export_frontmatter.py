@@ -85,6 +85,8 @@ class TestPrependExportFrontmatter:
         parsed, body = self._parse_frontmatter(result)
         assert parsed["type"] == "user/information"
         assert parsed["instruction"] == "Display this to the user"
+        assert "instruction: Display this to the user" in result
+        assert "instruction: >" not in result
         assert body == "body"
 
     def test_multiline_instruction(self):
@@ -102,7 +104,7 @@ class TestPrependExportFrontmatter:
             "Line one.\n\n  Line two.\n\tLine three.",
         )
         parsed, body = self._parse_frontmatter(result)
-        assert parsed["instruction"] == "Line one.\nLine two.\nLine three."
+        assert parsed["instruction"] == "Line one.\n\n  Line two.\n\tLine three."
         assert body == "body"
 
     def test_no_disposition_no_instruction_returns_content_unchanged(self):
