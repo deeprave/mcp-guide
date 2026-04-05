@@ -38,7 +38,7 @@ class _ExportFrontmatterDumper(yaml.SafeDumper):
 
 
 def _represent_export_string(dumper: yaml.SafeDumper, data: str) -> yaml.nodes.ScalarNode:
-    style = ">" if "\n" in data else None
+    style = "|" if "\n" in data else None
     return dumper.represent_scalar("tag:yaml.org,2002:str", data, style=style)
 
 

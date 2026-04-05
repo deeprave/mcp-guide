@@ -94,7 +94,7 @@ class TestPrependExportFrontmatter:
         parsed, body = self._parse_frontmatter(result)
         assert parsed["type"] == "agent/instruction"
         assert parsed["instruction"] == "Line one\nLine two"
-        assert "instruction: >" in result
+        assert "instruction: |" in result
         assert body == "body"
 
     def test_instruction_whitespace_is_compacted(self):
