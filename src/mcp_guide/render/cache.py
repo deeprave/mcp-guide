@@ -26,6 +26,20 @@ from mcp_guide.workflow.flags import parse_workflow_phases, substitute_variables
 
 logger = get_logger(__name__)
 
+HANDOFF_AGENT_CLASSES = {"codex", "q-dev", "claude"}
+EXAMINED_AGENT_FLAGS = (
+    "codex",
+    "q_dev",
+    "kiro",
+    "claude",
+    "cursor",
+    "copilot",
+    "gemini",
+    "windsurf",
+    "opencode",
+    "unknown",
+)
+
 
 class TemplateContextCache(SessionListener):
     """Template context cache that listens to session changes. One instance per session."""
@@ -118,13 +132,24 @@ class TemplateContextCache(SessionListener):
                     if agent_info.prompt_prefix is not None
                     else ""
                 )
-                agent_vars["@"] = resolved_prefix
-                agent_vars["agent"] = {
+                normalized_name = agent_info.normalized_name
+                normalized_flag = normalized_name.replace("-", "_")
+                agent_context = {
                     "name": agent_info.name,
-                    "class": agent_info.normalized_name,
+                    "class": normalized_name,
                     "version": agent_info.version or "",
                     "prefix": resolved_prefix,
+                    "has_handoff": normalized_name in HANDOFF_AGENT_CLASSES,
                 }
+
+                for flag_name in EXAMINED_AGENT_FLAGS:
+                    agent_context[f"is_{flag_name}"] = normalized_flag == flag_name
+
+                # Product-name alias for the q-dev lineage.
+                agent_context["is_kiro"] = normalized_name == "q-dev"
+
+                agent_vars["@"] = resolved_prefix
+                agent_vars["agent"] = agent_context
 
             resolved_flags = await resolve_all_flags(session)
             styling_value = resolved_flags.get(FLAG_CONTENT_STYLE, "plain")

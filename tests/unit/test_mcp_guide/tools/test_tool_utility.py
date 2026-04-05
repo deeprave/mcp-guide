@@ -38,7 +38,7 @@ async def test_client_info_no_cache():
 
     assert result["success"] is True
     assert result["value"]["agent"] == "Kiro CLI"
-    assert result["value"]["normalized_name"] == "kiro"
+    assert result["value"]["normalized_name"] == "q-dev"
     assert result["value"]["version"] == "1.0.0"
     assert result["value"]["command_prefix"] == "@"
     assert "Kiro CLI" in result["message"]

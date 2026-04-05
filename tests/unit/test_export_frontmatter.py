@@ -91,8 +91,18 @@ class TestPrependExportFrontmatter:
         result = prepend_export_frontmatter("body", "agent/instruction", "Line one\nLine two")
         parsed, body = self._parse_frontmatter(result)
         assert parsed["type"] == "agent/instruction"
-        assert "Line one" in parsed["instruction"]
-        assert "Line two" in parsed["instruction"]
+        assert parsed["instruction"] == "Line one\nLine two"
+        assert "instruction: >" in result
+        assert body == "body"
+
+    def test_instruction_whitespace_is_compacted(self):
+        result = prepend_export_frontmatter(
+            "body",
+            "agent/instruction",
+            "Line one.\n\n  Line two.\n\tLine three.",
+        )
+        parsed, body = self._parse_frontmatter(result)
+        assert parsed["instruction"] == "Line one.\nLine two.\nLine three."
         assert body == "body"
 
     def test_no_disposition_no_instruction_returns_content_unchanged(self):

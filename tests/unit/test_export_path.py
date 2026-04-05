@@ -1,8 +1,8 @@
-"""Tests for export_content path resolution logic."""
+"""Tests for export_content path resolution and write instructions."""
 
 import pytest
 
-from mcp_guide.tools.tool_content import _resolve_export_path
+from mcp_guide.tools.tool_content import _build_export_write_instruction, _resolve_export_path
 
 
 class TestResolveExportPath:
@@ -57,3 +57,22 @@ class TestResolveExportPath:
     )
     def test_resolve_export_path(self, path: str, agent: str, flag: str | None, expected: str) -> None:
         assert _resolve_export_path(path, agent, flag) == expected
+
+
+class TestBuildExportWriteInstruction:
+    """Tests for the exact-path export write instruction."""
+
+    def test_create_only_instruction_includes_resolved_path(self) -> None:
+        instruction = _build_export_write_instruction(".claude/knowledge/CODEREVIEW.md", False)
+
+        assert "RAW FILE DATA" in instruction
+        assert "`.claude/knowledge/CODEREVIEW.md`" in instruction
+        assert "create only; do not overwrite if it exists" in instruction
+        assert "display it to the user" in instruction
+
+    def test_force_instruction_uses_overwrite_wording(self) -> None:
+        instruction = _build_export_write_instruction(".codex/knowledge/guidelines.md", True)
+
+        assert "`.codex/knowledge/guidelines.md`" in instruction
+        assert "overwrite if it already exists" in instruction
+        assert "create only; do not overwrite if it exists" not in instruction

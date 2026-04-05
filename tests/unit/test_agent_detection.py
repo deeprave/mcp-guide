@@ -5,10 +5,10 @@ from mcp_guide.agent_detection import AgentInfo, detect_agent, format_agent_info
 
 def test_agent_info_dataclass():
     """Test AgentInfo dataclass creation."""
-    agent = AgentInfo(name="Kiro CLI", normalized_name="kiro", version="1.0.0", prompt_prefix="@")
+    agent = AgentInfo(name="Kiro CLI", normalized_name="q-dev", version="1.0.0", prompt_prefix="@")
 
     assert agent.name == "Kiro CLI"
-    assert agent.normalized_name == "kiro"
+    assert agent.normalized_name == "q-dev"
     assert agent.version == "1.0.0"
     assert agent.prompt_prefix == "@"
 
@@ -22,9 +22,9 @@ def test_agent_info_optional_version():
 
 def test_normalize_agent_name_kiro():
     """Test normalizing Kiro agent names."""
-    assert normalize_agent_name("Kiro CLI") == "kiro"
-    assert normalize_agent_name("kiro") == "kiro"
-    assert normalize_agent_name("KIRO") == "kiro"
+    assert normalize_agent_name("Kiro CLI") == "q-dev"
+    assert normalize_agent_name("kiro") == "q-dev"
+    assert normalize_agent_name("KIRO") == "q-dev"
 
 
 def test_normalize_agent_name_claude():
@@ -105,13 +105,25 @@ def test_normalize_agent_name_windsurf():
     assert normalize_agent_name("windsurf") == "windsurf"
 
 
+def test_normalize_agent_name_cursor():
+    """Test normalizing Cursor agent names."""
+    assert normalize_agent_name("Cursor") == "cursor"
+    assert normalize_agent_name("cursor-agent") == "cursor"
+
+
+def test_normalize_agent_name_opencode():
+    """Test normalizing opencode agent names."""
+    assert normalize_agent_name("opencode-ai") == "opencode"
+    assert normalize_agent_name("opencode") == "opencode"
+
+
 def test_detect_agent_kiro():
     """Test detecting Kiro agent."""
     client_params = {"clientInfo": {"name": "Kiro CLI", "version": "1.0.0"}}
 
     agent = detect_agent(client_params)
     assert agent.name == "Kiro CLI"
-    assert agent.normalized_name == "kiro"
+    assert agent.normalized_name == "q-dev"
     assert agent.version == "1.0.0"
     assert agent.prompt_prefix == "@"
 
@@ -168,7 +180,7 @@ def test_detect_agent_with_pydantic_model():
 
     agent = detect_agent(client_params)
     assert agent.name == "Kiro CLI"
-    assert agent.normalized_name == "kiro"
+    assert agent.normalized_name == "q-dev"
     assert agent.version == "1.0.0"
     assert agent.prompt_prefix == "@"
 
@@ -212,7 +224,7 @@ def test_detect_agent_with_non_dict_non_object():
 
 def test_format_agent_info_with_version():
     """Test formatting agent info with version."""
-    agent = AgentInfo(name="Kiro CLI", normalized_name="kiro", version="1.0.0", prompt_prefix="@")
+    agent = AgentInfo(name="Kiro CLI", normalized_name="q-dev", version="1.0.0", prompt_prefix="@")
 
     formatted = format_agent_info(agent, "mcp-guide")
     assert "Kiro CLI" in formatted
@@ -222,7 +234,7 @@ def test_format_agent_info_with_version():
 
 def test_format_agent_info_without_version():
     """Test formatting agent info without version."""
-    agent = AgentInfo(name="Kiro CLI", normalized_name="kiro", version=None, prompt_prefix="@")
+    agent = AgentInfo(name="Kiro CLI", normalized_name="q-dev", version=None, prompt_prefix="@")
 
     formatted = format_agent_info(agent, "mcp-guide")
     assert "Kiro CLI" in formatted

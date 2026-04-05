@@ -14,12 +14,14 @@ includes:
 {{h1}}Perform a Code Review
 
 {{#agent.class}}
-{{#equals}}kiro{{agent.class}}
-  — Use `use_subagent` to delegate review to `guide-review` agent with the instructions below.
-{{/equals}}
-{{#equals}}q-dev{{agent.class}}
-  — Use `use_subagent` to delegate review to `guide-review` agent with the instructions below.
-{{/equals}}
+{{#agent.has_handoff}}
+  — If your current environment supports separate execution while preserving the ability to complete this review end-to-end, carry out this review workflow separately so it does not block the main interaction.
+  — You may use a separate worker, subagent, delegate, or equivalent supported mechanism, but only if it can analyse the changes, produce or update the review artifact, and report the result successfully.
+{{#agent.is_q_dev}}
+  — If a subagent or delegate-style background execution mechanism is available here, prefer that mechanism before considering inline execution.
+{{/agent.is_q_dev}}
+  — If separate execution is not actually available here, say exactly: `Separate execution is not available here; continuing inline instead.`
+{{/agent.has_handoff}}
 
 {{b}}Review Instructions:{{b}}
   — You MUST NOT consider previous conversational history when conducting this review.

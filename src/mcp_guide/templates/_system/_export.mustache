@@ -1,9 +1,8 @@
 ---
 type: agent/instruction
 instruction: >
-  {{#export.exists}}Reference exported content or write to file{{else}}Write content to file{{/export.exists}}{{#export.instruction}}. {{export.instruction}}{{/export.instruction}}
+  Reference exported content or write it to `{{export.path}}` if the file is missing.{{#export.instruction}} {{export.instruction}}{{/export.instruction}}
 ---
-{{#export.exists}}{{! Content has been exported before }}
 Content for '{{export.expression}}' has been exported to `{{export.path}}`.
 
 The exported file contains YAML frontmatter with:
@@ -18,15 +17,3 @@ If you have a `knowledge` tool available:
 - This allows you to reference this content in future responses
 
 The user can read the file directly from `{{export.path}}` if needed.
-{{/export.exists}}{{^export.exists}}{{! First time export }}
-Write the content below to `{{export.path}}`{{#export.force}} (overwrite if it already exists){{/export.force}}{{^export.force}} (create only - do not overwrite if it exists){{/export.force}}.
-
-The content includes YAML frontmatter with:
-- `type`: content disposition ({{#export.type}}`{{export.type}}`{{/export.type}}{{^export.type}}not set{{/export.type}}) — determines whether content is user-facing information, agent-only information, or agent-only instruction
-- `instruction`: handling directive — must be followed when present
-
-Preserve the frontmatter when writing the file. When reading the file later, apply these fields to determine how to display or act on the content.
-
-If you have a `knowledge` tool available, consider indexing this content for future reference:
-`knowledge(command="add", name="{{export.expression}}", value="{{export.path}}")`
-{{/export.exists}}
