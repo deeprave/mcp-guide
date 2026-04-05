@@ -25,10 +25,17 @@ def _parse_query_kwargs(query: str) -> dict[str, str | bool]:
     if not query:
         return {}
     kwargs: dict[str, str | bool] = {}
+    seen_raw_keys: dict[str, str] = {}
     for key, values in parse_qs(query, keep_blank_values=True).items():
         if not key:
             raise ValueError("Empty query parameter key is not supported")
         normalized_key = key.replace("-", "_")
+        existing_key = seen_raw_keys.get(normalized_key)
+        if existing_key is not None and existing_key != key:
+            raise ValueError(
+                f"Conflicting query parameters '{existing_key}' and '{key}' normalize to '{normalized_key}'"
+            )
+        seen_raw_keys[normalized_key] = key
         if len(values) > 1:
             raise ValueError(f"Multiple values for query parameter '{normalized_key}' are not supported")
         value = values[0] if values else ""

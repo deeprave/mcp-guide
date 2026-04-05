@@ -121,6 +121,10 @@ class TestQueryParams:
         result = parse_guide_uri("guide://_document/add-url/lang?user-info=true", COMMANDS)
         assert result.kwargs == {"user_info": True}
 
+    def test_conflicting_normalized_query_params_raise(self) -> None:
+        with pytest.raises(ValueError, match="Conflicting query parameters"):
+            parse_guide_uri("guide://_document/add-url/lang?user-info=true&user_info=false", COMMANDS)
+
     def test_duplicate_param_raises(self) -> None:
         with pytest.raises(ValueError, match="Multiple values for query parameter"):
             parse_guide_uri("guide://_status?verbose=true&verbose=false", COMMANDS)
