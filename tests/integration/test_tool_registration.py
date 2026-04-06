@@ -60,12 +60,12 @@ async def test_auto_generated_description():
 
 @pytest.mark.anyio
 async def test_mcp_client_can_initialize_and_list_tools(tmp_path):
-    """Test end-to-end stdio MCP protocol: client connects and advertises tools.
+    """Test end-to-end stdio MCP protocol: client initializes and lists tools.
 
     This test verifies the complete MCP flow:
     1. Server starts via stdio
     2. Client connects successfully
-    3. Server advertises tool support during MCP initialization
+    3. Client can list registered tools
     """
     import sys
 
@@ -91,3 +91,7 @@ async def test_mcp_client_can_initialize_and_list_tools(tmp_path):
 
             assert init_result.serverInfo.name == "guide"
             assert init_result.capabilities.tools is not None
+
+            tools = await session.list_tools()
+            tool_names = [tool.name for tool in tools.tools]
+            assert "get_project" in tool_names

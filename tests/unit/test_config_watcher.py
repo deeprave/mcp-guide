@@ -1,6 +1,7 @@
 """Tests for simplified ConfigWatcher functionality."""
 
 import asyncio
+import os
 from unittest.mock import Mock
 
 import pytest
@@ -10,6 +11,14 @@ from mcp_guide.watchers.config_watcher import ConfigWatcher
 POLL_INTERVAL = 0.02
 SETTLE_DELAY = 0.02
 DETECTION_DELAY = 0.12
+
+
+def _bump_mtime(path: str, previous_mtime: float) -> float:
+    """Force a deterministic mtime change for config watcher tests."""
+    current = os.stat(path).st_mtime
+    target = max(previous_mtime, current) + 1.0
+    os.utime(path, (target, target))
+    return os.stat(path).st_mtime
 
 
 class TestConfigWatcher:
@@ -34,10 +43,12 @@ class TestConfigWatcher:
         watcher = ConfigWatcher(str(config_file), callback, poll_interval=POLL_INTERVAL)
 
         await watcher.start()
+        previous_mtime = os.stat(config_file).st_mtime
 
         # Modify file
         await asyncio.sleep(SETTLE_DELAY)
         config_file.write_text("modified: value")
+        _bump_mtime(str(config_file), previous_mtime)
 
         # Wait for detection (a few poll intervals)
         await asyncio.sleep(DETECTION_DELAY)
@@ -60,10 +71,12 @@ class TestConfigWatcher:
         watcher.add_callback(callback2)
 
         await watcher.start()
+        previous_mtime = os.stat(config_file).st_mtime
 
         # Modify file
         await asyncio.sleep(SETTLE_DELAY)
         config_file.write_text("modified: value")
+        _bump_mtime(str(config_file), previous_mtime)
 
         # Wait for detection (a few poll intervals)
         await asyncio.sleep(DETECTION_DELAY)
@@ -90,10 +103,12 @@ class TestConfigWatcher:
         watcher.add_callback(good_callback)
 
         await watcher.start()
+        previous_mtime = os.stat(config_file).st_mtime
 
         # Modify file
         await asyncio.sleep(SETTLE_DELAY)
         config_file.write_text("modified: value")
+        _bump_mtime(str(config_file), previous_mtime)
 
         # Wait for detection (a few poll intervals)
         await asyncio.sleep(DETECTION_DELAY)

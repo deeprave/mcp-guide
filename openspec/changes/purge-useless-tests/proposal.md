@@ -55,9 +55,9 @@ The current baseline should be treated as the starting point for this change:
 
 This pass achieved both quality and duration improvements:
 
-- `1758 passed in 34.19s`
+- `1759 passed in 53.41s`
 - `84%` total coverage
-- `1758` collected tests, up slightly from the original baseline as other change work added targeted regression coverage during the same period
+- `1759` collected tests, up slightly from the original baseline as other change work added targeted regression coverage during the same period
 
 The strongest runtime wins came from:
 
@@ -70,4 +70,4 @@ The strongest runtime wins came from:
 Remaining runtime work, if needed later, should focus on the current slowest integration tests rather than further low-value unit-test pruning. The main remaining hotspots are:
 - `tests/integration/test_tool_registration.py::test_mcp_client_can_initialize_and_list_tools`
 
-At the current best run, all other tests were below the `0.2s` duration-reporting threshold. The remaining tail is now dominated by one intentional stdio MCP bootstrap round trip rather than broad avoidable test overhead.
+The final checked worktree is slower than the lowest experimental timing reached during development because follow-up fixes restored stronger coverage boundaries, brought back an isolated packaging smoke test, and removed a risky production behavior shortcut. The remaining tail is now dominated by intentional integration work rather than broad avoidable test overhead.
