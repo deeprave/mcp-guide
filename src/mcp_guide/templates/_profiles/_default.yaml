@@ -35,6 +35,11 @@ categories:
       - review
     description: Code Review Instructions
 
+  - name: policies
+    dir: policies/
+    patterns: []
+    description: Optional policy documents for project-specific preferences and choices
+
 collections:
   - name: guidelines
     description: All guidelines
