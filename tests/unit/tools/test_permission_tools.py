@@ -1,7 +1,7 @@
 """Tests for permission management tools."""
 
 import pytest
-from tests.helpers import create_test_session
+from tests.helpers import create_bound_test_session
 
 from mcp_guide.session import remove_current_session, set_current_session
 from mcp_guide.tools.tool_project import (
@@ -12,18 +12,24 @@ from mcp_guide.tools.tool_project import (
 )
 
 
-@pytest.fixture
-async def test_session(tmp_path):
-    """Create a test session with a project."""
-    # Use a unique project name per test to avoid state pollution
-    import uuid
-
-    project_name = f"test-{uuid.uuid4().hex[:8]}"
-    session = await create_test_session(project_name, _config_dir_for_tests=str(tmp_path))
-    await session.get_project()
+@pytest.fixture(scope="module")
+async def base_test_session(tmp_path_factory):
+    """Create one shared test session for this module."""
+    tmp_path = tmp_path_factory.mktemp("permission-tools")
+    session = await create_bound_test_session("test-project", _config_dir_for_tests=str(tmp_path))
     set_current_session(session)
     yield session
     await remove_current_session()
+
+
+@pytest.fixture
+async def test_session(base_test_session):
+    """Reset permission state before each test while reusing the same session."""
+    project = await base_test_session.get_project()
+    project.allowed_write_paths.clear()
+    project.additional_read_paths.clear()
+    await base_test_session.save_project(project)
+    return base_test_session
 
 
 @pytest.mark.anyio

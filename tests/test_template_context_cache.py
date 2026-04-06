@@ -54,8 +54,12 @@ class TestTemplateContextCache:
         # Mock get_session to return session that raises exception on get_project
         mock_session = Mock()
         mock_session.get_project = AsyncMock(side_effect=ValueError("No project"))
+        logger_error = Mock()
 
-        with patch("mcp_guide.session.get_session", return_value=mock_session):
+        with (
+            patch("mcp_guide.session.get_session", return_value=mock_session),
+            patch("mcp_guide.render.cache.logger.error", logger_error),
+        ):
             # Should not raise exception
             context = await cache._build_project_context()
 
@@ -134,11 +138,15 @@ class TestTemplateContextCache:
         from unittest.mock import patch
 
         cache = TemplateContextCache()
+        logger_error = Mock()
 
         # Mock get_session to raise an expected exception
-        with patch(
-            "mcp_guide.session.get_session",
-            side_effect=AttributeError("missing attribute"),
+        with (
+            patch(
+                "mcp_guide.session.get_session",
+                side_effect=AttributeError("missing attribute"),
+            ),
+            patch("mcp_guide.render.cache.logger.error", logger_error),
         ):
             # Should not raise exception
             context = await cache._build_project_context()
@@ -676,8 +684,17 @@ class TestTemplateContextCache:
             assert context["workflow"]["consent"]["exit"] is False
 
     @pytest.mark.anyio
-    async def test_workflow_context_includes_next_phase(self) -> None:
-        """Test ordered workflow states expose the next phase."""
+    @pytest.mark.parametrize(
+        ("phase", "issue", "expected_next"),
+        [
+            ("implementation", "test-issue", "check"),
+            ("review", "test-issue", "discussion"),
+            ("exploration", "explor-test", None),
+        ],
+        ids=["ordered_next", "ordered_wraparound", "exploration_no_next"],
+    )
+    async def test_workflow_next_phase_behavior(self, phase: str, issue: str, expected_next: str | None) -> None:
+        """Workflow next-phase behavior should reflect ordered and non-ordered phases."""
         from mcp_guide.models import Project
 
         cache = TemplateContextCache()
@@ -689,8 +706,8 @@ class TestTemplateContextCache:
         mock_session.feature_flags = Mock(return_value=Mock(list=AsyncMock(return_value={})))
 
         mock_workflow_state = Mock(
-            phase="implementation",
-            issue="test-issue",
+            phase=phase,
+            issue=issue,
             tracking={},
             description="",
             queue=[],
@@ -713,87 +730,12 @@ class TestTemplateContextCache:
             context = await cache._build_project_context()
 
             assert "workflow" in context
-            assert context["workflow"]["next"]["value"] == "check"
+            if expected_next is None:
+                assert context["workflow"]["next"] is None
+            else:
+                assert context["workflow"]["next"]["value"] == expected_next
 
-    @pytest.mark.anyio
-    async def test_workflow_next_wraps_around(self) -> None:
-        """Test ordered workflow next wraps from last phase to first phase."""
-        from mcp_guide.models import Project
-
-        cache = TemplateContextCache()
-
-        mock_session = Mock()
-        mock_project = Project(name="test-project", key="test", hash="abc123", categories={}, collections={})
-        mock_session.get_project = AsyncMock(return_value=mock_project)
-        mock_session.get_all_projects = AsyncMock(return_value={})
-        mock_session.feature_flags = Mock(return_value=Mock(list=AsyncMock(return_value={})))
-
-        mock_workflow_state = Mock(
-            phase="review",
-            issue="test-issue",
-            tracking={},
-            description="",
-            queue=[],
-        )
-
-        with (
-            patch("mcp_guide.session.get_session", return_value=mock_session),
-            patch("mcp_guide.models.resolve_all_flags", return_value={"workflow": True}),
-            patch("mcp_guide.task_manager.get_task_manager") as mock_tm,
-            patch("mcp_guide.mcp_context.resolve_project_path", return_value="/test/path"),
-        ):
-
-            def get_cached_data_side_effect(key):
-                if key == "workflow_state":
-                    return mock_workflow_state
-                return None
-
-            mock_tm.return_value.get_cached_data.side_effect = get_cached_data_side_effect
-
-            context = await cache._build_project_context()
-
-            assert "workflow" in context
-            assert context["workflow"]["next"]["value"] == "discussion"
-
-    @pytest.mark.anyio
-    async def test_exploration_workflow_state_has_no_next(self) -> None:
-        """Test non-ordered exploration state does not expose next."""
-        from mcp_guide.models import Project
-
-        cache = TemplateContextCache()
-
-        mock_session = Mock()
-        mock_project = Project(name="test-project", key="test", hash="abc123", categories={}, collections={})
-        mock_session.get_project = AsyncMock(return_value=mock_project)
-        mock_session.get_all_projects = AsyncMock(return_value={})
-        mock_session.feature_flags = Mock(return_value=Mock(list=AsyncMock(return_value={})))
-
-        mock_workflow_state = Mock(
-            phase="exploration",
-            issue="explor-test",
-            tracking={},
-            description="",
-            queue=[],
-        )
-
-        with (
-            patch("mcp_guide.session.get_session", return_value=mock_session),
-            patch("mcp_guide.models.resolve_all_flags", return_value={"workflow": True}),
-            patch("mcp_guide.task_manager.get_task_manager") as mock_tm,
-            patch("mcp_guide.mcp_context.resolve_project_path", return_value="/test/path"),
-        ):
-
-            def get_cached_data_side_effect(key):
-                if key == "workflow_state":
-                    return mock_workflow_state
-                return None
-
-            mock_tm.return_value.get_cached_data.side_effect = get_cached_data_side_effect
-
-            context = await cache._build_project_context()
-
-            assert "workflow" in context
-            assert context["workflow"]["next"] is None
-            assert context["workflow"]["phases"]["exploration"]["ordered"] is False
-            assert "next" not in context["workflow"]["phases"]["exploration"]
-            assert context["workflow"]["issue_is_exploratory"] is False
+            if phase == "exploration":
+                assert context["workflow"]["phases"]["exploration"]["ordered"] is False
+                assert "next" not in context["workflow"]["phases"]["exploration"]
+                assert context["workflow"]["issue_is_exploratory"] is False

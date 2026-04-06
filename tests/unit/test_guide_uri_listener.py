@@ -80,11 +80,15 @@ class TestGuideUriListener:
         listener = GuideUriListener()
         session = MagicMock()
         session.project_name = "test"
+        logger_error = MagicMock()
 
-        with patch(
-            "mcp_guide.guide_uri_listener.render_content",
-            new_callable=AsyncMock,
-            side_effect=RuntimeError("render failed"),
+        with (
+            patch(
+                "mcp_guide.guide_uri_listener.render_content",
+                new_callable=AsyncMock,
+                side_effect=RuntimeError("render failed"),
+            ),
+            patch("mcp_guide.guide_uri_listener.logger.error", logger_error),
         ):
             # Should not raise
             await listener.on_project_changed(session, "old", "new")

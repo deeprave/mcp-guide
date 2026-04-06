@@ -67,7 +67,7 @@ class TestPathWatcherChangeDetection:
             await watcher.has_changed()
 
             # Modify file content
-            time.sleep(0.1)  # Ensure time difference
+            time.sleep(0.02)  # Ensure time difference
             with open(tmp_file.name, "w") as f:
                 f.write("modified content")
 
@@ -96,7 +96,7 @@ class TestPathWatcherChangeDetection:
             with open(temp_name, "w") as f:
                 f.write("replaced content")
 
-            time.sleep(0.1)  # Ensure time difference
+            time.sleep(0.02)  # Ensure time difference
             os.rename(temp_name, original_name)
 
             # Check if change is detected
@@ -116,7 +116,7 @@ class TestPathWatcherChangeDetection:
             await watcher.has_changed()
 
             # Add a file to the directory
-            time.sleep(0.1)  # Ensure time difference
+            time.sleep(0.02)  # Ensure time difference
             test_file = os.path.join(tmp_dir, "new_file.txt")
             with open(test_file, "w") as f:
                 f.write("new file content")
@@ -163,7 +163,7 @@ class TestPathWatcherCallbackSystem:
             await watcher.has_changed()
 
             # Modify file content
-            time.sleep(0.1)  # Ensure time difference
+            time.sleep(0.02)  # Ensure time difference
             with open(tmp_file.name, "w") as f:
                 f.write("modified content")
 
@@ -196,7 +196,7 @@ class TestPathWatcherCallbackSystem:
             with open(temp_name, "w") as f:
                 f.write("replaced content")
 
-            time.sleep(0.1)  # Ensure time difference
+            time.sleep(0.02)  # Ensure time difference
             os.rename(temp_name, original_name)
 
             # Check for changes (should trigger callback)
@@ -275,7 +275,7 @@ class TestPathWatcherAsyncTaskManagement:
     async def test_path_watcher_doesnt_start_monitoring_until_start_called(self):
         """PathWatcher doesn't start monitoring until start() is called."""
         with tempfile.NamedTemporaryFile() as tmp_file:
-            watcher = PathWatcher(tmp_file.name, poll_interval=0.1)
+            watcher = PathWatcher(tmp_file.name, poll_interval=0.01)
 
             # Should not be running initially
             assert watcher._task is None
@@ -491,8 +491,8 @@ class TestPathWatcherSingleInstanceManagement:
             # Force task to raise an exception by deleting the file
             os.unlink(tmp_file.name)
 
-            # Wait a bit for the task to encounter the error
-            await asyncio.sleep(0.2)
+            # Wait briefly for the fast poll loop to observe the error.
+            await asyncio.sleep(0.03)
 
             # Task should still be the same (not crashed)
             # The exception should be handled in the monitoring loop

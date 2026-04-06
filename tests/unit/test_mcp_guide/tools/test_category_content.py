@@ -1,6 +1,5 @@
 """Tests for category_content tool."""
 
-import anyio
 import pytest
 from pydantic import ValidationError
 
@@ -255,7 +254,10 @@ async def test_no_matches_returns_failure(tmp_path, monkeypatch):
 async def test_file_read_error_scenarios(tmp_path, monkeypatch, scenario, patterns, error_map):
     """Test that file read errors return ERROR_FILE_READ with appropriate aggregation."""
     import json
+    from datetime import datetime
+    from pathlib import Path
 
+    from mcp_guide.discovery.files import FileInfo
     from mcp_guide.models import Category, Project
     from mcp_guide.tools.tool_category import (
         ERROR_FILE_READ,
@@ -269,31 +271,50 @@ async def test_file_read_error_scenarios(tmp_path, monkeypatch, scenario, patter
         name="test", categories={"docs": Category(dir=".", name="docs", patterns=patterns)}, collections={}
     )
 
-    # Create files
-    for pattern in patterns:
-        (tmp_path / pattern).write_text(f"content-{pattern}")
+    file_infos = [
+        FileInfo(
+            path=Path(pattern),
+            size=0,
+            content_size=0,
+            mtime=datetime.now(),
+            name=pattern,
+            category=project.categories["docs"],
+        )
+        for pattern in patterns
+    ]
 
     async def mock_get_session(ctx=None):
         return create_mock_session(project, tmp_path)
 
-    # Mock read_file_content to raise errors based on error_map (for templates)
-    async def mock_read_error(path):
-        for filename, error in error_map.items():
-            if filename in str(path):
-                raise error
-        return "content"
+    async def mock_gather_content(session, project, expression):
+        assert expression == "docs"
+        return file_infos
 
-    # Mock anyio.Path.read_text to raise errors based on error_map (for non-templates via process_file)
+    async def mock_get_template_context_if_needed(category_files, category_name):
+        assert category_name == "docs"
+        assert category_files == file_infos
+        return None
 
-    async def mock_read_text(self, encoding=None):
-        for filename, error in error_map.items():
-            if filename in str(self):
-                raise error
-        return "content"
+    async def mock_read_and_render_file_contents(
+        category_files, category_dir, docroot, template_context, category_prefix
+    ):
+        assert category_files == file_infos
+        assert category_dir == tmp_path
+        assert docroot == tmp_path
+        assert template_context is None
+        assert category_prefix == "docs"
+        return [f"{filename}: {error}" for filename, error in error_map.items()]
 
     monkeypatch.setattr("mcp_guide.tools.tool_helpers.get_session", mock_get_session)
-    monkeypatch.setattr("mcp_guide.core.file_reader.read_file_content", mock_read_error)
-    monkeypatch.setattr(anyio.Path, "read_text", mock_read_text)
+    monkeypatch.setattr("mcp_guide.tools.tool_category.gather_content", mock_gather_content)
+    monkeypatch.setattr(
+        "mcp_guide.tools.tool_category.get_template_context_if_needed",
+        mock_get_template_context_if_needed,
+    )
+    monkeypatch.setattr(
+        "mcp_guide.tools.tool_category.read_and_render_file_contents",
+        mock_read_and_render_file_contents,
+    )
 
     # Call tool
     args = CategoryContentArgs(expression="docs")

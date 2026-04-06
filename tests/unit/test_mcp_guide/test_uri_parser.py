@@ -97,17 +97,18 @@ class TestCommandUri:
 class TestQueryParams:
     """Query parameter parsing tests."""
 
-    def test_boolean_flag_without_value(self) -> None:
-        result = parse_guide_uri("guide://_status?verbose", COMMANDS)
-        assert result.kwargs == {"verbose": True}
-
-    def test_boolean_true(self) -> None:
-        result = parse_guide_uri("guide://_status?verbose=true", COMMANDS)
-        assert result.kwargs == {"verbose": True}
-
-    def test_boolean_false(self) -> None:
-        result = parse_guide_uri("guide://_status?verbose=false", COMMANDS)
-        assert result.kwargs == {"verbose": False}
+    @pytest.mark.parametrize(
+        ("uri", "expected"),
+        [
+            ("guide://_status?verbose", {"verbose": True}),
+            ("guide://_status?verbose=true", {"verbose": True}),
+            ("guide://_status?verbose=false", {"verbose": False}),
+        ],
+        ids=["flag_without_value", "boolean_true", "boolean_false"],
+    )
+    def test_boolean_query_values(self, uri: str, expected: dict[str, bool]) -> None:
+        result = parse_guide_uri(uri, COMMANDS)
+        assert result.kwargs == expected
 
     def test_string_value(self) -> None:
         result = parse_guide_uri("guide://_openspec/show?change=my-feature", COMMANDS)

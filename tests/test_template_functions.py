@@ -358,29 +358,32 @@ class TestErrorLambda:
 class TestResourceLambda:
     """Test resource template lambda."""
 
-    def test_default_renders_guide_uri(self):
-        """Default (no flag) should render as guide:// URI."""
-        context = ChainMap({"flags": {}})
+    @pytest.mark.parametrize(
+        ("flags", "expression", "expected"),
+        [
+            ({}, "guidelines", "guide://guidelines"),
+            ({"content-accessor": False}, "guidelines", "guide://guidelines"),
+            ({"content-accessor": True}, "guidelines", 'get_content("guidelines")'),
+            ({}, "guide,lang,context", "guide://guide,lang,context"),
+            ({"content-accessor": True}, "guide,lang,context", 'get_content("guide,lang,context")'),
+            ({}, "  ", ""),
+        ],
+        ids=[
+            "default_guide_uri",
+            "flag_false_guide_uri",
+            "flag_true_get_content",
+            "comma_expression_guide_uri",
+            "comma_expression_get_content",
+            "empty_expression",
+        ],
+    )
+    def test_resource_rendering_modes(self, flags: dict[str, bool], expression: str, expected: str):
+        """resource should switch output mode based on the content-accessor flag."""
+        context = ChainMap({"flags": flags})
         functions = TemplateFunctions(context)
 
-        result = functions.resource("guidelines", lambda t: t)
-        assert result == "guide://guidelines"
-
-    def test_flag_false_renders_guide_uri(self):
-        """Explicit false flag should render as guide:// URI."""
-        context = ChainMap({"flags": {"content-accessor": False}})
-        functions = TemplateFunctions(context)
-
-        result = functions.resource("guidelines", lambda t: t)
-        assert result == "guide://guidelines"
-
-    def test_flag_true_renders_get_content(self):
-        """Flag true should render as get_content() call."""
-        context = ChainMap({"flags": {"content-accessor": True}})
-        functions = TemplateFunctions(context)
-
-        result = functions.resource("guidelines", lambda t: t)
-        assert result == 'get_content("guidelines")'
+        result = functions.resource(expression, lambda t: t)
+        assert result == expected
 
     def test_flag_true_with_tool_prefix(self):
         """Flag true should prepend tool prefix to get_content() call."""
@@ -392,30 +395,6 @@ class TestResourceLambda:
             result = functions.resource("guidelines", lambda t: t)
         get_tool_prefix.cache_clear()
         assert result == 'mcp_guide_get_content("guidelines")'
-
-    def test_comma_expression_with_flag_false(self):
-        """Comma expressions should render as guide:// URI when flag is false."""
-        context = ChainMap({"flags": {}})
-        functions = TemplateFunctions(context)
-
-        result = functions.resource("guide,lang,context", lambda t: t)
-        assert result == "guide://guide,lang,context"
-
-    def test_comma_expression_with_flag_true(self):
-        """Comma expressions should render as get_content() when flag is true."""
-        context = ChainMap({"flags": {"content-accessor": True}})
-        functions = TemplateFunctions(context)
-
-        result = functions.resource("guide,lang,context", lambda t: t)
-        assert result == 'get_content("guide,lang,context")'
-
-    def test_empty_expression_returns_empty(self):
-        """Empty expression should return empty string."""
-        context = ChainMap({"flags": {}})
-        functions = TemplateFunctions(context)
-
-        result = functions.resource("  ", lambda t: t)
-        assert result == ""
 
     def test_no_flags_in_context(self):
         """Missing flags key should default to guide:// URI."""
@@ -437,33 +416,20 @@ class TestResourceLambda:
 class TestEqualsLambdas:
     """Test equals and notequals template lambdas."""
 
-    def test_equals_renders_section_when_values_match(self):
-        context = ChainMap({"workflow": {"issue": "same-issue"}})
+    @pytest.mark.parametrize(
+        ("value", "expected_equals", "expected_notequals"),
+        [
+            ("same-issue", "MATCH", ""),
+            ("other-issue", "", "DIFFERENT"),
+        ],
+        ids=["match", "mismatch"],
+    )
+    def test_literal_equals_and_notequals(self, value: str, expected_equals: str, expected_notequals: str):
+        context = ChainMap({"workflow": {"issue": value}})
         functions = TemplateFunctions(context)
 
-        result = functions.equals("same-issue{{workflow.issue}}MATCH", lambda t: t)
-        assert result == "MATCH"
-
-    def test_equals_returns_empty_when_values_do_not_match(self):
-        context = ChainMap({"workflow": {"issue": "other-issue"}})
-        functions = TemplateFunctions(context)
-
-        result = functions.equals("same-issue{{workflow.issue}}MATCH", lambda t: t)
-        assert result == ""
-
-    def test_notequals_renders_section_when_values_do_not_match(self):
-        context = ChainMap({"workflow": {"issue": "other-issue"}})
-        functions = TemplateFunctions(context)
-
-        result = functions.notequals("same-issue{{workflow.issue}}DIFFERENT", lambda t: t)
-        assert result == "DIFFERENT"
-
-    def test_notequals_returns_empty_when_values_match(self):
-        context = ChainMap({"workflow": {"issue": "same-issue"}})
-        functions = TemplateFunctions(context)
-
-        result = functions.notequals("same-issue{{workflow.issue}}DIFFERENT", lambda t: t)
-        assert result == ""
+        assert functions.equals("same-issue{{workflow.issue}}MATCH", lambda t: t) == expected_equals
+        assert functions.notequals("same-issue{{workflow.issue}}DIFFERENT", lambda t: t) == expected_notequals
 
     def test_notequals_renders_section_when_actual_value_is_missing(self):
         context = ChainMap({"workflow": {}})

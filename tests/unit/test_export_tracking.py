@@ -137,21 +137,19 @@ class TestMetadataHashComputation:
             ("single", lambda h: len(h) == 8),
         ],
     )
-    def test_hash_computation(self, files_setup, expected, tmp_path):
+    def test_hash_computation(self, files_setup, expected):
         """Test hash computation for various file list scenarios."""
         from datetime import datetime
 
         from mcp_guide.discovery.files import FileInfo
         from mcp_guide.tools.tool_content import compute_metadata_hash
 
-        docroot = tmp_path / "docs"
-        docroot.mkdir()
-
         if files_setup == "empty":
             files = []
         elif files_setup == "single":
-            file_path = docroot / "a.md"
-            file_path.touch()
+            from pathlib import Path
+
+            file_path = Path("/virtual/docs/a.md")
             files = [
                 FileInfo(
                     path=file_path,
@@ -165,22 +163,16 @@ class TestMetadataHashComputation:
         hash_val = compute_metadata_hash(files)
         assert expected(hash_val) if callable(expected) else hash_val == expected
 
-    def test_same_filename_different_paths(self, tmp_path):
+    def test_same_filename_different_paths(self):
         """Test that files with same name in different directories produce different hashes."""
         from datetime import datetime
+        from pathlib import Path
 
         from mcp_guide.discovery.files import FileInfo
         from mcp_guide.tools.tool_content import compute_metadata_hash
 
-        docroot = tmp_path / "docs"
-        docroot.mkdir()
-        (docroot / "dir1").mkdir()
-        (docroot / "dir2").mkdir()
-
-        file1_path = docroot / "dir1" / "file.md"
-        file2_path = docroot / "dir2" / "file.md"
-        file1_path.touch()
-        file2_path.touch()
+        file1_path = Path("/virtual/docs/dir1/file.md")
+        file2_path = Path("/virtual/docs/dir2/file.md")
 
         files1 = [
             FileInfo(

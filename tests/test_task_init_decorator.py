@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
+import mcp_guide.decorators
 from mcp_guide.context.tasks import ClientContextTask
 from mcp_guide.decorators import task_init
 from mcp_guide.task_manager import TaskManager
@@ -40,6 +41,20 @@ class TestTaskInitDecorator:
 
         manager = TestWorkflowManager()
         assert manager is not None
+
+    def test_task_init_prevents_duplicate_instantiation(self, monkeypatch):
+        """Decorator should instantiate once even if applied again for same class."""
+        monkeypatch.setattr(mcp_guide.decorators, "_instantiated_classes", set())
+
+        instances = []
+
+        @task_init
+        class TestManager:
+            def __init__(self):
+                instances.append(self)
+
+        assert TestManager is not None
+        assert len(instances) == 1
 
 
 class TestTaskManagerAutoRegistration:

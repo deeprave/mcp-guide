@@ -2,6 +2,7 @@
 
 import json
 from dataclasses import replace as dc_replace
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -43,7 +44,7 @@ async def test_list_exports_single(session_temp_dir):
 
 
 @pytest.mark.anyio
-async def test_list_exports_with_timestamp(session_temp_dir, tmp_path):
+async def test_list_exports_with_timestamp(session_temp_dir, tmp_path, monkeypatch):
     """Test list_exports includes exported_at timestamp stored at export time."""
     import time
 
@@ -53,6 +54,9 @@ async def test_list_exports_with_timestamp(session_temp_dir, tmp_path):
     ts = time.time()
     updated = project.upsert_export_entry("docs", None, str(tmp_path / "export.md"), "a3f5c8d1", exported_at=ts)
     await session.update_config(lambda _: updated)
+
+    monkeypatch.setattr("mcp_guide.tools.tool_content.gather_content", AsyncMock(return_value=[]))
+    monkeypatch.setattr("mcp_guide.tools.tool_content.compute_metadata_hash", lambda files: "a3f5c8d1")
 
     # Execute
     args = ListExportsArgs(glob=None)
@@ -109,9 +113,11 @@ async def test_list_exports_staleness(session_temp_dir, tmp_path):
 
 
 @pytest.mark.anyio
-async def test_list_exports_glob_filter(session_temp_dir, tmp_path):
+async def test_list_exports_glob_filter(session_temp_dir, tmp_path, monkeypatch):
     """Test list_exports filters by glob pattern."""
     session = await get_session()
+    monkeypatch.setattr("mcp_guide.tools.tool_content.gather_content", AsyncMock(return_value=[]))
+    monkeypatch.setattr("mcp_guide.tools.tool_content.compute_metadata_hash", lambda files: "unchanged")
 
     # Clear exports and add multiple
     project = await session.get_project()

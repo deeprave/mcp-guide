@@ -1,9 +1,30 @@
 """Tests for CLI script."""
 
+import tomllib
+from importlib import import_module
 from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
+
+
+def use_minimal_templates(monkeypatch, tmp_path: Path) -> Path:
+    """Replace the package template tree with a tiny synthetic set for tests."""
+    templates_dir = tmp_path / "templates"
+    templates_dir.mkdir()
+    (templates_dir / "example.md").write_text("# Example\n")
+    (templates_dir / "nested").mkdir()
+    (templates_dir / "nested" / "guide.mustache").write_text("Guide content\n")
+
+    async def fake_get_templates_path() -> Path:
+        return templates_dir
+
+    async def fake_list_template_files() -> list[Path]:
+        return sorted(path for path in templates_dir.rglob("*") if path.is_file())
+
+    monkeypatch.setattr("mcp_guide.installer.core.get_templates_path", fake_get_templates_path)
+    monkeypatch.setattr("mcp_guide.installer.core.list_template_files", fake_list_template_files)
+    return templates_dir
 
 
 class TestArgumentParsing:
@@ -36,39 +57,49 @@ class TestArgumentParsing:
         # Assert
         assert result.exit_code == 0
 
+    def test_mcp_install_entry_point_is_declared_and_runnable(self) -> None:
+        """Test that the console script mapping exists and targets a runnable command.
+
+        This keeps coverage on the packaging entry-point declaration without paying for a
+        full throwaway virtualenv install on every test run.
+        """
+        project_root = Path(__file__).resolve().parents[3]
+        pyproject = tomllib.loads((project_root / "pyproject.toml").read_text())
+
+        scripts = pyproject["project"]["scripts"]
+        target = scripts["mcp-install"]
+        assert target == "mcp_guide.scripts.mcp_guide_install:cli"
+
+        module_name, attr_name = target.split(":", maxsplit=1)
+        command = getattr(import_module(module_name), attr_name)
+
+        runner = CliRunner()
+        result = runner.invoke(command, ["--help"])
+
+        assert result.exit_code == 0
+
     @pytest.mark.e2e
     def test_installed_entry_point_help_runs(self, tmp_path: Path) -> None:
-        """Integration test that installed console script entry point is runnable.
-
-        This exercises the packaging/entry-point wiring that tools like `uvx --from mcp-guide`
-        depend on, by installing the project into an isolated virtualenv and invoking
-        the generated `mcp-install` script with `--help`.
-        """
+        """Installed console script should run from an isolated virtualenv."""
         import os
         import subprocess
         import sys
 
-        # Create an isolated virtual environment
         venv_dir = tmp_path / "venv"
         subprocess.check_call([sys.executable, "-m", "venv", str(venv_dir)])
 
-        # Resolve the venv's Python and bin/Scripts directory
         bin_dir = venv_dir / ("Scripts" if os.name == "nt" else "bin")
         python_exe = bin_dir / ("python.exe" if os.name == "nt" else "python")
 
-        # Install the current project into the virtualenv
         project_root = Path(__file__).resolve().parents[3]
         subprocess.check_call([str(python_exe), "-m", "pip", "install", str(project_root)])
-
-        # Invoke the installed console script with --help to verify it is correctly installed
-        env = os.environ.copy()
-        subprocess.check_call([str(bin_dir / "mcp-install"), "--help"], env=env)
+        subprocess.check_call([str(bin_dir / "mcp-install"), "--help"], env=os.environ.copy())
 
 
 class TestInstallation:
     """Tests for installation logic."""
 
-    def test_install_creates_templates_and_config(self, tmp_path: Path) -> None:
+    def test_install_creates_templates_and_config(self, tmp_path: Path, monkeypatch) -> None:
         """Test that install creates templates and config file."""
         # Arrange
         from mcp_guide.scripts.mcp_guide_install import cli
@@ -76,6 +107,7 @@ class TestInstallation:
         runner = CliRunner()
         docroot = tmp_path / "docs"
         configdir = tmp_path / "config"
+        use_minimal_templates(monkeypatch, tmp_path)
 
         # Act
         result = runner.invoke(cli, ["install", "--docroot", str(docroot), "--configdir", str(configdir)])
@@ -89,7 +121,7 @@ class TestInstallation:
 class TestEndToEndInstallation:
     """End-to-end tests for install command with smart update strategy."""
 
-    def test_first_install_creates_all_files(self, tmp_path: Path) -> None:
+    def test_first_install_creates_all_files(self, tmp_path: Path, monkeypatch) -> None:
         """Test that first install creates all template files."""
         # Arrange
         from mcp_guide.scripts.mcp_guide_install import cli
@@ -97,6 +129,7 @@ class TestEndToEndInstallation:
         runner = CliRunner()
         docroot = tmp_path / "docs"
         configdir = tmp_path / "config"
+        use_minimal_templates(monkeypatch, tmp_path)
 
         # Act
         result = runner.invoke(cli, ["install", "--docroot", str(docroot), "--configdir", str(configdir)])
@@ -109,7 +142,7 @@ class TestEndToEndInstallation:
         template_files = list(docroot.rglob("*.md"))
         assert len(template_files) > 0
 
-    def test_second_install_skips_unchanged_files(self, tmp_path: Path) -> None:
+    def test_second_install_skips_unchanged_files(self, tmp_path: Path, monkeypatch) -> None:
         """Test that second install does not modify already-installed files (by content hash)."""
         # Arrange
         import hashlib
@@ -119,6 +152,7 @@ class TestEndToEndInstallation:
         runner = CliRunner()
         docroot = tmp_path / "docs"
         configdir = tmp_path / "config"
+        use_minimal_templates(monkeypatch, tmp_path)
 
         # First install
         result1 = runner.invoke(cli, ["install", "--docroot", str(docroot), "--configdir", str(configdir)])
@@ -147,13 +181,14 @@ class TestEndToEndInstallation:
 
         assert first_hashes == second_hashes
 
-    def test_install_preserves_user_modifications_via_patch(self, tmp_path: Path) -> None:
+    def test_install_preserves_user_modifications_via_patch(self, tmp_path: Path, monkeypatch) -> None:
         """Test that install preserves user modifications when templates haven't changed."""
         from mcp_guide.scripts.mcp_guide_install import cli
 
         runner = CliRunner()
         docroot = tmp_path / "docs"
         configdir = tmp_path / "config"
+        use_minimal_templates(monkeypatch, tmp_path)
 
         # First install
         result1 = runner.invoke(cli, ["install", "--docroot", str(docroot), "--configdir", str(configdir)])
@@ -218,7 +253,7 @@ class TestEndToEndInstallation:
             assert backup_file.exists(), "Backup file should exist"
             assert "Completely Different Content" in backup_file.read_text()
 
-    def test_install_reports_correct_statistics(self, tmp_path: Path) -> None:
+    def test_install_reports_correct_statistics(self, tmp_path: Path, monkeypatch) -> None:
         """Test that install reports correct statistics."""
         # Arrange
         from mcp_guide.scripts.mcp_guide_install import cli
@@ -226,6 +261,7 @@ class TestEndToEndInstallation:
         runner = CliRunner()
         docroot = tmp_path / "docs"
         configdir = tmp_path / "config"
+        use_minimal_templates(monkeypatch, tmp_path)
 
         # Act - First install
         result = runner.invoke(cli, ["install", "--docroot", str(docroot), "--configdir", str(configdir)])
@@ -266,7 +302,7 @@ class TestInteractiveMode:
 class TestQuietMode:
     """Tests for quiet mode."""
 
-    def test_quiet_suppresses_statistics(self, tmp_path: Path) -> None:
+    def test_quiet_suppresses_statistics(self, tmp_path: Path, monkeypatch) -> None:
         """Test that --quiet suppresses statistics output."""
         # Arrange
         from mcp_guide.scripts.mcp_guide_install import cli
@@ -274,6 +310,7 @@ class TestQuietMode:
         runner = CliRunner()
         docroot = tmp_path / "docs"
         configdir = tmp_path / "config"
+        use_minimal_templates(monkeypatch, tmp_path)
 
         # Act
         result = runner.invoke(cli, ["install", "--quiet", "--docroot", str(docroot), "--configdir", str(configdir)])
@@ -291,7 +328,7 @@ class TestQuietMode:
         # Quiet mode suppresses all non-error output (WARNING level only)
         # So output should be empty or minimal
 
-    def test_prompts_for_docroot_in_interactive_mode(self, tmp_path: Path) -> None:
+    def test_prompts_for_docroot_in_interactive_mode(self, tmp_path: Path, monkeypatch) -> None:
         """Test that interactive mode prompts for docroot."""
         # Arrange
         from mcp_guide.scripts.mcp_guide_install import cli
@@ -299,6 +336,7 @@ class TestQuietMode:
         runner = CliRunner()
         docroot = tmp_path / "docs"
         configdir = tmp_path / "config"
+        use_minimal_templates(monkeypatch, tmp_path)
 
         # Act - provide input for prompts
         result = runner.invoke(
@@ -309,7 +347,7 @@ class TestQuietMode:
         assert result.exit_code == 0
         assert docroot.exists()
 
-    def test_skips_prompts_in_non_interactive_mode(self, tmp_path: Path) -> None:
+    def test_skips_prompts_in_non_interactive_mode(self, tmp_path: Path, monkeypatch) -> None:
         """Test that non-interactive mode skips prompts."""
         # Arrange
         from mcp_guide.scripts.mcp_guide_install import cli
@@ -317,6 +355,7 @@ class TestQuietMode:
         runner = CliRunner()
         docroot = tmp_path / "docs"
         configdir = tmp_path / "config"
+        use_minimal_templates(monkeypatch, tmp_path)
 
         # Act - no input provided
         result = runner.invoke(cli, ["install", "--docroot", str(docroot), "--configdir", str(configdir)])
@@ -325,7 +364,7 @@ class TestQuietMode:
         assert result.exit_code == 0
         assert "Enter docroot" not in result.output
 
-    def test_displays_progress_in_verbose_mode(self, tmp_path: Path) -> None:
+    def test_displays_progress_in_verbose_mode(self, tmp_path: Path, monkeypatch) -> None:
         """Test that verbose mode enables DEBUG logging."""
         # Arrange
         import logging
@@ -335,6 +374,7 @@ class TestQuietMode:
         runner = CliRunner()
         docroot = tmp_path / "docs"
         configdir = tmp_path / "config"
+        use_minimal_templates(monkeypatch, tmp_path)
 
         # Act
         result = runner.invoke(cli, ["install", "--verbose", "--docroot", str(docroot), "--configdir", str(configdir)])
@@ -424,7 +464,7 @@ class TestErrorHandling:
 class TestUpdateCommand:
     """Tests for update command."""
 
-    def test_update_command_uses_configured_docroot(self, tmp_path: Path) -> None:
+    def test_update_command_uses_configured_docroot(self, tmp_path: Path, monkeypatch) -> None:
         """Test that update command uses docroot from config."""
         # Arrange
         from mcp_guide.scripts.mcp_guide_install import cli
@@ -432,6 +472,7 @@ class TestUpdateCommand:
         runner = CliRunner()
         docroot = tmp_path / "docs"
         configdir = tmp_path / "config"
+        use_minimal_templates(monkeypatch, tmp_path)
 
         # First install
         runner.invoke(cli, ["install", "--docroot", str(docroot), "--configdir", str(configdir)])
@@ -450,7 +491,7 @@ class TestUpdateCommand:
         # Check for completion message (statistics are now in logs)
         assert "Update complete" in result.output or result.exit_code == 0
 
-    def test_update_command_updates_config_when_docroot_specified(self, tmp_path: Path) -> None:
+    def test_update_command_updates_config_when_docroot_specified(self, tmp_path: Path, monkeypatch) -> None:
         """Test that update command updates config when -d specified."""
         # Arrange
         import asyncio
@@ -464,6 +505,7 @@ class TestUpdateCommand:
         old_docroot = tmp_path / "old_docs"
         new_docroot = tmp_path / "new_docs"
         configdir = tmp_path / "config"
+        use_minimal_templates(monkeypatch, tmp_path)
 
         # First install
         runner.invoke(cli, ["install", "--docroot", str(old_docroot), "--configdir", str(configdir)])
@@ -486,7 +528,7 @@ class TestUpdateCommand:
 class TestStatusCommand:
     """Tests for status command."""
 
-    def test_status_command_shows_installation_info(self, tmp_path: Path) -> None:
+    def test_status_command_shows_installation_info(self, tmp_path: Path, monkeypatch) -> None:
         """Test that status command shows installation information."""
         # Arrange
         from mcp_guide.scripts.mcp_guide_install import cli
@@ -494,6 +536,7 @@ class TestStatusCommand:
         runner = CliRunner()
         docroot = tmp_path / "docs"
         configdir = tmp_path / "config"
+        use_minimal_templates(monkeypatch, tmp_path)
 
         # First install
         runner.invoke(cli, ["install", "--docroot", str(docroot), "--configdir", str(configdir)])
