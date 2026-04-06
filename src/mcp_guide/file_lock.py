@@ -9,6 +9,7 @@ from typing import Any, Awaitable, Callable, TypeVar
 
 T = TypeVar("T")
 STALE_LOCK_SECONDS = 600  # 10 minutes
+LOCK_RETRY_SECONDS = 1.0
 
 
 def _get_hostname() -> str:
@@ -75,7 +76,7 @@ async def lock_update(file_path: Path, func: Callable[..., Awaitable[T]], *args:
                 if is_lock_stale(lock_file, hostname):
                     lock_file.unlink(missing_ok=True)
                 else:
-                    await asyncio.sleep(1)
+                    await asyncio.sleep(LOCK_RETRY_SECONDS)
             except (OSError, ValueError):
                 # If we can't read the lock file (corrupted or permission error), treat as stale
                 lock_file.unlink(missing_ok=True)

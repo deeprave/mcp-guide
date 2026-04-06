@@ -301,19 +301,41 @@ class TestInstallationOrchestration:
     async def test_install_templates_performs_first_install(self, tmp_path: Path) -> None:
         """Test that install_templates performs first-time installation."""
         # Arrange
+        import mcp_guide.installer.core as installer_core
         from mcp_guide.installer.core import install_templates
 
         docroot = tmp_path / "docroot"
         archive_path = tmp_path / "originals.zip"
+        templates_dir = tmp_path / "templates"
+        templates_dir.mkdir()
+        template_file = templates_dir / "guide.md"
+        template_file.write_text("Guide content\n")
+        nested_dir = templates_dir / "nested"
+        nested_dir.mkdir()
+        nested_file = nested_dir / "rules.txt"
+        nested_file.write_text("Rule content\n")
+
+        async def fake_get_templates_path() -> Path:
+            return templates_dir
+
+        async def fake_list_template_files() -> list[Path]:
+            return [template_file, nested_file]
 
         # Act
-        result = await install_templates(docroot, archive_path)
+        monkeypatch = pytest.MonkeyPatch()
+        monkeypatch.setattr(installer_core, "get_templates_path", fake_get_templates_path)
+        monkeypatch.setattr(installer_core, "list_template_files", fake_list_template_files)
+        try:
+            result = await install_templates(docroot, archive_path)
+        finally:
+            monkeypatch.undo()
 
         # Assert
         assert docroot.exists()
         assert archive_path.exists()
-        assert "installed" in result
-        assert result["installed"] > 0
+        assert result["installed"] == 2
+        assert (docroot / "guide.md").read_text() == "Guide content\n"
+        assert (docroot / "nested" / "rules.txt").read_text() == "Rule content\n"
 
     @pytest.mark.anyio
     async def test_update_documents_uses_smart_strategy(self, tmp_path: Path) -> None:
@@ -335,8 +357,28 @@ class TestInstallationOrchestration:
             zf.writestr("file.txt", "Original content\n")
             zf.writestr("README.md", "Archive readme\n")
 
+        templates_dir = tmp_path / "templates"
+        templates_dir.mkdir()
+        template_file = templates_dir / "file.txt"
+        template_file.write_text("Template content\n")
+
+        import mcp_guide.installer.core as installer_core
+
+        async def fake_get_templates_path() -> Path:
+            return templates_dir
+
+        async def fake_list_template_files() -> list[Path]:
+            return [template_file]
+
+        monkeypatch = pytest.MonkeyPatch()
+        monkeypatch.setattr(installer_core, "get_templates_path", fake_get_templates_path)
+        monkeypatch.setattr(installer_core, "list_template_files", fake_list_template_files)
+
         # Act
-        result = await update_documents(docroot, archive_path)
+        try:
+            result = await update_documents(docroot, archive_path)
+        finally:
+            monkeypatch.undo()
 
         # Assert
         assert "unchanged" in result or "patched" in result or "updated" in result or "installed" in result

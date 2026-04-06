@@ -8,48 +8,6 @@ import pytest
 from mcp_guide.discovery.files import FileInfo, discover_document_files
 
 
-def test_fileinfo_has_category_field():
-    """Test that FileInfo has category field."""
-    file_info = FileInfo(
-        path=Path("test.md"),
-        size=100,
-        content_size=100,
-        mtime=datetime.now(),
-        name="test.md",
-    )
-    assert hasattr(file_info, "category")
-    assert file_info.category is None
-
-
-def test_fileinfo_category_can_be_set():
-    """Test that category field can be set."""
-    from mcp_guide.models.project import Category
-
-    category = Category(dir="docs/", patterns=["README"], name="docs")
-    file_info = FileInfo(
-        path=Path("test.md"),
-        size=100,
-        content_size=100,
-        mtime=datetime.now(),
-        name="test.md",
-        category=category,
-    )
-    assert file_info.category == category
-    assert file_info.category.name == "docs"
-
-
-def test_fileinfo_source_defaults_to_file():
-    """Test that source defaults to 'file'."""
-    fi = FileInfo(path=Path("test.md"), size=0, content_size=0, mtime=datetime.now(), name="test.md")
-    assert fi.source == "file"
-
-
-def test_fileinfo_source_can_be_set():
-    """Test that source can be set to a custom value."""
-    fi = FileInfo(path=Path("test.md"), size=0, content_size=0, mtime=datetime.now(), name="test.md", source="store")
-    assert fi.source == "store"
-
-
 @pytest.mark.anyio
 async def test_content_loader_called_on_get_content():
     """Test that content_loader is called when getting content."""

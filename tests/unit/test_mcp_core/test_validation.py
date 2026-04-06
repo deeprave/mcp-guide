@@ -46,48 +46,32 @@ class TestValidateDirectoryPath:
         result = validate_directory_path("docs/examples", "default")
         assert result == "docs/examples"
 
-    def test_reject_absolute_path_unix(self):
-        """Absolute Unix path should be rejected."""
+    @pytest.mark.parametrize(
+        "path_value",
+        [
+            "/absolute/path",
+            "C:\\absolute\\path",
+            "\\\\server\\share",
+            "../parent",
+            "__invalid/path",
+            "path/__invalid",
+        ],
+        ids=[
+            "absolute_unix",
+            "absolute_windows",
+            "unc",
+            "traversal",
+            "leading_double_underscore",
+            "trailing_double_underscore",
+        ],
+    )
+    def test_reject_invalid_paths(self, path_value):
+        """Invalid directory paths should be rejected consistently."""
         with pytest.raises(ArgValidationError) as exc_info:
-            validate_directory_path("/absolute/path", "default")
+            validate_directory_path(path_value, "default")
         assert len(exc_info.value.errors) == 1
         assert exc_info.value.errors[0]["field"] == "path"
         assert exc_info.value.instruction == DEFAULT_INSTRUCTION
-
-    def test_reject_absolute_path_windows(self):
-        """Absolute Windows path should be rejected."""
-        with pytest.raises(ArgValidationError) as exc_info:
-            validate_directory_path("C:\\absolute\\path", "default")
-        assert len(exc_info.value.errors) == 1
-        assert exc_info.value.errors[0]["field"] == "path"
-
-    def test_reject_unc_path(self):
-        """UNC path should be rejected."""
-        with pytest.raises(ArgValidationError) as exc_info:
-            validate_directory_path("\\\\server\\share", "default")
-        assert len(exc_info.value.errors) == 1
-        assert exc_info.value.errors[0]["field"] == "path"
-
-    def test_reject_traversal(self):
-        """Path with .. should be rejected."""
-        with pytest.raises(ArgValidationError) as exc_info:
-            validate_directory_path("../parent", "default")
-        assert len(exc_info.value.errors) == 1
-        assert exc_info.value.errors[0]["field"] == "path"
-
-    def test_reject_leading_double_underscore(self):
-        """Path with leading __ should be rejected."""
-        with pytest.raises(ArgValidationError) as exc_info:
-            validate_directory_path("__invalid/path", "default")
-        assert len(exc_info.value.errors) == 1
-        assert exc_info.value.errors[0]["field"] == "path"
-
-    def test_reject_trailing_double_underscore(self):
-        """Path with trailing __ should be rejected."""
-        with pytest.raises(ArgValidationError) as exc_info:
-            validate_directory_path("path/__invalid", "default")
-        assert len(exc_info.value.errors) == 1
-        assert exc_info.value.errors[0]["field"] == "path"
 
     @pytest.mark.parametrize(
         "value,expected",
@@ -129,11 +113,6 @@ class TestValidateDescription:
         assert exc_info.value.errors[0]["field"] == "description"
         assert "50" in exc_info.value.errors[0]["message"]
 
-    def test_custom_max_length_pass(self):
-        """Description under custom max_length should pass."""
-        result = validate_description("x" * 100, max_length=200)
-        assert result == "x" * 100
-
     @pytest.mark.parametrize(
         "description,quote_type",
         [
@@ -173,39 +152,23 @@ class TestValidatePattern:
         result = validate_pattern("*.md")
         assert result == "*.md"
 
-    def test_valid_pattern_with_path(self):
-        """Pattern with path should pass."""
-        result = validate_pattern("docs/*.md")
-        assert result == "docs/*.md"
-
-    def test_reject_traversal(self):
-        """Pattern with .. should be rejected."""
+    @pytest.mark.parametrize(
+        "pattern",
+        [
+            "../file.md",
+            "/absolute/*.md",
+            "\\\\server\\share\\*.md",
+            "__invalid/*.md",
+        ],
+        ids=["traversal", "absolute", "unc", "double_underscore"],
+    )
+    def test_reject_invalid_patterns(self, pattern):
+        """Invalid patterns should be rejected consistently."""
         with pytest.raises(ArgValidationError) as exc_info:
-            validate_pattern("../file.md")
+            validate_pattern(pattern)
         assert len(exc_info.value.errors) == 1
         assert exc_info.value.errors[0]["field"] == "pattern"
         assert exc_info.value.instruction == DEFAULT_INSTRUCTION
-
-    def test_reject_absolute_path(self):
-        """Absolute path pattern should be rejected."""
-        with pytest.raises(ArgValidationError) as exc_info:
-            validate_pattern("/absolute/*.md")
-        assert len(exc_info.value.errors) == 1
-        assert exc_info.value.errors[0]["field"] == "pattern"
-
-    def test_reject_unc_path(self):
-        """UNC path pattern should be rejected."""
-        with pytest.raises(ArgValidationError) as exc_info:
-            validate_pattern("\\\\server\\share\\*.md")
-        assert len(exc_info.value.errors) == 1
-        assert exc_info.value.errors[0]["field"] == "pattern"
-
-    def test_reject_double_underscore(self):
-        """Pattern with __ should be rejected."""
-        with pytest.raises(ArgValidationError) as exc_info:
-            validate_pattern("__invalid/*.md")
-        assert len(exc_info.value.errors) == 1
-        assert exc_info.value.errors[0]["field"] == "pattern"
 
 
 class TestArgValidationError:

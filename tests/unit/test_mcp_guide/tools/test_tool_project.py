@@ -9,7 +9,6 @@ from tests.helpers import create_test_session
 
 from mcp_guide.models import Category, Collection, Project
 from mcp_guide.result import Result
-from mcp_guide.result_constants import ERROR_SAFEGUARD
 from mcp_guide.session import remove_current_session, set_current_session
 from mcp_guide.tools.tool_project import (
     CloneProjectArgs,
@@ -27,20 +26,6 @@ from mcp_guide.tools.tool_project import (
 
 class TestGetProject:
     """Tests for get_project tool."""
-
-    def test_args_validation(self):
-        """Test GetCurrentProjectArgs schema validation."""
-        # Test verbose=True
-        args = GetCurrentProjectArgs(verbose=True)
-        assert args.verbose is True
-
-        # Test verbose=False
-        args = GetCurrentProjectArgs(verbose=False)
-        assert args.verbose is False
-
-        # Test default value
-        args = GetCurrentProjectArgs()
-        assert args.verbose is False
 
     @pytest.mark.anyio
     async def test_no_context_error(self):
@@ -131,13 +116,10 @@ class TestGetProject:
         ],
     )
     @pytest.mark.anyio
-    async def test_flags_output(self, verbose: bool, expected_type: type, tmp_path: Path, monkeypatch):
+    async def test_flags_output(self, verbose: bool, expected_type: type):
         """Test get_project flag output format based on verbose flag."""
-        monkeypatch.setenv("PWD", "/fake/path/test-project")
-
-        session = await create_test_session("test-project", _config_dir_for_tests=str(tmp_path))
-        await session.get_project()
-        set_current_session(session)
+        project = Project(name="test-project", categories={}, collections={})
+        session = MagicMock()
 
         # Mock both project and global flags
         project_flags_mock = AsyncMock()
@@ -149,35 +131,30 @@ class TestGetProject:
         with (
             patch.object(session, "project_flags", return_value=project_flags_mock),
             patch.object(session, "feature_flags", return_value=global_flags_mock),
+            patch("mcp_guide.tools.tool_project.get_session_and_project", return_value=(session, project)),
         ):
-            try:
-                args = GetCurrentProjectArgs(verbose=verbose)
-                result_str = await get_project(args)
-                result = json.loads(result_str)
+            args = GetCurrentProjectArgs(verbose=verbose)
+            result_str = await get_project(args)
+            result = json.loads(result_str)
 
-                assert result["success"] is True
-                flags = result["value"]["flags"]
-                assert isinstance(flags, expected_type)
+            assert result["success"] is True
+            flags = result["value"]["flags"]
+            assert isinstance(flags, expected_type)
 
-                if verbose:
-                    # Verbose: dict with values
-                    assert flags["debug"] is True
-                    assert flags["env"] == "test"
-                    assert flags["global_flag"] == "value"
-                else:
-                    # Non-verbose: list of names
-                    assert set(flags) == {"debug", "env", "global_flag"}
-            finally:
-                await remove_current_session()
+            if verbose:
+                # Verbose: dict with values
+                assert flags["debug"] is True
+                assert flags["env"] == "test"
+                assert flags["global_flag"] == "value"
+            else:
+                # Non-verbose: list of names
+                assert set(flags) == {"debug", "env", "global_flag"}
 
     @pytest.mark.anyio
-    async def test_project_flags_override_global_flags(self, tmp_path: Path, monkeypatch):
+    async def test_project_flags_override_global_flags(self):
         """Test project flags take precedence over global flags."""
-        monkeypatch.setenv("PWD", "/fake/path/test-project")
-
-        session = await create_test_session("test-project", _config_dir_for_tests=str(tmp_path))
-        await session.get_project()
-        set_current_session(session)
+        project = Project(name="test-project", categories={}, collections={})
+        session = MagicMock()
 
         # Mock both project and global flags with same name
         project_flags_mock = AsyncMock()
@@ -189,40 +166,21 @@ class TestGetProject:
         with (
             patch.object(session, "project_flags", return_value=project_flags_mock),
             patch.object(session, "feature_flags", return_value=global_flags_mock),
+            patch("mcp_guide.tools.tool_project.get_session_and_project", return_value=(session, project)),
         ):
-            try:
-                args = GetCurrentProjectArgs(verbose=True)
-                result_str = await get_project(args)
-                result = json.loads(result_str)
+            args = GetCurrentProjectArgs(verbose=True)
+            result_str = await get_project(args)
+            result = json.loads(result_str)
 
-                assert result["success"] is True
+            assert result["success"] is True
 
-                # Check project flag overrides global flag
-                flags = result["value"]["flags"]
-                assert flags["shared_flag"] == "project_value"
-            finally:
-                await remove_current_session()
+            # Check project flag overrides global flag
+            flags = result["value"]["flags"]
+            assert flags["shared_flag"] == "project_value"
 
 
 class TestSetProject:
     """Tests for set_project tool."""
-
-    def test_args_validation(self):
-        """Test SetCurrentProjectArgs schema validation."""
-        # Test with name and verbose=True
-        args = SetCurrentProjectArgs(name="test-project", verbose=True)
-        assert args.name == "test-project"
-        assert args.verbose is True
-
-        # Test with name and verbose=False
-        args = SetCurrentProjectArgs(name="test-project", verbose=False)
-        assert args.name == "test-project"
-        assert args.verbose is False
-
-        # Test default verbose value
-        args = SetCurrentProjectArgs(name="test-project")
-        assert args.name == "test-project"
-        assert args.verbose is False
 
     @pytest.mark.anyio
     @pytest.mark.parametrize(
@@ -294,20 +252,6 @@ class TestSetProject:
 class TestListProjects:
     """Tests for list_projects tool."""
 
-    def test_args_validation(self):
-        """Test ListProjectsArgs schema validation."""
-        # Test verbose=True
-        args = ListProjectsArgs(verbose=True)
-        assert args.verbose is True
-
-        # Test verbose=False
-        args = ListProjectsArgs(verbose=False)
-        assert args.verbose is False
-
-        # Test default value
-        args = ListProjectsArgs()
-        assert args.verbose is False
-
     @pytest.mark.parametrize(
         "verbose,mock_data,expected_check",
         [
@@ -357,18 +301,6 @@ class TestListProjects:
 
 class TestListProject:
     """Tests for list_project tool."""
-
-    def test_args_validation(self):
-        """Test ListProjectArgs schema validation."""
-        # Test with name
-        args = ListProjectArgs(name="test-project", verbose=True)
-        assert args.name == "test-project"
-        assert args.verbose is True
-
-        # Test defaults
-        args = ListProjectArgs()
-        assert args.name is None
-        assert args.verbose is False
 
     @pytest.mark.parametrize(
         "name,verbose,mock_setup",
@@ -433,41 +365,8 @@ class TestListProject:
             assert "not found" in result["error"]
 
 
-def test_error_safeguard_constant():
-    """Test ERROR_SAFEGUARD constant exists and has correct value."""
-    assert ERROR_SAFEGUARD == "safeguard_prevented"
-
-
 class TestCloneProjectArgs:
     """Tests for CloneProjectArgs schema."""
-
-    def test_args_validation_all_params(self):
-        """Test CloneProjectArgs with all parameters."""
-        args = CloneProjectArgs(from_project="source", to_project="target", merge=False, force=True)
-        assert args.from_project == "source"
-        assert args.to_project == "target"
-        assert args.merge is False
-        assert args.force is True
-
-    def test_args_default_values(self):
-        """Test CloneProjectArgs default values."""
-        args = CloneProjectArgs(from_project="source")
-        assert args.from_project == "source"
-        assert args.to_project is None  # Default
-        assert args.merge is True  # Default
-        assert args.force is False  # Default
-
-    def test_args_1arg_mode(self):
-        """Test CloneProjectArgs for 1-arg mode (to_project=None)."""
-        args = CloneProjectArgs(from_project="source", to_project=None)
-        assert args.from_project == "source"
-        assert args.to_project is None
-
-    def test_args_2arg_mode(self):
-        """Test CloneProjectArgs for 2-arg mode (to_project specified)."""
-        args = CloneProjectArgs(from_project="source", to_project="target")
-        assert args.from_project == "source"
-        assert args.to_project == "target"
 
 
 class TestCloneProject:

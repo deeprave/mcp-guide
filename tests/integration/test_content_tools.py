@@ -7,7 +7,7 @@ import pytest
 from fastmcp.client import Client, FastMCPTransport
 
 from mcp_guide.models import Category, Collection
-from mcp_guide.session import get_session, remove_current_session
+from mcp_guide.session import Session, get_session, remove_current_session, set_current_session
 from mcp_guide.tools.tool_content import ContentArgs
 from tests.conftest import call_mcp_tool
 
@@ -16,6 +16,18 @@ from tests.conftest import call_mcp_tool
 def anyio_backend():
     """Use asyncio for async tests."""
     return "asyncio"
+
+
+async def _create_bound_session(tmp_path: Path) -> Session:
+    """Create a lightweight bound session for integration tests."""
+    config_dir = str(tmp_path.resolve())
+    session = Session(_config_dir_for_tests=config_dir)
+    config_manager = session._get_config_manager(config_dir)
+    _key, project = await config_manager.get_or_create_project_config("test")
+    session._Session__delegate.bind(project)
+    session._project_dirty = False
+    set_current_session(session)
+    return session
 
 
 @pytest.fixture(scope="module")
@@ -31,7 +43,7 @@ async def test_get_content_category_only(mcp_server, tmp_path, monkeypatch):
 
     monkeypatch.setenv("PWD", "/fake/path/test")
 
-    session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
+    session = await _create_bound_session(tmp_path)
 
     # Add category
     await session.update_config(lambda p: p.with_category("guide", Category(dir="guide", patterns=["*.md"])))
@@ -53,8 +65,6 @@ async def test_get_content_category_only(mcp_server, tmp_path, monkeypatch):
 @pytest.mark.anyio
 async def test_get_content_collection_only(mcp_server, tmp_path, monkeypatch):
     """Test get_content with collection-only match."""
-    from .test_data_generator import generate_test_files
-
     monkeypatch.setenv("PWD", "/fake/path/test")
 
     session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
@@ -69,7 +79,12 @@ async def test_get_content_collection_only(mcp_server, tmp_path, monkeypatch):
     )
 
     docroot = Path(tmp_path.resolve()) / "docs"
-    generate_test_files(docroot)
+    guide_dir = docroot / "guide"
+    lang_dir = docroot / "lang"
+    guide_dir.mkdir(parents=True, exist_ok=True)
+    lang_dir.mkdir(parents=True, exist_ok=True)
+    (guide_dir / "guidelines.md").write_text("# Project Guidelines\n")
+    (lang_dir / "python.md").write_text("# Python Guide\n")
 
     async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         args = ContentArgs(expression="all")
@@ -156,7 +171,9 @@ async def test_get_content_empty_result(mcp_server, tmp_path, monkeypatch):
     session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
 
     # Add category with no files
-    await session.update_config(lambda p: p.with_category("empty", Category(dir="empty", patterns=["*.md"])))
+    session._Session__delegate.bind(
+        session._Session__delegate.project.with_category("empty", Category(dir="empty", patterns=["*.md"]))
+    )
 
     # Create empty directory
     docroot = Path(tmp_path.resolve()) / "docs"
@@ -178,24 +195,23 @@ async def test_get_content_empty_result(mcp_server, tmp_path, monkeypatch):
 @pytest.mark.anyio
 async def test_get_content_nested_collection(mcp_server, tmp_path, monkeypatch):
     """Test get_content with nested collection reference."""
-    from .test_data_generator import generate_test_files
-
     monkeypatch.setenv("PWD", "/fake/path/test")
 
-    session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
-
-    # Add categories and nested collections
-    await session.update_config(
-        lambda p: (
-            p.with_category("guide", Category(dir="guide", patterns=["*.md"]))
-            .with_category("lang", Category(dir="lang", patterns=["*.md"]))
-            .with_collection("docs", Collection(categories=["guide"]))
-            .with_collection("all", Collection(categories=["docs", "lang"]))
-        )  # Nested: all includes docs collection
+    session = await _create_bound_session(tmp_path)
+    session._Session__delegate.bind(
+        session._Session__delegate.project.with_category("guide", Category(dir="guide", patterns=["*.md"]))
+        .with_category("lang", Category(dir="lang", patterns=["*.md"]))
+        .with_collection("docs", Collection(categories=["guide"]))
+        .with_collection("all", Collection(categories=["docs", "lang"]))
     )
 
     docroot = Path(tmp_path.resolve()) / "docs"
-    generate_test_files(docroot)
+    guide_dir = docroot / "guide"
+    lang_dir = docroot / "lang"
+    guide_dir.mkdir(parents=True, exist_ok=True)
+    lang_dir.mkdir(parents=True, exist_ok=True)
+    (guide_dir / "guidelines.md").write_text("# Project Guidelines\n")
+    (lang_dir / "python.md").write_text("# Python Guide\n")
 
     async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         args = ContentArgs(expression="all")
@@ -212,24 +228,23 @@ async def test_get_content_nested_collection(mcp_server, tmp_path, monkeypatch):
 @pytest.mark.anyio
 async def test_get_content_circular_collection_reference(mcp_server, tmp_path, monkeypatch):
     """Test get_content with circular collection references."""
-    from .test_data_generator import generate_test_files
-
     monkeypatch.setenv("PWD", "/fake/path/test")
 
-    session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
-
-    # Add categories and circular collections
-    await session.update_config(
-        lambda p: (
-            p.with_category("guide", Category(dir="guide", patterns=["*.md"]))
-            .with_category("lang", Category(dir="lang", patterns=["*.md"]))
-            .with_collection("col1", Collection(categories=["guide", "col2"]))  # col1 → col2
-            .with_collection("col2", Collection(categories=["lang", "col1"]))
-        )  # col2 → col1 (circular)
+    session = await _create_bound_session(tmp_path)
+    session._Session__delegate.bind(
+        session._Session__delegate.project.with_category("guide", Category(dir="guide", patterns=["*.md"]))
+        .with_category("lang", Category(dir="lang", patterns=["*.md"]))
+        .with_collection("col1", Collection(categories=["guide", "col2"]))
+        .with_collection("col2", Collection(categories=["lang", "col1"]))
     )
 
     docroot = Path(tmp_path.resolve()) / "docs"
-    generate_test_files(docroot)
+    guide_dir = docroot / "guide"
+    lang_dir = docroot / "lang"
+    guide_dir.mkdir(parents=True, exist_ok=True)
+    lang_dir.mkdir(parents=True, exist_ok=True)
+    (guide_dir / "guidelines.md").write_text("# Project Guidelines\n")
+    (lang_dir / "python.md").write_text("# Python Guide\n")
 
     async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         args = ContentArgs(expression="col1")

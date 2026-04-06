@@ -9,24 +9,33 @@ if TYPE_CHECKING:
     from mcp_guide.cli import ServerConfig
 
 from mcp_guide import __version__
-from mcp_guide.context.tasks import ClientContextTask  # noqa: F401 - imported for @task_init decorator side effects
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.core.tool_decorator import ExtMcpToolDecorator
 from mcp_guide.guide import GuideMCP
-from mcp_guide.openspec.task import OpenSpecTask  # noqa: F401 - imported for @task_init decorator side effects
-
-# Import task managers early to trigger @task_init decorators
-from mcp_guide.task_manager import TaskManager  # noqa: F401 - imported for initialization side effects
-from mcp_guide.tasks.document_task import DocumentTask  # noqa: F401 - imported for @task_init decorator side effects
-from mcp_guide.tasks.retry_task import RetryTask  # noqa: F401 - imported for @task_init decorator side effects
-from mcp_guide.tasks.update_task import McpUpdateTask  # noqa: F401 - imported for @task_init decorator side effects
-from mcp_guide.workflow.tasks import WorkflowMonitorTask  # noqa: F401 - imported for @task_init decorator side effects
 
 logger = get_logger(__name__)
 
 # Holds the MiddlewareServerSession for the current notification dispatch task.
 # Set by the patched _handle_message; read by _handle_roots_changed.
 _current_notification_session: ContextVar[Optional[Any]] = ContextVar("_current_notification_session", default=None)
+
+
+def _initialize_runtime_tasks() -> None:
+    """Import runtime task modules so their @task_init side effects run.
+
+    Tests that only need MCP bootstrap can disable this at server startup
+    without changing global decorator semantics.
+    """
+    if os.environ.get("MCP_GUIDE_DISABLE_SERVER_TASKS", "").lower() in ("1", "true", "yes"):
+        return
+
+    from mcp_guide.context.tasks import ClientContextTask  # noqa: F401
+    from mcp_guide.openspec.task import OpenSpecTask  # noqa: F401
+    from mcp_guide.task_manager import TaskManager  # noqa: F401
+    from mcp_guide.tasks.document_task import DocumentTask  # noqa: F401
+    from mcp_guide.tasks.retry_task import RetryTask  # noqa: F401
+    from mcp_guide.tasks.update_task import McpUpdateTask  # noqa: F401
+    from mcp_guide.workflow.tasks import WorkflowMonitorTask  # noqa: F401
 
 
 async def _handle_roots_changed(_notification: Any) -> None:
@@ -279,7 +288,9 @@ def create_server(config: "ServerConfig") -> GuideMCP:
     # Set tool prefix from config
     os.environ["MCP_TOOL_PREFIX"] = config.tool_prefix
 
-    # Task managers are automatically instantiated and registered via @task_init decorators
+    # Import runtime task modules only for real server startup. Tests that only
+    # need MCP bootstrap can opt out here without changing decorator semantics.
+    _initialize_runtime_tasks()
 
     # Create tool decorator and set proxy instance
     tool_decorator = ExtMcpToolDecorator(mcp)

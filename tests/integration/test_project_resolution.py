@@ -13,30 +13,32 @@ from tests.helpers import create_test_session
 class TestProjectResolution:
     """Test end-to-end project resolution with hash disambiguation."""
 
+    @staticmethod
+    def _write_config(config_dir: Path, config: dict) -> Path:
+        config_file = config_dir / "guide.yaml"
+        config_file.write_text(yaml.dump(config))
+        return config_file
+
     @pytest.mark.anyio
-    async def test_single_project_resolution(self):
+    async def test_single_project_resolution(self, tmp_path):
         """Single project with name resolves correctly."""
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            config_file = Path(tmp_dir) / "guide.yaml"
+        config = {
+            "docroot": str(tmp_path),
+            "projects": {
+                "my-project-abcdef12": {
+                    "name": "my-project",
+                    "hash": "abcdef1234567890" * 4,
+                    "categories": {},
+                    "collections": {},
+                }
+            },
+        }
+        self._write_config(tmp_path, config)
 
-            # Create config with single project
-            config = {
-                "docroot": str(tmp_dir),
-                "projects": {
-                    "my-project-abcdef12": {
-                        "name": "my-project",
-                        "hash": "abcdef1234567890" * 4,
-                        "categories": {},
-                        "collections": {},
-                    }
-                },
-            }
-            config_file.write_text(yaml.dump(config))
+        session = await create_test_session("my-project", _config_dir_for_tests=str(tmp_path))
+        project = await session.get_project()
 
-            session = await create_test_session("my-project", _config_dir_for_tests=tmp_dir)
-            project = await session.get_project()
-
-            assert project.name == "my-project"
+        assert project.name == "my-project"
 
     @pytest.mark.anyio
     async def test_multiple_projects_hash_verification(self):
@@ -83,86 +85,78 @@ class TestProjectResolution:
                     assert project.hash == "fedcba0987654321" * 4
 
     @pytest.mark.anyio
-    async def test_no_matching_project_creation(self):
+    async def test_no_matching_project_creation(self, tmp_path):
         """Non-existent project name creates new project."""
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            config_file = Path(tmp_dir) / "guide.yaml"
+        config_file = Path(tmp_path) / "guide.yaml"
 
-            # Create empty config
-            config = {"docroot": str(tmp_dir), "projects": {}}
-            config_file.write_text(yaml.dump(config))
+        # Create empty config
+        config = {"docroot": str(tmp_path), "projects": {}}
+        config_file.write_text(yaml.dump(config))
 
-            session = await create_test_session("new-project", _config_dir_for_tests=tmp_dir)
+        with (
+            patch("mcp_guide.session.resolve_project_path", return_value=tmp_path),
+            patch("mcp_guide.session.calculate_project_hash", return_value="new_hash_value" * 4),
+        ):
+            session = await create_test_session("new-project", _config_dir_for_tests=str(tmp_path))
             project = await session.get_project()
 
             assert project.name == "new-project"
-            assert project.hash is not None  # Should have calculated a hash
+            assert project.hash == "new_hash_value" * 4
 
     @pytest.mark.anyio
-    async def test_hash_mismatch_fallback(self):
+    async def test_hash_mismatch_fallback(self, tmp_path):
         """Hash mismatch falls back to name for new project creation."""
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            config_file = Path(tmp_dir) / "guide.yaml"
+        config_file = Path(tmp_path) / "guide.yaml"
 
-            # Create config with project that won't match current hash
-            config = {
-                "docroot": str(tmp_dir),
-                "projects": {
-                    "my-project-abcdef12": {"hash": "abcdef1234567890" * 4, "categories": {}, "collections": {}}
-                },
-            }
-            config_file.write_text(yaml.dump(config))
+        # Create config with project that won't match current hash
+        config = {
+            "docroot": str(tmp_path),
+            "projects": {"my-project-abcdef12": {"hash": "abcdef1234567890" * 4, "categories": {}, "collections": {}}},
+        }
+        config_file.write_text(yaml.dump(config))
 
-            # Mock path resolution to return different hash
-            with patch("mcp_guide.session.resolve_project_path") as mock_resolve_path:
-                mock_resolve_path.return_value = "/different/path"
+        with (
+            patch("mcp_guide.session.resolve_project_path", return_value="/different/path"),
+            patch("mcp_guide.session.calculate_project_hash", return_value="different_hash_value" * 4),
+        ):
+            session = await create_test_session("my-project", _config_dir_for_tests=str(tmp_path))
+            project = await session.get_project()
 
-                with patch("mcp_guide.session.calculate_project_hash") as mock_calc_hash:
-                    # Return different hash
-                    mock_calc_hash.return_value = "different_hash_value" * 4
-
-                    session = await create_test_session("my-project", _config_dir_for_tests=tmp_dir)
-                    project = await session.get_project()
-
-                    # Should create new project with different hash
-                    assert project.name == "my-project"
-                    assert project.hash == "different_hash_value" * 4
+            # Should create new project with different hash
+            assert project.name == "my-project"
+            assert project.hash == "different_hash_value" * 4
 
     @pytest.mark.anyio
-    async def test_path_resolution_failure_fallback(self):
+    async def test_path_resolution_failure_fallback(self, tmp_path):
         """Path resolution failure falls back gracefully."""
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            config_file = Path(tmp_dir) / "guide.yaml"
-
-            # Create config with multiple projects
-            config = {
-                "docroot": str(tmp_dir),
-                "projects": {
-                    "my-project-abcdef12": {
-                        "name": "my-project",
-                        "hash": "abcdef1234567890" * 4,
-                        "categories": {},
-                        "collections": {},
-                    },
-                    "my-project-fedcba98": {
-                        "name": "my-project",
-                        "hash": "fedcba0987654321" * 4,
-                        "categories": {},
-                        "collections": {},
-                    },
+        config = {
+            "docroot": str(tmp_path),
+            "projects": {
+                "my-project-abcdef12": {
+                    "name": "my-project",
+                    "hash": "abcdef1234567890" * 4,
+                    "categories": {},
+                    "collections": {},
                 },
-            }
-            config_file.write_text(yaml.dump(config))
+                "my-project-fedcba98": {
+                    "name": "my-project",
+                    "hash": "fedcba0987654321" * 4,
+                    "categories": {},
+                    "collections": {},
+                },
+            },
+        }
+        self._write_config(tmp_path, config)
 
-            # Mock path resolution to fail
-            with patch("mcp_guide.mcp_context.resolve_project_path") as mock_resolve_path:
-                mock_resolve_path.side_effect = ValueError("Cannot determine path")
+        # Mock path resolution to fail
+        with patch("mcp_guide.mcp_context.resolve_project_path") as mock_resolve_path:
+            mock_resolve_path.side_effect = ValueError("Cannot determine path")
 
-                session = await create_test_session("my-project", _config_dir_for_tests=tmp_dir)
-                project = await session.get_project()
+            session = await create_test_session("my-project", _config_dir_for_tests=str(tmp_path))
+            project = await session.get_project()
 
-                # Should still work - will use fallback path for hash calculation
-                assert project.name == "my-project"
+            # Should still work - will use fallback path for hash calculation
+            assert project.name == "my-project"
 
     @pytest.mark.anyio
     async def test_config_error_fallback(self):

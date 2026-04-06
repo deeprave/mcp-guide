@@ -126,8 +126,9 @@ class TestLockUpdate:
         assert not lock_file.exists()
 
     @pytest.mark.anyio
-    async def test_lock_update_waits_for_lock(self, tmp_path):
+    async def test_lock_update_waits_for_lock(self, tmp_path, monkeypatch):
         """lock_update should wait if lock exists."""
+        monkeypatch.setattr("mcp_guide.file_lock.LOCK_RETRY_SECONDS", 0.01)
         test_file = tmp_path / "test.txt"
         test_file.write_text("content")
         lock_file = test_file.with_suffix(".txt.lock")
@@ -136,7 +137,7 @@ class TestLockUpdate:
 
         async def slow_update(file_path: Path) -> str:
             results.append("started")
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(0.02)
             results.append("finished")
             return "done"
 

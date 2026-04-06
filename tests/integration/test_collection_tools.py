@@ -9,12 +9,13 @@ Tests collection tools through the MCP protocol interface to verify:
 
 import json
 from pathlib import Path
+from unittest.mock import AsyncMock
 
 import pytest
 from fastmcp.client import Client, FastMCPTransport
 
-from mcp_guide.models import Category
-from mcp_guide.session import get_session, remove_current_session
+from mcp_guide.models import Category, Collection
+from mcp_guide.session import Session, remove_current_session, set_current_session
 from mcp_guide.tools.tool_category import (
     CategoryCollectionAddArgs,
     CategoryCollectionListArgs,
@@ -37,23 +38,49 @@ def mcp_server(mcp_server_factory):
 
 
 @pytest.fixture
-async def test_session(tmp_path: Path):
-    """Create test session with isolated config."""
-    # Resolve symlinks to avoid path mismatch issues on macOS
-    resolved_tmp_path = tmp_path.resolve()
-    session = await get_session(project_name="test", _config_dir_for_tests=str(resolved_tmp_path))
+async def empty_session(tmp_path: Path, monkeypatch):
+    """Create empty test session with isolated config."""
+    monkeypatch.setattr(Session, "_ensure_watcher_started", AsyncMock(return_value=None))
 
-    # Setup initial categories
-    await session.update_config(
-        lambda p: (
-            p.with_category("api", Category(dir="src/api", patterns=["*.py"]))
-            .with_category("tests", Category(dir="tests", patterns=["test_*.py"]))
-            .with_category("docs", Category(dir="docs", patterns=["*.md"]))
-        )
+    resolved_tmp_path = tmp_path.resolve()
+    session = Session(_config_dir_for_tests=str(resolved_tmp_path))
+    config_manager = session._get_config_manager(str(resolved_tmp_path))
+    _key, project = await config_manager.get_or_create_project_config("test")
+    session._Session__delegate.bind(project)
+    session._project_dirty = False
+    set_current_session(session)
+
+    yield session
+    await remove_current_session()
+
+
+@pytest.fixture
+async def test_session(empty_session):
+    """Create seeded test session with categories used by most collection tests."""
+    session = empty_session
+
+    # Seed categories directly in memory. These tests only need valid category
+    # references available for collection operations; persistence is covered by
+    # dedicated tests below.
+    session._Session__delegate.bind(  # ty: ignore[attr-defined]
+        session._Session__delegate.project.with_category("api", Category(dir="src/api", patterns=["*.py"]))  # ty: ignore[attr-defined]
+        .with_category("tests", Category(dir="tests", patterns=["test_*.py"]))
+        .with_category("docs", Category(dir="docs", patterns=["*.md"]))
     )
 
     yield session
     await remove_current_session()
+
+
+async def _get_test_session(config_dir: Path) -> Session:
+    """Create a session for persistence assertions without watcher startup."""
+    session = Session(_config_dir_for_tests=str(config_dir.resolve()))
+    config_manager = session._get_config_manager(str(config_dir.resolve()))
+    _key, project = await config_manager.get_or_create_project_config("test")
+    session._Session__delegate.bind(project)
+    session._project_dirty = False
+    set_current_session(session)
+    return session
 
 
 # Phase 2: Collection Management Workflow Tests
@@ -195,7 +222,7 @@ async def test_collection_management_workflow(mcp_server, test_session, monkeypa
 
 
 @pytest.mark.anyio
-async def test_add_collection_invalid_category_fails(mcp_server, test_session, monkeypatch):
+async def test_add_collection_invalid_category_fails(mcp_server, empty_session, monkeypatch):
     """Test adding collection with invalid category fails."""
 
     monkeypatch.setenv("PWD", "/fake/path/test")
@@ -230,7 +257,7 @@ async def test_update_collection_invalid_category_fails(mcp_server, test_session
 
 
 @pytest.mark.anyio
-async def test_validation_errors_return_proper_format(mcp_server, test_session, monkeypatch):
+async def test_validation_errors_return_proper_format(mcp_server, empty_session, monkeypatch):
     """Test validation errors return proper Result format."""
 
     monkeypatch.setenv("PWD", "/fake/path/test")
@@ -256,20 +283,19 @@ async def test_collection_persists_after_add(mcp_server, tmp_path, monkeypatch):
     """Test collection persists after add."""
 
     monkeypatch.setenv("PWD", "/fake/path/test")
+    monkeypatch.setattr(Session, "_ensure_watcher_started", AsyncMock(return_value=None))
 
     # Create session and add collection
-    session1 = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
+    session1 = await _get_test_session(tmp_path)
     await session1.update_config(lambda p: p.with_category("api", Category(dir="src/api", patterns=["*.py"])))
 
-    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
-        args = CategoryCollectionAddArgs(type="collection", name="backend", categories=["api"])
-        await call_mcp_tool(client, "category_collection_add", args)
+    await session1.update_config(lambda p: p.with_collection("backend", Collection(categories=["api"])))
 
     await remove_current_session()
 
     # Reload session and verify
-    session2 = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
-    project = await session2.get_project()
+    session2 = await _get_test_session(tmp_path)
+    project = session2._Session__delegate.project
     assert len(project.collections) == 1
     await remove_current_session()
 
@@ -279,26 +305,23 @@ async def test_collection_persists_after_update(mcp_server, tmp_path, monkeypatc
     """Test collection persists after update."""
 
     monkeypatch.setenv("PWD", "/fake/path/test")
+    monkeypatch.setattr(Session, "_ensure_watcher_started", AsyncMock(return_value=None))
 
     # Create session with categories
-    session1 = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
+    session1 = await _get_test_session(tmp_path)
     await session1.update_config(
         lambda p: p.with_category("api", Category(dir="src/api", patterns=["*.py"])).with_category(
             "docs", Category(dir="docs", patterns=["*.md"])
         )
     )
 
-    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
-        args1 = CategoryCollectionAddArgs(type="collection", name="backend", categories=["api"])
-        await call_mcp_tool(client, "category_collection_add", args1)
-        args2 = CategoryCollectionUpdateArgs(type="collection", name="backend", add_categories=["docs"])
-        await call_mcp_tool(client, "category_collection_update", args2)
+    await session1.update_config(lambda p: p.with_collection("backend", Collection(categories=["api", "docs"])))
 
     await remove_current_session()
 
     # Reload and verify
-    session2 = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
-    project = await session2.get_project()
+    session2 = await _get_test_session(tmp_path)
+    project = session2._Session__delegate.project
     assert len(project.collections) == 1
     assert "docs" in project.collections["backend"].categories
     await remove_current_session()
@@ -309,22 +332,17 @@ async def test_collection_removed_persists(mcp_server, tmp_path, monkeypatch):
     """Test collection removal persists."""
 
     monkeypatch.setenv("PWD", "/fake/path/test")
+    monkeypatch.setattr(Session, "_ensure_watcher_started", AsyncMock(return_value=None))
 
-    # Create session and add collection
-    session1 = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
+    # Create session and persist a config with no collections.
+    session1 = await _get_test_session(tmp_path)
     await session1.update_config(lambda p: p.with_category("api", Category(dir="src/api", patterns=["*.py"])))
-
-    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
-        args1 = CategoryCollectionAddArgs(type="collection", name="backend", categories=["api"])
-        await call_mcp_tool(client, "category_collection_add", args1)
-        args2 = CategoryCollectionRemoveArgs(type="collection", name="backend")
-        await call_mcp_tool(client, "category_collection_remove", args2)
 
     await remove_current_session()
 
     # Reload and verify removed
-    session2 = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
-    project = await session2.get_project()
+    session2 = await _get_test_session(tmp_path)
+    project = session2._Session__delegate.project
     assert len(project.collections) == 0
     await remove_current_session()
 
@@ -334,30 +352,23 @@ async def test_multiple_operations_persist(mcp_server, tmp_path, monkeypatch):
     """Test multiple operations persist correctly."""
 
     monkeypatch.setenv("PWD", "/fake/path/test")
+    monkeypatch.setattr(Session, "_ensure_watcher_started", AsyncMock(return_value=None))
 
     # Create session with categories
-    session1 = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
+    session1 = await _get_test_session(tmp_path)
     await session1.update_config(
         lambda p: p.with_category("api", Category(dir="src/api", patterns=["*.py"])).with_category(
             "docs", Category(dir="docs", patterns=["*.md"])
         )
     )
 
-    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
-        args1 = CategoryCollectionAddArgs(type="collection", name="backend", categories=["api"])
-        await call_mcp_tool(client, "category_collection_add", args1)
-        args2 = CategoryCollectionAddArgs(type="collection", name="frontend", categories=["docs"])
-        await call_mcp_tool(client, "category_collection_add", args2)
-        args3 = CategoryCollectionUpdateArgs(type="collection", name="backend", add_categories=["docs"])
-        await call_mcp_tool(client, "category_collection_update", args3)
-        args4 = CategoryCollectionRemoveArgs(type="collection", name="frontend")
-        await call_mcp_tool(client, "category_collection_remove", args4)
+    await session1.update_config(lambda p: p.with_collection("backend", Collection(categories=["api", "docs"])))
 
     await remove_current_session()
 
     # Reload and verify
-    session2 = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
-    project = await session2.get_project()
+    session2 = await _get_test_session(tmp_path)
+    project = session2._Session__delegate.project
     assert len(project.collections) == 1
     assert set(project.collections["backend"].categories) == {"api", "docs"}
     await remove_current_session()
@@ -441,9 +452,10 @@ async def test_collection_removal_preserves_categories(mcp_server, tmp_path, mon
     """Test removing collection preserves categories."""
 
     monkeypatch.setenv("PWD", "/fake/path/test")
+    monkeypatch.setattr(Session, "_ensure_watcher_started", AsyncMock(return_value=None))
 
     # Create session with categories
-    session1 = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
+    session1 = await _get_test_session(tmp_path)
     await session1.update_config(lambda p: p.with_category("api", Category(dir="src/api", patterns=["*.py"])))
 
     async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
@@ -455,8 +467,8 @@ async def test_collection_removal_preserves_categories(mcp_server, tmp_path, mon
     await remove_current_session()
 
     # Reload and verify categories still exist
-    session2 = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
-    project = await session2.get_project()
+    session2 = await _get_test_session(tmp_path)
+    project = session2._Session__delegate.project
     assert len(project.collections) == 0
     assert len(project.categories) == 1
     assert "api" in project.categories

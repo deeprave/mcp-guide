@@ -9,12 +9,13 @@ Tests category tools through the MCP protocol interface to verify:
 
 import json
 from pathlib import Path
+from unittest.mock import AsyncMock
 
 import pytest
 from fastmcp.client import Client, FastMCPTransport
 
 from mcp_guide.models import Category
-from mcp_guide.session import get_session, remove_current_session
+from mcp_guide.session import Session, remove_current_session, set_current_session
 from mcp_guide.tools.tool_category import (
     CategoryCollectionAddArgs,
     CategoryCollectionListArgs,
@@ -39,12 +40,29 @@ def mcp_server(mcp_server_factory):
 
 
 @pytest.fixture
-async def test_session(tmp_path: Path):
+async def test_session(tmp_path: Path, monkeypatch):
     """Create test session with isolated config."""
-    session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
+    monkeypatch.setattr(Session, "_ensure_watcher_started", AsyncMock(return_value=None))
+    session = Session(_config_dir_for_tests=str(tmp_path.resolve()))
+    config_manager = session._get_config_manager(str(tmp_path.resolve()))
+    _key, project = await config_manager.get_or_create_project_config("test")
+    session._Session__delegate.bind(project)
+    session._project_dirty = False
+    set_current_session(session)
 
     yield session
     await remove_current_session()
+
+
+async def _get_test_session(config_dir: Path) -> Session:
+    """Create a session for integration tests without watcher startup."""
+    session = Session(_config_dir_for_tests=str(config_dir.resolve()))
+    config_manager = session._get_config_manager(str(config_dir.resolve()))
+    _key, project = await config_manager.get_or_create_project_config("test")
+    session._Session__delegate.bind(project)
+    session._project_dirty = False
+    set_current_session(session)
+    return session
 
 
 # Basic CRUD Operations
@@ -226,9 +244,10 @@ async def test_category_error_scenarios(mcp_server, test_session, monkeypatch, s
 async def test_category_persists_after_add(mcp_server, tmp_path, monkeypatch):
     """Test category persists after add."""
     monkeypatch.setenv("PWD", "/fake/path/test")
+    monkeypatch.setattr(Session, "_ensure_watcher_started", AsyncMock(return_value=None))
 
     # Create session and add category
-    session1 = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
+    session1 = await _get_test_session(tmp_path)
 
     async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         args = CategoryCollectionAddArgs(type="category", name="api", dir="src/api", patterns=["*.py"])
@@ -237,8 +256,8 @@ async def test_category_persists_after_add(mcp_server, tmp_path, monkeypatch):
     await remove_current_session()
 
     # Reload session and verify
-    session2 = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
-    project = await session2.get_project()
+    session2 = await _get_test_session(tmp_path)
+    project = session2._Session__delegate.project
     assert len(project.categories) == 1
     assert "api" in project.categories
     assert project.categories["api"].dir == "src/api/"
@@ -251,9 +270,10 @@ async def test_category_persists_after_add(mcp_server, tmp_path, monkeypatch):
 async def test_category_persists_after_update(mcp_server, tmp_path, monkeypatch):
     """Test category persists after update."""
     monkeypatch.setenv("PWD", "/fake/path/test")
+    monkeypatch.setattr(Session, "_ensure_watcher_started", AsyncMock(return_value=None))
 
     # Create session and add/update category
-    session1 = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
+    session1 = await _get_test_session(tmp_path)
 
     async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         args1 = CategoryCollectionAddArgs(type="category", name="api", dir="src/api", patterns=["*.py"])
@@ -264,8 +284,8 @@ async def test_category_persists_after_update(mcp_server, tmp_path, monkeypatch)
     await remove_current_session()
 
     # Reload and verify
-    session2 = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
-    project = await session2.get_project()
+    session2 = await _get_test_session(tmp_path)
+    project = session2._Session__delegate.project
     assert len(project.categories) == 1
     assert "*.pyi" in project.categories["api"].patterns
 
@@ -276,9 +296,10 @@ async def test_category_persists_after_update(mcp_server, tmp_path, monkeypatch)
 async def test_category_removed_persists(mcp_server, tmp_path, monkeypatch):
     """Test category removal persists."""
     monkeypatch.setenv("PWD", "/fake/path/test")
+    monkeypatch.setattr(Session, "_ensure_watcher_started", AsyncMock(return_value=None))
 
     # Create session and add/remove category
-    session1 = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
+    session1 = await _get_test_session(tmp_path)
 
     async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         args1 = CategoryCollectionAddArgs(type="category", name="api", dir="src/api", patterns=["*.py"])
@@ -289,8 +310,8 @@ async def test_category_removed_persists(mcp_server, tmp_path, monkeypatch):
     await remove_current_session()
 
     # Reload and verify
-    session2 = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
-    project = await session2.get_project()
+    session2 = await _get_test_session(tmp_path)
+    project = session2._Session__delegate.project
     assert len(project.categories) == 0
 
     await remove_current_session()
@@ -300,9 +321,10 @@ async def test_category_removed_persists(mcp_server, tmp_path, monkeypatch):
 async def test_multiple_operations_persist(mcp_server, tmp_path, monkeypatch):
     """Test multiple operations persist correctly."""
     monkeypatch.setenv("PWD", "/fake/path/test")
+    monkeypatch.setattr(Session, "_ensure_watcher_started", AsyncMock(return_value=None))
 
     # Create session with multiple operations
-    session1 = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
+    session1 = await _get_test_session(tmp_path)
 
     async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         args1 = CategoryCollectionAddArgs(type="category", name="api", dir="src/api", patterns=["*.py"])
@@ -317,8 +339,8 @@ async def test_multiple_operations_persist(mcp_server, tmp_path, monkeypatch):
     await remove_current_session()
 
     # Reload and verify
-    session2 = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
-    project = await session2.get_project()
+    session2 = await _get_test_session(tmp_path)
+    project = session2._Session__delegate.project
     assert len(project.categories) == 1
     assert "*.pyi" in project.categories["api"].patterns
 
@@ -332,8 +354,9 @@ async def test_multiple_operations_persist(mcp_server, tmp_path, monkeypatch):
 async def test_category_removal_preserves_collections(mcp_server, tmp_path, monkeypatch):
     """Test removing category updates collections by removing the category reference."""
     monkeypatch.setenv("PWD", "/fake/path/test")
+    monkeypatch.setattr(Session, "_ensure_watcher_started", AsyncMock(return_value=None))
 
-    session1 = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
+    session1 = await _get_test_session(tmp_path)
 
     async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         args1 = CategoryCollectionAddArgs(type="category", name="api", dir="src/api", patterns=["*.py"])
@@ -350,8 +373,8 @@ async def test_category_removal_preserves_collections(mcp_server, tmp_path, monk
     await remove_current_session()
 
     # Reload and verify collection still exists but category reference is removed
-    session2 = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
-    project = await session2.get_project()
+    session2 = await _get_test_session(tmp_path)
+    project = session2._Session__delegate.project
     assert len(project.collections) == 1
     assert "backend" in project.collections
     assert "api" not in project.collections["backend"].categories  # Category reference removed
@@ -364,8 +387,9 @@ async def test_category_removal_preserves_collections(mcp_server, tmp_path, monk
 async def test_update_category_preserves_collections(mcp_server, tmp_path, monkeypatch):
     """Test updating category preserves collections."""
     monkeypatch.setenv("PWD", "/fake/path/test")
+    monkeypatch.setattr(Session, "_ensure_watcher_started", AsyncMock(return_value=None))
 
-    session1 = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
+    session1 = await _get_test_session(tmp_path)
 
     async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         args1 = CategoryCollectionAddArgs(type="category", name="api", dir="src/api", patterns=["*.py"])
@@ -380,8 +404,8 @@ async def test_update_category_preserves_collections(mcp_server, tmp_path, monke
     await remove_current_session()
 
     # Reload and verify both category and collection
-    session2 = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
-    project = await session2.get_project()
+    session2 = await _get_test_session(tmp_path)
+    project = session2._Session__delegate.project
     assert len(project.categories) == 1
     assert "*.pyi" in project.categories["api"].patterns
     assert len(project.collections) == 1
@@ -400,8 +424,9 @@ async def test_category_content_not_found(mcp_server, tmp_path, monkeypatch):
     from .test_data_generator import generate_test_files
 
     monkeypatch.setenv("PWD", "/fake/path/test")
+    monkeypatch.setattr(Session, "_ensure_watcher_started", AsyncMock(return_value=None))
 
-    session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
+    session = await _get_test_session(tmp_path)
     docroot = Path(tmp_path.resolve()) / "docs"
     generate_test_files(docroot)
 
@@ -423,8 +448,9 @@ async def test_category_content_empty_category(mcp_server, tmp_path, monkeypatch
     from .test_data_generator import generate_test_files
 
     monkeypatch.setenv("PWD", "/fake/path/test")
+    monkeypatch.setattr(Session, "_ensure_watcher_started", AsyncMock(return_value=None))
 
-    session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
+    session = await _get_test_session(tmp_path)
 
     # Add category with pattern that won't match any files
     await session.update_config(lambda p: p.with_category("guide", Category(dir="guide", patterns=["nomatch*"])))
@@ -449,8 +475,9 @@ async def test_category_content_success_single_file(mcp_server, tmp_path, monkey
     from .test_data_generator import generate_test_files
 
     monkeypatch.setenv("PWD", "/fake/path/test")
+    monkeypatch.setattr(Session, "_ensure_watcher_started", AsyncMock(return_value=None))
 
-    session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
+    session = await _get_test_session(tmp_path)
 
     # Add category with pattern matching single file
     await session.update_config(lambda p: p.with_category("lang", Category(dir="lang", patterns=["python*"])))
@@ -476,8 +503,9 @@ async def test_category_content_success_multiple_files(mcp_server, tmp_path, mon
     from .test_data_generator import generate_test_files
 
     monkeypatch.setenv("PWD", "/fake/path/test")
+    monkeypatch.setattr(Session, "_ensure_watcher_started", AsyncMock(return_value=None))
 
-    session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
+    session = await _get_test_session(tmp_path)
 
     # Add category with pattern matching multiple files
     await session.update_config(lambda p: p.with_category("context", Category(dir="context", patterns=["jira*"])))
@@ -504,8 +532,9 @@ async def test_category_content_pattern_override(mcp_server, tmp_path, monkeypat
     from .test_data_generator import generate_test_files
 
     monkeypatch.setenv("PWD", "/fake/path/test")
+    monkeypatch.setattr(Session, "_ensure_watcher_started", AsyncMock(return_value=None))
 
-    session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
+    session = await _get_test_session(tmp_path)
 
     # Add category with pattern matching all files
     await session.update_config(lambda p: p.with_category("guide", Category(dir="guide", patterns=["*"])))
@@ -529,34 +558,38 @@ async def test_category_content_pattern_override(mcp_server, tmp_path, monkeypat
 @pytest.mark.anyio
 async def test_category_content_file_read_error(mcp_server, tmp_path, monkeypatch):
     """Test error handling when file cannot be read."""
-    import os
-
     monkeypatch.setenv("PWD", "/fake/path/test")
 
-    session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
+    session = await _get_test_session(tmp_path)
 
     # Add category
     await session.update_config(lambda p: p.with_category("docs", Category(dir="docs", patterns=["*.md"])))
 
-    # Create test file and make it unreadable
+    # Create a matching file so discovery succeeds before the read step fails.
     docroot = Path(tmp_path.resolve()) / "docs" / "docs"
     docroot.mkdir(parents=True, exist_ok=True)
     test_file = docroot / "test.md"
     test_file.write_text("# Test Content")
-    os.chmod(test_file, 0o000)
 
-    try:
-        async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
-            args = CategoryContentArgs(expression="docs")
-            result = await call_mcp_tool(client, "category_content", args)
-            response = json.loads(result.content[0].text)  # type: ignore[union-attr]
+    async def mock_read_and_render_file_contents(
+        category_files, category_dir, docroot, template_context, category_prefix
+    ):
+        assert category_prefix == "docs"
+        return ["test.md: Permission denied"]
 
-            assert response["success"] is False
-            assert response["error_type"] == "file_read_error"
-            assert "test.md" in response["error"]
-    finally:
-        # Restore permissions for cleanup
-        os.chmod(test_file, 0o644)
+    monkeypatch.setattr(
+        "mcp_guide.tools.tool_category.read_and_render_file_contents",
+        mock_read_and_render_file_contents,
+    )
+
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
+        args = CategoryContentArgs(expression="docs")
+        result = await call_mcp_tool(client, "category_content", args)
+        response = json.loads(result.content[0].text)  # type: ignore[union-attr]
+
+        assert response["success"] is False
+        assert response["error_type"] == "file_read_error"
+        assert "test.md" in response["error"]
 
     await remove_current_session()
 
@@ -571,7 +604,7 @@ async def test_category_list_files_success(mcp_server, tmp_path, monkeypatch):
 
     monkeypatch.setenv("PWD", "/fake/path/test")
 
-    session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
+    session = await _get_test_session(tmp_path)
     docroot = Path(tmp_path.resolve()) / "docs"
     generate_test_files(docroot)
 
@@ -600,20 +633,17 @@ async def test_category_list_files_success(mcp_server, tmp_path, monkeypatch):
 @pytest.mark.anyio
 async def test_category_list_files_mixed_file_types(mcp_server, tmp_path, monkeypatch):
     """Test file listing with mixed file types and subdirectories."""
-    from .test_data_generator import generate_test_files
-
     monkeypatch.setenv("PWD", "/fake/path/test")
 
-    session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
+    session = await _get_test_session(tmp_path)
     docroot = Path(tmp_path.resolve()) / "docs"
-    generate_test_files(docroot)
 
     # Create additional mixed files
     guide_dir = docroot / "guide"
-    guide_dir.mkdir(exist_ok=True)
-    (guide_dir / "readme.md").write_text("# README")
+    guide_dir.mkdir(parents=True, exist_ok=True)
+    (guide_dir / "readme.md").write_text("# README\n")
     (guide_dir / "config.json.mustache").write_text('{"name": "{{name}}"}')
-    (guide_dir / "subdir").mkdir()
+    (guide_dir / "subdir").mkdir(parents=True, exist_ok=True)
     (guide_dir / "subdir" / "nested.txt").write_text("nested content")
 
     # Add category that matches all files
@@ -646,7 +676,7 @@ async def test_category_list_files_output_format(mcp_server, tmp_path, monkeypat
     """Test 2-column output format with path and size."""
     monkeypatch.setenv("PWD", "/fake/path/test")
 
-    session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
+    session = await _get_test_session(tmp_path)
     docroot = Path(tmp_path.resolve()) / "docs"
 
     # Create test files with known content
@@ -690,7 +720,7 @@ async def test_category_list_files_category_not_found_integration(mcp_server, tm
     """Test category not found error through MCP."""
     monkeypatch.setenv("PWD", "/fake/path/test")
 
-    session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
+    session = await _get_test_session(tmp_path)
 
     async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         args = CategoryListFilesArgs(category="nonexistent")
@@ -714,7 +744,7 @@ async def test_category_content_with_pattern_expression(mcp_server, tmp_path, mo
 
     monkeypatch.setenv("PWD", "/fake/path/test")
 
-    session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
+    session = await _get_test_session(tmp_path)
     docroot = Path(tmp_path.resolve()) / "docs"
     generate_test_files(docroot)
 
@@ -738,7 +768,7 @@ async def test_category_content_with_multiple_patterns(mcp_server, tmp_path, mon
 
     monkeypatch.setenv("PWD", "/fake/path/test")
 
-    session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
+    session = await _get_test_session(tmp_path)
     docroot = Path(tmp_path.resolve()) / "docs"
     generate_test_files(docroot)
 
@@ -763,7 +793,7 @@ async def test_category_content_with_multiple_expressions(mcp_server, tmp_path, 
 
     monkeypatch.setenv("PWD", "/fake/path/test")
 
-    session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
+    session = await _get_test_session(tmp_path)
     docroot = Path(tmp_path.resolve()) / "docs"
     generate_test_files(docroot)
 

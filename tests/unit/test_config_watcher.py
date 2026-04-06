@@ -7,6 +7,10 @@ import pytest
 
 from mcp_guide.watchers.config_watcher import ConfigWatcher
 
+POLL_INTERVAL = 0.02
+SETTLE_DELAY = 0.02
+DETECTION_DELAY = 0.12
+
 
 class TestConfigWatcher:
     """Test ConfigWatcher functionality."""
@@ -27,16 +31,16 @@ class TestConfigWatcher:
         config_file.write_text("initial: value")
 
         callback = Mock()
-        watcher = ConfigWatcher(str(config_file), callback, poll_interval=0.05)
+        watcher = ConfigWatcher(str(config_file), callback, poll_interval=POLL_INTERVAL)
 
         await watcher.start()
 
         # Modify file
-        await asyncio.sleep(0.05)
+        await asyncio.sleep(SETTLE_DELAY)
         config_file.write_text("modified: value")
 
         # Wait for detection (a few poll intervals)
-        await asyncio.sleep(0.2)
+        await asyncio.sleep(DETECTION_DELAY)
 
         await watcher.stop()
 
@@ -52,17 +56,17 @@ class TestConfigWatcher:
         callback1 = Mock()
         callback2 = Mock()
 
-        watcher = ConfigWatcher(str(config_file), callback1, poll_interval=0.05)
+        watcher = ConfigWatcher(str(config_file), callback1, poll_interval=POLL_INTERVAL)
         watcher.add_callback(callback2)
 
         await watcher.start()
 
         # Modify file
-        await asyncio.sleep(0.05)
+        await asyncio.sleep(SETTLE_DELAY)
         config_file.write_text("modified: value")
 
         # Wait for detection (a few poll intervals)
-        await asyncio.sleep(0.2)
+        await asyncio.sleep(DETECTION_DELAY)
 
         await watcher.stop()
 
@@ -71,8 +75,9 @@ class TestConfigWatcher:
         callback2.assert_called_with(str(config_file))
 
     @pytest.mark.anyio
-    async def test_callback_exceptions_dont_crash_watcher(self, tmp_path):
+    async def test_callback_exceptions_dont_crash_watcher(self, tmp_path, monkeypatch):
         """Callback exceptions don't crash the watcher."""
+        monkeypatch.setattr("mcp_guide.core.path_watcher.logger.exception", lambda *args, **kwargs: None)
         config_file = tmp_path / "config.yaml"
         config_file.write_text("initial: value")
 
@@ -81,17 +86,17 @@ class TestConfigWatcher:
 
         good_callback = Mock()
 
-        watcher = ConfigWatcher(str(config_file), failing_callback, poll_interval=0.05)
+        watcher = ConfigWatcher(str(config_file), failing_callback, poll_interval=POLL_INTERVAL)
         watcher.add_callback(good_callback)
 
         await watcher.start()
 
         # Modify file
-        await asyncio.sleep(0.05)
+        await asyncio.sleep(SETTLE_DELAY)
         config_file.write_text("modified: value")
 
         # Wait for detection (a few poll intervals)
-        await asyncio.sleep(0.2)
+        await asyncio.sleep(DETECTION_DELAY)
 
         await watcher.stop()
 

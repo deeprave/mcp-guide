@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 from _pytest.monkeypatch import MonkeyPatch
-from tests.helpers import create_test_session
+from tests.helpers import create_bound_test_session
 
 from mcp_guide.models import Category, Collection
 from mcp_guide.session import (
@@ -25,22 +25,20 @@ from mcp_guide.tools.tool_collection import (
 async def test_session_with_data(tmp_path_factory):
     """Module-level fixture providing a session with sample data."""
     tmp_path = tmp_path_factory.mktemp("collection_tests")
-    session = await create_test_session("test", _config_dir_for_tests=str(tmp_path))
-    await session.get_project()
+    session = await create_bound_test_session("test", _config_dir_for_tests=str(tmp_path))
     set_current_session(session)
 
-    # Add sample categories and collections for all tests
-    project = await session.get_project()
-    project.categories["docs"] = Category(dir="documentation", patterns=["*.md"])
-    project.categories["api"] = Category(dir="api", patterns=["*.json"])
-    project.categories["tests"] = Category(dir="tests", patterns=["*.py"])
-
-    # Add collections that tests expect
-    project.collections["backend"] = Collection(categories=["api", "tests"], description="Backend code")
-    project.collections["documentation"] = Collection(categories=["docs"], description="All docs")
-    project.collections["empty"] = Collection(categories=[], description="Empty collection")
-
-    await session.save_project(project)
+    # Seed the bound project directly. These tests need stable in-memory data
+    # for list/change behavior; persistence is covered elsewhere.
+    project = session._Session__delegate.project  # ty: ignore[attr-defined]
+    session._Session__delegate.bind(  # ty: ignore[attr-defined]
+        project.with_category("docs", Category(dir="documentation", patterns=["*.md"]))
+        .with_category("api", Category(dir="api", patterns=["*.json"]))
+        .with_category("tests", Category(dir="tests", patterns=["*.py"]))
+        .with_collection("backend", Collection(categories=["api", "tests"], description="Backend code"))
+        .with_collection("documentation", Collection(categories=["docs"], description="All docs"))
+        .with_collection("empty", Collection(categories=[], description="Empty collection"))
+    )
 
     yield session
     await remove_current_session()
@@ -58,41 +56,40 @@ class TestCollectionList:
     """Tests for collection_list tool."""
 
     @pytest.mark.anyio
-    async def test_verbose_true_returns_full_details(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
-        """verbose=True should return full collection details."""
-        monkeypatch.setenv("PWD", "/fake/path/test")
-
-        args = CollectionListArgs(verbose=True)
+    @pytest.mark.parametrize(
+        ("verbose", "expected"),
+        [
+            (
+                True,
+                [
+                    {
+                        "name": "backend",
+                        "categories": ["api", "tests"],
+                        "description": "Backend code",
+                    },
+                    {
+                        "name": "documentation",
+                        "categories": ["docs"],
+                        "description": "All docs",
+                    },
+                    {
+                        "name": "empty",
+                        "categories": [],
+                        "description": "Empty collection",
+                    },
+                ],
+            ),
+            (False, ["backend", "documentation", "empty"]),
+        ],
+        ids=["verbose", "names_only"],
+    )
+    async def test_collection_list_respects_verbose_flag(self, verbose: bool, expected: list[object]) -> None:
+        """collection_list should switch between detail and name-only output."""
+        args = CollectionListArgs(verbose=verbose)
         result = await internal_collection_list(args)
 
         assert result.success is True
-        assert len(result.value) == 3
-        assert result.value[0] == {
-            "name": "backend",
-            "categories": ["api", "tests"],
-            "description": "Backend code",
-        }
-        assert result.value[1] == {
-            "name": "documentation",
-            "categories": ["docs"],
-            "description": "All docs",
-        }
-        assert result.value[2] == {
-            "name": "empty",
-            "categories": [],
-            "description": "Empty collection",
-        }
-
-    @pytest.mark.anyio
-    async def test_verbose_false_returns_names_only(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
-        """verbose=False should return just collection names."""
-        monkeypatch.setenv("PWD", "/fake/path/test")
-
-        args = CollectionListArgs(verbose=False)
-        result = await internal_collection_list(args)
-
-        assert result.success is True
-        assert result.value == ["backend", "documentation", "empty"]
+        assert result.value == expected
 
     @pytest.mark.anyio
     async def test_empty_collections_returns_empty_list(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:

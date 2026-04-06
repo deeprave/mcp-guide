@@ -54,12 +54,19 @@ class TestGetOrCreateSession:
     @pytest.mark.anyio
     async def test_creates_session_with_explicit_name(self, tmp_path, monkeypatch):
         """Creates session when explicit project_name provided."""
+        from mcp_guide.models import Project
+
         original_session_init = Session.__init__
 
         def mock_session_init(self, *, _config_dir_for_tests=None):
             return original_session_init(self, _config_dir_for_tests=str(tmp_path))
 
+        async def mock_switch_project(self, project_name):
+            self._Session__delegate.bind(Project(name=project_name, categories={}, collections={}))
+
         monkeypatch.setattr(Session, "__init__", mock_session_init)
+        monkeypatch.setattr(Session, "switch_project", mock_switch_project)
+        monkeypatch.setattr(Session, "add_listener", lambda self, listener: None)
 
         session = await get_session(project_name="explicit-project", _config_dir_for_tests=str(tmp_path))
         assert session.project_name == "explicit-project"
@@ -67,12 +74,19 @@ class TestGetOrCreateSession:
     @pytest.mark.anyio
     async def test_creates_session_from_context(self, tmp_path, monkeypatch):
         """Creates session by detecting name from context."""
+        from mcp_guide.models import Project
+
         original_session_init = Session.__init__
 
         def mock_session_init(self, *, _config_dir_for_tests=None):
             return original_session_init(self, _config_dir_for_tests=str(tmp_path))
 
+        async def mock_switch_project(self, project_name):
+            self._Session__delegate.bind(Project(name=project_name, categories={}, collections={}))
+
         monkeypatch.setattr(Session, "__init__", mock_session_init)
+        monkeypatch.setattr(Session, "switch_project", mock_switch_project)
+        monkeypatch.setattr(Session, "add_listener", lambda self, listener: None)
 
         mock_ctx = MagicMock()
         mock_root = MagicMock()
@@ -237,6 +251,8 @@ class TestUnboundSession:
     @pytest.mark.anyio
     async def test_unbound_session_binds_when_ctx_arrives(self, tmp_path, monkeypatch):
         """Unbound session binds when get_session is called with ctx."""
+        from mcp_guide.models import Project
+
         await mcp_guide.session.remove_current_session()
         monkeypatch.delenv("PWD", raising=False)
         monkeypatch.delenv("CWD", raising=False)
@@ -246,7 +262,12 @@ class TestUnboundSession:
         def mock_session_init(self, *, _config_dir_for_tests=None):
             return original_session_init(self, _config_dir_for_tests=str(tmp_path))
 
+        async def mock_switch_project(self, project_name):
+            self._Session__delegate.bind(Project(name=project_name, categories={}, collections={}))
+
         monkeypatch.setattr(Session, "__init__", mock_session_init)
+        monkeypatch.setattr(Session, "switch_project", mock_switch_project)
+        monkeypatch.setattr(Session, "add_listener", lambda self, listener: None)
 
         # First call without ctx — creates unbound session
         session = await get_session(_config_dir_for_tests=str(tmp_path))
@@ -281,8 +302,10 @@ class TestTryBindFromRoots:
     @pytest.mark.anyio
     async def test_same_project_name_no_switch(self, tmp_path, monkeypatch):
         """Resolved name matches current project — switch_project not called."""
+        from mcp_guide.models import Project
+
         session = Session(_config_dir_for_tests=str(tmp_path))
-        await session.switch_project("my-project")
+        session._Session__delegate.bind(Project(name="my-project", categories={}, collections={}))
         monkeypatch.setattr("mcp_guide.mcp_context.project_name_from_roots", lambda roots: "my-project")
         session.switch_project = AsyncMock(side_effect=AssertionError("should not be called"))
 
@@ -292,19 +315,19 @@ class TestTryBindFromRoots:
         assert session.roots == ["file:///home/user/my-project"]
 
     @pytest.mark.anyio
-    async def test_switch_project_error_swallowed(self, tmp_path, monkeypatch, caplog):
+    async def test_switch_project_error_swallowed(self, tmp_path, monkeypatch):
         """switch_project raises — warning logged, returns current bound state."""
-        import logging
-
         session = Session(_config_dir_for_tests=str(tmp_path))
         monkeypatch.setattr("mcp_guide.mcp_context.project_name_from_roots", lambda roots: "bad-project")
         monkeypatch.setattr(session, "switch_project", AsyncMock(side_effect=ValueError("config error")))
+        warning = MagicMock()
+        monkeypatch.setattr("mcp_guide.session.logger.warning", warning)
 
-        caplog.set_level(logging.WARNING)
         result = await session.try_bind_from_roots(["file:///home/user/bad-project"])
 
         assert result is False  # still unbound
-        assert any("Failed to bind/switch" in r.message for r in caplog.records)
+        warning.assert_called_once()
+        assert "Failed to bind/switch" in warning.call_args.args[0]
 
     @pytest.mark.anyio
     async def test_binds_unbound_session(self, tmp_path, monkeypatch):

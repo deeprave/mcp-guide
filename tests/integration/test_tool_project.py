@@ -28,6 +28,7 @@ from tests.helpers import create_test_session
 _config_file_patch = None
 _docroot_patch = None
 _test_config_dir = None
+_seeded_session = None
 
 
 @pytest.fixture(scope="module")
@@ -52,36 +53,47 @@ def setup_config_isolation(tmp_path_factory):
     _docroot_patch.stop()
 
 
-@pytest.fixture(scope="module")
-async def test_session_with_data(setup_config_isolation):
-    """Module-level fixture providing a session with sample data."""
-    session = await create_test_session("test-project", _config_dir_for_tests=str(_test_config_dir))
-    await session.get_project()
-    set_current_session(session)
-
-    # Add sample category
-    args = CategoryAddArgs(name="docs", dir="documentation", patterns=["*.md"])
-    await internal_category_add(args)
-
-    yield session
-    await remove_current_session()
-    # Ensure all file handles are closed before cleanup
-    import asyncio
-    import gc
-
-    await asyncio.sleep(0)
-    gc.collect()
+async def _get_seeded_session():
+    """Create the shared seeded session lazily for stateful tests."""
+    global _seeded_session
+    if _seeded_session is None:
+        session = await create_test_session("test-project", _config_dir_for_tests=str(_test_config_dir))
+        await session.get_project()
+        set_current_session(session)
+        args = CategoryAddArgs(name="docs", dir="documentation", patterns=["*.md"])
+        await internal_category_add(args)
+        _seeded_session = session
+    return _seeded_session
 
 
 @pytest.fixture(autouse=True)
-async def setup_session(test_session_with_data):
-    """Auto-use fixture to ensure session is set for each test."""
-    set_current_session(test_session_with_data)
+async def setup_session(request):
+    """Ensure session is set for tests that exercise project state."""
+    if request.node.name.endswith("_registered"):
+        yield
+        return
+
+    session = await _get_seeded_session()
+    set_current_session(session)
     yield
     # Ensure all pending I/O completes before cleanup
     import asyncio
 
     await asyncio.sleep(0)
+
+
+@pytest.fixture(scope="module", autouse=True)
+async def cleanup_seeded_session():
+    """Release the shared seeded session after the module completes."""
+    yield
+    global _seeded_session
+    _seeded_session = None
+    await remove_current_session()
+    import asyncio
+    import gc
+
+    await asyncio.sleep(0)
+    gc.collect()
 
 
 @pytest.fixture(scope="module")
@@ -447,8 +459,6 @@ async def test_clone_replace_force(mcp_server):
         project.categories["docs"] = Category(dir="docs", patterns=["*.md"])
         await session.save_project(project)
 
-        # Skip verification - trust that the category was added
-
         # Create project_beta_force with different content
         await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_beta_force"))
 
@@ -458,24 +468,6 @@ async def test_clone_replace_force(mcp_server):
         project.categories["tests"] = Category(dir="tests", patterns=["test_*.py"])
         await session.save_project(project)
 
-        await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="test"))
-
-        # Ensure both projects exist and have the expected content before cloning
-        # Re-setup project_alpha_force to ensure it has docs category
-        await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_alpha_force"))
-        session = await get_session()
-        project = await session.get_project()
-        project.categories["docs"] = Category(dir="docs", patterns=["*.md"])
-        await session.save_project(project)
-
-        # Re-setup project_beta_force to ensure it has tests category
-        await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_beta_force"))
-        session = await get_session()
-        project = await session.get_project()
-        project.categories["tests"] = Category(dir="tests", patterns=["test_*.py"])
-        await session.save_project(project)
-
-        # Switch to neutral project for cloning
         await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="test"))
 
         result = await call_mcp_tool(
