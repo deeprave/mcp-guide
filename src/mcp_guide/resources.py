@@ -33,8 +33,10 @@ def _get_request_uri(ctx: Optional[Context]) -> str | None:
         return None
     params = getattr(request, "params", None)
     uri = getattr(params, "uri", None)
-    if isinstance(uri, str) and uri.startswith("guide://"):
-        return uri
+    if uri is not None:
+        uri_str = str(uri)
+        if uri_str.startswith("guide://"):
+            return uri_str
     return None
 
 

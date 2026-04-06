@@ -184,8 +184,14 @@ class TestResourceHandlers:
 
     @pytest.mark.anyio
     async def test_guide_command_resource_uses_full_request_uri(self, mcp_server: Any) -> None:
-        """Command resource should preserve query params from the MCP request URI."""
-        request = SimpleNamespace(params=SimpleNamespace(uri="guide://_status?verbose=true"))
+        """Command resource should preserve query params from the MCP request URI.
+
+        Uses AnyUrl (as the MCP protocol provides) rather than str, to match the real
+        type of ReadResourceRequestParams.uri and catch isinstance(uri, str) regressions.
+        """
+        from pydantic import AnyUrl
+
+        request = SimpleNamespace(params=SimpleNamespace(uri=AnyUrl("guide://_status?verbose=true")))
         mock_ctx = MagicMock()
         mock_ctx.request_context = SimpleNamespace(request=request)
         mock_result = Result.ok("status output")
