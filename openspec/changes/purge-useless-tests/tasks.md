@@ -80,13 +80,13 @@
 
 - Full suite:
   - before: `1754 passed in 74.27s`
-  - after: `1758 passed in 34.19s`
+  - after: `1759 passed in 53.41s`
 - Coverage:
   - before: `84%` (`9028` statements, `1463` missed)
-  - after: `84%` (`9032` statements, `1488` missed)
+  - after: `84%` (`9033` statements, `1478` missed)
 - Collected tests:
   - before: `1754`
-  - after: `1758`
+  - after: `1759`
 - Test files:
   - unchanged at `159` total
   - `95` unit-test files
@@ -96,5 +96,5 @@
 
 - If runtime reduction remains a priority, target the current slowest tests first:
   - `tests/integration/test_tool_registration.py::test_mcp_client_can_initialize_and_list_tools`
-- At the current best full-suite run, every other test was below the `0.2s` duration-reporting threshold.
+- The lowest experimental timing reached during implementation was faster than the final checked worktree, but those iterations were superseded by follow-up fixes that restored stronger coverage boundaries and test stability.
 - Any further work should be duration-driven rather than another broad low-signal pruning pass

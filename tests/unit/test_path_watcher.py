@@ -11,6 +11,15 @@ import pytest
 from mcp_guide.core.path_watcher import PathWatcher
 
 
+def _bump_mtime(path: str, previous_mtime: float | None = None) -> float:
+    """Force a deterministic mtime change for files or directories."""
+    stat = os.stat(path)
+    base = stat.st_mtime if previous_mtime is None else max(stat.st_mtime, previous_mtime)
+    target = base + 1.0
+    os.utime(path, (target, target))
+    return os.stat(path).st_mtime
+
+
 class TestPathWatcherBasic:
     """Test basic PathWatcher instantiation and validation."""
 
@@ -65,11 +74,12 @@ class TestPathWatcherChangeDetection:
 
             # Initialize
             await watcher.has_changed()
+            previous_mtime = os.stat(tmp_file.name).st_mtime
 
             # Modify file content
-            time.sleep(0.02)  # Ensure time difference
             with open(tmp_file.name, "w") as f:
                 f.write("modified content")
+            _bump_mtime(tmp_file.name, previous_mtime)
 
             # Check if change is detected
             has_changed = await watcher.has_changed()
@@ -96,7 +106,6 @@ class TestPathWatcherChangeDetection:
             with open(temp_name, "w") as f:
                 f.write("replaced content")
 
-            time.sleep(0.02)  # Ensure time difference
             os.rename(temp_name, original_name)
 
             # Check if change is detected
@@ -114,12 +123,13 @@ class TestPathWatcherChangeDetection:
 
             # Initialize
             await watcher.has_changed()
+            previous_mtime = os.stat(tmp_dir).st_mtime
 
             # Add a file to the directory
-            time.sleep(0.02)  # Ensure time difference
             test_file = os.path.join(tmp_dir, "new_file.txt")
             with open(test_file, "w") as f:
                 f.write("new file content")
+            _bump_mtime(tmp_dir, previous_mtime)
 
             # Check if change is detected
             has_changed = await watcher.has_changed()
@@ -161,11 +171,12 @@ class TestPathWatcherCallbackSystem:
 
             # Initialize
             await watcher.has_changed()
+            previous_mtime = os.stat(tmp_file.name).st_mtime
 
             # Modify file content
-            time.sleep(0.02)  # Ensure time difference
             with open(tmp_file.name, "w") as f:
                 f.write("modified content")
+            _bump_mtime(tmp_file.name, previous_mtime)
 
             # Check for changes (should trigger callback)
             await watcher.has_changed()
@@ -196,7 +207,6 @@ class TestPathWatcherCallbackSystem:
             with open(temp_name, "w") as f:
                 f.write("replaced content")
 
-            time.sleep(0.02)  # Ensure time difference
             os.rename(temp_name, original_name)
 
             # Check for changes (should trigger callback)
