@@ -7,7 +7,7 @@ import yaml
 
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.discovery.files import FileInfo
-from mcp_guide.models.exceptions import NoProjectError
+from mcp_guide.models.exceptions import CategoryNotFoundError, NoProjectError
 from mcp_guide.render import render_template
 from mcp_guide.render.context import TemplateContext
 from mcp_guide.render.frontmatter import (
@@ -227,7 +227,7 @@ async def _gather_policy_partials(
 
         try:
             policy_files = await gather_category_fileinfos(session, project, "policies", patterns=[f"{topic}/"])
-        except Exception:
+        except (CategoryNotFoundError, OSError):
             logger.warning("Failed to discover policy files for topic %r", topic, exc_info=True)
             policy_files = []
 
@@ -273,7 +273,7 @@ async def _gather_policy_partials(
                     logger.trace(
                         "_gather_policy_partials: %s rendered None (filtered by requirements?)", policy_file.path
                     )
-            except Exception:
+            except (OSError, RuntimeError):
                 logger.warning("Failed to render policy file %s for topic %r", policy_file.path, topic, exc_info=True)
 
         pre_partials[topic] = "\n\n".join(rendered_parts) if rendered_parts else await render_missing_policy(topic)

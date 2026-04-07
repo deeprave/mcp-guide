@@ -94,32 +94,32 @@ Prohibit sed, awk, and perl for this project
 
 | Policy | Description |
 |--------|-------------|
-| `strict` | Strong structural rules apply — no conditionals in tests, no raw loops, no mocks (default) |
-| `pragmatic` | Structural rules are guidance — mocks are permitted when useful |
+| `strict` | Strong structural rules apply — no conditionals in tests, no raw loops, no mocks |
+| `pragmatic` | Structural rules are guidance — mocks are permitted when useful (default) |
 | `minimal` | Test that things work — no structural rules beyond basic correctness |
 
 ### Quality (`quality/`)
 
 | Policy | Description |
 |--------|-------------|
-| `zero-tolerance` | All warnings are errors, coverage thresholds enforced (default) |
-| `standard` | Warnings are addressed; coverage expectations are reasonable but not absolute |
+| `zero-tolerance` | All warnings are errors, coverage thresholds enforced |
+| `standard` | Warnings are addressed; coverage expectations are reasonable but not absolute (default) |
 | `relaxed` | Focus on correctness — coverage not enforced, warnings are informational |
 
 ### Review (`review/`)
 
 | Policy | Description |
 |--------|-------------|
-| `thorough` | Full review covering correctness, security, and all active methodology principles (default) |
-| `focused` | Review correctness and security only — skip methodology and style |
+| `thorough` | Full review covering correctness, security, and all active methodology principles |
+| `focused` | Review correctness and security only — skip methodology and style (default) |
 | `minimal` | Quick sanity check for obvious bugs and security issues only |
 
 ### Git Operations (`git/ops/`)
 
 | Policy | Description |
 |--------|-------------|
-| `no-git-ops` | Agent must never perform git operations autonomously (default) |
-| `conservative` | Agent may use read-only git operations — no writes unless explicitly requested |
+| `no-git-ops` | Agent must never perform git operations autonomously |
+| `conservative` | Agent may use read-only git operations — no writes unless explicitly requested (default) |
 | `agent-assisted` | Agent may stage and commit with explicit per-request consent — no push without instruction |
 | `agent-autonomous` | Agent may perform all git operations including push without per-operation consent |
 
@@ -127,15 +127,15 @@ Prohibit sed, awk, and perl for this project
 
 | Policy | Description |
 |--------|-------------|
-| `imperative` | Imperative mood with structured body (default) |
-| `conventional` | Conventional Commits format — enables automated changelogs and semantic versioning |
+| `imperative` | Imperative mood with structured body |
+| `conventional` | Conventional Commits format — enables automated changelogs and semantic versioning (default) |
 | `minimal` | Subject line only — no format rules beyond that |
 
 ### Pull Requests (`pr/`)
 
 | Policy | Description |
 |--------|-------------|
-| `github-standard` | Structured four-section format: overview, changes, impact, notes (default) |
+| `github-standard` | Structured four-section format: overview, changes, impact, notes |
 | `minimal` | Title and brief summary only |
 | `no-prs` | This team doesn't use pull requests — commit directly |
 

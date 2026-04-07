@@ -1,12 +1,12 @@
 ---
 type: agent/instruction
 description: >
-  Git Policy: Conservative (Read-Only). The agent may use read-only git operations but must not modify the working tree or history unless explicitly requested.
+  Git Policy: Conservative (Read-Only). The agent may use read-only git operations but must not modify the index, working tree, or history unless explicitly requested by the user.
 ---
 # Git Policy: Conservative (Read-Only)
 
-The agent may use read-only git operations but must not modify the working tree
-or history UNLESS EXPLICITLY REQUESTED.
+The agent may use read-only git operations but must not modify the index, working
+tree, or history UNLESS EXPLICITLY REQUESTED BY THE USER.
 
 ## Permitted
 
@@ -14,12 +14,13 @@ or history UNLESS EXPLICITLY REQUESTED.
 - `git branch --list`, `git tag --list`
 - `git stash list` (read only)
 
-## Forbidden
+## Forbidden Unless Explicitly Requested
 
-- `git add`, `git commit`, `git push`
-- `git reset`, `git restore`, `git checkout`, `git switch`
-- `git rebase`, `git merge`, `git stash push/pop`
-- Any operation that modifies the index, working tree, or history
+- `git add` — staging changes
+- `git commit` — creating commits
+- `git push` — updating remote branches
+- `git reset`, `git restore`, `git checkout`, `git switch` — modifying working tree or HEAD
+- `git rebase`, `git merge`, `git stash push/pop` — rewriting or modifying history
 
 ## Git MCP
 
