@@ -19,6 +19,7 @@ from mcp_guide.result import Result
 from mcp_guide.result_constants import (
     AGENT_INFO,
     AGENT_INSTRUCTION,
+    INSTRUCTION_MISSING_POLICY,
     USER_INFO,
 )
 
@@ -154,6 +155,101 @@ def combine_instructions(instructions_with_importance: list[tuple[str, bool]]) -
     return combined or None
 
 
+async def _gather_policy_partials(
+    file_info: FileInfo,
+    template_context: TemplateContext,
+    base_dir: Path,
+    project_flags: dict[str, Any],
+) -> dict[str, str]:
+    """Pre-render policy partials for a template that declares a `policies:` frontmatter key.
+
+    For each topic declared in `policies:`, discovers matching documents from the `policies`
+    category using sub-path filtering, renders each one with per-document context variables,
+    and returns a dict of {topic: rendered_content} suitable for passing as pre_partials to
+    render_template.
+
+    Returns an empty dict when the template has no `policies:` key, or when session/project
+    are not available on the template_context.
+    """
+    # Deferred import to avoid circular dependency (gathering imports utils)
+    from mcp_guide.content.gathering import gather_category_fileinfos
+    from mcp_guide.render.frontmatter import parse_content_with_frontmatter
+
+    # Quick-parse frontmatter to detect `policies:` key
+    try:
+        raw = await file_info.read_raw()
+    except (OSError, FileNotFoundError):
+        return {}
+
+    parsed = parse_content_with_frontmatter(raw)
+    policy_topics = parsed.frontmatter.get("policies")
+    if not policy_topics or not isinstance(policy_topics, list):
+        return {}
+
+    session = getattr(template_context, "session", None)
+    project = getattr(template_context, "project", None)
+    if session is None or project is None:
+        return {}
+
+    policies_category = getattr(project, "categories", {}).get("policies")
+    if policies_category is None:
+        return {}
+
+    docroot = Path(await session.get_docroot())
+    policy_base_dir = docroot / policies_category.dir
+
+    pre_partials: dict[str, str] = {}
+
+    for topic in policy_topics:
+        if not isinstance(topic, str):
+            continue
+
+        try:
+            policy_files = await gather_category_fileinfos(session, project, "policies", patterns=[f"{topic}/"])
+        except Exception:
+            logger.warning(f"Failed to discover policy files for topic {topic!r}")
+            policy_files = []
+
+        if not policy_files:
+            pre_partials[topic] = render_missing_policy(topic)
+            continue
+
+        rendered_parts: list[str] = []
+        for policy_file in policy_files:
+            policy_file.resolve(policy_base_dir, docroot)
+            policy_context = template_context.new_child(
+                {
+                    "policy_topic": topic,
+                    "policy_category": "policies",
+                    "policy_path": str(policy_file.path),
+                }
+            )
+            try:
+                rendered = await render_template(
+                    file_info=policy_file,
+                    base_dir=policy_base_dir,
+                    project_flags=project_flags,
+                    context=policy_context,
+                )
+                if rendered is not None:
+                    rendered_parts.append(rendered.content)
+            except Exception:
+                logger.warning(f"Failed to render policy file {policy_file.path} for topic {topic!r}")
+
+        pre_partials[topic] = "\n\n".join(rendered_parts) if rendered_parts else render_missing_policy(topic)
+
+    return pre_partials
+
+
+def render_missing_policy(topic: str) -> str:
+    """Return placeholder partial content for a policy topic with no active selection.
+
+    Used when a template declares a policy dependency but no documents match the
+    project's configured patterns for that topic.
+    """
+    return f"{INSTRUCTION_MISSING_POLICY}\n\nTopic: `{topic}`"
+
+
 def resolve_patterns(override_pattern: Optional[str], default_patterns: list[str]) -> list[str]:
     """Resolve patterns with an optional override.
 
@@ -242,12 +338,17 @@ async def read_and_render_file_contents(
                     continue  # Skip file on validation error
 
                 try:
+                    # Pre-render any policy partials declared in the template's frontmatter
+                    pre_partials = await _gather_policy_partials(
+                        file_info, template_context, base_dir, requirements_context
+                    )
                     # Use the render_template API (handles parsing and requirements checking)
                     rendered = await render_template(
                         file_info=file_info,
                         base_dir=base_dir,
                         project_flags=requirements_context,
                         context=template_context,
+                        pre_partials=pre_partials or None,
                     )
                 except Exception as e:
                     # Template rendering raised an exception - log with full context

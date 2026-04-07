@@ -242,3 +242,43 @@ class TestResourceHandlers:
             parsed = _parse_result(result)
             assert parsed["success"] is False
             assert parsed["error"] == "Command not found"
+
+    @pytest.mark.anyio
+    async def test_policies_topic_uri_appends_trailing_slash(self, mcp_server: Any) -> None:
+        """guide://policies/<topic> passes pattern with trailing slash for sub-path filtering."""
+        mock_ctx = MagicMock()
+        mock_result = Result.ok("policy content")
+
+        with patch(
+            "mcp_guide.resources.internal_get_content", new=AsyncMock(return_value=mock_result)
+        ) as mock_get_content:
+            from mcp_guide.resources import guide_resource
+
+            result = await guide_resource("policies", "git/ops", mock_ctx)
+
+            mock_get_content.assert_called_once()
+            args_call, _ = mock_get_content.call_args
+            content_args = args_call[0]
+            assert content_args.expression == "policies"
+            assert content_args.pattern == "git/ops/"
+            parsed = _parse_result(result)
+            assert parsed["success"] is True
+
+    @pytest.mark.anyio
+    async def test_policies_without_topic_does_not_append_slash(self, mcp_server: Any) -> None:
+        """guide://policies with no topic passes pattern=None as normal."""
+        mock_ctx = MagicMock()
+        mock_result = Result.ok("all policies")
+
+        with patch(
+            "mcp_guide.resources.internal_get_content", new=AsyncMock(return_value=mock_result)
+        ) as mock_get_content:
+            from mcp_guide.resources import guide_resource
+
+            result = await guide_resource("policies", "", mock_ctx)
+
+            mock_get_content.assert_called_once()
+            args_call, _ = mock_get_content.call_args
+            content_args = args_call[0]
+            assert content_args.expression == "policies"
+            assert content_args.pattern is None

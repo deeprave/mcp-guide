@@ -18,6 +18,7 @@ async def render_template(
     base_dir: Path,
     project_flags: Dict[str, Any],
     context: Optional[TemplateContext] = None,
+    pre_partials: Optional[Dict[str, str]] = None,
 ) -> Optional[RenderedContent]:
     """Render a template file with frontmatter and context.
 
@@ -70,6 +71,7 @@ async def render_template(
             file_path=str(file_info.path),
             metadata=dict(processed.frontmatter),
             base_dir=base_dir,
+            partials=pre_partials,
         )
         if not result.success:
             raise RuntimeError(f"Template rendering failed: {result.error}")
