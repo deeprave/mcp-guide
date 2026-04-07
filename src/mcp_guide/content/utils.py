@@ -231,12 +231,7 @@ async def _gather_policy_partials(
             logger.warning("Failed to discover policy files for topic %r", topic, exc_info=True)
             policy_files = []
 
-        logger.trace(
-            "_gather_policy_partials: topic=%r matched %d file(s): %s",
-            topic,
-            len(policy_files),
-            [str(f.path) for f in policy_files],
-        )
+        logger.trace("_gather_policy_partials: topic=%r matched %d file(s)", topic, len(policy_files))
 
         if not policy_files:
             logger.trace("_gather_policy_partials: topic=%r — no files found, using placeholder", topic)
