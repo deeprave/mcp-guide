@@ -653,6 +653,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#methodology-and-policies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Methodology and Policies
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -905,6 +916,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#methodology-and-policies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Methodology and Policies
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -928,7 +950,7 @@
 <h1 id="profiles">Profiles<a class="headerlink" href="#profiles" title="Permanent link">&para;</a></h1>
 <p>Profiles give you quick project setup with pre-configured categories and collections.</p>
 <h2 id="what-are-profiles">What are Profiles?<a class="headerlink" href="#what-are-profiles" title="Permanent link">&para;</a></h2>
-<p>Think of profiles as templates for your project. Instead of manually creating categories and collections, you can apply a profile that sets everything up for you. There are profiles for common scenarios like Python development, TDD workflows, Jira integration, and various programming languages and frameworks.</p>
+<p>Think of profiles as templates for your project. Instead of manually creating categories and collections, you can apply a profile that sets everything up for you. There are profiles for common scenarios like Python development, Jira integration, and various programming languages and frameworks.</p>
 <h2 id="discovering-profiles">Discovering Profiles<a class="headerlink" href="#discovering-profiles" title="Permanent link">&para;</a></h2>
 <p>Ask your AI agent what's available:</p>
 <div class="codehilite"><pre><span></span><code>list all project profiles
@@ -938,20 +960,20 @@ What profiles are available?
 <p>The agent will show you available profiles and what they add to your project.</p>
 <h2 id="using-profiles">Using Profiles<a class="headerlink" href="#using-profiles" title="Permanent link">&para;</a></h2>
 <p>Just ask your AI agent to apply them:</p>
-<div class="codehilite"><pre><span></span><code><span class="nv">Apply</span><span class="w"> </span><span class="nv">the</span><span class="w"> </span><span class="nv">python</span><span class="w"> </span><span class="nv">profile</span>
-<span class="nv">Use</span><span class="w"> </span><span class="nv">the</span><span class="w"> </span><span class="nv">tdd</span><span class="w"> </span><span class="nv">profile</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="nv">this</span><span class="w"> </span><span class="nv">project</span>
-<span class="nv">Add</span><span class="w"> </span><span class="nv">the</span><span class="w"> </span><span class="nv">jira</span><span class="w"> </span><span class="nv">profile</span>
+<div class="codehilite"><pre><span></span><code>Apply the python profile
+Add the jira profile
 </code></pre></div>
 
 <h2 id="how-profiles-work">How Profiles Work<a class="headerlink" href="#how-profiles-work" title="Permanent link">&para;</a></h2>
 <p>Profiles are <strong>additive</strong> - they add categories and collections without removing existing ones. You can apply multiple profiles to build up your project configuration:</p>
 <div class="codehilite"><pre><span></span><code>Apply the python profile
-Apply the tdd profile
 Apply the jira profile
 </code></pre></div>
 
-<p>This gives you Python + TDD + Jira setup combined.</p>
+<p>This gives you Python + Jira setup combined.</p>
 <p>Applying the same profile multiple times has no effect - profiles are idempotent.</p>
+<h2 id="methodology-and-policies">Methodology and Policies<a class="headerlink" href="#methodology-and-policies" title="Permanent link">&para;</a></h2>
+<p>Methodology preferences (TDD, BDD, SOLID, YAGNI, DDD) are no longer configured through profiles. Instead, they are selected through the <code>policies</code> category. See <a href="../policies/">Policy Selection</a> for details.</p>
 
 
 
