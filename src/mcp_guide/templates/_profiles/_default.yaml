@@ -6,6 +6,7 @@ categories:
     dir: guide/
     patterns:
       - general
+      - methodology
     description: Development Guidelines
 
   - name: docs
@@ -37,7 +38,13 @@ categories:
 
   - name: policies
     dir: policies/
-    patterns: []
+    patterns:
+      - git/commit/conventional
+      - git/ops/conservative
+      - methodology/yagni
+      - quality/standard
+      - review/focused
+      - testing/pragmatic
     description: Optional policy documents for project-specific preferences and choices
 
 collections:

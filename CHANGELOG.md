@@ -5,22 +5,35 @@ All notable changes to mcp-guide will be documented in this file.
 ## [1.2.0] - TBD
 
 ### Added
+- Policy selection — a new `policies` category for optional steering documents organised by topic (e.g. methodology, git operations, commit format)
+  - 70+ built-in policy documents covering common preferences across languages and workflows
+  - Selected policies are automatically injected into relevant templates at render time
+  - When no policy is selected for a topic, the agent proceeds without enforcing a preference
+- Sub-path topic filtering — category patterns can be narrowed by topic prefix without overriding the user's configured selections
+- Exploration workflow phase — a new non-ordered `exploration` phase for research-oriented work before committing to a plan, with a dedicated `:explore` command
+- Document ingest and export workflows can take advantage of background processing, when available
 - Custom document ingest from local files, direct content, and URLs
 - Stored document support across content discovery and document management commands
 - Full `guide://` URI support through both MCP resources and the `read_resource` tool
 - Codex support via `guide://` command URIs for prompt-style command access
 - `roots/list_changed` handling for better multi-project IDE support
+- Policy selection documentation added to user guide
 
 ### Breaking
 - Minimum Python version raised from 3.11 to 3.12
   - `PurePosixPath.full_match()` required for stored document pattern matching
+- Methodology profiles (`tdd`, `bdd`, `yagni`, `solid`) removed — superseded by policy selection
+  - Use the `policies` category to select methodology preferences instead
 
 ### Changed
+- Core templates no longer embed opinionated methodology and git choices — these are now injected from the selected policies
+- `guide/methodology` replaces the individual methodology guide documents; content is driven by the project's selected methodology policies
 - Migrated from vendored `mcp.server.fastmcp` to standalone `fastmcp` package
 - Stored document matching now behaves consistently with filesystem content discovery
 - `category_list_files` can report filesystem files, stored documents, or both
 - Server startup no longer requires project context to be immediately available, improving reliability across clients and IDEs
 - Consistent error responses across all tools when no project has been resolved yet
+- Verbose project info now lists category patterns on separate lines for readability
 
 ### Fixed
 - Stale document writes are now rejected atomically during mtime-based upserts

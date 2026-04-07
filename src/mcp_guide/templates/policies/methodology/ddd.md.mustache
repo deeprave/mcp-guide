@@ -16,6 +16,27 @@ The agent structures code around the core domain model and domain language.
 - Keep domain logic free from infrastructure concerns
 - Anti-corruption layers at context boundaries
 
+## Aggregate design rules
+
+1. Protect business invariants within aggregate boundaries
+2. Design small aggregates
+3. Reference other aggregates by identity only — not by object reference
+4. Update one aggregate per transaction
+
+## Context mapping patterns
+
+- **Partnership**: close collaboration between contexts
+- **Shared Kernel**: small shared model agreed by both teams
+- **Customer-Supplier**: downstream depends on upstream; upstream serves downstream
+- **Anticorruption Layer**: translate between contexts to protect your model
+- **Conformist**: downstream conforms to upstream without translation
+
+## When to use DDD
+
+**Good fit**: complex business logic, domain experts available, long-lived systems, core competitive advantage
+
+**Poor fit**: simple CRUD, data-centric systems with little domain complexity, short-term projects
+
 ## Rationale
 
 DDD is valuable for complex domains where the business model drives software

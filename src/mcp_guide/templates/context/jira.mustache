@@ -1,10 +1,12 @@
 ---
 type: agent/information
+policies:
+  - methodology
 ---
 {{h1}}MCP Atlassian Context Instructions
 
 {{b}}Project Type:{{b}} Kanban
-{{b}}Approach:{{b}} Minimalist, SOLID, YAGNI*
+{{b}}Approach:{{b}} Minimalist
 {{b}}Issue Management{{b}}: This is a JIRA managed project
 
 {{h2}}Project Workflow Directories
@@ -41,3 +43,7 @@ It should comply with the tasks format and methodology required for this project
 
 If using TDD, the checklist should break down tasks based on the pattern:
   - RED(Test) -> GREEN(Implement) -> REFACTOR(Improve)
+
+{{h2}}Methodology
+
+{{> methodology}}

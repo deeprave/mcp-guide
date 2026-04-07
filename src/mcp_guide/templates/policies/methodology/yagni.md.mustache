@@ -24,6 +24,23 @@ These phrases indicate a likely YAGNI violation:
 - "Let's make it configurable"
 - "What if we need to..."
 
+## What YAGNI does NOT mean
+
+YAGNI does not mean skipping good design or cutting corners:
+
+- Do not skip basic error handling
+- Do not avoid necessary abstractions
+- Do not write brittle or tightly coupled code
+- Do not ignore known, concrete requirements
+- Do refactor — YAGNI and refactoring work together
+
+## When NOT to apply YAGNI
+
+- Ignoring requirements that are explicitly stated
+- Skipping error handling for conditions that clearly can occur
+- Avoiding an abstraction that already has two concrete uses
+- Writing code that is knowingly unmaintainable
+
 ## Rationale
 
 Speculative features cost development time, increase complexity, and are often

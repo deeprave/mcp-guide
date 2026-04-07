@@ -81,12 +81,8 @@ To see what's in a category, just ask your AI:
 
 Files in the guide category:
 
-1. bdd (1,811 bytes) - Principles and practices of BDD
-2. general (1,946 bytes) - General development guidelines for AI agents
-3. tdd (1,329 bytes) - Principles and practices of TDD
-4. yagni (2,815 bytes) - Principle of avoiding unnecessary complexity
-5. ddd (2,504 bytes) - Principles and patterns of Domain-Driven Design
-6. solid (2,237 bytes) - Five principles of object-oriented design
+1. general (1,946 bytes) - General development guidelines for AI agents
+2. methodology - Project methodology policy (injected from selected policies)
 ```
 
 All files in every category are available to all projects - categories are shared across them. Patterns, however, are defined per-project, so category patterns select the most relevant files for each project. This means referencing a category selectively delivers only the documents most relevant to that project.

@@ -177,6 +177,7 @@ Now that you understand the basics:
 - Learn about [Guide URIs](guide-uris.md) for universal content access
 - Check out [Stored Documents](stored-documents.md) to add external content
 - Check out [Profiles](profiles.md) for pre-configured setups
+- Configure [Policies](policies.md) to set your methodology, git, testing, and style preferences
 - Learn about [Commands](commands.md) for specialised functionality
 - Review [Workflows](workflows.md) if you want structured development phases
 - See [Feature Flags](feature-flags.md) to customise behaviour
