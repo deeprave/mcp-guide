@@ -199,9 +199,8 @@ async def test_trailing_slash_filters_to_matching_configured_patterns(tmp_path):
     subdir.mkdir(parents=True)
     (category_dir / "git" / "ops" / "conservative.md").write_text("# Conservative")
     (category_dir / "git" / "ops" / "agent-assisted.md").write_text("# Agent")
-    (category_dir / "testing" / "strict.md").write_text("# Strict") if (category_dir / "testing").mkdir(
-        parents=True
-    ) or True else None
+    (category_dir / "testing").mkdir(parents=True)
+    (category_dir / "testing" / "strict.md").write_text("# Strict")
 
     project = Project(
         name="test",
@@ -302,22 +301,25 @@ async def test_trailing_slash_multiple_matching_patterns(tmp_path):
 # --- Tests for render_missing_policy ---
 
 
-def test_render_missing_policy_contains_constant():
+@pytest.mark.anyio
+async def test_render_missing_policy_contains_constant():
     """Placeholder must contain INSTRUCTION_MISSING_POLICY."""
-    result = render_missing_policy("git/ops")
+    result = await render_missing_policy("git/ops")
     assert INSTRUCTION_MISSING_POLICY in result
 
 
-def test_render_missing_policy_contains_topic():
+@pytest.mark.anyio
+async def test_render_missing_policy_contains_topic():
     """Placeholder must contain the topic name."""
-    result = render_missing_policy("testing")
+    result = await render_missing_policy("testing")
     assert "testing" in result
 
 
-def test_render_missing_policy_different_topics():
+@pytest.mark.anyio
+async def test_render_missing_policy_different_topics():
     """Each topic produces distinct output."""
-    a = render_missing_policy("git/ops")
-    b = render_missing_policy("testing")
+    a = await render_missing_policy("git/ops")
+    b = await render_missing_policy("testing")
     assert a != b
 
 
@@ -347,7 +349,7 @@ async def test_gather_policy_partials_no_policies_key_returns_empty(tmp_path):
         name="doc.md",
     )
     ctx = _make_template_context()
-    result = await _gather_policy_partials(file_info, ctx, tmp_path, {})
+    result = await _gather_policy_partials(file_info, ctx, {})
     assert result == {}
 
 
@@ -365,7 +367,7 @@ async def test_gather_policy_partials_no_session_returns_empty(tmp_path):
         name="doc.md",
     )
     ctx = _make_template_context()  # no session
-    result = await _gather_policy_partials(file_info, ctx, tmp_path, {})
+    result = await _gather_policy_partials(file_info, ctx, {})
     assert result == {}
 
 
@@ -392,7 +394,7 @@ async def test_gather_policy_partials_no_match_returns_placeholder(tmp_path):
     (tmp_path / "policies" / "testing" / "strict.md").write_text("# Strict")
 
     ctx = _make_template_context(session=session, project=project)
-    result = await _gather_policy_partials(file_info, ctx, tmp_path, {})
+    result = await _gather_policy_partials(file_info, ctx, {})
 
     assert "git/ops" in result
     assert INSTRUCTION_MISSING_POLICY in result["git/ops"]
@@ -434,7 +436,7 @@ async def test_gather_policy_partials_matching_topic_renders_content(tmp_path):
     session = _MockSession(str(tmp_path))
     ctx = _make_template_context(session=session, project=project)
 
-    result = await _gather_policy_partials(file_info, ctx, tmp_path, {})
+    result = await _gather_policy_partials(file_info, ctx, {})
 
     assert "git/ops" in result
     assert "Use conservative git ops." in result["git/ops"]
