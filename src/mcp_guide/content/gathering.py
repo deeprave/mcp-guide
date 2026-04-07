@@ -210,7 +210,19 @@ async def gather_category_fileinfos(
     # 1. Explicit patterns parameter (highest)
     # 2. Collection overrides (medium)
     # 3. Category defaults (lowest)
-    if patterns is not None:
+    #
+    # Special case: a single trailing-slash pattern (e.g. "git/ops/") is a sub-path filter,
+    # not a pattern override. It filters the category's configured patterns to those that
+    # start with the given prefix, preserving the user's selection intent.
+    if patterns is not None and len(patterns) == 1 and patterns[0].endswith("/"):
+        sub_path_prefix = patterns[0]
+        configured = (
+            collection_overrides[category_name]
+            if collection_overrides and category_name in collection_overrides
+            else category.patterns
+        )
+        resolved_patterns = [p for p in configured if p.startswith(sub_path_prefix)]
+    elif patterns is not None:
         resolved_patterns = patterns
     elif collection_overrides and category_name in collection_overrides:
         resolved_patterns = collection_overrides[category_name]
@@ -221,6 +233,10 @@ async def gather_category_fileinfos(
     docroot = Path(await session.get_docroot())
     category_dir = docroot / category.dir
     files = await discover_documents(category_dir, resolved_patterns, category=category_name)
+
+    # Exclude filesystem files where any path component starts with '_' (system/partial files).
+    # Stored documents are user-imported and not subject to this exclusion.
+    files = [f for f in files if f.source == "store" or not any(part.startswith("_") for part in f.path.parts)]
 
     # Set category object on all FileInfo objects
     for file in files:

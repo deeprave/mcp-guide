@@ -65,8 +65,17 @@ async def guide_resource(collection: str, document: str = "", ctx: Optional[Cont
                 uri = f"{uri}/{document}"
             return await _resolve_guide_uri(uri, ctx)
 
+        # For guide://policies/<topic>, append a trailing slash to the document so that
+        # gather_category_fileinfos treats it as a sub-path filter against the project's
+        # configured patterns rather than a direct pattern override.
+        pattern: str | None
+        if collection == "policies" and document:
+            pattern = document + "/"
+        else:
+            pattern = document if document else None
+
         # Create ContentArgs for internal_get_content
-        content_args = ContentArgs(expression=collection, pattern=document if document else None, force=False)
+        content_args = ContentArgs(expression=collection, pattern=pattern, force=False)
 
         # Delegate to internal content retrieval
         result = await internal_get_content(content_args, ctx)

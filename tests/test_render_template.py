@@ -320,3 +320,63 @@ async def test_render_template_instruction_non_string_ignored():
         assert result.frontmatter["instruction"] == ["item1", "item2"]
     finally:
         test_file.unlink(missing_ok=True)
+
+
+@pytest.mark.anyio
+async def test_render_template_pre_partials_available_in_template():
+    """pre_partials dict is passed to chevron and available via {{> key}}."""
+    test_file = Path("tests/fixtures/test_pre_partials.mustache")
+    test_file.parent.mkdir(parents=True, exist_ok=True)
+    test_file.write_text("---\ntype: agent/instruction\n---\nBefore. {{> git/ops}} After.")
+
+    try:
+        file_info = FileInfo(
+            path=test_file,
+            size=test_file.stat().st_size,
+            content_size=0,
+            mtime=datetime.fromtimestamp(test_file.stat().st_mtime),
+            name=test_file.name,
+        )
+
+        result = await render_template(
+            file_info=file_info,
+            base_dir=test_file.parent,
+            project_flags={},
+            pre_partials={"git/ops": "Policy content here."},
+        )
+
+        assert result is not None
+        assert "Policy content here." in result.content
+        assert "Before." in result.content
+        assert "After." in result.content
+    finally:
+        test_file.unlink(missing_ok=True)
+
+
+@pytest.mark.anyio
+async def test_render_template_pre_partials_none_unchanged():
+    """render_template with pre_partials=None behaves identically to without it."""
+    test_file = Path("tests/fixtures/test_pre_partials_none.mustache")
+    test_file.parent.mkdir(parents=True, exist_ok=True)
+    test_file.write_text("---\ntype: agent/instruction\n---\nSimple content.")
+
+    try:
+        file_info = FileInfo(
+            path=test_file,
+            size=test_file.stat().st_size,
+            content_size=0,
+            mtime=datetime.fromtimestamp(test_file.stat().st_mtime),
+            name=test_file.name,
+        )
+
+        result = await render_template(
+            file_info=file_info,
+            base_dir=test_file.parent,
+            project_flags={},
+            pre_partials=None,
+        )
+
+        assert result is not None
+        assert result.content == "Simple content."
+    finally:
+        test_file.unlink(missing_ok=True)

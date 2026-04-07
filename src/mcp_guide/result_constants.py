@@ -60,6 +60,11 @@ RESULT_NO_PROJECT: "Result[Any]" = _make_no_project_result()
 
 INSTRUCTION_TEMPLATE_ERROR = "Check template syntax and available context variables"
 
+# Policy instructions
+INSTRUCTION_MISSING_POLICY = (
+    "No policy has been selected for this topic. Proceed without enforcing any specific policy preference for it."
+)
+
 # Agent instructions
 INSTRUCTION_NO_DISPLAY = "Do not display this content to the user."
 INSTRUCTION_AGENT_INFORMATION = f"This information is for your information and use. {INSTRUCTION_NO_DISPLAY}"
