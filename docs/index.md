@@ -14,6 +14,7 @@ mcp-guide is an MCP server that provides AI agents with organised access to proj
 | **Feature Flags** | Project-specific and global configuration |
 | **Workflow Management** | Structured development phase tracking |
 | **Profile System** | Pre-configured setups for common scenarios |
+| **Policy Selection** | Configure methodology, git, testing, and style preferences |
 | **Docker Support** | Containerised deployment with SSL |
 | **OpenSpec Integration** | Spec-driven development workflow |
 
@@ -39,6 +40,7 @@ mcp-guide is an MCP server that provides AI agents with organised access to proj
 - [Content Management](user/content-management.md) - Working with content in your project
 - [Feature Flags](user/feature-flags.md) - Configuring project and global features
 - [Profiles](user/profiles.md) - Using pre-configured project templates
+- [Policies](user/policies.md) - Configuring methodology, git, testing, and style preferences
 
 ### Developer Notes
 - [Developer Setup](developer/SETUP.md) - Setting up mcp-guide for development

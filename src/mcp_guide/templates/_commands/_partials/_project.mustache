@@ -27,8 +27,10 @@
 {{/kwargs.table}}
 {{^kwargs.table}}
 {{#project.categories}}
-- `{{name}}`: {{#kwargs.verbose}}dir=`{{dir}}` [{{#patterns}}`{{value}}`{{^last}}, {{/last}}{{/patterns}}] {{/kwargs.verbose}}{{description}}
-{{/project.categories}}
+- `{{name}}`: {{#kwargs.verbose}}dir=`{{dir}}` {{/kwargs.verbose}}{{description}}
+{{#kwargs.verbose}}{{#patterns}}  - `{{value}}`
+{{/patterns}}
+{{/kwargs.verbose}}{{/project.categories}}
 {{/kwargs.table}}
 
 {{b}}Project Flags:{{b}}

@@ -4,7 +4,7 @@ Profiles give you quick project setup with pre-configured categories and collect
 
 ## What are Profiles?
 
-Think of profiles as templates for your project. Instead of manually creating categories and collections, you can apply a profile that sets everything up for you. There are profiles for common scenarios like Python development, TDD workflows, Jira integration, and various programming languages and frameworks.
+Think of profiles as templates for your project. Instead of manually creating categories and collections, you can apply a profile that sets everything up for you. There are profiles for common scenarios like Python development, Jira integration, and various programming languages and frameworks.
 
 ## Discovering Profiles
 
@@ -23,7 +23,6 @@ Just ask your AI agent to apply them:
 
 ```
 Apply the python profile
-Use the tdd profile for this project
 Add the jira profile
 ```
 
@@ -33,11 +32,14 @@ Profiles are **additive** - they add categories and collections without removing
 
 ```
 Apply the python profile
-Apply the tdd profile
 Apply the jira profile
 ```
 
-This gives you Python + TDD + Jira setup combined.
+This gives you Python + Jira setup combined.
 
 Applying the same profile multiple times has no effect - profiles are idempotent.
+
+## Methodology and Policies
+
+Methodology preferences (TDD, BDD, SOLID, YAGNI, DDD) are no longer configured through profiles. Instead, they are selected through the `policies` category. See [Policy Selection](policies.md) for details.
 

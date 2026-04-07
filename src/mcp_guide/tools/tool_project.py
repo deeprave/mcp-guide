@@ -608,7 +608,7 @@ def _merge_collections(source: Project, target: Project) -> tuple[dict[str, Coll
 class UseProjectProfileArgs(ToolArguments):
     """Arguments for use_project_profile tool."""
 
-    profile: str = Field(description="Name of the profile to apply (e.g., 'python', 'jira', 'tdd')")
+    profile: str = Field(description="Name of the profile to apply (e.g., 'python', 'jira')")
 
 
 async def internal_use_project_profile(args: UseProjectProfileArgs, ctx: Optional[Context] = None) -> Result[str]:

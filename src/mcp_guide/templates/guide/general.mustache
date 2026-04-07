@@ -5,6 +5,8 @@ instruction: |
   Adhere to these guidelines ALWAYS.
   You MUST confirm understanding of these guidelines before proceeding.
   {{INSTRUCTION_NO_DISPLAY}}
+policies:
+  - git/ops
 ---
 
 {{h1}}General Development Guidelines
@@ -49,15 +51,9 @@ Architectural decisions include:
 - Format according to project standard
 - Text files: terminating newline, no trailing whitespace
 
-{{h2}}Version Control - FORBIDDEN Operations
+{{h2}}Version Control
 
-{{b}}NEVER{{b}} perform these git operations:
-- `git add`, `git push` (without explicit request)
-- `git commit` (user must sign commits)
-- `git revert`, `git checkout`, `git reset`, `git restore`
-- `git rebase`, `git merge`, `git filter-branch`, `git stash`
-
-All are destructive to working tree. Fix errors manually or request user assistance.
+{{> git/ops}}
 
 {{h2}}Confirmation Required
 

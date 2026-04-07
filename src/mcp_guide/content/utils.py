@@ -7,6 +7,7 @@ import yaml
 
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.discovery.files import FileInfo
+from mcp_guide.models.exceptions import NoProjectError
 from mcp_guide.render import render_template
 from mcp_guide.render.context import TemplateContext
 from mcp_guide.render.frontmatter import (
@@ -24,6 +25,7 @@ from mcp_guide.result_constants import (
     INSTRUCTION_MISSING_POLICY,
     USER_INFO,
 )
+from mcp_guide.session import get_active_session
 
 logger = get_logger(__name__)
 
@@ -169,8 +171,12 @@ async def _gather_policy_partials(
     and returns a dict of {topic: rendered_content} suitable for passing as pre_partials to
     render_template.
 
-    Returns an empty dict when the template has no `policies:` key, or when session/project
-    are not available on the template_context.
+    `template_context` is used only as the parent context for `new_child()` when building
+    per-policy-file render context. Session and project are fetched directly via
+    `get_active_session()` and `session.get_project()`.
+
+    Returns an empty dict when the template has no `policies:` key, or when no active
+    session or project is available.
     """
     # Deferred import to avoid circular dependency (content.gathering imports content.utils)
     from mcp_guide.content.gathering import gather_category_fileinfos
@@ -184,19 +190,34 @@ async def _gather_policy_partials(
     parsed = parse_content_with_frontmatter(raw)
     policy_topics = parsed.frontmatter.get("policies")
     if not policy_topics or not isinstance(policy_topics, list):
+        logger.trace("_gather_policy_partials: no 'policies:' key in %r", file_info.name)
         return {}
 
-    session = getattr(template_context, "session", None)
-    project = getattr(template_context, "project", None)
-    if session is None or project is None:
+    logger.trace("_gather_policy_partials: %r declares topics %s", file_info.name, policy_topics)
+
+    session = get_active_session()
+    if session is None:
+        logger.trace("_gather_policy_partials: no active session — skipping")
+        return {}
+    try:
+        project = await session.get_project()
+    except NoProjectError:
+        logger.trace("_gather_policy_partials: no active project — skipping")
+        return {}
+    if project is None:
+        logger.trace("_gather_policy_partials: no active project — skipping")
         return {}
 
     policies_category = project.categories.get("policies")
     if policies_category is None:
+        logger.trace("_gather_policy_partials: project has no 'policies' category — skipping")
         return {}
 
     docroot = Path(await session.get_docroot())
     policy_base_dir = docroot / policies_category.dir
+    logger.trace(
+        "_gather_policy_partials: policies base dir=%s, patterns=%s", policy_base_dir, policies_category.patterns
+    )
 
     pre_partials: dict[str, str] = {}
 
@@ -207,10 +228,18 @@ async def _gather_policy_partials(
         try:
             policy_files = await gather_category_fileinfos(session, project, "policies", patterns=[f"{topic}/"])
         except Exception:
-            logger.warning(f"Failed to discover policy files for topic {topic!r}", exc_info=True)
+            logger.warning("Failed to discover policy files for topic %r", topic, exc_info=True)
             policy_files = []
 
+        logger.trace(
+            "_gather_policy_partials: topic=%r matched %d file(s): %s",
+            topic,
+            len(policy_files),
+            [str(f.path) for f in policy_files],
+        )
+
         if not policy_files:
+            logger.trace("_gather_policy_partials: topic=%r — no files found, using placeholder", topic)
             pre_partials[topic] = await render_missing_policy(topic)
             continue
 
@@ -236,11 +265,19 @@ async def _gather_policy_partials(
                     context=policy_context,
                 )
                 if rendered is not None:
+                    logger.trace(
+                        "_gather_policy_partials: rendered %s (%d chars)", policy_file.path, len(rendered.content)
+                    )
                     rendered_parts.append(rendered.content)
+                else:
+                    logger.trace(
+                        "_gather_policy_partials: %s rendered None (filtered by requirements?)", policy_file.path
+                    )
             except Exception:
-                logger.warning(f"Failed to render policy file {policy_file.path} for topic {topic!r}", exc_info=True)
+                logger.warning("Failed to render policy file %s for topic %r", policy_file.path, topic, exc_info=True)
 
         pre_partials[topic] = "\n\n".join(rendered_parts) if rendered_parts else await render_missing_policy(topic)
+        logger.trace("_gather_policy_partials: topic=%r → %d chars", topic, len(pre_partials[topic]))
 
     return pre_partials
 

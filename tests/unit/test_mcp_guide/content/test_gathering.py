@@ -9,6 +9,7 @@ from mcp_guide.content.gathering import gather_category_fileinfos, gather_conten
 from mcp_guide.content.utils import _gather_policy_partials, render_missing_policy
 from mcp_guide.discovery.files import FileInfo
 from mcp_guide.models import Category, Collection, Project
+from mcp_guide.models.exceptions import NoProjectError
 from mcp_guide.render.context import TemplateContext
 from mcp_guide.result_constants import INSTRUCTION_MISSING_POLICY
 
@@ -26,11 +27,17 @@ def _make_file(name: str, *, source: str = "file") -> FileInfo:
 
 
 class _MockSession:
-    def __init__(self, docroot: str):
+    def __init__(self, docroot: str, project=None):
         self._docroot = docroot
+        self._project = project
 
     async def get_docroot(self):
         return self._docroot
+
+    async def get_project(self):
+        if self._project is None:
+            raise NoProjectError("no project")
+        return self._project
 
 
 @pytest.mark.anyio
@@ -326,15 +333,6 @@ async def test_render_missing_policy_different_topics():
 # --- Tests for _gather_policy_partials ---
 
 
-def _make_template_context(session=None, project=None) -> TemplateContext:
-    ctx = TemplateContext({})
-    if session is not None:
-        ctx.session = session
-    if project is not None:
-        ctx.project = project
-    return ctx
-
-
 @pytest.mark.anyio
 async def test_gather_policy_partials_no_policies_key_returns_empty(tmp_path):
     """Template without 'policies:' frontmatter returns empty dict."""
@@ -348,14 +346,13 @@ async def test_gather_policy_partials_no_policies_key_returns_empty(tmp_path):
         mtime=datetime(2024, 1, 1),
         name="doc.md",
     )
-    ctx = _make_template_context()
-    result = await _gather_policy_partials(file_info, ctx, {})
+    result = await _gather_policy_partials(file_info, TemplateContext({}), {})
     assert result == {}
 
 
 @pytest.mark.anyio
-async def test_gather_policy_partials_no_session_returns_empty(tmp_path):
-    """Without session in context, returns empty dict."""
+async def test_gather_policy_partials_no_session_returns_empty(tmp_path, monkeypatch):
+    """When get_active_session returns None, returns empty dict."""
     policy_file = tmp_path / "doc.md.mustache"
     policy_file.write_text("---\npolicies:\n  - git/ops\n---\nContent.")
 
@@ -366,13 +363,33 @@ async def test_gather_policy_partials_no_session_returns_empty(tmp_path):
         mtime=datetime(2024, 1, 1),
         name="doc.md",
     )
-    ctx = _make_template_context()  # no session
-    result = await _gather_policy_partials(file_info, ctx, {})
+
+    monkeypatch.setattr("mcp_guide.content.utils.get_active_session", lambda: None)
+    result = await _gather_policy_partials(file_info, TemplateContext({}), {})
     assert result == {}
 
 
 @pytest.mark.anyio
-async def test_gather_policy_partials_no_match_returns_placeholder(tmp_path):
+async def test_gather_policy_partials_no_project_returns_empty(tmp_path, monkeypatch):
+    """When session.get_project() raises NoProjectError, returns empty dict."""
+    policy_file = tmp_path / "doc.md.mustache"
+    policy_file.write_text("---\npolicies:\n  - git/ops\n---\nContent.")
+
+    file_info = FileInfo(
+        path=policy_file,
+        size=policy_file.stat().st_size,
+        content_size=0,
+        mtime=datetime(2024, 1, 1),
+        name="doc.md",
+    )
+    session = _MockSession(str(tmp_path), project=None)
+    monkeypatch.setattr("mcp_guide.content.utils.get_active_session", lambda: session)
+    result = await _gather_policy_partials(file_info, TemplateContext({}), {})
+    assert result == {}
+
+
+@pytest.mark.anyio
+async def test_gather_policy_partials_no_match_returns_placeholder(tmp_path, monkeypatch):
     """Topic with no matching policy files → placeholder content for that topic."""
     policy_file = tmp_path / "doc.md.mustache"
     policy_file.write_text("---\npolicies:\n  - git/ops\n---\nContent.")
@@ -389,12 +406,12 @@ async def test_gather_policy_partials_no_match_returns_placeholder(tmp_path):
         name="test",
         categories={"policies": Category(dir="policies", name="policies", patterns=["testing/strict*"])},
     )
-    session = _MockSession(str(tmp_path))
     (tmp_path / "policies" / "testing").mkdir(parents=True)
     (tmp_path / "policies" / "testing" / "strict.md").write_text("# Strict")
+    session = _MockSession(str(tmp_path), project=project)
+    monkeypatch.setattr("mcp_guide.content.utils.get_active_session", lambda: session)
 
-    ctx = _make_template_context(session=session, project=project)
-    result = await _gather_policy_partials(file_info, ctx, {})
+    result = await _gather_policy_partials(file_info, TemplateContext({}), {})
 
     assert "git/ops" in result
     assert INSTRUCTION_MISSING_POLICY in result["git/ops"]
@@ -402,9 +419,8 @@ async def test_gather_policy_partials_no_match_returns_placeholder(tmp_path):
 
 
 @pytest.mark.anyio
-async def test_gather_policy_partials_matching_topic_renders_content(tmp_path):
+async def test_gather_policy_partials_matching_topic_renders_content(tmp_path, monkeypatch):
     """Topic with a matching policy file → rendered content returned."""
-    # Template that declares a policy dependency
     doc_file = tmp_path / "doc.md.mustache"
     doc_file.write_text("---\npolicies:\n  - git/ops\n---\nContent.")
 
@@ -416,7 +432,6 @@ async def test_gather_policy_partials_matching_topic_renders_content(tmp_path):
         name="doc.md",
     )
 
-    # Create policies category with a matching document
     policies_dir = tmp_path / "policies"
     (policies_dir / "git" / "ops").mkdir(parents=True)
     (policies_dir / "git" / "ops" / "conservative.md").write_text(
@@ -433,10 +448,10 @@ async def test_gather_policy_partials_matching_topic_renders_content(tmp_path):
             )
         },
     )
-    session = _MockSession(str(tmp_path))
-    ctx = _make_template_context(session=session, project=project)
+    session = _MockSession(str(tmp_path), project=project)
+    monkeypatch.setattr("mcp_guide.content.utils.get_active_session", lambda: session)
 
-    result = await _gather_policy_partials(file_info, ctx, {})
+    result = await _gather_policy_partials(file_info, TemplateContext({}), {})
 
     assert "git/ops" in result
     assert "Use conservative git ops." in result["git/ops"]

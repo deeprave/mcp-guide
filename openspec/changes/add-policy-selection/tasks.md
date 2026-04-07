@@ -3,20 +3,31 @@
 - [x] 1. Add the default `policies` category to the default profile and ensure it is discoverable through the existing profile/category system
 - [x] 2. Define the first-pass policy topic structure for high-value areas such as git ops, commit/pr behavior, testing, methodology, quality, style, toolchain, tooling prohibitions, and review
 - [x] 3. Audit existing user-facing templates and markdown documents to identify embedded optional preferences that should move into policy documents
-- [x] 4. Create the first-pass policy corpus as standalone policy documents under the `policies` category, organized by topic (71 documents across git, testing, methodology, quality, style, toolchain, tooling, pr, review)
-- [ ] 5. Update core guidance documents and templates to remove extracted opinionated choices or replace them with neutral guidance and policy-topic references
-      > **Deferred** — depends on `add-category-topics` (policy pre-rendering and sub-path filtering must be implemented before templates can reference `{{> policy/topic}}`)
-- [ ] 6. Implement project-level composition/selection support for policy documents using existing categories, collections, profiles, or related project configuration
-      > **Partially available** — users can set patterns on the `policies` category now; full `{{> topic}}` resolution depends on `add-category-topics`
-- [ ] 7. Implement guide resource resolution for selected policy topics such as `guide://policies/<topic>`
-      > **Deferred** — moved to `add-category-topics` (requires sub-path filtering and discover_category_documents)
-- [ ] 8. Add or update tests covering:
-- [ ] 8.1 default policy category availability
-- [ ] 8.2 policy selection/composition behavior
-- [ ] 8.3 selected policy guide-resource resolution
-- [ ] 8.4 neutralized core guidance where policy extraction occurred
-- [ ] 9. Validate the change end-to-end with:
-- [ ] 9.1 `openspec validate add-policy-selection --strict`
-- [ ] 9.2 `uv run ty check src/`
-- [ ] 9.3 `uv run pytest -q`
-- [ ] 10. Record follow-on gaps or onboarding dependencies that should be handled in `add-guided-onboarding`
+- [x] 4. Create the first-pass policy corpus as standalone policy documents under the `policies` category, organized by topic (74 documents across git, testing, methodology, quality, style, toolchain, tooling, pr, review)
+- [x] 5. Update core guidance documents and templates to remove extracted opinionated choices and replace them with neutral guidance and policy-topic references
+      - `guide/general.mustache` — FORBIDDEN git ops section replaced with `{{> git/ops}}`
+      - `checks/testing.mustache` — no-conditionals/loops/mocks sections replaced with `{{> testing}}`
+      - `review/general.mustache` — hardcoded YAGNI/SOLID checks replaced with `{{> methodology}}`
+      - `context/jira.mustache` — `SOLID, YAGNI*` removed from Approach, `{{> methodology}}` added
+      - `context/freeform.mustache` — `YAGNI*` removed from Approach, `{{> methodology}}` added
+      - `guide/methodology.mustache` created as default guide pattern; `{{> methodology}}` injects selected methodology policy
+      - Methodology profile YAMLs (`tdd`, `bdd`, `yagni`, `solid`) removed — superseded by policy selection
+      - Guide methodology docs (`tdd`, `bdd`, `yagni`, `solid`, `ddd`) removed — content consolidated into policy corpus
+      - YAGNI policy enriched with "What YAGNI Doesn't Mean" and "Don't Apply YAGNI" guardrails
+      - DDD policy enriched with Aggregate design rules, Context Mapping patterns, When to Use DDD
+      - All policy documents renamed `.md` → `.md.mustache` (required for template rendering pipeline)
+- [x] 6. Project-level policy composition via `policies` category patterns — available; users set patterns in project config
+- [x] 7. `guide://policies/<topic>` URI resolution — implemented in `add-category-topics`
+- [x] 8. Tests — covered by `add-category-topics` test suite (sub-path filtering, pre-rendering, URI resolution)
+- [x] 9. Validation:
+  - [x] 9.1 `uv run pytest -q` — 1778 passed, no regressions
+  - [x] 9.2 `uv run ty check src/` — all checks passed
+  - [x] 9.3 `openspec validate add-policy-selection --strict` — valid
+- [x] 10. Record follow-on gaps or onboarding dependencies that should be handled in `add-guided-onboarding`
+    - **Policy discoverability**: The `policies` category in `_default.yaml` ships with conservative defaults (`git/commit/conventional`, `git/ops/conservative`, `methodology/yagni`, `quality/standard`, `review/focused`, `testing/pragmatic`). These are safe starting points, not user-selected preferences. Onboarding should enumerate all available policy topics, present choices, and update the patterns to reflect the user's actual preferences.
+    - **Policy selection UX**: No guided flow exists to help a user choose between competing policy documents within a topic (e.g. `methodology/tdd` vs `methodology/bdd`). Onboarding should present choices like "test-driven workflow vs minimal testing guidance" and write the selected pattern(s) to `.guide.yaml`.
+    - **Language/toolchain auto-detection**: Style and toolchain policies (under `policies/style/<lang>/` and `policies/toolchain/<lang>/`) require the user to know their language. Onboarding should detect language and toolchain from project files (pyproject.toml, package.json, go.mod, Cargo.toml, etc.) and pre-select appropriate patterns.
+    - **`_missing_policy` visibility**: When a template declares a `policies:` dependency that is not configured, the placeholder text is silently injected. Onboarding should surface unconfigured policy dependencies as prompts, not silent gaps.
+    - **Review and PR policy composition**: `policies/review/` and `policies/pr/` documents are not wired into any default template. Onboarding should ask about review posture and commit/PR automation strictness, then activate the relevant patterns.
+    - **Tooling prohibition policy**: `policies/tooling/general/` prohibitions are not connected to any default template. Onboarding should ask about tooling restrictions relevant to the project and activate them.
+    - **Re-configuration**: The same onboarding flow should be reusable to update policy selections in an existing project without resetting other configuration.

@@ -1,12 +1,14 @@
 ---
 type: agent/information
+policies:
+  - methodology
 ---
 {{h1}}Project Context Instructions
 
 These are instructions related to context specific to this project.
 
 {{b}}Project:{{b}} Generic
-{{b}}Approach:{{b}} Minimalist, YAGNI*
+{{b}}Approach:{{b}} Minimalist
 {{b}}Issue Management{{b}}: Local
 
 {{h2}}Workflow
@@ -31,3 +33,7 @@ These are instructions related to context specific to this project.
 - Resolve build warnings any means of suppressing them
 - Exceptions to these rules (other than 100% pass rate for tests without warnings)
   can be made after the user has provided explicit and specific consent.
+
+{{h2}}Methodology
+
+{{> methodology}}
