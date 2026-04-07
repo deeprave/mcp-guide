@@ -16,7 +16,7 @@
 - [x] 2.2 Prefix-filter semantics: category's configured patterns filtered to those
       starting with the trailing-slash prefix; discovery runs with filtered patterns
 - [x] 2.3 Tests covering: matching patterns kept, non-matching discarded,
-      no matches → empty, no trailing slash → unchanged override behaviour,
+      no matches → empty, no trailing slash → unchanged override behavior,
       multiple matching patterns all used
 
 ## 3. Partial Machinery Refactoring

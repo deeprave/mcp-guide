@@ -134,6 +134,7 @@ class FileInfo:
         self._load_error: Optional[str] = None
         # Track if content was explicitly provided (even if None)
         self._content_explicitly_set = content is not _SENTINEL
+        self._raw_cache: Optional[str] = None
 
     def resolve(self, base_dir: Path, docroot: Path) -> Path:
         """Resolve relative path to absolute path with security validation.
@@ -208,6 +209,7 @@ class FileInfo:
         """Read raw content from source without frontmatter processing.
 
         Uses content_loader for stored documents, filesystem for files.
+        Result is cached so repeated calls do not trigger additional reads.
 
         Returns:
             Raw content string
@@ -217,14 +219,19 @@ class FileInfo:
             OSError: If content cannot be loaded from the filesystem
             Exception: Any exception from content_loader is propagated
         """
+        if self._raw_cache is not None:
+            return self._raw_cache
         if self._content_loader is not None:
             content = await self._content_loader()
             if content is None:
                 raise FileNotFoundError(f"No content available for {self.path}")
+            self._raw_cache = content
             return content
         from mcp_guide.core import read_file_content
 
-        return await read_file_content(self.path)
+        result = await read_file_content(self.path)
+        self._raw_cache = result
+        return result
 
     def _parse_frontmatter_if_needed(self) -> None:
         """Internal method to parse frontmatter if not already parsed."""
