@@ -39,21 +39,21 @@ class StartupInstructionListener:
             )
             if rendered and rendered.content.strip():
                 await get_task_manager().queue_instruction(rendered.content, priority=True)
-                logger.trace(f"Startup instruction queued for project: {session.project_name}")
+                logger.trace("Startup instruction queued for project: %s", session.project_name)
         except FileNotFoundError as e:
-            logger.trace(f"No startup template found for project {session.project_name}: {e}")
+            logger.trace("No startup template found for project %s: %s", session.project_name, e)
         except Exception as e:
-            logger.error(f"Error rendering startup instruction for {session.project_name}: {e}", exc_info=True)
+            logger.error("Error rendering startup instruction for %s: %s", session.project_name, e, exc_info=True)
 
         try:
             rendered = await render_content(
                 pattern="_onboard_prompt",
                 category_dir="_system",
             )
-            if rendered and rendered.content.strip():
-                await get_task_manager().queue_instruction(rendered.content, priority=False)
-                logger.trace(f"Onboarding prompt queued for project: {session.project_name}")
+            if rendered and rendered.instruction:
+                await get_task_manager().queue_instruction(rendered.instruction, priority=False)
+                logger.trace("Onboarding prompt queued for project: %s", session.project_name)
         except FileNotFoundError as e:
-            logger.trace(f"No onboard prompt template found for project {session.project_name}: {e}")
+            logger.trace("No onboard prompt template found for project %s: %s", session.project_name, e)
         except Exception as e:
-            logger.error(f"Error rendering onboard prompt for {session.project_name}: {e}", exc_info=True)
+            logger.error("Error rendering onboard prompt for %s: %s", session.project_name, e, exc_info=True)

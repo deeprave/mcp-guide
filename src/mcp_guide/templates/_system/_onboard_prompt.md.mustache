@@ -1,30 +1,6 @@
 ---
-type: user/information
+type: agent/instruction
 requires-onboarded: false
 description: Onboarding prompt displayed when a project has not yet been configured via guided onboarding
+instruction: "Render guide://docs/onboard and display it to the user verbatim."
 ---
-**mcp-guide: Project setup available**
-
-This project has not yet been configured for your preferences. Guided onboarding
-takes a few minutes and covers:
-
-- Language and framework
-- Workflow mode
-- Methodology preferences (TDD, SOLID, YAGNI, etc.)
-- Testing, code quality, and review posture
-- Git operations and commit format
-- Style and toolchain
-
-To get started, run:
-
-```
-{{@}}guide :onboard
-```
-
-Or use the URI: `guide://_onboard`
-
-To skip and configure manually instead:
-
-```
-{{@}}guide :onboard --skip
-```
