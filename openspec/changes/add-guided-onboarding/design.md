@@ -133,7 +133,7 @@ on project load:
 
 The notification is `user/information` — the agent displays it, does not act on it. It repeats on every session load until onboarding is completed.
 
-The template lives in the `_system` category as `_onboard_prompt.md.mustache`. Initial content is placeholder text explaining that onboarding is available and how to invoke it:
+The template lives in the `_system` category as `_onboard_prompt.mustache`. Initial content is placeholder text explaining that onboarding is available and how to invoke it:
 
 > mcp-guide can be configured to match your project preferences. Run `{{@}}guide :onboard` (or use the `guide://_onboard` URI) to get started. This takes a few minutes and covers language, workflow, testing, git, and code style preferences.
 
