@@ -50,8 +50,8 @@ class StartupInstructionListener:
                 pattern="_onboard_prompt",
                 category_dir="_system",
             )
-            if rendered and rendered.instruction:
-                await get_task_manager().queue_instruction(rendered.instruction, priority=False)
+            if rendered and rendered.content.strip():
+                await get_task_manager().queue_instruction(rendered.content, priority=False)
                 logger.trace("Onboarding prompt queued for project: %s", session.project_name)
         except FileNotFoundError as e:
             logger.trace("No onboard prompt template found for project %s: %s", session.project_name, e)

@@ -1,11 +1,11 @@
 ---
 type: user/information
-description: Onboarding notification for projects that have not yet been configured via guided onboarding
+description: Onboarding notification shown when project preferences have not been configured
 ---
-**mcp-guide: Project setup available**
+**mcp-guide: Project Setup**
 
-This project has not yet been configured for your preferences. Guided onboarding
-takes a few minutes and covers:
+Your project preferences are not configured. Guided onboarding takes a few
+minutes and covers:
 
 - Language and framework
 - Workflow mode
@@ -20,10 +20,12 @@ To get started, run:
 {{@}}guide :onboard
 ```
 
-Or use the URI: `guide://_onboard`
+Or use {{#resource}}_onboard{{/resource}}
 
 To skip and configure manually instead:
 
 ```
 {{@}}guide :onboard --skip
 ```
+
+Or use {{#resource}}_onboard?skip{{/resource}}
