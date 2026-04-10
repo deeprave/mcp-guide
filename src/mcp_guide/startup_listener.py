@@ -32,15 +32,13 @@ class StartupInstructionListener:
         Args:
             session: The session to render startup instruction for
         """
-        task_manager = get_task_manager()
-
         try:
             rendered = await render_content(
                 pattern="_startup",
                 category_dir="_system",
             )
             if rendered and rendered.content.strip():
-                await task_manager.queue_instruction(rendered.content, priority=True)
+                await get_task_manager().queue_instruction(rendered.content, priority=True)
                 logger.trace(f"Startup instruction queued for project: {session.project_name}")
         except FileNotFoundError as e:
             logger.trace(f"No startup template found for project {session.project_name}: {e}")
@@ -53,7 +51,7 @@ class StartupInstructionListener:
                 category_dir="_system",
             )
             if rendered and rendered.content.strip():
-                await task_manager.queue_instruction(rendered.content, priority=False)
+                await get_task_manager().queue_instruction(rendered.content, priority=False)
                 logger.trace(f"Onboarding prompt queued for project: {session.project_name}")
         except FileNotFoundError as e:
             logger.trace(f"No onboard prompt template found for project {session.project_name}: {e}")
