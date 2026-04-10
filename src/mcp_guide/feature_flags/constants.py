@@ -42,3 +42,6 @@ FLAG_AUTOUPDATE = "autoupdate"
 
 # Development flags
 FLAG_GUIDE_DEVELOPMENT = "guide-development"
+
+# Onboarding flags
+FLAG_ONBOARDED = "onboarded"

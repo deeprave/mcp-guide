@@ -10,6 +10,7 @@ from mcp_guide.feature_flags.constants import (
     FLAG_CONTENT_FORMAT,
     FLAG_CONTENT_STYLE,
     FLAG_GUIDE_DEVELOPMENT,
+    FLAG_ONBOARDED,
     FLAG_PATH_DOCUMENTS,
     FLAG_PATH_EXPORT,
 )
@@ -307,3 +308,4 @@ register_flag_validator(FLAG_GUIDE_DEVELOPMENT, validate_boolean_flag)
 register_flag_validator(FLAG_CONTENT_ACCESSOR, validate_boolean_flag)
 register_flag_validator(FLAG_PATH_DOCUMENTS, validate_path_flag, normaliser=normalise_path_flag)
 register_flag_validator(FLAG_PATH_EXPORT, validate_path_flag, normaliser=normalise_path_flag)
+register_flag_validator(FLAG_ONBOARDED, validate_boolean_flag, FlagScope.PROJECT_ONLY)

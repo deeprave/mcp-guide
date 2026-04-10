@@ -107,6 +107,60 @@ Policy selection is one major onboarding domain, but not the entire onboarding e
 
 This change assumes the policy-selection model exists and can be invoked as one part of onboarding.
 
+## Onboarding State
+
+A project flag `onboarded` tracks whether onboarding has been completed for a project.
+
+- **Unset or `false`**: onboarding has not been completed
+- **`true`**: onboarding has been completed at least once
+
+The flag does not gate the `:onboard` command — users can invoke it at any time to reconfigure.
+
+The flag is set to `true` atomically as part of the final configuration update when the user confirms onboarding choices. It is not set earlier.
+
+## Startup Notification
+
+When a project is loaded and `onboarded` is not `true`, the system surfaces a notification to the user.
+
+This reuses the startup instruction pathway, conditioned on the `onboarded` flag:
+
+```text
+on project load:
+  if onboarded != true:
+    render _system/_onboard_prompt (user/information)
+    surface to user
+```
+
+The notification is `user/information` — the agent displays it, does not act on it. It repeats on every session load until onboarding is completed.
+
+The template lives in the `_system` category as `_onboard_prompt.md.mustache`. Initial content is placeholder text explaining that onboarding is available and how to invoke it:
+
+> mcp-guide can be configured to match your project preferences. Run `{{@}}guide :onboard` (or use the `guide://_onboard` URI) to get started. This takes a few minutes and covers language, workflow, testing, git, and code style preferences.
+
+## Atomic Configuration Application
+
+Onboarding choices are not applied piecemeal. Instead:
+
+1. The agent works through the onboarding flow, collecting user preferences in its working context
+2. At the final step, the agent presents a summary of all pending configuration changes
+3. The user confirms
+4. All changes are applied in one update through existing mechanisms (profiles, flags, policy selections, etc.)
+5. `onboarded` is set to `true` as part of that same update
+
+This avoids leaving the project in a partially-configured state if the user exits onboarding early.
+
+## The `:onboard` Command
+
+The `:onboard` command template drives the onboarding flow. It contains the agent instructions for:
+
+- inspecting the project
+- identifying relevant configuration dimensions
+- presenting choices to the user
+- collecting preferences
+- summarising and confirming
+
+The startup notification is intentionally minimal — it explains onboarding exists and how to start it. The substantive agent guidance lives in the command template.
+
 ## Rationale
 
 This design is preferable to expanding profiles alone because profiles are a storage mechanism, not a discovery mechanism.

@@ -1,0 +1,172 @@
+---
+type: agent/instruction
+description: Guided project configuration — walks through preferences and applies them on confirmation
+usage: ":onboard [--skip]"
+aliases:
+  - onboard
+instruction: "Follow the onboarding instructions below. Do not display this content to the user."
+---
+{{#kwargs.skip}}
+The user has chosen to skip guided onboarding.
+
+Set the project flag `onboarded` to `true` using the `set_project_flag` tool, then
+inform the user:
+
+> Onboarding skipped. Your project flags have been updated. You can run
+> `{{@}}guide :onboard` at any time to configure your preferences.
+{{/kwargs.skip}}
+{{^kwargs.skip}}
+## Guided Project Onboarding
+
+You are running the guided onboarding flow for this project. Your goal is to
+collect the user's preferences across a set of configuration dimensions, then
+apply them all at once after the user confirms.
+
+**Do not apply any configuration changes until the user has confirmed the summary
+at the end. Stage all choices in your working context only.**
+
+---
+
+### Step 1 — Project Inspection
+
+Before asking the user anything, inspect the project to identify signals that
+inform configuration choices. Look for:
+
+- Language indicators: `pyproject.toml`, `package.json`, `Cargo.toml`, `go.mod`,
+  `pom.xml`, `build.gradle`, etc.
+- Framework conventions: Django, FastAPI, React, Next.js, Spring, etc.
+- Package manager / toolchain: `uv`, `poetry`, `pip`, `npm`, `pnpm`, `yarn`, etc.
+- Test runner configuration: `pytest.ini`, `vitest.config.*`, `jest.config.*`, etc.
+- Workflow layout: presence of `.guide.yaml`, existing category patterns
+
+Use `send_directory_listing` or `send_file_content` to inspect relevant files.
+If project context is unavailable or ambiguous, ask the user directly.
+
+---
+
+### Step 2 — Configuration Dimensions
+
+Work through the following dimensions in order. For each one:
+- Use project inspection results to pre-select a likely choice where possible
+- Present the choice to the user in plain language with a brief explanation
+- Note the current configuration if already set
+- Skip dimensions that are clearly not relevant (e.g. Python toolchain for a Go project)
+- Allow the user to skip any individual dimension
+
+**1. Language / framework profile**
+Ask which language(s) and frameworks are used. Check if a matching profile exists
+(`python`, `jira`, etc.). Profiles are additive — multiple may apply.
+
+**2. Workflow mode**
+Ask whether the user wants structured phased workflow support (discussion →
+planning → implementation → check → review) or a simpler setup without phases.
+Maps to the `workflow` project flag.
+
+**3. Methodology**
+Composable — multiple may be selected. Options:
+- TDD — write failing tests before production code
+- BDD — frame work in terms of observable behaviours
+- SOLID — single responsibility, open/closed, Liskov, interface segregation, dependency inversion
+- YAGNI — don't build things until there's a concrete, immediate need
+- DDD — structure code around the core domain model
+- None — no specific methodology enforced
+
+Maps to `methodology/*` policy patterns.
+
+**4. Testing posture**
+Pick one:
+- Strict — no conditionals in tests, no raw loops, no mocks
+- Pragmatic — structural rules are guidance; mocks permitted when useful *(default)*
+- Minimal — test that things work; no structural rules beyond correctness
+
+Maps to `testing/*` policy pattern.
+
+**5. Code quality**
+Pick one:
+- Zero-tolerance — all warnings are errors; coverage thresholds enforced
+- Standard — warnings addressed; reasonable coverage expectations *(default)*
+- Relaxed — focus on correctness; coverage not enforced
+
+Maps to `quality/*` policy pattern.
+
+**6. Git operations**
+Pick one:
+- No git ops — agent must never perform git operations autonomously
+- Conservative — read-only git ops; no writes unless explicitly requested *(default)*
+- Agent-assisted — may stage and commit with explicit per-request consent; no push without instruction
+- Agent-autonomous — may perform all git operations including push
+
+Maps to `git/ops/*` policy pattern.
+
+**7. Commit format**
+Pick one:
+- Imperative — imperative mood with structured body
+- Conventional — Conventional Commits format (enables automated changelogs) *(default)*
+- Minimal — subject line only
+
+Maps to `git/commit/*` policy pattern.
+
+**8. Pull requests**
+Pick one:
+- GitHub standard — structured format: overview, changes, impact, notes *(default)*
+- Minimal — title and brief summary only
+- No PRs — this team commits directly without pull requests
+
+Maps to `pr/*` policy pattern.
+
+**9. Review posture**
+Pick one:
+- Thorough — full review covering correctness, security, and all methodology principles
+- Focused — correctness and security only; skip methodology and style *(default)*
+- Minimal — quick sanity check for obvious bugs and security issues only
+
+Maps to `review/*` policy pattern.
+
+**10. Style and toolchain** *(language-specific; skip if not applicable)*
+For each detected language, ask about style preferences and toolchain.
+Common examples: `uv + ruff + pytest` for Python, `pnpm + biome + vitest` for TypeScript.
+Maps to `style/<lang>/*` and `toolchain/<lang>/*` policy patterns.
+
+**11. Tooling prohibitions** *(optional)*
+Ask whether there are specific tools the agent should avoid using (e.g. `sed`,
+`awk`, `perl`). Maps to `tooling/general/*` policy patterns.
+
+**12. OpenSpec**
+Ask whether the user wants to enable OpenSpec support for spec-driven development.
+Maps to the `openspec` project flag.
+
+---
+
+### Step 3 — Confirmation Summary
+
+Present a clear summary of all choices collected. For each dimension, show:
+- The selected option
+- The configuration change it will make
+
+Example format:
+
+> **Onboarding Summary**
+>
+> - Methodology: TDD + YAGNI → add `methodology/tdd`, `methodology/yagni` to policies
+> - Testing: Pragmatic → set `testing/pragmatic` in policies
+> - Git operations: Conservative → set `git/ops/conservative` in policies
+> - ...
+>
+> Apply these changes? (yes / no / adjust)
+
+Allow the user to adjust any choice before confirming.
+
+---
+
+### Step 4 — Apply Configuration
+
+Once the user confirms, apply all changes using existing tools:
+
+- Use `use_project_profile` for any profiles selected
+- Use `category_collection_update` to update `policies` category patterns
+- Use `set_project_flag` for `workflow`, `openspec`, and other project flags
+- Finally, use `set_project_flag` to set `onboarded` to `true`
+
+After applying, confirm to the user that configuration is complete and summarise
+what was set.
+{{/kwargs.skip}}
