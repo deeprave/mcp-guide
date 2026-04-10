@@ -59,7 +59,7 @@ async def test_onboard_prompt_queued_at_low_priority_when_not_onboarded() -> Non
     session = _make_session()
     startup_rendered = None  # startup-instruction not set
     onboard_rendered = MagicMock()
-    onboard_rendered.content = "This project has not yet been configured via guided onboarding. Render guide://docs/onboard and display it to the user."
+    onboard_rendered.content = "This project has not yet been configured via guided onboarding. Read guide://docs/onboard and display it to the user."
 
     task_manager = MagicMock()
     task_manager.queue_instruction = AsyncMock()
@@ -101,7 +101,7 @@ async def test_both_queued_when_both_render() -> None:
     startup_rendered = MagicMock()
     startup_rendered.content = "Run startup init."
     onboard_rendered = MagicMock()
-    onboard_rendered.content = "This project has not yet been configured via guided onboarding. Render guide://docs/onboard and display it to the user."
+    onboard_rendered.content = "This project has not yet been configured via guided onboarding. Read guide://docs/onboard and display it to the user."
 
     task_manager = MagicMock()
     task_manager.queue_instruction = AsyncMock()
@@ -125,7 +125,7 @@ async def test_startup_error_does_not_prevent_onboard_prompt() -> None:
     """An error rendering _startup does not prevent the onboard prompt from being queued."""
     session = _make_session()
     onboard_rendered = MagicMock()
-    onboard_rendered.content = "This project has not yet been configured via guided onboarding. Render guide://docs/onboard and display it to the user."
+    onboard_rendered.content = "This project has not yet been configured via guided onboarding. Read guide://docs/onboard and display it to the user."
 
     task_manager = MagicMock()
     task_manager.queue_instruction = AsyncMock()
