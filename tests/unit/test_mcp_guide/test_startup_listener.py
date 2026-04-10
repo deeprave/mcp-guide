@@ -55,11 +55,12 @@ async def test_startup_instruction_not_queued_when_filtered() -> None:
 
 @pytest.mark.anyio
 async def test_onboard_prompt_queued_at_low_priority_when_not_onboarded() -> None:
-    """Onboard prompt is queued at low priority when requires-onboarded: false passes."""
+    """Onboard prompt instruction is queued at low priority when requires-onboarded: false passes."""
     session = _make_session()
     startup_rendered = None  # startup-instruction not set
     onboard_rendered = MagicMock()
-    onboard_rendered.content = "mcp-guide: Project setup available"
+    # _onboard_prompt is agent/instruction type; .instruction carries the display directive
+    onboard_rendered.instruction = "Render guide://docs/onboard and display it to the user verbatim."
 
     task_manager = MagicMock()
     task_manager.queue_instruction = AsyncMock()
@@ -73,7 +74,7 @@ async def test_onboard_prompt_queued_at_low_priority_when_not_onboarded() -> Non
         listener = StartupInstructionListener()
         await listener.on_project_changed(session, "old", "test-project")
 
-    task_manager.queue_instruction.assert_called_once_with(onboard_rendered.content, priority=False)
+    task_manager.queue_instruction.assert_called_once_with(onboard_rendered.instruction, priority=False)
 
 
 @pytest.mark.anyio
@@ -101,7 +102,7 @@ async def test_both_queued_when_both_render() -> None:
     startup_rendered = MagicMock()
     startup_rendered.content = "Run startup init."
     onboard_rendered = MagicMock()
-    onboard_rendered.content = "mcp-guide: Project setup available"
+    onboard_rendered.instruction = "Render guide://docs/onboard and display it to the user verbatim."
 
     task_manager = MagicMock()
     task_manager.queue_instruction = AsyncMock()
@@ -117,7 +118,7 @@ async def test_both_queued_when_both_render() -> None:
 
     assert task_manager.queue_instruction.call_count == 2
     task_manager.queue_instruction.assert_any_call(startup_rendered.content, priority=True)
-    task_manager.queue_instruction.assert_any_call(onboard_rendered.content, priority=False)
+    task_manager.queue_instruction.assert_any_call(onboard_rendered.instruction, priority=False)
 
 
 @pytest.mark.anyio
@@ -125,7 +126,7 @@ async def test_startup_error_does_not_prevent_onboard_prompt() -> None:
     """An error rendering _startup does not prevent the onboard prompt from being queued."""
     session = _make_session()
     onboard_rendered = MagicMock()
-    onboard_rendered.content = "mcp-guide: Project setup available"
+    onboard_rendered.instruction = "Render guide://docs/onboard and display it to the user verbatim."
 
     task_manager = MagicMock()
     task_manager.queue_instruction = AsyncMock()
@@ -142,7 +143,7 @@ async def test_startup_error_does_not_prevent_onboard_prompt() -> None:
         listener = StartupInstructionListener()
         await listener.on_project_changed(session, "old", "test-project")
 
-    task_manager.queue_instruction.assert_called_once_with(onboard_rendered.content, priority=False)
+    task_manager.queue_instruction.assert_called_once_with(onboard_rendered.instruction, priority=False)
 
 
 @pytest.mark.anyio
