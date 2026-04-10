@@ -23,25 +23,39 @@ class StartupInstructionListener:
         await self._render_and_queue(session)
 
     async def _render_and_queue(self, session: "Session") -> None:
-        """Render startup template and queue instruction if content is non-blank.
+        """Render startup templates and queue instructions if content is non-blank.
+
+        Renders two templates in order:
+        - _startup: startup instruction (requires-startup-instruction: true gates it)
+        - _onboard_prompt: onboarding notification (requires-onboarded: false gates it)
 
         Args:
             session: The session to render startup instruction for
         """
+        task_manager = get_task_manager()
+
         try:
-            # Use standard render_content to discover and render _startup template
-            # render_content handles requires-* filtering automatically
             rendered = await render_content(
                 pattern="_startup",
-                category_dir="_system",  # Templates are in _system directory
+                category_dir="_system",
             )
-
             if rendered and rendered.content.strip():
-                task_manager = get_task_manager()
                 await task_manager.queue_instruction(rendered.content, priority=True)
                 logger.trace(f"Startup instruction queued for project: {session.project_name}")
-
         except FileNotFoundError as e:
             logger.trace(f"No startup template found for project {session.project_name}: {e}")
         except Exception as e:
             logger.error(f"Error rendering startup instruction for {session.project_name}: {e}", exc_info=True)
+
+        try:
+            rendered = await render_content(
+                pattern="_onboard_prompt",
+                category_dir="_system",
+            )
+            if rendered and rendered.content.strip():
+                await task_manager.queue_instruction(rendered.content, priority=False)
+                logger.trace(f"Onboarding prompt queued for project: {session.project_name}")
+        except FileNotFoundError as e:
+            logger.trace(f"No onboard prompt template found for project {session.project_name}: {e}")
+        except Exception as e:
+            logger.error(f"Error rendering onboard prompt for {session.project_name}: {e}", exc_info=True)
