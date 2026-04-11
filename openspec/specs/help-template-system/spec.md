@@ -37,7 +37,8 @@ The system SHALL enhance the help template to support both general help listing 
 - **THEN** render detailed command help using template with populated context
 
 ### Requirement: Template Context Integration
-The system SHALL integrate command help metadata into the template context system for consistent formatting and styling.
+
+The template context SHALL expose template-friendly agent capability flags in addition to the existing agent identity fields.
 
 #### Scenario: Consistent help formatting
 - **WHEN** rendering command help via template
@@ -46,6 +47,16 @@ The system SHALL integrate command help metadata into the template context syste
 #### Scenario: Help metadata availability
 - **WHEN** template renders individual command help
 - **THEN** have access to all command metadata (description, usage, examples, aliases, category)
+
+#### Scenario: Handoff capability is exposed
+- **WHEN** command templates are rendered
+- **THEN** the context includes `agent.has_handoff`
+- **AND** it defaults to `false` unless explicitly enabled for a validated client
+
+#### Scenario: Normalized-name membership flags are exposed
+- **WHEN** command templates are rendered
+- **THEN** the context includes `agent.is_<normalized-name>` boolean flags derived from the canonical normalized agent name
+- **AND** templates can use these flags for light identity-specific wording
 
 ### Requirement: User Documentation
 
@@ -181,13 +192,27 @@ The system SHALL ensure documentation accuracy and usability.
 - **AND** content structure is searchable
 
 ### Requirement: Export Command Organization
-The system SHALL organize export commands under `_commands/export/` directory structure.
+
+The `:export/add` command template SHALL support the same handoff-versus-inline execution split used for document ingestion, while preserving the current export semantics.
 
 #### Scenario: Export command structure
 - **WHEN** export commands are discovered
 - **THEN** they are located at `_commands/export/add.mustache`, `_commands/export/list.mustache`, `_commands/export/remove.mustache`
 - **AND** `add.mustache` has alias 'export' for backward compatibility
 - **AND** commands are accessible as `:export/add`, `:export/list`, `:export/remove`, and `:export`
+
+#### Scenario: Handoff-capable export execution
+- **WHEN** `:export/add` or `:export` is rendered for a client with `agent.has_handoff=true`
+- **THEN** the template may instruct the agent to perform export separately when it can still complete the workflow end-to-end, including writing the output file
+
+#### Scenario: Inline export fallback
+- **WHEN** `:export/add` or `:export` is rendered for a client with `agent.has_handoff=false`
+- **THEN** the template instructs the agent to perform export inline
+- **AND** it preserves the existing requirement to write the returned content verbatim to disk
+
+#### Scenario: Standardized fallback wording for export
+- **WHEN** the handoff-oriented export path cannot actually be used
+- **THEN** the agent uses standardized fallback explanation wording before continuing inline
 
 ### Requirement: Export List Command
 The system SHALL provide an `:export/list` command that displays formatted export information.
@@ -220,3 +245,66 @@ The system SHALL provide a `_system/_exports-format.mustache` template for forma
 - **AND** stale exports are visually indicated with a warning marker
 - **AND** empty list shows "No exports found" message
 
+
+### Requirement: Workflow Phase Templates
+
+The workflow template set SHALL include a dedicated exploration phase template.
+
+#### Scenario: Exploration phase template exists
+- **WHEN** workflow phase templates are rendered
+- **THEN** `_workflow/06-exploration.mustache` exists
+- **AND** it provides concise guidance for investigation, requirement discovery, and option exploration
+- **AND** it explicitly forbids implementation while in that phase
+
+#### Scenario: Explore command template exists
+- **WHEN** workflow command templates are rendered
+- **THEN** `_commands/workflow/explore.mustache` exists
+- **AND** it mirrors the issue-handling pattern used by `:workflow/discuss`
+
+### Requirement: Guided Onboarding Experience
+
+The system SHALL provide a guided onboarding experience for project configuration.
+
+#### Scenario: Initial onboarding guides user through setup
+- **WHEN** a user begins onboarding for a project
+- **THEN** the system guides them through relevant configuration choices
+- **AND** it presents those choices in user-facing terms rather than requiring prior knowledge of internal configuration structures
+
+#### Scenario: Onboarding supports later reconfiguration
+- **WHEN** a user wants to revise project setup after initial onboarding
+- **THEN** the same guided approach can be used to review and adjust existing configuration choices
+
+### Requirement: Project-Aware Guidance
+
+The onboarding flow SHALL inspect the project when possible and ask the user when project signals are insufficient.
+
+#### Scenario: Project characteristics inform onboarding choices
+- **WHEN** the project contains recognizable language, framework, or toolchain signals
+- **THEN** onboarding uses those signals to prioritize relevant setup questions
+
+#### Scenario: Ambiguous or missing project context falls back to user questions
+- **WHEN** project inspection is ambiguous or unavailable
+- **THEN** onboarding asks the user for the missing information before applying configuration
+
+### Requirement: Policy-Oriented User Documentation Structure
+
+The system SHALL organize optional user-selectable operational preferences into a dedicated `policy` document category.
+
+#### Scenario: Policy documents are grouped by topic
+- **WHEN** policy guidance is added
+- **THEN** it is stored under the `policy` category
+- **AND** policy documents are organized by topic such as git, workflow, testing, tooling, or review posture
+
+#### Scenario: Core guidance is made more neutral
+- **WHEN** an existing user-facing document contains an optional preference rather than a universal rule
+- **THEN** that preference is extracted into a policy document where practical
+- **AND** the original core guidance is made more choice-agnostic
+
+### Requirement: Policy Audit and Extraction
+
+The system SHALL support extraction of embedded policy choices from existing user-facing templates and markdown documents.
+
+#### Scenario: High-value topics are extracted first
+- **WHEN** policy extraction is implemented
+- **THEN** high-value topics such as scm, commit/pr behavior, workflow mode, testing, type checking, and toolchain preferences are prioritized
+- **AND** additional policy topics discovered during the audit may also be extracted where they represent user-selectable preferences

@@ -92,3 +92,26 @@ The system SHALL support a structured YAML format for the workflow state file.
 - **WHEN** workflow state file has invalid structure
 - **THEN** provide clear error messages and fallback gracefully
 
+
+### Requirement: Workflow Phase Configuration
+
+The workflow configuration SHALL support `exploration` as an available phase without making it part of the standard ordered workflow sequence.
+
+#### Scenario: Exploration is available but non-ordered
+- **WHEN** workflow phases are configured
+- **THEN** `exploration` is included in the available/default phase set
+- **AND** it is not inserted into the standard ordered sequence of delivery phases
+
+#### Scenario: Leaving exploration requires consent
+- **WHEN** the current workflow phase is `exploration`
+- **THEN** transitioning out of that phase requires explicit user consent
+
+### Requirement: Onboarding Covers Workflow Preferences
+
+The onboarding system SHALL support user choice over workflow behavior.
+
+#### Scenario: User selects workflow mode during onboarding
+- **WHEN** onboarding presents workflow-related setup choices
+- **THEN** the user can choose whether workflow handling is enabled
+- **AND** the user can choose between simpler and more structured workflow approaches where supported
+- **AND** the resulting workflow configuration is applied through the existing workflow flag model

@@ -101,7 +101,7 @@ See [Feature Flags](docs/user/feature-flags.md) for more information.
 
 ## Links
 
-- **Documentation**: [docs/user/](docs/index.md)
+- **Documentation**: [deeprave.github.io/mcp-guide](https://deeprave.github.io/mcp-guide/latest/)
 - **Issues**: [GitHub Issues](https://github.com/deeprave/mcp-guide/issues)
 - **MCP Protocol**: [modelcontextprotocol.io](https://modelcontextprotocol.io/)
 
