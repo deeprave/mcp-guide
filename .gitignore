@@ -204,4 +204,5 @@ q.json
 .hook_log
 .amazonq
 .mcp
+.codex/
 .openspec-version.txt
