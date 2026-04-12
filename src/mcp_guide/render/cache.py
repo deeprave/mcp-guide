@@ -235,6 +235,9 @@ class TemplateContextCache(SessionListener):
         try:
             session = await get_session(None)
             if session:
+                # Load-bearing for unbound `_system` template rendering: when no project
+                # is bound, `session.get_project()` may raise and callers rely on the
+                # empty defaults below rather than a rendering failure.
                 project = await session.get_project()
 
                 if project:

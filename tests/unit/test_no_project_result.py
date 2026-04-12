@@ -8,6 +8,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from mcp_guide.render.context import TemplateContext
+
 
 @pytest.fixture
 def anyio_backend():
@@ -15,33 +17,7 @@ def anyio_backend():
 
 
 class TestProjectRootTemplate:
-    """Verify the _project-root.mustache file contains expected instructions."""
-
-    def test_template_contains_git_worktree_detection(self):
-        """Template file must instruct the agent to run git rev-parse --git-common-dir."""
-        import mcp_guide
-
-        template_path = Path(mcp_guide.__file__).parent / "templates" / "_system" / "_project-root.mustache"
-        assert template_path.exists(), f"Template not found: {template_path}"
-        content = template_path.read_text()
-        assert "git rev-parse --git-common-dir" in content
-
-    def test_template_contains_cwd_fallback(self):
-        """Template file must mention a CWD fallback for non-git projects."""
-        import mcp_guide
-
-        template_path = Path(mcp_guide.__file__).parent / "templates" / "_system" / "_project-root.mustache"
-        content = template_path.read_text()
-        # "fall back" or "fallback" — either wording is acceptable
-        assert ("fall" in content.lower() and "cwd" in content.lower()) or "working directory" in content.lower()
-
-    def test_template_contains_set_project_instruction(self):
-        """Template file must instruct the agent to call set_project."""
-        import mcp_guide
-
-        template_path = Path(mcp_guide.__file__).parent / "templates" / "_system" / "_project-root.mustache"
-        content = template_path.read_text()
-        assert "set_project" in content
+    """Verify the _project-root.mustache template renders with the expected semantics."""
 
     def test_template_has_correct_frontmatter_type(self):
         """Template frontmatter type must be agent/instruction."""
@@ -50,6 +26,65 @@ class TestProjectRootTemplate:
         template_path = Path(mcp_guide.__file__).parent / "templates" / "_system" / "_project-root.mustache"
         content = template_path.read_text()
         assert "type: agent/instruction" in content
+
+    @pytest.mark.anyio
+    async def test_template_renders_with_unbound_session(self):
+        """Rendered template should include git root guidance, CWD fallback, and set_project."""
+        from mcp_guide.render.rendering import render_content
+
+        mock_session = MagicMock()
+        mock_session.project_is_bound = False
+        mock_session.agent_info = None
+        mock_session.get_docroot = AsyncMock(return_value=Path.cwd())
+        mock_session.get_project = AsyncMock(side_effect=ValueError("no project"))
+        mock_session.project_flags = MagicMock(return_value=MagicMock(list=AsyncMock(return_value={})))
+        mock_session.feature_flags = MagicMock(return_value=MagicMock(list=AsyncMock(return_value={})))
+
+        with (
+            patch("mcp_guide.session.get_session", new=AsyncMock(return_value=mock_session)),
+            patch("mcp_guide.render.rendering.resolve_all_flags", new=AsyncMock(return_value={})),
+        ):
+            rendered = await render_content("_project-root", "_system", TemplateContext({}))
+
+        assert rendered is not None
+        assert "git rev-parse --git-common-dir" in rendered.content
+        assert ("fall back" in rendered.content.lower() and "cwd" in rendered.content.lower()) or (
+            "current working directory" in rendered.content.lower()
+        )
+        assert "set_project" in rendered.content
+
+    @pytest.mark.anyio
+    async def test_template_renders_identically_with_bound_session(self):
+        """Bound and unbound sessions should render the same `_project-root` output."""
+        from mcp_guide.render.rendering import render_content
+
+        async def render_with_session(project_is_bound: bool):
+            mock_session = MagicMock()
+            mock_session.project_is_bound = project_is_bound
+            mock_session.agent_info = None
+            mock_project = MagicMock()
+            mock_project.name = "mcp-guide"
+            mock_project.key = "mcp-guide"
+            mock_project.hash = "abc123"
+            mock_project.categories = {}
+            mock_project.collections = {}
+            mock_session.get_docroot = AsyncMock(return_value=Path.cwd())
+            mock_session.get_project = AsyncMock(return_value=mock_project if project_is_bound else None)
+            mock_session.project_flags = MagicMock(return_value=MagicMock(list=AsyncMock(return_value={})))
+            mock_session.feature_flags = MagicMock(return_value=MagicMock(list=AsyncMock(return_value={})))
+
+            with (
+                patch("mcp_guide.session.get_session", new=AsyncMock(return_value=mock_session)),
+                patch("mcp_guide.render.rendering.resolve_all_flags", new=AsyncMock(return_value={})),
+            ):
+                return await render_content("_project-root", "_system", TemplateContext({}))
+
+        unbound_render = await render_with_session(False)
+        bound_render = await render_with_session(True)
+
+        assert unbound_render is not None
+        assert bound_render is not None
+        assert bound_render.content == unbound_render.content
 
 
 class TestMakeNoProjectResult:
