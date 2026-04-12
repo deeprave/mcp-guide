@@ -44,6 +44,10 @@ def parse_workflow_state(content: str) -> Optional[WorkflowState]:
             if cap_field in yaml_data and lower_field not in yaml_data:
                 yaml_data[lower_field] = yaml_data[cap_field]
 
+        # Treat a YAML null queue (`queue:`) as an empty queue.
+        if yaml_data.get("queue") is None:
+            yaml_data["queue"] = []
+
         if "phase" not in yaml_data:
             logger.warning("Workflow content missing required 'phase' field")
             return None

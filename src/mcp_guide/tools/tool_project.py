@@ -20,7 +20,7 @@ from mcp_guide.result_constants import (
     ERROR_SAFEGUARD,
     ERROR_UNEXPECTED,
     INSTRUCTION_NOTFOUND_ERROR,
-    RESULT_NO_PROJECT,
+    make_no_project_result,
 )
 from mcp_guide.session import get_session, list_all_projects
 from mcp_guide.session import set_project as session_set_project
@@ -97,7 +97,7 @@ async def internal_get_project(args: GetCurrentProjectArgs, ctx: Optional[Contex
     """
     session, project = await get_session_and_project(ctx)
     if project is None:
-        return RESULT_NO_PROJECT
+        return await make_no_project_result(ctx)
 
     result_dict = await format_project_data(project, verbose=args.verbose, session=session)
     # Include project name in response for single project operations
@@ -317,7 +317,7 @@ async def internal_clone_project(args: CloneProjectArgs, ctx: Optional[Context] 
         # for 2-arg mode where we're not using current project
         if args.to_project is None:
             # 1-arg mode requires current project
-            return RESULT_NO_PROJECT
+            return await make_no_project_result(ctx)
         # For 2-arg mode, we'll create a temporary session later
         session = None
 
@@ -385,7 +385,7 @@ async def internal_clone_project(args: CloneProjectArgs, ctx: Optional[Context] 
             target_project = current_project
             is_current_project = True
         except ValueError:
-            return RESULT_NO_PROJECT
+            return await make_no_project_result(ctx)
     else:
         # 2-arg mode: clone to specified project
         target_name = args.to_project
@@ -628,7 +628,7 @@ async def internal_use_project_profile(args: UseProjectProfileArgs, ctx: Optiona
 
     session, project = await get_session_and_project(ctx)
     if project is None:
-        return RESULT_NO_PROJECT
+        return await make_no_project_result(ctx)
 
     # Load profile
     try:
@@ -804,7 +804,7 @@ async def internal_add_permission_path(args: AddPermissionPathArgs, ctx: Optiona
 
     session, project = await get_session_and_project(ctx)
     if project is None:
-        return RESULT_NO_PROJECT
+        return await make_no_project_result(ctx)
 
     # Check if already exists (silent success)
     if args.permission_type == "write":
@@ -850,7 +850,7 @@ async def internal_remove_permission_path(args: RemovePermissionPathArgs, ctx: O
     """
     session, project = await get_session_and_project(ctx)
     if project is None:
-        return RESULT_NO_PROJECT
+        return await make_no_project_result(ctx)
 
     # Remove path based on type (silent success if not found)
     if args.permission_type == "write":

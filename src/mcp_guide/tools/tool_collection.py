@@ -15,7 +15,7 @@ from mcp_guide.result import Result
 from mcp_guide.result_constants import (
     ERROR_NOT_FOUND,
     ERROR_SAVE,
-    RESULT_NO_PROJECT,
+    make_no_project_result,
 )
 from mcp_guide.tools.tool_helpers import get_session_and_project
 from mcp_guide.validation import validate_categories_exist
@@ -49,7 +49,7 @@ async def internal_collection_list(args: CollectionListArgs, ctx: Optional[Conte
     """
     session, project = await get_session_and_project(ctx)
     if project is None:
-        return RESULT_NO_PROJECT
+        return await make_no_project_result(ctx)
 
     collections: Any
     if args.verbose:
@@ -100,7 +100,7 @@ async def internal_collection_add(args: CollectionAddArgs, ctx: Optional[Context
 
     session, project = await get_session_and_project(ctx)
     if project is None:
-        return RESULT_NO_PROJECT
+        return await make_no_project_result(ctx)
 
     try:
         # Validate name is not empty
@@ -150,7 +150,7 @@ async def internal_collection_remove(args: CollectionRemoveArgs, ctx: Optional[C
     """
     session, project = await get_session_and_project(ctx)
     if project is None:
-        return RESULT_NO_PROJECT
+        return await make_no_project_result(ctx)
 
     # Use dict lookup for O(1) existence check
     if args.name not in project.collections:
@@ -191,7 +191,7 @@ async def internal_collection_change(args: CollectionChangeArgs, ctx: Optional[C
     """
     session, project = await get_session_and_project(ctx)
     if project is None:
-        return RESULT_NO_PROJECT
+        return await make_no_project_result(ctx)
 
     existing_collection = project.collections.get(args.name)
     if existing_collection is None:
@@ -289,7 +289,7 @@ async def internal_collection_update(args: CollectionUpdateArgs, ctx: Optional[C
     """
     session, project = await get_session_and_project(ctx)
     if project is None:
-        return RESULT_NO_PROJECT
+        return await make_no_project_result(ctx)
 
     existing_collection = project.collections.get(args.name)
     if existing_collection is None:

@@ -5,13 +5,13 @@ Tool Implementation Pattern
 
 All tools should follow this pattern for session access:
 
-    from mcp_guide.result_constants import RESULT_NO_PROJECT
+    from mcp_guide.result_constants import make_no_project_result
     from mcp_guide.tools.tool_helpers import get_session_and_project
 
     async def my_tool(ctx) -> dict:
         session, project = await get_session_and_project(ctx)
         if project is None:
-            return RESULT_NO_PROJECT
+            return await make_no_project_result(ctx)
 
         # Use project config...
         return {"success": True, "data": ...}
