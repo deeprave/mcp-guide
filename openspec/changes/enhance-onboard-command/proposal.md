@@ -1,39 +1,54 @@
 ## Why
 
-The guided onboarding command (`_onboard`) produces non-deterministic results: agents
-don't inspect existing project state before asking questions, have no guidance on which
-tools to call to determine what is already configured, and receive no instruction to ask
-one question at a time — causing them to either re-ask already-configured dimensions or
-dump all questions at once as a wall of text, defeating the purpose of guided setup.
+The guided onboarding command (`_onboard`) produces inconsistent and often poor
+interactive behavior. Agents do not reliably inspect the existing guide
+configuration before asking questions, so they may re-ask dimensions that are
+already configured or miss obvious defaults already visible from project state.
+The prompt also does not constrain the interaction loop tightly enough: agents
+may ask many onboarding questions at once, may not pause for user clarification,
+and have no explicit instruction for a "skip the rest" path after partial
+answers have already been collected.
+
+This makes onboarding noisy, repetitive, and less useful than intended.
 
 ## What Changes
 
-- **Modify** `src/mcp_guide/templates/_commands/onboard.mustache` — Step 1 gains an
-  explicit "Check existing guide configuration" subsection with named tool calls and flag
-  names to inspect; Step 2 gains a mandatory one-question-at-a-time rule with skip/partial
-  logic; an opening summary of already-configured dimensions is shown before any questions
-  are asked
-- **No new files** — the change is entirely within the existing onboard template
+- **Modify** `src/mcp_guide/templates/_commands/onboard.mustache`
+- **Do not add new Python code** — this change is prompt/template behavior only
+- **Add** explicit Step 1 instructions to inspect current guide state before
+  asking onboarding questions
+- **Require** the agent to use `guide://_project?verbose` as the primary source
+  of existing category/configuration state, including the `policies` category
+- **Require** the agent to inspect project flags via `list_project_flags`,
+  specifically checking `onboarded`, `workflow`, and `openspec`
+- **Require** the agent to inspect available profiles via `list_profiles`
+- **Add** an opening summary of already-configured dimensions before the first
+  onboarding question
+- **Modify** Step 2 to require exactly one onboarding question at a time
+- **Allow** the user to ask clarifying questions between onboarding questions,
+  with the agent answering them before resuming onboarding
+- **Add** `skip-all` as a valid user response that skips all remaining
+  onboarding dimensions while preserving answers already collected in the
+  current onboarding session
+- **Retain** existing end-of-flow confirmation and apply-all-at-once behavior
 
 ## Capabilities
 
-### New Capabilities
-
-*(none — this is a template content change only)*
-
 ### Modified Capabilities
 
-- `onboard-command`: Step 1 must call `guide://_project?verbose`, `list_project_flags`
-  (checking `onboarded`, `workflow`, `openspec`), `list_category_files policies` (to see
-  which policy patterns are active, not by reading `guide://policies` verbosely), and
-  `list_profiles` (to show available profiles before asking). Step 2 must ask exactly one
-  dimension at a time, wait for the user response, skip fully-configured dimensions
-  silently, ask about partially-configured dimensions, propose filesystem-detected defaults,
-  and accept "skip" or empty response as a valid answer. An opening summary of current
-  configuration must be displayed before the first question.
+- `onboard-command`: Step 1 must inspect existing project configuration before
+  asking anything, using `guide://_project?verbose`, `list_project_flags`, and
+  `list_profiles`. The command must summarize current configuration first, skip
+  fully configured dimensions silently, ask about partially configured or
+  missing dimensions, propose filesystem- or config-detected defaults, ask
+  exactly one onboarding question at a time, allow clarifying user questions,
+  accept per-question `skip` / empty responses, and accept `skip-all` to stop
+  the remaining onboarding flow early
 
 ## Impact
 
-- `src/mcp_guide/templates/_commands/onboard.mustache` — sole file changed
-- No Python code changes
-- No new dependencies
+- `src/mcp_guide/templates/_commands/onboard.mustache` — sole implementation
+  file changed
+- No new runtime dependencies
+- No Python code changes expected
+- No data model changes expected

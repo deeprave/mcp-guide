@@ -29,8 +29,21 @@ at the end. Stage all choices in your working context only.**
 
 ### Step 1 — Project Inspection
 
-Before asking the user anything, inspect the project to identify signals that
-inform configuration choices. Look for:
+Before asking the user anything, inspect the existing guide configuration and
+current project state to identify what is already configured and what still
+needs input.
+
+Start by inspecting guide configuration:
+
+- Call `guide://_project?verbose` and use it as the primary source of current
+  category and configuration state, including the `policies` category
+- Call `list_project_flags` and inspect at least `onboarded`, `workflow`, and
+  `openspec`
+- Call `list_profiles` so you know which profiles are available before asking
+  about language or framework profiles
+
+Then inspect repository files only as supporting evidence for defaults,
+applicability, or ambiguity resolution. Look for:
 
 - Language indicators: `pyproject.toml`, `package.json`, `Cargo.toml`, `go.mod`,
   `pom.xml`, `build.gradle`, etc.
@@ -44,23 +57,70 @@ If project context is unavailable or ambiguous, ask the user directly.
 
 ---
 
-### Step 2 — Configuration Dimensions
+### Step 2 — Current Configuration Summary
+
+Before asking the first onboarding question, give the user a brief summary of
+what is already configured.
+
+- Summarize only the dimensions that appear already configured or strongly
+  implied by inspected project state
+- Use user-facing language rather than internal implementation details where
+  possible
+- Treat fully configured dimensions as implicitly handled and skip them silently
+  unless the user asks to revisit them
+
+---
+
+### Step 3 — Configuration Dimensions
 
 Work through the following dimensions in order. For each one:
 - Use project inspection results to pre-select a likely choice where possible
+- Mention the current state if the dimension is partially configured
 - Present the choice to the user in plain language with a brief explanation
-- Note the current configuration if already set
-- Skip dimensions that are clearly not relevant (e.g. Python toolchain for a Go project)
-- Allow the user to skip any individual dimension
+- Skip dimensions that are fully configured or clearly not relevant (e.g.
+  Python toolchain for a Go project)
+- Allow the user to skip any individual dimension with `skip` or an empty
+  response
+- Accept `skip-all` to skip the remaining onboarding dimensions while preserving
+  answers already collected in the current onboarding run
+
+Interaction rules:
+
+- Ask exactly one onboarding question at a time
+- Wait for the user's response before asking the next onboarding question
+- If the user asks a clarifying question instead of answering, answer the
+  clarification first and then resume the current onboarding dimension
+- If a likely default can be inferred from project or guide state, propose it
+- If a dimension is partially configured, mention the current state and ask
+  whether to confirm or adjust it
+- Do not apply any configuration changes during this step; stage choices only
 
 **1. Language / framework profile**
 Ask which language(s) and frameworks are used. Check if a matching profile exists
 (`python`, `jira`, etc.). Profiles are additive — multiple may apply.
 
 **2. Workflow mode**
-Ask whether the user wants structured phased workflow support (discussion →
-planning → implementation → check → review) or a simpler setup without phases.
-Maps to the `workflow` project flag.
+Present only these supported workflow options, and map them exactly to the
+`workflow` project flag:
+
+- `none` or `unstructured` — no workflow tracking or workflow rules.
+  Maps to `workflow: false`.
+- `structured` — standard workflow enabled using the server default workflow
+  configuration. Maps to `workflow: true`.
+- `simple` — minimal workflow with exploration available. Maps to
+  `workflow: [discussion, implementation, exploration]`.
+- `developer` — implementation/review focused workflow with exploration
+  available. Maps to
+  `workflow: [discussion, implementation, review, exploration]`.
+- `full` — explicit full delivery workflow with exploration available. Maps to
+  `workflow: [discussion, planning, implementation, check, review, exploration]`.
+
+When explaining these options:
+- Distinguish disabled workflow (`false`) from enabled structured workflow
+  shorthand (`true`) and explicit custom phase sequences (lists)
+- Describe `exploration` as a non-ordered exploratory phase used for trying
+  approaches, testing alternatives, and often drafting OpenSpec proposals
+- Do not imply that `exploration` is available when `workflow` is disabled
 
 **3. Methodology**
 Composable — multiple may be selected. Options:
@@ -137,7 +197,7 @@ Maps to the `openspec` project flag.
 
 ---
 
-### Step 3 — Confirmation Summary
+### Step 4 — Confirmation Summary
 
 Present a clear summary of all choices collected. For each dimension, show:
 - The selected option
@@ -155,10 +215,12 @@ Example format:
 > Apply these changes? (yes / no / adjust)
 
 Allow the user to adjust any choice before confirming.
+If the user previously answered `skip-all`, include only the staged answers that
+were actually collected before the remaining dimensions were skipped.
 
 ---
 
-### Step 4 — Apply Configuration
+### Step 5 — Apply Configuration
 
 Once the user confirms, apply all changes using existing tools:
 
