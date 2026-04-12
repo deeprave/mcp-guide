@@ -266,7 +266,9 @@ class TemplateContextCache(SessionListener):
 
                     # Convert project flags dict to list format for iteration
                     project_flag_values = [{"key": k, "value": v} for k, v in (project.project_flags or {}).items()]
-        except (AttributeError, ValueError, RuntimeError) as e:
+        except ValueError as e:
+            logger.debug(f"Project context unavailable for current session: {e}")
+        except (AttributeError, RuntimeError) as e:
             logger.error(f"Failed to get project from session: {e}", exc_info=True)
 
         # Get global flags for template context
