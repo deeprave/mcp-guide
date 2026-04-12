@@ -39,6 +39,8 @@ project flag values.
   ordered phase sequence
 - **AND** both options map to server-valid workflow configurations
 
+## ADDED Requirements
+
 ### Requirement: Exploration Remains Non-Linear In Workflow Variants
 
 Workflow variants exposed during onboarding SHALL treat `exploration` as an
