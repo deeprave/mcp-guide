@@ -92,8 +92,15 @@ The existing behavior should remain intact:
 
 ## Implementation Scope
 
-Only [src/mcp_guide/templates/_commands/onboard.mustache](/Users/davidn/Code/mcp-guide/src/mcp_guide/templates/_commands/onboard.mustache)
-needs to change.
+The primary implementation target is `src/mcp_guide/templates/_commands/onboard.mustache`.
+
+The change package also includes the usual OpenSpec planning artifacts and spec
+deltas needed to define and track the behavior change:
+
+- `proposal.md`
+- `tasks.md`
+- this `design.md`
+- capability deltas under `specs/`
 
 No Python behavior is required for this change unless implementation uncovers a
 missing tool capability, which is not expected from the current design.
