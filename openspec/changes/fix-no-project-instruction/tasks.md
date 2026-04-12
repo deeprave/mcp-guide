@@ -16,7 +16,7 @@
 - [ ] 3.2 Factory body: attempt `get_session(ctx)` → render `_project-root` via `render_content` → construct `Result.failure(error_type=ERROR_NO_PROJECT, instruction=<rendered>)` and return it
 - [ ] 3.3 On `ValueError` from `get_session` (no session), return `RESULT_NO_PROJECT` static fallback
 - [ ] 3.4 Wrap `render_content` call in `try/except`; log a warning and return `RESULT_NO_PROJECT` on any rendering failure
-- [ ] 3.5 Retain `INSTRUCTION_NO_PROJECT` string constant and `RESULT_NO_PROJECT` static constant unchanged — they are the factory's internal fallback and must not be removed
+- [ ] 3.5 Retain `INSTRUCTION_NO_PROJECT` and `RESULT_NO_PROJECT` as the factory's internal static fallback and do not remove them; if `INSTRUCTION_NO_PROJECT` wording changes intentionally, keep this task entry aligned with that updated text/behavior
 
 ## 4. Update `_check_project_bound()` in `core/tool_decorator.py`
 

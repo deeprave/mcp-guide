@@ -3,7 +3,8 @@ type: agent/instruction
 ---
 No active project context. Call `{{tool_prefix}}set_project` with the repository root before proceeding.
 
-Determine the repository root: run `git rev-parse --git-common-dir` and strip the trailing `/.git`. Fall back to CWD if not a git repository.
+Determine the repository root: run `git rev-parse --git-common-dir`. If it returns `.git`, the repository root is the current working directory. Otherwise, resolve the result to an absolute path and, if it names a `.git` directory, use its parent directory as the repository root. Fall back to CWD if not a git repository.
+Never pass the `.git` directory itself to `{{tool_prefix}}set_project`.
 All relative paths used by the MCP server are interpreted relative to the project root you provide to `set_project`.
 {{#agent.is_claude}}
 Note: AI agents may run inside a linked worktree — `git rev-parse --git-common-dir` returns the main repository's `.git`, not the worktree's.

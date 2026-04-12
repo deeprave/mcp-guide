@@ -33,7 +33,7 @@ class TestProjectRootTemplate:
         template_path = Path(mcp_guide.__file__).parent / "templates" / "_system" / "_project-root.mustache"
         content = template_path.read_text()
         # "fall back" or "fallback" — either wording is acceptable
-        assert "fall" in content.lower() and "cwd" in content.lower() or "working directory" in content.lower()
+        assert ("fall" in content.lower() and "cwd" in content.lower()) or "working directory" in content.lower()
 
     def test_template_contains_set_project_instruction(self):
         """Template file must instruct the agent to call set_project."""
@@ -66,11 +66,27 @@ class TestMakeNoProjectResult:
         assert result is RESULT_NO_PROJECT
 
     @pytest.mark.anyio
+    async def test_no_ctx_session_unexpected_error_logs_and_returns_static_fallback(self, caplog):
+        """Unexpected session errors log and return the static RESULT_NO_PROJECT fallback."""
+        from mcp_guide.result_constants import RESULT_NO_PROJECT, make_no_project_result
+
+        with (
+            caplog.at_level(logging.ERROR, logger="mcp_guide.result_constants"),
+            patch("mcp_guide.session.get_session", new=AsyncMock(side_effect=RuntimeError("boom"))),
+        ):
+            result = await make_no_project_result(ctx=None)
+
+        assert result is RESULT_NO_PROJECT
+        assert any(record.levelno == logging.ERROR for record in caplog.records)
+        assert any(record.exc_info and "boom" in str(record.exc_info[1]) for record in caplog.records)
+
+    @pytest.mark.anyio
     async def test_render_failure_returns_static_fallback_and_warns(self, caplog):
         """When render_content raises, factory returns static fallback and logs a warning."""
         from mcp_guide.result_constants import RESULT_NO_PROJECT, make_no_project_result
 
         mock_session = AsyncMock()
+        mock_session.project_is_bound = False
 
         with (
             patch("mcp_guide.session.get_session", new=AsyncMock(return_value=mock_session)),
@@ -92,6 +108,7 @@ class TestMakeNoProjectResult:
         from mcp_guide.result_constants import ERROR_NO_PROJECT, RESULT_NO_PROJECT, make_no_project_result
 
         mock_session = AsyncMock()
+        mock_session.project_is_bound = False
         mock_rendered = MagicMock()
         mock_rendered.content = "## Instructions\ngit rev-parse --git-common-dir strips /.git"
 
@@ -114,6 +131,7 @@ class TestMakeNoProjectResult:
         from mcp_guide.result_constants import RESULT_NO_PROJECT, make_no_project_result
 
         mock_session = AsyncMock()
+        mock_session.project_is_bound = False
 
         with (
             patch("mcp_guide.session.get_session", new=AsyncMock(return_value=mock_session)),
@@ -122,6 +140,25 @@ class TestMakeNoProjectResult:
             result = await make_no_project_result(ctx=MagicMock())
 
         assert result is RESULT_NO_PROJECT
+
+    @pytest.mark.anyio
+    async def test_bound_session_returns_static_fallback_without_render(self, caplog):
+        """Bound sessions should return the static fallback without rendering the template."""
+        from mcp_guide.result_constants import RESULT_NO_PROJECT, make_no_project_result
+
+        mock_session = MagicMock()
+        mock_session.project_is_bound = True
+
+        with (
+            caplog.at_level(logging.WARNING, logger="mcp_guide.result_constants"),
+            patch("mcp_guide.session.get_session", new=AsyncMock(return_value=mock_session)),
+            patch("mcp_guide.render.rendering.render_content", new=AsyncMock()) as mock_render,
+        ):
+            result = await make_no_project_result(ctx=MagicMock())
+
+        assert result is RESULT_NO_PROJECT
+        mock_render.assert_not_called()
+        assert any("session already bound" in record.getMessage() for record in caplog.records)
 
 
 class TestCheckProjectBound:

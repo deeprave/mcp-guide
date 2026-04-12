@@ -4,9 +4,9 @@ When no project is bound to a session, the server returns a hardcoded string (`I
 
 ## What Changes
 
-- **Remove** the hardcoded `INSTRUCTION_NO_PROJECT` string constant from `result_constants.py`
+- **Retain** the static `INSTRUCTION_NO_PROJECT` / `RESULT_NO_PROJECT` fallback in `result_constants.py`
 - **Add** `src/mcp_guide/templates/_system/_project-root.mustache` — a new template that instructs the agent how to determine and send the correct project root, with conditional logic based on agent/client context (e.g. git worktree detection for git-controlled projects, fallback to CWD otherwise)
-- **Modify** `RESULT_NO_PROJECT` construction to render the `_project-root` template instead of using the static string
+- **Add** `make_no_project_result(ctx)` to render the `_project-root` template when an unbound session is available, while falling back to the static no-project result when no session exists or rendering fails
 - **Modify** template rendering infrastructure to support rendering the `_project-root` template in an unbound session context — without requiring a bound project, resolved flags, or project-specific template variables
 - **Ensure** client/agent info (sufficient for `agent.is_<name>` conditionals) is available during unbound rendering so the template can branch on agent type
 
