@@ -39,7 +39,7 @@ from mcp_guide.result_constants import (
     INSTRUCTION_FILE_ERROR,
     INSTRUCTION_NOTFOUND_ERROR,
     INSTRUCTION_PATTERN_ERROR,
-    RESULT_NO_PROJECT,
+    make_no_project_result,
 )
 from mcp_guide.store.document_store import list_documents
 from mcp_guide.tools.tool_helpers import get_session_and_project
@@ -105,7 +105,7 @@ async def internal_category_list(args: CategoryListArgs, ctx: Optional[Context] 
     """
     session, project = await get_session_and_project(ctx)
     if project is None:
-        return RESULT_NO_PROJECT
+        return await make_no_project_result(ctx)
 
     categories: Union[list[dict[str, Union[str, list[str], None]]], list[str]]
     if args.verbose:
@@ -146,7 +146,7 @@ async def internal_category_add(args: CategoryAddArgs, ctx: Optional[Context] = 
 
     session, project = await get_session_and_project(ctx)
     if project is None:
-        return RESULT_NO_PROJECT
+        return await make_no_project_result(ctx)
 
     try:
         # Validate name is not empty
@@ -212,7 +212,7 @@ async def internal_category_remove(args: CategoryRemoveArgs, ctx: Optional[Conte
 
     session, project = await get_session_and_project(ctx)
     if project is None:
-        return RESULT_NO_PROJECT
+        return await make_no_project_result(ctx)
 
     # Use dict lookup for O(1) existence check
     if args.name not in project.categories:
@@ -258,7 +258,7 @@ async def internal_category_change(args: CategoryChangeArgs, ctx: Optional[Conte
 
     session, project = await get_session_and_project(ctx)
     if project is None:
-        return RESULT_NO_PROJECT
+        return await make_no_project_result(ctx)
 
     # Use dict lookup for O(1) existence check
     if args.name not in project.categories:
@@ -379,7 +379,7 @@ async def internal_category_update(args: CategoryUpdateArgs, ctx: Optional[Conte
 
     session, project = await get_session_and_project(ctx)
     if project is None:
-        return RESULT_NO_PROJECT
+        return await make_no_project_result(ctx)
 
     existing_category = project.categories.get(args.name)
     if existing_category is None:
@@ -446,7 +446,7 @@ async def internal_category_list_files(
     """
     session, project = await get_session_and_project(ctx)
     if project is None:
-        return RESULT_NO_PROJECT
+        return await make_no_project_result(ctx)
 
     # Resolve category
     category = project.categories.get(args.category)
@@ -538,7 +538,7 @@ async def internal_category_content(
     """
     session, project = await get_session_and_project(ctx)
     if project is None:
-        return RESULT_NO_PROJECT
+        return await make_no_project_result(ctx)
 
     try:
         # Build expression with pattern override if provided

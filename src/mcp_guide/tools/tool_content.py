@@ -37,7 +37,7 @@ from mcp_guide.result_constants import (
     INSTRUCTION_FILE_ERROR,
     INSTRUCTION_NOTFOUND_ERROR,
     INSTRUCTION_PATTERN_ERROR,
-    RESULT_NO_PROJECT,
+    make_no_project_result,
 )
 from mcp_guide.tools.tool_helpers import get_session_and_project
 from mcp_guide.tools.tool_result import parse_options, tool_result
@@ -124,7 +124,7 @@ async def internal_get_content(
     """
     session, project = await get_session_and_project(ctx)
     if project is None:
-        return RESULT_NO_PROJECT
+        return await make_no_project_result(ctx)
 
     # Get project
     docroot = Path(await session.get_docroot())
@@ -339,7 +339,7 @@ async def export_content(
     """
     session, project = await get_session_and_project(ctx)
     if project is None:
-        return await tool_result("export_content", RESULT_NO_PROJECT)
+        return await tool_result("export_content", await make_no_project_result(ctx))
 
     # Check for existing export (staleness detection)
     export_entry = project.get_export_entry(args.expression, args.pattern)
@@ -452,7 +452,7 @@ async def list_exports(
 
     session, project = await get_session_and_project(ctx)
     if project is None:
-        return await tool_result("list_exports", RESULT_NO_PROJECT)
+        return await tool_result("list_exports", await make_no_project_result(ctx))
 
     # Build list of export dicts
     exports = []
@@ -540,7 +540,7 @@ async def remove_export(
     """
     session, project = await get_session_and_project(ctx)
     if project is None:
-        return await tool_result("remove_export", RESULT_NO_PROJECT)
+        return await tool_result("remove_export", await make_no_project_result(ctx))
 
     # Build key
     key = (args.expression, args.pattern)

@@ -11,7 +11,7 @@ from mcp_guide.core.tool_arguments import ToolArguments
 from mcp_guide.core.tool_decorator import toolfunc
 from mcp_guide.installer.core import ORIGINAL_ARCHIVE, perform_locked_update, read_version
 from mcp_guide.result import Result
-from mcp_guide.result_constants import RESULT_NO_PROJECT
+from mcp_guide.result_constants import make_no_project_result
 from mcp_guide.session import get_session
 from mcp_guide.tools.tool_result import tool_result
 
@@ -42,8 +42,8 @@ async def internal_update_documents(
     """
     try:
         session = await get_session(ctx)
-    except ValueError as e:
-        return RESULT_NO_PROJECT
+    except ValueError:
+        return await make_no_project_result(ctx)
 
     docroot = Path(await session.get_docroot())
     archive_path = docroot / ORIGINAL_ARCHIVE
