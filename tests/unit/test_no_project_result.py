@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+import mcp_guide
 from mcp_guide.render.context import TemplateContext
 
 
@@ -16,13 +17,35 @@ def anyio_backend():
     return "asyncio"
 
 
+def _make_render_session(*, project_is_bound: bool) -> MagicMock:
+    """Construct a mock session suitable for `_project-root` render tests."""
+    template_docroot = Path(mcp_guide.__file__).parent / "templates"
+    mock_session = MagicMock()
+    mock_session.project_is_bound = project_is_bound
+    mock_session.agent_info = None
+    mock_session.get_docroot = AsyncMock(return_value=template_docroot)
+    mock_session.project_flags = MagicMock(return_value=MagicMock(list=AsyncMock(return_value={})))
+    mock_session.feature_flags = MagicMock(return_value=MagicMock(list=AsyncMock(return_value={})))
+
+    if project_is_bound:
+        mock_project = MagicMock()
+        mock_project.name = "mcp-guide"
+        mock_project.key = "mcp-guide"
+        mock_project.hash = "abc123"
+        mock_project.categories = {}
+        mock_project.collections = {}
+        mock_session.get_project = AsyncMock(return_value=mock_project)
+    else:
+        mock_session.get_project = AsyncMock(side_effect=ValueError("no project"))
+
+    return mock_session
+
+
 class TestProjectRootTemplate:
     """Verify the _project-root.mustache template renders with the expected semantics."""
 
     def test_template_has_correct_frontmatter_type(self):
         """Template frontmatter type must be agent/instruction."""
-        import mcp_guide
-
         template_path = Path(mcp_guide.__file__).parent / "templates" / "_system" / "_project-root.mustache"
         content = template_path.read_text()
         assert "type: agent/instruction" in content
@@ -32,16 +55,10 @@ class TestProjectRootTemplate:
         """Rendered template should include git root guidance, CWD fallback, and set_project."""
         from mcp_guide.render.rendering import render_content
 
-        mock_session = MagicMock()
-        mock_session.project_is_bound = False
-        mock_session.agent_info = None
-        mock_session.get_docroot = AsyncMock(return_value=Path.cwd())
-        mock_session.get_project = AsyncMock(side_effect=ValueError("no project"))
-        mock_session.project_flags = MagicMock(return_value=MagicMock(list=AsyncMock(return_value={})))
-        mock_session.feature_flags = MagicMock(return_value=MagicMock(list=AsyncMock(return_value={})))
+        mock_session = _make_render_session(project_is_bound=False)
 
         with (
-            patch("mcp_guide.session.get_session", new=AsyncMock(return_value=mock_session)),
+            patch("mcp_guide.render.rendering.get_session", new=AsyncMock(return_value=mock_session)),
             patch("mcp_guide.render.rendering.resolve_all_flags", new=AsyncMock(return_value={})),
         ):
             rendered = await render_content("_project-root", "_system", TemplateContext({}))
@@ -59,22 +76,10 @@ class TestProjectRootTemplate:
         from mcp_guide.render.rendering import render_content
 
         async def render_with_session(project_is_bound: bool):
-            mock_session = MagicMock()
-            mock_session.project_is_bound = project_is_bound
-            mock_session.agent_info = None
-            mock_project = MagicMock()
-            mock_project.name = "mcp-guide"
-            mock_project.key = "mcp-guide"
-            mock_project.hash = "abc123"
-            mock_project.categories = {}
-            mock_project.collections = {}
-            mock_session.get_docroot = AsyncMock(return_value=Path.cwd())
-            mock_session.get_project = AsyncMock(return_value=mock_project if project_is_bound else None)
-            mock_session.project_flags = MagicMock(return_value=MagicMock(list=AsyncMock(return_value={})))
-            mock_session.feature_flags = MagicMock(return_value=MagicMock(list=AsyncMock(return_value={})))
+            mock_session = _make_render_session(project_is_bound=project_is_bound)
 
             with (
-                patch("mcp_guide.session.get_session", new=AsyncMock(return_value=mock_session)),
+                patch("mcp_guide.render.rendering.get_session", new=AsyncMock(return_value=mock_session)),
                 patch("mcp_guide.render.rendering.resolve_all_flags", new=AsyncMock(return_value={})),
             ):
                 return await render_content("_project-root", "_system", TemplateContext({}))
