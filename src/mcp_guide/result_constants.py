@@ -82,12 +82,16 @@ async def make_no_project_result(ctx: Optional[Any] = None) -> "Result[Any]":
     try:
         from mcp_guide.session import get_session
 
-        await get_session(ctx)
+        session = await get_session(ctx)
     except ValueError as exc:
         _log.debug(f"make_no_project_result: no session, using static fallback ({exc})")
         return RESULT_NO_PROJECT
     except Exception:
         _log.exception("make_no_project_result: unexpected error getting session, using static fallback")
+        return RESULT_NO_PROJECT
+
+    if session.project_is_bound:
+        _log.warning("make_no_project_result: session already bound, using static fallback")
         return RESULT_NO_PROJECT
 
     # Attempt to render the agent-aware template
