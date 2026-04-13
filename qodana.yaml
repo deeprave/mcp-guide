@@ -43,4 +43,4 @@ profile:
 #    total: 50
 
 #Specify Qodana linter for analysis (Applied in CI/CD pipeline)
-image: jetbrains/qodana-python:2025.3.2
+image: jetbrains/qodana-python:2025.3
