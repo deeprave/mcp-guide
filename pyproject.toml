@@ -21,7 +21,6 @@ dependencies = [
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -51,7 +50,7 @@ mcp-install = "mcp_guide.scripts.mcp_guide_install:cli"
 guide-agent-install = "mcp_guide.scripts.guide_agent_install:main"
 
 [build-system]
-requires = ["uv_build"]
+requires = ["uv_build>=0.8.13,<0.12"]
 build-backend = "uv_build"
 
 [tool.uv]
