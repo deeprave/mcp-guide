@@ -2,9 +2,7 @@
 
 ## Purpose
 Tracks guided onboarding state and provides onboarding notifications for projects.
-
 ## Requirements
-
 ### Requirement: Onboarding State Tracking
 
 The system SHALL track whether guided onboarding has been completed for a project using a project-level flag.
@@ -66,3 +64,15 @@ The onboarding flow SHALL stage all configuration changes in the agent's working
 - **WHEN** the user confirms the onboarding summary
 - **THEN** all configuration changes are applied through existing mechanisms (profiles, flags, policy selections, etc.)
 - **AND** the `onboarded` flag is set to `true` as part of the same update
+
+#### Scenario: User skips a single dimension
+- **WHEN** the user responds with `skip` or an empty answer for the current onboarding dimension
+- **THEN** onboarding leaves that dimension unchanged
+- **AND** continues to the next remaining dimension
+
+#### Scenario: User skips all remaining dimensions
+- **WHEN** the user responds with `skip-all` during onboarding
+- **THEN** onboarding stops asking the remaining unanswered dimensions
+- **AND** preserves any answers already staged in the current onboarding run
+- **AND** proceeds to the final confirmation summary for the staged changes
+

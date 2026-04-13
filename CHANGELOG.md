@@ -2,6 +2,23 @@
 
 All notable changes to mcp-guide will be documented in this file.
 
+## [1.2.1] - 2026-04-13
+
+### Added
+- Better guidance when no project is selected yet
+- Qodana static analysis in CI
+
+### Changed
+- Guided onboarding is more conversational and state-aware
+- Onboarding workflow choices are clearer and align with supported workflow modes
+- OpenSpec documentation has been refreshed and clarified
+
+### Fixed
+- More consistent no-project behavior across commands and tools
+- Improved rendering when a session exists but no project is bound
+- Task manager status output renders compactly and consistently in Markdown
+- Onboarding workflow wording now matches supported configuration values
+
 ## [1.2.0] - 2026-04-10
 
 ### Added
