@@ -184,11 +184,14 @@ async def test_update_documents_acknowledges_pending_update_instruction(tmp_path
 
 @pytest.mark.anyio
 async def test_update_documents_propagates_docroot_resolution_error():
-    """Test update_documents surfaces docroot resolution failures without no_project handling."""
+    """Test update_documents returns a structured failure for docroot resolution issues."""
     ctx = Mock()
     session = Mock()
     session.get_docroot = AsyncMock(side_effect=OSError("docroot unavailable"))
 
     with patch("mcp_guide.tools.tool_update.get_session", return_value=session):
-        with pytest.raises(OSError, match="docroot unavailable"):
-            await internal_update_documents(UpdateDocumentsArgs(), ctx)
+        result = await internal_update_documents(UpdateDocumentsArgs(), ctx)
+
+    assert result.success is False
+    assert result.error_type == "config_read_error"
+    assert "docroot unavailable" in result.error

@@ -15,6 +15,7 @@ from mcp_guide.core.mcp_log import get_logger
 ORIGINAL_ARCHIVE = ".original.zip"
 VERSION_FILE = ".version"
 BACKUP_PREFIX = "orig"
+ARCHIVE_EXCLUDED_ENTRIES = frozenset({"README.md", VERSION_FILE})
 
 logger = get_logger(__name__)
 
@@ -184,7 +185,24 @@ async def list_archive_files(archive_path: Path) -> list[str]:
         Relative archive paths for tracked content files
     """
     with ZipFile(archive_path, "r") as zf:
-        return [name for name in zf.namelist() if name not in {"README.md", VERSION_FILE}]
+        return [
+            name
+            for name in zf.namelist()
+            if name not in ARCHIVE_EXCLUDED_ENTRIES and not name.endswith("/") and not Path(name).name.startswith("._")
+        ]
+
+
+def _normalise_archive_rel_path(rel_path: str | Path) -> str:
+    """Normalize archive paths to a portable POSIX form."""
+    if isinstance(rel_path, Path):
+        return rel_path.as_posix()
+    return Path(rel_path.lstrip("/")).as_posix()
+
+
+def _is_safe_archive_rel_path(rel_path: str) -> bool:
+    """Return True when an archive entry path is safe to map under docroot."""
+    path = Path(_normalise_archive_rel_path(rel_path))
+    return not path.is_absolute() and ".." not in path.parts
 
 
 async def compute_diff(original: Path, current: Path) -> str:
@@ -304,19 +322,34 @@ async def _delete_removed_unmodified_files(docroot: Path, archive_path: Path, tr
     if not archive_path.exists():
         return
 
-    for rel_path in await list_archive_files(archive_path):
+    docroot_resolved = docroot.resolve()
+
+    for archive_rel_path in await list_archive_files(archive_path):
+        rel_path = _normalise_archive_rel_path(archive_rel_path)
         if rel_path in tracked_paths:
             continue
+        if not _is_safe_archive_rel_path(rel_path):
+            logger.warning("Skipping unsafe archive path during cleanup: %s", archive_rel_path)
+            continue
 
-        current_file = docroot / rel_path
-        if not await AsyncPath(current_file).exists():
+        current_file = docroot / Path(rel_path)
+        current_file_async = AsyncPath(current_file)
+
+        try:
+            current_file.resolve().relative_to(docroot_resolved)
+        except ValueError:
+            logger.warning("Skipping archive path outside docroot during cleanup: %s", archive_rel_path)
+            continue
+        if not await current_file_async.exists():
+            continue
+        if not await current_file_async.is_file():
             continue
 
         original_temp = await _extract_original_to_temp(archive_path, rel_path, current_file)
         original_temp_async = AsyncPath(original_temp)
         try:
             if await compare_files(current_file, original_temp):
-                await AsyncPath(current_file).unlink()
+                await current_file_async.unlink()
                 logger.debug(f"Deleted removed unchanged file: {current_file}")
         finally:
             await original_temp_async.unlink(missing_ok=True)
@@ -583,11 +616,12 @@ async def update_documents(docroot: Path, archive_path: Path) -> dict[str, int]:
 
     for template_file in template_files:
         rel_path = template_file.relative_to(templates_path)
-        tracked_paths.add(str(rel_path))
+        archive_rel_path = rel_path.as_posix()
+        tracked_paths.add(archive_rel_path)
         current_file = docroot / rel_path
 
         # Use install_file for all cases - it handles everything
-        result = await install_file(template_file, current_file, archive_path, str(rel_path))
+        result = await install_file(template_file, current_file, archive_path, archive_rel_path)
         stat_key = _map_result_to_stat_key(result)
         stats[stat_key] += 1
 
