@@ -172,6 +172,21 @@ async def file_exists_in_archive(archive_path: Path, filename: str) -> bool:
         return filename in zf.namelist()
 
 
+async def list_archive_files(archive_path: Path) -> list[str]:
+    """List tracked content files in a zip archive.
+
+    Excludes installer metadata entries such as the archive README and version file.
+
+    Args:
+        archive_path: Path to the zip archive
+
+    Returns:
+        Relative archive paths for tracked content files
+    """
+    with ZipFile(archive_path, "r") as zf:
+        return [name for name in zf.namelist() if name not in {"README.md", VERSION_FILE}]
+
+
 async def compute_diff(original: Path, current: Path) -> str:
     """Compute unified diff between two text files.
 
@@ -276,6 +291,35 @@ async def _extract_original_to_temp(archive_path: Path, rel_path: str, dest: Pat
     original_temp = dest.parent / f".{dest.name}.original"
     await anyio.Path(original_temp).write_bytes(original_content)
     return original_temp
+
+
+async def _delete_removed_unmodified_files(docroot: Path, archive_path: Path, tracked_paths: set[str]) -> None:
+    """Delete files removed upstream when the local copy is still unmodified.
+
+    Args:
+        docroot: Document root directory
+        archive_path: Path to previous originals archive
+        tracked_paths: Relative paths present in the new template set
+    """
+    if not archive_path.exists():
+        return
+
+    for rel_path in await list_archive_files(archive_path):
+        if rel_path in tracked_paths:
+            continue
+
+        current_file = docroot / rel_path
+        if not await AsyncPath(current_file).exists():
+            continue
+
+        original_temp = await _extract_original_to_temp(archive_path, rel_path, current_file)
+        original_temp_async = AsyncPath(original_temp)
+        try:
+            if await compare_files(current_file, original_temp):
+                await AsyncPath(current_file).unlink()
+                logger.debug(f"Deleted removed unchanged file: {current_file}")
+        finally:
+            await original_temp_async.unlink(missing_ok=True)
 
 
 def _create_stats_dict() -> dict[str, int]:
@@ -535,15 +579,19 @@ async def update_documents(docroot: Path, archive_path: Path) -> dict[str, int]:
     template_files = await list_template_files()
 
     stats = _create_stats_dict()
+    tracked_paths = set()
 
     for template_file in template_files:
         rel_path = template_file.relative_to(templates_path)
+        tracked_paths.add(str(rel_path))
         current_file = docroot / rel_path
 
         # Use install_file for all cases - it handles everything
         result = await install_file(template_file, current_file, archive_path, str(rel_path))
         stat_key = _map_result_to_stat_key(result)
         stats[stat_key] += 1
+
+    await _delete_removed_unmodified_files(docroot, archive_path, tracked_paths)
 
     # Update archive with new originals
     await create_archive(archive_path, template_files, templates_path)

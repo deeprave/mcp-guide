@@ -8,17 +8,26 @@ from mcp_guide.tools.tool_update import UpdateDocumentsArgs, internal_update_doc
 
 
 @pytest.mark.anyio
-async def test_update_documents_no_project():
-    """Test update_documents fails when no project is active."""
+async def test_update_documents_without_bound_project():
+    """Test update_documents works with an unbound session."""
     ctx = Mock()
+    session = Mock()
+    session.get_docroot = AsyncMock(return_value="/tmp/docroot")
+    mock_stats = {"installed": 1, "updated": 0, "patched": 0, "unchanged": 0, "conflicts": 0, "skipped_binary": 0}
 
     with patch("mcp_guide.tools.tool_update.get_session") as mock_session:
-        mock_session.side_effect = ValueError("No project")
+        mock_session.return_value = session
+        with patch("mcp_guide.tools.tool_update.read_version", new_callable=AsyncMock) as mock_read_version:
+            with patch("mcp_guide.tools.tool_update.perform_locked_update", new_callable=AsyncMock) as mock_update:
+                mock_read_version.return_value = None
+                mock_update.return_value = mock_stats
 
-        result = await internal_update_documents(UpdateDocumentsArgs(), ctx)
+                result = await internal_update_documents(UpdateDocumentsArgs(), ctx)
 
-        assert result.success is False
-        assert result.error_type == "no_project"
+                assert result.success is True
+                assert result.value["updated"] is True
+                mock_session.assert_called_once_with(ctx)
+                session.get_docroot.assert_called_once()
 
 
 @pytest.mark.anyio
@@ -147,3 +156,39 @@ async def test_update_documents_writes_version_after_update(tmp_path):
             result = await internal_update_documents(UpdateDocumentsArgs(), ctx)
 
             assert result.success is True
+
+
+@pytest.mark.anyio
+async def test_update_documents_acknowledges_pending_update_instruction(tmp_path):
+    """Test update_documents acknowledges the tracked startup update instruction."""
+    ctx = Mock()
+    session = Mock()
+    session.get_docroot = AsyncMock(return_value=str(tmp_path))
+
+    mock_stats = {"installed": 1, "updated": 0, "patched": 0, "unchanged": 0, "conflicts": 0, "skipped_binary": 0}
+    mock_update_task = Mock()
+    mock_update_task.acknowledge_update = AsyncMock()
+    mock_task_manager = Mock()
+    mock_task_manager.get_task_by_type.return_value = mock_update_task
+
+    with patch("mcp_guide.tools.tool_update.get_session", return_value=session):
+        with patch("mcp_guide.tools.tool_update.perform_locked_update", new_callable=AsyncMock) as mock_update:
+            with patch("mcp_guide.task_manager.manager.get_task_manager", return_value=mock_task_manager):
+                mock_update.return_value = mock_stats
+
+                result = await internal_update_documents(UpdateDocumentsArgs(), ctx)
+
+                assert result.success is True
+                mock_update_task.acknowledge_update.assert_called_once()
+
+
+@pytest.mark.anyio
+async def test_update_documents_propagates_docroot_resolution_error():
+    """Test update_documents surfaces docroot resolution failures without no_project handling."""
+    ctx = Mock()
+    session = Mock()
+    session.get_docroot = AsyncMock(side_effect=OSError("docroot unavailable"))
+
+    with patch("mcp_guide.tools.tool_update.get_session", return_value=session):
+        with pytest.raises(OSError, match="docroot unavailable"):
+            await internal_update_documents(UpdateDocumentsArgs(), ctx)

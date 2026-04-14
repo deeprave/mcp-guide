@@ -11,7 +11,6 @@ from mcp_guide.core.tool_arguments import ToolArguments
 from mcp_guide.core.tool_decorator import toolfunc
 from mcp_guide.installer.core import ORIGINAL_ARCHIVE, perform_locked_update, read_version
 from mcp_guide.result import Result
-from mcp_guide.result_constants import make_no_project_result
 from mcp_guide.session import get_session
 from mcp_guide.tools.tool_result import tool_result
 
@@ -28,7 +27,7 @@ async def internal_update_documents(
     args: UpdateDocumentsArgs,
     ctx: Optional[Context] = None,
 ) -> Result[dict]:
-    """Update documentation files in the current project.
+    """Update documentation files using the configured docroot.
 
     Checks for version changes and updates files using smart merge strategy.
     Uses file locking to prevent concurrent updates.
@@ -40,11 +39,7 @@ async def internal_update_documents(
     Returns:
         Result containing update statistics
     """
-    try:
-        session = await get_session(ctx)
-    except ValueError:
-        return await make_no_project_result(ctx)
-
+    session = await get_session(ctx)
     docroot = Path(await session.get_docroot())
     archive_path = docroot / ORIGINAL_ARCHIVE
 
@@ -76,12 +71,12 @@ async def internal_update_documents(
     )
 
 
-@toolfunc(UpdateDocumentsArgs)
+@toolfunc(UpdateDocumentsArgs, requires_project=False)
 async def update_documents(
     args: UpdateDocumentsArgs,
     ctx: Optional[Context] = None,
 ) -> str:
-    """Update documentation files in the current project.
+    """Update documentation files using the configured docroot.
 
     Checks for version changes and updates files using smart merge strategy.
     Uses file locking to prevent concurrent updates.

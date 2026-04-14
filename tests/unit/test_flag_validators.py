@@ -196,9 +196,19 @@ class TestGuideDevelopmentValidator:
 def autoupdate_validator(reset_flag_registry):
     """Clear and re-register autoupdate validator for each test."""
     clear_validators()
-    from mcp_guide.feature_flags.validators import FlagScope, register_flag_validator, validate_autoupdate
+    from mcp_guide.feature_flags.validators import (
+        FlagScope,
+        normalise_boolean_flag,
+        register_flag_validator,
+        validate_autoupdate,
+    )
 
-    register_flag_validator(FLAG_AUTOUPDATE, validate_autoupdate, FlagScope.FEATURE_ONLY)
+    register_flag_validator(
+        FLAG_AUTOUPDATE,
+        validate_autoupdate,
+        FlagScope.FEATURE_ONLY,
+        normaliser=normalise_boolean_flag,
+    )
 
 
 class TestAutoupdateValidator:
@@ -231,6 +241,11 @@ class TestAutoupdateValidator:
             validate_flag_with_registered(FLAG_AUTOUPDATE, 1, is_project=False)
         with pytest.raises(FlagValidationError):
             validate_flag_with_registered(FLAG_AUTOUPDATE, ["list"], is_project=False)
+
+    def test_autoupdate_uses_boolean_normalisation(self, autoupdate_validator):
+        """Test that autoupdate uses the shared boolean normaliser."""
+        assert normalise_flag(FLAG_AUTOUPDATE, "enabled") is True
+        assert normalise_flag(FLAG_AUTOUPDATE, "off") is False
 
 
 class TestFlagScopeRestrictions:
