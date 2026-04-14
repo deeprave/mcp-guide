@@ -1,6 +1,7 @@
 """Tests for discovery tools."""
 
 import json
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -144,3 +145,30 @@ async def test_list_resources_returns_registered_resources():
         assert test_res["uri_template"] == "test://{collection}"
     finally:
         clear_resource_registry()
+
+
+def test_register_prompts_uses_prompt_name_override():
+    """Prompt registration should respect MCP_PROMPT_NAME for the guide prompt."""
+    from mcp_guide.core.prompt_decorator import (
+        _PROMPT_REGISTRY,
+        register_prompts,
+    )
+
+    async def guide() -> str:
+        return "prompt"
+
+    metadata = PromptMetadata(name="guide", func=guide, description="Guide prompt")
+    _PROMPT_REGISTRY["guide"] = PromptRegistration(metadata=metadata, registered=False)
+
+    mcp = MagicMock()
+    prompt_decorator = MagicMock()
+    mcp.prompt.return_value = prompt_decorator
+
+    try:
+        with patch.dict("os.environ", {"MCP_PROMPT_NAME": "g"}):
+            register_prompts(mcp)
+
+        mcp.prompt.assert_called_once_with(name="g")
+        prompt_decorator.assert_called_once_with(guide)
+    finally:
+        clear_prompt_registry()

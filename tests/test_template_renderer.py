@@ -2,6 +2,7 @@
 
 from datetime import datetime
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -70,6 +71,12 @@ class TestTemplatePartials:
 
 class TestTemplateRendering:
     """Test template content rendering."""
+
+    @staticmethod
+    def _template_body(path: str) -> str:
+        content = Path(path).read_text()
+        parts = content.split("---\n", 2)
+        return parts[2] if len(parts) == 3 else content
 
     @pytest.mark.anyio
     async def test_render_template_content_success(self):
@@ -199,3 +206,60 @@ class TestTemplateRendering:
         assert result.is_ok()
         rendered_content, _, _ = result.value
         assert rendered_content == ""
+
+    @pytest.mark.anyio
+    async def test_help_command_aliases_render_as_uris_by_default(self):
+        """Help snippets should use shared command formatting without duplicate punctuation."""
+        content = (
+            "- `{{#command}}help{{/command}}`{{#aliases_csv}}{{#command-alias}}{{.}}{{/command-alias}}{{/aliases_csv}}"
+        )
+        context = TemplateContext({"flags": {}, "aliases_csv": "?,h"})
+
+        result = await render_template_content(content, context)
+
+        assert result.is_ok()
+        rendered_content, _, _ = result.value
+        assert rendered_content == "- `guide://_help` (`guide://_?`, `guide://_h`)"
+
+    @pytest.mark.anyio
+    async def test_handoff_template_requires_path_and_mode(self):
+        """Handoff validation should report missing path and mode distinctly."""
+        handoff_template = self._template_body("src/mcp_guide/templates/_commands/handoff.mustache")
+
+        missing_path = await render_template_content(handoff_template, TemplateContext({"args": [], "kwargs": {}}))
+        assert missing_path.is_ok()
+        _, _, missing_path_errors = missing_path.value
+        assert any("Missing required handoff file path" in error for error in missing_path_errors)
+
+        missing_mode = await render_template_content(
+            handoff_template,
+            TemplateContext({"args": ["handoff.md"], "kwargs": {}}),
+        )
+        assert missing_mode.is_ok()
+        _, _, missing_mode_errors = missing_mode.value
+        assert any("You must specify exactly one of --read or --write." in error for error in missing_mode_errors)
+
+    @pytest.mark.anyio
+    async def test_handoff_template_renders_read_and_write_modes(self):
+        """Handoff template should render distinct workflows for read and write modes."""
+        handoff_template = self._template_body("src/mcp_guide/templates/_commands/handoff.mustache")
+
+        write_result = await render_template_content(
+            handoff_template,
+            TemplateContext({"args": ["handoff.md"], "kwargs": {"write": "true"}}),
+        )
+        assert write_result.is_ok()
+        write_rendered, _, write_errors = write_result.value
+        assert not write_errors
+        assert "Handoff file: `handoff.md`" in write_rendered
+        assert "Write your current context and state to the named file." in write_rendered
+
+        with patch.dict("os.environ", {"MCP_PROMPT_NAME": "g"}):
+            read_result = await render_template_content(
+                handoff_template,
+                TemplateContext({"args": ["handoff.md"], "kwargs": {"read": "true"}}),
+            )
+        assert read_result.is_ok()
+        read_rendered, _, read_errors = read_result.value
+        assert not read_errors
+        assert "Read the named handoff file and use it as input context for the current session." in read_rendered

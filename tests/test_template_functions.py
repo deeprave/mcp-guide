@@ -8,6 +8,7 @@ import chevron
 import pytest
 
 from mcp_guide.core.tool_decorator import get_tool_prefix
+from mcp_guide.render.context import TemplateContext
 from mcp_guide.render.functions import SyntaxHighlighter, TemplateFunctions
 from mcp_guide.render.renderer import render_template_content
 
@@ -362,10 +363,10 @@ class TestResourceLambda:
         ("flags", "expression", "expected"),
         [
             ({}, "guidelines", "guide://guidelines"),
-            ({"content-accessor": False}, "guidelines", "guide://guidelines"),
-            ({"content-accessor": True}, "guidelines", 'get_content("guidelines")'),
+            ({"format-resource": False}, "guidelines", "guide://guidelines"),
+            ({"format-resource": True}, "guidelines", 'get_content("guidelines")'),
             ({}, "guide,lang,context", "guide://guide,lang,context"),
-            ({"content-accessor": True}, "guide,lang,context", 'get_content("guide,lang,context")'),
+            ({"format-resource": True}, "guide,lang,context", 'get_content("guide,lang,context")'),
             ({}, "  ", ""),
         ],
         ids=[
@@ -378,7 +379,7 @@ class TestResourceLambda:
         ],
     )
     def test_resource_rendering_modes(self, flags: dict[str, bool], expression: str, expected: str):
-        """resource should switch output mode based on the content-accessor flag."""
+        """resource should switch output mode based on the format-resource flag."""
         context = ChainMap({"flags": flags})
         functions = TemplateFunctions(context)
 
@@ -387,7 +388,7 @@ class TestResourceLambda:
 
     def test_flag_true_with_tool_prefix(self):
         """Flag true should prepend tool prefix to get_content() call."""
-        context = ChainMap({"flags": {"content-accessor": True}})
+        context = ChainMap({"flags": {"format-resource": True}})
         functions = TemplateFunctions(context)
 
         get_tool_prefix.cache_clear()
@@ -411,6 +412,49 @@ class TestResourceLambda:
 
         result = functions.resource("guidelines")
         assert result == "guide://guidelines"
+
+
+class TestCommandLambda:
+    """Test command template helper family."""
+
+    @pytest.mark.anyio
+    async def test_prompt_variable_uses_prompt_name_override(self):
+        context = TemplateContext({})
+
+        with patch.dict("os.environ", {"MCP_PROMPT_NAME": "g"}):
+            result = await render_template_content("{{prompt}}", context)
+
+        assert result.is_ok()
+        rendered_content, _, _ = result.value
+        assert rendered_content == "g"
+
+    def test_command_defaults_to_uri(self):
+        functions = TemplateFunctions(ChainMap({"flags": {}}))
+        assert functions.command("status", lambda t: t) == "guide://_status"
+
+    def test_command_true_renders_prompt_style(self):
+        functions = TemplateFunctions(ChainMap({"flags": {"format-command": True}, "@": "@"}))
+        assert functions.command("status", lambda t: t) == "@guide :status"
+        assert functions.command_args("now,later", lambda t: t) == " now later"
+        assert functions.command_flags("verbose=true,force", lambda t: t) == " --verbose=true --force"
+
+    def test_command_false_renders_uri_fragments(self):
+        functions = TemplateFunctions(ChainMap({"flags": {"format-command": False}}))
+        assert functions.command("status", lambda t: t) == "guide://_status"
+        assert functions.command_args("now,later", lambda t: t) == "/now/later"
+        assert functions.command_flags("verbose=true,from=hello,force", lambda t: t) == "?verbose&from=hello&force"
+
+    def test_command_uses_prompt_name_override(self):
+        functions = TemplateFunctions(ChainMap({"flags": {"format-command": True}, "@": "/"}))
+        with patch.dict("os.environ", {"MCP_PROMPT_NAME": "g"}):
+            assert functions.command("status", lambda t: t) == "/g :status"
+
+    def test_command_alias_uses_selected_mode(self):
+        uri_functions = TemplateFunctions(ChainMap({"flags": {}}))
+        prompt_functions = TemplateFunctions(ChainMap({"flags": {"format-command": True}, "@": "@"}))
+
+        assert uri_functions.command_alias("h,?", lambda t: t) == " (`guide://_h`, `guide://_?`)"
+        assert prompt_functions.command_alias("h,?", lambda t: t) == " (`@guide :h`, `@guide :?`)"
 
 
 class TestEqualsLambdas:

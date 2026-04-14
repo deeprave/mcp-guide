@@ -117,6 +117,7 @@ class TemplateContextCache(SessionListener):
         # Try to get agent and styling information from session
         styling_value = "plain"
         try:
+            from mcp_guide.core.prompt_decorator import get_prompt_name
             from mcp_guide.feature_flags.constants import FLAG_CONTENT_STYLE
             from mcp_guide.models import resolve_all_flags
             from mcp_guide.session import get_active_session
@@ -128,7 +129,7 @@ class TemplateContextCache(SessionListener):
             if session.agent_info:
                 agent_info = session.agent_info
                 resolved_prefix = (
-                    agent_info.prompt_prefix.replace("{mcp_name}", "guide")
+                    agent_info.prompt_prefix.replace("{mcp_name}", get_prompt_name())
                     if agent_info.prompt_prefix is not None
                     else ""
                 )

@@ -68,7 +68,9 @@ async def internal_client_info(args: GetClientInfoArgs, ctx: Optional[Context] =
             invalidate_template_context_cache()
 
         # Build structured data
-        mcp_name = ctx.fastmcp.name or "guide"
+        from mcp_guide.core.prompt_decorator import get_prompt_name
+
+        mcp_name = ctx.fastmcp.name or get_prompt_name()
 
         # For Claude: if mcp_name is "guide" (default), use "/" instead of "/guide:"
         if agent_info.normalized_name == "claude" and mcp_name == "guide":

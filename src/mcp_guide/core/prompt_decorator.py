@@ -1,5 +1,6 @@
 """Deferred prompt registration infrastructure."""
 
+import os
 from dataclasses import dataclass
 from typing import Any, Callable, Optional
 
@@ -26,6 +27,11 @@ class PromptRegistration:
 
 
 _PROMPT_REGISTRY: dict[str, PromptRegistration] = {}
+
+
+def get_prompt_name(default: str = "guide") -> str:
+    """Return the effective MCP prompt name."""
+    return os.getenv("MCP_PROMPT_NAME", default)
 
 
 def promptfunc(description: Optional[str] = None) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
@@ -59,9 +65,10 @@ def register_prompts(mcp: Any) -> None:
     """
     for prompt_name, registration in _PROMPT_REGISTRY.items():
         if not registration.registered:
-            mcp.prompt()(registration.metadata.func)
+            registered_name = get_prompt_name(prompt_name) if prompt_name == "guide" else prompt_name
+            mcp.prompt(name=registered_name)(registration.metadata.func)
             registration.registered = True
-            logger.debug(f"Registered prompt: {prompt_name}")
+            logger.debug(f"Registered prompt: {registered_name}")
         else:
             logger.trace(f"Prompt {prompt_name} already registered, skipping")
 
