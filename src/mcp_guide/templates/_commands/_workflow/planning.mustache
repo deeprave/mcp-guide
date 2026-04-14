@@ -22,9 +22,9 @@ Implementation plan is reviewed, refined and adjusted. No code changes are permi
 {{#workflow.consent.exit}}- {{b}}→ {{workflow.next.value}}:{{b}} Requires {{b}}EXPLICIT CONSENT OR REQUEST{{b}} from user to proceed{{/workflow.consent.exit}}
 
 {{h2}}Available Commands
-- `{{@}}guide :implement` - Move to implementation phase ({{b}}requires explicit consent{{b}})
-- `{{@}}guide :discuss` - Return to discussion phase
-- `{{@}}guide :plan` - Stay in planning phase
+- `{{#command}}implement{{/command}}` - Move to implementation phase ({{b}}requires explicit consent{{b}})
+- `{{#command}}discuss{{/command}}` - Return to discussion phase
+- `{{#command}}plan{{/command}}` - Stay in planning phase
 
 {{h2}}Workflow
 1. Review the implementation plan

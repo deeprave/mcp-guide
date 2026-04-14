@@ -25,9 +25,9 @@ Run tests, make code adjustments, and execute all code quality checks. All tests
 {{#workflow.phases.review}}- {{b}}→ {{workflow.phases.check.next}}:{{b}} Automatically transitions to {{workflow.phases.check.next}} phase once all tests complete and pass{{/workflow.phases.review}}
 
 {{h2}}Available Commands
-- `{{@}}guide :review` - Move to review phase (when all checks pass)
-- `{{@}}guide :implement` - Return to implementation if major fixes needed
-- `{{@}}guide :check` - Stay in check phase
+- `{{#command}}review{{/command}}` - Move to review phase (when all checks pass)
+- `{{#command}}implement{{/command}}` - Return to implementation if major fixes needed
+- `{{#command}}check{{/command}}` - Stay in check phase
 
 {{h2}}Workflow
 1. Run all tests and ensure they pass

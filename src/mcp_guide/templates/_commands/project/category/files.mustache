@@ -14,7 +14,7 @@ category: '{{args.0.value}}'
 {{^args.0.value}}
 {{#_error}}Missing required argument: name{{/_error}}
 
-{{b}}Usage:{{b}} {{@}}guide :project/category/files <name>
+{{b}}Usage:{{b}} `{{#command}}project/category/files{{/command}} <name>`
 
-{{b}}Example:{{b}} {{@}}guide :project/category/files docs
+{{b}}Example:{{b}} `{{#command}}project/category/files{{/command}}{{#command-args}}docs{{/command-args}}`
 {{/args.0.value}}

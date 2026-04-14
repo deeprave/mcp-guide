@@ -15,7 +15,7 @@ value: null
 {{^args.0.value}}
 {{#_error}}Missing required argument: flag-name{{/_error}}
 
-{{b}}Usage:{{b}} {{@}}guide :flags/project/remove <flag-name>
+{{b}}Usage:{{b}} `{{#command}}flags/project/remove{{/command}} <flag-name>`
 
-{{b}}Example:{{b}} {{@}}guide :flags/project/remove workflow
+{{b}}Example:{{b}} `{{#command}}flags/project/remove{{/command}}{{#command-args}}workflow{{/command-args}}`
 {{/args.0.value}}

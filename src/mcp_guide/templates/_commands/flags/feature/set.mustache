@@ -27,10 +27,10 @@ value: true
 {{^args.0.value}}
 {{#_error}}Missing required argument: flag-name{{/_error}}
 
-{{b}}Usage:{{b}} {{@}}guide :flags/feature/set <flag-name> [<value>|--value=<value>]
+{{b}}Usage:{{b}} `{{#command}}flags/feature/set{{/command}} <flag-name> [<value>|--value=<value>]`
 
 {{b}}Examples:{{b}}
-- {{@}}guide :flags/feature/set workflow
-- {{@}}guide :flags/feature/set workflow false
-- {{@}}guide :flags/feature/set content-style --value=mime
+- `{{#command}}flags/feature/set{{/command}}{{#command-args}}workflow{{/command-args}}`
+- `{{#command}}flags/feature/set{{/command}}{{#command-args}}workflow,false{{/command-args}}`
+- `{{#command}}flags/feature/set{{/command}}{{#command-args}}content-style{{/command-args}}{{#command-flags}}value=mime{{/command-flags}}`
 {{/args.0.value}}

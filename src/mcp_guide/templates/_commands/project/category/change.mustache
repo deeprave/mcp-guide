@@ -31,7 +31,7 @@ new_description: '{{kwargs.new_description}}'
 {{^args.0.value}}
 {{#_error}}Missing required argument: name{{/_error}}
 
-{{b}}Usage:{{b}} {{@}}guide :project/category/change <name> [--new-name=<name>] [--new-dir=<path>] [--new-patterns=<patterns>] [--new-description=<text>]
+{{b}}Usage:{{b}} `{{#command}}project/category/change{{/command}} <name> [--new-name=<name>] [--new-dir=<path>] [--new-patterns=<patterns>] [--new-description=<text>]`
 
-{{b}}Example:{{b}} {{@}}guide :project/category/change docs --new-name=documentation --new-dir=docs/
+{{b}}Example:{{b}} `{{#command}}project/category/change{{/command}}{{#command-args}}docs{{/command-args}}{{#command-flags}}new-name=documentation,new-dir=docs/{{/command-flags}}`
 {{/args.0.value}}

@@ -15,9 +15,9 @@ path: '{{args.0.value}}'
 {{^args.0.value}}
 {{#_error}}Missing required argument: path{{/_error}}
 
-{{b}}Usage:{{b}} {{@}}guide :project/perm/read/add <path>
+{{b}}Usage:{{b}} `{{#command}}project/perm/read/add{{/command}} <path>`
 
-{{b}}Example:{{b}} {{@}}guide :project/perm/read/add /external/data
+{{b}}Example:{{b}} `{{#command}}project/perm/read/add{{/command}}{{#command-args}}/external/data{{/command-args}}`
 
 {{b}}Note:{{b}} Read paths must be absolute paths.
 {{/args.0.value}}

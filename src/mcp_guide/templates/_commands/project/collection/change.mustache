@@ -27,7 +27,7 @@ new_description: '{{kwargs.new_description}}'
 {{^args.0.value}}
 {{#_error}}Missing required argument: name{{/_error}}
 
-{{b}}Usage:{{b}} {{@}}guide :project/collection/change <name> [--new-name=<name>] [--new-categories=<categories>] [--new-description=<text>]
+{{b}}Usage:{{b}} `{{#command}}project/collection/change{{/command}} <name> [--new-name=<name>] [--new-categories=<categories>] [--new-description=<text>]`
 
-{{b}}Example:{{b}} {{@}}guide :project/collection/change my-collection --new-name=renamed --new-categories="docs,guide,lang"
+{{b}}Example:{{b}} `{{#command}}project/collection/change{{/command}}{{#command-args}}my-collection{{/command-args}}{{#command-flags}}new-name=renamed,new-categories=docs,guide,lang{{/command-flags}}`
 {{/args.0.value}}

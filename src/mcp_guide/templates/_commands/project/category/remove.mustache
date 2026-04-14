@@ -14,7 +14,7 @@ name: '{{args.0.value}}'
 {{^args.0.value}}
 {{#_error}}Missing required argument: name{{/_error}}
 
-{{b}}Usage:{{b}} {{@}}guide :project/category/remove <name>
+{{b}}Usage:{{b}} `{{#command}}project/category/remove{{/command}} <name>`
 
-{{b}}Example:{{b}} {{@}}guide :project/category/remove docs
+{{b}}Example:{{b}} `{{#command}}project/category/remove{{/command}}{{#command-args}}docs{{/command-args}}`
 {{/args.0.value}}

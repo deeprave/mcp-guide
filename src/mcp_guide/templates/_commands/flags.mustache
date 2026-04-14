@@ -9,25 +9,25 @@ category: project-and-feature-flags
 {{h1}}Feature Flags
 
 {{h2}}Commands
-- `{{@}}guide :flags/list` - List all flags (project and feature)
-- `{{@}}guide :flags/project/list` - List project flags only
-- `{{@}}guide :flags/feature/list` - List feature flags only
+- `{{#command}}flags/list{{/command}}` - List all flags (project and feature)
+- `{{#command}}flags/project/list{{/command}}` - List project flags only
+- `{{#command}}flags/feature/list{{/command}}` - List feature flags only
 
 {{h2}}Project Flags
 Flags specific to the current project.
 
 Commands:
-- `{{@}}guide :flags/project/get <flag-name>` - Get flag value
-- `{{@}}guide :flags/project/set <flag-name>` - Set flag value
-- `{{@}}guide :flags/project/remove <flag-name>` - Remove flag override
+- `{{#command}}flags/project/get{{/command}} <flag-name>` - Get flag value
+- `{{#command}}flags/project/set{{/command}} <flag-name>` - Set flag value
+- `{{#command}}flags/project/remove{{/command}} <flag-name>` - Remove flag override
 
 {{h2}}Feature Flags
 Flags that apply across all projects.
 
 Commands:
-- `{{@}}guide :flags/feature/get <flag-name>` - Get flag value
-- `{{@}}guide :flags/feature/set <flag-name>` - Set flag value
-- `{{@}}guide :flags/feature/remove <flag-name>` - Remove flag
+- `{{#command}}flags/feature/get{{/command}} <flag-name>` - Get flag value
+- `{{#command}}flags/feature/set{{/command}} <flag-name>` - Set flag value
+- `{{#command}}flags/feature/remove{{/command}} <flag-name>` - Remove flag
 
 {{h2}}Available Flags
 
@@ -46,4 +46,3 @@ Output format (None, plain, mime)
 {{h3}}autoupdate
 Automatic content updates
 - Scope: Feature only
-

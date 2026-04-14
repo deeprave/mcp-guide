@@ -14,7 +14,7 @@ name: '{{args.0.value}}'
 {{^args.0.value}}
 {{#_error}}Missing required argument: name{{/_error}}
 
-{{b}}Usage:{{b}} {{@}}guide :project/collection/remove <name>
+{{b}}Usage:{{b}} `{{#command}}project/collection/remove{{/command}} <name>`
 
-{{b}}Example:{{b}} {{@}}guide :project/collection/remove my-collection
+{{b}}Example:{{b}} `{{#command}}project/collection/remove{{/command}}{{#command-args}}my-collection{{/command-args}}`
 {{/args.0.value}}
