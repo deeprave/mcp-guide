@@ -6,6 +6,7 @@ from mcp_guide.feature_flags.constants import (
     FLAG_AUTOUPDATE,
     FLAG_COMMAND,
     FLAG_GUIDE_DEVELOPMENT,
+    FLAG_ONBOARDED,
     FLAG_RESOURCE,
     FLAG_WORKFLOW,
     FLAG_WORKFLOW_FILE,
@@ -153,8 +154,12 @@ class TestBooleanValidator:
         clear_validators()
         register_flag_validator(FLAG_RESOURCE, validate_boolean_flag, normaliser=normalise_boolean_flag)
         register_flag_validator(FLAG_COMMAND, validate_boolean_flag, normaliser=normalise_boolean_flag)
+        register_flag_validator(FLAG_ONBOARDED, validate_boolean_flag, normaliser=normalise_boolean_flag)
+
         assert normalise_flag(FLAG_RESOURCE, "enabled") is True
         assert normalise_flag(FLAG_COMMAND, "off") is False
+        assert normalise_flag(FLAG_ONBOARDED, "enabled") is True
+        assert normalise_flag(FLAG_ONBOARDED, "off") is False
 
 
 class TestGuideDevelopmentValidator:
