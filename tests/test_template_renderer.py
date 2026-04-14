@@ -230,6 +230,7 @@ class TestTemplateRendering:
         assert missing_path.is_ok()
         _, _, missing_path_errors = missing_path.value
         assert any("Missing required handoff file path" in error for error in missing_path_errors)
+        assert not any("exactly one of --read or --write" in error for error in missing_path_errors)
 
         missing_mode = await render_template_content(
             handoff_template,
@@ -238,6 +239,7 @@ class TestTemplateRendering:
         assert missing_mode.is_ok()
         _, _, missing_mode_errors = missing_mode.value
         assert any("You must specify exactly one of --read or --write." in error for error in missing_mode_errors)
+        assert not any("Missing required handoff file path" in error for error in missing_mode_errors)
 
     @pytest.mark.anyio
     async def test_handoff_template_renders_read_and_write_modes(self):
