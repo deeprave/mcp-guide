@@ -11,6 +11,7 @@ from mcp_guide.core.tool_arguments import ToolArguments
 from mcp_guide.core.tool_decorator import toolfunc
 from mcp_guide.installer.core import ORIGINAL_ARCHIVE, perform_locked_update, read_version
 from mcp_guide.result import Result
+from mcp_guide.result_constants import ERROR_CONFIG_READ, ERROR_FILE_ERROR
 from mcp_guide.session import get_session
 from mcp_guide.tools.tool_result import tool_result
 
@@ -39,19 +40,28 @@ async def internal_update_documents(
     Returns:
         Result containing update statistics
     """
-    session = await get_session(ctx)
-    docroot = Path(await session.get_docroot())
-    archive_path = docroot / ORIGINAL_ARCHIVE
+    try:
+        session = await get_session(ctx)
+        docroot = Path(await session.get_docroot())
+        archive_path = docroot / ORIGINAL_ARCHIVE
+    except (OSError, ValueError) as e:
+        return Result.failure(f"Failed to resolve documentation root: {e}", error_type=ERROR_CONFIG_READ)
 
     # Check version
     from mcp_guide import __version__
 
-    current_version = await read_version(docroot)
+    try:
+        current_version = await read_version(docroot)
+    except OSError as e:
+        return Result.failure(f"Failed to read installed documentation version: {e}", error_type=ERROR_FILE_ERROR)
     if current_version == __version__:
         return Result.ok(value={"message": f"Already at version {__version__}", "updated": False})
 
     # Perform locked update
-    stats = await perform_locked_update(docroot, archive_path)
+    try:
+        stats = await perform_locked_update(docroot, archive_path)
+    except OSError as e:
+        return Result.failure(f"Failed to update documentation: {e}", error_type=ERROR_FILE_ERROR)
 
     # Acknowledge update prompt to stop retry loop
     from mcp_guide.task_manager.manager import get_task_manager

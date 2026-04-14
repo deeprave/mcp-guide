@@ -466,6 +466,88 @@ class TestInstallationOrchestration:
         assert removed_file.exists()
         assert removed_file.read_text() == "Original content\nUser changes\n"
 
+    @pytest.mark.anyio
+    async def test_update_documents_ignores_directory_and_appledouble_archive_entries(self, tmp_path: Path) -> None:
+        """Test cleanup ignores zip directory entries and AppleDouble metadata files."""
+        from mcp_guide.installer.core import update_documents
+
+        docroot = tmp_path / "docroot"
+        archive_path = tmp_path / "originals.zip"
+        docroot.mkdir()
+
+        with ZipFile(archive_path, "w") as zf:
+            zf.writestr("nested/", "")
+            zf.writestr("nested/._removed.md", "metadata")
+            zf.writestr("removed.md", "Original content\n")
+
+        removed_file = docroot / "removed.md"
+        removed_file.write_text("Original content\n")
+
+        templates_dir = tmp_path / "templates"
+        templates_dir.mkdir()
+        template_file = templates_dir / "kept.md"
+        template_file.write_text("Kept content\n")
+
+        import mcp_guide.installer.core as installer_core
+
+        async def fake_get_templates_path() -> Path:
+            return templates_dir
+
+        async def fake_list_template_files() -> list[Path]:
+            return [template_file]
+
+        monkeypatch = pytest.MonkeyPatch()
+        monkeypatch.setattr(installer_core, "get_templates_path", fake_get_templates_path)
+        monkeypatch.setattr(installer_core, "list_template_files", fake_list_template_files)
+
+        try:
+            await update_documents(docroot, archive_path)
+        finally:
+            monkeypatch.undo()
+
+        assert not removed_file.exists()
+        assert not (docroot / "nested").exists()
+
+    @pytest.mark.anyio
+    async def test_update_documents_skips_unsafe_archive_paths(self, tmp_path: Path) -> None:
+        """Test cleanup skips unsafe archive paths outside the document root."""
+        from mcp_guide.installer.core import update_documents
+
+        docroot = tmp_path / "docroot"
+        archive_path = tmp_path / "originals.zip"
+        docroot.mkdir()
+
+        outside_file = tmp_path / "unsafe.md"
+        outside_file.write_text("Original content\n")
+
+        with ZipFile(archive_path, "w") as zf:
+            zf.writestr("../unsafe.md", "Original content\n")
+
+        templates_dir = tmp_path / "templates"
+        templates_dir.mkdir()
+        template_file = templates_dir / "kept.md"
+        template_file.write_text("Kept content\n")
+
+        import mcp_guide.installer.core as installer_core
+
+        async def fake_get_templates_path() -> Path:
+            return templates_dir
+
+        async def fake_list_template_files() -> list[Path]:
+            return [template_file]
+
+        monkeypatch = pytest.MonkeyPatch()
+        monkeypatch.setattr(installer_core, "get_templates_path", fake_get_templates_path)
+        monkeypatch.setattr(installer_core, "list_template_files", fake_list_template_files)
+
+        try:
+            await update_documents(docroot, archive_path)
+        finally:
+            monkeypatch.undo()
+
+        assert outside_file.exists()
+        assert outside_file.read_text() == "Original content\n"
+
 
 class TestInstallFileSmartUpdate:
     """Tests for install_file smart update strategy."""
