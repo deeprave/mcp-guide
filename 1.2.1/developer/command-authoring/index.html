@@ -1254,22 +1254,22 @@
 <p>Each document is prefixed by a "frontmatter" YAML data dictionary, surrounded by three dashes (---) before and after the YAML portion.
 The front-matter provides a description of the command, aliases, examples as explained below.
 Note that all frontmatter fields are available as context variables within the template.</p>
-<div class="codehilite"><pre><span></span><code><span class="c1">---</span>
-<span class="nl">description</span><span class="p">:</span><span class="w"> </span><span class="n">Brief</span><span class="w"> </span><span class="n">description</span><span class="w"> </span><span class="k">of</span><span class="w"> </span><span class="n">what</span><span class="w"> </span><span class="n">the</span><span class="w"> </span><span class="n">command</span><span class="w"> </span><span class="n">does</span>
-<span class="nl">category</span><span class="p">:</span><span class="w"> </span><span class="ss">&quot;system&quot;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="ss">&quot;project&quot;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="ss">&quot;info&quot;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="ss">&quot;list&quot;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="ss">&quot;general&quot;</span>
-<span class="nl">aliases</span><span class="p">:</span>
-<span class="w">  </span><span class="o">-</span><span class="w"> </span><span class="ss">&quot;shortcut1&quot;</span>
-<span class="w">  </span><span class="o">-</span><span class="w"> </span><span class="ss">&quot;shortcut2&quot;</span>
-<span class="k">usage</span><span class="err">:</span><span class="w"> </span><span class="ss">&quot;:command [options] [args]&quot;</span>
-<span class="nl">examples</span><span class="p">:</span>
-<span class="w">  </span><span class="o">-</span><span class="w"> </span><span class="ss">&quot;:command&quot;</span>
-<span class="w">  </span><span class="o">-</span><span class="w"> </span><span class="ss">&quot;:command --flag value&quot;</span>
-<span class="nl">required_args</span><span class="p">:</span><span class="w"> </span><span class="err">[]</span>
-<span class="nl">required_kwargs</span><span class="p">:</span><span class="w"> </span><span class="err">[]</span>
-<span class="c1">---</span>
-<span class="err">#</span><span class="w"> </span><span class="n">Command</span><span class="w"> </span><span class="n">Template</span><span class="w"> </span><span class="n">Content</span>
+<div class="codehilite"><pre><span></span><code>---
+description: Brief description of what the command does
+category: &quot;system&quot; | &quot;project&quot; | &quot;info&quot; | &quot;list&quot; | &quot;general&quot;
+aliases:
+  <span class="k">-</span> &quot;shortcut1&quot;
+  <span class="k">-</span> &quot;shortcut2&quot;
+usage: &quot;guide://_command[/arg1/arg2][?flag=value]&quot;
+examples:
+  <span class="k">-</span> &quot;guide://_command&quot;
+  <span class="k">-</span> &quot;guide://_command?flag=value&quot;
+required_args: []
+required_kwargs: []
+---
+<span class="gh">#</span> Command Template Content
 
-<span class="n">Your</span><span class="w"> </span><span class="n">Mustache</span><span class="w"> </span><span class="n">template</span><span class="w"> </span><span class="n">content</span><span class="w"> </span><span class="n">here</span><span class="p">...</span>
+Your Mustache template content here...
 </code></pre></div>
 
 <h2 id="frontmatter-fields">Frontmatter Fields<a class="headerlink" href="#frontmatter-fields" title="Permanent link">&para;</a></h2>
@@ -1307,9 +1307,9 @@ Note that all frontmatter fields are available as context variables within the t
 
 <p>With this declaration, both syntaxes work:
 - <code>guide://_workflow/issue?tracking=MRP-177</code> ✓
-- prompt-style <code>:workflow/issue --tracking=MRP-177</code> ✓</p>
+- legacy prompt-style <code>:workflow/issue --tracking=MRP-177</code> ✓</p>
 <p>Without <code>argrequired</code>, only the equals syntax works:
-- prompt-style <code>:workflow/issue --tracking MRP-177</code> ✗ (parsed as boolean flag + positional arg)
+- legacy prompt-style <code>:workflow/issue --tracking MRP-177</code> ✗ (parsed as boolean flag + positional arg)
 - <code>guide://_workflow/issue?tracking=MRP-177</code> ✓</p>
 <h3 id="error-handling">Error Handling<a class="headerlink" href="#error-handling" title="Permanent link">&para;</a></h3>
 <p>When a flag is declared in <code>argrequired</code>:
@@ -1346,10 +1346,10 @@ Note that all frontmatter fields are available as context variables within the t
 <span class="x">description: Show project status</span>
 <span class="x">category: &quot;project&quot;</span>
 <span class="x">aliases: [&quot;st&quot;]</span>
-<span class="x">usage: &quot;:status [--verbose]&quot;</span>
+<span class="x">usage: &quot;guide://_status[?verbose=true]&quot;</span>
 <span class="x">examples:</span>
-<span class="x">  - &quot;:status&quot;</span>
-<span class="x">  - &quot;:status --verbose&quot;</span>
+<span class="x">  - &quot;guide://_status&quot;</span>
+<span class="x">  - &quot;guide://_status?verbose=true&quot;</span>
 <span class="x">---</span>
 <span class="x"># Project Status</span>
 

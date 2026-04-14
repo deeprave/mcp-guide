@@ -941,9 +941,9 @@
 <h2 id="adding-documents">Adding Documents<a class="headerlink" href="#adding-documents" title="Permanent link">&para;</a></h2>
 <h3 id="from-a-local-file">From a Local File<a class="headerlink" href="#from-a-local-file" title="Permanent link">&para;</a></h3>
 <p>Use the <code>:document/add</code> command to ingest a file from your filesystem:</p>
-<div class="codehilite"><pre><span></span><code>guide://_document/add/docs//path/to/file.md
-guide://_document/add/docs//path/to/file.md?as=custom-name
-guide://_document/add/docs//path/to/file.md?force          # Overwrite if exists
+<div class="codehilite"><pre><span></span><code>guide://_document/add/docs/%2Fpath%2Fto%2Ffile.md
+guide://_document/add/docs/%2Fpath%2Fto%2Ffile.md?as=custom-name
+guide://_document/add/docs/%2Fpath%2Fto%2Ffile.md?force          # Overwrite if exists
 </code></pre></div>
 
 <p>The document name defaults to the filename (without extension). Use <code>--as</code> to give it a different name.</p>
@@ -956,9 +956,9 @@ guide://_document/add-url/docs/https%3A%2F%2Fexample.com%2Fguide?as=api-guide
 <p>The agent fetches the content and stores it in the specified category.</p>
 <h3 id="document-types">Document Types<a class="headerlink" href="#document-types" title="Permanent link">&para;</a></h3>
 <p>By default, stored documents inherit the standard type. You can specify a type when adding:</p>
-<div class="codehilite"><pre><span></span><code>guide://_document/add/docs//path/to/file.md?agent-instruction
-guide://_document/add/docs//path/to/file.md?agent-info
-guide://_document/add/docs//path/to/file.md?user-info
+<div class="codehilite"><pre><span></span><code>guide://_document/add/docs/%2Fpath%2Fto%2Ffile.md?agent-instruction
+guide://_document/add/docs/%2Fpath%2Fto%2Ffile.md?agent-info
+guide://_document/add/docs/%2Fpath%2Fto%2Ffile.md?user-info
 </code></pre></div>
 
 <h2 id="viewing-stored-documents">Viewing Stored Documents<a class="headerlink" href="#viewing-stored-documents" title="Permanent link">&para;</a></h2>
