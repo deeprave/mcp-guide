@@ -172,3 +172,57 @@ def test_register_prompts_uses_prompt_name_override():
         prompt_decorator.assert_called_once_with(guide)
     finally:
         clear_prompt_registry()
+
+
+def test_register_prompts_uses_default_guide_name_without_override():
+    """Guide prompt should register under its own name when no override is set."""
+    from mcp_guide.core.prompt_decorator import (
+        _PROMPT_REGISTRY,
+        register_prompts,
+    )
+
+    async def guide() -> str:
+        return "prompt"
+
+    metadata = PromptMetadata(name="guide", func=guide, description="Guide prompt")
+    _PROMPT_REGISTRY["guide"] = PromptRegistration(metadata=metadata, registered=False)
+
+    mcp = MagicMock()
+    prompt_decorator = MagicMock()
+    mcp.prompt.return_value = prompt_decorator
+
+    try:
+        with patch.dict("os.environ", {}, clear=True):
+            register_prompts(mcp)
+
+        mcp.prompt.assert_called_once_with(name="guide")
+        prompt_decorator.assert_called_once_with(guide)
+    finally:
+        clear_prompt_registry()
+
+
+def test_register_prompts_keeps_non_guide_prompt_name():
+    """Non-guide prompts should ignore MCP_PROMPT_NAME overrides."""
+    from mcp_guide.core.prompt_decorator import (
+        _PROMPT_REGISTRY,
+        register_prompts,
+    )
+
+    async def status() -> str:
+        return "prompt"
+
+    metadata = PromptMetadata(name="status", func=status, description="Status prompt")
+    _PROMPT_REGISTRY["status"] = PromptRegistration(metadata=metadata, registered=False)
+
+    mcp = MagicMock()
+    prompt_decorator = MagicMock()
+    mcp.prompt.return_value = prompt_decorator
+
+    try:
+        with patch.dict("os.environ", {"MCP_PROMPT_NAME": "g"}):
+            register_prompts(mcp)
+
+        mcp.prompt.assert_called_once_with(name="status")
+        prompt_decorator.assert_called_once_with(status)
+    finally:
+        clear_prompt_registry()
