@@ -15,7 +15,7 @@ While it can do more than that, serving agent instructions is the fundamental pu
 Your primary interface is the `guide://` URI scheme.
 Some clients also expose equivalent prompt syntax, but the URI form is the stable, portable option.
 
-When you invoke the guide prompt with an expression that conains just a category name, you get back all the documents in that category that match the patterns set for that category. The agent receives these documents and acts on them according to their type.
+When you use a `guide://` reference with an expression that contains just a category name, you get back all the documents in that category that match the patterns set for that category. The agent receives these documents and acts on them according to their type.
 
 ### Basic Usage
 
@@ -133,7 +133,7 @@ Many commands accept these common arguments:
 | `-d`, `--debug` | Debug information |
 | `-t`, `--table` | Tabular format |
 
-Not all commands support all arguments - use `:help <command>` to see what's available for a specific command.
+Not all commands support all arguments. Use `guide://_help/<command>` to see what's available for a specific command.
 
 ### Useful Commands
 
@@ -147,7 +147,7 @@ Not all commands support all arguments - use `:help <command>` to see what's ava
 | `guide://_help` | List available commands |
 | `guide://_help/<command>` | Detailed help for a specific command |
 
-**Note:** The `:project`, `:status`, and `:agent` commands may show incomplete information if the agent hasn't yet requested or determined certain details through tool use. Running them a couple of times or using a general `guide://<category>` request will usually shake this out immediately.
+**Note:** `guide://_project`, `guide://_status`, and `guide://_agent` may show incomplete information if the agent hasn't yet requested or determined certain details through tool use. Running them a couple of times or using a general `guide://<category>` request will usually shake this out immediately.
 
 ## First Run - Self Installation
 

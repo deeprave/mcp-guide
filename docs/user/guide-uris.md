@@ -48,6 +48,8 @@ guide://_help/flags              # Positional: help for the "flags" command
 guide://_flags/project/set/workflow?value=true   # Positional + keyword arguments
 ```
 
+When a command argument is an absolute filesystem path, the URI will contain a double slash before the path value. For example, `guide://_project/perm/read/add//external/data` uses the first slash to separate the command from its first positional argument, and the second slash is the leading `/` of the absolute path itself.
+
 ## Using `read_resource` as a Fallback
 
 If your agent doesn't support reading MCP resources directly, you can use the `read_resource` tool to fetch any `guide://` URI:

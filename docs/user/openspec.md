@@ -30,33 +30,30 @@ The integration may seem verbose in some agents as it executes OpenSpec commands
 
 ## OpenSpec Commands
 
-When OpenSpec is enabled, additional `:openspec/*` commands become available. Some commands invoke the OpenSpec CLI directly (with response caching). Use `guide://_help/openspec` for more information.
+When OpenSpec is enabled, additional OpenSpec commands become available. Some commands invoke the OpenSpec CLI directly (with response caching). Use `guide://_help/openspec` for more information.
 
-**:openspec/init**
+**`guide://_openspec/init`** _(:openspec/init)_
 Initialise OpenSpec in the current project using the openspec command. This creates the required directory structure and `openspec/project.md` file.
 
-**:openspec/propose** _(openspec/new, openspec/create)_
+**`guide://_openspec/propose`** _(:openspec/propose; aliases: openspec/new, openspec/create)_
 Initiate a new OpenSpec change by creating the change directory structure and proposal document. Emphasises dialogue with the user before writing documents. Optionally creates `tasks.md` for tracking implementation.
 
-**:openspec/list**
+**`guide://_openspec/list`** _(:openspec/list)_
 List all OpenSpec changes in the project. Triggers a refresh of the change list from OpenSpec CLI.
 
-**:openspec/list**
-List all OpenSpec changes in the project. Triggers a refresh of the change list from OpenSpec CLI.
-
-**:openspec/show**
+**`guide://_openspec/show`** _(:openspec/show)_
 Show details for the current or a specific OpenSpec change, including proposal, tasks, and spec deltas.
 
-**`guide://_openspec/validate`**
+**`guide://_openspec/validate`** _(:openspec/validate)_
 Validate the current or a specific OpenSpec change against schema requirements and structural rules.
 
-**`guide://_openspec/status`**
+**`guide://_openspec/status`** _(:openspec/status)_
 Get the completion status and percentage for an OpenSpec change based on completed tasks.
 
-**`guide://_openspec/archive`**
+**`guide://_openspec/archive`** _(:openspec/archive)_
 Archive a completed OpenSpec change, moving it to the archive directory and optionally updating main specs.
 
-**`guide://_openspec/schemas`**
+**`guide://_openspec/schemas`** _(:openspec/schemas)_
 Discover available OpenSpec schemas in the project for creating new specifications.
 
 ## Integration with the `workflow` feature flag
