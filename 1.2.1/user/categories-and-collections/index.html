@@ -1209,7 +1209,7 @@
 <p>Categories specify which files to include based on directory paths and file patterns.</p>
 <h3 id="viewing-categories">Viewing Categories<a class="headerlink" href="#viewing-categories" title="Permanent link">&para;</a></h3>
 <p>To see what categories exist in your project, ask your AI:</p>
-<div class="codehilite"><pre><span></span><code><span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">project</span><span class="w"> </span><span class="o">-</span><span class="n">v</span>
+<div class="codehilite"><pre><span></span><code>guide://_project?verbose
 </code></pre></div>
 
 <p>This shows all categories, their directories, patterns, and descriptions.</p>
@@ -1244,26 +1244,26 @@ Trailing <code>*</code> in any pattern is discouraged, the system takes care of 
 <h3 id="using-categories">Using Categories<a class="headerlink" href="#using-categories" title="Permanent link">&para;</a></h3>
 <p>The primary use of the prompt is to request content using an expression.</p>
 <p>Request a single category:</p>
-<div class="codehilite"><pre><span></span><code><span class="nv">@guide</span><span class="w"> </span><span class="n">guide</span>
+<div class="codehilite"><pre><span></span><code>guide://guide
 </code></pre></div>
 
 <p>Request multiple categories by separating them with commas:</p>
-<div class="codehilite"><pre><span></span><code><span class="nv">@guide</span><span class="w"> </span><span class="n">guide</span><span class="p">,</span><span class="n">lang</span><span class="p">,</span><span class="n">context</span>
+<div class="codehilite"><pre><span></span><code>guide://guide,lang,context
 </code></pre></div>
 
 <p>You can override the default patterns by using <code>/</code> to specify documents within the category:</p>
-<div class="codehilite"><pre><span></span><code><span class="nv">@guide</span><span class="w"> </span><span class="n">lang</span><span class="o">/</span><span class="n">python</span>
+<div class="codehilite"><pre><span></span><code>guide://lang/python
 </code></pre></div>
 
 <p>Combine multiple patterns within a category using <code>+</code>:</p>
-<div class="codehilite"><pre><span></span><code><span class="nv">@guide</span><span class="w"> </span><span class="n">testing</span><span class="o">/</span><span class="n">python</span><span class="o">+</span><span class="n">pytest</span>
+<div class="codehilite"><pre><span></span><code>guide://testing/python+pytest
 </code></pre></div>
 
 <h2 id="collections">Collections<a class="headerlink" href="#collections" title="Permanent link">&para;</a></h2>
 <p>Collections group category expressions together. They act as "macros" to provide targeted context for specific tasks without remembering complex expressions.</p>
 <h3 id="viewing-collections">Viewing Collections<a class="headerlink" href="#viewing-collections" title="Permanent link">&para;</a></h3>
 <p>To see what collections exist in your project:</p>
-<div class="codehilite"><pre><span></span><code><span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">project</span><span class="w"> </span><span class="o">-</span><span class="n">v</span>
+<div class="codehilite"><pre><span></span><code>guide://_project?verbose
 </code></pre></div>
 
 <p>This shows all collections and the categories they include.</p>
@@ -1277,13 +1277,13 @@ Trailing <code>*</code> in any pattern is discouraged, the system takes care of 
 
 <p>The AI will set up the collection with the categories you specify.</p>
 <h3 id="using-collections">Using Collections<a class="headerlink" href="#using-collections" title="Permanent link">&para;</a></h3>
-<p>Request a collection using the <code>@guide</code> prompt:</p>
-<div class="codehilite"><pre><span></span><code><span class="nv">@guide</span><span class="w"> </span><span class="n">python</span><span class="o">-</span><span class="n">dev</span>
+<p>Request a collection using the canonical <code>guide://</code> form:</p>
+<div class="codehilite"><pre><span></span><code>guide://python-dev
 </code></pre></div>
 
 <p>Collections expand to their category expressions automatically.</p>
 <p>You can also override patterns when using a collection:</p>
-<div class="codehilite"><pre><span></span><code><span class="nv">@guide</span><span class="w"> </span><span class="n">python</span><span class="o">-</span><span class="n">dev</span><span class="o">/</span><span class="n">testing</span>
+<div class="codehilite"><pre><span></span><code>guide://python-dev/testing
 </code></pre></div>
 
 <h3 id="nested-collections">Nested Collections<a class="headerlink" href="#nested-collections" title="Permanent link">&para;</a></h3>
@@ -1301,7 +1301,7 @@ Trailing <code>*</code> in any pattern is discouraged, the system takes care of 
 </ul>
 <h3 id="subdirectory-selection">Subdirectory Selection<a class="headerlink" href="#subdirectory-selection" title="Permanent link">&para;</a></h3>
 <p>You can use <code>/</code> to select documents from subdirectories within a category:</p>
-<div class="codehilite"><pre><span></span><code><span class="nv">@guide</span><span class="w"> </span><span class="n">docs</span><span class="o">/</span><span class="n">api</span><span class="o">/</span><span class="n">authentication</span>
+<div class="codehilite"><pre><span></span><code>guide://docs/api/authentication
 </code></pre></div>
 
 <p>This selects the "authentication" document from the <code>api/</code> subdirectory within the <code>docs</code> category.</p>

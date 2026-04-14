@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#prompt-commands" class="md-skip">
+        <a href="#commands" class="md-skip">
           Skip to content
         </a>
       
@@ -649,10 +649,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#discovery-with-guide-help" class="md-nav__link">
+  <a href="#discovery-with-guide_help" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Discovery with @guide :help
+        Discovery with guide://_help
       
     </span>
   </a>
@@ -1073,10 +1073,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#discovery-with-guide-help" class="md-nav__link">
+  <a href="#discovery-with-guide_help" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Discovery with @guide :help
+        Discovery with guide://_help
       
     </span>
   </a>
@@ -1325,13 +1325,13 @@
   
 
 
-<h1 id="prompt-commands">Prompt Commands<a class="headerlink" href="#prompt-commands" title="Permanent link">&para;</a></h1>
-<p>The guide prompt provides a comprehensive command system for direct access to MCP documents and functionality. Commands let you view project information, manage content, control workflows, and configure permissions. All commands follow a consistent structure with built-in help.</p>
-<p>Not all agents support MCP prompts. All prompt commands are also available as <code>guide://</code> URI resources — for example, <code>@guide :status</code> is equivalent to <code>guide://_status</code>. See <a href="../guide-uris/">Guide URIs</a> for details.</p>
-<p><strong>A note on prompt prefixes:</strong> The examples in this document use <code>@guide</code> as the prompt prefix, but your agent may use a different prefix such as <code>/guide</code>. Treat <code>@</code> as a placeholder — use whatever prefix your agent provides.</p>
+<h1 id="commands">Commands<a class="headerlink" href="#commands" title="Permanent link">&para;</a></h1>
+<p>The <code>guide://</code> URI scheme provides the canonical command interface for direct access to MCP documents and functionality. Commands let you view project information, manage content, control workflows, and configure permissions. All commands follow a consistent structure with built-in help.</p>
+<p>Prompt-style invocation may also be available in some clients, but this document uses <code>guide://</code> as the primary form. See <a href="../guide-uris/">Guide URIs</a> for details.</p>
+<p><strong>Note:</strong> If your client supports prompts, equivalent forms like <code>@&lt;prompt&gt; :status</code> or <code>/&lt;prompt&gt; :status</code> may also work. The exact prompt name can vary.</p>
 <h2 id="command-structure">Command Structure<a class="headerlink" href="#command-structure" title="Permanent link">&para;</a></h2>
-<p>Commands are invoked through the guide prompt with this syntax:</p>
-<div class="codehilite"><pre><span></span><code><span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">command</span><span class="w"> </span><span class="o">[</span><span class="n">args</span><span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="n">--flags</span><span class="o">]</span>
+<p>Commands are invoked with this syntax:</p>
+<div class="codehilite"><pre><span></span><code>guide://_command[/args][?flags]
 </code></pre></div>
 
 <p><strong>Flag Syntax:</strong>
@@ -1339,49 +1339,49 @@ Commands support two syntaxes for flags with values:
 - <code>--flag=value</code> (always supported)
 - <code>--flag value</code> (supported when flag is declared with <code>argrequired</code>)</p>
 <p><strong>Examples:</strong></p>
-<div class="codehilite"><pre><span></span><code><span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">help</span>
-<span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">status</span>
-<span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">project</span>
-<span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">flags</span>
-<span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="k">create</span><span class="o">/</span><span class="n">category</span><span class="w"> </span><span class="n">docs</span>
-<span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">workflow</span><span class="o">/</span><span class="n">issue</span><span class="w"> </span><span class="c1">--tracking MRP-177</span>
-<span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">flags</span><span class="o">/</span><span class="n">project</span><span class="o">/</span><span class="k">set</span><span class="w"> </span><span class="n">workflow</span><span class="w"> </span><span class="c1">--value=true</span>
+<div class="codehilite"><pre><span></span><code>guide://_help
+guide://_status
+guide://_project
+guide://_flags
+guide://_create/category/docs
+guide://_workflow/issue?tracking=MRP-177
+guide://_flags/project/set/workflow?value=true
 </code></pre></div>
 
-<h2 id="discovery-with-guide-help">Discovery with @guide :help<a class="headerlink" href="#discovery-with-guide-help" title="Permanent link">&para;</a></h2>
-<p>The <code>@guide :help</code> prompt command is your primary discovery mechanism. Use it to explore available commands and their usage:</p>
-<div class="codehilite"><pre><span></span><code><span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">help</span><span class="w">              </span><span class="err">#</span><span class="w"> </span><span class="n">Show</span><span class="w"> </span><span class="ow">all</span><span class="w"> </span><span class="n">available</span><span class="w"> </span><span class="n">commands</span><span class="w"> </span><span class="n">grouped</span><span class="w"> </span><span class="k">by</span><span class="w"> </span><span class="n">category</span>
-<span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">help</span><span class="w"> </span><span class="o">&lt;</span><span class="n">command</span><span class="o">&gt;</span><span class="w">    </span><span class="err">#</span><span class="w"> </span><span class="n">Show</span><span class="w"> </span><span class="n">detailed</span><span class="w"> </span><span class="n">help</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="k">specific</span><span class="w"> </span><span class="n">command</span>
+<h2 id="discovery-with-guide_help">Discovery with <code>guide://_help</code><a class="headerlink" href="#discovery-with-guide_help" title="Permanent link">&para;</a></h2>
+<p>The <code>guide://_help</code> command resource is your primary discovery mechanism. Use it to explore available commands and their usage:</p>
+<div class="codehilite"><pre><span></span><code>guide://_help              # Show all available commands grouped by category
+guide://_help/flags        # Show detailed help for a specific command
 </code></pre></div>
 
 <p><strong>Recommended pattern:</strong>
-1. Start with <code>@guide :help</code> to see available commands
-2. Use <code>@guide :help &lt;command&gt;</code> for specific command usage
+1. Start with <code>guide://_help</code> to see available commands
+2. Use <code>guide://_help/&lt;command&gt;</code> for specific command usage
 3. Execute the command
-4. Use <code>@guide :help</code> again to discover related commands</p>
+4. Use <code>guide://_help</code> again to discover related commands</p>
 <h2 id="core-information-commands">Core Information Commands<a class="headerlink" href="#core-information-commands" title="Permanent link">&para;</a></h2>
-<p><strong>@guide :status</strong>
+<p><strong><code>guide://_status</code></strong>
 Shows system status and current project information including active project, workflow phase (if enabled), and OpenSpec integration status.</p>
-<p><strong>@guide :project</strong> <em>(:info/project, :project/info)</em>
+<p><strong><code>guide://_project</code></strong> <em>(:info/project, :project/info)</em>
 Displays comprehensive project information including project name, categories, collections, feature flags, and filesystem permissions. Use <code>--verbose</code> or <code>-v</code> for detailed output including all category patterns.</p>
-<p><strong>@guide :flags</strong>
+<p><strong><code>guide://_flags</code></strong>
 Shows all feature flags affecting the current project - feature flags (apply to all projects by default), project-specific flags (override feature flags), and resolved values (what the agent actually sees). Lists available flags with their scope restrictions (Project only, Feature only, or both).</p>
-<p><strong>@guide :system</strong> <em>(:info/system)</em>
+<p><strong><code>guide://_system</code></strong> <em>(:info/system)</em>
 Displays system information for both the MCP server and the agent's client environment. Server information (OS, platform, hostname, Python version, working directory) is always shown. Client information (agent's OS, hostname, user, git remotes) requires the <code>allow-client-info</code> feature flag to be enabled.</p>
 <h3 id="the-allow-client-info-feature-flag">The <code>allow-client-info</code> Feature Flag<a class="headerlink" href="#the-allow-client-info-feature-flag" title="Permanent link">&para;</a></h3>
 <p>Client information collection is gated behind the <code>allow-client-info</code> feature flag due to privacy concerns. This flag is normally set globally (affects all projects) and defaults to false. It collects information about the agent's environment (OS, hostname, user) and requires explicit opt-in to respect user privacy. Ask the agent to set the <code>allow-client-info</code> feature flag to true to enable it.</p>
 <h2 id="project-management-commands">Project Management Commands<a class="headerlink" href="#project-management-commands" title="Permanent link">&para;</a></h2>
 <h3 id="category-management">Category Management<a class="headerlink" href="#category-management" title="Permanent link">&para;</a></h3>
-<p><strong>@guide :project/category</strong> <em>(:category)</em>
+<p><strong><code>guide://_project/category</code></strong> <em>(:category)</em>
 Shows category overview with list of current categories and available commands.</p>
-<p><strong>@guide :project/category/list</strong> <em>(:category/list)</em>
+<p><strong><code>guide://_project/category/list</code></strong> <em>(:category/list)</em>
 Lists all categories in the current project. Use <code>--verbose</code> for detailed information including directories and patterns.</p>
-<p><strong>@guide :project/category/add</strong> <em>(:category/add)</em>
+<p><strong><code>guide://_project/category/add</code></strong> <em>(:category/add)</em>
 Creates a new category for organising project content. Categories define directories and file patterns for content discovery.</p>
 <p><strong>Examples:</strong></p>
-<div class="codehilite"><pre><span></span><code><span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">category</span><span class="o">/</span><span class="k">add</span><span class="w"> </span><span class="n">docs</span>
-<span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">category</span><span class="o">/</span><span class="k">add</span><span class="w"> </span><span class="n">docs</span><span class="w"> </span><span class="c1">--dir=documentation --patterns=README,CONTRIBUTING</span>
-<span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">category</span><span class="o">/</span><span class="k">add</span><span class="w"> </span><span class="n">testing</span><span class="w"> </span><span class="c1">--description=&quot;Testing Guidelines&quot;</span>
+<div class="codehilite"><pre><span></span><code>guide://_category/add/docs
+guide://_category/add/docs?dir=documentation&amp;patterns=README,CONTRIBUTING
+guide://_category/add/testing?description=Testing%20Guidelines
 </code></pre></div>
 
 <p><strong>Parameters:</strong>
@@ -1389,107 +1389,107 @@ Creates a new category for organising project content. Categories define directo
 - <code>--dir=&lt;path&gt;</code> - Directory path (defaults to category name)
 - <code>--patterns=&lt;patterns&gt;</code> - Comma-separated file patterns (e.g., <code>README,CONTRIBUTING,test_</code>)
 - <code>--description=&lt;text&gt;</code> - Human-readable description</p>
-<p><strong>@guide :project/category/remove</strong> <em>(:category/remove)</em>
+<p><strong><code>guide://_project/category/remove</code></strong> <em>(:category/remove)</em>
 Removes a category from the project.</p>
-<p><strong>@guide :project/category/change</strong> <em>(:category/change)</em>
+<p><strong><code>guide://_project/category/change</code></strong> <em>(:category/change)</em>
 Changes category properties.</p>
 <p><strong>Examples:</strong></p>
-<div class="codehilite"><pre><span></span><code><span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">category</span><span class="o">/</span><span class="n">change</span><span class="w"> </span><span class="n">docs</span><span class="w"> </span><span class="c1">--new-name=documentation</span>
-<span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">category</span><span class="o">/</span><span class="n">change</span><span class="w"> </span><span class="n">docs</span><span class="w"> </span><span class="c1">--new-dir=doc --new-patterns=README,INSTALL</span>
+<div class="codehilite"><pre><span></span><code>guide://_category/change/docs?new-name=documentation
+guide://_category/change/docs?new-dir=doc&amp;new-patterns=README,INSTALL
 </code></pre></div>
 
-<p><strong>@guide :project/category/update</strong> <em>(:category/update)</em>
+<p><strong><code>guide://_project/category/update</code></strong> <em>(:category/update)</em>
 Updates category patterns incrementally without replacing all properties.</p>
 <p><strong>Examples:</strong></p>
-<div class="codehilite"><pre><span></span><code><span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">category</span><span class="o">/</span><span class="k">update</span><span class="w"> </span><span class="n">docs</span><span class="w"> </span><span class="c1">--add-patterns=CHANGELOG,AUTHORS</span>
-<span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">category</span><span class="o">/</span><span class="k">update</span><span class="w"> </span><span class="n">docs</span><span class="w"> </span><span class="c1">--remove-patterns=old-file</span>
+<div class="codehilite"><pre><span></span><code>guide://_category/update/docs?add-patterns=CHANGELOG,AUTHORS
+guide://_category/update/docs?remove-patterns=old-file
 </code></pre></div>
 
-<p><strong>@guide :project/category/files</strong> <em>(:category/files)</em>
+<p><strong><code>guide://_project/category/files</code></strong> <em>(:category/files)</em>
 Lists all files in a category directory.</p>
 <h3 id="collection-management">Collection Management<a class="headerlink" href="#collection-management" title="Permanent link">&para;</a></h3>
-<p><strong>@guide :project/collection</strong> <em>(:collection)</em>
+<p><strong><code>guide://_project/collection</code></strong> <em>(:collection)</em>
 Shows collection overview with list of current collections and available commands.</p>
-<p><strong>@guide :project/collection/list</strong> <em>(:collection/list)</em>
+<p><strong><code>guide://_project/collection/list</code></strong> <em>(:collection/list)</em>
 Lists all collections in the current project. Use <code>--verbose</code> for detailed information including categories and descriptions.</p>
-<p><strong>@guide :project/collection/add</strong> <em>(:collection/add)</em>
+<p><strong><code>guide://_project/collection/add</code></strong> <em>(:collection/add)</em>
 Creates a new collection that groups multiple categories or other collections together.</p>
 <p><strong>Examples:</strong></p>
-<div class="codehilite"><pre><span></span><code><span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">collection</span><span class="o">/</span><span class="k">add</span><span class="w"> </span><span class="n">docs</span>
-<span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">collection</span><span class="o">/</span><span class="k">add</span><span class="w"> </span><span class="n">api</span><span class="o">-</span><span class="n">docs</span><span class="w"> </span><span class="c1">--categories=code,examples</span>
-<span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">collection</span><span class="o">/</span><span class="k">add</span><span class="w"> </span><span class="n">beginner</span><span class="w"> </span><span class="c1">--categories=docs,examples --description=&quot;Getting started content&quot;</span>
+<div class="codehilite"><pre><span></span><code>guide://_collection/add/docs
+guide://_collection/add/api-docs?categories=code,examples
+guide://_collection/add/beginner?categories=docs,examples&amp;description=Getting%20started%20content
 </code></pre></div>
 
 <p><strong>Parameters:</strong>
 - <code>name</code> (required) - Collection name
 - <code>--categories=&lt;categories&gt;</code> - Comma-separated category or collection names
 - <code>--description=&lt;text&gt;</code> - Human-readable description</p>
-<p><strong>@guide :project/collection/remove</strong> <em>(:collection/remove)</em>
+<p><strong><code>guide://_project/collection/remove</code></strong> <em>(:collection/remove)</em>
 Removes a collection from the project.</p>
-<p><strong>@guide :project/collection/change</strong> <em>(:collection/change)</em>
+<p><strong><code>guide://_project/collection/change</code></strong> <em>(:collection/change)</em>
 Changes collection properties.</p>
 <p><strong>Examples:</strong></p>
-<div class="codehilite"><pre><span></span><code><span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">collection</span><span class="o">/</span><span class="n">change</span><span class="w"> </span><span class="n">docs</span><span class="w"> </span><span class="c1">--new-name=documentation</span>
-<span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">collection</span><span class="o">/</span><span class="n">change</span><span class="w"> </span><span class="n">docs</span><span class="w"> </span><span class="c1">--new-categories=guide,lang,context</span>
+<div class="codehilite"><pre><span></span><code>guide://_collection/change/docs?new-name=documentation
+guide://_collection/change/docs?new-categories=guide,lang,context
 </code></pre></div>
 
-<p><strong>@guide :project/collection/update</strong> <em>(:collection/update)</em>
+<p><strong><code>guide://_project/collection/update</code></strong> <em>(:collection/update)</em>
 Updates collection categories incrementally.</p>
 <p><strong>Examples:</strong></p>
-<div class="codehilite"><pre><span></span><code><span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">collection</span><span class="o">/</span><span class="k">update</span><span class="w"> </span><span class="n">docs</span><span class="w"> </span><span class="c1">--add-categories=context</span>
-<span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">collection</span><span class="o">/</span><span class="k">update</span><span class="w"> </span><span class="n">docs</span><span class="w"> </span><span class="c1">--remove-categories=old-category</span>
+<div class="codehilite"><pre><span></span><code>guide://_collection/update/docs?add-categories=context
+guide://_collection/update/docs?remove-categories=old-category
 </code></pre></div>
 
-<p>Collections enable logical grouping of related content for easier access through the @guide prompt.</p>
+<p>Collections enable logical grouping of related content for easier access through <code>guide://</code> expressions.</p>
 <h2 id="feature-flag-commands">Feature Flag Commands<a class="headerlink" href="#feature-flag-commands" title="Permanent link">&para;</a></h2>
 <h3 id="project-flags">Project Flags<a class="headerlink" href="#project-flags" title="Permanent link">&para;</a></h3>
-<p><strong>@guide :flags/project</strong>
+<p><strong><code>guide://_flags/project</code></strong>
 Shows project flag overview and available commands.</p>
-<p><strong>@guide :flags/project/list</strong> <em>(:flags/project/list)</em>
+<p><strong><code>guide://_flags/project/list</code></strong> <em>(:flags/project/list)</em>
 Lists all project-specific feature flags. Use <code>--active</code> to show only active flags.</p>
-<p><strong>@guide :flags/project/get</strong> <em>(:flags/project/get)</em>
+<p><strong><code>guide://_flags/project/get</code></strong> <em>(:flags/project/get)</em>
 Gets the value of a specific project flag.</p>
 <p><strong>Example:</strong></p>
-<div class="codehilite"><pre><span></span><code><span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">flags</span><span class="o">/</span><span class="n">project</span><span class="o">/</span><span class="k">get</span><span class="w"> </span><span class="n">workflow</span>
+<div class="codehilite"><pre><span></span><code>guide://_flags/project/get/workflow
 </code></pre></div>
 
-<p><strong>@guide :flags/project/set</strong> <em>(:flags/project/set)</em>
+<p><strong><code>guide://_flags/project/set</code></strong> <em>(:flags/project/set)</em>
 Sets a project-specific feature flag value.</p>
 <p><strong>Examples:</strong></p>
-<div class="codehilite"><pre><span></span><code><span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">flags</span><span class="o">/</span><span class="n">project</span><span class="o">/</span><span class="k">set</span><span class="w"> </span><span class="n">workflow</span>
-<span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">flags</span><span class="o">/</span><span class="n">project</span><span class="o">/</span><span class="k">set</span><span class="w"> </span><span class="n">workflow</span><span class="w"> </span><span class="k">false</span>
-<span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">flags</span><span class="o">/</span><span class="n">project</span><span class="o">/</span><span class="k">set</span><span class="w"> </span><span class="n">content</span><span class="o">-</span><span class="nf">format</span><span class="w"> </span><span class="c1">--value=mime</span>
+<div class="codehilite"><pre><span></span><code>guide://_flags/project/set/workflow
+guide://_flags/project/set/workflow/false
+guide://_flags/project/set/content-format?value=mime
 </code></pre></div>
 
-<p><strong>@guide :flags/project/remove</strong> <em>(:flags/project/remove)</em>
+<p><strong><code>guide://_flags/project/remove</code></strong> <em>(:flags/project/remove)</em>
 Removes a project-specific flag override, reverting to the feature flag value.</p>
 <p><strong>Example:</strong></p>
-<div class="codehilite"><pre><span></span><code><span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">flags</span><span class="o">/</span><span class="n">project</span><span class="o">/</span><span class="n">remove</span><span class="w"> </span><span class="n">workflow</span>
+<div class="codehilite"><pre><span></span><code>guide://_flags/project/remove/workflow
 </code></pre></div>
 
 <h3 id="feature-flags">Feature Flags<a class="headerlink" href="#feature-flags" title="Permanent link">&para;</a></h3>
-<p><strong>@guide :flags/feature</strong>
+<p><strong><code>guide://_flags/feature</code></strong>
 Shows feature flag overview and available commands.</p>
-<p><strong>@guide :flags/feature/list</strong> <em>(:flags/feature/list)</em>
+<p><strong><code>guide://_flags/feature/list</code></strong> <em>(:flags/feature/list)</em>
 Lists all feature flags (apply across all projects). Use <code>--active</code> to show only active flags.</p>
-<p><strong>@guide :flags/feature/get</strong> <em>(:flags/feature/get)</em>
+<p><strong><code>guide://_flags/feature/get</code></strong> <em>(:flags/feature/get)</em>
 Gets the value of a specific feature flag.</p>
 <p><strong>Example:</strong></p>
-<div class="codehilite"><pre><span></span><code><span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">flags</span><span class="o">/</span><span class="n">feature</span><span class="o">/</span><span class="k">get</span><span class="w"> </span><span class="n">autoupdate</span>
+<div class="codehilite"><pre><span></span><code>guide://_flags/feature/get/autoupdate
 </code></pre></div>
 
-<p><strong>@guide :flags/feature/set</strong> <em>(:flags/feature/set)</em>
+<p><strong><code>guide://_flags/feature/set</code></strong> <em>(:flags/feature/set)</em>
 Sets a feature flag value.</p>
 <p><strong>Examples:</strong></p>
-<div class="codehilite"><pre><span></span><code><span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">flags</span><span class="o">/</span><span class="n">feature</span><span class="o">/</span><span class="k">set</span><span class="w"> </span><span class="n">workflow</span>
-<span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">flags</span><span class="o">/</span><span class="n">feature</span><span class="o">/</span><span class="k">set</span><span class="w"> </span><span class="n">workflow</span><span class="w"> </span><span class="k">false</span>
-<span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">flags</span><span class="o">/</span><span class="n">feature</span><span class="o">/</span><span class="k">set</span><span class="w"> </span><span class="n">content</span><span class="o">-</span><span class="nf">format</span><span class="w"> </span><span class="c1">--value=mime</span>
+<div class="codehilite"><pre><span></span><code>guide://_flags/feature/set/workflow
+guide://_flags/feature/set/workflow/false
+guide://_flags/feature/set/content-format?value=mime
 </code></pre></div>
 
-<p><strong>@guide :flags/feature/remove</strong> <em>(:flags/feature/remove)</em>
+<p><strong><code>guide://_flags/feature/remove</code></strong> <em>(:flags/feature/remove)</em>
 Removes a feature flag.</p>
 <p><strong>Example:</strong></p>
-<div class="codehilite"><pre><span></span><code><span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">flags</span><span class="o">/</span><span class="n">feature</span><span class="o">/</span><span class="n">remove</span><span class="w"> </span><span class="n">autoupdate</span>
+<div class="codehilite"><pre><span></span><code>guide://_flags/feature/remove/autoupdate
 </code></pre></div>
 
 <h3 id="available-flags">Available Flags<a class="headerlink" href="#available-flags" title="Permanent link">&para;</a></h3>
@@ -1502,44 +1502,44 @@ Removes a feature flag.</p>
 </ul>
 <h2 id="document-commands">Document Commands<a class="headerlink" href="#document-commands" title="Permanent link">&para;</a></h2>
 <p>Document commands let you manage stored documents — content that lives in the document store rather than as files on disk. See <a href="../stored-documents/">Stored Documents</a> for the full picture.</p>
-<p><strong>@guide :document</strong>
+<p><strong><code>guide://_document</code></strong>
 Shows available document commands.</p>
-<p><strong>@guide :document/add</strong> <em><code>&lt;category&gt; &lt;path&gt;</code></em>
+<p><strong><code>guide://_document/add</code></strong> <em><code>&lt;category&gt; &lt;path&gt;</code></em>
 Adds a local file to the document store in the specified category.</p>
 <p><strong>Examples:</strong></p>
-<div class="codehilite"><pre><span></span><code><span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">document</span><span class="o">/</span><span class="k">add</span><span class="w"> </span><span class="n">docs</span><span class="w"> </span><span class="o">/</span><span class="k">path</span><span class="o">/</span><span class="k">to</span><span class="o">/</span><span class="k">file</span><span class="p">.</span><span class="n">md</span>
-<span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">document</span><span class="o">/</span><span class="k">add</span><span class="w"> </span><span class="n">docs</span><span class="w"> </span><span class="o">/</span><span class="k">path</span><span class="o">/</span><span class="k">to</span><span class="o">/</span><span class="k">file</span><span class="p">.</span><span class="n">md</span><span class="w"> </span><span class="c1">--as custom-name</span>
-<span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">document</span><span class="o">/</span><span class="k">add</span><span class="w"> </span><span class="n">docs</span><span class="w"> </span><span class="o">/</span><span class="k">path</span><span class="o">/</span><span class="k">to</span><span class="o">/</span><span class="k">file</span><span class="p">.</span><span class="n">md</span><span class="w"> </span><span class="c1">--force</span>
-<span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">document</span><span class="o">/</span><span class="k">add</span><span class="w"> </span><span class="n">docs</span><span class="w"> </span><span class="o">/</span><span class="k">path</span><span class="o">/</span><span class="k">to</span><span class="o">/</span><span class="k">file</span><span class="p">.</span><span class="n">md</span><span class="w"> </span><span class="c1">--agent-instruction</span>
+<div class="codehilite"><pre><span></span><code>guide://_document/add/docs//path/to/file.md
+guide://_document/add/docs//path/to/file.md?as=custom-name
+guide://_document/add/docs//path/to/file.md?force
+guide://_document/add/docs//path/to/file.md?agent-instruction
 </code></pre></div>
 
-<p><strong>@guide :document/add-url</strong> <em><code>&lt;category&gt; &lt;url&gt;</code></em>
+<p><strong><code>guide://_document/add-url</code></strong> <em><code>&lt;category&gt; &lt;url&gt;</code></em>
 Fetches content from a URL and stores it in the specified category.</p>
 <p><strong>Examples:</strong></p>
-<div class="codehilite"><pre><span></span><code><span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">document</span><span class="o">/</span><span class="k">add</span><span class="o">-</span><span class="n">url</span><span class="w"> </span><span class="n">docs</span><span class="w"> </span><span class="nl">https</span><span class="p">:</span><span class="o">//</span><span class="n">example</span><span class="p">.</span><span class="n">com</span><span class="o">/</span><span class="n">api</span><span class="o">-</span><span class="n">reference</span>
-<span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">document</span><span class="o">/</span><span class="k">add</span><span class="o">-</span><span class="n">url</span><span class="w"> </span><span class="n">docs</span><span class="w"> </span><span class="nl">https</span><span class="p">:</span><span class="o">//</span><span class="n">example</span><span class="p">.</span><span class="n">com</span><span class="o">/</span><span class="n">guide</span><span class="w"> </span><span class="c1">--as api-guide</span>
+<div class="codehilite"><pre><span></span><code>guide://_document/add-url/docs/https%3A%2F%2Fexample.com%2Fapi-reference
+guide://_document/add-url/docs/https%3A%2F%2Fexample.com%2Fguide?as=api-guide
 </code></pre></div>
 
-<p><strong>@guide :document/list</strong> <em><code>&lt;category&gt;</code></em>
+<p><strong><code>guide://_document/list</code></strong> <em><code>&lt;category&gt;</code></em>
 Lists stored documents in a category.</p>
-<p><strong>@guide :document/show</strong> <em><code>&lt;category&gt; &lt;name&gt;</code></em>
+<p><strong><code>guide://_document/show</code></strong> <em><code>&lt;category&gt; &lt;name&gt;</code></em>
 Displays the content of a stored document.</p>
-<p><strong>@guide :document/update</strong> <em><code>&lt;category&gt; &lt;name&gt;</code></em>
+<p><strong><code>guide://_document/update</code></strong> <em><code>&lt;category&gt; &lt;name&gt;</code></em>
 Updates a stored document's name, category, or metadata.</p>
-<p><strong>@guide :document/remove</strong> <em><code>&lt;category&gt; &lt;name&gt;</code></em>
+<p><strong><code>guide://_document/remove</code></strong> <em><code>&lt;category&gt; &lt;name&gt;</code></em>
 Removes a stored document from a category.</p>
 <h2 id="export-commands">Export Commands<a class="headerlink" href="#export-commands" title="Permanent link">&para;</a></h2>
 <p>Export commands manage tracked content exports — rendered content saved to files for knowledge persistence. See <a href="../content-management/">Content Management</a> for how exports work.</p>
-<p><strong>@guide :export/add</strong> <em><code>&lt;expression&gt; &lt;path&gt;</code></em>
+<p><strong><code>guide://_export/add</code></strong> <em><code>&lt;expression&gt; &lt;path&gt;</code></em>
 Exports rendered content to a file and tracks it.</p>
 <p><strong>Examples:</strong></p>
-<div class="codehilite"><pre><span></span><code><span class="err">@</span><span class="n">guide</span><span class="w"> </span><span class="p">:</span><span class="k">export</span><span class="o">/</span><span class="n">add</span><span class="w"> </span><span class="n">docs</span><span class="w"> </span><span class="n">documentation</span><span class="o">.</span><span class="n">md</span>
-<span class="err">@</span><span class="n">guide</span><span class="w"> </span><span class="p">:</span><span class="k">export</span><span class="o">/</span><span class="n">add</span><span class="w"> </span><span class="n">architecture</span><span class="w"> </span><span class="n">arch</span><span class="o">.</span><span class="n">md</span><span class="w"> </span><span class="o">--</span><span class="n">force</span>
+<div class="codehilite"><pre><span></span><code><span class="n">guide</span><span class="p">:</span><span class="o">//</span><span class="n">_export</span><span class="o">/</span><span class="n">add</span><span class="o">/</span><span class="n">docs</span><span class="o">/</span><span class="n">documentation</span><span class="o">.</span><span class="n">md</span>
+<span class="n">guide</span><span class="p">:</span><span class="o">//</span><span class="n">_export</span><span class="o">/</span><span class="n">add</span><span class="o">/</span><span class="n">architecture</span><span class="o">/</span><span class="n">arch</span><span class="o">.</span><span class="n">md</span><span class="err">?</span><span class="n">force</span>
 </code></pre></div>
 
-<p><strong>@guide :export/list</strong>
+<p><strong><code>guide://_export/list</code></strong>
 Lists all tracked exports with their expression, path, and staleness status.</p>
-<p><strong>@guide :export/remove</strong> <em><code>&lt;expression&gt;</code></em>
+<p><strong><code>guide://_export/remove</code></strong> <em><code>&lt;expression&gt;</code></em>
 Removes an export tracking entry (does not delete the exported file).</p>
 <h2 id="filesystem-permissions">Filesystem Permissions<a class="headerlink" href="#filesystem-permissions" title="Permanent link">&para;</a></h2>
 <p>mcp-guide implements built-in security controls to ensure agent instructions don't transgress security boundaries outside the project.</p>
@@ -1557,7 +1557,7 @@ Removes an export tracking entry (does not delete the exported file).</p>
 - Safe temp paths are allowed for read/write
 - System validates temp directory safety</p>
 <h3 id="viewing-permissions">Viewing Permissions<a class="headerlink" href="#viewing-permissions" title="Permanent link">&para;</a></h3>
-<p><strong>@guide :project/perm</strong> <em>(:perm)</em>
+<p><strong><code>guide://_project/perm</code></strong> <em>(:perm)</em>
 Shows current filesystem permissions configuration for the project - read permissions (project directory + additional paths) and write permissions (allowed write paths).</p>
 <h3 id="managing-permissions">Managing Permissions<a class="headerlink" href="#managing-permissions" title="Permanent link">&para;</a></h3>
 <p>Permissions are configured in <code>.guide.yaml</code>:</p>

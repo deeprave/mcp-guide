@@ -1239,14 +1239,14 @@ If the document has <code>type: agent/instruction</code> (and most are), the doc
 <p>Documents belong to a <strong>category</strong>. Each category represents a directory structure in the document store where documents can be retrieved. Categories are assigned patterns for files within them that are displayed <em>by default</em> when the category is referenced. However, all files in a category are always available by overriding the pattern with <code>&lt;category&gt;[/pattern1[+pattern2...]]</code>. This is called a document <strong>expression</strong>.</p>
 <p>Category names can be up to 30 Unicode characters in length and can contain (but not start with) underscores and hyphens.</p>
 <h3 id="managing-categories">Managing Categories<a class="headerlink" href="#managing-categories" title="Permanent link">&para;</a></h3>
-<p>Use the <code>@guide :project/category</code> commands to manage categories:</p>
-<div class="codehilite"><pre><span></span><code><span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">category</span><span class="o">/</span><span class="n">list</span><span class="w">                    </span><span class="err">#</span><span class="w"> </span><span class="n">List</span><span class="w"> </span><span class="ow">all</span><span class="w"> </span><span class="n">categories</span>
-<span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">category</span><span class="o">/</span><span class="k">add</span><span class="w"> </span><span class="n">docs</span><span class="w">                </span><span class="err">#</span><span class="w"> </span><span class="k">Add</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="n">category</span>
-<span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">category</span><span class="o">/</span><span class="k">add</span><span class="w"> </span><span class="n">docs</span><span class="w"> </span><span class="c1">--dir=documentation --patterns=README,CONTRIBUTING</span>
-<span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">category</span><span class="o">/</span><span class="n">change</span><span class="w"> </span><span class="n">docs</span><span class="w"> </span><span class="c1">--new-name=documentation</span>
-<span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">category</span><span class="o">/</span><span class="k">update</span><span class="w"> </span><span class="n">docs</span><span class="w"> </span><span class="c1">--add-patterns=CHANGELOG</span>
-<span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">category</span><span class="o">/</span><span class="n">remove</span><span class="w"> </span><span class="n">docs</span><span class="w">             </span><span class="err">#</span><span class="w"> </span><span class="n">Remove</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="n">category</span>
-<span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">category</span><span class="o">/</span><span class="n">files</span><span class="w"> </span><span class="n">docs</span><span class="w">              </span><span class="err">#</span><span class="w"> </span><span class="n">List</span><span class="w"> </span><span class="n">files</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">category</span>
+<p>Use the <code>guide://_project/category</code> commands to manage categories:</p>
+<div class="codehilite"><pre><span></span><code>guide://_category/list                    # List all categories
+guide://_category/add/docs                # Add a new category
+guide://_category/add/docs?dir=documentation&amp;patterns=README,CONTRIBUTING
+guide://_category/change/docs?new-name=documentation
+guide://_category/update/docs?add-patterns=CHANGELOG
+guide://_category/remove/docs             # Remove a category
+guide://_category/files/docs              # List files in category
 </code></pre></div>
 
 <p>To see what's in a category, just ask your AI:</p>
@@ -1268,13 +1268,13 @@ If the document has <code>type: agent/instruction</code> (and most are), the doc
 </ul>
 <p>This enhances the code review with adherence to coding standards and specific edicts that relate to your project.</p>
 <h3 id="managing-collections">Managing Collections<a class="headerlink" href="#managing-collections" title="Permanent link">&para;</a></h3>
-<p>Use the <code>@guide :project/collection</code> commands to manage collections:</p>
-<div class="codehilite"><pre><span></span><code><span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">collection</span><span class="o">/</span><span class="n">list</span><span class="w">                  </span><span class="err">#</span><span class="w"> </span><span class="n">List</span><span class="w"> </span><span class="ow">all</span><span class="w"> </span><span class="n">collections</span>
-<span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">collection</span><span class="o">/</span><span class="k">add</span><span class="w"> </span><span class="n">docs</span><span class="w">              </span><span class="err">#</span><span class="w"> </span><span class="k">Add</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="n">collection</span>
-<span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">collection</span><span class="o">/</span><span class="k">add</span><span class="w"> </span><span class="n">getting</span><span class="o">-</span><span class="n">started</span><span class="w"> </span><span class="c1">--categories=docs,guide --description=&quot;Beginner content&quot;</span>
-<span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">collection</span><span class="o">/</span><span class="n">change</span><span class="w"> </span><span class="n">docs</span><span class="w"> </span><span class="c1">--new-categories=docs,guide,lang</span>
-<span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">collection</span><span class="o">/</span><span class="k">update</span><span class="w"> </span><span class="n">docs</span><span class="w"> </span><span class="c1">--add-categories=context</span>
-<span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">collection</span><span class="o">/</span><span class="n">remove</span><span class="w"> </span><span class="n">docs</span><span class="w">           </span><span class="err">#</span><span class="w"> </span><span class="n">Remove</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="n">collection</span>
+<p>Use the <code>guide://_project/collection</code> commands to manage collections:</p>
+<div class="codehilite"><pre><span></span><code>guide://_collection/list                  # List all collections
+guide://_collection/add/docs              # Add a new collection
+guide://_collection/add/getting-started?categories=docs,guide&amp;description=Beginner%20content
+guide://_collection/change/docs?new-categories=docs,guide,lang
+guide://_collection/update/docs?add-categories=context
+guide://_collection/remove/docs           # Remove a collection
 </code></pre></div>
 
 <h2 id="content-concatenation">Content Concatenation<a class="headerlink" href="#content-concatenation" title="Permanent link">&para;</a></h2>

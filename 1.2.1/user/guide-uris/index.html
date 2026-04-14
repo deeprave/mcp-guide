@@ -870,7 +870,7 @@
 <h1 id="guide-uris">Guide URIs<a class="headerlink" href="#guide-uris" title="Permanent link">&para;</a></h1>
 <p>mcp-guide exposes content through the <code>guide://</code> URI scheme. This gives AI agents a universal way to access your project's content, commands, and configuration — regardless of what MCP features the agent supports.</p>
 <h2 id="why-guide-uris">Why Guide URIs?<a class="headerlink" href="#why-guide-uris" title="Permanent link">&para;</a></h2>
-<p>The <code>@guide</code> prompt is the primary way most users interact with mcp-guide. But not all agents support MCP prompts or resources natively. Some agents (like Codex) only have access to tools.</p>
+<p>The <code>guide://</code> URI scheme is the canonical way to refer to mcp-guide content and commands. Some clients also support equivalent prompt syntax, but not all agents support MCP prompts or resources natively.</p>
 <p>Guide URIs solve this by providing a single, consistent interface that works everywhere:</p>
 <ul>
 <li>Agents with full MCP support can read <code>guide://</code> URIs directly as resources</li>
@@ -905,7 +905,7 @@
 </tr>
 </tbody>
 </table>
-<p>These work exactly like <code>@guide</code> prompt expressions — the same expressions, the same results.</p>
+<p>These work exactly like the equivalent prompt expressions — the same expressions, the same results.</p>
 <h2 id="command-uris">Command URIs<a class="headerlink" href="#command-uris" title="Permanent link">&para;</a></h2>
 <p>Commands use an underscore prefix to distinguish them from content:</p>
 <table>
@@ -938,13 +938,14 @@
 </tr>
 </tbody>
 </table>
-<p>Command URIs mirror the <code>@guide :command</code> syntax — <code>@guide :status</code> becomes <code>guide://_status</code>.</p>
+<p>Command URIs mirror the prompt command syntax — for example, a prompt-style <code>:status</code> request becomes <code>guide://_status</code>.</p>
 <h3 id="command-arguments">Command Arguments<a class="headerlink" href="#command-arguments" title="Permanent link">&para;</a></h3>
 <p>Commands can accept positional arguments via path segments and keyword arguments via query parameters:</p>
 <div class="codehilite"><pre><span></span><code>guide://_help/flags              # Positional: help for the &quot;flags&quot; command
 guide://_flags/project/set/workflow?value=true   # Positional + keyword arguments
 </code></pre></div>
 
+<p>When a command argument is an absolute filesystem path, the URI will contain a double slash before the path value. For example, <code>guide://_project/perm/read/add//external/data</code> uses the first slash to separate the command from its first positional argument, and the second slash is the leading <code>/</code> of the absolute path itself.</p>
 <h2 id="using-read_resource-as-a-fallback">Using <code>read_resource</code> as a Fallback<a class="headerlink" href="#using-read_resource-as-a-fallback" title="Permanent link">&para;</a></h2>
 <p>If your agent doesn't support reading MCP resources directly, you can use the <code>read_resource</code> tool to fetch any <code>guide://</code> URI:</p>
 <div class="codehilite"><pre><span></span><code>read_resource(&quot;guide://docs&quot;)

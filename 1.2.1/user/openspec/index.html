@@ -1100,33 +1100,31 @@
 <h3 id="user-experience">User Experience<a class="headerlink" href="#user-experience" title="Permanent link">&para;</a></h3>
 <p>The integration may seem verbose in some agents as it executes OpenSpec commands to maintain synchronisation. These commands are necessary for the integration to function correctly. Frequent use of guide tools and prompt commands helps keep OpenSpec and the MCP server synchronised.</p>
 <h2 id="openspec-commands">OpenSpec Commands<a class="headerlink" href="#openspec-commands" title="Permanent link">&para;</a></h2>
-<p>When OpenSpec is enabled, additional <code>:openspec/*</code> commands become available. Some commands invoke the OpenSpec CLI directly (with response caching). Use <code>@guide :help</code> for more information (or <code>/guide :help</code> in Claude Code or Copilot CLI).</p>
-<p><strong>:openspec/init</strong>
+<p>When OpenSpec is enabled, additional OpenSpec commands become available. Some commands invoke the OpenSpec CLI directly (with response caching). Use <code>guide://_help/openspec</code> for more information.</p>
+<p><strong><code>guide://_openspec/init</code></strong> <em>(:openspec/init)</em>
 Initialise OpenSpec in the current project using the openspec command. This creates the required directory structure and <code>openspec/project.md</code> file.</p>
-<p><strong>:openspec/propose</strong> <em>(openspec/new, openspec/create)</em>
+<p><strong><code>guide://_openspec/propose</code></strong> <em>(:openspec/propose; aliases: openspec/new, openspec/create)</em>
 Initiate a new OpenSpec change by creating the change directory structure and proposal document. Emphasises dialogue with the user before writing documents. Optionally creates <code>tasks.md</code> for tracking implementation.</p>
-<p><strong>:openspec/list</strong>
+<p><strong><code>guide://_openspec/list</code></strong> <em>(:openspec/list)</em>
 List all OpenSpec changes in the project. Triggers a refresh of the change list from OpenSpec CLI.</p>
-<p><strong>:openspec/list</strong>
-List all OpenSpec changes in the project. Triggers a refresh of the change list from OpenSpec CLI.</p>
-<p><strong>:openspec/show</strong>
+<p><strong><code>guide://_openspec/show</code></strong> <em>(:openspec/show)</em>
 Show details for the current or a specific OpenSpec change, including proposal, tasks, and spec deltas.</p>
-<p><strong>@guide :openspec/validate</strong>
+<p><strong><code>guide://_openspec/validate</code></strong> <em>(:openspec/validate)</em>
 Validate the current or a specific OpenSpec change against schema requirements and structural rules.</p>
-<p><strong>@guide :openspec/status</strong>
+<p><strong><code>guide://_openspec/status</code></strong> <em>(:openspec/status)</em>
 Get the completion status and percentage for an OpenSpec change based on completed tasks.</p>
-<p><strong>@guide :openspec/archive</strong>
+<p><strong><code>guide://_openspec/archive</code></strong> <em>(:openspec/archive)</em>
 Archive a completed OpenSpec change, moving it to the archive directory and optionally updating main specs.</p>
-<p><strong>@guide :openspec/schemas</strong>
+<p><strong><code>guide://_openspec/schemas</code></strong> <em>(:openspec/schemas)</em>
 Discover available OpenSpec schemas in the project for creating new specifications.</p>
 <h2 id="integration-with-the-workflow-feature-flag">Integration with the <code>workflow</code> feature flag<a class="headerlink" href="#integration-with-the-workflow-feature-flag" title="Permanent link">&para;</a></h2>
 <p>When both OpenSpec and workflow feature flags are enabled, they work together:</p>
 <ul>
 <li>The workflow <code>issue</code> field typically specifies the OpenSpec change name (e.g., <code>add-feature-x</code> or <code>add-feature-x/sub-spec</code>)</li>
 <li>mcp-guide provides its own versions of OpenSpec prompts:</li>
-<li><code>@guide :workflow/implement</code> - Equivalent to openspec-apply (with full project guidelines)</li>
-<li><code>@guide :openspec/archive</code> - Equivalent to openspec-archive</li>
-<li><code>@guide :openspec/propose</code> - Equivalent to openspec-propose</li>
+<li><code>guide://_workflow/implement</code> - Equivalent to openspec-apply (with full project guidelines)</li>
+<li><code>guide://_openspec/archive</code> - Equivalent to openspec-archive</li>
+<li><code>guide://_openspec/propose</code> - Equivalent to openspec-propose</li>
 </ul>
 <p>Otherwise, OpenSpec and workflow operate independently.</p>
 <h2 id="openspec-template-context">OpenSpec Template Context<a class="headerlink" href="#openspec-template-context" title="Permanent link">&para;</a></h2>

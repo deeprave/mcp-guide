@@ -1496,20 +1496,20 @@
 <h3 id="managing-paths-via-commands">Managing Paths via Commands<a class="headerlink" href="#managing-paths-via-commands" title="Permanent link">&para;</a></h3>
 <p>Use the built-in guide commands to safely manage paths:</p>
 <div class="codehilite"><pre><span></span><code><span class="c1"># View current permissions</span>
-@guide<span class="w"> </span>:project/perm
+guide://_project/perm
 
 <span class="c1"># Add write permissions</span>
-@guide<span class="w"> </span>:project/perm/write/add<span class="w"> </span>src/
-@guide<span class="w"> </span>:project/perm/write/add<span class="w"> </span>config.json
+guide://_project/perm/write/add/src/
+guide://_project/perm/write/add/config.json
 
 <span class="c1"># Remove write permissions</span>
-@guide<span class="w"> </span>:project/perm/write/remove<span class="w"> </span>src/
+guide://_project/perm/write/remove/src/
 
 <span class="c1"># Add read permissions (absolute paths)</span>
-@guide<span class="w"> </span>:project/perm/read/add<span class="w"> </span>/external/data
+guide://_project/perm/read/add//external/data
 
 <span class="c1"># Remove read permissions</span>
-@guide<span class="w"> </span>:project/perm/read/remove<span class="w"> </span>/external/data
+guide://_project/perm/read/remove//external/data
 </code></pre></div>
 
 <p>These commands automatically:
@@ -1607,7 +1607,7 @@
 - Check for excessive file modification causing cache misses</p>
 <p><strong>Configuration Problems</strong>
 - Validate YAML syntax in <code>.guide.yaml</code>
-- Use <code>@guide :project/perm</code> to verify current settings
+- Use <code>guide://_project/perm</code> to verify current settings
 - Check file permissions on configuration file</p>
 <p>The filesystem access feature is designed to be helpful while maintaining security by default. You can always restrict access further or remove restrictions entirely based on your specific needs and trust level.</p>
 

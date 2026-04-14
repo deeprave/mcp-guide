@@ -1105,29 +1105,29 @@
 - <code>exit</code>: Require explicit consent to exit the phase</p>
 <p>If <code>workflow-consent</code> is configured with at least one phase, the default configuration for every phase is not to require consent on either entry or exit unless overridden.</p>
 <h2 id="workflow-commands">Workflow Commands<a class="headerlink" href="#workflow-commands" title="Permanent link">&para;</a></h2>
-<p>Tracking workflow status is an important aspect of how the MCP operates. When transitioning between phases it will send certain instructions to the agent in order to keep it appraised of what actions are allowed or prevented. Unfortunately, agents are non-deterministic and will sometimes "forget" to send updates to the MCP. The MCP server, however, will periodically send reminders on the back of other responses, and unless the agent is being particularly stubborn, it should eventually comply.</p>
-<p>Frequent use of workflow commands will increase the opportunity of the mcp sending these instructions. When workflow is enabled, additional workflow prompt commands become available, many of which have shortcuts or aliases. Use <code>@guide :help</code> for more information.</p>
-<p><strong>@guide :workflow/show</strong> <em>(:show)</em>
+<p>Tracking workflow status is an important aspect of how the MCP operates. When transitioning between phases it will send certain instructions to the agent in order to keep it apprised of what actions are allowed or prevented. Unfortunately, agents are non-deterministic and will sometimes "forget" to send updates to the MCP. The MCP server, however, will periodically send reminders on the back of other responses, and unless the agent is being particularly stubborn, it should eventually comply.</p>
+<p>Frequent use of workflow commands will increase the opportunity of the mcp sending these instructions. When workflow is enabled, additional workflow commands become available, many of which have shortcuts or aliases. Use <code>guide://_help/workflow</code> for more information.</p>
+<p><strong><code>guide://_workflow/show</code></strong> <em>(:show)</em>
 Displays the current workflow status and other details. This should directly correspond with the content of the workflow file (<code>.guide.yaml</code>) unless the mcp is not being updated by the agent.</p>
-<p><strong>@guide :workflow/issue</strong> <em>(:issue)</em>
+<p><strong><code>guide://_workflow/issue</code></strong> <em>(:issue)</em>
 Manage or change the current workflow issue, description, tracking and transition to next</p>
-<p><strong>@guide :workflow/discuss</strong> <em>(:discuss)</em>
+<p><strong><code>guide://_workflow/discuss</code></strong> <em>(:discuss)</em>
 Requests return to discussion mode, optionally switch to a different issue if specified</p>
-<p><strong>@guide :workflow/reset</strong> <em>(:reset)</em>
+<p><strong><code>guide://_workflow/reset</code></strong> <em>(:reset)</em>
 Marks the current issue as complete and resets to discussion (shortcut).
 Certain conditions must be met:
   - there are no staged/uncommitted changes
   - the current branch must be <code>main</code></p>
-<p><strong>@guide :workflow/phase</strong> <em>(:phase)</em>
+<p><strong><code>guide://_workflow/phase</code></strong> <em>(:phase)</em>
 Requests transition to a specific provided workflow phase</p>
-<p><strong>:workflow/check</strong> <em>(:check)</em>
+<p><strong><code>guide://_workflow/check</code></strong> <em>(:check)</em>
 Run all code checks for changes according to test and code quality checks for the project.</p>
-<p><strong>:workflow/review</strong> <em>(:review)</em>
+<p><strong><code>guide://_workflow/review</code></strong> <em>(:review)</em>
 Delegate a review to a guide-review agent.
-If delegates are not supported by the agent, then <code>@guide code-review</code> will do the same thing in the foreground.</p>
-<p><strong>:workflow/implement</strong> <em>(:implement)</em>
+If delegates are not supported by the agent, then <code>guide://code-review</code> will do the same thing in the foreground.</p>
+<p><strong><code>guide://_workflow/implement</code></strong> <em>(:implement)</em>
 Explicitly requests commencement of the implementation phase.</p>
-<p><strong>:workflow/plan</strong> <em>(:plan)</em>
+<p><strong><code>guide://_workflow/plan</code></strong> <em>(:plan)</em>
 Explicitly requests creating an implementation plan for the current change.</p>
 <h2 id="workflow-template-context">Workflow Template Context<a class="headerlink" href="#workflow-template-context" title="Permanent link">&para;</a></h2>
 <p>If workflow is enabled, the current workflow state is available in content templates via <code>{{workflow.*}}</code> variables.

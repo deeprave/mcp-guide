@@ -397,15 +397,15 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#the-guide-prompt" class="md-nav__link">
+  <a href="#the-guide-interface" class="md-nav__link">
     <span class="md-ellipsis">
       
-        The guide Prompt
+        The guide:// Interface
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="The guide Prompt">
+    <nav class="md-nav" aria-label="The guide:// Interface">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -1029,15 +1029,15 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#the-guide-prompt" class="md-nav__link">
+  <a href="#the-guide-interface" class="md-nav__link">
     <span class="md-ellipsis">
       
-        The guide Prompt
+        The guide:// Interface
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="The guide Prompt">
+    <nav class="md-nav" aria-label="The guide:// Interface">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -1243,41 +1243,40 @@
 <h2 id="guide-mcp-purpose">Guide MCP Purpose<a class="headerlink" href="#guide-mcp-purpose" title="Permanent link">&para;</a></h2>
 <p>At its core, mcp-guide serves instructions to your AI agent. Think of it as a structured way to tell your agent how to work on your project - providing information on coding standards, workflow steps, project-specific context - all delivered on demand.</p>
 <p>While it can do more than that, serving agent instructions is the fundamental purpose. Everything else builds on this.</p>
-<h2 id="the-guide-prompt">The <code>guide</code> Prompt<a class="headerlink" href="#the-guide-prompt" title="Permanent link">&para;</a></h2>
-<p>Your primary interface is the guide prompt (an agent determines the prompt prefix - it may be <code>@guide</code> or <code>/guide</code>).
-The prompt provides a means of interacting with the MCP, allowing you to query and control it directly.</p>
-<p>When you invoke the guide prompt with an expression that conains just a category name, you get back all the documents in that category that match the patterns set for that category. The agent receives these documents and acts on them according to their type.</p>
+<h2 id="the-guide-interface">The <code>guide://</code> Interface<a class="headerlink" href="#the-guide-interface" title="Permanent link">&para;</a></h2>
+<p>Your primary interface is the <code>guide://</code> URI scheme.
+Some clients also expose equivalent prompt syntax, but the URI form is the stable, portable option.</p>
+<p>When you use a <code>guide://</code> reference with an expression that contains just a category name, you get back all the documents in that category that match the patterns set for that category. The agent receives these documents and acts on them according to their type.</p>
 <h3 id="basic-usage">Basic Usage<a class="headerlink" href="#basic-usage" title="Permanent link">&para;</a></h3>
 <p><strong>Common Examples:</strong></p>
 <table>
 <thead>
 <tr>
-<th>Prompt</th>
+<th>Reference</th>
 <th>What It Does</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>@guide commit</code></td>
+<td><code>guide://commit</code></td>
 <td>Provides commit message instructions based on changes in your working tree</td>
 </tr>
 <tr>
-<td><code>@guide pr</code></td>
+<td><code>guide://pr</code></td>
 <td>Provides GitHub pull request description instructions for changes compared with your main branch</td>
 </tr>
 <tr>
-<td><code>@guide review</code></td>
+<td><code>guide://review</code></td>
 <td>Instructions for the agent to self-review code changes</td>
 </tr>
 <tr>
-<td><code>@guide guidelines</code></td>
+<td><code>guide://guidelines</code></td>
 <td>Composite request presenting coding standards, language-specific guides, and project context</td>
 </tr>
 </tbody>
 </table>
 <h2 id="guide-uris">Guide URIs<a class="headerlink" href="#guide-uris" title="Permanent link">&para;</a></h2>
-<p>Not all agents support the <code>@guide</code> prompt. For agents that interact primarily through tools (like Codex), mcp-guide provides the <code>guide://</code> URI scheme as an alternative way to access the same content and commands.</p>
-<p>For example, <code>@guide commit</code> and <code>guide://commit</code> return the same content. Commands like <code>@guide :status</code> become <code>guide://_status</code>. If the agent can't read URIs directly, the <code>read_resource</code> tool works as a fallback.</p>
+<p>For clients that support prompts, <code>guide://commit</code> may also be available as a prompt-style form. Commands like <code>guide://_status</code> remain the canonical documented syntax. If the agent can't read URIs directly, the <code>read_resource</code> tool works as a fallback.</p>
 <p>See <a href="../guide-uris/">Guide URIs</a> for the full details.</p>
 <h2 id="project-detection">Project Detection<a class="headerlink" href="#project-detection" title="Permanent link">&para;</a></h2>
 <p>mcp-guide needs to know which project you're working in. Most CLI agents handle this automatically, but some (like Codex) require the agent to call <code>set_project</code> with the project path first. See <a href="../installation/#project-detection">Installation — Project Detection</a> for details.</p>
@@ -1287,18 +1286,18 @@ The prompt provides a means of interacting with the MCP, allowing you to query a
 <p>When you reference a category without specifying a pattern, you retrieve documents matching the patterns.</p>
 <p>Patterns are "globs", and may contain '<em>', '?', '</em>*' and path separators. However, they are usually used to match the basename of documents (filenames without any extension). The document matcher automatically tries several extensions by default, favouring markdown, mustache templates and text files.</p>
 <p>When referencing a category, you can also override the default patterns:</p>
-<div class="codehilite"><pre><span></span><code><span class="nv">@guide</span><span class="w"> </span><span class="n">lang</span><span class="o">/</span><span class="n">python</span>
+<div class="codehilite"><pre><span></span><code>guide://lang/python
 </code></pre></div>
 
 <p>Retrieves the python language documents from the <code>lang</code> category.</p>
-<div class="codehilite"><pre><span></span><code><span class="nv">@guide</span><span class="w"> </span><span class="n">docs</span><span class="o">/</span><span class="n">workflow</span><span class="o">+</span><span class="n">tracking</span>
+<div class="codehilite"><pre><span></span><code>guide://docs/workflow+tracking
 </code></pre></div>
 
 <p>Retrieves documents matching BOTH <code>workflow</code> AND <code>tracking</code> patterns in the <code>docs</code> category.</p>
 <p>What you're providing is an expression, which takes the form of a comma-separated list of categories, with optional patterns for each, separated by '+'. When retrieved, all matching documents are returned to the agent.</p>
 <h3 id="collections">Collections<a class="headerlink" href="#collections" title="Permanent link">&para;</a></h3>
 <p><strong>Collections</strong> are groups of category expressions - convenient shortcuts or "macros" for commonly used combinations.</p>
-<p>Instead of typing <code>@guide guide,lang/python,context/project,checks</code> every time, you might have a collection called <code>guidelines</code> that includes all of those.</p>
+<p>Instead of typing <code>guide://guide,lang/python,context/project,checks</code> every time, you might have a collection called <code>guidelines</code> that includes all of those.</p>
 <p>Collections make it easy to provide targeted context for specific tasks without remembering complex expressions.</p>
 <p>See <a href="../categories-and-collections/">Categories and Collections</a> for managing these.</p>
 <h2 id="document-types">Document Types<a class="headerlink" href="#document-types" title="Permanent link">&para;</a></h2>
@@ -1308,7 +1307,7 @@ The prompt provides a means of interacting with the MCP, allowing you to query a
 <li><strong><code>agent/information</code></strong> - Context and reference material for the agent</li>
 <li><strong><code>user/information</code></strong> - Content displayed to users</li>
 </ul>
-<p>When invoking multiple patterns, be aware that mixing document types may not give the desired result. Most documents served via <code>@guide</code> are agent instructions - this is the core of what mcp-guide does.</p>
+<p>When invoking multiple patterns, be aware that mixing document types may not give the desired result. Most documents served via <code>guide://</code> are agent instructions - this is the core of what mcp-guide does.</p>
 <h2 id="default-profile">Default Profile<a class="headerlink" href="#default-profile" title="Permanent link">&para;</a></h2>
 <p>When you start mcp-guide in a new project, it creates a default profile with the following categories:</p>
 <ul>
@@ -1335,7 +1334,7 @@ Also consider appending <code>checks/instructions</code> to your default <code>g
 <p>Other profiles can be added on demand - they are additive to your existing configuration. See <a href="../profiles/">Profiles</a> for details.</p>
 <h2 id="commands">Commands<a class="headerlink" href="#commands" title="Permanent link">&para;</a></h2>
 <p>Commands are specialized documents that tell the agent to do something specific or present useful information using a templated layout.
-They are special in that use a <code>:</code> prefix in the <code>@guide</code> prompt: <code>@guide :&lt;command&gt;</code>.</p>
+They are special in that they use a <code>_</code> prefix in the <code>guide://</code> scheme: <code>guide://_&lt;command&gt;</code>.</p>
 <p>Many commands accept these common arguments:</p>
 <table>
 <thead>
@@ -1371,7 +1370,7 @@ They are special in that use a <code>:</code> prefix in the <code>@guide</code> 
 </tr>
 </tbody>
 </table>
-<p>Not all commands support all arguments - use <code>:help &lt;command&gt;</code> to see what's available for a specific command.</p>
+<p>Not all commands support all arguments. Use <code>guide://_help/&lt;command&gt;</code> to see what's available for a specific command.</p>
 <h3 id="useful-commands">Useful Commands<a class="headerlink" href="#useful-commands" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
@@ -1382,36 +1381,36 @@ They are special in that use a <code>:</code> prefix in the <code>@guide</code> 
 </thead>
 <tbody>
 <tr>
-<td><code>@guide :project</code></td>
+<td><code>guide://_project</code></td>
 <td>Information about the current project, categories, and collections</td>
 </tr>
 <tr>
-<td><code>@guide :status</code></td>
+<td><code>guide://_status</code></td>
 <td>Current project name, active tasks, and workflow state (if enabled)</td>
 </tr>
 <tr>
-<td><code>@guide :agent</code></td>
+<td><code>guide://_agent</code></td>
 <td>Information about the running agent and its attributes</td>
 </tr>
 <tr>
-<td><code>@guide :create/category</code></td>
+<td><code>guide://_create/category</code></td>
 <td>Create new categories</td>
 </tr>
 <tr>
-<td><code>@guide :create/collection</code></td>
+<td><code>guide://_create/collection</code></td>
 <td>Create new collections</td>
 </tr>
 <tr>
-<td><code>@guide :help</code></td>
+<td><code>guide://_help</code></td>
 <td>List available commands</td>
 </tr>
 <tr>
-<td><code>@guide :help &lt;command&gt;</code></td>
-<td>Detailed help for a specific command (without <code>:</code> prefix)</td>
+<td><code>guide://_help/&lt;command&gt;</code></td>
+<td>Detailed help for a specific command</td>
 </tr>
 </tbody>
 </table>
-<p><strong>Note:</strong> The <code>:project</code>, <code>:status</code>, and <code>:agent</code> commands may show incomplete information if the agent hasn't yet requested or determined certain details through tool use. Running them a couple of times or using a general <code>@guide &lt;category&gt;</code> instruction will usually shake this out immediately.</p>
+<p><strong>Note:</strong> <code>guide://_project</code>, <code>guide://_status</code>, and <code>guide://_agent</code> may show incomplete information if the agent hasn't yet requested or determined certain details through tool use. Running them a couple of times or using a general <code>guide://&lt;category&gt;</code> request will usually shake this out immediately.</p>
 <h2 id="first-run-self-installation">First Run - Self Installation<a class="headerlink" href="#first-run-self-installation" title="Permanent link">&para;</a></h2>
 <p>When mcp-guide first runs, it creates:</p>
 <ul>

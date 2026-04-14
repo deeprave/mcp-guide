@@ -1006,43 +1006,43 @@
 <h1 id="feature-flags">Feature Flags<a class="headerlink" href="#feature-flags" title="Permanent link">&para;</a></h1>
 <p>Feature flags control how mcp-guide behaves, what features are enabled, and how content is delivered. You can set flags globally (affecting all projects) or per-project (for specific contexts).</p>
 <h2 id="viewing-flags">Viewing Flags<a class="headerlink" href="#viewing-flags" title="Permanent link">&para;</a></h2>
-<p>Use the <code>@guide :flags</code> commands to view and manage flags:</p>
-<div class="codehilite"><pre><span></span><code><span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">flags</span><span class="w">                           </span><span class="err">#</span><span class="w"> </span><span class="n">Show</span><span class="w"> </span><span class="ow">all</span><span class="w"> </span><span class="n">flags</span><span class="w"> </span><span class="k">with</span><span class="w"> </span><span class="n">available</span><span class="w"> </span><span class="n">commands</span>
-<span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">flags</span><span class="o">/</span><span class="n">list</span><span class="w">                      </span><span class="err">#</span><span class="w"> </span><span class="n">List</span><span class="w"> </span><span class="ow">all</span><span class="w"> </span><span class="n">flags</span><span class="w"> </span><span class="p">(</span><span class="n">project</span><span class="w"> </span><span class="ow">and</span><span class="w"> </span><span class="n">feature</span><span class="p">)</span>
-<span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">flags</span><span class="o">/</span><span class="n">project</span><span class="o">/</span><span class="n">list</span><span class="w">              </span><span class="err">#</span><span class="w"> </span><span class="n">List</span><span class="w"> </span><span class="n">project</span><span class="o">-</span><span class="k">specific</span><span class="w"> </span><span class="n">flags</span>
-<span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">flags</span><span class="o">/</span><span class="n">feature</span><span class="o">/</span><span class="n">list</span><span class="w">              </span><span class="err">#</span><span class="w"> </span><span class="n">List</span><span class="w"> </span><span class="n">feature</span><span class="w"> </span><span class="n">flags</span><span class="w"> </span><span class="p">(</span><span class="k">global</span><span class="p">)</span>
+<p>Use the <code>guide://_flags</code> commands to view and manage flags:</p>
+<div class="codehilite"><pre><span></span><code>guide://_flags                           # Show all flags with available commands
+guide://_flags/list                      # List all flags (project and feature)
+guide://_flags/project/list              # List project-specific flags
+guide://_flags/feature/list              # List feature flags (global)
 </code></pre></div>
 
 <p><strong>See:</strong> <a href="../commands/">Commands</a> for complete flag command reference.</p>
 <h2 id="how-flags-work">How Flags Work<a class="headerlink" href="#how-flags-work" title="Permanent link">&para;</a></h2>
 <p>Flags can be set at two levels:</p>
 <p><strong>Project flags</strong> - Apply to a specific project:</p>
-<div class="codehilite"><pre><span></span><code><span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">flags</span><span class="o">/</span><span class="n">project</span><span class="o">/</span><span class="k">set</span><span class="w"> </span><span class="n">workflow</span>
-<span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">flags</span><span class="o">/</span><span class="n">project</span><span class="o">/</span><span class="k">set</span><span class="w"> </span><span class="n">workflow</span><span class="w"> </span><span class="k">false</span>
-<span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">flags</span><span class="o">/</span><span class="n">project</span><span class="o">/</span><span class="k">set</span><span class="w"> </span><span class="n">content</span><span class="o">-</span><span class="n">style</span><span class="w"> </span><span class="c1">--value=plain</span>
-<span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">flags</span><span class="o">/</span><span class="n">project</span><span class="o">/</span><span class="n">remove</span><span class="w"> </span><span class="n">workflow</span><span class="w">      </span><span class="err">#</span><span class="w"> </span><span class="n">Remove</span><span class="w"> </span><span class="n">override</span><span class="p">,</span><span class="w"> </span><span class="k">use</span><span class="w"> </span><span class="n">feature</span><span class="w"> </span><span class="n">flag</span><span class="w"> </span><span class="k">value</span>
+<div class="codehilite"><pre><span></span><code>guide://_flags/project/set/workflow
+guide://_flags/project/set/workflow/false
+guide://_flags/project/set/content-style?value=plain
+guide://_flags/project/remove/workflow      # Remove override, use feature flag value
 </code></pre></div>
 
 <p><strong>Feature flags</strong> - Apply across all projects by default:</p>
-<div class="codehilite"><pre><span></span><code><span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">flags</span><span class="o">/</span><span class="n">feature</span><span class="o">/</span><span class="k">set</span><span class="w"> </span><span class="n">workflow</span>
-<span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">flags</span><span class="o">/</span><span class="n">feature</span><span class="o">/</span><span class="k">set</span><span class="w"> </span><span class="n">content</span><span class="o">-</span><span class="nf">format</span><span class="w"> </span><span class="c1">--value=mime</span>
-<span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">flags</span><span class="o">/</span><span class="n">feature</span><span class="o">/</span><span class="n">remove</span><span class="w"> </span><span class="n">autoupdate</span><span class="w">    </span><span class="err">#</span><span class="w"> </span><span class="n">Remove</span><span class="w"> </span><span class="n">flag</span><span class="w"> </span><span class="n">entirely</span>
+<div class="codehilite"><pre><span></span><code>guide://_flags/feature/set/workflow
+guide://_flags/feature/set/content-format?value=mime
+guide://_flags/feature/remove/autoupdate    # Remove flag entirely
 </code></pre></div>
 
 <p>When resolving what value to use, project flags take precedence over feature flags, which take precedence over defaults.</p>
 <h2 id="managing-flags">Managing Flags<a class="headerlink" href="#managing-flags" title="Permanent link">&para;</a></h2>
 <p>Use the flag commands to get, set, and remove flags:</p>
-<div class="codehilite"><pre><span></span><code><span class="err">#</span><span class="w"> </span><span class="k">Get</span><span class="w"> </span><span class="n">flag</span><span class="w"> </span><span class="k">values</span>
-<span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">flags</span><span class="o">/</span><span class="n">project</span><span class="o">/</span><span class="k">get</span><span class="w"> </span><span class="n">workflow</span>
-<span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">flags</span><span class="o">/</span><span class="n">feature</span><span class="o">/</span><span class="k">get</span><span class="w"> </span><span class="n">autoupdate</span>
+<div class="codehilite"><pre><span></span><code><span class="gh">#</span> Get flag values
+guide://_flags/project/get/workflow
+guide://_flags/feature/get/autoupdate
 
-<span class="err">#</span><span class="w"> </span><span class="k">Set</span><span class="w"> </span><span class="n">flag</span><span class="w"> </span><span class="k">values</span>
-<span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">flags</span><span class="o">/</span><span class="n">project</span><span class="o">/</span><span class="k">set</span><span class="w"> </span><span class="n">workflow</span><span class="w"> </span><span class="k">true</span>
-<span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">flags</span><span class="o">/</span><span class="n">feature</span><span class="o">/</span><span class="k">set</span><span class="w"> </span><span class="n">content</span><span class="o">-</span><span class="nf">format</span><span class="w"> </span><span class="c1">--value=mime</span>
+<span class="gh">#</span> Set flag values
+guide://_flags/project/set/workflow/true
+guide://_flags/feature/set/content-format?value=mime
 
-<span class="err">#</span><span class="w"> </span><span class="n">Remove</span><span class="w"> </span><span class="n">flags</span>
-<span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">flags</span><span class="o">/</span><span class="n">project</span><span class="o">/</span><span class="n">remove</span><span class="w"> </span><span class="n">workflow</span><span class="w">      </span><span class="err">#</span><span class="w"> </span><span class="k">Revert</span><span class="w"> </span><span class="k">to</span><span class="w"> </span><span class="n">feature</span><span class="w"> </span><span class="n">flag</span><span class="w"> </span><span class="k">value</span>
-<span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">flags</span><span class="o">/</span><span class="n">feature</span><span class="o">/</span><span class="n">remove</span><span class="w"> </span><span class="n">autoupdate</span><span class="w">    </span><span class="err">#</span><span class="w"> </span><span class="n">Remove</span><span class="w"> </span><span class="n">flag</span><span class="w"> </span><span class="n">entirely</span>
+<span class="gh">#</span> Remove flags
+guide://_flags/project/remove/workflow      # Revert to feature flag value
+guide://_flags/feature/remove/autoupdate    # Remove flag entirely
 </code></pre></div>
 
 <h2 id="core-feature-flags">Core Feature Flags<a class="headerlink" href="#core-feature-flags" title="Permanent link">&para;</a></h2>
@@ -1129,8 +1129,14 @@
 <td><code>false</code></td>
 </tr>
 <tr>
-<td><code>content-accessor</code></td>
-<td>Controls how template <code>{{#resource}}</code> references are rendered. When <code>false</code> (default), renders as <code>guide://</code> URIs. When <code>true</code>, renders as tool calls using the configured tool prefix. Useful for agents that access content exclusively through tools.</td>
+<td><code>format-resource</code></td>
+<td>Controls how template <code>{{#resource}}</code> references are rendered. When <code>false</code> or unset (default), renders as <code>guide://</code> URIs. When <code>true</code>, renders as <code>get_content(...)</code> tool calls.</td>
+<td><code>boolean</code></td>
+<td><code>false</code></td>
+</tr>
+<tr>
+<td><code>format-command</code></td>
+<td>Controls how template command references are rendered. When <code>false</code> or unset (default), renders as <code>guide://_command</code> URIs. When <code>true</code>, renders as prompt-style command references using the current prompt prefix and prompt name.</td>
 <td><code>boolean</code></td>
 <td><code>false</code></td>
 </tr>

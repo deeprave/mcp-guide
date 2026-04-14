@@ -941,33 +941,33 @@
 <h2 id="adding-documents">Adding Documents<a class="headerlink" href="#adding-documents" title="Permanent link">&para;</a></h2>
 <h3 id="from-a-local-file">From a Local File<a class="headerlink" href="#from-a-local-file" title="Permanent link">&para;</a></h3>
 <p>Use the <code>:document/add</code> command to ingest a file from your filesystem:</p>
-<div class="codehilite"><pre><span></span><code><span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">document</span><span class="o">/</span><span class="k">add</span><span class="w"> </span><span class="n">docs</span><span class="w"> </span><span class="o">/</span><span class="k">path</span><span class="o">/</span><span class="k">to</span><span class="o">/</span><span class="k">file</span><span class="p">.</span><span class="n">md</span>
-<span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">document</span><span class="o">/</span><span class="k">add</span><span class="w"> </span><span class="n">docs</span><span class="w"> </span><span class="o">/</span><span class="k">path</span><span class="o">/</span><span class="k">to</span><span class="o">/</span><span class="k">file</span><span class="p">.</span><span class="n">md</span><span class="w"> </span><span class="c1">--as custom-name</span>
-<span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">document</span><span class="o">/</span><span class="k">add</span><span class="w"> </span><span class="n">docs</span><span class="w"> </span><span class="o">/</span><span class="k">path</span><span class="o">/</span><span class="k">to</span><span class="o">/</span><span class="k">file</span><span class="p">.</span><span class="n">md</span><span class="w"> </span><span class="c1">--force          # Overwrite if exists</span>
+<div class="codehilite"><pre><span></span><code>guide://_document/add/docs//path/to/file.md
+guide://_document/add/docs//path/to/file.md?as=custom-name
+guide://_document/add/docs//path/to/file.md?force          # Overwrite if exists
 </code></pre></div>
 
 <p>The document name defaults to the filename (without extension). Use <code>--as</code> to give it a different name.</p>
 <h3 id="from-a-url">From a URL<a class="headerlink" href="#from-a-url" title="Permanent link">&para;</a></h3>
 <p>Fetch and store content directly from a URL:</p>
-<div class="codehilite"><pre><span></span><code><span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">document</span><span class="o">/</span><span class="k">add</span><span class="o">-</span><span class="n">url</span><span class="w"> </span><span class="n">docs</span><span class="w"> </span><span class="nl">https</span><span class="p">:</span><span class="o">//</span><span class="n">example</span><span class="p">.</span><span class="n">com</span><span class="o">/</span><span class="n">api</span><span class="o">-</span><span class="n">reference</span>
-<span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">document</span><span class="o">/</span><span class="k">add</span><span class="o">-</span><span class="n">url</span><span class="w"> </span><span class="n">docs</span><span class="w"> </span><span class="nl">https</span><span class="p">:</span><span class="o">//</span><span class="n">example</span><span class="p">.</span><span class="n">com</span><span class="o">/</span><span class="n">guide</span><span class="w"> </span><span class="c1">--as api-guide</span>
+<div class="codehilite"><pre><span></span><code>guide://_document/add-url/docs/https%3A%2F%2Fexample.com%2Fapi-reference
+guide://_document/add-url/docs/https%3A%2F%2Fexample.com%2Fguide?as=api-guide
 </code></pre></div>
 
 <p>The agent fetches the content and stores it in the specified category.</p>
 <h3 id="document-types">Document Types<a class="headerlink" href="#document-types" title="Permanent link">&para;</a></h3>
 <p>By default, stored documents inherit the standard type. You can specify a type when adding:</p>
-<div class="codehilite"><pre><span></span><code><span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">document</span><span class="o">/</span><span class="k">add</span><span class="w"> </span><span class="n">docs</span><span class="w"> </span><span class="o">/</span><span class="k">path</span><span class="o">/</span><span class="k">to</span><span class="o">/</span><span class="k">file</span><span class="p">.</span><span class="n">md</span><span class="w"> </span><span class="c1">--agent-instruction</span>
-<span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">document</span><span class="o">/</span><span class="k">add</span><span class="w"> </span><span class="n">docs</span><span class="w"> </span><span class="o">/</span><span class="k">path</span><span class="o">/</span><span class="k">to</span><span class="o">/</span><span class="k">file</span><span class="p">.</span><span class="n">md</span><span class="w"> </span><span class="c1">--agent-info</span>
-<span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">document</span><span class="o">/</span><span class="k">add</span><span class="w"> </span><span class="n">docs</span><span class="w"> </span><span class="o">/</span><span class="k">path</span><span class="o">/</span><span class="k">to</span><span class="o">/</span><span class="k">file</span><span class="p">.</span><span class="n">md</span><span class="w"> </span><span class="c1">--user-info</span>
+<div class="codehilite"><pre><span></span><code>guide://_document/add/docs//path/to/file.md?agent-instruction
+guide://_document/add/docs//path/to/file.md?agent-info
+guide://_document/add/docs//path/to/file.md?user-info
 </code></pre></div>
 
 <h2 id="viewing-stored-documents">Viewing Stored Documents<a class="headerlink" href="#viewing-stored-documents" title="Permanent link">&para;</a></h2>
 <p>List what's stored in a category:</p>
-<div class="codehilite"><pre><span></span><code><span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">document</span><span class="o">/</span><span class="n">list</span><span class="w"> </span><span class="n">docs</span>
+<div class="codehilite"><pre><span></span><code>guide://_document/list/docs
 </code></pre></div>
 
 <p>View a specific stored document:</p>
-<div class="codehilite"><pre><span></span><code><span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">document</span><span class="o">/</span><span class="n">show</span><span class="w"> </span><span class="n">docs</span><span class="w"> </span><span class="n">my</span><span class="o">-</span><span class="n">document</span>
+<div class="codehilite"><pre><span></span><code>guide://_document/show/docs/my-document
 </code></pre></div>
 
 <h2 id="source-filtering">Source Filtering<a class="headerlink" href="#source-filtering" title="Permanent link">&para;</a></h2>
@@ -981,20 +981,20 @@
 <h2 id="managing-documents">Managing Documents<a class="headerlink" href="#managing-documents" title="Permanent link">&para;</a></h2>
 <h3 id="updating">Updating<a class="headerlink" href="#updating" title="Permanent link">&para;</a></h3>
 <p>Update a stored document's name, category, or metadata:</p>
-<div class="codehilite"><pre><span></span><code><span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">document</span><span class="o">/</span><span class="k">update</span><span class="w"> </span><span class="n">docs</span><span class="w"> </span><span class="n">my</span><span class="o">-</span><span class="n">document</span><span class="w"> </span><span class="c1">--new-name new-name</span>
-<span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">document</span><span class="o">/</span><span class="k">update</span><span class="w"> </span><span class="n">docs</span><span class="w"> </span><span class="n">my</span><span class="o">-</span><span class="n">document</span><span class="w"> </span><span class="c1">--new-category other-category</span>
+<div class="codehilite"><pre><span></span><code>guide://_document/update/docs/my-document?new-name=new-name
+guide://_document/update/docs/my-document?new-category=other-category
 </code></pre></div>
 
 <h3 id="removing">Removing<a class="headerlink" href="#removing" title="Permanent link">&para;</a></h3>
 <p>Remove a stored document from a category:</p>
-<div class="codehilite"><pre><span></span><code><span class="nv">@guide</span><span class="w"> </span><span class="err">:</span><span class="n">document</span><span class="o">/</span><span class="n">remove</span><span class="w"> </span><span class="n">docs</span><span class="w"> </span><span class="n">my</span><span class="o">-</span><span class="n">document</span>
+<div class="codehilite"><pre><span></span><code>guide://_document/remove/docs/my-document
 </code></pre></div>
 
 <p>This only removes the stored copy — it doesn't affect any original files on disk.</p>
 <h2 id="how-it-fits-together">How It Fits Together<a class="headerlink" href="#how-it-fits-together" title="Permanent link">&para;</a></h2>
 <p>Stored documents integrate seamlessly with the rest of mcp-guide:</p>
 <ul>
-<li>They appear in category queries (<code>@guide docs</code> or <code>guide://docs</code>)</li>
+<li>They appear in category queries (<code>guide://docs</code>)</li>
 <li>They respect the same frontmatter and type system as file-based documents</li>
 <li>They're included when collections reference the category</li>
 <li>They persist across sessions in the document store</li>
