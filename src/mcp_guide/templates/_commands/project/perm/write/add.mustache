@@ -15,9 +15,9 @@ path: '{{args.0.value}}'
 {{^args.0.value}}
 {{#_error}}Missing required argument: path{{/_error}}
 
-{{b}}Usage:{{b}} {{@}}guide :project/perm/write/add <path>
+{{b}}Usage:{{b}} `{{#command}}project/perm/write/add{{/command}} <path>`
 
-{{b}}Example:{{b}} {{@}}guide :project/perm/write/add docs/
+{{b}}Example:{{b}} `{{#command}}project/perm/write/add{{/command}}{{#command-args}}docs/{{/command-args}}`
 
 {{b}}Note:{{b}} Write paths must be relative to project root. Use trailing `/` for directories (e.g., `docs/`), omit for files (e.g., `config.json`).
 {{/args.0.value}}

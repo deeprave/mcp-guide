@@ -23,7 +23,7 @@ remove_categories: {{kwargs.remove_categories}}
 {{^args.0.value}}
 {{#_error}}Missing required argument: name{{/_error}}
 
-{{b}}Usage:{{b}} {{@}}guide :project/collection/update <name> [--add-categories=<categories>] [--remove-categories=<categories>]
+{{b}}Usage:{{b}} `{{#command}}project/collection/update{{/command}} <name> [--add-categories=<categories>] [--remove-categories=<categories>]`
 
-{{b}}Example:{{b}} {{@}}guide :project/collection/update my-collection --add-categories="context" --remove-categories="old-category"
+{{b}}Example:{{b}} `{{#command}}project/collection/update{{/command}}{{#command-args}}my-collection{{/command-args}}{{#command-flags}}add-categories=context,remove-categories=old-category{{/command-flags}}`
 {{/args.0.value}}

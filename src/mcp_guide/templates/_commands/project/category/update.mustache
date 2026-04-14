@@ -23,7 +23,7 @@ remove_patterns: {{kwargs.remove_patterns}}
 {{^args.0.value}}
 {{#_error}}Missing required argument: name{{/_error}}
 
-{{b}}Usage:{{b}} {{@}}guide :project/category/update <name> [--add-patterns=<patterns>] [--remove-patterns=<patterns>]
+{{b}}Usage:{{b}} `{{#command}}project/category/update{{/command}} <name> [--add-patterns=<patterns>] [--remove-patterns=<patterns>]`
 
-{{b}}Example:{{b}} {{@}}guide :project/category/update docs --add-patterns="CHANGELOG,AUTHORS" --remove-patterns="old-file"
+{{b}}Example:{{b}} `{{#command}}project/category/update{{/command}}{{#command-args}}docs{{/command-args}}{{#command-flags}}add-patterns=CHANGELOG,AUTHORS,remove-patterns=old-file{{/command-flags}}`
 {{/args.0.value}}

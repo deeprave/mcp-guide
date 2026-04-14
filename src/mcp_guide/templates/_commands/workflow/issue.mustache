@@ -32,11 +32,11 @@ instruction: >
 > Validate phase restrictions before making changes.
 
 {{h2}}Examples
-- `{{@}}guide :issue --issue openspec/changes/new-feature`
-- `{{@}}guide :issue --description="Fix validation bug"`
-- `{{@}}guide :issue --tracking="JIRA PROJ-456"`
-- `{{@}}guide :issue --clear`
-- `{{@}}guide :issue --next`
+- `{{#command}}issue{{/command}}{{#command-flags}}issue=openspec/changes/new-feature{{/command-flags}}`
+- `{{#command}}issue{{/command}}{{#command-flags}}description=Fix validation bug{{/command-flags}}`
+- `{{#command}}issue{{/command}}{{#command-flags}}tracking=JIRA PROJ-456{{/command-flags}}`
+- `{{#command}}issue{{/command}}{{#command-flags}}clear{{/command-flags}}`
+- `{{#command}}issue{{/command}}{{#command-flags}}next{{/command-flags}}`
 
 {{b}}Action:{{b}} Update {{workflow.file}} by:
 {{#kwargs.issue}}

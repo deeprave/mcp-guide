@@ -24,7 +24,7 @@ description: '{{kwargs.description}}'
 {{^args.0.value}}
 {{#_error}}Missing required argument: name{{/_error}}
 
-{{b}}Usage:{{b}} {{@}}guide :project/collection/add <name> [--categories=<categories>] [--description=<text>]
+{{b}}Usage:{{b}} `{{#command}}project/collection/add{{/command}} <name> [--categories=<categories>] [--description=<text>]`
 
-{{b}}Example:{{b}} {{@}}guide :project/collection/add my-collection --categories="docs,guide" --description="Documentation and guidelines"
+{{b}}Example:{{b}} `{{#command}}project/collection/add{{/command}}{{#command-args}}my-collection{{/command-args}}{{#command-flags}}categories=docs,guide,description=Documentation and guidelines{{/command-flags}}`
 {{/args.0.value}}

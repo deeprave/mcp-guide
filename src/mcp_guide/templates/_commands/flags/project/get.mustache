@@ -17,10 +17,10 @@ Otherwise returns single flag value.
 {{^args.0.value}}
 {{#_error}}Missing required argument: flag-name-or-pattern{{/_error}}
 
-{{b}}Usage:{{b}} {{@}}guide :flags/project/get <flag-name-or-pattern>
+{{b}}Usage:{{b}} `{{#command}}flags/project/get{{/command}} <flag-name-or-pattern>`
 
 {{b}}Examples:{{b}}
-  {{@}}guide :flags/project/get workflow          # Get single flag
-  {{@}}guide :flags/project/get workflow*         # Get all workflow-* flags
-  {{@}}guide :flags/project/get content-*         # Get all content-* flags
+- `{{#command}}flags/project/get{{/command}}{{#command-args}}workflow{{/command-args}}` - Get single flag
+- `{{#command}}flags/project/get{{/command}}{{#command-args}}workflow*{{/command-args}}` - Get all workflow-* flags
+- `{{#command}}flags/project/get{{/command}}{{#command-args}}content-*{{/command-args}}` - Get all content-* flags
 {{/args.0.value}}

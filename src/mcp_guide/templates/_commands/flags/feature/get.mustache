@@ -17,9 +17,9 @@ Otherwise returns single flag value.
 {{^args.0.value}}
 {{#_error}}Missing required argument: flag-name-or-pattern{{/_error}}
 
-{{b}}Usage:{{b}} {{@}}guide :flags/feature/get <flag-name-or-pattern>
+{{b}}Usage:{{b}} `{{#command}}flags/feature/get{{/command}} <flag-name-or-pattern>`
 
 {{b}}Examples:{{b}}
-  {{@}}guide :flags/feature/get allow-client-info  # Get single flag
-  {{@}}guide :flags/feature/get allow-*            # Get all allow-* flags
+- `{{#command}}flags/feature/get{{/command}}{{#command-args}}allow-client-info{{/command-args}}` - Get single flag
+- `{{#command}}flags/feature/get{{/command}}{{#command-args}}allow-*{{/command-args}}` - Get all allow-* flags
 {{/args.0.value}}

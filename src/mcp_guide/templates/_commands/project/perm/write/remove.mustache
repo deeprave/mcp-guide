@@ -15,7 +15,7 @@ path: '{{args.0.value}}'
 {{^args.0.value}}
 {{#_error}}Missing required argument: path{{/_error}}
 
-{{b}}Usage:{{b}} {{@}}guide :project/perm/write/remove <path>
+{{b}}Usage:{{b}} `{{#command}}project/perm/write/remove{{/command}} <path>`
 
-{{b}}Example:{{b}} {{@}}guide :project/perm/write/remove docs/
+{{b}}Example:{{b}} `{{#command}}project/perm/write/remove{{/command}}{{#command-args}}docs/{{/command-args}}`
 {{/args.0.value}}
