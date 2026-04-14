@@ -103,17 +103,17 @@ Use the built-in guide commands to safely manage paths:
 guide://_project/perm
 
 # Add write permissions
-guide://_project/perm/write/add/src/
+guide://_project/perm/write/add/src%2F
 guide://_project/perm/write/add/config.json
 
 # Remove write permissions
-guide://_project/perm/write/remove/src/
+guide://_project/perm/write/remove/src%2F
 
 # Add read permissions (absolute paths)
-guide://_project/perm/read/add//external/data
+guide://_project/perm/read/add/%2Fexternal%2Fdata
 
 # Remove read permissions
-guide://_project/perm/read/remove//external/data
+guide://_project/perm/read/remove/%2Fexternal%2Fdata
 ```
 
 These commands automatically:

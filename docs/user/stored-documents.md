@@ -19,9 +19,9 @@ This is useful for:
 Use the `:document/add` command to ingest a file from your filesystem:
 
 ```
-guide://_document/add/docs//path/to/file.md
-guide://_document/add/docs//path/to/file.md?as=custom-name
-guide://_document/add/docs//path/to/file.md?force          # Overwrite if exists
+guide://_document/add/docs/%2Fpath%2Fto%2Ffile.md
+guide://_document/add/docs/%2Fpath%2Fto%2Ffile.md?as=custom-name
+guide://_document/add/docs/%2Fpath%2Fto%2Ffile.md?force          # Overwrite if exists
 ```
 
 The document name defaults to the filename (without extension). Use `--as` to give it a different name.
@@ -42,9 +42,9 @@ The agent fetches the content and stores it in the specified category.
 By default, stored documents inherit the standard type. You can specify a type when adding:
 
 ```
-guide://_document/add/docs//path/to/file.md?agent-instruction
-guide://_document/add/docs//path/to/file.md?agent-info
-guide://_document/add/docs//path/to/file.md?user-info
+guide://_document/add/docs/%2Fpath%2Fto%2Ffile.md?agent-instruction
+guide://_document/add/docs/%2Fpath%2Fto%2Ffile.md?agent-info
+guide://_document/add/docs/%2Fpath%2Fto%2Ffile.md?user-info
 ```
 
 ## Viewing Stored Documents

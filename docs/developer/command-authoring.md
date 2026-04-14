@@ -17,10 +17,10 @@ category: "system" | "project" | "info" | "list" | "general"
 aliases:
   - "shortcut1"
   - "shortcut2"
-usage: ":command [options] [args]"
+usage: "guide://_command[/arg1/arg2][?flag=value]"
 examples:
-  - ":command"
-  - ":command --flag value"
+  - "guide://_command"
+  - "guide://_command?flag=value"
 required_args: []
 required_kwargs: []
 ---
@@ -67,10 +67,10 @@ argrequired:
 
 With this declaration, both syntaxes work:
 - `guide://_workflow/issue?tracking=MRP-177` ✓
-- prompt-style `:workflow/issue --tracking=MRP-177` ✓
+- legacy prompt-style `:workflow/issue --tracking=MRP-177` ✓
 
 Without `argrequired`, only the equals syntax works:
-- prompt-style `:workflow/issue --tracking MRP-177` ✗ (parsed as boolean flag + positional arg)
+- legacy prompt-style `:workflow/issue --tracking MRP-177` ✗ (parsed as boolean flag + positional arg)
 - `guide://_workflow/issue?tracking=MRP-177` ✓
 
 ### Error Handling
@@ -113,10 +113,10 @@ All template context variables from `get_template_contexts()` are available.
 description: Show project status
 category: "project"
 aliases: ["st"]
-usage: ":status [--verbose]"
+usage: "guide://_status[?verbose=true]"
 examples:
-  - ":status"
-  - ":status --verbose"
+  - "guide://_status"
+  - "guide://_status?verbose=true"
 ---
 # Project Status
 
