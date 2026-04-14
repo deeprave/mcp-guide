@@ -66,12 +66,12 @@ argrequired:
 ```
 
 With this declaration, both syntaxes work:
-- `@guide :workflow/issue --tracking MRP-177` ✓
-- `@guide :workflow/issue --tracking=MRP-177` ✓
+- `guide://_workflow/issue?tracking=MRP-177` ✓
+- prompt-style `:workflow/issue --tracking=MRP-177` ✓
 
 Without `argrequired`, only the equals syntax works:
-- `@guide :workflow/issue --tracking MRP-177` ✗ (parsed as boolean flag + positional arg)
-- `@guide :workflow/issue --tracking=MRP-177` ✓
+- prompt-style `:workflow/issue --tracking MRP-177` ✗ (parsed as boolean flag + positional arg)
+- `guide://_workflow/issue?tracking=MRP-177` ✓
 
 ### Error Handling
 

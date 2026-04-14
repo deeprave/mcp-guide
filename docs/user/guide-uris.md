@@ -4,7 +4,7 @@ mcp-guide exposes content through the `guide://` URI scheme. This gives AI agent
 
 ## Why Guide URIs?
 
-The `@guide` prompt is the primary way most users interact with mcp-guide. But not all agents support MCP prompts or resources natively. Some agents (like Codex) only have access to tools.
+The `guide://` URI scheme is the canonical way to refer to mcp-guide content and commands. Some clients also support equivalent prompt syntax, but not all agents support MCP prompts or resources natively.
 
 Guide URIs solve this by providing a single, consistent interface that works everywhere:
 
@@ -23,7 +23,7 @@ Content URIs retrieve documents from your categories and collections:
 | `guide://docs/workflow+tracking` | Documents matching both `workflow` AND `tracking` in `docs` |
 | `guide://guidelines` | All content from the `guidelines` collection |
 
-These work exactly like `@guide` prompt expressions — the same expressions, the same results.
+These work exactly like the equivalent prompt expressions — the same expressions, the same results.
 
 ## Command URIs
 
@@ -37,7 +37,7 @@ Commands use an underscore prefix to distinguish them from content:
 | `guide://_flags/project/list` | List project flags |
 | `guide://_export/list` | List tracked exports |
 
-Command URIs mirror the `@guide :command` syntax — `@guide :status` becomes `guide://_status`.
+Command URIs mirror the prompt command syntax — for example, a prompt-style `:status` request becomes `guide://_status`.
 
 ### Command Arguments
 

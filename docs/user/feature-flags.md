@@ -4,13 +4,13 @@ Feature flags control how mcp-guide behaves, what features are enabled, and how 
 
 ## Viewing Flags
 
-Use the `@guide :flags` commands to view and manage flags:
+Use the `guide://_flags` commands to view and manage flags:
 
 ```
-@guide :flags                           # Show all flags with available commands
-@guide :flags/list                      # List all flags (project and feature)
-@guide :flags/project/list              # List project-specific flags
-@guide :flags/feature/list              # List feature flags (global)
+guide://_flags                           # Show all flags with available commands
+guide://_flags/list                      # List all flags (project and feature)
+guide://_flags/project/list              # List project-specific flags
+guide://_flags/feature/list              # List feature flags (global)
 ```
 
 **See:** [Commands](commands.md) for complete flag command reference.
@@ -22,18 +22,18 @@ Flags can be set at two levels:
 **Project flags** - Apply to a specific project:
 
 ```
-@guide :flags/project/set workflow
-@guide :flags/project/set workflow false
-@guide :flags/project/set content-style --value=plain
-@guide :flags/project/remove workflow      # Remove override, use feature flag value
+guide://_flags/project/set/workflow
+guide://_flags/project/set/workflow/false
+guide://_flags/project/set/content-style?value=plain
+guide://_flags/project/remove/workflow      # Remove override, use feature flag value
 ```
 
 **Feature flags** - Apply across all projects by default:
 
 ```
-@guide :flags/feature/set workflow
-@guide :flags/feature/set content-format --value=mime
-@guide :flags/feature/remove autoupdate    # Remove flag entirely
+guide://_flags/feature/set/workflow
+guide://_flags/feature/set/content-format?value=mime
+guide://_flags/feature/remove/autoupdate    # Remove flag entirely
 ```
 
 When resolving what value to use, project flags take precedence over feature flags, which take precedence over defaults.
@@ -44,16 +44,16 @@ Use the flag commands to get, set, and remove flags:
 
 ```
 # Get flag values
-@guide :flags/project/get workflow
-@guide :flags/feature/get autoupdate
+guide://_flags/project/get/workflow
+guide://_flags/feature/get/autoupdate
 
 # Set flag values
-@guide :flags/project/set workflow true
-@guide :flags/feature/set content-format --value=mime
+guide://_flags/project/set/workflow/true
+guide://_flags/feature/set/content-format?value=mime
 
 # Remove flags
-@guide :flags/project/remove workflow      # Revert to feature flag value
-@guide :flags/feature/remove autoupdate    # Remove flag entirely
+guide://_flags/project/remove/workflow      # Revert to feature flag value
+guide://_flags/feature/remove/autoupdate    # Remove flag entirely
 ```
 
 ## Core Feature Flags
@@ -72,7 +72,8 @@ Use the flag commands to get, set, and remove flags:
 | `allow-client-info` | Enables collection of client environment information (OS, hostname, user, git remotes). Privacy-sensitive. | `boolean` | `false` |
 | `autoupdate` | Enables automatic update prompting at startup when new documentation versions are available. Prompts agent to run the `update_documents` tool. Global only (cannot be set per-project). | `boolean` | `false` |
 | `guide-development` | Enables development features for mcp-guide itself. | `boolean` | `false` |
-| `content-accessor` | Controls how template `{{#resource}}` references are rendered. When `false` (default), renders as `guide://` URIs. When `true`, renders as tool calls using the configured tool prefix. Useful for agents that access content exclusively through tools. | `boolean` | `false` |
+| `format-resource` | Controls how template `{{#resource}}` references are rendered. When `false` or unset (default), renders as `guide://` URIs. When `true`, renders as `get_content(...)` tool calls. | `boolean` | `false` |
+| `format-command` | Controls how template command references are rendered. When `false` or unset (default), renders as `guide://_command` URIs. When `true`, renders as prompt-style command references using the current prompt prefix and prompt name. | `boolean` | `false` |
 
 **Notes:**
 
@@ -108,4 +109,3 @@ Document is included only if `workflow` flag is set and not false.
 - **[Documents](documents.md)** - Using flags in templates
 - **[Workflows](workflows.md)** - Workflow flag details
 - **[Content Management](content-management.md)** - Conditional content
-

@@ -10,10 +10,10 @@ At its core, mcp-guide serves instructions to your AI agent. Think of it as a st
 
 While it can do more than that, serving agent instructions is the fundamental purpose. Everything else builds on this.
 
-## The `guide` Prompt
+## The `guide://` Interface
 
-Your primary interface is the guide prompt (an agent determines the prompt prefix - it may be `@guide` or `/guide`).
-The prompt provides a means of interacting with the MCP, allowing you to query and control it directly.
+Your primary interface is the `guide://` URI scheme.
+Some clients also expose equivalent prompt syntax, but the URI form is the stable, portable option.
 
 When you invoke the guide prompt with an expression that conains just a category name, you get back all the documents in that category that match the patterns set for that category. The agent receives these documents and acts on them according to their type.
 
@@ -21,18 +21,16 @@ When you invoke the guide prompt with an expression that conains just a category
 
 **Common Examples:**
 
-| Prompt | What It Does |
+| Reference | What It Does |
 |--------|--------------|
-| `@guide commit` | Provides commit message instructions based on changes in your working tree |
-| `@guide pr` | Provides GitHub pull request description instructions for changes compared with your main branch |
-| `@guide review` | Instructions for the agent to self-review code changes |
-| `@guide guidelines` | Composite request presenting coding standards, language-specific guides, and project context |
+| `guide://commit` | Provides commit message instructions based on changes in your working tree |
+| `guide://pr` | Provides GitHub pull request description instructions for changes compared with your main branch |
+| `guide://review` | Instructions for the agent to self-review code changes |
+| `guide://guidelines` | Composite request presenting coding standards, language-specific guides, and project context |
 
 ## Guide URIs
 
-Not all agents support the `@guide` prompt. For agents that interact primarily through tools (like Codex), mcp-guide provides the `guide://` URI scheme as an alternative way to access the same content and commands.
-
-For example, `@guide commit` and `guide://commit` return the same content. Commands like `@guide :status` become `guide://_status`. If the agent can't read URIs directly, the `read_resource` tool works as a fallback.
+For clients that support prompts, `guide://commit` may also be available as a prompt-style form. Commands like `guide://_status` remain the canonical documented syntax. If the agent can't read URIs directly, the `read_resource` tool works as a fallback.
 
 See [Guide URIs](guide-uris.md) for the full details.
 
@@ -53,13 +51,13 @@ Patterns are "globs", and may contain '*', '?', '**' and path separators. Howeve
 When referencing a category, you can also override the default patterns:
 
 ```
-@guide lang/python
+guide://lang/python
 ```
 
 Retrieves the python language documents from the `lang` category.
 
 ```
-@guide docs/workflow+tracking
+guide://docs/workflow+tracking
 ```
 
 Retrieves documents matching BOTH `workflow` AND `tracking` patterns in the `docs` category.
@@ -70,7 +68,7 @@ What you're providing is an expression, which takes the form of a comma-separate
 
 **Collections** are groups of category expressions - convenient shortcuts or "macros" for commonly used combinations.
 
-Instead of typing `@guide guide,lang/python,context/project,checks` every time, you might have a collection called `guidelines` that includes all of those.
+Instead of typing `guide://guide,lang/python,context/project,checks` every time, you might have a collection called `guidelines` that includes all of those.
 
 Collections make it easy to provide targeted context for specific tasks without remembering complex expressions.
 
@@ -84,7 +82,7 @@ What the agent does with documents depends on their **type**, set in the documen
 - **`agent/information`** - Context and reference material for the agent
 - **`user/information`** - Content displayed to users
 
-When invoking multiple patterns, be aware that mixing document types may not give the desired result. Most documents served via `@guide` are agent instructions - this is the core of what mcp-guide does.
+When invoking multiple patterns, be aware that mixing document types may not give the desired result. Most documents served via `guide://` are agent instructions - this is the core of what mcp-guide does.
 
 ## Default Profile
 
@@ -122,7 +120,7 @@ Other profiles can be added on demand - they are additive to your existing confi
 ## Commands
 
 Commands are specialized documents that tell the agent to do something specific or present useful information using a templated layout.
-They are special in that use a `:` prefix in the `@guide` prompt: `@guide :<command>`.
+They are special in that they use a `_` prefix in the `guide://` scheme: `guide://_<command>`.
 
 Many commands accept these common arguments:
 
@@ -141,15 +139,15 @@ Not all commands support all arguments - use `:help <command>` to see what's ava
 
 | Command | Description |
 |---------|-------------|
-| `@guide :project` | Information about the current project, categories, and collections |
-| `@guide :status` | Current project name, active tasks, and workflow state (if enabled) |
-| `@guide :agent` | Information about the running agent and its attributes |
-| `@guide :create/category` | Create new categories |
-| `@guide :create/collection` | Create new collections |
-| `@guide :help` | List available commands |
-| `@guide :help <command>` | Detailed help for a specific command (without `:` prefix) |
+| `guide://_project` | Information about the current project, categories, and collections |
+| `guide://_status` | Current project name, active tasks, and workflow state (if enabled) |
+| `guide://_agent` | Information about the running agent and its attributes |
+| `guide://_create/category` | Create new categories |
+| `guide://_create/collection` | Create new collections |
+| `guide://_help` | List available commands |
+| `guide://_help/<command>` | Detailed help for a specific command |
 
-**Note:** The `:project`, `:status`, and `:agent` commands may show incomplete information if the agent hasn't yet requested or determined certain details through tool use. Running them a couple of times or using a general `@guide <category>` instruction will usually shake this out immediately.
+**Note:** The `:project`, `:status`, and `:agent` commands may show incomplete information if the agent hasn't yet requested or determined certain details through tool use. Running them a couple of times or using a general `guide://<category>` request will usually shake this out immediately.
 
 ## First Run - Self Installation
 

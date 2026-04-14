@@ -1,17 +1,17 @@
-# Prompt Commands
+# Commands
 
-The guide prompt provides a comprehensive command system for direct access to MCP documents and functionality. Commands let you view project information, manage content, control workflows, and configure permissions. All commands follow a consistent structure with built-in help.
+The `guide://` URI scheme provides the canonical command interface for direct access to MCP documents and functionality. Commands let you view project information, manage content, control workflows, and configure permissions. All commands follow a consistent structure with built-in help.
 
-Not all agents support MCP prompts. All prompt commands are also available as `guide://` URI resources — for example, `@guide :status` is equivalent to `guide://_status`. See [Guide URIs](guide-uris.md) for details.
+Prompt-style invocation may also be available in some clients, but this document uses `guide://` as the primary form. See [Guide URIs](guide-uris.md) for details.
 
-**A note on prompt prefixes:** The examples in this document use `@guide` as the prompt prefix, but your agent may use a different prefix such as `/guide`. Treat `@` as a placeholder — use whatever prefix your agent provides.
+**Note:** If your client supports prompts, equivalent forms like `@<prompt> :status` or `/<prompt> :status` may also work. The exact prompt name can vary.
 
 ## Command Structure
 
-Commands are invoked through the guide prompt with this syntax:
+Commands are invoked with this syntax:
 
 ```
-@guide :command [args] [--flags]
+guide://_command[/args][?flags]
 ```
 
 **Flag Syntax:**
@@ -21,42 +21,42 @@ Commands support two syntaxes for flags with values:
 
 **Examples:**
 ```
-@guide :help
-@guide :status
-@guide :project
-@guide :flags
-@guide :create/category docs
-@guide :workflow/issue --tracking MRP-177
-@guide :flags/project/set workflow --value=true
+guide://_help
+guide://_status
+guide://_project
+guide://_flags
+guide://_create/category/docs
+guide://_workflow/issue?tracking=MRP-177
+guide://_flags/project/set/workflow?value=true
 ```
 
-## Discovery with @guide :help
+## Discovery with `guide://_help`
 
-The `@guide :help` prompt command is your primary discovery mechanism. Use it to explore available commands and their usage:
+The `guide://_help` command resource is your primary discovery mechanism. Use it to explore available commands and their usage:
 
 ```
-@guide :help              # Show all available commands grouped by category
-@guide :help <command>    # Show detailed help for a specific command
+guide://_help              # Show all available commands grouped by category
+guide://_help/flags        # Show detailed help for a specific command
 ```
 
 **Recommended pattern:**
-1. Start with `@guide :help` to see available commands
-2. Use `@guide :help <command>` for specific command usage
+1. Start with `guide://_help` to see available commands
+2. Use `guide://_help/<command>` for specific command usage
 3. Execute the command
-4. Use `@guide :help` again to discover related commands
+4. Use `guide://_help` again to discover related commands
 
 ## Core Information Commands
 
-**@guide :status**
+**`guide://_status`**
 Shows system status and current project information including active project, workflow phase (if enabled), and OpenSpec integration status.
 
-**@guide :project** _(:info/project, :project/info)_
+**`guide://_project`** _(:info/project, :project/info)_
 Displays comprehensive project information including project name, categories, collections, feature flags, and filesystem permissions. Use `--verbose` or `-v` for detailed output including all category patterns.
 
-**@guide :flags**
+**`guide://_flags`**
 Shows all feature flags affecting the current project - feature flags (apply to all projects by default), project-specific flags (override feature flags), and resolved values (what the agent actually sees). Lists available flags with their scope restrictions (Project only, Feature only, or both).
 
-**@guide :system** _(:info/system)_
+**`guide://_system`** _(:info/system)_
 Displays system information for both the MCP server and the agent's client environment. Server information (OS, platform, hostname, Python version, working directory) is always shown. Client information (agent's OS, hostname, user, git remotes) requires the `allow-client-info` feature flag to be enabled.
 
 ### The `allow-client-info` Feature Flag
@@ -67,20 +67,20 @@ Client information collection is gated behind the `allow-client-info` feature fl
 
 ### Category Management
 
-**@guide :project/category** _(:category)_
+**`guide://_project/category`** _(:category)_
 Shows category overview with list of current categories and available commands.
 
-**@guide :project/category/list** _(:category/list)_
+**`guide://_project/category/list`** _(:category/list)_
 Lists all categories in the current project. Use `--verbose` for detailed information including directories and patterns.
 
-**@guide :project/category/add** _(:category/add)_
+**`guide://_project/category/add`** _(:category/add)_
 Creates a new category for organising project content. Categories define directories and file patterns for content discovery.
 
 **Examples:**
 ```
-@guide :category/add docs
-@guide :category/add docs --dir=documentation --patterns=README,CONTRIBUTING
-@guide :category/add testing --description="Testing Guidelines"
+guide://_category/add/docs
+guide://_category/add/docs?dir=documentation&patterns=README,CONTRIBUTING
+guide://_category/add/testing?description=Testing%20Guidelines
 ```
 
 **Parameters:**
@@ -89,46 +89,46 @@ Creates a new category for organising project content. Categories define directo
 - `--patterns=<patterns>` - Comma-separated file patterns (e.g., `README,CONTRIBUTING,test_`)
 - `--description=<text>` - Human-readable description
 
-**@guide :project/category/remove** _(:category/remove)_
+**`guide://_project/category/remove`** _(:category/remove)_
 Removes a category from the project.
 
-**@guide :project/category/change** _(:category/change)_
+**`guide://_project/category/change`** _(:category/change)_
 Changes category properties.
 
 **Examples:**
 ```
-@guide :category/change docs --new-name=documentation
-@guide :category/change docs --new-dir=doc --new-patterns=README,INSTALL
+guide://_category/change/docs?new-name=documentation
+guide://_category/change/docs?new-dir=doc&new-patterns=README,INSTALL
 ```
 
-**@guide :project/category/update** _(:category/update)_
+**`guide://_project/category/update`** _(:category/update)_
 Updates category patterns incrementally without replacing all properties.
 
 **Examples:**
 ```
-@guide :category/update docs --add-patterns=CHANGELOG,AUTHORS
-@guide :category/update docs --remove-patterns=old-file
+guide://_category/update/docs?add-patterns=CHANGELOG,AUTHORS
+guide://_category/update/docs?remove-patterns=old-file
 ```
 
-**@guide :project/category/files** _(:category/files)_
+**`guide://_project/category/files`** _(:category/files)_
 Lists all files in a category directory.
 
 ### Collection Management
 
-**@guide :project/collection** _(:collection)_
+**`guide://_project/collection`** _(:collection)_
 Shows collection overview with list of current collections and available commands.
 
-**@guide :project/collection/list** _(:collection/list)_
+**`guide://_project/collection/list`** _(:collection/list)_
 Lists all collections in the current project. Use `--verbose` for detailed information including categories and descriptions.
 
-**@guide :project/collection/add** _(:collection/add)_
+**`guide://_project/collection/add`** _(:collection/add)_
 Creates a new collection that groups multiple categories or other collections together.
 
 **Examples:**
 ```
-@guide :collection/add docs
-@guide :collection/add api-docs --categories=code,examples
-@guide :collection/add beginner --categories=docs,examples --description="Getting started content"
+guide://_collection/add/docs
+guide://_collection/add/api-docs?categories=code,examples
+guide://_collection/add/beginner?categories=docs,examples&description=Getting%20started%20content
 ```
 
 **Parameters:**
@@ -136,97 +136,97 @@ Creates a new collection that groups multiple categories or other collections to
 - `--categories=<categories>` - Comma-separated category or collection names
 - `--description=<text>` - Human-readable description
 
-**@guide :project/collection/remove** _(:collection/remove)_
+**`guide://_project/collection/remove`** _(:collection/remove)_
 Removes a collection from the project.
 
-**@guide :project/collection/change** _(:collection/change)_
+**`guide://_project/collection/change`** _(:collection/change)_
 Changes collection properties.
 
 **Examples:**
 ```
-@guide :collection/change docs --new-name=documentation
-@guide :collection/change docs --new-categories=guide,lang,context
+guide://_collection/change/docs?new-name=documentation
+guide://_collection/change/docs?new-categories=guide,lang,context
 ```
 
-**@guide :project/collection/update** _(:collection/update)_
+**`guide://_project/collection/update`** _(:collection/update)_
 Updates collection categories incrementally.
 
 **Examples:**
 ```
-@guide :collection/update docs --add-categories=context
-@guide :collection/update docs --remove-categories=old-category
+guide://_collection/update/docs?add-categories=context
+guide://_collection/update/docs?remove-categories=old-category
 ```
 
-Collections enable logical grouping of related content for easier access through the @guide prompt.
+Collections enable logical grouping of related content for easier access through `guide://` expressions.
 
 ## Feature Flag Commands
 
 ### Project Flags
 
-**@guide :flags/project**
+**`guide://_flags/project`**
 Shows project flag overview and available commands.
 
-**@guide :flags/project/list** _(:flags/project/list)_
+**`guide://_flags/project/list`** _(:flags/project/list)_
 Lists all project-specific feature flags. Use `--active` to show only active flags.
 
-**@guide :flags/project/get** _(:flags/project/get)_
+**`guide://_flags/project/get`** _(:flags/project/get)_
 Gets the value of a specific project flag.
 
 **Example:**
 ```
-@guide :flags/project/get workflow
+guide://_flags/project/get/workflow
 ```
 
-**@guide :flags/project/set** _(:flags/project/set)_
+**`guide://_flags/project/set`** _(:flags/project/set)_
 Sets a project-specific feature flag value.
 
 **Examples:**
 ```
-@guide :flags/project/set workflow
-@guide :flags/project/set workflow false
-@guide :flags/project/set content-format --value=mime
+guide://_flags/project/set/workflow
+guide://_flags/project/set/workflow/false
+guide://_flags/project/set/content-format?value=mime
 ```
 
-**@guide :flags/project/remove** _(:flags/project/remove)_
+**`guide://_flags/project/remove`** _(:flags/project/remove)_
 Removes a project-specific flag override, reverting to the feature flag value.
 
 **Example:**
 ```
-@guide :flags/project/remove workflow
+guide://_flags/project/remove/workflow
 ```
 
 ### Feature Flags
 
-**@guide :flags/feature**
+**`guide://_flags/feature`**
 Shows feature flag overview and available commands.
 
-**@guide :flags/feature/list** _(:flags/feature/list)_
+**`guide://_flags/feature/list`** _(:flags/feature/list)_
 Lists all feature flags (apply across all projects). Use `--active` to show only active flags.
 
-**@guide :flags/feature/get** _(:flags/feature/get)_
+**`guide://_flags/feature/get`** _(:flags/feature/get)_
 Gets the value of a specific feature flag.
 
 **Example:**
 ```
-@guide :flags/feature/get autoupdate
+guide://_flags/feature/get/autoupdate
 ```
 
-**@guide :flags/feature/set** _(:flags/feature/set)_
+**`guide://_flags/feature/set`** _(:flags/feature/set)_
 Sets a feature flag value.
 
 **Examples:**
 ```
-@guide :flags/feature/set workflow
-@guide :flags/feature/set workflow false
-@guide :flags/feature/set content-format --value=mime
+guide://_flags/feature/set/workflow
+guide://_flags/feature/set/workflow/false
+guide://_flags/feature/set/content-format?value=mime
 ```
 
-**@guide :flags/feature/remove** _(:flags/feature/remove)_
+**`guide://_flags/feature/remove`** _(:flags/feature/remove)_
 Removes a feature flag.
 
 **Example:**
 ```
-@guide :flags/feature/remove autoupdate
+guide://_flags/feature/remove/autoupdate
 ```
 
 ### Available Flags
@@ -241,58 +241,58 @@ Removes a feature flag.
 
 Document commands let you manage stored documents — content that lives in the document store rather than as files on disk. See [Stored Documents](stored-documents.md) for the full picture.
 
-**@guide :document**
+**`guide://_document`**
 Shows available document commands.
 
-**@guide :document/add** _`<category> <path>`_
+**`guide://_document/add`** _`<category> <path>`_
 Adds a local file to the document store in the specified category.
 
 **Examples:**
 ```
-@guide :document/add docs /path/to/file.md
-@guide :document/add docs /path/to/file.md --as custom-name
-@guide :document/add docs /path/to/file.md --force
-@guide :document/add docs /path/to/file.md --agent-instruction
+guide://_document/add/docs//path/to/file.md
+guide://_document/add/docs//path/to/file.md?as=custom-name
+guide://_document/add/docs//path/to/file.md?force
+guide://_document/add/docs//path/to/file.md?agent-instruction
 ```
 
-**@guide :document/add-url** _`<category> <url>`_
+**`guide://_document/add-url`** _`<category> <url>`_
 Fetches content from a URL and stores it in the specified category.
 
 **Examples:**
 ```
-@guide :document/add-url docs https://example.com/api-reference
-@guide :document/add-url docs https://example.com/guide --as api-guide
+guide://_document/add-url/docs/https%3A%2F%2Fexample.com%2Fapi-reference
+guide://_document/add-url/docs/https%3A%2F%2Fexample.com%2Fguide?as=api-guide
 ```
 
-**@guide :document/list** _`<category>`_
+**`guide://_document/list`** _`<category>`_
 Lists stored documents in a category.
 
-**@guide :document/show** _`<category> <name>`_
+**`guide://_document/show`** _`<category> <name>`_
 Displays the content of a stored document.
 
-**@guide :document/update** _`<category> <name>`_
+**`guide://_document/update`** _`<category> <name>`_
 Updates a stored document's name, category, or metadata.
 
-**@guide :document/remove** _`<category> <name>`_
+**`guide://_document/remove`** _`<category> <name>`_
 Removes a stored document from a category.
 
 ## Export Commands
 
 Export commands manage tracked content exports — rendered content saved to files for knowledge persistence. See [Content Management](content-management.md) for how exports work.
 
-**@guide :export/add** _`<expression> <path>`_
+**`guide://_export/add`** _`<expression> <path>`_
 Exports rendered content to a file and tracks it.
 
 **Examples:**
 ```
-@guide :export/add docs documentation.md
-@guide :export/add architecture arch.md --force
+guide://_export/add/docs/documentation.md
+guide://_export/add/architecture/arch.md?force
 ```
 
-**@guide :export/list**
+**`guide://_export/list`**
 Lists all tracked exports with their expression, path, and staleness status.
 
-**@guide :export/remove** _`<expression>`_
+**`guide://_export/remove`** _`<expression>`_
 Removes an export tracking entry (does not delete the exported file).
 
 ## Filesystem Permissions
@@ -318,7 +318,7 @@ mcp-guide implements built-in security controls to ensure agent instructions don
 
 ### Viewing Permissions
 
-**@guide :project/perm** _(:perm)_
+**`guide://_project/perm`** _(:perm)_
 Shows current filesystem permissions configuration for the project - read permissions (project directory + additional paths) and write permissions (allowed write paths).
 
 ### Managing Permissions
