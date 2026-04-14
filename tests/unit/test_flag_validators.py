@@ -4,13 +4,17 @@ import pytest
 
 from mcp_guide.feature_flags.constants import (
     FLAG_AUTOUPDATE,
+    FLAG_COMMAND,
     FLAG_GUIDE_DEVELOPMENT,
+    FLAG_RESOURCE,
     FLAG_WORKFLOW,
     FLAG_WORKFLOW_FILE,
 )
 from mcp_guide.feature_flags.validators import (
     FlagValidationError,
     clear_validators,
+    normalise_boolean_flag,
+    normalise_flag,
     register_flag_validator,
     validate_boolean_flag,
     validate_flag_with_registered,
@@ -126,6 +130,31 @@ class TestBooleanValidator:
         """Test boolean flag validation with various inputs."""
         assert validate_boolean_flag(value, is_project=is_project) is expected
         assert validate_boolean_flag({"enabled": True}, is_project=False) is False
+
+    @pytest.mark.parametrize(
+        ("value", "expected"),
+        [
+            (True, True),
+            (False, False),
+            (None, None),
+            ("true", True),
+            ("enabled", True),
+            ("on", True),
+            ("false", False),
+            ("disabled", False),
+            ("off", False),
+            ("", False),
+        ],
+    )
+    def test_boolean_flag_normalisation(self, value, expected):
+        assert normalise_boolean_flag(value) == expected
+
+    def test_format_flags_use_boolean_normalisation(self):
+        clear_validators()
+        register_flag_validator(FLAG_RESOURCE, validate_boolean_flag, normaliser=normalise_boolean_flag)
+        register_flag_validator(FLAG_COMMAND, validate_boolean_flag, normaliser=normalise_boolean_flag)
+        assert normalise_flag(FLAG_RESOURCE, "enabled") is True
+        assert normalise_flag(FLAG_COMMAND, "off") is False
 
 
 class TestGuideDevelopmentValidator:

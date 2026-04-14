@@ -1,0 +1,48 @@
+---
+type: agent/instruction
+description: Handoff and Context transfer instructions
+usage: ":handoff <path> (--read|--write)"
+examples:
+  - ":handoff .context.md --write"
+  - ":handoff .context.md --read"
+---
+{{^args.length}}
+{{#_error}}Missing required handoff file path. Usage: :handoff <path> (--read|--write){{/_error}}
+{{/args.length}}
+{{#kwargs.read}}{{#kwargs.write}}{{#_error}}The --read and --write flags are mutually exclusive. Choose exactly one.{{/_error}}{{/kwargs.write}}{{/kwargs.read}}
+{{^kwargs.read}}{{^kwargs.write}}{{#_error}}You must specify exactly one of --read or --write.{{/_error}}{{/kwargs.write}}{{/kwargs.read}}
+{{#args.length}}
+{{#args}}
+{{#first}}
+# AI Agent Handoff
+
+Handoff file: `{{value}}`
+
+{{#kwargs.write}}
+Write your current context and state to the named file.
+
+Suggested content:
+- Goal and current status
+- Key decisions already made
+- Relevant file paths
+- Commands run and their outcomes
+- Open issues or blockers
+- The exact next step to continue
+
+Workflow:
+1. Create or update `{{value}}` on the source machine.
+2. Write the current handoff context into that file.
+3. Confirm that the file is ready to be used as the starting context for the next session.
+{{/kwargs.write}}
+
+{{#kwargs.read}}
+Read the named handoff file and use it as input context for the current session.
+
+Workflow:
+1. Read `{{value}}`.
+2. Extract the current goal, status, key decisions, relevant files, blockers, and next step.
+3. Continue work using that handoff as the starting context.
+{{/kwargs.read}}
+{{/first}}
+{{/args}}
+{{/args.length}}

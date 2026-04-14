@@ -12,7 +12,8 @@ FLAG_WORKFLOW_CONSENT = "workflow-consent"
 # Content format flags
 FLAG_CONTENT_FORMAT = "content-format"
 FLAG_CONTENT_STYLE = "content-style"
-FLAG_CONTENT_ACCESSOR = "content-accessor"
+FLAG_RESOURCE = "format-resource"
+FLAG_COMMAND = "format-command"
 
 # Startup flags
 FLAG_STARTUP_INSTRUCTION = "startup-instruction"

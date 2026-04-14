@@ -42,14 +42,14 @@ Command not found: {{.}}
 | Command | Description |
 |---------|-------------|
 {{#commands}}
-| `{{@}}guide :{{name}}`{{#aliases}} (:`{{value}}`){{/aliases}} | {{description}} |
+| `{{#command}}{{name}}{{/command}}`{{#aliases_csv}}{{#command-alias}}{{.}}{{/command-alias}}{{/aliases_csv}} | {{description}} |
 {{/commands}}
 
 {{/kwargs.table}}
 {{^kwargs.table}}
 {{h2}}{{title}}
 {{#commands}}
-- `{{@}}guide :{{name}}` {{#aliases}}{{#first}}({{/first}}:`{{value}}`{{#last}}){{/last}}{{^last}}, {{/last}}{{/aliases}} - {{description}}
+- `{{#command}}{{name}}{{/command}}`{{#aliases_csv}}{{#command-alias}}{{.}}{{/command-alias}}{{/aliases_csv}} - {{description}}
 {{/commands}}
 
 {{/kwargs.table}}

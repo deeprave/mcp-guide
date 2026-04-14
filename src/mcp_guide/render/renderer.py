@@ -7,6 +7,7 @@ import chevron
 from chevron import ChevronError
 
 from mcp_guide.core.mcp_log import get_logger
+from mcp_guide.core.prompt_decorator import get_prompt_name
 from mcp_guide.discovery.files import TEMPLATE_EXTENSIONS, FileInfo
 from mcp_guide.render.context import TemplateContext
 from mcp_guide.render.frontmatter import get_frontmatter_includes
@@ -162,6 +163,7 @@ async def render_template_content(
         template_context = final_context.new_child(
             {
                 "template_name": stem.lstrip("_"),
+                "prompt": get_prompt_name(),
                 "_error": functions._error,
                 "format_date": _safe_lambda(functions.format_date),
                 "truncate": _safe_lambda(functions.truncate),
@@ -172,6 +174,10 @@ async def render_template_content(
                 "notequals": _safe_lambda(functions.notequals),
                 "time_ago": _safe_lambda(functions.time_ago),
                 "resource": _safe_lambda(functions.resource),
+                "command": _safe_lambda(functions.command),
+                "command-args": _safe_lambda(functions.command_args),
+                "command-flags": _safe_lambda(functions.command_flags),
+                "command-alias": _safe_lambda(functions.command_alias),
             }
         )
 

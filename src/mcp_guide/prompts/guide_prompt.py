@@ -10,7 +10,7 @@ from anyio import Path as AsyncPath
 from mcp_guide.commands.formatting import format_args_string
 from mcp_guide.config_constants import COMMANDS_DIR
 from mcp_guide.core.mcp_log import get_logger
-from mcp_guide.core.prompt_decorator import promptfunc
+from mcp_guide.core.prompt_decorator import get_prompt_name, promptfunc
 from mcp_guide.discovery.commands import discover_commands
 from mcp_guide.discovery.files import FileInfo, discover_document_files
 from mcp_guide.feature_flags.types import FeatureValue
@@ -186,21 +186,30 @@ def _build_command_context(
 ) -> TemplateContext:
     """Build template context for command execution."""
 
+    def enrich_command_metadata(command: dict[str, Any]) -> dict[str, Any]:
+        enriched = dict(command)
+        aliases = command.get("aliases", [])
+        if aliases:
+            enriched["aliases_csv"] = ",".join(str(alias) for alias in aliases)
+        return enriched
+
     # Use kwargs directly without underscore manipulation
     template_kwargs = convert_lists_to_indexed(kwargs.copy())
+
+    enriched_commands = [enrich_command_metadata(cmd) for cmd in commands]
 
     # If args provided (for help command), look up the requested command
     command_help = None
     if args:
         requested_cmd = args[0] if isinstance(args[0], str) else args[0].get("value")
-        for cmd in commands:
+        for cmd in enriched_commands:
             if cmd.get("name") == requested_cmd or requested_cmd in cmd.get("aliases", []):
                 command_help = cmd
                 break
 
     # Group commands by category dynamically, filtering out underscore-prefixed commands
     categories: dict[str, list[dict[str, Any]]] = {}
-    for cmd in commands:
+    for cmd in enriched_commands:
         # Skip commands in directories starting with underscore
         path_parts = cmd.get("name", "").split("/")
         if any(part.startswith("_") for part in path_parts):
@@ -230,7 +239,7 @@ def _build_command_context(
         "args_str": args_string,
         "command": {"name": command_path, "path": str(file_info.path)},
         "executed_command": command_path,
-        "commands": commands,
+        "commands": enriched_commands,
         "command_categories": command_categories,
     }
 
@@ -488,15 +497,13 @@ async def _route_guide_request(argv: list[str], ctx: Optional["Context"]) -> Res
         session = await get_session()
         if session.agent_info:
             prompt_prefix = (
-                session.agent_info.prompt_prefix.replace("{mcp_name}", "guide")
+                session.agent_info.prompt_prefix.replace("{mcp_name}", get_prompt_name())
                 if session.agent_info.prompt_prefix is not None
                 else ""
             )
 
         if prompt_prefix:
-            error_msg = (
-                f"The guide prompt requires one or more arguments. Use {prompt_prefix}guide :help to list commands"
-            )
+            error_msg = f"The guide prompt requires one or more arguments. Use {prompt_prefix}{get_prompt_name()} :help to list commands"
         else:
             error_msg = (
                 "The guide prompt requires one or more arguments. "
@@ -558,7 +565,8 @@ async def guide(
         logger.error(f"on_tool failed at prompt start: {e}")
 
     # Build argv list (MCP protocol requirement)
-    argv = ["guide"]
+    prompt_name = get_prompt_name()
+    argv = [prompt_name]
     for arg in [arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arga, argb, argc, argd, arge, argf]:
         if arg is None:
             break
@@ -570,4 +578,4 @@ async def guide(
     # Process result through the task manager
     from mcp_guide.tools.tool_result import prompt_result
 
-    return await prompt_result("guide", result)
+    return await prompt_result(prompt_name, result)

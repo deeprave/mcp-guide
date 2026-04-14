@@ -63,6 +63,18 @@ class TestGuidePromptIntegration:
         assert result["instruction"] == INSTRUCTION_ERROR_MESSAGE
 
     @pytest.mark.anyio
+    async def test_guide_prompt_without_command_uses_prompt_name_override(self, guide_function) -> None:
+        """Prompt usage errors should respect MCP_PROMPT_NAME."""
+        mock_ctx = MagicMock()
+
+        with patch.dict("os.environ", {"MCP_PROMPT_NAME": "g"}):
+            result_str = await guide_function(ctx=mock_ctx)
+
+        result = json.loads(result_str)
+        assert result["success"] is False
+        assert "g :help" in result["error"]
+
+    @pytest.mark.anyio
     @pytest.mark.parametrize(
         "scenario,args,kwargs,expected_expression",
         [

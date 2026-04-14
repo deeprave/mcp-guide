@@ -3,10 +3,12 @@
 from collections import ChainMap
 from datetime import datetime, timezone
 from typing import Any, Callable, cast
+from urllib.parse import quote
 
 from mcp_guide.core.mcp_log import get_logger
+from mcp_guide.core.prompt_decorator import get_prompt_name
 from mcp_guide.core.tool_decorator import get_tool_prefix
-from mcp_guide.feature_flags.constants import FLAG_CONTENT_ACCESSOR
+from mcp_guide.feature_flags.constants import FLAG_COMMAND, FLAG_RESOURCE
 
 logger = get_logger(__name__)
 _MISSING = object()
@@ -267,13 +269,89 @@ class TemplateFunctions:
         """Render content reference: {{#resource}}expression{{/resource}}
 
         Returns guide://expression URI by default, or tool_prefix + get_content("expression")
-        when the content-accessor flag is true.
+        when the format-resource flag is true.
         """
         expression = render(text).strip() if render else text.strip()
         if not expression:
             return ""
 
         flags = self.context.get("flags", {})
-        if flags.get(FLAG_CONTENT_ACCESSOR):
+        if flags.get(FLAG_RESOURCE):
             return f'{get_tool_prefix()}get_content("{expression}")'
         return f"guide://{expression}"
+
+    def _get_prompt_reference_prefix(self) -> str:
+        prompt_prefix = self.context.get("@", "")
+        prompt_name = get_prompt_name()
+        if prompt_prefix:
+            return f"{prompt_prefix}{prompt_name} :"
+        return f"{prompt_name} :"
+
+    @staticmethod
+    def _parse_csv_items(text: str, render: Callable[[str], str] | None = None) -> list[str]:
+        value = render(text).strip() if render else text.strip()
+        if not value:
+            return []
+        return [item.strip() for item in value.split(",") if item.strip()]
+
+    def command(self, text: str, render: Callable[[str], str] | None = None) -> str:
+        """Render command start: {{#command}}status{{/command}}."""
+        command_name = render(text).strip() if render else text.strip()
+        if not command_name:
+            return ""
+        flags = self.context.get("flags", {})
+        if flags.get(FLAG_COMMAND):
+            return f"{self._get_prompt_reference_prefix()}{command_name}"
+        return f"guide://_{command_name}"
+
+    def command_args(self, text: str, render: Callable[[str], str] | None = None) -> str:
+        """Render command args fragment."""
+        items = self._parse_csv_items(text, render)
+        if not items:
+            return ""
+
+        flags = self.context.get("flags", {})
+        if flags.get(FLAG_COMMAND):
+            return "".join(f" {item}" for item in items)
+        return "".join(f"/{quote(item, safe='')}" for item in items)
+
+    def command_flags(self, text: str, render: Callable[[str], str] | None = None) -> str:
+        """Render command flags fragment."""
+        items = self._parse_csv_items(text, render)
+        if not items:
+            return ""
+
+        flags = self.context.get("flags", {})
+        if flags.get(FLAG_COMMAND):
+            rendered_items: list[str] = []
+            for item in items:
+                if "=" in item:
+                    name, value = item.split("=", 1)
+                    rendered_items.append(f" --{name}={value}")
+                else:
+                    rendered_items.append(f" --{item}")
+            return "".join(rendered_items)
+
+        query_items: list[str] = []
+        for item in items:
+            if "=" in item:
+                name, value = item.split("=", 1)
+                if value.lower() == "true":
+                    query_items.append(quote(name, safe=""))
+                else:
+                    query_items.append(f"{quote(name, safe='')}={quote(value, safe='')}")
+            else:
+                query_items.append(quote(item, safe=""))
+        return f"?{'&'.join(query_items)}"
+
+    def command_alias(self, text: str, render: Callable[[str], str] | None = None) -> str:
+        """Render aliases for a command reference."""
+        items = self._parse_csv_items(text, render)
+        if not items:
+            return ""
+
+        flags = self.context.get("flags", {})
+        if flags.get(FLAG_COMMAND):
+            prefix = self._get_prompt_reference_prefix()
+            return " (" + ", ".join(f"`{prefix}{item}`" for item in items) + ")"
+        return " (" + ", ".join(f"`guide://_{item}`" for item in items) + ")"
