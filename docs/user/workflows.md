@@ -77,7 +77,7 @@ If `workflow-consent` is configured with at least one phase, the default configu
 
 ## Workflow Commands
 
-Tracking workflow status is an important aspect of how the MCP operates. When transitioning between phases it will send certain instructions to the agent in order to keep it appraised of what actions are allowed or prevented. Unfortunately, agents are non-deterministic and will sometimes "forget" to send updates to the MCP. The MCP server, however, will periodically send reminders on the back of other responses, and unless the agent is being particularly stubborn, it should eventually comply.
+Tracking workflow status is an important aspect of how the MCP operates. When transitioning between phases it will send certain instructions to the agent in order to keep it apprised of what actions are allowed or prevented. Unfortunately, agents are non-deterministic and will sometimes "forget" to send updates to the MCP. The MCP server, however, will periodically send reminders on the back of other responses, and unless the agent is being particularly stubborn, it should eventually comply.
 
 Frequent use of workflow commands will increase the opportunity of the mcp sending these instructions. When workflow is enabled, additional workflow commands become available, many of which have shortcuts or aliases. Use `guide://_help/workflow` for more information.
 
@@ -99,17 +99,17 @@ Certain conditions must be met:
 **`guide://_workflow/phase`** _(:phase)_
 Requests transition to a specific provided workflow phase
 
-**:workflow/check** _(:check)_
+**`guide://_workflow/check`** _(:check)_
 Run all code checks for changes according to test and code quality checks for the project.
 
-**:workflow/review** _(:review)_
+**`guide://_workflow/review`** _(:review)_
 Delegate a review to a guide-review agent.
 If delegates are not supported by the agent, then `guide://code-review` will do the same thing in the foreground.
 
-**:workflow/implement** _(:implement)_
+**`guide://_workflow/implement`** _(:implement)_
 Explicitly requests commencement of the implementation phase.
 
-**:workflow/plan** _(:plan)_
+**`guide://_workflow/plan`** _(:plan)_
 Explicitly requests creating an implementation plan for the current change.
 
 ## Workflow Template Context
