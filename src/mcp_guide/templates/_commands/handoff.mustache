@@ -1,13 +1,13 @@
 ---
 type: agent/instruction
 description: Handoff and Context transfer instructions
-usage: "guide://_handoff/<path>?read|write"
+usage: "guide://_handoff/<path>?read or guide://_handoff/<path>?write"
 examples:
   - "guide://_handoff/.context.md?write"
   - "guide://_handoff/.context.md?read"
 ---
 {{^args.0.value}}
-{{#_error}}Missing required handoff file path. Usage: guide://_handoff/<path>?read|write{{/_error}}
+{{#_error}}Missing required handoff file path. Usage: guide://_handoff/<path>?read or guide://_handoff/<path>?write{{/_error}}
 {{/args.0.value}}
 {{#args.0.value}}
 {{#kwargs.read}}{{#kwargs.write}}{{#_error}}The --read and --write flags are mutually exclusive. Choose exactly one.{{/_error}}{{/kwargs.write}}{{/kwargs.read}}

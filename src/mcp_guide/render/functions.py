@@ -313,7 +313,7 @@ class TemplateFunctions:
         flags = self.context.get("flags", {})
         if flags.get(FLAG_COMMAND):
             return "".join(f" {item}" for item in items)
-        return "".join(f"/{quote(item, safe='').replace('/', '%2F')}" for item in items)
+        return "".join(f"/{quote(item, safe='')}" for item in items)
 
     def command_flags(self, text: str, render: Callable[[str], str] | None = None) -> str:
         """Render command flags fragment."""
