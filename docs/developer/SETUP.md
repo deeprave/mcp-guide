@@ -136,5 +136,5 @@ mcp-guide/
 ## Tips
 
 - Enable `guide-development` flag for faster template reloading
-- Use `@guide :status` to check server state
+- Use `guide://_status` to check server state
 - Check logs for detailed error messages

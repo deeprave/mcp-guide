@@ -19,9 +19,9 @@ This is useful for:
 Use the `:document/add` command to ingest a file from your filesystem:
 
 ```
-@guide :document/add docs /path/to/file.md
-@guide :document/add docs /path/to/file.md --as custom-name
-@guide :document/add docs /path/to/file.md --force          # Overwrite if exists
+guide://_document/add/docs//path/to/file.md
+guide://_document/add/docs//path/to/file.md?as=custom-name
+guide://_document/add/docs//path/to/file.md?force          # Overwrite if exists
 ```
 
 The document name defaults to the filename (without extension). Use `--as` to give it a different name.
@@ -31,8 +31,8 @@ The document name defaults to the filename (without extension). Use `--as` to gi
 Fetch and store content directly from a URL:
 
 ```
-@guide :document/add-url docs https://example.com/api-reference
-@guide :document/add-url docs https://example.com/guide --as api-guide
+guide://_document/add-url/docs/https%3A%2F%2Fexample.com%2Fapi-reference
+guide://_document/add-url/docs/https%3A%2F%2Fexample.com%2Fguide?as=api-guide
 ```
 
 The agent fetches the content and stores it in the specified category.
@@ -42,9 +42,9 @@ The agent fetches the content and stores it in the specified category.
 By default, stored documents inherit the standard type. You can specify a type when adding:
 
 ```
-@guide :document/add docs /path/to/file.md --agent-instruction
-@guide :document/add docs /path/to/file.md --agent-info
-@guide :document/add docs /path/to/file.md --user-info
+guide://_document/add/docs//path/to/file.md?agent-instruction
+guide://_document/add/docs//path/to/file.md?agent-info
+guide://_document/add/docs//path/to/file.md?user-info
 ```
 
 ## Viewing Stored Documents
@@ -52,13 +52,13 @@ By default, stored documents inherit the standard type. You can specify a type w
 List what's stored in a category:
 
 ```
-@guide :document/list docs
+guide://_document/list/docs
 ```
 
 View a specific stored document:
 
 ```
-@guide :document/show docs my-document
+guide://_document/show/docs/my-document
 ```
 
 ## Source Filtering
@@ -78,8 +78,8 @@ This is useful when you want to see what's been added to the store versus what e
 Update a stored document's name, category, or metadata:
 
 ```
-@guide :document/update docs my-document --new-name new-name
-@guide :document/update docs my-document --new-category other-category
+guide://_document/update/docs/my-document?new-name=new-name
+guide://_document/update/docs/my-document?new-category=other-category
 ```
 
 ### Removing
@@ -87,7 +87,7 @@ Update a stored document's name, category, or metadata:
 Remove a stored document from a category:
 
 ```
-@guide :document/remove docs my-document
+guide://_document/remove/docs/my-document
 ```
 
 This only removes the stored copy — it doesn't affect any original files on disk.
@@ -96,7 +96,7 @@ This only removes the stored copy — it doesn't affect any original files on di
 
 Stored documents integrate seamlessly with the rest of mcp-guide:
 
-- They appear in category queries (`@guide docs` or `guide://docs`)
+- They appear in category queries (`guide://docs`)
 - They respect the same frontmatter and type system as file-based documents
 - They're included when collections reference the category
 - They persist across sessions in the document store

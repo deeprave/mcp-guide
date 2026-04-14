@@ -79,24 +79,24 @@ If `workflow-consent` is configured with at least one phase, the default configu
 
 Tracking workflow status is an important aspect of how the MCP operates. When transitioning between phases it will send certain instructions to the agent in order to keep it appraised of what actions are allowed or prevented. Unfortunately, agents are non-deterministic and will sometimes "forget" to send updates to the MCP. The MCP server, however, will periodically send reminders on the back of other responses, and unless the agent is being particularly stubborn, it should eventually comply.
 
-Frequent use of workflow commands will increase the opportunity of the mcp sending these instructions. When workflow is enabled, additional workflow prompt commands become available, many of which have shortcuts or aliases. Use `@guide :help` for more information.
+Frequent use of workflow commands will increase the opportunity of the mcp sending these instructions. When workflow is enabled, additional workflow commands become available, many of which have shortcuts or aliases. Use `guide://_help/workflow` for more information.
 
-**@guide :workflow/show** _(:show)_
+**`guide://_workflow/show`** _(:show)_
 Displays the current workflow status and other details. This should directly correspond with the content of the workflow file (`.guide.yaml`) unless the mcp is not being updated by the agent.
 
-**@guide :workflow/issue** _(:issue)_
+**`guide://_workflow/issue`** _(:issue)_
 Manage or change the current workflow issue, description, tracking and transition to next
 
-**@guide :workflow/discuss** _(:discuss)_
+**`guide://_workflow/discuss`** _(:discuss)_
 Requests return to discussion mode, optionally switch to a different issue if specified
 
-**@guide :workflow/reset** _(:reset)_
+**`guide://_workflow/reset`** _(:reset)_
 Marks the current issue as complete and resets to discussion (shortcut).
 Certain conditions must be met:
   - there are no staged/uncommitted changes
   - the current branch must be `main`
 
-**@guide :workflow/phase** _(:phase)_
+**`guide://_workflow/phase`** _(:phase)_
 Requests transition to a specific provided workflow phase
 
 **:workflow/check** _(:check)_
@@ -104,7 +104,7 @@ Run all code checks for changes according to test and code quality checks for th
 
 **:workflow/review** _(:review)_
 Delegate a review to a guide-review agent.
-If delegates are not supported by the agent, then `@guide code-review` will do the same thing in the foreground.
+If delegates are not supported by the agent, then `guide://code-review` will do the same thing in the foreground.
 
 **:workflow/implement** _(:implement)_
 Explicitly requests commencement of the implementation phase.

@@ -100,20 +100,20 @@ Use the built-in guide commands to safely manage paths:
 
 ```bash
 # View current permissions
-@guide :project/perm
+guide://_project/perm
 
 # Add write permissions
-@guide :project/perm/write/add src/
-@guide :project/perm/write/add config.json
+guide://_project/perm/write/add/src/
+guide://_project/perm/write/add/config.json
 
 # Remove write permissions
-@guide :project/perm/write/remove src/
+guide://_project/perm/write/remove/src/
 
 # Add read permissions (absolute paths)
-@guide :project/perm/read/add /external/data
+guide://_project/perm/read/add//external/data
 
 # Remove read permissions
-@guide :project/perm/read/remove /external/data
+guide://_project/perm/read/remove//external/data
 ```
 
 These commands automatically:
@@ -225,7 +225,7 @@ kiro-cli /tools trust-all false
 
 **Configuration Problems**
 - Validate YAML syntax in `.guide.yaml`
-- Use `@guide :project/perm` to verify current settings
+- Use `guide://_project/perm` to verify current settings
 - Check file permissions on configuration file
 
 The filesystem access feature is designed to be helpful while maintaining security by default. You can always restrict access further or remove restrictions entirely based on your specific needs and trust level.

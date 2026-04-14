@@ -11,7 +11,7 @@ Categories specify which files to include based on directory paths and file patt
 To see what categories exist in your project, ask your AI:
 
 ```
-@guide :project -v
+guide://_project?verbose
 ```
 
 This shows all categories, their directories, patterns, and descriptions.
@@ -59,25 +59,25 @@ The primary use of the prompt is to request content using an expression.
 Request a single category:
 
 ```
-@guide guide
+guide://guide
 ```
 
 Request multiple categories by separating them with commas:
 
 ```
-@guide guide,lang,context
+guide://guide,lang,context
 ```
 
 You can override the default patterns by using `/` to specify documents within the category:
 
 ```
-@guide lang/python
+guide://lang/python
 ```
 
 Combine multiple patterns within a category using `+`:
 
 ```
-@guide testing/python+pytest
+guide://testing/python+pytest
 ```
 
 ## Collections
@@ -89,7 +89,7 @@ Collections group category expressions together. They act as "macros" to provide
 To see what collections exist in your project:
 
 ```
-@guide :project -v
+guide://_project?verbose
 ```
 
 This shows all collections and the categories they include.
@@ -110,10 +110,10 @@ The AI will set up the collection with the categories you specify.
 
 ### Using Collections
 
-Request a collection using the `@guide` prompt:
+Request a collection using the canonical `guide://` form:
 
 ```
-@guide python-dev
+guide://python-dev
 ```
 
 Collections expand to their category expressions automatically.
@@ -121,7 +121,7 @@ Collections expand to their category expressions automatically.
 You can also override patterns when using a collection:
 
 ```
-@guide python-dev/testing
+guide://python-dev/testing
 ```
 
 ### Nested Collections
@@ -147,7 +147,7 @@ Category expressions provide flexible content selection.
 You can use `/` to select documents from subdirectories within a category:
 
 ```
-@guide docs/api/authentication
+guide://docs/api/authentication
 ```
 
 This selects the "authentication" document from the `api/` subdirectory within the `docs` category.
@@ -157,4 +157,3 @@ This selects the "authentication" document from the `api/` subdirectory within t
 - **[Documents](documents.md)** - Writing content with templates
 - **[Feature Flags](feature-flags.md)** - Conditional content inclusion
 - **[Profiles](profiles.md)** - Pre-configured category setups
-

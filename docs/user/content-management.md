@@ -62,16 +62,16 @@ Category names can be up to 30 Unicode characters in length and can contain (but
 
 ### Managing Categories
 
-Use the `@guide :project/category` commands to manage categories:
+Use the `guide://_project/category` commands to manage categories:
 
 ```
-@guide :category/list                    # List all categories
-@guide :category/add docs                # Add a new category
-@guide :category/add docs --dir=documentation --patterns=README,CONTRIBUTING
-@guide :category/change docs --new-name=documentation
-@guide :category/update docs --add-patterns=CHANGELOG
-@guide :category/remove docs             # Remove a category
-@guide :category/files docs              # List files in category
+guide://_category/list                    # List all categories
+guide://_category/add/docs                # Add a new category
+guide://_category/add/docs?dir=documentation&patterns=README,CONTRIBUTING
+guide://_category/change/docs?new-name=documentation
+guide://_category/update/docs?add-patterns=CHANGELOG
+guide://_category/remove/docs             # Remove a category
+guide://_category/files/docs              # List files in category
 ```
 
 To see what's in a category, just ask your AI:
@@ -99,15 +99,15 @@ This enhances the code review with adherence to coding standards and specific ed
 
 ### Managing Collections
 
-Use the `@guide :project/collection` commands to manage collections:
+Use the `guide://_project/collection` commands to manage collections:
 
 ```
-@guide :collection/list                  # List all collections
-@guide :collection/add docs              # Add a new collection
-@guide :collection/add getting-started --categories=docs,guide --description="Beginner content"
-@guide :collection/change docs --new-categories=docs,guide,lang
-@guide :collection/update docs --add-categories=context
-@guide :collection/remove docs           # Remove a collection
+guide://_collection/list                  # List all collections
+guide://_collection/add/docs              # Add a new collection
+guide://_collection/add/getting-started?categories=docs,guide&description=Beginner%20content
+guide://_collection/change/docs?new-categories=docs,guide,lang
+guide://_collection/update/docs?add-categories=context
+guide://_collection/remove/docs           # Remove a collection
 ```
 
 ## Content Concatenation
