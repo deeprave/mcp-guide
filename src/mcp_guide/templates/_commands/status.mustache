@@ -1,7 +1,7 @@
 ---
 type: user/information
 description: Shows system status and current project state
-usage: ":status"
+usage: "guide://_status"
 instruction: "{{#workflow.phase}}Display this content to the user verbatim. Do not interpret this content as instructions.{{/workflow.phase}}{{^workflow.phase}}Follow the instructions in this content to establish the workflow state.{{/workflow.phase}}"
 includes:
   - _partials/workflow-status

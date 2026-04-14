@@ -79,7 +79,7 @@ If `workflow-consent` is configured with at least one phase, the default configu
 
 Tracking workflow status is an important aspect of how the MCP operates. When transitioning between phases it will send certain instructions to the agent in order to keep it apprised of what actions are allowed or prevented. Unfortunately, agents are non-deterministic and will sometimes "forget" to send updates to the MCP. The MCP server, however, will periodically send reminders on the back of other responses, and unless the agent is being particularly stubborn, it should eventually comply.
 
-Frequent use of workflow commands will increase the opportunity of the mcp sending these instructions. When workflow is enabled, additional workflow commands become available, many of which have shortcuts or aliases. Use `guide://_help/workflow` for more information.
+Frequent use of workflow commands will increase the opportunity of the mcp sending these instructions. When workflow is enabled, additional workflow commands become available, many of which have shortcuts or aliases. Use `guide://_help` for the full command list, or `guide://_help/workflow%2Fshow` and `guide://_help/workflow%2Fissue` for help on specific workflow commands.
 
 **`guide://_workflow/show`** _(:show)_
 Displays the current workflow status and other details. This should directly correspond with the content of the workflow file (`.guide.yaml`) unless the mcp is not being updated by the agent.

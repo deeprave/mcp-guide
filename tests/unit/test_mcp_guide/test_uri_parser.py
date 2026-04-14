@@ -79,6 +79,14 @@ class TestCommandUri:
             args=["lang", "https://python.org"],
         )
 
+    def test_encoded_directory_argument_round_trips(self) -> None:
+        result = parse_guide_uri("guide://_perm/write-add/src%2F", COMMANDS)
+        assert result == GuideUri(is_command=True, expression="perm/write-add", args=["src/"])
+
+    def test_encoded_absolute_path_argument_round_trips(self) -> None:
+        result = parse_guide_uri("guide://_perm/read-add/%2Fexternal%2Fdata", COMMANDS)
+        assert result == GuideUri(is_command=True, expression="perm/read-add", args=["/external/data"])
+
     def test_no_match_uses_first_segment(self) -> None:
         result = parse_guide_uri("guide://_unknown/arg1", COMMANDS)
         assert result == GuideUri(is_command=True, expression="unknown", args=["arg1"])

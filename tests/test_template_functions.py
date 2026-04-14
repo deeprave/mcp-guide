@@ -444,6 +444,10 @@ class TestCommandLambda:
         assert functions.command_args("now,later", lambda t: t) == "/now/later"
         assert functions.command_flags("verbose=true,from=hello,force", lambda t: t) == "?verbose&from=hello&force"
 
+    def test_command_args_uri_encode_path_like_values(self):
+        functions = TemplateFunctions(ChainMap({"flags": {"format-command": False}}))
+        assert functions.command_args("docs/,/external/data", lambda t: t) == "/docs%2F/%2Fexternal%2Fdata"
+
     def test_command_uses_prompt_name_override(self):
         functions = TemplateFunctions(ChainMap({"flags": {"format-command": True}, "@": "/"}))
         with patch.dict("os.environ", {"MCP_PROMPT_NAME": "g"}):

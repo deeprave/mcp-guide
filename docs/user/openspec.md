@@ -30,7 +30,7 @@ The integration may seem verbose in some agents as it executes OpenSpec commands
 
 ## OpenSpec Commands
 
-When OpenSpec is enabled, additional OpenSpec commands become available. Some commands invoke the OpenSpec CLI directly (with response caching). Use `guide://_help/openspec` for more information.
+When OpenSpec is enabled, additional OpenSpec commands become available. Some commands invoke the OpenSpec CLI directly (with response caching). Use `guide://_help` for the full command list, or `guide://_help/openspec%2Finit` and `guide://_help/openspec%2Flist` for help on specific OpenSpec commands.
 
 **`guide://_openspec/init`** _(:openspec/init)_
 Initialise OpenSpec in the current project using the openspec command. This creates the required directory structure and `openspec/project.md` file.

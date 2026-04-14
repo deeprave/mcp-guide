@@ -48,7 +48,7 @@ guide://_help/flags              # Positional: help for the "flags" command
 guide://_flags/project/set/workflow?value=true   # Positional + keyword arguments
 ```
 
-When a command argument is an absolute filesystem path, the URI will contain a double slash before the path value. For example, `guide://_project/perm/read/add//external/data` uses the first slash to separate the command from its first positional argument, and the second slash is the leading `/` of the absolute path itself.
+When a command argument contains a slash as part of the argument value, encode it so it remains a single path segment. For example, use `guide://_project/perm/write/add/src%2F` for the directory `src/`, and `guide://_project/perm/read/add/%2Fexternal%2Fdata` for the absolute path `/external/data`.
 
 ## Using `read_resource` as a Fallback
 

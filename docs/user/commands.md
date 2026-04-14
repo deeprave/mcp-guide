@@ -249,10 +249,10 @@ Adds a local file to the document store in the specified category.
 
 **Examples:**
 ```
-guide://_document/add/docs//path/to/file.md
-guide://_document/add/docs//path/to/file.md?as=custom-name
-guide://_document/add/docs//path/to/file.md?force
-guide://_document/add/docs//path/to/file.md?agent-instruction
+guide://_document/add/docs/%2Fpath%2Fto%2Ffile.md
+guide://_document/add/docs/%2Fpath%2Fto%2Ffile.md?as=custom-name
+guide://_document/add/docs/%2Fpath%2Fto%2Ffile.md?force
+guide://_document/add/docs/%2Fpath%2Fto%2Ffile.md?agent-instruction
 ```
 
 **`guide://_document/add-url`** _`<category> <url>`_
