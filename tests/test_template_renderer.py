@@ -213,13 +213,13 @@ class TestTemplateRendering:
         content = (
             "- `{{#command}}help{{/command}}`{{#aliases_csv}}{{#command-alias}}{{.}}{{/command-alias}}{{/aliases_csv}}"
         )
-        context = TemplateContext({"flags": {}, "aliases_csv": "?,h"})
+        context = TemplateContext({"flags": {}, "aliases_csv": "h,project/perm"})
 
         result = await render_template_content(content, context)
 
         assert result.is_ok()
         rendered_content, _, _ = result.value
-        assert rendered_content == "- `guide://_help` (`guide://_?`, `guide://_h`)"
+        assert rendered_content == "- `guide://_help` (`guide://_h`, `guide://_project/perm`)"
 
     @pytest.mark.anyio
     async def test_handoff_template_requires_path_and_mode(self):

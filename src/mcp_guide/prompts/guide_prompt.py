@@ -269,7 +269,7 @@ async def _is_help_command(command_path: str, ctx: Optional[Context]) -> bool:
         return command_path in help_aliases
     except Exception:
         # Fallback to hardcoded aliases if discovery fails for any reason
-        return command_path in {"help", "h", "?"}
+        return command_path in {"help", "h"}
 
 
 async def _execute_command(

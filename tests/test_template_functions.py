@@ -453,8 +453,8 @@ class TestCommandLambda:
         uri_functions = TemplateFunctions(ChainMap({"flags": {}}))
         prompt_functions = TemplateFunctions(ChainMap({"flags": {"format-command": True}, "@": "@"}))
 
-        assert uri_functions.command_alias("h,?", lambda t: t) == " (`guide://_h`, `guide://_?`)"
-        assert prompt_functions.command_alias("h,?", lambda t: t) == " (`@guide :h`, `@guide :?`)"
+        assert uri_functions.command_alias("h,project/perm", lambda t: t) == " (`guide://_h`, `guide://_project/perm`)"
+        assert prompt_functions.command_alias("h,project/perm", lambda t: t) == " (`@guide :h`, `@guide :project/perm`)"
 
 
 class TestEqualsLambdas:

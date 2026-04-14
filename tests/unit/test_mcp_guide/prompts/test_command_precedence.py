@@ -15,7 +15,7 @@ class TestCommandPrecedence:
     def test_resolve_command_alias_returns_original_when_no_alias_found(self):
         """Test that _resolve_command_alias returns original command when no alias is found."""
         # Arrange
-        commands = [{"name": "review", "aliases": ["rv"]}, {"name": "help", "aliases": ["h", "?"]}]
+        commands = [{"name": "review", "aliases": ["rv"]}, {"name": "help", "aliases": ["h"]}]
 
         # Act
         result = _resolve_command_alias("unknown", commands)
@@ -26,7 +26,7 @@ class TestCommandPrecedence:
     def test_resolve_command_alias_returns_command_name_when_alias_found(self):
         """Test that _resolve_command_alias returns command name when alias is found."""
         # Arrange
-        commands = [{"name": "review", "aliases": ["rv", "check"]}, {"name": "help", "aliases": ["h", "?"]}]
+        commands = [{"name": "review", "aliases": ["rv", "check"]}, {"name": "help", "aliases": ["h"]}]
 
         # Act
         result = _resolve_command_alias("rv", commands)
