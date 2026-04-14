@@ -61,9 +61,10 @@ class McpUpdateTask:
             return None
 
         try:
-            # Check if autoupdate flag is enabled
-            if not await self.task_manager.requires_flag(FLAG_AUTOUPDATE):
-                logger.debug(f"McpUpdateTask disabled - {FLAG_AUTOUPDATE} flag not set")
+            # Autoupdate is opt-out: only explicit false disables startup prompting.
+            autoupdate = (await self.task_manager.resolved_flags()).get(FLAG_AUTOUPDATE)
+            if autoupdate is False:
+                logger.debug("McpUpdateTask disabled - autoupdate explicitly set to false")
                 return EventResult(result=True)
 
             # Get current project

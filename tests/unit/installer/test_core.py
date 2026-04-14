@@ -383,6 +383,89 @@ class TestInstallationOrchestration:
         # Assert
         assert "unchanged" in result or "patched" in result or "updated" in result or "installed" in result
 
+    @pytest.mark.anyio
+    async def test_update_documents_deletes_removed_unchanged_file(self, tmp_path: Path) -> None:
+        """Test removed upstream files are deleted when unchanged locally."""
+        from mcp_guide.installer.core import update_documents
+
+        docroot = tmp_path / "docroot"
+        archive_path = tmp_path / "originals.zip"
+        docroot.mkdir()
+
+        removed_file = docroot / "removed.md"
+        removed_file.write_text("Original content\n")
+        parent_dir = removed_file.parent
+
+        with ZipFile(archive_path, "w") as zf:
+            zf.writestr("removed.md", "Original content\n")
+            zf.writestr("README.md", "Archive readme\n")
+
+        templates_dir = tmp_path / "templates"
+        templates_dir.mkdir()
+        template_file = templates_dir / "kept.md"
+        template_file.write_text("Kept content\n")
+
+        import mcp_guide.installer.core as installer_core
+
+        async def fake_get_templates_path() -> Path:
+            return templates_dir
+
+        async def fake_list_template_files() -> list[Path]:
+            return [template_file]
+
+        monkeypatch = pytest.MonkeyPatch()
+        monkeypatch.setattr(installer_core, "get_templates_path", fake_get_templates_path)
+        monkeypatch.setattr(installer_core, "list_template_files", fake_list_template_files)
+
+        try:
+            await update_documents(docroot, archive_path)
+        finally:
+            monkeypatch.undo()
+
+        assert not removed_file.exists()
+        assert parent_dir.exists()
+
+    @pytest.mark.anyio
+    async def test_update_documents_preserves_removed_modified_file(self, tmp_path: Path) -> None:
+        """Test removed upstream files are preserved when modified locally."""
+        from mcp_guide.installer.core import update_documents
+
+        docroot = tmp_path / "docroot"
+        archive_path = tmp_path / "originals.zip"
+        docroot.mkdir()
+
+        removed_file = docroot / "removed.md"
+        removed_file.write_text("Original content\nUser changes\n")
+
+        with ZipFile(archive_path, "w") as zf:
+            zf.writestr("removed.md", "Original content\n")
+            zf.writestr("README.md", "Archive readme\n")
+
+        templates_dir = tmp_path / "templates"
+        templates_dir.mkdir()
+        template_file = templates_dir / "kept.md"
+        template_file.write_text("Kept content\n")
+
+        import mcp_guide.installer.core as installer_core
+
+        async def fake_get_templates_path() -> Path:
+            return templates_dir
+
+        async def fake_list_template_files() -> list[Path]:
+            return [template_file]
+
+        monkeypatch = pytest.MonkeyPatch()
+        monkeypatch.setattr(installer_core, "get_templates_path", fake_get_templates_path)
+        monkeypatch.setattr(installer_core, "list_template_files", fake_list_template_files)
+
+        try:
+            await update_documents(docroot, archive_path)
+        finally:
+            monkeypatch.undo()
+
+        assert removed_file.exists()
+        assert removed_file.read_text() == "Original content\nUser changes\n"
+
 
 class TestInstallFileSmartUpdate:
     """Tests for install_file smart update strategy."""
