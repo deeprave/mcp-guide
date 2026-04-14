@@ -1,6 +1,7 @@
 """Command discovery utilities for finding and parsing commands in _commands directory."""
 
 import asyncio
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
@@ -12,6 +13,40 @@ from mcp_guide.discovery.patterns import is_valid_command
 from mcp_guide.render.frontmatter import parse_content_with_frontmatter
 
 logger = get_logger(__name__)
+
+_INVALID_ALIAS_CHARS = set("*?[]<>\\#")
+
+
+def _is_valid_alias(alias: str) -> bool:
+    """Return True when an alias is safe to expose and resolve as a command path."""
+    if not alias or alias != alias.strip():
+        return False
+    if any(ch.isspace() or ord(ch) < 32 or ord(ch) == 127 for ch in alias):
+        return False
+    if any(ch in _INVALID_ALIAS_CHARS for ch in alias):
+        return False
+    if alias.startswith("/") or alias.endswith("/"):
+        return False
+
+    segments = alias.split("/")
+    if any(not segment or segment in {".", ".."} for segment in segments):
+        return False
+
+    return True
+
+
+def _normalise_aliases(raw_aliases: Any, *, command_name: str, file_path: Path) -> list[str]:
+    """Filter invalid aliases from template frontmatter."""
+    if not isinstance(raw_aliases, Iterable) or isinstance(raw_aliases, (str, bytes)):
+        return []
+
+    aliases: list[str] = []
+    for alias in raw_aliases:
+        if not isinstance(alias, str) or not _is_valid_alias(alias):
+            logger.warning("Ignoring invalid command alias %r in %s for command %s", alias, file_path, command_name)
+            continue
+        aliases.append(alias)
+    return aliases
 
 
 async def discover_command_files(commands_dir: Path, patterns: list[str]) -> list[Any]:
@@ -151,7 +186,11 @@ async def discover_commands(commands_dir: Path) -> list[dict[str, Any]]:
                 description = front_matter.get("description", "")
                 usage = front_matter.get("usage", "")
                 examples = front_matter.get("examples", [])
-                aliases = front_matter.get("aliases", [])
+                aliases = _normalise_aliases(
+                    front_matter.get("aliases", []),
+                    command_name=command_name,
+                    file_path=file_path,
+                )
                 category = front_matter.get("category", "general")
         except Exception as e:
             # Collect errors for aggregated logging; skip bad files rather than aborting discovery
@@ -165,7 +204,7 @@ async def discover_commands(commands_dir: Path) -> list[dict[str, Any]]:
                 "description": description,
                 "usage": usage,
                 "examples": examples if isinstance(examples, list) else [],
-                "aliases": aliases if isinstance(aliases, list) else [],
+                "aliases": aliases,
                 "category": category if isinstance(category, str) else "general",
             }
         )

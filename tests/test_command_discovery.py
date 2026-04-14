@@ -238,6 +238,49 @@ description: Workflow command
                 assert len(commands) == 1
                 assert commands[0]["name"] == "workflow"
 
+    @pytest.mark.anyio
+    async def test_discover_commands_filters_invalid_aliases(self) -> None:
+        """Should drop aliases that are unsafe as command paths and keep valid nested aliases."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            commands_dir = Path(temp_dir) / "_commands"
+            commands_dir.mkdir()
+
+            help_content = """---
+description: Shows available commands
+aliases:
+  - h
+  - "?"
+  - project/perm
+  - ../escape
+---
+# Help Command
+"""
+            (commands_dir / "help.md").write_text(help_content)
+
+            mock_files = [
+                FileInfo(
+                    path=Path("help.md"),
+                    size=len(help_content),
+                    content_size=len(help_content),
+                    mtime=1234567890,
+                    name="help.md",
+                    content=help_content,
+                    ctime=1234567890,
+                )
+            ]
+
+            with (
+                patch("mcp_guide.discovery.commands.discover_document_files", new=AsyncMock(return_value=mock_files)),
+                patch("mcp_guide.discovery.commands.logger.warning") as warning,
+            ):
+                from mcp_guide.discovery.commands import discover_commands
+
+                commands = await discover_commands(commands_dir)
+
+            assert len(commands) == 1
+            assert commands[0]["aliases"] == ["h", "project/perm"]
+            assert warning.call_count == 2
+
 
 class TestCommandDiscoveryCaching:
     """Test command discovery caching with guide-development flag."""
