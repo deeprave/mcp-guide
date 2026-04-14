@@ -2,6 +2,14 @@
 
 All notable changes to mcp-guide will be documented in this file.
 
+## [1.2.2] - 2026-04-15
+
+### Changed
+- `autoupdate` is now enabled by default; set it explicitly to `false` to suppress document update prompting
+
+### Fixed
+- Document updates now remove upstream-renamed and deleted files when the local copy is unchanged, while preserving user-edited files
+
 ## [1.2.1] - 2026-04-13
 
 ### Added
