@@ -146,18 +146,16 @@ class TestTemplateStylingValidator:
         assert validate_template_styling(123, False) is False
 
 
+@pytest.mark.usefixtures("reset_flag_registry")
 class TestValidatorRegistration:
     """Test validator registration and usage."""
 
-    def setup_method(self):
+    @pytest.fixture(autouse=True)
+    def _register_test_validators(self):
         """Register the validators used by this test class."""
         clear_validators()
         register_flag_validator("content-format", validate_content_format_mime)
         register_flag_validator(FLAG_CONTENT_STYLE, validate_template_styling)
-
-    def teardown_method(self):
-        """Clean up after each test."""
-        self.setup_method()
 
     def test_registered_validators_work(self):
         """Test that registered validators are used."""

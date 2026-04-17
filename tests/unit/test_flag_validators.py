@@ -22,10 +22,12 @@ from mcp_guide.feature_flags.validators import (
 )
 
 
+@pytest.mark.usefixtures("reset_flag_registry")
 class TestValidationRegistration:
     """Test flag validation registration system."""
 
-    def setup_method(self):
+    @pytest.fixture(autouse=True)
+    def _clear_validators(self):
         """Clear validators before each test."""
         clear_validators()
 
@@ -95,6 +97,7 @@ class TestValidationRegistration:
         validate_flag_with_registered("strict-flag", None, is_project=False)
 
 
+@pytest.mark.usefixtures("reset_flag_registry")
 class TestBooleanValidator:
     """Test validate_boolean_flag function."""
 
@@ -162,10 +165,12 @@ class TestBooleanValidator:
         assert normalise_flag(FLAG_ONBOARDED, "off") == False
 
 
+@pytest.mark.usefixtures("reset_flag_registry")
 class TestGuideDevelopmentValidator:
     """Test guide-development flag validation."""
 
-    def setup_method(self):
+    @pytest.fixture(autouse=True)
+    def _register_guide_development_validator(self):
         """Ensure validator is registered (may have been cleared by other tests)."""
         from mcp_guide.feature_flags.constants import FLAG_GUIDE_DEVELOPMENT
         from mcp_guide.feature_flags.validators import register_flag_validator, validate_boolean_flag
