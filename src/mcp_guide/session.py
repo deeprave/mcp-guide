@@ -16,6 +16,7 @@ from fastmcp import Context
 
 from mcp_guide.core.file_reader import read_file_content
 from mcp_guide.core.mcp_log import get_logger
+from mcp_guide.feature_flags.types import FeatureValue, to_raw_feature_value
 from mcp_guide.file_lock import lock_update
 from mcp_guide.mcp_context import cache_mcp_globals, consume_bootstrap_mcp_data
 from mcp_guide.models import _NAME_REGEX, Project
@@ -161,20 +162,21 @@ class Session:
             client_cwd = await resolve_project_path()
             return client_resolve(path, client_cwd)
 
-        async def get_feature_flags(self) -> dict[str, Any]:
+        async def get_feature_flags(self) -> dict[str, FeatureValue]:
             """Get feature flags."""
             if self.__feature_flags is None:
 
-                async def _get_flags(file_path: Path) -> dict[str, Any]:
+                async def _get_flags(file_path: Path) -> dict[str, FeatureValue]:
                     content = await self.get_or_create_config(file_path)
                     data = yaml.safe_load(content)
-                    return data.get("feature_flags", {}) if data else {}
+                    raw_flags = data.get("feature_flags", {}) if data else {}
+                    return {key: FeatureValue.from_raw(value) for key, value in raw_flags.items()}
 
                 self.__feature_flags = await lock_update(self.config_file, _get_flags)
                 logger.trace(f"get_feature_flags: loaded from disk, flags={self.__feature_flags!r}")
             return self.__feature_flags
 
-        async def set_feature_flag(self, flag_name: str, value: Any) -> None:
+        async def set_feature_flag(self, flag_name: str, value: FeatureValue) -> None:
             """Set a feature flag."""
 
             async def _set_flag(file_path: Path) -> None:
@@ -182,7 +184,7 @@ class Session:
                 data = yaml.safe_load(content)
                 if "feature_flags" not in data:
                     data["feature_flags"] = {}
-                data["feature_flags"][flag_name] = value
+                data["feature_flags"][flag_name] = to_raw_feature_value(value)
                 await AsyncPath(file_path).write_text(yaml.dump(data))
 
             await lock_update(self.config_file, _set_flag)
@@ -224,6 +226,11 @@ class Session:
             if "categories" in data:
                 for category_data in data["categories"].values():
                     category_data.pop("name", None)
+            if "project_flags" in data:
+                data["project_flags"] = {
+                    flag_name: to_raw_feature_value(flag_value)
+                    for flag_name, flag_value in project.project_flags.items()
+                }
             # Convert exports tuple keys to strings for YAML
             if "exports" in data:
                 data["exports"] = {
@@ -718,12 +725,12 @@ class Session:
         # Setup config file watcher
         self._setup_config_watcher()
 
-    async def get_feature_flags(self) -> dict[str, Any]:
+    async def get_feature_flags(self) -> dict[str, FeatureValue]:
         """Get global feature flags."""
         config_manager = self._get_config_manager()
         return await config_manager.get_feature_flags()
 
-    async def set_feature_flag(self, flag_name: str, value: Any) -> None:
+    async def set_feature_flag(self, flag_name: str, value: FeatureValue) -> None:
         """Set a global feature flag."""
         config_manager = self._get_config_manager()
         await config_manager.set_feature_flag(flag_name, value)

@@ -2,7 +2,7 @@
 
 from typing import Optional, Protocol
 
-from .types import FeatureValue
+from .types import FeatureValue, RawFeatureValue
 
 
 class FeatureFlags(Protocol):
@@ -32,7 +32,7 @@ class FeatureFlags(Protocol):
         """Get a specific flag value."""
         ...
 
-    async def set(self, flag_name: str, value: FeatureValue) -> None:
+    async def set(self, flag_name: str, value: RawFeatureValue | FeatureValue) -> None:
         """Set a flag value."""
         ...
 

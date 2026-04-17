@@ -11,7 +11,7 @@ from pydantic import Field
 from mcp_guide.core.tool_arguments import ToolArguments
 from mcp_guide.core.tool_decorator import toolfunc
 from mcp_guide.feature_flags.constants import FLAG_ALLOW_CLIENT_INFO
-from mcp_guide.feature_flags.types import FeatureValue
+from mcp_guide.feature_flags.types import FeatureValue, RawFeatureValue, to_raw_feature_value
 from mcp_guide.feature_flags.validators import validate_flag_name, validate_flag_value
 from mcp_guide.result import Result
 from mcp_guide.result_constants import (
@@ -49,7 +49,7 @@ class SetFlagArgs(ToolArguments):
     """Arguments for set_flag tool."""
 
     feature_name: str = Field(..., description="Flag name to set")
-    value: Optional[FeatureValue] = Field(True, description="Flag value to set (True=default, None=remove)")
+    value: Optional[RawFeatureValue] = Field(True, description="Flag value to set (True=default, None=remove)")
 
 
 class GetFlagArgs(ToolArguments):
@@ -62,7 +62,7 @@ class SetFeatureFlagArgs(ToolArguments):
     """Arguments for set_feature_flag tool."""
 
     feature_name: str = Field(..., description="Flag name to set")
-    value: Optional[FeatureValue] = Field(True, description="Flag value to set (True=default, None=remove)")
+    value: Optional[RawFeatureValue] = Field(True, description="Flag value to set (True=default, None=remove)")
 
 
 class GetFeatureFlagArgs(ToolArguments):
@@ -83,24 +83,25 @@ class ListFeatureFlagsArgs(ToolArguments):
 def _filter_flags_by_pattern(
     flags: dict[str, FeatureValue],
     pattern: str | None,
-) -> FeatureValue | dict[str, FeatureValue] | None:
+) -> RawFeatureValue | dict[str, RawFeatureValue] | None:
     """Filter flags by glob pattern or exact match."""
     if not pattern:
-        return flags
+        return {k: to_raw_feature_value(v) for k, v in flags.items()}
 
     # Check if pattern contains wildcards
     if "*" in pattern or "?" in pattern or "[" in pattern:
         # Glob pattern - return matching flags as dict
-        return {k: v for k, v in flags.items() if fnmatch(k, pattern)}
+        return {k: to_raw_feature_value(v) for k, v in flags.items() if fnmatch(k, pattern)}
     else:
         # Exact match - return single value
-        return flags.get(pattern)
+        value = flags.get(pattern)
+        return to_raw_feature_value(value) if value is not None else None
 
 
 async def internal_list_project_flags(
     args: ListFlagsArgs,
     ctx: Optional[Context] = None,
-) -> Result[FeatureValue | dict[str, FeatureValue] | None]:
+) -> Result[RawFeatureValue | dict[str, RawFeatureValue] | None]:
     """List project feature flags based on project context and parameters."""
     from mcp_guide.session import get_session
 
@@ -203,7 +204,7 @@ async def set_project_flag(args: SetFlagArgs, ctx: Optional[Context] = None) -> 
     return await tool_result("set_project_flag", result)
 
 
-async def internal_get_project_flag(args: GetFlagArgs, ctx: Optional[Context] = None) -> Result[FeatureValue | None]:
+async def internal_get_project_flag(args: GetFlagArgs, ctx: Optional[Context] = None) -> Result[RawFeatureValue | None]:
     """Get a project feature flag value with resolution hierarchy."""
     from mcp_guide.session import get_session
 
@@ -218,7 +219,7 @@ async def internal_get_project_flag(args: GetFlagArgs, ctx: Optional[Context] = 
 
         value = await get_resolved_flag_value(session, args.feature_name)
 
-        return Result.ok(value)
+        return Result.ok(to_raw_feature_value(value) if value is not None else None)
 
     except OSError as e:
         return Result.failure(f"Failed to read configuration: {e}", error_type=ERROR_CONFIG_READ)
@@ -297,7 +298,7 @@ async def set_feature_flag(args: SetFeatureFlagArgs, ctx: Optional[Context] = No
 async def internal_get_feature_flag(
     args: GetFeatureFlagArgs,
     ctx: Optional[Context] = None,
-) -> Result[FeatureValue | None]:
+) -> Result[RawFeatureValue | None]:
     """Get a global feature flag value."""
     from mcp_guide.session import get_session
 
@@ -312,7 +313,7 @@ async def internal_get_feature_flag(
         global_flags = await global_proxy.list()
         value = global_flags.get(args.feature_name)
 
-        return Result.ok(value)
+        return Result.ok(to_raw_feature_value(value) if value is not None else None)
 
     except OSError as e:
         return Result.failure(f"Failed to read configuration: {e}", error_type=ERROR_CONFIG_READ)
@@ -326,7 +327,7 @@ async def internal_get_feature_flag(
 async def internal_list_feature_flags(
     args: ListFeatureFlagsArgs,
     ctx: Optional[Context] = None,
-) -> Result[FeatureValue | dict[str, FeatureValue] | None]:
+) -> Result[RawFeatureValue | dict[str, RawFeatureValue] | None]:
     """List global feature flags."""
     from mcp_guide.session import get_session
 

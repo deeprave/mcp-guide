@@ -3,6 +3,7 @@
 from typing import TYPE_CHECKING, Any, Optional
 
 from mcp_guide.core.mcp_log import get_logger
+from mcp_guide.feature_flags.types import to_raw_feature_value
 
 if TYPE_CHECKING:
     from mcp_guide.models.project import Project
@@ -61,7 +62,9 @@ async def format_project_data(
     # Add resolved flags if session is available
     if session is not None:
         flags = await resolve_all_flags(session)
-        result["flags"] = flags if verbose else list(flags.keys())
+        result["flags"] = (
+            {name: to_raw_feature_value(value) for name, value in flags.items()} if verbose else list(flags.keys())
+        )
     return result
 
 

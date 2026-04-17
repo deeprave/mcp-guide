@@ -10,6 +10,7 @@ from mcp_guide import __version__
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.discovery.files import FileInfo
 from mcp_guide.feature_flags.constants import FLAG_WORKFLOW, FLAG_WORKFLOW_CONSENT, FLAG_WORKFLOW_FILE
+from mcp_guide.feature_flags.types import FeatureValue, to_raw_feature_value
 from mcp_guide.render.context import TemplateContext
 from mcp_guide.result_constants import (
     INSTRUCTION_AGENT_INFORMATION,
@@ -115,7 +116,7 @@ class TemplateContextCache(SessionListener):
         agent_vars["tool_prefix"] = tool_prefix
 
         # Try to get agent and styling information from session
-        styling_value = "plain"
+        styling_value = FeatureValue("plain")
         try:
             from mcp_guide.core.prompt_decorator import get_prompt_name
             from mcp_guide.feature_flags.constants import FLAG_CONTENT_STYLE
@@ -153,7 +154,7 @@ class TemplateContextCache(SessionListener):
                 agent_vars["agent"] = agent_context
 
             resolved_flags = await resolve_all_flags(session)
-            styling_value = resolved_flags.get(FLAG_CONTENT_STYLE, "plain")
+            styling_value = resolved_flags.get(FLAG_CONTENT_STYLE, FeatureValue("plain"))
         except Exception as e:
             logger.debug(f"Session/agent context failed, using defaults: {e}")
 
@@ -266,7 +267,10 @@ class TemplateContextCache(SessionListener):
                     ]
 
                     # Convert project flags dict to list format for iteration
-                    project_flag_values = [{"key": k, "value": v} for k, v in (project.project_flags or {}).items()]
+                    project_flag_values = [
+                        {"key": k, "value": v.to_display() if isinstance(v, FeatureValue) else v}
+                        for k, v in (project.project_flags or {}).items()
+                    ]
         except ValueError as e:
             logger.debug(f"Project context unavailable for current session: {e}")
         except (AttributeError, RuntimeError) as e:
@@ -278,7 +282,10 @@ class TemplateContextCache(SessionListener):
         try:
             if session:
                 global_flags_dict = await session.feature_flags().list()
-                global_flags_list = [{"key": k, "value": v} for k, v in global_flags_dict.items()]
+                global_flags_list = [
+                    {"key": k, "value": v.to_display() if isinstance(v, FeatureValue) else v}
+                    for k, v in global_flags_dict.items()
+                ]
         except Exception as e:
             logger.debug(f"Failed to get global flags: {e}")
 
@@ -290,7 +297,10 @@ class TemplateContextCache(SessionListener):
                 from mcp_guide.models import resolve_all_flags
 
                 resolved_flags_dict = await resolve_all_flags(session)
-                resolved_flags_list = [{"key": k, "value": v} for k, v in resolved_flags_dict.items()]
+                resolved_flags_list = [
+                    {"key": k, "value": v.to_display() if isinstance(v, FeatureValue) else v}
+                    for k, v in resolved_flags_dict.items()
+                ]
         except Exception as e:
             logger.debug(f"Failed to resolve flags: {e}")
 
@@ -357,10 +367,14 @@ class TemplateContextCache(SessionListener):
                 documents_path = await get_resolved_flag_value(session, FLAG_PATH_DOCUMENTS)
                 export_path = await get_resolved_flag_value(session, FLAG_PATH_EXPORT)
 
-                if documents_path and isinstance(documents_path, str) and validate_path_flag(documents_path, True):
-                    path_config["documents"] = documents_path
-                if export_path and isinstance(export_path, str) and validate_path_flag(export_path, True):
-                    path_config["export"] = export_path
+                if documents_path is not None:
+                    raw_documents_path = to_raw_feature_value(documents_path)
+                    if isinstance(raw_documents_path, str) and validate_path_flag(raw_documents_path, True):
+                        path_config["documents"] = raw_documents_path
+                if export_path is not None:
+                    raw_export_path = to_raw_feature_value(export_path)
+                    if isinstance(raw_export_path, str) and validate_path_flag(raw_export_path, True):
+                        path_config["export"] = raw_export_path
         except Exception as e:
             logger.debug(f"Failed to resolve path flags: {e}")
 
@@ -374,8 +388,12 @@ class TemplateContextCache(SessionListener):
 
                 # Resolve workflow flag
                 workflow_flag = resolved_flags.get(FLAG_WORKFLOW)
-                if workflow_flag is not None and isinstance(workflow_flag, (bool, list)):
-                    parsed_config = parse_workflow_phases(workflow_flag)
+                if workflow_flag is not None:
+                    raw_workflow_flag = to_raw_feature_value(workflow_flag)
+                else:
+                    raw_workflow_flag = None
+                if isinstance(raw_workflow_flag, (bool, list)):
+                    parsed_config = parse_workflow_phases(raw_workflow_flag)
                     if parsed_config.enabled:
                         workflow_config = {
                             "phases": parsed_config.phases,
@@ -384,10 +402,13 @@ class TemplateContextCache(SessionListener):
 
                         # Resolve workflow-file flag
                         workflow_file_flag = resolved_flags.get(FLAG_WORKFLOW_FILE)
-                        if workflow_file_flag and isinstance(workflow_file_flag, str):
+                        raw_workflow_file_flag = (
+                            to_raw_feature_value(workflow_file_flag) if workflow_file_flag is not None else None
+                        )
+                        if raw_workflow_file_flag and isinstance(raw_workflow_file_flag, str):
                             # Substitute variables in workflow file path
                             workflow_file = substitute_variables(
-                                workflow_file_flag,
+                                raw_workflow_file_flag,
                                 project_name=project.name,
                                 project_key=project.key,
                                 project_hash=project.hash,
@@ -396,14 +417,20 @@ class TemplateContextCache(SessionListener):
 
                         # Resolve workflow-consent flag (None or dict only)
                         workflow_consent_flag = resolved_flags.get(FLAG_WORKFLOW_CONSENT)
-                        if workflow_consent_flag is None:
-                            workflow_consent_flag = DEFAULT_WORKFLOW_CONSENT
+                        raw_workflow_consent_flag = (
+                            to_raw_feature_value(workflow_consent_flag)
+                            if workflow_consent_flag is not None
+                            else DEFAULT_WORKFLOW_CONSENT
+                        )
+                        consent_mapping = (
+                            raw_workflow_consent_flag if isinstance(raw_workflow_consent_flag, dict) else {}
+                        )
                         # Transform consent config for template access
                         consent_context = {}
                         phase_names = parsed_config.phases  # List of available phase names
                         ordered_phase_names = parsed_config.ordered_phases
                         for phase_name in phase_names:
-                            consent_value = workflow_consent_flag.get(phase_name, [])
+                            consent_value = consent_mapping.get(phase_name, [])
                             consent_list = [consent_value] if isinstance(consent_value, str) else consent_value
                             consent_context[phase_name] = {
                                 "entry": "entry" in consent_list,

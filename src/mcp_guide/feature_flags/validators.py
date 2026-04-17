@@ -15,7 +15,7 @@ from mcp_guide.feature_flags.constants import (
     FLAG_PATH_EXPORT,
     FLAG_RESOURCE,
 )
-from mcp_guide.feature_flags.types import FeatureValue
+from mcp_guide.feature_flags.types import FeatureValue, FeatureValueLike
 from mcp_guide.feature_flags.types import validate_feature_value_type as validate_flag_value
 from mcp_guide.models import _NAME_REGEX
 
@@ -46,13 +46,13 @@ class FlagScope(Enum):
 
 
 # Registry for flag-specific validators
-_FLAG_VALIDATORS: Dict[str, Callable[[FeatureValue, bool], bool]] = {}
+_FLAG_VALIDATORS: Dict[str, Callable[[FeatureValueLike | None, bool], bool]] = {}
 
 # Registry for flag scope restrictions
 _FLAG_SCOPES: Dict[str, FlagScope] = {}
 
 # Registry for flag-specific normalisers
-_FLAG_NORMALISERS: Dict[str, Callable[[FeatureValue], FeatureValue]] = {}
+_FLAG_NORMALISERS: Dict[str, Callable[[FeatureValueLike | None], FeatureValue | None]] = {}
 
 
 class FlagValidationError(Exception):
@@ -80,7 +80,7 @@ def validate_flag_name(name: str) -> bool:
     return bool(_NAME_REGEX.match(name))
 
 
-def validate_content_format_mime(value: FeatureValue, is_project: bool) -> bool:
+def validate_content_format_mime(value: FeatureValueLike | None, is_project: bool) -> bool:
     """Validate content-format flag value.
 
     Args:
@@ -90,10 +90,16 @@ def validate_content_format_mime(value: FeatureValue, is_project: bool) -> bool:
     Returns:
         True if value is valid, False otherwise
     """
-    return value in [None, "none", "plain", "mime"]
+    if value is None:
+        return True
+    try:
+        wrapped = FeatureValue.from_raw(value)
+    except TypeError:
+        return False
+    return wrapped in ["none", "plain", "mime"]
 
 
-def validate_template_styling(value: FeatureValue, is_project: bool) -> bool:
+def validate_template_styling(value: FeatureValueLike | None, is_project: bool) -> bool:
     """Validate content-style flag value.
 
     Args:
@@ -103,10 +109,16 @@ def validate_template_styling(value: FeatureValue, is_project: bool) -> bool:
     Returns:
         True if value is valid, False otherwise
     """
-    return value in [None, "plain", "headings", "full"]
+    if value is None:
+        return True
+    try:
+        wrapped = FeatureValue.from_raw(value)
+    except TypeError:
+        return False
+    return wrapped in ["plain", "headings", "full"]
 
 
-def validate_allow_client_info(value: FeatureValue, is_project: bool) -> bool:
+def validate_allow_client_info(value: FeatureValueLike | None, is_project: bool) -> bool:
     """Validate allow-client-info flag value.
 
     Accepts boolean values or string representations ('enabled', 'disabled', 'on', 'off').
@@ -120,17 +132,23 @@ def validate_allow_client_info(value: FeatureValue, is_project: bool) -> bool:
         True if value is valid, False otherwise
     """
     # Accept enable values (will be normalized to True)
-    if value is True or value in ["true", "enabled", "on"]:
+    if value is None:
+        return True
+    try:
+        raw = FeatureValue.from_raw(value).to_raw()
+    except TypeError:
+        return False
+    if raw is True or raw in ["true", "enabled", "on"]:
         return True
 
     # Accept disable values (will be normalized to None)
-    if value is False or value is None or value in ["false", "disabled", "off"]:
+    if raw is False or raw in ["false", "disabled", "off"]:
         return True
 
     return False
 
 
-def validate_autoupdate(value: FeatureValue, is_project: bool) -> bool:
+def validate_autoupdate(value: FeatureValueLike | None, is_project: bool) -> bool:
     """Validate autoupdate flag value.
 
     Accepts boolean values or string representations ('enabled', 'disabled', 'on', 'off').
@@ -144,16 +162,22 @@ def validate_autoupdate(value: FeatureValue, is_project: bool) -> bool:
         True if value is valid, False otherwise
     """
     # Accept boolean values only
-    if value is True or value in ["true", "enabled", "on"]:
+    if value is None:
+        return True
+    try:
+        raw = FeatureValue.from_raw(value).to_raw()
+    except TypeError:
+        return False
+    if raw is True or raw in ["true", "enabled", "on"]:
         return True
 
-    if value is False or value is None or value in ["false", "disabled", "off"]:
+    if raw is False or raw in ["false", "disabled", "off"]:
         return True
 
     return False
 
 
-def validate_boolean_flag(value: FeatureValue, is_project: bool) -> bool:
+def validate_boolean_flag(value: FeatureValueLike | None, is_project: bool) -> bool:
     """Validate simple boolean flag value.
 
     Accepts truthy values (True, "true", "on", "enabled") and falsy values
@@ -167,36 +191,42 @@ def validate_boolean_flag(value: FeatureValue, is_project: bool) -> bool:
         True if value is valid boolean-like, False otherwise
     """
     # Accept boolean types
-    if isinstance(value, bool):
-        return True
-
-    # Accept None (used for deletion/disable)
     if value is None:
+        return True
+    try:
+        raw = FeatureValue.from_raw(value).to_raw()
+    except TypeError:
+        return False
+    if isinstance(raw, bool):
         return True
 
     # Accept string boolean representations
-    if isinstance(value, str):
-        return value.lower() in ["true", "false", "on", "off", "enabled", "disabled", ""]
+    if isinstance(raw, str):
+        return raw.lower() in ["true", "false", "on", "off", "enabled", "disabled", ""]
 
     return False
 
 
-def normalise_boolean_flag(value: FeatureValue) -> FeatureValue:
+def normalise_boolean_flag(value: FeatureValueLike | None) -> FeatureValue | None:
     """Normalise boolean-like flag values to True/False."""
-    if isinstance(value, bool) or value is None:
-        return value
+    if value is None:
+        return None
+    wrapped = FeatureValue.from_raw(value)
+    raw = wrapped.to_raw()
+    if isinstance(raw, bool):
+        return wrapped
 
-    if isinstance(value, str):
-        lowered = value.lower()
+    if isinstance(raw, str):
+        lowered = raw.lower()
         if lowered in ["true", "on", "enabled"]:
-            return True
+            return FeatureValue(True)
         if lowered in ["false", "off", "disabled", ""]:
-            return False
+            return FeatureValue(False)
 
-    return value
+    return wrapped
 
 
-def validate_path_flag(value: FeatureValue, is_project: bool) -> bool:
+def validate_path_flag(value: FeatureValueLike | None, is_project: bool) -> bool:
     """Validate path flag value.
 
     Accepts non-empty, whitespace-trimmed strings (relative or absolute) without path traversal.
@@ -208,15 +238,21 @@ def validate_path_flag(value: FeatureValue, is_project: bool) -> bool:
     Returns:
         True if value is a valid path string, False otherwise
     """
-    if not isinstance(value, str):
+    if value is None:
+        return False
+    try:
+        raw = FeatureValue.from_raw(value).to_raw()
+    except TypeError:
+        return False
+    if not isinstance(raw, str):
         return False
 
     # Strip leading/trailing whitespace to avoid confusing invisible padding
-    value = value.strip()
-    if not value:
+    raw = raw.strip()
+    if not raw:
         return False
 
-    normalised = value.replace("\\", "/")
+    normalised = raw.replace("\\", "/")
 
     # Block path traversal
     if ".." in normalised.split("/"):
@@ -232,17 +268,21 @@ def validate_path_flag(value: FeatureValue, is_project: bool) -> bool:
     return True
 
 
-def normalise_path_flag(value: FeatureValue) -> FeatureValue:
+def normalise_path_flag(value: FeatureValueLike | None) -> FeatureValue | None:
     """Normalise path flag value by using POSIX separators and ensuring trailing slash."""
-    if isinstance(value, str):
-        normalised = value.replace("\\", "/")
+    if value is None:
+        return None
+    wrapped = FeatureValue.from_raw(value)
+    raw = wrapped.to_raw()
+    if isinstance(raw, str):
+        normalised = raw.replace("\\", "/")
         if not normalised.endswith("/"):
             normalised += "/"
-        return normalised
-    return value
+        return FeatureValue(normalised)
+    return wrapped
 
 
-def normalise_flag(flag_name: str, value: FeatureValue) -> FeatureValue:
+def normalise_flag(flag_name: str, value: FeatureValueLike | None) -> FeatureValue | None:
     """Normalise flag value using its registered normaliser.
 
     Args:
@@ -252,17 +292,20 @@ def normalise_flag(flag_name: str, value: FeatureValue) -> FeatureValue:
     Returns:
         Normalised flag value, or original if no normaliser registered
     """
+    if value is None:
+        return None
+    wrapped_value = FeatureValue.from_raw(value)
     normaliser = _FLAG_NORMALISERS.get(flag_name)
     if normaliser:
-        return normaliser(value)
-    return value
+        return normaliser(wrapped_value)
+    return wrapped_value
 
 
 def register_flag_validator(
     flag_name: str,
-    validator: Callable[[FeatureValue, bool], bool],
+    validator: Callable[[FeatureValueLike | None, bool], bool],
     scope: FlagScope = FlagScope.BOTH,
-    normaliser: Callable[[FeatureValue], FeatureValue] | None = None,
+    normaliser: Callable[[FeatureValueLike | None], FeatureValue | None] | None = None,
 ) -> None:
     """Register a validator function for a specific flag.
 
@@ -278,7 +321,7 @@ def register_flag_validator(
         _FLAG_NORMALISERS[flag_name] = normaliser
 
 
-def validate_flag_with_registered(flag_name: str, value: FeatureValue, is_project: bool) -> None:
+def validate_flag_with_registered(flag_name: str, value: FeatureValueLike | None, is_project: bool) -> None:
     """Validate a flag value using its registered validator.
 
     Args:

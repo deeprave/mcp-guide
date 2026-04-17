@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
+from mcp_guide.feature_flags.types import FeatureValue
 from mcp_guide.render.cache import TemplateContextCache
 
 
@@ -98,13 +99,13 @@ class TestTemplateContextCache:
 
             # Convert back to dict for easier testing
             flags_dict = {item["key"]: item["value"] for item in flags_list}
-            assert flags_dict["phase-tracking"] is True
-            assert flags_dict["debug-mode"] is False
+            assert flags_dict["phase-tracking"] == "true"
+            assert flags_dict["debug-mode"] == "false"
 
-            # Also verify dict format is available
+            # Also verify wrapped dict format is available
             assert "project_flags" in context["project"]
-            assert context["project"]["project_flags"]["phase-tracking"] is True
-            assert context["project"]["project_flags"]["debug-mode"] is False
+            assert context["project"]["project_flags"]["phase-tracking"] == FeatureValue(True)
+            assert context["project"]["project_flags"]["debug-mode"] == FeatureValue(False)
 
     @pytest.mark.anyio
     async def test_build_project_context_handles_missing_flags(self) -> None:
