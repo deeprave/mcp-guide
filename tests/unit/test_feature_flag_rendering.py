@@ -62,6 +62,50 @@ async def test_project_context_renders_wrapped_flag_values_for_display():
     )
 
 
+@pytest.mark.anyio
+async def test_project_context_preserves_plain_workflow_structures_for_non_display_consumers():
+    """Derived workflow context should expose plain dict/boolean structures for templates."""
+    cache = TemplateContextCache()
+
+    mock_session = Mock()
+    mock_session.get_project = AsyncMock(
+        return_value=Mock(
+            name="demo",
+            key="demo-key",
+            hash="demo-hash",
+            categories={},
+            collections={},
+            project_flags={},
+        )
+    )
+    mock_session.feature_flags.return_value = Mock(list=AsyncMock(return_value={}))
+
+    resolved_flags = {
+        "workflow": FeatureValue(["discussion", "planning", "implementation", "check", "review"]),
+        "workflow-consent": FeatureValue({"planning": ["entry"], "review": ["exit"]}),
+    }
+
+    with (
+        patch("mcp_guide.session.get_session", AsyncMock(return_value=mock_session)),
+        patch("mcp_guide.session.list_all_projects", AsyncMock(return_value=Result.ok({"projects": {}}))),
+        patch("mcp_guide.models.resolve_all_flags", AsyncMock(return_value=resolved_flags)),
+        patch("mcp_guide.mcp_context.resolve_project_path", AsyncMock(return_value="/tmp/project")),
+        patch("mcp_guide.feature_flags.utils.get_resolved_flag_value", AsyncMock(return_value=None)),
+        patch("mcp_guide.task_manager.get_task_manager") as mock_task_manager,
+    ):
+        mock_task_manager.return_value.get_cached_data.return_value = None
+        context = await cache._build_project_context()
+
+    assert context["workflow"]["discussion"] is True
+    assert context["workflow"]["planning"] is True
+    assert context["workflow"]["implementation"] is True
+    assert context["workflow"]["check"] is True
+    assert context["workflow"]["review"] is True
+    assert context["workflow"]["phases"]["planning"] == {"enabled": True, "next": "implementation", "ordered": True}
+    assert context["workflow"]["consent"]["planning"] == {"entry": True, "exit": False, "any": True}
+    assert context["workflow"]["consent"]["review"] == {"entry": False, "exit": True, "any": True}
+
+
 def test_generic_indexed_list_rendering_remains_unchanged():
     """Non-display list values should still use IndexedList semantics."""
     context = TemplateContext({"items": ["alpha", "beta"]})

@@ -8,7 +8,7 @@
 ## 2. Template update
 
 - [x] 2.1 Update the affected project/workflow template or partial only as needed to align with the formatted flag value output
-- [x] 2.2 Verify the rendered output for custom workflow lists matches the intended plain phase-name representation
+- [x] 2.2 Verify the rendered output for custom workflow lists matches the intended plain phase name representation
 - [x] 2.3 Verify dict-like flags such as `workflow-consent` render sensibly in project output
 - [x] 2.4 Verify the raw flag dictionaries remain unchanged for non-display consumers
 
