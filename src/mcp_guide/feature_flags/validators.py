@@ -361,7 +361,12 @@ def clear_validators() -> None:
 # Register validators
 register_flag_validator(FLAG_CONTENT_FORMAT, validate_content_format_mime)
 register_flag_validator(FLAG_CONTENT_STYLE, validate_template_styling)
-register_flag_validator(FLAG_ALLOW_CLIENT_INFO, validate_allow_client_info, FlagScope.FEATURE_ONLY)
+register_flag_validator(
+    FLAG_ALLOW_CLIENT_INFO,
+    validate_allow_client_info,
+    FlagScope.FEATURE_ONLY,
+    normaliser=normalise_boolean_flag,
+)
 register_flag_validator(
     FLAG_AUTOUPDATE,
     validate_autoupdate,

@@ -163,7 +163,10 @@ def _validate_workflow_file_flag(value: FeatureValueLike | None, is_project: boo
     """Validate workflow-file flag value."""
     if value is None:
         return False
-    raw = to_raw_feature_value(value)
+    try:
+        raw = to_raw_feature_value(value)
+    except TypeError:
+        return False
     if not isinstance(raw, str) or not raw.strip():
         return False
 
@@ -218,7 +221,10 @@ def _validate_startup_instruction_flag(value: FeatureValueLike | None, is_projec
     # None or empty string is valid (flag not set)
     if value is None:
         return True
-    raw = to_raw_feature_value(value)
+    try:
+        raw = to_raw_feature_value(value)
+    except TypeError:
+        return False
     if raw == "":
         return True
     if not isinstance(raw, str):

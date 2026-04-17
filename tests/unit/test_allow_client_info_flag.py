@@ -5,7 +5,28 @@ from unittest.mock import Mock
 import pytest
 
 from mcp_guide.context.tasks import ClientContextTask
-from mcp_guide.feature_flags.validators import validate_allow_client_info
+from mcp_guide.feature_flags.constants import FLAG_ALLOW_CLIENT_INFO
+from mcp_guide.feature_flags.validators import (
+    FlagScope,
+    normalise_boolean_flag,
+    normalise_flag,
+    register_flag_validator,
+    validate_allow_client_info,
+)
+
+
+@pytest.fixture
+def allow_client_info_validator(reset_flag_registry):
+    """Clear and re-register allow-client-info validator for each test."""
+    from mcp_guide.feature_flags.validators import clear_validators
+
+    clear_validators()
+    register_flag_validator(
+        FLAG_ALLOW_CLIENT_INFO,
+        validate_allow_client_info,
+        FlagScope.FEATURE_ONLY,
+        normaliser=normalise_boolean_flag,
+    )
 
 
 class TestAllowClientInfoValidator:
@@ -37,9 +58,8 @@ class TestAllowClientInfoValidator:
         assert not validate_allow_client_info(1, is_project=False)
         assert not validate_allow_client_info(0, is_project=False)
 
-    def test_validator_rejects_project_level(self, reset_flag_registry):
+    def test_validator_rejects_project_level(self, allow_client_info_validator):
         """Test that validator rejects project-level setting via validate_flag_with_registered."""
-        from mcp_guide.feature_flags.constants import FLAG_ALLOW_CLIENT_INFO
         from mcp_guide.feature_flags.validators import FlagValidationError, validate_flag_with_registered
 
         # Should raise FlagValidationError when trying to set at project level
@@ -56,6 +76,11 @@ class TestAllowClientInfoValidator:
         # Feature-level use should still be allowed
         validate_flag_with_registered(FLAG_ALLOW_CLIENT_INFO, True, is_project=False)
         validate_flag_with_registered(FLAG_ALLOW_CLIENT_INFO, "enabled", is_project=False)
+
+    def test_flag_uses_boolean_normalisation(self, allow_client_info_validator):
+        """Disable strings should normalise to false rather than remain truthy strings."""
+        assert normalise_flag(FLAG_ALLOW_CLIENT_INFO, "enabled") == True
+        assert normalise_flag(FLAG_ALLOW_CLIENT_INFO, "off") == False
 
 
 class TestClientContextTaskConditional:

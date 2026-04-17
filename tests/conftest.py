@@ -313,6 +313,7 @@ def reset_flag_registry():
     # Capture current state
     saved_validators = validators._FLAG_VALIDATORS.copy()
     saved_scopes = validators._FLAG_SCOPES.copy()
+    saved_normalisers = validators._FLAG_NORMALISERS.copy()
 
     yield
 
@@ -321,6 +322,8 @@ def reset_flag_registry():
     validators._FLAG_VALIDATORS.update(saved_validators)
     validators._FLAG_SCOPES.clear()
     validators._FLAG_SCOPES.update(saved_scopes)
+    validators._FLAG_NORMALISERS.clear()
+    validators._FLAG_NORMALISERS.update(saved_normalisers)
 
 
 @pytest.fixture(scope="function")
