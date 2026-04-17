@@ -108,6 +108,12 @@ class TestWorkflowFlagValidation:
         assert _validate_workflow_flag(["discussion", "implementation"], False) is True
         assert _validate_workflow_flag(["discussion", "planning", "implementation", "check", "review"], False) is True
 
+    def test_workflow_flag_invalid_type_returns_false(self):
+        """Test workflow flag validator returns False for invalid shapes."""
+        from mcp_guide.workflow.flags import _validate_workflow_flag
+
+        assert _validate_workflow_flag({"discussion": "implementation"}, False) is False  # type: ignore[arg-type]
+
 
 class TestWorkflowConsentValidation:
     """Test workflow-consent flag validation."""

@@ -156,10 +156,10 @@ class TestBooleanValidator:
         register_flag_validator(FLAG_COMMAND, validate_boolean_flag, normaliser=normalise_boolean_flag)
         register_flag_validator(FLAG_ONBOARDED, validate_boolean_flag, normaliser=normalise_boolean_flag)
 
-        assert normalise_flag(FLAG_RESOURCE, "enabled") is True
-        assert normalise_flag(FLAG_COMMAND, "off") is False
-        assert normalise_flag(FLAG_ONBOARDED, "enabled") is True
-        assert normalise_flag(FLAG_ONBOARDED, "off") is False
+        assert normalise_flag(FLAG_RESOURCE, "enabled") == True
+        assert normalise_flag(FLAG_COMMAND, "off") == False
+        assert normalise_flag(FLAG_ONBOARDED, "enabled") == True
+        assert normalise_flag(FLAG_ONBOARDED, "off") == False
 
 
 class TestGuideDevelopmentValidator:
@@ -244,8 +244,8 @@ class TestAutoupdateValidator:
 
     def test_autoupdate_uses_boolean_normalisation(self, autoupdate_validator):
         """Test that autoupdate uses the shared boolean normaliser."""
-        assert normalise_flag(FLAG_AUTOUPDATE, "enabled") is True
-        assert normalise_flag(FLAG_AUTOUPDATE, "off") is False
+        assert normalise_flag(FLAG_AUTOUPDATE, "enabled") == True
+        assert normalise_flag(FLAG_AUTOUPDATE, "off") == False
 
 
 class TestFlagScopeRestrictions:

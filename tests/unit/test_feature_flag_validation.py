@@ -149,12 +149,15 @@ class TestTemplateStylingValidator:
 class TestValidatorRegistration:
     """Test validator registration and usage."""
 
-    def teardown_method(self):
-        """Clean up after each test."""
+    def setup_method(self):
+        """Register the validators used by this test class."""
         clear_validators()
-        # Re-register the default validators
         register_flag_validator("content-format", validate_content_format_mime)
         register_flag_validator(FLAG_CONTENT_STYLE, validate_template_styling)
+
+    def teardown_method(self):
+        """Clean up after each test."""
+        self.setup_method()
 
     def test_registered_validators_work(self):
         """Test that registered validators are used."""

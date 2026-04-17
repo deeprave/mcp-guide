@@ -193,6 +193,8 @@ Desktop.ini
 .todo/
 q.json
 .claude
+.codex/
+.kiro/
 
 # Project configuration
 q.chat
@@ -204,5 +206,4 @@ q.json
 .hook_log
 .amazonq
 .mcp
-.codex/
 .openspec-version.txt

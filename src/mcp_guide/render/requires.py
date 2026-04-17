@@ -2,6 +2,8 @@
 
 from typing import Any
 
+from mcp_guide.feature_flags.types import FeatureValue, to_raw_feature_value
+
 
 def check_requires_directive(required_value: Any, actual_value: Any) -> bool:
     """Check if a requires-* directive is satisfied.
@@ -30,6 +32,9 @@ def check_requires_directive(required_value: Any, actual_value: Any) -> bool:
         >>> check_requires_directive(["implementation"], {"implementation": ["entry"]})
         True
     """
+    if isinstance(actual_value, FeatureValue):
+        actual_value = to_raw_feature_value(actual_value)
+
     # Boolean mode: check truthy/falsy
     if isinstance(required_value, bool):
         return bool(actual_value) == required_value

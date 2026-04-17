@@ -9,7 +9,7 @@ from mcp_guide.feature_flags.constants import (
     FLAG_WORKFLOW_CONSENT,
     FLAG_WORKFLOW_FILE,
 )
-from mcp_guide.feature_flags.types import FeatureValue
+from mcp_guide.feature_flags.types import FeatureValueLike, to_raw_feature_value
 from mcp_guide.feature_flags.validators import register_flag_validator
 from mcp_guide.workflow.constants import (
     DEFAULT_ORDERED_WORKFLOW_PHASES,
@@ -122,17 +122,23 @@ def parse_workflow_phases(workflow_flag: Union[bool, list[str]]) -> WorkflowConf
     return WorkflowConfig(enabled=True, phases=validated_phases, ordered_phases=ordered_phases)
 
 
-def _validate_workflow_flag(value: FeatureValue, is_project: bool) -> bool:
+def _validate_workflow_flag(value: FeatureValueLike | None, is_project: bool) -> bool:
     """Validate workflow flag value with semantic checks."""
-    if not isinstance(value, (bool, list)):
+    if value is None:
+        return False
+    try:
+        raw = to_raw_feature_value(value)
+    except TypeError:
+        return False
+    if not isinstance(raw, (bool, list)):
         return False
 
-    if isinstance(value, bool):
+    if isinstance(raw, bool):
         return True
 
-    if isinstance(value, list):
+    if isinstance(raw, list):
         # All items must be strings and valid phase names (no markers allowed)
-        for phase in value:
+        for phase in raw:
             if not isinstance(phase, str):
                 return False
             # Reject phases with markers
@@ -143,9 +149,9 @@ def _validate_workflow_flag(value: FeatureValue, is_project: bool) -> bool:
                 return False
 
         # Discussion and implementation are mandatory
-        if "discussion" not in value:
+        if "discussion" not in raw:
             return False
-        if "implementation" not in value:
+        if "implementation" not in raw:
             return False
 
         return True
@@ -153,9 +159,12 @@ def _validate_workflow_flag(value: FeatureValue, is_project: bool) -> bool:
     return False
 
 
-def _validate_workflow_file_flag(value: FeatureValue, is_project: bool) -> bool:
+def _validate_workflow_file_flag(value: FeatureValueLike | None, is_project: bool) -> bool:
     """Validate workflow-file flag value."""
-    if not isinstance(value, str) or not value.strip():
+    if value is None:
+        return False
+    raw = to_raw_feature_value(value)
+    if not isinstance(raw, str) or not raw.strip():
         return False
 
     # Basic validation - detailed security validation happens at use time
@@ -163,14 +172,20 @@ def _validate_workflow_file_flag(value: FeatureValue, is_project: bool) -> bool:
     return True
 
 
-def _validate_workflow_consent_flag(value: FeatureValue, is_project: bool) -> bool:
+def _validate_workflow_consent_flag(value: FeatureValueLike | None, is_project: bool) -> bool:
     """Validate workflow-consent flag value."""
-    if value is None or value is True:
+    if value is None:
+        return True
+    try:
+        raw = to_raw_feature_value(value)
+    except TypeError:
+        return False
+    if raw is True:
         return True
 
-    if isinstance(value, dict):
+    if isinstance(raw, dict):
         # Validate structure: {phase: [consent_types]} or {phase: consent_type}
-        for phase, consents in value.items():
+        for phase, consents in raw.items():
             if not isinstance(phase, str):
                 return False
             # Phase must be a valid phase name
@@ -190,7 +205,7 @@ def _validate_workflow_consent_flag(value: FeatureValue, is_project: bool) -> bo
     return False
 
 
-def _validate_startup_instruction_flag(value: FeatureValue, is_project: bool) -> bool:
+def _validate_startup_instruction_flag(value: FeatureValueLike | None, is_project: bool) -> bool:
     """Validate startup-instruction flag value.
 
     Args:
@@ -201,16 +216,17 @@ def _validate_startup_instruction_flag(value: FeatureValue, is_project: bool) ->
         True if valid, False otherwise
     """
     # None or empty string is valid (flag not set)
-    if value is None or value == "":
+    if value is None:
         return True
-
-    # Must be a string
-    if not isinstance(value, str):
+    raw = to_raw_feature_value(value)
+    if raw == "":
+        return True
+    if not isinstance(raw, str):
         return False
 
     # Basic syntax check - will be validated against project when set
     # Just ensure it's not obviously malformed
-    return bool(value.strip())
+    return bool(raw.strip())
 
 
 # Register validators at module import
