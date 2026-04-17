@@ -221,6 +221,136 @@ async def test_render_template_instruction_with_variable():
 
 
 @pytest.mark.anyio
+async def test_workflow_phase_template_validates_requested_phase():
+    """The workflow phase command should reject unavailable phases via _error."""
+    template_file = Path("src/mcp_guide/templates/_commands/workflow/phase.mustache")
+    stat_result = template_file.stat()
+
+    file_info = FileInfo(
+        path=template_file,
+        size=stat_result.st_size,
+        content_size=stat_result.st_size,
+        mtime=datetime.fromtimestamp(stat_result.st_mtime),
+        name=template_file.name,
+    )
+
+    valid_context = TemplateContext(
+        {
+            "workflow": {
+                "file": ".guide.yaml",
+                "phase": "discussion",
+                "phases": {
+                    "discussion": {"next": "planning", "ordered": True},
+                    "planning": {"next": "implementation", "ordered": True},
+                    "implementation": {"next": "check", "ordered": True},
+                    "check": {"next": "review", "ordered": True},
+                    "review": {"next": "discussion", "ordered": True},
+                    "exploration": {"ordered": False},
+                },
+                "phase_list": [
+                    "discussion",
+                    "planning",
+                    "implementation",
+                    "check",
+                    "review",
+                    "exploration",
+                ],
+                "consent": {
+                    "discussion": {"any": False},
+                    "planning": {"any": False},
+                    "implementation": {"any": False},
+                    "check": {"any": False},
+                    "review": {"any": False},
+                    "exploration": {"any": False},
+                },
+            },
+            "args": [{"value": "exploration"}],
+            "tool_prefix": "",
+        }
+    )
+
+    result = await render_template(
+        file_info=file_info,
+        base_dir=template_file.parent,
+        project_flags={"workflow": True},
+        context=valid_context,
+    )
+
+    assert result is not None
+    assert "Requested Phase" in result.content
+    assert "`exploration` is available in the configured workflow." in result.content
+    assert result.errors == []
+
+    invalid_context = TemplateContext(
+        {
+            **valid_context.maps[0],
+            "args": [{"value": "deploy"}],
+        }
+    )
+
+    result = await render_template(
+        file_info=file_info,
+        base_dir=template_file.parent,
+        project_flags={"workflow": True},
+        context=invalid_context,
+    )
+
+    assert result is not None
+    assert result.errors == ["Unknown or unavailable workflow phase: deploy"]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("template_name", "workflow_value", "should_render"),
+    [
+        ("plan.mustache", ["discussion", "planning", "implementation"], True),
+        ("plan.mustache", ["discussion", "implementation"], False),
+        ("explore.mustache", ["discussion", "exploration", "implementation"], True),
+        ("explore.mustache", ["discussion", "planning", "implementation"], False),
+        ("check.mustache", ["discussion", "implementation", "check"], True),
+        ("check.mustache", ["discussion", "implementation", "review"], False),
+        ("review.mustache", ["discussion", "implementation", "review"], True),
+        ("review.mustache", ["discussion", "implementation", "check"], False),
+    ],
+)
+async def test_optional_workflow_command_templates_require_configured_phase(
+    template_name: str, workflow_value: list[str], should_render: bool
+):
+    """Optional phase command templates should be filtered by requires-workflow."""
+    template_file = Path("src/mcp_guide/templates/_commands/workflow") / template_name
+    stat_result = template_file.stat()
+
+    file_info = FileInfo(
+        path=template_file,
+        size=stat_result.st_size,
+        content_size=stat_result.st_size,
+        mtime=datetime.fromtimestamp(stat_result.st_mtime),
+        name=template_file.name,
+    )
+
+    context = TemplateContext(
+        {
+            "workflow": {
+                "file": ".guide.yaml",
+                "issue": "fix-phase-commands",
+            }
+        }
+    )
+
+    result = await render_template(
+        file_info=file_info,
+        base_dir=template_file.parent,
+        project_flags={"workflow": workflow_value},
+        context=context,
+    )
+
+    if should_render:
+        assert result is not None
+    else:
+        assert result is None
+
+
+@pytest.mark.anyio
 async def test_render_template_description_with_variable():
     """Test that template variables in frontmatter description field are rendered."""
     test_file = Path("tests/fixtures/test_description_var.mustache")

@@ -12,4 +12,18 @@ instruction: >
   {{#args.0.value}}Update the phase field in {{workflow.file}} according to the instructions provided to `{{args.0.value}}`.{{/args.0.value}}{{^args.0.value}}Display the current value of the phase field in {{workflow.file}}.{{/args.0.value}}
 ---
 {{#workflow}}{{>workflow-status}}{{/workflow}}
+{{#args.0.value}}
+{{#workflow.contains}}{{args.0.value}}
+
+{{h2}}Requested Phase
+`{{args.0.value}}` is available in the configured workflow.
+
+Update `{{workflow.file}}` by setting `Phase:` to `{{args.0.value}}`, then send
+the complete updated file using {{tool_prefix}}send_file_content with path
+`{{workflow.file}}`.
+{{/workflow.contains}}
+{{#workflow.notcontains}}{{args.0.value}}
+{{#_error}}Unknown or unavailable workflow phase: {{args.0.value}}{{/_error}}
+{{/workflow.notcontains}}
+{{/args.0.value}}
 {{>phase-transitions}}
