@@ -159,6 +159,16 @@ async def render_template_content(
 
         # Create template functions and inject into context with error handling
         functions = TemplateFunctions(final_context)
+        workflow_context = final_context.get("workflow")
+        workflow_vars = {}
+        if isinstance(workflow_context, dict):
+            workflow_vars = {
+                "workflow": {
+                    **workflow_context,
+                    "contains": _safe_lambda(functions.workflow_contains),
+                    "notcontains": _safe_lambda(functions.workflow_notcontains),
+                }
+            }
         stem = Path(file_path).stem if file_path else "template"
         template_context = final_context.new_child(
             {
@@ -178,6 +188,7 @@ async def render_template_content(
                 "command-args": _safe_lambda(functions.command_args),
                 "command-flags": _safe_lambda(functions.command_flags),
                 "command-alias": _safe_lambda(functions.command_alias),
+                **workflow_vars,
             }
         )
 

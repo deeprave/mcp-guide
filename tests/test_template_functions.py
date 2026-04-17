@@ -509,3 +509,91 @@ class TestEqualsLambdas:
 
         result = functions.notequals("{{args.0.value}}{{workflow.issue}}DIFFERENT", lambda t: t)
         assert result == "DIFFERENT"
+
+
+class TestWorkflowContainsLambdas:
+    """Test workflow-scoped contains/notcontains lambdas."""
+
+    @pytest.mark.anyio
+    async def test_nested_workflow_contains_renders_body_for_configured_phase(self):
+        context = TemplateContext(
+            {
+                "workflow": {
+                    "phase_list": ["discussion", "planning", "implementation"],
+                },
+                "args": [{"value": "planning"}],
+            }
+        )
+
+        result = await render_template_content(
+            "{{#workflow.contains}}{{args.0.value}}OK: {{args.0.value}}{{/workflow.contains}}",
+            context,
+        )
+
+        assert result.is_ok()
+        rendered_content, _, errors = result.value
+        assert rendered_content == "OK: planning"
+        assert errors == []
+
+    @pytest.mark.anyio
+    async def test_nested_workflow_contains_suppresses_body_for_missing_phase(self):
+        context = TemplateContext(
+            {
+                "workflow": {
+                    "phase_list": ["discussion", "implementation"],
+                },
+                "args": [{"value": "planning"}],
+            }
+        )
+
+        result = await render_template_content(
+            "{{#workflow.contains}}{{args.0.value}}OK: {{args.0.value}}{{/workflow.contains}}",
+            context,
+        )
+
+        assert result.is_ok()
+        rendered_content, _, errors = result.value
+        assert rendered_content == ""
+        assert errors == []
+
+    @pytest.mark.anyio
+    async def test_nested_workflow_notcontains_renders_body_for_missing_phase(self):
+        context = TemplateContext(
+            {
+                "workflow": {
+                    "phase_list": ["discussion", "implementation"],
+                },
+                "args": [{"value": "planning"}],
+            }
+        )
+
+        result = await render_template_content(
+            "{{#workflow.notcontains}}{{args.0.value}}{{#_error}}Unknown or unavailable workflow phase: {{args.0.value}}{{/_error}}{{/workflow.notcontains}}",
+            context,
+        )
+
+        assert result.is_ok()
+        rendered_content, _, errors = result.value
+        assert rendered_content == ""
+        assert errors == ["Unknown or unavailable workflow phase: planning"]
+
+    @pytest.mark.anyio
+    async def test_nested_workflow_notcontains_suppresses_body_for_configured_phase(self):
+        context = TemplateContext(
+            {
+                "workflow": {
+                    "phase_list": ["discussion", "planning", "implementation"],
+                },
+                "args": [{"value": "planning"}],
+            }
+        )
+
+        result = await render_template_content(
+            "{{#workflow.notcontains}}{{args.0.value}}NOPE{{/workflow.notcontains}}",
+            context,
+        )
+
+        assert result.is_ok()
+        rendered_content, _, errors = result.value
+        assert rendered_content == ""
+        assert errors == []

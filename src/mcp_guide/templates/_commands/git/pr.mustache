@@ -1,0 +1,28 @@
+---
+type: agent/instruction
+description: Create a pull request with an appropriate title and body
+category: "git"
+usage: "guide://_git/pr"
+aliases:
+  - pr
+instruction: Create a pull request for the current branch using the project guidance
+---
+{{h1}}Pull Request
+
+- Review the current branch, commit history, and diff before opening the pull request
+- Prepare a pull request title and body that accurately describe the change
+
+{{h2}}Instructions
+
+- Use {{#resource}}pr{{/resource}} to prepare the pull request message
+- If `.github/pull_request_template.md` exists, use it as the starting structure for the pull request body
+- Keep the body focused on user-visible or behavior-level changes rather than file-by-file detail
+- Include relevant context, impact, and follow-up notes where appropriate
+- Do not include "brag" information such as test related statistics or overzealous claims
+
+{{h2}}Before Opening
+
+- Confirm the current branch is ready to be proposed
+- Push the branch if needed
+- Open the pull request against the correct base branch using the prepared title and body
+

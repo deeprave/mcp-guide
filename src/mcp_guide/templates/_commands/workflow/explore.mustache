@@ -1,36 +1,39 @@
 ---
 type: agent/instruction
-usage: "guide://_workflow/explore[/<issue-id>]"
+Description: Enter exploration mode for investigation and requirements discovery
 category: "project-workflow"
-requires-workflow: true
+usage: "guide://_workflow/explore"
+requires-workflow: [exploration]
 aliases:
   - explore
-description: Enter exploration mode, optionally switch to a different issue
-instruction: "{{INSTRUCTION_AGENT_INSTRUCTIONS}}"
+instruction: Investigate the current issue without making production code changes
 ---
-If not already in exploration phase, You must change the workflow to EXPLORATION phase.
+{{#workflow}}If you are not currently in exploration phase, you must transition to it now.
+{{/workflow}}
+{{h1}}Exploration mode
 
-{{#args.0.value}}
-{{h2}}Change to the specified issue: `{{args.0.value}}`
+- Read the `{{workflow.file}}` file to understand the current issue context
+- Investigate requirements, constraints, and possible approaches
+- Compare options and capture findings before planning or implementation
 
-{{h3}}Update Workflow
-  1. Update workflow file `{{workflow.file}}`:
-     - Set `Issue:` to `{{args.0.value}}`
-{{#equals}}{{args.0.value}}{{workflow.issue}}
-     - Keep the `Plan:` field unchanged
-     - Keep the `Track:` field unchanged
-{{/equals}}
-{{#notequals}}{{args.0.value}}{{workflow.issue}}
-     - Keep the `Plan:` field unchanged
-     - Clear the `Track:` field (if present)
-{{/notequals}}
-     - Remove `{{args.0.value}}` from the queue if it exists
-  2. Change current phase to exploration
-  3. Send updated workflow file using {{tool_prefix}}send_file_content with path `{{workflow.file}}`
+{{h2}}Exploration Rules
 
-{{/args.0.value}}
-{{^args.0.value}}
-  1. Keep the current workflow issue, plan and tracking
-  2. Change current phase to exploration
-  3. Send updated workflow file using {{tool_prefix}}send_file_content with path `{{workflow.file}}`
-{{/args.0.value}}
+- Allowed: codebase analysis, documentation review, requirement discovery, option comparison, external research
+- Allowed: creating or updating workflow, OpenSpec, and planning artifacts
+- Not allowed: production code changes, feature implementation, tests, or unrelated project-file edits
+
+{{h2}}Purpose
+
+- Clarify what should happen before planning or implementation
+- Identify unknowns, risks, and tradeoffs
+- Produce findings that can inform the next phase
+
+{{h2}}Working Style
+
+- Follow useful lines of investigation without turning exploration into implementation
+- Ground conclusions in the codebase and other sources where appropriate
+- Capture findings in plans or OpenSpec artifacts when requested
+
+{{instruction}}
+
+Use {{#resource}}docs/tracking{{/resource}} to review workflow rules and transition guidance.

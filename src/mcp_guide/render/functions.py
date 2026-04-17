@@ -115,6 +115,49 @@ class TemplateFunctions:
             raise KeyError(f"Variable not found in context: {var_name}")
         return value
 
+    def _parse_section_leading_var(self, text: str) -> tuple[str, str]:
+        """Parse a section body that starts with a variable reference.
+
+        Expected form:
+            {{variable.path}}...body...
+        """
+        if not text.startswith("{{"):
+            raise ValueError(f"Invalid template format: {text}")
+
+        end = text.find("}}", 2)
+        if end == -1:
+            raise ValueError(f"Unterminated variable reference in template: {text}")
+
+        var_part = text[2:end]
+        body = text[end + 2 :]
+        var_name = var_part.strip()
+        self._validate_variable_name(var_name, text)
+        return var_name, body
+
+    def _get_workflow_phases(self) -> set[str]:
+        """Return the configured workflow phases from context."""
+        workflow = self._resolve_path("workflow")
+        if workflow is _MISSING or not isinstance(workflow, dict):
+            return set()
+
+        phase_list = workflow.get("phase_list")
+        if isinstance(phase_list, list):
+            phases: set[str] = set()
+            for item in phase_list:
+                if isinstance(item, dict):
+                    value = item.get("value")
+                    if isinstance(value, str):
+                        phases.add(value)
+                elif isinstance(item, str):
+                    phases.add(item)
+            if phases:
+                return phases
+
+        phases_dict = workflow.get("phases")
+        if isinstance(phases_dict, dict):
+            return {key for key in phases_dict.keys() if isinstance(key, str)}
+        return set()
+
     def format_date(self, text: str, render: Callable[[str], str] | None = None) -> str:
         """Format dates: {{#format_date}}%Y-%m-%d{{created_at}}{{/format_date}}"""
         format_str, var_name = self._parse_template_args(text)
@@ -170,6 +213,28 @@ class TemplateFunctions:
 
         actual = str(actual_value)
         return render(text) if render and substring.strip() in actual else ""
+
+    def workflow_contains(self, text: str, render: Callable[[str], str] | None = None) -> str:
+        """Check if a phase exists in configured workflow phases.
+
+        Usage:
+            {{#workflow.contains}}{{args.0.value}}...body...{{/workflow.contains}}
+        """
+        var_name, body = self._parse_section_leading_var(text)
+        candidate = self._resolve_path(var_name)
+        if candidate is _MISSING:
+            return ""
+
+        return render(body) if render and str(candidate) in self._get_workflow_phases() else ""
+
+    def workflow_notcontains(self, text: str, render: Callable[[str], str] | None = None) -> str:
+        """Inverse of workflow_contains for phase membership checks."""
+        var_name, body = self._parse_section_leading_var(text)
+        candidate = self._resolve_path(var_name)
+        if candidate is _MISSING:
+            return ""
+
+        return render(body) if render and str(candidate) not in self._get_workflow_phases() else ""
 
     def time_ago(self, text: str, render: Callable[[str], str] | None = None) -> str:
         """Format timestamp as relative time: {{#time_ago}}{{exported_at}}{{/time_ago}}"""
