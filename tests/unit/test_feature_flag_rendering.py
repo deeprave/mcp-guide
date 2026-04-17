@@ -6,6 +6,7 @@ import pytest
 
 from mcp_guide.feature_flags.types import FeatureValue
 from mcp_guide.render.cache import TemplateContextCache
+from mcp_guide.render.context import TemplateContext
 from mcp_guide.result import Result
 
 
@@ -54,3 +55,20 @@ async def test_project_context_renders_wrapped_flag_values_for_display():
     assert [{"key": item["key"], "value": item["value"]} for item in context["flag_values"]] == [
         {"key": "autoupdate", "value": "true"}
     ]
+    assert context["project"]["project_flags"]["content-style"] == FeatureValue("plain")
+    assert context["project"]["project_flags"]["workflow"] == FeatureValue(["discussion", "implementation"])
+    assert context["project"]["project_flags"]["workflow-consent"] == FeatureValue(
+        {"implementation": ["entry", "exit"]}
+    )
+
+
+def test_generic_indexed_list_rendering_remains_unchanged():
+    """Non-display list values should still use IndexedList semantics."""
+    context = TemplateContext({"items": ["alpha", "beta"]})
+
+    assert context["items"][0]["value"] == "alpha"
+    assert context["items"][0]["first"] is True
+    assert context["items"][0]["last"] is False
+    assert context["items"][1]["value"] == "beta"
+    assert context["items"][1]["first"] is False
+    assert context["items"][1]["last"] is True
