@@ -150,6 +150,32 @@ async def test_render_template_requires_list_with_list_any_match():
 
 
 @pytest.mark.anyio
+async def test_render_template_requires_workflow_list_matches_boolean_true_default_workflow():
+    """Boolean workflow shorthand should satisfy phase-list requirements via default phases."""
+    test_file = Path("tests/fixtures/test_requires_workflow_true.mustache")
+    test_file.parent.mkdir(parents=True, exist_ok=True)
+    test_file.write_text("---\nrequires-workflow: [planning]\n---\nContent")
+
+    try:
+        file_info = FileInfo(
+            path=test_file,
+            size=test_file.stat().st_size,
+            content_size=7,
+            mtime=datetime.fromtimestamp(test_file.stat().st_mtime),
+            name=test_file.name,
+        )
+
+        result = await render_template(
+            file_info=file_info,
+            base_dir=test_file.parent,
+            project_flags={"workflow": True},
+        )
+        assert result is not None
+    finally:
+        test_file.unlink(missing_ok=True)
+
+
+@pytest.mark.anyio
 async def test_render_template_requires_list_with_dict_any_key():
     """Test list requirement with dict value - should match if ANY required key exists."""
     test_file = Path("tests/fixtures/test_requires_list_dict.mustache")

@@ -239,6 +239,46 @@ description: Workflow command
                 assert commands[0]["name"] == "workflow"
 
     @pytest.mark.anyio
+    async def test_discover_commands_matches_workflow_phase_requirements_for_boolean_true(self) -> None:
+        """workflow: true should satisfy phase-list requirements using default workflow phases."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            commands_dir = Path(temp_dir) / "_commands"
+            commands_dir.mkdir()
+
+            planning_content = """---
+requires-workflow: [planning]
+description: Planning command
+---
+# Planning Command
+"""
+            (commands_dir / "plan.md").write_text(planning_content)
+
+            mock_files = [
+                FileInfo(
+                    path=Path("plan.md"),
+                    size=100,
+                    content_size=100,
+                    mtime=1234567890,
+                    name="plan.md",
+                    content=planning_content,
+                    ctime=1234567890,
+                )
+            ]
+
+            mock_context = {"workflow": True}
+
+            with (
+                patch("mcp_guide.discovery.commands.discover_document_files", new=AsyncMock(return_value=mock_files)),
+                patch("mcp_guide.render.cache.get_template_contexts", new=AsyncMock(return_value=mock_context)),
+            ):
+                from mcp_guide.discovery.commands import discover_commands
+
+                commands = await discover_commands(commands_dir)
+
+                assert len(commands) == 1
+                assert commands[0]["name"] == "plan"
+
+    @pytest.mark.anyio
     async def test_discover_commands_filters_invalid_aliases(self) -> None:
         """Should drop aliases that are unsafe as command paths and keep valid nested aliases."""
         with tempfile.TemporaryDirectory() as temp_dir:

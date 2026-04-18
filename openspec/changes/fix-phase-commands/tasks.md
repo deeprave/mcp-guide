@@ -3,7 +3,7 @@
 - [x] 1.1 Confirm the intended semantics of `requires-workflow: [phase]` for workflow command templates
 - [x] 1.2 Inventory phase-changing templates under `src/mcp_guide/templates/_commands/workflow/`
 - [x] 1.3 Separate optional single-phase transition commands from generic workflow helpers and dynamic phase commands
-- [x] 1.4 Document that `discuss`, `implement`, `explore`, `reset`, `issue`, and `show` remain valid on `requires-workflow: true`
+- [x] 1.4 Document that `discuss`, `implement`, `reset`, `issue`, and `show` remain valid on `requires-workflow: true`, while `explore` is gated by `requires-workflow: [exploration]`
 
 ## 2. Template corrections
 

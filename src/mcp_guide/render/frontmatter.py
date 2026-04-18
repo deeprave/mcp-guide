@@ -21,6 +21,7 @@ from mcp_guide.result_constants import (
     INSTRUCTION_DISPLAY_ONLY,
     USER_INFO,
 )
+from mcp_guide.workflow.constants import DEFAULT_WORKFLOW_PHASES
 
 if TYPE_CHECKING:
     from mcp_guide.render.context import TemplateContext
@@ -42,6 +43,13 @@ logger = get_logger(__name__)
 IMPORTANT_PREFIX_PATTERN = re.compile(r"^\^\s*")
 
 
+def _normalize_requires_actual_value(flag_name: str, actual_value: Any) -> Any:
+    """Normalize raw flag values before evaluating requires-* directives."""
+    if flag_name == "workflow" and actual_value is True:
+        return DEFAULT_WORKFLOW_PHASES
+    return actual_value
+
+
 def check_frontmatter_requirements(frontmatter: Dict[str, Any], context: Dict[str, Any]) -> bool:
     """Check if frontmatter requirements are satisfied by context.
 
@@ -57,7 +65,7 @@ def check_frontmatter_requirements(frontmatter: Dict[str, Any], context: Dict[st
             continue
 
         flag_name = key[9:]  # Remove "requires-" prefix
-        actual_value = context.get(flag_name)
+        actual_value = _normalize_requires_actual_value(flag_name, context.get(flag_name))
 
         if not check_requires_directive(required_value, actual_value):
             return False
