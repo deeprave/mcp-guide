@@ -563,7 +563,7 @@ class TestInstallFileSmartUpdate:
     @pytest.mark.anyio
     async def test_docroot_safety_check(self, scenario: str, should_raise: bool, tmp_path: Path) -> None:
         """Test docroot safety validation with various path scenarios."""
-        from mcp_guide.installer.core import get_templates_path, validate_docroot_safety
+        from mcp_guide.installer.core import DocrootValidationError, get_templates_path, validate_docroot_safety
 
         if scenario == "same_path":
             docroot = await get_templates_path()
@@ -574,7 +574,7 @@ class TestInstallFileSmartUpdate:
             docroot = tmp_path / "nonexistent"
 
         if should_raise:
-            with pytest.raises(ValueError, match="Docroot cannot be same as template source"):
+            with pytest.raises(DocrootValidationError, match="Docroot cannot be same as template source"):
                 await validate_docroot_safety(docroot)
         else:
             await validate_docroot_safety(docroot)

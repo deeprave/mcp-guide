@@ -9,8 +9,8 @@ from mcp_guide.tasks.update_task import McpUpdateTask
 
 
 @pytest.mark.anyio
-async def test_update_task_enabled_without_flag():
-    """Test task treats unset autoupdate as enabled."""
+async def test_update_task_enabled_without_flag(tmp_path):
+    """Test task treats unset autoupdate as enabled when an update is needed."""
     task_manager = Mock()
     task_manager.subscribe = Mock()
     task_manager.resolved_flags = AsyncMock(return_value={})
@@ -18,22 +18,24 @@ async def test_update_task_enabled_without_flag():
     task_manager.unsubscribe = AsyncMock()
 
     session = Mock()
-    session.get_docroot = AsyncMock(return_value="/tmp/docroot")
+    session.get_docroot = AsyncMock(return_value=str(tmp_path))
+
+    version_file = tmp_path / ".version"
+    version_file.write_text("0.0.1")
 
     with patch("mcp_guide.session.get_session", return_value=session):
         with patch("mcp_guide.render.rendering.render_content", new_callable=AsyncMock) as mock_render:
-            with patch("mcp_guide.tasks.update_task.AsyncPath.exists", new=AsyncMock(return_value=True)):
-                mock_content = Mock()
-                mock_content.content = "Update prompt"
-                mock_render.return_value = mock_content
+            mock_content = Mock()
+            mock_content.content = "Update prompt"
+            mock_render.return_value = mock_content
 
-                task = McpUpdateTask(task_manager)
-                result = await task.handle_event(EventType.TIMER_ONCE, {})
+            task = McpUpdateTask(task_manager)
+            result = await task.handle_event(EventType.TIMER_ONCE, {})
 
-                task_manager.resolved_flags.assert_called_once()
-                task_manager.queue_instruction_with_ack.assert_called_once_with("Update prompt")
-                assert result is not None
-                assert result.result is True
+            task_manager.resolved_flags.assert_called_once()
+            task_manager.queue_instruction_with_ack.assert_called_once_with("Update prompt")
+            assert result is not None
+            assert result.result is True
 
 
 @pytest.mark.anyio
@@ -76,29 +78,23 @@ async def test_update_task_no_project():
 
 @pytest.mark.anyio
 async def test_update_task_no_version_file(tmp_path):
-    """Test task prompts when no version file exists."""
+    """Test task skips prompt when no version file exists."""
     task_manager = Mock()
     task_manager.subscribe = Mock()
     task_manager.resolved_flags = AsyncMock(return_value={})
-    task_manager.queue_instruction_with_ack = AsyncMock(return_value="test-id")
+    task_manager.queue_instruction_with_ack = AsyncMock()
     task_manager.unsubscribe = AsyncMock()
 
     session = Mock()
     session.get_docroot = AsyncMock(return_value=str(tmp_path))
 
     with patch("mcp_guide.session.get_session", return_value=session):
-        with patch("mcp_guide.render.rendering.render_content", new_callable=AsyncMock) as mock_render:
-            mock_content = Mock()
-            mock_content.content = "Update prompt"
-            mock_render.return_value = mock_content
+        task = McpUpdateTask(task_manager)
+        result = await task.handle_event(EventType.TIMER_ONCE, {})
 
-            task = McpUpdateTask(task_manager)
-            result = await task.handle_event(EventType.TIMER_ONCE, {})
-
-            # Should queue instruction
-            task_manager.queue_instruction_with_ack.assert_called_once_with("Update prompt")
-            assert result is not None
-            assert result.result is True
+        task_manager.queue_instruction_with_ack.assert_not_called()
+        assert result is not None
+        assert result.result is True
 
 
 @pytest.mark.anyio
@@ -157,6 +153,36 @@ async def test_update_task_version_current(tmp_path):
         result = await task.handle_event(EventType.TIMER_ONCE, {})
 
         # Should NOT queue instruction
+        task_manager.queue_instruction_with_ack.assert_not_called()
+        assert result is not None
+        assert result.result is True
+
+
+@pytest.mark.anyio
+async def test_update_task_skips_prompt_for_unsafe_docroot() -> None:
+    """Test task skips prompt when docroot is not safe for updates."""
+    from mcp_guide.installer.core import DocrootValidationError
+
+    task_manager = Mock()
+    task_manager.subscribe = Mock()
+    task_manager.resolved_flags = AsyncMock(return_value={"autoupdate": True})
+    task_manager.queue_instruction_with_ack = AsyncMock()
+    task_manager.unsubscribe = AsyncMock()
+
+    session = Mock()
+    session.get_docroot = AsyncMock(return_value="/tmp/docroot")
+
+    with (
+        patch("mcp_guide.session.get_session", return_value=session),
+        patch("mcp_guide.tasks.update_task.AsyncPath.exists", new=AsyncMock(return_value=True)),
+        patch(
+            "mcp_guide.tasks.update_task.validate_docroot_safety",
+            new=AsyncMock(side_effect=DocrootValidationError("unsafe")),
+        ),
+    ):
+        task = McpUpdateTask(task_manager)
+        result = await task.handle_event(EventType.TIMER_ONCE, {})
+
         task_manager.queue_instruction_with_ack.assert_not_called()
         assert result is not None
         assert result.result is True

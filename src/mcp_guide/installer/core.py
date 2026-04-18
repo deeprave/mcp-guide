@@ -20,6 +20,10 @@ ARCHIVE_EXCLUDED_ENTRIES = frozenset({"README.md", VERSION_FILE})
 logger = get_logger(__name__)
 
 
+class DocrootValidationError(ValueError):
+    """Raised when a docroot fails safety or updateability validation."""
+
+
 async def validate_docroot_safety(docroot: Path) -> None:
     """Validate docroot is not the template source directory.
 
@@ -27,7 +31,7 @@ async def validate_docroot_safety(docroot: Path) -> None:
         docroot: Docroot path to validate
 
     Raises:
-        ValueError: If docroot resolves to template source path
+        DocrootValidationError: If docroot resolves to template source path
     """
     templates_path = await get_templates_path()
     try:
@@ -43,7 +47,7 @@ async def validate_docroot_safety(docroot: Path) -> None:
         return
 
     if docroot_resolved == templates_resolved:
-        raise ValueError(f"Docroot cannot be same as template source: {docroot_resolved}")
+        raise DocrootValidationError(f"Docroot cannot be same as template source: {docroot_resolved}")
 
 
 def get_backup_path(file_path: Path) -> Path:
