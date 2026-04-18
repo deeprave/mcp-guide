@@ -86,6 +86,13 @@ class McpUpdateTask:
             except DocrootValidationError:
                 logger.debug("Docroot %s is not updatable; skipping update prompt", docroot)
                 return EventResult(result=True)
+            except FileNotFoundError as exc:
+                logger.warning(
+                    "Unable to validate docroot %s; skipping update prompt: %s",
+                    docroot,
+                    exc,
+                )
+                return EventResult(result=True)
 
             # Read current version with error handling
             try:

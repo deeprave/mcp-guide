@@ -80,7 +80,7 @@ class TestArgumentParsing:
 
     @pytest.mark.e2e
     def test_installed_entry_point_help_runs(self, tmp_path: Path) -> None:
-        """Installed console script should run from an isolated virtualenv."""
+        """Installed console script should run from an isolated uv-synced virtualenv."""
         import os
         import subprocess
         import sys
@@ -92,8 +92,18 @@ class TestArgumentParsing:
         python_exe = bin_dir / ("python.exe" if os.name == "nt" else "python")
 
         project_root = Path(__file__).resolve().parents[3]
-        subprocess.check_call([str(python_exe), "-m", "pip", "install", str(project_root)])
-        subprocess.check_call([str(bin_dir / "mcp-install"), "--help"], env=os.environ.copy())
+        env = os.environ.copy()
+        env["VIRTUAL_ENV"] = str(venv_dir)
+        env["PATH"] = os.pathsep.join([str(bin_dir), env.get("PATH", "")])
+
+        try:
+            subprocess.check_call(
+                ["uv", "sync", "--project", str(project_root), "--active", "--frozen", "--offline"],
+                env=env,
+            )
+        except subprocess.CalledProcessError as exc:
+            pytest.skip(f"uv sync could not complete offline: {exc}")
+        subprocess.check_call([str(bin_dir / "mcp-install"), "--help"], env=env)
 
 
 class TestInstallation:

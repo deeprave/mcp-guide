@@ -189,6 +189,36 @@ async def test_update_task_skips_prompt_for_unsafe_docroot(tmp_path) -> None:
 
 
 @pytest.mark.anyio
+async def test_update_task_skips_prompt_when_templates_missing(tmp_path) -> None:
+    """Test task skips prompt when template validation cannot locate templates."""
+    task_manager = Mock()
+    task_manager.subscribe = Mock()
+    task_manager.resolved_flags = AsyncMock(return_value={"autoupdate": True})
+    task_manager.queue_instruction_with_ack = AsyncMock()
+    task_manager.unsubscribe = AsyncMock()
+
+    session = Mock()
+    session.get_docroot = AsyncMock(return_value=str(tmp_path))
+
+    version_file = tmp_path / ".version"
+    version_file.write_text("0.0.1")
+
+    with (
+        patch("mcp_guide.session.get_session", return_value=session),
+        patch(
+            "mcp_guide.tasks.update_task.validate_docroot_safety",
+            new=AsyncMock(side_effect=FileNotFoundError("Templates directory not found")),
+        ),
+    ):
+        task = McpUpdateTask(task_manager)
+        result = await task.handle_event(EventType.TIMER_ONCE, {})
+
+        task_manager.queue_instruction_with_ack.assert_not_called()
+        assert result is not None
+        assert result.result is True
+
+
+@pytest.mark.anyio
 async def test_acknowledge_update_clears_tracked_instruction():
     """Test acknowledge_update acknowledges and clears the tracked instruction id."""
     task_manager = Mock()
