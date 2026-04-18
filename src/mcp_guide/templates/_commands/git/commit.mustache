@@ -1,7 +1,7 @@
 ---
 type: agent/instruction
 description: Create a branch and commit changes with an appropriate message
-category: "git-operations"
+category: "git"
 usage: "guide://_git/commit"
 aliases:
   - commit
@@ -12,7 +12,7 @@ instruction: Create a git branch if needed, then commit the current changes
 {{h2}}Branching
 
 - Check the current branch before committing
-  - If on `main`, create and switch to a feature branch create a new branch with a descriptive name based on the current change
+  - If on `main`, create and switch to a feature branch with a descriptive name based on the current change
     Use a feature/ prefix for new or updated features, bugfix/ prefix for bug fixes etc.
   - If you are not on `main`, continue on the current branch unless there is a clear reason to branch differently
 - Review the current changes and create an appropriate commit message that reflects the actual change
@@ -26,4 +26,3 @@ instruction: Create a git branch if needed, then commit the current changes
 - Do not amend existing commits:
   - Unless explicitly requested
   - if a commit has already been pushed
-
