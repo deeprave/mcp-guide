@@ -159,7 +159,7 @@ async def test_update_task_version_current(tmp_path):
 
 
 @pytest.mark.anyio
-async def test_update_task_skips_prompt_for_unsafe_docroot() -> None:
+async def test_update_task_skips_prompt_for_unsafe_docroot(tmp_path) -> None:
     """Test task skips prompt when docroot is not safe for updates."""
     from mcp_guide.installer.core import DocrootValidationError
 
@@ -170,7 +170,7 @@ async def test_update_task_skips_prompt_for_unsafe_docroot() -> None:
     task_manager.unsubscribe = AsyncMock()
 
     session = Mock()
-    session.get_docroot = AsyncMock(return_value="/tmp/docroot")
+    session.get_docroot = AsyncMock(return_value=str(tmp_path))
 
     with (
         patch("mcp_guide.session.get_session", return_value=session),

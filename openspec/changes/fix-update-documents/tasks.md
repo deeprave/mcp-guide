@@ -1,7 +1,7 @@
 ## 1. Startup Prompt Gating
 
 - [x] 1.1 Inspect `McpUpdateTask` startup/update prompting flow and identify the earliest safe point to resolve and validate `docroot`
-- [x] 1.2 Reuse or extract the installer-side docroot safety validation needed to determine whether a documentation root is updateable
+- [x] 1.2 Reuse or extract the installer-side docroot safety validation needed to determine whether a documentation root is updatable
 - [x] 1.3 Update startup prompt gating so invalid docroots, including template-source docroots, return without queuing an acknowledged `update_documents` instruction
 
 ## 2. Version File Handling
