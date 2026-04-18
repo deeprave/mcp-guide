@@ -6,8 +6,8 @@ The workflow command templates under
 `src/mcp_guide/templates/_commands/workflow/` currently have two related
 problems.
 
-First, optional single-phase commands such as `plan`, `check`, and `review`
-along with `explore`
+First, optional single-phase commands such as `plan`, `explore`, `check`, and
+`review`
 omit `requires-workflow` entirely even though they reference phases that may
 not be configured in a given workflow.
 
@@ -39,7 +39,6 @@ phase configuration:
 
 - `discuss.mustache`
 - `implement.mustache`
-- `explore.mustache`
 - `reset.mustache`
 - `issue.mustache`
 - `show.mustache`
