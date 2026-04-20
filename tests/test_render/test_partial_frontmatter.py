@@ -38,7 +38,7 @@ class TestPartialFrontmatter:
         partial_file = tmp_path / "_test.mustache"
         partial_file.write_text("---\nrequires-feature: true\ninstruction: Show this\n---\nContent")
 
-        context = {"feature": "enabled"}
+        context = {"feature": True}
         content, frontmatter = await load_partial_content(partial_file, tmp_path, context)
         assert content == "Content"
         assert frontmatter.get("instruction") == "Show this"
@@ -48,7 +48,7 @@ class TestPartialFrontmatter:
         partial_file = tmp_path / "_test.mustache"
         partial_file.write_text("---\nrequires-feature: true\ninstruction: Show this\n---\nContent")
 
-        context = {"feature": "disabled"}
+        context = {"feature": False}
         content, frontmatter = await load_partial_content(partial_file, tmp_path, context)
         assert content == ""
         # Frontmatter should still be returned even if requirements not met
