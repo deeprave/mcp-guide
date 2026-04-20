@@ -36,7 +36,7 @@ class TestPartialFrontmatter:
     async def test_load_partial_with_requirements_met(self, tmp_path):
         """Test partial with met requirements returns content and frontmatter."""
         partial_file = tmp_path / "_test.mustache"
-        partial_file.write_text("---\nrequires-feature: enabled\ninstruction: Show this\n---\nContent")
+        partial_file.write_text("---\nrequires-feature: true\ninstruction: Show this\n---\nContent")
 
         context = {"feature": "enabled"}
         content, frontmatter = await load_partial_content(partial_file, tmp_path, context)
@@ -46,7 +46,7 @@ class TestPartialFrontmatter:
     async def test_load_partial_with_requirements_not_met(self, tmp_path):
         """Test partial with unmet requirements returns empty content."""
         partial_file = tmp_path / "_test.mustache"
-        partial_file.write_text("---\nrequires-feature: enabled\ninstruction: Show this\n---\nContent")
+        partial_file.write_text("---\nrequires-feature: true\ninstruction: Show this\n---\nContent")
 
         context = {"feature": "disabled"}
         content, frontmatter = await load_partial_content(partial_file, tmp_path, context)

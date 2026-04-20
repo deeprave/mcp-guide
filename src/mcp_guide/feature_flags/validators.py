@@ -1,5 +1,6 @@
 """Feature flag validators and registration system."""
 
+from collections.abc import Collection
 from enum import Enum
 from typing import Callable, Dict
 
@@ -22,6 +23,12 @@ from mcp_guide.models import _NAME_REGEX
 __all__ = [
     "validate_flag_name",
     "validate_flag_value",
+    "coerce_boolean_like",
+    "is_value_true",
+    "is_value_false",
+    "make_string_choice_validator",
+    "validate_boolean_or_string_flag",
+    "normalise_boolean_or_string_flag",
     "register_flag_validator",
     "validate_flag_with_registered",
     "normalise_flag",
@@ -61,6 +68,10 @@ class FlagValidationError(Exception):
     pass
 
 
+_TRUE_LIKE_STRINGS = frozenset({"true", "on", "enabled", "yes", "1"})
+_FALSE_LIKE_STRINGS = frozenset({"false", "off", "disabled", "no", "0", ""})
+
+
 def validate_flag_name(name: str) -> bool:
     """Validate feature flag name.
 
@@ -80,42 +91,67 @@ def validate_flag_name(name: str) -> bool:
     return bool(_NAME_REGEX.match(name))
 
 
-def validate_content_format_mime(value: FeatureValueLike | None, is_project: bool) -> bool:
-    """Validate content-format flag value.
+def coerce_boolean_like(value: FeatureValueLike | None) -> bool | None:
+    """Return canonical bool for known boolean-like inputs, else None.
 
-    Args:
-        value: Flag value to validate
-        is_project: True if this is a project flag, False if global
-
-    Returns:
-        True if value is valid, False otherwise
+    This is the single coercion rule shared across feature-flag handling.
+    Callers can decide whether a non-coercible value should remain a string or
+    be treated as invalid.
     """
     if value is None:
-        return True
+        return None
     try:
-        wrapped = FeatureValue.from_raw(value)
+        raw = FeatureValue.from_raw(value).to_raw()
     except TypeError:
-        return False
-    return wrapped in ["none", "plain", "mime"]
+        return None
+
+    if isinstance(raw, bool):
+        return raw
+    if isinstance(raw, str):
+        lowered = raw.lower()
+        if lowered in _TRUE_LIKE_STRINGS:
+            return True
+        if lowered in _FALSE_LIKE_STRINGS:
+            return False
+    return None
 
 
-def validate_template_styling(value: FeatureValueLike | None, is_project: bool) -> bool:
-    """Validate content-style flag value.
+def is_value_true(value: FeatureValueLike | None) -> bool:
+    """Check whether value is a truthy boolean-like input."""
+    return coerce_boolean_like(value) is True
 
-    Args:
-        value: Flag value to validate
-        is_project: True if this is a project flag, False if global
 
-    Returns:
-        True if value is valid, False otherwise
+def is_value_false(value: FeatureValueLike | None) -> bool:
+    """Check whether value is a falsy boolean-like input."""
+    return coerce_boolean_like(value) is False
+
+
+def make_string_choice_validator(
+    choices: Collection[str],
+    *,
+    allow_none: bool = True,
+) -> Callable[[FeatureValueLike | None, bool], bool]:
+    """Build a validator for flags that accept one of a fixed set of strings.
+
+    `None` is treated as valid by default so callers can use it for flag removal.
     """
-    if value is None:
-        return True
-    try:
-        wrapped = FeatureValue.from_raw(value)
-    except TypeError:
-        return False
-    return wrapped in ["plain", "headings", "full"]
+    allowed = frozenset(choices)
+
+    def validator(value: FeatureValueLike | None, is_project: bool) -> bool:
+        del is_project
+        if value is None:
+            return allow_none
+        try:
+            raw = FeatureValue.from_raw(value).to_raw()
+        except TypeError:
+            return False
+        return isinstance(raw, str) and raw in allowed
+
+    return validator
+
+
+validate_content_format_mime = make_string_choice_validator(["none", "plain", "mime"])
+validate_template_styling = make_string_choice_validator(["plain", "headings", "full"])
 
 
 def validate_allow_client_info(value: FeatureValueLike | None, is_project: bool) -> bool:
@@ -131,21 +167,9 @@ def validate_allow_client_info(value: FeatureValueLike | None, is_project: bool)
     Returns:
         True if value is valid, False otherwise
     """
-    # Accept enable values (will be normalized to True)
     if value is None:
         return True
-    try:
-        raw = FeatureValue.from_raw(value).to_raw()
-    except TypeError:
-        return False
-    if raw is True or raw in ["true", "enabled", "on"]:
-        return True
-
-    # Accept disable values (will be normalized to None)
-    if raw is False or raw in ["false", "disabled", "off"]:
-        return True
-
-    return False
+    return coerce_boolean_like(value) is not None
 
 
 def validate_autoupdate(value: FeatureValueLike | None, is_project: bool) -> bool:
@@ -161,20 +185,9 @@ def validate_autoupdate(value: FeatureValueLike | None, is_project: bool) -> boo
     Returns:
         True if value is valid, False otherwise
     """
-    # Accept boolean values only
     if value is None:
         return True
-    try:
-        raw = FeatureValue.from_raw(value).to_raw()
-    except TypeError:
-        return False
-    if raw is True or raw in ["true", "enabled", "on"]:
-        return True
-
-    if raw is False or raw in ["false", "disabled", "off"]:
-        return True
-
-    return False
+    return coerce_boolean_like(value) is not None
 
 
 def validate_boolean_flag(value: FeatureValueLike | None, is_project: bool) -> bool:
@@ -190,40 +203,44 @@ def validate_boolean_flag(value: FeatureValueLike | None, is_project: bool) -> b
     Returns:
         True if value is valid boolean-like, False otherwise
     """
-    # Accept boolean types
     if value is None:
         return True
-    try:
-        raw = FeatureValue.from_raw(value).to_raw()
-    except TypeError:
-        return False
-    if isinstance(raw, bool):
-        return True
-
-    # Accept string boolean representations
-    if isinstance(raw, str):
-        return raw.lower() in ["true", "false", "on", "off", "enabled", "disabled", ""]
-
-    return False
+    return coerce_boolean_like(value) is not None
 
 
 def normalise_boolean_flag(value: FeatureValueLike | None) -> FeatureValue | None:
     """Normalise boolean-like flag values to True/False."""
     if value is None:
         return None
-    wrapped = FeatureValue.from_raw(value)
-    raw = wrapped.to_raw()
-    if isinstance(raw, bool):
-        return wrapped
+    coerced = coerce_boolean_like(value)
+    if coerced is not None:
+        return FeatureValue(coerced)
+    return FeatureValue.from_raw(value)
 
-    if isinstance(raw, str):
-        lowered = raw.lower()
-        if lowered in ["true", "on", "enabled"]:
-            return FeatureValue(True)
-        if lowered in ["false", "off", "disabled", ""]:
-            return FeatureValue(False)
 
-    return wrapped
+def validate_boolean_or_string_flag(value: FeatureValueLike | None, is_project: bool) -> bool:
+    """Validate the default generic feature flag shape.
+
+    Generic flags default to either booleans or arbitrary strings. Structured
+    shapes remain available only through explicit per-flag registration.
+    """
+    if value is None:
+        return True
+    try:
+        raw = FeatureValue.from_raw(value).to_raw()
+    except TypeError:
+        return False
+    return isinstance(raw, (bool, str))
+
+
+def normalise_boolean_or_string_flag(value: FeatureValueLike | None) -> FeatureValue | None:
+    """Normalise generic feature flags to canonical bool-or-string values."""
+    if value is None:
+        return None
+    coerced = coerce_boolean_like(value)
+    if coerced is not None:
+        return FeatureValue(coerced)
+    return FeatureValue.from_raw(value)
 
 
 def validate_path_flag(value: FeatureValueLike | None, is_project: bool) -> bool:
@@ -295,10 +312,8 @@ def normalise_flag(flag_name: str, value: FeatureValueLike | None) -> FeatureVal
     if value is None:
         return None
     wrapped_value = FeatureValue.from_raw(value)
-    normaliser = _FLAG_NORMALISERS.get(flag_name)
-    if normaliser:
-        return normaliser(wrapped_value)
-    return wrapped_value
+    normaliser = _FLAG_NORMALISERS.get(flag_name, normalise_boolean_or_string_flag)
+    return normaliser(wrapped_value)
 
 
 def register_flag_validator(
@@ -345,7 +360,7 @@ def validate_flag_with_registered(flag_name: str, value: FeatureValueLike | None
             raise FlagValidationError(f"Cannot set feature flag `{flag_name}`, must be a project flag")
 
     # Validate value
-    validator = _FLAG_VALIDATORS.get(flag_name)
+    validator = _FLAG_VALIDATORS.get(flag_name, validate_boolean_or_string_flag)
     if validator and not validator(value, is_project):
         flag_type = "project" if is_project else "feature"
         raise FlagValidationError(f"Invalid {flag_type} flag `{flag_name}` value: {value}")
@@ -381,3 +396,6 @@ register_flag_validator(FLAG_PATH_EXPORT, validate_path_flag, normaliser=normali
 register_flag_validator(
     FLAG_ONBOARDED, validate_boolean_flag, scope=FlagScope.PROJECT_ONLY, normaliser=normalise_boolean_flag
 )
+
+# Import built-in workflow flag registrations after the core registry is defined.
+from mcp_guide.workflow import flags as _workflow_flags  # noqa: F401

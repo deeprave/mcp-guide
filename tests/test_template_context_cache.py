@@ -642,6 +642,51 @@ class TestTemplateContextCache:
             assert context["workflow"]["consent"]["check"]["exit"] is False
 
     @pytest.mark.anyio
+    async def test_workflow_context_with_disabled_consent(self) -> None:
+        """False workflow-consent should disable all consent requirements."""
+        from mcp_guide.models import Project
+
+        cache = TemplateContextCache()
+
+        mock_session = Mock()
+        mock_project = Project(name="test-project", key="test", hash="abc123", categories={}, collections={})
+        mock_session.get_project = AsyncMock(return_value=mock_project)
+        mock_session.get_all_projects = AsyncMock(return_value={})
+        mock_session.feature_flags = Mock(return_value=Mock(list=AsyncMock(return_value={})))
+
+        mock_workflow_state = Mock(
+            phase="planning",
+            issue="test-issue",
+            tracking={},
+            description="",
+            queue=[],
+        )
+
+        with (
+            patch("mcp_guide.session.get_session", return_value=mock_session),
+            patch(
+                "mcp_guide.models.resolve_all_flags",
+                return_value={"workflow": True, "workflow-consent": False},
+            ),
+            patch("mcp_guide.task_manager.get_task_manager") as mock_tm,
+            patch("mcp_guide.mcp_context.resolve_project_path", return_value="/test/path"),
+        ):
+
+            def get_cached_data_side_effect(key):
+                if key == "workflow_state":
+                    return mock_workflow_state
+                return None
+
+            mock_tm.return_value.get_cached_data.side_effect = get_cached_data_side_effect
+
+            context = await cache._build_project_context()
+
+            assert context["workflow"]["consent"]["planning"]["entry"] is False
+            assert context["workflow"]["consent"]["planning"]["exit"] is False
+            assert context["workflow"]["consent"]["implementation"]["entry"] is False
+            assert context["workflow"]["consent"]["review"]["exit"] is False
+
+    @pytest.mark.anyio
     async def test_workflow_context_with_current_phase_consent(self) -> None:
         """Test workflow context includes current phase consent flags."""
         from mcp_guide.models import Project

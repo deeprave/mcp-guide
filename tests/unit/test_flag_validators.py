@@ -32,10 +32,10 @@ class TestValidationRegistration:
         clear_validators()
 
     def test_no_validator_registered_allows_any_value(self):
-        """Test that unregistered flags allow any value."""
-        # Should not raise
+        """Test that unregistered flags default to bool-or-string values only."""
         validate_flag_with_registered("unknown-flag", "any-value", is_project=True)
-        validate_flag_with_registered("unknown-flag", ["list", "value"], is_project=False)
+        with pytest.raises(FlagValidationError):
+            validate_flag_with_registered("unknown-flag", ["list", "value"], is_project=False)
 
     def test_custom_validator_registration(self):
         """Test registering and using custom validator."""
@@ -112,16 +112,16 @@ class TestBooleanValidator:
             ("truthy_TRUE", "TRUE", True, True),
             ("truthy_on", "on", True, True),
             ("truthy_enabled", "enabled", True, True),
+            ("truthy_yes", "yes", True, True),
+            ("truthy_one", "1", True, True),
             ("falsy_false", "false", False, True),
             ("falsy_FALSE", "FALSE", False, True),
             ("falsy_off", "off", False, True),
             ("falsy_disabled", "disabled", False, True),
+            ("falsy_no", "no", False, True),
+            ("falsy_zero", "0", False, True),
             ("falsy_empty", "", False, True),
             # Invalid values
-            ("invalid_yes", "yes", True, False),
-            ("invalid_no", "no", True, False),
-            ("invalid_1", "1", True, False),
-            ("invalid_0", "0", True, False),
             ("invalid_string", "invalid", True, False),
             ("invalid_number_1", 1, True, False),
             ("invalid_number_0", 0, False, False),
@@ -144,9 +144,13 @@ class TestBooleanValidator:
             ("true", True),
             ("enabled", True),
             ("on", True),
+            ("yes", True),
+            ("1", True),
             ("false", False),
             ("disabled", False),
             ("off", False),
+            ("no", False),
+            ("0", False),
             ("", False),
         ],
     )

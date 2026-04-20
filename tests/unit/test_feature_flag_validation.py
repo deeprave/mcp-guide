@@ -6,7 +6,13 @@ from mcp_guide.feature_flags.constants import FLAG_CONTENT_STYLE
 from mcp_guide.feature_flags.validators import (
     FlagValidationError,
     clear_validators,
+    coerce_boolean_like,
+    is_value_false,
+    is_value_true,
+    make_string_choice_validator,
+    normalise_boolean_or_string_flag,
     register_flag_validator,
+    validate_boolean_or_string_flag,
     validate_content_format_mime,
     validate_flag_name,
     validate_flag_value,
@@ -146,6 +152,29 @@ class TestTemplateStylingValidator:
         assert validate_template_styling(123, False) is False
 
 
+class TestStringChoiceValidatorFactory:
+    """Test the shared enum/string-choice validator factory."""
+
+    def test_factory_accepts_configured_values(self):
+        validator = make_string_choice_validator(["alpha", "beta"])
+
+        assert validator("alpha", False) is True
+        assert validator("beta", True) is True
+        assert validator(None, False) is True
+
+    def test_factory_rejects_outside_values(self):
+        validator = make_string_choice_validator(["alpha", "beta"])
+
+        assert validator("gamma", False) is False
+        assert validator(True, False) is False
+        assert validator(["alpha"], False) is False
+
+    def test_factory_can_disallow_none(self):
+        validator = make_string_choice_validator(["alpha"], allow_none=False)
+
+        assert validator(None, False) is False
+
+
 @pytest.mark.usefixtures("reset_flag_registry")
 class TestValidatorRegistration:
     """Test validator registration and usage."""
@@ -169,3 +198,74 @@ class TestValidatorRegistration:
 
         with pytest.raises(FlagValidationError):
             validate_flag_with_registered(FLAG_CONTENT_STYLE, "invalid", False)
+
+
+@pytest.mark.usefixtures("reset_flag_registry")
+class TestDefaultGenericFlagBehavior:
+    """Test default validator/normalizer behavior for unregistered flags."""
+
+    @pytest.fixture(autouse=True)
+    def _reset_registry(self):
+        clear_validators()
+
+    def test_default_validator_accepts_bool_and_string(self):
+        assert validate_boolean_or_string_flag(True, False) is True
+        assert validate_boolean_or_string_flag(False, False) is True
+        assert validate_boolean_or_string_flag("custom", False) is True
+
+    def test_default_validator_rejects_structured_values(self):
+        assert validate_boolean_or_string_flag(["discussion"], False) is False
+        assert validate_boolean_or_string_flag({"phase": "entry"}, False) is False
+
+    def test_default_normaliser_coerces_boolean_strings(self):
+        assert normalise_boolean_or_string_flag("true") == True
+        assert normalise_boolean_or_string_flag("false") == False
+        assert normalise_boolean_or_string_flag("enabled") == True
+        assert normalise_boolean_or_string_flag("disabled") == False
+        assert normalise_boolean_or_string_flag("yes") == True
+        assert normalise_boolean_or_string_flag("no") == False
+        assert normalise_boolean_or_string_flag("1") == True
+        assert normalise_boolean_or_string_flag("0") == False
+        assert normalise_boolean_or_string_flag("review") == "review"
+
+    def test_unregistered_flag_rejects_structured_value(self):
+        with pytest.raises(FlagValidationError):
+            validate_flag_with_registered("custom-flag", ["discussion"], False)
+
+    def test_unregistered_flag_accepts_scalar_value(self):
+        validate_flag_with_registered("custom-flag", True, False)
+        validate_flag_with_registered("custom-flag", "custom", False)
+
+
+class TestBooleanLikeCoercion:
+    """Test shared boolean-like coercion helpers."""
+
+    @pytest.mark.parametrize(
+        ("value", "expected"),
+        [
+            (True, True),
+            (False, False),
+            ("true", True),
+            ("TRUE", True),
+            ("on", True),
+            ("enabled", True),
+            ("yes", True),
+            ("1", True),
+            ("false", False),
+            ("FALSE", False),
+            ("off", False),
+            ("disabled", False),
+            ("no", False),
+            ("0", False),
+            (None, None),
+            ("review", None),
+        ],
+    )
+    def test_coerce_boolean_like(self, value, expected):
+        assert coerce_boolean_like(value) is expected
+
+    def test_is_value_true_false_helpers(self):
+        assert is_value_true("enabled") is True
+        assert is_value_true("0") is False
+        assert is_value_false("disabled") is True
+        assert is_value_false("1") is False

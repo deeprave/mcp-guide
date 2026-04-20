@@ -415,16 +415,21 @@ class TemplateContextCache(SessionListener):
                             )
                             workflow_config["file"] = workflow_file
 
-                        # Resolve workflow-consent flag (None or dict only)
+                        # Resolve workflow-consent flag: True uses defaults, False disables all, dict customizes.
                         workflow_consent_flag = resolved_flags.get(FLAG_WORKFLOW_CONSENT)
                         raw_workflow_consent_flag = (
                             to_raw_feature_value(workflow_consent_flag)
                             if workflow_consent_flag is not None
                             else DEFAULT_WORKFLOW_CONSENT
                         )
-                        consent_mapping = (
-                            raw_workflow_consent_flag if isinstance(raw_workflow_consent_flag, dict) else {}
-                        )
+                        if raw_workflow_consent_flag is True:
+                            consent_mapping = DEFAULT_WORKFLOW_CONSENT
+                        elif raw_workflow_consent_flag is False:
+                            consent_mapping = {}
+                        elif isinstance(raw_workflow_consent_flag, dict):
+                            consent_mapping = raw_workflow_consent_flag
+                        else:
+                            consent_mapping = {}
                         # Transform consent config for template access
                         consent_context = {}
                         phase_names = parsed_config.phases  # List of available phase names

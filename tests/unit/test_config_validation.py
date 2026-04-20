@@ -32,6 +32,6 @@ class TestConfigValidation:
         # These should not raise exceptions
         await project_flags.set("valid-name", True)
         await project_flags.set("another_name", "string-value")
-        await project_flags.set("list-flag", ["list", "of", "strings"])
+        await project_flags.set("boolean-string-flag", "enabled")
         await project_flags.remove("valid-name")
         await project_flags.remove("another_name")
