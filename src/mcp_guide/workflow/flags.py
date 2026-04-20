@@ -159,8 +159,8 @@ def _validate_workflow_flag(value: FeatureValueLike | None, is_project: bool) ->
     return False
 
 
-def _normalise_workflow_flag(value: FeatureValueLike | None):
-    """Normalise workflow flag booleans while preserving structured list values."""
+def _normalise_boolean_like_or_raw(value: FeatureValueLike | None):
+    """Normalise boolean-like scalars while preserving structured values."""
     if value is None:
         return None
     coerced = coerce_boolean_like(value)
@@ -172,6 +172,11 @@ def _normalise_workflow_flag(value: FeatureValueLike | None):
     from mcp_guide.feature_flags.types import FeatureValue
 
     return FeatureValue(raw)
+
+
+def _normalise_workflow_flag(value: FeatureValueLike | None):
+    """Normalise workflow flag booleans while preserving structured list values."""
+    return _normalise_boolean_like_or_raw(value)
 
 
 def _validate_workflow_file_flag(value: FeatureValueLike | None, is_project: bool) -> bool:
@@ -226,17 +231,7 @@ def _validate_workflow_consent_flag(value: FeatureValueLike | None, is_project: 
 
 def _normalise_workflow_consent_flag(value: FeatureValueLike | None):
     """Normalise workflow-consent scalar booleans while preserving dict values."""
-    if value is None:
-        return None
-    coerced = coerce_boolean_like(value)
-    if coerced is not None:
-        from mcp_guide.feature_flags.types import FeatureValue
-
-        return FeatureValue(coerced)
-    raw = to_raw_feature_value(value)
-    from mcp_guide.feature_flags.types import FeatureValue
-
-    return FeatureValue(raw)
+    return _normalise_boolean_like_or_raw(value)
 
 
 def _validate_startup_instruction_flag(value: FeatureValueLike | None, is_project: bool) -> bool:

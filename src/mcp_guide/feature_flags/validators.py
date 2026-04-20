@@ -69,7 +69,7 @@ class FlagValidationError(Exception):
 
 
 _TRUE_LIKE_STRINGS = frozenset({"true", "on", "enabled", "yes", "1"})
-_FALSE_LIKE_STRINGS = frozenset({"false", "off", "disabled", "no", "0", ""})
+_FALSE_LIKE_STRINGS = frozenset({"false", "off", "disabled", "no", "0"})
 
 
 def validate_flag_name(name: str) -> bool:

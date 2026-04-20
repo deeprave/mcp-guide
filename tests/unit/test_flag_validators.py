@@ -120,7 +120,6 @@ class TestBooleanValidator:
             ("falsy_disabled", "disabled", False, True),
             ("falsy_no", "no", False, True),
             ("falsy_zero", "0", False, True),
-            ("falsy_empty", "", False, True),
             # Invalid values
             ("invalid_string", "invalid", True, False),
             ("invalid_number_1", 1, True, False),
@@ -151,7 +150,6 @@ class TestBooleanValidator:
             ("off", False),
             ("no", False),
             ("0", False),
-            ("", False),
         ],
     )
     def test_boolean_flag_normalisation(self, value, expected):

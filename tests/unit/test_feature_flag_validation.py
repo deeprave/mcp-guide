@@ -226,6 +226,7 @@ class TestDefaultGenericFlagBehavior:
         assert normalise_boolean_or_string_flag("no") == False
         assert normalise_boolean_or_string_flag("1") == True
         assert normalise_boolean_or_string_flag("0") == False
+        assert normalise_boolean_or_string_flag("") == ""
         assert normalise_boolean_or_string_flag("review") == "review"
 
     def test_unregistered_flag_rejects_structured_value(self):
@@ -257,6 +258,7 @@ class TestBooleanLikeCoercion:
             ("disabled", False),
             ("no", False),
             ("0", False),
+            ("", None),
             (None, None),
             ("review", None),
         ],
