@@ -121,6 +121,7 @@ async def test_generic_project_flag_rejects_structured_value(mcp_server, test_se
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
 
         assert response["success"] is False
+        assert response["error_type"] == "validation_error"
 
 
 @pytest.mark.anyio
@@ -139,6 +140,23 @@ async def test_allow_client_info_global_flag_uses_shared_boolean_like_coercion(m
 
         assert response["success"] is True
         assert response["value"] is False
+
+
+@pytest.mark.anyio
+async def test_generic_global_flag_rejects_structured_value_as_validation_error(mcp_server, test_session, monkeypatch):
+    """Unsupported structured global flag values should surface as validation errors."""
+    monkeypatch.setenv("PWD", "/fake/path/test")
+
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
+        result = await call_mcp_tool(
+            client,
+            "set_feature_flag",
+            SetFeatureFlagArgs(feature_name="custom-flag", value=["discussion"]),
+        )
+        response = json.loads(result.content[0].text)  # type: ignore[union-attr]
+
+        assert response["success"] is False
+        assert response["error_type"] == "validation_error"
 
 
 @pytest.mark.anyio

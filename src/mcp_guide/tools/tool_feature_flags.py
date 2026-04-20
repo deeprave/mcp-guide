@@ -12,7 +12,12 @@ from mcp_guide.core.tool_arguments import ToolArguments
 from mcp_guide.core.tool_decorator import toolfunc
 from mcp_guide.feature_flags.constants import FLAG_ALLOW_CLIENT_INFO
 from mcp_guide.feature_flags.types import FeatureValue, RawFeatureValue, to_raw_feature_value
-from mcp_guide.feature_flags.validators import coerce_boolean_like, validate_flag_name, validate_flag_value
+from mcp_guide.feature_flags.validators import (
+    FlagValidationError,
+    coerce_boolean_like,
+    validate_flag_name,
+    validate_flag_value,
+)
 from mcp_guide.result import Result
 from mcp_guide.result_constants import (
     ERROR_CONFIG_READ,
@@ -186,6 +191,13 @@ async def internal_set_project_flag(args: SetFlagArgs, ctx: Optional[Context] = 
     except OSError as e:
         return Result.failure(f"Failed to save configuration: {e}", error_type=ERROR_CONFIG_WRITE)
 
+    except FlagValidationError as e:
+        return Result.failure(
+            str(e),
+            error_type=ERROR_VALIDATION,
+            instruction=INSTRUCTION_VALIDATION_ERROR,
+        )
+
     except Exception as e:
         return Result.failure(
             f"Failed to set flag: {e}", error_type=ERROR_UNEXPECTED, instruction=INSTRUCTION_DISPLAY_ONLY
@@ -275,6 +287,13 @@ async def internal_set_feature_flag(args: SetFeatureFlagArgs, ctx: Optional[Cont
 
     except OSError as e:
         return Result.failure(f"Failed to save configuration: {e}", error_type=ERROR_CONFIG_WRITE)
+
+    except FlagValidationError as e:
+        return Result.failure(
+            str(e),
+            error_type=ERROR_VALIDATION,
+            instruction=INSTRUCTION_VALIDATION_ERROR,
+        )
 
     except Exception as e:
         return Result.failure(
