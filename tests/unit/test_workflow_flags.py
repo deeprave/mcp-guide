@@ -114,6 +114,27 @@ class TestWorkflowFlagValidation:
 
         assert _validate_workflow_flag({"discussion": "implementation"}, False) is False  # type: ignore[arg-type]
 
+    @pytest.mark.parametrize(
+        ("value", "expected"),
+        [
+            ("true", True),
+            ("TRUE", True),
+            ("enabled", True),
+            ("yes", True),
+            ("1", True),
+            ("false", False),
+            ("FALSE", False),
+            ("disabled", False),
+            ("no", False),
+            ("0", False),
+        ],
+    )
+    def test_workflow_normaliser_uses_shared_boolean_like_rules(self, value, expected):
+        """Workflow shorthand should use the shared boolean-like coercion."""
+        from mcp_guide.workflow.flags import _normalise_workflow_flag
+
+        assert _normalise_workflow_flag(value) == expected
+
     def test_workflow_file_flag_invalid_type_returns_false(self):
         """Test workflow-file validator returns False for invalid shapes."""
         from mcp_guide.workflow.flags import _validate_workflow_file_flag
@@ -128,16 +149,39 @@ class TestWorkflowConsentValidation:
         "value,expected",
         [
             (True, True),
-            (False, False),
+            (False, True),
+            ("true", True),
+            ("enabled", True),
+            ("1", True),
+            ("false", True),
+            ("disabled", True),
+            ("0", True),
             (None, True),
         ],
-        ids=["true", "false", "none"],
+        ids=["true", "false", "str_true", "str_enabled", "str_one", "str_false", "str_disabled", "str_zero", "none"],
     )
     def test_consent_flag_accepts_boolean_and_none(self, value, expected):
-        """Test consent flag validator accepts True and None."""
+        """Test consent flag validator accepts boolean-like scalars and None."""
         from mcp_guide.workflow.flags import _validate_workflow_consent_flag
 
         assert _validate_workflow_consent_flag(value, False) is expected
+
+    @pytest.mark.parametrize(
+        ("value", "expected"),
+        [
+            ("true", True),
+            ("yes", True),
+            ("1", True),
+            ("false", False),
+            ("no", False),
+            ("0", False),
+        ],
+    )
+    def test_consent_normaliser_uses_shared_boolean_like_rules(self, value, expected):
+        """Workflow consent shorthand should use the shared boolean-like coercion."""
+        from mcp_guide.workflow.flags import _normalise_workflow_consent_flag
+
+        assert _normalise_workflow_consent_flag(value) == expected
 
     def test_consent_flag_accepts_valid_dict(self):
         """Test consent flag validator accepts valid dict structure."""

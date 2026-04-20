@@ -10,7 +10,7 @@ from mcp_guide.feature_flags.constants import (
     FLAG_WORKFLOW_FILE,
 )
 from mcp_guide.feature_flags.types import FeatureValueLike, to_raw_feature_value
-from mcp_guide.feature_flags.validators import register_flag_validator
+from mcp_guide.feature_flags.validators import coerce_boolean_like, register_flag_validator
 from mcp_guide.workflow.constants import (
     DEFAULT_ORDERED_WORKFLOW_PHASES,
     DEFAULT_WORKFLOW_PHASES,
@@ -159,6 +159,21 @@ def _validate_workflow_flag(value: FeatureValueLike | None, is_project: bool) ->
     return False
 
 
+def _normalise_workflow_flag(value: FeatureValueLike | None):
+    """Normalise workflow flag booleans while preserving structured list values."""
+    if value is None:
+        return None
+    coerced = coerce_boolean_like(value)
+    if coerced is not None:
+        from mcp_guide.feature_flags.types import FeatureValue
+
+        return FeatureValue(coerced)
+    raw = to_raw_feature_value(value)
+    from mcp_guide.feature_flags.types import FeatureValue
+
+    return FeatureValue(raw)
+
+
 def _validate_workflow_file_flag(value: FeatureValueLike | None, is_project: bool) -> bool:
     """Validate workflow-file flag value."""
     if value is None:
@@ -179,12 +194,13 @@ def _validate_workflow_consent_flag(value: FeatureValueLike | None, is_project: 
     """Validate workflow-consent flag value."""
     if value is None:
         return True
+    coerced = coerce_boolean_like(value)
+    if coerced is not None:
+        return True
     try:
         raw = to_raw_feature_value(value)
     except TypeError:
         return False
-    if raw is True:
-        return True
 
     if isinstance(raw, dict):
         # Validate structure: {phase: [consent_types]} or {phase: consent_type}
@@ -206,6 +222,21 @@ def _validate_workflow_consent_flag(value: FeatureValueLike | None, is_project: 
         return True
 
     return False
+
+
+def _normalise_workflow_consent_flag(value: FeatureValueLike | None):
+    """Normalise workflow-consent scalar booleans while preserving dict values."""
+    if value is None:
+        return None
+    coerced = coerce_boolean_like(value)
+    if coerced is not None:
+        from mcp_guide.feature_flags.types import FeatureValue
+
+        return FeatureValue(coerced)
+    raw = to_raw_feature_value(value)
+    from mcp_guide.feature_flags.types import FeatureValue
+
+    return FeatureValue(raw)
 
 
 def _validate_startup_instruction_flag(value: FeatureValueLike | None, is_project: bool) -> bool:
@@ -236,7 +267,9 @@ def _validate_startup_instruction_flag(value: FeatureValueLike | None, is_projec
 
 
 # Register validators at module import
-register_flag_validator(FLAG_WORKFLOW, _validate_workflow_flag)
+register_flag_validator(FLAG_WORKFLOW, _validate_workflow_flag, normaliser=_normalise_workflow_flag)
 register_flag_validator(FLAG_WORKFLOW_FILE, _validate_workflow_file_flag)
-register_flag_validator(FLAG_WORKFLOW_CONSENT, _validate_workflow_consent_flag)
+register_flag_validator(
+    FLAG_WORKFLOW_CONSENT, _validate_workflow_consent_flag, normaliser=_normalise_workflow_consent_flag
+)
 register_flag_validator(FLAG_STARTUP_INSTRUCTION, _validate_startup_instruction_flag)

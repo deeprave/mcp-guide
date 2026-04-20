@@ -9,6 +9,9 @@ import anyio
 import yaml
 
 from mcp_guide.core.mcp_log import get_logger
+from mcp_guide.feature_flags.constants import FLAG_WORKFLOW
+from mcp_guide.feature_flags.types import to_raw_feature_value
+from mcp_guide.feature_flags.validators import normalise_flag
 from mcp_guide.render.frontmatter_types import Frontmatter
 from mcp_guide.render.requires import check_requires_directive
 from mcp_guide.result_constants import (
@@ -45,9 +48,20 @@ IMPORTANT_PREFIX_PATTERN = re.compile(r"^\^\s*")
 
 def _normalize_requires_actual_value(flag_name: str, actual_value: Any) -> Any:
     """Normalize raw flag values before evaluating requires-* directives."""
-    if flag_name == "workflow" and actual_value is True:
+    if actual_value is None:
+        return None
+
+    try:
+        normalized = normalise_flag(flag_name, actual_value)
+        if normalized is None:
+            return None
+        normalized_value = to_raw_feature_value(normalized)
+    except TypeError:
+        return actual_value
+
+    if flag_name == FLAG_WORKFLOW and normalized_value is True:
         return DEFAULT_WORKFLOW_PHASES
-    return actual_value
+    return normalized_value
 
 
 def check_frontmatter_requirements(frontmatter: Dict[str, Any], context: Dict[str, Any]) -> bool:

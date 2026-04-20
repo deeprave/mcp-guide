@@ -18,6 +18,7 @@ class TestSetProject:
     @pytest.mark.anyio
     async def test_set_project_creates_and_loads(self, tmp_path, monkeypatch):
         """set_project creates/loads project successfully."""
+        await mcp_guide.session.remove_current_session()
         original_session_init = Session.__init__
 
         def mock_session_init(self, *, _config_dir_for_tests=None):
@@ -35,6 +36,7 @@ class TestSetProject:
         """set_project returns error for invalid project name."""
         from mcp_guide.result_constants import ERROR_INVALID_NAME
 
+        await mcp_guide.session.remove_current_session()
         original_session_init = Session.__init__
 
         def mock_session_init(self, *, _config_dir_for_tests=None):

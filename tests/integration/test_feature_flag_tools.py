@@ -9,7 +9,7 @@ import pytest
 from fastmcp.client import Client, FastMCPTransport
 
 from mcp_guide.session import Session, remove_current_session, set_current_session
-from mcp_guide.tools.tool_feature_flags import ListFlagsArgs, SetFlagArgs
+from mcp_guide.tools.tool_feature_flags import ListFeatureFlagsArgs, ListFlagsArgs, SetFeatureFlagArgs, SetFlagArgs
 from tests.conftest import call_mcp_tool
 
 
@@ -19,9 +19,9 @@ def anyio_backend():
     return "asyncio"
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def mcp_server(mcp_server_factory):
-    """Create fresh MCP server for this test module."""
+    """Create a fresh MCP server per test for flag-tool isolation."""
     return mcp_server_factory(["tool_feature_flags"])
 
 
@@ -76,12 +76,12 @@ async def test_list_project_flags_via_mcp(mcp_server, test_session, monkeypatch)
 
 @pytest.mark.anyio
 async def test_get_project_flag_via_mcp(mcp_server, test_session, monkeypatch):
-    """Test getting feature flag through MCP client using list_project_flags with feature_name."""
+    """Test getting scalar feature flag through MCP client using list_project_flags with feature_name."""
     monkeypatch.setenv("PWD", "/fake/path/test")
 
     async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
         # First set a flag
-        set_args = SetFlagArgs(feature_name="get_test", value=["list", "value"])
+        set_args = SetFlagArgs(feature_name="get_test", value="value")
         await call_mcp_tool(client, "set_project_flag", set_args)
 
         # Then get the flag using list_project_flags with feature_name
@@ -90,7 +90,55 @@ async def test_get_project_flag_via_mcp(mcp_server, test_session, monkeypatch):
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
 
         assert response["success"] is True
-        assert response["value"] == ["list", "value"]
+        assert response["value"] == "value"
+
+
+@pytest.mark.anyio
+async def test_generic_project_flag_true_string_normalizes_to_boolean(mcp_server, test_session, monkeypatch):
+    """Test generic project flag string booleans normalize to real bools."""
+    monkeypatch.setenv("PWD", "/fake/path/test")
+
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
+        await call_mcp_tool(client, "set_project_flag", SetFlagArgs(feature_name="custom-flag", value="true"))
+        result = await call_mcp_tool(client, "list_project_flags", ListFlagsArgs(feature_name="custom-flag"))
+        response = json.loads(result.content[0].text)  # type: ignore[union-attr]
+
+        assert response["success"] is True
+        assert response["value"] is True
+
+
+@pytest.mark.anyio
+async def test_generic_project_flag_rejects_structured_value(mcp_server, test_session, monkeypatch):
+    """Test generic project flags reject list values without explicit registration."""
+    monkeypatch.setenv("PWD", "/fake/path/test")
+
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
+        result = await call_mcp_tool(
+            client,
+            "set_project_flag",
+            SetFlagArgs(feature_name="custom-flag", value=["discussion"]),
+        )
+        response = json.loads(result.content[0].text)  # type: ignore[union-attr]
+
+        assert response["success"] is False
+
+
+@pytest.mark.anyio
+async def test_allow_client_info_global_flag_uses_shared_boolean_like_coercion(mcp_server, test_session, monkeypatch):
+    """Global allow-client-info should use the shared boolean-like coercion rules."""
+    monkeypatch.setenv("PWD", "/fake/path/test")
+
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
+        await call_mcp_tool(
+            client, "set_feature_flag", SetFeatureFlagArgs(feature_name="allow-client-info", value="no")
+        )
+        result = await call_mcp_tool(
+            client, "list_feature_flags", ListFeatureFlagsArgs(feature_name="allow-client-info")
+        )
+        response = json.loads(result.content[0].text)  # type: ignore[union-attr]
+
+        assert response["success"] is True
+        assert response["value"] is False
 
 
 @pytest.mark.anyio

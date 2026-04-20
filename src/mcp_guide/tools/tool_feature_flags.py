@@ -12,7 +12,7 @@ from mcp_guide.core.tool_arguments import ToolArguments
 from mcp_guide.core.tool_decorator import toolfunc
 from mcp_guide.feature_flags.constants import FLAG_ALLOW_CLIENT_INFO
 from mcp_guide.feature_flags.types import FeatureValue, RawFeatureValue, to_raw_feature_value
-from mcp_guide.feature_flags.validators import validate_flag_name, validate_flag_value
+from mcp_guide.feature_flags.validators import coerce_boolean_like, validate_flag_name, validate_flag_value
 from mcp_guide.result import Result
 from mcp_guide.result_constants import (
     ERROR_CONFIG_READ,
@@ -159,7 +159,7 @@ async def internal_set_project_flag(args: SetFlagArgs, ctx: Optional[Context] = 
 
     if args.value is not None and not validate_flag_value(args.value):
         return Result.failure(
-            f"Invalid flag value type. Must be bool, str, list[str], or dict[str, str].",
+            f"Invalid flag value type. Must be bool, str, list[str], or dict[str, str | list[str]].",
             error_type=ERROR_VALIDATION,
             instruction=INSTRUCTION_VALIDATION_ERROR,
         )
@@ -242,7 +242,7 @@ async def internal_set_feature_flag(args: SetFeatureFlagArgs, ctx: Optional[Cont
 
     if args.value is not None and not validate_flag_value(args.value):
         return Result.failure(
-            f"Invalid flag value type. Must be bool, str, list[str], or dict[str, str].",
+            f"Invalid flag value type. Must be bool, str, list[str], or dict[str, str | list[str]].",
             error_type=ERROR_VALIDATION,
             instruction=INSTRUCTION_VALIDATION_ERROR,
         )
@@ -254,13 +254,12 @@ async def internal_set_feature_flag(args: SetFeatureFlagArgs, ctx: Optional[Cont
     except ValueError:
         return await make_no_project_result(ctx)
 
-    # Normalize allow-client-info flag values
+    # Normalize allow-client-info through the shared boolean-like coercion rules.
     normalized_value = args.value
     if args.feature_name == FLAG_ALLOW_CLIENT_INFO and args.value is not None:
-        if args.value in [True, "true", "enabled", "on"]:
-            normalized_value = True
-        elif args.value in [False, "false", "disabled", "off"]:
-            normalized_value = None
+        coerced = coerce_boolean_like(args.value)
+        if coerced is not None:
+            normalized_value = coerced
 
     try:
         if normalized_value is None:

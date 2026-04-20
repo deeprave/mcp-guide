@@ -39,6 +39,8 @@ class TestAllowClientInfoValidator:
         assert validate_allow_client_info("true", is_project=False)
         assert validate_allow_client_info("enabled", is_project=False)
         assert validate_allow_client_info("on", is_project=False)
+        assert validate_allow_client_info("yes", is_project=False)
+        assert validate_allow_client_info("1", is_project=False)
 
     def test_validator_accepts_disable_values(self):
         """Test that validator accepts all disable values."""
@@ -47,14 +49,14 @@ class TestAllowClientInfoValidator:
         assert validate_allow_client_info("false", is_project=False)
         assert validate_allow_client_info("disabled", is_project=False)
         assert validate_allow_client_info("off", is_project=False)
+        assert validate_allow_client_info("no", is_project=False)
+        assert validate_allow_client_info("0", is_project=False)
         assert validate_allow_client_info(None, is_project=False)
 
     def test_validator_rejects_invalid_values(self):
         """Test that validator rejects invalid values."""
         # These should be rejected
         assert not validate_allow_client_info("invalid", is_project=False)
-        assert not validate_allow_client_info("yes", is_project=False)
-        assert not validate_allow_client_info("no", is_project=False)
         assert not validate_allow_client_info(1, is_project=False)
         assert not validate_allow_client_info(0, is_project=False)
 
