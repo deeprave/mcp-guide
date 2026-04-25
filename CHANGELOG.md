@@ -2,6 +2,17 @@
 
 All notable changes to mcp-guide will be documented in this file.
 
+## [1.3.0] - 2026-04-25
+
+### Changed
+- `autoupdate` is now enabled by default; set it explicitly to `false` to suppress document update prompting
+- OpenSpec workflow guidance has been refreshed to align with current OpenSpec CLI usage:
+  - Recommend validating changes with `openspec validate <id> --strict --no-interactive` before sharing proposals
+  - Archiving guidance now calls out `openspec archive <change-id> --skip-specs --yes` for tooling-only changes and recommends running `openspec validate --strict --no-interactive` after archiving
+
+### Fixed
+- Document updates now remove upstream-renamed and deleted files when the local copy is unchanged, while preserving user-edited files
+
 ## [1.2.2] - 2026-04-15
 
 ### Changed
