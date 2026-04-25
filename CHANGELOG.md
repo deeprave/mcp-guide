@@ -2,7 +2,7 @@
 
 All notable changes to mcp-guide will be documented in this file.
 
-## [1.3.0] - 2026-04-25
+## [1.3.2] - 2026-04-25
 
 ### Changed
 - `autoupdate` is now enabled by default; set it explicitly to `false` to suppress document update prompting
