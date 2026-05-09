@@ -65,6 +65,31 @@ class TestCommandPrecedence:
         assert result.command_path == "project/project"
         assert result.implied_kwargs == {"verbose": True}
 
+    def test_resolve_command_alias_ignores_malformed_alias_metadata(self):
+        """Alias resolution should tolerate malformed metadata from non-discovery producers."""
+        commands = [
+            {
+                "name": "project/project",
+                "aliases": [],
+                "alias_metadata": [
+                    {"raw": "", "path": "empty-raw", "implied_kwargs": {"verbose": True}},
+                    {"raw": "missing-path", "implied_kwargs": {"verbose": True}},
+                    {"raw": "none-path", "path": None, "implied_kwargs": {"verbose": True}},
+                    "not-a-dict",
+                    {
+                        "raw": "project?verbose",
+                        "path": "project",
+                        "implied_kwargs": {"verbose": True, "count": 1, 2: "ignored"},
+                    },
+                ],
+            }
+        ]
+
+        result = _resolve_command_alias("project", commands)
+
+        assert result.command_path == "project/project"
+        assert result.implied_kwargs == {"verbose": True}
+
     def test_resolve_command_alias_raw_query_alias_preserves_implied_kwargs(self):
         """Prompt-style raw query aliases should retain their parsed defaults."""
         commands = [
@@ -165,6 +190,33 @@ class TestCommandPrecedence:
         )
 
         assert context["command_help"]["name"] == "project/project"
+
+    def test_build_command_context_help_ignores_malformed_alias_metadata(self):
+        """Help lookup should skip malformed alias metadata without adding unusable keys."""
+        file_info = FileInfo(path=Path("help.md"), size=0, content_size=0, mtime=0, name="help.md")
+        commands = [
+            {
+                "name": "project/project",
+                "aliases": [],
+                "alias_metadata": [
+                    {"raw": "", "path": "empty-raw", "implied_kwargs": {}},
+                    {"raw": "broken", "path": "", "implied_kwargs": {}},
+                    {"raw": "none-path", "path": None, "implied_kwargs": {}},
+                    "not-a-dict",
+                ],
+            }
+        ]
+
+        context = _build_command_context(
+            TemplateContext({}),
+            "help",
+            file_info,
+            kwargs={},
+            args=["broken"],
+            commands=commands,
+        )
+
+        assert "command_help" not in context
 
 
 class TestUnderscoreFiltering:

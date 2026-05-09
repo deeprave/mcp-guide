@@ -13,7 +13,7 @@ from mcp_guide.commands.formatting import format_args_string
 from mcp_guide.config_constants import COMMANDS_DIR
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.core.prompt_decorator import get_prompt_name, promptfunc
-from mcp_guide.discovery.commands import CommandAliasMetadata, discover_commands
+from mcp_guide.discovery.commands import CommandAliasMetadata, discover_commands, normalise_alias_metadata
 from mcp_guide.discovery.files import FileInfo, discover_document_files
 from mcp_guide.feature_flags.types import FeatureValue
 from mcp_guide.models import resolve_all_flags
@@ -192,8 +192,7 @@ def _resolve_command_alias(command_path: str, commands: list[dict[str, Any]]) ->
 
 def _alias_metadata(command: dict[str, Any]) -> list[CommandAliasMetadata]:
     """Return normalized alias metadata for a discovered command."""
-    aliases = command.get("alias_metadata", [])
-    return aliases if isinstance(aliases, list) else []
+    return normalise_alias_metadata(command.get("alias_metadata", []))
 
 
 def _command_path_without_query(command_path: object) -> str | None:
