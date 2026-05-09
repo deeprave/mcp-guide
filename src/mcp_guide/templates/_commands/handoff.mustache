@@ -5,6 +5,9 @@ usage: "guide://_handoff/<path>?read or guide://_handoff/<path>?write"
 examples:
   - "guide://_handoff/.context.md?write"
   - "guide://_handoff/.context.md?read"
+aliases:
+  - save-context?write
+  - restore-context?read
 ---
 {{^args.0.value}}
 {{#_error}}Missing required handoff file path. Usage: guide://_handoff/<path>?read or guide://_handoff/<path>?write{{/_error}}

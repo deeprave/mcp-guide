@@ -2,6 +2,7 @@
 
 """Guide prompt implementation for direct content access."""
 
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Awaitable, Callable, Coroutine, List, Optional, Protocol, Union
 
@@ -11,7 +12,7 @@ from mcp_guide.commands.formatting import format_args_string
 from mcp_guide.config_constants import COMMANDS_DIR
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.core.prompt_decorator import get_prompt_name, promptfunc
-from mcp_guide.discovery.commands import discover_commands
+from mcp_guide.discovery.commands import CommandAliasMetadata, discover_commands
 from mcp_guide.discovery.files import FileInfo, discover_document_files
 from mcp_guide.feature_flags.types import FeatureValue
 from mcp_guide.models import resolve_all_flags
@@ -34,6 +35,7 @@ from mcp_guide.result_constants import (
 )
 from mcp_guide.session import get_active_session, get_session
 from mcp_guide.tools.tool_content import ContentArgs, internal_get_content
+from mcp_guide.uri_parser import parse_query_kwargs
 
 if TYPE_CHECKING:
     from typing import Any
@@ -55,6 +57,14 @@ class CommandMiddleware(Protocol):
     ) -> Result[str]:
         """Execute middleware logic."""
         ...
+
+
+@dataclass(frozen=True)
+class CommandAliasResolution:
+    """Resolved command alias details."""
+
+    command_path: str
+    implied_kwargs: dict[str, str | bool]
 
 
 async def get_command_help(command_context: TemplateContext, commands_dir: Path, docroot: Path) -> Result[str]:
@@ -153,13 +163,80 @@ async def handle_command(
         return await _execute_command(command_path, kwargs, args, ctx, argv=argv)
 
 
-def _resolve_command_alias(command_path: str, commands: list[dict[str, Any]]) -> str:
-    """Resolve command alias to the actual command name."""
+def _resolve_command_alias(command_path: str, commands: list[dict[str, Any]]) -> CommandAliasResolution:
+    """Resolve command alias to the actual command name plus alias-implied kwargs."""
+    default_resolution = CommandAliasResolution(command_path=command_path, implied_kwargs={})
     for cmd in commands:
+        for alias in _alias_metadata(cmd):
+            if _matches_alias(command_path, alias):
+                name = cmd.get("name")
+                return CommandAliasResolution(
+                    command_path=str(name) if name is not None else command_path,
+                    implied_kwargs=_merge_alias_kwargs(
+                        default_kwargs=alias.get("implied_kwargs", {}),
+                        override_kwargs=_command_path_query_kwargs(command_path),
+                    ),
+                )
         if command_path in cmd.get("aliases", []):
             name = cmd.get("name")
-            return str(name) if name is not None else command_path
-    return command_path
+            return CommandAliasResolution(
+                command_path=str(name) if name is not None else command_path,
+                implied_kwargs={},
+            )
+    return default_resolution
+
+
+def _alias_metadata(command: dict[str, Any]) -> list[CommandAliasMetadata]:
+    """Return normalized alias metadata for a discovered command."""
+    aliases = command.get("alias_metadata", [])
+    return aliases if isinstance(aliases, list) else []
+
+
+def _command_path_without_query(command_path: object) -> str | None:
+    """Return command path without any prompt query suffix."""
+    if not isinstance(command_path, str):
+        return None
+    return command_path.partition("?")[0]
+
+
+def _command_path_query_kwargs(command_path: str) -> dict[str, str | bool]:
+    """Parse prompt command-path query kwargs, if present."""
+    _, separator, query = command_path.partition("?")
+    return parse_query_kwargs(query) if separator else {}
+
+
+def _matches_alias(command_path: object, alias: CommandAliasMetadata) -> bool:
+    """Return whether a command path matches a normalized or raw alias."""
+    if not isinstance(command_path, str):
+        return False
+    command_path_base = _command_path_without_query(command_path)
+    alias_path_base = _command_path_without_query(alias["path"])
+    alias_raw_base = _command_path_without_query(alias["raw"])
+    return command_path in {alias["path"], alias["raw"]} or command_path_base in {alias_path_base, alias_raw_base}
+
+
+def _merge_alias_kwargs(
+    default_kwargs: dict[str, str | bool],
+    override_kwargs: dict[str, Union[str, bool, int]],
+) -> dict[str, Union[str, bool, int]]:
+    """Merge default kwargs with explicit overrides."""
+    return {**default_kwargs, **override_kwargs}
+
+
+def _command_help_lookup(commands: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """Build lookup for command help by canonical name, legacy alias, raw alias, and alias path."""
+    lookup: dict[str, dict[str, Any]] = {}
+    for cmd in commands:
+        name = cmd.get("name")
+        if isinstance(name, str):
+            lookup.setdefault(name, cmd)
+        for alias in cmd.get("aliases", []):
+            if isinstance(alias, str):
+                lookup.setdefault(alias, cmd)
+        for alias in _alias_metadata(cmd):
+            lookup.setdefault(alias["path"], cmd)
+            lookup.setdefault(alias["raw"], cmd)
+    return lookup
 
 
 async def _discover_command_file(commands_dir: Path, command_path: str) -> Result[FileInfo]:
@@ -202,10 +279,11 @@ def _build_command_context(
     command_help = None
     if args:
         requested_cmd = args[0] if isinstance(args[0], str) else args[0].get("value")
-        for cmd in enriched_commands:
-            if cmd.get("name") == requested_cmd or requested_cmd in cmd.get("aliases", []):
-                command_help = cmd
-                break
+        help_lookup = _command_help_lookup(enriched_commands)
+        if isinstance(requested_cmd, str):
+            command_help = help_lookup.get(requested_cmd) or help_lookup.get(
+                _command_path_without_query(requested_cmd) or ""
+            )
 
     # Group commands by category dynamically, filtering out underscore-prefixed commands
     categories: dict[str, list[dict[str, Any]]] = {}
@@ -264,6 +342,7 @@ async def _is_help_command(command_path: str, ctx: Optional[Context]) -> bool:
         for cmd in commands:
             if cmd["name"] == "help":
                 help_aliases.extend(cmd.get("aliases", []))
+                help_aliases.extend(alias["path"] for alias in _alias_metadata(cmd))
                 break
 
         return command_path in help_aliases
@@ -298,10 +377,13 @@ async def _execute_command(
 
     # First, try to find the command file directly (template files have higher precedence)
     file_result = await _discover_command_file(commands_dir, command_path)
+    alias_implied_kwargs: dict[str, str | bool] = {}
 
     # If no direct template file found, try alias resolution
     if not file_result.success:
-        resolved_path = _resolve_command_alias(command_path, commands)
+        resolved_alias = _resolve_command_alias(command_path, commands)
+        resolved_path = resolved_alias.command_path
+        alias_implied_kwargs = resolved_alias.implied_kwargs
         if resolved_path != command_path:  # Only retry if alias was found
             file_result = await _discover_command_file(commands_dir, resolved_path)
 
@@ -339,6 +421,8 @@ async def _execute_command(
             msg = f"Missing required argument\n\nUsage: {usage}" if usage else "Missing required argument"
             result = Result.failure(msg, error_type=ERROR_VALIDATION)
             return result
+
+    kwargs = _merge_alias_kwargs(default_kwargs=alias_implied_kwargs, override_kwargs=kwargs)
 
     # Build template context
     base_context = await get_template_contexts()

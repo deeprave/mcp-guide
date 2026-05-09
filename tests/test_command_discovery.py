@@ -290,6 +290,7 @@ description: Shows available commands
 aliases:
   - h
   - "?"
+  - "?foo=bar"
   - project/perm
   - ../escape
 ---
@@ -319,7 +320,50 @@ aliases:
 
             assert len(commands) == 1
             assert commands[0]["aliases"] == ["h", "project/perm"]
-            assert warning.call_count == 2
+            assert warning.call_count == 3
+
+    @pytest.mark.anyio
+    async def test_discover_commands_preserves_alias_query_metadata(self) -> None:
+        """Should parse alias query strings into path and implied kwargs metadata."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            commands_dir = Path(temp_dir) / "_commands"
+            commands_dir.mkdir()
+
+            project_content = """---
+description: Shows project info
+aliases:
+  - project?verbose
+  - project/table?table=true
+  - project/topic?label=a?b
+---
+# Project Command
+"""
+            (commands_dir / "project.md").write_text(project_content)
+
+            mock_files = [
+                FileInfo(
+                    path=Path("project.md"),
+                    size=len(project_content),
+                    content_size=len(project_content),
+                    mtime=1234567890,
+                    name="project.md",
+                    content=project_content,
+                    ctime=1234567890,
+                )
+            ]
+
+            with patch("mcp_guide.discovery.commands.discover_document_files", new=AsyncMock(return_value=mock_files)):
+                from mcp_guide.discovery.commands import discover_commands
+
+                commands = await discover_commands(commands_dir)
+
+            assert len(commands) == 1
+            assert commands[0]["aliases"] == ["project?verbose", "project/table?table=true", "project/topic?label=a?b"]
+            assert commands[0]["alias_metadata"] == [
+                {"raw": "project?verbose", "path": "project", "implied_kwargs": {"verbose": True}},
+                {"raw": "project/table?table=true", "path": "project/table", "implied_kwargs": {"table": True}},
+                {"raw": "project/topic?label=a?b", "path": "project/topic", "implied_kwargs": {"label": "a?b"}},
+            ]
 
 
 class TestCommandDiscoveryCaching:

@@ -20,7 +20,7 @@ class GuideUri:
         return self.expression if self.is_command else None
 
 
-def _parse_query_kwargs(query: str) -> dict[str, str | bool]:
+def parse_query_kwargs(query: str) -> dict[str, str | bool]:
     """Parse query string into kwargs with boolean inference."""
     if not query:
         return {}
@@ -101,7 +101,7 @@ def parse_guide_uri(uri: str, command_names: list[str] | None = None) -> GuideUr
         segments = _decode_path_segments([s for s in full_path[1:].split("/") if s])
         if not segments:
             raise ValueError("Empty command path in guide:// URI")
-        kwargs = _parse_query_kwargs(parsed.query)
+        kwargs = parse_query_kwargs(parsed.query)
         if command_names is None:
             # First-pass detection only — no command resolution
             return GuideUri(is_command=True, expression="/".join(segments), kwargs=kwargs)
