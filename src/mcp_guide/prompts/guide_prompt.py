@@ -2,9 +2,10 @@
 
 """Guide prompt implementation for direct content access."""
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Awaitable, Callable, Coroutine, List, Optional, Protocol, Union
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Coroutine, List, Optional, Protocol, Union, overload
 
 from anyio import Path as AsyncPath
 
@@ -44,6 +45,9 @@ from fastmcp import Context
 
 logger = get_logger(__name__)
 
+AliasKwarg = str | bool
+CommandKwarg = Union[str, bool, int]
+
 
 class CommandMiddleware(Protocol):
     """Protocol for command middleware."""
@@ -64,7 +68,7 @@ class CommandAliasResolution:
     """Resolved command alias details."""
 
     command_path: str
-    implied_kwargs: dict[str, str | bool]
+    implied_kwargs: dict[str, AliasKwarg]
 
 
 async def get_command_help(command_context: TemplateContext, commands_dir: Path, docroot: Path) -> Result[str]:
@@ -215,10 +219,24 @@ def _matches_alias(command_path: object, alias: CommandAliasMetadata) -> bool:
     return command_path in {alias["path"], alias["raw"]} or command_path_base in {alias_path_base, alias_raw_base}
 
 
+@overload
 def _merge_alias_kwargs(
-    default_kwargs: dict[str, str | bool],
-    override_kwargs: dict[str, Union[str, bool, int]],
-) -> dict[str, Union[str, bool, int]]:
+    default_kwargs: Mapping[str, AliasKwarg],
+    override_kwargs: Mapping[str, AliasKwarg],
+) -> dict[str, AliasKwarg]: ...
+
+
+@overload
+def _merge_alias_kwargs(
+    default_kwargs: Mapping[str, AliasKwarg],
+    override_kwargs: Mapping[str, CommandKwarg],
+) -> dict[str, CommandKwarg]: ...
+
+
+def _merge_alias_kwargs(
+    default_kwargs: Mapping[str, AliasKwarg],
+    override_kwargs: Mapping[str, CommandKwarg],
+) -> dict[str, CommandKwarg]:
     """Merge default kwargs with explicit overrides."""
     return {**default_kwargs, **override_kwargs}
 

@@ -59,15 +59,6 @@ def _parse_alias(alias: str) -> CommandAlias:
     return CommandAlias(raw=alias, path=path, implied_kwargs=implied_kwargs)
 
 
-def _is_valid_alias(alias: str) -> bool:
-    """Return True when an alias is safe to expose and resolve as a command path."""
-    try:
-        _parse_alias(alias)
-    except ValueError:
-        return False
-    return True
-
-
 def _normalise_aliases(
     raw_aliases: Any, *, command_name: str, file_path: Path
 ) -> tuple[list[str], list[CommandAliasMetadata]]:

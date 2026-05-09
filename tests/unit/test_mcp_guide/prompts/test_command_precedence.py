@@ -116,7 +116,9 @@ class TestCommandPrecedence:
 
     def test_merge_alias_kwargs_preserves_explicit_values(self):
         """Explicit caller kwargs should override alias defaults."""
-        merged = _merge_alias_kwargs(default_kwargs={"verbose": True, "table": True}, override_kwargs={"verbose": False})
+        merged = _merge_alias_kwargs(
+            default_kwargs={"verbose": True, "table": True}, override_kwargs={"verbose": False}
+        )
 
         assert merged == {"verbose": False, "table": True}
 
@@ -127,9 +129,7 @@ class TestCommandPrecedence:
             {
                 "name": "project/project",
                 "aliases": [],
-                "alias_metadata": [
-                    {"raw": "project?verbose", "path": "project", "implied_kwargs": {"verbose": True}}
-                ],
+                "alias_metadata": [{"raw": "project?verbose", "path": "project", "implied_kwargs": {"verbose": True}}],
             }
         ]
 
@@ -151,9 +151,7 @@ class TestCommandPrecedence:
             {
                 "name": "project/project",
                 "aliases": [],
-                "alias_metadata": [
-                    {"raw": "project?verbose", "path": "project", "implied_kwargs": {"verbose": True}}
-                ],
+                "alias_metadata": [{"raw": "project?verbose", "path": "project", "implied_kwargs": {"verbose": True}}],
             }
         ]
 
