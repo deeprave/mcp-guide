@@ -1,7 +1,10 @@
 # file-discovery Specification
 
 ## Purpose
-TBD - created by archiving change add-export-tracking. Update Purpose after archive.
+Define how project documents are discovered from configured filesystem
+categories and the local document store, including pattern matching,
+source identity, and deduplication behavior before content rendering.
+
 ## Requirements
 ### Requirement: Document Discovery Function
 
@@ -26,3 +29,35 @@ The merged function applies category and pattern filtering uniformly to both sou
 - **THEN** results from both sources are combined
 - **AND** each result indicates its source (filesystem or store)
 
+### Requirement: Source-Aware Document Deduplication
+
+The system SHALL deduplicate discovered documents using source-aware identity
+rather than display basename.
+
+Filesystem documents SHALL be identified by their source path identity. Stored
+documents SHALL be identified by `(category, name)`. Filesystem and stored
+documents SHALL remain distinct sources, even when their display names match.
+
+#### Scenario: Files with same basename from different directories
+- **WHEN** filesystem discovery matches multiple files with the same basename in
+  different directories
+- **THEN** all matching files SHALL be included
+- **AND** no file SHALL be silently skipped because another file has the same
+  basename
+
+#### Scenario: Template and non-template variants of same source path
+- **WHEN** filesystem discovery matches template and non-template variants of
+  the same source path
+- **THEN** the variants SHALL be deduplicated using the full relative path with
+  template extension stripped
+- **AND** the preferred variant SHALL be returned according to discovery rules
+
+#### Scenario: Stored document overlaps multiple collections
+- **WHEN** the same stored document is discovered through overlapping
+  collections or expressions
+- **THEN** the document SHALL appear once for its `(category, name)` identity
+
+#### Scenario: Filesystem and stored document with same display name
+- **WHEN** a filesystem document and a stored document have the same display name
+- **THEN** both documents SHALL be returned
+- **AND** they SHALL remain distinguishable by source

@@ -24,8 +24,8 @@ The system SHALL support workflow-aware help content through template conditiona
 #### Scenario: Conditional help sections
 - **WHEN** rendering command help with template system
 - **THEN** support conditional sections based on project flags and workflow state
-
 ### Requirement: Help Template Enhancement
+
 The system SHALL enhance the help template to support both general help listing and individual command help rendering.
 
 #### Scenario: Unified help template
@@ -36,6 +36,20 @@ The system SHALL enhance the help template to support both general help listing 
 - **WHEN** help command is called with specific command argument
 - **THEN** render detailed command help using template with populated context
 
+#### Scenario: Help template uses command helper formatting
+- **WHEN** command references are rendered in the help template
+- **THEN** they are generated through the shared command helper family rather than hardcoded inline formatting
+- **AND** the displayed command format follows the configured `format-command` behavior
+
+#### Scenario: Other command templates use shared helper formatting
+- **WHEN** command-oriented templates render guide command or resource references
+- **AND** the shared helper family can express those references
+- **THEN** they use the shared helper family instead of hardcoded command or resource syntax
+
+#### Scenario: Prompt override affects prompt-style help rendering
+- **WHEN** command references are rendered in prompt-style form in the help template
+- **AND** `MCP_PROMPT_NAME` overrides the prompt name
+- **THEN** the displayed prompt-style command references use the overridden prompt name
 ### Requirement: Template Context Integration
 
 The template context SHALL expose template-friendly agent capability flags in addition to the existing agent identity fields.
@@ -337,5 +351,37 @@ The system SHALL support extraction of embedded policy choices from existing use
 #### Scenario: High-value topics are extracted first
 - **WHEN** policy extraction is implemented
 - **THEN** high-value topics such as scm, commit/pr behavior, workflow mode, testing, type checking, and toolchain preferences are prioritized
-- **AND** additional policy topics discovered during the audit may also be extracted where they represent user-selectable preferences
+- **AND** additional policy topics discovered during the audit may also be extracted where they represent user-selectable preferences### Requirement: Handoff Command Flexibility
 
+The `:handoff` command SHALL support explicit read and write workflows against a
+user-supplied file path.
+
+The command SHALL:
+- Require a path argument naming the handoff file
+- Require exactly one of `--read` or `--write`
+- Reject invocations that specify both `--read` and `--write`
+- Reject invocations that specify neither `--read` nor `--write`
+- Instruct the agent explicitly whether it is reading existing context from the
+  file or writing current context to it
+
+#### Scenario: Write handoff file
+- **WHEN** the user invokes `:handoff .context.md --write`
+- **THEN** the rendered command instructs the agent to write the current context to `.context.md`
+- **AND** it explains what information should be included
+
+#### Scenario: Read handoff file
+- **WHEN** the user invokes `:handoff .context.md --read`
+- **THEN** the rendered command instructs the agent to read `.context.md` as input context
+- **AND** it does not describe a write workflow
+
+#### Scenario: Missing operation flag is invalid
+- **WHEN** the user invokes `:handoff .context.md` without `--read` or `--write`
+- **THEN** the command returns a validation-style error explaining that exactly one mode flag is required
+
+#### Scenario: Both operation flags are invalid
+- **WHEN** the user invokes `:handoff .context.md --read --write`
+- **THEN** the command returns a validation-style error explaining that the flags are mutually exclusive
+
+#### Scenario: Missing path is invalid
+- **WHEN** the user invokes `:handoff --read` or `:handoff --write` without a file path
+- **THEN** the command returns a validation-style error explaining that a handoff file path is required

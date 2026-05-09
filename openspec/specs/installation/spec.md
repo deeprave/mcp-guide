@@ -23,52 +23,38 @@ The system SHALL store original installed files in `_installed.zip` in docroot f
 - **WHEN** templates are updated
 - **THEN** original files from `_installed.zip` are used for comparison
 - **AND** new versions are stored in updated `_installed.zip`
-
 ### Requirement: Smart Update Strategy
-The system SHALL use intelligent update strategy based on file modification status.
+The system SHALL use intelligent update strategy based on file modification
+status and upstream document set changes.
 
 #### Scenario: File unchanged from original and differs from new version
-- **WHEN** current file matches original in `_installed.zip`
+- **WHEN** current file matches original in the previous install archive
 - **AND** current file differs from new version
 - **THEN** file is updated to new version without backup
 - **AND** no user changes are lost
 
-#### Scenario: File unchanged from original and identical to new version
-- **WHEN** current file matches original in `_installed.zip`
-- **AND** current file matches new version (SHA256)
-- **THEN** file is skipped
-- **AND** no update occurs
-
 #### Scenario: File modified by user
-- **WHEN** current file differs from original in `_installed.zip`
-- **THEN** diff is computed between original and current
-- **AND** diff is applied to new version
-- **AND** result is kept if patch succeeds
+- **WHEN** current file differs from original in the previous install archive
+- **THEN** diff is computed against the original version
+- **AND** the change is patched or replaced using existing conflict behavior
 
-#### Scenario: Patch application fails
-- **WHEN** diff cannot be applied to new version
-- **THEN** current file is backed up to `orig.<filename>`
-- **AND** new version is installed
-- **AND** warning is raised about overwritten changes
+#### Scenario: Upstream removed file unchanged locally
+- **WHEN** a file exists in the previous install archive
+- **AND** that file is absent from the new template set
+- **AND** the current local file matches the previous original content
+- **THEN** the local file is deleted during update
 
-#### Scenario: File identical to new version
-- **WHEN** current file matches new version (SHA256)
-- **THEN** file is skipped
-- **AND** no backup or update occurs
+#### Scenario: Upstream removed file modified locally
+- **WHEN** a file exists in the previous install archive
+- **AND** that file is absent from the new template set
+- **AND** the current local file differs from the previous original content
+- **THEN** the local file is preserved
+- **AND** the updater does not delete user changes
 
-#### Scenario: No archive available and file differs from new version
-- **WHEN** no `_installed.zip` archive exists
-- **AND** current file differs from new version (SHA256)
-- **THEN** current file is backed up to `orig.<filename>`
-- **AND** new version is installed
-- **AND** warning is raised about potential user changes
-- **AND** system cannot distinguish user modifications from template changes without archive
-
-#### Scenario: No archive available and file identical to new version
-- **WHEN** no `_installed.zip` archive exists
-- **AND** current file matches new version (SHA256)
-- **THEN** file is skipped
-- **AND** no backup or update occurs
+#### Scenario: Parent directories are preserved
+- **WHEN** a removed upstream file is deleted during update
+- **THEN** only the file is removed
+- **AND** parent directories are left untouched
 
 ### Requirement: Template Package Installation
 The system SHALL copy templates from mcp_guide_templates package to docroot.
@@ -337,5 +323,19 @@ The system SHALL use structured logging for installation operations with configu
 #### Scenario: Conflict warning logging
 - **WHEN** patch fails and backup is created
 - **THEN** individual conflict is logged at WARNING level with file path and backup location
-- **AND** summary conflict warning is logged at WARNING level after all operations
+- **AND** summary conflict warning is logged at WARNING level after all operations### Requirement: Safe Documentation Update Targets
+The system SHALL treat documentation updates as valid only when the resolved
+documentation root is safe for update operations.
 
+The same docroot safety rule SHALL be used both when determining whether an
+update may be attempted and when executing the installer-side update path.
+
+#### Scenario: Template source docroot is rejected
+- **WHEN** the resolved documentation root is the template source directory
+- **THEN** the system SHALL treat that docroot as non-updateable
+- **AND** the installer-side update path SHALL reject update execution for that docroot
+
+#### Scenario: Valid installed docroot remains updateable
+- **WHEN** the resolved documentation root is not the template source directory
+- **THEN** the system SHALL allow normal update eligibility checks to continue
+- **AND** docroot safety validation SHALL not by itself suppress the update

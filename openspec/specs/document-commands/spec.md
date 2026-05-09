@@ -1,7 +1,9 @@
 # document-commands Specification
 
 ## Purpose
-TBD - created by archiving change add-documents. Update Purpose after archive.
+Define the prompt command templates used to manage local stored documents,
+including ingestion from local files and URLs, listing, and removal.
+
 ## Requirements
 ### Requirement: Document Command Templates
 
@@ -9,7 +11,7 @@ The system SHALL provide prompt command templates in `_commands/document/` for m
 
 #### Scenario: Parent command summary
 - **WHEN** user invokes `:document`
-- **THEN** display available document subcommands (add, remove, list)
+- **THEN** display available document subcommands (add, add-url, remove, list)
 
 ### Requirement: Document Add Command
 
@@ -29,6 +31,34 @@ The command SHALL continue to preserve the same `send_file_content` semantics an
 #### Scenario: Standardized fallback wording
 - **WHEN** the handoff-oriented path cannot actually be used
 - **THEN** the agent uses standardized fallback explanation wording before continuing inline
+
+### Requirement: Document Add URL Command
+
+The `:document/add-url` command SHALL support ingesting remote URL content into
+the local document store.
+
+The command SHALL support a handoff-capable execution path for clients that
+expose `agent.has_handoff`, while retaining a universal inline fallback path.
+The command SHALL preserve the same fetch, transform, and `send_file_content`
+semantics as local file ingestion, with URL source metadata preserved during
+storage.
+
+#### Scenario: Handoff-capable client uses separate execution
+- **WHEN** `:document/add-url` is rendered for a client with
+  `agent.has_handoff=true`
+- **THEN** the template instructs the agent to use separate execution when it
+  can still complete fetch, transform, and final ingestion end-to-end
+- **AND** the workflow still ends with `send_file_content`
+
+#### Scenario: Inline fallback remains universal
+- **WHEN** `:document/add-url` is rendered for a client with
+  `agent.has_handoff=false`
+- **THEN** the template instructs the agent to perform the workflow inline
+
+#### Scenario: Standardized fallback wording
+- **WHEN** the handoff-oriented path cannot actually be used
+- **THEN** the agent uses standardized fallback explanation wording before
+  continuing inline
 
 ### Requirement: Document Remove Command
 
@@ -52,4 +82,3 @@ Required arguments:
 #### Scenario: List stored documents
 - **WHEN** user invokes `:document/list docs`
 - **THEN** agent calls category_list_files with category=docs, source=stored
-

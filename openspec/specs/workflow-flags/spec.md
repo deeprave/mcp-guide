@@ -30,7 +30,6 @@ The system SHALL support a configurable workflow state file via the `workflow-fi
 - **THEN** return error message identifying the flag name and invalid filename
 - **AND** indicate that flag must be corrected for workflow tracking to work
 - **AND** perform this validation before any agent requests
-
 ### Requirement: Flag Validation Registration ✅ IMPLEMENTED
 The system SHALL support registration of flag-specific validators for semantic validation during flag setting operations.
 
@@ -52,6 +51,12 @@ The system SHALL support registration of flag-specific validators for semantic v
 - **WHEN** setting `workflow-file` flag
 - **THEN** validate path security and format requirements
 
+#### Scenario: Workflow flag uses registered normalization
+- **WHEN** setting `workflow` through any supported feature flag API
+- **THEN** the workflow flag SHALL use its registered normalizer and validator
+- **AND** the generic default validator SHALL NOT override valid workflow list
+  behavior
+
 ### Requirement: Security Policy Consolidation
 The system SHALL consolidate overlapping filesystem security implementations into a unified security policy class.
 
@@ -59,7 +64,6 @@ The system SHALL consolidate overlapping filesystem security implementations int
 - **WHEN** validating workflow file paths
 - **THEN** use consolidated security policy that combines ReadWriteSecurityPolicy, PathValidator, and system directory exclusions
 - **AND** eliminate code duplication across filesystem security modules
-
 ### Requirement: Workflow Configuration ✅ IMPLEMENTED
 The system SHALL support enhanced `workflow` project flag configuration with boolean or list values.
 
@@ -80,6 +84,16 @@ The system SHALL support enhanced `workflow` project flag configuration with boo
 - **THEN** require explicit user confirmation before entering phase
 - **WHEN** phase name has suffix asterisk (e.g., `check*`)
 - **THEN** require explicit user confirmation to exit phase
+
+#### Scenario: Workflow true string normalizes to boolean
+- **WHEN** the workflow flag is set using the string `"true"`
+- **THEN** the workflow flag value SHALL be normalized to the boolean `true`
+- **AND** downstream workflow checks SHALL treat it the same as a boolean input
+
+#### Scenario: Workflow false string normalizes to boolean
+- **WHEN** the workflow flag is set using the string `"false"`
+- **THEN** the workflow flag value SHALL be normalized to the boolean `false`
+- **AND** downstream workflow checks SHALL treat it the same as a boolean input
 
 ### Requirement: Workflow State File Format
 The system SHALL support a structured YAML format for the workflow state file.
@@ -172,5 +186,37 @@ available exploratory mode rather than a normal ordered delivery phase.
 - **WHEN** onboarding explains workflow variants containing `exploration`
 - **THEN** it distinguishes `exploration` from `discussion`
 - **AND** it describes `discussion` as alignment-oriented
-- **AND** it describes `exploration` as approach-oriented
+- **AND** it describes `exploration` as approach-oriented### Requirement: Autoupdate Feature Flag
+The system SHALL provide a global feature flag `autoupdate` that controls
+automatic update prompting at startup.
 
+#### Scenario: Global flag only
+- **WHEN** flag is set at global level
+- **THEN** flag is accepted and stored
+- **AND** flag value is boolean (true/false)
+
+#### Scenario: Boolean values are normalised
+- **WHEN** `autoupdate` is set using an accepted boolean-like string value
+- **THEN** the stored value is normalised using the standard boolean normaliser
+- **AND** `"true"`, `"on"`, and `"enabled"` are stored as `true`
+- **AND** `"false"`, `"off"`, and `"disabled"` are stored as `false`
+
+#### Scenario: Project-level flag rejected
+- **WHEN** flag is set at project level
+- **THEN** validation error is returned
+- **AND** error message states "autoupdate must be global flag only"
+
+#### Scenario: Flag resolution defaults to enabled
+- **WHEN** `McpUpdateTask` checks `autoupdate`
+- **AND** no global flag value is present
+- **THEN** startup update prompting is treated as enabled
+
+#### Scenario: Explicit false disables prompting
+- **WHEN** `McpUpdateTask` checks `autoupdate`
+- **AND** the global flag value is `false`
+- **THEN** startup update prompting is disabled
+
+#### Scenario: Explicit true enables prompting
+- **WHEN** `McpUpdateTask` checks `autoupdate`
+- **AND** the global flag value is `true`
+- **THEN** startup update prompting is enabled

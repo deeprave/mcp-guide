@@ -100,17 +100,28 @@ The configuration system SHALL support project-specific feature flags with flexi
 #### Scenario: Default empty project flags
 - **WHEN** new project is created
 - **THEN** project_flags defaults to empty dict
-
 ### Requirement: Feature Flag Value Types
 Feature flag values SHALL be restricted to supported types for consistency and validation.
 
-#### Scenario: Supported value types
-- **WHEN** feature flag value is set
-- **THEN** accept only bool, str, list[str], or dict[str, str] types
+The feature flag value model SHALL represent canonical boolean values as actual
+booleans rather than boolean-looking strings.
 
-#### Scenario: Type validation
-- **WHEN** invalid value type is provided
-- **THEN** return validation error with supported types
+The default feature flag contract SHALL support boolean and string values, while
+structured values remain valid only for flags that explicitly opt into them
+through registered validation and normalization.
+
+#### Scenario: Boolean value remains typed
+- **WHEN** a feature flag value is normalized to `true` or `false`
+- **THEN** the feature flag value model SHALL store it as a boolean
+
+#### Scenario: Arbitrary string remains typed as string
+- **WHEN** a generic feature flag value is `"custom-mode"`
+- **THEN** the feature flag value model SHALL store it as a string
+
+#### Scenario: Structured value is preserved for registered flags
+- **WHEN** a registered structured flag value is accepted by flag-specific
+  validation
+- **THEN** the feature flag value model SHALL preserve the structured value
 
 ### Requirement: Feature Flag Name Validation
 Feature flag names SHALL follow project name validation rules with additional restrictions.
@@ -126,7 +137,6 @@ Feature flag names SHALL follow project name validation rules with additional re
 #### Scenario: Name length validation
 - **WHEN** flag name is validated
 - **THEN** enforce same length restrictions as project names
-
 ### Requirement: Feature Flag Resolution
 The system SHALL resolve feature flag values using project-specific → global → None hierarchy.
 
@@ -141,6 +151,12 @@ The system SHALL resolve feature flag values using project-specific → global �
 #### Scenario: Flag not found
 - **WHEN** flag does not exist in project or global configuration
 - **THEN** return None
+
+#### Scenario: Resolved boolean flag remains boolean
+- **WHEN** a stored flag value has been normalized from `"true"` to boolean
+  `true`
+- **THEN** resolved flag access SHALL return the boolean value rather than the
+  original string representation
 
 ### Requirement: Project Data Formatting
 The system SHALL format project data without redundant information when the project name is already available in the parent context.
