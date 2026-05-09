@@ -12,7 +12,7 @@ from mcp_guide.config_constants import COMMANDS_DIR
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.core.tool_arguments import ToolArguments
 from mcp_guide.core.tool_decorator import toolfunc
-from mcp_guide.discovery.commands import discover_commands
+from mcp_guide.discovery.commands import discover_commands, normalise_alias_metadata
 from mcp_guide.result import Result
 from mcp_guide.result_constants import ERROR_VALIDATION
 from mcp_guide.session import get_session
@@ -61,12 +61,7 @@ async def internal_read_resource(args: ReadResourceArgs, ctx: Optional[Context] 
             command_names: list[str] = [cmd["name"] for cmd in commands]
             for cmd in commands:
                 command_names.extend(cmd.get("aliases", []))
-                for alias in cmd.get("alias_metadata", []):
-                    if not isinstance(alias, dict):
-                        continue
-                    path = alias.get("path")
-                    if isinstance(path, str) and path:
-                        command_names.append(path)
+                command_names.extend(alias["path"] for alias in normalise_alias_metadata(cmd.get("alias_metadata", [])))
             parsed = parse_guide_uri(args.uri, command_names)
         except ValueError as e:
             return Result.failure(str(e), error_type=ERROR_VALIDATION)

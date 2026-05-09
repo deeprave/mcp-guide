@@ -36,6 +36,41 @@ class CommandAlias:
     implied_kwargs: dict[str, str | bool]
 
 
+def normalise_alias_metadata(raw_alias_metadata: Any) -> list[CommandAliasMetadata]:
+    """Return well-formed alias metadata entries from an arbitrary source."""
+    if not isinstance(raw_alias_metadata, list):
+        return []
+
+    alias_metadata: list[CommandAliasMetadata] = []
+    for alias in raw_alias_metadata:
+        if not isinstance(alias, dict):
+            continue
+
+        raw = alias.get("raw")
+        path = alias.get("path")
+        if not isinstance(raw, str) or not raw:
+            continue
+        if not isinstance(path, str) or not path:
+            continue
+
+        implied_kwargs: dict[str, str | bool] = {}
+        raw_implied_kwargs = alias.get("implied_kwargs", {})
+        if isinstance(raw_implied_kwargs, dict):
+            for key, value in raw_implied_kwargs.items():
+                if isinstance(key, str) and (isinstance(value, str) or isinstance(value, bool)):
+                    implied_kwargs[key] = value
+
+        alias_metadata.append(
+            {
+                "raw": raw,
+                "path": path,
+                "implied_kwargs": implied_kwargs,
+            }
+        )
+
+    return alias_metadata
+
+
 def _parse_alias(alias: str) -> CommandAlias:
     """Parse and validate a raw alias string."""
     if not alias or alias != alias.strip():
