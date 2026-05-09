@@ -61,7 +61,9 @@ class TestReadResourceCommand:
         mock_result = Result.ok("project info")
         commands = [{"name": "project"}]
 
-        with patch("mcp_guide.tools.tool_resource.handle_command", new=AsyncMock(return_value=mock_result)) as mock_cmd:
+        with patch(
+            "mcp_guide.prompts.guide_prompt.handle_command", new=AsyncMock(return_value=mock_result)
+        ) as mock_cmd:
             with patch("mcp_guide.tools.tool_resource.get_session", new=AsyncMock()) as mock_session:
                 session = mock_session.return_value
                 session.get_docroot = AsyncMock(return_value="/fake")
@@ -80,7 +82,9 @@ class TestReadResourceCommand:
         mock_result = Result.ok("openspec output")
         commands = [{"name": "openspec/show"}]
 
-        with patch("mcp_guide.tools.tool_resource.handle_command", new=AsyncMock(return_value=mock_result)) as mock_cmd:
+        with patch(
+            "mcp_guide.prompts.guide_prompt.handle_command", new=AsyncMock(return_value=mock_result)
+        ) as mock_cmd:
             with patch("mcp_guide.tools.tool_resource.get_session", new=AsyncMock()) as mock_session:
                 session = mock_session.return_value
                 session.get_docroot = AsyncMock(return_value="/fake")
@@ -93,6 +97,92 @@ class TestReadResourceCommand:
                     mock_cmd.assert_called_once_with(
                         "openspec/show", kwargs={"verbose": True}, args=["my-change"], ctx=mock_ctx
                     )
+                    assert result is mock_result
+
+    @pytest.mark.anyio
+    async def test_command_uri_alias_uses_alias_path_for_resolution(self, mcp_server: Any) -> None:
+        """Command URI aliases should parse against alias paths, not raw alias strings."""
+        mock_result = Result.ok("project info")
+        commands = [
+            {
+                "name": "project/project",
+                "aliases": ["project?verbose"],
+                "alias_metadata": [{"raw": "project?verbose", "path": "project", "implied_kwargs": {"verbose": True}}],
+            }
+        ]
+
+        with patch(
+            "mcp_guide.prompts.guide_prompt.handle_command", new=AsyncMock(return_value=mock_result)
+        ) as mock_cmd:
+            with patch("mcp_guide.tools.tool_resource.get_session", new=AsyncMock()) as mock_session:
+                session = mock_session.return_value
+                session.get_docroot = AsyncMock(return_value="/fake")
+
+                with patch("mcp_guide.tools.tool_resource.discover_commands", new=AsyncMock(return_value=commands)):
+                    mock_ctx = AsyncMock()
+                    args = ReadResourceArgs(uri="guide://_project?table=true")
+                    result = await internal_read_resource(args, ctx=mock_ctx)
+
+                    mock_cmd.assert_called_once_with("project", kwargs={"table": True}, args=[], ctx=mock_ctx)
+                    assert result is mock_result
+
+    @pytest.mark.anyio
+    async def test_command_uri_keeps_legacy_aliases_when_alias_metadata_exists(self, mcp_server: Any) -> None:
+        """Command URI parsing should consider legacy aliases and normalized alias metadata."""
+        mock_result = Result.ok("legacy output")
+        commands = [
+            {
+                "name": "canonical/command",
+                "aliases": ["legacy/path", "short?verbose"],
+                "alias_metadata": [{"raw": "short?verbose", "path": "short", "implied_kwargs": {"verbose": True}}],
+            }
+        ]
+
+        with patch(
+            "mcp_guide.prompts.guide_prompt.handle_command", new=AsyncMock(return_value=mock_result)
+        ) as mock_cmd:
+            with patch("mcp_guide.tools.tool_resource.get_session", new=AsyncMock()) as mock_session:
+                session = mock_session.return_value
+                session.get_docroot = AsyncMock(return_value="/fake")
+
+                with patch("mcp_guide.tools.tool_resource.discover_commands", new=AsyncMock(return_value=commands)):
+                    mock_ctx = AsyncMock()
+                    args = ReadResourceArgs(uri="guide://_legacy/path/arg")
+                    result = await internal_read_resource(args, ctx=mock_ctx)
+
+                    mock_cmd.assert_called_once_with("legacy/path", kwargs={}, args=["arg"], ctx=mock_ctx)
+                    assert result is mock_result
+
+    @pytest.mark.anyio
+    async def test_command_uri_ignores_malformed_alias_metadata_paths(self, mcp_server: Any) -> None:
+        """Command URI parsing should skip empty or malformed alias metadata paths."""
+        mock_result = Result.ok("legacy output")
+        commands = [
+            {
+                "name": "canonical/command",
+                "aliases": ["legacy/path"],
+                "alias_metadata": [
+                    {"raw": "empty", "path": "", "implied_kwargs": {}},
+                    {"raw": "missing", "implied_kwargs": {}},
+                    {"raw": "none", "path": None, "implied_kwargs": {}},
+                    "not-a-dict",
+                ],
+            }
+        ]
+
+        with patch(
+            "mcp_guide.prompts.guide_prompt.handle_command", new=AsyncMock(return_value=mock_result)
+        ) as mock_cmd:
+            with patch("mcp_guide.tools.tool_resource.get_session", new=AsyncMock()) as mock_session:
+                session = mock_session.return_value
+                session.get_docroot = AsyncMock(return_value="/fake")
+
+                with patch("mcp_guide.tools.tool_resource.discover_commands", new=AsyncMock(return_value=commands)):
+                    mock_ctx = AsyncMock()
+                    args = ReadResourceArgs(uri="guide://_legacy/path/arg")
+                    result = await internal_read_resource(args, ctx=mock_ctx)
+
+                    mock_cmd.assert_called_once_with("legacy/path", kwargs={}, args=["arg"], ctx=mock_ctx)
                     assert result is mock_result
 
 

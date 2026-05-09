@@ -63,6 +63,10 @@ class TestCommandUri:
         result = parse_guide_uri("guide://_status?verbose=true", COMMANDS)
         assert result == GuideUri(is_command=True, expression="status", kwargs={"verbose": True})
 
+    def test_command_alias_path_resolves_using_canonical_lookup(self) -> None:
+        result = parse_guide_uri("guide://_project", ["project/project", "project"])
+        assert result == GuideUri(is_command=True, expression="project")
+
     def test_command_with_args_and_kwargs(self) -> None:
         result = parse_guide_uri("guide://_openspec/list?verbose=true", COMMANDS)
         assert result == GuideUri(is_command=True, expression="openspec/list", kwargs={"verbose": True})

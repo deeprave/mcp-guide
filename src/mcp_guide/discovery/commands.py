@@ -2,8 +2,9 @@
 
 import asyncio
 from collections.abc import Iterable
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, TypedDict
 
 from anyio import Path as AsyncPath
 
@@ -11,42 +12,89 @@ from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.discovery.files import discover_document_files
 from mcp_guide.discovery.patterns import is_valid_command
 from mcp_guide.render.frontmatter import parse_content_with_frontmatter
+from mcp_guide.uri_parser import parse_query_kwargs
 
 logger = get_logger(__name__)
 
-_INVALID_ALIAS_CHARS = set("*?[]<>\\#")
+_INVALID_ALIAS_PATH_CHARS = set("*?[]<>\\#")
+
+
+class CommandAliasMetadata(TypedDict):
+    """Dictionary form of parsed command alias metadata."""
+
+    raw: str
+    path: str
+    implied_kwargs: dict[str, str | bool]
+
+
+@dataclass(frozen=True)
+class CommandAlias:
+    """Normalized alias metadata used for resolution and display."""
+
+    raw: str
+    path: str
+    implied_kwargs: dict[str, str | bool]
+
+
+def _parse_alias(alias: str) -> CommandAlias:
+    """Parse and validate a raw alias string."""
+    if not alias or alias != alias.strip():
+        raise ValueError("alias must be non-empty and must not have surrounding whitespace")
+    if any(ch.isspace() or ord(ch) < 32 or ord(ch) == 127 for ch in alias):
+        raise ValueError("alias must not contain whitespace or control characters")
+
+    path, separator, query = alias.partition("?")
+    if not path:
+        raise ValueError("alias path must not be empty")
+    if any(ch in _INVALID_ALIAS_PATH_CHARS for ch in path):
+        raise ValueError("alias path contains invalid characters")
+    if path.startswith("/") or path.endswith("/"):
+        raise ValueError("alias path must not start or end with '/'")
+
+    segments = path.split("/")
+    if any(not segment or segment in {".", ".."} for segment in segments):
+        raise ValueError("alias path contains invalid segments")
+
+    implied_kwargs = parse_query_kwargs(query) if separator else {}
+    return CommandAlias(raw=alias, path=path, implied_kwargs=implied_kwargs)
 
 
 def _is_valid_alias(alias: str) -> bool:
     """Return True when an alias is safe to expose and resolve as a command path."""
-    if not alias or alias != alias.strip():
+    try:
+        _parse_alias(alias)
+    except ValueError:
         return False
-    if any(ch.isspace() or ord(ch) < 32 or ord(ch) == 127 for ch in alias):
-        return False
-    if any(ch in _INVALID_ALIAS_CHARS for ch in alias):
-        return False
-    if alias.startswith("/") or alias.endswith("/"):
-        return False
-
-    segments = alias.split("/")
-    if any(not segment or segment in {".", ".."} for segment in segments):
-        return False
-
     return True
 
 
-def _normalise_aliases(raw_aliases: Any, *, command_name: str, file_path: Path) -> list[str]:
-    """Filter invalid aliases from template frontmatter."""
+def _normalise_aliases(
+    raw_aliases: Any, *, command_name: str, file_path: Path
+) -> tuple[list[str], list[CommandAliasMetadata]]:
+    """Filter invalid aliases from template frontmatter and preserve parsed metadata."""
     if not isinstance(raw_aliases, Iterable) or isinstance(raw_aliases, (str, bytes)):
-        return []
+        return [], []
 
     aliases: list[str] = []
+    alias_metadata: list[CommandAliasMetadata] = []
     for alias in raw_aliases:
-        if not isinstance(alias, str) or not _is_valid_alias(alias):
+        if not isinstance(alias, str):
             logger.warning("Ignoring invalid command alias %r in %s for command %s", alias, file_path, command_name)
             continue
-        aliases.append(alias)
-    return aliases
+        try:
+            parsed_alias = _parse_alias(alias)
+        except ValueError:
+            logger.warning("Ignoring invalid command alias %r in %s for command %s", alias, file_path, command_name)
+            continue
+        aliases.append(parsed_alias.raw)
+        alias_metadata.append(
+            {
+                "raw": parsed_alias.raw,
+                "path": parsed_alias.path,
+                "implied_kwargs": parsed_alias.implied_kwargs,
+            }
+        )
+    return aliases, alias_metadata
 
 
 async def discover_command_files(commands_dir: Path, patterns: list[str]) -> list[Any]:
@@ -156,6 +204,7 @@ async def discover_commands(commands_dir: Path) -> list[dict[str, Any]]:
         usage = ""
         examples = []
         aliases = []
+        alias_metadata = []
         category = "general"
 
         try:
@@ -186,7 +235,7 @@ async def discover_commands(commands_dir: Path) -> list[dict[str, Any]]:
                 description = front_matter.get("description", "")
                 usage = front_matter.get("usage", "")
                 examples = front_matter.get("examples", [])
-                aliases = _normalise_aliases(
+                aliases, alias_metadata = _normalise_aliases(
                     front_matter.get("aliases", []),
                     command_name=command_name,
                     file_path=file_path,
@@ -205,6 +254,7 @@ async def discover_commands(commands_dir: Path) -> list[dict[str, Any]]:
                 "usage": usage,
                 "examples": examples if isinstance(examples, list) else [],
                 "aliases": aliases,
+                "alias_metadata": alias_metadata,
                 "category": category if isinstance(category, str) else "general",
             }
         )
