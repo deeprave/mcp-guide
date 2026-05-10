@@ -203,36 +203,51 @@ class TaskManager:
 
         # Serializes project-scoped task lifecycle mutations
         self._project_task_lifecycle_lock: asyncio.Lock = asyncio.Lock()
+        self._project_task_lifecycle_generation = 0
 
     async def restart_project_tasks(self, session: "Session") -> None:
         """Restart all registered project-scoped tasks for the active project."""
         async with self._project_task_lifecycle_lock:
             active_tasks = list(self._active_project_tasks.values())
             self._active_project_tasks.clear()
-
-            for task in active_tasks:
-                await self._stop_project_task(task)
-
+            self._project_task_lifecycle_generation += 1
+            generation = self._project_task_lifecycle_generation
+            registered_task_classes = get_registered_task_classes()
             self._clear_project_scoped_cache()
             self._clear_queued_instructions()
 
-            for task_cls in get_registered_task_classes():
-                task: Any = None
-                try:
-                    task = task_cls()
-                    started = await task.start(self, session)
-                except Exception as e:
-                    logger.warning(f"Error starting project-scoped task {task_cls.__name__}: {e}", exc_info=True)
-                    if task is not None:
-                        await self.unsubscribe(cast(TaskSubscriber, task))
-                    continue
+        for task in active_tasks:
+            await self._stop_project_task(task)
 
-                if started:
-                    self._active_project_tasks[task_cls] = cast(TaskSubscriber, task)
-                else:
+        started_tasks: dict[type[Any], TaskSubscriber] = {}
+        for task_cls in registered_task_classes:
+            task: Any = None
+            try:
+                task = task_cls()
+                started = await task.start(self, session)
+            except Exception as e:
+                logger.warning(f"Error starting project-scoped task {task_cls.__name__}: {e}", exc_info=True)
+                if task is not None:
                     await self.unsubscribe(cast(TaskSubscriber, task))
+                continue
 
+            if started:
+                started_tasks[task_cls] = cast(TaskSubscriber, task)
+            else:
+                await self.unsubscribe(cast(TaskSubscriber, task))
+
+        async with self._project_task_lifecycle_lock:
+            if generation == self._project_task_lifecycle_generation:
+                self._active_project_tasks = started_tasks
+                should_start_timers = True
+            else:
+                should_start_timers = False
+
+        if should_start_timers:
             await self.start()
+        else:
+            for task in started_tasks.values():
+                await self._stop_project_task(task)
 
     async def _stop_project_task(self, task: TaskSubscriber) -> None:
         """Stop and unsubscribe one project-scoped task instance."""
@@ -295,7 +310,6 @@ class TaskManager:
         """Invalidate cached flags when the project changes."""
         self._resolved_flags = None
         self._resolved_flags_session = None
-        await self.start()
         await self.restart_project_tasks(session)
 
     async def on_config_changed(self, session: "Session") -> None:

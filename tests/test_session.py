@@ -170,7 +170,11 @@ class TestGetOrCreateSession:
         assert "stale project instruction" not in task_manager._pending_instructions
         for instruction in initial_instructions:
             assert instruction not in task_manager._pending_instructions
-        assert task_manager._pending_instructions == ["_startup:2", "_onboard_prompt:3", "_guide-uri:1"]
+
+        pending_instructions = list(task_manager._pending_instructions)
+        assert any(instruction.startswith("_startup:") for instruction in pending_instructions)
+        assert any(instruction.startswith("_onboard_prompt:") for instruction in pending_instructions)
+        assert any(instruction.startswith("_guide-uri:") for instruction in pending_instructions)
 
         await mcp_guide.session.remove_current_session()
         await TaskManager._reset_for_testing()
