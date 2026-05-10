@@ -851,6 +851,12 @@ async def get_or_create_session(
     session.agent_info = agent_info
     session.client_params = client_params
 
+    # Register TaskManager first so project switches clear stale project-scoped
+    # instructions before listeners queue fresh startup guidance.
+    from mcp_guide.task_manager import get_task_manager
+
+    session.add_listener(get_task_manager())
+
     # Register per-session startup instruction listener
     from mcp_guide.startup_listener import StartupInstructionListener
 
@@ -860,11 +866,6 @@ async def get_or_create_session(
     from mcp_guide.guide_uri_listener import GuideUriListener
 
     session.add_listener(GuideUriListener())
-
-    # Register TaskManager so it receives on_project_changed for timer loop
-    from mcp_guide.task_manager import get_task_manager
-
-    session.add_listener(get_task_manager())
 
     # Store in ContextVar
     set_current_session(session)

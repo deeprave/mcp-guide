@@ -7,6 +7,14 @@ import pytest
 from mcp_guide.task_manager import EventType, TaskManager
 
 
+@pytest.fixture(autouse=True)
+def clear_task_registry() -> None:
+    """Keep project-scoped task registration isolated from other test modules."""
+    from mcp_guide.decorators import clear_registered_tasks_for_testing
+
+    clear_registered_tasks_for_testing()
+
+
 class MockSubscriber:
     """Mock subscriber for testing."""
 
@@ -138,3 +146,29 @@ class TestGetTaskByType:
 
         assert result is subscriber1
         assert "Multiple task subscribers found for type MockSubscriber" in caplog.text
+
+
+class TestProjectTaskLifecycleIntegration:
+    """Project/config change callbacks delegate to project-scoped task lifecycle."""
+
+    @pytest.mark.anyio
+    async def test_unregistered_task_stays_gone_after_project_change(self, task_manager: TaskManager) -> None:
+        """Unregistered subscribers are not restarted by project lifecycle hooks."""
+        from unittest.mock import Mock
+
+        subscriber = MockSubscriber("unregistered")
+        task_manager.subscribe(subscriber, EventType.FS_FILE_CONTENT)
+        await task_manager.unsubscribe(subscriber)
+
+        await task_manager.on_project_changed(Mock(), "old-project", "new-project")
+
+        assert task_manager.get_subscription_count() == 0
+
+    @pytest.mark.anyio
+    async def test_config_change_with_no_registered_tasks_is_noop(self, task_manager: TaskManager) -> None:
+        """Config changes without project-scoped registrations leave subscriptions alone."""
+        from unittest.mock import Mock
+
+        await task_manager.on_config_changed(Mock())
+
+        assert task_manager.get_subscription_count() == 0

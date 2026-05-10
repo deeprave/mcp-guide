@@ -6,11 +6,11 @@ import time
 import zlib
 from contextvars import ContextVar
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, TypeVar, Union, cast
 
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.core.result import Result
-from mcp_guide.decorators import task_init
+from mcp_guide.decorators import get_registered_task_classes, task_init
 from mcp_guide.models import resolve_all_flags
 from mcp_guide.render.content import RenderedContent
 from mcp_guide.session import get_session
@@ -25,6 +25,21 @@ from .subscription import Subscription
 logger = get_logger(__name__)
 
 T = TypeVar("T", bound=TaskSubscriber)
+
+PROJECT_SCOPED_CACHE_KEYS = (
+    "workflow_state",
+    "workflow_file_path",
+    "workflow_change_content",
+    "openspec_available",
+    "openspec_version",
+    "openspec_status",
+    "openspec_show",
+    "openspec_changes",
+    "client_os_info",
+    "client_context_info",
+)
+
+CACHE_INVALIDATION_KEYS = ("workflow_state", "openspec_show", "openspec_status")
 
 
 def _get_content_id(content: bytes) -> str:
@@ -181,45 +196,113 @@ class TaskManager:
 
         # Lazy flag resolution cache (invalidated by SessionListener callbacks)
         self._resolved_flags: Optional[Dict[str, Any]] = None
+        self._resolved_flags_session: Optional["Session"] = None
 
-    async def resolved_flags(self) -> Dict[str, Any]:
+        # Active project-scoped task instances, keyed by registered class
+        self._active_project_tasks: Dict[type[Any], TaskSubscriber] = {}
+
+        # Serializes project-scoped task lifecycle mutations
+        self._project_task_lifecycle_lock: asyncio.Lock = asyncio.Lock()
+
+    async def restart_project_tasks(self, session: "Session") -> None:
+        """Restart all registered project-scoped tasks for the active project."""
+        async with self._project_task_lifecycle_lock:
+            active_tasks = list(self._active_project_tasks.values())
+            self._active_project_tasks.clear()
+
+            for task in active_tasks:
+                await self._stop_project_task(task)
+
+            self._clear_project_scoped_cache()
+            self._clear_queued_instructions()
+
+            for task_cls in get_registered_task_classes():
+                task: Any = None
+                try:
+                    task = task_cls()
+                    started = await task.start(self, session)
+                except Exception as e:
+                    logger.warning(f"Error starting project-scoped task {task_cls.__name__}: {e}", exc_info=True)
+                    if task is not None:
+                        await self.unsubscribe(cast(TaskSubscriber, task))
+                    continue
+
+                if started:
+                    self._active_project_tasks[task_cls] = cast(TaskSubscriber, task)
+                else:
+                    await self.unsubscribe(cast(TaskSubscriber, task))
+
+            await self.start()
+
+    async def _stop_project_task(self, task: TaskSubscriber) -> None:
+        """Stop and unsubscribe one project-scoped task instance."""
+        try:
+            if stop := getattr(task, "stop", None):
+                await stop(self)
+        except Exception as e:
+            logger.warning(f"Error stopping project-scoped task {task.get_name()}: {e}", exc_info=True)
+        finally:
+            await self.unsubscribe(task)
+
+    def _clear_project_scoped_cache(self) -> None:
+        """Clear volatile cached data that belongs to the previous project."""
+        for cache_key in PROJECT_SCOPED_CACHE_KEYS:
+            self.set_cached_data(cache_key, None)
+
+    def _clear_queued_instructions(self) -> None:
+        """Clear queued instructions that may reference the previous project."""
+        self._pending_instructions.clear()
+        self._tracked_instructions.clear()
+
+    async def resolved_flags(self, session: Optional["Session"] = None) -> Dict[str, Any]:
         """Lazily resolve and cache feature flags.
 
         On first call, obtains the session, registers as a listener for
         invalidation, and resolves all flags. Subsequent calls return cached.
 
+        Args:
+            session: Optional explicit session to resolve against. Project
+                lifecycle restart uses this to avoid relying on ambient
+                ContextVar state during roots notifications.
+
         Returns:
             Dictionary of resolved flags
         """
-        if self._resolved_flags is None:
+        if self._resolved_flags is None or (session is not None and self._resolved_flags_session is not session):
             try:
-                session = await get_session()
-                session.add_listener(self)
-                self._resolved_flags = await resolve_all_flags(session)
+                flags_session = session if session is not None else await get_session()
+                flags_session.add_listener(self)
+                self._resolved_flags = await resolve_all_flags(flags_session)
+                self._resolved_flags_session = flags_session
             except Exception as e:
                 logger.exception(f"Failed to load resolved flags: {e}")
                 return {}
         return self._resolved_flags
 
-    async def requires_flag(self, flag_name: str) -> bool:
+    async def requires_flag(self, flag_name: str, session: Optional["Session"] = None) -> bool:
         """Check if a feature flag is enabled.
 
         Args:
             flag_name: Name of the feature flag to check
+            session: Optional explicit session to resolve against
 
         Returns:
             True if flag is enabled, False otherwise
         """
-        return bool((await self.resolved_flags()).get(flag_name, False))
+        return bool((await self.resolved_flags(session)).get(flag_name, False))
 
     async def on_project_changed(self, session: "Session", old_project: str, new_project: str) -> None:
         """Invalidate cached flags when the project changes."""
         self._resolved_flags = None
+        self._resolved_flags_session = None
         await self.start()
+        await self.restart_project_tasks(session)
 
     async def on_config_changed(self, session: "Session") -> None:
         """Invalidate cached flags when project config changes."""
         self._resolved_flags = None
+        self._resolved_flags_session = None
+        await self.restart_project_tasks(session)
 
     @classmethod
     async def _reset_for_testing(cls) -> None:
@@ -665,13 +748,26 @@ class TaskManager:
 
     def set_cached_data(self, key: str, value: Any) -> None:
         """Set cached data by key."""
+        if value is None:
+            self._cache.pop(key, None)
+            logger.trace(
+                f"TaskManager.set_cached_data('{key}'): removed, cache now has {len(self._cache)} keys: {list(self._cache.keys())}"
+            )
+
+            if key in CACHE_INVALIDATION_KEYS:
+                from mcp_guide.render.cache import invalidate_template_context_cache
+
+                invalidate_template_context_cache()
+                logger.trace(f"Template context cache invalidated due to {key} removal")
+            return
+
         self._cache[key] = value
         logger.trace(
             f"TaskManager.set_cached_data('{key}'): {type(value).__name__}, cache now has {len(self._cache)} keys: {list(self._cache.keys())}"
         )
 
         # Invalidate template context cache when workflow state or openspec data changes
-        if key in ("workflow_state", "openspec_show", "openspec_status"):
+        if key in CACHE_INVALIDATION_KEYS:
             from mcp_guide.render.cache import invalidate_template_context_cache
 
             invalidate_template_context_cache()

@@ -21,7 +21,7 @@ _current_notification_session: ContextVar[Optional[Any]] = ContextVar("_current_
 
 
 def _initialize_runtime_tasks() -> None:
-    """Import runtime task modules so their @task_init side effects run.
+    """Import runtime task modules so task decorators run.
 
     Tests that only need MCP bootstrap can disable this at server startup
     without changing global decorator semantics.

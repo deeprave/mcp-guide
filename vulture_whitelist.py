@@ -62,6 +62,7 @@ _.enable_test_mode
 _.disable_test_mode
 _.clear_tool_registry
 _.get_tool_registration
+_.clear_registered_tasks_for_testing
 _.clear_prompt_registry
 _.clear_resource_registry
 _._reset_for_testing

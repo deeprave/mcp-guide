@@ -134,6 +134,7 @@ ignore_decorators = [
   "@resourcefunc",
   "@promptfunc",
   "@task_init",
+  "@task_register",
   "@field_validator",
   "@model_validator",
 ]

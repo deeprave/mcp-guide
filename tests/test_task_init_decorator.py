@@ -1,6 +1,6 @@
 """Tests for @task_init decorator pattern."""
 
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 
@@ -98,20 +98,15 @@ class TestClientContextManagerCreation:
         # Check that the class has get_name method (required by task protocol)
         assert hasattr(ClientContextTask, "get_name")
 
-    def test_client_context_manager_creates_and_registers_task(self):
-        """Test that ClientContextTask can be instantiated and registered."""
+    @pytest.mark.anyio
+    async def test_client_context_manager_starts_and_registers_task(self):
+        """Test that ClientContextTask subscribes during explicit startup."""
         mock_task_manager = Mock()
         mock_task_manager.subscribe = Mock()
+        mock_task_manager.requires_flag = AsyncMock(return_value=True)
 
-        # Mock session to enable the flag
-        mock_session = Mock()
-        mock_flags = AsyncMock()
-        mock_flags.list = AsyncMock(return_value={"allow-client-info": True})
-        mock_session.feature_flags.return_value = mock_flags
+        task = ClientContextTask(task_manager=mock_task_manager)
+        started = await task.start(mock_task_manager, Mock())
 
-        with patch("mcp_guide.session.get_session", return_value=mock_session):
-            # Create ClientContextTask instance
-            ClientContextTask(task_manager=mock_task_manager)
-
-            # Should have subscribed
-            mock_task_manager.subscribe.assert_called_once()
+        assert started is True
+        mock_task_manager.subscribe.assert_called_once()

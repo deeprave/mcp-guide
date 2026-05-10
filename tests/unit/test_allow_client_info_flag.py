@@ -1,6 +1,6 @@
 """Tests for allow-client-info feature flag."""
 
-from unittest.mock import Mock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 
@@ -93,11 +93,14 @@ class TestClientContextTaskConditional:
     """
 
     @pytest.mark.anyio
-    async def test_task_subscribes_on_creation(self):
-        """Test that task subscribes when created."""
+    async def test_task_subscribes_on_start_when_enabled(self):
+        """Test that task subscribes during project-scoped startup."""
         mock_task_manager = Mock()
         mock_task_manager.subscribe = Mock()
+        mock_task_manager.requires_flag = AsyncMock(return_value=True)
 
-        # Create task - it will subscribe in __init__
         task = ClientContextTask(task_manager=mock_task_manager)
+        started = await task.start(mock_task_manager, Mock())
+
+        assert started is True
         mock_task_manager.subscribe.assert_called_once()
