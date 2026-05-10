@@ -196,8 +196,8 @@ q.json
 .codex/
 .kiro/
 .agents/
-!.agents/skills
-!.agents/knowledge
+!.agents/skills/
+!.agents/knowledge/
 
 # Project configuration
 q.chat
