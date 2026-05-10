@@ -217,7 +217,15 @@ class TaskManager:
             self._clear_queued_instructions()
 
         for task in active_tasks:
-            await self._stop_project_task(task)
+            try:
+                await self._stop_project_task(task)
+            except Exception as e:
+                logger.warning(
+                    "Error stopping project-scoped task %s: %s",
+                    type(task).__name__,
+                    e,
+                    exc_info=True,
+                )
 
         started_tasks: dict[type[Any], TaskSubscriber] = {}
         for task_cls in registered_task_classes:
@@ -228,7 +236,15 @@ class TaskManager:
             except Exception as e:
                 logger.warning(f"Error starting project-scoped task {task_cls.__name__}: {e}", exc_info=True)
                 if task is not None:
-                    await self.unsubscribe(cast(TaskSubscriber, task))
+                    try:
+                        await self.unsubscribe(cast(TaskSubscriber, task))
+                    except Exception as unsubscribe_error:
+                        logger.warning(
+                            "Error unsubscribing failed project-scoped task %s: %s",
+                            task_cls.__name__,
+                            unsubscribe_error,
+                            exc_info=True,
+                        )
                 continue
 
             if started:
@@ -763,7 +779,10 @@ class TaskManager:
     def set_cached_data(self, key: str, value: Any) -> None:
         """Set cached data by key."""
         if value is None:
-            self._cache.pop(key, None)
+            if key not in self._cache:
+                return
+
+            self._cache.pop(key)
             logger.trace(
                 f"TaskManager.set_cached_data('{key}'): removed, cache now has {len(self._cache)} keys: {list(self._cache.keys())}"
             )

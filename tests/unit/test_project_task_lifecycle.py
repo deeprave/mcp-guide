@@ -1,13 +1,16 @@
 """Tests for project-scoped task lifecycle restart."""
 
 import asyncio
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
 
 import pytest
 
 from mcp_guide.result import Result
 from mcp_guide.task_manager import EventType, TaskManager
 from mcp_guide.task_manager.manager import EventResult
+
+if TYPE_CHECKING:
+    from mcp_guide.session import Session
 
 
 @pytest.fixture(autouse=True)
@@ -23,6 +26,11 @@ class _ProjectSession:
 
     def __init__(self, name: str) -> None:
         self.name = name
+
+
+def _session(name: str) -> "Session":
+    """Return a minimal session stub cast for lifecycle API tests."""
+    return cast("Session", _ProjectSession(name))
 
 
 class _ProjectTask:
@@ -104,11 +112,13 @@ class TestProjectTaskLifecycle:
         task_register(_ProjectTask)
         task_manager = TaskManager()
 
-        await task_manager.restart_project_tasks(_ProjectSession("alpha"))
+        await task_manager.restart_project_tasks(_session("alpha"))
+        task = task_manager.get_task_by_type(_ProjectTask)
 
         assert _ProjectTask.started_for == ["alpha"]
         assert task_manager.get_subscription_count() == 1
-        assert task_manager.get_task_by_type(_ProjectTask).session_name == "alpha"
+        assert task is not None
+        assert task.session_name == "alpha"
 
     @pytest.mark.anyio
     async def test_inactive_task_is_not_kept_active(self) -> None:
@@ -118,7 +128,7 @@ class TestProjectTaskLifecycle:
         task_register(_InactiveProjectTask)
         task_manager = TaskManager()
 
-        await task_manager.restart_project_tasks(_ProjectSession("alpha"))
+        await task_manager.restart_project_tasks(_session("alpha"))
 
         assert _InactiveProjectTask.started_for == ["alpha"]
         assert task_manager.get_subscription_count() == 0
@@ -132,15 +142,16 @@ class TestProjectTaskLifecycle:
         task_register(_ProjectTask)
         task_manager = TaskManager()
 
-        await task_manager.restart_project_tasks(_ProjectSession("alpha"))
+        await task_manager.restart_project_tasks(_session("alpha"))
         first = task_manager.get_task_by_type(_ProjectTask)
 
-        await task_manager.restart_project_tasks(_ProjectSession("beta"))
+        await task_manager.restart_project_tasks(_session("beta"))
         second = task_manager.get_task_by_type(_ProjectTask)
 
         assert first is not second
         assert _ProjectTask.started_for == ["alpha", "beta"]
         assert _ProjectTask.stopped_for == ["alpha"]
+        assert second is not None
         assert second.session_name == "beta"
         assert task_manager.get_subscription_count() == 1
 
@@ -151,7 +162,7 @@ class TestProjectTaskLifecycle:
 
         task_register(_ProjectTask)
         task_manager = TaskManager()
-        session = _ProjectSession("alpha")
+        session = _session("alpha")
 
         await task_manager.restart_project_tasks(session)
         first = task_manager.get_task_by_type(_ProjectTask)
@@ -172,12 +183,14 @@ class TestProjectTaskLifecycle:
         task_manager = TaskManager()
 
         await asyncio.gather(
-            task_manager.restart_project_tasks(_ProjectSession("alpha")),
-            task_manager.restart_project_tasks(_ProjectSession("beta")),
+            task_manager.restart_project_tasks(_session("alpha")),
+            task_manager.restart_project_tasks(_session("beta")),
         )
 
+        task = task_manager.get_task_by_type(_ProjectTask)
         assert task_manager.get_subscription_count() == 1
-        assert task_manager.get_task_by_type(_ProjectTask).session_name in {"alpha", "beta"}
+        assert task is not None
+        assert task.session_name in {"alpha", "beta"}
 
     @pytest.mark.anyio
     async def test_restart_clears_project_scoped_cache_entries(self) -> None:
@@ -188,7 +201,7 @@ class TestProjectTaskLifecycle:
         task_manager.set_cached_data("client_os_info", {"os": "test"})
         task_manager.set_cached_data("unrelated", "keep")
 
-        await task_manager.restart_project_tasks(_ProjectSession("alpha"))
+        await task_manager.restart_project_tasks(_session("alpha"))
 
         assert task_manager.get_cached_data("workflow_state") is None
         assert task_manager.get_cached_data("openspec_version") is None
@@ -206,7 +219,7 @@ class TestProjectTaskLifecycle:
         await task_manager.queue_instruction("regular stale instruction")
         tracked_id = await task_manager.queue_instruction_with_ack("tracked stale instruction")
 
-        await task_manager.restart_project_tasks(_ProjectSession("alpha"))
+        await task_manager.restart_project_tasks(_session("alpha"))
         result = await task_manager.process_result(Result.ok("unchanged"))
 
         assert task_manager._pending_instructions == []
@@ -221,15 +234,42 @@ class TestProjectTaskLifecycle:
         task_register(_FailingStopProjectTask)
         task_manager = TaskManager()
 
-        await task_manager.restart_project_tasks(_ProjectSession("alpha"))
+        await task_manager.restart_project_tasks(_session("alpha"))
         first = task_manager.get_task_by_type(_FailingStopProjectTask)
 
-        await task_manager.restart_project_tasks(_ProjectSession("beta"))
+        await task_manager.restart_project_tasks(_session("beta"))
         second = task_manager.get_task_by_type(_FailingStopProjectTask)
 
         assert first is not second
+        assert second is not None
         assert second.session_name == "beta"
         assert task_manager.get_subscription_count() == 1
+        assert "Error stopping project-scoped task" in caplog.text
+
+    @pytest.mark.anyio
+    async def test_unexpected_stop_failure_does_not_block_remaining_stops(self, monkeypatch, caplog) -> None:
+        """An unexpected stop helper failure cannot block other stale task stops."""
+        from mcp_guide.decorators import task_register
+
+        task_register(_ProjectTask)
+        task_manager = TaskManager()
+        first = _ProjectTask()
+        second = _ProjectTask()
+        await first.start(task_manager, _ProjectSession("first"))
+        await second.start(task_manager, _ProjectSession("second"))
+        task_manager._active_project_tasks = {_ProjectTask: first, _InactiveProjectTask: second}
+        original_stop = task_manager._stop_project_task
+
+        async def stop_with_one_unexpected_failure(task):
+            if task is first:
+                raise RuntimeError("unexpected stop helper failure")
+            await original_stop(task)
+
+        monkeypatch.setattr(task_manager, "_stop_project_task", stop_with_one_unexpected_failure)
+
+        await task_manager.restart_project_tasks(_session("next"))
+
+        assert "second" in _ProjectTask.stopped_for
         assert "Error stopping project-scoped task" in caplog.text
 
     @pytest.mark.anyio
@@ -241,9 +281,35 @@ class TestProjectTaskLifecycle:
         task_register(_ProjectTask)
         task_manager = TaskManager()
 
-        await task_manager.restart_project_tasks(_ProjectSession("alpha"))
+        await task_manager.restart_project_tasks(_session("alpha"))
 
         assert task_manager.get_task_by_type(_FailingStartProjectTask) is None
-        assert task_manager.get_task_by_type(_ProjectTask).session_name == "alpha"
+        task = task_manager.get_task_by_type(_ProjectTask)
+        assert task is not None
+        assert task.session_name == "alpha"
         assert task_manager.get_subscription_count() == 1
         assert "Error starting project-scoped task" in caplog.text
+
+    @pytest.mark.anyio
+    async def test_start_failure_unsubscribe_failure_does_not_block_later_tasks(self, monkeypatch, caplog) -> None:
+        """A failed startup cleanup unsubscribe cannot abort later task startup."""
+        from mcp_guide.decorators import task_register
+
+        task_register(_FailingStartProjectTask)
+        task_register(_ProjectTask)
+        task_manager = TaskManager()
+        original_unsubscribe = task_manager.unsubscribe
+
+        async def unsubscribe_with_one_failure(task):
+            if isinstance(task, _FailingStartProjectTask):
+                raise RuntimeError("unsubscribe failed")
+            await original_unsubscribe(task)
+
+        monkeypatch.setattr(task_manager, "unsubscribe", unsubscribe_with_one_failure)
+
+        await task_manager.restart_project_tasks(_session("alpha"))
+
+        task = task_manager.get_task_by_type(_ProjectTask)
+        assert task is not None
+        assert task.session_name == "alpha"
+        assert "Error unsubscribing failed project-scoped task" in caplog.text

@@ -90,6 +90,12 @@ class Session:
             logger.trace("Invalidating feature flags cache")
             self.__feature_flags = None
 
+        def get_cached_feature_flags(self) -> Optional[dict[str, FeatureValue]]:
+            """Return cached feature flags when they have already been loaded."""
+            if self.__feature_flags is None:
+                return None
+            return dict(self.__feature_flags)
+
         def _ensure_config_dir(self) -> None:
             """Ensure config directory exists, creating it if necessary."""
             config_dir = self.config_file.parent
@@ -624,7 +630,33 @@ class Session:
         logger.warning(
             f"Configuration file changed externally: {file_path} - marking session {self.project_name} dirty"
         )
-        self._project_dirty = True
+        if not self.__delegate.is_bound:
+            self._project_dirty = True
+            return
+
+        config_manager = self._get_config_manager()
+        old_project = self.__delegate.project
+        old_feature_flags = config_manager.get_cached_feature_flags() or {}
+
+        try:
+            _key, latest_project = await config_manager.get_or_create_project_config(old_project.name)
+            config_manager._invalidate_feature_flags()
+            latest_feature_flags = await config_manager.get_feature_flags()
+        except Exception as e:
+            logger.debug("Failed to inspect changed config file %s: %s", file_path, e, exc_info=True)
+            self._project_dirty = True
+            await self._notify_config_changed()
+            return
+
+        project_changed = latest_project != old_project
+        feature_flags_changed = latest_feature_flags != old_feature_flags
+
+        if not project_changed and not feature_flags_changed:
+            self._project_dirty = False
+            return
+
+        self.__delegate.bind(latest_project)
+        self._project_dirty = False
         await self._notify_config_changed()
 
     def add_listener(self, listener: "SessionListener") -> None:
@@ -707,12 +739,10 @@ class Session:
         config_manager = self._get_config_manager()
         await config_manager.save_project_config(project.key, project)
 
-        # Update cache only if saving the session's own project
+        # Update cache and notify listeners only if saving the session's own project.
         if self.__delegate.is_bound and project.key == self.__delegate.project.key:
             self.__delegate.bind(project)
-
-        # Notify listeners of config change
-        await self._notify_config_changed()
+            await self._notify_config_changed()
 
     async def invalidate_cache(self) -> None:
         """Reload the project configuration from disk."""
@@ -733,12 +763,20 @@ class Session:
     async def set_feature_flag(self, flag_name: str, value: FeatureValue) -> None:
         """Set a global feature flag."""
         config_manager = self._get_config_manager()
+        old_feature_flags = await config_manager.get_feature_flags()
         await config_manager.set_feature_flag(flag_name, value)
+        new_feature_flags = await config_manager.get_feature_flags()
+        if new_feature_flags != old_feature_flags:
+            await self._notify_config_changed()
 
     async def remove_feature_flag(self, flag_name: str) -> None:
         """Remove a global feature flag."""
         config_manager = self._get_config_manager()
+        old_feature_flags = await config_manager.get_feature_flags()
         await config_manager.remove_feature_flag(flag_name)
+        new_feature_flags = await config_manager.get_feature_flags()
+        if new_feature_flags != old_feature_flags:
+            await self._notify_config_changed()
 
     def feature_flags(self) -> "FeatureFlags":
         """Get feature flags proxy."""

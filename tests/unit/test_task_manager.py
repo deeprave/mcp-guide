@@ -5,6 +5,7 @@ from typing import Any
 import pytest
 
 from mcp_guide.task_manager import EventType, TaskManager
+from mcp_guide.task_manager.manager import EventResult
 
 
 @pytest.fixture(autouse=True)
@@ -26,10 +27,14 @@ class MockSubscriber:
         """Get subscriber name."""
         return self.name
 
-    async def handle_event(self, event_type: EventType, data: dict[str, Any]) -> bool:
+    async def handle_event(self, event_type: EventType, data: dict[str, Any]) -> EventResult | None:
         """Handle events and record them."""
         self.received_events.append((event_type, data))
-        return True
+        return EventResult(result=True)
+
+    async def on_tool(self) -> None:
+        """Handle post-tool hook."""
+        return None
 
 
 class TestTaskManagerInstantiation:
@@ -172,3 +177,35 @@ class TestProjectTaskLifecycleIntegration:
         await task_manager.on_config_changed(Mock())
 
         assert task_manager.get_subscription_count() == 0
+
+
+class TestTaskManagerCache:
+    """TaskManager cache mutation behavior."""
+
+    def test_absent_cache_removal_does_not_invalidate_template_context(
+        self, task_manager: TaskManager, monkeypatch
+    ) -> None:
+        """Removing an absent cache key is a no-op."""
+        from unittest.mock import Mock
+
+        invalidate = Mock()
+        monkeypatch.setattr("mcp_guide.render.cache.invalidate_template_context_cache", invalidate)
+
+        task_manager.set_cached_data("workflow_state", None)
+
+        invalidate.assert_not_called()
+        assert "workflow_state" not in task_manager._cache
+
+    def test_present_cache_removal_invalidates_template_context(self, task_manager: TaskManager, monkeypatch) -> None:
+        """Removing a present invalidating key clears cache and invalidates templates."""
+        from unittest.mock import Mock
+
+        invalidate = Mock()
+        monkeypatch.setattr("mcp_guide.render.cache.invalidate_template_context_cache", invalidate)
+        task_manager.set_cached_data("workflow_state", {"phase": "discussion"})
+        invalidate.reset_mock()
+
+        task_manager.set_cached_data("workflow_state", None)
+
+        invalidate.assert_called_once()
+        assert "workflow_state" not in task_manager._cache
