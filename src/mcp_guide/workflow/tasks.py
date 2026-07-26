@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 
 from mcp_guide.core.mcp_log import get_logger
-from mcp_guide.decorators import task_init
+from mcp_guide.decorators import task_register
 from mcp_guide.feature_flags.constants import FLAG_WORKFLOW
 from mcp_guide.task_manager import EventType, get_task_manager
 from mcp_guide.task_manager.protocol import DEFAULT_ONCE_INTERVAL, InitialisableMixin
@@ -25,7 +25,7 @@ logger = get_logger(__name__)
 WORKFLOW_INTERVAL = 600.0  # 10 minutes
 
 
-@task_init
+@task_register
 class WorkflowMonitorTask(InitialisableMixin):
     """Scheduled background monitoring task for workflow state changes."""
 
@@ -46,6 +46,7 @@ class WorkflowMonitorTask(InitialisableMixin):
 
         # Get the singleton TaskManager
         self.task_manager: "TaskManager" = get_task_manager()
+        self._session: Any = None
 
         self._cached_content: Optional[str] = None
         self._cached_mtime: Optional[float] = None
@@ -55,14 +56,30 @@ class WorkflowMonitorTask(InitialisableMixin):
         self._setup_instruction_id: Optional[str] = None
         self._reminder_instruction_id: Optional[str] = None
 
-        # Subscribe self to task manager for workflow monitoring with 15s initial delay
-        self.task_manager.subscribe(
+    async def start(self, task_manager: "TaskManager", session: Any) -> bool:
+        """Start workflow monitoring if workflow is enabled for the current project."""
+        self.task_manager = task_manager
+        self._session = session
+        if not await self.task_manager.requires_flag(FLAG_WORKFLOW, session):
+            logger.debug(f"WorkflowMonitorTask disabled - {FLAG_WORKFLOW} flag not set")
+            return False
+
+        from mcp_guide.feature_flags.constants import FLAG_WORKFLOW_FILE
+
+        workflow_file = (await self.task_manager.resolved_flags(session)).get(FLAG_WORKFLOW_FILE)
+        if workflow_file and isinstance(workflow_file, str):
+            self.workflow_file_path = workflow_file
+            self.task_manager.set_cached_data("workflow_file_path", workflow_file)
+            logger.debug(f"WorkflowMonitorTask using workflow file from flag: {workflow_file}")
+
+        task_manager.subscribe(
             self,
             EventType.TIMER | EventType.FS_FILE_CONTENT,
             WORKFLOW_INTERVAL,
             15.0,
             once_interval=DEFAULT_ONCE_INTERVAL,
         )
+        return True
 
     async def on_tool(self) -> None:
         pass
@@ -71,18 +88,15 @@ class WorkflowMonitorTask(InitialisableMixin):
         """Check flag and queue setup instruction if enabled."""
         from mcp_guide.task_manager.manager import EventResult
 
-        if not await self.task_manager.requires_flag(FLAG_WORKFLOW):
+        if self._session is not None:
+            workflow_enabled = await self.task_manager.requires_flag(FLAG_WORKFLOW, self._session)
+        else:
+            workflow_enabled = await self.task_manager.requires_flag(FLAG_WORKFLOW)
+
+        if not workflow_enabled:
             await self.task_manager.unsubscribe(self)
             logger.debug(f"WorkflowMonitorTask disabled - {FLAG_WORKFLOW} flag not set")
             return EventResult(result=True)
-
-        from mcp_guide.feature_flags.constants import FLAG_WORKFLOW_FILE
-
-        workflow_file = (await self.task_manager.resolved_flags()).get(FLAG_WORKFLOW_FILE)
-        if workflow_file and isinstance(workflow_file, str):
-            self.workflow_file_path = workflow_file
-            self.task_manager.set_cached_data("workflow_file_path", workflow_file)
-            logger.debug(f"WorkflowMonitorTask using workflow file from flag: {workflow_file}")
 
         if not self._setup_done:
             rendered = await render_workflow_template("monitoring-setup")

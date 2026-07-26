@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any, Optional
 from packaging.version import InvalidVersion, Version
 
 from mcp_guide.core.mcp_log import get_logger
-from mcp_guide.decorators import task_init
+from mcp_guide.decorators import task_register
 from mcp_guide.feature_flags.constants import FLAG_OPENSPEC
 from mcp_guide.openspec.rendering import render_openspec_template
 from mcp_guide.render.content import RenderedContent
@@ -26,7 +26,7 @@ CHANGES_CACHE_TTL = 3600  # 1 hour
 CHANGES_CHECK_INTERVAL = 3600.0  # 60 minutes
 
 
-@task_init
+@task_register
 class OpenSpecTask(InitialisableMixin):
     """Task for detecting OpenSpec CLI availability."""
 
@@ -34,6 +34,7 @@ class OpenSpecTask(InitialisableMixin):
         if task_manager is None:
             task_manager = get_task_manager()
         self.task_manager = task_manager
+        self._session: Any = None
         self._cli_requested = False
         self._flag_checked = False
         self._available: Optional[bool] = None
@@ -52,13 +53,22 @@ class OpenSpecTask(InitialisableMixin):
         self._version_instruction_id: Optional[str] = None
         self._changes_instruction_id: Optional[str] = None
 
-        # Subscribe to command, file, directory, and timer events
-        self.task_manager.subscribe(
+    async def start(self, task_manager: "TaskManager", session: Any) -> bool:
+        """Start OpenSpec detection if enabled for the current project."""
+        self.task_manager = task_manager
+        self._session = session
+        if not await self.task_manager.requires_flag(FLAG_OPENSPEC, session):
+            logger.debug(f"OpenSpecTask disabled - {FLAG_OPENSPEC} flag not set")
+            self._flag_checked = True
+            return False
+
+        task_manager.subscribe(
             self,
             EventType.FS_COMMAND | EventType.FS_FILE_CONTENT | EventType.FS_DIRECTORY | EventType.TIMER,
             CHANGES_CHECK_INTERVAL,
             once_interval=DEFAULT_ONCE_INTERVAL,
         )
+        return True
 
     def get_name(self) -> str:
         """Get a readable name for the task."""
@@ -71,15 +81,23 @@ class OpenSpecTask(InitialisableMixin):
         """Check flag and perform deferred initialization."""
         from mcp_guide.task_manager.manager import EventResult
 
-        if not await self.task_manager.requires_flag(FLAG_OPENSPEC):
+        if self._session is not None:
+            openspec_enabled = await self.task_manager.requires_flag(FLAG_OPENSPEC, self._session)
+        else:
+            openspec_enabled = await self.task_manager.requires_flag(FLAG_OPENSPEC)
+
+        if not openspec_enabled:
             await self.task_manager.unsubscribe(self)
             logger.debug(f"OpenSpecTask disabled - {FLAG_OPENSPEC} flag not set")
             self._flag_checked = True
             return EventResult(result=True)
 
-        from mcp_guide.session import get_session
+        if self._session is not None:
+            session = self._session
+        else:
+            from mcp_guide.session import get_session
 
-        session = await get_session()
+            session = await get_session()
         project = await session.get_project()
 
         if project.openspec_version:

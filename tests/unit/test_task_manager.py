@@ -5,6 +5,15 @@ from typing import Any
 import pytest
 
 from mcp_guide.task_manager import EventType, TaskManager
+from mcp_guide.task_manager.manager import EventResult
+
+
+@pytest.fixture(autouse=True)
+def clear_task_registry() -> None:
+    """Keep project-scoped task registration isolated from other test modules."""
+    from mcp_guide.decorators import clear_registered_tasks_for_testing
+
+    clear_registered_tasks_for_testing()
 
 
 class MockSubscriber:
@@ -18,10 +27,14 @@ class MockSubscriber:
         """Get subscriber name."""
         return self.name
 
-    async def handle_event(self, event_type: EventType, data: dict[str, Any]) -> bool:
+    async def handle_event(self, event_type: EventType, data: dict[str, Any]) -> EventResult | None:
         """Handle events and record them."""
         self.received_events.append((event_type, data))
-        return True
+        return EventResult(result=True)
+
+    async def on_tool(self) -> None:
+        """Handle post-tool hook."""
+        return None
 
 
 class TestTaskManagerInstantiation:
@@ -138,3 +151,61 @@ class TestGetTaskByType:
 
         assert result is subscriber1
         assert "Multiple task subscribers found for type MockSubscriber" in caplog.text
+
+
+class TestProjectTaskLifecycleIntegration:
+    """Project/config change callbacks delegate to project-scoped task lifecycle."""
+
+    @pytest.mark.anyio
+    async def test_unregistered_task_stays_gone_after_project_change(self, task_manager: TaskManager) -> None:
+        """Unregistered subscribers are not restarted by project lifecycle hooks."""
+        from unittest.mock import Mock
+
+        subscriber = MockSubscriber("unregistered")
+        task_manager.subscribe(subscriber, EventType.FS_FILE_CONTENT)
+        await task_manager.unsubscribe(subscriber)
+
+        await task_manager.on_project_changed(Mock(), "old-project", "new-project")
+
+        assert task_manager.get_subscription_count() == 0
+
+    @pytest.mark.anyio
+    async def test_config_change_with_no_registered_tasks_is_noop(self, task_manager: TaskManager) -> None:
+        """Config changes without project-scoped registrations leave subscriptions alone."""
+        from unittest.mock import Mock
+
+        await task_manager.on_config_changed(Mock())
+
+        assert task_manager.get_subscription_count() == 0
+
+
+class TestTaskManagerCache:
+    """TaskManager cache mutation behavior."""
+
+    def test_absent_cache_removal_does_not_invalidate_template_context(
+        self, task_manager: TaskManager, monkeypatch
+    ) -> None:
+        """Removing an absent cache key is a no-op."""
+        from unittest.mock import Mock
+
+        invalidate = Mock()
+        monkeypatch.setattr("mcp_guide.render.cache.invalidate_template_context_cache", invalidate)
+
+        task_manager.set_cached_data("workflow_state", None)
+
+        invalidate.assert_not_called()
+        assert "workflow_state" not in task_manager._cache
+
+    def test_present_cache_removal_invalidates_template_context(self, task_manager: TaskManager, monkeypatch) -> None:
+        """Removing a present invalidating key clears cache and invalidates templates."""
+        from unittest.mock import Mock
+
+        invalidate = Mock()
+        monkeypatch.setattr("mcp_guide.render.cache.invalidate_template_context_cache", invalidate)
+        task_manager.set_cached_data("workflow_state", {"phase": "discussion"})
+        invalidate.reset_mock()
+
+        task_manager.set_cached_data("workflow_state", None)
+
+        invalidate.assert_called_once()
+        assert "workflow_state" not in task_manager._cache

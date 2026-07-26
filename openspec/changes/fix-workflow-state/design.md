@@ -8,17 +8,18 @@ status template can tell the agent to send workflow file content even when
 workflow tracking is disabled, which is misleading because no workflow
 monitoring flow is active in that state.
 
-Second, some project flags affect behavior that depends on long-lived task
-manager subscribers or background checks, including workflow, client info, and
-openspec. On startup, task enablement may intentionally be deferred until a
-project is loaded because project flags are not available before then. Once a
-project is loaded, disabled flag-gated tasks may unsubscribe themselves by
-design.
+Second, several long-lived subscribers and background checks are project-scoped.
+Examples include workflow monitoring, client context collection, and OpenSpec
+detection. Those tasks should not need to decide their final runtime behavior at
+module import time because project context and project flags may not be bound
+yet.
 
-The gap is what happens after that initial decision. Project flags can change at
-runtime, and clients can switch between projects with different flag
-configurations. The current task manager invalidates cached flags on project or
-config change, but it does not reconcile the lifecycle of flag-gated tasks.
+The gap is lifecycle ownership. Clients can switch projects, and project config
+can change at runtime. The current import-time task initialization path makes
+tasks instantiate too early, then rely on self-unsubscribe behavior when the
+current project is not ready or a task decides it should not run. The task
+manager needs to own project-scoped task start/stop orchestration while each
+task class keeps ownership of its own activation policy.
 
 This is a cross-cutting change because it touches status rendering, workflow
 bootstrap guidance, and feature-flag-driven runtime behavior.
@@ -31,17 +32,19 @@ bootstrap guidance, and feature-flag-driven runtime behavior.
 - Keep workflow bootstrap instructions only for the workflow-enabled case
 - Add bootstrap guidance for creating `.guide.yaml` when workflow is enabled
   but no workflow file exists yet
-- Define reliable behavior for runtime changes to task-dependent project flags
-- Define reliable behavior when switching between projects with different
-  task-dependent flag configurations
-- Add task-manager lifecycle hooks that can start and stop flag-gated tasks on
-  demand without requiring MCP server or agent restart
+- Define reliable behavior for runtime project config changes that affect
+  project-scoped tasks
+- Define reliable behavior when switching projects
+- Add task-manager lifecycle hooks that restart project-scoped tasks for the
+  current project without requiring MCP server or agent restart
+- Add an explicit project-scoped task registration path without changing the
+  existing `@task_init` import-time behavior
 - Keep the lifecycle design small, idempotent, serialized, and easy to test
   because task manager code is asynchronous and deadlock-prone
 
 **Non-Goals:**
 - Rework unrelated task scheduling or subscription architecture beyond the
-  lifecycle hooks needed for flag-gated tasks
+  lifecycle hooks needed for project-scoped tasks
 - Redesign the workflow file format beyond the minimum bootstrap requirement
 - Change unrelated status output or template rendering behavior
 - Change workflow semantics beyond clearer initialization and status behavior
@@ -90,100 +93,118 @@ Alternative considered:
   current design expects the agent/client filesystem interaction path to create
   and send project-local state files.
 
-### Reconcile flag-gated task lifecycle dynamically
+### Restart project-scoped task lifecycle dynamically
 
-For flags whose practical effect depends on long-lived tasks or subscriptions,
-the task manager must reconcile task lifecycle dynamically. Restart guidance is
-not an acceptable designed outcome because clients that switch projects are the
-clients least able to use restart as normal workflow.
+For behavior that depends on long-lived project-scoped tasks or subscriptions,
+the task manager must control lifecycle dynamically. Restart guidance is not an
+acceptable designed outcome because clients that switch projects are the clients
+least able to use MCP server or agent restart as normal workflow.
 
-This applies at least to flags such as:
+This applies at least to project-scoped task classes such as:
 
-- `workflow`
-- `allow-client-info`
-- `openspec`
+- `WorkflowMonitorTask`
+- `ClientContextTask`
+- `OpenSpecTask`
 
-Reconciliation should run after:
+Lifecycle restart should run after:
 
-- project load or project switch
-- project flag changes
-- global flag changes that affect the active project
+- initial project bind
+- project switch
+- project config changes
+- global config changes that affect the active project
 
-The task manager should compare the desired task set for the current resolved
-flags with the currently active managed task set, then:
+On project switch, the task manager must stop all currently active
+project-scoped task instances and start fresh instances for the new project
+context. This is not an incremental "keep running unless disabled" operation:
+project-scoped tasks may cache paths, project data, queued and tracked
+instructions, command availability, or client state that belongs to the previous
+project.
 
-- start missing managed tasks whose requirements are satisfied
-- stop active managed tasks whose requirements are no longer satisfied
-- leave already-correct tasks alone
-- avoid duplicate subscriptions for the same managed task
+The task manager should:
+
+- maintain the registry of project-scoped task classes
+- stop and unsubscribe active project-scoped task instances during project
+  lifecycle restart
+- instantiate each registered project-scoped task class after project context is
+  available
+- invoke an async task-owned startup hook so the task can decide whether and how
+  to subscribe
+- avoid duplicate active instances for the same registered task class
+- clear queued and tracked instructions so pending setup or reminder prompts
+  from the previous project cannot be emitted after restart
 - avoid holding task-manager locks while invoking task code that may call back
   into the task manager
 
-The existing behavior where a task can unsubscribe itself if its flag is
-disabled during initialization remains valid, but reconciliation must be able to
-start the task again if a later project or flag state enables it.
+Alternative considered:
+- Require users to restart the MCP server or agent after project switches or
+  task-dependent config changes. Rejected because it is operationally poor for
+  project-switching clients and leaves the task manager lifecycle model
+  incorrect.
+
+### Use `@task_register` for project-scoped task discovery
+
+Do not repurpose `@task_init`. It has existing import-time singleton semantics
+and may be appropriate for infrastructure such as `TaskManager` or other
+non-project-scoped tasks.
+
+Add a new `@task_register` decorator for project-scoped tasks. The
+decorator should only register the class in a module-level registry. It should
+not instantiate the class, check flags, subscribe to events, or encode task
+policy.
+
+Each registered task class owns its own activation policy. It may inspect
+project flags, project config, client context, command availability, or any
+other relevant inputs during its async startup hook. The task manager must not
+assume a 1:1 flag-to-task relationship.
+
+The task manager owns active project-scoped task instances, while subscriptions
+continue to own event delivery. This keeps lifecycle orchestration separate from
+task policy and low-level event fan-out.
 
 Alternative considered:
-- Require users to restart the MCP server or agent after task-dependent flag
-  changes. Rejected because it is operationally poor for project-switching
-  clients and leaves the task manager lifecycle model incorrect.
+- Extend `@task_init` with flags or activation predicates. Rejected because it
+  has wider import-time semantics and would oversimplify task-owned policy.
+- Infer project-scoped tasks by scanning existing subscriptions. Rejected
+  because it makes project-switch behavior implicit and increases the risk of
+  duplicate or orphaned subscriptions.
 
-### Keep lifecycle ownership explicit
+### Serialize lifecycle restart to avoid async deadlocks
 
-Not every task needs lifecycle reconciliation. Only managed task classes whose
-behavior depends on feature flags or project context should participate.
-
-Each managed task should have a single explicit registration describing:
-
-- a stable managed task key
-- the task factory or class
-- the resolved flag or predicate required for activation
-- any task-specific cleanup behavior needed when deactivated
-
-The task manager should own managed task instances, while existing task
-subscriptions should continue to own event delivery. This keeps lifecycle
-reconciliation separate from low-level event fan-out.
-
-Alternative considered:
-- Infer managed tasks by scanning existing subscriptions. Rejected because it
-  makes project-switch behavior implicit and increases the risk of duplicate or
-  orphaned subscriptions.
-
-### Serialize reconciliation to avoid async deadlocks
-
-Task lifecycle reconciliation should be guarded so only one reconciliation runs
-at a time. If project or config changes arrive while reconciliation is running,
-the task manager should coalesce or queue another reconciliation pass rather
-than running concurrently.
+Project-scoped task lifecycle restart should be guarded so only one lifecycle
+mutation runs at a time. If project or config changes arrive while restart is
+running, the task manager should serialize the work or queue another pass rather
+than running concurrent stop/start operations.
 
 The implementation should avoid awaiting arbitrary task code while holding a
 global task-manager mutation lock. The safer pattern is:
 
-1. Resolve flags and compute a desired lifecycle plan
-2. Snapshot current managed task state
-3. Decide starts and stops
-4. Execute start/stop operations outside shared-state locks where possible
-5. Apply final managed-task registry updates in a narrow critical section
+1. Snapshot active project-scoped task instances
+2. Clear the active-instance registry in a narrow critical section
+3. Stop/unsubscribe old instances outside shared-state locks where possible
+4. Instantiate registered task classes for the current project context
+5. Await each task-owned startup hook outside shared-state locks where possible
+6. Record active instances that actually started in a narrow critical section
 
 This is intentionally conservative because timer tasks, file-content events, and
 session change callbacks can all interact with task manager state.
 
 ## Risks / Trade-offs
 
-- [Lifecycle reconciliation deadlocks] -> serialize reconciliation, avoid
+- [Lifecycle restart deadlocks] -> serialize restart work, avoid
   awaiting task callbacks while holding shared task-manager locks, and test
   concurrent project/config-change scenarios
-- [Duplicate subscriptions] -> use stable managed task keys and idempotent
-  start/stop operations
-- [Task state leaks across projects] -> clear or replace task-specific cached
-  state when stopping managed tasks or switching projects where the task becomes
-  disabled
+- [Duplicate subscriptions] -> track active project-scoped instances by class or
+  stable task id and make restart idempotent
+- [Task state leaks across projects] -> stop all project-scoped tasks on project
+  switch and clear project-scoped task, cache, and instruction state before
+  starting fresh tasks
 - [Status template conditions drift from actual workflow enablement semantics] ->
   drive the status branches from workflow enablement first, then workflow state
 - [Bootstrap guidance creates malformed workflow files] -> specify the minimum
   valid `.guide.yaml` content explicitly, including a blank `issue:` field
 - [Lifecycle support grows too broad] -> limit the first implementation to
-  explicit managed task registrations for known task-dependent flags
+  explicit `@task_register` project-scoped task classes and leave `@task_init`
+  behavior intact for existing import-time infrastructure
 
 ## Migration Plan
 
@@ -191,26 +212,40 @@ session change callbacks can all interact with task manager state.
    states are distinct
 2. Update workflow bootstrap instructions so missing workflow files are created
    with valid initial content when workflow is enabled
-3. Introduce managed task registration and idempotent start/stop hooks for
-   flag-gated tasks
-4. Reconcile managed task lifecycle after project load, project switch, and
-   relevant flag changes
-5. Validate the affected status, bootstrap, flag-change, and project-switch
+3. Add `@task_register` for project-scoped task class discovery, without
+   changing `@task_init`
+4. Move participating project-scoped tasks from import-time instantiation to
+   project-scoped registration
+5. Add task-manager stop/start lifecycle hooks that restart all registered
+   project-scoped tasks after project bind, project switch, and relevant config
+   changes
+6. Let each task class decide during async startup whether it should subscribe
+   for the current project context
+7. Validate the affected status, bootstrap, config-change, and project-switch
    flows with focused tests and manual pause points
 
 Rollback is straightforward:
 
 - revert the status-template branch changes
 - revert the workflow bootstrap instruction change
-- disable managed task reconciliation and restore the previous startup-only task
-  lifecycle behavior
+- disable project-scoped task lifecycle restart and restore the previous
+  import-time task initialization behavior for migrated tasks
 
-## Open Questions
+## Implementation Clarifications
 
-- Should workflow-disabled status output merely state that workflow is disabled,
-  or should it also show a concise user-facing hint about which flag or command
-  enables it?
-- Which existing tasks should be included in the first managed-task registry
-  beyond workflow, OpenSpec, and client-info?
-- On project switch, which task-specific cached values should be cleared
-  immediately versus left to be overwritten by the next task event?
+- Workflow-disabled status output should state plainly that workflow tracking is
+  disabled and omit `send_file_content` instructions. This change should not add
+  new enablement commands or broaden status output beyond the workflow-state fix.
+- `@task_register` should register task classes only. It should not take flags,
+  predicates, cache keys, or factories.
+- Each project-scoped task should expose task-owned async startup behavior and
+  decide whether to subscribe based on the current project context.
+- Project switches must restart all registered project-scoped tasks, not only
+  tasks whose resolved flags differ.
+- When project-scoped tasks are stopped or restarted, clear volatile
+  project-scoped cache entries and queued or tracked instructions that can
+  otherwise produce stale prompts or template context:
+  - workflow: `workflow_state`, `workflow_file_path`, `workflow_change_content`
+  - OpenSpec: `openspec_available`, `openspec_version`, `openspec_status`,
+    `openspec_show`, `openspec_changes`
+  - client-info: `client_os_info`, `client_context_info`

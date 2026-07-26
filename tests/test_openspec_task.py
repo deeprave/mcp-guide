@@ -51,10 +51,13 @@ class TestOpenSpecTask:
     """Test OpenSpec CLI detection task."""
 
     @pytest.mark.anyio
-    async def test_init_subscribes_to_events(self, mock_task_manager):
-        """Test that task subscribes to events."""
+    async def test_start_subscribes_to_events_when_enabled(self, mock_task_manager):
+        """Test that task subscribes to events during explicit startup."""
+        mock_task_manager.requires_flag = AsyncMock(return_value=True)
         task = OpenSpecTask(mock_task_manager)
+        started = await task.start(mock_task_manager, MagicMock())
 
+        assert started is True
         assert mock_task_manager.subscribe.call_count == 1
 
         # Single call with all event types

@@ -168,7 +168,7 @@ class TestTaskManagerOnInit:
 
     @pytest.mark.anyio
     async def test_resolved_flags_cache_invalidated_on_project_change(self):
-        """Test that on_project_changed clears the cached flags."""
+        """Test that on_project_changed clears stale cached flags."""
         from mcp_guide.task_manager.manager import TaskManager
 
         await TaskManager._reset_for_testing()
@@ -177,11 +177,11 @@ class TestTaskManagerOnInit:
 
         await task_manager.on_project_changed(Mock(), "old", "new")
 
-        assert task_manager._resolved_flags is None
+        assert task_manager._resolved_flags != {"old": True}
 
     @pytest.mark.anyio
     async def test_resolved_flags_cache_invalidated_on_config_change(self):
-        """Test that on_config_changed clears the cached flags."""
+        """Test that on_config_changed clears stale cached flags."""
         from mcp_guide.task_manager.manager import TaskManager
 
         await TaskManager._reset_for_testing()
@@ -190,7 +190,7 @@ class TestTaskManagerOnInit:
 
         await task_manager.on_config_changed(Mock())
 
-        assert task_manager._resolved_flags is None
+        assert task_manager._resolved_flags != {"cached": True}
 
 
 class TestTaskInitialise:

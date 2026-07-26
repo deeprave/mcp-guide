@@ -129,6 +129,56 @@ class TestGetOrCreateSession:
         assert session1 is session2
         assert session1.project_name == "project1"
 
+    @pytest.mark.anyio
+    async def test_project_switch_regenerates_startup_instructions_after_restart(self, tmp_path, monkeypatch):
+        """Switching projects clears stale queued instructions, then queues fresh startup guidance."""
+        from mcp_guide.decorators import clear_registered_tasks_for_testing
+        from mcp_guide.task_manager import get_task_manager
+        from mcp_guide.task_manager.manager import TaskManager
+
+        await mcp_guide.session.remove_current_session()
+        await TaskManager._reset_for_testing()
+        clear_registered_tasks_for_testing()
+
+        startup_rendered: list[str] = []
+        guide_rendered: list[str] = []
+
+        async def render_startup_content(pattern, category_dir):
+            content = f"{pattern}:{len(startup_rendered)}"
+            startup_rendered.append(content)
+            rendered = MagicMock()
+            rendered.content = content
+            return rendered
+
+        async def render_guide_content(pattern, category_dir):
+            content = f"{pattern}:{len(guide_rendered)}"
+            guide_rendered.append(content)
+            rendered = MagicMock()
+            rendered.content = content
+            return rendered
+
+        monkeypatch.setattr("mcp_guide.startup_listener.render_content", render_startup_content)
+        monkeypatch.setattr("mcp_guide.guide_uri_listener.render_content", render_guide_content)
+
+        session = await get_session(project_name="project-one", _config_dir_for_tests=str(tmp_path))
+        task_manager = get_task_manager()
+        initial_instructions = list(task_manager._pending_instructions)
+        await task_manager.queue_instruction("stale project instruction")
+
+        await session.switch_project("project-two")
+
+        assert "stale project instruction" not in task_manager._pending_instructions
+        for instruction in initial_instructions:
+            assert instruction not in task_manager._pending_instructions
+
+        pending_instructions = list(task_manager._pending_instructions)
+        assert any(instruction.startswith("_startup:") for instruction in pending_instructions)
+        assert any(instruction.startswith("_onboard_prompt:") for instruction in pending_instructions)
+        assert any(instruction.startswith("_guide-uri:") for instruction in pending_instructions)
+
+        await mcp_guide.session.remove_current_session()
+        await TaskManager._reset_for_testing()
+
 
 class TestProjectNameDetection:
     """Tests for cache_mcp_globals function."""

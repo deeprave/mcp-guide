@@ -1,16 +1,17 @@
 ## Why
 
-Workflow-related status and feature-flag behavior is currently misleading in
+Workflow-related status and project-scoped task behavior are currently misleading in
 two ways. The `:status` / `guide://_status` output can imply that workflow
 state is available even when workflow is disabled, and task eligibility is not
-reconciled when project flags become available, change at runtime, or change as
-the active project changes.
+restarted cleanly when project context becomes available, project config changes
+at runtime, or the active project changes.
 
 This matters because workflow, OpenSpec, and client-info behavior depend on
 long-lived background tasks or subscriptions. CLI agents usually keep one
 project per process, so stale task lifecycle state has not been visible often.
 Clients that switch projects expose the gap: restarting the MCP server or agent
-is least convenient precisely when dynamic task reconciliation is needed.
+is least convenient precisely when dynamic project-scoped task lifecycle is
+needed.
 
 ## What Changes
 
@@ -25,13 +26,15 @@ is least convenient precisely when dynamic task reconciliation is needed.
   if it does not yet exist, with:
   - `phase: discussion`
   - `issue:` present but blank
-- Add task manager lifecycle hooks that reconcile flag-gated tasks when:
+- Add task manager lifecycle hooks that restart project-scoped tasks when:
   - a project is loaded
   - the active project changes
-  - project or global flags change at runtime
-- Start tasks whose required flags are now enabled and stop tasks whose required
-  flags are now disabled, without requiring an MCP server or agent restart
-- Make reconciliation safe for async task-manager operation by keeping it
+  - project or global config changes at runtime
+- Add a `@task_register` discovery path for project-scoped task classes while
+  leaving existing `@task_init` import-time behavior intact
+- Let each project-scoped task decide during async startup whether it should
+  subscribe for the current project context
+- Make lifecycle restart safe for async task-manager operation by keeping it
   idempotent, serialized, and testable in small steps
 
 ## Capabilities
@@ -47,19 +50,19 @@ None.
 - `workflow-monitoring`: workflow initialization guidance should support
   bootstrap creation of `.guide.yaml` when workflow monitoring is enabled but no
   state file exists yet
-- `task-manager`: task-dependent feature flag changes and project changes should
-  dynamically start and stop the corresponding background task behavior
+- `task-manager`: project binds, project switches, and relevant config changes
+  should dynamically restart project-scoped background task behavior
 
 ## Impact
 
 - Affected code is likely to include:
   - status command templates and workflow partials
   - workflow monitoring/setup instruction templates
-  - task manager task/subscription activation behavior
-  - feature flag and project-change handling
-  - tests for async lifecycle reconciliation and deadlock avoidance
+  - task manager task/subscription lifecycle behavior
+  - project and config change handling
+  - tests for async lifecycle restart and deadlock avoidance
 - Affected systems:
   - workflow status display
   - workflow monitoring bootstrap flow
-  - runtime feature-flag-driven task availability
-  - project switching across different flag configurations
+  - runtime project-scoped task availability
+  - project switching across different project contexts

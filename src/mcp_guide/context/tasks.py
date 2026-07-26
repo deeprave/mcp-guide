@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Any, Optional
 
 from mcp_guide.context.rendering import render_context_template
 from mcp_guide.core.mcp_log import get_logger
-from mcp_guide.decorators import task_init
+from mcp_guide.decorators import task_register
 from mcp_guide.feature_flags.constants import FLAG_ALLOW_CLIENT_INFO
 from mcp_guide.task_manager import EventType, get_task_manager
 from mcp_guide.task_manager.protocol import DEFAULT_ONCE_INTERVAL, InitialisableMixin
@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-@task_init
+@task_register
 class ClientContextTask(InitialisableMixin):
     """Task for collecting client context information."""
 
@@ -24,6 +24,7 @@ class ClientContextTask(InitialisableMixin):
         if task_manager is None:
             task_manager = get_task_manager()
         self.task_manager = task_manager
+        self._session: Any = None
         self._os_info_requested = False
         self._flag_checked = False
 
@@ -31,12 +32,21 @@ class ClientContextTask(InitialisableMixin):
         self._os_instruction_id: Optional[str] = None
         self._context_instruction_id: Optional[str] = None
 
-        # Subscribe to file content events and one-shot init
-        self.task_manager.subscribe(self, EventType.FS_FILE_CONTENT, once_interval=DEFAULT_ONCE_INTERVAL)
-
     def get_name(self) -> str:
         """Get a readable name for the task."""
         return "ClientContextTask"
+
+    async def start(self, task_manager: "TaskManager", session: Any) -> bool:
+        """Start client context collection if enabled for the current project."""
+        self.task_manager = task_manager
+        self._session = session
+        if not await self.task_manager.requires_flag(FLAG_ALLOW_CLIENT_INFO, session):
+            logger.debug(f"ClientContextTask disabled - {FLAG_ALLOW_CLIENT_INFO} flag not set")
+            self._flag_checked = True
+            return False
+
+        task_manager.subscribe(self, EventType.FS_FILE_CONTENT, once_interval=DEFAULT_ONCE_INTERVAL)
+        return True
 
     async def on_tool(self) -> None:
         pass
@@ -45,7 +55,12 @@ class ClientContextTask(InitialisableMixin):
         """Check flag and request OS info if enabled."""
         from mcp_guide.task_manager.manager import EventResult
 
-        if not await self.task_manager.requires_flag(FLAG_ALLOW_CLIENT_INFO):
+        if self._session is not None:
+            allow_client_info = await self.task_manager.requires_flag(FLAG_ALLOW_CLIENT_INFO, self._session)
+        else:
+            allow_client_info = await self.task_manager.requires_flag(FLAG_ALLOW_CLIENT_INFO)
+
+        if not allow_client_info:
             await self.task_manager.unsubscribe(self)
             logger.debug(f"ClientContextTask disabled - {FLAG_ALLOW_CLIENT_INFO} flag not set")
             self._flag_checked = True
