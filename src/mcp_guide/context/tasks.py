@@ -31,6 +31,7 @@ class ClientContextTask(InitialisableMixin):
         # Instruction tracking IDs
         self._os_instruction_id: Optional[str] = None
         self._context_instruction_id: Optional[str] = None
+        self._started = False
 
     def get_name(self) -> str:
         """Get a readable name for the task."""
@@ -38,6 +39,9 @@ class ClientContextTask(InitialisableMixin):
 
     async def start(self, task_manager: "TaskManager", session: Any) -> bool:
         """Start client context collection if enabled for the current project."""
+        if self._started:
+            return True
+
         self.task_manager = task_manager
         self._session = session
         if not await self.task_manager.requires_flag(FLAG_ALLOW_CLIENT_INFO, session):
@@ -46,7 +50,12 @@ class ClientContextTask(InitialisableMixin):
             return False
 
         task_manager.subscribe(self, EventType.FS_FILE_CONTENT, once_interval=DEFAULT_ONCE_INTERVAL)
+        self._started = True
         return True
+
+    async def stop(self, task_manager: "TaskManager") -> None:
+        """Reset startup state when the task is stopped."""
+        self._started = False
 
     async def on_tool(self) -> None:
         pass
@@ -62,6 +71,7 @@ class ClientContextTask(InitialisableMixin):
 
         if not allow_client_info:
             await self.task_manager.unsubscribe(self)
+            self._started = False
             logger.debug(f"ClientContextTask disabled - {FLAG_ALLOW_CLIENT_INFO} flag not set")
             self._flag_checked = True
             return EventResult(result=True)

@@ -88,6 +88,20 @@ class _FailingStartProjectTask(_ProjectTask):
         raise RuntimeError("start failed")
 
 
+class _CancelledStartProjectTask(_ProjectTask):
+    """Task whose start hook is cancelled."""
+
+    async def start(self, task_manager: TaskManager, session: _ProjectSession) -> bool:
+        raise asyncio.CancelledError
+
+
+class _CancelledStopProjectTask(_ProjectTask):
+    """Task whose stop hook is cancelled."""
+
+    async def stop(self, task_manager: TaskManager) -> None:
+        raise asyncio.CancelledError
+
+
 @pytest.fixture(autouse=True)
 def reset_project_task_state() -> None:
     """Reset class-level assertion state."""
@@ -99,6 +113,10 @@ def reset_project_task_state() -> None:
     _FailingStopProjectTask.stopped_for = []
     _FailingStartProjectTask.started_for = []
     _FailingStartProjectTask.stopped_for = []
+    _CancelledStartProjectTask.started_for = []
+    _CancelledStartProjectTask.stopped_for = []
+    _CancelledStopProjectTask.started_for = []
+    _CancelledStopProjectTask.stopped_for = []
 
 
 class TestProjectTaskLifecycle:
@@ -289,6 +307,56 @@ class TestProjectTaskLifecycle:
         assert task.session_name == "alpha"
         assert task_manager.get_subscription_count() == 1
         assert "Error starting project-scoped task" in caplog.text
+
+    @pytest.mark.anyio
+    async def test_start_cancellation_propagates(self) -> None:
+        """Task start cancellation is not swallowed as a startup failure."""
+        from mcp_guide.decorators import task_register
+
+        task_register(_CancelledStartProjectTask)
+        task_manager = TaskManager()
+
+        with pytest.raises(asyncio.CancelledError):
+            await task_manager.restart_project_tasks(_session("alpha"))
+
+        assert task_manager.get_task_by_type(_CancelledStartProjectTask) is None
+
+    @pytest.mark.anyio
+    async def test_stop_cancellation_propagates_after_unsubscribe(self) -> None:
+        """Task stop cancellation propagates while still clearing stale subscriptions."""
+        from mcp_guide.decorators import task_register
+
+        task_register(_CancelledStopProjectTask)
+        task_manager = TaskManager()
+
+        await task_manager.restart_project_tasks(_session("alpha"))
+
+        with pytest.raises(asyncio.CancelledError):
+            await task_manager.restart_project_tasks(_session("beta"))
+
+        assert task_manager.get_task_by_type(_CancelledStopProjectTask) is None
+        assert task_manager.get_subscription_count() == 0
+
+    @pytest.mark.anyio
+    async def test_timer_start_failure_cleans_up_started_project_tasks(self, monkeypatch) -> None:
+        """Timer startup failure after publication stops and unregisters started tasks."""
+        from mcp_guide.decorators import task_register
+
+        task_register(_ProjectTask)
+        task_manager = TaskManager()
+
+        async def fail_timer_start() -> None:
+            raise RuntimeError("timer startup failed")
+
+        monkeypatch.setattr(task_manager, "start", fail_timer_start)
+
+        with pytest.raises(RuntimeError, match="timer startup failed"):
+            await task_manager.restart_project_tasks(_session("alpha"))
+
+        assert _ProjectTask.stopped_for == ["alpha"]
+        assert task_manager.get_task_by_type(_ProjectTask) is None
+        assert task_manager.get_subscription_count() == 0
+        assert task_manager._active_project_tasks == {}
 
     @pytest.mark.anyio
     async def test_start_failure_unsubscribe_failure_does_not_block_later_tasks(self, monkeypatch, caplog) -> None:

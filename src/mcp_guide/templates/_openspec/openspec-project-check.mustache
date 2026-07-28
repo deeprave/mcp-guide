@@ -1,12 +1,12 @@
 {{#project}}
 Check if OpenSpec project is initialised:
 
-1. Check if `openspec/project.md` file exists using directory listing
-2. Send directory listing using {{tool_prefix}}send_directory_listing with path `openspec/project.md`
+1. Check if `openspec/config.yaml` file exists using a directory listing of `openspec`
+2. Send directory listing using {{tool_prefix}}send_directory_listing with path `openspec`
 3. Request OpenSpec changes list using the command: `openspec change list --json`
 4. Send the changes list content using {{tool_prefix}}send_file_content with path `.openspec-changes.json`
 
-If `openspec/project.md` does not exist, send an error.
+If `openspec/config.yaml` does not exist, send an error.
 If the changes list command fails, send an error.
 
 **Note:** Do NOT display file content or command output to the user - only show confirmation messages.

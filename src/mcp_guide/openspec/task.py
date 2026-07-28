@@ -299,16 +299,16 @@ class OpenSpecTask(InitialisableMixin):
         # Handle directory listing events
         if event_type & EventType.FS_DIRECTORY:
             path = data.get("path", "")
-            if path == "openspec/project.md":
+            if path == "openspec":
                 files = data.get("files", [])
-                self._project_enabled = any(f.get("name") == "project.md" for f in files)
+                self._project_enabled = any(f.get("name") == "config.yaml" for f in files)
 
                 # Acknowledge project check instruction
                 if self._project_instruction_id:
                     await self.task_manager.acknowledge_instruction(self._project_instruction_id)
                     self._project_instruction_id = None
 
-                # Mark validation as complete if project.md exists
+                # Mark validation as complete if the current OpenSpec config exists
                 if self._project_enabled:
                     from mcp_guide.session import get_session
 

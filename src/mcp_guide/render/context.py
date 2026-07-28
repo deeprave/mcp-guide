@@ -55,6 +55,7 @@ class TemplateContext(ChainMap[str, Any]):
 
     @staticmethod
     def _validate_mapping(mapping: dict[str, Any]) -> None:
+
         for key in mapping:
             if not isinstance(key, str):
                 raise TypeError(f"Context keys must be strings, got {type(key).__name__}: {key}")
