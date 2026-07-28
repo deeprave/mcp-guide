@@ -222,11 +222,11 @@ class TestProjectTaskLifecycle:
         await task_manager.restart_project_tasks(_session("alpha"))
 
         assert task_manager.get_cached_data("workflow_state") is None
-        assert task_manager.get_cached_data("openspec_version") is None
+        assert task_manager.get_cached_data("openspec_version") == "1.2.3"
         assert task_manager.get_cached_data("client_os_info") is None
         assert task_manager.get_cached_data("unrelated") == "keep"
         assert "workflow_state" not in task_manager._cache
-        assert "openspec_version" not in task_manager._cache
+        assert "openspec_version" in task_manager._cache
         assert "client_os_info" not in task_manager._cache
         assert "unrelated" in task_manager._cache
 
@@ -357,6 +357,21 @@ class TestProjectTaskLifecycle:
         assert task_manager.get_task_by_type(_ProjectTask) is None
         assert task_manager.get_subscription_count() == 0
         assert task_manager._active_project_tasks == {}
+
+    @pytest.mark.anyio
+    async def test_cleanup_finishes_after_stop_cancellation(self) -> None:
+        """Cancellation from one stop hook does not skip later task cleanup."""
+        task_manager = TaskManager()
+        cancelled = _CancelledStopProjectTask()
+        remaining = _ProjectTask()
+        await cancelled.start(task_manager, _ProjectSession("cancelled"))
+        await remaining.start(task_manager, _ProjectSession("remaining"))
+
+        with pytest.raises(asyncio.CancelledError):
+            await task_manager._cleanup_started_project_tasks([cancelled, remaining])
+
+        assert _ProjectTask.stopped_for == ["remaining"]
+        assert task_manager.get_subscription_count() == 0
 
     @pytest.mark.anyio
     async def test_start_failure_unsubscribe_failure_does_not_block_later_tasks(self, monkeypatch, caplog) -> None:

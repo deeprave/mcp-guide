@@ -31,7 +31,6 @@ PROJECT_SCOPED_CACHE_KEYS = (
     "workflow_file_path",
     "workflow_change_content",
     "openspec_available",
-    "openspec_version",
     "openspec_status",
     "openspec_show",
     "openspec_changes",
@@ -273,22 +272,29 @@ class TaskManager:
                     if generation == self._project_task_lifecycle_generation:
                         self._active_project_tasks.clear()
 
-                for task in started_tasks.values():
-                    try:
-                        await self._stop_project_task(task)
-                    except asyncio.CancelledError:
-                        raise
-                    except Exception as e:
-                        logger.warning(
-                            "Error cleaning up started project-scoped task %s after timer startup failure: %s",
-                            type(task).__name__,
-                            e,
-                            exc_info=True,
-                        )
+                await self._cleanup_started_project_tasks(started_tasks.values())
                 raise
         else:
-            for task in started_tasks.values():
+            await self._cleanup_started_project_tasks(started_tasks.values())
+
+    async def _cleanup_started_project_tasks(self, tasks: Any) -> None:
+        """Stop every started project task before propagating cancellation."""
+        cancellation: asyncio.CancelledError | None = None
+        for task in tasks:
+            try:
                 await self._stop_project_task(task)
+            except asyncio.CancelledError as error:
+                cancellation = error
+            except Exception as error:
+                logger.warning(
+                    "Error cleaning up started project-scoped task %s after timer startup failure: %s",
+                    type(task).__name__,
+                    error,
+                    exc_info=True,
+                )
+
+        if cancellation is not None:
+            raise cancellation
 
     async def _stop_project_task(self, task: TaskSubscriber) -> None:
         """Stop and unsubscribe one project-scoped task instance."""
