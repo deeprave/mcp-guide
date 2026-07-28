@@ -1,6 +1,7 @@
 """Integration tests for config and session management."""
 
 import asyncio
+from dataclasses import replace
 from unittest.mock import AsyncMock
 
 import pytest
@@ -90,6 +91,76 @@ class TestConfigSessionIntegration:
         # Verify both tasks completed successfully
         assert len(results) == 2
         assert all(count == 1 for _, count in results)
+
+    @pytest.mark.anyio
+    async def test_project_switch_replaces_runtime_tasks_and_clears_project_state(self, tmp_path, monkeypatch):
+        """Switching projects fully replaces runtime handlers and volatile state."""
+        from mcp_guide.context.tasks import ClientContextTask
+        from mcp_guide.decorators import (
+            clear_registered_tasks_for_testing,
+            get_registered_task_classes,
+            task_register,
+        )
+        from mcp_guide.feature_flags.types import FeatureValue
+        from mcp_guide.openspec.task import OpenSpecTask
+        from mcp_guide.task_manager import TaskManager
+        from mcp_guide.workflow.tasks import WorkflowMonitorTask
+
+        monkeypatch.setattr(Session, "_ensure_watcher_started", AsyncMock(return_value=None))
+        had_config_manager = hasattr(Session, "_config_manager")
+        previous_config_manager = getattr(Session, "_config_manager", None)
+        registered_task_classes = get_registered_task_classes()
+        clear_registered_tasks_for_testing()
+        for task_class in (WorkflowMonitorTask, ClientContextTask, OpenSpecTask):
+            task_register(task_class)
+
+        task_manager = TaskManager()
+        session = None
+
+        try:
+            session = await self._create_bound_session("enabled-project", str(tmp_path))
+            await session.update_config(
+                lambda project: replace(
+                    project,
+                    project_flags={
+                        "workflow": FeatureValue.from_raw(True),
+                        "openspec": FeatureValue.from_raw(True),
+                        "allow-client-info": FeatureValue.from_raw(True),
+                    },
+                )
+            )
+            await task_manager.restart_project_tasks(session)
+            assert task_manager.get_task_by_type(WorkflowMonitorTask) is not None
+            assert task_manager.get_task_by_type(OpenSpecTask) is not None
+            assert task_manager.get_task_by_type(ClientContextTask) is not None
+            assert task_manager.get_subscription_count() == 3
+
+            task_manager.set_cached_data("workflow_state", {"phase": "implementation"})
+            task_manager.set_cached_data("client_context_info", {"editor": "test"})
+            task_manager.set_cached_data("openspec_version", "1.6.0")
+            await task_manager.queue_instruction("stale project instruction")
+
+            await session.switch_project("disabled-project")
+
+            assert task_manager.get_task_by_type(WorkflowMonitorTask) is None
+            assert task_manager.get_task_by_type(OpenSpecTask) is None
+            assert task_manager.get_task_by_type(ClientContextTask) is None
+            assert task_manager.get_subscription_count() == 0
+            assert task_manager.get_cached_data("workflow_state") is None
+            assert task_manager.get_cached_data("client_context_info") is None
+            assert task_manager.get_cached_data("openspec_version") == "1.6.0"
+            assert "stale project instruction" not in task_manager._pending_instructions
+        finally:
+            await task_manager.cleanup()
+            clear_registered_tasks_for_testing()
+            for task_class in registered_task_classes:
+                task_register(task_class)
+            if session is not None:
+                await session.cleanup()
+            if had_config_manager:
+                Session._config_manager = previous_config_manager
+            else:
+                delattr(Session, "_config_manager")
 
     @pytest.mark.anyio
     async def test_save_project_notifies_for_bound_project(self, tmp_path, monkeypatch):
