@@ -1090,7 +1090,7 @@
 <h3 id="initial-validation">Initial Validation<a class="headerlink" href="#initial-validation" title="Permanent link">&para;</a></h3>
 <p>When OpenSpec is first enabled, mcp-guide performs one-time validation checks:
 - Verifies <code>openspec</code> command is installed and available in PATH
-- Confirms <code>openspec/project.md</code> exists (required by OpenSpec)
+- Confirms <code>openspec/config.yaml</code> exists (required by current OpenSpec versions)
 - Tests that <code>openspec list</code> executes successfully (even if no changes exist)</p>
 <h3 id="session-monitoring">Session Monitoring<a class="headerlink" href="#session-monitoring" title="Permanent link">&para;</a></h3>
 <p>During each session, the integration:
@@ -1102,7 +1102,7 @@
 <h2 id="openspec-commands">OpenSpec Commands<a class="headerlink" href="#openspec-commands" title="Permanent link">&para;</a></h2>
 <p>When OpenSpec is enabled, additional OpenSpec commands become available. Some commands invoke the OpenSpec CLI directly (with response caching). Use <code>guide://_help</code> for the full command list, or <code>guide://_help/openspec%2Finit</code> and <code>guide://_help/openspec%2Flist</code> for help on specific OpenSpec commands.</p>
 <p><strong><code>guide://_openspec/init</code></strong> <em>(:openspec/init)</em>
-Initialise OpenSpec in the current project using the openspec command. This creates the required directory structure and <code>openspec/project.md</code> file.</p>
+Initialise OpenSpec in the current project using the openspec command. This creates the required directory structure and <code>openspec/config.yaml</code> file.</p>
 <p><strong><code>guide://_openspec/propose</code></strong> <em>(:openspec/propose; aliases: openspec/new, openspec/create)</em>
 Initiate a new OpenSpec change by creating the change directory structure and proposal document. Emphasises dialogue with the user before writing documents. Optionally creates <code>tasks.md</code> for tracking implementation.</p>
 <p><strong><code>guide://_openspec/list</code></strong> <em>(:openspec/list)</em>
