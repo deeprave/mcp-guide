@@ -5,7 +5,7 @@ description = "MCP Server for handling guidelines, project rules and a controlle
 readme = "README.md"
 license = {file = "LICENSE.md"}
 authors = [{name = "David Nugent", email = "davidn@uniquode.io"}]
-requires-python = ">=3.12"
+requires-python = ">=3.13"
 dependencies = [
     "fastmcp>=3.1.1",
     "pydantic>=2.0",
@@ -22,7 +22,6 @@ classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
     "Topic :: Software Development :: Libraries :: Python Modules",
