@@ -14,7 +14,7 @@ OpenSpec integration enables structured change management with automatic monitor
 
 When OpenSpec is first enabled, mcp-guide performs one-time validation checks:
 - Verifies `openspec` command is installed and available in PATH
-- Confirms `openspec/project.md` exists (required by OpenSpec)
+- Confirms `openspec/config.yaml` exists (required by current OpenSpec versions)
 - Tests that `openspec list` executes successfully (even if no changes exist)
 
 ### Session Monitoring
@@ -33,7 +33,7 @@ The integration may seem verbose in some agents as it executes OpenSpec commands
 When OpenSpec is enabled, additional OpenSpec commands become available. Some commands invoke the OpenSpec CLI directly (with response caching). Use `guide://_help` for the full command list, or `guide://_help/openspec%2Finit` and `guide://_help/openspec%2Flist` for help on specific OpenSpec commands.
 
 **`guide://_openspec/init`** _(:openspec/init)_
-Initialise OpenSpec in the current project using the openspec command. This creates the required directory structure and `openspec/project.md` file.
+Initialise OpenSpec in the current project using the openspec command. This creates the required directory structure and `openspec/config.yaml` file.
 
 **`guide://_openspec/propose`** _(:openspec/propose; aliases: openspec/new, openspec/create)_
 Initiate a new OpenSpec change by creating the change directory structure and proposal document. Emphasises dialogue with the user before writing documents. Optionally creates `tasks.md` for tracking implementation.

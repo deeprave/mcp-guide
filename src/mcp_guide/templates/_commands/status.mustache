@@ -28,6 +28,5 @@ The workflow file has not yet been received from the agent.
 To provide full workflow state information, you MUST use the {{tool_prefix}}send_file_content tool to send the complete contents of `{{workflow.file}}` with path `{{workflow.file}}`, then retry the `status` command.
 {{/workflow.phase}}{{/workflow}}{{^workflow}}
 
-Workflow tracking is disabled.
 {{/workflow}}
 {{>taskmanager}}

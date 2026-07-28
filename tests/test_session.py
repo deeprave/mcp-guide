@@ -29,6 +29,7 @@ class TestSetProject:
         result = await set_project("new-project")
 
         assert result.is_ok()
+        assert result.value is not None
         assert result.value.name == "new-project"
 
     @pytest.mark.anyio
@@ -357,9 +358,9 @@ class TestTryBindFromRoots:
         from mcp_guide.models import Project
 
         session = Session(_config_dir_for_tests=str(tmp_path))
-        session._Session__delegate.bind(Project(name="my-project", categories={}, collections={}))
+        getattr(session, "_Session__delegate").bind(Project(name="my-project", categories={}, collections={}))
         monkeypatch.setattr("mcp_guide.mcp_context.project_name_from_roots", lambda roots: "my-project")
-        session.switch_project = AsyncMock(side_effect=AssertionError("should not be called"))
+        monkeypatch.setattr(session, "switch_project", AsyncMock(side_effect=AssertionError("should not be called")))
 
         result = await session.try_bind_from_roots(["file:///home/user/my-project"])
 

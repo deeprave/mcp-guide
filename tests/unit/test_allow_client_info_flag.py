@@ -1,5 +1,6 @@
 """Tests for allow-client-info feature flag."""
 
+from typing import Any, cast
 from unittest.mock import AsyncMock, Mock
 
 import pytest
@@ -57,8 +58,8 @@ class TestAllowClientInfoValidator:
         """Test that validator rejects invalid values."""
         # These should be rejected
         assert not validate_allow_client_info("invalid", is_project=False)
-        assert not validate_allow_client_info(1, is_project=False)
-        assert not validate_allow_client_info(0, is_project=False)
+        assert not validate_allow_client_info(cast(Any, 1), is_project=False)
+        assert not validate_allow_client_info(cast(Any, 0), is_project=False)
 
     def test_validator_rejects_project_level(self, allow_client_info_validator):
         """Test that validator rejects project-level setting via validate_flag_with_registered."""
@@ -103,4 +104,20 @@ class TestClientContextTaskConditional:
         started = await task.start(mock_task_manager, Mock())
 
         assert started is True
+        mock_task_manager.subscribe.assert_called_once()
+
+    @pytest.mark.anyio
+    async def test_start_is_idempotent_after_success(self):
+        """Repeated startup on the same instance does not duplicate subscriptions."""
+        mock_task_manager = Mock()
+        mock_task_manager.subscribe = Mock()
+        mock_task_manager.requires_flag = AsyncMock(return_value=True)
+
+        task = ClientContextTask(task_manager=mock_task_manager)
+        first_started = await task.start(mock_task_manager, Mock())
+        second_started = await task.start(mock_task_manager, Mock())
+
+        assert first_started is True
+        assert second_started is True
+        mock_task_manager.requires_flag.assert_awaited_once()
         mock_task_manager.subscribe.assert_called_once()

@@ -130,6 +130,45 @@ class TestOpenSpecTask:
         mock_task_manager.set_cached_data.assert_called_once_with("openspec_available", False)
 
     @pytest.mark.anyio
+    async def test_handle_event_config_directory_listing_validates_project(self, mock_task_manager):
+        """A current OpenSpec config enables the project integration."""
+        task = OpenSpecTask(mock_task_manager)
+        task._project_instruction_id = "project-check"
+
+        with (
+            patch("mcp_guide.session.get_session") as mock_get_session,
+            patch.object(task, "request_changes_json", new_callable=AsyncMock) as mock_request_changes,
+        ):
+            project = MagicMock(openspec_validated=False)
+            session = AsyncMock()
+            session.get_project.return_value = project
+            mock_get_session.return_value = session
+
+            result = await task.handle_event(
+                EventType.FS_DIRECTORY,
+                {"path": "openspec", "files": [{"name": "config.yaml", "type": "file"}]},
+            )
+
+        assert result.result is True
+        assert task._project_enabled is True
+        mock_task_manager.acknowledge_instruction.assert_awaited_once_with("project-check")
+        session.update_config.assert_awaited_once()
+        mock_request_changes.assert_awaited_once()
+
+    @pytest.mark.anyio
+    async def test_handle_event_ignores_legacy_project_file_listing(self, mock_task_manager):
+        """Legacy project.md listings do not validate a current OpenSpec project."""
+        task = OpenSpecTask(mock_task_manager)
+
+        result = await task.handle_event(
+            EventType.FS_DIRECTORY,
+            {"path": "openspec/project.md", "files": [{"name": "project.md", "type": "file"}]},
+        )
+
+        assert result is None
+        assert task._project_enabled is None
+
+    @pytest.mark.anyio
     async def test_is_available_returns_none_before_check(self, mock_task_manager):
         """Test that is_available returns None before CLI check completes."""
         task = OpenSpecTask(mock_task_manager)

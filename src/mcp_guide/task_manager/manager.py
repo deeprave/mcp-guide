@@ -31,7 +31,6 @@ PROJECT_SCOPED_CACHE_KEYS = (
     "workflow_file_path",
     "workflow_change_content",
     "openspec_available",
-    "openspec_version",
     "openspec_status",
     "openspec_show",
     "openspec_changes",
@@ -219,6 +218,8 @@ class TaskManager:
         for task in active_tasks:
             try:
                 await self._stop_project_task(task)
+            except asyncio.CancelledError:
+                raise
             except Exception as e:
                 logger.warning(
                     "Error stopping project-scoped task %s: %s",
@@ -233,11 +234,15 @@ class TaskManager:
             try:
                 task = task_cls()
                 started = await task.start(self, session)
+            except asyncio.CancelledError:
+                raise
             except Exception as e:
                 logger.warning(f"Error starting project-scoped task {task_cls.__name__}: {e}", exc_info=True)
                 if task is not None:
                     try:
                         await self.unsubscribe(cast(TaskSubscriber, task))
+                    except asyncio.CancelledError:
+                        raise
                     except Exception as unsubscribe_error:
                         logger.warning(
                             "Error unsubscribing failed project-scoped task %s: %s",
@@ -254,22 +259,50 @@ class TaskManager:
 
         async with self._project_task_lifecycle_lock:
             if generation == self._project_task_lifecycle_generation:
-                self._active_project_tasks = started_tasks
+                self._active_project_tasks = dict(started_tasks)
                 should_start_timers = True
             else:
                 should_start_timers = False
 
         if should_start_timers:
-            await self.start()
+            try:
+                await self.start()
+            except (Exception, asyncio.CancelledError):
+                async with self._project_task_lifecycle_lock:
+                    if generation == self._project_task_lifecycle_generation:
+                        self._active_project_tasks.clear()
+
+                await self._cleanup_started_project_tasks(started_tasks.values())
+                raise
         else:
-            for task in started_tasks.values():
+            await self._cleanup_started_project_tasks(started_tasks.values())
+
+    async def _cleanup_started_project_tasks(self, tasks: Any) -> None:
+        """Stop every started project task before propagating cancellation."""
+        cancellation: asyncio.CancelledError | None = None
+        for task in tasks:
+            try:
                 await self._stop_project_task(task)
+            except asyncio.CancelledError as error:
+                cancellation = error
+            except Exception as error:
+                logger.warning(
+                    "Error cleaning up started project-scoped task %s after timer startup failure: %s",
+                    type(task).__name__,
+                    error,
+                    exc_info=True,
+                )
+
+        if cancellation is not None:
+            raise cancellation
 
     async def _stop_project_task(self, task: TaskSubscriber) -> None:
         """Stop and unsubscribe one project-scoped task instance."""
         try:
             if stop := getattr(task, "stop", None):
                 await stop(self)
+        except asyncio.CancelledError:
+            raise
         except Exception as e:
             logger.warning(f"Error stopping project-scoped task {task.get_name()}: {e}", exc_info=True)
         finally:
