@@ -22,6 +22,30 @@ real project.
 - **THEN** the task manager SHALL initialize resolved flags and other project-sensitive state at that time
 - **AND** deferred initialization SHALL run at most once per project bind event
 
+### Requirement: Project-Scoped Task Lifecycle
+The system SHALL manage project-scoped tasks after project context is available, while each task decides whether and how to activate for that context.
+
+#### Scenario: Registered project task does not instantiate on import
+- **WHEN** a project-scoped task class is registered
+- **THEN** the system SHALL record it for lifecycle management
+- **AND** SHALL NOT instantiate it during registration
+
+#### Scenario: Project switch replaces project tasks
+- **WHEN** the active project changes
+- **THEN** the task manager SHALL stop and unsubscribe active project-scoped task instances
+- **AND** SHALL clear project-scoped cache, queued instructions, and tracked instructions
+- **AND** SHALL create fresh task instances for the new project without duplicate subscriptions
+
+#### Scenario: Configuration change re-evaluates project tasks
+- **WHEN** project or global configuration changes affect the active project
+- **THEN** the task manager SHALL restart project-scoped tasks
+- **AND** each task SHALL re-evaluate its activation policy without requiring an MCP restart
+
+#### Scenario: Concurrent lifecycle triggers remain consistent
+- **WHEN** project and configuration changes trigger lifecycle restarts close together
+- **THEN** the task manager SHALL serialize or coalesce the mutations without deadlock
+- **AND** the final active task set SHALL belong to the latest project context
+
 ### Requirement: MCP Update Task
 The system SHALL provide `McpUpdateTask` that checks the `autoupdate` feature
 flag once at startup and queues an update instruction when enabled.
