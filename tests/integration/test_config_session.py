@@ -107,8 +107,12 @@ class TestConfigSessionIntegration:
         from mcp_guide.workflow.tasks import WorkflowMonitorTask
 
         monkeypatch.setattr(Session, "_ensure_watcher_started", AsyncMock(return_value=None))
-        had_config_manager = hasattr(Session, "_config_manager")
-        previous_config_manager = getattr(Session, "_config_manager", None)
+        monkeypatch.setattr(
+            Session,
+            "_config_manager",
+            Session._ConfigManager(config_dir=str(tmp_path)),
+            raising=False,
+        )
         registered_task_classes = get_registered_task_classes()
         clear_registered_tasks_for_testing()
         for task_class in (WorkflowMonitorTask, ClientContextTask, OpenSpecTask):
@@ -149,7 +153,7 @@ class TestConfigSessionIntegration:
             assert task_manager.get_cached_data("workflow_state") is None
             assert task_manager.get_cached_data("client_context_info") is None
             assert task_manager.get_cached_data("openspec_version") == "1.6.0"
-            assert "stale project instruction" not in task_manager._pending_instructions
+            assert task_manager.is_queue_empty()
         finally:
             await task_manager.cleanup()
             clear_registered_tasks_for_testing()
@@ -157,10 +161,6 @@ class TestConfigSessionIntegration:
                 task_register(task_class)
             if session is not None:
                 await session.cleanup()
-            if had_config_manager:
-                Session._config_manager = previous_config_manager
-            else:
-                delattr(Session, "_config_manager")
 
     @pytest.mark.anyio
     async def test_save_project_notifies_for_bound_project(self, tmp_path, monkeypatch):
