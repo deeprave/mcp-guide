@@ -42,7 +42,7 @@
 - [x] 5.7 Keep non-project-scoped tasks on `@task_init` and verify server startup still imports modules needed for registration
 - [x] 5.8 Clear project-scoped volatile cache entries and queued instructions when lifecycle restart stops or replaces task instances
 - [x] 5.9 Add focused tests that workflow, OpenSpec, and client-info each independently decide whether to activate for the current project
-- [ ] 5.10 Pause for manual project-switch testing before broad validation
+- [x] 5.10 Pause for manual project-switch testing before broad validation
 
 ## 6. Validation
 

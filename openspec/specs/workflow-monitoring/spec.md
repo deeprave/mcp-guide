@@ -3,6 +3,17 @@
 ## Purpose
 TBD - created by archiving change semantic-workflow-change-detection. Update Purpose after archive.
 ## Requirements
+### Requirement: Project-scoped workflow task activation
+The workflow monitoring task SHALL activate from the current project context rather than import-time initialization.
+
+#### Scenario: Workflow disabled for current project
+- **WHEN** the workflow task starts for a project where workflow tracking is disabled
+- **THEN** it SHALL remain inactive and create no workflow subscription
+
+#### Scenario: Workflow enabled after project switch
+- **WHEN** a project switch activates workflow tracking for the new project
+- **THEN** the task SHALL subscribe using the new project's workflow configuration without an MCP restart
+
 ### Requirement: Semantic Workflow Change Detection
 The workflow monitoring system SHALL detect and report semantic changes in workflow state rather than echoing redundant content.
 
@@ -81,4 +92,3 @@ The workflow monitoring task SHALL process workflow file content by comparing ag
 - **THEN** system SHALL log appropriate warnings
 - **AND** system SHALL not update cached state
 - **AND** system SHALL not queue potentially incorrect change instructions
-

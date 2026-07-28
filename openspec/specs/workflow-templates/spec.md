@@ -28,6 +28,18 @@ The system SHALL support frontmatter-based conditional template rendering based 
 - **THEN** apply frontmatter filtering to suppress non-applicable templates
 - **AND** present only templates matching current workflow configuration
 
+#### Scenario: Optional workflow command phase declarations use explicit phase lists
+- **GIVEN** a command template under `src/mcp_guide/templates/_commands/workflow/`
+- **AND** the command transitions to an optional workflow phase
+- **WHEN** the template declares `requires-workflow`
+- **THEN** it MUST use `requires-workflow: [<phase>]` for that phase
+
+#### Scenario: Dynamic phase command validates membership
+- **GIVEN** the `phase` workflow command accepts a phase name at runtime
+- **WHEN** workflow is enabled and the command is rendered
+- **THEN** it MUST validate the requested phase against all configured workflow phases
+- **AND** it MUST include non-ordered phases such as `exploration`
+
 ### Requirement: Phase-Specific Template Collections
 The system SHALL support phase-specific template organization for workflow-aware content.
 
@@ -124,4 +136,3 @@ Templates SHALL use workflow context variables instead of hardcoding phase names
 - **THEN** wrap in `{{#workflow.phases.{phase}}}...{{/workflow.phases.{phase}}}`
 - **WHEN** the phase is used for display/reference
 - **THEN** use workflow context variables instead
-

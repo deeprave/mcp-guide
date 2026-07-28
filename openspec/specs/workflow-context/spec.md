@@ -107,6 +107,26 @@ The system SHALL update status command to show workflow information when enabled
 #### Scenario: Status with workflow tracking disabled
 - **WHEN** user runs `:status` command and `workflow` flag is false
 - **THEN** display basic project information without workflow details
+- **AND** it SHALL NOT instruct the agent to send workflow file content
+- **AND** it SHALL NOT imply that workflow monitoring is active
+
+#### Scenario: Status with workflow enabled but state unavailable
+- **WHEN** user runs `:status` command and workflow tracking is enabled
+- **AND** no workflow state has yet been received
+- **THEN** status output SHALL state that workflow state is not yet available
+- **AND** SHALL include setup guidance only for the workflow-enabled case
+
+### Requirement: Workflow Bootstrap Guidance
+The workflow monitoring system SHALL provide bootstrap guidance when workflow tracking is enabled but no workflow state file has been received.
+
+#### Scenario: Missing workflow file bootstrap
+- **WHEN** workflow tracking is enabled and the configured workflow file does not exist
+- **THEN** the guidance SHALL instruct the agent to create it with `phase: discussion` and a blank `issue:` line
+
+#### Scenario: Existing workflow file bootstrap
+- **WHEN** workflow tracking is enabled and the configured workflow file exists
+- **THEN** the guidance SHALL instruct the agent to send the complete file contents
+- **AND** SHALL NOT instruct the agent to create a replacement
 
 ### Requirement: Workflow Command Integration
 The system SHALL provide workflow-related commands integrated into existing command templates.
