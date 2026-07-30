@@ -49,7 +49,7 @@ mcp-install = "mcp_guide.scripts.mcp_guide_install:cli"
 guide-agent-install = "mcp_guide.scripts.guide_agent_install:main"
 
 [build-system]
-requires = ["uv_build>=0.8.13,<0.12"]
+requires = ["uv_build>=0.8.13,<0.13"]
 build-backend = "uv_build"
 
 [tool.uv]
