@@ -3,17 +3,24 @@ type: agent/instruction
 Description: Create an implementation plan for the current change
 category: "project-workflow"
 usage: "guide://_workflow/plan"
-requires-workflow: [planning]
 aliases:
   - plan
-instruction: Create or update the implementation plan for the current issue
+instruction: Create or update an implementation plan
 ---
-{{h1}}Planning mode
+{{h1}}Planning
 
-- You must enter PLANNING phase
+{{h2}}General Guidance
+
+- Align on requirements, scope, constraints, and acceptance criteria before implementation.
+- Create or refine a detailed, testable implementation plan.
+- Do not change production code or tests until the plan has user approval.
+- Read {{#resource}}guidelines{{/resource}} for project requirements and guidance.
+
+{{#workflow}}
+{{h2}}Guide Workflow Add-in
+
+- Enter PLANNING phase.
 {{#openspec}}{{#workflow.issue}}
 - Gather requirements for `{{workflow.issue}}`
 {{/workflow.issue}}{{/openspec}}
-- Create a detailed implementation plan
-
-- read {{#resource}}guidelines{{/resource}} for project requirements and guidelines.
+{{/workflow}}

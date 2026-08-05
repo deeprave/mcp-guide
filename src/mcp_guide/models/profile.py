@@ -81,7 +81,12 @@ class Profile:
         # Parse collections
         collections = []
         for coll_data in data.get("collections", []):
-            collections.append(ProfileCollection(**coll_data))
+            collection = ProfileCollection(**coll_data)
+            if not collection.categories:
+                raise ValueError(
+                    f"Profile collection '{collection.name}' must contain at least one category or expression"
+                )
+            collections.append(collection)
 
         return cls(name=profile_name, categories=categories, collections=collections)
 

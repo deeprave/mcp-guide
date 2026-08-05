@@ -3,37 +3,23 @@ type: agent/instruction
 Description: Enter exploration mode for investigation and requirements discovery
 category: "project-workflow"
 usage: "guide://_workflow/explore"
-requires-workflow: [exploration]
 aliases:
   - explore
-instruction: Investigate the current issue without making production code changes
+instruction: Investigate requirements without making production code changes
 ---
-{{#workflow}}If you are not currently in exploration phase, you must transition to it now.
-{{/workflow}}
-{{h1}}Exploration mode
+{{h1}}Exploration
 
-- Read the `{{workflow.file}}` file to understand the current issue context
+{{h2}}General Guidance
+
 - Investigate requirements, constraints, and possible approaches
 - Compare options and capture findings before planning or implementation
+- Do not make production code changes or add tests while investigating.
+- Ground conclusions in the codebase and relevant sources, then document findings for the user.
 
-{{h2}}Exploration Rules
+{{#workflow}}
+{{h2}}Guide Workflow Add-in
 
-- Allowed: codebase analysis, documentation review, requirement discovery, option comparison, external research
-- Allowed: creating or updating workflow, OpenSpec, and planning artifacts
-- Not allowed: production code changes, feature implementation, tests, or unrelated project-file edits
-
-{{h2}}Purpose
-
-- Clarify what should happen before planning or implementation
-- Identify unknowns, risks, and tradeoffs
-- Produce findings that can inform the next phase
-
-{{h2}}Working Style
-
-- Follow useful lines of investigation without turning exploration into implementation
-- Ground conclusions in the codebase and other sources where appropriate
-- Capture findings in plans or OpenSpec artifacts when requested
+If not already in exploration phase, transition to it now. Read `{{workflow.file}}` for the current issue context and use {{#resource}}docs/tracking{{/resource}} for workflow transition guidance.
+{{/workflow}}
 
 {{instruction}}
-
-Use {{#resource}}docs/tracking{{/resource}} to review workflow rules and transition guidance.

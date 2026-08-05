@@ -1,0 +1,13 @@
+---
+type: agent/instruction
+description: Bash, Zsh, and portable shell scripting guidance
+---
+
+# Shell Scripting Guidelines
+
+- Declare the intended interpreter with a shebang. Use `#!/usr/bin/env bash` for Bash-specific scripts and `#!/bin/sh` only when the script is deliberately POSIX-compatible.
+- Quote variable expansions unless word splitting or glob expansion is explicitly required.
+- For Bash scripts, use `set -euo pipefail` when its failure behaviour is appropriate, and handle expected command failures explicitly.
+- Do not assume Bash syntax works in Zsh or POSIX `sh`; arrays, `[[ ... ]]`, process substitution, and `pipefail` need interpreter-specific handling.
+- Prefer `printf` over `echo` for portable, predictable output.
+- Check shell scripts with ShellCheck where practical, and test the intended interpreter rather than the interactive login shell.

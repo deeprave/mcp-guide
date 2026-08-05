@@ -1,0 +1,6 @@
+# Shell Profile
+
+categories:
+  - name: lang
+    patterns:
+      - shell

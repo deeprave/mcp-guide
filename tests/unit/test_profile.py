@@ -68,6 +68,16 @@ collections:
         assert len(profile.categories) == 0
         assert len(profile.collections) == 1
 
+    def test_rejects_collection_without_categories(self):
+        yaml_content = """
+collections:
+  - name: all
+    categories: []
+"""
+
+        with pytest.raises(ValueError, match="must contain at least one category or expression"):
+            Profile.from_yaml("test", yaml_content)
+
     def test_empty_profile(self):
         """Test empty profile."""
         yaml_content = "{}"
@@ -150,6 +160,25 @@ categories:
         finally:
             profile_module.get_profiles_dir = original_get_profiles_dir
 
+    async def test_default_profile_provides_baseline_resource_content(self):
+        profile = await Profile.load("_default")
+
+        categories = {category.name: category for category in profile.categories}
+        collections = {collection.name: collection for collection in profile.collections}
+
+        assert categories["review"].patterns == ["general"]
+        assert categories["checks"].patterns == ["instructions"]
+        assert collections["code-review"].categories == ["review"]
+
+    async def test_docker_and_shell_profiles_select_language_guidance(self):
+        docker_profile = await Profile.load("docker")
+        shell_profile = await Profile.load("shell")
+
+        assert docker_profile.categories[0].name == "lang"
+        assert docker_profile.categories[0].patterns == ["docker"]
+        assert shell_profile.categories[0].name == "lang"
+        assert shell_profile.categories[0].patterns == ["shell"]
+
 
 @pytest.mark.anyio
 class TestDiscoverProfiles:
@@ -197,3 +226,15 @@ class TestDiscoverProfiles:
             assert sorted(profiles) == ["python", "rust"]
         finally:
             profile_module.get_profiles_dir = original_get_profiles_dir
+
+    async def test_discover_profiles_includes_docker_and_shell(self):
+        profiles = await profile_module.discover_profiles()
+
+        assert "docker" in profiles
+        assert "shell" in profiles
+
+    async def test_bundled_profiles_do_not_contain_empty_collections(self):
+        for profile_name in ["_default", *await profile_module.discover_profiles()]:
+            profile = await Profile.load(profile_name)
+
+            assert all(collection.categories for collection in profile.collections), profile_name

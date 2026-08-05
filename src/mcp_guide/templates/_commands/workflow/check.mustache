@@ -3,19 +3,26 @@ type: agent/instruction
 Description: Run all code checks for changes
 category: "project-workflow"
 usage: "guide://_workflow/check"
-requires-workflow: [check]
 aliases:
   - check
 instruction: Run complete checks on changes after reading the code quality guidelines. {{INSTRUCTION_AGENT_INSTRUCTIONS}}
 ---
-{{#workflow}}If you are not currently in check phase, you must transition to it now.
-{{/workflow}}
 {{h1}}Code Checks
 
-- Read the `{{workflow.file}}` file to understand the current issue context
+{{h2}}General Guidance
+
+- Run the relevant tests and configured code-quality checks for the changes.
+- Do not modify production code or tests until the user confirms alignment on the required fixes.
+- Report failures, lint findings, type errors, and formatting issues with their likely cause and proposed resolution.
+- After alignment, keep fixes focused on the reported problem; return to the user for any requirement or design change.
+
+{{#workflow}}
+{{h2}}Guide Workflow Add-in
+
+If not currently in check phase, transition to it now. Read `{{workflow.file}}` to understand the current issue context.
+
 - Load code quality check guidelines from the "checks" category
-- Run all checks
+Use {{#resource}}checks{{/resource}} to access check guidelines and follow the instructions from that content.
+{{/workflow}}
 
 {{instruction}}
-
-Use {{#resource}}checks{{/resource}} to access check guidelines and follow the instructions from that content.

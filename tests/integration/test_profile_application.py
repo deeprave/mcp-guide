@@ -1,9 +1,15 @@
 """Integration tests for profile application."""
 
+import re
+from pathlib import Path
+
 import pytest
 
 import mcp_guide.session
+from mcp_guide.discovery.commands import discover_commands
+from mcp_guide.installer.core import get_templates_path
 from mcp_guide.session import get_session, remove_current_session
+from mcp_guide.tools.tool_content import ContentArgs, internal_get_content
 
 
 @pytest.fixture(scope="module")
@@ -36,6 +42,40 @@ async def test_session(tmp_path, monkeypatch, enable_default_profile):
 @pytest.mark.anyio
 class TestProfileApplication:
     """Tests for applying profiles to projects."""
+
+    async def test_static_template_resources_render_with_default_profile(self, test_session):
+        await test_session.feature_flags().set("workflow", True)
+        templates_path = await get_templates_path()
+        resource_references = {
+            match.group(1).strip()
+            for template_path in Path(templates_path).rglob("*.mustache")
+            for match in re.finditer(r"\{\{#resource\}\}([^{}]+)\{\{/resource\}\}", template_path.read_text())
+        }
+        commands_dir = Path(await test_session.get_docroot()) / "_commands"
+        command_names = {command["name"] for command in await discover_commands(commands_dir)}
+
+        for reference in resource_references:
+            if reference.startswith("_"):
+                command_name = reference.removeprefix("_").split("?", maxsplit=1)[0]
+                assert command_name in command_names, reference
+                continue
+
+            result = await internal_get_content(ContentArgs(expression=reference, force=True))
+
+            assert result.success, reference
+            assert result.value.strip(), reference
+            assert "No matching content found" not in result.value, reference
+
+    async def test_docker_and_shell_profiles_render_language_guidance(self, test_session):
+        from mcp_guide.tools.tool_project import UseProjectProfileArgs, internal_use_project_profile
+
+        for profile_name, heading in (("docker", "# Docker Guidelines"), ("shell", "# Shell Scripting Guidelines")):
+            result = await internal_use_project_profile(UseProjectProfileArgs(profile=profile_name))
+            assert result.success
+
+            content = await internal_get_content(ContentArgs(expression="lang", force=True))
+            assert content.success
+            assert heading in content.value
 
     async def test_apply_single_profile(self, test_session, tmp_path, monkeypatch):
         """Test applying a single profile to a project."""

@@ -1,0 +1,6 @@
+# Docker Profile
+
+categories:
+  - name: lang
+    patterns:
+      - docker

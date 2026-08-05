@@ -279,6 +279,38 @@ description: Planning command
                 assert commands[0]["name"] == "plan"
 
     @pytest.mark.anyio
+    async def test_discovers_general_phase_commands_without_workflow(self) -> None:
+        """Phase guidance should remain available when workflow state is disabled."""
+        commands_dir = Path("src/mcp_guide/templates/_commands").resolve()
+
+        with patch(
+            "mcp_guide.render.cache.get_template_contexts",
+            new=AsyncMock(return_value={"workflow": False}),
+        ):
+            from mcp_guide.discovery.commands import discover_commands
+
+            commands = await discover_commands(commands_dir)
+
+        command_names = {command["name"] for command in commands}
+        assert {
+            "workflow/discuss",
+            "workflow/explore",
+            "workflow/plan",
+            "workflow/implement",
+            "workflow/check",
+            "workflow/review",
+        } <= command_names
+        assert (
+            not {
+                "workflow/show",
+                "workflow/issue",
+                "workflow/reset",
+                "workflow/phase",
+            }
+            & command_names
+        )
+
+    @pytest.mark.anyio
     async def test_discover_commands_filters_invalid_aliases(self) -> None:
         """Should drop aliases that are unsafe as command paths and keep valid nested aliases."""
         with tempfile.TemporaryDirectory() as temp_dir:
