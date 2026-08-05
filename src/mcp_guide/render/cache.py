@@ -499,8 +499,11 @@ class TemplateContextCache(SessionListener):
                             current_phase_consent = consent_context.get(
                                 workflow_state.phase, {"entry": False, "exit": False}
                             )
-                            workflow_config["consent"]["entry"] = current_phase_consent["entry"]
-                            workflow_config["consent"]["exit"] = current_phase_consent["exit"]
+                            workflow_config["consent"] = {
+                                **consent_context,
+                                "entry": current_phase_consent["entry"],
+                                "exit": current_phase_consent["exit"],
+                            }
         except Exception as e:
             logger.debug(f"Failed to resolve workflow flags: {e}")
 

@@ -5,7 +5,18 @@
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Awaitable, Callable, Coroutine, List, Optional, Protocol, Union, overload
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Awaitable,
+    Callable,
+    Coroutine,
+    List,
+    Optional,
+    Protocol,
+    TypeVar,
+    Union,
+)
 
 from anyio import Path as AsyncPath
 
@@ -47,6 +58,7 @@ logger = get_logger(__name__)
 
 AliasKwarg = str | bool
 CommandKwarg = Union[str, bool, int]
+_CommandValue = TypeVar("_CommandValue", bound=CommandKwarg)
 
 
 class CommandMiddleware(Protocol):
@@ -218,24 +230,10 @@ def _matches_alias(command_path: object, alias: CommandAliasMetadata) -> bool:
     return command_path in {alias["path"], alias["raw"]} or command_path_base in {alias_path_base, alias_raw_base}
 
 
-@overload
 def _merge_alias_kwargs(
     default_kwargs: Mapping[str, AliasKwarg],
-    override_kwargs: Mapping[str, AliasKwarg],
-) -> dict[str, AliasKwarg]: ...
-
-
-@overload
-def _merge_alias_kwargs(
-    default_kwargs: Mapping[str, AliasKwarg],
-    override_kwargs: Mapping[str, CommandKwarg],
-) -> dict[str, CommandKwarg]: ...
-
-
-def _merge_alias_kwargs(
-    default_kwargs: Mapping[str, AliasKwarg],
-    override_kwargs: Mapping[str, CommandKwarg],
-) -> dict[str, CommandKwarg]:
+    override_kwargs: Mapping[str, _CommandValue],
+) -> dict[str, AliasKwarg | _CommandValue]:
     """Merge default kwargs with explicit overrides."""
     return {**default_kwargs, **override_kwargs}
 

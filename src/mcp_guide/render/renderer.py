@@ -32,8 +32,9 @@ class _TrackingDict(Dict[str, _VT]):
         self.accessed[key] = None
         return super().__getitem__(key)
 
-    def get(self, key: str, default: Any = None) -> Any:
-        self.accessed[key] = None
+    def get(self, key: object, default: Any = None) -> Any:
+        if isinstance(key, str):
+            self.accessed[key] = None
         return super().get(key, default)
 
     def __contains__(self, key: object) -> bool:
