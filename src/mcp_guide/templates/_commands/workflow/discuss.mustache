@@ -2,29 +2,29 @@
 type: agent/instruction
 usage: "guide://_workflow/discuss[/<issue-id>]"
 category: "project-workflow"
-requires-workflow: true
 aliases:
   - discuss
 description: Return to discussion mode, optionally switch to a different issue
 instruction: "{{INSTRUCTION_AGENT_INSTRUCTIONS}}"
 ---
-If not already in discussion phase, You must change the workflow to DISCUSSION phase.
+{{h1}}Discussion
+
+{{h2}}General Guidance
+
+- Clarify the problem, intended outcome, constraints, and acceptance criteria with the user.
+- Explore options and trade-offs before proposing an approach.
+- Do not modify production code or tests until the user and agent have aligned on the work to perform.
+- Capture agreed requirements and decisions in the project’s planning artifacts when appropriate.
+
+{{#workflow}}
+{{h2}}Guide Workflow Add-in
+
+If not already in discussion phase, change the workflow to DISCUSSION phase.
 
 {{#args.0.value}}
-{{h2}}Change to the specified issue: `{{args.0.value}}`
-
-{{h3}}Reset Workflow
-  1. Update workflow file `{{workflow.file}}`:
-     - Set `Issue:` to `{{args.0.value}}`
-     - Clear the `Plan:` field (if present)
-     - Clear the `Track:` field (if present)
-     - Remove `{{args.0.value}}` from the queue if it exists
-  2. Change current phase to discussion
-  3. Send updated workflow file using {{tool_prefix}}send_file_content with path `{{workflow.file}}`
-
+Change the current issue to `{{args.0.value}}`, clear its plan and tracking fields, remove it from the queue if present, then send the updated `{{workflow.file}}` using {{tool_prefix}}send_file_content.
 {{/args.0.value}}
 {{^args.0.value}}
-  1. Keep the current workflow issue, plan and tracking
-  2. Change current phase to discussion
-  3. Send updated workflow file using {{tool_prefix}}send_file_content with path `{{workflow.file}}`
+Keep the current issue, plan, and tracking, change the phase to discussion, then send the updated `{{workflow.file}}` using {{tool_prefix}}send_file_content.
 {{/args.0.value}}
+{{/workflow}}

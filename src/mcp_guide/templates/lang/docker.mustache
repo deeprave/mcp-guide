@@ -1,0 +1,14 @@
+---
+type: agent/instruction
+description: Docker build and container guidance
+---
+
+# Docker Guidelines
+
+- Use a minimal, pinned base image and rebuild it regularly for security updates.
+- Use multi-stage builds so build tools and source files do not reach the runtime image.
+- Copy dependency manifests before application source to make dependency-install layers cacheable.
+- Run the service as a non-root user and grant it only the filesystem permissions it needs.
+- Keep build context small with a `.dockerignore`; never copy credentials, local environments, or build output into an image.
+- Prefer explicit image tags or digests and make build inputs reproducible.
+- Add a health check when the service has a meaningful readiness endpoint.

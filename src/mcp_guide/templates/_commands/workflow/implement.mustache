@@ -3,13 +3,22 @@ type: agent/instruction
 Description: commence implementation
 category: "project-workflow"
 usage: "guide://_workflow/implement"
-requires-workflow: true
 aliases:
   - implement
 instruction: Execute the implementation plan
 ---
 {{h1}}Implementation mode
 
+{{h2}}General Guidance
+
 - You MUST review the project guidelines using {{#resource}}guidelines{{/resource}}
-- Enter IMPLEMENTATION phase
-- Make changes according to the detailed implementation plan
+- Implement only the agreed, detailed plan.
+- Use focused, requirement-driven changes and keep the user involved for any design decision outside that plan.
+- Write a failing test before production code when adding or changing behavior.
+
+{{#workflow}}
+{{h2}}Guide Workflow Add-in
+
+- Enter IMPLEMENTATION phase.
+- Follow the workflow plan and state instructions in `{{workflow.file}}`.
+{{/workflow}}

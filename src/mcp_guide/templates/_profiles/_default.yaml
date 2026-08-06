@@ -27,13 +27,14 @@ categories:
 
   - name: checks
     dir: checks/
-    patterns: []
+    patterns:
+      - instructions
     description: Testing and Code Quality Checks
 
   - name: review
     dir: review/
     patterns:
-      - review
+      - general
     description: Code Review Instructions
 
   - name: policies
@@ -61,3 +62,8 @@ collections:
     description: Pull Request Instructions
     categories:
       - review/pr
+
+  - name: code-review
+    description: Code Review Instructions
+    categories:
+      - review

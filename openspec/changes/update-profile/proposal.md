@@ -6,8 +6,9 @@ The default profile does not consistently expose its available review guidance, 
 
 - Add a Docker profile and Docker best-practices guidance.
 - Add shell scripting as a language option, covering Bash, Zsh, and compatible shell scripts.
-- Add the code-review collection to the default profile when it is absent.
-- Validate that every profile collection references at least one category or expression, and correct the default review category pattern to include `general`.
+- Add the code-review collection and baseline check guidance to the default profile.
+- Validate that every profile collection references at least one category or expression, and correct the default review category pattern to select `general`.
+- Verify that every static bundled resource reference in a template targets a real, non-empty renderable resource in the configuration where that feature is enabled.
 
 ## Capabilities
 
@@ -20,7 +21,8 @@ The default profile does not consistently expose its available review guidance, 
 
 - `models`: Validate profile collections and apply the expanded default profile safely.
 - `onboarding-state`: Present Docker and shell scripting among selectable project technologies.
+- `template-resource-integrity`: Keep static template resource references aligned with bundled documents, profiles, and commands.
 
 ## Impact
 
-- Profile YAML, language and review templates, profile validation, onboarding, and tests.
+- Profile YAML, bundled template resource references, language and review templates, profile validation, onboarding, and tests.

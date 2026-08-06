@@ -2,7 +2,6 @@
 type: agent/instruction
 Description: Review project changes
 usage: "guide://_workflow/review"
-requires-workflow: [review]
 aliases:
   - review
 category: "project-workflow"
@@ -10,9 +9,19 @@ instruction: Perform a review of project changes. {{INSTRUCTION_AGENT_INSTRUCTIO
 includes:
   - ../_partials/client-info
 ---
-{{#workflow}}You MUST transition to REVIEW phase.
-{{/workflow}}
-{{h1}}Perform a Code Review
+{{h1}}Code Review
+
+{{h2}}General Guidance
+
+- Evaluate changes against the agreed requirements and likely regressions.
+- Check correctness, maintainability, security, and adequate behavioral coverage.
+- Report concrete, actionable findings with their impact and recommended resolution.
+- Do not modify production code or tests until the user confirms alignment on the required fixes.
+
+{{#workflow}}
+{{h2}}Guide Workflow Add-in
+
+You MUST transition to REVIEW phase and read `{{workflow.file}}` to understand the current issue context.
 
 {{#agent.class}}
 {{#agent.has_handoff}}
@@ -36,3 +45,4 @@ includes:
 {{^agent.class}}
 {{>client-info}}
 {{/agent.class}}
+{{/workflow}}
