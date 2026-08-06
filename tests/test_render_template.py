@@ -376,15 +376,6 @@ async def test_phase_command_templates_render_general_guidance_without_workflow(
         name=template_file.name,
     )
 
-    context = TemplateContext(
-        {
-            "workflow": {
-                "file": ".guide.yaml",
-                "issue": "fix-phase-commands",
-            }
-        }
-    )
-
     result = await render_template(
         file_info=file_info,
         base_dir=template_file.parent,
