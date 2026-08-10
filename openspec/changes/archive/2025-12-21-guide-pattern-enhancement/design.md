@@ -62,8 +62,9 @@ get_content("lang/python+java,docs/api,guidelines")
 
 **Implementation:**
 ```python
-def resolve_patterns(category: str, explicit_pattern: Optional[str],
-                    collection_overrides: Dict[str, List[str]]) -> List[str]:
+def resolve_patterns(
+    category: str, explicit_pattern: Optional[str], collection_overrides: Dict[str, List[str]]
+) -> List[str]:
     if explicit_pattern:
         return [explicit_pattern]  # Tool call wins
 
@@ -94,28 +95,28 @@ def resolve_patterns(category: str, explicit_pattern: Optional[str],
 async def gather_category_fileinfos(
     category_name: str,
     patterns: Optional[List[str]] = None,
-    collection_overrides: Optional[Dict[str, List[str]]] = None
+    collection_overrides: Optional[Dict[str, List[str]]] = None,
 ) -> List[FileInfo]:
     """Common function to gather FileInfo for a category"""
     # Handle pattern resolution (call > collection > category defaults)
     # Discover files using resolved patterns
     # Return FileInfo objects without rendering
 
-async def render_fileinfos(
-    files: List[FileInfo],
-    context_name: str
-) -> str:
+
+async def render_fileinfos(files: List[FileInfo], context_name: str) -> str:
     """Common function to render FileInfo list to content"""
     # Handle template context
     # Read and render file contents
     # Format using formatter
     # Return rendered content string
 
+
 async def internal_category_content(args: CategoryContentArgs) -> Result[str]:
     """Refactored to use common functions"""
     files = await gather_category_fileinfos(args.category, args.pattern)
     content = await render_fileinfos(files, args.category)
     return Result.ok(content)
+
 
 async def gather_content(expression: str) -> List[FileInfo]:
     """Process expression and return unified FileInfo list"""
@@ -136,6 +137,7 @@ async def gather_content(expression: str) -> List[FileInfo]:
             all_files.extend(files)
 
     return deduplicate_by_path(all_files)
+
 
 async def get_content(args: ContentArgs) -> Result[str]:
     """Main entry point using common functions"""
@@ -182,6 +184,7 @@ async def gather_content(expression: str) -> List[FileInfo]:
 
     return deduplicate_by_path(all_files)
 
+
 async def get_content(args: ContentArgs) -> Result[str]:
     """Main entry point - delegates to gather_content"""
     files = await gather_content(args.category_or_collection)
@@ -213,8 +216,8 @@ async def get_content(args: ContentArgs) -> Result[str]:
 ```python
 @dataclass
 class DocumentExpression:
-    raw_input: str              # Original user input
-    name: str                   # Parsed category or collection name
+    raw_input: str  # Original user input
+    name: str  # Parsed category or collection name
     patterns: Optional[List[str]] = None  # Parsed patterns if any
 ```
 
@@ -259,12 +262,13 @@ def validate_for_parsing(name: str) -> bool:
     """Lenient validation for parsing user expressions"""
     return len(name) > 0 and not name.isspace()
 
+
 def validate_for_creation(name: str) -> bool:
     """Strict validation for user-created categories"""
-    if name.startswith('_'):
+    if name.startswith("_"):
         raise ValidationError("Underscore prefix reserved for system categories")
 
-    if any(char in name for char in ['+', ',', '/']):
+    if any(char in name for char in ["+", ",", "/"]):
         raise ValidationError("Category name conflicts with expression syntax")
 
     return is_valid_identifier(name)

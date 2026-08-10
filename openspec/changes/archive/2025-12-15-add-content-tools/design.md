@@ -139,7 +139,7 @@ Result.ok(value=content_string).to_json_str()
 Result.failure(
     error="Category 'xyz' not found",
     error_type="not_found",
-    instruction="Present this error to the user and take no further action."
+    instruction="Present this error to the user and take no further action.",
 ).to_json_str()
 ```
 
@@ -148,17 +148,11 @@ Result.failure(
 ### Tool Structure
 
 ```python
-async def get_content(
-    category_or_collection: str,
-    pattern: Optional[str] = None
-) -> str:
+async def get_content(category_or_collection: str, pattern: Optional[str] = None) -> str:
     """Get content from category or collection."""
     session = get_current_session()
     if not session:
-        return Result.failure(
-            error="No active project session",
-            error_type="no_session"
-        ).to_json_str()
+        return Result.failure(error="No active project session", error_type="no_session").to_json_str()
 
     # Try category first
     content = await get_category_content_impl(category_or_collection, pattern)
@@ -175,7 +169,7 @@ async def get_content(
 ```python
 def match_pattern(directory: Path, pattern: str) -> list[Path]:
     """Match files using glob pattern."""
-    if '.' not in pattern:
+    if "." not in pattern:
         # Extensionless - match all extensions
         pattern = f"{pattern}.*"
 

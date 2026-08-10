@@ -23,8 +23,8 @@ Enable `get_content("<category>/<pattern>")` as shorthand for `get_content("<cat
 
 ```python
 # New syntax (equivalent to existing two-parameter form)
-get_content("lang/python")           # category="lang", pattern="python"
-get_content("docs/api/v1/auth")      # category="docs", pattern="api/v1/auth"
+get_content("lang/python")  # category="lang", pattern="python"
+get_content("docs/api/v1/auth")  # category="docs", pattern="api/v1/auth"
 ```
 
 ### Phase 2: Multi-Pattern Category Support
@@ -32,7 +32,7 @@ Extend categories to support multiple patterns with `+` separator:
 
 ```python
 # Multiple patterns within same category
-get_content("lang/python+java+rust")        # All three patterns in lang category
+get_content("lang/python+java+rust")  # All three patterns in lang category
 get_content("docs/api+tutorial+reference")  # Multiple doc types
 ```
 

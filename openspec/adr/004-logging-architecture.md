@@ -44,6 +44,7 @@ For tool and prompt operations where logs should be visible to MCP clients:
 ```python
 from fastmcp import Context
 
+
 @mcp.tool()
 async def process_data(data: list[float], ctx: Context) -> dict:
     await ctx.debug("Processing data", {"count": len(data)})
@@ -75,12 +76,9 @@ For diagnostic and debugging information that is already structured or easily st
 ```python
 logger.warning(
     "Dropping non-string key in template context: %r (type: %s)",
-    key, type(key).__name__,
-    extra={
-        "dropped_key": key,
-        "key_type": type(key).__name__,
-        "component": "template_context"
-    }
+    key,
+    type(key).__name__,
+    extra={"dropped_key": key, "key_type": type(key).__name__, "component": "template_context"},
 )
 ```
 

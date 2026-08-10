@@ -96,19 +96,17 @@ import pytest
 from mcp.client.stdio import stdio_client, StdioServerParameters
 from mcp.client.session import ClientSession
 
+
 @pytest.fixture
 async def mcp_client():
     """Create MCP client connected to mcp-guide server."""
-    server_params = StdioServerParameters(
-        command="uv",
-        args=["run", "mcp-guide"],
-        env=None
-    )
+    server_params = StdioServerParameters(command="uv", args=["run", "mcp-guide"], env=None)
 
     async with stdio_client(server_params) as (read, write):
         async with ClientSession(read, write) as session:
             await session.initialize()
             yield session
+
 
 @pytest.mark.asyncio
 async def test_server_tools(mcp_client):
@@ -124,17 +122,16 @@ import pytest
 from mcp.shared.memory import create_connected_server_and_client_session
 from mcp.client.session import ClientSession
 
+
 @pytest.fixture
 async def client_session():
     """Create in-memory client-server session."""
     from mcp_guide.server import create_server
 
     server = create_server()
-    async with create_connected_server_and_client_session(
-        server,
-        raise_exceptions=True
-    ) as session:
+    async with create_connected_server_and_client_session(server, raise_exceptions=True) as session:
         yield session
+
 
 @pytest.mark.asyncio
 async def test_tool_call(client_session: ClientSession):

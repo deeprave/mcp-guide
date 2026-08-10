@@ -235,7 +235,7 @@ class ProductionFileHandler(FileSystemEventHandler):
             f"PRODUCTION FILE MODIFIED: {event.src_path}\n"
             f"Event type: {event.event_type}\n"
             f"Tests must use temporary directories for file operations.",
-            returncode=1
+            returncode=1,
         )
 
 

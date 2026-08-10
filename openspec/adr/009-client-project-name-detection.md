@@ -131,6 +131,7 @@ Based on research and real-world issues:
 ```python
 from mcp.server.fastmcp import Context
 
+
 @tools.tool()
 async def my_tool(ctx: Context) -> str:
     # Context provides access to session
@@ -228,6 +229,7 @@ We will detect project name using the following priority order:
 ```python
 from mcp.server.fastmcp import Context
 
+
 @tools.tool(CategoryListArgs)
 async def category_list(ctx: Context) -> str:
     """List all categories in the current project."""
@@ -303,6 +305,7 @@ async def _determine_project_name(ctx: Optional[Context] = None) -> str:
                 first_root = roots_result.roots[0]
                 if first_root.uri.startswith("file://"):
                     from urllib.parse import urlparse
+
                     parsed = urlparse(str(first_root.uri))
                     project_path = Path(parsed.path)
                     if project_path.is_absolute():
@@ -330,8 +333,7 @@ async def _determine_project_name(ctx: Optional[Context] = None) -> str:
 
     # Cannot determine project
     raise ValueError(
-        "Project context not available. "
-        "Call switch_project with the basename of the current working directory."
+        "Project context not available. Call switch_project with the basename of the current working directory."
     )
 ```
 

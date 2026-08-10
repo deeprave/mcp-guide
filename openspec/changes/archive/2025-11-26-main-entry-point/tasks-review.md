@@ -80,9 +80,7 @@ async def async_main() -> None:
 
 **Implementation**:
 ```python
-async def read_response_with_timeout(
-    process: subprocess.Popen, timeout: float = 2.0
-) -> str | None:
+async def read_response_with_timeout(process: subprocess.Popen, timeout: float = 2.0) -> str | None:
     """Read response from server with timeout using polling."""
     assert process.stdout is not None
     start = asyncio.get_event_loop().time()

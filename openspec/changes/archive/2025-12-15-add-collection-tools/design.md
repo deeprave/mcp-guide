@@ -52,10 +52,7 @@ Collections group related categories for organized content access. Currently, co
 # Validate all categories exist
 missing = [c for c in categories if c not in config.categories]
 if missing:
-    return Result.failure(
-        error=f"Categories not found: {', '.join(missing)}",
-        error_type="category_not_found"
-    )
+    return Result.failure(error=f"Categories not found: {', '.join(missing)}", error_type="category_not_found")
 ```
 
 ### Change vs Update Semantics
@@ -125,17 +122,15 @@ def validate_collection_name(name: str) -> Result[None]:
     """Validate collection name (reuse category validation)."""
     return validate_category_name(name)
 
-def validate_category_references(
-    categories: list[str],
-    config: ProjectConfig
-) -> Result[None]:
+
+def validate_category_references(categories: list[str], config: ProjectConfig) -> Result[None]:
     """Validate all categories exist."""
     missing = [c for c in categories if c not in config.categories]
     if missing:
         return Result.failure(
             error=f"Categories not found: {', '.join(missing)}",
             error_type="category_not_found",
-            instruction="Create missing categories first using category_add."
+            instruction="Create missing categories first using category_add.",
         )
     return Result.ok(None)
 ```
@@ -143,18 +138,11 @@ def validate_category_references(
 ### Tool Structure
 
 ```python
-async def collection_add(
-    name: str,
-    description: Optional[str] = None,
-    categories: Optional[list[str]] = None
-) -> str:
+async def collection_add(name: str, description: Optional[str] = None, categories: Optional[list[str]] = None) -> str:
     """Add new collection."""
     session = get_current_session()
     if not session:
-        return Result.failure(
-            error="No active session",
-            error_type="no_session"
-        ).to_json_str()
+        return Result.failure(error="No active session", error_type="no_session").to_json_str()
 
     # Validate inputs
     result = validate_collection_name(name)
@@ -164,10 +152,7 @@ async def collection_add(
     # Check doesn't exist
     config = await session.get_project()
     if name in config.collections:
-        return Result.failure(
-            error=f"Collection '{name}' already exists",
-            error_type="already_exists"
-        ).to_json_str()
+        return Result.failure(error=f"Collection '{name}' already exists", error_type="already_exists").to_json_str()
 
     # Validate category references
     cats = categories or []
@@ -176,28 +161,20 @@ async def collection_add(
         return result.to_json_str()
 
     # Create collection
-    collection = Collection(
-        name=name,
-        description=description,
-        categories=cats
-    )
+    collection = Collection(name=name, description=description, categories=cats)
 
     # Persist
     config.collections[name] = collection
     await session.save_project(config)
 
-    return Result.ok(
-        value=f"Collection '{name}' created"
-    ).to_json_str()
+    return Result.ok(value=f"Collection '{name}' created").to_json_str()
 ```
 
 ### Update Logic
 
 ```python
 async def collection_update(
-    name: str,
-    add_categories: Optional[list[str]] = None,
-    remove_categories: Optional[list[str]] = None
+    name: str, add_categories: Optional[list[str]] = None, remove_categories: Optional[list[str]] = None
 ) -> str:
     """Update collection categories."""
     # ... validation ...
@@ -206,10 +183,7 @@ async def collection_update(
 
     # Remove first
     if remove_categories:
-        collection.categories = [
-            c for c in collection.categories
-            if c not in remove_categories
-        ]
+        collection.categories = [c for c in collection.categories if c not in remove_categories]
 
     # Then add
     if add_categories:
@@ -226,9 +200,7 @@ async def collection_update(
     # Persist
     await session.save_project(config)
 
-    return Result.ok(
-        value=f"Collection '{name}' updated"
-    ).to_json_str()
+    return Result.ok(value=f"Collection '{name}' updated").to_json_str()
 ```
 
 ## Dependencies

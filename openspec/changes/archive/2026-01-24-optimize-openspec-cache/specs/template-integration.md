@@ -129,13 +129,7 @@ After initialization, refresh the cache by running `openspec list --json` and se
 ### OpenSpec Context Structure
 
 ```python
-{
-    "openspec": {
-        "available": bool,
-        "version": Optional[str],
-        "changes": list[dict[str, Any]]
-    }
-}
+{"openspec": {"available": bool, "version": Optional[str], "changes": list[dict[str, Any]]}}
 ```
 
 **Requirements**:
@@ -157,7 +151,7 @@ After initialization, refresh the cache by running `openspec list --json` and se
         "progress": str,
         "is_draft": bool,
         "is_done": bool,
-        "is_in_progress": bool
+        "is_in_progress": bool,
     }
 ]
 ```

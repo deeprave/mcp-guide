@@ -76,3 +76,9 @@ The onboarding flow SHALL stage all configuration changes in the agent's working
 - **AND** preserves any answers already staged in the current onboarding run
 - **AND** proceeds to the final confirmation summary for the staged changes
 
+### Requirement: Docker and shell technology selection
+The onboarding flow SHALL offer Docker and shell scripting where it offers language or technology profile choices.
+
+#### Scenario: Select a new profile during onboarding
+- **WHEN** a user identifies Docker or shell scripting as used by the project
+- **THEN** onboarding SHALL stage the corresponding profile for confirmation

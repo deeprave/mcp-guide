@@ -136,3 +136,10 @@ Templates SHALL use workflow context variables instead of hardcoding phase names
 - **THEN** wrap in `{{#workflow.phases.{phase}}}...{{/workflow.phases.{phase}}}`
 - **WHEN** the phase is used for display/reference
 - **THEN** use workflow context variables instead
+
+### Requirement: Conditional workflow command detail
+Workflow command templates SHALL conditionally render workflow-specific details without using workflow requirements to suppress their general content.
+
+#### Scenario: Workflow requirement is absent
+- **WHEN** a workflow command template is discovered while workflow is disabled
+- **THEN** its general command content SHALL remain discoverable and renderable

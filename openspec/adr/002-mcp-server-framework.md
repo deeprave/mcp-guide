@@ -45,6 +45,7 @@ from fastmcp import FastMCP
 
 app = FastMCP("Guide MCP Server")
 
+
 @app.tool()
 async def guide_get_category(name: str) -> dict:
     # Async implementation

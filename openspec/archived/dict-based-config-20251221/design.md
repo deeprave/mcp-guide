@@ -13,6 +13,7 @@ class Category:
     patterns: list[str]
     description: Optional[str] = None
 
+
 @dataclass
 class Project:
     categories: list[Category]  # Linear search required
@@ -27,6 +28,7 @@ class Category:
     dir: str
     patterns: list[str]
     description: Optional[str] = None
+
 
 @dataclass
 class Project:
@@ -73,6 +75,7 @@ def load_project_config(data: dict) -> Project:
 
     # Parse as new format
     return Project.from_dict(data)
+
 
 def migrate_list_to_dict_format(data: dict) -> dict:
     # Convert categories list to dict

@@ -60,9 +60,11 @@ class GuideMCP(FastMCP):
 
     def on_startup(self) -> Callable:
         """Decorator to register startup handlers."""
+
         def decorator(func: Callable[[], Awaitable[None]]) -> Callable:
             self._startup_handlers.append(func)
             return func
+
         return decorator
 ```
 
@@ -94,11 +96,7 @@ async def guide_lifespan(server: GuideMCP) -> AsyncIterator[dict]:
 Pass to GuideMCP:
 
 ```python
-mcp = GuideMCP(
-    name=server_name,
-    instructions="...",
-    lifespan=guide_lifespan
-)
+mcp = GuideMCP(name=server_name, instructions="...", lifespan=guide_lifespan)
 ```
 
 **Rationale:**

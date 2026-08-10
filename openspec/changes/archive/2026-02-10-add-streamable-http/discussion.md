@@ -34,7 +34,7 @@ HttpTransport(
     mcp_server=mcp,
     ssl_certfile=None,
     ssl_keyfile=None,
-    streaming=True  # NEW: Enable Streamable HTTP
+    streaming=True,  # NEW: Enable Streamable HTTP
 )
 ```
 

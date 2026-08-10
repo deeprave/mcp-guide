@@ -194,7 +194,7 @@ for key, required_value in parsed.frontmatter.items():
     if not key.startswith(FM_REQUIRES_PREFIX):
         continue
 
-    flag_name = key[len(FM_REQUIRES_PREFIX):]
+    flag_name = key[len(FM_REQUIRES_PREFIX) :]
     flag_value = project_flags.get(flag_name)
 
     # Flag not in project_flags or falsy → return None (filter out)
@@ -214,8 +214,7 @@ base_context = await get_template_contexts()
 
 # Extract frontmatter keys as context variables (exclude requires-* and includes)
 frontmatter_vars = {
-    k: v for k, v in parsed.frontmatter.items()
-    if not k.startswith(FM_REQUIRES_PREFIX) and k != FM_INCLUDES
+    k: v for k, v in parsed.frontmatter.items() if not k.startswith(FM_REQUIRES_PREFIX) and k != FM_INCLUDES
 }
 
 # Build final context: base → frontmatter vars → caller context

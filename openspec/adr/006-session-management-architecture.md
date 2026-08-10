@@ -35,7 +35,7 @@ class ProjectConfigManager:
     Thread-safe and async-safe with file locking.
     """
 
-    _instance: Optional['ProjectConfigManager'] = None
+    _instance: Optional["ProjectConfigManager"] = None
     _lock: asyncio.Lock = asyncio.Lock()
 
     def __new__(cls):
@@ -106,9 +106,7 @@ class GuideSession:
     def project(self) -> Project:
         """Get project config (lazy loaded)."""
         if self._project is None:
-            self._project = self.config_manager.get_or_create_project_config(
-                self.project_name
-            )
+            self._project = self.config_manager.get_or_create_project_config(self.project_name)
         return self._project
 
     def update_config(self, updater: Callable[[Project], Project]) -> None:
@@ -151,23 +149,15 @@ class Project:
     created_date: datetime
     modified_date: datetime
 
-    def with_category(self, category: Category) -> 'Project':
+    def with_category(self, category: Category) -> "Project":
         """Return new Project with added/updated category."""
         new_categories = {**self.categories, category.name: category}
-        return replace(
-            self,
-            categories=new_categories,
-            modified_date=datetime.now(timezone.utc)
-        )
+        return replace(self, categories=new_categories, modified_date=datetime.now(timezone.utc))
 
-    def without_category(self, name: str) -> 'Project':
+    def without_category(self, name: str) -> "Project":
         """Return new Project with category removed."""
         new_categories = {k: v for k, v in self.categories.items() if k != name}
-        return replace(
-            self,
-            categories=new_categories,
-            modified_date=datetime.now(timezone.utc)
-        )
+        return replace(self, categories=new_categories, modified_date=datetime.now(timezone.utc))
 
     # Similar methods for collections, etc.
 ```
@@ -186,21 +176,21 @@ class Project:
 from contextvars import ContextVar
 
 # Global ContextVar
-active_sessions: ContextVar[Dict[str, GuideSession]] = ContextVar(
-    'active_sessions',
-    default={}
-)
+active_sessions: ContextVar[Dict[str, GuideSession]] = ContextVar("active_sessions", default={})
+
 
 def get_current_session(project_name: str) -> Optional[GuideSession]:
     """Get session for project from current context."""
     sessions = active_sessions.get()
     return sessions.get(project_name)
 
+
 def set_current_session(session: GuideSession) -> None:
     """Register session in current context."""
     sessions = active_sessions.get().copy()
     sessions[session.project_name] = session
     active_sessions.set(sessions)
+
 
 def remove_current_session(project_name: str) -> None:
     """Remove session from current context."""
@@ -221,6 +211,7 @@ Tools access sessions via ContextVar:
 
 ```python
 from fastmcp import Context
+
 
 @mcp.tool()
 async def guide_get_category(name: str, ctx: Context) -> Result[dict]:

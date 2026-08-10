@@ -53,13 +53,11 @@ Add an acknowledgement-based instruction tracking system with automatic retry:
 
 ```python
 # Task queues instruction with acknowledgement tracking
-instruction_id = await task_manager.queue_instruction_with_ack(
-    content="Check for OpenSpec CLI",
-    max_retries=3
-)
+instruction_id = await task_manager.queue_instruction_with_ack(content="Check for OpenSpec CLI", max_retries=3)
 
 # Task stores ID locally
 self._pending_instruction_id = instruction_id
+
 
 # Later, when task receives the expected response
 async def handle_event(self, event_type, data):
@@ -81,11 +79,11 @@ If the same instruction content is queued while already tracked:
 ```python
 @dataclass
 class TrackedInstruction:
-    id: str                    # UUID for tracking
-    content: str               # Original instruction text
-    queued_at: float          # First queue timestamp
-    retry_count: int = 0      # Number of times requeued
-    max_retries: int = 3      # Give up after this many retries
+    id: str  # UUID for tracking
+    content: str  # Original instruction text
+    queued_at: float  # First queue timestamp
+    retry_count: int = 0  # Number of times requeued
+    max_retries: int = 3  # Give up after this many retries
 ```
 
 TaskManager maintains:
@@ -114,11 +112,7 @@ class RetryTask(Task):
 ### TaskManager Methods
 
 ```python
-async def queue_instruction_with_ack(
-    self,
-    content: str,
-    max_retries: int = 3
-) -> str:
+async def queue_instruction_with_ack(self, content: str, max_retries: int = 3) -> str:
     """Queue instruction with acknowledgement tracking.
 
     Returns:
@@ -130,18 +124,14 @@ async def queue_instruction_with_ack(
 
     # Create tracked instruction
     instr_id = str(uuid.uuid4())
-    tracked = TrackedInstruction(
-        id=instr_id,
-        content=content,
-        queued_at=time.time(),
-        max_retries=max_retries
-    )
+    tracked = TrackedInstruction(id=instr_id, content=content, queued_at=time.time(), max_retries=max_retries)
 
     self._tracked_instructions[instr_id] = tracked
     self._content_to_id[content] = instr_id
     self._pending_instructions.append(content)
 
     return instr_id
+
 
 async def acknowledge_instruction(self, instruction_id: str) -> None:
     """Acknowledge instruction receipt - prevents retry."""
@@ -150,14 +140,14 @@ async def acknowledge_instruction(self, instruction_id: str) -> None:
         del self._tracked_instructions[instruction_id]
         del self._content_to_id[tracked.content]
 
+
 async def retry_unacknowledged(self) -> None:
     """Requeue unacknowledged instructions with urgency prefix."""
     for instr_id, tracked in list(self._tracked_instructions.items()):
         if tracked.retry_count >= tracked.max_retries:
             # Give up
             logger.warning(
-                f"Instruction {instr_id} failed after {tracked.max_retries} retries: "
-                f"{tracked.content[:50]}..."
+                f"Instruction {instr_id} failed after {tracked.max_retries} retries: {tracked.content[:50]}..."
             )
             del self._tracked_instructions[instr_id]
             del self._content_to_id[tracked.content]
@@ -183,10 +173,7 @@ Tasks correlate responses by **event content/type**, not by ID propagation:
 class OpenSpecTask:
     async def request_cli_check(self):
         content = await render_template("openspec-cli-check")
-        self._cli_check_id = await self.task_manager.queue_instruction_with_ack(
-            content,
-            max_retries=3
-        )
+        self._cli_check_id = await self.task_manager.queue_instruction_with_ack(content, max_retries=3)
 
     async def handle_event(self, event_type, data):
         if event_type & EventType.FS_COMMAND:
@@ -225,6 +212,7 @@ Instructions must be idempotent since they may be sent multiple times:
 ```python
 # Good: Idempotent
 "Check if OpenSpec CLI is available"
+
 "List contents of openspec/ directory"
 
 # Bad: Not idempotent

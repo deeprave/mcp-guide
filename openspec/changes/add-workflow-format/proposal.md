@@ -8,7 +8,8 @@ The workflow state-file format is defined by an internal template, but the workf
 - Use the rendered template as the `send_file_content` response so its `agent/instruction` disposition and embedded instruction are preserved.
 - Preserve the existing behavior when the template render returns `None`, which indicates workflow is disabled or the template is unavailable.
 - Preserve semantic phase and field-change responses when workflow state changes are detected.
-- Clarify the workflow state-format template's required and optional fields, MCP tool usage, and concise file-update instructions.
+- Clarify that the workflow state-format template is strictly YAML, uses lowercase keys, permits omission of optional lines, and names the exact `send_file_content` MCP tool.
+- Format the existing Markdown documents that Ruff reports as unformatted, without changing their prose or documented behavior.
 
 ## Capabilities
 
@@ -28,3 +29,4 @@ None.
 - `src/mcp_guide/templates/_workflow/state-format.mustache`
 - Workflow monitoring and filesystem response tests
 - Workflow template rendering tests
+- 34 archived OpenSpec/ADR and source README Markdown documents containing formatted Python examples

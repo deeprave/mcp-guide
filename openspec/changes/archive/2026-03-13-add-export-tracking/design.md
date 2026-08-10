@@ -52,10 +52,7 @@ Compute CRC32 hash of file metadata (category:filename:mtime) for all gathered f
 
 ```python
 def compute_metadata_hash(files: list[FileInfo]) -> str:
-    entries = sorted(
-        f"{f.category.name}:{f.path.name}:{f.mtime.timestamp()}"
-        for f in files
-    )
+    entries = sorted(f"{f.category.name}:{f.path.name}:{f.mtime.timestamp()}" for f in files)
     data = "|".join(entries).encode()
     return f"{zlib.crc32(data):08x}"  # 8 hex chars
 ```

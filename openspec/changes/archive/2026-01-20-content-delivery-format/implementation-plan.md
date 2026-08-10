@@ -71,6 +71,7 @@ def get_formatter_from_flag() -> ContentFormatter:
 ```python
 from mcp_guide.feature_flags.resolution import resolve_flag
 
+
 def get_active_formatter() -> ContentFormatter:
     """Get active formatter based on feature flags."""
     return get_formatter_from_flag()

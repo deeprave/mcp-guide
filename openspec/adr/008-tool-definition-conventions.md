@@ -80,6 +80,7 @@ from mcp_core.mcp_log import get_logger
 
 logger = get_logger(__name__)
 
+
 class ExtMcpToolDecorator:
     """Extended MCP tool decorator with prefix and automatic logging."""
 
@@ -90,6 +91,7 @@ class ExtMcpToolDecorator:
 
     def tool(self, name: Optional[str] = None, **kwargs: Any) -> Callable:
         """Tool decorator with automatic logging."""
+
         def decorator(func: Callable) -> Callable:
             tool_name = name or func.__name__
             prefix = kwargs.pop("prefix", None)
@@ -98,6 +100,7 @@ class ExtMcpToolDecorator:
 
             # Wrap with logging
             if inspect.iscoroutinefunction(func):
+
                 @functools.wraps(func)
                 async def async_wrapper(*args, **kwargs):
                     logger.trace(f"Tool called: {tool_name}")
@@ -108,8 +111,10 @@ class ExtMcpToolDecorator:
                     except Exception as e:
                         logger.error(f"Tool {tool_name} failed: {str(e)}")
                         raise
+
                 wrapped = async_wrapper
             else:
+
                 @functools.wraps(func)
                 def sync_wrapper(*args, **kwargs):
                     logger.trace(f"Tool called: {tool_name}")
@@ -120,6 +125,7 @@ class ExtMcpToolDecorator:
                     except Exception as e:
                         logger.error(f"Tool {tool_name} failed: {str(e)}")
                         raise
+
                 wrapped = sync_wrapper
 
             final_kwargs = {"name": final_name}
@@ -157,10 +163,7 @@ Tool descriptions SHOULD include auto-generated argument schema from Pydantic mo
 ```python
 @mcp.tool()
 async def create_document(
-    category_dir: str,
-    name: str,
-    content: str,
-    explicit_action: Literal["CREATE_DOCUMENT"]
+    category_dir: str, name: str, content: str, explicit_action: Literal["CREATE_DOCUMENT"]
 ) -> Result[dict]:
     """REQUIRES EXPLICIT USER INSTRUCTION: Only use when user specifically
     requests document creation or upload.
@@ -216,7 +219,7 @@ Result(
     error_type="NotFoundError",
     message="The requested file does not exist.",
     instruction="Present this error to the user and take no further action. "
-                "Do not attempt to create the file or suggest alternatives."
+    "Do not attempt to create the file or suggest alternatives.",
 )
 
 # Error handling - suggest remediation
@@ -225,8 +228,7 @@ Result(
     error="Invalid format",
     error_type="ValidationError",
     message="The document format is invalid.",
-    instruction="The document must be in markdown format. "
-                "Suggest converting the content to markdown before retrying."
+    instruction="The document must be in markdown format. Suggest converting the content to markdown before retrying.",
 )
 
 # Mode switching
@@ -234,8 +236,7 @@ Result(
     success=True,
     value={"status": "planning_required"},
     message="This operation requires planning.",
-    instruction="Switch to PLANNING mode. Create a detailed plan before "
-                "making any changes to the project."
+    instruction="Switch to PLANNING mode. Create a detailed plan before making any changes to the project.",
 )
 
 # Operational boundaries
@@ -244,7 +245,7 @@ Result(
     value={"config": config_data},
     message="Configuration loaded successfully.",
     instruction="You are now in DISCUSSION mode. Gather requirements and "
-                "create specifications. Do NOT make any changes to the project."
+    "create specifications. Do NOT make any changes to the project.",
 )
 ```
 
@@ -287,8 +288,10 @@ The decorator inspects the function signature to determine which pattern to use:
 ```python
 class CategoryListArgs(ToolArguments):
     """Arguments for category_list tool."""
+
     verbose: bool = True
     include_hidden: bool = False
+
 
 @tools.tool(CategoryListArgs)
 async def category_list(args: CategoryListArgs, ctx: Context = None) -> str:
@@ -322,17 +325,8 @@ try:
     result = await func(tool_args, ctx=ctx)
 except ValidationError as e:
     # Converted to Result.failure with field-level details
-    error_details = {
-        "validation_errors": [
-            {"field": err["loc"][0], "message": err["msg"]}
-            for err in e.errors()
-        ]
-    }
-    return Result.failure(
-        f"Invalid arguments: {e}",
-        error_type="validation_error",
-        data=error_details
-    ).to_json_str()
+    error_details = {"validation_errors": [{"field": err["loc"][0], "message": err["msg"]} for err in e.errors()]}
+    return Result.failure(f"Invalid arguments: {e}", error_type="validation_error", data=error_details).to_json_str()
 ```
 
 **Legacy Pattern (Deprecated):**
@@ -353,27 +347,29 @@ Tools MUST use Pydantic models for argument validation with lazy registration pa
 from pydantic import BaseModel, Field
 from mcp_core.tool_arguments import ToolArguments
 
+
 class CreateDocumentArgs(ToolArguments):
     """Arguments for document creation."""
+
     category_dir: str = Field(..., description="Category directory path")
     name: str = Field(..., min_length=1, max_length=100, description="Document name")
     content: str = Field(..., description="Document content")
-    explicit_action: Literal["CREATE_DOCUMENT"] = Field(
-        ...,
-        description="Must be 'CREATE_DOCUMENT' to confirm intent"
-    )
+    explicit_action: Literal["CREATE_DOCUMENT"] = Field(..., description="Must be 'CREATE_DOCUMENT' to confirm intent")
 
     def __init__(self, handler: Callable, **data):
         super().__init__(handler=handler, **data)
+
 
 def create_document(args: CreateDocumentArgs) -> Result[dict]:
     """Create a new document."""
     # Implementation
     pass
 
+
 # Usage - registration happens on instantiation
-args = CreateDocumentArgs(handler=create_document, category_dir="docs", name="test.md",
-                          content="...", explicit_action="CREATE_DOCUMENT")
+args = CreateDocumentArgs(
+    handler=create_document, category_dir="docs", name="test.md", content="...", explicit_action="CREATE_DOCUMENT"
+)
 ```
 
 **Lazy Registration Pattern:**
@@ -423,6 +419,7 @@ logger = get_logger(__name__)
 mcp = FastMCP("mcp-guide")
 tools = ExtMcpToolDecorator(mcp, prefix=None)  # Uses MCP_TOOL_PREFIX env var
 
+
 @tools.tool()  # Logging happens automatically
 async def get_project_config(project: Optional[str] = None) -> Result[dict]:
     """Get project configuration settings.
@@ -439,7 +436,7 @@ async def get_project_config(project: Optional[str] = None) -> Result[dict]:
             success=True,
             value=config.to_dict(),
             message="Configuration loaded successfully.",
-            instruction="Review the configuration before making changes."
+            instruction="Review the configuration before making changes.",
         )
     except FileNotFoundError as e:
         return Result(
@@ -449,7 +446,7 @@ async def get_project_config(project: Optional[str] = None) -> Result[dict]:
             exception=e,
             message=f"No configuration found for project: {project}",
             instruction="Present this error to the user. Do not attempt to "
-                       "create a default configuration automatically."
+            "create a default configuration automatically.",
         )
 ```
 

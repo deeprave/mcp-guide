@@ -122,10 +122,7 @@ The system SHALL provide helper functions for tools to access sessions.
 
 ### ContextVar Structure
 ```python
-active_sessions: ContextVar[Dict[str, Session]] = ContextVar(
-    'active_sessions',
-    default={}
-)
+active_sessions: ContextVar[Dict[str, Session]] = ContextVar("active_sessions", default={})
 ```
 
 ### Session Fields

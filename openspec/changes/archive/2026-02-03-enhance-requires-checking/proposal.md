@@ -61,10 +61,7 @@ DEFAULT_WORKFLOW_CONSENT = {
 ### 1. Enhanced Requires Checking Algorithm
 
 ```python
-def check_requires_directive(
-    required_value: Any,
-    actual_value: Any
-) -> bool:
+def check_requires_directive(required_value: Any, actual_value: Any) -> bool:
     """Check if requirement is satisfied."""
 
     # Boolean: simple truthy check
@@ -134,12 +131,14 @@ DEFAULT_WORKFLOW_CONSENT = {
     "review": ["exit"],
 }
 
+
 def validate_workflow_flag(value: FeatureValue) -> FeatureValue:
     """Validate and expand workflow flag."""
     if value is True:
         return DEFAULT_WORKFLOW_PHASES
     # Validate list of phase names
     return value
+
 
 def validate_workflow_consent_flag(value: FeatureValue) -> FeatureValue:
     """Validate and expand workflow-consent flag."""

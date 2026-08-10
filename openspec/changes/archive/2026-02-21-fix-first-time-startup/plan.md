@@ -11,6 +11,7 @@ Fix `lock_update()` in `file_lock.py` to handle missing parent directory during 
 ```python
 class ConfigDirectoryError(Exception):
     """Fatal error: cannot create or access config directory."""
+
     pass
 ```
 

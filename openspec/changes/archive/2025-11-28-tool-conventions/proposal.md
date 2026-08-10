@@ -92,6 +92,7 @@ from mcp_core.mcp_log import get_logger
 
 logger = get_logger(__name__)
 
+
 class ExtMcpToolDecorator:
     """Extended MCP tool decorator with prefix and logging."""
 
@@ -102,6 +103,7 @@ class ExtMcpToolDecorator:
 
     def tool(self, name: Optional[str] = None, **kwargs: Any) -> Callable:
         """Tool decorator with automatic logging."""
+
         def decorator(func: Callable) -> Callable:
             tool_name = name or func.__name__
             prefix = kwargs.pop("prefix", None)
@@ -110,6 +112,7 @@ class ExtMcpToolDecorator:
 
             # Wrap with logging
             if inspect.iscoroutinefunction(func):
+
                 @functools.wraps(func)
                 async def async_wrapper(*args, **kwargs):
                     logger.trace(f"Tool called: {tool_name}")
@@ -120,8 +123,10 @@ class ExtMcpToolDecorator:
                     except Exception as e:
                         logger.error(f"Tool {tool_name} failed: {str(e)}")
                         raise
+
                 wrapped = async_wrapper
             else:
+
                 @functools.wraps(func)
                 def sync_wrapper(*args, **kwargs):
                     logger.trace(f"Tool called: {tool_name}")
@@ -132,6 +137,7 @@ class ExtMcpToolDecorator:
                     except Exception as e:
                         logger.error(f"Tool {tool_name} failed: {str(e)}")
                         raise
+
                 wrapped = sync_wrapper
 
             final_kwargs = {"name": final_name}
@@ -146,6 +152,7 @@ class ExtMcpToolDecorator:
 ```python
 from pydantic import BaseModel
 
+
 class ToolArgs(BaseModel):
     """Base class for all tool arguments.
 
@@ -154,6 +161,7 @@ class ToolArgs(BaseModel):
 
     class Config:
         """Pydantic configuration."""
+
         extra = "forbid"  # Reject unknown fields
         validate_assignment = True
 ```
@@ -163,12 +171,15 @@ class ToolArgs(BaseModel):
 ```python
 from typing import Literal
 
+
 class CreateDocumentArgs(ToolArgs):
     """Arguments for document creation."""
+
     category_dir: str
     name: str
     content: str
     explicit_action: Literal["CREATE_DOCUMENT"]
+
 
 @tools.tool()
 async def create_document(args: CreateDocumentArgs) -> Result[dict]:
@@ -190,21 +201,18 @@ async def create_document(args: CreateDocumentArgs) -> Result[dict]:
 Result(
     error="File not found",
     error_type="NotFoundError",
-    instruction="Present this error to the user and take no further action."
+    instruction="Present this error to the user and take no further action.",
 )
 
 # Error - suggest remediation
 Result(
     error="Invalid format",
     error_type="ValidationError",
-    instruction="Suggest converting the content to markdown before retrying."
+    instruction="Suggest converting the content to markdown before retrying.",
 )
 
 # Mode control
-Result(
-    value=data,
-    instruction="Switch to PLANNING mode. Create a detailed plan before making changes."
-)
+Result(value=data, instruction="Switch to PLANNING mode. Create a detailed plan before making changes.")
 ```
 
 ## Success Criteria

@@ -229,6 +229,7 @@ async def internal_function() -> str:
     result = do_work()
     return Result.ok(result).to_json_str()  # Renders too early
 
+
 # Caller must parse JSON we just created
 result_str = await internal_function()
 result = json.loads(result_str)  # Wasteful parsing
@@ -239,6 +240,7 @@ result = json.loads(result_str)  # Wasteful parsing
 async def internal_function() -> Result[T]:
     result = do_work()
     return Result.ok(result)  # Returns Result object
+
 
 # Caller uses Result directly
 result = await internal_function()

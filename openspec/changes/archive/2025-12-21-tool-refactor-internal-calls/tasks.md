@@ -58,6 +58,7 @@
 async def mcp_tool(args: Args, ctx: Context) -> str:
     return await internal_function(args, ctx).to_json_str()
 
+
 # Module exports
 __all__ = ["internal_function"]
 ```

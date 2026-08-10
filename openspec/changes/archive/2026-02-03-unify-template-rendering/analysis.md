@@ -217,6 +217,7 @@ async def render_template(
 @dataclass
 class RenderedTemplate:
     """Result of template rendering."""
+
     content: str
     frontmatter: Dict[str, Any]
     content_length: int

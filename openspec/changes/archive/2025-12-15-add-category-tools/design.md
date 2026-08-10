@@ -149,31 +149,20 @@ with file_lock(config_path):
 ```python
 def validate_category_name(name: str) -> Result[None]:
     """Validate category name."""
-    if not re.match(r'^[a-zA-Z0-9_-]{1,30}$', name):
-        return Result.failure(
-            error="Invalid category name",
-            error_type="invalid_name"
-        )
+    if not re.match(r"^[a-zA-Z0-9_-]{1,30}$", name):
+        return Result.failure(error="Invalid category name", error_type="invalid_name")
     return Result.ok(None)
+
 
 def validate_directory(dir: str) -> Result[None]:
     """Validate directory path."""
     if os.path.isabs(dir):
-        return Result.failure(
-            error="Absolute paths not allowed",
-            error_type="absolute_path"
-        )
-    if '..' in dir.split(os.sep):
-        return Result.failure(
-            error="Path traversal not allowed",
-            error_type="traversal_attempt"
-        )
+        return Result.failure(error="Absolute paths not allowed", error_type="absolute_path")
+    if ".." in dir.split(os.sep):
+        return Result.failure(error="Path traversal not allowed", error_type="traversal_attempt")
     for component in dir.split(os.sep):
-        if component.startswith('__') or component.endswith('__'):
-            return Result.failure(
-                error="Component cannot start/end with __",
-                error_type="invalid_component"
-            )
+        if component.startswith("__") or component.endswith("__"):
+            return Result.failure(error="Component cannot start/end with __", error_type="invalid_component")
     return Result.ok(None)
 ```
 
@@ -181,18 +170,12 @@ def validate_directory(dir: str) -> Result[None]:
 
 ```python
 async def category_add(
-    name: str,
-    dir: Optional[str] = None,
-    description: Optional[str] = None,
-    patterns: Optional[list[str]] = None
+    name: str, dir: Optional[str] = None, description: Optional[str] = None, patterns: Optional[list[str]] = None
 ) -> str:
     """Add new category."""
     session = get_current_session()
     if not session:
-        return Result.failure(
-            error="No active session",
-            error_type="no_session"
-        ).to_json_str()
+        return Result.failure(error="No active session", error_type="no_session").to_json_str()
 
     # Validate inputs
     result = validate_category_name(name)
@@ -202,25 +185,16 @@ async def category_add(
     # Check doesn't exist
     config = await session.get_project()
     if name in config.categories:
-        return Result.failure(
-            error=f"Category '{name}' already exists",
-            error_type="already_exists"
-        ).to_json_str()
+        return Result.failure(error=f"Category '{name}' already exists", error_type="already_exists").to_json_str()
 
     # Create category
-    category = Category(
-        name=name,
-        dir=dir or name,
-        patterns=patterns or []
-    )
+    category = Category(name=name, dir=dir or name, patterns=patterns or [])
 
     # Persist
     config.categories[name] = category
     await session.save_project(config)
 
-    return Result.ok(
-        value=f"Category '{name}' created"
-    ).to_json_str()
+    return Result.ok(value=f"Category '{name}' created").to_json_str()
 ```
 
 ### Collection Auto-Update
@@ -231,6 +205,7 @@ def update_collections_on_remove(config, category_name):
     for collection in config.collections.values():
         if category_name in collection.categories:
             collection.categories.remove(category_name)
+
 
 def update_collections_on_rename(config, old_name, new_name):
     """Update category name in all collections."""

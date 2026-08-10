@@ -39,6 +39,7 @@ Content here"""
     assert result.frontmatter["instruction"] == "Test instruction"
     assert result.content == "Content here"
 
+
 async def test_process_frontmatter_requirements_met():
     """Test frontmatter with satisfied requirements."""
     content = """---
@@ -50,6 +51,7 @@ Content"""
 
     assert result is not None
 
+
 async def test_process_frontmatter_requirements_not_met():
     """Test frontmatter with unsatisfied requirements returns None."""
     content = """---
@@ -60,6 +62,7 @@ Content"""
     result = await process_frontmatter(content, {"feature": False}, None)
 
     assert result is None
+
 
 async def test_process_frontmatter_render_instruction():
     """Test instruction field rendered as template."""
@@ -74,6 +77,7 @@ Content"""
     assert result is not None
     assert result.frontmatter["instruction"] == "Hello World"
 
+
 async def test_process_frontmatter_render_description():
     """Test description field rendered as template."""
     content = """---
@@ -86,6 +90,7 @@ Content"""
 
     assert result is not None
     assert result.frontmatter["description"] == "Project test"
+
 
 async def test_process_frontmatter_render_error_graceful():
     """Test rendering error handled gracefully with warning."""
@@ -111,6 +116,7 @@ Content"""
 @dataclass
 class ProcessedFrontmatter:
     """Result of frontmatter processing."""
+
     frontmatter: Frontmatter
     content: str
     frontmatter_length: int
@@ -148,9 +154,8 @@ async def process_frontmatter(
             if field in parsed.frontmatter and isinstance(parsed.frontmatter[field], str):
                 try:
                     import chevron
-                    parsed.frontmatter[field] = chevron.render(
-                        parsed.frontmatter[field], context_dict
-                    )
+
+                    parsed.frontmatter[field] = chevron.render(parsed.frontmatter[field], context_dict)
                 except chevron.ChevronError as e:
                     logger.warning(f"Failed to render {field} field: {e}")
 
@@ -274,11 +279,13 @@ async def test_process_file_template():
     # Call process_file()
     # Verify template rendered
 
+
 async def test_process_file_non_template():
     """Test processing non-template file."""
     # Create FileInfo for .md file
     # Call process_file()
     # Verify content returned as-is
+
 
 async def test_process_file_requirements_not_met():
     """Test file filtered by requirements."""

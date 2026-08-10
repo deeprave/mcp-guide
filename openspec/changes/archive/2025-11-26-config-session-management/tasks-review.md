@@ -71,6 +71,7 @@ class ConfigManager:
             async with self._lock:
                 if not self._initialized:
                     from mcp_guide.config_paths import get_config_file
+
                     self.config_file = get_config_file(self._config_dir)
                     self.config_file.parent.mkdir(parents=True, exist_ok=True)
                     if not self.config_file.exists():
@@ -117,12 +118,13 @@ The spec requires "thread-safe singleton" with "double-checked locking", but the
 ```python
 import threading
 
+
 class ConfigManager:
     """Singleton manager for project configuration file."""
 
     _instance: Optional["ConfigManager"] = None
     _init_lock = threading.Lock()  # Thread lock for initialization
-    _async_lock = asyncio.Lock()   # Async lock for operations
+    _async_lock = asyncio.Lock()  # Async lock for operations
     _initialized = False
 
     def __new__(cls, config_dir: Optional[str] = None) -> "ConfigManager":
@@ -166,6 +168,7 @@ class Category:
     @classmethod
     def validate_name(cls, v: str) -> str:
         import re
+
         if not re.match(NAME_PATTERN, v):
             raise ValueError(f"Category name must contain only alphanumeric characters, underscores, and hyphens")
         return v
@@ -205,6 +208,7 @@ class Category:
     @classmethod
     def validate_name(cls, v: str) -> str:
         import re
+
         if not re.match(NAME_PATTERN, v):
             raise ValueError(f"Category name must contain only alphanumeric characters, underscores, and hyphens")
         return v
@@ -295,12 +299,12 @@ async def get_or_create_project_config(self, name: str) -> Project:
     """Get project config or create if it doesn't exist."""
     # Validate project name upfront
     import re
+
     if not name or not name.strip():
         raise ValueError("Project name cannot be empty")
     if not re.match(NAME_PATTERN, name):
         raise ValueError(
-            f"Invalid project name '{name}': must contain only "
-            "alphanumeric characters, underscores, and hyphens"
+            f"Invalid project name '{name}': must contain only alphanumeric characters, underscores, and hyphens"
         )
 
     await self._ensure_initialized()
@@ -314,9 +318,7 @@ async def get_or_create_project_config(self, name: str) -> Project:
         try:
             data = yaml.safe_load(content)
         except yaml.YAMLError as e:
-            raise yaml.YAMLError(
-                f"Invalid YAML in config file {file_path}: {e}"
-            ) from e
+            raise yaml.YAMLError(f"Invalid YAML in config file {file_path}: {e}") from e
 
         projects = data.get("projects", {})
 
@@ -325,9 +327,7 @@ async def get_or_create_project_config(self, name: str) -> Project:
             try:
                 return Project(**project_data)
             except Exception as e:
-                raise ValueError(
-                    f"Invalid project data for '{name}' in {file_path}: {e}"
-                ) from e
+                raise ValueError(f"Invalid project data for '{name}' in {file_path}: {e}") from e
 
         # Create new project
         project = Project(name=name)
@@ -391,6 +391,7 @@ This function re-implements `socket.gethostname()` from the standard library, wh
 ```python
 import socket
 
+
 def _get_hostname() -> str:
     """Get hostname in a cross-platform way."""
     try:
@@ -419,6 +420,7 @@ async def __aenter__(self) -> "ConfigManager":
     """Async context manager entry."""
     await self._ensure_initialized()
     return self
+
 
 async def __aexit__(self, *args: object) -> None:
     """Async context manager exit."""
@@ -456,6 +458,7 @@ active_sessions: ContextVar[dict[str, Session]] = ContextVar("active_sessions", 
 ```python
 # More explicit - shows that each context gets a fresh dict
 active_sessions: ContextVar[dict[str, Session]] = ContextVar("active_sessions")
+
 
 def get_current_session(project_name: str) -> Optional[Session]:
     """Get current session for project from ContextVar."""
@@ -567,10 +570,7 @@ def validate_name(cls, v: str) -> str:
     if not v or len(v) > 50:
         raise ValueError("Project name must be between 1 and 50 characters")
     if not re.match(NAME_PATTERN, v):
-        raise ValueError(
-            "Project name must contain only alphanumeric characters, "
-            "underscores, and hyphens"
-        )
+        raise ValueError("Project name must contain only alphanumeric characters, underscores, and hyphens")
     return v
 ```
 
@@ -609,6 +609,7 @@ import re  # At module level
 
 NAME_PATTERN = r"^[a-zA-Z0-9_-]+$"
 _NAME_REGEX = re.compile(NAME_PATTERN)  # Compile once
+
 
 @pydantic_dataclass(frozen=True)
 class Category:
@@ -759,6 +760,7 @@ async def get_or_create_project_config(self, name: str) -> Project:
    # config.py
    _config_manager = ConfigManager()
 
+
    def get_config_manager() -> ConfigManager:
        return _config_manager
    ```
@@ -767,28 +769,31 @@ async def get_or_create_project_config(self, name: str) -> Project:
    ```python
    class SingletonMeta(type):
        _instances = {}
+
        def __call__(cls, *args, **kwargs):
            if cls not in cls._instances:
                cls._instances[cls] = super().__call__(*args, **kwargs)
            return cls._instances[cls]
 
-   class ConfigManager(metaclass=SingletonMeta):
-       ...
+
+   class ConfigManager(metaclass=SingletonMeta): ...
    ```
 
 3. **Decorator** (explicit):
    ```python
    def singleton(cls):
        instances = {}
+
        def get_instance(*args, **kwargs):
            if cls not in instances:
                instances[cls] = cls(*args, **kwargs)
            return instances[cls]
+
        return get_instance
 
+
    @singleton
-   class ConfigManager:
-       ...
+   class ConfigManager: ...
    ```
 
 **Not a Problem**: The current approach works, but consider alternatives if the constructor injection issue needs to be solved.

@@ -13,14 +13,16 @@ Add minimal functions following existing patterns:
 def get_frontmatter_instruction(frontmatter: dict) -> str | None:
     return frontmatter.get("instruction")
 
+
 def get_frontmatter_type(frontmatter: dict) -> str:
     return frontmatter.get("type", "user/information")
+
 
 def get_type_based_default_instruction(content_type: str) -> str:
     defaults = {
         "user/information": "Display this information to the user",
         "agent/information": "For your information and use. Do not display this content to the user.",
-        "agent/instruction": None  # Must use explicit instruction
+        "agent/instruction": None,  # Must use explicit instruction
     }
     return defaults.get(content_type, defaults["user/information"])
 ```
