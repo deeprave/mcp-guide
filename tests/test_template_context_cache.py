@@ -471,6 +471,33 @@ class TestTemplateContextCache:
             assert context["agent"]["is_codex"] is False
 
     @pytest.mark.anyio
+    async def test_build_agent_context_exposes_pi_membership_flag(self) -> None:
+        """Test that Pi clients expose their normalized membership flag."""
+        from mcp_guide.agent_detection import AgentInfo
+
+        cache = TemplateContextCache()
+        mock_session = Mock()
+        mock_session.agent_info = AgentInfo(
+            name="pi-mcp-guide",
+            normalized_name="pi",
+            version="1.0.0",
+            prompt_prefix=None,
+        )
+
+        with (
+            patch("mcp_guide.session.get_active_session", return_value=mock_session),
+            patch("mcp_guide.models.resolve_all_flags", return_value={}),
+            patch("mcp_guide.task_manager.get_task_manager") as mock_tm,
+        ):
+            mock_tm.return_value.get_task_statistics.return_value = {}
+            mock_tm.return_value.get_task_by_type.return_value = None
+
+            context = await cache._build_agent_context()
+
+            assert context["agent"]["is_pi"] is True
+            assert context["agent"]["is_cursor"] is False
+
+    @pytest.mark.anyio
     async def test_build_agent_context_defaults_unknown_agent_to_no_handoff(self) -> None:
         """Test that non-validated agents default to inline behavior."""
         from mcp_guide.agent_detection import AgentInfo

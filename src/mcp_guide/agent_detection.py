@@ -20,6 +20,7 @@ AGENT_PATTERNS = [
     (r"q\s+dev|kiro", "q-dev"),
     (r"claude", "claude"),
     (r"cursor", "cursor"),
+    (r"^pi(?:-mcp-guide)?$", "pi"),
     (r"copilot", "copilot"),
     (r"gemini", "gemini"),
     (r"opencode", "opencode"),
@@ -30,12 +31,13 @@ AGENT_PREFIX_MAP = {
     "codex": None,
     "q-dev": "@",
     "claude": "/",
-    "cursor": "/",
+    "cursor": None,
+    "pi": None,
     "copilot": "/",
     "gemini": "/",
     "opencode": "/",
     "windsurf": "/",
-    "unknown": "/",
+    "unknown": None,
 }
 
 
@@ -94,7 +96,7 @@ def detect_agent(client_params: Union[dict[str, Any], Any]) -> AgentInfo:
         version = None
 
     normalized_name = normalize_agent_name(name)
-    prompt_prefix = AGENT_PREFIX_MAP.get(normalized_name, "/")
+    prompt_prefix = AGENT_PREFIX_MAP.get(normalized_name)
 
     return AgentInfo(name=name, normalized_name=normalized_name, version=version, prompt_prefix=prompt_prefix)
 

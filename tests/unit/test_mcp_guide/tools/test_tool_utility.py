@@ -123,7 +123,7 @@ async def test_client_info_dict_without_client_info():
     assert result["success"] is True
     assert result["value"]["agent"] == "Unknown"
     assert result["value"]["normalized_name"] == "unknown"
-    assert result["value"]["command_prefix"] == "/"
+    assert result["value"]["command_prefix"] is None
 
 
 @pytest.mark.anyio
