@@ -5,7 +5,7 @@ The workflow state-file format is defined by an internal template, but the workf
 ## What Changes
 
 - Render the internal workflow state-format template after successfully parsing workflow file content when no semantic workflow-change response is produced.
-- Use the rendered template as the `send_file_content` response so its `agent/instruction` disposition and embedded instruction are preserved.
+- Return the rendered template through the originating `send_file_content` event so its `agent/instruction` disposition and embedded instruction are preserved without a shared response cache.
 - Preserve the existing behavior when the template render returns `None`, which indicates workflow is disabled or the template is unavailable.
 - Preserve semantic phase and field-change responses when workflow state changes are detected.
 - Clarify that the workflow state-format template is strictly YAML, uses lowercase keys, permits omission of optional lines, and names the exact `send_file_content` MCP tool.
@@ -25,7 +25,7 @@ None.
 ## Impact
 
 - `src/mcp_guide/workflow/tasks.py`
-- `src/mcp_guide/filesystem/tools.py` response aggregation behavior as exercised through the workflow task
+- `src/mcp_guide/filesystem/tools.py` and task-manager event-response aggregation
 - `src/mcp_guide/templates/_workflow/state-format.mustache`
 - Workflow monitoring and filesystem response tests
 - Workflow template rendering tests

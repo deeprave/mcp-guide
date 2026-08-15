@@ -1,7 +1,7 @@
 """Shared utilities for content retrieval tools."""
 
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Iterable, Optional
 
 import yaml
 
@@ -72,6 +72,25 @@ def extract_and_deduplicate_instructions(files: list[FileInfo]) -> Optional[str]
     return combine_instructions(instructions_with_importance)
 
 
+def resolve_disposition(content_types: Iterable[Optional[str]]) -> str:
+    """Resolve the highest-precedence disposition from content types.
+
+    Unknown and missing content types do not affect the default
+    ``user/information`` disposition.
+
+    Args:
+        content_types: Resolved content type values to aggregate.
+
+    Returns:
+        Highest-precedence type string, defaulting to user/information.
+    """
+    max_precedence = 0
+    for content_type in content_types:
+        if content_type in _TYPE_PRECEDENCE:
+            max_precedence = max(max_precedence, _TYPE_PRECEDENCE[content_type])
+    return _PRECEDENCE_TO_TYPE[max_precedence]
+
+
 def resolve_content_disposition(files: list[FileInfo]) -> str:
     """Resolve the aggregate content disposition across collected files.
 
@@ -83,13 +102,9 @@ def resolve_content_disposition(files: list[FileInfo]) -> str:
     Returns:
         Highest-precedence type string, defaulting to user/information
     """
-    max_precedence = 0
-    for file_info in files:
-        if not file_info.frontmatter:
-            continue
-        if (ft := get_frontmatter_type(file_info.frontmatter)) and ft in _TYPE_PRECEDENCE:
-            max_precedence = max(max_precedence, _TYPE_PRECEDENCE[ft])
-    return _PRECEDENCE_TO_TYPE[max_precedence]
+    return resolve_disposition(
+        get_frontmatter_type(file_info.frontmatter) if file_info.frontmatter else None for file_info in files
+    )
 
 
 def prepend_export_frontmatter(

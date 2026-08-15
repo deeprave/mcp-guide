@@ -1,8 +1,8 @@
 ## Context
 
-`WorkflowMonitorTask` parses received workflow-file content and stores a rendered semantic-change response only when the parsed state differs from the cached state. Otherwise, `send_file_content` returns a cache acknowledgement. The internal `_workflow/state-format.mustache` template defines the format but is neither directly exposed through Guide nor rendered by the monitor.
+`WorkflowMonitorTask` parses received workflow-file content and returns an `EventResult` to the originating filesystem event. The internal `_workflow/state-format.mustache` template defines the format but is neither directly exposed through Guide nor rendered by the monitor.
 
-`RenderedContent` retains the template's frontmatter-derived instruction and type. The existing workflow-change response replacement copies content and instruction into `Result`, but not its `disposition` field.
+`RenderedContent` retains the template's frontmatter-derived instruction and type. Event-result aggregation copies content and instruction into `Result`, but not its `disposition` field.
 
 ## Goals / Non-Goals
 
@@ -24,15 +24,15 @@
 
 ## Decisions
 
-### Reuse the workflow response override path
+### Return rendered content with the originating event
 
-When parsing succeeds and no semantic change response was rendered, `WorkflowMonitorTask` will render `state-format`. A non-`None` result will be stored through the existing `workflow_change_content` mechanism, causing the same `send_file_content` response to be replaced with rendered guidance.
+When parsing succeeds and no semantic change response was rendered, `WorkflowMonitorTask` will render `state-format`. A non-`None` result will be attached to its `EventResult`, causing the originating `send_file_content` response to contain rendered guidance.
 
-This keeps workflow response selection inside the workflow monitor and avoids changing generic filesystem event aggregation. Returning `EventResult.rendered_content` directly would require aggregation to preserve the template disposition for every task event and would broaden the change beyond workflow handling.
+This binds the response to the originating request. The existing event aggregation path already carries rendered content for other tasks; it will preserve the rendered content disposition as well.
 
-### Preserve template disposition in `Result`
+### Preserve template disposition during aggregation
 
-`TaskManager.process_result` will copy the selected rendered content's `template_type` into `Result.disposition` together with its content and instruction. This makes the response's agent-facing disposition match `state-format` frontmatter and also correctly represents existing synthesized workflow change content as `agent/instruction`.
+Event-result aggregation will copy the selected rendered content's `template_type` into `Result.disposition` together with its content and instruction. This makes the response's agent-facing disposition match `state-format` frontmatter and correctly represents all aggregated rendered responses as `agent/instruction`.
 
 ### Render only as fallback
 
@@ -47,6 +47,6 @@ The template will name `send_file_content` exactly as the MCP tool, use `{{workf
 ## Risks / Trade-offs
 
 - [The format arrives only after the agent submits the workflow file] -> It improves otherwise empty file-content responses without changing the separate bootstrap-instruction flow.
-- [A response override can hide the cache acknowledgement] -> This is intentional for a rendered workflow response and matches existing semantic-change behavior.
-- [Copying disposition changes the serialized shape of existing workflow-change responses] -> Add focused assertions for both new fallback guidance and existing change responses.
+- [A rendered response can hide the cache acknowledgement] -> This is intentional for a rendered workflow response and matches existing semantic-change behavior.
+- [Copying disposition changes the serialized shape of aggregated rendered responses] -> Add focused event-aggregation assertions for both single and combined content.
 - [Formatter updates code blocks across archived documents] -> Restrict the cleanup to Ruff-reported documents and verify the formatter is clean afterward.

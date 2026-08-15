@@ -20,18 +20,9 @@ All Pydantic model fields must include `Field(description=...)`:
 class ExampleArgs(ToolArguments):
     """Arguments for example tool."""
 
-    name: str = Field(
-        ...,
-        description="Name of the item to process"
-    )
-    pattern: str | None = Field(
-        None,
-        description="Optional glob pattern to filter results (e.g., '*.md')"
-    )
-    verbose: bool = Field(
-        False,
-        description="Include detailed output in response"
-    )
+    name: str = Field(..., description="Name of the item to process")
+    pattern: str | None = Field(None, description="Optional glob pattern to filter results (e.g., '*.md')")
+    verbose: bool = Field(False, description="Include detailed output in response")
 ```
 
 ## Complete Tool Documentation Example
