@@ -111,6 +111,12 @@ def test_normalize_agent_name_cursor():
     assert normalize_agent_name("cursor-agent") == "cursor"
 
 
+def test_normalize_agent_name_pi():
+    """Test normalizing Pi agent names."""
+    assert normalize_agent_name("Pi") == "pi"
+    assert normalize_agent_name("pi-mcp-guide") == "pi"
+
+
 def test_normalize_agent_name_opencode():
     """Test normalizing opencode agent names."""
     assert normalize_agent_name("opencode-ai") == "opencode"
@@ -150,6 +156,22 @@ def test_detect_agent_codex():
     assert agent.prompt_prefix is None
 
 
+def test_detect_agent_cursor_has_no_prompt_prefix():
+    """Cursor Agent does not support direct prompt invocation."""
+    agent = detect_agent({"clientInfo": {"name": "Cursor", "version": "1.0.0"}})
+
+    assert agent.normalized_name == "cursor"
+    assert agent.prompt_prefix is None
+
+
+def test_detect_agent_pi_has_no_prompt_prefix():
+    """Pi MCP Guide clients normalize to Pi without a prompt prefix."""
+    agent = detect_agent({"clientInfo": {"name": "pi-mcp-guide", "version": "1.0.0"}})
+
+    assert agent.normalized_name == "pi"
+    assert agent.prompt_prefix is None
+
+
 def test_detect_agent_no_version():
     """Test detecting agent without version."""
     client_params = {"clientInfo": {"name": "Kiro CLI"}}
@@ -164,7 +186,7 @@ def test_detect_agent_unknown():
 
     agent = detect_agent(client_params)
     assert agent.normalized_name == "unknown-tool"
-    assert agent.prompt_prefix == "/"
+    assert agent.prompt_prefix is None
 
 
 def test_detect_agent_with_pydantic_model():
@@ -208,7 +230,7 @@ def test_detect_agent_with_empty_dict():
     assert agent.name == "Unknown"
     assert agent.normalized_name == "unknown"
     assert agent.version is None
-    assert agent.prompt_prefix == "/"
+    assert agent.prompt_prefix is None
 
 
 def test_detect_agent_with_non_dict_non_object():
@@ -219,7 +241,7 @@ def test_detect_agent_with_non_dict_non_object():
         assert agent.name == "Unknown"
         assert agent.normalized_name == "unknown"
         assert agent.version is None
-        assert agent.prompt_prefix == "/"
+        assert agent.prompt_prefix is None
 
 
 def test_format_agent_info_with_version():
