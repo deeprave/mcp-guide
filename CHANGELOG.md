@@ -2,7 +2,7 @@
 
 All notable changes to mcp-guide will be documented in this file.
 
-## [Unreleased]
+## [1.4.0] - 2026-08-16
 
 ### Added
 - Docker and shell profiles, including focused container-build and shell-scripting guidance
