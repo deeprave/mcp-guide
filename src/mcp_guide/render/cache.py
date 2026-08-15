@@ -34,6 +34,7 @@ EXAMINED_AGENT_FLAGS = (
     "kiro",
     "claude",
     "cursor",
+    "pi",
     "copilot",
     "gemini",
     "windsurf",
