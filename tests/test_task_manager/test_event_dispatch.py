@@ -5,11 +5,11 @@ from mcp_guide.render.frontmatter import Frontmatter
 from mcp_guide.task_manager.manager import EventResult, aggregate_event_results
 
 
-def _make_rendered_content(content: str, instruction: str) -> RenderedContent:
+def _make_rendered_content(content: str, instruction: str, content_type: str = "agent/instruction") -> RenderedContent:
     """Helper to create RenderedContent with instruction."""
     from pathlib import Path
 
-    fm = Frontmatter({"instruction": instruction})
+    fm = Frontmatter({"instruction": instruction, "type": content_type})
     return RenderedContent(
         frontmatter=fm,
         frontmatter_length=0,
@@ -72,6 +72,7 @@ class TestAggregateEventResults:
         assert result.success is True
         assert result.value == "Test content"
         assert result.instruction == "Test instruction"
+        assert result.disposition == "agent/instruction"
 
     def test_single_result_failure(self):
         """Test single EventResult with failure."""
@@ -79,6 +80,17 @@ class TestAggregateEventResults:
         result = aggregate_event_results([event_result])
         assert result.success is False
         assert result.error == "Failed"
+
+    def test_single_failure_with_rendered_content_preserves_disposition(self):
+        """Rendered failure content retains its disposition for the response consumer."""
+        rendered = _make_rendered_content("Failure guidance", "Retry with valid input")
+        event_result = EventResult(result=False, message="Failed", rendered_content=rendered)
+
+        result = aggregate_event_results([event_result])
+
+        assert result.success is False
+        assert result.instruction == "Retry with valid input"
+        assert result.disposition == "agent/instruction"
 
     def test_multiple_results_all_success(self):
         """Test multiple EventResults all successful."""
@@ -112,6 +124,24 @@ class TestAggregateEventResults:
         assert "First" in result.value
         assert "Second" in result.value
         assert "Inst1" in result.instruction or "Inst2" in result.instruction
+        assert result.disposition == "agent/instruction"
+
+    def test_multiple_rendered_results_use_highest_disposition_regardless_of_order(self):
+        """Mixed rendered responses consistently retain the strongest content handling rule."""
+        user_info = EventResult(
+            result=True,
+            rendered_content=_make_rendered_content("Public details", "Show this", "user/information"),
+        )
+        agent_instruction = EventResult(
+            result=True,
+            rendered_content=_make_rendered_content("Internal action", "Do this", "agent/instruction"),
+        )
+
+        first_user = aggregate_event_results([user_info, agent_instruction])
+        first_instruction = aggregate_event_results([agent_instruction, user_info])
+
+        assert first_user.disposition == "agent/instruction"
+        assert first_instruction.disposition == "agent/instruction"
 
     def test_message_deduplication(self):
         """Test duplicate messages are deduplicated."""

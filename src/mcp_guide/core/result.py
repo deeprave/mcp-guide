@@ -82,6 +82,7 @@ class Result(Generic[T]):
         exception: Optional[Exception] = None,
         message: Optional[str] = None,
         instruction: Optional[str] = None,
+        disposition: Optional[str] = None,
         additional_agent_instructions: Optional[str] = None,
         error_data: Optional[dict[str, Any]] = None,
     ) -> "Result[T]":
@@ -93,6 +94,7 @@ class Result(Generic[T]):
             exception: Original exception (optional)
             message: Optional message
             instruction: Optional instruction for agent
+            disposition: Optional content disposition (e.g. user/information, agent/instruction)
             additional_agent_instructions: Optional side-band instruction for agent
             error_data: Optional structured error data
 
@@ -106,6 +108,7 @@ class Result(Generic[T]):
             exception=exception,
             message=message,
             instruction=instruction if instruction is not None else cls.default_failure_instruction,
+            disposition=disposition,
             additional_agent_instructions=additional_agent_instructions,
             error_data=error_data,
         )

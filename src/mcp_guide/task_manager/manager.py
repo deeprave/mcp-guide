@@ -29,7 +29,6 @@ T = TypeVar("T", bound=TaskSubscriber)
 PROJECT_SCOPED_CACHE_KEYS = (
     "workflow_state",
     "workflow_file_path",
-    "workflow_change_content",
     "openspec_available",
     "openspec_status",
     "openspec_show",
@@ -98,11 +97,13 @@ def aggregate_event_results(results: list[EventResult]) -> Result[Any]:
                     value=event_result.rendered_content.content,
                     message=event_result.message,
                     instruction=event_result.rendered_content.instruction or "",
+                    disposition=event_result.rendered_content.template_type,
                 )
                 if event_result.result
                 else Result.failure(
                     error=event_result.message or "Handler failed",
                     instruction=event_result.rendered_content.instruction or "",
+                    disposition=event_result.rendered_content.template_type,
                 )
             )
         return (
@@ -129,7 +130,7 @@ def aggregate_event_results(results: list[EventResult]) -> Result[Any]:
         if rendered_contents := [r.rendered_content for r in success_results if r.rendered_content]:
             combined_content = "\n".join(rc.content for rc in rendered_contents)
             # Combine instructions using shared logic
-            from mcp_guide.content.utils import combine_instructions
+            from mcp_guide.content.utils import combine_instructions, resolve_disposition
             from mcp_guide.render.frontmatter import resolve_instruction
 
             instructions_with_importance = []
@@ -144,6 +145,7 @@ def aggregate_event_results(results: list[EventResult]) -> Result[Any]:
                 value=combined_content,
                 message=combined_message,
                 instruction=combined_instruction,
+                disposition=resolve_disposition(rc.template_type for rc in rendered_contents),
             )
 
         # No rendered content but had successes
@@ -734,20 +736,6 @@ class TaskManager:
         # Handle filesystem events through registered tasks
         if event_type is not None:
             await self.dispatch_event(event_type, result)
-
-        # Check for workflow change content that should replace the main response
-        workflow_change_content = self.get_cached_data("workflow_change_content")
-        if workflow_change_content:
-            # Clear the cached content after using it
-            self.set_cached_data("workflow_change_content", None)
-            # Replace the result with workflow change content and instruction
-            from dataclasses import replace
-
-            result = replace(
-                result, value=workflow_change_content.content, instruction=workflow_change_content.instruction
-            )
-            # When workflow_change_content is applied, skip pending instructions for this response
-            return result
 
         # Check for queued instructions from tasks (FIFO)
         if self._pending_instructions:

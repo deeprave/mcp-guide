@@ -135,9 +135,8 @@ class WorkflowMonitorTask(InitialisableMixin):
                 await self.task_manager.acknowledge_instruction(self._reminder_instruction_id)
                 self._reminder_instruction_id = None
 
-            # Process the data
-            await self._process_workflow_content(data.get("content", ""))
-            return EventResult(result=True)
+            rendered_content = await self._process_workflow_content(data.get("content", ""))
+            return EventResult(result=True, rendered_content=rendered_content)
         return None
 
     async def _handle_monitoring_reminder(self) -> None:
@@ -146,14 +145,14 @@ class WorkflowMonitorTask(InitialisableMixin):
         if rendered:
             self._reminder_instruction_id = await self.task_manager.queue_instruction_with_ack(rendered.content)
 
-    async def _process_workflow_content(self, content: str) -> None:
+    async def _process_workflow_content(self, content: str) -> Optional["RenderedContent"]:
         """Process workflow file content and update cached state."""
         logger.trace("_process_workflow_content called")
         try:
             new_state = parse_workflow_state(content)
             if not new_state:
                 logger.warning("Failed to parse workflow state - not processing changes")
-                return
+                return None
 
             logger.trace(
                 f"WorkflowMonitorTask: Parsed workflow state - phase={new_state.phase}, issue={new_state.issue}"
@@ -169,19 +168,23 @@ class WorkflowMonitorTask(InitialisableMixin):
             changes = detect_workflow_changes(old_state, new_state)
             logger.trace(f"Detected {len(changes)} workflow changes")
 
+            rendered_change = None
+
             # Process each detected change and get rendered content for main response
             if changes:
                 rendered_change = await self._process_workflow_changes(changes)
-                if rendered_change:
-                    # Store the rendered content to be used as the main response
-                    self.task_manager.set_cached_data("workflow_change_content", rendered_change)
+
+            if not rendered_change:
+                rendered_change = await render_workflow_template("state-format")
 
             # Update cache with new state AFTER processing changes
             self.task_manager.set_cached_data("workflow_state", new_state)
             logger.trace("New workflow state cached in TaskManager")
+            return rendered_change
 
         except Exception as e:
             logger.error(f"Failed to process workflow content: {e}", exc_info=True)
+            return None
 
     @staticmethod
     async def _process_workflow_changes(changes: list[ChangeEvent]) -> Optional["RenderedContent"]:

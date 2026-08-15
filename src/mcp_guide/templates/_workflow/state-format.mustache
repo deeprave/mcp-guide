@@ -3,21 +3,28 @@ type: agent/instruction
 description: Workflow state file format and monitoring setup
 requires-workflow: true
 ---
-# Workflow State File Setup
+# Workflow State File Format
 
 **File**: `{{workflow.file}}`
 
-## Format
+## YAML format
+
+Use strictly valid YAML with lowercase keys. Optional lines may be omitted.
+
 ```yaml
-phase: [{{#workflow.phase_list}}{{value}}{{^last}}|{{/last}}{{/workflow.phase_list}}]
-issue: <current-issue-id>
-tracking: <tracker> <tracker-id>
-description: <optional-context>
+phase: <current-phase>
+issue: <optional-current-issue-id>
+tracking: <optional-tracker-prefix> <required-tracker-id>
+description: <optional-description>
 queue:
-  - <queued-issues>
+  - <optional-queued-issue-id>
 ```
 
+`phase` is required. Include `issue` for an active change. `tracking` is required
+only when transitioning issue tracking; its tracker identifier is required, while
+its tracker prefix is optional. Omit `queue` when it is empty.
+
 ## Instructions
-- Update this file whenever workflow state changes
-- Send file content using filesystem tools when modified
-- Ensure phase transitions follow project workflow rules
+
+- Update `{{workflow.file}}` whenever workflow state changes.
+- Use the `send_file_content` MCP tool to send the complete file content after every update.

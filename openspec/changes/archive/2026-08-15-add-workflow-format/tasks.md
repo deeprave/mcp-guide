@@ -7,8 +7,8 @@
 
 ## 2. Workflow Format Response
 
-- [x] 2.1 Render `state-format` after successful workflow parsing when no semantic workflow-change response exists, and use a non-`None` render as the response override.
-- [x] 2.2 Preserve rendered workflow content disposition when `TaskManager.process_result` replaces a response.
+- [x] 2.1 Render `state-format` after successful workflow parsing when no semantic workflow-change response exists, and attach a non-`None` render to the originating event response.
+- [x] 2.2 Preserve rendered workflow content disposition when event results are aggregated into a response.
 - [x] 2.3 Keep workflow-disabled and semantic-change behavior unchanged when the fallback does not apply.
 
 ## 3. Workflow State-Format Template
@@ -26,3 +26,9 @@
 
 - [x] 5.1 Apply Ruff formatting to the 34 currently reported Markdown documents, including archived OpenSpec artifacts, ADRs, and source READMEs, without changing their prose or behavior.
 - [x] 5.2 Verify `uv run ruff format --check` reports no remaining document-formatting issues.
+
+## 6. Review Remediation
+
+- [x] 6.1 Remove the project-scoped workflow response override so concurrent requests cannot consume a workflow-file response.
+- [x] 6.2 Return workflow rendered content through the originating event and preserve its disposition in event-result aggregation.
+- [x] 6.3 Add focused regression coverage for request-local workflow responses and aggregated rendered-content dispositions.

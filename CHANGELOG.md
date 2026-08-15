@@ -2,6 +2,36 @@
 
 All notable changes to mcp-guide will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- Docker and shell profiles, including focused container-build and shell-scripting guidance
+- Agents are now informed of the workflow-state file format when they submit it through `send_file_content`, including the fields required for active tracked work
+
+### Breaking
+- Minimum supported Python version is now 3.13
+
+### Changed
+- Workflow phase commands (`:check`, `:discuss`, `:explore`, `:implement`, `:plan`, and `:review`) now provide useful general guidance even when workflow tracking is disabled; workflow-specific steps are added when a workflow is active
+- Command aliases with implied query arguments now behave consistently through prompt aliases and `guide://` command URIs
+- OpenSpec guidance now uses `openspec/config.yaml`, matching current OpenSpec project layout
+- Profile definitions now reject empty collections instead of accepting unusable configuration
+
+### Fixed
+- Switching projects or changing the active project's configuration now refreshes project-scoped workflow, OpenSpec, and client-context guidance without retaining stale instructions or subscriptions
+- Invalid command alias metadata no longer prevents valid aliases from being discovered or resolved
+
+## [1.3.2] - 2026-04-25
+
+### Changed
+- `autoupdate` is now enabled by default; set it explicitly to `false` to suppress document update prompting
+- OpenSpec workflow guidance has been refreshed to align with current OpenSpec CLI usage:
+  - Recommend validating changes with `openspec validate <id> --strict --no-interactive` before sharing proposals
+  - Archiving guidance now calls out `openspec archive <change-id> --skip-specs --yes` for tooling-only changes and recommends running `openspec validate --strict --no-interactive` after archiving
+
+### Fixed
+- Document updates now remove upstream-renamed and deleted files when the local copy is unchanged, while preserving user-edited files
+
 ## [1.2.2] - 2026-04-15
 
 ### Changed

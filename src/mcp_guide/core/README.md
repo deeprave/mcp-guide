@@ -9,6 +9,7 @@ MCP tools, prompts, and resources use deferred registration to enable introspect
 ```python
 from mcp_guide.core.tool_decorator import toolfunc
 
+
 @toolfunc(ArgsClass)
 async def my_tool(args: ArgsClass, ctx=None) -> str:
     return Result.ok(data).to_json_str()
@@ -18,6 +19,7 @@ async def my_tool(args: ArgsClass, ctx=None) -> str:
 ```python
 from mcp_guide.core.prompt_decorator import promptfunc
 
+
 @promptfunc()
 async def my_prompt(arg1: str = None, ctx=None):
     return "prompt content"
@@ -26,6 +28,7 @@ async def my_prompt(arg1: str = None, ctx=None):
 ### Resources
 ```python
 from mcp_guide.core.resource_decorator import resourcefunc
+
 
 @resourcefunc("scheme://{param}")
 async def my_resource(param: str, ctx=None) -> str:
