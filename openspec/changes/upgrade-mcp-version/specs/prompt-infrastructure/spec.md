@@ -13,7 +13,8 @@ than legacy initialization/session fields.
 #### Scenario: Prompt without project context
 - **WHEN** a prompt request has no valid project context
 - **THEN** the prompt infrastructure SHALL use its defined unbound behavior
-- **AND** it SHALL not infer a project from server cwd or a previous connection
+- **AND** it SHALL not infer a project from server cwd or a previous connection,
+  except for the defined one-time inherited-`PWD` bootstrap of an unbound stdio interaction
 
 ### Requirement: Modern Prompt Result Adaptation
 The prompt registration layer SHALL return SDK-native modern prompt responses through

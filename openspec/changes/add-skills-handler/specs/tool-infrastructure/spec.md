@@ -1,8 +1,8 @@
 ## ADDED Requirements
 
-### Requirement: Guide URL skill command registration
-The system SHALL register the Guide URL skill command through the normal command discovery pipeline.
+### Requirement: Skill package command registration
+The system SHALL register skill import and export commands through the normal command discovery pipeline.
 
-#### Scenario: Command discovery
+#### Scenario: Skill command discovery
 - **WHEN** the command templates are discovered for a bound project
-- **THEN** the Guide URL skill command SHALL be available with its arguments and agent requirements
+- **THEN** the supported skill exchange commands SHALL be available with their arguments and agent requirements

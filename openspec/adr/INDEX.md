@@ -9,11 +9,6 @@ This index tracks all ADRs including historical decisions that have been superse
 **Date:** 2025-11-25
 **File:** [001-tool-naming-convention.md](001-tool-naming-convention.md)
 
-### ADR-002: MCP Server Framework
-**Status:** Accepted
-**Date:** 2025-11-25
-**File:** [002-mcp-server-framework.md](002-mcp-server-framework.md)
-
 ### ADR-003: Result Pattern for Tool and Prompt Responses
 **Status:** Accepted
 **Date:** 2025-11-25
@@ -57,7 +52,21 @@ This index tracks all ADRs including historical decisions that have been superse
 **Dependencies:** ADR-008
 **Summary:** Adopts concise 2-4 sentence tool descriptions following MCP best practice, eliminating redundant hand-written JSON Schema/Usage/Examples sections. Parameter documentation provided solely through auto-generated Arguments section from Pydantic field descriptions.
 
+### ADR-011: FastMCP 4 Protocol Migration
+**Status:** Accepted
+**Date:** 2026-08-16
+**File:** [011-v2-sdk-legacy-protocol-transition.md](011-v2-sdk-legacy-protocol-transition.md)
+**Supersedes:** ADR-002
+**Dependencies:** ADR-006
+**Summary:** Adopts the independently maintained FastMCP 4 integration layer, which builds on MCP SDK v2 and negotiates both modern sessionless and handshake-era protocol interactions from one server.
+
 ## Historical ADRs
+
+### ADR-002: MCP Server Framework
+**Status:** Superseded
+**Date:** 2025-11-25
+**Superseded By:** ADR-011 (2026-08-16)
+**Reason:** mcp-guide now adopts FastMCP 4 rather than the SDK's vendored server layer, retaining the separately maintained framework while gaining MCP SDK v2 and dual-protocol support.
 
 ### ADR-005: MCP Inspector for Integration Testing
 **Status:** Superseded

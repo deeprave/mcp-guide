@@ -1,14 +1,29 @@
 ## MODIFIED Requirements
 
 ### Requirement: Streamable HTTP Transport Mode
-The system SHALL support MCP Streamable HTTP using the v2-compatible SDK handler and
+The system SHALL support MCP Streamable HTTP using the FastMCP 4 handler and
 a single negotiated endpoint. The transport SHALL validate and process the protocol
 revision and request-identification headers required by the selected SDK and protocol
 revision, without relying on private FastMCP server internals.
 
+#### Scenario: Enable streaming with flag
+- **WHEN** a user runs HTTP mode with the `--streaming` flag
+- **THEN** the server SHALL use the selected FastMCP 4 Streamable HTTP handler
+- **AND** one `/mcp` endpoint SHALL handle bidirectional Streamable HTTP communication
+
+#### Scenario: Streaming with HTTPS
+- **WHEN** a user runs HTTPS mode with the `--streaming` flag
+- **THEN** the server SHALL use Streamable HTTP with the configured TLS settings
+- **AND** streaming SHALL work over TLS
+
+#### Scenario: Streaming flag validation
+- **WHEN** a user provides the `--streaming` flag with stdio mode
+- **THEN** the system SHALL report that streaming is available only for HTTP or HTTPS
+- **AND** it SHALL display clear usage guidance
+
 #### Scenario: Modern HTTP request
 - **WHEN** a client sends a valid negotiated Streamable HTTP request to the configured endpoint
-- **THEN** the server SHALL dispatch it through the v2-compatible request handler
+- **THEN** the server SHALL dispatch it through the FastMCP 4 request handler
 - **AND** the application SHALL receive a request context derived from that request
 
 #### Scenario: Missing or invalid protocol headers
