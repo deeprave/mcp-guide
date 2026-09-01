@@ -2,7 +2,11 @@
 
 ## Status
 
-ACCEPTED
+SUPERSEDED by ADR-012
+
+This historical record describes project inference. Guide now binds an
+explicit client-supplied root to an explicit interaction; only the narrowly
+defined stdio PWD bootstrap remains.
 
 ## Context
 

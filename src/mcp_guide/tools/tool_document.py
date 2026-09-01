@@ -10,7 +10,7 @@ from mcp_guide.core.tool_decorator import toolfunc
 from mcp_guide.result import Result
 from mcp_guide.result_constants import ERROR_NOT_FOUND
 from mcp_guide.store.document_store import remove_document
-from mcp_guide.tools.tool_result import tool_result
+from mcp_guide.tools.tool_result import ToolResult, tool_result
 
 
 class DocumentRemoveArgs(ToolArguments):
@@ -38,7 +38,7 @@ async def internal_document_remove(
 
 
 @toolfunc(DocumentRemoveArgs)
-async def document_remove(args: DocumentRemoveArgs, ctx: Optional[Context] = None) -> str:
+async def document_remove(args: DocumentRemoveArgs, ctx: Optional[Context] = None) -> ToolResult:
     """Remove a document from the store by category and name."""
     result = await internal_document_remove(args, ctx)
-    return await tool_result("document_remove", result)
+    return await tool_result("document_remove", result, ctx=ctx, session_id=args.session_id)

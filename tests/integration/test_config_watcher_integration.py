@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from mcp_guide.session import get_session, remove_current_session
+from mcp_guide.session import get_session
 
 
 @pytest.mark.anyio
@@ -17,9 +17,6 @@ async def test_config_watcher_integration(tmp_path: Path, caplog: pytest.LogCapt
     initial_project = await session.get_project()
     assert initial_project.name == "test-watcher"
 
-    # Cleanup
-    await remove_current_session()
-
 
 @pytest.mark.anyio
 async def test_config_watcher_cleanup(tmp_path: Path) -> None:
@@ -29,6 +26,3 @@ async def test_config_watcher_cleanup(tmp_path: Path) -> None:
 
     # Get project to initialize session
     await session.get_project()
-
-    # Cleanup
-    await remove_current_session()

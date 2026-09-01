@@ -54,6 +54,7 @@ class TestSendFileContentTool:
             type=None,
             force=None,
             metadata=None,
+            session_id=None,
         )
 
     @pytest.mark.anyio
@@ -88,6 +89,7 @@ class TestSendFileContentTool:
             type="agent/instruction",
             force=True,
             metadata=None,
+            session_id=None,
         )
 
     @pytest.mark.anyio
@@ -136,7 +138,7 @@ class TestSendDirectoryListingTool:
         assert result.value["path"] == "docs/"
         assert len(result.value["entries"]) == 2
 
-        mock_send.assert_called_once_with(context=None, path="docs/", files=entries)
+        mock_send.assert_called_once_with(context=None, path="docs/", files=entries, session_id=None)
 
     @pytest.mark.anyio
     @patch("mcp_guide.tools.tool_filesystem.fs_send_directory_listing")
@@ -183,6 +185,7 @@ class TestSendCommandLocationTool:
             command="python",
             path="/usr/bin/python",
             found=True,
+            session_id=None,
         )
 
     @pytest.mark.anyio
@@ -212,6 +215,7 @@ class TestSendCommandLocationTool:
             command="nonexistent",
             path=None,
             found=False,
+            session_id=None,
         )
 
     @pytest.mark.anyio
@@ -250,6 +254,7 @@ class TestSendWorkingDirectoryTool:
         mock_send.assert_called_once_with(
             context=None,
             working_directory="/home/user/project",
+            session_id=None,
         )
 
     @pytest.mark.anyio

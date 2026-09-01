@@ -2,26 +2,19 @@
 
 ## MCP Server Factory Fixture
 
-Tools are registered with the MCP server via decorators that execute ON MODULE IMPORT.
-When pytest runs multiple test modules, Python's import system caches modules and does
-NOT re-import them. This causes tool contamination between test modules.
+Tools are registered on server creation via deferred registration and require
+fresh registration state between modules.
 
-The mcp_server_factory fixture solves this by providing a factory function that:
-1. Resets the ToolsProxy singleton
-2. Creates a fresh server instance
-3. Reloads specified tool modules
-4. Cleans up after tests complete
-
-See README.md in this directory for usage examples and detailed explanation.
+The mcp_server_factory fixture resets registration state and creates a fresh
+server per module.
 """
 
-import sys
-from importlib import reload
+from importlib import import_module
 from pathlib import Path
 
 import pytest
 
-from mcp_guide.server import _ToolsProxy, create_server
+from mcp_guide.server import create_server
 
 
 @pytest.fixture(scope="module")
@@ -36,13 +29,24 @@ def mcp_server_factory():
     created_servers = []
 
     def _create_server(tool_modules: list[str]):
-        # Reset proxy to clear any previously registered tools
-        _ToolsProxy._instance = None
-
-        # Clear tool registry
+        # Clear tool registration state before bootstrap so each fixture has
+        # a deterministic, isolated set of registered tools.
         from mcp_guide.core.tool_decorator import clear_tool_registry
 
         clear_tool_registry()
+
+        # Import (or reload) tool modules to repopulate decorator metadata after
+        # the registry clear. Modules remain in memory once imported, so a
+        # direct import is insufficient on subsequent invocations.
+        import importlib
+        import sys
+
+        for module_name in tool_modules:
+            full_name = f"mcp_guide.tools.{module_name}"
+            if full_name in sys.modules:
+                importlib.reload(sys.modules[full_name])
+            else:
+                import_module(full_name)
 
         # Create new server instance
         from mcp_guide.cli import ServerConfig
@@ -50,24 +54,12 @@ def mcp_server_factory():
         config = ServerConfig()
         server = create_server(config)
 
-        # Reload tool modules to populate registry
-        for module_name in tool_modules:
-            full_module_path = f"mcp_guide.tools.{module_name}"
-            if full_module_path in sys.modules:
-                reload(sys.modules[full_module_path])
-
-        # Register tools with MCP
-        from mcp_guide.core.tool_decorator import register_tools
-
-        register_tools(server)
-
         created_servers.append(server)
         return server
 
     yield _create_server
 
     # Clean up after module
-    _ToolsProxy._instance = None
     from mcp_guide.core.tool_decorator import clear_tool_registry
 
     clear_tool_registry()

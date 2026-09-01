@@ -1,18 +1,16 @@
 """DocumentTask - ingests documents into the store via FS_FILE_CONTENT events."""
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from mcp_guide.content.formatters.mime import detect_text_subtype
 from mcp_guide.core.mcp_log import get_logger
-from mcp_guide.decorators import task_init
 from mcp_guide.render.frontmatter import parse_content_with_frontmatter
-from mcp_guide.session import get_session
 from mcp_guide.store.document_store import add_document
 from mcp_guide.task_manager.interception import EventType
-from mcp_guide.task_manager.manager import get_task_manager
 
 if TYPE_CHECKING:
+    from mcp_guide.session import Session
     from mcp_guide.task_manager.manager import EventResult, TaskManager
 
 logger = get_logger(__name__)
@@ -26,14 +24,12 @@ _DEFAULT_DOC_TYPE = "agent/instruction"
 _VALID_DOC_TYPES = frozenset({"agent/instruction", "agent/information", "user/information"})
 
 
-@task_init
 class DocumentTask:
     """Ingest documents into the store when FS_FILE_CONTENT events contain required metadata."""
 
-    def __init__(self, task_manager: Optional["TaskManager"] = None) -> None:
-        if task_manager is None:
-            task_manager = get_task_manager()
+    def __init__(self, task_manager: "TaskManager", session: "Session") -> None:
         self.task_manager = task_manager
+        self.session = session
         self.task_manager.subscribe(self, EventType.FS_FILE_CONTENT)
 
     def get_name(self) -> str:
@@ -79,8 +75,7 @@ class DocumentTask:
             return EventResult(result=False, message=f"Invalid document type: {doc_type!r}")
 
         # Validate category exists
-        session = await get_session()
-        project = await session.get_project()
+        project = await self.session.get_project()
         if category not in project.categories:
             return EventResult(result=False, message=f"Category {category!r} does not exist")
 

@@ -5,16 +5,16 @@
 from typing import Optional
 
 from fastmcp import Context
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from mcp_guide.agent_detection import detect_agent, format_agent_info
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.core.tool_arguments import ToolArguments
 from mcp_guide.core.tool_decorator import toolfunc
-from mcp_guide.guide import GuideMCP
+from mcp_guide.mcp_context import extract_client_params
 from mcp_guide.render.cache import invalidate_template_context_cache
 from mcp_guide.result import Result
-from mcp_guide.tools.tool_result import tool_result
+from mcp_guide.tools.tool_result import ToolResult, tool_result
 
 logger = get_logger(__name__)
 
@@ -45,32 +45,27 @@ async def internal_client_info(args: GetClientInfoArgs, ctx: Optional[Context] =
         if ctx is None:
             return Result.failure("Context not available")
 
-        # Verify we have a GuideMCP instance
-        if not isinstance(ctx.fastmcp, GuideMCP):
-            return Result.failure("Server must be GuideMCP instance")
-
         # Read agent_info from session (populated during bootstrap by mcp_context.py)
         from mcp_guide.session import get_session
 
-        session = await get_session(ctx)
+        session = await get_session(ctx, session_id=args.session_id)
         agent_info = session.agent_info
 
         if agent_info is None:
             # Not yet bootstrapped — detect now and store on session
-            if ctx.session.client_params is None:
+            client_params = extract_client_params(ctx)
+            if client_params is None:
                 return Result.failure("No client information available")
 
-            cp = ctx.session.client_params
-            normalized_cp = cp.model_dump() if isinstance(cp, BaseModel) else cp
-            agent_info = detect_agent(normalized_cp)
+            agent_info = detect_agent(client_params)
             session.agent_info = agent_info
-            session.client_params = normalized_cp
-            invalidate_template_context_cache()
+            session.client_params = client_params
+            invalidate_template_context_cache(session)
 
         # Build structured data
         from mcp_guide.core.prompt_decorator import get_prompt_name
 
-        mcp_name = ctx.fastmcp.name or get_prompt_name()
+        mcp_name = getattr(ctx.fastmcp, "name", None) or get_prompt_name()
 
         # For Claude: if mcp_name is "guide" (default), use "/" instead of "/guide:"
         if agent_info.normalized_name == "claude" and mcp_name == "guide":
@@ -99,11 +94,11 @@ async def internal_client_info(args: GetClientInfoArgs, ctx: Optional[Context] =
         return Result.failure(f"Error retrieving client info: {str(e)}")
 
 
-@toolfunc(GetClientInfoArgs)
-async def client_info(args: GetClientInfoArgs, ctx: Optional[Context] = None) -> str:
+@toolfunc(GetClientInfoArgs, requires_project=False)
+async def client_info(args: GetClientInfoArgs, ctx: Optional[Context] = None) -> ToolResult:
     """Get information about the MCP client/agent.
 
     Captures agent name, version, and prompt prefix from the MCP session.
     """
     result = await internal_client_info(args, ctx)
-    return await tool_result("client_info", result)
+    return await tool_result("client_info", result, ctx=ctx, session_id=args.session_id)

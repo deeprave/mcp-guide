@@ -28,6 +28,10 @@ def make_rendered_content(content: str, instruction: str | None = None) -> Rende
 def mock_task_manager():
     """Create a mock task manager."""
     manager = MagicMock()
+    manager._session = MagicMock()
+    manager._session.template_cache = MagicMock()
+    manager._session.get_project = AsyncMock(return_value=MagicMock(openspec_version=None, openspec_validated=True))
+    manager._session.update_config = AsyncMock()
     manager.subscribe = MagicMock()  # Synchronous
     manager.unsubscribe = AsyncMock()
     manager.queue_instruction = AsyncMock()
@@ -43,7 +47,7 @@ def mock_session():
     session = MagicMock()
     flags_mock = MagicMock()
     flags_mock.list = AsyncMock(return_value={"openspec": True})
-    session.feature_flags.return_value = flags_mock
+    session.runtime.feature_flags.return_value = flags_mock
     return session
 
 
@@ -135,14 +139,11 @@ class TestOpenSpecTask:
         task = OpenSpecTask(mock_task_manager)
         task._project_instruction_id = "project-check"
 
-        with (
-            patch("mcp_guide.session.get_session") as mock_get_session,
-            patch.object(task, "request_changes_json", new_callable=AsyncMock) as mock_request_changes,
-        ):
+        with patch.object(task, "request_changes_json", new_callable=AsyncMock) as mock_request_changes:
             project = MagicMock(openspec_validated=False)
             session = AsyncMock()
             session.get_project.return_value = project
-            mock_get_session.return_value = session
+            task._session = session
 
             result = await task.handle_event(
                 EventType.FS_DIRECTORY,
@@ -262,17 +263,14 @@ class TestOpenSpecTask:
             "content": "openspec version 1.2.3",
         }
 
-        with (
-            patch("mcp_guide.session.get_session") as mock_session,
-            patch.object(task, "request_project_check", new_callable=AsyncMock) as mock_request_project,
-        ):
+        with patch.object(task, "request_project_check", new_callable=AsyncMock) as mock_request_project:
             mock_project = MagicMock()
             mock_project.openspec_version = None
             mock_project.openspec_validated = False  # Required for request_project_check to be called
             mock_session_instance = AsyncMock()
             mock_session_instance.get_project = AsyncMock(return_value=mock_project)
             mock_session_instance.update_config = AsyncMock()
-            mock_session.return_value = mock_session_instance
+            task._session = mock_session_instance
 
             result = await task.handle_event(EventType.FS_FILE_CONTENT, event_data)
 
@@ -457,7 +455,8 @@ class TestOpenSpecResponseFormatting:
             assert result.rendered_content is not None
             # Check that render was called with TemplateContext
             call_args = mock_render.call_args
-            assert call_args[0][0] == "_status-format"
+            assert call_args[0][0] is task._session
+            assert call_args[0][1] == "_status-format"
             assert "extra_context" in call_args[1]
 
     @pytest.mark.anyio
@@ -485,7 +484,8 @@ class TestOpenSpecResponseFormatting:
             assert result.result is True
             # Check that render was called with TemplateContext
             call_args = mock_render.call_args
-            assert call_args[0][0] == "_status-format"
+            assert call_args[0][0] is task._session
+            assert call_args[0][1] == "_status-format"
             assert "extra_context" in call_args[1]
 
     @pytest.mark.anyio
@@ -578,7 +578,8 @@ class TestOpenSpecResponseFormatting:
             assert result.result is True
             # Check that render was called with TemplateContext
             call_args = mock_render.call_args
-            assert call_args[0][0] == "_show-format"
+            assert call_args[0][0] is task._session
+            assert call_args[0][1] == "_show-format"
             assert "extra_context" in call_args[1]
 
     @pytest.mark.anyio
@@ -604,7 +605,8 @@ class TestOpenSpecResponseFormatting:
             assert result.rendered_content is not None
             # Check that render was called with TemplateContext wrapping the data
             call_args = mock_render.call_args
-            assert call_args[0][0] == "_error-format"
+            assert call_args[0][0] is task._session
+            assert call_args[0][1] == "_error-format"
             assert "extra_context" in call_args[1]
             # Verify the context contains the expected data
             context = call_args[1]["extra_context"]

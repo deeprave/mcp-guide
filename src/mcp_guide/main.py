@@ -73,11 +73,13 @@ async def async_main(config: ServerConfig) -> None:
     Args:
         config: Server configuration including transport mode
     """
-    from mcp_guide.server import create_server
+    from mcp_guide.server import create_application
     from mcp_guide.transports import MissingDependencyError, create_transport
 
-    # Create server (configures logging)
-    mcp = create_server(config)
+    # FastMCP enters the paired GuideRuntime lifespan immediately before the
+    # selected transport accepts requests.
+    application = create_application(config)
+    mcp = application.server
 
     # Handle CLI errors after logging is configured
     _handle_cli_error(config)

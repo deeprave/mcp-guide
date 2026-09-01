@@ -4,7 +4,6 @@ from typing import TYPE_CHECKING
 
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.render.rendering import render_content
-from mcp_guide.task_manager import get_task_manager
 
 if TYPE_CHECKING:
     from mcp_guide.session import Session
@@ -26,13 +25,13 @@ class GuideUriListener:
         """Render guide-uri template and queue instruction if content is non-blank."""
         try:
             rendered = await render_content(
+                session,
                 pattern="_guide-uri",
                 category_dir="_system",
             )
 
             if rendered and rendered.content.strip():
-                task_manager = get_task_manager()
-                await task_manager.queue_instruction(rendered.content)
+                await session.task_manager.queue_instruction(rendered.content)
                 logger.trace(f"Guide URI instruction queued for project: {session.project_name}")
 
         except FileNotFoundError as e:

@@ -4,7 +4,6 @@ from typing import TYPE_CHECKING
 
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.render.rendering import render_content
-from mcp_guide.task_manager import get_task_manager
 
 if TYPE_CHECKING:
     from mcp_guide.session import Session
@@ -34,11 +33,12 @@ class StartupInstructionListener:
         """
         try:
             rendered = await render_content(
+                session,
                 pattern="_startup",
                 category_dir="_system",
             )
             if rendered and rendered.content.strip():
-                await get_task_manager().queue_instruction(rendered.content, priority=True)
+                await session.task_manager.queue_instruction(rendered.content, priority=True)
                 logger.trace("Startup instruction queued for project: %s", session.project_name)
         except FileNotFoundError as e:
             logger.trace("No startup template found for project %s: %s", session.project_name, e)
@@ -47,11 +47,12 @@ class StartupInstructionListener:
 
         try:
             rendered = await render_content(
+                session,
                 pattern="_onboard_prompt",
                 category_dir="_system",
             )
             if rendered and rendered.content.strip():
-                await get_task_manager().queue_instruction(rendered.content, priority=False)
+                await session.task_manager.queue_instruction(rendered.content, priority=False)
                 logger.trace("Onboarding prompt queued for project: %s", session.project_name)
         except FileNotFoundError as e:
             logger.trace("No onboard prompt template found for project %s: %s", session.project_name, e)

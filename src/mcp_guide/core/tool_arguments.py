@@ -1,7 +1,11 @@
-"""Tool arguments - alias for Arguments base class."""
+"""Shared MCP tool argument contract."""
 
-# Import Arguments as ToolArguments for backward compatibility
-from mcp_guide.core.arguments import Arguments as ToolArguments
+from mcp_guide.core.arguments import Arguments as _Arguments
 
-# Re-export for existing imports
-__all__ = ["ToolArguments"]
+# ToolArguments is an identity alias for the shared Arguments type to preserve
+# backwards compatibility with historical imports.
+ToolArguments = _Arguments
+Arguments = _Arguments
+
+
+__all__ = ["ToolArguments", "Arguments"]

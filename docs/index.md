@@ -22,6 +22,7 @@ mcp-guide is an MCP server that provides AI agents with organised access to proj
 
 - [Getting Started](user/getting-started.md) - Quick introduction and first steps
 - [Installation](user/installation.md) - Installation and setup instructions
+- [Protocol and Sessions](user/protocol-and-sessions.md) - Protocol compatibility, project binding, and interaction state
 - [Prompt Commands](user/commands.md) - Prompt command reference
 
 ## User Guide

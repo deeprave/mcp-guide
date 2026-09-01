@@ -1,9 +1,9 @@
 """Tests for feature flag MCP tools."""
 
-import json
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
+from tests.helpers import tool_result_payload
 
 from mcp_guide.result import Result
 from mcp_guide.tools.tool_feature_flags import (
@@ -16,9 +16,9 @@ from mcp_guide.tools.tool_feature_flags import (
 )
 
 
-def parse_result_json(json_str: str) -> Result:
-    """Parse JSON string back to Result object for testing."""
-    data = json.loads(json_str)
+def parse_tool_result(tool_result: object) -> Result:
+    """Read a native tool response into the domain result used by these assertions."""
+    data = tool_result_payload(tool_result)
     if data["success"]:
         return Result.ok(data.get("value"), message=data.get("message"), instruction=data.get("instruction"))
     else:
@@ -56,10 +56,9 @@ class TestListFlagsTool:
             # Mock global flags proxy
             mock_global_proxy = Mock()
             mock_global_proxy.list = AsyncMock(return_value={"global_flag": True, "shared_flag": "global_value"})
-            mock_session.feature_flags.return_value = mock_global_proxy
+            mock_session.runtime.feature_flags.return_value = mock_global_proxy
 
-            result_json = await list_project_flags(args)
-            result = parse_result_json(result_json)
+            result = parse_tool_result(await list_project_flags(args))
 
             assert result.success is True
             # Should merge with project taking precedence
@@ -81,8 +80,7 @@ class TestListFlagsTool:
             mock_project_proxy.list = AsyncMock(return_value={"project_flag": False, "project_string": "value"})
             mock_session.project_flags.return_value = mock_project_proxy
 
-            result_json = await list_project_flags(args)
-            result = parse_result_json(result_json)
+            result = parse_tool_result(await list_project_flags(args))
 
             assert result.success is True
             assert result.value == {"project_flag": False, "project_string": "value"}
@@ -99,14 +97,13 @@ class TestListFlagsTool:
             # Mock project and global flags proxies for merged result
             mock_global_proxy = Mock()
             mock_global_proxy.list = AsyncMock(return_value={"other_flag": "ignored"})
-            mock_session.feature_flags.return_value = mock_global_proxy
+            mock_session.runtime.feature_flags.return_value = mock_global_proxy
 
             mock_project_proxy = Mock()
             mock_project_proxy.list = AsyncMock(return_value={"specific_flag": ["list", "value"]})
             mock_session.project_flags.return_value = mock_project_proxy
 
-            result_json = await list_project_flags(args)
-            result = parse_result_json(result_json)
+            result = parse_tool_result(await list_project_flags(args))
 
             assert result.success is True
             assert result.value == ["list", "value"]  # Single value, not dict
@@ -119,8 +116,7 @@ class TestListFlagsTool:
         with patch("mcp_guide.session.get_session") as mock_session_func:
             mock_session_func.side_effect = ValueError("No current project available")
 
-            result_json = await list_project_flags(args)
-            result = parse_result_json(result_json)
+            result = parse_tool_result(await list_project_flags(args))
 
             assert result.success is False
             assert result.error_type == "no_project"
@@ -156,8 +152,7 @@ class TestTestSetProjectFlagTool:
                 mock_flags_proxy.remove = AsyncMock()
             mock_session.project_flags.return_value = mock_flags_proxy
 
-            result_json = await set_project_flag(args)
-            result = parse_result_json(result_json)
+            result = parse_tool_result(await set_project_flag(args))
 
             assert result.success is True
             assert expected_msg in result.value
@@ -181,8 +176,7 @@ class TestTestSetProjectFlagTool:
             mock_flags_proxy.set = AsyncMock()
             mock_session.project_flags.return_value = mock_flags_proxy
 
-            result_json = await set_project_flag(args)
-            result = parse_result_json(result_json)
+            result = parse_tool_result(await set_project_flag(args))
 
             assert result.success is True
             assert "Flag 'test_flag' set to True" in result.value
@@ -193,8 +187,7 @@ class TestTestSetProjectFlagTool:
         """Test validation error for invalid flag name."""
         args = SetFlagArgs(feature_name="invalid.flag", value=True)
 
-        result_json = await set_project_flag(args)
-        result = parse_result_json(result_json)
+        result = parse_tool_result(await set_project_flag(args))
 
         assert result.success is False
         assert result.error_type == "validation_error"
@@ -222,7 +215,7 @@ class TestTestGetProjectFlagTool:
             # Mock global flags proxy
             mock_global_proxy = Mock()
             mock_global_proxy.list = AsyncMock(return_value={"test_flag": "global_value"})
-            mock_session.feature_flags.return_value = mock_global_proxy
+            mock_session.runtime.feature_flags.return_value = mock_global_proxy
 
             result = await internal_get_project_flag(args)
 
@@ -245,7 +238,7 @@ class TestTestGetProjectFlagTool:
 
             mock_global_proxy = Mock()
             mock_global_proxy.list = AsyncMock(return_value={})  # No global flags
-            mock_session.feature_flags.return_value = mock_global_proxy
+            mock_session.runtime.feature_flags.return_value = mock_global_proxy
 
             result = await internal_get_project_flag(args)
 

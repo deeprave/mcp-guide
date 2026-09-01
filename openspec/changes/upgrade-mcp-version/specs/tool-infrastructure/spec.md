@@ -17,9 +17,10 @@ placing protocol metadata in the modern response structure.
 - **AND** the client-visible error and embedded instructions SHALL be retained
 
 ### Requirement: Request-Scoped Tool Invocation
-The tool registration layer SHALL provide each tool invocation with the application
-request context and SHALL not require tool implementations to access a raw FastMCP
-context or global active session.
+The tool registration layer SHALL normalise each invocation through the request adapter
+and SHALL not use a global active session. It may continue to pass raw FastMCP context
+to transitional tool implementations; replacing those handler signatures with resolved
+application RequestContext is deferred to `use-request-context`.
 
 The shared tool-argument contract SHALL include an optional FastMCP `session_id`.
 The registration layer SHALL pass it to the request adapter when supplied, rather
@@ -70,18 +71,15 @@ the active configuration project of the root-bound interaction and SHALL NOT acc
 `to_project`, a target key, or a target path. The target write SHALL use the active
 configuration's exact key and bound root hash.
 
-For a source name without a hash suffix, lookup SHALL first use an exact raw
-configuration key match, including a legacy hashless entry. This is an explicit
-clone-only recovery path: it SHALL NOT make that entry selectable, listable, or
-otherwise valid for ordinary project resolution. If no exact raw key exists, lookup
-SHALL resolve a unique strictly valid hash-suffixed configuration with that display
-name. An exact hash-suffixed source key SHALL be used directly and SHALL NOT fall
-back to display-name resolution. If more than one strict hash-suffixed configuration
-matches an unhashed source name, the tool SHALL report the ambiguity with the matching
-keys and make no changes.
+An exact hash-suffixed source key SHALL be used directly and SHALL NOT fall back to
+display-name resolution. For a source name without a hash suffix, lookup SHALL use the
+first strict configuration whose `Project.name` matches in configuration order. If no
+strict match exists, cloning SHALL recover an exact raw hashless YAML key with the
+requested name as its source. Ordinary configuration loading, selection, and listing
+continue to ignore hashless, malformed, and mismatched entries.
 
 #### Scenario: Clone into current configuration
-- **WHEN** a root-bound interaction calls `clone_project` with an exact source key or one unambiguous source configuration name
+- **WHEN** a root-bound interaction calls `clone_project` with an exact source key or a source configuration name
 - **THEN** the tool SHALL copy configuration into that interaction's active configuration
 - **AND** it SHALL NOT create, select, or modify any separately named target configuration
 
@@ -90,19 +88,11 @@ keys and make no changes.
 - **THEN** the tool schema SHALL reject the request
 - **AND** it SHALL not modify configuration
 
-#### Scenario: Exact hashless recovery source
-- **WHEN** `from_project` exactly matches a stored hashless configuration key
-- **THEN** `clone_project` SHALL use it as a source only for that clone operation
-- **AND** it SHALL write the copied configuration only to the root-bound target's
-  valid hash-suffixed key
-- **AND** it SHALL NOT make the hashless entry available to normal project selection
-
 #### Scenario: Exact hash-suffixed source key
 - **WHEN** `from_project` exactly matches a stored hash-suffixed configuration key
 - **THEN** `clone_project` SHALL use that configuration as the source
 - **AND** it SHALL not perform display-name ambiguity resolution
 
-#### Scenario: Ambiguous source configuration name
-- **WHEN** more than one stored configuration has the requested source name
-- **THEN** `clone_project` SHALL report the ambiguity without modifying the current configuration
-- **AND** it SHALL include the matching hash-suffixed configuration keys in the error
+#### Scenario: Multiple source configurations with the same name
+- **WHEN** more than one valid stored configuration has the requested source name
+- **THEN** `clone_project` SHALL use the first matching configuration in configuration order

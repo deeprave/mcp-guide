@@ -19,7 +19,7 @@ async def test_metadata_persisted_through_document_task(tmp_path):
     session = AsyncMock()
     session.get_project = AsyncMock(return_value=project)
 
-    task = DocumentTask(task_manager=MagicMock())
+    task = DocumentTask(task_manager=MagicMock(), session=session)
 
     content = "---\nauthor: Jane\ntags: [guide]\n---\n# Hello"
     event_data = {
@@ -35,7 +35,6 @@ async def test_metadata_persisted_through_document_task(tmp_path):
         return await _add_with_db(db, **kw)
 
     with (
-        patch("mcp_guide.tasks.document_task.get_session", return_value=session),
         patch("mcp_guide.tasks.document_task.add_document", side_effect=_add),
     ):
         result = await task.handle_event(EventType.FS_FILE_CONTENT, event_data)

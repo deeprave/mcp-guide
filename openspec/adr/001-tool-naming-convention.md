@@ -1,7 +1,7 @@
 # ADR-001: Tool Naming Convention
 
 **Date:** 2025-11-25
-**Status:** Decided
+**Status:** Accepted
 **Deciders:** Development Team
 
 ## Context
@@ -10,7 +10,8 @@ MCP servers provide tools to AI agents, but some agents like kiro/Amazon Q don't
 
 ## Decision
 
-Use namespaced tool names with `guide_` prefix for all tools provided by this MCP server.
+Use the unprefixed tool name by default. Deployments that need namespace
+isolation may set `MCP_TOOL_PREFIX`, which adds that prefix at registration.
 
 ## Rationale
 
@@ -22,8 +23,9 @@ Use namespaced tool names with `guide_` prefix for all tools provided by this MC
 ## Implementation
 
 - Custom tool decorator with configurable prefix
-- Default prefix: `guide` (configurable via `MCP_TOOL_PREFIX` environment variable)
-- Tool names follow pattern: `{prefix}_{action}` or `{prefix}_{resource}_{action}`
+- Default prefix: none
+- With `MCP_TOOL_PREFIX`, tool names follow `{prefix}_{action}` or
+  `{prefix}_{resource}_{action}`
 
 ## Consequences
 

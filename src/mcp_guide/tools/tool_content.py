@@ -8,7 +8,7 @@ import zlib
 from dataclasses import replace as dc_replace
 from enum import Enum
 from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from fastmcp import Context
 from pydantic import Field
@@ -27,7 +27,13 @@ from mcp_guide.core.tool_arguments import ToolArguments
 from mcp_guide.core.tool_decorator import toolfunc
 from mcp_guide.discovery.files import FileInfo
 from mcp_guide.filesystem.read_write_security import ReadWriteSecurityPolicy, SecurityError
-from mcp_guide.models import CategoryNotFoundError, CollectionNotFoundError, ExpressionParseError, FileReadError
+from mcp_guide.models import (
+    CategoryNotFoundError,
+    CollectionNotFoundError,
+    ExpressionParseError,
+    FileReadError,
+    NoProjectError,
+)
 from mcp_guide.models.project import Project
 from mcp_guide.render.cache import get_template_context_if_needed
 from mcp_guide.result import Result
@@ -40,7 +46,10 @@ from mcp_guide.result_constants import (
     make_no_project_result,
 )
 from mcp_guide.tools.tool_helpers import get_session_and_project
-from mcp_guide.tools.tool_result import parse_options, tool_result
+from mcp_guide.tools.tool_result import ToolResult, parse_options, tool_result
+
+if TYPE_CHECKING:
+    from mcp_guide.session import Session
 
 logger = get_logger(__name__)
 
@@ -109,6 +118,8 @@ class ContentArgs(ToolArguments):
 async def internal_get_content(
     args: ContentArgs,
     ctx: Optional[Context] = None,
+    *,
+    session: "Session | None" = None,
 ) -> Result[str]:
     """Get content from collections and categories (unified access).
 
@@ -118,16 +129,23 @@ async def internal_get_content(
     Args:
         args: Tool arguments with name and optional pattern
         ctx: MCP Context (auto-injected by FastMCP)
+        session: Already-resolved request Session, when the caller owns one
 
     Returns:
         Result containing formatted content or error
     """
-    session, project = await get_session_and_project(ctx)
+    if session is None:
+        session, project = await get_session_and_project(ctx, session_id=args.session_id)
+    else:
+        try:
+            project = await session.get_project()
+        except NoProjectError:
+            project = None
     if project is None:
-        return await make_no_project_result(ctx)
+        return await make_no_project_result()
 
     # Get project
-    docroot = Path(await session.get_docroot())
+    docroot = Path(await session.runtime.get_docroot())
 
     # Check if content has been exported (unless force=True)
     if not args.force:
@@ -135,7 +153,9 @@ async def internal_get_content(
         if export_entry:
             # Get the original content to extract its instruction
             original_result = await internal_get_content(
-                ContentArgs(expression=args.expression, pattern=args.pattern, force=True), ctx
+                ContentArgs(expression=args.expression, pattern=args.pattern, force=True, session_id=args.session_id),
+                ctx,
+                session=session,
             )
             original_instruction = original_result.instruction if original_result.success else None
 
@@ -157,7 +177,7 @@ async def internal_get_content(
                 }
             )
 
-            rendered = await render_content("_export", "_system", context)
+            rendered = await render_content(session, "_export", "_system", context)
             if rendered:
                 return Result.ok(rendered.content, instruction=rendered.instruction)
 
@@ -193,10 +213,10 @@ async def internal_get_content(
                 raise CategoryNotFoundError(f"Invalid category '{category_name}' found in FileInfo object")
 
             category_dir = docroot / category.dir
-            template_context = await get_template_context_if_needed(category_files, category_name)
+            template_context = await get_template_context_if_needed(session, category_files, category_name)
 
             errors = await read_and_render_file_contents(
-                category_files, category_dir, docroot, template_context, category_prefix=category_name
+                session, category_files, category_dir, docroot, template_context, category_prefix=category_name
             )
             file_read_errors.extend(errors)
             final_files.extend(category_files)
@@ -240,14 +260,14 @@ async def internal_get_content(
 async def get_content(
     args: ContentArgs,
     ctx: Optional[Context] = None,
-) -> str:
+) -> ToolResult:
     """Get content from collections and categories.
 
     Searches collections first, then categories. Aggregates and deduplicates
     results from all matches. Supports pattern filtering for selective content retrieval.
     """
     result = await internal_get_content(args, ctx)
-    return await tool_result("get_content", result)
+    return await tool_result("get_content", result, ctx=ctx, session_id=args.session_id)
 
 
 class ExportContentArgs(ToolArguments):
@@ -331,25 +351,30 @@ def _build_export_write_instruction(output_path: str, force: bool) -> str:
 async def export_content(
     args: ExportContentArgs,
     ctx: Optional[Context] = None,
-) -> str:
+) -> ToolResult:
     """Export rendered content to a file for knowledge indexing.
 
     Reuses get_content logic to gather and render content, then returns it with
     an instruction to write to the resolved path.
     """
-    session, project = await get_session_and_project(ctx)
+    session, project = await get_session_and_project(ctx, session_id=getattr(args, "session_id", None))
     if project is None:
-        return await tool_result("export_content", await make_no_project_result(ctx))
+        return await tool_result("export_content", await make_no_project_result(), ctx=ctx, session_id=args.session_id)
 
     # Check for existing export (staleness detection)
     export_entry = project.get_export_entry(args.expression, args.pattern)
 
     # Get rendered content (force=True to bypass export check)
-    content_args = ContentArgs(expression=args.expression, pattern=args.pattern, force=True)
+    content_args = ContentArgs(
+        expression=args.expression,
+        pattern=args.pattern,
+        force=True,
+        session_id=args.session_id,
+    )
     result = await internal_get_content(content_args, ctx)
 
     if not result.success:
-        return await tool_result("export_content", result)
+        return await tool_result("export_content", result, ctx=ctx, session_id=args.session_id)
 
     # Compute metadata hash by gathering files for this expression
     gather_expression = _build_expression(args.expression, args.pattern)
@@ -371,7 +396,9 @@ async def export_content(
     if not args.force and export_entry and metadata_hash is not None and metadata_hash == export_entry.metadata_hash:
         instruction = _build_export_write_instruction(export_entry.path, False)
         exported_value = prepend_export_frontmatter(result.value, result.disposition, result.instruction)
-        return await tool_result("export_content", Result.ok(exported_value, instruction=instruction))
+        return await tool_result(
+            "export_content", Result.ok(exported_value, instruction=instruction), ctx=ctx, session_id=args.session_id
+        )
 
     # Resolve agent name
     agent_name = ""
@@ -421,7 +448,9 @@ async def export_content(
     # Prepend YAML frontmatter with resolved disposition and instruction
     exported_value = prepend_export_frontmatter(result.value, result.disposition, result.instruction)
 
-    return await tool_result("export_content", Result.ok(exported_value, instruction=instruction))
+    return await tool_result(
+        "export_content", Result.ok(exported_value, instruction=instruction), ctx=ctx, session_id=args.session_id
+    )
 
 
 class ListExportsArgs(ToolArguments):
@@ -441,7 +470,7 @@ class ListExportsArgs(ToolArguments):
 async def list_exports(
     args: ListExportsArgs,
     ctx: Optional[Context] = None,
-) -> str:
+) -> ToolResult:
     """List all tracked content exports with metadata.
 
     Returns export entries with expression, pattern, path, timestamp, and staleness indicator.
@@ -450,9 +479,9 @@ async def list_exports(
     from fnmatch import fnmatch
     from pathlib import PurePath
 
-    session, project = await get_session_and_project(ctx)
+    session, project = await get_session_and_project(ctx, session_id=getattr(args, "session_id", None))
     if project is None:
-        return await tool_result("list_exports", await make_no_project_result(ctx))
+        return await tool_result("list_exports", await make_no_project_result(), ctx=ctx, session_id=args.session_id)
 
     # Build list of export dicts
     exports = []
@@ -506,13 +535,15 @@ async def list_exports(
             from mcp_guide.render.rendering import render_content
 
             context = TemplateContext({"exports": exports, **parse_options(args.options)})
-            rendered = await render_content("_exports-format", "_system", context)
+            rendered = await render_content(session, "_exports-format", "_system", context)
             if rendered:
-                return await tool_result("list_exports", Result.ok(rendered.content))
+                return await tool_result(
+                    "list_exports", Result.ok(rendered.content), ctx=ctx, session_id=args.session_id
+                )
         except Exception as e:
             logger.warning(f"list_exports: template rendering failed, falling back to JSON: {e}")
 
-    return await tool_result("list_exports", Result.ok(exports))
+    return await tool_result("list_exports", Result.ok(exports), ctx=ctx, session_id=args.session_id)
 
 
 class RemoveExportArgs(ToolArguments):
@@ -532,15 +563,15 @@ class RemoveExportArgs(ToolArguments):
 async def remove_export(
     args: RemoveExportArgs,
     ctx: Optional[Context] = None,
-) -> str:
+) -> ToolResult:
     """Remove export tracking entry from Project.exports.
 
     Removes only the tracking entry, not the actual exported file.
     Requires exact match of expression and pattern (if provided).
     """
-    session, project = await get_session_and_project(ctx)
+    session, project = await get_session_and_project(ctx, session_id=getattr(args, "session_id", None))
     if project is None:
-        return await tool_result("remove_export", await make_no_project_result(ctx))
+        return await tool_result("remove_export", await make_no_project_result(), ctx=ctx, session_id=args.session_id)
 
     # Build key
     key = (args.expression, args.pattern)
@@ -553,9 +584,16 @@ async def remove_export(
                 error=f"Export not found: expression='{args.expression}', pattern={args.pattern}",
                 error_type=ERROR_NOT_FOUND,
             ),
+            ctx=ctx,
+            session_id=args.session_id,
         )
 
     # Remove entry
     await session.update_config(lambda p: dc_replace(p, exports={k: v for k, v in p.exports.items() if k != key}))
 
-    return await tool_result("remove_export", Result.ok(f"Removed export tracking for '{args.expression}'"))
+    return await tool_result(
+        "remove_export",
+        Result.ok(f"Removed export tracking for '{args.expression}'"),
+        ctx=ctx,
+        session_id=args.session_id,
+    )

@@ -5,7 +5,7 @@ from typing import Any
 import pytest
 
 from mcp_guide.task_manager import EventType, TaskManager
-from mcp_guide.task_manager.manager import EventResult
+from mcp_guide.task_manager.manager import EventResult, TrackedInstruction
 
 
 @pytest.fixture(autouse=True)
@@ -44,6 +44,54 @@ class TestTaskManagerInstantiation:
         """TaskManager should be instantiable."""
         manager = TaskManager()
         assert manager is not None
+
+
+class TestTaskManagerCleanup:
+    """Session teardown releases every resource held by its TaskManager."""
+
+    @pytest.mark.anyio
+    async def test_cleanup_clears_session_owned_state(self, task_manager: TaskManager) -> None:
+        """Session teardown stops active tasks and releases transient state."""
+
+        class StoppableSubscriber:
+            def __init__(self) -> None:
+                self.name = "active-project-task"
+                self.stop_calls = 0
+
+            def get_name(self) -> str:
+                return self.name
+
+            async def handle_event(self, event_type: EventType, data: dict[str, Any]) -> EventResult | None:
+                return None
+
+            async def on_tool(self) -> None:
+                return None
+
+            async def stop(self, manager: TaskManager) -> None:
+                self.stop_calls += 1
+
+        task = StoppableSubscriber()
+        task_manager.subscribe(task, EventType.FS_FILE_CONTENT)
+        task_manager._active_project_tasks[type(task)] = task
+        task_manager._pending_instructions.append("project-specific instruction")
+        task_manager._tracked_instructions["instruction"] = TrackedInstruction(
+            id="instruction",
+            content="project-specific instruction",
+            queued_at=0,
+            last_sent_at=0,
+        )
+        task_manager._cache["workflow_state"] = {"phase": "implementation"}
+        task_manager._resolved_flags = {"enabled": True}
+
+        await task_manager.cleanup()
+
+        assert task.stop_calls == 1
+        assert task_manager.get_subscription_count() == 0
+        assert task_manager._active_project_tasks == {}
+        assert task_manager._pending_instructions == []
+        assert task_manager._tracked_instructions == {}
+        assert task_manager._cache == {}
+        assert task_manager._resolved_flags is None
 
 
 class TestAgentDataInterception:
@@ -201,11 +249,18 @@ class TestTaskManagerCache:
         from unittest.mock import Mock
 
         invalidate = Mock()
+        session = Mock()
+        task_manager._session = session
         monkeypatch.setattr("mcp_guide.render.cache.invalidate_template_context_cache", invalidate)
         task_manager.set_cached_data("workflow_state", {"phase": "discussion"})
         invalidate.reset_mock()
 
         task_manager.set_cached_data("workflow_state", None)
 
-        invalidate.assert_called_once()
+        invalidate.assert_called_once_with(session)
         assert "workflow_state" not in task_manager._cache
+
+    def test_invalidating_cache_without_an_owner_is_a_hard_error(self, task_manager: TaskManager) -> None:
+        """A TaskManager without a Session cannot use ambient request state."""
+        with pytest.raises(RuntimeError, match="owning Session"):
+            task_manager.set_cached_data("workflow_state", {"phase": "discussion"})

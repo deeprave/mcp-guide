@@ -52,7 +52,7 @@ state SHALL belong to a context-owned Guide Session.
 - **AND** it SHALL NOT rely on roots, a mutable connection-bound session, or server cwd
 
 #### Scenario: Stdio CLI process inherits a project directory
-- **WHEN** an unbound stdio interaction is handled by a Guide process started with a
+- **WHEN** a sessionless stdio interaction is handled by a Guide process started with a
   valid absolute inherited `PWD`
 - **THEN** the request adapter SHALL treat that path as the CLI client's launch
   project path and bind the newly created interaction to it immediately
@@ -60,6 +60,7 @@ state SHALL belong to a context-owned Guide Session.
   `set_project(path)` round trip
 - **AND** it SHALL apply the same immutable-root and strict configuration-hash rules
   as explicit project selection
+- **AND** it SHALL not infer a root from `PWD` when the request supplies a `session_id`
 
 #### Scenario: Remote process has no project path
 - **WHEN** an unbound HTTP or other remote interaction is handled

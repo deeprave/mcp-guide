@@ -1,23 +1,34 @@
 """Extended MCP tool decorator with logging and prefixing."""
 
 import inspect
+import json
 import os
+import weakref
 from contextvars import ContextVar
 from dataclasses import dataclass
 from functools import cache, wraps
-from typing import TYPE_CHECKING, Any, Callable, Coroutine, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Coroutine, Optional
+
+from fastmcp.tools.base import ToolResult
+from mcp_types import TextContent
 
 from mcp_guide.core.mcp_log import get_logger
+from mcp_guide.core.result import Result as CoreResult
+from mcp_guide.mcp_result_adapter import add_session_continuation, tool_response
+from mcp_guide.result import Result
 from mcp_guide.result_constants import (
+    ERROR_INVALID_NAME,
     ERROR_VALIDATION,
     INSTRUCTION_VALIDATION_ERROR,
     RESULT_NO_PROJECT,
+    make_invalid_session_result,
     make_no_project_result,
 )
-from mcp_guide.session import get_session
+from mcp_guide.session import InvalidGuideSessionError, get_session
+from mcp_guide.validation import InvalidProjectNameError
 
 if TYPE_CHECKING:
-    pass
+    from mcp_guide.session import Session
 
 logger = get_logger(__name__)
 
@@ -48,6 +59,7 @@ class ToolRegistration:
 
 
 _TOOL_REGISTRY: dict[str, ToolRegistration] = {}
+_REGISTERED_TOOL_SERVERS: dict[int, weakref.ReferenceType[Any]] = {}
 
 
 @cache
@@ -72,7 +84,7 @@ def disable_test_mode() -> None:
     _test_mode.set(False)
 
 
-async def _call_on_tool(tool_name: str) -> None:
+async def _call_on_tool(tool_name: str, ctx: Optional[Any] = None, session_id: str | None = None) -> Any:
     """Call TaskManager.on_tool() at tool invocation start.
 
     Note: This handles tool START events. Tool END events and result processing
@@ -81,155 +93,75 @@ async def _call_on_tool(tool_name: str) -> None:
     Args:
         tool_name: Name of the tool being invoked
     """
-    # Import lazily to avoid a cold-import cycle:
-    # task_manager.manager imports render modules, which import this decorator.
-    from mcp_guide.task_manager.manager import get_task_manager
-
-    task_manager = get_task_manager()
     try:
+        if session_id is None:
+            session = await get_session(ctx)
+        else:
+            session = await get_session(ctx, session_id=session_id)
+        task_manager = session.task_manager
         logger.trace(f"Calling on_tool at start of {tool_name}")
         await task_manager.on_tool()
+        return session
+    except InvalidGuideSessionError:
+        raise
+    except InvalidProjectNameError:
+        raise
     except Exception as e:
         logger.error(f"on_tool execution failed at start of {tool_name}: {e}")
+        return None
 
 
-async def _check_project_bound(ctx: Optional[Any]) -> Optional[str]:
-    """Return no-project result JSON string if session is unbound, else None."""
+async def _check_project_bound(ctx: Optional[Any], session_id: str | None = None) -> Optional[object]:
+    """Return a native no-project response if the session is unbound."""
+    # In direct unit calls (no FastMCP context), bypass this boundary so tests can call
+    # decorators without needing a synthetic active session.
+    if ctx is None and session_id is None:
+        return None
+
     try:
-        session = await get_session(ctx)
+        if session_id is None:
+            session = await get_session(ctx)
+        else:
+            session = await get_session(ctx, session_id=session_id)
+    except InvalidGuideSessionError:
+        return tool_response(make_invalid_session_result())
+    except InvalidProjectNameError as error:
+        return tool_response(Result.failure(str(error), error_type=ERROR_INVALID_NAME))
     except ValueError:
-        return RESULT_NO_PROJECT.to_json_str()
+        return tool_response(RESULT_NO_PROJECT)
 
     if not session.project_is_bound:
-        return (await make_no_project_result(ctx)).to_json_str()
+        return tool_response(await make_no_project_result())
 
     return None
 
 
-class ExtMcpToolDecorator:
-    """Extended MCP tool decorator with logging and prefix support.
+async def _normalize_tool_output(
+    result: object,
+    tool_name: str,
+    session_id: str | None = None,
+    *,
+    session: "Session | None" = None,
+) -> ToolResult:
+    """Return a native FastMCP tool result without flattening its semantics."""
+    if isinstance(result, Result):
+        from mcp_guide.tools.tool_result import tool_result
 
-    Features:
-    - Reads MCP_TOOL_PREFIX from environment
-    - Per-tool prefix override
-    - TRACE/DEBUG/ERROR logging
-    - Exception re-raising after logging
-    """
+        return await tool_result(tool_name, result, session=session, session_id=session_id)
 
-    def __init__(self, mcp: Any):
-        """Initialize decorator.
+    if isinstance(result, ToolResult):
+        payload = result.structured_content
+        if session_id is not None and not result.is_error and isinstance(payload, dict):
+            payload = add_session_continuation(payload, session_id)
+            return ToolResult(
+                content=[TextContent(type="text", text=json.dumps(payload))],
+                structured_content=payload,
+                meta=result.meta,
+                is_error=False,
+            )
+        return result
 
-        Args:
-            mcp: FastMCP instance
-        """
-        self.mcp = mcp
-
-    def tool(
-        self,
-        args_class: Optional[type] = None,
-        description: Optional[str] = None,
-        prefix: Optional[str] = None,
-    ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
-        """Decorate a tool function with logging and prefixing.
-
-        Args:
-            args_class: ToolArguments subclass (auto-generates description)
-            description: Tool description (overrides auto-generation)
-            prefix: Tool name prefix (overrides MCP_TOOL_PREFIX)
-
-        Returns:
-            Decorator function
-        """
-
-        def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
-            # In test mode, return function unchanged
-            if _test_mode.get():
-                return func
-
-            # Auto-generate description from args_class if provided
-            final_description = description
-            if args_class is not None and description is None and hasattr(args_class, "build_description"):
-                final_description = args_class.build_description(func)  # ty: ignore[call-non-callable]
-
-            # Determine prefix
-            tool_prefix = prefix if prefix is not None else get_tool_prefix().rstrip("_")
-
-            # Build tool name
-            tool_name = f"{tool_prefix}_{func.__name__}" if tool_prefix else func.__name__  # ty: ignore[unresolved-attribute]
-
-            # Create wrapper that FastMCP will register
-            # FastMCP will create schema from wrapper's signature
-            wrapped: Union[Callable[..., Coroutine[Any, Any, Any]], Callable[..., Any]]
-            if inspect.iscoroutinefunction(func):
-                if args_class is not None:
-                    # Use Pydantic model as single parameter to preserve Field descriptions
-                    @wraps(func)
-                    async def async_wrapper(args: Any, ctx: Optional[Any] = None) -> str:  # Always str for FastMCP
-                        logger.debug(f"Invoking async tool: {tool_name}")
-
-                        # Call on_tool at start of tool invocation
-                        await _call_on_tool(tool_name)
-
-                        try:
-                            # FastMCP validates and constructs args, we just pass it through
-                            result = await func(args, ctx)
-                            logger.debug(f"Tool {tool_name} completed successfully")
-                            return result
-                        except Exception as e:
-                            # Defense-in-depth: catch validation errors that might slip through
-                            from pydantic import ValidationError as PydanticValidationError
-
-                            if isinstance(e, PydanticValidationError):
-                                from mcp_guide.core.result import Result
-
-                                error_details = [
-                                    {
-                                        "field": str(err["loc"][0]) if err["loc"] else "unknown",
-                                        "message": err["msg"],
-                                    }
-                                    for err in e.errors()
-                                ]
-                                error_result: Result[Any] = Result.failure(
-                                    f"Invalid tool arguments: {len(error_details)} validation error(s)",
-                                    error_type=ERROR_VALIDATION,
-                                    instruction=INSTRUCTION_VALIDATION_ERROR,
-                                )
-                                error_result.error_data = {"validation_errors": error_details}
-                                logger.error(f"Tool {tool_name} argument validation failed: {error_details}")
-                                return error_result.to_json_str()
-
-                            logger.error(f"Tool {tool_name} failed: {e}")
-                            raise
-                else:
-                    # No args_class - use explicit ctx parameter
-                    @wraps(func)
-                    async def async_wrapper(ctx: Optional[Any] = None) -> str:  # Always str for FastMCP
-                        logger.debug(f"Invoking async tool: {tool_name}")
-
-                        # Call on_tool at start of tool invocation
-                        await _call_on_tool(tool_name)
-
-                        try:
-                            result = await func(ctx=ctx)
-                            logger.debug(f"Tool {tool_name} completed successfully")
-                            return result
-                        except Exception as e:
-                            logger.error(f"Tool {tool_name} failed: {e}")
-                            raise
-
-                wrapped = async_wrapper
-            else:
-                # Synchronous function - not supported in async-first architecture
-                raise TypeError(
-                    f"Tool {tool_name} must be async. Synchronous tools are not supported in async-first architecture."
-                )
-
-            # Register with FastMCP
-            self.mcp.tool(name=tool_name, description=final_description)(wrapped)
-
-            return wrapped
-
-        return decorator
+    raise TypeError(f"Tool {tool_name} returned unsupported result type: {type(result).__name__}")
 
 
 def toolfunc(
@@ -237,6 +169,7 @@ def toolfunc(
     description: Optional[str] = None,
     prefix: Optional[str] = None,
     requires_project: bool = True,
+    binds_project: bool = False,
 ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """Decorator for deferred tool registration.
 
@@ -269,60 +202,100 @@ def toolfunc(
         tool_name = f"{tool_prefix}_{func.__name__}" if tool_prefix else func.__name__  # ty: ignore[unresolved-attribute]
 
         # Create wrapped function with logging/validation
-        wrapped: Callable[..., Coroutine[Any, Any, str]]
+        wrapped: Callable[..., Coroutine[Any, Any, object]]
         if args_class is not None:
 
             @wraps(func)
-            async def async_wrapper(args: Any, ctx: Optional[Any] = None) -> str:
+            async def async_wrapper(args: Any, ctx: Optional[Any] = None) -> object:
                 logger.debug(f"Invoking async tool: {tool_name}")
-                await _call_on_tool(tool_name)
-                if requires_project:
-                    unbound = await _check_project_bound(ctx)
-                    if unbound is not None:
-                        return unbound
-                try:
-                    result = await func(args, ctx)
-                    logger.debug(f"Tool {tool_name} completed successfully")
-                    return result
-                except Exception as e:
-                    from pydantic import ValidationError as PydanticValidationError
+                from mcp_guide.session import request_session_scope
 
-                    if isinstance(e, PydanticValidationError):
-                        from mcp_guide.core.result import Result
+                async with request_session_scope(ctx, getattr(args, "session_id", None)):
+                    # Project binding mints its modern FastMCP session inside the
+                    # implementation. Starting task interception here would
+                    # otherwise allocate a transient unbound Guide Session first.
+                    session = None
+                    if not binds_project:
+                        try:
+                            session = await _call_on_tool(tool_name, ctx, getattr(args, "session_id", None))
+                        except InvalidGuideSessionError:
+                            return tool_response(make_invalid_session_result())
+                        except InvalidProjectNameError as error:
+                            return tool_response(Result.failure(str(error), error_type=ERROR_INVALID_NAME))
+                        if (
+                            hasattr(args, "session_id")
+                            and getattr(args, "session_id", None) is None
+                            and session is not None
+                        ):
+                            args.session_id = getattr(session, "session_id", None)
+                    if requires_project:
+                        unbound = await _check_project_bound(ctx, getattr(args, "session_id", None))
+                        if unbound is not None:
+                            return unbound
+                    from mcp_guide.tools.tool_result import bind_tool_session, reset_tool_session
 
-                        error_details = [
-                            {"field": str(err["loc"][0]) if err["loc"] else "unknown", "message": err["msg"]}
-                            for err in e.errors()
-                        ]
-                        error_result: Result[Any] = Result.failure(
-                            f"Invalid tool arguments: {len(error_details)} validation error(s)",
-                            error_type=ERROR_VALIDATION,
-                            instruction=INSTRUCTION_VALIDATION_ERROR,
+                    session_token = bind_tool_session(session)
+                    try:
+                        result = await func(args, ctx)
+                        # Existing Guide tools use ``tool_result`` themselves.
+                        # Accepting an internal Result here lets newly migrated
+                        # tools use the same native SDK boundary without a second
+                        # serialisation convention.
+                        return await _normalize_tool_output(
+                            result, tool_name, getattr(args, "session_id", None), session=session
                         )
-                        error_result.error_data = {"validation_errors": error_details}
-                        logger.error(f"Tool {tool_name} argument validation failed: {error_details}")
-                        return error_result.to_json_str()
-                    logger.error(f"Tool {tool_name} failed: {e}")
-                    raise
+                    except Exception as e:
+                        from pydantic import ValidationError as PydanticValidationError
+
+                        if isinstance(e, PydanticValidationError):
+                            error_details = [
+                                {"field": str(err["loc"][0]) if err["loc"] else "unknown", "message": err["msg"]}
+                                for err in e.errors()
+                            ]
+                            error_result: CoreResult[Any] = CoreResult.failure(
+                                f"Invalid tool arguments: {len(error_details)} validation error(s)",
+                                error_type=ERROR_VALIDATION,
+                                instruction=INSTRUCTION_VALIDATION_ERROR,
+                            )
+                            error_result.error_data = {"validation_errors": error_details}
+                            logger.error(f"Tool {tool_name} argument validation failed: {error_details}")
+                            return tool_response(error_result)
+                        logger.error(f"Tool {tool_name} failed: {e}")
+                        raise
+                    finally:
+                        reset_tool_session(session_token)
 
             wrapped = async_wrapper
         else:
 
             @wraps(func)
-            async def async_wrapper_no_args(ctx: Optional[Any] = None) -> str:
+            async def async_wrapper_no_args(ctx: Optional[Any] = None) -> object:
                 logger.debug(f"Invoking async tool: {tool_name}")
-                await _call_on_tool(tool_name)
-                if requires_project:
-                    unbound = await _check_project_bound(ctx)
-                    if unbound is not None:
-                        return unbound
-                try:
-                    result = await func(ctx=ctx)
-                    logger.debug(f"Tool {tool_name} completed successfully")
-                    return result
-                except Exception as e:
-                    logger.error(f"Tool {tool_name} failed: {e}")
-                    raise
+                from mcp_guide.session import request_session_scope
+
+                async with request_session_scope(ctx):
+                    session = None
+                    try:
+                        session = await _call_on_tool(tool_name, ctx)
+                    except InvalidGuideSessionError:
+                        return tool_response(make_invalid_session_result())
+                    except InvalidProjectNameError as error:
+                        return tool_response(Result.failure(str(error), error_type=ERROR_INVALID_NAME))
+                    if requires_project:
+                        unbound = await _check_project_bound(ctx)
+                        if unbound is not None:
+                            return unbound
+                    from mcp_guide.tools.tool_result import bind_tool_session, reset_tool_session
+
+                    session_token = bind_tool_session(session)
+                    try:
+                        result = await func(ctx=ctx)
+                        return await _normalize_tool_output(result, tool_name, session=session)
+                    except Exception as e:
+                        logger.error(f"Tool {tool_name} failed: {e}")
+                        raise
+                    finally:
+                        reset_tool_session(session_token)
 
             wrapped = async_wrapper_no_args
 
@@ -338,7 +311,7 @@ def toolfunc(
         _TOOL_REGISTRY[tool_name] = ToolRegistration(metadata=metadata)
         logger.trace(f"Tool {tool_name} added to registry (not yet registered)")
 
-        return func
+        return wrapped
 
     return decorator
 
@@ -351,16 +324,58 @@ def register_tools(mcp: Any) -> None:
     Args:
         mcp: FastMCP instance
     """
-    # Import tools package to trigger all @toolfunc decorators
+    # Import tools package to trigger all @toolfunc decorators.  A cleared
+    # registry can coexist with already-imported child modules (for example,
+    # after an isolated test reset), so reload those children rather than only
+    # the package facade: importing an already-loaded child would not run its
+    # decorators again.
+    # A partially populated registry is just as unsafe as an empty one.  Test
+    # isolation and import ordering can leave early tool modules registered
+    # while later ones have been cleared; a production server must still expose
+    # the complete built-in surface, including the required project-binding
+    # tool.
+    if "set_project" not in _TOOL_REGISTRY:
+        import importlib
+        import sys
+
+        import mcp_guide.tools  # noqa: F401
+
+        for module_name in (
+            "tool_category",
+            "tool_collection",
+            "tool_content",
+            "tool_discovery",
+            "tool_document",
+            "tool_document_update",
+            "tool_feature_flags",
+            "tool_filesystem",
+            "tool_project",
+            "tool_resource",
+            "tool_update",
+            "tool_utility",
+        ):
+            qualified_name = f"mcp_guide.tools.{module_name}"
+            if module := sys.modules.get(qualified_name):
+                importlib.reload(module)
+
     import mcp_guide.tools  # noqa: F401
 
+    server_id = id(mcp)
+    registered_server = _REGISTERED_TOOL_SERVERS.get(server_id)
+    if registered_server is not None and registered_server() is mcp:
+        logger.trace("Tools already registered for this server, skipping")
+        return
+
     for tool_name, registration in _TOOL_REGISTRY.items():
-        if not registration.registered:
-            mcp.tool(name=tool_name, description=registration.metadata.description)(registration.metadata.wrapped_func)
-            registration.registered = True
-            logger.debug(f"Registered tool: {tool_name}")
-        else:
-            logger.trace(f"Tool {tool_name} already registered, skipping")
+        mcp.tool(name=tool_name, description=registration.metadata.description)(registration.metadata.wrapped_func)
+        registration.registered = True
+        logger.debug(f"Registered tool: {tool_name}")
+
+    def remove_released_server(reference: weakref.ReferenceType[Any]) -> None:
+        if _REGISTERED_TOOL_SERVERS.get(server_id) is reference:
+            _REGISTERED_TOOL_SERVERS.pop(server_id, None)
+
+    _REGISTERED_TOOL_SERVERS[server_id] = weakref.ref(mcp, remove_released_server)
 
 
 def get_tool_registry() -> dict[str, ToolRegistration]:
@@ -380,6 +395,22 @@ def clear_tool_registry() -> None:
     Used primarily for testing to reset registration state.
     """
     _TOOL_REGISTRY.clear()
+    _REGISTERED_TOOL_SERVERS.clear()
+
+
+def clear_registered_tool_servers(server: Any | None = None) -> None:
+    """Clear registration state for one or all runtime servers.
+
+    Args:
+        server: If provided, clear only this server's registration marker. If None,
+            clear all server registration markers.
+    """
+    if server is None:
+        _REGISTERED_TOOL_SERVERS.clear()
+        return
+
+    server_id = server if isinstance(server, int) else id(server)
+    _REGISTERED_TOOL_SERVERS.pop(server_id, None)
 
 
 def get_tool_registration(name: str) -> Optional[ToolRegistration]:

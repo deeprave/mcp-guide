@@ -1,15 +1,18 @@
 """Integration tests for get_content unified access tool via MCP client."""
 
+import inspect
 import json
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 import pytest
 from fastmcp.client import Client, FastMCPTransport
 
 from mcp_guide.models import Category, Collection
-from mcp_guide.session import Session, get_session, remove_current_session, set_current_session
+from mcp_guide.session import Session, get_session
 from mcp_guide.tools.tool_content import ContentArgs
 from tests.conftest import call_mcp_tool
+from tests.helpers import create_unbound_test_session
 
 
 @pytest.fixture
@@ -21,13 +24,25 @@ def anyio_backend():
 async def _create_bound_session(tmp_path: Path) -> Session:
     """Create a lightweight bound session for integration tests."""
     config_dir = str(tmp_path.resolve())
-    session = Session(_config_dir_for_tests=config_dir)
-    config_manager = session._get_config_manager(config_dir)
-    _key, project = await config_manager.get_or_create_project_config("test")
-    session._Session__delegate.bind(project)
-    session._project_dirty = False
-    set_current_session(session)
+    session = create_unbound_test_session(config_dir)
+    project_root = Path(config_dir) / "client-roots" / "test"
+    project_root.mkdir(parents=True, exist_ok=True)
+    await session.bind_project_path(project_root)
     return session
+
+
+def _route_legacy_session(mcp_server, monkeypatch, session: Session) -> None:
+    """Route the in-process legacy client to its isolated test Session."""
+    runtime = inspect.getclosurevars(mcp_server._lifespan).nonlocals["runtime"]
+    original_session_request = runtime.session_request
+
+    @asynccontextmanager
+    async def session_request(owner):
+        runtime.retain_session(owner, session)
+        async with original_session_request(owner) as resolved_session:
+            yield resolved_session
+
+    monkeypatch.setattr(runtime, "session_request", session_request)
 
 
 @pytest.fixture(scope="module")
@@ -44,6 +59,7 @@ async def test_get_content_category_only(mcp_server, tmp_path, monkeypatch):
     monkeypatch.setenv("PWD", "/fake/path/test")
 
     session = await _create_bound_session(tmp_path)
+    _route_legacy_session(mcp_server, monkeypatch, session)
 
     # Add category
     await session.update_config(lambda p: p.with_category("guide", Category(dir="guide", patterns=["*.md"])))
@@ -51,15 +67,13 @@ async def test_get_content_category_only(mcp_server, tmp_path, monkeypatch):
     docroot = Path(tmp_path.resolve()) / "docs"
     generate_test_files(docroot)
 
-    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True), mode="legacy") as client:
         args = ContentArgs(expression="guide")
         result = await call_mcp_tool(client, "get_content", args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
 
         assert response["success"] is True
         assert "Project Guidelines" in response["value"]
-
-    await remove_current_session()
 
 
 @pytest.mark.anyio
@@ -68,6 +82,7 @@ async def test_get_content_collection_only(mcp_server, tmp_path, monkeypatch):
     monkeypatch.setenv("PWD", "/fake/path/test")
 
     session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
+    _route_legacy_session(mcp_server, monkeypatch, session)
 
     # Add categories and collection
     await session.update_config(
@@ -86,7 +101,7 @@ async def test_get_content_collection_only(mcp_server, tmp_path, monkeypatch):
     (guide_dir / "guidelines.md").write_text("# Project Guidelines\n")
     (lang_dir / "python.md").write_text("# Python Guide\n")
 
-    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True), mode="legacy") as client:
         args = ContentArgs(expression="all")
         result = await call_mcp_tool(client, "get_content", args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
@@ -94,8 +109,6 @@ async def test_get_content_collection_only(mcp_server, tmp_path, monkeypatch):
         assert response["success"] is True
         assert "Project Guidelines" in response["value"]
         assert "Python Guide" in response["value"]
-
-    await remove_current_session()
 
 
 @pytest.mark.anyio
@@ -106,6 +119,7 @@ async def test_get_content_both_match_deduplicates(mcp_server, tmp_path, monkeyp
     monkeypatch.setenv("PWD", "/fake/path/test")
 
     session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
+    _route_legacy_session(mcp_server, monkeypatch, session)
 
     # Add category "guide" and collection "guide" containing "guide" category
     await session.update_config(
@@ -117,7 +131,7 @@ async def test_get_content_both_match_deduplicates(mcp_server, tmp_path, monkeyp
     docroot = Path(tmp_path.resolve()) / "docs"
     generate_test_files(docroot)
 
-    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True), mode="legacy") as client:
         args = ContentArgs(expression="guide")
         result = await call_mcp_tool(client, "get_content", args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
@@ -130,8 +144,6 @@ async def test_get_content_both_match_deduplicates(mcp_server, tmp_path, monkeyp
         # If not de-duplicated, would appear 4 times
         assert content.count("guidelines.md") <= 3  # Allow for MIME headers
 
-    await remove_current_session()
-
 
 @pytest.mark.anyio
 async def test_get_content_pattern_override(mcp_server, tmp_path, monkeypatch):
@@ -141,6 +153,7 @@ async def test_get_content_pattern_override(mcp_server, tmp_path, monkeypatch):
     monkeypatch.setenv("PWD", "/fake/path/test")
 
     session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
+    _route_legacy_session(mcp_server, monkeypatch, session)
 
     # Add category with multiple file types
     await session.update_config(
@@ -150,7 +163,7 @@ async def test_get_content_pattern_override(mcp_server, tmp_path, monkeypatch):
     docroot = Path(tmp_path.resolve()) / "docs"
     generate_test_files(docroot)
 
-    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True), mode="legacy") as client:
         # Call with pattern override to only get .md files
         args = ContentArgs(expression="context", pattern="*.md")
         result = await call_mcp_tool(client, "get_content", args)
@@ -160,8 +173,6 @@ async def test_get_content_pattern_override(mcp_server, tmp_path, monkeypatch):
         assert "Jira Integration" in response["value"]
         assert "jira-settings.yaml" not in response["value"]  # YAML file should be excluded
 
-    await remove_current_session()
-
 
 @pytest.mark.anyio
 async def test_get_content_empty_result(mcp_server, tmp_path, monkeypatch):
@@ -169,6 +180,7 @@ async def test_get_content_empty_result(mcp_server, tmp_path, monkeypatch):
     monkeypatch.setenv("PWD", "/fake/path/test")
 
     session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
+    _route_legacy_session(mcp_server, monkeypatch, session)
 
     # Add category with no files
     session._Session__delegate.bind(
@@ -180,7 +192,7 @@ async def test_get_content_empty_result(mcp_server, tmp_path, monkeypatch):
     empty_dir = docroot / "empty"
     empty_dir.mkdir(parents=True, exist_ok=True)
 
-    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True), mode="legacy") as client:
         args = ContentArgs(expression="empty")
         result = await call_mcp_tool(client, "get_content", args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
@@ -189,8 +201,6 @@ async def test_get_content_empty_result(mcp_server, tmp_path, monkeypatch):
         assert "No matching content found" in response["value"]
         assert "instruction" in response
 
-    await remove_current_session()
-
 
 @pytest.mark.anyio
 async def test_get_content_nested_collection(mcp_server, tmp_path, monkeypatch):
@@ -198,6 +208,7 @@ async def test_get_content_nested_collection(mcp_server, tmp_path, monkeypatch):
     monkeypatch.setenv("PWD", "/fake/path/test")
 
     session = await _create_bound_session(tmp_path)
+    _route_legacy_session(mcp_server, monkeypatch, session)
     session._Session__delegate.bind(
         session._Session__delegate.project.with_category("guide", Category(dir="guide", patterns=["*.md"]))
         .with_category("lang", Category(dir="lang", patterns=["*.md"]))
@@ -213,7 +224,7 @@ async def test_get_content_nested_collection(mcp_server, tmp_path, monkeypatch):
     (guide_dir / "guidelines.md").write_text("# Project Guidelines\n")
     (lang_dir / "python.md").write_text("# Python Guide\n")
 
-    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True), mode="legacy") as client:
         args = ContentArgs(expression="all")
         result = await call_mcp_tool(client, "get_content", args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
@@ -222,8 +233,6 @@ async def test_get_content_nested_collection(mcp_server, tmp_path, monkeypatch):
         assert "Project Guidelines" in response["value"]  # From guide (via docs collection)
         assert "Python Guide" in response["value"]  # From lang
 
-    await remove_current_session()
-
 
 @pytest.mark.anyio
 async def test_get_content_circular_collection_reference(mcp_server, tmp_path, monkeypatch):
@@ -231,6 +240,7 @@ async def test_get_content_circular_collection_reference(mcp_server, tmp_path, m
     monkeypatch.setenv("PWD", "/fake/path/test")
 
     session = await _create_bound_session(tmp_path)
+    _route_legacy_session(mcp_server, monkeypatch, session)
     session._Session__delegate.bind(
         session._Session__delegate.project.with_category("guide", Category(dir="guide", patterns=["*.md"]))
         .with_category("lang", Category(dir="lang", patterns=["*.md"]))
@@ -246,7 +256,7 @@ async def test_get_content_circular_collection_reference(mcp_server, tmp_path, m
     (guide_dir / "guidelines.md").write_text("# Project Guidelines\n")
     (lang_dir / "python.md").write_text("# Python Guide\n")
 
-    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True), mode="legacy") as client:
         args = ContentArgs(expression="col1")
         result = await call_mcp_tool(client, "get_content", args)
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
@@ -255,5 +265,3 @@ async def test_get_content_circular_collection_reference(mcp_server, tmp_path, m
         assert response["success"] is True
         assert "Project Guidelines" in response["value"]  # From guide
         assert "Python Guide" in response["value"]  # From lang
-
-    await remove_current_session()

@@ -1,10 +1,17 @@
 """Tests for OpenSpecTask acknowledgement tracking."""
 
+from unittest.mock import AsyncMock, Mock, patch
+
 import pytest
 
 from mcp_guide.openspec.task import OpenSpecTask
 from mcp_guide.task_manager.interception import EventType
 from mcp_guide.task_manager.manager import TaskManager
+
+
+def _manager() -> TaskManager:
+    """Create a manager with the session ownership required for cache updates."""
+    return TaskManager(session=Mock(template_cache=Mock()))
 
 
 @pytest.fixture(autouse=True)
@@ -15,14 +22,29 @@ async def reset_task_manager():
     await TaskManager._reset_for_testing()
 
 
+@pytest.fixture(autouse=True)
+def mock_openspec_templates():
+    """Keep acknowledgement tests focused on task tracking, not rendering."""
+
+    async def render(session, template_name, extra_context=None):
+        return Mock(content=f"openspec request: {template_name}")
+
+    with patch("mcp_guide.openspec.task.render_openspec_template", new=AsyncMock(side_effect=render)):
+        yield
+
+
 class TestOpenSpecTaskAcknowledgement:
     """Test OpenSpecTask acknowledgement tracking."""
 
     @pytest.mark.anyio
     async def test_cli_check_stores_instruction_id(self):
         """Test that CLI check stores instruction ID."""
-        manager = TaskManager()
+        manager = _manager()
         task = OpenSpecTask(manager)
+        task._session = Mock(
+            get_project=AsyncMock(return_value=Mock(openspec_version=None, openspec_validated=True)),
+            update_config=AsyncMock(),
+        )
 
         await task.request_cli_check()
 
@@ -32,7 +54,7 @@ class TestOpenSpecTaskAcknowledgement:
     @pytest.mark.anyio
     async def test_cli_response_acknowledges_instruction(self):
         """Test that CLI response acknowledges instruction."""
-        manager = TaskManager()
+        manager = _manager()
         task = OpenSpecTask(manager)
 
         await task.request_cli_check()
@@ -48,7 +70,7 @@ class TestOpenSpecTaskAcknowledgement:
     @pytest.mark.anyio
     async def test_version_check_stores_instruction_id(self):
         """Test that version check stores instruction ID."""
-        manager = TaskManager()
+        manager = _manager()
         task = OpenSpecTask(manager)
 
         await task.request_version_check()
@@ -59,8 +81,12 @@ class TestOpenSpecTaskAcknowledgement:
     @pytest.mark.anyio
     async def test_version_response_acknowledges_instruction(self):
         """Test that version response acknowledges instruction."""
-        manager = TaskManager()
+        manager = _manager()
         task = OpenSpecTask(manager)
+        task._session = Mock(
+            get_project=AsyncMock(return_value=Mock(openspec_version=None, openspec_validated=True)),
+            update_config=AsyncMock(),
+        )
 
         await task.request_version_check()
         instruction_id = task._version_instruction_id
@@ -73,7 +99,7 @@ class TestOpenSpecTaskAcknowledgement:
     @pytest.mark.anyio
     async def test_project_check_stores_instruction_id(self):
         """Test that project check stores instruction ID."""
-        manager = TaskManager()
+        manager = _manager()
         task = OpenSpecTask(manager)
 
         await task.request_project_check()
@@ -84,7 +110,7 @@ class TestOpenSpecTaskAcknowledgement:
     @pytest.mark.anyio
     async def test_changes_request_stores_instruction_id(self):
         """Test that changes request stores instruction ID."""
-        manager = TaskManager()
+        manager = _manager()
         task = OpenSpecTask(manager)
 
         await task.request_changes_json()
@@ -95,7 +121,7 @@ class TestOpenSpecTaskAcknowledgement:
     @pytest.mark.anyio
     async def test_changes_response_acknowledges_instruction(self):
         """Test that changes response acknowledges instruction."""
-        manager = TaskManager()
+        manager = _manager()
         task = OpenSpecTask(manager)
 
         await task.request_changes_json()

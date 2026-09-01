@@ -1,8 +1,8 @@
 """Base class for MCP arguments with schema generation."""
 
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class Arguments(BaseModel):
@@ -40,6 +40,11 @@ class Arguments(BaseModel):
     """
 
     model_config = ConfigDict(extra="forbid")
+
+    session_id: Optional[str] = Field(
+        default=None,
+        description="FastMCP session identifier returned when this interaction was bound",
+    )
 
     @classmethod
     def to_schema_markdown(cls) -> str:

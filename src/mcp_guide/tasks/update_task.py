@@ -6,31 +6,30 @@ from typing import TYPE_CHECKING, Any, Optional
 from anyio import Path as AsyncPath
 
 from mcp_guide.core.mcp_log import get_logger
-from mcp_guide.decorators import task_init
 from mcp_guide.feature_flags.constants import FLAG_AUTOUPDATE
+from mcp_guide.feature_flags.validators import coerce_boolean_like
 from mcp_guide.installer.core import DocrootValidationError, read_version, validate_docroot_safety
 from mcp_guide.task_manager.interception import EventType
-from mcp_guide.task_manager.manager import EventResult, get_task_manager
+from mcp_guide.task_manager.manager import EventResult
 
 if TYPE_CHECKING:
+    from mcp_guide.session import Session
     from mcp_guide.task_manager.manager import TaskManager
 
 logger = get_logger(__name__)
 
 
-@task_init
 class McpUpdateTask:
     """Check for documentation updates at startup and prompt if needed."""
 
-    def __init__(self, task_manager: Optional["TaskManager"] = None) -> None:
+    def __init__(self, task_manager: "TaskManager", session: "Session") -> None:
         """Initialize McpUpdateTask.
 
         Args:
-            task_manager: TaskManager instance (optional, uses singleton if not provided)
+            task_manager: TaskManager owned by the Session that creates this task.
         """
-        if task_manager is None:
-            task_manager = get_task_manager()
         self.task_manager = task_manager
+        self.session = session
         self._instruction_id: Optional[str] = None
 
         # Subscribe to one-shot timer with 1-second delay to check for updates after startup
@@ -62,22 +61,15 @@ class McpUpdateTask:
 
         try:
             # Autoupdate is opt-out: only explicit false disables startup prompting.
-            autoupdate = (await self.task_manager.resolved_flags()).get(FLAG_AUTOUPDATE)
-            if autoupdate is False:
+            session = self.session
+            autoupdate = (await self.task_manager.resolved_flags(session)).get(FLAG_AUTOUPDATE)
+            if coerce_boolean_like(autoupdate) is False:
                 logger.debug("McpUpdateTask disabled - autoupdate explicitly set to false")
                 return EventResult(result=True)
 
             # Get current project
-            from mcp_guide.session import get_session
-
-            try:
-                session = await get_session()
-            except (ValueError, AttributeError):
-                logger.debug("No session available for update check")
-                return EventResult(result=True)
-
             # Check if update is needed
-            docroot = Path(await session.get_docroot())
+            docroot = Path(await session.runtime.get_docroot())
             if not await AsyncPath(docroot).exists():
                 return EventResult(result=True)
 
@@ -137,7 +129,7 @@ class McpUpdateTask:
 
         # Render update prompt template
         context = TemplateContext()
-        rendered = await render_content("_update", "_system", context)
+        rendered = await render_content(self.session, "_update", "_system", context)
 
         if rendered:
             self._instruction_id = await self.task_manager.queue_instruction_with_ack(rendered.content)

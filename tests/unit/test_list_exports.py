@@ -1,29 +1,55 @@
 """Tests for list_exports tool."""
 
-import json
 from dataclasses import replace as dc_replace
+from pathlib import Path
 from unittest.mock import AsyncMock
 
 import pytest
+from tests.helpers import create_unbound_test_session, tool_result_payload
 
-from mcp_guide.session import get_session
-from mcp_guide.tools.tool_content import ListExportsArgs, list_exports
+from mcp_guide.tools.tool_content import ListExportsArgs
+from mcp_guide.tools.tool_content import list_exports as _list_exports
+
+_test_session = None
+
+
+@pytest.fixture(autouse=True)
+def explicit_test_session(monkeypatch):
+    """Route tool implementation calls through the session created by each test."""
+
+    async def get_bound_session_and_project(ctx=None, *, session_id=None):
+        assert _test_session is not None
+        return _test_session, await _test_session.get_project()
+
+    monkeypatch.setattr("mcp_guide.tools.tool_content.get_session_and_project", get_bound_session_and_project)
+
+
+async def list_exports(args):
+    """Exercise list-export behaviour with the test's explicit Session."""
+    return await _list_exports.__wrapped__(args)
 
 
 @pytest.mark.anyio
 async def test_list_exports_empty(session_temp_dir):
     """Test list_exports returns empty array when no exports exist."""
+    global _test_session
+    session = create_unbound_test_session(str(Path(session_temp_dir) / "config"))
+    _test_session = session
+    await session.bind_project_path(Path(session_temp_dir))
     args = ListExportsArgs(glob=None)
     result = await list_exports(args)
 
-    assert "[]" in result or '"value": []' in result
+    assert tool_result_payload(result)["value"] == []
 
 
 @pytest.mark.anyio
 async def test_list_exports_single(session_temp_dir):
     """Test list_exports returns array with one export entry."""
     # Setup: Add export entry to project
-    session = await get_session()
+    global _test_session
+    session = create_unbound_test_session(str(Path(session_temp_dir) / "config"))
+    _test_session = session
+    await session.bind_project_path(Path(session_temp_dir))
     project = await session.get_project()
     updated = project.upsert_export_entry("docs", None, "/export.md", "a3f5c8d1")
     await session.update_config(lambda _: updated)
@@ -33,7 +59,7 @@ async def test_list_exports_single(session_temp_dir):
     result = await list_exports(args)
 
     # Verify
-    data = json.loads(result)
+    data = tool_result_payload(result)
     assert data["success"] is True
     exports = data["value"]
     assert len(exports) == 1
@@ -49,7 +75,10 @@ async def test_list_exports_with_timestamp(session_temp_dir, tmp_path, monkeypat
     import time
 
     # Setup: Add export entry with a known timestamp
-    session = await get_session()
+    global _test_session
+    session = create_unbound_test_session(str(Path(session_temp_dir) / "config"))
+    _test_session = session
+    await session.bind_project_path(Path(session_temp_dir))
     project = await session.get_project()
     ts = time.time()
     updated = project.upsert_export_entry("docs", None, str(tmp_path / "export.md"), "a3f5c8d1", exported_at=ts)
@@ -63,7 +92,7 @@ async def test_list_exports_with_timestamp(session_temp_dir, tmp_path, monkeypat
     result = await list_exports(args)
 
     # Verify
-    data = json.loads(result)
+    data = tool_result_payload(result)
     exports = data["value"]
     assert len(exports) == 1
     assert exports[0]["exported_at"] == pytest.approx(ts)
@@ -75,7 +104,10 @@ async def test_list_exports_staleness(session_temp_dir, tmp_path):
     # Create a category with a file
     from mcp_guide.models.project import Category
 
-    session = await get_session()
+    global _test_session
+    session = create_unbound_test_session(str(Path(session_temp_dir) / "config"))
+    _test_session = session
+    await session.bind_project_path(Path(session_temp_dir))
 
     # Clear any existing exports
     project = await session.get_project()
@@ -106,7 +138,7 @@ async def test_list_exports_staleness(session_temp_dir, tmp_path):
     result = await list_exports(args)
 
     # Verify - should be stale (hash doesn't match)
-    data = json.loads(result)
+    data = tool_result_payload(result)
     exports = data["value"]
     assert len(exports) == 1
     assert exports[0]["stale_state"] == "stale"
@@ -115,7 +147,10 @@ async def test_list_exports_staleness(session_temp_dir, tmp_path):
 @pytest.mark.anyio
 async def test_list_exports_glob_filter(session_temp_dir, tmp_path, monkeypatch):
     """Test list_exports filters by glob pattern."""
-    session = await get_session()
+    global _test_session
+    session = create_unbound_test_session(str(Path(session_temp_dir) / "config"))
+    _test_session = session
+    await session.bind_project_path(Path(session_temp_dir))
     monkeypatch.setattr("mcp_guide.tools.tool_content.gather_content", AsyncMock(return_value=[]))
     monkeypatch.setattr("mcp_guide.tools.tool_content.compute_metadata_hash", lambda files: "unchanged")
 
@@ -130,7 +165,7 @@ async def test_list_exports_glob_filter(session_temp_dir, tmp_path, monkeypatch)
     # Test: filter by expression glob
     args = ListExportsArgs(glob="doc*")
     result = await list_exports(args)
-    data = json.loads(result)
+    data = tool_result_payload(result)
     exports = data["value"]
     assert len(exports) == 1
     assert exports[0]["expression"] == "docs"
@@ -138,7 +173,7 @@ async def test_list_exports_glob_filter(session_temp_dir, tmp_path, monkeypatch)
     # Test: filter by path glob
     args = ListExportsArgs(glob="*/other/*")
     result = await list_exports(args)
-    data = json.loads(result)
+    data = tool_result_payload(result)
     exports = data["value"]
     assert len(exports) == 1
     assert exports[0]["expression"] == "tests"
@@ -146,7 +181,7 @@ async def test_list_exports_glob_filter(session_temp_dir, tmp_path, monkeypatch)
     # Test: filter by pattern glob
     args = ListExportsArgs(glob="*.py")
     result = await list_exports(args)
-    data = json.loads(result)
+    data = tool_result_payload(result)
     exports = data["value"]
     assert len(exports) == 1
     assert exports[0]["expression"] == "api"

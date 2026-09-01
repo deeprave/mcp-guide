@@ -2,7 +2,7 @@
 
 from collections.abc import Awaitable
 from pathlib import Path
-from typing import Callable, Optional
+from typing import TYPE_CHECKING, Callable, Optional
 
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.discovery.files import FileInfo, discover_document_files
@@ -10,7 +10,9 @@ from mcp_guide.models import resolve_all_flags
 from mcp_guide.render.content import RenderedContent
 from mcp_guide.render.context import TemplateContext
 from mcp_guide.render.template import render_template
-from mcp_guide.session import get_session
+
+if TYPE_CHECKING:
+    from mcp_guide.session import Session
 
 logger = get_logger(__name__)
 
@@ -37,6 +39,7 @@ async def discover_single_file(
 
 
 async def render_content(
+    session: "Session",
     pattern: str,
     category_dir: str,
     extra_context: Optional[TemplateContext] = None,
@@ -61,8 +64,9 @@ async def render_content(
     Raises:
         FileNotFoundError: No template matches pattern or multiple matches found (default behaviour)
     """
-    session = await get_session()
-    docroot = Path(await session.get_docroot())
+    if session is None:
+        raise RuntimeError("Content rendering requires an explicit Session")
+    docroot = Path(await session.runtime.get_docroot())
     category_path = docroot / category_dir
     display_name = category_name or category_dir
 
@@ -72,8 +76,7 @@ async def render_content(
     else:
         files = await discover_files(category_path, pattern, docroot, display_name)
 
-    current_session = await get_session()
-    requirements_context = await resolve_all_flags(current_session)
+    requirements_context = await resolve_all_flags(session)
 
     # Process context if callback provided (augments extra_context)
     context = extra_context
@@ -83,6 +86,7 @@ async def render_content(
     # noinspection PyBroadException
     try:
         rendered = await render_template(
+            session,
             file_info=files[0],
             base_dir=files[0].path.parent,
             project_flags=requirements_context,

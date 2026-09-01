@@ -79,7 +79,7 @@ async def resolve_all_flags(session: "Session") -> dict[str, Any]:
     try:
         # Get all flags
         project_flags = await session.project_flags().list()
-        global_flags = await session.feature_flags().list()
+        global_flags = await session.runtime.feature_flags().list()
 
         # Get all unique flag names
         all_flag_names = set(project_flags.keys()) | set(global_flags.keys())

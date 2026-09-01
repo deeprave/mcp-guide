@@ -1,18 +1,43 @@
 """Integration tests for export tracking and staleness detection."""
 
-import json
 from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from mcp_guide.result import Result
-from mcp_guide.session import get_session
+from mcp_guide.session import Session
 from mcp_guide.tools.tool_content import ExportContentArgs, export_content
+from tests.helpers import create_test_session, tool_result_payload
+
+_test_session: Session | None = None
+
+
+async def get_session() -> Session:
+    """Return the explicitly provisioned test Session."""
+    assert _test_session is not None
+    return _test_session
 
 
 @pytest.mark.anyio
 class TestExportStalenessIntegration:
     """Integration tests for export staleness detection."""
+
+    @pytest.fixture(autouse=True)
+    async def bound_session(self, tmp_path, monkeypatch):
+        """Provide the production-shaped bound interaction required by exports."""
+        global _test_session
+        session = await create_test_session("export-tracking", _config_dir_for_tests=str(tmp_path))
+        _test_session = session
+
+        async def get_bound_session_and_project(_ctx=None, *, session_id=None):
+            return session, await session.get_project()
+
+        monkeypatch.setattr(
+            "mcp_guide.tools.tool_content.get_session_and_project",
+            get_bound_session_and_project,
+        )
+        yield session
+        _test_session = None
 
     async def test_first_export_creates_tracking_entry(self, session_temp_dir):
         """Test that first export creates a tracking entry."""
@@ -119,9 +144,7 @@ class TestExportStalenessIntegration:
             args = ExportContentArgs(expression="docs", path="output.md")
 
             # First call - should succeed and create tracking entry
-            result1 = await export_content(args, None)
-            assert "has been exported" not in result1
-            payload1 = json.loads(result1)
+            payload1 = tool_result_payload(await export_content(args, None))
             assert payload1["success"] is True
             assert "RAW FILE DATA" in payload1["instruction"]
             assert "`.knowledge/output.md`" in payload1["instruction"]
@@ -133,13 +156,12 @@ class TestExportStalenessIntegration:
             assert entry.metadata_hash == HASH
 
             # Second call - same hash, should return stale message
-            result2 = await export_content(args, None)
-            payload2 = json.loads(result2)
+            payload2 = tool_result_payload(await export_content(args, None))
             assert payload2["success"] is True
             assert "RAW FILE DATA" in payload2["instruction"]
             assert "`.knowledge/output.md`" in payload2["instruction"]
 
             # force=True bypasses staleness check
             args_force = ExportContentArgs(expression="docs", path="output.md", force=True)
-            result3 = await export_content(args_force, None)
-            assert "has been exported" not in result3
+            payload3 = tool_result_payload(await export_content(args_force, None))
+            assert payload3["success"] is True

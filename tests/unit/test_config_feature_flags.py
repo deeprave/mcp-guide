@@ -3,9 +3,7 @@
 from pathlib import Path
 
 import pytest
-from tests.helpers import create_bound_test_session
-
-from mcp_guide.session import Session
+from tests.helpers import create_bound_test_session, create_unbound_test_session
 
 
 def _prepare_config_dir(config_dir: Path) -> str:
@@ -21,17 +19,17 @@ class TestFeatureFlagsViaSession:
     @pytest.mark.anyio
     async def test_get_global_flags_empty_default(self, tmp_path):
         """Test getting global flags returns empty dict by default."""
-        session = Session(_config_dir_for_tests=_prepare_config_dir(tmp_path))
+        session = create_unbound_test_session(_prepare_config_dir(tmp_path))
 
-        flags_proxy = session.feature_flags()
+        flags_proxy = session.runtime.feature_flags()
         flags = await flags_proxy.list()
         assert flags == {}
 
     @pytest.mark.anyio
     async def test_set_and_get_global_flag(self, tmp_path):
         """Test setting and getting global flags."""
-        session = Session(_config_dir_for_tests=_prepare_config_dir(tmp_path))
-        flags_proxy = session.feature_flags()
+        session = create_unbound_test_session(_prepare_config_dir(tmp_path))
+        flags_proxy = session.runtime.feature_flags()
 
         await flags_proxy.set("test_flag", True)
         flags = await flags_proxy.list()
@@ -44,8 +42,8 @@ class TestFeatureFlagsViaSession:
     @pytest.mark.anyio
     async def test_remove_global_flag(self, tmp_path):
         """Test removing global flags."""
-        session = Session(_config_dir_for_tests=_prepare_config_dir(tmp_path))
-        flags_proxy = session.feature_flags()
+        session = create_unbound_test_session(_prepare_config_dir(tmp_path))
+        flags_proxy = session.runtime.feature_flags()
 
         await flags_proxy.set("flag1", True)
         await flags_proxy.set("flag2", False)
@@ -92,14 +90,14 @@ class TestFeatureFlagsViaSession:
         config_dir = _prepare_config_dir(tmp_path)
 
         session1 = await create_bound_test_session("test-project", _config_dir_for_tests=config_dir)
-        global_proxy1 = session1.feature_flags()
+        global_proxy1 = session1.runtime.feature_flags()
         project_proxy1 = session1.project_flags("test_project")
 
         await global_proxy1.set("persistent_flag", "test_value")
         await project_proxy1.set("project_persistent", True)
 
         session2 = await create_bound_test_session("test-project", _config_dir_for_tests=config_dir)
-        global_proxy2 = session2.feature_flags()
+        global_proxy2 = session2.runtime.feature_flags()
         project_proxy2 = session2.project_flags("test_project")
 
         global_flags = await global_proxy2.list()

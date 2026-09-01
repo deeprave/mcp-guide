@@ -48,6 +48,45 @@ class TestResourceHandlers:
             assert parsed["value"] == "Test content from collection"
 
     @pytest.mark.anyio
+    async def test_guide_resource_passes_the_resolved_session(self, mcp_server: Any) -> None:
+        """Native resources resolve Session once and thread it into content reads."""
+        mock_ctx = MagicMock()
+        mock_session = MagicMock()
+        mock_session.session_id = "resource-session"
+        mock_session.task_manager.process_result = AsyncMock(side_effect=lambda result: result)
+        mock_result = Result.ok("session-aware content")
+
+        with patch("mcp_guide.resources.get_session", new=AsyncMock(return_value=mock_session)):
+            with patch(
+                "mcp_guide.resources.internal_get_content", new=AsyncMock(return_value=mock_result)
+            ) as mock_get_content:
+                from mcp_guide.resources import guide_resource
+
+                result = await guide_resource("docs", "readme", mock_ctx)
+
+                assert mock_get_content.call_args.kwargs["session"] is mock_session
+                parsed = _parse_result(result)
+                assert parsed["success"] is True
+
+    @pytest.mark.anyio
+    async def test_guide_resource_invalid_project_name(self, mcp_server: Any) -> None:
+        """An invalid project name is not swallowed as an unexpected resource error."""
+        from mcp_guide.validation import InvalidProjectNameError
+
+        mock_ctx = MagicMock()
+        with patch(
+            "mcp_guide.resources.get_session",
+            new=AsyncMock(side_effect=InvalidProjectNameError("Project path basename is invalid")),
+        ):
+            from mcp_guide.resources import guide_resource
+
+            result = await guide_resource("docs", "readme", mock_ctx)
+
+            parsed = _parse_result(result)
+            assert parsed["success"] is False
+            assert parsed["error_type"] == "invalid_name"
+
+    @pytest.mark.anyio
     async def test_guide_resource_no_document(self, mcp_server: Any) -> None:
         """guide:// resource should handle empty document parameter."""
         mock_ctx = MagicMock()
@@ -178,6 +217,7 @@ class TestResourceHandlers:
             read_args = args_call[0]
             assert read_args.uri == "guide://_project"
             assert kwargs_call["ctx"] is mock_ctx
+            assert "session" in kwargs_call
             parsed = _parse_result(result)
             assert parsed["success"] is True
             assert parsed["value"] == "project info"
@@ -193,7 +233,13 @@ class TestResourceHandlers:
 
         request = SimpleNamespace(params=SimpleNamespace(uri=AnyUrl("guide://_status?verbose=true")))
         mock_ctx = MagicMock()
-        mock_ctx.request_context = SimpleNamespace(request=request)
+        mock_ctx.request_context = SimpleNamespace(
+            request=request,
+            protocol_version="2026-07-28",
+            request_id="resource-uri",
+            meta=None,
+            lifespan_context=None,
+        )
         mock_result = Result.ok("status output")
 
         with patch(

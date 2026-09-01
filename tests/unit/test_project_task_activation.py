@@ -13,13 +13,7 @@ from mcp_guide.workflow.tasks import WorkflowMonitorTask
 
 def _patch_resolved_flags(flags: dict[str, object]):
     """Patch flag resolution for task-owned activation tests."""
-    session = Mock()
-    session.add_listener = Mock()
-    return patch.multiple(
-        "mcp_guide.task_manager.manager",
-        get_session=AsyncMock(return_value=session),
-        resolve_all_flags=AsyncMock(return_value=flags),
-    )
+    return patch("mcp_guide.task_manager.manager.resolve_all_flags", new=AsyncMock(return_value=flags))
 
 
 class TestRuntimeProjectTaskActivation:
@@ -42,6 +36,7 @@ class TestRuntimeProjectTaskActivation:
                 "mcp_guide.task_manager.manager.get_session",
                 new_callable=AsyncMock,
                 return_value=ambient_session,
+                create=True,
             ) as mock_get_session,
             patch(
                 "mcp_guide.task_manager.manager.resolve_all_flags",
@@ -69,7 +64,7 @@ class TestRuntimeProjectTaskActivation:
     async def test_task_start_resolves_flags_from_supplied_session(self, task_cls, flag_name: str) -> None:
         """Project-scoped task startup uses the notified session, not ambient session."""
         task_manager = TaskManager()
-        task = task_cls()
+        task = task_cls(task_manager=task_manager)
         supplied_session = Mock()
         supplied_session.add_listener = Mock()
         ambient_session = Mock()
@@ -83,6 +78,7 @@ class TestRuntimeProjectTaskActivation:
                 "mcp_guide.task_manager.manager.get_session",
                 new_callable=AsyncMock,
                 return_value=ambient_session,
+                create=True,
             ) as mock_get_session,
             patch(
                 "mcp_guide.task_manager.manager.resolve_all_flags",
@@ -100,7 +96,7 @@ class TestRuntimeProjectTaskActivation:
     async def test_openspec_initialise_reads_project_from_supplied_session(self) -> None:
         """Deferred OpenSpec project reads stay tied to the lifecycle session."""
         task_manager = TaskManager()
-        task = OpenSpecTask()
+        task = OpenSpecTask(task_manager=task_manager)
         supplied_session = Mock()
         supplied_session.add_listener = Mock()
         supplied_session.get_project = AsyncMock(
@@ -120,6 +116,7 @@ class TestRuntimeProjectTaskActivation:
                 "mcp_guide.task_manager.manager.get_session",
                 new_callable=AsyncMock,
                 return_value=ambient_session,
+                create=True,
             ) as mock_get_session,
             patch(
                 "mcp_guide.task_manager.manager.resolve_all_flags",
@@ -143,7 +140,7 @@ class TestRuntimeProjectTaskActivation:
     async def test_workflow_task_subscribes_when_workflow_enabled(self) -> None:
         """Workflow activation is owned by WorkflowMonitorTask."""
         task_manager = TaskManager()
-        task = WorkflowMonitorTask()
+        task = WorkflowMonitorTask(task_manager=task_manager)
 
         with _patch_resolved_flags({"workflow": True}):
             started = await task.start(task_manager, Mock())
@@ -155,7 +152,7 @@ class TestRuntimeProjectTaskActivation:
     async def test_workflow_task_stays_inactive_when_workflow_disabled(self) -> None:
         """Workflow task can decline activation without task-manager flag policy."""
         task_manager = TaskManager()
-        task = WorkflowMonitorTask()
+        task = WorkflowMonitorTask(task_manager=task_manager)
 
         with _patch_resolved_flags({"workflow": False}):
             started = await task.start(task_manager, Mock())
@@ -167,7 +164,7 @@ class TestRuntimeProjectTaskActivation:
     async def test_client_context_task_owns_allow_client_info_policy(self) -> None:
         """Client context activation is independent of workflow/OpenSpec."""
         task_manager = TaskManager()
-        task = ClientContextTask()
+        task = ClientContextTask(task_manager=task_manager)
 
         with _patch_resolved_flags({"allow-client-info": True}):
             started = await task.start(task_manager, Mock())
@@ -179,7 +176,7 @@ class TestRuntimeProjectTaskActivation:
     async def test_openspec_task_owns_openspec_policy(self) -> None:
         """OpenSpec activation is independent of workflow/client-info."""
         task_manager = TaskManager()
-        task = OpenSpecTask()
+        task = OpenSpecTask(task_manager=task_manager)
 
         with _patch_resolved_flags({"openspec": True}):
             started = await task.start(task_manager, Mock())

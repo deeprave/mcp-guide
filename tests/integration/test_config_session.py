@@ -2,13 +2,15 @@
 
 import asyncio
 from dataclasses import replace
+from pathlib import Path
 from unittest.mock import AsyncMock
 
 import pytest
 import yaml
 
 from mcp_guide.models import Category
-from mcp_guide.session import Session, set_current_session
+from mcp_guide.session import Session
+from tests.helpers import create_unbound_test_session
 
 
 class _RecordingSessionListener:
@@ -30,21 +32,17 @@ class TestConfigSessionIntegration:
     @staticmethod
     async def _create_bound_session(project_name: str, config_dir: str) -> Session:
         """Create a session bound directly to a project without switch notifications."""
-        session = Session(_config_dir_for_tests=config_dir)
-        config_manager = session._get_config_manager(config_dir)
-        _key, project = await config_manager.get_or_create_project_config(project_name)
-        getattr(session, "_Session__delegate").bind(project)
-        session._project_dirty = False
+        session = create_unbound_test_session(config_dir)
+        project_root = Path(config_dir) / "client-roots" / project_name
+        project_root.mkdir(parents=True, exist_ok=True)
+        await session.bind_project_path(project_root)
         return session
 
     @pytest.mark.anyio
     async def test_end_to_end_workflow(self, tmp_path, monkeypatch):
         """Test complete workflow: create session, update config, save, reload."""
-        monkeypatch.setattr(Session, "_ensure_watcher_started", AsyncMock(return_value=None))
-        monkeypatch.setattr(Session, "_notify_config_changed", AsyncMock(return_value=None))
         # Create session with test config directory
         session = await self._create_bound_session("test-project", str(tmp_path))
-        set_current_session(session)
 
         # Get initial project (should have no categories)
         project = await session.get_project()
@@ -67,8 +65,6 @@ class TestConfigSessionIntegration:
     async def test_concurrent_sessions_different_projects(self, tmp_path, monkeypatch):
         """Test concurrent sessions on different projects work correctly."""
         monkeypatch.setattr("mcp_guide.file_lock.LOCK_RETRY_SECONDS", 0.01)
-        monkeypatch.setattr(Session, "_ensure_watcher_started", AsyncMock(return_value=None))
-        monkeypatch.setattr(Session, "_notify_config_changed", AsyncMock(return_value=None))
         results = []
         config_dir = str(tmp_path)
 
@@ -103,26 +99,18 @@ class TestConfigSessionIntegration:
         )
         from mcp_guide.feature_flags.types import FeatureValue
         from mcp_guide.openspec.task import OpenSpecTask
-        from mcp_guide.task_manager import TaskManager
         from mcp_guide.workflow.tasks import WorkflowMonitorTask
 
-        monkeypatch.setattr(Session, "_ensure_watcher_started", AsyncMock(return_value=None))
-        monkeypatch.setattr(
-            Session,
-            "_config_manager",
-            Session._ConfigManager(config_dir=str(tmp_path)),
-            raising=False,
-        )
         registered_task_classes = get_registered_task_classes()
         clear_registered_tasks_for_testing()
         for task_class in (WorkflowMonitorTask, ClientContextTask, OpenSpecTask):
             task_register(task_class)
 
-        task_manager = TaskManager()
         session = None
 
         try:
             session = await self._create_bound_session("enabled-project", str(tmp_path))
+            task_manager = session.task_manager
             await session.update_config(
                 lambda project: replace(
                     project,
@@ -137,7 +125,8 @@ class TestConfigSessionIntegration:
             assert task_manager.get_task_by_type(WorkflowMonitorTask) is not None
             assert task_manager.get_task_by_type(OpenSpecTask) is not None
             assert task_manager.get_task_by_type(ClientContextTask) is not None
-            assert task_manager.get_subscription_count() == 3
+            # The Session-owned manager also retains its three base tasks.
+            assert task_manager.get_subscription_count() == 6
 
             task_manager.set_cached_data("workflow_state", {"phase": "implementation"})
             task_manager.set_cached_data("client_context_info", {"editor": "test"})
@@ -149,7 +138,7 @@ class TestConfigSessionIntegration:
             assert task_manager.get_task_by_type(WorkflowMonitorTask) is None
             assert task_manager.get_task_by_type(OpenSpecTask) is None
             assert task_manager.get_task_by_type(ClientContextTask) is None
-            assert task_manager.get_subscription_count() == 0
+            assert task_manager.get_subscription_count() == 3
             assert task_manager.get_cached_data("workflow_state") is None
             assert task_manager.get_cached_data("client_context_info") is None
             assert task_manager.get_cached_data("openspec_version") == "1.6.0"
@@ -165,7 +154,6 @@ class TestConfigSessionIntegration:
     @pytest.mark.anyio
     async def test_save_project_notifies_for_bound_project(self, tmp_path, monkeypatch):
         """Saving the session's bound project notifies config listeners."""
-        monkeypatch.setattr(Session, "_ensure_watcher_started", AsyncMock(return_value=None))
         session = await self._create_bound_session("current-project", str(tmp_path))
         listener = _RecordingSessionListener()
         session.add_listener(listener)
@@ -181,10 +169,13 @@ class TestConfigSessionIntegration:
     @pytest.mark.anyio
     async def test_save_project_does_not_notify_for_other_project(self, tmp_path, monkeypatch):
         """Cross-project saves persist without notifying this session's config listeners."""
-        monkeypatch.setattr(Session, "_ensure_watcher_started", AsyncMock(return_value=None))
         session = await self._create_bound_session("current-project", str(tmp_path))
-        config_manager = session._get_config_manager(str(tmp_path))
-        other_key, other_project = await config_manager.get_or_create_project_config("other-project")
+        config_manager = session._config()
+        other_project_root = Path(tmp_path) / "client-roots" / "other-project"
+        other_project_root.mkdir(parents=True, exist_ok=True)
+        other_key, other_project = await config_manager.get_or_create_project_config(
+            "other-project", root_path=other_project_root
+        )
         listener = _RecordingSessionListener()
         session.add_listener(listener)
 
@@ -200,15 +191,17 @@ class TestConfigSessionIntegration:
     @pytest.mark.anyio
     async def test_config_file_change_ignores_other_project(self, tmp_path, monkeypatch):
         """Shared config-file changes do not notify when only another project changed."""
-        monkeypatch.setattr(Session, "_ensure_watcher_started", AsyncMock(return_value=None))
         session = await self._create_bound_session("current-project", str(tmp_path))
-        config_manager = session._get_config_manager(str(tmp_path))
-        _other_key, other_project = await config_manager.get_or_create_project_config("other-project")
+        config_manager = session._config()
+        other_project_root = Path(tmp_path) / "client-roots" / "other-project"
+        _other_key, other_project = await config_manager.get_or_create_project_config(
+            "other-project", root_path=other_project_root
+        )
         listener = _RecordingSessionListener()
         session.add_listener(listener)
 
         await session.save_project(other_project.with_category("api", Category(dir="api/", patterns=["*.py"])))
-        await session._on_config_file_changed(str(config_manager.config_file))
+        await config_manager._on_external_change(str(config_manager.config_file))
 
         listener.config_changed.assert_not_awaited()
         assert (await session.get_project()).name == "current-project"
@@ -216,17 +209,16 @@ class TestConfigSessionIntegration:
     @pytest.mark.anyio
     async def test_config_file_change_notifies_for_bound_project(self, tmp_path, monkeypatch):
         """Shared config-file changes notify when the bound project changed externally."""
-        monkeypatch.setattr(Session, "_ensure_watcher_started", AsyncMock(return_value=None))
         session = await self._create_bound_session("current-project", str(tmp_path))
         project = await session.get_project()
-        config_manager = session._get_config_manager(str(tmp_path))
+        config_manager = session._config()
         listener = _RecordingSessionListener()
         session.add_listener(listener)
 
         assert project.key is not None
         updated_project = project.with_category("docs", Category(dir="docs/", patterns=["*.md"]))
         await config_manager.save_project_config(project.key, updated_project)
-        await session._on_config_file_changed(str(config_manager.config_file))
+        await config_manager._on_external_change(str(config_manager.config_file))
 
         listener.config_changed.assert_awaited_once_with(session)
         assert "docs" in (await session.get_project()).categories
@@ -234,45 +226,42 @@ class TestConfigSessionIntegration:
     @pytest.mark.anyio
     async def test_global_feature_flag_changes_notify_config_listeners(self, tmp_path, monkeypatch):
         """Global flag writes notify because they affect resolved current-project config."""
-        monkeypatch.setattr(Session, "_ensure_watcher_started", AsyncMock(return_value=None))
         session = await self._create_bound_session("current-project", str(tmp_path))
         listener = _RecordingSessionListener()
         session.add_listener(listener)
 
-        await session.feature_flags().set("workflow", True)
+        await session.runtime.feature_flags().set("workflow", True)
 
         listener.config_changed.assert_awaited_once_with(session)
 
     @pytest.mark.anyio
     async def test_config_file_change_notifies_for_cached_global_feature_flags(self, tmp_path, monkeypatch):
         """External global flag changes notify sessions that have resolved global flags."""
-        monkeypatch.setattr(Session, "_ensure_watcher_started", AsyncMock(return_value=None))
         session = await self._create_bound_session("current-project", str(tmp_path))
-        config_manager = session._get_config_manager(str(tmp_path))
-        await session.get_feature_flags()
+        config_manager = session._config()
+        await session.runtime.get_feature_flags()
         listener = _RecordingSessionListener()
         session.add_listener(listener)
 
         config_data = yaml.safe_load(config_manager.config_file.read_text())
         config_data.setdefault("feature_flags", {})["workflow"] = True
         config_manager.config_file.write_text(yaml.dump(config_data))
-        await session._on_config_file_changed(str(config_manager.config_file))
+        await config_manager._on_external_change(str(config_manager.config_file))
 
         listener.config_changed.assert_awaited_once_with(session)
 
     @pytest.mark.anyio
     async def test_config_file_change_notifies_for_uncached_global_feature_flags(self, tmp_path, monkeypatch):
         """External global flag changes notify even before global flags are cached."""
-        monkeypatch.setattr(Session, "_ensure_watcher_started", AsyncMock(return_value=None))
         session = await self._create_bound_session("current-project", str(tmp_path))
-        config_manager = session._get_config_manager(str(tmp_path))
+        config_manager = session._config()
         listener = _RecordingSessionListener()
         session.add_listener(listener)
 
         config_data = yaml.safe_load(config_manager.config_file.read_text())
         config_data.setdefault("feature_flags", {})["workflow"] = True
         config_manager.config_file.write_text(yaml.dump(config_data))
-        await session._on_config_file_changed(str(config_manager.config_file))
+        await config_manager._on_external_change(str(config_manager.config_file))
 
         listener.config_changed.assert_awaited_once_with(session)
 
@@ -280,8 +269,6 @@ class TestConfigSessionIntegration:
     async def test_file_locking_prevents_corruption(self, tmp_path, monkeypatch):
         """Test that config lock prevents read-modify-write race conditions."""
         monkeypatch.setattr("mcp_guide.file_lock.LOCK_RETRY_SECONDS", 0.01)
-        monkeypatch.setattr(Session, "_ensure_watcher_started", AsyncMock(return_value=None))
-        monkeypatch.setattr(Session, "_notify_config_changed", AsyncMock(return_value=None))
         # Create initial session and project
         initial_session = await self._create_bound_session("test-project", str(tmp_path))
         await initial_session.get_project()  # Create the project

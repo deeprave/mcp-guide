@@ -1,10 +1,13 @@
 # ADR-006: Session Management Architecture
 
 **Date:** 2025-11-26
-**Status:** Accepted
+**Status:** Superseded by ADR-012
 **Context:** Core Architecture for mcp-guide v2
 
 ## Problem
+
+> Historical record. The ContextVar-based design below was superseded by
+> ADR-012. It no longer describes the running architecture.
 
 The v1 architecture used a singleton SessionManager that caused issues with:
 - Testing complexity (global state)

@@ -1,9 +1,9 @@
 """Simple test for feature flag tools."""
 
-import json
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
+from tests.helpers import tool_result_payload
 
 from mcp_guide.tools.tool_feature_flags import ListFlagsArgs, list_project_flags
 
@@ -28,10 +28,9 @@ class TestSimple:
 
             mock_global_proxy = Mock()
             mock_global_proxy.list = AsyncMock(return_value={"global_flag": False})
-            mock_session.feature_flags.return_value = mock_global_proxy
+            mock_session.runtime.feature_flags.return_value = mock_global_proxy
 
-            result_str = await list_project_flags(args)
-            result = json.loads(result_str)
+            result = tool_result_payload(await list_project_flags(args))
 
             # Basic assertion - project flags override global
             assert result["success"] is True

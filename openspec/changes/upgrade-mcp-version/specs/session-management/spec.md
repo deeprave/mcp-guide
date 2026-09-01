@@ -7,24 +7,45 @@ mutable Session instance to exist for the lifetime of a client connection.
 
 Project configuration and project-scoped services SHALL be resolved using an explicit
 request context and owner key. Root binding and active configuration-project selection
-are distinct state. If the implementation retains an in-memory session-like object as
-an optimisation, it SHALL be recreatable from validated request state and SHALL NOT be
-keyed solely by a FastMCP or MCP connection object.
+are distinct state. A context-owned in-memory Guide Session SHALL be selected by a
+validated FastMCP session ID for the lifetime of the running MCP server only after it
+has successfully bound a project; it SHALL NOT be restored after an MCP server restart.
+An unbound request MAY use one request-local Session for its complete handler, but that
+Session SHALL be discarded when the handler completes.
 
 The preferred owner key is a validated explicit FastMCP `session_id`. Retained legacy
 connections that do not supply that argument SHALL use public `ctx.session_id` as a
 compatibility owner key. This fallback SHALL NOT be used to create cross-request
 modern state.
 
-#### Scenario: Stateless modern request resumes selected root and configuration
-- **WHEN** a valid request presents unexpired selected-root and active-configuration state
-- **THEN** the system SHALL resolve the same root binding and project configuration without a prior live connection
-- **AND** project-bound behavior SHALL be equivalent to a request after valid `set_project(path)` and configuration selection
+#### Scenario: Modern request resumes a live interaction
+- **WHEN** a valid modern request supplies the minted FastMCP `session_id` for a
+  still-running MCP server
+- **THEN** the system SHALL resolve the same in-memory root binding and active
+  configuration selection without a live connection object
+- **AND** project-bound behaviour SHALL be equivalent to a request after valid
+  `set_project(path)` and configuration selection
 
 #### Scenario: Request has no project context
 - **WHEN** an interaction has neither valid selected-root state nor an explicit `set_project(path)` call
 - **THEN** the system SHALL create no persisted project configuration as a side effect
 - **AND** project-bound operations SHALL use the defined no-project behavior
+
+#### Scenario: Unbound request completes
+- **WHEN** a request uses a Session that has not bound a project
+- **THEN** the Session SHALL be shared by nested work within that request only
+- **AND** GuideRuntime SHALL clean it up when that request completes
+- **AND** it SHALL not be available to a later request with the same owner ID
+
+#### Scenario: Expiry does not interrupt an active request
+- **WHEN** a Session has an in-flight request
+- **THEN** idle expiry SHALL NOT clean it up
+- **AND** its idle timestamp SHALL be recorded after the final in-flight request completes
+
+#### Scenario: One Session cleanup fails during runtime shutdown
+- **WHEN** Session cleanup raises while GuideRuntime is stopping
+- **THEN** GuideRuntime SHALL still attempt cleanup for every remaining Session
+- **AND** it SHALL clear its registries and stop shared runtime services before reporting the failure
 
 #### Scenario: Concurrent contexts are isolated
 - **WHEN** two requests carry different explicit owner or project identities
@@ -37,10 +58,11 @@ modern state.
 - **AND** it SHALL receive a separate Guide Session and separate TaskManager state
 - **AND** it SHALL NOT receive the parent's pending instructions, timers, caches, or active configuration selection
 
-#### Scenario: Parent deliberately delegates Session state
-- **WHEN** a parent issues validated descendant Session state to a subagent
-- **THEN** the system MAY resolve the delegated Session scope defined by that state
-- **AND** it SHALL not infer delegation from client name, root, or process ancestry
+#### Scenario: Parent and subagent use different session IDs
+- **WHEN** a parent and subagent use separate FastMCP session IDs
+- **THEN** they SHALL resolve separate Guide Sessions
+- **AND** the system SHALL not infer shared or delegated state from client name,
+  root, or process ancestry
 
 ## ADDED Requirements
 
@@ -101,8 +123,10 @@ older entry is ignored.
 `GuideRuntime` SHALL be the process-global Guide state and SHALL create one plainly
 named `ConfigManager` at runtime startup for the shared configuration-file resource,
 replacing the responsibility currently represented by the class-level
-`Session._ConfigManager`. ConfigManager SHALL include persistence, a lock, one
-complete validated configuration snapshot/cache, and one configuration-file watchdog.
+`Session._ConfigManager`. ConfigManager SHALL include persistence, a lock, one complete
+validated configuration image, and one configuration-file watchdog. Every read, write,
+watchdog refresh, diff, and publication SHALL have exclusive access to that image. The
+existing cross-process file lock SHALL remain in use for disk access.
 A Session SHALL consume
 the runtime-owned manager or its configuration view; it SHALL NOT own, reconfigure, or
 watch the shared configuration-file resource. Runtime application code SHALL perform
@@ -154,23 +178,23 @@ publication when the observed snapshot is unchanged.
   already equals ConfigManager's cache
 - **THEN** ConfigManager SHALL not publish a duplicate change notification
 
-### Requirement: Runtime-Immutable Docroot
-`GuideRuntime` SHALL resolve docroot once at startup and own the resulting effective
+### Requirement: ConfigManager-Owned Immutable Docroot
+ConfigManager SHALL resolve docroot once at startup and own the resulting effective
 docroot for its full lifecycle. Docroot SHALL NOT be Session-owned and SHALL NOT be
 changed by a Session operation, an in-process configuration update, or a configuration
 watchdog publication. If ConfigManager observes a persisted docroot value different
-from the running effective docroot, it MAY cache that value as configuration for a
-future runtime, but the running runtime SHALL continue using its startup-resolved
-docroot and SHALL require restart to adopt the new value.
+from the running effective docroot, the running ConfigManager SHALL continue using its
+startup-resolved docroot and a restart SHALL be required to adopt the new value.
+GuideRuntime MAY expose this value, but SHALL NOT cache or duplicate it.
 
 #### Scenario: Session attempts to change docroot
-- **WHEN** a Session attempts an operation that would change docroot while GuideRuntime
+- **WHEN** a Session attempts an operation that would change docroot while ConfigManager
   is running
-- **THEN** the operation SHALL be rejected without changing the runtime's effective
+- **THEN** the operation SHALL be rejected without changing ConfigManager's effective
   docroot
 
 #### Scenario: External configuration change includes a new docroot
 - **WHEN** ConfigManager's watchdog observes a persisted configuration with a
   different docroot
-- **THEN** the running GuideRuntime SHALL retain its startup-resolved effective docroot
+- **THEN** the running ConfigManager SHALL retain its startup-resolved effective docroot
 - **AND** a restart SHALL be required before that persisted value can become effective

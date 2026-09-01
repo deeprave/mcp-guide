@@ -29,6 +29,7 @@ Protected Paths (if they exist):
 import asyncio
 import os
 import shutil
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -86,20 +87,144 @@ if os.name == "nt":
     )
 
 
+REPO_ROOT = Path(__file__).resolve().parent.parent
+
+
+def is_gitignored(repo_root: Path, path: Path) -> bool:
+    """Return True when git would ignore this path in the worktree."""
+    try:
+        relative = path.resolve().relative_to(repo_root.resolve())
+    except ValueError:
+        return True
+    if relative.parts and relative.parts[0] == ".git":
+        return True
+    result = subprocess.run(
+        ["git", "-C", str(repo_root), "check-ignore", "-q", "--", str(relative)],
+        check=False,
+        capture_output=True,
+    )
+    return result.returncode == 0
+
+
 class ProductionFileHandler(FileSystemEventHandler):
-    """Handler that terminates tests immediately on production file modification."""
+    """Abort tests on an identifiable production file event."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._snapshots: dict[Path, dict[Path, tuple[int, int]]] = {}
+        self._recursive_paths: set[Path] = set()
+
+    def watch_path(self, path: Path, *, recursive: bool = True) -> None:
+        """Record the protected path state before watchdog starts observing it."""
+        root = path.resolve()
+        if recursive:
+            self._recursive_paths.add(root)
+        self._snapshots[root] = self._snapshot(root)
+
+    def _snapshot(self, root: Path) -> dict[Path, tuple[int, int]]:
+        """Return persistent non-lock file state beneath one protected root."""
+        paths = root.rglob("*") if root in self._recursive_paths else root.iterdir()
+        snapshot: dict[Path, tuple[int, int]] = {}
+        try:
+            for path in paths:
+                if not path.is_file() or path.name.endswith(".lock"):
+                    continue
+                try:
+                    stat = path.stat()
+                except FileNotFoundError:
+                    continue
+                snapshot[path.resolve()] = (stat.st_mtime_ns, stat.st_size)
+        except FileNotFoundError:
+            return {}
+        return snapshot
+
+    def _directory_changes(self, directory: Path) -> list[str]:
+        """Identify persistent protected-file changes behind a directory event."""
+        changes: list[str] = []
+        for root, previous in self._snapshots.items():
+            try:
+                directory.resolve().relative_to(root)
+            except ValueError:
+                try:
+                    root.relative_to(directory.resolve())
+                except ValueError:
+                    continue
+            current = self._snapshot(root)
+            self._snapshots[root] = current
+            for path in sorted(current.keys() - previous.keys()):
+                changes.append(f"created: {path}")
+            for path in sorted(previous.keys() - current.keys()):
+                changes.append(f"removed: {path}")
+            for path in sorted(current.keys() & previous.keys()):
+                if current[path] != previous[path]:
+                    changes.append(f"modified: {path}")
+        return changes
 
     def on_any_event(self, event):
-        """Terminate test session if production file is touched."""
-        # Ignore transient lock files created by running mcp-guide server instances
-        if event.src_path.endswith(".lock"):
+        """Abort only when watchdog identifies the affected production file."""
+        if getattr(event, "is_directory", False):
+            changes = self._directory_changes(Path(event.src_path))
+            if changes:
+                self._abort(event, changes)
             return
+
+        source_path = event.src_path
+        destination_path = getattr(event, "dest_path", "")
+        # Ignore transient lock files created by running mcp-guide server instances.
+        if source_path.endswith(".lock") or destination_path.endswith(".lock"):
+            return
+
+        self._abort(event)
+
+    @staticmethod
+    def _abort(event, changes: list[str] | None = None) -> None:
+        """Emit a complete, prominent diagnostic before terminating pytest."""
+        source_path = event.src_path
+        destination_path = getattr(event, "dest_path", "")
+        event_class = getattr(event, "event_class", type(event).__name__)
+        changed_paths = ""
+        if changes:
+            changed_paths = "\nDetected file changes:\n" + "\n".join(f"  {change}" for change in changes)
         pytest.exit(
-            f"PRODUCTION FILE MODIFIED: {event.src_path}\n"
-            f"Event type: {event.event_type}\n"
-            f"Tests must use temporary directories for file operations.",
+            "!!! PRODUCTION FILE WRITE DETECTED — TEST RUN ABORTED !!!\n"
+            f"Event class: {event_class}\n"
+            f"Change: {event.event_type}\n"
+            f"Path: {source_path}\n"
+            f"Destination: {destination_path or '<none>'}\n"
+            f"{changed_paths}\n"
+            "Tests must use temporary directories for file operations.",
             returncode=1,
         )
+
+
+class WorktreeFileHandler(FileSystemEventHandler):
+    """Terminate tests that modify non-gitignored worktree paths."""
+
+    def __init__(self, repo_root: Path) -> None:
+        super().__init__()
+        self._repo_root = repo_root.resolve()
+
+    def on_any_event(self, event):
+        """Terminate the test session if a tracked worktree file is touched."""
+        if getattr(event, "is_directory", False):
+            return
+        if event.src_path.endswith(".lock"):
+            return
+        paths = [Path(event.src_path)]
+        dest_path = getattr(event, "dest_path", None)
+        if dest_path:
+            paths.append(Path(dest_path))
+        for path in paths:
+            if path.resolve() == self._repo_root:
+                continue
+            if is_gitignored(self._repo_root, path):
+                continue
+            pytest.exit(
+                f"WORKTREE FILE MODIFIED: {path}\n"
+                f"Event type: {event.event_type}\n"
+                f"Tests must not write non-gitignored files in the repository.",
+                returncode=1,
+            )
 
 
 def _create_test_observer():
@@ -113,36 +238,36 @@ def _create_test_observer():
 
 @pytest.fixture(scope="session", autouse=True)
 def protect_production_files():
-    """Monitor REAL production paths and terminate tests if modified.
+    """Monitor production XDG paths and the worktree; abort on tracked writes.
 
-    Uses paths captured at module import time, before pytest_configure
-    redirects environment variables to temporary directories.
+    Production paths are captured at module import time, before pytest_configure
+    redirects environment variables to temporary directories. Worktree events
+    after this fixture starts are violations unless git would ignore the path.
     """
-    handler = ProductionFileHandler()
+    production_handler = ProductionFileHandler()
+    worktree_handler = WorktreeFileHandler(REPO_ROOT)
     observer = _create_test_observer()
-    watched_any = False
 
-    # Monitor REAL production paths (captured before env modification)
     if REAL_PATHS["mcp_guide_config"].exists():
-        observer.schedule(handler, str(REAL_PATHS["mcp_guide_config"]), recursive=False)
-        watched_any = True
+        production_handler.watch_path(REAL_PATHS["mcp_guide_config"], recursive=False)
+        observer.schedule(production_handler, str(REAL_PATHS["mcp_guide_config"]), recursive=False)
 
     if REAL_PATHS["mcp_guide_docroot"].exists():
-        observer.schedule(handler, str(REAL_PATHS["mcp_guide_docroot"]), recursive=True)
-        watched_any = True
+        production_handler.watch_path(REAL_PATHS["mcp_guide_docroot"])
+        observer.schedule(production_handler, str(REAL_PATHS["mcp_guide_docroot"]), recursive=True)
 
     if REAL_PATHS["msg_config"].exists():
-        observer.schedule(handler, str(REAL_PATHS["msg_config"]), recursive=False)
-        watched_any = True
+        production_handler.watch_path(REAL_PATHS["msg_config"], recursive=False)
+        observer.schedule(production_handler, str(REAL_PATHS["msg_config"]), recursive=False)
 
     if REAL_PATHS["msg_docroot"].exists():
-        observer.schedule(handler, str(REAL_PATHS["msg_docroot"]), recursive=True)
-        watched_any = True
+        production_handler.watch_path(REAL_PATHS["msg_docroot"])
+        observer.schedule(production_handler, str(REAL_PATHS["msg_docroot"]), recursive=True)
 
-    if watched_any:
-        observer.start()
+    observer.schedule(worktree_handler, str(REPO_ROOT), recursive=True)
+    observer.start()
     yield
-    if watched_any and observer.is_alive():
+    if observer.is_alive():
         observer.stop()
         observer.join(timeout=5)
 
@@ -282,7 +407,7 @@ async def call_mcp_tool(client, tool_name: str, args_model=None, **kwargs):
         # No arguments
         arguments = {"args": {}}
 
-    return await client.call_tool(prefixed_tool_name, arguments)
+    return await client.call_tool(prefixed_tool_name, arguments, raise_on_error=False)
 
 
 def assert_tool_registered(tool_names, tool_name):
@@ -327,7 +452,7 @@ def reset_flag_registry():
 
 
 @pytest.fixture(scope="function")
-def guide_function():
+def guide_function(tmp_path, monkeypatch):
     """Import guide function with server initialization.
 
     Creates a temporary server instance to enable guide function import.
@@ -337,10 +462,18 @@ def guide_function():
 
     from mcp_guide.cli import ServerConfig
     from mcp_guide.server import create_server
+    from tests.helpers import create_unbound_test_session
 
     # Initialize server to set up mcp instance
     config = ServerConfig()
     create_server(config)
+
+    session = create_unbound_test_session(str(tmp_path))
+
+    async def get_test_session(*_args, **_kwargs):
+        return session
+
+    monkeypatch.setattr("mcp_guide.session.get_session", get_test_session)
 
     # Import guide function after server is initialized
     from mcp_guide.prompts.guide_prompt import guide
@@ -361,15 +494,11 @@ def guide_function():
     root.setLevel(logging.WARNING)
 
 
-@pytest.fixture(autouse=True)
-def reset_bootstrap_mcp_cache():
-    """Reset bootstrap MCP cache between tests to prevent pollution."""
-    import mcp_guide.mcp_context
+@pytest.fixture(scope="function", autouse=True)
+def reset_session_for_test():
+    """Keep the compatibility fixture while Sessions are explicitly owned.
 
-    mcp_guide.mcp_context._bootstrap_roots.set([])
-    mcp_guide.mcp_context._bootstrap_agent_info.set(None)
-    mcp_guide.mcp_context._bootstrap_client_params.set(None)
+    Runtime-backed and directly constructed Sessions are cleaned up by the
+    tests that create them. There is no process-global session state to reset.
+    """
     yield
-    mcp_guide.mcp_context._bootstrap_roots.set([])
-    mcp_guide.mcp_context._bootstrap_agent_info.set(None)
-    mcp_guide.mcp_context._bootstrap_client_params.set(None)

@@ -1,7 +1,6 @@
 """Shared fixtures for unit tests."""
 
 import hashlib
-import sys
 import uuid
 from pathlib import Path
 from typing import AsyncGenerator, Generator
@@ -15,34 +14,6 @@ def task_manager():
     from mcp_guide.task_manager.manager import TaskManager
 
     return TaskManager()
-
-
-@pytest.fixture(scope="module", autouse=True)
-def reset_tools_proxy_module():
-    """Reset tools proxy and reload modules for each test module.
-
-    Ensures unit tests get unwrapped tool functions by resetting the proxy
-    and reloading modules before each test module runs.
-    """
-    from importlib import reload
-
-    from mcp_guide.server import _ToolsProxy
-
-    # Reset proxy to None so tool decorators become no-ops
-    _ToolsProxy._instance = None
-
-    # Reload tool modules to re-execute decorators with None proxy
-    if "mcp_guide.tools.tool_category" in sys.modules:
-        reload(sys.modules["mcp_guide.tools.tool_category"])
-    if "mcp_guide.tools.tool_collection" in sys.modules:
-        reload(sys.modules["mcp_guide.tools.tool_collection"])
-    if "mcp_guide.tools.tool_content" in sys.modules:
-        reload(sys.modules["mcp_guide.tools.tool_content"])
-
-    yield
-
-    # Clean up after module
-    _ToolsProxy._instance = None
 
 
 @pytest.fixture

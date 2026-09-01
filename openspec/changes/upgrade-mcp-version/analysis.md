@@ -54,8 +54,9 @@ Required work:
 
 The legacy design assumes that a client connection carries roots, client parameters,
 and mutable `Session` state. The migration removes roots entirely: agents explicitly
-select a project once they have chosen a root. Modern requests carry the resulting
-context independently and use request state for multi-round-trip interactions.
+select a project once they have chosen a root. Modern multi-round-trip interactions
+carry FastMCP's minted `session_id`, which selects the resulting in-memory Guide
+Session while the MCP server remains running.
 
 Required work:
 
@@ -69,8 +70,7 @@ Required work:
   not a Session key.
 - Treat subagents as independent Session owners by default. They may use the same
   durable configuration when bound to the same root, but shall not share mutable
-  Session/TaskManager state unless a validated descendant Session state is explicitly
-  issued.
+  Session/TaskManager state.
 - Make durable configuration explicitly shared: GuideRuntime's ConfigManager owns
   persistence and one external-change watcher. After a successful
   write it immediately publishes global feature-flag changes to all Sessions and
@@ -80,11 +80,11 @@ Required work:
 - Replace bootstrap and active-session `ContextVar` state with explicit arguments at
   application boundaries. Context variables may remain as tightly scoped convenience
   bindings, but not as the source of cross-request identity or correctness.
-- Use the SDK request-state facility (including stable `RequestStateSecurity` keys)
-  for `set_project` and other multi-round-trip interactions. Application payloads
-  must remain versioned, expiry-bound, and owner-scoped.
-- Bind any serialized state to the relevant client/principal, request method and
-  parameters (or a documented equivalent) to prevent replay or context substitution.
+- Use FastMCP's minted, principal-validated `session_id` for `set_project` and other
+  modern multi-round-trip interactions. Do not persist Guide Session state across an
+  MCP server restart; only project configuration remains durable.
+- Reject an unknown FastMCP session ID and do not create a replacement Guide Session
+  for it.
 - Define a predictable no-project result until the agent explicitly selects a
   project, except that a stdio CLI process may bind once from valid inherited `PWD`.
   Never fall back to roots or server `PWD` for a remote client.
@@ -115,9 +115,11 @@ Required work:
   hash. A missing or mismatched hash is a miss, never permission to select by name.
 - Treat malformed, hashless, and mismatched configuration entries as ignored data, not
   lookup candidates. No compatibility migration is provided; normal resolution
-  selects or creates only the correct `<project-name>-<hash>` key. That format is
-  already long-established, and fresh configuration is an acceptable outcome for an
-  ignored older entry; this is deliberate rather than an unaddressed migration gap.
+  selects or creates only the correct `<project-name>-<hash>` key. The sole exception
+  is `clone_project`: after strict name lookup fails, it may recover an exact raw
+  hashless YAML key as an explicit source. That format is already long-established,
+  and fresh configuration is an acceptable outcome for an ignored older entry outside
+  this clone recovery path; this is deliberate rather than an unaddressed migration gap.
 - Remove `clone_project`'s `to_project` argument and all temporary-session/noncurrent
   target paths. It must load the root-bound interaction's active configuration as the
   target and save only to that exact key/hash.

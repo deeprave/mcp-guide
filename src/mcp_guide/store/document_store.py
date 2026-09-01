@@ -2,7 +2,7 @@
 
 import json
 import sqlite3
-from dataclasses import dataclass, fields
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal, Optional
@@ -91,9 +91,10 @@ def _now() -> str:
     return datetime.now(UTC).isoformat()
 
 
-# Derive metadata-only query from DocumentRecord fields, excluding content.
-_METADATA_FIELDS = tuple(f.name for f in fields(DocumentRecord) if f.name != "content")
-_SELECT_METADATA = "SELECT " + ", ".join(_METADATA_FIELDS) + " FROM documents"  # nosec B608
+# Metadata-only query, deliberately excluding document content.
+_SELECT_METADATA = (
+    "SELECT id, category, name, source, source_type, metadata, created_at, updated_at, mtime FROM documents"
+)
 
 
 def _parse_metadata(raw: str | None) -> dict:

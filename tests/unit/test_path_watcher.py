@@ -342,13 +342,22 @@ class TestPathWatcherAsyncTaskManagement:
             # Start monitoring
             await watcher.start()
 
-            # Modify file after a short delay
-            await asyncio.sleep(0.02)
+            # Wait until the initial snapshot is established. Otherwise a slow
+            # scheduler can let the write become the initial state.
+            for _ in range(100):
+                if watcher._initialized:
+                    break
+                await asyncio.sleep(0.01)
+            assert watcher._initialized
+
             with open(tmp_file.name, "w") as f:
                 f.write("modified content")
 
-            # Wait for polling to detect change
-            await asyncio.sleep(0.1)
+            # Allow several configured poll intervals for detection.
+            for _ in range(100):
+                if callback.called:
+                    break
+                await asyncio.sleep(0.01)
 
             # Callback should have been invoked
             callback.assert_called_once_with(tmp_file.name)

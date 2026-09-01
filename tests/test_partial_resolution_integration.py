@@ -6,6 +6,7 @@ import pytest
 
 from mcp_guide.discovery.files import FileInfo
 from mcp_guide.render.template import render_template
+from tests.helpers import create_unbound_test_session
 
 
 class TestPartialResolutionIntegration:
@@ -55,6 +56,7 @@ includes:
         )
 
         result = await render_template(
+            session=create_unbound_test_session(str(tmp_path)),
             file_info=file_info,
             base_dir=template_file.parent,
             project_flags={},
@@ -109,6 +111,7 @@ includes:
         )
 
         result = await render_template(
+            session=create_unbound_test_session(str(tmp_path)),
             file_info=file_info,
             base_dir=template_file.parent,
             project_flags={},

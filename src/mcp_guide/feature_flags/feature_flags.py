@@ -7,7 +7,7 @@ from pydantic_core import InitErrorDetails, ValidationError
 from mcp_guide.feature_flags.validators import normalise_flag, validate_flag_with_registered
 
 if TYPE_CHECKING:
-    from mcp_guide.session import Session
+    from mcp_guide.runtime import GuideRuntime
 
 from .types import FeatureValue, RawFeatureValue
 
@@ -30,14 +30,14 @@ def _invalid_feature_value_error(value: object) -> ValidationError:
 
 
 class FeatureFlags:
-    """Global feature flags implementation that proxies Session."""
+    """Global feature flags implementation that proxies GuideRuntime."""
 
-    def __init__(self, session: "Session"):
-        self._session = session
+    def __init__(self, runtime: "GuideRuntime"):
+        self._runtime = runtime
 
     async def list(self) -> dict[str, FeatureValue]:
         """List all global flags."""
-        return await self._session.get_feature_flags()
+        return await self._runtime.get_feature_flags()
 
     async def get(self, flag_name: str, default: Optional[FeatureValue] = None) -> Optional[FeatureValue]:
         """Get a specific global flag value."""
@@ -54,8 +54,8 @@ class FeatureFlags:
         if normalised_value is None:
             raise ValueError(f"Flag `{flag_name}` normalised to None; use remove() instead")
         validate_flag_with_registered(flag_name, normalised_value, is_project=False)
-        await self._session.set_feature_flag(flag_name, normalised_value)
+        await self._runtime.set_feature_flag(flag_name, normalised_value)
 
     async def remove(self, flag_name: str) -> None:
         """Remove a global flag."""
-        await self._session.remove_feature_flag(flag_name)
+        await self._runtime.remove_feature_flag(flag_name)

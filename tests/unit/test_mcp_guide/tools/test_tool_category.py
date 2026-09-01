@@ -7,7 +7,7 @@ from _pytest.monkeypatch import MonkeyPatch
 from tests.helpers import create_test_session
 
 from mcp_guide.models import Category, Collection
-from mcp_guide.session import Session, remove_current_session, set_current_session
+from mcp_guide.session import Session
 from mcp_guide.tools.tool_category import (
     CategoryAddArgs,
     CategoryListArgs,
@@ -15,14 +15,38 @@ from mcp_guide.tools.tool_category import (
     internal_category_list,
 )
 
+_test_session: Session | None = None
+
+
+def set_current_session(session: Session) -> None:
+    """Select the explicit fixture Session used by direct tool unit tests."""
+    global _test_session
+    _test_session = session
+
+
+async def remove_current_session() -> None:
+    """Clear the test fixture Session without restoring a production fallback."""
+    global _test_session
+    _test_session = None
+
+
+@pytest.fixture(autouse=True)
+def inject_explicit_session(monkeypatch):
+    """Route direct tool calls through the explicitly selected test Session."""
+
+    async def get_bound_session_and_project(_ctx=None, *, session_id=None):
+        assert _test_session is not None, "test must select a Session explicitly"
+        return _test_session, await _test_session.get_project()
+
+    monkeypatch.setattr(
+        "mcp_guide.tools.tool_category.get_session_and_project",
+        get_bound_session_and_project,
+    )
+
 
 async def _create_bound_session(tmp_path: Path) -> Session:
-    """Create a lightweight bound session for unit tests."""
-    session = Session(_config_dir_for_tests=str(tmp_path))
-    config_manager = session._get_config_manager(str(tmp_path))
-    _key, project = await config_manager.get_or_create_project_config("test")
-    session._Session__delegate.bind(project)
-    session._project_dirty = False
+    """Create a bound session using the shared production-shaped fixture."""
+    session = await create_test_session("test", _config_dir_for_tests=str(tmp_path))
     set_current_session(session)
     return session
 

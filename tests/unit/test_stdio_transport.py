@@ -1,6 +1,6 @@
 """Tests for stdio transport implementation."""
 
-from unittest.mock import Mock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 
@@ -17,11 +17,14 @@ def test_stdio_transport_implements_protocol():
 
 @pytest.mark.anyio
 async def test_stdio_transport_lifecycle():
-    """Test StdioTransport start/stop lifecycle."""
+    """Stdio delegates lifecycle ownership to FastMCP's public runner."""
     mock_server = Mock()
-    mock_server.run_stdio_async = Mock(return_value=None)
+    mock_server.run_stdio_async = AsyncMock()
 
     transport = StdioTransport(mock_server)
 
-    # Should be able to stop (no-op)
+    await transport.start()
+    mock_server.run_stdio_async.assert_awaited_once_with()
+
+    # The FastMCP runner owns the paired runtime lifespan.
     await transport.stop()

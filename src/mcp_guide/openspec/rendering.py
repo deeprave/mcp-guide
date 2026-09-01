@@ -1,15 +1,18 @@
 """OpenSpec template rendering utilities."""
 
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from mcp_guide.config_constants import OPENSPEC_DIR
 from mcp_guide.render.content import RenderedContent
 from mcp_guide.render.context import TemplateContext
 from mcp_guide.render.rendering import render_content
 
+if TYPE_CHECKING:
+    from mcp_guide.session import Session
+
 
 async def render_openspec_template(
-    template_pattern: str, extra_context: Optional[TemplateContext] = None
+    session: "Session", template_pattern: str, extra_context: Optional[TemplateContext] = None
 ) -> RenderedContent | None:
     """Render OpenSpec template.
 
@@ -24,4 +27,4 @@ async def render_openspec_template(
         Template injection is not a concern - Mustache templates are safe by design
         (no code execution, automatic HTML escaping). Type safety is enforced by mypy.
     """
-    return await render_content(template_pattern, OPENSPEC_DIR, extra_context)
+    return await render_content(session, template_pattern, OPENSPEC_DIR, extra_context)

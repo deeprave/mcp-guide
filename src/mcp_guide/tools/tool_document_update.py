@@ -10,7 +10,7 @@ from mcp_guide.core.tool_decorator import toolfunc
 from mcp_guide.result import Result
 from mcp_guide.result_constants import ERROR_NOT_FOUND, make_no_project_result
 from mcp_guide.store.document_store import update_document
-from mcp_guide.tools.tool_result import tool_result
+from mcp_guide.tools.tool_result import ToolResult, tool_result
 
 
 class DocumentUpdateArgs(ToolArguments):
@@ -48,9 +48,9 @@ async def internal_document_update(
     if args.new_category is not None:
         from mcp_guide.tools.tool_helpers import get_session_and_project
 
-        session, project = await get_session_and_project(ctx)
+        session, project = await get_session_and_project(ctx, session_id=getattr(args, "session_id", None))
         if project is None:
-            return await make_no_project_result(ctx)
+            return await make_no_project_result()
         if args.new_category not in project.categories:
             return Result.failure(error=f"Category {args.new_category!r} does not exist")
 
@@ -80,7 +80,7 @@ async def internal_document_update(
 
 
 @toolfunc(DocumentUpdateArgs)
-async def document_update(args: DocumentUpdateArgs, ctx: Optional[Context] = None) -> str:
+async def document_update(args: DocumentUpdateArgs, ctx: Optional[Context] = None) -> ToolResult:
     """Update a stored document: rename, move between categories, or modify metadata."""
     result = await internal_document_update(args, ctx)
-    return await tool_result("document_update", result)
+    return await tool_result("document_update", result, ctx=ctx, session_id=args.session_id)

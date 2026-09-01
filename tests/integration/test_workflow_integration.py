@@ -8,8 +8,8 @@ import pytest
 from fastmcp import Context
 
 from mcp_guide.filesystem.tools import send_file_content
-from mcp_guide.task_manager import get_task_manager
 from mcp_guide.workflow.tasks import WorkflowMonitorTask
+from tests.helpers import create_test_session
 
 
 class LogCapture:
@@ -69,20 +69,22 @@ queue:
 
 
 @pytest.fixture(autouse=True)
-async def reset_task_manager() -> None:
-    """Reset TaskManager singleton before each test."""
-    from mcp_guide.task_manager.manager import TaskManager
+async def bound_session(tmp_path, monkeypatch):
+    """Provide an isolated Session-owned task manager for each interaction."""
+    session = await create_test_session("workflow", _config_dir_for_tests=str(tmp_path))
 
-    await TaskManager._reset_for_testing()
-    yield
-    await TaskManager._reset_for_testing()
+    async def get_bound_session(_context=None, *, session_id=None):
+        return session
+
+    monkeypatch.setattr("mcp_guide.filesystem.tools.get_session", get_bound_session)
+    yield session
 
 
 class TestWorkflowIntegration:
     """Test complete workflow state processing integration."""
 
     @pytest.mark.anyio
-    async def test_file_content_caching(self, mock_context: AsyncMock, workflow_content: str) -> None:
+    async def test_file_content_caching(self, mock_context: AsyncMock, workflow_content: str, bound_session) -> None:
         """Test that file content is properly cached."""
 
         result = await send_file_content(
@@ -95,7 +97,9 @@ class TestWorkflowIntegration:
         assert result.message is not None and "cached" in result.message.lower()
 
     @pytest.mark.anyio
-    async def test_task_manager_receives_data(self, mock_context: AsyncMock, workflow_content: str) -> None:
+    async def test_task_manager_receives_data(
+        self, mock_context: AsyncMock, workflow_content: str, bound_session
+    ) -> None:
         """Test that TaskManager receives file content data."""
 
         with LogCapture() as logs:
@@ -103,7 +107,7 @@ class TestWorkflowIntegration:
             await send_file_content(context=mock_context, path=".guide.yaml", content=workflow_content)
 
             # Get TaskManager and register a test task
-            task_manager = get_task_manager()
+            task_manager = bound_session.task_manager
 
             # Create a mock subscriber that implements TaskSubscriber protocol
             class MockSubscriber:
@@ -142,15 +146,17 @@ class TestWorkflowIntegration:
                 pytest.fail(f"Unexpected warnings/errors in TaskManager: {error_msgs}")
 
     @pytest.mark.anyio
-    async def test_workflow_task_updates_cache(self, mock_context: AsyncMock, workflow_content: str) -> None:
+    async def test_workflow_task_updates_cache(
+        self, mock_context: AsyncMock, workflow_content: str, bound_session
+    ) -> None:
         """Test that WorkflowMonitorTask correctly updates TaskManager cache."""
         with LogCapture() as logs:
-            task_manager = get_task_manager()
-            workflow_task = WorkflowMonitorTask(".guide.yaml")
+            task_manager = bound_session.task_manager
+            workflow_task = WorkflowMonitorTask(".guide.yaml", task_manager=task_manager)
+            await bound_session.runtime.feature_flags().set("workflow", True)
+            assert await workflow_task.start(task_manager, bound_session)
 
             from mcp_guide.task_manager.interception import EventType
-
-            task_manager.subscribe(workflow_task, EventType.FS_FILE_CONTENT)
 
             await task_manager.dispatch_event(
                 EventType.FS_FILE_CONTENT, {"path": ".guide.yaml", "content": workflow_content}

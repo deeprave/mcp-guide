@@ -22,11 +22,9 @@ async def test_startup_instruction_queued_when_rendered() -> None:
 
     task_manager = MagicMock()
     task_manager.queue_instruction = AsyncMock()
+    session.task_manager = task_manager
 
-    with (
-        patch("mcp_guide.startup_listener.render_content", new=AsyncMock(side_effect=[rendered, None])),
-        patch("mcp_guide.startup_listener.get_task_manager", return_value=task_manager),
-    ):
+    with patch("mcp_guide.startup_listener.render_content", new=AsyncMock(side_effect=[rendered, None])):
         listener = StartupInstructionListener()
         await listener.on_project_changed(session, "old", "test-project")
 
@@ -40,11 +38,9 @@ async def test_startup_instruction_not_queued_when_filtered() -> None:
 
     task_manager = MagicMock()
     task_manager.queue_instruction = AsyncMock()
+    session.task_manager = task_manager
 
-    with (
-        patch("mcp_guide.startup_listener.render_content", new=AsyncMock(return_value=None)),
-        patch("mcp_guide.startup_listener.get_task_manager", return_value=task_manager),
-    ):
+    with patch("mcp_guide.startup_listener.render_content", new=AsyncMock(return_value=None)):
         listener = StartupInstructionListener()
         await listener.on_project_changed(session, "old", "test-project")
 
@@ -63,12 +59,10 @@ async def test_onboard_prompt_queued_at_low_priority_when_not_onboarded() -> Non
 
     task_manager = MagicMock()
     task_manager.queue_instruction = AsyncMock()
+    session.task_manager = task_manager
 
-    with (
-        patch(
-            "mcp_guide.startup_listener.render_content", new=AsyncMock(side_effect=[startup_rendered, onboard_rendered])
-        ),
-        patch("mcp_guide.startup_listener.get_task_manager", return_value=task_manager),
+    with patch(
+        "mcp_guide.startup_listener.render_content", new=AsyncMock(side_effect=[startup_rendered, onboard_rendered])
     ):
         listener = StartupInstructionListener()
         await listener.on_project_changed(session, "old", "test-project")
@@ -83,11 +77,9 @@ async def test_onboard_prompt_suppressed_when_onboarded() -> None:
     # Both templates return None — startup filtered, onboard filtered because onboarded=true
     task_manager = MagicMock()
     task_manager.queue_instruction = AsyncMock()
+    session.task_manager = task_manager
 
-    with (
-        patch("mcp_guide.startup_listener.render_content", new=AsyncMock(return_value=None)),
-        patch("mcp_guide.startup_listener.get_task_manager", return_value=task_manager),
-    ):
+    with patch("mcp_guide.startup_listener.render_content", new=AsyncMock(return_value=None)):
         listener = StartupInstructionListener()
         await listener.on_project_changed(session, "old", "test-project")
 
@@ -105,12 +97,10 @@ async def test_both_queued_when_both_render() -> None:
 
     task_manager = MagicMock()
     task_manager.queue_instruction = AsyncMock()
+    session.task_manager = task_manager
 
-    with (
-        patch(
-            "mcp_guide.startup_listener.render_content", new=AsyncMock(side_effect=[startup_rendered, onboard_rendered])
-        ),
-        patch("mcp_guide.startup_listener.get_task_manager", return_value=task_manager),
+    with patch(
+        "mcp_guide.startup_listener.render_content", new=AsyncMock(side_effect=[startup_rendered, onboard_rendered])
     ):
         listener = StartupInstructionListener()
         await listener.on_project_changed(session, "old", "test-project")
@@ -129,16 +119,14 @@ async def test_startup_error_does_not_prevent_onboard_prompt() -> None:
 
     task_manager = MagicMock()
     task_manager.queue_instruction = AsyncMock()
+    session.task_manager = task_manager
 
-    async def render_side_effect(pattern, category_dir):
+    async def render_side_effect(session, *, pattern, category_dir):
         if pattern == "_startup":
             raise Exception("unexpected render failure")
         return onboard_rendered
 
-    with (
-        patch("mcp_guide.startup_listener.render_content", new=AsyncMock(side_effect=render_side_effect)),
-        patch("mcp_guide.startup_listener.get_task_manager", return_value=task_manager),
-    ):
+    with patch("mcp_guide.startup_listener.render_content", new=AsyncMock(side_effect=render_side_effect)):
         listener = StartupInstructionListener()
         await listener.on_project_changed(session, "old", "test-project")
 
@@ -151,9 +139,9 @@ async def test_on_config_changed_is_noop() -> None:
     session = _make_session()
     task_manager = MagicMock()
     task_manager.queue_instruction = AsyncMock()
+    session.task_manager = task_manager
 
-    with patch("mcp_guide.startup_listener.get_task_manager", return_value=task_manager):
-        listener = StartupInstructionListener()
-        await listener.on_config_changed(session)
+    listener = StartupInstructionListener()
+    await listener.on_config_changed(session)
 
     task_manager.queue_instruction.assert_not_called()

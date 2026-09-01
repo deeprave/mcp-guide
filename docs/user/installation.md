@@ -14,8 +14,8 @@ It requires uv, Python 3.13+ to be installed, and the "uvx" command to be availa
 mcp-guide supports three transport modes:
 
 - **STDIO** - Standard input/output for local agent communication (most common)
-- **HTTP** - Non-secure network transport using Server-Sent Events (SSE)
-- **HTTPS** - Secure network transport using Server-Sent Events (SSE) with SSL certificates
+- **HTTP** - Streamable HTTP transport for network clients
+- **HTTPS** - Streamable HTTP over TLS with SSL certificates
 
 MCP client configuration (STDIO):
 
@@ -70,21 +70,28 @@ Configuration locations:
 
 ### Project Detection
 
-Most CLI agents automatically tell mcp-guide which project you're working in — they provide the current working directory through MCP roots or environment variables, and mcp-guide picks it up without any extra configuration.
+For a local stdio server started from a project directory, mcp-guide may bind the
+inherited `PWD` as the project root. It does not use MCP roots, and HTTP servers never
+infer a client project from the server's own working directory.
 
-Some agents (like Codex) don't provide this context. When that happens, the agent needs to call the `set_project` tool with the project's working directory to initialise the session:
+When the interaction is not already bound, the agent must call `set_project` with the
+absolute client filesystem path of the project root:
 
 ```
-set_project("/path/to/your/project")
+set_project({"path": "/path/to/your/project"})
 ```
 
-Once the project is set, all of mcp-guide's project-related functionality — categories, collections, feature flags, workflows — becomes available. Without it, tools will return an error asking the agent to set a project first.
+An interaction can bind one root only. To work on another root, begin a new
+interaction. `switch_project({"name": "..."})` remains available to select a
+different Guide configuration while retaining the same bound root.
+
+Once the project is set, all of mcp-guide's project-related functionality — categories, collections, feature flags, workflows — becomes available. Without it, tools will return an error asking the agent to set a project first. See [Protocol and Sessions](protocol-and-sessions.md) for the state rules used by modern and retained clients.
 
 If you're using an agent that doesn't automatically detect the project, you can include a brief instruction in your agent's system prompt or project configuration to call `set_project` at the start of each session.
 
 ### Codex Setup
 
-[Codex](https://github.com/openai/codex) communicates with MCP servers over STDIO but doesn't provide project context through MCP roots. mcp-guide handles this — the agent just needs to call `set_project` with the working directory path to get started.
+[Codex](https://github.com/openai/codex) communicates with MCP servers over STDIO. If the server is not started from the project directory, the agent needs to call `set_project` with the working directory path to get started.
 
 Add to `~/.codex/config.json`:
 
@@ -99,9 +106,9 @@ Add to `~/.codex/config.json`:
 }
 ```
 
-Once connected, the agent should call `set_project` with the current project path. After that, `guide://` URIs become the primary way to access content and commands — see [Guide URIs](guide-uris.md) for details.
+Once connected, the agent should call `set_project` with the current project path when the stdio `PWD` shortcut did not bind it. After that, `guide://` URIs become the primary way to access content and commands — see [Guide URIs](guide-uris.md) for details.
 
-### Streaming Mode (SSE)
+### Streamable HTTP
 
 #### HTTP transport
 
@@ -125,7 +132,7 @@ MCP client configuration (HTTP):
 
 #### HTTPS transport
 
-Network transport with Server-Sent Events for remote access.
+Network transport with Streamable HTTP for remote access.
 HTTPS transport requires SSL certificates, HTTP transport does not.
 Both configurations require uvicorn for serving HTTP requests.
 

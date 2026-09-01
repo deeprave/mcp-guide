@@ -1,0 +1,57 @@
+{
+  "protocolRevision": "2026-07-28",
+  "cases": {
+    "modern_discovery": {
+      "requests": [
+        {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2026-07-28", "capabilities": {}, "clientInfo": {"name": "contract-client", "version": "1.0"}}},
+        {"jsonrpc": "2.0", "method": "notifications/initialized"},
+        {"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}},
+        {"jsonrpc": "2.0", "id": 3, "method": "prompts/list", "params": {}},
+        {"jsonrpc": "2.0", "id": 4, "method": "resources/list", "params": {}}
+      ],
+      "expects": {
+        "serverInfoName": "guide",
+        "capabilities": ["tools", "prompts", "resources"],
+        "methods": ["tools/list", "prompts/list", "resources/list"]
+      }
+    },
+    "modern_tool": {
+      "request": {"jsonrpc": "2.0", "id": 10, "method": "tools/call", "params": {"name": "set_project", "arguments": {"args": {"path": "/client/workspace/demo"}}}},
+      "expects": {"resultContent": true, "resultIsError": false, "doesNotRequireRoots": true}
+    },
+    "modern_prompt": {
+      "request": {"jsonrpc": "2.0", "id": 11, "method": "prompts/get", "params": {"name": "guide"}},
+      "expects": {"messages": true, "preservesInstructions": true}
+    },
+    "modern_resource": {
+      "request": {"jsonrpc": "2.0", "id": 12, "method": "resources/read", "params": {"uri": "guide://_status"}},
+      "expects": {"contents": true, "preservesInstructions": true}
+    },
+    "modern_request_state": {
+      "initialRequest": {"jsonrpc": "2.0", "id": 20, "method": "tools/call", "params": {"name": "set_project", "arguments": {"args": {"path": "/client/workspace/demo"}}}},
+      "continuationRequest": {"jsonrpc": "2.0", "id": 21, "method": "tools/call", "params": {"name": "get_project", "arguments": {"args": {"session_id": "<fastmcp-session-id>"}}}},
+      "expects": {"sessionIdIsOpaque": true, "stateIsBoundAndExpiring": true, "tamperedSessionIdRejected": true}
+    },
+    "stdio": {
+      "transport": "stdio",
+      "framing": "one JSON-RPC message per line",
+      "requests": ["modern_discovery", "modern_tool"],
+      "expects": {"noProtocolOutputOutsideJsonRpc": true}
+    },
+    "streamable_http": {
+      "transport": "streamable-http",
+      "endpoint": "/mcp",
+      "headers": {"content-type": "application/json", "mcp-protocol-version": "2026-07-28"},
+      "requests": ["modern_discovery", "modern_tool", "modern_prompt", "modern_resource"],
+      "expects": {"negotiatesRevision": true, "rejectsInvalidHeaders": true}
+    },
+    "legacy_2025": {
+      "requests": [
+        {"jsonrpc": "2.0", "id": 30, "method": "initialize", "params": {"protocolVersion": "2025-11-25", "capabilities": {}, "clientInfo": {"name": "legacy-contract-client", "version": "1.0"}}},
+        {"jsonrpc": "2.0", "method": "notifications/initialized"},
+        {"jsonrpc": "2.0", "id": 31, "method": "tools/list", "params": {}}
+      ],
+      "expects": {"usesSdkDualEraPath": true, "serverInfoName": "guide", "toolsAvailable": true}
+    }
+  }
+}

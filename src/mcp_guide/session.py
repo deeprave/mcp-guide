@@ -1,47 +1,32 @@
 """Session management for per-project runtime state."""
 
 import asyncio
-import contextlib
-import dataclasses
 import os
-from contextvars import ContextVar
+from contextlib import asynccontextmanager
 from pathlib import Path
-from types import SimpleNamespace
-from typing import TYPE_CHECKING, Any, Callable, Optional, Union
-from weakref import WeakKeyDictionary as _WeakKeyDictionary
+from typing import TYPE_CHECKING, Any, Callable, Optional, Protocol, cast
 
-import yaml
-from anyio import Path as AsyncPath
 from fastmcp import Context
 
-from mcp_guide.core.file_reader import read_file_content
 from mcp_guide.core.mcp_log import get_logger
-from mcp_guide.feature_flags.types import FeatureValue, to_raw_feature_value
-from mcp_guide.file_lock import lock_update
-from mcp_guide.mcp_context import cache_mcp_globals, consume_bootstrap_mcp_data
+from mcp_guide.mcp_context import cache_mcp_globals
 from mcp_guide.models import _NAME_REGEX, Project
 from mcp_guide.models.delegate import ProjectDelegate
-from mcp_guide.utils.project_hash import (
-    calculate_project_hash,
-    extract_name_from_key,
-    generate_project_key,
-)
-
-# Module-level flag to control default profile application
-_enable_default_profile = True
+from mcp_guide.runtime import OwnerKey
 
 if TYPE_CHECKING:
     from mcp_guide.agent_detection import AgentInfo
     from mcp_guide.feature_flags.protocol import FeatureFlags
     from mcp_guide.render.cache import TemplateContextCache
+    from mcp_guide.runtime import GuideRuntime
     from mcp_guide.session_listener import SessionListener
 
-# Keep old import for compatibility during transition
-from mcp_guide.mcp_context import resolve_project_name, resolve_project_path
 from mcp_guide.result import Result
-from mcp_guide.watchers.config_watcher import ConfigWatcher
 
 logger = get_logger(__name__)
+
+# Module-level flag to control default profile application
+_enable_default_profile = True
 
 
 class DocrootError(RuntimeError):
@@ -50,467 +35,94 @@ class DocrootError(RuntimeError):
     pass
 
 
+class InvalidGuideSessionError(ValueError):
+    """A client supplied a session identifier that FastMCP cannot validate."""
+
+    pass
+
+
+class ConfigurationService(Protocol):
+    """Runtime-owned configuration operations used by Session without importing ConfigManager."""
+
+    def register_session(self, session: object) -> None: ...
+
+    def unregister_session(self, session: object) -> None: ...
+
+    def _invalidate_feature_flags(self) -> None: ...
+
+    async def get_all_project_configs(self) -> dict[str, Project]: ...
+
+    async def resolve_clone_source(self, source_name: str) -> tuple[Project | None, list[str]]: ...
+
+    async def save_project_config(self, project_key: str, project: Project) -> None: ...
+
+    async def get_or_create_project_config(
+        self, name: str, *, root_path: Path | None = None
+    ) -> tuple[str, Project]: ...
+
+    async def get_project_config_for_root(self, name: str, root_path: Path | None) -> Project | None: ...
+
+
 class Session:
-    """Per-project runtime session with encapsulated configuration management."""
-
-    @classmethod
-    def _get_config_manager(cls, config_dir: Optional[str] = None) -> "Session._ConfigManager":
-        """Get or create the singleton ConfigManager instance."""
-        if not hasattr(cls, "_config_manager"):
-            setattr(cls, "_config_manager", cls._ConfigManager(config_dir=config_dir))
-        elif config_dir is not None:
-            getattr(cls, "_config_manager").reconfigure(config_dir=config_dir)
-        return getattr(cls, "_config_manager")
-
-    class _ConfigManager:
-        """Private ConfigManager implementation."""
-
-        def __init__(self, config_dir: Optional[str] = None) -> None:
-            """Initialize config manager."""
-            self.__config_dir = config_dir
-            self.__docroot: Optional[str] = None
-            self.__feature_flags: Optional[dict[str, Any]] = None
-            # Import here to avoid circular dependency with config_paths module
-            from mcp_guide.config_paths import get_config_file
-
-            self.config_file = get_config_file(self.__config_dir)
-
-        def reconfigure(self, config_dir: Optional[str] = None) -> None:
-            """Reconfigure existing ConfigManager for different config directory."""
-            self.__config_dir = config_dir
-            self.__docroot = None
-            self.__feature_flags = None
-            # Import here to avoid circular dependency with config_paths module
-            from mcp_guide.config_paths import get_config_file
-
-            self.config_file = get_config_file(self.__config_dir)
-
-        def _invalidate_feature_flags(self) -> None:
-            """Invalidate the feature flags cache."""
-            logger.trace("Invalidating feature flags cache")
-            self.__feature_flags = None
-
-        def get_cached_feature_flags(self) -> Optional[dict[str, FeatureValue]]:
-            """Return cached feature flags when they have already been loaded."""
-            if self.__feature_flags is None:
-                return None
-            return dict(self.__feature_flags)
-
-        def _ensure_config_dir(self) -> None:
-            """Ensure config directory exists, creating it if necessary."""
-            config_dir = self.config_file.parent
-            if not config_dir.exists():
-                try:
-                    config_dir.mkdir(parents=True, exist_ok=True)
-                except OSError as e:
-                    logger.exception(f"Failed to create config directory {config_dir}: {e}")
-
-        async def get_or_create_config(self, file_path: Path) -> str:
-            """Read config, or install templates and create it on first run.
-
-            Args:
-                file_path: Path to config file
-
-            Returns:
-                Config file content as string
-
-            Raises:
-                PermissionError: Cannot read/write config file
-                Other OSError: File system errors (not FileNotFoundError)
-            """
-            try:
-                return await read_file_content(file_path)
-            except FileNotFoundError:
-                # First run - install templates and create config
-                # Import here to avoid loading installer code unless needed
-                from mcp_guide.installer.integration import install_and_create_config
-
-                await install_and_create_config(file_path)
-                return await read_file_content(file_path)
-
-        async def get_docroot(self) -> str:
-            """Get cached docroot value."""
-            if self.__docroot is None:
-
-                async def _get_docroot(file_path: Path) -> str:
-                    from mcp_guide.config_paths import get_docroot as get_default_docroot
-
-                    content = await self.get_or_create_config(file_path)
-                    data = yaml.safe_load(content)
-                    docroot: str = data.get("docroot", str(get_default_docroot(self.__config_dir)))
-                    return docroot
-
-                self.__docroot = await lock_update(self.config_file, _get_docroot)
-            return self.__docroot
-
-        async def client_resolve(self, path: Union[str, Path]) -> Path:
-            """Resolve a path relative to the client's working directory.
-
-            This method handles path resolution from the server's perspective when
-            dealing with client filesystem paths. The server cannot use Path.resolve()
-            directly since it doesn't have access to the client's filesystem.
-
-            Args:
-                path: Path to resolve (relative or absolute)
-
-            Returns:
-                Absolute Path object representing the resolved client path
-
-            Examples:
-                >>> await session.client_resolve(".guide.yaml")
-                PosixPath('/home/username/project/.guide.yaml')
-
-                >>> await session.client_resolve("../config.json")
-                PosixPath('/home/username/config.json')
-            """
-            from mcp_guide.utils.client_path import client_resolve
-
-            client_cwd = await resolve_project_path()
-            return client_resolve(path, client_cwd)
-
-        async def get_feature_flags(self) -> dict[str, FeatureValue]:
-            """Get feature flags."""
-            if self.__feature_flags is None:
-
-                async def _get_flags(file_path: Path) -> dict[str, FeatureValue]:
-                    content = await self.get_or_create_config(file_path)
-                    data = yaml.safe_load(content)
-                    raw_flags = data.get("feature_flags", {}) if data else {}
-                    return {key: FeatureValue.from_raw(value) for key, value in raw_flags.items()}
-
-                self.__feature_flags = await lock_update(self.config_file, _get_flags)
-                logger.trace(f"get_feature_flags: loaded from disk, flags={self.__feature_flags!r}")
-            return self.__feature_flags
-
-        async def set_feature_flag(self, flag_name: str, value: FeatureValue) -> None:
-            """Set a feature flag."""
-
-            async def _set_flag(file_path: Path) -> None:
-                content = await self.get_or_create_config(file_path)
-                data = yaml.safe_load(content)
-                if "feature_flags" not in data:
-                    data["feature_flags"] = {}
-                data["feature_flags"][flag_name] = to_raw_feature_value(value)
-                await AsyncPath(file_path).write_text(yaml.dump(data))
-
-            await lock_update(self.config_file, _set_flag)
-            self._invalidate_feature_flags()
-
-        async def remove_feature_flag(self, flag_name: str) -> None:
-            """Remove a feature flag."""
-
-            async def _remove_flag(file_path: Path) -> None:
-                content = await self.get_or_create_config(file_path)
-                data = yaml.safe_load(content)
-                if "feature_flags" in data and flag_name in data["feature_flags"]:
-                    del data["feature_flags"][flag_name]
-                    await AsyncPath(file_path).write_text(yaml.dump(data))
-
-            await lock_update(self.config_file, _remove_flag)
-            self._invalidate_feature_flags()
-
-        @staticmethod
-        def _is_legacy_format(projects: dict[str, Any]) -> bool:
-            """Check if projects dict uses legacy format."""
-            for key, project_data in projects.items():
-                if not isinstance(project_data, dict):
-                    continue
-                # Legacy format lacks hash field
-                if "hash" not in project_data:
-                    return True
-            return False
-
-        @staticmethod
-        def _project_to_dict(project: Project) -> dict[str, Any]:
-            """Convert Project to dictionary for YAML storage.
-
-            Strips the 'name' field from categories since it's redundant with the dict key.
-            Converts exports dict keys from tuples to strings for YAML compatibility.
-            """
-            data = dataclasses.asdict(project)
-            # Remove 'name' field from each category (it's redundant with the key)
-            if "categories" in data:
-                for category_data in data["categories"].values():
-                    category_data.pop("name", None)
-            if "project_flags" in data:
-                data["project_flags"] = {
-                    flag_name: to_raw_feature_value(flag_value)
-                    for flag_name, flag_value in project.project_flags.items()
-                }
-            # Convert exports tuple keys to strings for YAML
-            if "exports" in data:
-                data["exports"] = {
-                    f"{expr}:{pat if pat is not None else ''}": exported
-                    for (expr, pat), exported in data["exports"].items()
-                }
-            return data
-
-        @staticmethod
-        def _dict_to_project(project_data: dict[str, Any]) -> Project:
-            """Convert dictionary to Project, setting category names from keys.
-
-            Args:
-                project_data: Dictionary with project data from YAML
-
-            Returns:
-                Project instance with category names set from dict keys
-            """
-            from mcp_guide.models.project import Category, ExportedTo
-
-            # Make a copy to avoid modifying the input
-            data = dict(project_data)
-
-            # Set category names from dict keys
-            if "categories" in data:
-                categories_dict = {}
-                for cat_name, cat_data in data["categories"].items():
-                    # Ensure name is set from the key
-                    cat_data_copy = dict(cat_data)
-                    cat_data_copy["name"] = cat_name
-                    categories_dict[cat_name] = Category(**cat_data_copy)
-                data["categories"] = categories_dict
-
-            # Convert exports string keys back to tuples
-            if "exports" in data:
-                exports_dict = {}
-                for key_str, exported_data in data["exports"].items():
-                    expr, _, pat = key_str.partition(":")
-                    key = (expr, pat if pat else None)
-                    exports_dict[key] = ExportedTo(**exported_data)
-                data["exports"] = exports_dict
-
-            return Project(**data)
-
-        async def get_or_create_project_config(self, name: str) -> tuple[str, Project]:
-            """Get project config or create if it doesn't exist.
-
-            Returns:
-                Tuple of (project_key, project) where project_key includes hash suffix
-            """
-            # Validate project name
-            if not name or not name.strip():
-                raise ValueError("Project name cannot be empty")
-            if not _NAME_REGEX.match(name):
-                raise ValueError(
-                    f"Invalid project name '{name}': must contain only alphanumeric characters, underscores, and hyphens"
-                )
-
-            async def _get_or_create(file_path: Path) -> tuple[str, Project]:
-                try:
-                    content = await self.get_or_create_config(file_path)
-                except OSError as e:
-                    raise OSError(f"Failed to read config file {file_path}: {e}") from e
-
-                try:
-                    data = yaml.safe_load(content)
-                except yaml.YAMLError as e:
-                    raise yaml.YAMLError(f"Invalid YAML in config file {file_path}: {e}") from e
-
-                projects = data.get("projects", {})
-                original_data = yaml.dump(data)
-
-                # Early legacy detection
-                if self._is_legacy_format(projects):
-                    result = await self._migrate_and_load_project(name, file_path, data)
-                else:
-                    # Hash-based project resolution for non-legacy projects
-                    with contextlib.suppress(ValueError, RuntimeError):
-                        current_path = await resolve_project_path()
-                        current_hash = calculate_project_hash(str(current_path))
-                        expected_key = generate_project_key(name, current_hash)
-
-                        # First try exact key match (most efficient)
-                        if expected_key in projects:
-                            project_data = projects[expected_key]
-                            project_data_copy = dict(project_data)
-                            project_data_copy["key"] = expected_key
-                            return expected_key, self._dict_to_project(project_data_copy)
-
-                        # Then try hash-based matching for projects with same name
-                        for key, project_data in projects.items():
-                            project_name = project_data.get("name", extract_name_from_key(key))
-                            project_hash = project_data.get("hash")
-                            if project_name == name and project_hash == current_hash:
-                                project_data_copy = dict(project_data)
-                                project_data_copy["key"] = key
-                                return key, self._dict_to_project(project_data_copy)
-
-                    # Optimized non-legacy loading (name-only fallback)
-                    result = await self._load_existing_project(name, projects, file_path, data)
-
-                # Write back if data was modified
-                if yaml.dump(data) != original_data:
-                    try:
-                        await AsyncPath(file_path).write_text(yaml.dump(data))
-                    except OSError as e:
-                        raise OSError(f"Failed to write config file {file_path}: {e}") from e
-
-                return result
-
-            self._ensure_config_dir()
-            return await lock_update(self.config_file, _get_or_create)
-
-        async def _migrate_and_load_project(
-            self, name: str, file_path: Path, data: dict[str, Any]
-        ) -> tuple[str, Project]:
-            """Handle legacy project migration once."""
-            projects = data.get("projects", {})
-
-            # Find and migrate legacy project
-            for key, project_data in projects.items():
-                project_name = project_data.get("name", extract_name_from_key(key))
-                if project_name == name:
-                    # Calculate hash and create new key
-                    try:
-                        current_path_obj = await resolve_project_path()
-                        current_path = str(current_path_obj)
-                    except ValueError:
-                        current_path = str(file_path.parent.resolve())
-
-                    project_hash = calculate_project_hash(current_path)
-                    new_key = generate_project_key(name, project_hash)
-
-                    # Update project data
-                    project_data["hash"] = project_hash
-                    projects[new_key] = project_data
-                    if new_key != key:
-                        del projects[key]
-
-                    # Update data structure - file write handled by caller's lock_update
-                    data["projects"] = projects
-
-                    project_data_copy = dict(project_data)
-                    project_data_copy["key"] = new_key
-                    return new_key, self._dict_to_project(project_data_copy)
-
-            # Create new project if not found
-            return await self._create_new_project(name, file_path, data)
-
-        async def _load_existing_project(
-            self, name: str, projects: dict[str, Any], file_path: Path, data: dict[str, Any]
-        ) -> tuple[str, Project]:
-            """Load existing non-legacy project."""
-            # Search for project by display name
-            for key, project_data in projects.items():
-                project_name = project_data.get("name", extract_name_from_key(key))
-                if project_name == name:
-                    try:
-                        project_data_copy = dict(project_data)
-                        project_data_copy["key"] = key
-                        return key, self._dict_to_project(project_data_copy)
-                    except Exception as e:
-                        raise ValueError(f"Invalid project data for '{name}' in {file_path}: {e}") from e
-
-            # Create a new project if not found
-            return await self._create_new_project(name, file_path, data)
-
-        async def _create_new_project(self, name: str, file_path: Path, data: dict[str, Any]) -> tuple[str, Project]:
-            """Create a new project with hash."""
-            # Calculate hash for the current project path
-            try:
-                current_path_obj = await resolve_project_path()
-                current_path = str(current_path_obj)
-            except (ValueError, RuntimeError):
-                current_path = str(file_path.parent.resolve())
-
-            project_hash = calculate_project_hash(current_path)
-            project_key = generate_project_key(name, project_hash)
-            project = Project(name=name, key=project_key, hash=project_hash)
-
-            # Apply _default profile to new project if enabled
-            if _enable_default_profile:
-                try:
-                    from mcp_guide.models.profile import Profile
-
-                    default_profile = await Profile.load("_default")
-                    project = default_profile.apply_to_project(project)
-                except (FileNotFoundError, ValueError) as e:
-                    logger.debug(f"Default profile not applied: {e}")
-                    # Continue without default profile
-
-            projects = data.get("projects", {})
-            projects[project_key] = self._project_to_dict(project)
-            data["projects"] = projects
-
-            # Data structure updated - file write handled by caller's lock_update
-            return project_key, project
-
-        # Add other ConfigManager methods here (abbreviated for space)
-        async def get_all_project_configs(self) -> dict[str, Project]:
-            """Get all project configurations as a snapshot."""
-
-            async def _read_all_projects(file_path: Path) -> dict[str, Project]:
-                try:
-                    content = await self.get_or_create_config(file_path)
-                except OSError as e:
-                    raise OSError(f"Failed to read config file {file_path}: {e}") from e
-
-                try:
-                    data = yaml.safe_load(content) or {}
-                except yaml.YAMLError as e:
-                    raise yaml.YAMLError(f"Invalid YAML in config file {file_path}: {e}") from e
-
-                projects_data = data.get("projects", {})
-                projects: dict[str, Project] = {}
-
-                for project_key, project_data in projects_data.items():
-                    try:
-                        name = extract_name_from_key(project_key)
-                        project_data_copy = dict(project_data)
-                        project_data_copy["name"] = name
-                        project_data_copy["key"] = project_key
-                        projects[project_key] = self._dict_to_project(project_data_copy)
-                    except Exception as e:
-                        raise ValueError(f"Invalid project data for '{project_key}': {e}") from e
-
-                return projects
-
-            return await lock_update(self.config_file, _read_all_projects)
-
-        async def save_project_config(self, project_key: str, project: Project) -> None:
-            """Save project config using provided project key."""
-
-            async def _save(file_path: Path) -> None:
-                try:
-                    content = await self.get_or_create_config(file_path)
-                except OSError as e:
-                    raise OSError(f"Failed to read config file {file_path}: {e}") from e
-
-                try:
-                    data = yaml.safe_load(content)
-                except yaml.YAMLError as e:
-                    raise yaml.YAMLError(f"Invalid YAML in config file {file_path}: {e}") from e
-
-                projects = data.get("projects", {})
-                projects[project_key] = self._project_to_dict(project)
-                data["projects"] = projects
-
-                try:
-                    await AsyncPath(file_path).write_text(yaml.dump(data))
-                except OSError as e:
-                    raise OSError(f"Failed to write config file {file_path}: {e}") from e
-
-            self._ensure_config_dir()
-            await lock_update(self.config_file, _save)
-
-    def __init__(self, *, _config_dir_for_tests: Optional[str] = None):
-        """Initialise a session. Starts unbound — call switch_project() to bind."""
+    """Per-project runtime session with a runtime-owned configuration service."""
+
+    def __init__(
+        self,
+        runtime: "GuideRuntime[Any]",
+    ):
+        """Initialise a Session owned by one GuideRuntime.
+
+        Production code MUST obtain Sessions from ``GuideRuntime`` through its
+        Session factory. That factory supplies the runtime-owned ConfigManager
+        (and will supply other shared runtime services), preserving isolation
+        while avoiding accidental per-Session configuration state.
+
+        Tests must use a dedicated GuideRuntime constructed with a config directory.
+        """
         self.__delegate: ProjectDelegate = ProjectDelegate()
+        self.__bound_root_path: Path | None = None
+        self._bind_lock = asyncio.Lock()
+        # The validated FastMCP session_id for this Session. It is response
+        # data, never an ambient lookup key.
+        self.session_id: str | None = None
         self._project_dirty = False
-        self._config_watcher: Optional[ConfigWatcher] = None
-        self._watcher_task: Optional["asyncio.Task[None]"] = None
         self._listeners: list["SessionListener"] = []
         self._template_cache: Optional["TemplateContextCache"] = None
         self.command_cache: dict[str, tuple[float, list[dict[str, Any]]]] = {}
+        self._runtime = runtime
+        self._config().register_session(self)
+        # Session owns its mutable instruction and task lifecycle state.  The
+        # transitional accessor remains only for callers not yet migrated.
+        from mcp_guide.task_manager.manager import TaskManager
+
+        self.task_manager = TaskManager(self)
+        # These subscriptions historically came from import-time singleton
+        # construction. They instead belong to this Session's manager so that
+        # instruction retries, document ingestion, and update checks cannot
+        # cross interaction boundaries.
+        try:
+            from mcp_guide.tasks.document_task import DocumentTask
+            from mcp_guide.tasks.retry_task import RetryTask
+            from mcp_guide.tasks.update_task import McpUpdateTask
+
+            RetryTask(self.task_manager)
+            DocumentTask(self.task_manager, self)
+            McpUpdateTask(self.task_manager, self)
+        except Exception as error:
+            logger.warning("Unable to initialise Session task subscriptions: %s", error, exc_info=True)
 
         # MCP context fields (populated by cache_mcp_globals)
-        self.roots: list[Any] = []
         self.agent_info: Optional["AgentInfo"] = None
         self.client_params: Optional[dict[str, Any]] = None
 
-        # Initialize config manager with test directory if provided
-        if _config_dir_for_tests is not None:
-            self._get_config_manager(_config_dir_for_tests)
+    @property
+    def runtime(self) -> "GuideRuntime[Any]":
+        """Return the GuideRuntime that owns this Session."""
+        return self._runtime
+
+    def _config(self) -> ConfigurationService:
+        """Return this Session's runtime-owned configuration service."""
+        return cast(ConfigurationService, self._runtime.configuration_service())
 
     @property
     def project_name(self) -> str:
@@ -523,12 +135,58 @@ class Session:
         return self.__delegate.is_bound
 
     @property
+    def bound_root_path(self) -> Path | None:
+        """The immutable client root selected for this Session, if any."""
+        return self.__bound_root_path
+
+    @property
+    def active_configuration_identity(self) -> tuple[str, str] | None:
+        """Return the exact active configuration identity for runtime publication."""
+        if not self.__delegate.is_bound:
+            return None
+        project = self.__delegate.project
+        return (project.name, project.hash) if project.hash is not None else None
+
+    async def bind_project_path(self, path: str | Path) -> None:
+        """Bind this unbound Session to an absolute client project root.
+
+        The path is client-supplied identity, not a server filesystem lookup. It is
+        validated lexically and retained as the interaction's root identity;
+        repeated selection is deliberately rejected.
+        """
+        from mcp_guide.validation import InvalidProjectNameError
+
+        root_path = Path(path)
+        if not root_path.is_absolute():
+            raise InvalidProjectNameError("Project path must be an absolute client filesystem path")
+        if ".." in root_path.parts:
+            raise InvalidProjectNameError("Project path must not contain directory traversals (..)")
+        if not root_path.name or not _NAME_REGEX.match(root_path.name):
+            raise InvalidProjectNameError(
+                "Project path basename must contain only alphanumeric characters, underscores, and hyphens"
+            )
+
+        async with self._bind_lock:
+            if self.__bound_root_path is not None:
+                raise ValueError("Project root is already bound; begin a new interaction to select another root")
+
+            config_manager = self._config()
+            _key, project = await config_manager.get_or_create_project_config(root_path.name, root_path=root_path)
+            if self.__bound_root_path is not None:
+                raise ValueError("Project root is already bound; begin a new interaction to select another root")
+            old_project = self.__delegate.name
+            self.__bound_root_path = root_path
+            self.__delegate.bind(project)
+            self._project_dirty = False
+        await self._notify_project_changed(old_project, project.name)
+
+    @property
     def template_cache(self) -> "TemplateContextCache":
         """Get or create the per-session template context cache."""
         if self._template_cache is None:
             from mcp_guide.render.cache import TemplateContextCache
 
-            self._template_cache = TemplateContextCache()
+            self._template_cache = TemplateContextCache(self)
             self.add_listener(self._template_cache)
         return self._template_cache
 
@@ -546,20 +204,8 @@ class Session:
         if not project_name or not project_name.strip():
             raise InvalidProjectNameError("Project name cannot be empty")
 
-        # If a full path or file:// URI is provided, extract basename and update roots
-        if project_name.startswith("file://"):
-            project_name = project_name[7:]
-
-        if os.sep in project_name or (os.altsep and os.altsep in project_name):
-            path = Path(project_name)
-            if not path.is_absolute():
-                raise InvalidProjectNameError(
-                    f"Path '{project_name}' must be absolute (e.g. /path/to/project or file:///path/to/project)"
-                )
-            if ".." in path.parts:
-                raise InvalidProjectNameError(f"Path '{project_name}' must not contain directory traversals (..)")
-            self.roots = [SimpleNamespace(uri=path.as_uri())]
-            project_name = path.name
+        if project_name.startswith("file://") or os.sep in project_name or (os.altsep and os.altsep in project_name):
+            raise InvalidProjectNameError("switch_project accepts a configuration name, not a filesystem path")
 
         if not _NAME_REGEX.match(project_name):
             raise InvalidProjectNameError(
@@ -570,93 +216,40 @@ class Session:
         if project_name == old_project:
             return
 
-        config_manager = self._get_config_manager()
-        _key, project = await config_manager.get_or_create_project_config(project_name)
+        config_manager = self._config()
+        _key, project = await config_manager.get_or_create_project_config(
+            project_name, root_path=self.__bound_root_path
+        )
         self.__delegate.bind(project)
         self._project_dirty = False
         await self._notify_project_changed(old_project, project_name)
 
-    async def try_bind_from_roots(self, roots: list[Any]) -> bool:
-        """Attempt to bind or switch project based on roots.
-
-        Updates session roots, resolves project name, and binds/switches if needed.
-        Returns True if the session is bound after this call.
-        """
-        from mcp_guide.mcp_context import project_name_from_roots
-
-        self.roots = roots
-        new_name = project_name_from_roots(roots)
-        if not new_name:
-            return self.project_is_bound
-
-        if not self.project_is_bound or new_name != self.project_name:
+    async def _on_shared_config_changed(self, *, global_changed: bool, project_changed: bool) -> None:
+        """Refresh this Session for a scoped shared-configuration publication."""
+        if project_changed and self.__delegate.is_bound:
+            config_manager = self._config()
+            current_project = self.__delegate.project
             try:
-                await self.switch_project(new_name)
-            except Exception as e:
-                logger.warning("Failed to bind/switch project to '%s': %s", new_name, e, exc_info=True)
+                latest_project = await config_manager.get_project_config_for_root(
+                    current_project.name, self.__bound_root_path
+                )
+            except Exception as error:
+                logger.debug("Failed to refresh changed project configuration: %s", error, exc_info=True)
+                self._project_dirty = True
+            else:
+                if latest_project is None:
+                    # An external writer removed or invalidated the active
+                    # entry. Do not silently recreate it while processing a
+                    # publication; the next explicit configuration operation
+                    # determines whether creation is appropriate.
+                    self._project_dirty = True
+                else:
+                    self.__delegate.bind(latest_project)
+                    self._project_dirty = False
 
-        return self.project_is_bound
+        if global_changed:
+            self._config()._invalidate_feature_flags()
 
-    def _setup_config_watcher(self) -> None:
-        """Setup config file watcher for automatic reload on external changes."""
-        try:
-            # Wait for ConfigManager to be initialized
-            async def _setup_watcher() -> None:
-                config_manager = self._get_config_manager()
-                if config_manager:
-                    config_file_path = str(config_manager.config_file)
-                    self._config_watcher = ConfigWatcher(
-                        config_path=config_file_path, callback=self._on_config_file_changed, poll_interval=1.0
-                    )
-                    self._watcher_task = None
-                    self._watcher_lock = asyncio.Lock()  # ty: ignore[unresolved-attribute]
-
-            asyncio.create_task(_setup_watcher())
-        except (asyncio.InvalidStateError, OSError, AttributeError) as e:
-            logger.warning(f"Could not setup config watcher for {self.project_name}: {e}")
-        except Exception as e:
-            logger.error(f"Unexpected error setting up config watcher for {self.project_name}: {e}")
-            raise
-
-    async def _ensure_watcher_started(self) -> None:
-        """Ensure config watcher is started."""
-        if self._config_watcher and hasattr(self, "_watcher_lock"):
-            async with self._watcher_lock:  # ty: ignore[invalid-context-manager]
-                if self._watcher_task is None or self._watcher_task.done():
-                    self._watcher_task = asyncio.create_task(self._config_watcher.start())
-
-    async def _on_config_file_changed(self, file_path: str) -> None:
-        """Handle config file changes by marking project stale."""
-        logger.warning(
-            f"Configuration file changed externally: {file_path} - marking session {self.project_name} dirty"
-        )
-        if not self.__delegate.is_bound:
-            self._project_dirty = True
-            return
-
-        config_manager = self._get_config_manager()
-        old_project = self.__delegate.project
-        old_feature_flags = config_manager.get_cached_feature_flags() or {}
-
-        try:
-            _key, latest_project = await config_manager.get_or_create_project_config(old_project.name)
-            config_manager._invalidate_feature_flags()
-            latest_feature_flags = await config_manager.get_feature_flags()
-        except Exception as e:
-            logger.debug("Failed to inspect changed config file %s: %s", file_path, e, exc_info=True)
-            self._project_dirty = True
-            await self._notify_config_changed()
-            return
-
-        project_changed = latest_project != old_project
-        feature_flags_changed = latest_feature_flags != old_feature_flags
-
-        if not project_changed and not feature_flags_changed:
-            self._project_dirty = False
-            return
-
-        self.__delegate.bind(latest_project)
-        self._project_dirty = False
         await self._notify_config_changed()
 
     def add_listener(self, listener: "SessionListener") -> None:
@@ -681,19 +274,9 @@ class Session:
                 logger.debug(f"Config change listener notification failed: {e}")
 
     async def cleanup(self) -> None:
-        """Cleanup session resources including config watcher."""
-        if self._watcher_task and not self._watcher_task.done():
-            self._watcher_task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await self._watcher_task
-            self._watcher_task = None
-
-        if self._config_watcher:
-            try:
-                await self._config_watcher.stop()
-            except Exception as e:
-                logger.debug(f"Error stopping config watcher: {e}")
-            self._config_watcher = None
+        """Cleanup resources owned by this Session, including its TaskManager."""
+        self._config().unregister_session(self)
+        await self.task_manager.cleanup()
 
     async def get_project(self) -> Project:
         """Get the current project configuration, reloading if stale.
@@ -701,7 +284,6 @@ class Session:
         Raises:
             NoProjectError: If no project is bound to this session.
         """
-        await self._ensure_watcher_started()
         if self._project_dirty:
             await self.invalidate_cache()
         return self.__delegate.project
@@ -714,75 +296,43 @@ class Session:
         if project.key is None:
             raise ValueError("Project key not available")
 
-        config_manager = self._get_config_manager()
+        config_manager = self._config()
         await config_manager.save_project_config(project.key, updated_project)
+        # The writer already has the authoritative immutable value.  Adopt it
+        # immediately rather than waiting for the shared-config publication
+        # cycle that updates peer Sessions.
         self.__delegate.bind(updated_project)
-
-        # Notify listeners of config change
-        await self._notify_config_changed()
-
-    async def get_docroot(self) -> str:
-        """Get document root path for the project."""
-        config_manager = self._get_config_manager()
-        return await config_manager.get_docroot()
+        self._project_dirty = False
 
     async def get_all_projects(self) -> dict[str, Project]:
         """Get all project configurations atomically."""
-        config_manager = self._get_config_manager()
+        config_manager = self._config()
         return await config_manager.get_all_project_configs()
+
+    async def resolve_clone_source(self, source_name: str) -> tuple[Project | None, list[str]]:
+        """Resolve an explicit clone source through the shared configuration."""
+        return await self._config().resolve_clone_source(source_name)
 
     async def save_project(self, project: Project) -> None:
         """Save project configuration using project's key."""
         if project.key is None:
             raise ValueError("Project key not available")
 
-        config_manager = self._get_config_manager()
+        config_manager = self._config()
         await config_manager.save_project_config(project.key, project)
-
-        # Update cache and notify listeners only if saving the session's own project.
-        if self.__delegate.is_bound and project.key == self.__delegate.project.key:
+        # ``save_project`` can persist a different configuration. Only refresh
+        # this interaction when it wrote its own active configuration.
+        if self.__delegate.is_bound and self.__delegate.project.key == project.key:
             self.__delegate.bind(project)
-            await self._notify_config_changed()
+            self._project_dirty = False
 
     async def invalidate_cache(self) -> None:
         """Reload the project configuration from disk."""
         name = self.__delegate.project.name  # raises NoProjectError if unbound
-        config_manager = self._get_config_manager()
-        _key, project = await config_manager.get_or_create_project_config(name)
+        config_manager = self._config()
+        _key, project = await config_manager.get_or_create_project_config(name, root_path=self.__bound_root_path)
         self.__delegate.bind(project)
         self._project_dirty = False
-
-        # Setup config file watcher
-        self._setup_config_watcher()
-
-    async def get_feature_flags(self) -> dict[str, FeatureValue]:
-        """Get global feature flags."""
-        config_manager = self._get_config_manager()
-        return await config_manager.get_feature_flags()
-
-    async def set_feature_flag(self, flag_name: str, value: FeatureValue) -> None:
-        """Set a global feature flag."""
-        config_manager = self._get_config_manager()
-        old_feature_flags = await config_manager.get_feature_flags()
-        await config_manager.set_feature_flag(flag_name, value)
-        new_feature_flags = await config_manager.get_feature_flags()
-        if new_feature_flags != old_feature_flags:
-            await self._notify_config_changed()
-
-    async def remove_feature_flag(self, flag_name: str) -> None:
-        """Remove a global feature flag."""
-        config_manager = self._get_config_manager()
-        old_feature_flags = await config_manager.get_feature_flags()
-        await config_manager.remove_feature_flag(flag_name)
-        new_feature_flags = await config_manager.get_feature_flags()
-        if new_feature_flags != old_feature_flags:
-            await self._notify_config_changed()
-
-    def feature_flags(self) -> "FeatureFlags":
-        """Get feature flags proxy."""
-        from mcp_guide.feature_flags.feature_flags import FeatureFlags
-
-        return FeatureFlags(self)
 
     def project_flags(self, project: Optional[str] = None) -> "FeatureFlags":
         """Get project feature flags proxy."""
@@ -790,144 +340,244 @@ class Session:
 
         return ProjectFlags(self)
 
-    @staticmethod
-    async def get_project_config(name: str) -> Project:
-        """Get project configuration by name.
 
-        Args:
-            name: Project name
+def _attach_session_listeners(session: Session) -> None:
+    """Attach the transitional Session listeners exactly once.
 
-        Returns:
-            Project configuration
-        """
-        config_manager = Session._get_config_manager()
-        _, project = await config_manager.get_or_create_project_config(name)
-        return project
+    Runtime-owned Sessions can be created outside the historical ContextVar
+    creation path. Keeping listener attachment here gives both paths the same
+    Session-local task and rendering lifecycle.
+    """
+    if getattr(session, "_guide_listeners_attached", False):
+        return
 
+    from mcp_guide.guide_uri_listener import GuideUriListener
+    from mcp_guide.startup_listener import StartupInstructionListener
 
-# ContextVar for async task-local session tracking
-_active_session: ContextVar[Optional[Session]] = ContextVar("_active_session", default=None)
-
-# Registry mapping MiddlewareServerSession → Session for cross-task lookup (e.g. notification handlers).
-# WeakKeyDictionary ensures entries are removed automatically when the MCP session is GC'd.
-
-_session_registry: "_WeakKeyDictionary[Any, Session]" = _WeakKeyDictionary()
+    session.add_listener(session.task_manager)
+    session.add_listener(StartupInstructionListener())
+    session.add_listener(GuideUriListener())
+    setattr(session, "_guide_listeners_attached", True)
 
 
-def register_session(mcp_session: Any, session: Session) -> None:
-    """Register a guide Session against its MiddlewareServerSession."""
-    _session_registry[mcp_session] = session
+async def bind_session_project(session: Session, project_path: str | Path) -> Project:
+    """Bind a resolved Session through Guide's single project-binding path.
+
+    Both explicit ``set_project(path)`` and the narrow stdio-PWD bootstrap use
+    this operation.  Listener attachment happens before binding so the
+    Session-owned task and rendering lifecycle observes the initial project
+    selection exactly as it does for an explicit bind.
+    """
+    _attach_session_listeners(session)
+    await session.bind_project_path(project_path)
+    return await session.get_project()
 
 
-def get_session_by_mcp_session(mcp_session: Any) -> Optional[Session]:
-    """Look up a guide Session by its MiddlewareServerSession object."""
-    return _session_registry.get(mcp_session)
+async def mint_modern_session_id(ctx: "Context") -> str | None:
+    """Mint a resumable FastMCP session_id for a modern request.
+
+    This is deliberately the only minting path used by explicit project
+    binding and by the narrow stdio ``PWD`` bootstrap.  Other sessionless
+    modern requests stay request-local and unbound.
+    """
+    request = getattr(ctx, "request_context", None)
+    if request is None or getattr(request, "protocol_version", None) != "2026-07-28":
+        return None
+
+    from fastmcp.server.sessions import create_session
+
+    return await create_session()
+
+
+async def retire_minted_session(ctx: Any | None, session_id: str) -> None:
+    """End a FastMCP session and drop its GuideRuntime entry after a failed bind."""
+    from fastmcp.server.sessions import end_session
+
+    from mcp_guide.mcp_context import runtime_from_fastmcp
+
+    try:
+        await end_session(session_id)
+    except Exception:
+        logger.warning("Failed to retire a session created for an unsuccessful project binding", exc_info=True)
+    runtime = runtime_from_fastmcp(ctx) if ctx is not None else None
+    if runtime is not None:
+        try:
+            await runtime.discard_session(OwnerKey(session_id))
+        except Exception:
+            logger.warning("Failed to clean up Guide state for an unsuccessful project binding", exc_info=True)
+
+
+@asynccontextmanager
+async def request_session_scope(ctx: Any | None, session_id: str | None = None):
+    """Keep one resolved Session alive for a complete MCP handler invocation."""
+    if ctx is None:
+        yield None
+        return
+    from mcp_guide.mcp_context import request_context_from_fastmcp, runtime_from_fastmcp
+
+    runtime = runtime_from_fastmcp(ctx)
+    if runtime is None:
+        yield None
+        return
+    request_context = request_context_from_fastmcp(ctx, session_id=session_id)
+    async with runtime.session_request(request_context.owner) as session:
+        session.session_id = request_context.session_id
+        yield session
 
 
 async def get_or_create_session(
-    ctx: Optional["Context"] = None,
+    ctx: Any | None = None,
     project_name: Optional[str] = None,
     *,
+    session_id: str | None = None,
+    _allow_pwd_bootstrap: bool = False,
     _config_dir_for_tests: Optional[str] = None,
 ) -> Session:
     """Get or create session for project.
 
     Args:
-        ctx: Optional MCP Context (for roots detection)
+        ctx: Optional MCP Context for public request metadata
         project_name: Optional explicit project name (for initial creation)
         _config_dir_for_tests: Optional config directory for test isolation (keyword-only)
 
     Returns:
         Session (existing or newly created, possibly unbound if project context unavailable)
     """
-    # Return existing session if one exists in this async context
-    existing_session = _active_session.get()
-    if existing_session is not None:
-        # Update MCP context once if needed for agent detection or project binding
-        if ctx and (existing_session.agent_info is None or not existing_session.project_is_bound):
-            await cache_mcp_globals(ctx)
-        # Bind unbound session when context becomes available
-        if ctx and not existing_session.project_is_bound:
-            await existing_session.try_bind_from_roots(existing_session.roots)
-        # Ensure registry is populated even if session was created without ctx
-        if ctx is not None:
-            try:
-                register_session(ctx.session, existing_session)
-            except (AttributeError, TypeError):
-                pass
-            except RuntimeError as exc:
-                logger.warning("Failed to register guide session for cross-task lookup: %s", exc)
-        return existing_session
-
-    # Check registry for session from a different async context (e.g. sibling Task)
+    # Resolve a public FastMCP request identity through the runtime before any
+    # ambient ContextVar compatibility path. Modern calls without an explicit
+    # ID deliberately remain unbound and therefore do not allocate runtime
+    # state here.
     if ctx is not None:
-        try:
-            registry_session = get_session_by_mcp_session(ctx.session)
-            if registry_session is not None:
-                set_current_session(registry_session)
-                return registry_session
-        except (AttributeError, TypeError):
-            pass
+        from mcp_guide.mcp_context import request_context_from_fastmcp, runtime_from_fastmcp
 
-    # Determine project name for new session
-    if project_name is None:
-        if ctx:
-            await cache_mcp_globals(ctx)
         try:
-            project_name = await resolve_project_name()
-        except ValueError:
-            logger.debug("Creating unbound session — project context not available")
+            request_context = request_context_from_fastmcp(ctx, session_id=session_id)
+        except ValueError as error:
+            if session_id is not None:
+                raise InvalidGuideSessionError("Invalid or unknown session ID") from error
+            raise
+
+        # Explicit IDs are bearer capabilities minted by FastMCP's supported
+        # session store. Validate them before they become GuideRuntime keys,
+        # regardless of negotiated protocol era. A handshake-era request that
+        # echoes its public connection identity is not a bearer token; that
+        # value is the defined legacy owner and is not looked up in the modern
+        # store.
+        if session_id is not None and isinstance(ctx, Context):
+            connection_id = getattr(ctx, "session_id", None)
+            handshake_connection = request_context.protocol_revision != "2026-07-28" and session_id == connection_id
+            if not handshake_connection:
+                from fastmcp.server.sessions import InvalidSession
+                from fastmcp.server.sessions import get_session as get_fastmcp_session
+
+                try:
+                    await get_fastmcp_session(session_id)
+                except InvalidSession as error:
+                    raise InvalidGuideSessionError("Invalid or unknown session ID") from error
+        runtime = runtime_from_fastmcp(ctx)
+        if runtime is not None and request_context.session_source is not None:
+            await runtime.expire_inactive_sessions()
+            runtime_session = cast(
+                Session,
+                runtime.find_session(request_context.owner) or runtime.create_transient_session(request_context.owner),
+            )
+            runtime_session.session_id = request_context.session_id
+            if (
+                _allow_pwd_bootstrap
+                and getattr(ctx, "transport", None) == "stdio"
+                and not runtime_session.project_is_bound
+                and (pwd := os.environ.get("PWD"))
+                and Path(pwd).is_absolute()
+            ):
+                await bind_session_project(runtime_session, Path(pwd))
+            else:
+                _attach_session_listeners(runtime_session)
+            if runtime_session.agent_info is None:
+                await cache_mcp_globals(ctx, runtime_session)
+            return runtime_session
+        if (
+            runtime is not None
+            and request_context.protocol_revision == "2026-07-28"
+            and getattr(ctx, "transport", None) == "stdio"
+        ):
+            if isinstance(ctx, Context):
+                minted_session_id = await mint_modern_session_id(ctx)
+                if minted_session_id is not None:
+                    async with runtime.session_request(OwnerKey(minted_session_id)):
+                        try:
+                            bootstrap_session = await get_or_create_session(
+                                ctx,
+                                session_id=minted_session_id,
+                                _allow_pwd_bootstrap=True,
+                            )
+                            runtime.retain_session(OwnerKey(minted_session_id), bootstrap_session)
+                            return bootstrap_session
+                        except Exception:
+                            await retire_minted_session(ctx, minted_session_id)
+                            raise
+            connection_id = getattr(ctx, "session_id", None)
+            if isinstance(connection_id, str) and connection_id:
+                runtime_session = cast(Session, runtime.resolve_session(OwnerKey(f"stdio:{connection_id}")))
+                try:
+                    if not runtime_session.project_is_bound:
+                        pwd = os.environ.get("PWD")
+                        if pwd and Path(pwd).is_absolute():
+                            await bind_session_project(runtime_session, Path(pwd))
+                    _attach_session_listeners(runtime_session)
+                    await cache_mcp_globals(ctx, runtime_session)
+                    return runtime_session
+                except Exception:
+                    await runtime.discard_session(OwnerKey(f"stdio:{connection_id}"))
+                    raise
+        if runtime is not None and request_context.protocol_revision == "2026-07-28":
+            # A sessionless modern request is the normal unbound state. It may
+            # use request-local helpers, but must not inherit ContextVar state
+            # or become a cross-request runtime owner.
+            transient = cast(
+                Session,
+                runtime.find_session(request_context.owner) or runtime.create_transient_session(request_context.owner),
+            )
+            await cache_mcp_globals(ctx, transient)
+            _attach_session_listeners(transient)
+            return transient
 
     # Create session, binding project if name was resolved
-    session = Session(_config_dir_for_tests=_config_dir_for_tests)
+    if _config_dir_for_tests is None:
+        raise RuntimeError("A GuideRuntime is required to create a Session")
+    from mcp_guide.runtime import GuideRuntime
+
+    test_runtime: GuideRuntime[Session]
+    test_runtime = GuideRuntime(lambda _owner: Session(test_runtime), config_dir=_config_dir_for_tests)
+    session = test_runtime.resolve_session(OwnerKey("test-session"))
     if project_name is not None:
-        await session.switch_project(project_name)
+        if _config_dir_for_tests is None:
+            raise ValueError("project_name bootstrap is test-only; bind a client root with set_project(path)")
+        test_root = Path(_config_dir_for_tests) / "client-roots" / project_name
+        test_root.mkdir(parents=True, exist_ok=True)
+        await bind_session_project(session, test_root)
+    elif getattr(ctx, "transport", None) == "stdio":
+        # A local stdio process inherits the client's working directory.  It
+        # is the one safe implicit-root case and binds this newly created
+        # session without requiring a set_project round trip.
+        pwd = os.environ.get("PWD")
+        if pwd and Path(pwd).is_absolute():
+            await bind_session_project(session, Path(pwd))
+    # Historical compatibility fallback: callers can still initialize sessions in a
+    # pre-bound state by passing an explicit project name (test mode) or by
+    # using set_project(path) as the first request interaction.
 
-    # Transfer bootstrap MCP data to session
-    roots, agent_info, client_params = consume_bootstrap_mcp_data()
-    session.roots = roots
-    session.agent_info = agent_info
-    session.client_params = client_params
-
-    # Register TaskManager first so project switches clear stale project-scoped
-    # instructions before listeners queue fresh startup guidance.
-    from mcp_guide.task_manager import get_task_manager
-
-    session.add_listener(get_task_manager())
-
-    # Register per-session startup instruction listener
-    from mcp_guide.startup_listener import StartupInstructionListener
-
-    session.add_listener(StartupInstructionListener())
-
-    # Register per-session guide URI instruction listener
-    from mcp_guide.guide_uri_listener import GuideUriListener
-
-    session.add_listener(GuideUriListener())
-
-    # Store in ContextVar
-    set_current_session(session)
-
-    # Register for cross-task lookup (e.g. notification handlers)
     if ctx is not None:
-        try:
-            register_session(ctx.session, session)
-        except AttributeError:
-            pass  # ctx.session not available in this context (e.g. tests)
-        except (RuntimeError, TypeError) as exc:
-            logger.warning("Failed to register guide session for cross-task lookup: %s", exc)
-
-    # Notify listeners of initial project load (only when bound)
-    if session.project_is_bound:
-        await session._notify_project_changed("", session.project_name)
+        await cache_mcp_globals(ctx, session)
+    _attach_session_listeners(session)
 
     return session
 
 
 async def get_session(
-    ctx: Optional["Context"] = None,
+    ctx: Any | None = None,
     *,
     project_name: Optional[str] = None,
+    session_id: str | None = None,
     _config_dir_for_tests: Optional[str] = None,
 ) -> Session:
     """Get the current session, creating one if none exists.
@@ -937,66 +587,63 @@ async def get_session(
     On subsequent calls it returns the existing session.
 
     Args:
-        ctx: Optional MCP Context (for roots detection on first creation)
+        ctx: Optional MCP Context for public request metadata
         project_name: Optional explicit project name (for initial creation or set_project)
         _config_dir_for_tests: Optional config directory for test isolation
 
     Returns:
         The current Session (never None)
     """
-    return await get_or_create_session(ctx, project_name, _config_dir_for_tests=_config_dir_for_tests)
+    return await get_or_create_session(
+        ctx,
+        project_name,
+        session_id=session_id,
+        _config_dir_for_tests=_config_dir_for_tests,
+    )
 
 
-def get_active_session() -> Optional[Session]:
-    """Return the current session if one exists, without creating one.
-
-    This is for internal use by code that runs during session creation
-    (e.g. mcp_context bootstrap) where await get_session() would recurse.
-    """
-    return _active_session.get()
-
-
-def set_current_session(session: Session) -> None:
-    """Set the current session in ContextVar.
-
-    Args:
-        session: Session to store in the current async context
-    """
-    _active_session.set(session)
-
-
-async def remove_current_session() -> None:
-    """Clear the current session from ContextVar and cleanup its resources."""
-    session = _active_session.get()
-    if session is not None:
-        await session.cleanup()
-    _active_session.set(None)
-
-
-async def set_project(project_name: str, ctx: Optional["Context"] = None) -> Result[Project]:
-    """Set/load a project by name.
+async def set_project(
+    project_path: str,
+    ctx: Any | None = None,
+    *,
+    session_id: str | None = None,
+) -> Result[Project]:
+    """Bind the current Session to a client project path.
 
     Args:
-        project_name: Name of the project to set/load
-        ctx: Optional MCP Context for roots detection
+        project_path: Absolute client filesystem path of the project root
+        ctx: Optional MCP Context
+        session_id: Optional explicit FastMCP Session ID supplied by a modern caller
 
     Returns:
         Result[Project]: Success with Project object, or failure with error
 
     Note:
-        Creates or loads project configuration.
-        Use when project cannot be auto-detected from context.
+        Creates or loads the default root-hashed project configuration.
     """
-    from mcp_guide.result_constants import ERROR_INVALID_NAME, ERROR_PROJECT_LOAD
+    from mcp_guide.result_constants import ERROR_INVALID_NAME, ERROR_PROJECT_LOAD, make_invalid_session_result
     from mcp_guide.validation import InvalidProjectNameError
 
     try:
-        session = await get_session(ctx=ctx)
-        await session.switch_project(project_name)
-        project = await session.get_project()
+        from mcp_guide.mcp_context import request_context_from_fastmcp, runtime_from_fastmcp
+
+        runtime = runtime_from_fastmcp(ctx)
+        if runtime is None:
+            session = await get_session(ctx=ctx, session_id=session_id)
+            project = await bind_session_project(session, project_path)
+        else:
+            request_context = request_context_from_fastmcp(ctx, session_id=session_id)
+            async with runtime.session_request(request_context.owner) as session:
+                session.session_id = request_context.session_id
+                project = await bind_session_project(session, project_path)
+                runtime.retain_session(request_context.owner, session)
         return Result.ok(project)
-    except (InvalidProjectNameError, ValueError) as e:
+    except InvalidGuideSessionError:
+        return make_invalid_session_result()
+    except InvalidProjectNameError as e:
         return Result.failure(str(e), error_type=ERROR_INVALID_NAME)
+    except ValueError as e:
+        return Result.failure(str(e), error_type=ERROR_PROJECT_LOAD)
     except Exception as e:
         return Result.failure(str(e), error_type=ERROR_PROJECT_LOAD)
 

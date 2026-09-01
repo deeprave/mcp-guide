@@ -53,7 +53,7 @@ def _mock_session(categories):
     project = SimpleNamespace(categories=categories)
     session = AsyncMock()
     session.get_project = AsyncMock(return_value=project)
-    session.get_docroot = AsyncMock(return_value="/fake/docroot")
+    session.runtime.get_docroot = AsyncMock(return_value="/fake/docroot")
     return session
 
 

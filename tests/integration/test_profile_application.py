@@ -8,7 +8,7 @@ import pytest
 import mcp_guide.session
 from mcp_guide.discovery.commands import discover_commands
 from mcp_guide.installer.core import get_templates_path
-from mcp_guide.session import get_session, remove_current_session
+from mcp_guide.session import get_session
 from mcp_guide.tools.tool_content import ContentArgs, internal_get_content
 
 
@@ -27,16 +27,21 @@ async def test_session(tmp_path, monkeypatch, enable_default_profile):
     # Set PWD to tmp_path to avoid picking up real project
     monkeypatch.setenv("PWD", str(tmp_path))
 
-    # Mock resolve_project_name to return 'test'
-    async def mock_resolve():
-        return "test"
-
-    monkeypatch.setattr("mcp_guide.session.resolve_project_name", mock_resolve)
-
-    # Use get_session to properly register the session
+    # Build an isolated, explicitly bound session.
     session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
+
+    async def get_bound_session_and_project(_ctx=None, *, session_id=None):
+        return session, await session.get_project()
+
+    monkeypatch.setattr(
+        "mcp_guide.tools.tool_content.get_session_and_project",
+        get_bound_session_and_project,
+    )
+    monkeypatch.setattr(
+        "mcp_guide.tools.tool_project.get_session_and_project",
+        get_bound_session_and_project,
+    )
     yield session
-    await remove_current_session()
 
 
 @pytest.mark.anyio
@@ -44,15 +49,15 @@ class TestProfileApplication:
     """Tests for applying profiles to projects."""
 
     async def test_static_template_resources_render_with_default_profile(self, test_session):
-        await test_session.feature_flags().set("workflow", True)
+        await test_session.runtime.feature_flags().set("workflow", True)
         templates_path = await get_templates_path()
         resource_references = {
             match.group(1).strip()
             for template_path in Path(templates_path).rglob("*.mustache")
             for match in re.finditer(r"\{\{#resource\}\}([^{}]+)\{\{/resource\}\}", template_path.read_text())
         }
-        commands_dir = Path(await test_session.get_docroot()) / "_commands"
-        command_names = {command["name"] for command in await discover_commands(commands_dir)}
+        commands_dir = Path(await test_session.runtime.get_docroot()) / "_commands"
+        command_names = {command["name"] for command in await discover_commands(commands_dir, test_session)}
 
         for reference in resource_references:
             if reference.startswith("_"):

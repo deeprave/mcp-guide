@@ -13,7 +13,7 @@ context, and transport behavior incompatible or fragile.
   initial compatibility spike that records the exact supported package versions and
   public entry-point calls.
 - Redesign server startup and request dispatch around an explicit application runtime,
-  public SDK context adapter, and interaction-owned `Session`; remove bootstrap
+  public SDK context adapter, and FastMCP-session-ID-owned Guide `Session`; remove bootstrap
   `ContextVar`s and patched private MCP server methods.
 - Serve both modern `2026-07-28` and retained handshake-era interactions over stdio
   and Streamable HTTP through FastMCP's negotiated dual-protocol support.
@@ -31,7 +31,7 @@ context, and transport behavior incompatible or fragile.
 - **BREAKING** Restrict `clone_project` to `clone_project(from_project)` into the
   current active configuration. It shall no longer accept an independently named
   target, which is ambiguous across root-hashed configurations. `from_project` may be
-  a unique display name or an exact hash-suffixed configuration key.
+  a display name or an exact hash-suffixed configuration key.
 - Add protocol-level interoperability and regression coverage for the supported
   transports and context-bearing operations.
 

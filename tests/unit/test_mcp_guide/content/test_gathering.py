@@ -2,6 +2,7 @@
 
 from datetime import datetime
 from pathlib import Path
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -30,6 +31,10 @@ class _MockSession:
     def __init__(self, docroot: str, project=None):
         self._docroot = docroot
         self._project = project
+
+    @property
+    def runtime(self):
+        return self
 
     async def get_docroot(self):
         return self._docroot
@@ -311,22 +316,23 @@ async def test_trailing_slash_multiple_matching_patterns(tmp_path):
 @pytest.mark.anyio
 async def test_render_missing_policy_contains_constant():
     """Placeholder must contain INSTRUCTION_MISSING_POLICY."""
-    result = await render_missing_policy("git/ops")
+    result = await render_missing_policy(_MockSession(""), "git/ops")
     assert INSTRUCTION_MISSING_POLICY in result
 
 
 @pytest.mark.anyio
 async def test_render_missing_policy_contains_topic():
     """Placeholder must contain the topic name."""
-    result = await render_missing_policy("testing")
+    result = await render_missing_policy(_MockSession(""), "testing")
     assert "testing" in result
 
 
 @pytest.mark.anyio
 async def test_render_missing_policy_different_topics():
     """Each topic produces distinct output."""
-    a = await render_missing_policy("git/ops")
-    b = await render_missing_policy("testing")
+    session = _MockSession("")
+    a = await render_missing_policy(session, "git/ops")
+    b = await render_missing_policy(session, "testing")
     assert a != b
 
 
@@ -346,13 +352,13 @@ async def test_gather_policy_partials_no_policies_key_returns_empty(tmp_path):
         mtime=datetime(2024, 1, 1),
         name="doc.md",
     )
-    result = await _gather_policy_partials(file_info, TemplateContext({}), {})
+    result = await _gather_policy_partials(_MockSession(str(tmp_path)), file_info, TemplateContext({}), {})
     assert result == {}
 
 
 @pytest.mark.anyio
-async def test_gather_policy_partials_no_session_returns_empty(tmp_path, monkeypatch):
-    """When get_active_session returns None, returns empty dict."""
+async def test_gather_policy_partials_unbound_session_returns_empty(tmp_path):
+    """An explicit unbound session returns no policy partials."""
     policy_file = tmp_path / "doc.md.mustache"
     policy_file.write_text("---\npolicies:\n  - git/ops\n---\nContent.")
 
@@ -364,13 +370,12 @@ async def test_gather_policy_partials_no_session_returns_empty(tmp_path, monkeyp
         name="doc.md",
     )
 
-    monkeypatch.setattr("mcp_guide.content.utils.get_active_session", lambda: None)
-    result = await _gather_policy_partials(file_info, TemplateContext({}), {})
+    result = await _gather_policy_partials(_MockSession(str(tmp_path)), file_info, TemplateContext({}), {})
     assert result == {}
 
 
 @pytest.mark.anyio
-async def test_gather_policy_partials_no_project_returns_empty(tmp_path, monkeypatch):
+async def test_gather_policy_partials_no_project_returns_empty(tmp_path):
     """When session.get_project() raises NoProjectError, returns empty dict."""
     policy_file = tmp_path / "doc.md.mustache"
     policy_file.write_text("---\npolicies:\n  - git/ops\n---\nContent.")
@@ -383,8 +388,7 @@ async def test_gather_policy_partials_no_project_returns_empty(tmp_path, monkeyp
         name="doc.md",
     )
     session = _MockSession(str(tmp_path), project=None)
-    monkeypatch.setattr("mcp_guide.content.utils.get_active_session", lambda: session)
-    result = await _gather_policy_partials(file_info, TemplateContext({}), {})
+    result = await _gather_policy_partials(session, file_info, TemplateContext({}), {})
     assert result == {}
 
 
@@ -409,9 +413,7 @@ async def test_gather_policy_partials_no_match_returns_placeholder(tmp_path, mon
     (tmp_path / "policies" / "testing").mkdir(parents=True)
     (tmp_path / "policies" / "testing" / "strict.md").write_text("# Strict")
     session = _MockSession(str(tmp_path), project=project)
-    monkeypatch.setattr("mcp_guide.content.utils.get_active_session", lambda: session)
-
-    result = await _gather_policy_partials(file_info, TemplateContext({}), {})
+    result = await _gather_policy_partials(session, file_info, TemplateContext({}), {})
 
     assert "git/ops" in result
     assert INSTRUCTION_MISSING_POLICY in result["git/ops"]
@@ -449,9 +451,9 @@ async def test_gather_policy_partials_matching_topic_renders_content(tmp_path, m
         },
     )
     session = _MockSession(str(tmp_path), project=project)
-    monkeypatch.setattr("mcp_guide.content.utils.get_active_session", lambda: session)
-
-    result = await _gather_policy_partials(file_info, TemplateContext({}), {})
+    rendered = type("Rendered", (), {"content": "Use conservative git ops."})()
+    monkeypatch.setattr("mcp_guide.content.utils.render_template", AsyncMock(return_value=rendered))
+    result = await _gather_policy_partials(session, file_info, TemplateContext({}), {})
 
     assert "git/ops" in result
     assert "Use conservative git ops." in result["git/ops"]

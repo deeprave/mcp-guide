@@ -1,9 +1,9 @@
 """Tests for discovery tools."""
 
-import json
 from unittest.mock import MagicMock, patch
 
 import pytest
+from tests.helpers import tool_result_payload
 
 from mcp_guide.core.prompt_decorator import PromptMetadata, PromptRegistration, clear_prompt_registry
 from mcp_guide.core.resource_decorator import ResourceMetadata, ResourceRegistration, clear_resource_registry
@@ -32,8 +32,7 @@ async def test_list_tools_returns_registered_tools():
 
     try:
         args = ListToolsArgs(include_args=False)
-        result_str = await list_tools(args)
-        result = json.loads(result_str)
+        result = tool_result_payload(await list_tools(args))
 
         assert result["success"] is True
         assert "tools" in result["value"]
@@ -67,8 +66,7 @@ async def test_list_tools_with_args_schema():
 
     try:
         args = ListToolsArgs(include_args=True)
-        result_str = await list_tools(args)
-        result = json.loads(result_str)
+        result = tool_result_payload(await list_tools(args))
 
         assert result["success"] is True
         tools_with_args = [t for t in result["value"]["tools"] if "args_schema" in t]
@@ -93,8 +91,7 @@ async def test_list_prompts_returns_registered_prompts():
         from mcp_guide.tools.tool_discovery import ListPromptsArgs
 
         args = ListPromptsArgs()
-        result_str = await list_prompts(args)
-        result = json.loads(result_str)
+        result = tool_result_payload(await list_prompts(args))
 
         assert result["success"] is True
         assert "prompts" in result["value"]
@@ -128,8 +125,7 @@ async def test_list_resources_returns_registered_resources():
         from mcp_guide.tools.tool_discovery import ListResourcesArgs
 
         args = ListResourcesArgs()
-        result_str = await list_resources(args)
-        result = json.loads(result_str)
+        result = tool_result_payload(await list_resources(args))
 
         assert result["success"] is True
         assert "resources" in result["value"]
@@ -172,6 +168,49 @@ def test_register_prompts_uses_prompt_name_override():
         prompt_decorator.assert_called_once_with(guide)
     finally:
         clear_prompt_registry()
+
+
+def test_register_prompts_is_idempotent_for_the_same_server():
+    """Prompt registration keeps a weak reference to the actual server."""
+    from mcp_guide.core.prompt_decorator import _PROMPT_REGISTRY, register_prompts
+
+    async def guide() -> str:
+        return "prompt"
+
+    _PROMPT_REGISTRY["guide"] = PromptRegistration(
+        metadata=PromptMetadata(name="guide", func=guide, description="Guide prompt"), registered=False
+    )
+    mcp = MagicMock()
+
+    try:
+        register_prompts(mcp)
+        register_prompts(mcp)
+
+        mcp.prompt.assert_called_once_with(name="guide")
+    finally:
+        clear_prompt_registry()
+
+
+def test_register_resources_is_idempotent_for_the_same_server():
+    """Resource registration keeps a weak reference to the actual server."""
+    from mcp_guide.core.resource_decorator import _RESOURCE_REGISTRY, register_resources
+
+    async def resource() -> str:
+        return "resource"
+
+    _RESOURCE_REGISTRY["resource"] = ResourceRegistration(
+        metadata=ResourceMetadata(name="resource", uri_template="guide://resource", func=resource, description=None),
+        registered=False,
+    )
+    mcp = MagicMock()
+
+    try:
+        register_resources(mcp)
+        register_resources(mcp)
+
+        mcp.resource.assert_called_once_with("guide://resource")
+    finally:
+        clear_resource_registry()
 
 
 def test_register_prompts_uses_default_guide_name_without_override():

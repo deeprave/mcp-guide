@@ -13,9 +13,15 @@ from mcp_guide.core.tool_decorator import disable_test_mode, enable_test_mode
 @pytest.fixture(scope="session", autouse=True)
 def production_mode():
     """Ensure production mode for integration tests."""
+    from mcp_guide.core.tool_decorator import _test_mode
+
+    previous_state = _test_mode.get()
     disable_test_mode()
     yield
-    enable_test_mode()  # Restore test mode for other tests
+    if previous_state:
+        enable_test_mode()
+    else:
+        disable_test_mode()
 
 
 @pytest.mark.anyio
@@ -89,9 +95,41 @@ async def test_mcp_client_can_initialize_and_list_tools(tmp_path):
         async with ClientSession(read, write) as session:
             init_result = await session.initialize()
 
-            assert init_result.serverInfo.name == "guide"
+            assert init_result.server_info.name == "guide"
             assert init_result.capabilities.tools is not None
 
             tools = await session.list_tools()
             tool_names = [tool.name for tool in tools.tools]
             assert "get_project" in tool_names
+
+
+@pytest.mark.anyio
+async def test_modern_stdio_client_receives_pwd_bootstrap_session_id(tmp_path):
+    """A modern stdio client receives the ID for the Session bound from PWD."""
+    import sys
+
+    from fastmcp import Client
+    from fastmcp.client import StdioTransport
+
+    project_root = tmp_path / "project"
+    project_root.mkdir()
+    config_dir = tmp_path / "config"
+    transport = StdioTransport(
+        command=sys.executable,
+        args=["-m", "mcp_guide.main", "--configdir", str(config_dir)],
+        env={
+            "MCP_GUIDE_DISABLE_SERVER_TASKS": "1",
+            "PWD": str(project_root),
+        },
+        cwd=str(project_root),
+    )
+
+    async with Client(transport, mode="2026-07-28") as client:
+        result = await client.call_tool("get_project", {"args": {}})
+
+    assert result.structured_content is not None
+    payload = result.structured_content
+    assert payload["success"] is True
+    assert payload["value"]["project"] == "project"
+    assert isinstance(payload["session_id"], str)
+    assert payload["session_id"]

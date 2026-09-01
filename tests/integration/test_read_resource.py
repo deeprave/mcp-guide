@@ -66,14 +66,16 @@ class TestReadResourceCommand:
         ) as mock_cmd:
             with patch("mcp_guide.tools.tool_resource.get_session", new=AsyncMock()) as mock_session:
                 session = mock_session.return_value
-                session.get_docroot = AsyncMock(return_value="/fake")
+                session.runtime.get_docroot = AsyncMock(return_value="/fake")
 
                 with patch("mcp_guide.tools.tool_resource.discover_commands", new=AsyncMock(return_value=commands)):
                     mock_ctx = AsyncMock()
                     args = ReadResourceArgs(uri="guide://_project")
                     result = await internal_read_resource(args, ctx=mock_ctx)
 
-                    mock_cmd.assert_called_once_with("project", kwargs={}, args=[], ctx=mock_ctx)
+                    mock_cmd.assert_called_once_with(
+                        "project", kwargs={}, args=[], ctx=mock_ctx, session=session, session_id=None
+                    )
                     assert result is mock_result
 
     @pytest.mark.anyio
@@ -87,7 +89,7 @@ class TestReadResourceCommand:
         ) as mock_cmd:
             with patch("mcp_guide.tools.tool_resource.get_session", new=AsyncMock()) as mock_session:
                 session = mock_session.return_value
-                session.get_docroot = AsyncMock(return_value="/fake")
+                session.runtime.get_docroot = AsyncMock(return_value="/fake")
 
                 with patch("mcp_guide.tools.tool_resource.discover_commands", new=AsyncMock(return_value=commands)):
                     mock_ctx = AsyncMock()
@@ -95,7 +97,12 @@ class TestReadResourceCommand:
                     result = await internal_read_resource(args, ctx=mock_ctx)
 
                     mock_cmd.assert_called_once_with(
-                        "openspec/show", kwargs={"verbose": True}, args=["my-change"], ctx=mock_ctx
+                        "openspec/show",
+                        kwargs={"verbose": True},
+                        args=["my-change"],
+                        ctx=mock_ctx,
+                        session=session,
+                        session_id=None,
                     )
                     assert result is mock_result
 
@@ -116,14 +123,16 @@ class TestReadResourceCommand:
         ) as mock_cmd:
             with patch("mcp_guide.tools.tool_resource.get_session", new=AsyncMock()) as mock_session:
                 session = mock_session.return_value
-                session.get_docroot = AsyncMock(return_value="/fake")
+                session.runtime.get_docroot = AsyncMock(return_value="/fake")
 
                 with patch("mcp_guide.tools.tool_resource.discover_commands", new=AsyncMock(return_value=commands)):
                     mock_ctx = AsyncMock()
                     args = ReadResourceArgs(uri="guide://_project?table=true")
                     result = await internal_read_resource(args, ctx=mock_ctx)
 
-                    mock_cmd.assert_called_once_with("project", kwargs={"table": True}, args=[], ctx=mock_ctx)
+                    mock_cmd.assert_called_once_with(
+                        "project", kwargs={"table": True}, args=[], ctx=mock_ctx, session=session, session_id=None
+                    )
                     assert result is mock_result
 
     @pytest.mark.anyio
@@ -143,14 +152,16 @@ class TestReadResourceCommand:
         ) as mock_cmd:
             with patch("mcp_guide.tools.tool_resource.get_session", new=AsyncMock()) as mock_session:
                 session = mock_session.return_value
-                session.get_docroot = AsyncMock(return_value="/fake")
+                session.runtime.get_docroot = AsyncMock(return_value="/fake")
 
                 with patch("mcp_guide.tools.tool_resource.discover_commands", new=AsyncMock(return_value=commands)):
                     mock_ctx = AsyncMock()
                     args = ReadResourceArgs(uri="guide://_legacy/path/arg")
                     result = await internal_read_resource(args, ctx=mock_ctx)
 
-                    mock_cmd.assert_called_once_with("legacy/path", kwargs={}, args=["arg"], ctx=mock_ctx)
+                    mock_cmd.assert_called_once_with(
+                        "legacy/path", kwargs={}, args=["arg"], ctx=mock_ctx, session=session, session_id=None
+                    )
                     assert result is mock_result
 
     @pytest.mark.anyio
@@ -175,14 +186,39 @@ class TestReadResourceCommand:
         ) as mock_cmd:
             with patch("mcp_guide.tools.tool_resource.get_session", new=AsyncMock()) as mock_session:
                 session = mock_session.return_value
-                session.get_docroot = AsyncMock(return_value="/fake")
+                session.runtime.get_docroot = AsyncMock(return_value="/fake")
 
                 with patch("mcp_guide.tools.tool_resource.discover_commands", new=AsyncMock(return_value=commands)):
                     mock_ctx = AsyncMock()
                     args = ReadResourceArgs(uri="guide://_legacy/path/arg")
                     result = await internal_read_resource(args, ctx=mock_ctx)
 
-                    mock_cmd.assert_called_once_with("legacy/path", kwargs={}, args=["arg"], ctx=mock_ctx)
+                    mock_cmd.assert_called_once_with(
+                        "legacy/path", kwargs={}, args=["arg"], ctx=mock_ctx, session=session, session_id=None
+                    )
+                    assert result is mock_result
+
+    @pytest.mark.anyio
+    async def test_command_uri_uses_the_caller_session(self, mcp_server: Any) -> None:
+        """A pre-resolved Session must not be looked up again for command URIs."""
+        mock_result = Result.ok("project info")
+        commands = [{"name": "project"}]
+        session = AsyncMock()
+        session.runtime.get_docroot = AsyncMock(return_value="/fake")
+
+        with patch(
+            "mcp_guide.prompts.guide_prompt.handle_command", new=AsyncMock(return_value=mock_result)
+        ) as mock_cmd:
+            with patch("mcp_guide.tools.tool_resource.get_session", new=AsyncMock()) as mock_get_session:
+                with patch("mcp_guide.tools.tool_resource.discover_commands", new=AsyncMock(return_value=commands)):
+                    mock_ctx = AsyncMock()
+                    args = ReadResourceArgs(uri="guide://_project")
+                    result = await internal_read_resource(args, ctx=mock_ctx, session=session)
+
+                    mock_get_session.assert_not_called()
+                    mock_cmd.assert_called_once_with(
+                        "project", kwargs={}, args=[], ctx=mock_ctx, session=session, session_id=None
+                    )
                     assert result is mock_result
 
 

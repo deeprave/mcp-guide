@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any, Optional
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.decorators import task_register
 from mcp_guide.feature_flags.constants import FLAG_WORKFLOW
-from mcp_guide.task_manager import EventType, get_task_manager
+from mcp_guide.task_manager import EventType
 from mcp_guide.task_manager.protocol import DEFAULT_ONCE_INTERVAL, InitialisableMixin
 from mcp_guide.workflow.change_detection import ChangeEvent, detect_workflow_changes
 from mcp_guide.workflow.constants import DEFAULT_WORKFLOW_FILE
@@ -37,6 +37,8 @@ class WorkflowMonitorTask(InitialisableMixin):
     def __init__(
         self,
         workflow_file_path: Optional[str] = None,
+        *,
+        task_manager: "TaskManager",
     ):
         # Use default workflow file if none provided
         if workflow_file_path is None:
@@ -44,8 +46,7 @@ class WorkflowMonitorTask(InitialisableMixin):
 
         self.workflow_file_path = workflow_file_path
 
-        # Get the singleton TaskManager
-        self.task_manager: "TaskManager" = get_task_manager()
+        self.task_manager = task_manager
         self._session: Any = None
 
         self._cached_content: Optional[str] = None
@@ -88,10 +89,9 @@ class WorkflowMonitorTask(InitialisableMixin):
         """Check flag and queue setup instruction if enabled."""
         from mcp_guide.task_manager.manager import EventResult
 
-        if self._session is not None:
-            workflow_enabled = await self.task_manager.requires_flag(FLAG_WORKFLOW, self._session)
-        else:
-            workflow_enabled = await self.task_manager.requires_flag(FLAG_WORKFLOW)
+        if self._session is None:
+            return EventResult(result=False, message="Workflow task is not attached to a Session")
+        workflow_enabled = await self.task_manager.requires_flag(FLAG_WORKFLOW, self._session)
 
         if not workflow_enabled:
             await self.task_manager.unsubscribe(self)
@@ -99,7 +99,7 @@ class WorkflowMonitorTask(InitialisableMixin):
             return EventResult(result=True)
 
         if not self._setup_done:
-            rendered = await render_workflow_template("monitoring-setup")
+            rendered = await render_workflow_template(self._session, "monitoring-setup")
             if rendered:
                 self._setup_instruction_id = await self.task_manager.queue_instruction_with_ack(rendered.content)
             self._setup_done = True
@@ -141,7 +141,7 @@ class WorkflowMonitorTask(InitialisableMixin):
 
     async def _handle_monitoring_reminder(self) -> None:
         """Handle timer events for workflow monitoring reminders."""
-        rendered = await render_workflow_template("monitoring-reminder")
+        rendered = await render_workflow_template(self._session, "monitoring-reminder")
         if rendered:
             self._reminder_instruction_id = await self.task_manager.queue_instruction_with_ack(rendered.content)
 
@@ -175,7 +175,7 @@ class WorkflowMonitorTask(InitialisableMixin):
                 rendered_change = await self._process_workflow_changes(changes)
 
             if not rendered_change:
-                rendered_change = await render_workflow_template("state-format")
+                rendered_change = await render_workflow_template(self._session, "state-format")
 
             # Update cache with new state AFTER processing changes
             self.task_manager.set_cached_data("workflow_state", new_state)
@@ -186,8 +186,7 @@ class WorkflowMonitorTask(InitialisableMixin):
             logger.error(f"Failed to process workflow content: {e}", exc_info=True)
             return None
 
-    @staticmethod
-    async def _process_workflow_changes(changes: list[ChangeEvent]) -> Optional["RenderedContent"]:
+    async def _process_workflow_changes(self, changes: list[ChangeEvent]) -> Optional["RenderedContent"]:
         """Process detected workflow changes and return rendered content for main response.
 
         Returns:
@@ -205,7 +204,7 @@ class WorkflowMonitorTask(InitialisableMixin):
             template_pattern = get_instruction_template_for_change(change)
 
             # Render template content for main response
-            rendered = await render_workflow_template(template_pattern)
+            rendered = await render_workflow_template(self._session, template_pattern)
             if rendered:
                 rendered_list.append(rendered)
                 logger.trace(

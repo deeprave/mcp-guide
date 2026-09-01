@@ -3,9 +3,22 @@
 **Date:** 2025-11-27
 **Status:** Accepted
 **Dependencies:** ADR-001 (Tool Naming Convention), ADR-004 (Logging Architecture), ADR-003 (Result Pattern)
-**Revised:** 2025-11-27 - Integrated logging into decorator (removed separate log_tool_usage decorator)
+**Revised:** 2026-08-29 - Replaced historical decorator contract with explicit runtime session resolution
 
 ## Revision History
+
+### 2026-08-29: Explicit Runtime Session Boundary
+
+`ExtMcpToolDecorator` and its compatibility fallbacks have been removed.
+Tools use `@toolfunc`, which registers against FastMCP during server assembly.
+The decorator resolves the request's explicit runtime Session before invoking a
+project-bound tool; application code receives or resolves that Session through
+the request boundary and must not use a ContextVar fallback. Tool results are
+processed by that Session's TaskManager.
+
+The legacy individual-parameter pattern is not supported. Every public tool
+uses a `ToolArguments` model, including its optional `session_id` continuation
+field.
 
 ### 2025-11-30: ToolArguments Automatic Transformation
 **What Changed:** Enhanced decorator to automatically construct and validate ToolArguments instances from FastMCP kwargs
@@ -485,4 +498,3 @@ async def get_project_config(project: Optional[str] = None) -> Result[dict]:
 - Reference Implementation: `mcp-server-guide` production code
 - FastMCP Documentation: https://github.com/jlowin/fastmcp
 - MCP Protocol: https://modelcontextprotocol.io/
-

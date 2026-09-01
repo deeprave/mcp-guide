@@ -4,7 +4,7 @@ import asyncio
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, TypedDict
+from typing import TYPE_CHECKING, Any, TypedDict
 
 from anyio import Path as AsyncPath
 
@@ -15,6 +15,9 @@ from mcp_guide.render.frontmatter import parse_content_with_frontmatter
 from mcp_guide.uri_parser import parse_query_kwargs
 
 logger = get_logger(__name__)
+
+if TYPE_CHECKING:
+    from mcp_guide.session import Session
 
 _INVALID_ALIAS_PATH_CHARS = set("*?[]<>\\#")
 
@@ -130,7 +133,7 @@ async def discover_command_files(commands_dir: Path, patterns: list[str]) -> lis
     return [file_info for file_info in all_files if is_valid_command(file_info.path)]
 
 
-async def discover_commands(commands_dir: Path) -> list[dict[str, Any]]:
+async def discover_commands(commands_dir: Path, session: "Session") -> list[dict[str, Any]]:
     """Discover commands in _commands directory with metadata.
 
     Args:
@@ -152,22 +155,13 @@ async def discover_commands(commands_dir: Path) -> list[dict[str, Any]]:
     try:
         from mcp_guide.render.cache import get_template_contexts
 
-        context_data = await get_template_contexts()
+        context_data = await get_template_contexts(session)
     except Exception:
         pass  # Will load later if needed for requirements
 
     effective_mtime: float = 0.0
 
-    # Resolve session first (independent of feature flag availability)
-    session = None
-    try:
-        from mcp_guide.session import get_active_session
-
-        session = get_active_session()
-    except Exception:
-        pass
-
-    command_cache = session.command_cache if session is not None else None
+    command_cache = session.command_cache
 
     # Check if development mode is enabled
     dev_mode = False
@@ -175,9 +169,8 @@ async def discover_commands(commands_dir: Path) -> list[dict[str, Any]]:
         from mcp_guide.feature_flags.constants import FLAG_GUIDE_DEVELOPMENT
         from mcp_guide.models import resolve_all_flags
 
-        if session:
-            flags = await resolve_all_flags(session)
-            dev_mode = bool(flags.get(FLAG_GUIDE_DEVELOPMENT, False))
+        flags = await resolve_all_flags(session)
+        dev_mode = bool(flags.get(FLAG_GUIDE_DEVELOPMENT, False))
     except Exception:
         pass
 
@@ -250,7 +243,7 @@ async def discover_commands(commands_dir: Path) -> list[dict[str, Any]]:
                         # Context wasn't loaded earlier, load it now
                         from mcp_guide.render.cache import get_template_contexts
 
-                        context_data = await get_template_contexts()
+                        context_data = await get_template_contexts(session)
 
                     # Check requirements - skip command if not met
                     from mcp_guide.render.frontmatter import check_frontmatter_requirements

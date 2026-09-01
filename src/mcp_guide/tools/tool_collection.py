@@ -47,9 +47,9 @@ async def internal_collection_list(args: CollectionListArgs, ctx: Optional[Conte
         - If verbose=True: list of collection dictionaries with name, categories, description
         - If verbose=False: list of collection names only
     """
-    session, project = await get_session_and_project(ctx)
+    session, project = await get_session_and_project(ctx, session_id=getattr(args, "session_id", None))
     if project is None:
-        return await make_no_project_result(ctx)
+        return await make_no_project_result()
 
     collections: Any
     if args.verbose:
@@ -98,9 +98,9 @@ async def internal_collection_add(args: CollectionAddArgs, ctx: Optional[Context
     # Deduplicate while preserving order
     categories = list(dict.fromkeys(expanded_categories))
 
-    session, project = await get_session_and_project(ctx)
+    session, project = await get_session_and_project(ctx, session_id=getattr(args, "session_id", None))
     if project is None:
-        return await make_no_project_result(ctx)
+        return await make_no_project_result()
 
     try:
         # Validate name is not empty
@@ -148,9 +148,9 @@ async def internal_collection_remove(args: CollectionRemoveArgs, ctx: Optional[C
     Returns:
         Result containing success message
     """
-    session, project = await get_session_and_project(ctx)
+    session, project = await get_session_and_project(ctx, session_id=getattr(args, "session_id", None))
     if project is None:
-        return await make_no_project_result(ctx)
+        return await make_no_project_result()
 
     # Use dict lookup for O(1) existence check
     if args.name not in project.collections:
@@ -189,9 +189,9 @@ async def internal_collection_change(args: CollectionChangeArgs, ctx: Optional[C
     Returns:
         Result containing success message
     """
-    session, project = await get_session_and_project(ctx)
+    session, project = await get_session_and_project(ctx, session_id=getattr(args, "session_id", None))
     if project is None:
-        return await make_no_project_result(ctx)
+        return await make_no_project_result()
 
     existing_collection = project.collections.get(args.name)
     if existing_collection is None:
@@ -287,9 +287,9 @@ async def internal_collection_update(args: CollectionUpdateArgs, ctx: Optional[C
     Returns:
         Result containing success message
     """
-    session, project = await get_session_and_project(ctx)
+    session, project = await get_session_and_project(ctx, session_id=getattr(args, "session_id", None))
     if project is None:
-        return await make_no_project_result(ctx)
+        return await make_no_project_result()
 
     existing_collection = project.collections.get(args.name)
     if existing_collection is None:

@@ -66,29 +66,25 @@ class HttpTransport:
 
         try:
             import uvicorn
-            from starlette.applications import Starlette
-            from starlette.routing import Mount
         except ImportError as e:
             raise MissingDependencyError(
                 "HTTP transport requires uvicorn and starlette. Install with: uv sync --extra http"
             ) from e
 
         try:
-            # Get the Starlette app from FastMCP
-            mcp_app = self.mcp_server.streamable_http_app()
-
-            # Mount at custom path if provided, otherwise use default
             if self.path_prefix:
-                # If path already ends with "mcp", use it as-is; otherwise append "/mcp"
-                if self.path_prefix.endswith("mcp"):
-                    app = Starlette(routes=[Mount(f"/{self.path_prefix}", app=mcp_app)])
-                    endpoint_path = f"/{self.path_prefix}"
-                else:
-                    app = Starlette(routes=[Mount(f"/{self.path_prefix}", app=mcp_app)])
-                    endpoint_path = f"/{self.path_prefix}/mcp"
+                endpoint_path = f"/{self.path_prefix.strip('/')}"
+                if not endpoint_path.endswith("/mcp"):
+                    endpoint_path += "/mcp"
             else:
-                app = mcp_app
                 endpoint_path = "/mcp"
+
+            # FastMCP 4 owns the Streamable HTTP ASGI application and its
+            # lifecycle. Do not reach into the removed FastMCP 3 helper.
+            app = self.mcp_server.http_app(
+                transport="streamable-http",
+                path=endpoint_path,
+            )
 
             # Configure uvicorn
             from mcp_guide.core.mcp_log import get_uvicorn_log_config
@@ -136,7 +132,7 @@ class HttpTransport:
         """Send a message through HTTP.
 
         Note: HTTP transport uses request/response pattern, not streaming.
-        The MCP protocol over HTTP is handled by FastMCP's streamable_http_app()
+        The MCP protocol over HTTP is handled by FastMCP's http_app()
         which manages the request/response cycle internally.
 
         Args:
@@ -146,14 +142,14 @@ class HttpTransport:
             NotImplementedError: HTTP transport does not use send()
         """
         raise NotImplementedError(
-            "HTTP transport does not use send() - MCP protocol is handled by FastMCP's streamable_http_app()"
+            "HTTP transport does not use send() - MCP protocol is handled by FastMCP's http_app()"
         )
 
     async def receive(self) -> Any:
         """Receive a message from HTTP.
 
         Note: HTTP transport uses request/response pattern, not streaming.
-        The MCP protocol over HTTP is handled by FastMCP's streamable_http_app()
+        The MCP protocol over HTTP is handled by FastMCP's http_app()
         which manages the request/response cycle internally.
 
         Returns:
@@ -163,5 +159,5 @@ class HttpTransport:
             NotImplementedError: HTTP transport does not use receive()
         """
         raise NotImplementedError(
-            "HTTP transport does not use receive() - MCP protocol is handled by FastMCP's streamable_http_app()"
+            "HTTP transport does not use receive() - MCP protocol is handled by FastMCP's http_app()"
         )

@@ -1,58 +1,27 @@
-"""Simple integration test to debug workflow processing."""
+"""Integration coverage for Session-owned workflow task state."""
 
 import pytest
 
-from mcp_guide.task_manager import get_task_manager
+from tests.helpers import create_test_session
 
 
 @pytest.fixture(autouse=True)
-async def reset_task_manager():
-    """Reset TaskManager singleton before each test."""
-    from mcp_guide.task_manager.manager import TaskManager
-
-    await TaskManager._reset_for_testing()
-    yield
-    await TaskManager._reset_for_testing()
+async def bound_session(tmp_path):
+    """Install an isolated bound Session for each task-manager interaction."""
+    session = await create_test_session("workflow", _config_dir_for_tests=str(tmp_path))
+    yield session
 
 
 @pytest.mark.anyio
-async def test_workflow_task_registration():
-    """Test that workflow monitoring can be started."""
-
-    # This should work synchronously
-    print("Testing workflow monitoring startup...")
-
-    # Get initial state
-    task_manager = get_task_manager()
-    initial_registrations = len(getattr(task_manager, "_registrations", []))
-    print(f"Initial registrations: {initial_registrations}")
-
-    # This is where it might be hanging - let's see
-    print("About to start workflow monitoring...")
+async def test_workflow_task_registration(bound_session) -> None:
+    """A bound interaction owns a usable task manager."""
+    task_manager = bound_session.task_manager
+    assert task_manager is bound_session.task_manager
 
 
 @pytest.mark.anyio
-async def test_basic_task_manager():
-    """Test basic TaskManager functionality."""
-    task_manager = get_task_manager()
-
-    # Test basic cache operations
+async def test_basic_task_manager(bound_session) -> None:
+    """Task state is isolated to the active Session."""
+    task_manager = bound_session.task_manager
     task_manager.set_cached_data("test_key", "test_value")
-    cached = task_manager.get_cached_data("test_key")
-
-    assert cached == "test_value"
-    print("TaskManager cache: OK")
-
-    # Test registrations
-    registrations = getattr(task_manager, "_registrations", [])
-    print(f"Registrations list exists: {registrations is not None}")
-
-
-@pytest.mark.anyio
-async def test_workflow_task_creation():
-    """Test WorkflowMonitorTask creation."""
-    from mcp_guide.workflow.tasks import WorkflowMonitorTask
-
-    task = WorkflowMonitorTask(".guide.yaml")
-    print(f"WorkflowMonitorTask created: {task}")
-    print(f"Task name: {task.get_name()}")
+    assert task_manager.get_cached_data("test_key") == "test_value"

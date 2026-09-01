@@ -2,7 +2,6 @@
 
 import pytest
 
-from mcp_guide.session import remove_current_session, set_current_session
 from mcp_guide.tools.tool_category import (
     CategoryAddArgs,
     CategoryChangeArgs,
@@ -13,25 +12,38 @@ from tests.helpers import create_test_session
 
 
 @pytest.mark.anyio
-async def test_category_add_rejects_underscore_prefix(tmp_path):
+async def test_category_add_rejects_underscore_prefix(tmp_path, monkeypatch):
     """Test that category_add rejects names starting with underscore."""
     session = await create_test_session("test", _config_dir_for_tests=str(tmp_path))
     await session.get_project()
-    set_current_session(session)
+
+    async def get_bound_session_and_project(_ctx=None, *, session_id=None):
+        return session, await session.get_project()
+
+    monkeypatch.setattr(
+        "mcp_guide.tools.tool_category.get_session_and_project",
+        get_bound_session_and_project,
+    )
 
     args = CategoryAddArgs(name="_commands")
     result = await internal_category_add(args)
 
     assert "Category names cannot start with underscore (reserved for system use)" in result.error
-    await remove_current_session()
 
 
 @pytest.mark.anyio
-async def test_category_change_rejects_underscore_prefix(tmp_path):
+async def test_category_change_rejects_underscore_prefix(tmp_path, monkeypatch):
     """Test that category_change rejects new names starting with underscore."""
     session = await create_test_session("test", _config_dir_for_tests=str(tmp_path))
     await session.get_project()
-    set_current_session(session)
+
+    async def get_bound_session_and_project(_ctx=None, *, session_id=None):
+        return session, await session.get_project()
+
+    monkeypatch.setattr(
+        "mcp_guide.tools.tool_category.get_session_and_project",
+        get_bound_session_and_project,
+    )
 
     # First create a valid category
     add_args = CategoryAddArgs(name="docs")
@@ -42,4 +54,3 @@ async def test_category_change_rejects_underscore_prefix(tmp_path):
     result = await internal_category_change(change_args)
 
     assert "Category names cannot start with underscore (reserved for system use)" in result.error
-    await remove_current_session()

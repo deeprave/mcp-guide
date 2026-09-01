@@ -2,6 +2,7 @@
 
 import asyncio
 from typing import TYPE_CHECKING, Any, cast
+from unittest.mock import Mock
 
 import pytest
 
@@ -60,6 +61,14 @@ class _ProjectTask:
 
     async def on_tool(self) -> None:
         pass
+
+
+class _InjectedManagerProjectTask(_ProjectTask):
+    """Task double that requires the Session-owned manager at construction."""
+
+    def __init__(self, *, task_manager: TaskManager) -> None:
+        super().__init__()
+        self.constructed_with = task_manager
 
 
 class _InactiveProjectTask(_ProjectTask):
@@ -128,7 +137,7 @@ class TestProjectTaskLifecycle:
         from mcp_guide.decorators import task_register
 
         task_register(_ProjectTask)
-        task_manager = TaskManager()
+        task_manager = TaskManager(session=Mock(template_cache=Mock()))
 
         await task_manager.restart_project_tasks(_session("alpha"))
         task = task_manager.get_task_by_type(_ProjectTask)
@@ -137,6 +146,20 @@ class TestProjectTaskLifecycle:
         assert task_manager.get_subscription_count() == 1
         assert task is not None
         assert task.session_name == "alpha"
+
+    @pytest.mark.anyio
+    async def test_registered_task_receives_its_owning_manager_explicitly(self) -> None:
+        """Runtime construction never needs an ambient manager for real tasks."""
+        from mcp_guide.decorators import task_register
+
+        task_register(_InjectedManagerProjectTask)
+        task_manager = TaskManager()
+
+        await task_manager.restart_project_tasks(_session("alpha"))
+        task = task_manager.get_task_by_type(_InjectedManagerProjectTask)
+
+        assert task is not None
+        assert task.constructed_with is task_manager
 
     @pytest.mark.anyio
     async def test_inactive_task_is_not_kept_active(self) -> None:
@@ -213,7 +236,7 @@ class TestProjectTaskLifecycle:
     @pytest.mark.anyio
     async def test_restart_clears_project_scoped_cache_entries(self) -> None:
         """Lifecycle restart clears volatile cache values from the previous project."""
-        task_manager = TaskManager()
+        task_manager = TaskManager(session=Mock(template_cache=Mock()))
         task_manager.set_cached_data("workflow_state", {"phase": "discussion"})
         task_manager.set_cached_data("openspec_version", "1.2.3")
         task_manager.set_cached_data("client_os_info", {"os": "test"})

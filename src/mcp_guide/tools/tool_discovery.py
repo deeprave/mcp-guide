@@ -10,6 +10,7 @@ from mcp_guide.core.resource_decorator import get_resource_registry
 from mcp_guide.core.tool_arguments import ToolArguments
 from mcp_guide.core.tool_decorator import get_tool_registry, toolfunc
 from mcp_guide.result import Result
+from mcp_guide.tools.tool_result import ToolResult, tool_result
 
 
 class ListToolsArgs(ToolArguments):
@@ -30,8 +31,8 @@ class ListResourcesArgs(ToolArguments):
     ...
 
 
-@toolfunc(ListToolsArgs)
-async def list_tools(args: ListToolsArgs, ctx: Optional[Context] = None) -> str:
+@toolfunc(ListToolsArgs, requires_project=False)
+async def list_tools(args: ListToolsArgs, ctx: Optional[Context] = None) -> ToolResult:
     """List all registered MCP tools.
 
     Returns tool names, descriptions, and optionally argument schemas.
@@ -58,11 +59,13 @@ async def list_tools(args: ListToolsArgs, ctx: Optional[Context] = None) -> str:
 
         tools.append(tool_info)
 
-    return Result.ok({"tools": tools, "count": len(tools)}).to_json_str()
+    return await tool_result(
+        "list_tools", Result.ok({"tools": tools, "count": len(tools)}), ctx=ctx, session_id=args.session_id
+    )
 
 
-@toolfunc(ListPromptsArgs)
-async def list_prompts(args: ListPromptsArgs, ctx: Optional[Context] = None) -> str:
+@toolfunc(ListPromptsArgs, requires_project=False)
+async def list_prompts(args: ListPromptsArgs, ctx: Optional[Context] = None) -> ToolResult:
     """List all registered MCP prompts.
 
     Returns prompt names and descriptions.
@@ -84,11 +87,15 @@ async def list_prompts(args: ListPromptsArgs, ctx: Optional[Context] = None) -> 
             }
         )
 
-    return Result.ok({"prompts": prompts, "count": len(prompts)}).to_json_str()
+    from mcp_guide.tools.tool_result import tool_result
+
+    return await tool_result(
+        "list_prompts", Result.ok({"prompts": prompts, "count": len(prompts)}), ctx=ctx, session_id=args.session_id
+    )
 
 
-@toolfunc(ListResourcesArgs)
-async def list_resources(args: ListResourcesArgs, ctx: Optional[Context] = None) -> str:
+@toolfunc(ListResourcesArgs, requires_project=False)
+async def list_resources(args: ListResourcesArgs, ctx: Optional[Context] = None) -> ToolResult:
     """List all registered MCP resources.
 
     Returns resource names, URI templates, and descriptions.
@@ -111,4 +118,11 @@ async def list_resources(args: ListResourcesArgs, ctx: Optional[Context] = None)
             }
         )
 
-    return Result.ok({"resources": resources, "count": len(resources)}).to_json_str()
+    from mcp_guide.tools.tool_result import tool_result
+
+    return await tool_result(
+        "list_resources",
+        Result.ok({"resources": resources, "count": len(resources)}),
+        ctx=ctx,
+        session_id=args.session_id,
+    )

@@ -7,6 +7,7 @@ import pytest
 
 from mcp_guide.result import Result
 from mcp_guide.result_constants import INSTRUCTION_DISPLAY_ONLY, INSTRUCTION_ERROR_MESSAGE
+from mcp_guide.session import InvalidGuideSessionError
 
 
 class TestGuidePromptIntegration:
@@ -33,6 +34,40 @@ class TestGuidePromptIntegration:
             assert result["success"] is True
             assert result["value"] == "Test content from category"
             assert result["instruction"] == INSTRUCTION_DISPLAY_ONLY
+
+    @pytest.mark.anyio
+    async def test_guide_prompt_passes_resolved_session_to_content_dispatch(self, guide_function) -> None:
+        """Prompt content dispatch must retain the Session resolved at the request boundary."""
+        resolved_session = AsyncMock()
+        resolved_session.session_id = "minted-session"
+        resolved_session.task_manager.on_tool = AsyncMock()
+        resolved_session.task_manager.process_result = AsyncMock(side_effect=lambda result: result)
+
+        with (
+            patch("mcp_guide.session.get_session", new=AsyncMock(return_value=resolved_session)),
+            patch(
+                "mcp_guide.prompts.guide_prompt.internal_get_content",
+                new=AsyncMock(return_value=Result.ok("Test content")),
+            ) as get_content,
+        ):
+            result_str = await guide_function("test_category")
+
+        assert get_content.call_args.kwargs["session"] is resolved_session
+        result = json.loads(result_str)
+        assert result["session_id"] == "minted-session"
+
+    @pytest.mark.anyio
+    async def test_guide_prompt_returns_invalid_session_recovery_result(self, guide_function) -> None:
+        """An invalid prompt session ID must return recovery guidance rather than escape."""
+        with patch(
+            "mcp_guide.session.get_session",
+            new=AsyncMock(side_effect=InvalidGuideSessionError("expired")),
+        ):
+            result_str = await guide_function("test_category", session_id="expired")
+
+        result = json.loads(result_str)
+        assert result["success"] is False
+        assert "discard" in result["instruction"].lower()
 
     @pytest.mark.anyio
     async def test_guide_prompt_with_error(self, guide_function) -> None:
