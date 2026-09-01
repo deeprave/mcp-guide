@@ -18,6 +18,17 @@ connections that do not supply that argument SHALL use public `ctx.session_id` a
 compatibility owner key. This fallback SHALL NOT be used to create cross-request
 modern state.
 
+#### Scenario: Session persists from unbound to bound state
+- **WHEN** a session is created before project context exists and later binds to a real project
+- **THEN** the same Session instance is retained
+- **AND** runtime listeners and state remain attached to that instance
+- **AND** project-scoped data is initialized only after binding
+
+#### Scenario: Unbound state suppresses project events
+- **WHEN** the session is still using the placeholder project
+- **THEN** project-related load or switch events SHALL NOT be fired
+- **AND** the first real bind SHALL use the existing initial project-load notification semantics
+
 #### Scenario: Modern request resumes a live interaction
 - **WHEN** a valid modern request supplies the minted FastMCP `session_id` for a
   still-running MCP server
