@@ -9,6 +9,7 @@ Tests category tools through the MCP protocol interface to verify:
 
 import inspect
 import json
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 import pytest
@@ -48,7 +49,15 @@ async def test_session(mcp_server, tmp_path: Path, monkeypatch):
     project_root.mkdir(parents=True, exist_ok=True)
     await session.bind_project_path(project_root)
     runtime = inspect.getclosurevars(mcp_server._lifespan).nonlocals["runtime"]
-    monkeypatch.setattr(runtime, "resolve_session", lambda _owner: session)
+    original_session_request = runtime.session_request
+
+    @asynccontextmanager
+    async def session_request(owner):
+        runtime.retain_session(owner, session)
+        async with original_session_request(owner) as resolved_session:
+            yield resolved_session
+
+    monkeypatch.setattr(runtime, "session_request", session_request)
 
     yield session
 

@@ -8,8 +8,10 @@ mutable Session instance to exist for the lifetime of a client connection.
 Project configuration and project-scoped services SHALL be resolved using an explicit
 request context and owner key. Root binding and active configuration-project selection
 are distinct state. A context-owned in-memory Guide Session SHALL be selected by a
-validated FastMCP session ID for the lifetime of the running MCP server; it SHALL NOT
-be restored after an MCP server restart.
+validated FastMCP session ID for the lifetime of the running MCP server only after it
+has successfully bound a project; it SHALL NOT be restored after an MCP server restart.
+An unbound request MAY use one request-local Session for its complete handler, but that
+Session SHALL be discarded when the handler completes.
 
 The preferred owner key is a validated explicit FastMCP `session_id`. Retained legacy
 connections that do not supply that argument SHALL use public `ctx.session_id` as a
@@ -28,6 +30,12 @@ modern state.
 - **WHEN** an interaction has neither valid selected-root state nor an explicit `set_project(path)` call
 - **THEN** the system SHALL create no persisted project configuration as a side effect
 - **AND** project-bound operations SHALL use the defined no-project behavior
+
+#### Scenario: Unbound request completes
+- **WHEN** a request uses a Session that has not bound a project
+- **THEN** the Session SHALL be shared by nested work within that request only
+- **AND** GuideRuntime SHALL clean it up when that request completes
+- **AND** it SHALL not be available to a later request with the same owner ID
 
 #### Scenario: Expiry does not interrupt an active request
 - **WHEN** a Session has an in-flight request

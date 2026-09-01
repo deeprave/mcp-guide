@@ -1,6 +1,6 @@
 ## UK/AU Spelling
 
-You are to use UK/AU spelling in all written text, documentation, symbols, variable, function, commentsm file and directory names.
+You are to use UK/AU spelling in all written text, documentation, symbols, variable, function, comments, file and directory names.
 But there do exist rare exceptions widely accepted industry spellings such as "license", "artifact" and software colloquialisms.
 
 ## Guide MCP Response Handling

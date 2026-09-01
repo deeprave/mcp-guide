@@ -43,6 +43,7 @@ class GuideRuntime(Generic[SessionT]):
 
         self._session_factory = session_factory
         self._sessions: dict[OwnerKey, SessionT] = {}
+        self._inflight_sessions: dict[OwnerKey, tuple[SessionT, int]] = {}
         self._session_last_used: dict[OwnerKey, float] = {}
         self._session_leases: dict[OwnerKey, int] = {}
         if session_idle_timeout is not None and session_idle_timeout <= 0:
@@ -78,7 +79,14 @@ class GuideRuntime(Generic[SessionT]):
                 return
             failure: Exception | None = None
             try:
-                for session in list(self._sessions.values()):
+                sessions = [*self._sessions.values()]
+                retained_session_ids = {id(session) for session in sessions}
+                sessions.extend(
+                    session
+                    for session, _count in self._inflight_sessions.values()
+                    if id(session) not in retained_session_ids
+                )
+                for session in sessions:
                     cleanup = getattr(session, "cleanup", None)
                     if cleanup is not None:
                         try:
@@ -87,6 +95,7 @@ class GuideRuntime(Generic[SessionT]):
                             if failure is None:
                                 failure = error
                 self._sessions.clear()
+                self._inflight_sessions.clear()
                 self._session_last_used.clear()
                 self._session_leases.clear()
                 stop_config_manager = getattr(self._config_manager, "stop", None)
@@ -151,6 +160,48 @@ class GuideRuntime(Generic[SessionT]):
             self._sessions[owner] = self._session_factory(owner)
         self._session_last_used[owner] = time.monotonic()
         return self._sessions[owner]
+
+    def find_session(self, owner: OwnerKey) -> SessionT | None:
+        """Return a retained or in-flight Session without creating state."""
+        if session := self._sessions.get(owner):
+            return session
+        in_flight = self._inflight_sessions.get(owner)
+        return in_flight[0] if in_flight is not None else None
+
+    def retain_session(self, owner: OwnerKey, session: SessionT) -> None:
+        """Retain a successfully bound Session for later requests."""
+        self._sessions[owner] = session
+        self._session_last_used[owner] = time.monotonic()
+
+    @asynccontextmanager
+    async def session_request(self, owner: OwnerKey) -> AsyncIterator[SessionT]:
+        """Yield one request Session and clean it unless it becomes bound/retained."""
+        if owner in self._sessions:
+            async with self.session_lease(owner):
+                yield self._sessions[owner]
+            return
+
+        existing = self._inflight_sessions.get(owner)
+        if existing is None:
+            session = self.create_transient_session(owner)
+            count = 0
+        else:
+            session, count = existing
+        self._inflight_sessions[owner] = (session, count + 1)
+        try:
+            yield session
+        finally:
+            current = self._inflight_sessions.get(owner)
+            if current is not None:
+                active_session, active_count = current
+                if active_count > 1:
+                    self._inflight_sessions[owner] = (active_session, active_count - 1)
+                else:
+                    self._inflight_sessions.pop(owner, None)
+                    if self._sessions.get(owner) is not active_session:
+                        cleanup = getattr(active_session, "cleanup", None)
+                        if cleanup is not None:
+                            await cleanup()
 
     async def discard_session(self, owner: OwnerKey) -> None:
         """Immediately remove an owner Session whose interaction cannot continue."""

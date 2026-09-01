@@ -137,9 +137,10 @@ FastMCP is the protocol dispatcher, not the owner of Guide Sessions. For each re
 its public context supplies transport metadata and, for modern interactions, the
 explicit FastMCP session ID supplied by the tool or resource. The adapter validates
 that ID through FastMCP's public session API, then asks `GuideRuntime`'s Session
-registry to resolve or create
-the corresponding unbound Guide Session. In stdio the registry resolves its sole agent
-Session; in HTTP it resolves the owner-partitioned Session. Client display metadata
+registry to resolve a retained project-bound Guide Session, or create one request-local
+unbound Guide Session for the handler. A request-local Session is discarded when that
+handler finishes unless `set_project(path)` or the sessionless stdio-PWD bootstrap
+successfully binds and retains it. Client display metadata
 such as name/version is not a Session key. The resulting Session is available to the
 current FastMCP-facing handler boundary. Passing a resolved application
 `RequestContext` through tools, prompts, resources, and background work is

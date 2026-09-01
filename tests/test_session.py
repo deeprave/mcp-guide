@@ -9,6 +9,7 @@ from mcp_guide.runtime import GuideRuntime, OwnerKey
 from mcp_guide.session import (
     Session,
     get_session,
+    request_session_scope,
     set_project,
 )
 from tests.helpers import create_test_runtime, create_unbound_test_session
@@ -78,7 +79,7 @@ class TestGetOrCreateSession:
     def test_session_requires_a_runtime_owned_configuration_service(self) -> None:
         """A Session cannot create or select a configuration service for itself."""
         with pytest.raises(TypeError, match="runtime"):
-            Session()
+            Session()  # ty: ignore[missing-argument]
 
     @pytest.mark.anyio
     async def test_creates_session_with_explicit_name(self, tmp_path, monkeypatch):
@@ -104,23 +105,37 @@ class TestGetOrCreateSession:
         assert session.project_is_bound is False
 
     @pytest.mark.anyio
-    async def test_stdio_context_binds_from_inherited_pwd(self, tmp_path, monkeypatch):
-        """The inherited PWD shortcut is limited to a local stdio client."""
+    async def test_stdio_context_with_session_id_does_not_bind_from_inherited_pwd(self, tmp_path, monkeypatch):
+        """An explicit session ID never permits PWD project inference."""
         _runtime, mock_ctx = runtime_context(tmp_path)
         monkeypatch.setenv("PWD", "/client/workspace/stdio-project")
         mock_ctx.transport = "stdio"
 
         session = await get_session(ctx=mock_ctx, session_id="stdio-session")
-        assert session.bound_root_path == Path("/client/workspace/stdio-project")
+        assert session.project_is_bound is False
 
     @pytest.mark.anyio
-    async def test_returns_existing_session(self, tmp_path, monkeypatch):
-        """Returns existing session if already created."""
+    async def test_set_project_uses_explicit_path_when_stdio_has_pwd(self, tmp_path, monkeypatch):
+        """Explicit binding takes precedence over inherited PWD."""
         _runtime, ctx = runtime_context(tmp_path)
-        session1 = await get_session(ctx=ctx, session_id="same-session")
-        session2 = await get_session(ctx=ctx, session_id="same-session")
+        ctx.transport = "stdio"
+        monkeypatch.setenv("PWD", "/client/workspace/stdio-project")
 
-        assert session1 is session2
+        result = await set_project("/client/workspace/explicit-project", ctx, session_id="stdio-session")
+
+        assert result.is_ok()
+        assert result.value is not None
+        assert result.value.name == "explicit-project"
+
+    @pytest.mark.anyio
+    async def test_request_scope_reuses_and_releases_unbound_session(self, tmp_path, monkeypatch):
+        """An unbound Session is shared only for one request."""
+        runtime, ctx = runtime_context(tmp_path)
+        async with request_session_scope(ctx, "same-session") as session1:
+            session2 = await get_session(ctx=ctx, session_id="same-session")
+            assert session1 is session2
+
+        assert runtime.find_session(OwnerKey("same-session")) is None
 
     @pytest.mark.anyio
     async def test_runtime_session_receives_standard_listeners(self, tmp_path):
@@ -159,8 +174,8 @@ class TestGetOrCreateSession:
         assert first is not second
 
     @pytest.mark.anyio
-    async def test_runtime_uses_legacy_fastmcp_session_id(self, tmp_path):
-        """Legacy calls use FastMCP's public connection ID as their owner."""
+    async def test_request_scope_uses_legacy_fastmcp_session_id(self, tmp_path):
+        """Legacy request scopes use FastMCP's public connection ID as their owner."""
         runtime = create_test_runtime(str(tmp_path))
         ctx = MagicMock()
         ctx.request_context.protocol_version = "2025-06-18"
@@ -170,9 +185,10 @@ class TestGetOrCreateSession:
         ctx.session.client_params = None
         ctx.session_id = "legacy-fastmcp-session"
 
-        session = await get_session(ctx=ctx)
+        async with request_session_scope(ctx) as session:
+            assert session is await get_session(ctx=ctx)
 
-        assert session is runtime.resolve_session(OwnerKey("legacy-fastmcp-session"))
+        assert runtime.find_session(OwnerKey("legacy-fastmcp-session")) is None
 
     @pytest.mark.anyio
     async def test_project_name_bootstrap_is_test_local(self, tmp_path):

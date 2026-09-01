@@ -4,7 +4,6 @@ import inspect
 import json
 import os
 import weakref
-from contextlib import asynccontextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
 from functools import cache, wraps
@@ -25,7 +24,6 @@ from mcp_guide.result_constants import (
     make_invalid_session_result,
     make_no_project_result,
 )
-from mcp_guide.runtime import OwnerKey
 from mcp_guide.session import InvalidGuideSessionError, get_session
 from mcp_guide.validation import InvalidProjectNameError
 
@@ -138,36 +136,6 @@ async def _check_project_bound(ctx: Optional[Any], session_id: str | None = None
     return None
 
 
-@asynccontextmanager
-async def _request_session_lease(ctx: Optional[Any], session_id: str | None = None):
-    """Protect a resolved runtime Session for the remainder of a tool call."""
-    if ctx is None:
-        yield
-        return
-
-    from mcp_guide.mcp_context import request_context_from_fastmcp, runtime_from_fastmcp
-
-    runtime = runtime_from_fastmcp(ctx)
-    if runtime is None:
-        yield
-        return
-    request_context = request_context_from_fastmcp(ctx, session_id=session_id)
-    owner: OwnerKey | None = request_context.owner if request_context.session_source is not None else None
-    if (
-        owner is None
-        and request_context.protocol_revision == "2026-07-28"
-        and getattr(ctx, "transport", None) == "stdio"
-    ):
-        connection_id = getattr(ctx, "session_id", None)
-        if isinstance(connection_id, str) and connection_id:
-            owner = OwnerKey(f"stdio:{connection_id}")
-    if owner is None:
-        yield
-        return
-    async with runtime.session_lease(owner):
-        yield
-
-
 async def _normalize_tool_output(
     result: object,
     tool_name: str,
@@ -240,61 +208,62 @@ def toolfunc(
             @wraps(func)
             async def async_wrapper(args: Any, ctx: Optional[Any] = None) -> object:
                 logger.debug(f"Invoking async tool: {tool_name}")
-                # Project binding mints its modern FastMCP session inside the
-                # implementation.  Starting task interception here would
-                # otherwise allocate a transient unbound Guide Session first.
-                session = None
-                if not binds_project:
+                from mcp_guide.session import request_session_scope
+
+                async with request_session_scope(ctx, getattr(args, "session_id", None)):
+                    # Project binding mints its modern FastMCP session inside the
+                    # implementation. Starting task interception here would
+                    # otherwise allocate a transient unbound Guide Session first.
+                    session = None
+                    if not binds_project:
+                        try:
+                            session = await _call_on_tool(tool_name, ctx, getattr(args, "session_id", None))
+                        except InvalidGuideSessionError:
+                            return tool_response(make_invalid_session_result())
+                        except InvalidProjectNameError as error:
+                            return tool_response(Result.failure(str(error), error_type=ERROR_INVALID_NAME))
+                        if (
+                            hasattr(args, "session_id")
+                            and getattr(args, "session_id", None) is None
+                            and session is not None
+                        ):
+                            args.session_id = getattr(session, "session_id", None)
+                    if requires_project:
+                        unbound = await _check_project_bound(ctx, getattr(args, "session_id", None))
+                        if unbound is not None:
+                            return unbound
+                    from mcp_guide.tools.tool_result import bind_tool_session, reset_tool_session
+
+                    session_token = bind_tool_session(session)
                     try:
-                        session = await _call_on_tool(tool_name, ctx, getattr(args, "session_id", None))
-                    except InvalidGuideSessionError:
-                        return tool_response(make_invalid_session_result())
-                    except InvalidProjectNameError as error:
-                        return tool_response(Result.failure(str(error), error_type=ERROR_INVALID_NAME))
-                    if (
-                        hasattr(args, "session_id")
-                        and getattr(args, "session_id", None) is None
-                        and session is not None
-                    ):
-                        args.session_id = getattr(session, "session_id", None)
-                if requires_project:
-                    unbound = await _check_project_bound(ctx, getattr(args, "session_id", None))
-                    if unbound is not None:
-                        return unbound
-                from mcp_guide.tools.tool_result import bind_tool_session, reset_tool_session
-
-                session_token = bind_tool_session(session)
-                try:
-                    async with _request_session_lease(ctx, getattr(args, "session_id", None)):
                         result = await func(args, ctx)
-                    # Existing Guide tools use ``tool_result`` themselves.
-                    # Accepting an internal Result here lets newly migrated
-                    # tools use the same native SDK boundary without a second
-                    # serialization convention.
-
-                    return await _normalize_tool_output(
-                        result, tool_name, getattr(args, "session_id", None), session=session
-                    )
-                except Exception as e:
-                    from pydantic import ValidationError as PydanticValidationError
-
-                    if isinstance(e, PydanticValidationError):
-                        error_details = [
-                            {"field": str(err["loc"][0]) if err["loc"] else "unknown", "message": err["msg"]}
-                            for err in e.errors()
-                        ]
-                        error_result: CoreResult[Any] = CoreResult.failure(
-                            f"Invalid tool arguments: {len(error_details)} validation error(s)",
-                            error_type=ERROR_VALIDATION,
-                            instruction=INSTRUCTION_VALIDATION_ERROR,
+                        # Existing Guide tools use ``tool_result`` themselves.
+                        # Accepting an internal Result here lets newly migrated
+                        # tools use the same native SDK boundary without a second
+                        # serialisation convention.
+                        return await _normalize_tool_output(
+                            result, tool_name, getattr(args, "session_id", None), session=session
                         )
-                        error_result.error_data = {"validation_errors": error_details}
-                        logger.error(f"Tool {tool_name} argument validation failed: {error_details}")
-                        return tool_response(error_result)
-                    logger.error(f"Tool {tool_name} failed: {e}")
-                    raise
-                finally:
-                    reset_tool_session(session_token)
+                    except Exception as e:
+                        from pydantic import ValidationError as PydanticValidationError
+
+                        if isinstance(e, PydanticValidationError):
+                            error_details = [
+                                {"field": str(err["loc"][0]) if err["loc"] else "unknown", "message": err["msg"]}
+                                for err in e.errors()
+                            ]
+                            error_result: CoreResult[Any] = CoreResult.failure(
+                                f"Invalid tool arguments: {len(error_details)} validation error(s)",
+                                error_type=ERROR_VALIDATION,
+                                instruction=INSTRUCTION_VALIDATION_ERROR,
+                            )
+                            error_result.error_data = {"validation_errors": error_details}
+                            logger.error(f"Tool {tool_name} argument validation failed: {error_details}")
+                            return tool_response(error_result)
+                        logger.error(f"Tool {tool_name} failed: {e}")
+                        raise
+                    finally:
+                        reset_tool_session(session_token)
 
             wrapped = async_wrapper
         else:
@@ -302,29 +271,31 @@ def toolfunc(
             @wraps(func)
             async def async_wrapper_no_args(ctx: Optional[Any] = None) -> object:
                 logger.debug(f"Invoking async tool: {tool_name}")
-                session = None
-                try:
-                    session = await _call_on_tool(tool_name, ctx)
-                except InvalidGuideSessionError:
-                    return tool_response(make_invalid_session_result())
-                except InvalidProjectNameError as error:
-                    return tool_response(Result.failure(str(error), error_type=ERROR_INVALID_NAME))
-                if requires_project:
-                    unbound = await _check_project_bound(ctx)
-                    if unbound is not None:
-                        return unbound
-                from mcp_guide.tools.tool_result import bind_tool_session, reset_tool_session
+                from mcp_guide.session import request_session_scope
 
-                session_token = bind_tool_session(session)
-                try:
-                    async with _request_session_lease(ctx):
+                async with request_session_scope(ctx):
+                    session = None
+                    try:
+                        session = await _call_on_tool(tool_name, ctx)
+                    except InvalidGuideSessionError:
+                        return tool_response(make_invalid_session_result())
+                    except InvalidProjectNameError as error:
+                        return tool_response(Result.failure(str(error), error_type=ERROR_INVALID_NAME))
+                    if requires_project:
+                        unbound = await _check_project_bound(ctx)
+                        if unbound is not None:
+                            return unbound
+                    from mcp_guide.tools.tool_result import bind_tool_session, reset_tool_session
+
+                    session_token = bind_tool_session(session)
+                    try:
                         result = await func(ctx=ctx)
-                    return await _normalize_tool_output(result, tool_name, session=session)
-                except Exception as e:
-                    logger.error(f"Tool {tool_name} failed: {e}")
-                    raise
-                finally:
-                    reset_tool_session(session_token)
+                        return await _normalize_tool_output(result, tool_name, session=session)
+                    except Exception as e:
+                        logger.error(f"Tool {tool_name} failed: {e}")
+                        raise
+                    finally:
+                        reset_tool_session(session_token)
 
             wrapped = async_wrapper_no_args
 

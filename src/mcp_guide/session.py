@@ -2,6 +2,7 @@
 
 import asyncio
 import os
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Optional, Protocol, cast
 
@@ -406,11 +407,30 @@ async def retire_minted_session(ctx: Optional["Context"], session_id: str) -> No
             logger.warning("Failed to clean up Guide state for an unsuccessful project binding", exc_info=True)
 
 
+@asynccontextmanager
+async def request_session_scope(ctx: Optional["Context"], session_id: str | None = None):
+    """Keep one resolved Session alive for a complete MCP handler invocation."""
+    if ctx is None:
+        yield None
+        return
+    from mcp_guide.mcp_context import request_context_from_fastmcp, runtime_from_fastmcp
+
+    runtime = runtime_from_fastmcp(ctx)
+    if runtime is None:
+        yield None
+        return
+    request_context = request_context_from_fastmcp(ctx, session_id=session_id)
+    async with runtime.session_request(request_context.owner) as session:
+        session.session_id = request_context.session_id
+        yield session
+
+
 async def get_or_create_session(
     ctx: Optional["Context"] = None,
     project_name: Optional[str] = None,
     *,
     session_id: str | None = None,
+    _allow_pwd_bootstrap: bool = False,
     _config_dir_for_tests: Optional[str] = None,
 ) -> Session:
     """Get or create session for project.
@@ -457,10 +477,14 @@ async def get_or_create_session(
         runtime = runtime_from_fastmcp(ctx)
         if runtime is not None and request_context.session_source is not None:
             await runtime.expire_inactive_sessions()
-            runtime_session = cast(Session, runtime.resolve_session(request_context.owner))
+            runtime_session = cast(
+                Session,
+                runtime.find_session(request_context.owner) or runtime.create_transient_session(request_context.owner),
+            )
             runtime_session.session_id = request_context.session_id
             if (
-                getattr(ctx, "transport", None) == "stdio"
+                _allow_pwd_bootstrap
+                and getattr(ctx, "transport", None) == "stdio"
                 and not runtime_session.project_is_bound
                 and (pwd := os.environ.get("PWD"))
                 and Path(pwd).is_absolute()
@@ -480,7 +504,13 @@ async def get_or_create_session(
                 minted_session_id = await mint_modern_session_id(ctx)
                 if minted_session_id is not None:
                     try:
-                        return await get_or_create_session(ctx, session_id=minted_session_id)
+                        bootstrap_session = await get_or_create_session(
+                            ctx,
+                            session_id=minted_session_id,
+                            _allow_pwd_bootstrap=True,
+                        )
+                        runtime.retain_session(OwnerKey(minted_session_id), bootstrap_session)
+                        return bootstrap_session
                     except Exception:
                         await retire_minted_session(ctx, minted_session_id)
                         raise
@@ -502,10 +532,10 @@ async def get_or_create_session(
             # A sessionless modern request is the normal unbound state. It may
             # use request-local helpers, but must not inherit ContextVar state
             # or become a cross-request runtime owner.
-            transient = cast(Session, runtime.create_transient_session(request_context.owner))
-            # This request-local Session must never remain in the shared
-            # ConfigManager registry after the request releases it.
-            transient._config().unregister_session(transient)
+            transient = cast(
+                Session,
+                runtime.find_session(request_context.owner) or runtime.create_transient_session(request_context.owner),
+            )
             await cache_mcp_globals(ctx, transient)
             _attach_session_listeners(transient)
             return transient
@@ -594,8 +624,18 @@ async def set_project(
     from mcp_guide.validation import InvalidProjectNameError
 
     try:
-        session = await get_session(ctx=ctx, session_id=session_id)
-        project = await bind_session_project(session, project_path)
+        from mcp_guide.mcp_context import request_context_from_fastmcp, runtime_from_fastmcp
+
+        runtime = runtime_from_fastmcp(ctx)
+        if runtime is None:
+            session = await get_session(ctx=ctx, session_id=session_id)
+            project = await bind_session_project(session, project_path)
+        else:
+            request_context = request_context_from_fastmcp(ctx, session_id=session_id)
+            async with runtime.session_request(request_context.owner) as session:
+                session.session_id = request_context.session_id
+                project = await bind_session_project(session, project_path)
+                runtime.retain_session(request_context.owner, session)
         return Result.ok(project)
     except InvalidGuideSessionError:
         return make_invalid_session_result()

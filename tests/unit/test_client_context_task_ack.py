@@ -52,6 +52,7 @@ class TestClientContextTaskAcknowledgement:
         """Test that OS info response acknowledges instruction."""
         manager = _manager()
         task = ClientContextTask(manager)
+        task._session = manager._session
 
         await task.request_basic_os_info()
         instruction_id = task._os_instruction_id
@@ -78,6 +79,7 @@ class TestClientContextTaskAcknowledgement:
         """Test that detailed context response acknowledges instruction."""
         manager = _manager()
         task = ClientContextTask(manager)
+        task._session = manager._session
 
         await task._request_detailed_context({"client": {}})
         instruction_id = task._context_instruction_id

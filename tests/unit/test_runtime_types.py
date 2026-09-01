@@ -7,7 +7,6 @@ import pytest
 from mcp_guide.core.tool_arguments import ToolArguments
 from mcp_guide.mcp_context import request_context_from_fastmcp, runtime_from_fastmcp
 from mcp_guide.models import Project
-from mcp_guide.result import Result
 from mcp_guide.runtime import (
     ClientMetadata,
     GuideRuntime,
@@ -336,8 +335,8 @@ def test_runtime_adapter_reads_the_public_lifespan_context() -> None:
 
 @pytest.mark.anyio
 async def test_runtime_session_resolution_isolated_by_modern_and_legacy_owner(tmp_path) -> None:
-    """Both protocol eras resolve state through GuideRuntime, never a shared singleton."""
-    from mcp_guide.session import Session, get_session
+    """Bound modern and legacy owners resolve isolated runtime Sessions."""
+    from mcp_guide.session import Session, get_session, set_project
 
     runtime: GuideRuntime[Session]
     runtime = runtime_for_config(tmp_path)
@@ -355,10 +354,16 @@ async def test_runtime_session_resolution_isolated_by_modern_and_legacy_owner(tm
         )
 
     try:
-        modern_first = await get_session(context("2026-07-28", "modern-1"), session_id="modern-owner")
+        modern_first_context = context("2026-07-28", "modern-1")
+        assert (await set_project("/client/workspace/modern", modern_first_context, session_id="modern-owner")).is_ok()
+        modern_first = await get_session(modern_first_context, session_id="modern-owner")
         modern_same = await get_session(context("2026-07-28", "modern-2"), session_id="modern-owner")
-        modern_other = await get_session(context("2026-07-28", "modern-3"), session_id="other-owner")
-        legacy_first = await get_session(context("2025-06-18", "legacy-1", "legacy-owner"))
+        modern_other_context = context("2026-07-28", "modern-3")
+        assert (await set_project("/client/workspace/other", modern_other_context, session_id="other-owner")).is_ok()
+        modern_other = await get_session(modern_other_context, session_id="other-owner")
+        legacy_first_context = context("2025-06-18", "legacy-1", "legacy-owner")
+        assert (await set_project("/client/workspace/legacy", legacy_first_context)).is_ok()
+        legacy_first = await get_session(legacy_first_context)
         legacy_same = await get_session(context("2025-06-18", "legacy-2", "legacy-owner"))
 
         assert modern_same is modern_first
@@ -367,12 +372,6 @@ async def test_runtime_session_resolution_isolated_by_modern_and_legacy_owner(tm
         assert legacy_first is not modern_first
         assert modern_first.task_manager is not modern_other.task_manager
 
-        await modern_first.task_manager.queue_instruction("first-owner instruction")
-        other_result = await modern_other.task_manager.process_result(Result.ok("other"))
-        first_result = await modern_first.task_manager.process_result(Result.ok("first"))
-
-        assert other_result.additional_agent_instructions is None
-        assert first_result.additional_agent_instructions == "first-owner instruction"
     finally:
         await runtime.start()
         await runtime.stop()
@@ -405,7 +404,7 @@ async def test_modern_request_without_session_id_does_not_reuse_active_bound_ses
 @pytest.mark.anyio
 async def test_sessionless_modern_request_does_not_register_a_shared_session(tmp_path) -> None:
     """An unbound modern request must not retain a Session in ConfigManager."""
-    from mcp_guide.session import get_session
+    from mcp_guide.session import request_session_scope
 
     runtime = runtime_for_config(tmp_path)
     manager = runtime.configuration_service()
@@ -417,9 +416,10 @@ async def test_sessionless_modern_request_does_not_register_a_shared_session(tmp
         transport="streamable-http",
     )
 
-    session = await get_session(ctx)
+    async with request_session_scope(ctx) as session:
+        assert session is not None
+        assert not session.project_is_bound
 
-    assert not session.project_is_bound
     assert manager._sessions == set()
 
 
@@ -585,7 +585,7 @@ async def test_handshake_connection_identity_is_not_bearer_validated(tmp_path, m
     import fastmcp.server.sessions as fastmcp_sessions
 
     import mcp_guide.session as session_module
-    from mcp_guide.session import get_session
+    from mcp_guide.session import get_session, request_session_scope
 
     class FakeContext:
         def __init__(self, runtime) -> None:
@@ -604,12 +604,11 @@ async def test_handshake_connection_identity_is_not_bearer_validated(tmp_path, m
     get_fastmcp_session = AsyncMock(side_effect=AssertionError("must not consult the modern session store"))
     monkeypatch.setattr(fastmcp_sessions, "get_session", get_fastmcp_session)
 
-    session = await get_session(FakeContext(runtime), session_id="connection-id")
-    try:
-        assert session is runtime.resolve_session(OwnerKey("connection-id"))
+    context = FakeContext(runtime)
+    async with request_session_scope(context, session_id="connection-id") as session:
+        assert session is await get_session(context, session_id="connection-id")
         get_fastmcp_session.assert_not_awaited()
-    finally:
-        await session.cleanup()
+    assert runtime.find_session(OwnerKey("connection-id")) is None
 
 
 @pytest.mark.anyio

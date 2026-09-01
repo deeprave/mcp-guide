@@ -1,5 +1,6 @@
 """Deferred resource registration infrastructure."""
 
+import weakref
 from dataclasses import dataclass
 from functools import wraps
 from typing import Any, Callable, Optional
@@ -31,7 +32,7 @@ class ResourceRegistration:
 
 
 _RESOURCE_REGISTRY: dict[str, ResourceRegistration] = {}
-_REGISTERED_RESOURCE_SERVERS: set[int] = set()
+_REGISTERED_RESOURCE_SERVERS: dict[int, weakref.ReferenceType[Any]] = {}
 
 
 def resourcefunc(
@@ -52,10 +53,14 @@ def resourcefunc(
 
         @wraps(func)
         async def wrapped(*args: Any, **kwargs: Any) -> object:
-            result = await func(*args, **kwargs)
             ctx = kwargs.get("ctx")
             if ctx is None:
                 ctx = next((arg for arg in reversed(args) if isinstance(arg, Context)), None)
+
+            from mcp_guide.session import request_session_scope
+
+            async with request_session_scope(ctx, kwargs.get("session_id")):
+                result = await func(*args, **kwargs)
 
             from mcp_guide.result import Result
 
@@ -91,14 +96,20 @@ def register_resources(mcp: Any) -> None:
         mcp: FastMCP instance
     """
     server_id = id(mcp)
-    if server_id not in _REGISTERED_RESOURCE_SERVERS:
-        for resource_name, registration in _RESOURCE_REGISTRY.items():
-            mcp.resource(registration.metadata.uri_template)(registration.metadata.func)
-            registration.registered = True
-            logger.debug(f"Registered resource: {resource_name}")
-        _REGISTERED_RESOURCE_SERVERS.add(server_id)
-    else:
+    registered_server = _REGISTERED_RESOURCE_SERVERS.get(server_id)
+    if registered_server is not None and registered_server() is mcp:
         logger.trace("Resources already registered for this server, skipping")
+        return
+    for resource_name, registration in _RESOURCE_REGISTRY.items():
+        mcp.resource(registration.metadata.uri_template)(registration.metadata.func)
+        registration.registered = True
+        logger.debug(f"Registered resource: {resource_name}")
+
+    def remove_released_server(reference: weakref.ReferenceType[Any]) -> None:
+        if _REGISTERED_RESOURCE_SERVERS.get(server_id) is reference:
+            _REGISTERED_RESOURCE_SERVERS.pop(server_id, None)
+
+    _REGISTERED_RESOURCE_SERVERS[server_id] = weakref.ref(mcp, remove_released_server)
 
 
 def get_resource_registry() -> dict[str, ResourceRegistration]:

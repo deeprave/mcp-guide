@@ -170,6 +170,49 @@ def test_register_prompts_uses_prompt_name_override():
         clear_prompt_registry()
 
 
+def test_register_prompts_is_idempotent_for_the_same_server():
+    """Prompt registration keeps a weak reference to the actual server."""
+    from mcp_guide.core.prompt_decorator import _PROMPT_REGISTRY, register_prompts
+
+    async def guide() -> str:
+        return "prompt"
+
+    _PROMPT_REGISTRY["guide"] = PromptRegistration(
+        metadata=PromptMetadata(name="guide", func=guide, description="Guide prompt"), registered=False
+    )
+    mcp = MagicMock()
+
+    try:
+        register_prompts(mcp)
+        register_prompts(mcp)
+
+        mcp.prompt.assert_called_once_with(name="guide")
+    finally:
+        clear_prompt_registry()
+
+
+def test_register_resources_is_idempotent_for_the_same_server():
+    """Resource registration keeps a weak reference to the actual server."""
+    from mcp_guide.core.resource_decorator import _RESOURCE_REGISTRY, register_resources
+
+    async def resource() -> str:
+        return "resource"
+
+    _RESOURCE_REGISTRY["resource"] = ResourceRegistration(
+        metadata=ResourceMetadata(name="resource", uri_template="guide://resource", func=resource, description=None),
+        registered=False,
+    )
+    mcp = MagicMock()
+
+    try:
+        register_resources(mcp)
+        register_resources(mcp)
+
+        mcp.resource.assert_called_once_with("guide://resource")
+    finally:
+        clear_resource_registry()
+
+
 def test_register_prompts_uses_default_guide_name_without_override():
     """Guide prompt should register under its own name when no override is set."""
     from mcp_guide.core.prompt_decorator import (

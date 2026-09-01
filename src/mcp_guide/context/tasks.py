@@ -23,7 +23,7 @@ class ClientContextTask(InitialisableMixin):
     def __init__(self, task_manager: "TaskManager"):
         """Create a project task with its owning Session's manager."""
         self.task_manager = task_manager
-        self._session: Any = task_manager._session
+        self._session: Any = None
         self._os_info_requested = False
         self._flag_checked = False
 
