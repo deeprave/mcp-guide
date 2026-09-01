@@ -115,9 +115,11 @@ Required work:
   hash. A missing or mismatched hash is a miss, never permission to select by name.
 - Treat malformed, hashless, and mismatched configuration entries as ignored data, not
   lookup candidates. No compatibility migration is provided; normal resolution
-  selects or creates only the correct `<project-name>-<hash>` key. That format is
-  already long-established, and fresh configuration is an acceptable outcome for an
-  ignored older entry; this is deliberate rather than an unaddressed migration gap.
+  selects or creates only the correct `<project-name>-<hash>` key. The sole exception
+  is `clone_project`: after strict name lookup fails, it may recover an exact raw
+  hashless YAML key as an explicit source. That format is already long-established,
+  and fresh configuration is an acceptable outcome for an ignored older entry outside
+  this clone recovery path; this is deliberate rather than an unaddressed migration gap.
 - Remove `clone_project`'s `to_project` argument and all temporary-session/noncurrent
   target paths. It must load the root-bound interaction's active configuration as the
   target and save only to that exact key/hash.

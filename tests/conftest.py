@@ -107,17 +107,92 @@ def is_gitignored(repo_root: Path, path: Path) -> bool:
 
 
 class ProductionFileHandler(FileSystemEventHandler):
-    """Handler that terminates tests immediately on production file modification."""
+    """Abort tests on an identifiable production file event."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._snapshots: dict[Path, dict[Path, tuple[int, int]]] = {}
+        self._recursive_paths: set[Path] = set()
+
+    def watch_path(self, path: Path, *, recursive: bool = True) -> None:
+        """Record the protected path state before watchdog starts observing it."""
+        root = path.resolve()
+        if recursive:
+            self._recursive_paths.add(root)
+        self._snapshots[root] = self._snapshot(root)
+
+    def _snapshot(self, root: Path) -> dict[Path, tuple[int, int]]:
+        """Return persistent non-lock file state beneath one protected root."""
+        paths = root.rglob("*") if root in self._recursive_paths else root.iterdir()
+        snapshot: dict[Path, tuple[int, int]] = {}
+        try:
+            for path in paths:
+                if not path.is_file() or path.name.endswith(".lock"):
+                    continue
+                try:
+                    stat = path.stat()
+                except FileNotFoundError:
+                    continue
+                snapshot[path.resolve()] = (stat.st_mtime_ns, stat.st_size)
+        except FileNotFoundError:
+            return {}
+        return snapshot
+
+    def _directory_changes(self, directory: Path) -> list[str]:
+        """Identify persistent protected-file changes behind a directory event."""
+        changes: list[str] = []
+        for root, previous in self._snapshots.items():
+            try:
+                directory.resolve().relative_to(root)
+            except ValueError:
+                try:
+                    root.relative_to(directory.resolve())
+                except ValueError:
+                    continue
+            current = self._snapshot(root)
+            self._snapshots[root] = current
+            for path in sorted(current.keys() - previous.keys()):
+                changes.append(f"created: {path}")
+            for path in sorted(previous.keys() - current.keys()):
+                changes.append(f"removed: {path}")
+            for path in sorted(current.keys() & previous.keys()):
+                if current[path] != previous[path]:
+                    changes.append(f"modified: {path}")
+        return changes
 
     def on_any_event(self, event):
-        """Terminate test session if production file is touched."""
-        # Ignore transient lock files created by running mcp-guide server instances
-        if event.src_path.endswith(".lock"):
+        """Abort only when watchdog identifies the affected production file."""
+        if getattr(event, "is_directory", False):
+            changes = self._directory_changes(Path(event.src_path))
+            if changes:
+                self._abort(event, changes)
             return
+
+        source_path = event.src_path
+        destination_path = getattr(event, "dest_path", "")
+        # Ignore transient lock files created by running mcp-guide server instances.
+        if source_path.endswith(".lock") or destination_path.endswith(".lock"):
+            return
+
+        self._abort(event)
+
+    @staticmethod
+    def _abort(event, changes: list[str] | None = None) -> None:
+        """Emit a complete, prominent diagnostic before terminating pytest."""
+        source_path = event.src_path
+        destination_path = getattr(event, "dest_path", "")
+        event_class = getattr(event, "event_class", type(event).__name__)
+        changed_paths = ""
+        if changes:
+            changed_paths = "\nDetected file changes:\n" + "\n".join(f"  {change}" for change in changes)
         pytest.exit(
-            f"PRODUCTION FILE MODIFIED: {event.src_path}\n"
-            f"Event type: {event.event_type}\n"
-            f"Tests must use temporary directories for file operations.",
+            "!!! PRODUCTION FILE WRITE DETECTED — TEST RUN ABORTED !!!\n"
+            f"Event class: {event_class}\n"
+            f"Change: {event.event_type}\n"
+            f"Path: {source_path}\n"
+            f"Destination: {destination_path or '<none>'}\n"
+            f"{changed_paths}\n"
+            "Tests must use temporary directories for file operations.",
             returncode=1,
         )
 
@@ -174,15 +249,19 @@ def protect_production_files():
     observer = _create_test_observer()
 
     if REAL_PATHS["mcp_guide_config"].exists():
+        production_handler.watch_path(REAL_PATHS["mcp_guide_config"], recursive=False)
         observer.schedule(production_handler, str(REAL_PATHS["mcp_guide_config"]), recursive=False)
 
     if REAL_PATHS["mcp_guide_docroot"].exists():
+        production_handler.watch_path(REAL_PATHS["mcp_guide_docroot"])
         observer.schedule(production_handler, str(REAL_PATHS["mcp_guide_docroot"]), recursive=True)
 
     if REAL_PATHS["msg_config"].exists():
+        production_handler.watch_path(REAL_PATHS["msg_config"], recursive=False)
         observer.schedule(production_handler, str(REAL_PATHS["msg_config"]), recursive=False)
 
     if REAL_PATHS["msg_docroot"].exists():
+        production_handler.watch_path(REAL_PATHS["msg_docroot"])
         observer.schedule(production_handler, str(REAL_PATHS["msg_docroot"]), recursive=True)
 
     observer.schedule(worktree_handler, str(REPO_ROOT), recursive=True)

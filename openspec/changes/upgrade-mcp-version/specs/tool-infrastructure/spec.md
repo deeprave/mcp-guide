@@ -73,9 +73,10 @@ configuration's exact key and bound root hash.
 
 An exact hash-suffixed source key SHALL be used directly and SHALL NOT fall back to
 display-name resolution. For a source name without a hash suffix, lookup SHALL use the
-first strict configuration whose `Project.name` matches in configuration order.
-Ordinary configuration loading, selection, and listing continue to ignore hashless,
-malformed, and mismatched entries.
+first strict configuration whose `Project.name` matches in configuration order. If no
+strict match exists, cloning SHALL recover an exact raw hashless YAML key with the
+requested name as its source. Ordinary configuration loading, selection, and listing
+continue to ignore hashless, malformed, and mismatched entries.
 
 #### Scenario: Clone into current configuration
 - **WHEN** a root-bound interaction calls `clone_project` with an exact source key or a source configuration name

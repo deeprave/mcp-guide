@@ -219,8 +219,9 @@ legacy configuration migration. Resolution selects or creates only the correct
 
 `clone_project` accepts either a display name or an exact hash-suffixed configuration
 key. An exact key selects that configuration directly. An unhashed display name selects
-the first strict configuration with that `Project.name` in configuration order. It only
-copies content into the already bound, correctly hashed target; it neither loads nor
+the first strict configuration with that `Project.name` in configuration order; if no
+strict match exists, it recovers an exact raw hashless YAML key with that name as the
+source. It only copies content into the already bound, correctly hashed target; it neither loads nor
 rewrites another configuration as the active configuration.
 
 **Rationale:** the `<project-name>-<hash>` format has been established for many
