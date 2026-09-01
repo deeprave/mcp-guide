@@ -38,15 +38,14 @@ revision, without relying on private FastMCP server internals.
 ## ADDED Requirements
 
 ### Requirement: Modern HTTP Response Metadata
-The HTTP transport SHALL preserve protocol response metadata, including request state
-and cache hints, instead of embedding that metadata solely in rendered text or
-JSON-encoded application strings.
+The HTTP transport SHALL preserve supported protocol response metadata instead of
+embedding that metadata solely in rendered text or JSON-encoded application strings.
+It SHALL NOT emit cache TTL or scope using non-standard
+`io.modelcontextprotocol/cache-*` `_meta` keys. A newly minted FastMCP `session_id`
+SHALL be returned through the common structured result fixture rather than response
+metadata.
 
-#### Scenario: Cacheable response
-- **WHEN** an application result is explicitly marked cacheable
-- **THEN** the HTTP response SHALL include the required modern cache metadata with a defined TTL and scope
-- **AND** the rendered content SHALL remain unchanged by metadata transport
-
-#### Scenario: Non-cacheable response
-- **WHEN** a response contains request-specific instructions, state, or project-sensitive data without a safe cache policy
-- **THEN** the system SHALL not advertise it as cacheable
+#### Scenario: Response without cache metadata
+- **WHEN** an application response is adapted for HTTP delivery
+- **THEN** it does not include non-standard cache TTL or scope `_meta` keys
+- **AND** the rendered content remains unchanged by metadata transport

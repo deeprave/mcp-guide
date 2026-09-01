@@ -1,20 +1,16 @@
 """Integration tests for template rendering with project flags."""
 
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 
 from mcp_guide.models import Project
-from mcp_guide.render.cache import TemplateContextCache, get_template_contexts, invalidate_template_context_cache
+from mcp_guide.render.cache import TemplateContextCache, get_template_contexts
 from mcp_guide.render.renderer import render_template_content
 
 
 class TestTemplateRenderingWithFlags:
     """Test template rendering with project flags integration."""
-
-    def setup_method(self) -> None:
-        """Clear template context cache before each test."""
-        invalidate_template_context_cache()
 
     @pytest.mark.anyio
     async def test_template_renders_with_phase_tracking_flag_true(self) -> None:
@@ -32,20 +28,22 @@ Phase tracking is enabled!
         # Mock session
         mock_session = Mock()
         mock_session.get_project = AsyncMock(return_value=mock_project)
-        mock_session.template_cache = TemplateContextCache()
+        mock_session.agent_info = None
+        mock_session.client_params = None
+        mock_session.task_manager.get_cached_data.return_value = {}
+        mock_session.runtime.feature_flags.return_value.list = AsyncMock(return_value={})
+        mock_session.template_cache = TemplateContextCache(mock_session)
 
-        with patch("mcp_guide.session.get_session", return_value=mock_session):
-            with patch("mcp_guide.session.get_active_session", return_value=mock_session):
-                # Get template context with project flags
-                context = await get_template_contexts()
+        # Get template context with project flags.
+        context = await get_template_contexts(mock_session)
 
-                # Render template
-                result = await render_template_content(template_content, context)
+        # Render template.
+        result = await render_template_content(template_content, context)
 
-                # Verify content is rendered
-                assert result.success
-                rendered_content, _, _ = result.value
-                assert "Phase tracking is enabled!" in rendered_content
+        # Verify content is rendered.
+        assert result.success
+        rendered_content, _, _ = result.value
+        assert "Phase tracking is enabled!" in rendered_content
 
     @pytest.mark.anyio
     async def test_template_does_not_render_with_phase_tracking_flag_false(self) -> None:
@@ -63,22 +61,24 @@ Phase tracking is enabled!
         # Mock session
         mock_session = Mock()
         mock_session.get_project = AsyncMock(return_value=mock_project)
-        mock_session.template_cache = TemplateContextCache()
+        mock_session.agent_info = None
+        mock_session.client_params = None
+        mock_session.task_manager.get_cached_data.return_value = {}
+        mock_session.runtime.feature_flags.return_value.list = AsyncMock(return_value={})
+        mock_session.template_cache = TemplateContextCache(mock_session)
 
-        with patch("mcp_guide.session.get_session", return_value=mock_session):
-            with patch("mcp_guide.session.get_active_session", return_value=mock_session):
-                # Get template context with project flags
-                context = await get_template_contexts()
+        # Get template context with project flags.
+        context = await get_template_contexts(mock_session)
 
-                # Render template
-                result = await render_template_content(template_content, context)
+        # Render template.
+        result = await render_template_content(template_content, context)
 
-                # Verify content is not rendered
-                assert result.success
-                rendered_content, _, _ = result.value
-                assert "Phase tracking is enabled!" not in rendered_content
-                # Should be empty or just whitespace
-                assert rendered_content.strip() == ""
+        # Verify content is not rendered.
+        assert result.success
+        rendered_content, _, _ = result.value
+        assert "Phase tracking is enabled!" not in rendered_content
+        # Should be empty or just whitespace.
+        assert rendered_content.strip() == ""
 
     @pytest.mark.anyio
     async def test_template_does_not_render_with_missing_flag(self) -> None:
@@ -99,19 +99,21 @@ Phase tracking is enabled!
         # Mock session
         mock_session = Mock()
         mock_session.get_project = AsyncMock(return_value=mock_project)
-        mock_session.template_cache = TemplateContextCache()
+        mock_session.agent_info = None
+        mock_session.client_params = None
+        mock_session.task_manager.get_cached_data.return_value = {}
+        mock_session.runtime.feature_flags.return_value.list = AsyncMock(return_value={})
+        mock_session.template_cache = TemplateContextCache(mock_session)
 
-        with patch("mcp_guide.session.get_session", return_value=mock_session):
-            with patch("mcp_guide.session.get_active_session", return_value=mock_session):
-                # Get template context with project flags
-                context = await get_template_contexts()
+        # Get template context with project flags.
+        context = await get_template_contexts(mock_session)
 
-                # Render template
-                result = await render_template_content(template_content, context)
+        # Render template.
+        result = await render_template_content(template_content, context)
 
-                # Verify content is not rendered
-                assert result.success
-                rendered_content, _, _ = result.value
-                assert "Phase tracking is enabled!" not in rendered_content
-                # Should be empty or just whitespace
-                assert rendered_content.strip() == ""
+        # Verify content is not rendered.
+        assert result.success
+        rendered_content, _, _ = result.value
+        assert "Phase tracking is enabled!" not in rendered_content
+        # Should be empty or just whitespace.
+        assert rendered_content.strip() == ""

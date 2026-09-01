@@ -1,14 +1,16 @@
 ## ADDED Requirements
 
 ### Requirement: Framework-Neutral Request Context
-The system SHALL construct a framework-neutral request context for every MCP tool,
-prompt, and resource operation. The context SHALL expose the negotiated protocol
+The system SHALL define a framework-neutral request-context adapter for MCP tool,
+prompt, and resource operations. The context SHALL expose the negotiated protocol
 revision, request identity, client and agent metadata when supplied, an explicit
 validated root binding and active configuration-project selection when available, and
 safe response metadata APIs.
 
-Application services SHALL NOT require a raw FastMCP context or a low-level MCP
-server-session object to perform correct request handling.
+This change confines request-context construction to the FastMCP boundary. Propagating
+the resolved context through application handlers is deferred to
+`use-request-context`; transitional handlers may continue to receive raw FastMCP
+context while using the validated Session boundary defined here.
 
 The request adapter SHALL receive the public FastMCP context and, when the tool
 arguments provide it, the FastMCP `session_id`. It SHALL use a validated explicit
@@ -27,9 +29,11 @@ control characters, without imposing a UUID format or other needless structure.
 
 #### Scenario: Context-bearing tool request
 - **WHEN** a negotiated MCP tool request is dispatched
-- **THEN** its handler receives an application request context derived from that request
-- **AND** the handler can resolve the request's client metadata, bound root, and active configuration project without inspecting SDK-private objects
-- **AND** the context SHALL contain the Guide Session resolved by `GuideRuntime` from the verified Session key
+- **THEN** the request adapter derives an application request context from that request
+- **AND** the validated Session boundary resolves the Guide Session from the verified
+  Session key without inspecting SDK-private objects
+- **AND** the handler-propagation refactor remains the responsibility of
+  `use-request-context`
 
 #### Scenario: Tool supplies an explicit FastMCP session ID
 - **WHEN** a tool argument contains a valid FastMCP `session_id`
@@ -69,24 +73,43 @@ control characters, without imposing a UUID format or other needless structure.
 - **WHEN** an unbound stdio context has a valid absolute inherited `PWD`
 - **THEN** the request adapter SHALL bind the new Guide Session from that path before
   evaluating the no-project result
+- **AND** it SHALL use the same runtime-owned Session and binding path as an explicit
+  `set_project(path)` request
 - **AND** it SHALL NOT use that shortcut for a remote transport
 
-### Requirement: Integrity-Protected Cross-Request State
-The system SHALL use the selected SDK's integrity-protected request-state facility,
-configured with stable deployment keys, for state that must survive a modern MCP
-multi-round-trip interaction. Application state SHALL be expiry-bound, versioned,
-and bound to the available client or principal scope and to the request authorisation
-context it represents.
+### Requirement: FastMCP Session-ID Cross-Request Binding
+The system SHALL use FastMCP's minted, principal-validated `session_id` as the
+explicit cross-request binding mechanism for a modern MCP interaction. The session
+ID SHALL select a context-owned, in-memory Guide Session for the lifetime of the
+running MCP server.
 
-#### Scenario: Valid selected-root state round trip
-- **WHEN** an interaction binds a root with `set_project(path)` and the protocol requires state to round trip
-- **THEN** the response SHALL return the bound root and active configuration selection through the supported request-state mechanism
-- **AND** a subsequent valid request SHALL recover that context without a live connection object
+Guide SHALL persist only project configuration in its configuration file. It SHALL
+NOT persist or restore root bindings, active configuration selection, instructions,
+task state, or rendering caches across an MCP server restart.
 
-#### Scenario: Tampered or expired state
-- **WHEN** a request presents request state with an invalid signature, incompatible binding, or expired timestamp
-- **THEN** the system SHALL reject that state
-- **AND** it SHALL NOT use the state to select a project or deliver queued instructions
+#### Scenario: Valid session-ID round trip
+- **WHEN** an interaction binds a root with `set_project(path)` and FastMCP mints a
+  session ID
+- **THEN** the common Result adapter SHALL return that `session_id` in the standard
+  structured result fixture
+- **AND** a subsequent request supplying that valid ID SHALL resolve the same
+  in-memory Guide Session while the MCP server remains running
+
+#### Scenario: Unknown or invalid session ID
+- **WHEN** a request supplies a session ID that FastMCP does not validate for the
+  current principal
+- **THEN** the system SHALL reject the ID
+- **AND** it SHALL not create a replacement Guide Session or use it to select a
+  project or deliver queued instructions
+- **AND** it SHALL return a distinct invalid-session result directing the client to
+  discard that identifier and call `set_project(path)` to begin a new interaction
+
+#### Scenario: MCP server restart
+- **WHEN** the MCP server is restarted
+- **THEN** its prior Guide Sessions and transient state SHALL be discarded
+- **AND** a new interaction SHALL bind a project before project-bound behaviour is
+  available
+- **AND** persisted project configuration MAY be loaded after that binding
 
 ### Requirement: Explicit Interaction Ownership
 The system SHALL partition cross-request queued instructions, project-scoped tasks,

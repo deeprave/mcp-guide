@@ -1,8 +1,12 @@
 """Tests for HTTP transport implementation."""
 
+import asyncio
+import errno
+import socket
 from unittest.mock import patch
 
 import pytest
+from fastmcp import Client
 
 from mcp_guide.transports.base import Transport
 from mcp_guide.transports.http import HttpTransport
@@ -11,8 +15,10 @@ from mcp_guide.transports.http import HttpTransport
 class MockMcpServer:
     """Mock MCP server for testing."""
 
-    def streamable_http_app(self):
+    def http_app(self, *, transport, path):
         """Mock streamable HTTP app."""
+        assert transport == "streamable-http"
+        assert path.startswith("/")
 
         # Return a minimal ASGI app
         async def app(scope, receive, send):
@@ -93,3 +99,38 @@ async def test_http_transport_lifecycle():
 
         # Verify server stopped
         assert transport.server.should_exit
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("mode", ["legacy", "2026-07-28"])
+async def test_streamable_http_serves_retained_and_modern_clients(mode: str):
+    """FastMCP owns negotiated Streamable HTTP protocol handling."""
+    from mcp_guide.cli import ServerConfig
+    from mcp_guide.server import create_application
+
+    with socket.socket() as port_socket:
+        try:
+            port_socket.bind(("127.0.0.1", 0))
+        except OSError as error:
+            if error.errno in {errno.EPERM, errno.EACCES}:
+                raise pytest.skip(f"HTTP integration test disabled in sandboxed environments: {error}") from error
+            raise
+        port = port_socket.getsockname()[1]
+
+    application = create_application(ServerConfig())
+    transport = HttpTransport("http", "127.0.0.1", port, application.server)
+    await transport.start()
+    try:
+        for _ in range(50):
+            if transport.server is not None and transport.server.started:
+                break
+            await asyncio.sleep(0.01)
+        else:
+            pytest.fail("Uvicorn did not start")
+
+        async with Client(f"http://127.0.0.1:{port}/mcp", mode=mode) as client:
+            tools = await client.list_tools()
+
+        assert any(tool.name == "set_project" for tool in tools)
+    finally:
+        await transport.stop()

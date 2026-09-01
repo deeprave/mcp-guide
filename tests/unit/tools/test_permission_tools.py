@@ -3,13 +3,42 @@
 import pytest
 from tests.helpers import create_bound_test_session
 
-from mcp_guide.session import remove_current_session, set_current_session
+from mcp_guide.session import Session
 from mcp_guide.tools.tool_project import (
     AddPermissionPathArgs,
     RemovePermissionPathArgs,
     internal_add_permission_path,
     internal_remove_permission_path,
 )
+
+_test_session: Session | None = None
+
+
+def set_current_session(session: Session) -> None:
+    """Select the explicit fixture Session used by direct tool unit tests."""
+    global _test_session
+    _test_session = session
+
+
+async def remove_current_session() -> None:
+    """Clear the test fixture Session without restoring a production fallback."""
+    global _test_session
+    _test_session = None
+
+
+@pytest.fixture(autouse=True)
+def inject_explicit_session(monkeypatch):
+    """Route direct project-tool calls through the selected fixture Session."""
+
+    async def get_bound_session_and_project(_ctx=None, *, session_id=None):
+        if _test_session is None:
+            return None, None
+        return _test_session, await _test_session.get_project()
+
+    monkeypatch.setattr(
+        "mcp_guide.tools.tool_project.get_session_and_project",
+        get_bound_session_and_project,
+    )
 
 
 @pytest.fixture(scope="module")

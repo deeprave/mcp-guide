@@ -12,7 +12,7 @@ from mcp_guide.feature_flags.constants import FLAG_OPENSPEC
 from mcp_guide.openspec.rendering import render_openspec_template
 from mcp_guide.render.content import RenderedContent
 from mcp_guide.render.context import TemplateContext
-from mcp_guide.task_manager import EventType, get_task_manager
+from mcp_guide.task_manager import EventType
 from mcp_guide.task_manager.protocol import DEFAULT_ONCE_INTERVAL, InitialisableMixin
 
 if TYPE_CHECKING:
@@ -30,11 +30,10 @@ CHANGES_CHECK_INTERVAL = 3600.0  # 60 minutes
 class OpenSpecTask(InitialisableMixin):
     """Task for detecting OpenSpec CLI availability."""
 
-    def __init__(self, task_manager: Optional["TaskManager"] = None):
-        if task_manager is None:
-            task_manager = get_task_manager()
+    def __init__(self, task_manager: "TaskManager"):
+        """Create a project task with its owning Session's manager."""
         self.task_manager = task_manager
-        self._session: Any = None
+        self._session: Any = task_manager._session
         self._cli_requested = False
         self._flag_checked = False
         self._available: Optional[bool] = None
@@ -81,10 +80,9 @@ class OpenSpecTask(InitialisableMixin):
         """Check flag and perform deferred initialization."""
         from mcp_guide.task_manager.manager import EventResult
 
-        if self._session is not None:
-            openspec_enabled = await self.task_manager.requires_flag(FLAG_OPENSPEC, self._session)
-        else:
-            openspec_enabled = await self.task_manager.requires_flag(FLAG_OPENSPEC)
+        if self._session is None:
+            return EventResult(result=False, message="OpenSpec task is not attached to a Session")
+        openspec_enabled = await self.task_manager.requires_flag(FLAG_OPENSPEC, self._session)
 
         if not openspec_enabled:
             await self.task_manager.unsubscribe(self)
@@ -92,12 +90,7 @@ class OpenSpecTask(InitialisableMixin):
             self._flag_checked = True
             return EventResult(result=True)
 
-        if self._session is not None:
-            session = self._session
-        else:
-            from mcp_guide.session import get_session
-
-            session = await get_session()
+        session = self._session
         project = await session.get_project()
 
         if project.openspec_version:
@@ -244,19 +237,19 @@ class OpenSpecTask(InitialisableMixin):
 
     async def request_cli_check(self) -> None:
         """Request OpenSpec CLI availability check from client."""
-        rendered = await render_openspec_template("openspec-cli-check")
+        rendered = await render_openspec_template(self._session, "openspec-cli-check")
         if rendered:
             self._cli_instruction_id = await self.task_manager.queue_instruction_with_ack(rendered.content)
 
     async def request_project_check(self) -> None:
         """Request OpenSpec project structure check from client."""
-        rendered = await render_openspec_template("openspec-project-check")
+        rendered = await render_openspec_template(self._session, "openspec-project-check")
         if rendered:
             self._project_instruction_id = await self.task_manager.queue_instruction_with_ack(rendered.content)
 
     async def request_version_check(self) -> None:
         """Request OpenSpec CLI version from client."""
-        rendered = await render_openspec_template("openspec-version-check")
+        rendered = await render_openspec_template(self._session, "openspec-version-check")
         if rendered:
             self._version_instruction_id = await self.task_manager.queue_instruction_with_ack(rendered.content)
 
@@ -310,9 +303,9 @@ class OpenSpecTask(InitialisableMixin):
 
                 # Mark validation as complete if the current OpenSpec config exists
                 if self._project_enabled:
-                    from mcp_guide.session import get_session
-
-                    session = await get_session()
+                    session = self._session
+                    if session is None:
+                        return EventResult(result=False, message="OpenSpec task is not attached to a Session")
                     project = await session.get_project()
 
                     if not project.openspec_validated:
@@ -374,7 +367,9 @@ class OpenSpecTask(InitialisableMixin):
                 self.task_manager.set_cached_data("openspec_status", json_data)
 
                 # Render and return the status format
-                rendered = await render_openspec_template("_status-format", extra_context=TemplateContext(json_data))
+                rendered = await render_openspec_template(
+                    self._session, "_status-format", extra_context=TemplateContext(json_data)
+                )
                 if rendered:
                     return EventResult(
                         result=True,
@@ -401,11 +396,11 @@ class OpenSpecTask(InitialisableMixin):
                 # Invalidate template context cache to pick up fresh changes
                 from mcp_guide.render.cache import invalidate_template_context_cache
 
-                invalidate_template_context_cache()
+                invalidate_template_context_cache(self._session)
                 logger.debug("Template context cache invalidated after OpenSpec changes update")
 
                 # Render and return the changes list
-                rendered = await render_openspec_template("_list-format")
+                rendered = await render_openspec_template(self._session, "_list-format")
                 if rendered:
                     return EventResult(
                         result=True,
@@ -419,7 +414,9 @@ class OpenSpecTask(InitialisableMixin):
                 self.task_manager.set_cached_data("openspec_show", json_data)
 
                 # Render and return the show format
-                rendered = await render_openspec_template("_show-format", extra_context=TemplateContext(json_data))
+                rendered = await render_openspec_template(
+                    self._session, "_show-format", extra_context=TemplateContext(json_data)
+                )
                 if rendered:
                     return EventResult(
                         result=True,
@@ -432,7 +429,7 @@ class OpenSpecTask(InitialisableMixin):
 
     async def request_changes_json(self) -> None:
         """Request openspec changes JSON via command execution."""
-        rendered = await render_openspec_template("openspec-get-changes")
+        rendered = await render_openspec_template(self._session, "openspec-get-changes")
         if rendered:
             self._changes_instruction_id = await self.task_manager.queue_instruction_with_ack(rendered.content)
 
@@ -452,8 +449,6 @@ class OpenSpecTask(InitialisableMixin):
         Args:
             content: Output from openspec --version command
         """
-        from mcp_guide.session import get_session
-
         try:
             # Extract semantic version (e.g., "1.2.3" or "v1.2.3")
             match = re.search(r"v?(\d+\.\d+\.\d+)", content)
@@ -464,7 +459,10 @@ class OpenSpecTask(InitialisableMixin):
                 logger.info(f"OpenSpec version: {self._version}")
 
                 # Store version in project config
-                session = await get_session()
+                if self._session is None:
+                    logger.warning("Cannot persist OpenSpec version without an owning Session")
+                    return
+                session = self._session
                 project = await session.get_project()
                 if project.openspec_version != self._version:
                     await session.update_config(lambda p: replace(p, openspec_version=self._version))
@@ -499,4 +497,4 @@ class OpenSpecTask(InitialisableMixin):
         Returns:
             RenderedContent with formatted content, or None if filtered by requires-*
         """
-        return await render_openspec_template("_error-format", extra_context=TemplateContext(data))
+        return await render_openspec_template(self._session, "_error-format", extra_context=TemplateContext(data))

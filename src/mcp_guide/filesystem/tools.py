@@ -34,6 +34,7 @@ async def send_file_content(
     type: Optional[str] = None,
     force: Optional[bool] = None,
     metadata: Optional[dict[str, Any]] = None,
+    session_id: str | None = None,
 ) -> "Result[dict[str, Any]]":
     """Agent tool to send file content from its filesystem to the server.
 
@@ -91,11 +92,14 @@ async def send_file_content(
 
         _get_file_cache().put(validated_path, content, mtime)
 
-        # Dispatch event to task manager
-        from mcp_guide.task_manager import EventType, get_task_manager
+        # Dispatch to the Session selected by this request.  Filesystem
+        # callbacks are a multi-round-trip protocol surface, so they must not
+        # recover a manager through an ambient task-local Session.
+        from mcp_guide.task_manager import EventType
         from mcp_guide.task_manager.manager import aggregate_event_results
 
-        task_manager = get_task_manager()
+        session = await get_session(context, session_id=session_id)
+        task_manager = session.task_manager
         event_results = await task_manager.dispatch_event(
             EventType.FS_FILE_CONTENT,
             {
@@ -134,7 +138,12 @@ async def send_file_content(
 
 
 async def send_directory_listing(
-    context: Any, path: str, files: list[Dict[str, Any]], pattern: Optional[str] = None, recursive: bool = False
+    context: Any,
+    path: str,
+    files: list[Dict[str, Any]],
+    pattern: Optional[str] = None,
+    recursive: bool = False,
+    session_id: str | None = None,
 ) -> "Result[Dict[str, Any]]":
     """Agent tool to send directory listing from its filesystem to the server.
 
@@ -169,13 +178,14 @@ async def send_directory_listing(
         )
 
     try:
-        session = await get_session(context)
+        session = await get_session(context, session_id=session_id)
         project = await session.get_project()
 
-        # Get project root for client path resolution
-        from mcp_guide.mcp_context import resolve_project_path
-
-        project_root = await resolve_project_path()
+        # Project identity comes from the request-resolved Session, never an
+        # ambient MCP context lookup.
+        project_root = session.bound_root_path
+        if project_root is None:
+            raise ValueError("Project context not available. Call set_project(path) first.")
 
         # Create client_resolve function for security policy
         def client_resolve_func(path: Union[str, Path]) -> Path:
@@ -196,10 +206,10 @@ async def send_directory_listing(
         validated_path = policy.validate_read_path(path)
 
         # Dispatch event to task manager
-        from mcp_guide.task_manager import EventType, get_task_manager
+        from mcp_guide.task_manager import EventType
         from mcp_guide.task_manager.manager import aggregate_event_results
 
-        task_manager = get_task_manager()
+        task_manager = session.task_manager
         event_results = await task_manager.dispatch_event(
             EventType.FS_DIRECTORY,
             {
@@ -231,7 +241,7 @@ async def send_directory_listing(
 
 
 async def send_command_location(
-    context: Any, command: str, path: Optional[str] = None, found: bool = False
+    context: Any, command: str, path: Optional[str] = None, found: bool = False, session_id: str | None = None
 ) -> "Result[Dict[str, Any]]":
     """Agent tool to send command location to server.
 
@@ -260,10 +270,11 @@ async def send_command_location(
 
     try:
         # Dispatch event to task manager
-        from mcp_guide.task_manager import EventType, get_task_manager
+        from mcp_guide.task_manager import EventType
         from mcp_guide.task_manager.manager import aggregate_event_results
 
-        task_manager = get_task_manager()
+        session = await get_session(context, session_id=session_id)
+        task_manager = session.task_manager
         event_results = await task_manager.dispatch_event(
             EventType.FS_COMMAND,
             {
@@ -290,7 +301,9 @@ async def send_command_location(
         return Result.failure(error=f"Failed to provide command location: {str(e)}", error_type=ERROR_UNEXPECTED)
 
 
-async def send_working_directory(context: Any, working_directory: str) -> "Result[Dict[str, Any]]":
+async def send_working_directory(
+    context: Any, working_directory: str, session_id: str | None = None
+) -> "Result[Dict[str, Any]]":
     """Agent tool to send current working directory to server.
 
     Args:
@@ -316,10 +329,11 @@ async def send_working_directory(context: Any, working_directory: str) -> "Resul
 
     try:
         # Dispatch event to task manager
-        from mcp_guide.task_manager import EventType, get_task_manager
+        from mcp_guide.task_manager import EventType
         from mcp_guide.task_manager.manager import aggregate_event_results
 
-        task_manager = get_task_manager()
+        session = await get_session(context, session_id=session_id)
+        task_manager = session.task_manager
         event_results = await task_manager.dispatch_event(
             EventType.FS_CWD,
             {
@@ -343,7 +357,7 @@ async def send_working_directory(context: Any, working_directory: str) -> "Resul
 
 
 async def send_found_files(
-    context: Any, pattern: str, files: list[str], start_path: str = "."
+    context: Any, pattern: str, files: list[str], start_path: str = ".", session_id: str | None = None
 ) -> "Result[Dict[str, Any]]":
     """Agent tool to send found files to server.
 
@@ -374,10 +388,11 @@ async def send_found_files(
 
     try:
         # Dispatch event to task manager
-        from mcp_guide.task_manager import EventType, get_task_manager
+        from mcp_guide.task_manager import EventType
         from mcp_guide.task_manager.manager import aggregate_event_results
 
-        task_manager = get_task_manager()
+        session = await get_session(context, session_id=session_id)
+        task_manager = session.task_manager
         event_results = await task_manager.dispatch_event(
             EventType.FS_FOUND_FILES,
             {

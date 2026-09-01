@@ -2,6 +2,7 @@
 
 import pytest
 from pydantic import ValidationError
+from tests.helpers import tool_result_payload
 
 
 def create_mock_session(project, tmp_path):
@@ -13,6 +14,10 @@ def create_mock_session(project, tmp_path):
 
         async def get_project(self):
             return project
+
+        @property
+        def runtime(self):
+            return self
 
         async def get_docroot(self):
             return str(tmp_path)
@@ -128,8 +133,6 @@ async def test_category_content_function_exists():
 @pytest.mark.anyio
 async def test_tool_returns_result_ok_on_success(tmp_path, monkeypatch):
     """Test that tool returns Result.ok() with content on success."""
-    import json
-
     from mcp_guide.models import Category, Project
     from mcp_guide.tools.tool_category import (
         CategoryContentArgs,
@@ -153,10 +156,10 @@ async def test_tool_returns_result_ok_on_success(tmp_path, monkeypatch):
 
     # Call tool
     args = CategoryContentArgs(expression="docs")
-    result_json = await category_content(args)
+    tool_result = await category_content(args)
 
     # Parse result
-    result = json.loads(result_json)
+    result = tool_result_payload(tool_result)
     assert result["success"] is True
     assert "value" in result
     assert "Test Content" in result["value"]
@@ -165,8 +168,6 @@ async def test_tool_returns_result_ok_on_success(tmp_path, monkeypatch):
 @pytest.mark.anyio
 async def test_category_not_found_returns_failure(tmp_path, monkeypatch):
     """Test that category not found returns Result.failure()."""
-    import json
-
     from mcp_guide.models import Project
     from mcp_guide.tools.tool_category import (
         ERROR_NOT_FOUND,
@@ -185,10 +186,10 @@ async def test_category_not_found_returns_failure(tmp_path, monkeypatch):
 
     # Call tool with non-existent category
     args = CategoryContentArgs(expression="nonexistent")
-    result_json = await category_content(args)
+    tool_result = await category_content(args)
 
     # Parse result
-    result = json.loads(result_json)
+    result = tool_result_payload(tool_result)
     assert result["success"] is False
     assert result["error_type"] == ERROR_NOT_FOUND
     assert result["instruction"] == INSTRUCTION_NOTFOUND_ERROR
@@ -198,8 +199,6 @@ async def test_category_not_found_returns_failure(tmp_path, monkeypatch):
 @pytest.mark.anyio
 async def test_no_matches_returns_failure(tmp_path, monkeypatch):
     """Test that no matches with default patterns returns success, with pattern override returns failure."""
-    import json
-
     from mcp_guide.models import Category, Project
     from mcp_guide.tools.tool_category import (
         INSTRUCTION_PATTERN_ERROR,
@@ -219,16 +218,16 @@ async def test_no_matches_returns_failure(tmp_path, monkeypatch):
 
     # Test 1: Default patterns - should return success
     args = CategoryContentArgs(expression="docs")
-    result_json = await category_content(args)
-    result = json.loads(result_json)
+    tool_result = await category_content(args)
+    result = tool_result_payload(tool_result)
     assert result["success"] is True
     assert result["instruction"] == INSTRUCTION_PATTERN_ERROR
     assert "No files found" in result["value"]
 
     # Test 2: Pattern override - should also return success (consistent with other tools)
     args = CategoryContentArgs(expression="docs", pattern="*.txt")
-    result_json = await category_content(args)
-    result = json.loads(result_json)
+    tool_result = await category_content(args)
+    result = tool_result_payload(tool_result)
     assert result["success"] is True
     assert result["instruction"] == INSTRUCTION_PATTERN_ERROR
     assert "*.txt" in result["value"]
@@ -253,7 +252,6 @@ async def test_no_matches_returns_failure(tmp_path, monkeypatch):
 )
 async def test_file_read_error_scenarios(tmp_path, monkeypatch, scenario, patterns, error_map):
     """Test that file read errors return ERROR_FILE_READ with appropriate aggregation."""
-    import json
     from datetime import datetime
     from pathlib import Path
 
@@ -290,13 +288,13 @@ async def test_file_read_error_scenarios(tmp_path, monkeypatch, scenario, patter
         assert expression == "docs"
         return file_infos
 
-    async def mock_get_template_context_if_needed(category_files, category_name):
+    async def mock_get_template_context_if_needed(session, category_files, category_name):
         assert category_name == "docs"
         assert category_files == file_infos
         return None
 
     async def mock_read_and_render_file_contents(
-        category_files, category_dir, docroot, template_context, category_prefix
+        session, category_files, category_dir, docroot, template_context, category_prefix
     ):
         assert category_files == file_infos
         assert category_dir == tmp_path
@@ -318,10 +316,10 @@ async def test_file_read_error_scenarios(tmp_path, monkeypatch, scenario, patter
 
     # Call tool
     args = CategoryContentArgs(expression="docs")
-    result_json = await category_content(args)
+    tool_result = await category_content(args)
 
     # Parse result
-    result = json.loads(result_json)
+    result = tool_result_payload(tool_result)
     assert result["success"] is False
     assert result["error_type"] == ERROR_FILE_READ
     assert result["instruction"] == INSTRUCTION_FILE_ERROR
@@ -338,8 +336,6 @@ async def test_file_read_error_scenarios(tmp_path, monkeypatch, scenario, patter
 @pytest.mark.anyio
 async def test_error_responses_include_all_fields(tmp_path, monkeypatch):
     """Test that error responses include error_type, instruction, and message."""
-    import json
-
     from mcp_guide.models import Project
     from mcp_guide.tools.tool_category import (
         CategoryContentArgs,
@@ -356,10 +352,10 @@ async def test_error_responses_include_all_fields(tmp_path, monkeypatch):
 
     # Call tool
     args = CategoryContentArgs(expression="test")
-    result_json = await category_content(args)
+    tool_result = await category_content(args)
 
     # Parse result
-    result = json.loads(result_json)
+    result = tool_result_payload(tool_result)
     assert "success" in result
     assert "error_type" in result
     assert "instruction" in result

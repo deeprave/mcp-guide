@@ -2,18 +2,17 @@
 
 import asyncio
 import contextlib
+import inspect
 import time
 import zlib
-from contextvars import ContextVar
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, TypeVar, Union, cast
 
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.core.result import Result
-from mcp_guide.decorators import get_registered_task_classes, task_init
+from mcp_guide.decorators import get_registered_task_classes
 from mcp_guide.models import resolve_all_flags
 from mcp_guide.render.content import RenderedContent
-from mcp_guide.session import get_session
 
 if TYPE_CHECKING:
     from mcp_guide.session import Session
@@ -172,14 +171,14 @@ class TrackedInstruction:
     max_retries: int = 3
 
 
-@task_init
 class TaskManager:
     """Generic task coordination system."""
 
-    def __init__(self) -> None:
+    def __init__(self, session: "Session | None" = None) -> None:
         """Initialize TaskManager."""
 
         self._pending_instructions: List[str] = []
+        self._session = session
         self._cache: Dict[str, Any] = {}  # Keyed storage for task data
 
         # Instruction tracking for acknowledgement-based retry
@@ -234,7 +233,13 @@ class TaskManager:
         for task_cls in registered_task_classes:
             task: Any = None
             try:
-                task = task_cls()
+                # Project tasks are owned by this Session's manager. Real
+                # runtime tasks declare ``task_manager`` and receive it
+                # explicitly, which avoids ambient Session resolution when a
+                # shared configuration publication refreshes another Session.
+                # Minimal task doubles remain zero-argument by design.
+                parameters = inspect.signature(task_cls).parameters
+                task = task_cls(task_manager=self) if "task_manager" in parameters else task_cls()
                 started = await task.start(self, session)
             except asyncio.CancelledError:
                 raise
@@ -323,20 +328,19 @@ class TaskManager:
     async def resolved_flags(self, session: Optional["Session"] = None) -> Dict[str, Any]:
         """Lazily resolve and cache feature flags.
 
-        On first call, obtains the session, registers as a listener for
+        On first call, uses the owning Session, registers as a listener for
         invalidation, and resolves all flags. Subsequent calls return cached.
 
         Args:
             session: Optional explicit session to resolve against. Project
-                lifecycle restart uses this to avoid relying on ambient
-                ContextVar state during roots notifications.
+            lifecycle restart uses this explicit Session.
 
         Returns:
             Dictionary of resolved flags
         """
         if self._resolved_flags is None or (session is not None and self._resolved_flags_session is not session):
             try:
-                flags_session = session if session is not None else await get_session()
+                flags_session = session if session is not None else self._require_session()
                 flags_session.add_listener(self)
                 self._resolved_flags = await resolve_all_flags(flags_session)
                 self._resolved_flags_session = flags_session
@@ -371,13 +375,7 @@ class TaskManager:
 
     @classmethod
     async def _reset_for_testing(cls) -> None:
-        """Reset the task manager ContextVar for testing."""
-        try:
-            await _task_manager.get().cleanup()
-        except LookupError:
-            pass
-        finally:
-            _task_manager.set(cls())
+        """Compatibility no-op: TaskManagers are now owned by test Sessions."""
 
     def _get_subscriber_name(self, subscriber: TaskSubscriber) -> str:
         """Get a readable name for the subscriber."""
@@ -524,13 +522,31 @@ class TaskManager:
         return len(self._subscriptions)
 
     async def cleanup(self) -> None:
-        """Clean up resources and cancel running tasks."""
+        """Dispose of all resources and subscriptions owned by this session."""
         # Cancel timer task if running
         if self._timer_task and not self._timer_task.done():
             self._timer_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await self._timer_task
-            self._timer_task = None
+        self._timer_task = None
+
+        async with self._project_task_lifecycle_lock:
+            active_tasks = list(self._active_project_tasks.values())
+            self._active_project_tasks.clear()
+            self._project_task_lifecycle_generation += 1
+
+        for task in active_tasks:
+            try:
+                await self._stop_project_task(task)
+            except Exception as e:
+                logger.warning(f"Error stopping project task {task.get_name()} during cleanup: {e}")
+
+        self._subscriptions.clear()
+        self._pending_instructions.clear()
+        self._tracked_instructions.clear()
+        self._cache.clear()
+        self._resolved_flags = None
+        self._resolved_flags_session = None
 
     async def dispatch_event(
         self, data_type: EventType, data: "Union[dict[str, Any], Result[Any]]"
@@ -811,7 +827,7 @@ class TaskManager:
             if key in CACHE_INVALIDATION_KEYS:
                 from mcp_guide.render.cache import invalidate_template_context_cache
 
-                invalidate_template_context_cache()
+                invalidate_template_context_cache(self._require_session())
                 logger.trace(f"Template context cache invalidated due to {key} removal")
             return
 
@@ -824,8 +840,14 @@ class TaskManager:
         if key in CACHE_INVALIDATION_KEYS:
             from mcp_guide.render.cache import invalidate_template_context_cache
 
-            invalidate_template_context_cache()
+            invalidate_template_context_cache(self._require_session())
             logger.trace(f"Template context cache invalidated due to {key} change")
+
+    def _require_session(self) -> "Session":
+        """Return the manager's owning Session or fail closed."""
+        if self._session is None:
+            raise RuntimeError("TaskManager cache invalidation requires an owning Session")
+        return self._session
 
     def get_task_by_type(self, task_type: type[T]) -> Optional[T]:
         """Get a task instance by its type.
@@ -946,13 +968,3 @@ class TaskManager:
             else:
                 # No active timers, exit the loop
                 break
-
-
-_task_manager: ContextVar[TaskManager] = ContextVar("_task_manager")
-
-
-def get_task_manager() -> TaskManager:
-    """Get the per-task TaskManager instance, creating one if needed."""
-    from mcp_guide.utils import get_or_create
-
-    return get_or_create(_task_manager, TaskManager)

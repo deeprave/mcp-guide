@@ -1,9 +1,9 @@
 """Tests for discovery tools."""
 
-import json
 from unittest.mock import MagicMock, patch
 
 import pytest
+from tests.helpers import tool_result_payload
 
 from mcp_guide.core.prompt_decorator import PromptMetadata, PromptRegistration, clear_prompt_registry
 from mcp_guide.core.resource_decorator import ResourceMetadata, ResourceRegistration, clear_resource_registry
@@ -32,8 +32,7 @@ async def test_list_tools_returns_registered_tools():
 
     try:
         args = ListToolsArgs(include_args=False)
-        result_str = await list_tools(args)
-        result = json.loads(result_str)
+        result = tool_result_payload(await list_tools(args))
 
         assert result["success"] is True
         assert "tools" in result["value"]
@@ -67,8 +66,7 @@ async def test_list_tools_with_args_schema():
 
     try:
         args = ListToolsArgs(include_args=True)
-        result_str = await list_tools(args)
-        result = json.loads(result_str)
+        result = tool_result_payload(await list_tools(args))
 
         assert result["success"] is True
         tools_with_args = [t for t in result["value"]["tools"] if "args_schema" in t]
@@ -93,8 +91,7 @@ async def test_list_prompts_returns_registered_prompts():
         from mcp_guide.tools.tool_discovery import ListPromptsArgs
 
         args = ListPromptsArgs()
-        result_str = await list_prompts(args)
-        result = json.loads(result_str)
+        result = tool_result_payload(await list_prompts(args))
 
         assert result["success"] is True
         assert "prompts" in result["value"]
@@ -128,8 +125,7 @@ async def test_list_resources_returns_registered_resources():
         from mcp_guide.tools.tool_discovery import ListResourcesArgs
 
         args = ListResourcesArgs()
-        result_str = await list_resources(args)
-        result = json.loads(result_str)
+        result = tool_result_payload(await list_resources(args))
 
         assert result["success"] is True
         assert "resources" in result["value"]

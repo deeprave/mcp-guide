@@ -13,8 +13,6 @@ from mcp_guide.result import Result
 @pytest.mark.anyio
 async def test_project_context_renders_wrapped_flag_values_for_display():
     """Display-oriented flag lists should use FeatureValue display formatting."""
-    cache = TemplateContextCache()
-
     mock_session = Mock()
     mock_session.get_project = AsyncMock(
         return_value=Mock(
@@ -33,7 +31,9 @@ async def test_project_context_renders_wrapped_flag_values_for_display():
 
     mock_feature_flags = Mock()
     mock_feature_flags.list = AsyncMock(return_value={"autoupdate": FeatureValue(True)})
-    mock_session.feature_flags.return_value = mock_feature_flags
+    mock_session.runtime.feature_flags.return_value = mock_feature_flags
+    mock_session.task_manager.get_cached_data.return_value = None
+    cache = TemplateContextCache(mock_session)
 
     with (
         patch("mcp_guide.session.get_session", AsyncMock(return_value=mock_session)),
@@ -65,8 +65,6 @@ async def test_project_context_renders_wrapped_flag_values_for_display():
 @pytest.mark.anyio
 async def test_project_context_preserves_plain_workflow_structures_for_non_display_consumers():
     """Derived workflow context should expose plain dict/boolean structures for templates."""
-    cache = TemplateContextCache()
-
     mock_session = Mock()
     mock_session.get_project = AsyncMock(
         return_value=Mock(
@@ -78,7 +76,9 @@ async def test_project_context_preserves_plain_workflow_structures_for_non_displ
             project_flags={},
         )
     )
-    mock_session.feature_flags.return_value = Mock(list=AsyncMock(return_value={}))
+    mock_session.runtime.feature_flags.return_value = Mock(list=AsyncMock(return_value={}))
+    mock_session.task_manager.get_cached_data.return_value = None
+    cache = TemplateContextCache(mock_session)
 
     resolved_flags = {
         "workflow": FeatureValue(["discussion", "planning", "implementation", "check", "review"]),
@@ -91,9 +91,7 @@ async def test_project_context_preserves_plain_workflow_structures_for_non_displ
         patch("mcp_guide.models.resolve_all_flags", AsyncMock(return_value=resolved_flags)),
         patch("mcp_guide.mcp_context.resolve_project_path", AsyncMock(return_value="/tmp/project")),
         patch("mcp_guide.feature_flags.utils.get_resolved_flag_value", AsyncMock(return_value=None)),
-        patch("mcp_guide.task_manager.get_task_manager") as mock_task_manager,
     ):
-        mock_task_manager.return_value.get_cached_data.return_value = None
         context = await cache._build_project_context()
 
     assert context["workflow"]["discussion"] is True

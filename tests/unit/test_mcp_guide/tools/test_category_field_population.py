@@ -1,10 +1,10 @@
 """Test that category_content sets category field on FileInfo."""
 
-import json
 from pathlib import Path
 
 import pytest
 from _pytest.monkeypatch import MonkeyPatch
+from tests.helpers import tool_result_payload
 
 from mcp_guide.models import Category, Project
 from mcp_guide.tools.tool_category import CategoryContentArgs, category_content
@@ -16,6 +16,10 @@ def create_mock_session(tmp_path, project_data):
     class MockSession:
         async def get_project(self):
             return project_data
+
+        @property
+        def runtime(self):
+            return self
 
         async def get_docroot(self):
             return str(tmp_path)
@@ -61,10 +65,10 @@ async def test_category_field_set_on_fileinfo(tmp_path: Path, monkeypatch: Monke
     # Import and wrap the actual function
     from mcp_guide.content.utils import read_and_render_file_contents as original_read
 
-    async def capture_read_contents(files, base_dir, docroot, template_context=None, category_prefix=None):
+    async def capture_read_contents(session, files, base_dir, docroot, template_context=None, category_prefix=None):
         nonlocal captured_files
         captured_files = list(files)  # Capture before processing
-        return await original_read(files, base_dir, docroot, template_context, category_prefix)
+        return await original_read(session, files, base_dir, docroot, template_context, category_prefix)
 
     # Patch the imported reference in tool_category module
     import mcp_guide.tools.tool_category
@@ -74,10 +78,7 @@ async def test_category_field_set_on_fileinfo(tmp_path: Path, monkeypatch: Monke
 
     # Call tool
     args = CategoryContentArgs(expression="guide")
-    result_json = await category_content(args)
-
-    # Parse result
-    result = json.loads(result_json)
+    result = tool_result_payload(await category_content(args))
     assert result["success"] is True
 
     # Verify category field was set

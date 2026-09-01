@@ -1,4 +1,4 @@
-"""Tests for @guide.on_init() decorator and initialization flow."""
+"""Tests for explicit runtime lifecycle and initialization flow."""
 
 from pathlib import Path
 from unittest.mock import AsyncMock, Mock, patch
@@ -21,67 +21,30 @@ def make_rendered_content(content: str, instruction: str | None = None) -> Rende
     )
 
 
-class TestOnInitDecorator:
-    """Test @guide.on_init() decorator functionality."""
-
-    def test_on_init_decorator_registers_handler(self):
-        """Test that @guide.on_init() registers startup handlers."""
-        from mcp_guide.guide import GuideMCP
-
-        guide = GuideMCP("test")
-
-        handler_called = False
-
-        @guide.on_init()
-        async def test_handler():
-            nonlocal handler_called
-            handler_called = True
-
-        assert len(guide._startup_handlers) == 1
-        assert guide._startup_handlers[0] == test_handler
-
-    def test_on_init_decorator_multiple_handlers(self):
-        """Test that multiple handlers can be registered."""
-        from mcp_guide.guide import GuideMCP
-
-        guide = GuideMCP("test")
-
-        @guide.on_init()
-        async def handler1():
-            pass
-
-        @guide.on_init()
-        async def handler2():
-            pass
-
-        assert len(guide._startup_handlers) == 2
-
-
-class TestLifespanExecution:
-    """Test guide_lifespan() context manager execution."""
+class TestRuntimeLifespan:
+    """Test explicit GuideRuntime lifecycle execution."""
 
     @pytest.mark.anyio
     async def test_lifespan_executes_handlers(self):
-        """Test that lifespan executes all registered handlers."""
-        from mcp_guide.guide import GuideMCP
-        from mcp_guide.server import guide_lifespan
-
-        guide = GuideMCP("test")
+        """Test that the runtime starts and stops its registered process services."""
+        from mcp_guide.runtime import GuideRuntime
 
         handler1_called = False
         handler2_called = False
 
-        @guide.on_init()
         async def handler1():
             nonlocal handler1_called
             handler1_called = True
 
-        @guide.on_init()
         async def handler2():
             nonlocal handler2_called
             handler2_called = True
 
-        async with guide_lifespan(guide):
+        runtime = GuideRuntime(lambda _owner: object())
+        runtime._on_start = handler1
+        runtime._on_stop = handler2
+
+        async with runtime.lifespan():
             pass
 
         assert handler1_called
@@ -89,28 +52,18 @@ class TestLifespanExecution:
 
     @pytest.mark.anyio
     async def test_lifespan_continues_on_handler_error(self):
-        """Test that lifespan continues executing handlers even if one fails."""
-        from mcp_guide.guide import GuideMCP
-        from mcp_guide.server import guide_lifespan
+        """Test that failed initialization leaves the runtime unstarted."""
+        from mcp_guide.runtime import GuideRuntime
 
-        guide = GuideMCP("test")
-
-        handler2_called = False
-
-        @guide.on_init()
         async def failing_handler():
             raise RuntimeError("Test error")
 
-        @guide.on_init()
-        async def handler2():
-            nonlocal handler2_called
-            handler2_called = True
+        runtime = GuideRuntime(lambda _owner: object(), on_start=failing_handler)
 
-        async with guide_lifespan(guide):
-            pass
+        with pytest.raises(RuntimeError, match="Test error"):
+            await runtime.start()
 
-        # Second handler should still execute
-        assert handler2_called
+        assert not runtime.started
 
 
 class TestTaskManagerOnInit:
@@ -142,15 +95,11 @@ class TestTaskManagerOnInit:
         from mcp_guide.task_manager.manager import TaskManager
 
         await TaskManager._reset_for_testing()
-        task_manager = TaskManager()
-
         mock_session = Mock()
         mock_session.add_listener = Mock()
+        task_manager = TaskManager(mock_session)
 
         with (
-            patch(
-                "mcp_guide.task_manager.manager.get_session", new_callable=AsyncMock, return_value=mock_session
-            ) as mock_get_session,
             patch(
                 "mcp_guide.task_manager.manager.resolve_all_flags",
                 new_callable=AsyncMock,
@@ -162,7 +111,6 @@ class TestTaskManagerOnInit:
 
             assert flags_first == {"flag": True}
             assert flags_second is flags_first
-            mock_get_session.assert_awaited_once()
             mock_resolve_flags.assert_awaited_once()
             mock_session.add_listener.assert_called_once_with(task_manager)
 
@@ -207,11 +155,13 @@ class TestTaskInitialise:
         mock_task_manager.unsubscribe = AsyncMock()
 
         task = OpenSpecTask(task_manager=mock_task_manager)
+        session = Mock()
+        task._session = session
         result = await task.handle_event(EventType.TIMER_ONCE, {})
 
         assert result is not None
         assert result.result is True
-        mock_task_manager.requires_flag.assert_called_once_with("openspec")
+        mock_task_manager.requires_flag.assert_called_once_with("openspec", session)
         mock_task_manager.unsubscribe.assert_called_once_with(task)
         assert task._flag_checked
 
@@ -229,15 +179,16 @@ class TestTaskInitialise:
         with patch("mcp_guide.workflow.tasks.render_workflow_template") as mock_render:
             mock_render.return_value = make_rendered_content("setup content")
 
-            task = WorkflowMonitorTask()
-            task.task_manager = mock_task_manager
+            task = WorkflowMonitorTask(task_manager=mock_task_manager)
+            session = Mock()
+            task._session = session
 
             result = await task.handle_event(EventType.TIMER_ONCE, {})
 
             assert result is not None
             assert result.result is True
-            mock_task_manager.requires_flag.assert_called_once_with("workflow")
-            mock_render.assert_called_once_with("monitoring-setup")
+            mock_task_manager.requires_flag.assert_called_once_with("workflow", session)
+            mock_render.assert_called_once_with(session, "monitoring-setup")
             mock_task_manager.queue_instruction_with_ack.assert_called_once_with("setup content")
             assert task._setup_done
 
@@ -251,14 +202,15 @@ class TestTaskInitialise:
         mock_task_manager.requires_flag = AsyncMock(return_value=False)
         mock_task_manager.unsubscribe = AsyncMock()
 
-        task = WorkflowMonitorTask()
-        task.task_manager = mock_task_manager
+        task = WorkflowMonitorTask(task_manager=mock_task_manager)
+        session = Mock()
+        task._session = session
 
         result = await task.handle_event(EventType.TIMER_ONCE, {})
 
         assert result is not None
         assert result.result is True
-        mock_task_manager.requires_flag.assert_called_once_with("workflow")
+        mock_task_manager.requires_flag.assert_called_once_with("workflow", session)
         mock_task_manager.unsubscribe.assert_called_once_with(task)
 
     @pytest.mark.anyio
@@ -275,12 +227,14 @@ class TestTaskInitialise:
             mock_render.return_value = make_rendered_content("client context setup")
 
             task = ClientContextTask(task_manager=mock_task_manager)
+            session = Mock()
+            task._session = session
             result = await task.handle_event(EventType.TIMER_ONCE, {})
 
             assert result is not None
             assert result.result is True
-            mock_task_manager.requires_flag.assert_called_once_with("allow-client-info")
-            mock_render.assert_called_once_with("client-context-setup")
+            mock_task_manager.requires_flag.assert_called_once_with("allow-client-info", session)
+            mock_render.assert_called_once_with(session, "client-context-setup")
             mock_task_manager.queue_instruction_with_ack.assert_called_once_with("client context setup")
             assert task._os_info_requested
             assert task._flag_checked
@@ -296,10 +250,12 @@ class TestTaskInitialise:
         mock_task_manager.unsubscribe = AsyncMock()
 
         task = ClientContextTask(task_manager=mock_task_manager)
+        session = Mock()
+        task._session = session
         result = await task.handle_event(EventType.TIMER_ONCE, {})
 
         assert result is not None
         assert result.result is True
-        mock_task_manager.requires_flag.assert_called_once_with("allow-client-info")
+        mock_task_manager.requires_flag.assert_called_once_with("allow-client-info", session)
         mock_task_manager.unsubscribe.assert_called_once_with(task)
         assert task._flag_checked

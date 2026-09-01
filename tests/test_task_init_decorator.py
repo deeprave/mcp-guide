@@ -82,7 +82,7 @@ class TestWorkflowTaskManagerAutoRegistration:
 
     def test_workflow_task_manager_auto_registers_on_creation(self):
         """Test that WorkflowMonitorTask can be created."""
-        task = WorkflowMonitorTask()
+        task = WorkflowMonitorTask(task_manager=TaskManager())
         assert task is not None
 
 

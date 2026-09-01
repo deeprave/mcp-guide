@@ -1,9 +1,8 @@
 """Tests for get_content unified access tool."""
 
-import json
-
 import pytest
 from pydantic import ValidationError
+from tests.helpers import tool_result_payload
 
 from mcp_guide.models import Category, Collection, Project
 from mcp_guide.tools.tool_content import ContentArgs, get_content
@@ -18,6 +17,10 @@ def create_mock_session(tmp_path, project_data, project_flags_data=None, feature
     class MockSession:
         async def get_project(self):
             return project_data
+
+        @property
+        def runtime(self):
+            return self
 
         async def get_docroot(self):
             return str(tmp_path)
@@ -85,10 +88,7 @@ async def test_get_content_collection_only(tmp_path, monkeypatch):
 
     # Call tool
     args = ContentArgs(expression="all")
-    result_json = await get_content(args)
-
-    # Parse result
-    result = json.loads(result_json)
+    result = tool_result_payload(await get_content(args))
     assert result["success"] is True
 
 
@@ -114,10 +114,7 @@ async def test_get_content_category_only(tmp_path, monkeypatch):
 
     # Call tool
     args = ContentArgs(expression="guide")
-    result_json = await get_content(args)
-
-    # Parse result
-    result = json.loads(result_json)
+    result = tool_result_payload(await get_content(args))
     assert result["success"] is True
 
 
@@ -143,10 +140,7 @@ async def test_get_content_deduplicates(tmp_path, monkeypatch):
 
     # Call tool
     args = ContentArgs(expression="guide")
-    result_json = await get_content(args)
-
-    # Parse result
-    result = json.loads(result_json)
+    result = tool_result_payload(await get_content(args))
     assert result["success"] is True
     # File content should be present (de-duplication tested by not having duplicate content)
     assert "# Test" in result["value"]
@@ -173,10 +167,7 @@ async def test_get_content_empty_result(tmp_path, monkeypatch):
 
     # Call tool
     args = ContentArgs(expression="empty")
-    result_json = await get_content(args)
-
-    # Parse result
-    result = json.loads(result_json)
+    result = tool_result_payload(await get_content(args))
     assert result["success"] is True
     assert "No matching content found" in result["value"]
     assert "instruction" in result
@@ -206,10 +197,7 @@ async def test_get_content_pattern_override(tmp_path, monkeypatch):
 
     # Call tool with pattern override to only get README
     args = ContentArgs(expression="docs", pattern="README")
-    result_json = await get_content(args)
-
-    # Parse result
-    result = json.loads(result_json)
+    result = tool_result_payload(await get_content(args))
     assert result["success"] is True
     assert "# Test" in result["value"]
     # Verify other files are not included
@@ -248,10 +236,7 @@ async def test_get_content_metadata_scenarios(tmp_path, monkeypatch, scenario, e
 
     # Call tool
     args = ContentArgs(expression=expression)
-    result_json = await get_content(args)
-
-    # Verify success
-    result = json.loads(result_json)
+    result = tool_result_payload(await get_content(args))
     assert result["success"] is True
     assert "# Test" in result["value"]
 
@@ -297,10 +282,7 @@ async def test_get_content_flag_resolution(tmp_path, monkeypatch, project_flags,
 
     # Call tool
     args = ContentArgs(expression="docs")
-    result_json = await get_content(args)
-
-    # Parse result
-    result = json.loads(result_json)
+    result = tool_result_payload(await get_content(args))
     assert result["success"] is True
 
     # Verify content formatting based on expected format

@@ -8,6 +8,8 @@ from mcp_guide.store.document_store import DocumentRecord, UpsertResult
 from mcp_guide.task_manager.interception import EventType
 from mcp_guide.tasks.document_task import DocumentTask
 
+_current_session = None
+
 
 def _make_project(categories=None):
     """Create a mock project with given category names."""
@@ -18,9 +20,19 @@ def _make_project(categories=None):
 
 def _make_session(project):
     """Create a mock session returning the given project."""
+    global _current_session
     session = AsyncMock()
     session.get_project = AsyncMock(return_value=project)
+    _current_session = session
     return session
+
+
+class _CurrentSession:
+    """Test-only explicit Session owner backed by the scenario's configured Session."""
+
+    async def get_project(self):
+        assert _current_session is not None
+        return await _current_session.get_project()
 
 
 def _base_event_data(**overrides):
@@ -41,7 +53,7 @@ def task():
     from unittest.mock import MagicMock
 
     tm = MagicMock()
-    return DocumentTask(task_manager=tm)
+    return DocumentTask(task_manager=tm, session=_CurrentSession())
 
 
 @pytest.mark.anyio
@@ -70,7 +82,6 @@ async def test_ingest_new_document(task):
     )
 
     with (
-        patch("mcp_guide.tasks.document_task.get_session", return_value=session),
         patch("mcp_guide.tasks.document_task.add_document", return_value=UpsertResult(record=record)) as mock_add,
     ):
         result = await task.handle_event(EventType.FS_FILE_CONTENT, _base_event_data())
@@ -85,6 +96,34 @@ async def test_ingest_new_document(task):
 
 
 @pytest.mark.anyio
+async def test_ingest_uses_owning_session_without_ambient_lookup():
+    """A session-owned task never resolves another request's active Session."""
+    from unittest.mock import MagicMock
+
+    project = _make_project(categories={"docs": object()})
+    session = _make_session(project)
+    task_manager = MagicMock()
+    task = DocumentTask(task_manager=task_manager, session=session)
+    record = DocumentRecord(
+        id=1,
+        category="docs",
+        name="readme.md",
+        source="/original/readme.md",
+        source_type="file",
+        metadata={},
+        created_at="",
+        updated_at="",
+        content="# Hello",
+        mtime=1700000000.0,
+    )
+
+    with patch("mcp_guide.tasks.document_task.add_document", return_value=UpsertResult(record=record)):
+        result = await task.handle_event(EventType.FS_FILE_CONTENT, _base_event_data())
+
+    assert result is not None and result.result is True
+
+
+@pytest.mark.anyio
 async def test_rejects_same_mtime(task):
     """Document with same mtime is rejected."""
     project = _make_project(categories={"docs": object()})
@@ -92,7 +131,6 @@ async def test_rejects_same_mtime(task):
     skipped = UpsertResult(skipped_reason="Document docs/readme.md unchanged (same mtime)")
 
     with (
-        patch("mcp_guide.tasks.document_task.get_session", return_value=session),
         patch("mcp_guide.tasks.document_task.add_document", return_value=skipped),
     ):
         result = await task.handle_event(EventType.FS_FILE_CONTENT, _base_event_data())
@@ -121,7 +159,6 @@ async def test_updates_newer_mtime(task):
     )
 
     with (
-        patch("mcp_guide.tasks.document_task.get_session", return_value=session),
         patch("mcp_guide.tasks.document_task.add_document", return_value=UpsertResult(record=updated)),
     ):
         result = await task.handle_event(EventType.FS_FILE_CONTENT, _base_event_data())
@@ -149,7 +186,6 @@ async def test_force_overwrite_bypasses_mtime(task):
     )
 
     with (
-        patch("mcp_guide.tasks.document_task.get_session", return_value=session),
         patch("mcp_guide.tasks.document_task.add_document", return_value=UpsertResult(record=record)) as mock_add,
     ):
         result = await task.handle_event(EventType.FS_FILE_CONTENT, _base_event_data(force=True))
@@ -166,8 +202,7 @@ async def test_invalid_category_rejected(task):
     project = _make_project(categories={})
     session = _make_session(project)
 
-    with patch("mcp_guide.tasks.document_task.get_session", return_value=session):
-        result = await task.handle_event(EventType.FS_FILE_CONTENT, _base_event_data())
+    result = await task.handle_event(EventType.FS_FILE_CONTENT, _base_event_data())
 
     assert result is not None
     assert result.result is False
@@ -193,7 +228,6 @@ async def test_name_defaults_to_path_basename(task):
     )
 
     with (
-        patch("mcp_guide.tasks.document_task.get_session", return_value=session),
         patch("mcp_guide.tasks.document_task.add_document", return_value=UpsertResult(record=record)) as mock_add,
     ):
         result = await task.handle_event(
@@ -224,7 +258,6 @@ async def test_name_override(task):
     )
 
     with (
-        patch("mcp_guide.tasks.document_task.get_session", return_value=session),
         patch("mcp_guide.tasks.document_task.add_document", return_value=UpsertResult(record=record)) as mock_add,
     ):
         result = await task.handle_event(
@@ -255,7 +288,6 @@ async def test_url_source_type_detected(task):
     )
 
     with (
-        patch("mcp_guide.tasks.document_task.get_session", return_value=session),
         patch("mcp_guide.tasks.document_task.add_document", return_value=UpsertResult(record=record)) as mock_add,
     ):
         result = await task.handle_event(
@@ -287,7 +319,6 @@ async def test_frontmatter_stripped_from_content(task):
     content_with_fm = "---\ntitle: Test\n---\nBody text"
 
     with (
-        patch("mcp_guide.tasks.document_task.get_session", return_value=session),
         patch("mcp_guide.tasks.document_task.add_document", return_value=UpsertResult(record=record)) as mock_add,
     ):
         result = await task.handle_event(EventType.FS_FILE_CONTENT, _base_event_data(content=content_with_fm))
@@ -316,7 +347,6 @@ async def test_frontmatter_merged_into_metadata(task):
     content_with_fm = "---\ntitle: My Doc\nauthor: Someone\n---\nBody"
 
     with (
-        patch("mcp_guide.tasks.document_task.get_session", return_value=session),
         patch("mcp_guide.tasks.document_task.add_document", return_value=UpsertResult(record=record)) as mock_add,
     ):
         await task.handle_event(EventType.FS_FILE_CONTENT, _base_event_data(content=content_with_fm))
@@ -346,7 +376,6 @@ async def test_event_metadata_overrides_frontmatter(task):
     content_with_fm = "---\ntitle: From Frontmatter\n---\nBody"
 
     with (
-        patch("mcp_guide.tasks.document_task.get_session", return_value=session),
         patch("mcp_guide.tasks.document_task.add_document", return_value=UpsertResult(record=record)) as mock_add,
     ):
         await task.handle_event(
@@ -376,7 +405,6 @@ async def test_no_frontmatter_unchanged(task):
     )
 
     with (
-        patch("mcp_guide.tasks.document_task.get_session", return_value=session),
         patch("mcp_guide.tasks.document_task.add_document", return_value=UpsertResult(record=record)) as mock_add,
     ):
         await task.handle_event(EventType.FS_FILE_CONTENT, _base_event_data(content="# Hello"))
@@ -394,6 +422,7 @@ async def test_non_string_category_not_matched(task):
 @pytest.mark.anyio
 async def test_non_string_source_uses_default(task):
     """Non-string source falls back to default 'file'."""
+    _make_session(_make_project(categories={}))
     result = await task.handle_event(EventType.FS_FILE_CONTENT, _base_event_data(source=42))
     assert result is not None
     assert "does not exist" in result.message
@@ -420,7 +449,6 @@ async def test_missing_source_defaults_to_file(task):
     del data["source"]
 
     with (
-        patch("mcp_guide.tasks.document_task.get_session", return_value=session),
         patch("mcp_guide.tasks.document_task.add_document", return_value=UpsertResult(record=record)) as mock_add,
     ):
         result = await task.handle_event(EventType.FS_FILE_CONTENT, data)
@@ -437,8 +465,7 @@ async def test_non_numeric_mtime_rejected(task):
     project = _make_project(categories={"docs": object()})
     session = _make_session(project)
 
-    with patch("mcp_guide.tasks.document_task.get_session", return_value=session):
-        result = await task.handle_event(EventType.FS_FILE_CONTENT, _base_event_data(mtime="not-a-number"))
+    result = await task.handle_event(EventType.FS_FILE_CONTENT, _base_event_data(mtime="not-a-number"))
 
     assert result is not None
     assert result.result is False
@@ -473,7 +500,6 @@ async def test_int_mtime_coerced_to_float(task):
     )
 
     with (
-        patch("mcp_guide.tasks.document_task.get_session", return_value=session),
         patch("mcp_guide.tasks.document_task.add_document", return_value=UpsertResult(record=record)) as mock_add,
     ):
         result = await task.handle_event(EventType.FS_FILE_CONTENT, _base_event_data(mtime=1700000000))

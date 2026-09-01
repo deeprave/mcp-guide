@@ -9,6 +9,7 @@ import pytest
 from mcp_guide.content.utils import read_and_render_file_contents
 from mcp_guide.discovery.files import FileInfo
 from mcp_guide.render.context import TemplateContext
+from tests.helpers import create_unbound_test_session
 
 
 class TestContentToolsTemplateIntegration:
@@ -65,7 +66,9 @@ Current status: active""")
 
             context = TemplateContext({"project_name": "test-project"})
 
-            errors = await read_and_render_file_contents([file_info], tmp_path, tmp_path, context)
+            errors = await read_and_render_file_contents(
+                create_unbound_test_session(str(tmp_path)), [file_info], tmp_path, tmp_path, context
+            )
 
             assert len(errors) == 0
             # Should contain rendered partial content
@@ -101,7 +104,9 @@ Current status: active""")
             context = TemplateContext({"name": "World"})
 
             # Process files
-            errors = await read_and_render_file_contents(files, temp_path, temp_path, context)
+            errors = await read_and_render_file_contents(
+                create_unbound_test_session(str(temp_path)), files, temp_path, temp_path, context
+            )
 
             # Verify template error was captured
             assert len(errors) == 1
@@ -131,7 +136,9 @@ Current status: active""")
             invalid_context = {"name": "World"}  # Plain dict instead of TemplateContext
 
             # Process files
-            errors = await read_and_render_file_contents(files, temp_path, temp_path, invalid_context)
+            errors = await read_and_render_file_contents(
+                create_unbound_test_session(str(temp_path)), files, temp_path, temp_path, invalid_context
+            )
 
             # Verify validation error was captured
             assert len(errors) == 1

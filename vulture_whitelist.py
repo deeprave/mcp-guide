@@ -86,6 +86,13 @@ _.row_factory  # sqlite3.Connection attribute
 _.discover_documents
 _.discover_document_stored
 _.DocumentTask
+
+# Public compatibility and test-support API
+_.to_json_str
+_.clear_registered_tool_servers
+_.task_init
+_.from_path
+_.create_server
 # Module-level names
 _.__all__
 _.main

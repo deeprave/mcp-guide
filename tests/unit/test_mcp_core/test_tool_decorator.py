@@ -1,10 +1,52 @@
 """Tests for tool decorator test mode control."""
 
-from unittest.mock import Mock
+import pytest
 
-from mcp_guide.core.result import Result
-from mcp_guide.core.tool_arguments import ToolArguments
-from mcp_guide.core.tool_decorator import ExtMcpToolDecorator, disable_test_mode, enable_test_mode
+from mcp_guide.core.tool_decorator import disable_test_mode, enable_test_mode
+
+
+@pytest.mark.anyio
+async def test_invalid_session_returns_rebind_guidance(monkeypatch) -> None:
+    """A rejected session ID is not presented as a normal unbound interaction."""
+    from mcp_guide.core.tool_decorator import _check_project_bound
+    from mcp_guide.session import InvalidGuideSessionError
+
+    async def reject_session(*_args, **_kwargs):
+        raise InvalidGuideSessionError("Invalid or unknown session ID")
+
+    monkeypatch.setattr("mcp_guide.core.tool_decorator.get_session", reject_session)
+
+    response = await _check_project_bound(object(), session_id="expired-session")
+
+    assert response is not None
+    assert response.structured_content["error_type"] == "invalid_session"
+    assert "discard" in response.structured_content["instruction"].lower()
+    assert "set_project" in response.structured_content["instruction"]
+
+
+@pytest.mark.anyio
+async def test_invalid_project_name_is_not_reported_as_no_project(monkeypatch) -> None:
+    """A rejected PWD basename is an invalid name, not an unbound project."""
+    from mcp_guide.core.tool_decorator import _check_project_bound
+    from mcp_guide.validation import InvalidProjectNameError
+
+    async def reject_name(*_args, **_kwargs):
+        raise InvalidProjectNameError("Project path basename must contain only alphanumeric characters")
+
+    monkeypatch.setattr("mcp_guide.core.tool_decorator.get_session", reject_name)
+
+    response = await _check_project_bound(object(), session_id=None)
+
+    assert response is not None
+    assert response.structured_content["error_type"] == "invalid_name"
+
+
+@pytest.fixture(autouse=True)
+def reset_tool_decorator_mode():
+    """Keep the decorator's test-only ContextVar local to each test."""
+    disable_test_mode()
+    yield
+    disable_test_mode()
 
 
 class TestTestModeControl:
@@ -57,128 +99,3 @@ class TestTestModeControl:
 
         # Parent context should still be True
         assert _test_mode.get() is True
-
-
-class TestExtMcpToolDecorator:
-    """Tests for ExtMcpToolDecorator with args_class parameter."""
-
-    def test_tool_with_args_class_parameter(self):
-        """Test that tool() accepts args_class parameter."""
-        mock_mcp = Mock()
-        decorator = ExtMcpToolDecorator(mock_mcp)
-
-        class TestArgs(ToolArguments):
-            value: str
-
-        # Should not raise
-        result = decorator.tool(args_class=TestArgs)
-        assert callable(result)
-
-    def test_auto_generate_description_from_args_class(self):
-        """Test that description is auto-generated from args_class."""
-        mock_mcp = Mock()
-        mock_mcp.tool = Mock(return_value=lambda f: f)
-        decorator = ExtMcpToolDecorator(mock_mcp)
-
-        class TestArgs(ToolArguments):
-            """Test function."""
-
-            value: str
-
-        disable_test_mode()  # Ensure production mode
-
-        @decorator.tool(args_class=TestArgs)
-        async def test_func(args: TestArgs) -> Result:
-            """Test function."""
-            return Result.ok("test")
-
-        # Verify description was auto-generated and passed to tool registration
-        call_args, call_kwargs = mock_mcp.tool.call_args
-        assert "description" in call_kwargs
-        assert isinstance(call_kwargs["description"], str)
-        assert "Test function." in call_kwargs["description"]
-
-    def test_manual_description_overrides_auto_generation(self):
-        """Test that manual description overrides auto-generation."""
-        mock_mcp = Mock()
-        mock_mcp.tool = Mock(return_value=lambda f: f)
-        decorator = ExtMcpToolDecorator(mock_mcp)
-
-        class TestArgs(ToolArguments):
-            value: str
-
-        disable_test_mode()  # Ensure production mode
-        manual_desc = "Manual description"
-
-        @decorator.tool(args_class=TestArgs, description=manual_desc)
-        async def test_func(args: TestArgs) -> Result:
-            """Test function."""
-            return Result.ok("test")
-
-        # Verify manual description was used
-        call_args = mock_mcp.tool.call_args
-        assert call_args is not None
-
-    def test_test_mode_returns_noop_decorator(self):
-        """Test that test mode returns no-op decorator."""
-        mock_mcp = Mock()
-        decorator = ExtMcpToolDecorator(mock_mcp)
-
-        class TestArgs(ToolArguments):
-            value: str
-
-        enable_test_mode()  # Enable test mode
-
-        @decorator.tool(args_class=TestArgs)
-        async def test_func(args: TestArgs) -> Result:
-            """Test function."""
-            return Result.ok("test")
-
-        # In test mode, mcp.tool should NOT be called
-        assert not mock_mcp.tool.called
-
-        # Function should still be callable (pass dict instead of args object for now)
-        import asyncio
-
-        result = asyncio.run(test_func({"value": "test"}))
-        assert result.is_ok()
-
-    def test_production_mode_registers_with_fastmcp(self):
-        """Test that production mode registers with FastMCP."""
-        mock_mcp = Mock()
-        mock_mcp.tool = Mock(return_value=lambda f: f)
-        decorator = ExtMcpToolDecorator(mock_mcp)
-
-        class TestArgs(ToolArguments):
-            value: str
-
-        disable_test_mode()  # Ensure production mode
-
-        @decorator.tool(args_class=TestArgs)
-        async def test_func(args: TestArgs) -> Result:
-            """Test function."""
-            return Result.ok("test")
-
-        # In production mode, mcp.tool SHOULD be called
-        assert mock_mcp.tool.called
-
-    def test_build_tool_description_called_correctly(self):
-        """Test that build_tool_description() is called with correct args."""
-        mock_mcp = Mock()
-        mock_mcp.tool = Mock(return_value=lambda f: f)
-        decorator = ExtMcpToolDecorator(mock_mcp)
-
-        class TestArgs(ToolArguments):
-            """Test arguments."""
-
-            value: str
-
-        disable_test_mode()  # Ensure production mode
-
-        @decorator.tool(args_class=TestArgs)
-        async def test_func(args: TestArgs) -> Result:
-            """Test function docstring."""
-            return Result.ok("test")
-
-        # Verify tool was registered
-        assert mock_mcp.tool.called

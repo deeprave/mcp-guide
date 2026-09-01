@@ -28,16 +28,14 @@ class TestGuideUriListener:
         mock_rendered = MagicMock()
         mock_rendered.content = "guide URI content"
         mock_task_manager = AsyncMock()
+        session.task_manager = mock_task_manager
 
-        with (
-            patch(
-                "mcp_guide.guide_uri_listener.render_content", new_callable=AsyncMock, return_value=mock_rendered
-            ) as mock_render,
-            patch("mcp_guide.guide_uri_listener.get_task_manager", return_value=mock_task_manager),
-        ):
+        with patch(
+            "mcp_guide.guide_uri_listener.render_content", new_callable=AsyncMock, return_value=mock_rendered
+        ) as mock_render:
             await listener.on_project_changed(session, "old", "new")
 
-            mock_render.assert_awaited_once_with(pattern="_guide-uri", category_dir="_system")
+            mock_render.assert_awaited_once_with(session, pattern="_guide-uri", category_dir="_system")
             mock_task_manager.queue_instruction.assert_awaited_once_with(mock_rendered.content)
 
     @pytest.mark.anyio
@@ -50,11 +48,9 @@ class TestGuideUriListener:
         mock_rendered = MagicMock()
         mock_rendered.content = "   "
         mock_task_manager = AsyncMock()
+        session.task_manager = mock_task_manager
 
-        with (
-            patch("mcp_guide.guide_uri_listener.render_content", new_callable=AsyncMock, return_value=mock_rendered),
-            patch("mcp_guide.guide_uri_listener.get_task_manager", return_value=mock_task_manager),
-        ):
+        with patch("mcp_guide.guide_uri_listener.render_content", new_callable=AsyncMock, return_value=mock_rendered):
             await listener.on_project_changed(session, "old", "new")
 
             mock_task_manager.queue_instruction.assert_not_awaited()

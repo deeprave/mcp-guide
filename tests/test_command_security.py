@@ -116,7 +116,7 @@ Restricted
             patch("mcp_guide.prompts.guide_prompt.render_template", side_effect=PermissionError("Permission denied")),
         ):
             mock_session_obj = AsyncMock()
-            mock_session_obj.get_docroot = AsyncMock(return_value=str(tmp_path))
+            mock_session_obj.runtime.get_docroot = AsyncMock(return_value=str(tmp_path))
             mock_session.return_value = mock_session_obj
 
             mock_base_context = TemplateContext({})

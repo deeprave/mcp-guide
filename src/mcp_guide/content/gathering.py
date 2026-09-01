@@ -159,7 +159,7 @@ async def gather_content(
     seen_paths: set[Path] = set()
     seen_docs: set[tuple[str, str]] = set()
     unique_files = []
-    docroot = Path(await session.get_docroot())
+    docroot = Path(await session.runtime.get_docroot())
 
     for file in all_files:
         if not file.category or file.category.name not in project.categories:
@@ -230,7 +230,7 @@ async def gather_category_fileinfos(
         resolved_patterns = resolve_patterns(None, category.patterns)
 
     # Discover files
-    docroot = Path(await session.get_docroot())
+    docroot = Path(await session.runtime.get_docroot())
     category_dir = docroot / category.dir
     files = await discover_documents(category_dir, resolved_patterns, category=category_name)
 

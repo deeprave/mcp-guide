@@ -3,14 +3,16 @@
 Tests feature flag tools through MCP protocol with real session management.
 """
 
+import inspect
 import json
+from pathlib import Path
 
 import pytest
 from fastmcp.client import Client, FastMCPTransport
 
-from mcp_guide.session import Session, remove_current_session, set_current_session
 from mcp_guide.tools.tool_feature_flags import ListFeatureFlagsArgs, ListFlagsArgs, SetFeatureFlagArgs, SetFlagArgs
 from tests.conftest import call_mcp_tool
+from tests.helpers import create_unbound_test_session
 
 
 @pytest.fixture
@@ -26,17 +28,16 @@ def mcp_server(mcp_server_factory):
 
 
 @pytest.fixture
-async def test_session(tmp_path):
-    """Create test session with sample project."""
+async def test_session(mcp_server, tmp_path, monkeypatch):
+    """Create a Session routed to the in-process legacy client."""
     config_dir = str(tmp_path)
-    session = Session(_config_dir_for_tests=config_dir)
-    config_manager = session._get_config_manager(config_dir)
-    _key, project = await config_manager.get_or_create_project_config("test")
-    session._Session__delegate.bind(project)
-    session._project_dirty = False
-    set_current_session(session)
+    session = create_unbound_test_session(config_dir)
+    project_root = Path(config_dir).resolve() / "client-roots" / "test"
+    project_root.mkdir(parents=True, exist_ok=True)
+    await session.bind_project_path(project_root)
+    runtime = inspect.getclosurevars(mcp_server._lifespan).nonlocals["runtime"]
+    monkeypatch.setattr(runtime, "resolve_session", lambda _owner: session)
     yield session
-    await remove_current_session()
 
 
 @pytest.mark.anyio
@@ -44,7 +45,7 @@ async def test_set_project_flag_via_mcp(mcp_server, test_session, monkeypatch):
     """Test setting feature flag through MCP client."""
     monkeypatch.setenv("PWD", "/fake/path/test")
 
-    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True), mode="legacy") as client:
         # Set a project flag
         args = SetFlagArgs(feature_name="test_flag", value=True)
         result = await call_mcp_tool(client, "set_project_flag", args)
@@ -59,7 +60,7 @@ async def test_list_project_flags_via_mcp(mcp_server, test_session, monkeypatch)
     """Test listing feature flags through MCP client."""
     monkeypatch.setenv("PWD", "/fake/path/test")
 
-    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True), mode="legacy") as client:
         # First set a flag
         set_args = SetFlagArgs(feature_name="list_test", value="test_value")
         await call_mcp_tool(client, "set_project_flag", set_args)
@@ -79,7 +80,7 @@ async def test_get_project_flag_via_mcp(mcp_server, test_session, monkeypatch):
     """Test getting scalar feature flag through MCP client using list_project_flags with feature_name."""
     monkeypatch.setenv("PWD", "/fake/path/test")
 
-    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True), mode="legacy") as client:
         # First set a flag
         set_args = SetFlagArgs(feature_name="get_test", value="value")
         await call_mcp_tool(client, "set_project_flag", set_args)
@@ -98,7 +99,7 @@ async def test_generic_project_flag_true_string_normalizes_to_boolean(mcp_server
     """Test generic project flag string booleans normalize to real bools."""
     monkeypatch.setenv("PWD", "/fake/path/test")
 
-    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True), mode="legacy") as client:
         await call_mcp_tool(client, "set_project_flag", SetFlagArgs(feature_name="custom-flag", value="true"))
         result = await call_mcp_tool(client, "list_project_flags", ListFlagsArgs(feature_name="custom-flag"))
         response = json.loads(result.content[0].text)  # type: ignore[union-attr]
@@ -112,7 +113,7 @@ async def test_generic_project_flag_rejects_structured_value(mcp_server, test_se
     """Test generic project flags reject list values without explicit registration."""
     monkeypatch.setenv("PWD", "/fake/path/test")
 
-    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True), mode="legacy") as client:
         result = await call_mcp_tool(
             client,
             "set_project_flag",
@@ -129,7 +130,7 @@ async def test_allow_client_info_global_flag_uses_shared_boolean_like_coercion(m
     """Global allow-client-info should use the shared boolean-like coercion rules."""
     monkeypatch.setenv("PWD", "/fake/path/test")
 
-    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True), mode="legacy") as client:
         await call_mcp_tool(
             client, "set_feature_flag", SetFeatureFlagArgs(feature_name="allow-client-info", value="no")
         )
@@ -147,7 +148,7 @@ async def test_generic_global_flag_rejects_structured_value_as_validation_error(
     """Unsupported structured global flag values should surface as validation errors."""
     monkeypatch.setenv("PWD", "/fake/path/test")
 
-    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True), mode="legacy") as client:
         result = await call_mcp_tool(
             client,
             "set_feature_flag",
@@ -164,7 +165,7 @@ async def test_flag_validation_via_mcp(mcp_server, test_session, monkeypatch):
     """Test flag validation through MCP client."""
     monkeypatch.setenv("PWD", "/fake/path/test")
 
-    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True), mode="legacy") as client:
         # Try to set flag with invalid name (contains period)
         args = SetFlagArgs(feature_name="invalid.flag", value=True)
         result = await call_mcp_tool(client, "set_project_flag", args)
@@ -180,7 +181,7 @@ async def test_remove_flag_via_mcp(mcp_server, test_session, monkeypatch):
     """Test removing feature flag through MCP client."""
     monkeypatch.setenv("PWD", "/fake/path/test")
 
-    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True), mode="legacy") as client:
         # First set a flag
         set_args = SetFlagArgs(feature_name="remove_test", value=True)
         await call_mcp_tool(client, "set_project_flag", set_args)
@@ -237,7 +238,7 @@ async def test_list_flags_with_glob_pattern(
     """Test listing flags with glob pattern filtering."""
     monkeypatch.setenv("PWD", "/fake/path/test")
 
-    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True), mode="legacy") as client:
         # Set flags
         for flag_name, flag_value in flags_to_set:
             await call_mcp_tool(client, "set_project_flag", SetFlagArgs(feature_name=flag_name, value=flag_value))
@@ -264,7 +265,7 @@ async def test_list_flags_exact_match_returns_single_value(mcp_server, test_sess
     """Test that exact match (no wildcards) returns single value, not dict."""
     monkeypatch.setenv("PWD", "/fake/path/test")
 
-    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
+    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True), mode="legacy") as client:
         # Set a flag
         await call_mcp_tool(client, "set_project_flag", SetFlagArgs(feature_name="workflow", value=True))
 

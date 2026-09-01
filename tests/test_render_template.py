@@ -7,15 +7,38 @@ import pytest
 
 from mcp_guide.discovery.files import FileInfo
 from mcp_guide.render.context import TemplateContext
-from mcp_guide.render.template import render_template
+from mcp_guide.render.template import render_template as _render_template
+from tests.helpers import create_unbound_test_session
+
+_TEST_CONFIG_DIR: Path | None = None
+
+
+@pytest.fixture(autouse=True)
+def test_config_dir(tmp_path: Path) -> None:
+    """Provide an isolated configuration directory to each renderer test."""
+    global _TEST_CONFIG_DIR
+    _TEST_CONFIG_DIR = tmp_path / "config"
+    _TEST_CONFIG_DIR.mkdir()
+
+
+def _template_path(name: str) -> Path:
+    """Write renderer fixtures under the test temp dir, not the worktree."""
+    assert _TEST_CONFIG_DIR is not None
+    return _TEST_CONFIG_DIR.parent / name
+
+
+async def render_template(*args, **kwargs):
+    """Call the renderer with a test-owned explicit Session."""
+    assert _TEST_CONFIG_DIR is not None
+    kwargs["session"] = create_unbound_test_session(str(_TEST_CONFIG_DIR))
+    return await _render_template(*args, **kwargs)
 
 
 @pytest.mark.anyio
 async def test_render_template_simple():
     """Test render_template with a simple template file."""
     # Create a test template file
-    test_file = Path("tests/fixtures/test_template.mustache")
-    test_file.parent.mkdir(parents=True, exist_ok=True)
+    test_file = _template_path("test_template.mustache")
     test_file.write_text("---\ntype: agent/instruction\n---\nHello {{name}}!")
 
     try:
@@ -52,8 +75,7 @@ async def test_render_template_simple():
 )
 async def test_render_template_requires_flag(scenario, project_flags, expected_result):
     """Test render_template with different required flag scenarios."""
-    test_file = Path(f"tests/fixtures/test_requires_{scenario}.mustache")
-    test_file.parent.mkdir(parents=True, exist_ok=True)
+    test_file = _template_path(f"test_requires_{scenario}.mustache")
     test_file.write_text("---\nrequires-feature: true\n---\nContent")
 
     try:
@@ -82,8 +104,7 @@ async def test_render_template_requires_flag(scenario, project_flags, expected_r
 @pytest.mark.anyio
 async def test_render_template_requires_list_scalar_match():
     """Test list requirement with scalar value - should match if in list."""
-    test_file = Path("tests/fixtures/test_requires_list_scalar.mustache")
-    test_file.parent.mkdir(parents=True, exist_ok=True)
+    test_file = _template_path("test_requires_list_scalar.mustache")
     test_file.write_text("---\nrequires-phase: [discussion, planning]\n---\nContent")
 
     try:
@@ -117,8 +138,7 @@ async def test_render_template_requires_list_scalar_match():
 @pytest.mark.anyio
 async def test_render_template_requires_list_with_list_any_match():
     """Test list requirement with list value - should match if ANY required in actual."""
-    test_file = Path("tests/fixtures/test_requires_list_list.mustache")
-    test_file.parent.mkdir(parents=True, exist_ok=True)
+    test_file = _template_path("test_requires_list_list.mustache")
     test_file.write_text("---\nrequires-workflow: [discussion, implementation]\n---\nContent")
 
     try:
@@ -152,8 +172,7 @@ async def test_render_template_requires_list_with_list_any_match():
 @pytest.mark.anyio
 async def test_render_template_requires_workflow_list_matches_boolean_true_default_workflow():
     """Boolean workflow shorthand should satisfy phase-list requirements via default phases."""
-    test_file = Path("tests/fixtures/test_requires_workflow_true.mustache")
-    test_file.parent.mkdir(parents=True, exist_ok=True)
+    test_file = _template_path("test_requires_workflow_true.mustache")
     test_file.write_text("---\nrequires-workflow: [planning]\n---\nContent")
 
     try:
@@ -178,8 +197,7 @@ async def test_render_template_requires_workflow_list_matches_boolean_true_defau
 @pytest.mark.anyio
 async def test_render_template_requires_workflow_list_matches_string_true_normalized_workflow():
     """String workflow booleans should normalize before phase-list matching."""
-    test_file = Path("tests/fixtures/test_requires_workflow_string_true.mustache")
-    test_file.parent.mkdir(parents=True, exist_ok=True)
+    test_file = _template_path("test_requires_workflow_string_true.mustache")
     test_file.write_text("---\nrequires-workflow: [review]\n---\nContent")
 
     try:
@@ -204,8 +222,7 @@ async def test_render_template_requires_workflow_list_matches_string_true_normal
 @pytest.mark.anyio
 async def test_render_template_requires_list_with_dict_any_key():
     """Test list requirement with dict value - should match if ANY required key exists."""
-    test_file = Path("tests/fixtures/test_requires_list_dict.mustache")
-    test_file.parent.mkdir(parents=True, exist_ok=True)
+    test_file = _template_path("test_requires_list_dict.mustache")
     test_file.write_text("---\nrequires-config: [feature1, feature2]\n---\nContent")
 
     try:
@@ -239,8 +256,7 @@ async def test_render_template_requires_list_with_dict_any_key():
 @pytest.mark.anyio
 async def test_render_template_instruction_with_variable():
     """Test that template variables in frontmatter instruction field are rendered."""
-    test_file = Path("tests/fixtures/test_instruction_var.mustache")
-    test_file.parent.mkdir(parents=True, exist_ok=True)
+    test_file = _template_path("test_instruction_var.mustache")
     test_file.write_text(
         "---\ninstruction: Follow this policy exactly. If {{workflow.file}} missing, create it.\n---\nContent"
     )
@@ -456,8 +472,7 @@ async def test_phase_command_templates_append_workflow_guidance_when_enabled(tem
 @pytest.mark.anyio
 async def test_render_template_description_with_variable():
     """Test that template variables in frontmatter description field are rendered."""
-    test_file = Path("tests/fixtures/test_description_var.mustache")
-    test_file.parent.mkdir(parents=True, exist_ok=True)
+    test_file = _template_path("test_description_var.mustache")
     test_file.write_text("---\ndescription: Project {{project.name}} configuration\n---\nContent")
 
     try:
@@ -489,8 +504,7 @@ async def test_render_template_description_with_variable():
 @pytest.mark.anyio
 async def test_render_template_instruction_with_conditional():
     """Test that conditionals in frontmatter instruction field are rendered."""
-    test_file = Path("tests/fixtures/test_instruction_conditional.mustache")
-    test_file.parent.mkdir(parents=True, exist_ok=True)
+    test_file = _template_path("test_instruction_conditional.mustache")
     test_file.write_text(
         "---\ninstruction: Follow policy.{{#workflow.consent.exit}} Explicit consent required before {{workflow.next.value}}.{{/workflow.consent.exit}}\n---\nContent"
     )
@@ -525,8 +539,7 @@ async def test_render_template_instruction_with_conditional():
 @pytest.mark.anyio
 async def test_render_template_instruction_non_string_ignored():
     """Test that non-string instruction values are not rendered and don't cause errors."""
-    test_file = Path("tests/fixtures/test_instruction_non_string.mustache")
-    test_file.parent.mkdir(parents=True, exist_ok=True)
+    test_file = _template_path("test_instruction_non_string.mustache")
     test_file.write_text("---\ninstruction:\n  - item1\n  - item2\n---\nContent")
 
     try:
@@ -558,8 +571,7 @@ async def test_render_template_instruction_non_string_ignored():
 @pytest.mark.anyio
 async def test_render_template_pre_partials_available_in_template():
     """pre_partials dict is passed to chevron and available via {{> key}}."""
-    test_file = Path("tests/fixtures/test_pre_partials.mustache")
-    test_file.parent.mkdir(parents=True, exist_ok=True)
+    test_file = _template_path("test_pre_partials.mustache")
     test_file.write_text("---\ntype: agent/instruction\n---\nBefore. {{> git/ops}} After.")
 
     try:
@@ -589,8 +601,7 @@ async def test_render_template_pre_partials_available_in_template():
 @pytest.mark.anyio
 async def test_render_template_pre_partials_none_unchanged():
     """render_template with pre_partials=None behaves identically to without it."""
-    test_file = Path("tests/fixtures/test_pre_partials_none.mustache")
-    test_file.parent.mkdir(parents=True, exist_ok=True)
+    test_file = _template_path("test_pre_partials_none.mustache")
     test_file.write_text("---\ntype: agent/instruction\n---\nSimple content.")
 
     try:

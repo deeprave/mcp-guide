@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 from fastmcp.client import Client, FastMCPTransport
 
-from mcp_guide.session import get_session, remove_current_session
+from mcp_guide.session import get_session
 from mcp_guide.tools.tool_utility import GetClientInfoArgs
 from tests.conftest import call_mcp_tool
 
@@ -28,7 +28,6 @@ async def test_session(tmp_path: Path):
     """Create test session with isolated config."""
     session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path))
     yield session
-    await remove_current_session()
 
 
 @pytest.mark.anyio

@@ -1,4 +1,4 @@
-# ADR-007: MCP SDK Client-Based Integration Testing
+# ADR-007: FastMCP Client-Based Integration Testing
 
 **Status**: Accepted
 **Date**: 2025-11-26
@@ -9,9 +9,8 @@
 
 We need a robust approach for integration testing our MCP server that closely simulates real-world usage by MCP clients like Claude Desktop. While basic subprocess-based tests validate the protocol, they don't use the official MCP client implementation and may miss compatibility issues.
 
-The MCP Python SDK provides two approaches for testing:
-1. **In-memory testing**: `create_connected_server_and_client_session()` - Direct connection without subprocess
-2. **STDIO client testing**: `stdio_client()` with `StdioServerParameters` - Spawns actual server process
+FastMCP provides in-memory and transport client facilities that exercise the
+public server surface without coupling tests to private server internals.
 
 Initial investigation of `mcp-inspector` package revealed it's a placeholder (v0.1.0) with no actual implementation. However, the core `mcp` package provides comprehensive client functionality for testing.
 
@@ -42,7 +41,8 @@ This led to the current decision to use MCP SDK client testing instead.
 
 ## Decision
 
-We will use the **MCP SDK's official client testing utilities** for future comprehensive integration tests:
+We use FastMCP's public `Client` and transport facilities for comprehensive
+integration tests:
 
 ### Primary Approach: STDIO Client Testing
 Use `mcp.client.stdio.stdio_client()` for integration tests that:

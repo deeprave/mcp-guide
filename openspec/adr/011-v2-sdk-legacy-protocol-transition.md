@@ -1,9 +1,9 @@
 # ADR-011: FastMCP 4 Protocol Migration
 
-**Status:** Accepted  
-**Date:** 2026-08-16  
-**Deciders:** Development Team  
-**Supersedes:** ADR-002 (MCP Server Framework)  
+**Status:** Accepted
+**Date:** 2026-08-16
+**Deciders:** Development Team
+**Supersedes:** ADR-002 (MCP Server Framework)
 **Related change:** `upgrade-mcp-version`
 
 ## Context

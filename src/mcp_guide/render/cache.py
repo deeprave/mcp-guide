@@ -46,8 +46,23 @@ EXAMINED_AGENT_FLAGS = (
 class TemplateContextCache(SessionListener):
     """Template context cache that listens to session changes. One instance per session."""
 
-    def __init__(self) -> None:
+    def __init__(self, session: "Session | None" = None) -> None:
+        """Create a cache owned by ``session`` when one is available.
+
+        A temporary cache is also used while rendering unbound guidance.  That
+        path intentionally has no task state, rather than reaching for a
+        process-global TaskManager.
+        """
+        self._session = session
         self._cache: Optional["TemplateContext"] = None
+
+    def _task_manager(self) -> Any | None:
+        """Return this cache's Session-owned TaskManager, if there is one."""
+        if self._session is not None:
+            return self._session.task_manager
+        # Unbound rendering has no task context. Never borrow a manager from
+        # another request merely because it is active in this task.
+        return None
 
     def invalidate(self) -> None:
         """Invalidate the cached template context."""
@@ -85,10 +100,9 @@ class TemplateContextCache(SessionListener):
 
     async def _build_client_context(self) -> "TemplateContext":
         """Build client context from cached client data."""
-        # Deferred import: avoids circular dependency (tool_decorator → task_manager → render → cache → task_manager)
-        from mcp_guide.task_manager import get_task_manager
-
-        task_manager = get_task_manager()
+        task_manager = self._task_manager()
+        if task_manager is None:
+            return TemplateContext({"client": {}})
         client_os_info = task_manager.get_cached_data("client_os_info") or {}
         client_context_info = task_manager.get_cached_data("client_context_info") or {}
 
@@ -122,9 +136,8 @@ class TemplateContextCache(SessionListener):
             from mcp_guide.core.prompt_decorator import get_prompt_name
             from mcp_guide.feature_flags.constants import FLAG_CONTENT_STYLE
             from mcp_guide.models import resolve_all_flags
-            from mcp_guide.session import get_active_session
 
-            session = get_active_session()
+            session = self._session
             if session is None:
                 raise RuntimeError("No active session")
 
@@ -166,15 +179,12 @@ class TemplateContextCache(SessionListener):
         styling = TemplateStyling.from_flag_value(styling_value)
         formatting_vars = get_styling_variables(styling)
 
-        # Import task_manager once to avoid duplication
-        # Import here to avoid circular dependency (render → task_manager → render)
-        from mcp_guide.task_manager import get_task_manager
-
-        task_manager = get_task_manager()
+        task_manager = self._task_manager()
 
         # Add task statistics
         try:
-            agent_vars["tasks"] = task_manager.get_task_statistics()
+            if task_manager is not None:
+                agent_vars["tasks"] = task_manager.get_task_statistics()
         except (AttributeError, KeyError) as e:
             logger.debug(f"Failed to get task statistics: {e}")
 
@@ -183,7 +193,7 @@ class TemplateContextCache(SessionListener):
             # OpenSpecTask needs lazy import
             from mcp_guide.openspec.task import OpenSpecTask
 
-            openspec_task_subscriber = task_manager.get_task_by_type(OpenSpecTask)
+            openspec_task_subscriber = task_manager.get_task_by_type(OpenSpecTask) if task_manager is not None else None
 
             if openspec_task_subscriber:
                 # Create lambda for version checking
@@ -222,21 +232,15 @@ class TemplateContextCache(SessionListener):
     async def _build_project_context(self) -> "TemplateContext":
         """Build project context with current project data."""
         from mcp_guide.render.context import TemplateContext
-        from mcp_guide.session import get_session
 
         # Extract project information from current session using public API
-        project_name = ""
-        project_key = ""
-        project_hash = ""
-        project_flags: dict[str, Any] = {}
         categories_list: list[dict[str, Any]] = []
         collections_list: list[dict[str, Any]] = []
-        flags_list: list[dict[str, Any]] = []
         project = None
         project_flag_values = []
 
         try:
-            session = await get_session(None)
+            session = self._session
             if session:
                 # Load-bearing for unbound `_system` template rendering: when no project
                 # is bound, `session.get_project()` may raise and callers rely on the
@@ -282,7 +286,7 @@ class TemplateContextCache(SessionListener):
         global_flags_list = []
         try:
             if session:
-                global_flags_dict = await session.feature_flags().list()
+                global_flags_dict = await session.runtime.feature_flags().list()
                 global_flags_list = [
                     {"key": k, "value": v.to_display() if isinstance(v, FeatureValue) else v}
                     for k, v in global_flags_dict.items()
@@ -316,7 +320,6 @@ class TemplateContextCache(SessionListener):
                 if projects_result.success and projects_result.value:
                     projects_dict = projects_result.value.get("projects", {})
                     # Convert to array format for Mustache iteration with current project marking
-                    current_project = project_name
                     projects_list: list[dict[str, Any]] = []
                     for name, data in projects_dict.items():
                         # Format categories with patterns_str
@@ -337,7 +340,7 @@ class TemplateContextCache(SessionListener):
                             {
                                 "key": name,
                                 "value": {**data, "categories": categories, "collections": collections},
-                                "current": name == current_project,
+                                "current": project is not None and name == project.key,
                             }
                         )
                     projects_count = len(projects_dict)
@@ -350,7 +353,8 @@ class TemplateContextCache(SessionListener):
         try:
             from mcp_guide.mcp_context import resolve_project_path
 
-            client_working_dir = str(await resolve_project_path())
+            if session is not None:
+                client_working_dir = str(await resolve_project_path(session))
         except Exception as e:
             logger.debug(f"Failed to get client working directory: {e}")
 
@@ -465,12 +469,11 @@ class TemplateContextCache(SessionListener):
                         for phase_name in phase_names:
                             workflow_config[phase_name] = True
 
-                        # Get workflow state from TaskManager cache
-                        # Deferred import: avoids circular dependency (tool_decorator → task_manager → render → cache → task_manager)
-                        from mcp_guide.task_manager import get_task_manager
-
-                        task_manager = get_task_manager()
-                        workflow_state = task_manager.get_cached_data("workflow_state")
+                        # Workflow state is owned by this Session's TaskManager.
+                        task_manager = self._task_manager()
+                        workflow_state = (
+                            task_manager.get_cached_data("workflow_state") if task_manager is not None else None
+                        )
                         if workflow_state:
                             # Add parsed workflow state to config
                             workflow_config.update(
@@ -540,12 +543,11 @@ class TemplateContextCache(SessionListener):
     async def _build_category_context(self, category_name: str) -> "TemplateContext":
         """Build category context with category data (not cached)."""
         from mcp_guide.render.context import TemplateContext
-        from mcp_guide.session import get_session
 
         # Extract category information from current session's project
         category_data = {"name": "", "dir": "", "patterns": [], "description": ""}
         try:
-            session = await get_session(None)
+            session = self._session
             if session:
                 project = await session.get_project()
                 # Find category by name using dict lookup
@@ -645,31 +647,21 @@ class TemplateContextCache(SessionListener):
         return TemplateContext(transient_vars)
 
 
-def _get_session_cache() -> Optional[TemplateContextCache]:
-    """Get the TemplateContextCache from the current session, if available."""
-    from mcp_guide.session import get_active_session
-
-    session = get_active_session()
+def invalidate_template_context_cache(session: "Session") -> None:
+    """Invalidate the template cache owned by the explicit Session."""
     if session is None:
-        return None
-    return session.template_cache
+        raise RuntimeError("Template cache invalidation requires an explicit Session")
+    session.template_cache.invalidate()
 
 
-def invalidate_template_context_cache() -> None:
-    """Invalidate the template context cache for the current session."""
-    cache = _get_session_cache()
-    if cache:
-        cache.invalidate()
-
-
-def invalidate_template_contexts() -> None:
-    """Invalidate the template context cache."""
-    invalidate_template_context_cache()
+def invalidate_template_contexts(session: "Session") -> None:
+    """Invalidate the template cache owned by the explicit Session."""
+    invalidate_template_context_cache(session)
     logger.debug("Template context cache invalidated")
 
 
 async def get_template_context_if_needed(
-    files: list["FileInfo"], category_name: Optional[str] = None
+    session: "Session", files: list["FileInfo"], category_name: Optional[str] = None
 ) -> Optional["TemplateContext"]:
     """Get template context only if files contain templates.
 
@@ -683,11 +675,11 @@ async def get_template_context_if_needed(
     from mcp_guide.render.renderer import is_template_file
 
     if any(is_template_file(file_info) for file_info in files):
-        return await get_template_contexts(category_name)
+        return await get_template_contexts(session, category_name)
     return None
 
 
-async def get_template_contexts(category_name: Optional[str] = None) -> TemplateContext:
+async def get_template_contexts(session: "Session", category_name: Optional[str] = None) -> TemplateContext:
     """Public API to get template contexts for rendering.
 
     Args:
@@ -696,16 +688,13 @@ async def get_template_contexts(category_name: Optional[str] = None) -> Template
     Returns:
         TemplateContext with layered contexts
     """
-    cache = _get_session_cache()
-    if cache is None:
-        # Fallback: create a temporary cache (no session yet)
-        cache = TemplateContextCache()
-    return await cache.get_template_contexts(category_name)
+    if session is None:
+        raise RuntimeError("Template context requires an explicit Session")
+    return await session.template_cache.get_template_contexts(category_name)
 
 
-def get_transient_context() -> TemplateContext:
+def get_transient_context(session: "Session") -> TemplateContext:
     """Get transient context with timestamps from the current session's cache."""
-    cache = _get_session_cache()
-    if cache is None:
-        cache = TemplateContextCache()
-    return cache.get_transient_context()
+    if session is None:
+        raise RuntimeError("Transient template context requires an explicit Session")
+    return session.template_cache.get_transient_context()

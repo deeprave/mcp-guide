@@ -44,13 +44,14 @@ from mcp_guide.result_constants import (
     INSTRUCTION_FILE_ERROR,
     INSTRUCTION_NOTFOUND_ERROR,
     INSTRUCTION_TEMPLATE_ERROR,
+    make_invalid_session_result,
 )
-from mcp_guide.session import get_active_session, get_session
+from mcp_guide.session import InvalidGuideSessionError, get_session
 from mcp_guide.tools.tool_content import ContentArgs, internal_get_content
 from mcp_guide.uri_parser import parse_query_kwargs
 
 if TYPE_CHECKING:
-    from typing import Any
+    from mcp_guide.session import Session
 
 from fastmcp import Context
 
@@ -83,7 +84,9 @@ class CommandAliasResolution:
     implied_kwargs: dict[str, AliasKwarg]
 
 
-async def get_command_help(command_context: TemplateContext, commands_dir: Path, docroot: Path) -> Result[str]:
+async def get_command_help(
+    session: "Session", command_context: TemplateContext, commands_dir: Path, docroot: Path
+) -> Result[str]:
     """Get help information for a command using template rendering."""
     from mcp_guide.render.template import render_template
 
@@ -101,6 +104,7 @@ async def get_command_help(command_context: TemplateContext, commands_dir: Path,
 
         # Render using the proper template rendering system
         rendered = await render_template(
+            session,
             file_info=help_file_info,
             base_dir=help_file_info.path.parent,
             project_flags={},
@@ -128,8 +132,10 @@ async def handle_command(
     kwargs: Optional[dict[str, Union[str, bool, int]]] = None,
     args: Optional[list[str]] = None,
     ctx: Optional[Context] = None,
+    session: "Session | None" = None,
     middleware: Optional[List[CommandMiddleware]] = None,
     argv: Optional[list[str]] = None,
+    session_id: str | None = None,
 ) -> Result[Any]:
     """Handle command execution with direct file discovery.
 
@@ -148,6 +154,8 @@ async def handle_command(
         kwargs = {}
     if args is None:
         args = []
+    if session is None:
+        session = await get_session(ctx, session_id=session_id)
 
     # Add logging middleware by default
     from mcp_guide.middleware.logging_middleware import logging_middleware
@@ -158,7 +166,7 @@ async def handle_command(
     if middleware:
         # Apply the middleware chain
         async def next_handler() -> Result[Any]:
-            return await _execute_command(command_path, kwargs, args, ctx, argv=argv)
+            return await _execute_command(command_path, kwargs, args, ctx, session, argv=argv, session_id=session_id)
 
         # Build the middleware chain from right to left
         handler: Callable[[], Coroutine[Any, Any, Result[Any]]] = next_handler
@@ -176,7 +184,7 @@ async def handle_command(
 
         return await handler()
     else:
-        return await _execute_command(command_path, kwargs, args, ctx, argv=argv)
+        return await _execute_command(command_path, kwargs, args, ctx, session, argv=argv, session_id=session_id)
 
 
 def _resolve_command_alias(command_path: str, commands: list[dict[str, Any]]) -> CommandAliasResolution:
@@ -343,14 +351,13 @@ def _build_command_context(
     return base_context.new_child(convert_lists_to_indexed(context_data))
 
 
-async def _is_help_command(command_path: str, ctx: Optional[Context]) -> bool:
+async def _is_help_command(command_path: str, session: "Session") -> bool:
     """Check if command_path is a help command or alias."""
     # noinspection PyBroadException
     try:
-        session = await get_session(ctx)
-        docroot = Path(await session.get_docroot())
+        docroot = Path(await session.runtime.get_docroot())
         commands_dir = docroot / COMMANDS_DIR
-        commands = await discover_commands(commands_dir)
+        commands = await discover_commands(commands_dir, session)
 
         # Find help command and its aliases
         help_aliases = ["help"]  # Always include the base name
@@ -371,24 +378,19 @@ async def _execute_command(
     kwargs: dict[str, Union[str, bool, int]],
     args: list[str],
     ctx: Optional[Context],
+    session: "Session",
     argv: Optional[list[str]] = None,
+    session_id: str | None = None,
 ) -> Result[Any]:
     """Execute command without middleware."""
-    from mcp_guide.session import get_session
-
-    # Initialise session and get paths
-    try:
-        session = await get_session(ctx)
-        docroot = Path(await session.get_docroot())
-    except ValueError as e:
-        return Result.failure(str(e), error_type=ERROR_CONTEXT)
+    docroot = Path(await session.runtime.get_docroot())
 
     commands_dir = docroot / COMMANDS_DIR
     if not await AsyncPath(commands_dir).exists():
         return Result.failure(f"Commands directory not found: {COMMANDS_DIR}", error_type=ERROR_NOT_FOUND)
 
     # Discover commands and try the direct template file first (higher precedence)
-    commands = await discover_commands(commands_dir)
+    commands = await discover_commands(commands_dir, session)
 
     # First, try to find the command file directly (template files have higher precedence)
     file_result = await _discover_command_file(commands_dir, command_path)
@@ -440,22 +442,22 @@ async def _execute_command(
     kwargs = _merge_alias_kwargs(default_kwargs=alias_implied_kwargs, override_kwargs=kwargs)
 
     # Build template context
-    base_context = await get_template_contexts()
+    base_context = await get_template_contexts(session)
     command_context = _build_command_context(base_context, command_path, file_info, kwargs, args, commands)
 
     # Check for a help flag or help command with args (after context building)
     if kwargs.get("_help"):
-        return await get_command_help(command_context, commands_dir, docroot)
-    if await _is_help_command(command_path, ctx) and args:
-        return await get_command_help(command_context, commands_dir, docroot)
+        return await get_command_help(session, command_context, commands_dir, docroot)
+    if await _is_help_command(command_path, session) and args:
+        return await get_command_help(session, command_context, commands_dir, docroot)
 
     # Get resolved flags for requires-* checking
-    current_session = get_active_session()
-    requirements_context: dict[str, FeatureValue] = await resolve_all_flags(current_session) if current_session else {}
+    requirements_context: dict[str, FeatureValue] = await resolve_all_flags(session)
 
     # Render template using new API
     try:
         rendered = await render_template(
+            session,
             file_info=file_info,
             base_dir=file_info.path.parent,
             project_flags=requirements_context,
@@ -515,7 +517,9 @@ async def _execute_command(
     return result
 
 
-async def _handle_command_request(argv: list[str], ctx: Optional["Context"]) -> Result[Any]:
+async def _handle_command_request(
+    argv: list[str], ctx: Optional["Context"], session: "Session", session_id: str | None = None
+) -> Result[Any]:
     """Handle command-mode request."""
     first_arg = argv[1]
     raw_command_path = first_arg[1:]  # Remove prefix
@@ -537,10 +541,12 @@ async def _handle_command_request(argv: list[str], ctx: Optional["Context"]) -> 
         result = Result.failure(f"Context is required for command execution", error_type=ERROR_VALIDATION)
         return result
 
-    return await handle_command(command_path, argv=argv[1:], ctx=ctx)
+    return await handle_command(command_path, argv=argv[1:], ctx=ctx, session=session, session_id=session_id)
 
 
-async def _handle_content_request(argv: list[str], ctx: Optional["Context"]) -> Result[Any]:
+async def _handle_content_request(
+    argv: list[str], ctx: Optional["Context"], session: "Session", session_id: str | None = None
+) -> Result[Any]:
     """Handle content-mode request."""
     # Separate flags from content arguments
     content_args = []
@@ -581,19 +587,18 @@ Examples:
     if isinstance(pattern, int):
         pattern = str(pattern)
     force = bool(kwargs.get("force", False))
-    content_args_obj = ContentArgs(expression=category, pattern=pattern, force=force)
-    return await internal_get_content(content_args_obj, ctx)
+    content_args_obj = ContentArgs(expression=category, pattern=pattern, force=force, session_id=session_id)
+    return await internal_get_content(content_args_obj, ctx, session=session)
 
 
-async def _route_guide_request(argv: list[str], ctx: Optional["Context"]) -> Result[Any]:
+async def _route_guide_request(
+    argv: list[str], ctx: Optional["Context"], session: "Session", session_id: str | None = None
+) -> Result[Any]:
     """Route guide request to command or content handler."""
     # Validate arguments
     if len(argv) == 1 or (len(argv) == 2 and argv[1] == ""):
         # Get prompt prefix from session agent info
-        from mcp_guide.session import get_session
-
         prompt_prefix = "@"  # Default
-        session = await get_session()
         if session.agent_info:
             prompt_prefix = (
                 session.agent_info.prompt_prefix.replace("{mcp_name}", get_prompt_name())
@@ -614,9 +619,9 @@ async def _route_guide_request(argv: list[str], ctx: Optional["Context"]) -> Res
     # Check for command prefix
     first_arg = argv[1]
     if first_arg.startswith(":") or first_arg.startswith(";"):
-        return await _handle_command_request(argv, ctx)
+        return await _handle_command_request(argv, ctx, session, session_id)
     else:
-        return await _handle_content_request(argv, ctx)
+        return await _handle_content_request(argv, ctx, session, session_id)
 
 
 @promptfunc()
@@ -638,33 +643,45 @@ async def guide(
     argd: Optional[str] = None,
     arge: Optional[str] = None,
     argf: Optional[str] = None,
+    session_id: Optional[str] = None,
     ctx: Optional["Context"] = None,
-) -> str:
+) -> object:
     """Access guide functionality.
 
     Args:
         arg[1-f]: up to 15 positional args
+        session_id: Optional explicit interaction identifier for modern clients
         ctx: mcp context
     """
+    prompt_name = get_prompt_name()
+
+    # Establish the same explicit interaction boundary used by tools before
+    # any prompt helper reads session-dependent configuration or task state.
+    from mcp_guide.session import get_session
+
+    try:
+        session = await get_session(ctx, session_id=session_id)
+    except InvalidGuideSessionError:
+        from mcp_guide.tools.tool_result import prompt_result
+
+        return await prompt_result(prompt_name, make_invalid_session_result())
+
     # Cache MCP context if available
     if ctx:
         from mcp_guide.mcp_context import cache_mcp_globals
 
         logger.debug("Caching MCP context for guide request")
         # noinspection PyTypeChecker
-        await cache_mcp_globals(ctx)
+        await cache_mcp_globals(ctx, session)
 
     # Call on_tool for all subscribers immediately
-    from mcp_guide.task_manager import get_task_manager
-
-    task_manager = get_task_manager()
+    task_manager = session.task_manager
     try:
         await task_manager.on_tool()
     except Exception as e:
         logger.error(f"on_tool failed at prompt start: {e}")
 
     # Build argv list (MCP protocol requirement)
-    prompt_name = get_prompt_name()
     argv = [prompt_name]
     for arg in [arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arga, argb, argc, argd, arge, argf]:
         if arg is None:
@@ -672,9 +689,9 @@ async def guide(
         argv.append(arg)
 
     # Route request
-    result = await _route_guide_request(argv, ctx)
+    result = await _route_guide_request(argv, ctx, session, session.session_id)
 
     # Process result through the task manager
     from mcp_guide.tools.tool_result import prompt_result
 
-    return await prompt_result(prompt_name, result)
+    return await prompt_result(prompt_name, result, session=session, session_id=session.session_id)

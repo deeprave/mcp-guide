@@ -35,7 +35,7 @@ class TestMonitoringReminder:
     @pytest.mark.anyio
     async def test_monitoring_reminder_timer_event(self) -> None:
         """Test that timer events trigger monitoring reminders."""
-        task = WorkflowMonitorTask(".guide.yaml")
+        task = WorkflowMonitorTask(".guide.yaml", task_manager=TaskManager())
 
         # Verify task can handle timer events
         assert hasattr(task, "handle_event")
@@ -44,7 +44,7 @@ class TestMonitoringReminder:
     @pytest.mark.anyio
     async def test_monitoring_reminder_no_duplicates(self) -> None:
         """Test that WorkflowMonitorTask exists and is functional."""
-        task = WorkflowMonitorTask(".guide.yaml")
+        task = WorkflowMonitorTask(".guide.yaml", task_manager=TaskManager())
 
         # Verify task has expected attributes
         assert task.get_name() == "WorkflowMonitorTask"

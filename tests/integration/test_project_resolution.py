@@ -70,19 +70,15 @@ class TestProjectResolution:
             }
             config_file.write_text(yaml.dump(config))
 
-            # Create session - it should resolve to the correct project based on hash
-            with patch("mcp_guide.session.resolve_project_path") as mock_resolve_path:
-                mock_resolve_path.return_value = "/some/path"
+            # Create session - it should resolve to the correct project based on hash.
+            with patch("mcp_guide.configuration.calculate_project_hash") as mock_calc_hash:
+                mock_calc_hash.return_value = "fedcba0987654321" * 4
 
-                with patch("mcp_guide.session.calculate_project_hash") as mock_calc_hash:
-                    # Return hash that matches second project
-                    mock_calc_hash.return_value = "fedcba0987654321" * 4
+                session = await create_test_session("my-project", _config_dir_for_tests=tmp_dir)
+                project = await session.get_project()
 
-                    session = await create_test_session("my-project", _config_dir_for_tests=tmp_dir)
-                    project = await session.get_project()
-
-                    assert project.name == "my-project"
-                    assert project.hash == "fedcba0987654321" * 4
+                assert project.name == "my-project"
+                assert project.hash == "fedcba0987654321" * 4
 
     @pytest.mark.anyio
     async def test_no_matching_project_creation(self, tmp_path):
@@ -93,10 +89,7 @@ class TestProjectResolution:
         config = {"docroot": str(tmp_path), "projects": {}}
         config_file.write_text(yaml.dump(config))
 
-        with (
-            patch("mcp_guide.session.resolve_project_path", return_value=tmp_path),
-            patch("mcp_guide.session.calculate_project_hash", return_value="new_hash_value" * 4),
-        ):
+        with patch("mcp_guide.configuration.calculate_project_hash", return_value="new_hash_value" * 4):
             session = await create_test_session("new-project", _config_dir_for_tests=str(tmp_path))
             project = await session.get_project()
 
@@ -115,10 +108,7 @@ class TestProjectResolution:
         }
         config_file.write_text(yaml.dump(config))
 
-        with (
-            patch("mcp_guide.session.resolve_project_path", return_value="/different/path"),
-            patch("mcp_guide.session.calculate_project_hash", return_value="different_hash_value" * 4),
-        ):
+        with patch("mcp_guide.configuration.calculate_project_hash", return_value="different_hash_value" * 4):
             session = await create_test_session("my-project", _config_dir_for_tests=str(tmp_path))
             project = await session.get_project()
 

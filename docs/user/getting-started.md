@@ -36,7 +36,12 @@ See [Guide URIs](guide-uris.md) for the full details.
 
 ## Project Detection
 
-mcp-guide needs to know which project you're working in. Most CLI agents handle this automatically, but some (like Codex) require the agent to call `set_project` with the project path first. See [Installation — Project Detection](installation.md#project-detection) for details.
+mcp-guide needs an explicit project binding. A local stdio server may use its inherited
+absolute `PWD` for the initial binding; other interactions must call `set_project`
+with the absolute client project path. Modern clients then replay the returned
+`session_id` on later project-bound requests. See [Installation — Project
+Detection](installation.md#project-detection) and [Protocol and
+Sessions](protocol-and-sessions.md) for details.
 
 ## Document Categories and Collections
 

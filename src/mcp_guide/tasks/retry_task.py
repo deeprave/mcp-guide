@@ -1,11 +1,9 @@
 """RetryTask - monitors and retries unacknowledged instructions."""
 
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from mcp_guide.core.mcp_log import get_logger
-from mcp_guide.decorators import task_init
 from mcp_guide.task_manager.interception import EventType
-from mcp_guide.task_manager.manager import get_task_manager
 
 if TYPE_CHECKING:
     from mcp_guide.task_manager.manager import EventResult, TaskManager
@@ -13,21 +11,18 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-@task_init
 class RetryTask:
     """Monitor and retry unacknowledged instructions during idle periods."""
 
     # Number of timer ticks to wait before checking if we should unsubscribe
     STARTUP_GRACE_TICKS = 2
 
-    def __init__(self, task_manager: Optional["TaskManager"] = None) -> None:
+    def __init__(self, task_manager: "TaskManager") -> None:
         """Initialize RetryTask.
 
         Args:
-            task_manager: TaskManager instance (optional, uses singleton if not provided)
+            task_manager: TaskManager owned by the Session that creates this task.
         """
-        if task_manager is None:
-            task_manager = get_task_manager()
         self.task_manager = task_manager
         self._tick_count = 0
 

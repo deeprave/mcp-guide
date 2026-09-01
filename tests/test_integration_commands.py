@@ -15,9 +15,10 @@ class TestCommandIntegration:
     def mock_ctx(self):
         """Create mock context with temporary project root."""
         ctx = MagicMock()
+        ctx.session.session_id = "test-session-id"
         with tempfile.TemporaryDirectory() as temp_dir:
             ctx.session.project_root = temp_dir
-            ctx.session.get_docroot = AsyncMock(return_value=temp_dir)
+            ctx.session.runtime.get_docroot = AsyncMock(return_value=temp_dir)
             yield ctx
 
     @pytest.fixture

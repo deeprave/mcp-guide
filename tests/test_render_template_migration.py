@@ -12,6 +12,7 @@ from mcp_guide.discovery.files import FileInfo
 from mcp_guide.render import RenderedContent
 from mcp_guide.render.context import TemplateContext
 from mcp_guide.render.frontmatter import Frontmatter
+from tests.helpers import create_unbound_test_session
 
 
 class TestRenderTemplateAPIIntegration:
@@ -54,14 +55,16 @@ class TestRenderTemplateAPIIntegration:
 
                 # Call read_and_render_file_contents
                 files = [file_info]
+                session = create_unbound_test_session(str(temp_path))
                 errors = await read_and_render_file_contents(
-                    files=files, base_dir=temp_path, docroot=temp_path, template_context=context
+                    session=session, files=files, base_dir=temp_path, docroot=temp_path, template_context=context
                 )
 
                 # Verify render_template was called exactly once
                 mock_render.assert_awaited_once()
 
                 # Verify it was called with the expected arguments
+                assert mock_render.call_args.args[0] is session
                 call_kwargs = mock_render.call_args.kwargs
                 assert call_kwargs["file_info"] is file_info
                 assert call_kwargs["base_dir"] == temp_path

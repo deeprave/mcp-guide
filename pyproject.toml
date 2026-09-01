@@ -1,13 +1,13 @@
 [project]
 name = "mcp-guide"
-version = "1.4.0"
+version = "2.0.0a2"
 description = "MCP Server for handling guidelines, project rules and a controlled development workflow"
 readme = "README.md"
 license = {file = "LICENSE.md"}
 authors = [{name = "David Nugent", email = "davidn@uniquode.io"}]
 requires-python = ">=3.13"
 dependencies = [
-    "fastmcp>=3.1.1",
+    "fastmcp==4.0.0b3",
     "pydantic>=2.0",
     "anyio>=4.5",
     "pyyaml>=6.0",
@@ -18,8 +18,9 @@ dependencies = [
     "packaging>=24.0",
     "pygments>=2.19.2",
 ]
+
 classifiers = [
-    "Development Status :: 5 - Production/Stable",
+    "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.13",
@@ -54,6 +55,7 @@ build-backend = "uv_build"
 
 [tool.uv]
 package = true
+constraint-dependencies = ["fastmcp-slim==4.0.0b3"]
 
 [tool.uv.build-backend]
 module-name = ["mcp_guide"]

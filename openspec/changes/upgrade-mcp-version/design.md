@@ -72,12 +72,13 @@ would remain tightly coupled to a framework-specific request shape.
 
 ### 3. Replace connection-bound sessions with explicit durable and interaction state
 
-Project configuration remains durable storage. Request-specific data lives in
-`RequestContext`. Cross-request interaction state, only when needed, is serialized
-through the SDK's request-state facility, using its `RequestStateSecurity` support
-with stable deployment keys. Application payloads remain versioned, expiry-bound,
-and bound to the available principal/client scope and the request context they
-authorize; server-side indirection is permitted for large or sensitive values.
+Project configuration remains the only durable Guide storage. Request-specific data
+lives in `RequestContext`. For modern multi-round-trip interactions, FastMCP mints
+an unguessable session ID and validates it against the current principal on later
+calls. That ID is the explicit owner key carried by the client; it selects an
+in-memory Guide `Session` for the lifetime of the running MCP server. Guide does not
+serialise its root binding, active configuration selection, queues, caches, or task
+state into a client-carried token or a persistent FastMCP state record.
 
 An explicit state owner key will select a context-owned Guide `Session` held by the
 application runtime. The Session contains its own non-global TaskManager instance,
@@ -88,9 +89,12 @@ preserving current single-agent *behaviour* without preserving a global TaskMana
 it does not weaken isolation if more than one Session is ever present. Under HTTP, it
 creates or restores one Session per validated owner. `GuideRuntime` is the
 process-global Guide state: it holds the Session registry, lifecycle, shared
-ConfigManager, the startup-resolved shared docroot, service factories, and coordination locks. It may coordinate cleanup,
+ConfigManager, service factories, and coordination locks. It may coordinate cleanup,
 but it may not contain mutable agent, active-configuration selection, rendering, or
 task state, nor infer a recipient from a `ContextVar` or a raw SDK connection object.
+Restarting the MCP server discards every Guide Session and its transient state. A
+restarted server may use its persisted configuration file once a new interaction
+binds a project, but it does not resume prior Guide sessions.
 
 Durable Guide configuration is the intentional shared-state exception. The existing
 class-level `Session._ConfigManager` is a process singleton in all but name; v2 moves
@@ -115,13 +119,13 @@ reconfigure, or watch the shared configuration file. Runtime application code SH
 obtain configuration operations only through a Session; it SHALL NOT create another
 ConfigManager or use the runtime-owned manager as a general-purpose service locator.
 
-Docroot is likewise a shared runtime resource, not Session configuration. Runtime
-startup resolves it once and stores the effective docroot on GuideRuntime. It is
-immutable for that runtime's lifetime: no Session operation, in-process configuration
-write, or watchdog publication may alter it. If a configuration-file change contains a
-different docroot, ConfigManager may cache that persisted value for a future runtime,
-but the running GuideRuntime continues using its startup-resolved docroot; restart is
-required to adopt it.
+Docroot is likewise shared configuration, not Session configuration. ConfigManager
+resolves and owns the effective docroot once at startup. It is immutable for that
+manager's lifetime: no Session operation, in-process configuration write, or watchdog
+publication may alter it. If a configuration-file change contains a different docroot,
+the running ConfigManager continues using its effective docroot; a restarted manager
+adopts the persisted value. GuideRuntime exposes ConfigManager's value without caching
+or duplicating it.
 
 Each affected Session dispatches the existing Session-listener lifecycle locally. Its
 contained TaskManager invalidates derived flags and performs the appropriate task
@@ -130,28 +134,30 @@ not a shared TaskManager operation: the shared service publishes a change, and e
 Session updates its own runtime state.
 
 FastMCP is the protocol dispatcher, not the owner of Guide Sessions. For each request,
-its public context supplies transport metadata and validated request state to
-the request adapter. The adapter derives a Session key from the verified owner and
-interaction state, then asks `GuideRuntime`'s Session registry to resolve or create
+its public context supplies transport metadata and, for modern interactions, the
+explicit FastMCP session ID supplied by the tool or resource. The adapter validates
+that ID through FastMCP's public session API, then asks `GuideRuntime`'s Session
+registry to resolve or create
 the corresponding unbound Guide Session. In stdio the registry resolves its sole agent
 Session; in HTTP it resolves the owner-partitioned Session. Client display metadata
-such as name/version is not a Session key. The resulting Session is placed in the
-application `RequestContext` for the handler and any background work it initiates.
+such as name/version is not a Session key. The resulting Session is available to the
+current FastMCP-facing handler boundary. Passing a resolved application
+`RequestContext` through tools, prompts, resources, and background work is
+intentionally deferred to the `use-request-context` change.
 
 MCP has no parent/subagent session model. A subagent is therefore a separate Session
 registry owner by default, whether it has its own MCP server process or connects to a
 shared remote server. Subagents may bind the same root and use the same durable Guide
 configuration, but they do not share mutable Session state such as TaskManager queues,
-timers, caches, or active configuration selection. Deliberate parent-to-subagent state
-sharing requires an explicitly issued, validated descendant Session state; it is never
-inferred from client name, root, or process ancestry.
+timers, caches, or active configuration selection. Parent-to-subagent Session sharing
+is not inferred from client name, root, or process ancestry.
 
 **Rationale:** it meets stateless execution while preventing instruction or project
 data from crossing clients or projects.
 
-**Alternative considered:** retain a server-memory map keyed by transport session ID.
-Rejected as the primary model because it cannot satisfy stateless HTTP requests,
-multi-process deployment, or protocol request-state integrity requirements.
+**Alternative considered:** retain a server-memory map keyed by a raw transport
+connection ID. Rejected because modern FastMCP session IDs provide explicit,
+principal-validated interaction ownership without retaining a connection object.
 
 ### 4. Separate pure server construction from application-runtime startup
 
@@ -211,12 +217,11 @@ ignored; they must not silently select another root's configuration. Guide provi
 legacy configuration migration. Resolution selects or creates only the correct
 `<project-name>-<hash>` key for the bound root.
 
-`clone_project` is the sole explicit recovery exception. When its source argument
-has no hash suffix, it first checks for an exact raw hashless configuration key, then
-falls back to a unique strict hash-suffixed entry with that display name. It only
+`clone_project` accepts either a display name or an exact hash-suffixed configuration
+key. An exact key selects that configuration directly. An unhashed display name selects
+the first strict configuration with that `Project.name` in configuration order. It only
 copies content into the already bound, correctly hashed target; it neither loads nor
-rewrites the legacy source as an active configuration. This is a user-invoked recovery
-operation, not legacy configuration support or automatic migration.
+rewrites another configuration as the active configuration.
 
 **Rationale:** the `<project-name>-<hash>` format has been established for many
 released versions. Retaining a compatibility path for older or malformed entries would
@@ -250,8 +255,8 @@ preserves a server-initiated project-selection path.
 
 Keep domain-level `Result` and rendered-content objects independent. A single adapter
 will convert them to SDK-native tool, prompt, and resource responses, preserving
-instruction dispositions and `additional_agent_instructions`. It will attach cache
-hints only when the response is actually safe to cache, with conservative defaults.
+instruction dispositions and `additional_agent_instructions`. Cache-policy metadata is
+out of scope for this change and is addressed separately by `add-cache-settings`.
 
 **Rationale:** stringifying result JSON before handing it to FastMCP hides protocol
 semantics and makes cache metadata and multi-round-trip state difficult to express.
@@ -276,7 +281,8 @@ that do not discover or expand resource templates, but it must produce the same
 Session-sensitive result when supplied the same identifier. Retained handshake-era
 resource reads that do not carry the query variable use public `ctx.session_id` as
 their connection-scoped fallback. A modern request without the value remains unbound
-unless it is a defined creation/bootstrap operation.
+unless it is a defined creation/bootstrap operation. The query parameter is a session
+selector, not a serialised project-state token.
 
 ### 7. Use FastMCP 4's dual-era serving support, verified by a compatibility spike
 
@@ -299,8 +305,9 @@ incomplete APIs.
 - **[SDK/API availability differs from the protocol]** -> Run the compatibility
   spike first; do not merge entry-point migration until required modern operations
   are exercised against the selected packages.
-- **[State token replay or substitution]** -> Sign, expire, and bind state to the
-  available principal and request authorisation scope; test tampering and replay.
+- **[Session ID replay or substitution]** -> Rely on FastMCP's unguessable minted
+  IDs and principal-bound validation; reject unknown IDs and do not create a
+  replacement Session for them.
 - **[Explicit-selection migration]** -> Document that roots are no longer consulted;
   require project selection once per interaction and test the defined no-project and
   rejected-reselection behaviours.
@@ -335,16 +342,15 @@ incomplete APIs.
    bridge only if the compatibility spike demonstrates an unmet required client.
 
 Rollback: retain the prior released package version and configuration while the v2
-release is staged. After persisted request-state formats are introduced, make them
-versioned and ignore unknown versions safely so rollback does not deserialize v2
-state as legacy state.
+release is staged. A restart intentionally begins fresh interaction state, so there
+is no persisted Guide session format to translate during rollback.
 
 ## Open Questions
 
 - Which FastMCP 4 public APIs should Guide use for each stdio, Streamable HTTP,
-  discovery, and request-state boundary?
+  discovery, and FastMCP session-ID boundary?
 - Which authentication/principal data is available in stdio and HTTP deployments for
-  state-token binding, and what server-side state store is required?
+  FastMCP session-ID validation?
 - Which legacy client revisions must remain supported? The default is the SDK's
   built-in dual-era path, not a bespoke bridge.
 - Does the compatibility spike reveal a public SDK lifecycle hook that requires a

@@ -2,6 +2,11 @@
 
 All notable changes to mcp-guide will be documented in this file.
 
+## [Unreleased]
+
+### Changed
+- Some project configuration hashes have changed because a previous bug could hash Guide's configuration directory instead of the project root. To retain an affected existing configuration after upgrading, clone the old project by its `-<hash>` suffix into the newly created project configuration.
+
 ## [1.4.0] - 2026-08-16
 
 ### Added

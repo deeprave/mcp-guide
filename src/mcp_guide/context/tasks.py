@@ -6,7 +6,7 @@ from mcp_guide.context.rendering import render_context_template
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.decorators import task_register
 from mcp_guide.feature_flags.constants import FLAG_ALLOW_CLIENT_INFO
-from mcp_guide.task_manager import EventType, get_task_manager
+from mcp_guide.task_manager import EventType
 from mcp_guide.task_manager.protocol import DEFAULT_ONCE_INTERVAL, InitialisableMixin
 
 if TYPE_CHECKING:
@@ -20,11 +20,10 @@ logger = get_logger(__name__)
 class ClientContextTask(InitialisableMixin):
     """Task for collecting client context information."""
 
-    def __init__(self, task_manager: Optional["TaskManager"] = None):
-        if task_manager is None:
-            task_manager = get_task_manager()
+    def __init__(self, task_manager: "TaskManager"):
+        """Create a project task with its owning Session's manager."""
         self.task_manager = task_manager
-        self._session: Any = None
+        self._session: Any = task_manager._session
         self._os_info_requested = False
         self._flag_checked = False
 
@@ -64,10 +63,9 @@ class ClientContextTask(InitialisableMixin):
         """Check flag and request OS info if enabled."""
         from mcp_guide.task_manager.manager import EventResult
 
-        if self._session is not None:
-            allow_client_info = await self.task_manager.requires_flag(FLAG_ALLOW_CLIENT_INFO, self._session)
-        else:
-            allow_client_info = await self.task_manager.requires_flag(FLAG_ALLOW_CLIENT_INFO)
+        if self._session is None:
+            return EventResult(result=False, message="Client context task is not attached to a Session")
+        allow_client_info = await self.task_manager.requires_flag(FLAG_ALLOW_CLIENT_INFO, self._session)
 
         if not allow_client_info:
             await self.task_manager.unsubscribe(self)
@@ -84,7 +82,7 @@ class ClientContextTask(InitialisableMixin):
 
     async def request_basic_os_info(self) -> None:
         """Request basic OS information from client."""
-        rendered = await render_context_template("client-context-setup")
+        rendered = await render_context_template(self._session, "client-context-setup")
         if rendered:
             self._os_instruction_id = await self.task_manager.queue_instruction_with_ack(rendered.content)
 
@@ -123,7 +121,7 @@ class ClientContextTask(InitialisableMixin):
                     # Invalidate template context cache
                     from mcp_guide.render.cache import invalidate_template_contexts
 
-                    invalidate_template_contexts()
+                    invalidate_template_contexts(self._session)
                     await self._request_detailed_context(os_info)
                     return EventResult(result=True)
                 except json.JSONDecodeError:
@@ -145,7 +143,7 @@ class ClientContextTask(InitialisableMixin):
                     # Invalidate template context cache
                     from mcp_guide.render.cache import invalidate_template_contexts
 
-                    invalidate_template_contexts()
+                    invalidate_template_contexts(self._session)
                     logger.info(f"Client context received: {len(context_info)} namespaces")
                     return EventResult(result=True)
                 except json.JSONDecodeError:
@@ -157,6 +155,6 @@ class ClientContextTask(InitialisableMixin):
     async def _request_detailed_context(self, os_info: dict[str, Any]) -> None:
         """Request detailed context based on OS info."""
         client_data = os_info.get("client", {})
-        rendered = await render_context_template("client-context-detailed", {"client": client_data})
+        rendered = await render_context_template(self._session, "client-context-detailed", {"client": client_data})
         if rendered:
             self._context_instruction_id = await self.task_manager.queue_instruction_with_ack(rendered.content)

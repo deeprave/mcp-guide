@@ -1,7 +1,7 @@
 """Shared utilities for content retrieval tools."""
 
 from pathlib import Path
-from typing import Any, Iterable, Optional
+from typing import TYPE_CHECKING, Any, Iterable, Optional
 
 import yaml
 
@@ -25,7 +25,9 @@ from mcp_guide.result_constants import (
     INSTRUCTION_MISSING_POLICY,
     USER_INFO,
 )
-from mcp_guide.session import get_active_session
+
+if TYPE_CHECKING:
+    from mcp_guide.session import Session
 
 logger = get_logger(__name__)
 
@@ -175,6 +177,7 @@ def combine_instructions(instructions_with_importance: list[tuple[str, bool]]) -
 
 
 async def _gather_policy_partials(
+    session: "Session",
     file_info: FileInfo,
     template_context: TemplateContext,
     project_flags: dict[str, Any],
@@ -187,8 +190,7 @@ async def _gather_policy_partials(
     render_template.
 
     `template_context` is used only as the parent context for `new_child()` when building
-    per-policy-file render context. Session and project are fetched directly via
-    `get_active_session()` and `session.get_project()`.
+    per-policy-file render context. Session state is supplied explicitly.
 
     Returns an empty dict when the template has no `policies:` key, or when no active
     session or project is available.
@@ -210,10 +212,6 @@ async def _gather_policy_partials(
 
     logger.trace("_gather_policy_partials: %r declares topics %s", file_info.name, policy_topics)
 
-    session = get_active_session()
-    if session is None:
-        logger.trace("_gather_policy_partials: no active session — skipping")
-        return {}
     try:
         project = await session.get_project()
     except NoProjectError:
@@ -228,7 +226,7 @@ async def _gather_policy_partials(
         logger.trace("_gather_policy_partials: project has no 'policies' category — skipping")
         return {}
 
-    docroot = Path(await session.get_docroot())
+    docroot = Path(await session.runtime.get_docroot())
     policy_base_dir = docroot / policies_category.dir
     logger.trace(
         "_gather_policy_partials: policies base dir=%s, patterns=%s", policy_base_dir, policies_category.patterns
@@ -250,7 +248,7 @@ async def _gather_policy_partials(
 
         if not policy_files:
             logger.trace("_gather_policy_partials: topic=%r — no files found, using placeholder", topic)
-            pre_partials[topic] = await render_missing_policy(topic)
+            pre_partials[topic] = await render_missing_policy(session, topic)
             continue
 
         rendered_parts: list[str] = []
@@ -269,6 +267,7 @@ async def _gather_policy_partials(
             )
             try:
                 rendered = await render_template(
+                    session,
                     file_info=policy_file,
                     base_dir=policy_base_dir,
                     project_flags=project_flags,
@@ -286,13 +285,15 @@ async def _gather_policy_partials(
             except (OSError, RuntimeError):
                 logger.warning("Failed to render policy file %s for topic %r", policy_file.path, topic, exc_info=True)
 
-        pre_partials[topic] = "\n\n".join(rendered_parts) if rendered_parts else await render_missing_policy(topic)
+        pre_partials[topic] = (
+            "\n\n".join(rendered_parts) if rendered_parts else await render_missing_policy(session, topic)
+        )
         logger.trace("_gather_policy_partials: topic=%r → %d chars", topic, len(pre_partials[topic]))
 
     return pre_partials
 
 
-async def render_missing_policy(topic: str) -> str:
+async def render_missing_policy(session: "Session", topic: str) -> str:
     """Render the missing-policy placeholder for a topic with no active selection.
 
     Renders `_missing_policy` from the _system category so the placeholder content
@@ -302,7 +303,7 @@ async def render_missing_policy(topic: str) -> str:
     """
     context = TemplateContext({"policy_topic": topic})
     try:
-        rendered = await render_content("_missing_policy", "_system", context)
+        rendered = await render_content(session, "_missing_policy", "_system", context)
         if rendered is not None:
             return rendered.content
     except Exception:
@@ -325,6 +326,7 @@ def resolve_patterns(override_pattern: Optional[str], default_patterns: list[str
 
 
 async def read_and_render_file_contents(
+    session: "Session",
     files: list[FileInfo],
     base_dir: Path,
     docroot: Path,
@@ -400,9 +402,12 @@ async def read_and_render_file_contents(
 
                 try:
                     # Pre-render any policy partials declared in the template's frontmatter
-                    pre_partials = await _gather_policy_partials(file_info, template_context, requirements_context)
+                    pre_partials = await _gather_policy_partials(
+                        session, file_info, template_context, requirements_context
+                    )
                     # Use the render_template API (handles parsing and requirements checking)
                     rendered = await render_template(
+                        session,
                         file_info=file_info,
                         base_dir=base_dir,
                         project_flags=requirements_context,

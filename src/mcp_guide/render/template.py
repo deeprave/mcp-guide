@@ -1,7 +1,7 @@
 """Template rendering implementation."""
 
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.discovery.files import FileInfo
@@ -10,10 +10,14 @@ from mcp_guide.render.content import FM_INCLUDES, FM_REQUIRES_PREFIX, RenderedCo
 from mcp_guide.render.context import TemplateContext
 from mcp_guide.render.renderer import is_template_file, render_template_content
 
+if TYPE_CHECKING:
+    from mcp_guide.session import Session
+
 logger = get_logger(__name__)
 
 
 async def render_template(
+    session: "Session",
     file_info: FileInfo,
     base_dir: Path,
     project_flags: Dict[str, Any],
@@ -38,7 +42,7 @@ async def render_template(
     content = await file_info.read_raw()
 
     # Build context for frontmatter field rendering
-    base_context = await get_template_contexts()
+    base_context = await get_template_contexts(session)
 
     # Build initial context for rendering frontmatter instruction/description fields
     # Frontmatter vars will be added after processing

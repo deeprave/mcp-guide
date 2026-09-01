@@ -32,6 +32,7 @@ nav:
   - User Guide:
       - Getting Started: user/getting-started.md
       - Installation: user/installation.md
+      - Protocol and Sessions: user/protocol-and-sessions.md
       - Categories and Collections: user/categories-and-collections.md
       - Content Management: user/content-management.md
       - Documents: user/documents.md
@@ -40,10 +41,16 @@ nav:
       - Feature Flags: user/feature-flags.md
       - Profiles: user/profiles.md
       - Prompt Commands: user/commands.md
+      - Guide URIs: user/guide-uris.md
+      - Policies: user/policies.md
+      - Stored Documents: user/stored-documents.md
   - Developer Notes:
       - Command Authoring: developer/command-authoring.md
       - Filesystem Access: developer/filesystem-access.md
       - Debugging: developer/DEBUGGING.md
+      - Setup: developer/SETUP.md
+      - Architecture: developer/architecture.md
+      - Template Rendering: developer/template-rendering.md
 
 markdown_extensions:
   - admonition

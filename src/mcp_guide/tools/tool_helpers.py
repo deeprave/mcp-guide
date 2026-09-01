@@ -12,9 +12,14 @@ if TYPE_CHECKING:
     from mcp_guide.session import Session
 
 
-async def get_session_and_project(ctx: Optional["Context"] = None) -> tuple["Session", Optional["Project"]]:
+async def get_session_and_project(
+    ctx: Optional["Context"] = None, *, session_id: str | None = None
+) -> tuple["Session", Optional["Project"]]:
     """Get session and project, returning None for project if unavailable."""
-    session = await get_session(ctx)
+    if session_id is None:
+        session = await get_session(ctx)
+    else:
+        session = await get_session(ctx, session_id=session_id)
     try:
         return session, await session.get_project()
     except NoProjectError:

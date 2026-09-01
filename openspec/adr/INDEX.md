@@ -20,11 +20,6 @@ This index tracks all ADRs including historical decisions that have been superse
 **Date:** 2025-11-25
 **File:** [004-logging-architecture.md](004-logging-architecture.md)
 
-### ADR-006: Session Management Architecture
-**Status:** Accepted
-**Date:** 2025-11-26
-**File:** [006-session-management-architecture.md](006-session-management-architecture.md)
-
 ### ADR-007: MCP SDK Client-Based Integration Testing
 **Status:** Accepted
 **Date:** 2025-11-26
@@ -60,6 +55,14 @@ This index tracks all ADRs including historical decisions that have been superse
 **Dependencies:** ADR-006
 **Summary:** Adopts the independently maintained FastMCP 4 integration layer, which builds on MCP SDK v2 and negotiates both modern sessionless and handshake-era protocol interactions from one server.
 
+### ADR-012: Runtime-Owned Interaction Sessions
+**Status:** Accepted
+**Date:** 2026-08-29
+**File:** [012-runtime-owned-interaction-sessions.md](012-runtime-owned-interaction-sessions.md)
+**Supersedes:** ADR-006, ADR-009
+**Dependencies:** ADR-011
+**Summary:** Defines explicit FastMCP interaction IDs, GuideRuntime-owned Sessions, and the limited stdio PWD bootstrap.
+
 ## Historical ADRs
 
 ### ADR-002: MCP Server Framework
@@ -75,6 +78,18 @@ This index tracks all ADRs including historical decisions that have been superse
 **Reason:** Investigation revealed `mcp-inspector` package is a placeholder with no implementation. ADR-007 uses MCP SDK client testing utilities instead, which are officially maintained and fully implemented.
 **Historical Content:** Preserved in ADR-007 under "Historical Context" section
 
+### ADR-006: Session Management Architecture
+**Status:** Superseded
+**Date:** 2025-11-26
+**Superseded By:** ADR-012 (2026-08-29)
+**Reason:** ContextVar session selection has been replaced by explicit request identity and runtime-owned Sessions.
+
+### ADR-009: Client Project Name Detection
+**Status:** Superseded
+**Date:** 2025-11-29
+**Superseded By:** ADR-012 (2026-08-29)
+**Reason:** Project root selection is explicit; server-side project inference is no longer part of the architecture.
+
 ## ADR Numbering
 
 ADR numbers are assigned sequentially and are never reused. When an ADR is superseded or removed, its number remains reserved to maintain historical continuity. This explains gaps in the numbering sequence (e.g., missing ADR-005).
@@ -89,7 +104,7 @@ ADR numbers are assigned sequentially and are never reused. When an ADR is super
 ## Maintenance
 
 When creating a new ADR:
-1. Use the next available number (currently: 011)
+1. Use the next available number (currently: 013)
 2. Add entry to this index
 3. Update "Supersedes" field if replacing an existing ADR
 4. Move superseded ADR to "Historical ADRs" section

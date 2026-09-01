@@ -13,7 +13,7 @@ from mcp_guide.installer.core import ORIGINAL_ARCHIVE, perform_locked_update, re
 from mcp_guide.result import Result
 from mcp_guide.result_constants import ERROR_CONFIG_READ, ERROR_FILE_ERROR
 from mcp_guide.session import get_session
-from mcp_guide.tools.tool_result import tool_result
+from mcp_guide.tools.tool_result import ToolResult, tool_result
 
 __all__ = ["internal_update_documents", "update_documents"]
 
@@ -41,8 +41,8 @@ async def internal_update_documents(
         Result containing update statistics
     """
     try:
-        session = await get_session(ctx)
-        docroot = Path(await session.get_docroot())
+        session = await get_session(ctx, session_id=args.session_id)
+        docroot = Path(await session.runtime.get_docroot())
         archive_path = docroot / ORIGINAL_ARCHIVE
     except (OSError, ValueError) as e:
         return Result.failure(f"Failed to resolve documentation root: {e}", error_type=ERROR_CONFIG_READ)
@@ -64,11 +64,9 @@ async def internal_update_documents(
         return Result.failure(f"Failed to update documentation: {e}", error_type=ERROR_FILE_ERROR)
 
     # Acknowledge update prompt to stop retry loop
-    from mcp_guide.task_manager.manager import get_task_manager
     from mcp_guide.tasks.update_task import McpUpdateTask
 
-    task_manager = get_task_manager()
-    update_task = task_manager.get_task_by_type(McpUpdateTask)
+    update_task = session.task_manager.get_task_by_type(McpUpdateTask)
     if update_task:
         await update_task.acknowledge_update()
 
@@ -85,11 +83,11 @@ async def internal_update_documents(
 async def update_documents(
     args: UpdateDocumentsArgs,
     ctx: Optional[Context] = None,
-) -> str:
+) -> ToolResult:
     """Update documentation files using the configured docroot.
 
     Checks for version changes and updates files using smart merge strategy.
     Uses file locking to prevent concurrent updates.
     """
     result = await internal_update_documents(args, ctx)
-    return await tool_result("update_documents", result)
+    return await tool_result("update_documents", result, ctx=ctx, session_id=args.session_id)

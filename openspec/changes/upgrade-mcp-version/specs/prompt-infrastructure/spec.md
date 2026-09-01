@@ -1,9 +1,10 @@
 ## ADDED Requirements
 
 ### Requirement: Request-Scoped Prompt Invocation
-The prompt registration layer SHALL invoke prompts with the application request
-context and SHALL resolve project, client, and agent data from that context rather
-than legacy initialization/session fields.
+The prompt registration layer SHALL resolve project, client, and agent data through
+the validated Session boundary rather than legacy initialization/session fields.
+It may continue to invoke transitional prompt handlers with raw FastMCP context;
+resolved application RequestContext propagation is deferred to `use-request-context`.
 
 #### Scenario: Prompt with project context
 - **WHEN** a negotiated prompt request supplies valid project context

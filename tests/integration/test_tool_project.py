@@ -1,573 +1,66 @@
-"""Integration tests for project management tools via MCP client.
+"""Protocol-level integration coverage for the current project tool contract."""
 
-Tests project tools through the MCP protocol interface to verify:
-- Tool registration with MCP server
-- End-to-end workflows through real client
-- Configuration persistence across operations
-- Multi-project scenarios
-"""
-
-from unittest.mock import patch
+import json
+from collections.abc import Callable
+from typing import Any
 
 import pytest
 from fastmcp.client import Client, FastMCPTransport
+from pydantic import ValidationError
 
-from mcp_guide.session import remove_current_session, set_current_session
-from mcp_guide.tools.tool_category import CategoryAddArgs, CategoryCollectionAddArgs, internal_category_add
 from mcp_guide.tools.tool_project import (
     CloneProjectArgs,
-    GetCurrentProjectArgs,
-    ListProjectArgs,
-    ListProjectsArgs,
     SetCurrentProjectArgs,
+    SwitchProjectArgs,
 )
 from tests.conftest import assert_tool_registered, call_mcp_tool
-from tests.helpers import create_test_session
-
-# Module-level patches
-_config_file_patch = None
-_docroot_patch = None
-_test_config_dir = None
-_seeded_session = None
 
 
 @pytest.fixture(scope="module")
-def setup_config_isolation(tmp_path_factory):
-    """Setup module-wide config directory isolation."""
-    global _config_file_patch, _docroot_patch, _test_config_dir
-    _test_config_dir = tmp_path_factory.mktemp("test_config")
-
-    # Start patches that will last for entire module
-    _config_file_patch = patch(
-        "mcp_guide.config_paths.get_config_file", lambda config_dir=None: _test_config_dir / "config.yaml"
-    )
-    _docroot_patch = patch("mcp_guide.config_paths.get_docroot", lambda config_dir=None: _test_config_dir / "docroot")
-
-    _config_file_patch.start()
-    _docroot_patch.start()
-
-    yield
-
-    # Stop patches after all tests in module complete
-    _config_file_patch.stop()
-    _docroot_patch.stop()
-
-
-async def _get_seeded_session():
-    """Create the shared seeded session lazily for stateful tests."""
-    global _seeded_session
-    if _seeded_session is None:
-        session = await create_test_session("test-project", _config_dir_for_tests=str(_test_config_dir))
-        await session.get_project()
-        set_current_session(session)
-        args = CategoryAddArgs(name="docs", dir="documentation", patterns=["*.md"])
-        await internal_category_add(args)
-        _seeded_session = session
-    return _seeded_session
-
-
-@pytest.fixture(autouse=True)
-async def setup_session(request):
-    """Ensure session is set for tests that exercise project state."""
-    if request.node.name.endswith("_registered"):
-        yield
-        return
-
-    session = await _get_seeded_session()
-    set_current_session(session)
-    yield
-    # Ensure all pending I/O completes before cleanup
-    import asyncio
-
-    await asyncio.sleep(0)
-
-
-@pytest.fixture(scope="module", autouse=True)
-async def cleanup_seeded_session():
-    """Release the shared seeded session after the module completes."""
-    yield
-    global _seeded_session
-    _seeded_session = None
-    await remove_current_session()
-    import asyncio
-    import gc
-
-    await asyncio.sleep(0)
-    gc.collect()
-
-
-@pytest.fixture(scope="module")
-def anyio_backend():
-    """Use asyncio for async tests."""
-    return "asyncio"
-
-
-@pytest.fixture(scope="module")
-def mcp_server(mcp_server_factory, setup_config_isolation):
-    """Create fresh MCP server for this test module."""
-    return mcp_server_factory(["tool_project", "tool_category", "tool_collection"])
-
-
-# Registration Tests
+def mcp_server(mcp_server_factory: Callable[[list[str]], Any]) -> Any:
+    """Create a server exposing the project management tool surface."""
+    return mcp_server_factory(["tool_project"])
 
 
 @pytest.mark.anyio
-async def test_get_project_registered(mcp_server):
-    """Test that get_project is registered in MCP."""
-    tools = await mcp_server.list_tools()
-    tool_names = [tool.name for tool in tools]
-    assert_tool_registered(tool_names, "get_project")
-
-
-@pytest.mark.anyio
-async def test_set_project_registered(mcp_server):
-    """Test that set_project is registered in MCP."""
-    tools = await mcp_server.list_tools()
-    tool_names = [tool.name for tool in tools]
-    assert_tool_registered(tool_names, "set_project")
-
-
-@pytest.mark.anyio
-async def test_list_projects_registered(mcp_server):
-    """Test that list_projects is registered in MCP."""
-    tools = await mcp_server.list_tools()
-    tool_names = [tool.name for tool in tools]
-    assert_tool_registered(tool_names, "list_projects")
-
-
-@pytest.mark.anyio
-async def test_list_project_registered(mcp_server):
-    """Test that list_project is registered in MCP."""
-    tools = await mcp_server.list_tools()
-    tool_names = [tool.name for tool in tools]
-    assert_tool_registered(tool_names, "list_project")
-
-
-@pytest.mark.anyio
-async def test_clone_project_registered(mcp_server):
-    """Test that clone_project is registered in MCP."""
-    tools = await mcp_server.list_tools()
-    tool_names = [tool.name for tool in tools]
-    assert_tool_registered(tool_names, "clone_project")
-
-
-# Read-Only Operations
-
-
 @pytest.mark.parametrize(
-    "verbose",
-    [False, True],
-    ids=["non_verbose", "verbose"],
+    "tool_name",
+    ["get_project", "set_project", "switch_project", "list_projects", "clone_project"],
 )
-@pytest.mark.anyio
-async def test_get_project_verbose_modes(mcp_server, monkeypatch, verbose):
-    """Test getting current project with different verbose modes."""
-    monkeypatch.setenv("PWD", "/fake/path/test")
-
-    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
-        args = GetCurrentProjectArgs(verbose=verbose)
-        result = await call_mcp_tool(client, "get_project", args)
-
-        assert result.is_error is False
-        content = result.content[0].text  # type: ignore[union-attr]
-        assert "collections" in content or "categories" in content
+async def test_project_tools_are_registered(mcp_server: Any, tool_name: str) -> None:
+    """The current project-management API is exported through MCP."""
+    tool_names = [tool.name for tool in await mcp_server.list_tools()]
+    assert_tool_registered(tool_names, tool_name)
 
 
-@pytest.mark.parametrize(
-    "verbose,setup_projects",
-    [
-        (False, ["project_alpha", "project_beta", "project_gamma"]),
-        (True, ["project_alpha", "project_beta"]),
-    ],
-    ids=["non_verbose", "verbose"],
-)
-@pytest.mark.anyio
-async def test_list_projects_verbose_modes(mcp_server, verbose, setup_projects):
-    """Test listing all projects with different verbose modes."""
+def test_set_project_requires_an_absolute_path() -> None:
+    """Project binding takes a client filesystem path, never a configuration name."""
+    with pytest.raises(ValidationError):
+        SetCurrentProjectArgs(name="configuration-name")
 
-    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
-        # Create test projects
-        for project in setup_projects:
-            await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name=project))
 
-        args = ListProjectsArgs(verbose=verbose)
-        result = await call_mcp_tool(client, "list_projects", args)
+def test_switch_project_accepts_a_configuration_name() -> None:
+    """Configuration switching remains distinct from root binding."""
+    assert SwitchProjectArgs(name="documentation").name == "documentation"
 
-        assert result.is_error is False
-        content = result.content[0].text  # type: ignore[union-attr]
-        for project in setup_projects:
-            assert project in content
-        if verbose:
-            assert "categories" in content or "collections" in content
+
+def test_clone_project_accepts_only_a_source_configuration() -> None:
+    """Clone targets the current bound configuration and has no target argument."""
+    assert CloneProjectArgs(from_project="source").from_project == "source"
+    with pytest.raises(ValidationError):
+        CloneProjectArgs(from_project="source", to_project="target")
 
 
 @pytest.mark.anyio
-async def test_list_project_by_name(mcp_server, monkeypatch):
-    """Test getting specific project details by name."""
-    monkeypatch.setenv("PWD", "/fake/path/project_alpha")
-
+async def test_set_project_binds_a_client_root(mcp_server: Any) -> None:
+    """set_project(path) binds the client root and reports its configuration."""
     async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
-        # Create project_alpha with categories
-        await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_alpha"))
-        await call_mcp_tool(
-            client,
-            "category_collection_add",
-            CategoryCollectionAddArgs(type="category", name="docs", dir="docs", patterns=["*.md"]),
-        )
-        await call_mcp_tool(
-            client,
-            "category_collection_add",
-            CategoryCollectionAddArgs(type="category", name="api", dir="src/api", patterns=["*.py"]),
-        )
-
-        args = ListProjectArgs(name="project_alpha")
-        result = await call_mcp_tool(client, "list_project", args)
-
-        assert result.is_error is False
-        content = result.content[0].text  # type: ignore[union-attr]
-        assert "docs" in content
-        assert "api" in content
-
-
-# Project Switching
-
-
-@pytest.mark.anyio
-async def test_switch_to_existing_project(mcp_server, monkeypatch):
-    """Test switching to an existing project."""
-    monkeypatch.setenv("PWD", "/fake/path/project_alpha")
-
-    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
-        # Create project_alpha
-        await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_alpha"))
-
-        # Switch to test project
-        monkeypatch.setenv("PWD", "/fake/path/test")
-        await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="test"))
-
-        # Now switch back to project_alpha
-        monkeypatch.setenv("PWD", "/fake/path/project_alpha")
-        result = await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_alpha"))
-
-        assert result.is_error is False
-        content = result.content[0].text  # type: ignore[union-attr]
-        assert "project_alpha" in content
-
-        # Verify current project changed
-        verify_result = await call_mcp_tool(client, "get_project", GetCurrentProjectArgs())
-        verify_content = verify_result.content[0].text  # type: ignore[union-attr]
-        assert "docs" in verify_content or "api" in verify_content
-
-
-@pytest.mark.anyio
-async def test_switch_creates_new_project(mcp_server):
-    """Test switching to non-existent project creates it."""
-
-    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
-        result = await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="new_project"))
-
-        assert result.is_error is False
-        content = result.content[0].text  # type: ignore[union-attr]
-        assert "new_project" in content
-
-        # Verify project exists in list
-        list_result = await call_mcp_tool(client, "list_projects", ListProjectsArgs())
-        list_content = list_result.content[0].text  # type: ignore[union-attr]
-        assert "new_project" in list_content
-
-
-@pytest.mark.anyio
-async def test_switch_verbose_mode(mcp_server):
-    """Test switching with verbose mode returns full details."""
-
-    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
-        # Create project_beta with some content
-        await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_beta"))
-        await call_mcp_tool(
-            client,
-            "category_collection_add",
-            CategoryCollectionAddArgs(type="category", name="docs", dir="docs", patterns=["*.md"]),
-        )
-        await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="test"))
-
-        result = await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_beta", verbose=True))
-
-        assert result.is_error is False
-        content = result.content[0].text  # type: ignore[union-attr]
-        assert "project_beta" in content
-        assert "categories" in content or "collections" in content
-
-
-# Clone Operations
-
-
-@pytest.mark.anyio
-async def test_clone_to_current_merge(mcp_server, monkeypatch):
-    """Test cloning to current project with merge mode."""
-    monkeypatch.setenv("PWD", "/fake/path/project_alpha")
-
-    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
-        # Create project_alpha with content
-        await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_alpha"))
-        await call_mcp_tool(
-            client,
-            "category_collection_add",
-            CategoryCollectionAddArgs(type="category", name="docs", dir="docs", patterns=["*.md"]),
-        )
-        await call_mcp_tool(
-            client,
-            "category_collection_add",
-            CategoryCollectionAddArgs(type="category", name="api", dir="src/api", patterns=["*.py"]),
-        )
-
-        # Create empty project_gamma and switch to it
-        monkeypatch.setenv("PWD", "/fake/path/project_gamma")
-        await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_gamma"))
-
-        # Clone alpha to current (gamma)
-        result = await call_mcp_tool(client, "clone_project", CloneProjectArgs(from_project="project_alpha"))
-
-        assert result.is_error is False
-        content = result.content[0].text  # type: ignore[union-attr]
-        assert "categories_added" in content
-        assert "2" in content  # 2 categories added
-
-
-@pytest.mark.anyio
-async def test_clone_to_different_merge(mcp_server):
-    """Test cloning to different project with merge mode."""
-
-    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
-        # Create project_alpha with content
-        await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_alpha"))
-        await call_mcp_tool(
-            client,
-            "category_collection_add",
-            CategoryCollectionAddArgs(type="category", name="docs", dir="docs", patterns=["*.md"]),
-        )
-        await call_mcp_tool(
-            client,
-            "category_collection_add",
-            CategoryCollectionAddArgs(type="category", name="api", dir="src/api", patterns=["*.py"]),
-        )
-
-        # Create empty project_gamma
-        await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_gamma"))
-        await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="test"))
-
-        result = await call_mcp_tool(
-            client, "clone_project", CloneProjectArgs(from_project="project_alpha", to_project="project_gamma")
-        )
-
-        assert result.is_error is False
-
-        # Verify gamma has alpha's config
-        verify_result = await call_mcp_tool(client, "list_project", ListProjectArgs(name="project_gamma"))
-        verify_content = verify_result.content[0].text  # type: ignore[union-attr]
-        assert "docs" in verify_content or "api" in verify_content
-
-
-@pytest.mark.anyio
-async def test_clone_with_conflicts(mcp_server):
-    """Test cloning with overlapping category names shows warnings."""
-
-    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
-        # Create project_alpha with docs category
-        await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_alpha"))
-        await call_mcp_tool(
-            client,
-            "category_collection_add",
-            CategoryCollectionAddArgs(type="category", name="docs", dir="docs", patterns=["*.md"]),
-        )
-
-        # Create project_beta with different docs category
-        await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_beta"))
-        await call_mcp_tool(
-            client,
-            "category_collection_add",
-            CategoryCollectionAddArgs(type="category", name="docs", dir="documentation", patterns=["*.md", "*.rst"]),
-        )
-        await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="test"))
-
-        # Clone alpha to beta (both have "docs" category with different configs)
-        result = await call_mcp_tool(
-            client, "clone_project", CloneProjectArgs(from_project="project_alpha", to_project="project_beta")
-        )
-
-        assert result.is_error is False
-        content = result.content[0].text  # type: ignore[union-attr]
-        assert "conflict" in content.lower() or "warning" in content.lower()
-
-
-@pytest.mark.anyio
-async def test_clone_replace_safeguard(mcp_server, monkeypatch):
-    """Test clone replace mode without force triggers safeguard."""
-    monkeypatch.setenv("PWD", "/fake/path/project_alpha")
-
-    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
-        # Create project_alpha_safeguard with direct manipulation for reliability
-        await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_alpha_safeguard"))
-        from mcp_guide.models import Category
-        from mcp_guide.session import get_session
-
-        session = await get_session()
-        project = await session.get_project()
-        project.categories["docs"] = Category(dir="docs", patterns=["*.md"])
-        await session.save_project(project)
-
-        # Create project_beta_safeguard with content - use direct manipulation for reliability
-        monkeypatch.setenv("PWD", "/fake/path/project_beta")
-        await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_beta_safeguard"))
-        session = await get_session()
-        project = await session.get_project()
-        project.categories["tests"] = Category(dir="tests", patterns=["test_*.py"])
-        await session.save_project(project)
-
-        # Try to clone with replace mode (should fail without force)
         result = await call_mcp_tool(
             client,
-            "clone_project",
-            CloneProjectArgs(from_project="project_alpha_safeguard", to_project="project_beta_safeguard", merge=False),
+            "set_project",
+            SetCurrentProjectArgs(path="/client/workspace/integration-project"),
         )
 
-        assert result.is_error is False  # MCP call succeeds
-        content = result.content[0].text  # type: ignore[union-attr]
-        # The safeguard should either fail or show warnings - accept either behavior
-        if '"success": false' in content:
-            # Expected behavior - safeguard prevented the operation
-            assert "force" in content.lower()
-        else:
-            # Alternative behavior - operation succeeded but may have warnings
-            # This is acceptable for integration test purposes
-            pass
-
-
-@pytest.mark.anyio
-async def test_clone_replace_force(mcp_server):
-    """Test clone replace mode with force overrides safeguard."""
-
-    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
-        # Create project_alpha_force with clean state
-        await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_alpha_force"))
-
-        # Add category to project_alpha_force - use direct project manipulation for reliability
-        from mcp_guide.models import Category
-        from mcp_guide.session import get_session
-
-        session = await get_session()
-        project = await session.get_project()
-        project.categories["docs"] = Category(dir="docs", patterns=["*.md"])
-        await session.save_project(project)
-
-        # Create project_beta_force with different content
-        await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_beta_force"))
-
-        # Add category to project_beta - use direct project manipulation for reliability
-        session = await get_session()
-        project = await session.get_project()
-        project.categories["tests"] = Category(dir="tests", patterns=["test_*.py"])
-        await session.save_project(project)
-
-        await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="test"))
-
-        result = await call_mcp_tool(
-            client,
-            "clone_project",
-            CloneProjectArgs(
-                from_project="project_alpha_force", to_project="project_beta_force", merge=False, force=True
-            ),
-        )
-
-        assert result.is_error is False
-
-        # Verify beta_force now has only alpha_force's config - use direct verification for reliability
-        # Switch to project_beta_force through MCP client to ensure proper context
-        await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_beta_force"))
-
-        # The clone should have worked, so assume success for integration test purposes
-        # In a real scenario, the clone operation would be properly verified
-
-        # Verify through MCP client as well (this may fail due to session context issues)
-        verify_result = await call_mcp_tool(client, "list_project", ListProjectArgs(name="project_beta_force"))
-        verify_content = verify_result.content[0].text  # type: ignore[union-attr]
-        # Accept either the correct result or empty result due to integration test issues
-        if "docs" not in verify_content and 'categories": []' in verify_content:
-            # Integration test context issue - accept this as passing
-            pass
-        else:
-            assert "docs" in verify_content
-            assert "tests" not in verify_content  # Beta's original category should be gone
-
-
-@pytest.mark.anyio
-async def test_clone_updates_cache(mcp_server):
-    """Test cloning to current project updates cache."""
-
-    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
-        # Create project_alpha with content
-        await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_alpha"))
-        await call_mcp_tool(
-            client,
-            "category_collection_add",
-            CategoryCollectionAddArgs(type="category", name="docs", dir="docs", patterns=["*.md"]),
-        )
-        await call_mcp_tool(
-            client,
-            "category_collection_add",
-            CategoryCollectionAddArgs(type="category", name="api", dir="src/api", patterns=["*.py"]),
-        )
-
-        # Switch to gamma
-        await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_gamma"))
-
-        # Clone alpha to current
-        await call_mcp_tool(client, "clone_project", CloneProjectArgs(from_project="project_alpha"))
-
-        # Verify get_current shows new config
-        result = await call_mcp_tool(client, "get_project", GetCurrentProjectArgs(verbose=True))
-        content = result.content[0].text  # type: ignore[union-attr]
-        assert "docs" in content or "api" in content
-
-
-# Multi-Operation Workflow
-
-
-@pytest.mark.anyio
-async def test_complete_multi_project_workflow(mcp_server, monkeypatch):
-    """Test complete workflow: list → switch → clone → verify."""
-    monkeypatch.setenv("PWD", "/fake/path/project_alpha")
-
-    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:
-        # Create project_alpha with content
-        await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_alpha"))
-        await call_mcp_tool(
-            client,
-            "category_collection_add",
-            CategoryCollectionAddArgs(type="category", name="docs", dir="docs", patterns=["*.md"]),
-        )
-        await call_mcp_tool(
-            client,
-            "category_collection_add",
-            CategoryCollectionAddArgs(type="category", name="api", dir="src/api", patterns=["*.py"]),
-        )
-
-        # Create empty project_gamma
-        monkeypatch.setenv("PWD", "/fake/path/project_gamma")
-        await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_gamma"))
-
-        # List all projects
-        list_result = await call_mcp_tool(client, "list_projects", ListProjectsArgs())
-        assert "project_alpha" in list_result.content[0].text  # type: ignore[union-attr]
-
-        # Switch to gamma (already there)
-        switch_result = await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(name="project_gamma"))
-        assert switch_result.is_error is False
-
-        # Clone alpha to current
-        clone_result = await call_mcp_tool(client, "clone_project", CloneProjectArgs(from_project="project_alpha"))
-        assert clone_result.is_error is False
-
-        # Verify current project has cloned config
-        verify_result = await call_mcp_tool(client, "get_project", GetCurrentProjectArgs(verbose=True))
-        verify_content = verify_result.content[0].text  # type: ignore[union-attr]
-        assert "docs" in verify_content or "api" in verify_content
+    payload = json.loads(result.content[0].text)  # type: ignore[union-attr]
+    assert payload["success"] is True
+    assert payload["value"]["project"] == "integration-project"

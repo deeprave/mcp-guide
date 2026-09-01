@@ -15,17 +15,16 @@ async def install_and_create_config(config_file: Path, docroot: Path | None = No
         config_file: Path to config.yaml to create
         docroot: Optional custom docroot path. If None, uses default.
     """
-    from mcp_guide.config_paths import get_docroot
     from mcp_guide.installer.core import ORIGINAL_ARCHIVE, install_templates
 
-    # Get docroot (custom or default)
+    config_file = Path(config_file).expanduser().resolve()
     if docroot is None:
-        docroot = get_docroot(str(config_file.parent))
+        docroot = config_file.parent / "docs"
+    else:
+        docroot = Path(docroot).expanduser().resolve()
 
-    # Install templates
     archive_path = docroot / ORIGINAL_ARCHIVE
     await install_templates(docroot, archive_path)
 
-    # Create config file
     config_file.parent.mkdir(parents=True, exist_ok=True)
     await anyio.Path(config_file).write_text(f"docroot: {docroot}\nprojects: {{}}\n", encoding="utf-8")

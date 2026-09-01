@@ -28,8 +28,8 @@ The public surface to use is:
   lifecycle APIs
 - `from fastmcp.server.sessions import UserSession` only for authenticated
   user-scoped state
-- FastMCP's public request-state and session-state configuration for modern
-  multi-round interactions and durable state
+- FastMCP's public minted-session API for modern multi-round interactions; Guide
+  Session state is in-memory and is not durable across an MCP server restart
 
 ## Protocol policy
 
@@ -93,8 +93,8 @@ state fallback.
 
 - FastMCP 4 removes `ctx.list_roots()` and roots notifications. This is
   intentional: Guide uses explicit `set_project(path)` instead.
-- Server-initiated callbacks cannot run within a modern request. Modern
-  follow-up input uses the request-state return-and-resume model.
+- Server-initiated callbacks cannot run within a modern request. Modern follow-up
+  requests use the minted FastMCP `session_id` to resolve the live interaction.
 - Background tasks are a negotiated extension (`fastmcp-tasks`) and are added
   only when Guide enables task-capable MCP tools.
 - Existing code must stop reaching into private FastMCP/MCP session objects.

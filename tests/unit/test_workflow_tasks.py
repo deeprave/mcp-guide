@@ -2,11 +2,12 @@
 
 from datetime import datetime
 from pathlib import Path
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
 from mcp_guide.discovery.files import FileInfo
+from mcp_guide.render.cache import TemplateContextCache
 from mcp_guide.render.content import RenderedContent
 from mcp_guide.render.context import TemplateContext
 from mcp_guide.render.frontmatter import Frontmatter
@@ -29,12 +30,17 @@ def make_rendered_content(content: str, instruction: str = "Follow the workflow 
     )
 
 
+def _manager() -> TaskManager:
+    """Create a manager with the session ownership required for cache updates."""
+    return TaskManager(session=Mock(template_cache=Mock()))
+
+
 class TestWorkflowMonitorTask:
     """Test WorkflowMonitorTask functionality."""
 
     @pytest.fixture
     def monitor_task(self):
-        return WorkflowMonitorTask(".guide.yaml")
+        return WorkflowMonitorTask(".guide.yaml", task_manager=_manager())
 
     def test_workflow_monitor_task_creation(self, monitor_task) -> None:
         """Test WorkflowMonitorTask can be created."""
@@ -81,8 +87,10 @@ class TestWorkflowMonitorTask:
     async def test_unchanged_workflow_content_uses_state_format_response(self, monitor_task) -> None:
         """A parsed unchanged state responds with rendered format guidance."""
         await TaskManager._reset_for_testing()
-        manager = TaskManager()
+        manager = _manager()
+        session = Mock()
         monitor_task.task_manager = manager
+        monitor_task._session = session
         content = "phase: discussion\nissue: add-workflow-format\n"
         manager.set_cached_data("workflow_state", parse_workflow_state(content))
         rendered = make_rendered_content("# Workflow State File Format")
@@ -93,7 +101,7 @@ class TestWorkflowMonitorTask:
                 EventType.FS_FILE_CONTENT, {"path": ".guide.yaml", "content": content}
             )
 
-        render.assert_awaited_once_with("state-format")
+        render.assert_awaited_once_with(session, "state-format")
         assert event_result is not None
         assert event_result.rendered_content == rendered
         assert manager.get_cached_data("workflow_change_content") is None
@@ -106,8 +114,10 @@ class TestWorkflowMonitorTask:
     async def test_unavailable_state_format_retains_file_content_response(self, monitor_task) -> None:
         """An unavailable fallback leaves the ordinary file-content response intact."""
         await TaskManager._reset_for_testing()
-        manager = TaskManager()
+        manager = _manager()
+        session = Mock()
         monitor_task.task_manager = manager
+        monitor_task._session = session
         content = "phase: discussion\nissue: add-workflow-format\n"
         manager.set_cached_data("workflow_state", parse_workflow_state(content))
 
@@ -117,7 +127,7 @@ class TestWorkflowMonitorTask:
                 EventType.FS_FILE_CONTENT, {"path": ".guide.yaml", "content": content}
             )
 
-        render.assert_awaited_once_with("state-format")
+        render.assert_awaited_once_with(session, "state-format")
         assert event_result is not None
         assert event_result.rendered_content is None
         assert manager.get_cached_data("workflow_change_content") is None
@@ -126,8 +136,10 @@ class TestWorkflowMonitorTask:
     async def test_semantic_change_response_takes_precedence_over_state_format(self, monitor_task) -> None:
         """A semantic change never requests or replaces its response with format guidance."""
         await TaskManager._reset_for_testing()
-        manager = TaskManager()
+        manager = _manager()
+        session = Mock()
         monitor_task.task_manager = manager
+        monitor_task._session = session
         manager.set_cached_data("workflow_state", parse_workflow_state("phase: discussion\n"))
         semantic_response = make_rendered_content("# Planning")
 
@@ -156,7 +168,19 @@ class TestWorkflowMonitorTask:
             name=template_path.name,
         )
 
+        session = Mock()
+        session.agent_info = None
+        session.client_params = None
+        session.get_project = AsyncMock(side_effect=ValueError("no project"))
+        session.runtime.feature_flags.return_value.list = AsyncMock(return_value={})
+        session.project_flags.return_value.list = AsyncMock(return_value={"workflow": True})
+        session.task_manager.get_cached_data.return_value = None
+        session.task_manager.get_task_statistics.return_value = {}
+
+        session.template_cache = TemplateContextCache(session)
+
         rendered = await render_template(
+            session,
             file_info=file_info,
             base_dir=template_path.parent,
             project_flags={"workflow": True},

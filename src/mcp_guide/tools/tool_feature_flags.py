@@ -28,7 +28,7 @@ from mcp_guide.result_constants import (
     INSTRUCTION_VALIDATION_ERROR,
     make_no_project_result,
 )
-from mcp_guide.tools.tool_result import tool_result
+from mcp_guide.tools.tool_result import ToolResult, tool_result
 
 __all__ = [
     "internal_get_project_flag",
@@ -111,14 +111,14 @@ async def internal_list_project_flags(
     from mcp_guide.session import get_session
 
     try:
-        session = await get_session(ctx)
+        session = await get_session(ctx, session_id=args.session_id)
     except ValueError:
-        return await make_no_project_result(ctx)
+        return await make_no_project_result()
 
     try:
         if args.active:
             # Merged flags (global + project with project precedence)
-            global_proxy = session.feature_flags()
+            global_proxy = session.runtime.feature_flags()
             project_proxy = session.project_flags()
             global_flags = await global_proxy.list()
             project_flags = await project_proxy.list()
@@ -141,15 +141,15 @@ async def internal_list_project_flags(
         )
 
 
-@toolfunc(ListFlagsArgs)
-async def list_project_flags(args: ListFlagsArgs, ctx: Optional[Context] = None) -> str:
+@toolfunc(ListFlagsArgs, requires_project=False)
+async def list_project_flags(args: ListFlagsArgs, ctx: Optional[Context] = None) -> ToolResult:
     """List project feature flags based on project context and parameters.
 
     Returns flags set for the current project. Use active=True to include resolved values
     from global flags, or active=False for project-only flags. Supports glob pattern filtering.
     """
     result = await internal_list_project_flags(args, ctx)
-    return await tool_result("list_project_flags", result)
+    return await tool_result("list_project_flags", result, ctx=ctx, session_id=args.session_id)
 
 
 async def internal_set_project_flag(args: SetFlagArgs, ctx: Optional[Context] = None) -> Result[str]:
@@ -172,9 +172,9 @@ async def internal_set_project_flag(args: SetFlagArgs, ctx: Optional[Context] = 
     from mcp_guide.session import get_session
 
     try:
-        session = await get_session(ctx)
+        session = await get_session(ctx, session_id=args.session_id)
     except ValueError:
-        return await make_no_project_result(ctx)
+        return await make_no_project_result()
 
     try:
         if args.value is None:
@@ -205,7 +205,7 @@ async def internal_set_project_flag(args: SetFlagArgs, ctx: Optional[Context] = 
 
 
 @toolfunc(SetFlagArgs)
-async def set_project_flag(args: SetFlagArgs, ctx: Optional[Context] = None) -> str:
+async def set_project_flag(args: SetFlagArgs, ctx: Optional[Context] = None) -> ToolResult:
     """Set or remove a project feature flag.
 
     Sets a flag value for the current project, or removes it if value=None. Flag names must
@@ -213,7 +213,7 @@ async def set_project_flag(args: SetFlagArgs, ctx: Optional[Context] = None) -> 
     list[str], or dict[str, str].
     """
     result = await internal_set_project_flag(args, ctx)
-    return await tool_result("set_project_flag", result)
+    return await tool_result("set_project_flag", result, ctx=ctx, session_id=args.session_id)
 
 
 async def internal_get_project_flag(args: GetFlagArgs, ctx: Optional[Context] = None) -> Result[RawFeatureValue | None]:
@@ -221,9 +221,9 @@ async def internal_get_project_flag(args: GetFlagArgs, ctx: Optional[Context] = 
     from mcp_guide.session import get_session
 
     try:
-        session = await get_session(ctx)
+        session = await get_session(ctx, session_id=args.session_id)
     except ValueError:
-        return await make_no_project_result(ctx)
+        return await make_no_project_result()
 
     try:
         # Use resolution hierarchy: project → global → None
@@ -262,9 +262,9 @@ async def internal_set_feature_flag(args: SetFeatureFlagArgs, ctx: Optional[Cont
     from mcp_guide.session import get_session
 
     try:
-        session = await get_session(ctx)
+        session = await get_session(ctx, session_id=args.session_id)
     except ValueError:
-        return await make_no_project_result(ctx)
+        return await make_no_project_result()
 
     # Normalize allow-client-info through the shared boolean-like coercion rules.
     normalized_value = args.value
@@ -276,12 +276,12 @@ async def internal_set_feature_flag(args: SetFeatureFlagArgs, ctx: Optional[Cont
     try:
         if normalized_value is None:
             # Remove flag
-            flags_proxy = session.feature_flags()
+            flags_proxy = session.runtime.feature_flags()
             await flags_proxy.remove(args.feature_name)
             return Result.ok(f"Global flag '{args.feature_name}' removed")
         else:
             # Set flag
-            flags_proxy = session.feature_flags()
+            flags_proxy = session.runtime.feature_flags()
             await flags_proxy.set(args.feature_name, normalized_value)
             return Result.ok(f"Global flag '{args.feature_name}' set to {repr(normalized_value)}")
 
@@ -302,7 +302,7 @@ async def internal_set_feature_flag(args: SetFeatureFlagArgs, ctx: Optional[Cont
 
 
 @toolfunc(SetFeatureFlagArgs)
-async def set_feature_flag(args: SetFeatureFlagArgs, ctx: Optional[Context] = None) -> str:
+async def set_feature_flag(args: SetFeatureFlagArgs, ctx: Optional[Context] = None) -> ToolResult:
     """Set or remove a global feature flag.
 
     Sets a flag value globally (applies to all projects), or removes it if value=None. Flag names
@@ -310,7 +310,7 @@ async def set_feature_flag(args: SetFeatureFlagArgs, ctx: Optional[Context] = No
     list[str], or dict[str, str].
     """
     result = await internal_set_feature_flag(args, ctx)
-    return await tool_result("set_feature_flag", result)
+    return await tool_result("set_feature_flag", result, ctx=ctx, session_id=args.session_id)
 
 
 async def internal_get_feature_flag(
@@ -321,13 +321,13 @@ async def internal_get_feature_flag(
     from mcp_guide.session import get_session
 
     try:
-        session = await get_session(ctx)
+        session = await get_session(ctx, session_id=args.session_id)
     except ValueError:
-        return await make_no_project_result(ctx)
+        return await make_no_project_result()
 
     try:
         # Use global flags only, no resolution hierarchy
-        global_proxy = session.feature_flags()
+        global_proxy = session.runtime.feature_flags()
         global_flags = await global_proxy.list()
         value = global_flags.get(args.feature_name)
 
@@ -350,13 +350,13 @@ async def internal_list_feature_flags(
     from mcp_guide.session import get_session
 
     try:
-        session = await get_session(ctx)
+        session = await get_session(ctx, session_id=args.session_id)
     except ValueError:
-        return await make_no_project_result(ctx)
+        return await make_no_project_result()
 
     try:
         # Global flags only, no merging with project flags
-        global_proxy = session.feature_flags()
+        global_proxy = session.runtime.feature_flags()
         flags = await global_proxy.list()
 
         return Result.ok(_filter_flags_by_pattern(flags, args.feature_name))
@@ -372,11 +372,11 @@ async def internal_list_feature_flags(
         )
 
 
-@toolfunc(ListFeatureFlagsArgs)
-async def list_feature_flags(args: ListFeatureFlagsArgs, ctx: Optional[Context] = None) -> str:
+@toolfunc(ListFeatureFlagsArgs, requires_project=False)
+async def list_feature_flags(args: ListFeatureFlagsArgs, ctx: Optional[Context] = None) -> ToolResult:
     """List global feature flags.
 
     Returns flags set globally (apply to all projects). Supports glob pattern filtering.
     """
     result = await internal_list_feature_flags(args, ctx)
-    return await tool_result("list_feature_flags", result)
+    return await tool_result("list_feature_flags", result, ctx=ctx, session_id=args.session_id)

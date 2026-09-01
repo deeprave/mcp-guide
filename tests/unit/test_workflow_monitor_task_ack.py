@@ -1,6 +1,6 @@
 """Tests for WorkflowMonitorTask acknowledgement tracking."""
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
@@ -41,8 +41,9 @@ class TestWorkflowMonitorTaskAcknowledgement:
         """Test that setup request stores instruction ID."""
         manager = TaskManager()
         manager._resolved_flags = {"workflow": True}
-        task = WorkflowMonitorTask()
-        task.task_manager = manager
+        task = WorkflowMonitorTask(task_manager=manager)
+        task._session = Mock()
+        manager._resolved_flags_session = task._session
 
         with patch("mcp_guide.workflow.tasks.render_workflow_template", new_callable=AsyncMock) as mock_render:
             mock_render.return_value = make_rendered_content("setup content")
@@ -56,8 +57,9 @@ class TestWorkflowMonitorTaskAcknowledgement:
         """Test that workflow content response acknowledges setup instruction."""
         manager = TaskManager()
         manager._resolved_flags = {"workflow": True}
-        task = WorkflowMonitorTask()
-        task.task_manager = manager
+        task = WorkflowMonitorTask(task_manager=manager)
+        task._session = Mock()
+        manager._resolved_flags_session = task._session
 
         with patch("mcp_guide.workflow.tasks.render_workflow_template", new_callable=AsyncMock) as mock_render:
             mock_render.return_value = make_rendered_content("setup content")
@@ -76,8 +78,8 @@ class TestWorkflowMonitorTaskAcknowledgement:
     async def test_reminder_request_stores_instruction_id(self):
         """Test that reminder request stores instruction ID."""
         manager = TaskManager()
-        task = WorkflowMonitorTask()
-        task.task_manager = manager
+        task = WorkflowMonitorTask(task_manager=manager)
+        task._session = Mock()
 
         with patch("mcp_guide.workflow.tasks.render_workflow_template", new_callable=AsyncMock) as mock_render:
             mock_render.return_value = make_rendered_content("reminder content")
@@ -90,8 +92,8 @@ class TestWorkflowMonitorTaskAcknowledgement:
     async def test_workflow_content_acknowledges_reminder(self):
         """Test that workflow content response acknowledges reminder instruction."""
         manager = TaskManager()
-        task = WorkflowMonitorTask()
-        task.task_manager = manager
+        task = WorkflowMonitorTask(task_manager=manager)
+        task._session = Mock()
 
         with patch("mcp_guide.workflow.tasks.render_workflow_template", new_callable=AsyncMock) as mock_render:
             mock_render.return_value = make_rendered_content("reminder content")

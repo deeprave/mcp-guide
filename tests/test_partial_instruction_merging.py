@@ -6,6 +6,7 @@ import pytest
 
 from mcp_guide.discovery.files import FileInfo
 from mcp_guide.render.template import render_template
+from tests.helpers import create_unbound_test_session
 
 
 @pytest.mark.anyio
@@ -34,7 +35,7 @@ class TestPartialInstructionMerging:
             name="parent.mustache",
         )
 
-        result = await render_template(file_info, tmp_path, {})
+        result = await render_template(create_unbound_test_session(str(tmp_path)), file_info, tmp_path, {})
 
         assert result is not None
         # Important instruction from partial should override parent
@@ -62,7 +63,7 @@ class TestPartialInstructionMerging:
             name="parent.mustache",
         )
 
-        result = await render_template(file_info, tmp_path, {})
+        result = await render_template(create_unbound_test_session(str(tmp_path)), file_info, tmp_path, {})
 
         assert result is not None
         # Regular instructions are combined (not overridden)
@@ -93,7 +94,7 @@ class TestPartialInstructionMerging:
             name="parent.mustache",
         )
 
-        result = await render_template(file_info, tmp_path, {})
+        result = await render_template(create_unbound_test_session(str(tmp_path)), file_info, tmp_path, {})
 
         assert result is not None
         # Important instruction from child2 should override all others
@@ -119,7 +120,7 @@ class TestPartialInstructionMerging:
             name="parent.mustache",
         )
 
-        result = await render_template(file_info, tmp_path, {})
+        result = await render_template(create_unbound_test_session(str(tmp_path)), file_info, tmp_path, {})
 
         assert result is not None
         # Parent instruction should be present
@@ -146,7 +147,7 @@ class TestPartialInstructionMerging:
             name="parent.mustache",
         )
 
-        result = await render_template(file_info, tmp_path, {})
+        result = await render_template(create_unbound_test_session(str(tmp_path)), file_info, tmp_path, {})
 
         assert result is not None
         # Should combine parent's default instruction with partial's instruction
@@ -178,7 +179,7 @@ class TestPartialInstructionMerging:
             name="parent.mustache",
         )
 
-        result = await render_template(file_info, tmp_path, {})
+        result = await render_template(create_unbound_test_session(str(tmp_path)), file_info, tmp_path, {})
 
         assert result is not None
         # Should deduplicate similar instructions (fuzzy matching at 85% threshold)

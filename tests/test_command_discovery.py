@@ -7,10 +7,16 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from mcp_guide.discovery.files import FileInfo
+from tests.helpers import create_unbound_test_session
 
 
 class TestCommandDiscovery:
     """Test command discovery in _commands directory."""
+
+    @pytest.fixture(autouse=True)
+    def test_session(self, tmp_path):
+        """Provide the explicit Session required by command discovery."""
+        self.session = create_unbound_test_session(str(tmp_path))
 
     @pytest.mark.anyio
     async def test_discover_commands_basic(self) -> None:
@@ -50,7 +56,7 @@ class TestCommandDiscovery:
                 # Import and test the function (to be implemented)
                 from mcp_guide.discovery.commands import discover_commands
 
-                commands = await discover_commands(commands_dir)
+                commands = await discover_commands(commands_dir, self.session)
 
                 assert len(commands) == 2
                 assert any(cmd["name"] == "help" for cmd in commands)
@@ -92,7 +98,7 @@ class TestCommandDiscovery:
             with patch("mcp_guide.discovery.commands.discover_document_files", new=AsyncMock(return_value=mock_files)):
                 from mcp_guide.discovery.commands import discover_commands
 
-                commands = await discover_commands(commands_dir)
+                commands = await discover_commands(commands_dir, self.session)
 
                 assert len(commands) == 2
                 assert any(cmd["name"] == "create/category" for cmd in commands)
@@ -134,7 +140,7 @@ This command shows all available commands.
             with patch("mcp_guide.discovery.commands.discover_document_files", new=AsyncMock(return_value=mock_files)):
                 from mcp_guide.discovery.commands import discover_commands
 
-                commands = await discover_commands(commands_dir)
+                commands = await discover_commands(commands_dir, self.session)
 
                 assert len(commands) == 1
                 cmd = commands[0]
@@ -168,7 +174,7 @@ This command shows all available commands.
             with patch("mcp_guide.discovery.commands.discover_document_files", new=AsyncMock(return_value=mock_files)):
                 from mcp_guide.discovery.commands import discover_commands
 
-                commands = await discover_commands(commands_dir)
+                commands = await discover_commands(commands_dir, self.session)
 
                 assert len(commands) == 1
                 cmd = commands[0]
@@ -232,7 +238,7 @@ description: Workflow command
             ):
                 from mcp_guide.discovery.commands import discover_commands
 
-                commands = await discover_commands(commands_dir)
+                commands = await discover_commands(commands_dir, self.session)
 
                 # Should only include workflow command
                 assert len(commands) == 1
@@ -273,7 +279,7 @@ description: Planning command
             ):
                 from mcp_guide.discovery.commands import discover_commands
 
-                commands = await discover_commands(commands_dir)
+                commands = await discover_commands(commands_dir, self.session)
 
                 assert len(commands) == 1
                 assert commands[0]["name"] == "plan"
@@ -289,7 +295,7 @@ description: Planning command
         ):
             from mcp_guide.discovery.commands import discover_commands
 
-            commands = await discover_commands(commands_dir)
+            commands = await discover_commands(commands_dir, self.session)
 
         command_names = {command["name"] for command in commands}
         assert {
@@ -348,7 +354,7 @@ aliases:
             ):
                 from mcp_guide.discovery.commands import discover_commands
 
-                commands = await discover_commands(commands_dir)
+                commands = await discover_commands(commands_dir, self.session)
 
             assert len(commands) == 1
             assert commands[0]["aliases"] == ["h", "project/perm"]
@@ -387,7 +393,7 @@ aliases:
             with patch("mcp_guide.discovery.commands.discover_document_files", new=AsyncMock(return_value=mock_files)):
                 from mcp_guide.discovery.commands import discover_commands
 
-                commands = await discover_commands(commands_dir)
+                commands = await discover_commands(commands_dir, self.session)
 
             assert len(commands) == 1
             assert commands[0]["aliases"] == ["project?verbose", "project/table?table=true", "project/topic?label=a?b"]
@@ -418,25 +424,22 @@ class TestCommandDiscoveryCaching:
             session_1 = _Session()
             session_2 = _Session()
 
-            # Session 1 gets its cache populated
-            with patch("mcp_guide.session.get_active_session", return_value=session_1):
-                result1 = await discover_commands(commands_dir)
+            # Session 1 gets its cache populated.
+            result1 = await discover_commands(commands_dir, session_1)
             assert len(result1) > 0
             assert len(session_1.command_cache) > 0
             assert session_2.command_cache == {}
 
-            # Session 2 gets its own independent cache
-            with patch("mcp_guide.session.get_active_session", return_value=session_2):
-                result2 = await discover_commands(commands_dir)
+            # Session 2 gets its own independent cache.
+            result2 = await discover_commands(commands_dir, session_2)
             assert len(result2) > 0
             assert len(session_2.command_cache) > 0
             assert session_1.command_cache is not session_2.command_cache
 
-            # No-session path: discovery still works, neither cache is mutated
+            # A third session's discovery leaves the first two caches unchanged.
             snap1 = dict(session_1.command_cache)
             snap2 = dict(session_2.command_cache)
-            with patch("mcp_guide.session.get_active_session", return_value=None):
-                result_no_session = await discover_commands(commands_dir)
+            result_no_session = await discover_commands(commands_dir, _Session())
             assert len(result_no_session) > 0
             assert session_1.command_cache == snap1
             assert session_2.command_cache == snap2
@@ -457,11 +460,8 @@ class TestCommandDiscoveryCaching:
 
             session = _Session()
 
-            with (
-                patch("mcp_guide.session.get_active_session", return_value=session),
-                patch("mcp_guide.discovery.commands.asyncio.to_thread", side_effect=OSError("stat failed")),
-            ):
-                result = await discover_commands(commands_dir)
+            with patch("mcp_guide.discovery.commands.asyncio.to_thread", side_effect=OSError("stat failed")):
+                result = await discover_commands(commands_dir, session)
 
             # Discovery completes without raising even when mtime stat fails
             assert isinstance(result, list)
@@ -482,14 +482,11 @@ class TestCommandDiscoveryCaching:
 
             session = _Session()
 
-            with (
-                patch("mcp_guide.session.get_active_session", return_value=session),
-                patch(
-                    "mcp_guide.discovery.commands.parse_content_with_frontmatter",
-                    side_effect=ValueError("bad frontmatter"),
-                ),
+            with patch(
+                "mcp_guide.discovery.commands.parse_content_with_frontmatter",
+                side_effect=ValueError("bad frontmatter"),
             ):
-                result = await discover_commands(commands_dir)
+                result = await discover_commands(commands_dir, session)
 
             # Bad files are skipped; cache not populated due to errors
             assert result == []
