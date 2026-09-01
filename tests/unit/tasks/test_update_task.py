@@ -73,6 +73,31 @@ async def test_update_task_disabled_with_explicit_false():
 
 
 @pytest.mark.anyio
+async def test_update_task_does_not_queue_instruction_for_resolved_false_flag(tmp_path):
+    """A resolved false autoupdate flag prevents any update instruction."""
+    from mcp_guide.feature_flags.types import FeatureValue
+
+    task_manager = Mock()
+    task_manager.subscribe = Mock()
+    task_manager.resolved_flags = AsyncMock(return_value={"autoupdate": FeatureValue(False)})
+    task_manager.queue_instruction_with_ack = AsyncMock()
+    task_manager.unsubscribe = AsyncMock()
+
+    session = Mock()
+    session.runtime.get_docroot = AsyncMock(return_value=str(tmp_path))
+    (tmp_path / ".version").write_text("0.0.1")
+
+    with patch("mcp_guide.render.rendering.render_content", new_callable=AsyncMock) as render_content:
+        render_content.return_value = Mock(content="Update prompt")
+        task = McpUpdateTask(task_manager, session=session)
+        result = await task.handle_event(EventType.TIMER_ONCE, {})
+
+    task_manager.queue_instruction_with_ack.assert_not_called()
+    assert result is not None
+    assert result.result is True
+
+
+@pytest.mark.anyio
 async def test_update_task_no_project():
     """Test task handles missing project gracefully."""
     task_manager = Mock()

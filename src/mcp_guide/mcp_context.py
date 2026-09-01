@@ -2,9 +2,7 @@
 
 from collections.abc import Mapping
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional
-
-from fastmcp import Context
+from typing import TYPE_CHECKING, Any
 
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.runtime import ClientMetadata, GuideRuntime, OwnerKey, RequestContext
@@ -53,8 +51,8 @@ def request_context_from_fastmcp(ctx: Any, *, session_id: str | None = None) -> 
     Modern requests must provide the session identifier in their tool arguments.
     Retained handshake-era requests use FastMCP's public connection session ID as
     their compatibility owner. An unbound modern request gets an ephemeral owner
-    only so callers can report the defined no-project guidance; it is not a
-    cross-request Session key.
+    derived from the live FastMCP request context. It is not a cross-request
+    Session key, and must not use the client-controlled JSON-RPC request ID.
     """
     request = getattr(ctx, "request_context", None)
     protocol_revision = request.protocol_version if request is not None else "legacy"
@@ -78,7 +76,7 @@ def request_context_from_fastmcp(ctx: Any, *, session_id: str | None = None) -> 
     if resolved_session_id is not None:
         owner = OwnerKey(resolved_session_id)
     else:
-        owner = OwnerKey(f"unbound:{request_id or 'notification'}")
+        owner = OwnerKey(f"unbound:{id(request)}")
 
     return RequestContext(
         protocol_revision=protocol_revision,
@@ -114,7 +112,7 @@ def resource_uri_from_fastmcp(ctx: Any | None) -> str | None:
     return uri_text if uri_text and uri_text.startswith("guide://") else None
 
 
-async def cache_mcp_globals(ctx: Optional["Context"], session: "Session") -> bool:
+async def cache_mcp_globals(ctx: Any | None, session: "Session") -> bool:
     """Cache MCP agent metadata if context is available.
 
     Agent metadata belongs to the request-resolved Session. Callers provide that

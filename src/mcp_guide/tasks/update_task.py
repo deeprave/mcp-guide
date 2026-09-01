@@ -7,6 +7,7 @@ from anyio import Path as AsyncPath
 
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.feature_flags.constants import FLAG_AUTOUPDATE
+from mcp_guide.feature_flags.validators import coerce_boolean_like
 from mcp_guide.installer.core import DocrootValidationError, read_version, validate_docroot_safety
 from mcp_guide.task_manager.interception import EventType
 from mcp_guide.task_manager.manager import EventResult
@@ -62,7 +63,7 @@ class McpUpdateTask:
             # Autoupdate is opt-out: only explicit false disables startup prompting.
             session = self.session
             autoupdate = (await self.task_manager.resolved_flags(session)).get(FLAG_AUTOUPDATE)
-            if autoupdate is False:
+            if coerce_boolean_like(autoupdate) is False:
                 logger.debug("McpUpdateTask disabled - autoupdate explicitly set to false")
                 return EventResult(result=True)
 

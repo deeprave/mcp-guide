@@ -389,7 +389,7 @@ async def mint_modern_session_id(ctx: "Context") -> str | None:
     return await create_session()
 
 
-async def retire_minted_session(ctx: Optional["Context"], session_id: str) -> None:
+async def retire_minted_session(ctx: Any | None, session_id: str) -> None:
     """End a FastMCP session and drop its GuideRuntime entry after a failed bind."""
     from fastmcp.server.sessions import end_session
 
@@ -408,7 +408,7 @@ async def retire_minted_session(ctx: Optional["Context"], session_id: str) -> No
 
 
 @asynccontextmanager
-async def request_session_scope(ctx: Optional["Context"], session_id: str | None = None):
+async def request_session_scope(ctx: Any | None, session_id: str | None = None):
     """Keep one resolved Session alive for a complete MCP handler invocation."""
     if ctx is None:
         yield None
@@ -426,7 +426,7 @@ async def request_session_scope(ctx: Optional["Context"], session_id: str | None
 
 
 async def get_or_create_session(
-    ctx: Optional["Context"] = None,
+    ctx: Any | None = None,
     project_name: Optional[str] = None,
     *,
     session_id: str | None = None,
@@ -503,17 +503,18 @@ async def get_or_create_session(
             if isinstance(ctx, Context):
                 minted_session_id = await mint_modern_session_id(ctx)
                 if minted_session_id is not None:
-                    try:
-                        bootstrap_session = await get_or_create_session(
-                            ctx,
-                            session_id=minted_session_id,
-                            _allow_pwd_bootstrap=True,
-                        )
-                        runtime.retain_session(OwnerKey(minted_session_id), bootstrap_session)
-                        return bootstrap_session
-                    except Exception:
-                        await retire_minted_session(ctx, minted_session_id)
-                        raise
+                    async with runtime.session_request(OwnerKey(minted_session_id)):
+                        try:
+                            bootstrap_session = await get_or_create_session(
+                                ctx,
+                                session_id=minted_session_id,
+                                _allow_pwd_bootstrap=True,
+                            )
+                            runtime.retain_session(OwnerKey(minted_session_id), bootstrap_session)
+                            return bootstrap_session
+                        except Exception:
+                            await retire_minted_session(ctx, minted_session_id)
+                            raise
             connection_id = getattr(ctx, "session_id", None)
             if isinstance(connection_id, str) and connection_id:
                 runtime_session = cast(Session, runtime.resolve_session(OwnerKey(f"stdio:{connection_id}")))
@@ -573,7 +574,7 @@ async def get_or_create_session(
 
 
 async def get_session(
-    ctx: Optional["Context"] = None,
+    ctx: Any | None = None,
     *,
     project_name: Optional[str] = None,
     session_id: str | None = None,
@@ -603,7 +604,7 @@ async def get_session(
 
 async def set_project(
     project_path: str,
-    ctx: Optional["Context"] = None,
+    ctx: Any | None = None,
     *,
     session_id: str | None = None,
 ) -> Result[Project]:

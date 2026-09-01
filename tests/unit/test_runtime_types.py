@@ -1,5 +1,6 @@
 """Framework-neutral runtime type contracts."""
 
+import asyncio
 from types import SimpleNamespace
 
 import pytest
@@ -299,7 +300,8 @@ def test_request_adapter_does_not_make_modern_state_without_an_explicit_id() -> 
 
     assert context.session_id is None
     assert context.session_source is None
-    assert context.owner == OwnerKey("unbound:request-46")
+    assert context.owner.value.startswith("unbound:")
+    assert context.owner != OwnerKey("unbound:request-46")
 
 
 def test_request_adapter_uses_public_legacy_connection_id() -> None:
@@ -424,6 +426,42 @@ async def test_sessionless_modern_request_does_not_register_a_shared_session(tmp
 
 
 @pytest.mark.anyio
+async def test_concurrent_unbound_requests_with_matching_jsonrpc_ids_are_isolated(tmp_path) -> None:
+    """Client-selected JSON-RPC IDs cannot share request-local Session state."""
+    from mcp_guide.session import request_session_scope
+
+    runtime = runtime_for_config(tmp_path)
+
+    def context() -> SimpleNamespace:
+        return SimpleNamespace(
+            request_context=SimpleNamespace(
+                protocol_version="2026-07-28", request_id=1, meta=None, lifespan_context=runtime
+            ),
+            session=SimpleNamespace(client_params=None),
+            transport="streamable-http",
+        )
+
+    entered = asyncio.Event()
+    release = asyncio.Event()
+
+    async def resolve(ctx: SimpleNamespace):
+        async with request_session_scope(ctx) as session:
+            entered.set()
+            await release.wait()
+            return session
+
+    first = asyncio.create_task(resolve(context()))
+    await entered.wait()
+    second = asyncio.create_task(resolve(context()))
+    await asyncio.sleep(0)
+    release.set()
+
+    first_session, second_session = await asyncio.gather(first, second)
+
+    assert first_session is not second_session
+
+
+@pytest.mark.anyio
 async def test_modern_stdio_pwd_bootstrap_is_runtime_owned(tmp_path, monkeypatch) -> None:
     """The local PWD shortcut mints a FastMCP session_id and binds that runtime Session."""
     from unittest.mock import AsyncMock
@@ -505,6 +543,7 @@ async def test_failed_stdio_pwd_bind_retires_the_minted_session(tmp_path, monkey
 
     end_session.assert_awaited_once_with("minted-then-fail")
     assert OwnerKey("minted-then-fail") not in runtime._sessions
+    assert runtime.configuration_service()._sessions == set()
 
 
 @pytest.mark.anyio
