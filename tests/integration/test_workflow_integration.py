@@ -2,12 +2,11 @@
 
 import logging
 from typing import Any
-from unittest.mock import AsyncMock
 
 import pytest
-from fastmcp import Context
 
 from mcp_guide.filesystem.tools import send_file_content
+from mcp_guide.runtime import get_runtime
 from mcp_guide.workflow.tasks import WorkflowMonitorTask
 from tests.helpers import create_test_session
 
@@ -52,13 +51,6 @@ class LogCapture:
 
 
 @pytest.fixture
-def mock_context() -> AsyncMock:
-    """Mock MCP context."""
-    context = AsyncMock(spec=Context)
-    return context
-
-
-@pytest.fixture
 def workflow_content() -> str:
     """Sample workflow file content."""
     return """phase: review
@@ -69,14 +61,9 @@ queue:
 
 
 @pytest.fixture(autouse=True)
-async def bound_session(tmp_path, monkeypatch):
+async def bound_session(runtime, tmp_path):
     """Provide an isolated Session-owned task manager for each interaction."""
-    session = await create_test_session("workflow", _config_dir_for_tests=str(tmp_path))
-
-    async def get_bound_session(_context=None, *, session_id=None):
-        return session
-
-    monkeypatch.setattr("mcp_guide.filesystem.tools.get_session", get_bound_session)
+    session = await create_test_session(runtime, "workflow")
     yield session
 
 
@@ -84,27 +71,25 @@ class TestWorkflowIntegration:
     """Test complete workflow state processing integration."""
 
     @pytest.mark.anyio
-    async def test_file_content_caching(self, mock_context: AsyncMock, workflow_content: str, bound_session) -> None:
+    async def test_file_content_caching(self, workflow_content: str, bound_session) -> None:
         """Test that file content is properly cached."""
 
         result = await send_file_content(
-            context=mock_context, path=".guide.yaml", content=workflow_content, mtime=1234567890.0, encoding="utf-8"
+            bound_session, path=".guide.yaml", content=workflow_content, mtime=1234567890.0, encoding="utf-8"
         )
 
         assert result.success, f"File caching failed: {result.error}"
         if result.value is not None:
             assert result.value["path"] == ".guide.yaml"
-        assert result.message is not None and "cached" in result.message.lower()
+        assert result.message is not None and "received" in result.message.lower()
 
     @pytest.mark.anyio
-    async def test_task_manager_receives_data(
-        self, mock_context: AsyncMock, workflow_content: str, bound_session
-    ) -> None:
+    async def test_task_manager_receives_data(self, workflow_content: str, bound_session) -> None:
         """Test that TaskManager receives file content data."""
 
         with LogCapture() as logs:
             # Send file content first
-            await send_file_content(context=mock_context, path=".guide.yaml", content=workflow_content)
+            await send_file_content(bound_session, path=".guide.yaml", content=workflow_content)
 
             # Get TaskManager and register a test task
             task_manager = bound_session.task_manager
@@ -146,14 +131,12 @@ class TestWorkflowIntegration:
                 pytest.fail(f"Unexpected warnings/errors in TaskManager: {error_msgs}")
 
     @pytest.mark.anyio
-    async def test_workflow_task_updates_cache(
-        self, mock_context: AsyncMock, workflow_content: str, bound_session
-    ) -> None:
+    async def test_workflow_task_updates_cache(self, workflow_content: str, bound_session) -> None:
         """Test that WorkflowMonitorTask correctly updates TaskManager cache."""
         with LogCapture() as logs:
             task_manager = bound_session.task_manager
             workflow_task = WorkflowMonitorTask(".guide.yaml", task_manager=task_manager)
-            await bound_session.runtime.feature_flags().set("workflow", True)
+            await get_runtime().feature_flags().set("workflow", True)
             assert await workflow_task.start(task_manager, bound_session)
 
             from mcp_guide.task_manager.interception import EventType

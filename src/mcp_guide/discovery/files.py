@@ -136,44 +136,25 @@ class FileInfo:
         self._content_explicitly_set = content is not _SENTINEL
         self._raw_cache: Optional[str] = None
 
-    def resolve(self, base_dir: Path, docroot: Path) -> Path:
-        """Resolve relative path to absolute path with security validation.
+    def resolve(self, resolver: Callable[[str | Path], Path], relative_dir: str | Path = "") -> Path:
+        """Resolve this file through a document-root-relative path resolver.
 
         Args:
-            base_dir: Base directory to resolve relative paths against
-            docroot: Document root directory for security validation
+            resolver: Sync lexical resolver from RequestContext
+            relative_dir: Optional directory relative to the document root
 
         Returns:
-            Resolved absolute path within docroot
+            Absolute lexical path within the document root
 
         Raises:
-            ValueError: If base_dir or docroot are not absolute
-            ValueError: If base_dir is not within docroot
-            ValueError: If resolved path escapes docroot
+            ValueError: If the relative path is absolute or escapes the document root
         """
-        # Validate inputs are absolute
-        if not base_dir.is_absolute():
-            raise ValueError(f"Base directory must be absolute: {base_dir}")
-        if not docroot.is_absolute():
-            raise ValueError(f"Document root must be absolute: {docroot}")
-
-        # Validate base_dir is within docroot
-        from mcp_guide.core.path_security import is_path_within_directory
-
-        if not is_path_within_directory(base_dir, docroot):
-            raise ValueError(f"Base directory must be within docroot: {base_dir}")
-
-        # Resolve path
-        if not self.path.is_absolute():
-            self.path = base_dir / self.path
-
-        resolved = self.path.resolve()
-
-        # Validate resolved path is within docroot
-        if not is_path_within_directory(resolved, docroot):
-            raise ValueError(f"Resolved path escapes docroot: {resolved}")
-
-        self.path = resolved
+        if self.path.is_absolute():
+            return self.path
+        relative: str | Path = self.path
+        if relative_dir not in ("", ".", Path(""), Path(".")):
+            relative = Path(relative_dir) / self.path
+        self.path = resolver(relative)
         return self.path
 
     async def _load_content_if_needed(self) -> None:

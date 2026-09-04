@@ -13,7 +13,7 @@ class TestPartialResolutionIntegration:
     """Test that partials resolve correctly relative to template files."""
 
     @pytest.mark.anyio
-    async def test_partial_resolves_relative_to_template(self, tmp_path):
+    async def test_partial_resolves_relative_to_template(self, runtime, tmp_path):
         """Test partial resolution uses template's parent directory, not commands root."""
         # Create directory structure:
         # commands/
@@ -56,7 +56,7 @@ includes:
         )
 
         result = await render_template(
-            session=create_unbound_test_session(str(tmp_path)),
+            session=create_unbound_test_session(runtime),
             file_info=file_info,
             base_dir=template_file.parent,
             project_flags={},
@@ -67,7 +67,7 @@ includes:
         assert "Project: test-project" in result.content
 
     @pytest.mark.anyio
-    async def test_deeply_nested_template_partial_resolution(self, tmp_path):
+    async def test_deeply_nested_template_partial_resolution(self, runtime, tmp_path):
         """Test partial resolution works for templates in deeply nested directories."""
         # Create structure:
         # commands/
@@ -111,7 +111,7 @@ includes:
         )
 
         result = await render_template(
-            session=create_unbound_test_session(str(tmp_path)),
+            session=create_unbound_test_session(runtime),
             file_info=file_info,
             base_dir=template_file.parent,
             project_flags={},

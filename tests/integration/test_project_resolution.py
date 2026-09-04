@@ -7,7 +7,7 @@ from unittest.mock import patch
 import pytest
 import yaml
 
-from tests.helpers import create_test_session
+from tests.helpers import create_test_runtime, create_test_session
 
 
 class TestProjectResolution:
@@ -20,7 +20,7 @@ class TestProjectResolution:
         return config_file
 
     @pytest.mark.anyio
-    async def test_single_project_resolution(self, tmp_path):
+    async def test_single_project_resolution(self, runtime, tmp_path):
         """Single project with name resolves correctly."""
         config = {
             "docroot": str(tmp_path),
@@ -35,7 +35,7 @@ class TestProjectResolution:
         }
         self._write_config(tmp_path, config)
 
-        session = await create_test_session("my-project", _config_dir_for_tests=str(tmp_path))
+        session = await create_test_session(runtime, "my-project")
         project = await session.get_project()
 
         assert project.name == "my-project"
@@ -74,14 +74,14 @@ class TestProjectResolution:
             with patch("mcp_guide.configuration.calculate_project_hash") as mock_calc_hash:
                 mock_calc_hash.return_value = "fedcba0987654321" * 4
 
-                session = await create_test_session("my-project", _config_dir_for_tests=tmp_dir)
+                session = await create_test_session(create_test_runtime(tmp_dir), "my-project")
                 project = await session.get_project()
 
                 assert project.name == "my-project"
                 assert project.hash == "fedcba0987654321" * 4
 
     @pytest.mark.anyio
-    async def test_no_matching_project_creation(self, tmp_path):
+    async def test_no_matching_project_creation(self, runtime, tmp_path):
         """Non-existent project name creates new project."""
         config_file = Path(tmp_path) / "guide.yaml"
 
@@ -90,14 +90,14 @@ class TestProjectResolution:
         config_file.write_text(yaml.dump(config))
 
         with patch("mcp_guide.configuration.calculate_project_hash", return_value="new_hash_value" * 4):
-            session = await create_test_session("new-project", _config_dir_for_tests=str(tmp_path))
+            session = await create_test_session(runtime, "new-project")
             project = await session.get_project()
 
             assert project.name == "new-project"
             assert project.hash == "new_hash_value" * 4
 
     @pytest.mark.anyio
-    async def test_hash_mismatch_fallback(self, tmp_path):
+    async def test_hash_mismatch_fallback(self, runtime, tmp_path):
         """Hash mismatch falls back to name for new project creation."""
         config_file = Path(tmp_path) / "guide.yaml"
 
@@ -109,7 +109,7 @@ class TestProjectResolution:
         config_file.write_text(yaml.dump(config))
 
         with patch("mcp_guide.configuration.calculate_project_hash", return_value="different_hash_value" * 4):
-            session = await create_test_session("my-project", _config_dir_for_tests=str(tmp_path))
+            session = await create_test_session(runtime, "my-project")
             project = await session.get_project()
 
             # Should create new project with different hash
@@ -117,7 +117,7 @@ class TestProjectResolution:
             assert project.hash == "different_hash_value" * 4
 
     @pytest.mark.anyio
-    async def test_path_resolution_failure_fallback(self, tmp_path):
+    async def test_path_resolution_failure_fallback(self, runtime, tmp_path):
         """Path resolution failure falls back gracefully."""
         config = {
             "docroot": str(tmp_path),
@@ -142,7 +142,7 @@ class TestProjectResolution:
         with patch("mcp_guide.mcp_context.resolve_project_path") as mock_resolve_path:
             mock_resolve_path.side_effect = ValueError("Cannot determine path")
 
-            session = await create_test_session("my-project", _config_dir_for_tests=str(tmp_path))
+            session = await create_test_session(runtime, "my-project")
             project = await session.get_project()
 
             # Should still work - will use fallback path for hash calculation
@@ -153,7 +153,7 @@ class TestProjectResolution:
         """Configuration errors fall back gracefully."""
         with tempfile.TemporaryDirectory() as tmp_dir:
             # Don't create config file to trigger error handling
-            session = await create_test_session("my-project", _config_dir_for_tests=tmp_dir)
+            session = await create_test_session(create_test_runtime(tmp_dir), "my-project")
             project = await session.get_project()
 
             # Should create new project even with missing config

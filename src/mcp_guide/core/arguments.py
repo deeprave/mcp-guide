@@ -4,6 +4,35 @@ from typing import Any, Callable, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
+SESSION_ID_DESCRIPTION = (
+    "Opaque Guide interaction identifier returned by set_project. "
+    "Pass it through unchanged on later tool, prompt, and resource calls. "
+    "Do not construct, alter, or treat it as a FastMCP transport session id."
+)
+
+
+def _schema_type_label(prop: dict[str, Any]) -> str:
+    """Render a JSON Schema property as a concise advertised type label."""
+    if "enum" in prop:
+        return f"enum: {', '.join(repr(v) for v in prop['enum'])}"
+
+    combined = prop.get("anyOf") or prop.get("oneOf")
+    if combined:
+        return " | ".join(_schema_type_label(variant) if isinstance(variant, dict) else "any" for variant in combined)
+
+    prop_type = prop.get("type")
+    if prop_type == "array":
+        items = prop.get("items")
+        item_label = _schema_type_label(items) if isinstance(items, dict) else "any"
+        return f"array[{item_label}]"
+    if prop_type == "object":
+        return "object"
+    if isinstance(prop_type, list):
+        return " | ".join(str(part) for part in prop_type)
+    if prop_type:
+        return str(prop_type)
+    return "any"
+
 
 class Arguments(BaseModel):
     """Base class for MCP arguments with automatic schema generation and validation.
@@ -22,28 +51,26 @@ class Arguments(BaseModel):
         2. Define your function:
            ```python
            @decorator(args_class=MyArgs)
-           async def my_function(args: MyArgs, ctx: Context) -> Result[str]:
+           async def my_function(args: MyArgs, request_context: RequestContext) -> Result[str]:
                return Result.ok(f"Hello {args.name}, age {args.age}")
            ```
 
-        3. The decorator automatically:
-           - Extracts individual fields from MyArgs for FastMCP's schema
-           - Receives flat kwargs from FastMCP: {"name": "Alice", "age": 30, "ctx": <Context>}
-           - Transforms them into MyArgs instance: MyArgs(name="Alice", age=30)
-           - Calls your function with (args, ctx)
+        3. The decorator registers the Args class as a nested ``args`` object for FastMCP.
+           FastMCP receives {"args": {"name": "Alice", "age": 30}} plus injected ``ctx``.
+           The wrapper builds MyArgs and calls the function with (args, request_context).
 
     Features:
-    - Pydantic validation with extra='forbid' (rejects unknown fields)
+    - Pydantic validation with extra='ignore' (unknown fields are dropped)
     - Automatic schema markdown generation for descriptions
     - Type-safe argument access in implementations
     - Validation errors collected and returned as structured error_data
     """
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     session_id: Optional[str] = Field(
         default=None,
-        description="FastMCP session identifier returned when this interaction was bound",
+        description=SESSION_ID_DESCRIPTION,
     )
 
     @classmethod
@@ -61,11 +88,7 @@ class Arguments(BaseModel):
 
         for name, prop in properties.items():
             req_marker = " (required)" if name in required else ""
-
-            # Handle type
-            prop_type = prop.get("type", "any")
-            if "enum" in prop:
-                prop_type = f"enum: {', '.join(repr(v) for v in prop['enum'])}"
+            prop_type = _schema_type_label(prop)
 
             lines.append(f"- **{name}**{req_marker}: {prop_type}")
 

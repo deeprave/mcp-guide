@@ -1,34 +1,36 @@
 """Unit tests for project management tools."""
 
 import json
+from contextlib import asynccontextmanager
 from pathlib import Path
-from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastmcp.tools.base import ToolResult
-from tests.helpers import create_test_runtime, create_test_session, create_unbound_test_session
+from tests.helpers import create_test_session, create_unbound_test_session, request_context_for
 
 from mcp_guide.models import Category, Collection, Project
 from mcp_guide.result import Result
-from mcp_guide.runtime import OwnerKey
+from mcp_guide.runtime import RequestContext, get_runtime
 from mcp_guide.tools.tool_project import (
     CloneProjectArgs,
     GetCurrentProjectArgs,
     ListProjectArgs,
     ListProjectsArgs,
     SetCurrentProjectArgs,
-    clone_project,
-    get_project,
+    internal_clone_project,
+    internal_get_project,
+    internal_list_project,
+    internal_list_projects,
     internal_set_project,
-    list_project,
-    list_projects,
-    set_project,
 )
+from mcp_guide.validation import InvalidProjectNameError
 
 
 def decode_tool_result(result: object) -> dict:
     """Read the Guide payload from either the native or legacy test boundary."""
+    if isinstance(result, Result):
+        return result.to_json()
     if isinstance(result, ToolResult):
         assert isinstance(result.structured_content, dict)
         return result.structured_content
@@ -36,126 +38,42 @@ def decode_tool_result(result: object) -> dict:
     return json.JSONDecoder().decode(result)
 
 
-@pytest.fixture(autouse=True)
-def explicit_runtime_session(tmp_path, monkeypatch):
-    """Route direct decorated-tool calls through a runtime-owned test Session."""
-    session = create_unbound_test_session(str(tmp_path))
-
-    async def get_test_session(*_args, **_kwargs):
-        return session
-
-    monkeypatch.setattr("mcp_guide.core.tool_decorator.get_session", get_test_session)
-    monkeypatch.setattr("mcp_guide.tools.tool_project.get_session", get_test_session)
-    return session
-
-
-@pytest.mark.anyio
-async def test_failed_modern_binding_retires_its_minted_fastmcp_session(monkeypatch) -> None:
-    """A session minted for a failed bind must not remain in FastMCP's store."""
-    import fastmcp.server.sessions as fastmcp_sessions
-
-    import mcp_guide.tools.tool_project as tool_project_module
-
-    class FakeContext:
-        def __init__(self) -> None:
-            self.request_context = MagicMock(protocol_version="2026-07-28")
-
-    create_session = AsyncMock(return_value="minted-session")
-    end_session = AsyncMock()
-    runtime = MagicMock()
-    runtime.discard_session = AsyncMock()
-    monkeypatch.setattr(tool_project_module, "Context", FakeContext)
-    monkeypatch.setattr(fastmcp_sessions, "create_session", create_session)
-    monkeypatch.setattr(fastmcp_sessions, "end_session", end_session)
-    monkeypatch.setattr("mcp_guide.mcp_context.runtime_from_fastmcp", lambda _ctx: runtime)
-    monkeypatch.setattr(
-        tool_project_module,
-        "session_set_project",
-        AsyncMock(return_value=Result.failure("invalid project root", error_type="invalid_project")),
+def request_context(session, project: Project | None = None) -> RequestContext:
+    """Build a RequestContext through the runtime factory for handler tests."""
+    if project is not None:
+        session.project = project
+        session.project_is_bound = True
+        session.bound_root_path = Path("/client/workspace") / project.name
+        session.get_project = AsyncMock(return_value=project)
+    else:
+        session.project = getattr(session, "project", None)
+        session.project_is_bound = False
+        session.bound_root_path = None
+    if not isinstance(getattr(session, "session_id", None), str):
+        session.session_id = "test-session"
+    return RequestContext(
+        session_id=session.session_id,
+        session=session,
+        seq=1,
+        document_path_resolver=lambda relative: Path("/docs") / relative,
     )
 
-    result = await internal_set_project(SetCurrentProjectArgs(path="/invalid/project"), FakeContext())
 
-    assert not result.is_ok()
-    end_session.assert_awaited_once_with("minted-session")
-    runtime.discard_session.assert_awaited_once()
-    assert runtime.discard_session.await_args.args[0] == OwnerKey("minted-session")
+@pytest.fixture(autouse=True)
+def explicit_runtime_session(runtime, tmp_path, monkeypatch):
+    """Route public tool calls through an explicit runtime-owned test Session."""
+    session = create_unbound_test_session(runtime)
 
+    @asynccontextmanager
+    async def test_request_context_scope(*_args, **_kwargs):
+        yield await request_context_for(session)
 
-@pytest.mark.anyio
-async def test_modern_binding_records_its_minted_session_id_on_the_arguments(monkeypatch) -> None:
-    """The outer result adapter must resolve the Session that was just bound."""
-    import fastmcp.server.sessions as fastmcp_sessions
-
-    import mcp_guide.tools.tool_project as tool_project_module
-
-    class FakeContext:
-        def __init__(self) -> None:
-            self.request_context = MagicMock(protocol_version="2026-07-28")
-
-    project = Project(name="project", categories={}, collections={})
-    session = MagicMock()
-    monkeypatch.setattr(tool_project_module, "Context", FakeContext)
-    monkeypatch.setattr(fastmcp_sessions, "create_session", AsyncMock(return_value="minted-session"))
-    monkeypatch.setattr(tool_project_module, "session_set_project", AsyncMock(return_value=Result.ok(project)))
-    monkeypatch.setattr(tool_project_module, "get_session", AsyncMock(return_value=session))
-
-    args = SetCurrentProjectArgs(path="/client/project")
-    result = await internal_set_project(args, FakeContext())
-
-    assert result.is_ok()
-    assert args.session_id == "minted-session"
+    monkeypatch.setattr("mcp_guide.session.request_context_scope", test_request_context_scope)
+    return session
 
 
 class TestGetProject:
     """Tests for get_project tool."""
-
-    @pytest.mark.anyio
-    async def test_stdio_pwd_bootstrap_mints_and_returns_a_modern_session_id(self, tmp_path, monkeypatch) -> None:
-        """The first stdio tool response resumes the Session created from PWD."""
-        import fastmcp.server.sessions as fastmcp_sessions
-
-        import mcp_guide.core.tool_decorator as tool_decorator_module
-        import mcp_guide.session as session_module
-        import mcp_guide.tools.tool_helpers as tool_helpers_module
-        import mcp_guide.tools.tool_project as tool_project_module
-        from mcp_guide.runtime import OwnerKey
-
-        class FakeContext:
-            def __init__(self, runtime) -> None:
-                self.request_context = SimpleNamespace(
-                    protocol_version="2026-07-28",
-                    request_id="stdio-bootstrap",
-                    meta=None,
-                    lifespan_context=runtime,
-                )
-                self.session = SimpleNamespace(client_params=None)
-                self.transport = "stdio"
-
-        project_root = tmp_path / "stdio-project"
-        project_root.mkdir()
-        runtime = create_test_runtime(str(tmp_path / "config"))
-        context = FakeContext(runtime)
-        create_session = AsyncMock(return_value="minted-stdio-session")
-        get_fastmcp_session = AsyncMock(return_value=object())
-        monkeypatch.setenv("PWD", str(project_root))
-        monkeypatch.setattr(session_module, "Context", FakeContext)
-        monkeypatch.setattr(fastmcp_sessions, "create_session", create_session)
-        monkeypatch.setattr(fastmcp_sessions, "get_session", get_fastmcp_session)
-        monkeypatch.setattr(tool_decorator_module, "get_session", session_module.get_session)
-        monkeypatch.setattr(tool_helpers_module, "get_session", session_module.get_session)
-        monkeypatch.setattr(tool_project_module, "get_session", session_module.get_session)
-
-        result = await get_project(GetCurrentProjectArgs(), context)
-        payload = decode_tool_result(result)
-        session = runtime.resolve_session(OwnerKey("minted-stdio-session"))
-
-        assert payload["session_id"] == "minted-stdio-session"
-        assert session.bound_root_path == project_root
-        assert session.session_id == "minted-stdio-session"
-        create_session.assert_awaited_once()
-        get_fastmcp_session.assert_awaited()
-        await session.cleanup()
 
     @pytest.mark.anyio
     async def test_no_context_error(self):
@@ -165,7 +83,7 @@ class TestGetProject:
             return_value=(MagicMock(), None),
         ):
             args = GetCurrentProjectArgs(verbose=False)
-            result_str = await get_project(args)
+            result_str = await internal_get_project(args, request_context(MagicMock()))
             result = decode_tool_result(result_str)
 
             assert result["success"] is False
@@ -180,29 +98,13 @@ class TestGetProject:
         ],
     )
     @pytest.mark.anyio
-    async def test_get_project_output(self, verbose: bool, has_data: bool, tmp_path: Path, monkeypatch):
+    async def test_get_project_output(self, runtime, verbose: bool, has_data: bool, tmp_path: Path, monkeypatch):
         """Test get_project output format based on verbose flag and data presence."""
         project_name = "test-project" if has_data else "empty-project"
         monkeypatch.setenv("PWD", f"/fake/path/{project_name}")
 
-        session = await create_test_session(project_name, _config_dir_for_tests=str(tmp_path))
-        await session.get_project()
-
-        async def get_bound_session_and_project(_ctx=None, *, session_id=None):
-            return session, await session.get_project()
-
-        monkeypatch.setattr(
-            "mcp_guide.tools.tool_project.get_session_and_project",
-            get_bound_session_and_project,
-        )
-        monkeypatch.setattr(
-            "mcp_guide.tools.tool_category.get_session_and_project",
-            get_bound_session_and_project,
-        )
-        monkeypatch.setattr(
-            "mcp_guide.tools.tool_collection.get_session_and_project",
-            get_bound_session_and_project,
-        )
+        session = await create_test_session(runtime, project_name)
+        context = await request_context_for(session)
 
         if has_data:
             # Add categories and collections
@@ -210,18 +112,26 @@ class TestGetProject:
             from mcp_guide.tools.tool_collection import CollectionAddArgs, internal_collection_add
 
             await internal_category_add(
-                CategoryAddArgs(name="python", dir="src/", patterns=["*.py"], description="Python source files")
+                CategoryAddArgs(name="python", dir="src/", patterns=["*.py"], description="Python source files"),
+                context,
             )
+            context = await request_context_for(session)
             await internal_category_add(
-                CategoryAddArgs(name="typescript", dir="src/", patterns=["*.ts"], description="TypeScript files")
+                CategoryAddArgs(name="typescript", dir="src/", patterns=["*.ts"], description="TypeScript files"),
+                context,
             )
+            context = await request_context_for(session)
             await internal_collection_add(
-                CollectionAddArgs(name="api-docs", description="API documentation", categories=["python", "typescript"])
+                CollectionAddArgs(
+                    name="api-docs", description="API documentation", categories=["python", "typescript"]
+                ),
+                context,
             )
+            context = await request_context_for(session)
 
         try:
             args = GetCurrentProjectArgs(verbose=verbose)
-            result_str = await get_project(args)
+            result_str = await internal_get_project(args, context)
             result = decode_tool_result(result_str)
 
             assert result["success"] is True
@@ -273,13 +183,14 @@ class TestGetProject:
         global_flags_mock = AsyncMock()
         global_flags_mock.list = AsyncMock(return_value={"global_flag": "value"})
 
+        runtime = MagicMock()
+        runtime.feature_flags.return_value = global_flags_mock
         with (
             patch.object(session, "project_flags", return_value=project_flags_mock),
-            patch.object(session.runtime, "feature_flags", return_value=global_flags_mock),
-            patch("mcp_guide.tools.tool_project.get_session_and_project", return_value=(session, project)),
+            patch("mcp_guide.runtime.get_runtime", return_value=runtime),
         ):
             args = GetCurrentProjectArgs(verbose=verbose)
-            result_str = await get_project(args)
+            result_str = await internal_get_project(args, request_context(session, project))
             result = decode_tool_result(result_str)
 
             assert result["success"] is True
@@ -308,13 +219,14 @@ class TestGetProject:
         global_flags_mock = AsyncMock()
         global_flags_mock.list = AsyncMock(return_value={"shared_flag": "global_value"})
 
+        runtime = MagicMock()
+        runtime.feature_flags.return_value = global_flags_mock
         with (
             patch.object(session, "project_flags", return_value=project_flags_mock),
-            patch.object(session.runtime, "feature_flags", return_value=global_flags_mock),
-            patch("mcp_guide.tools.tool_project.get_session_and_project", return_value=(session, project)),
+            patch("mcp_guide.runtime.get_runtime", return_value=runtime),
         ):
             args = GetCurrentProjectArgs(verbose=True)
-            result_str = await get_project(args)
+            result_str = await internal_get_project(args, request_context(session, project))
             result = decode_tool_result(result_str)
 
             assert result["success"] is True
@@ -353,9 +265,9 @@ class TestSetProject:
 
         mock_result = Result.ok(project)
 
-        with patch("mcp_guide.tools.tool_project.session_set_project", return_value=mock_result):
+        with patch("mcp_guide.tools.tool_project.bind_session_project", return_value=project):
             args = SetCurrentProjectArgs(path="/client/workspace/test-project", verbose=verbose)
-            result_str = await set_project(args)
+            result_str = await internal_set_project(args, request_context(MagicMock()))
             result = decode_tool_result(result_str)
 
             assert result["success"] is True
@@ -374,24 +286,23 @@ class TestSetProject:
 
     @pytest.mark.anyio
     @pytest.mark.parametrize(
-        "error_type,error_msg",
+        "error,error_type",
         [
-            ("invalid_name", "must contain only alphanumeric"),
-            ("project_load_error", "Configuration file corrupted"),
+            (InvalidProjectNameError("must contain only alphanumeric"), "invalid_name"),
+            (ValueError("must contain only alphanumeric"), "project_error"),
+            (RuntimeError("Configuration file corrupted"), "project_load_error"),
         ],
     )
-    async def test_set_project_errors(self, error_type: str, error_msg: str):
-        """Test error handling."""
-        mock_result = Result.failure(error_msg, error_type=error_type)
-
-        with patch("mcp_guide.tools.tool_project.session_set_project", return_value=mock_result):
+    async def test_set_project_errors(self, error, error_type):
+        """Test error handling preserves the historical taxonomy."""
+        with patch("mcp_guide.tools.tool_project.bind_session_project", side_effect=error):
             args = SetCurrentProjectArgs(path="/client/workspace/test-project", verbose=False)
-            result_str = await set_project(args)
+            result_str = await internal_set_project(args, request_context(MagicMock()))
             result = decode_tool_result(result_str)
 
             assert result["success"] is False
             assert result["error_type"] == error_type
-            assert error_msg in result["error"]
+            assert str(error) in result["error"]
 
 
 class TestListProjects:
@@ -424,7 +335,7 @@ class TestListProjects:
 
         with patch("mcp_guide.tools.tool_project.list_all_projects", return_value=mock_result):
             args = ListProjectsArgs(verbose=verbose)
-            result_str = await list_projects(args)
+            result_str = await internal_list_projects(args, request_context(MagicMock()))
             result = decode_tool_result(result_str)
 
             assert result["success"] is True
@@ -437,7 +348,7 @@ class TestListProjects:
 
         with patch("mcp_guide.tools.tool_project.list_all_projects", return_value=mock_result):
             args = ListProjectsArgs(verbose=False)
-            result_str = await list_projects(args)
+            result_str = await internal_list_projects(args, request_context(MagicMock()))
             result = decode_tool_result(result_str)
 
             assert result["success"] is False
@@ -463,10 +374,17 @@ class TestListProject:
         session.project_name = "current"
         session.get_all_projects.return_value = {current.key: current, other.key: other}
         session.project_flags = MagicMock(return_value=MagicMock(list=AsyncMock(return_value={})))
-        with patch("mcp_guide.tools.tool_project.get_session", new=AsyncMock(return_value=session)):
-            current_result = decode_tool_result(await list_project(ListProjectArgs()))
-            name_result = decode_tool_result(await list_project(ListProjectArgs(name="other-project", verbose=True)))
-            key_result = decode_tool_result(await list_project(ListProjectArgs(name=other.key)))
+        current_result = decode_tool_result(
+            await internal_list_project(ListProjectArgs(), request_context(session, current))
+        )
+        name_result = decode_tool_result(
+            await internal_list_project(
+                ListProjectArgs(name="other-project", verbose=True), request_context(session, current)
+            )
+        )
+        key_result = decode_tool_result(
+            await internal_list_project(ListProjectArgs(name=other.key), request_context(session, current))
+        )
 
         assert current_result["success"] is True
         assert name_result["value"]["project"] == "other-project"
@@ -479,13 +397,11 @@ class TestListProject:
 
         session = AsyncMock()
         session.get_all_projects.return_value = {}
-        with patch("mcp_guide.tools.tool_project.get_session", new=AsyncMock(return_value=session)):
-            args = ListProjectArgs(name="nonexistent", verbose=False)
-            result_str = await list_project(args)
-            result = decode_tool_result(result_str)
+        args = ListProjectArgs(name="nonexistent", verbose=False)
+        result = decode_tool_result(await internal_list_project(args, request_context(session)))
 
-            assert result["success"] is False
-            assert "not found" in result["error"]
+        assert result["success"] is False
+        assert "not found" in result["error"]
 
 
 class TestCloneProjectArgs:
@@ -493,8 +409,9 @@ class TestCloneProjectArgs:
 
     def test_clone_target_is_not_a_public_argument(self):
         """Cloning always targets the root-bound current project."""
-        with pytest.raises(ValueError, match="to_project"):
-            CloneProjectArgs(from_project="source", to_project="target")
+        args = CloneProjectArgs(from_project="source", to_project="target")
+        assert "to_project" not in CloneProjectArgs.model_fields
+        assert "to_project" not in args.model_dump()
 
 
 class TestCloneProject:
@@ -518,10 +435,10 @@ class TestCloneProject:
             "source-aaaaaaaa": Project(name="source", key="source-aaaaaaaa", hash="a" * 64),
             "source-bbbbbbbb": Project(name="source", key="source-bbbbbbbb", hash="b" * 64),
         }
-        with patch("mcp_guide.tools.tool_project.get_session", new=AsyncMock(return_value=session)):
-            invalid = decode_tool_result(await clone_project(CloneProjectArgs(from_project="../etc")))
-            missing = decode_tool_result(await clone_project(CloneProjectArgs(from_project="missing")))
-            ambiguous = decode_tool_result(await clone_project(CloneProjectArgs(from_project="source")))
+        context = request_context(session, current)
+        invalid = decode_tool_result(await internal_clone_project(CloneProjectArgs(from_project="../etc"), context))
+        missing = decode_tool_result(await internal_clone_project(CloneProjectArgs(from_project="missing"), context))
+        ambiguous = decode_tool_result(await internal_clone_project(CloneProjectArgs(from_project="source"), context))
 
         assert invalid["error_type"] == "invalid_name"
         assert missing["error_type"] == "not_found"
@@ -542,8 +459,9 @@ class TestCloneProject:
             "source-bbbbbbbb": Project(name="source", key="source-bbbbbbbb", hash="b" * 64),
             current.key: current,
         }
-        with patch("mcp_guide.tools.tool_project.get_session", new=AsyncMock(return_value=session)):
-            result = decode_tool_result(await clone_project(CloneProjectArgs(from_project=source.key)))
+        result = decode_tool_result(
+            await internal_clone_project(CloneProjectArgs(from_project=source.key), request_context(session, current))
+        )
 
         assert result["success"] is True
         assert result["value"]["to_project"] == "current"
@@ -561,13 +479,11 @@ class TestCloneProject:
         mock_session.get_project = AsyncMock(return_value=current_proj)
         mock_session.save_project = AsyncMock(side_effect=OSError("config write failed"))
 
-        with patch("mcp_guide.tools.tool_project.get_session", new=AsyncMock(return_value=mock_session)):
-            args = CloneProjectArgs(from_project="source", merge=True)
-            result_str = await clone_project(args)
-            result = decode_tool_result(result_str)
+        args = CloneProjectArgs(from_project="source", merge=True)
+        result = decode_tool_result(await internal_clone_project(args, request_context(mock_session, current_proj)))
 
-            assert result["success"] is False
-            assert result["error_type"] == "config_write_error"
+        assert result["success"] is False
+        assert result["error_type"] == "config_write_error"
 
     @pytest.mark.anyio
     async def test_clone_project_collection_statistics(self):
@@ -593,14 +509,12 @@ class TestCloneProject:
         mock_session.save_project = AsyncMock()
 
         mock_session.get_project = AsyncMock(return_value=target_proj)
-        with patch("mcp_guide.tools.tool_project.get_session", new=AsyncMock(return_value=mock_session)):
-            args = CloneProjectArgs(from_project="source", merge=True, force=True)
-            result_str = await clone_project(args)
-            result = decode_tool_result(result_str)
+        args = CloneProjectArgs(from_project="source", merge=True, force=True)
+        result = decode_tool_result(await internal_clone_project(args, request_context(mock_session, target_proj)))
 
-            assert result["success"] is True
-            assert result["value"]["collections_added"] == 1  # source_only
-            assert result["value"]["collections_overwritten"] == 1  # shared
+        assert result["success"] is True
+        assert result["value"]["collections_added"] == 1  # source_only
+        assert result["value"]["collections_overwritten"] == 1  # shared
 
         # Test replace mode
         target_proj_replace = Project(
@@ -612,26 +526,56 @@ class TestCloneProject:
         mock_session_replace.save_project = AsyncMock()
 
         mock_session_replace.get_project = AsyncMock(return_value=target_proj_replace)
-        with patch("mcp_guide.tools.tool_project.get_session", new=AsyncMock(return_value=mock_session_replace)):
-            args_replace = CloneProjectArgs(from_project="source", merge=False, force=True)
-            result_str_replace = await clone_project(args_replace)
-            result_replace = decode_tool_result(result_str_replace)
+        args_replace = CloneProjectArgs(from_project="source", merge=False, force=True)
+        result_replace = decode_tool_result(
+            await internal_clone_project(args_replace, request_context(mock_session_replace, target_proj_replace))
+        )
 
-            assert result_replace["success"] is True
-            assert result_replace["value"]["collections_added"] == 2  # Both source collections
-            assert result_replace["value"]["collections_overwritten"] == 0  # Replace mode
+        assert result_replace["success"] is True
+        assert result_replace["value"]["collections_added"] == 2  # Both source collections
+        assert result_replace["value"]["collections_overwritten"] == 0  # Replace mode
 
     @pytest.mark.anyio
     async def test_1arg_mode_no_current_project(self):
         """clone_project requires a bound current project."""
-        with patch(
-            "mcp_guide.tools.tool_project.get_session",
-            new=AsyncMock(side_effect=ValueError("No current project")),
-        ):
-            args = CloneProjectArgs(from_project="source")
-            result_str = await clone_project(args)
-            result = decode_tool_result(result_str)
+        args = CloneProjectArgs(from_project="source")
+        result = decode_tool_result(await internal_clone_project(args, request_context(MagicMock())))
 
-            assert result["success"] is False
-            assert result["error_type"] == "no_project"
-            assert "instruction" in result
+        assert result["success"] is False
+        assert result["error_type"] == "no_project"
+        assert "instruction" in result
+
+    @pytest.mark.anyio
+    async def test_clone_safeguard_uses_reloaded_dirty_project(self, runtime, tmp_path: Path):
+        """Replace-mode clone consults the reloaded Project, not a stale empty snapshot."""
+        from mcp_guide.runtime import OwnerKey
+        from mcp_guide.session import bind_session_project
+
+        session = await create_test_session(runtime, "target")
+        await session.update_config(
+            lambda project: project.with_category("docs", Category(dir="docs", patterns=["*.md"]))
+        )
+        source_session = get_runtime().resolve_session(OwnerKey("source-owner"))
+        await bind_session_project(source_session, "/client/workspace/source")
+
+        current = session.project
+        assert current is not None
+        stale = Project(
+            name=current.name,
+            key=current.key,
+            hash=current.hash,
+            categories={},
+            collections={},
+        )
+        session._Session__delegate.bind(stale)  # ty: ignore[attr-defined]
+        session._project_dirty = True
+
+        result = decode_tool_result(
+            await internal_clone_project(
+                CloneProjectArgs(from_project="source", merge=False, force=False),
+                await request_context_for(session),
+            )
+        )
+
+        assert result["success"] is False
+        assert result["error_type"] == "safeguard_prevented"

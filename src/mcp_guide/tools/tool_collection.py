@@ -5,7 +5,6 @@
 from dataclasses import replace
 from typing import Any, Optional
 
-from fastmcp import Context
 from pydantic import Field
 
 from mcp_guide.core.tool_arguments import ToolArguments
@@ -17,6 +16,7 @@ from mcp_guide.result_constants import (
     ERROR_SAVE,
     make_no_project_result,
 )
+from mcp_guide.runtime import RequestContext
 from mcp_guide.tools.tool_helpers import get_session_and_project
 from mcp_guide.validation import validate_categories_exist
 
@@ -35,19 +35,19 @@ class CollectionListArgs(ToolArguments):
     verbose: bool = Field(default=True, description="If True, return full details; if False, return names only")
 
 
-async def internal_collection_list(args: CollectionListArgs, ctx: Optional[Context] = None) -> Result[list]:
+async def internal_collection_list(args: CollectionListArgs, request_context: RequestContext) -> Result[list]:
     """List all collections in the current project.
 
     Args:
         args: Tool arguments with verbose flag
-        ctx: MCP Context (auto-injected by FastMCP)
+        request_context: Resolved application request context
 
     Returns:
         Result containing:
         - If verbose=True: list of collection dictionaries with name, categories, description
         - If verbose=False: list of collection names only
     """
-    session, project = await get_session_and_project(ctx, session_id=getattr(args, "session_id", None))
+    session, project = await get_session_and_project(request_context)
     if project is None:
         return await make_no_project_result()
 
@@ -78,12 +78,12 @@ class CollectionAddArgs(ToolArguments):
     )
 
 
-async def internal_collection_add(args: CollectionAddArgs, ctx: Optional[Context] = None) -> Result[str]:
+async def internal_collection_add(args: CollectionAddArgs, request_context: RequestContext) -> Result[str]:
     """Add a new collection to the current project.
 
     Args:
         args: Tool arguments with name, description, and categories
-        ctx: MCP Context (auto-injected by FastMCP)
+        request_context: Resolved application request context
 
     Returns:
         Result containing success message
@@ -98,7 +98,7 @@ async def internal_collection_add(args: CollectionAddArgs, ctx: Optional[Context
     # Deduplicate while preserving order
     categories = list(dict.fromkeys(expanded_categories))
 
-    session, project = await get_session_and_project(ctx, session_id=getattr(args, "session_id", None))
+    session, project = await get_session_and_project(request_context)
     if project is None:
         return await make_no_project_result()
 
@@ -138,17 +138,17 @@ class CollectionRemoveArgs(ToolArguments):
     name: str = Field(..., description="Name of the collection to remove")
 
 
-async def internal_collection_remove(args: CollectionRemoveArgs, ctx: Optional[Context] = None) -> Result[str]:
+async def internal_collection_remove(args: CollectionRemoveArgs, request_context: RequestContext) -> Result[str]:
     """Remove a collection from the current project.
 
     Args:
         args: Tool arguments with collection name
-        ctx: MCP Context (auto-injected by FastMCP)
+        request_context: Resolved application request context
 
     Returns:
         Result containing success message
     """
-    session, project = await get_session_and_project(ctx, session_id=getattr(args, "session_id", None))
+    session, project = await get_session_and_project(request_context)
     if project is None:
         return await make_no_project_result()
 
@@ -175,7 +175,7 @@ class CollectionChangeArgs(ToolArguments):
     )
 
 
-async def internal_collection_change(args: CollectionChangeArgs, ctx: Optional[Context] = None) -> Result[str]:
+async def internal_collection_change(args: CollectionChangeArgs, request_context: RequestContext) -> Result[str]:
     """Change properties of an existing collection.
 
     Can change name, description, or categories.
@@ -184,12 +184,12 @@ async def internal_collection_change(args: CollectionChangeArgs, ctx: Optional[C
 
     Args:
         args: Tool arguments with collection name and optional new values
-        ctx: MCP Context (auto-injected by FastMCP)
+        request_context: Resolved application request context
 
     Returns:
         Result containing success message
     """
-    session, project = await get_session_and_project(ctx, session_id=getattr(args, "session_id", None))
+    session, project = await get_session_and_project(request_context)
     if project is None:
         return await make_no_project_result()
 
@@ -274,7 +274,7 @@ class CollectionUpdateArgs(ToolArguments):
     )
 
 
-async def internal_collection_update(args: CollectionUpdateArgs, ctx: Optional[Context] = None) -> Result[str]:
+async def internal_collection_update(args: CollectionUpdateArgs, request_context: RequestContext) -> Result[str]:
     """Update collection categories incrementally.
 
     Add or remove categories from a collection without replacing the entire list.
@@ -282,12 +282,12 @@ async def internal_collection_update(args: CollectionUpdateArgs, ctx: Optional[C
 
     Args:
         args: Tool arguments with name and optional add/remove lists
-        ctx: MCP Context (auto-injected by FastMCP)
+        request_context: Resolved application request context
 
     Returns:
         Result containing success message
     """
-    session, project = await get_session_and_project(ctx, session_id=getattr(args, "session_id", None))
+    session, project = await get_session_and_project(request_context)
     if project is None:
         return await make_no_project_result()
 

@@ -62,12 +62,14 @@ async def test_mcp_v2_fixture_arguments_execute_against_the_modern_fastmcp_surfa
     project_root.mkdir()
     initial["arguments"]["args"]["path"] = str(project_root)
     monkeypatch.setenv("MCP_GUIDE_DISABLE_SERVER_TASKS", "1")
-    application = create_application(ServerConfig(configdir=str(tmp_path / "config")))
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    application = create_application(ServerConfig(configdir=str(config_dir)))
 
     async with Client(application.server, mode="2026-07-28") as client:
         bound = await client.call_tool(initial["name"], initial["arguments"])
         assert bound.structured_content is not None
-        session_id = bound.structured_content["value"]["session_id"]
+        session_id = bound.structured_content["session_id"]
         continuation["arguments"]["args"]["session_id"] = session_id
         resumed = await client.call_tool(continuation["name"], continuation["arguments"])
         with pytest.raises(ToolError, match="invalid_session"):
@@ -75,7 +77,70 @@ async def test_mcp_v2_fixture_arguments_execute_against_the_modern_fastmcp_surfa
                 continuation["name"],
                 {"args": {"session_id": "00000000-0000-4000-8000-000000000000"}},
             )
+        with pytest.raises(ToolError, match="invalid_session"):
+            await client.call_tool(
+                continuation["name"],
+                {"args": {"session_id": "bad\x00id"}},
+            )
 
     assert resumed.structured_content is not None
     assert resumed.structured_content["success"] is True
     assert resumed.structured_content["value"]["project"] == "fixture-project"
+
+
+@pytest.mark.anyio
+async def test_prompt_and_resource_boundaries_handle_invalid_and_unbound_sessions(tmp_path, monkeypatch) -> None:
+    """Prompt and resource adapters return Guide's invalid_session result, not a protocol error."""
+    import importlib
+
+    from fastmcp import Client
+    from fastmcp.exceptions import ToolError
+
+    import mcp_guide.prompts.guide_prompt as guide_prompt_module
+    import mcp_guide.resources as resources_module
+    from mcp_guide.cli import ServerConfig
+    from mcp_guide.core.prompt_decorator import _PROMPT_REGISTRY
+    from mcp_guide.core.resource_decorator import _RESOURCE_REGISTRY
+    from mcp_guide.server import create_application
+
+    monkeypatch.setenv("MCP_GUIDE_DISABLE_SERVER_TASKS", "1")
+    monkeypatch.setenv("MCP_PROMPT_NAME", "guide")
+    if "guide" not in _PROMPT_REGISTRY:
+        importlib.reload(guide_prompt_module)
+    if not _RESOURCE_REGISTRY:
+        importlib.reload(resources_module)
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    application = create_application(ServerConfig(configdir=str(config_dir)))
+
+    async with Client(application.server, mode="2026-07-28") as client:
+        unbound_prompt = await client.get_prompt("guide", {"arg1": "docs"})
+        with pytest.raises(ToolError, match="no_project"):
+            await client.call_tool("read_resource", {"args": {"uri": "guide://docs"}})
+        stale_prompt = await client.get_prompt("guide", {"session_id": "00000000-0000-4000-8000-000000000000"})
+        stale_resource = await client.read_resource("guide://_help?session_id=00000000-0000-4000-8000-000000000000")
+
+    def payload_text(result) -> str:
+        messages = getattr(result, "messages", None) or getattr(result, "contents", None) or [result]
+        first = messages[0]
+        content = getattr(first, "content", first)
+        if isinstance(content, str):
+            return content
+        if isinstance(content, list):
+            return str(content[0])
+        return str(getattr(content, "text", content))
+
+    def payload_json(result) -> dict:
+        text = payload_text(result)
+        start = text.find("{")
+        end = text.rfind("}")
+        if start == -1 or end == -1:
+            pytest.fail(f"expected JSON Guide payload, got: {text!r}")
+        try:
+            return json.loads(text[start : end + 1])
+        except json.JSONDecodeError:
+            pytest.fail(f"expected JSON Guide payload, got: {text!r}")
+
+    assert payload_json(stale_prompt)["error_type"] == "invalid_session"
+    assert payload_json(stale_resource)["error_type"] == "invalid_session"
+    assert payload_json(unbound_prompt)["error_type"] == "no_project"

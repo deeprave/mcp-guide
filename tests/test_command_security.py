@@ -2,10 +2,11 @@
 
 import json
 from pathlib import Path
-from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+
+from tests.helpers import request_context_for
 
 
 class TestCommandSecurity:
@@ -81,7 +82,6 @@ class TestCommandErrorHandling:
         from mcp_guide.prompts.guide_prompt import handle_command
         from mcp_guide.render.context import TemplateContext
 
-        mock_ctx = SimpleNamespace(session=SimpleNamespace(project_root=str(tmp_path)))
         commands_dir = tmp_path / "_commands"
         commands_dir.mkdir()
         command_file = commands_dir / "restricted.mustache"
@@ -103,7 +103,6 @@ Restricted
         )
 
         with (
-            patch("mcp_guide.prompts.guide_prompt.get_session", new=AsyncMock()) as mock_session,
             patch("mcp_guide.prompts.guide_prompt.get_template_contexts", new=AsyncMock()) as mock_context,
             patch("mcp_guide.prompts.guide_prompt.resolve_all_flags", new=AsyncMock(return_value={})),
             patch("mcp_guide.prompts.guide_prompt._is_help_command", new=AsyncMock(return_value=False)),
@@ -116,13 +115,15 @@ Restricted
             patch("mcp_guide.prompts.guide_prompt.render_template", side_effect=PermissionError("Permission denied")),
         ):
             mock_session_obj = AsyncMock()
-            mock_session_obj.runtime.get_docroot = AsyncMock(return_value=str(tmp_path))
-            mock_session.return_value = mock_session_obj
 
             mock_base_context = TemplateContext({})
             mock_context.return_value = mock_base_context
 
-            result = await handle_command("restricted", ctx=mock_ctx, middleware=[])
+            result = await handle_command(
+                "restricted",
+                request_context=await request_context_for(mock_session_obj),
+                middleware=[],
+            )
 
             assert result.success is False
             assert result.error is not None
@@ -140,11 +141,8 @@ Restricted
             ":help --",  # Empty flag
         ]
 
-        # Mock directory exists and command discovery for these tests
-        with (
-            patch("pathlib.Path.exists", return_value=True),
-            patch("mcp_guide.prompts.guide_prompt.discover_commands", new=AsyncMock(return_value=[])),
-        ):
+        # Mock command discovery for these tests
+        with patch("mcp_guide.prompts.guide_prompt.discover_commands", new=AsyncMock(return_value=[])):
             for malformed_cmd in malformed_commands:
                 result_str = await guide_function(malformed_cmd, ctx=mock_ctx)
                 result = json.loads(result_str)

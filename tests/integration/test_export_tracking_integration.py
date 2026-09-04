@@ -7,7 +7,7 @@ import pytest
 from mcp_guide.result import Result
 from mcp_guide.session import Session
 from mcp_guide.tools.tool_content import ExportContentArgs, export_content
-from tests.helpers import create_test_session, tool_result_payload
+from tests.helpers import create_test_session, request_context_for, tool_result_payload
 
 _test_session: Session | None = None
 
@@ -23,10 +23,10 @@ class TestExportStalenessIntegration:
     """Integration tests for export staleness detection."""
 
     @pytest.fixture(autouse=True)
-    async def bound_session(self, tmp_path, monkeypatch):
+    async def bound_session(self, runtime, tmp_path, monkeypatch):
         """Provide the production-shaped bound interaction required by exports."""
         global _test_session
-        session = await create_test_session("export-tracking", _config_dir_for_tests=str(tmp_path))
+        session = await create_test_session(runtime, "export-tracking")
         _test_session = session
 
         async def get_bound_session_and_project(_ctx=None, *, session_id=None):
@@ -144,24 +144,25 @@ class TestExportStalenessIntegration:
             args = ExportContentArgs(expression="docs", path="output.md")
 
             # First call - should succeed and create tracking entry
-            payload1 = tool_result_payload(await export_content(args, None))
+            session = await get_session()
+            request_context = await request_context_for(session)
+            payload1 = tool_result_payload(await export_content.__wrapped__(args, request_context))
             assert payload1["success"] is True
             assert "RAW FILE DATA" in payload1["instruction"]
             assert "`.knowledge/output.md`" in payload1["instruction"]
 
-            session = await get_session()
             project = await session.get_project()
             entry = project.get_export_entry("docs", None)
             assert entry is not None
             assert entry.metadata_hash == HASH
 
             # Second call - same hash, should return stale message
-            payload2 = tool_result_payload(await export_content(args, None))
+            payload2 = tool_result_payload(await export_content.__wrapped__(args, request_context))
             assert payload2["success"] is True
             assert "RAW FILE DATA" in payload2["instruction"]
             assert "`.knowledge/output.md`" in payload2["instruction"]
 
             # force=True bypasses staleness check
             args_force = ExportContentArgs(expression="docs", path="output.md", force=True)
-            payload3 = tool_result_payload(await export_content(args_force, None))
+            payload3 = tool_result_payload(await export_content.__wrapped__(args_force, request_context))
             assert payload3["success"] is True

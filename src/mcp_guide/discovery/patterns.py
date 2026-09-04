@@ -10,6 +10,7 @@ from anyio import Path as AsyncPath
 
 from mcp_guide.config_constants import COMMANDS_DIR, MAX_DOCUMENTS_PER_GLOB, MAX_GLOB_DEPTH
 from mcp_guide.core.mcp_log import get_logger
+from mcp_guide.lazy_path import LazyPath
 
 logger = get_logger(__name__)
 
@@ -199,8 +200,7 @@ async def safe_glob_search(search_dir: Path, patterns: List[str]) -> List[Path]:
         List of Path objects matching patterns, limited to MAX_DOCUMENTS_PER_GLOB
     """
     # Expand ~ and ${VAR} without resolving symlinks
-    expanded = os.path.expandvars(str(search_dir))
-    search_dir_expanded = Path(expanded).expanduser()
+    search_dir_expanded = LazyPath(search_dir).expand()
 
     matched_files: List[Path] = []
     seen_files: Set[Path] = set()

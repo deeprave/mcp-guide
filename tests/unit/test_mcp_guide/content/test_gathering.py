@@ -13,6 +13,7 @@ from mcp_guide.models import Category, Collection, Project
 from mcp_guide.models.exceptions import NoProjectError
 from mcp_guide.render.context import TemplateContext
 from mcp_guide.result_constants import INSTRUCTION_MISSING_POLICY
+from mcp_guide.runtime import RequestContext
 
 
 def _make_file(name: str, *, source: str = "file") -> FileInfo:
@@ -39,10 +40,24 @@ class _MockSession:
     async def get_docroot(self):
         return self._docroot
 
+    def resolve_document_path(self, relative_path):
+        return Path(self._docroot) / relative_path
+
     async def get_project(self):
         if self._project is None:
             raise NoProjectError("no project")
         return self._project
+
+
+async def _request_context(tmp_path, session=None):
+    """Build a RequestContext whose document resolver is rooted at ``tmp_path``."""
+    resolved = session if session is not None else _MockSession(str(tmp_path))
+    return RequestContext(
+        session_id="gather",
+        session=resolved,
+        seq=1,
+        document_path_resolver=lambda relative: Path(tmp_path) / relative,
+    )
 
 
 @pytest.mark.anyio
@@ -70,7 +85,7 @@ async def test_stored_and_filesystem_same_name_both_appear(tmp_path, monkeypatch
     monkeypatch.setattr("mcp_guide.content.gathering.discover_documents", mock_discover)
 
     session = _MockSession(str(tmp_path))
-    result = await gather_content(session, project, "docs")
+    result = await gather_content(await _request_context(tmp_path, session), project, "docs")
 
     assert len(result) == 2
     sources = {f.source for f in result}
@@ -100,7 +115,7 @@ async def test_stored_doc_deduped_across_overlapping_collections(tmp_path, monke
     monkeypatch.setattr("mcp_guide.content.gathering.discover_documents", mock_discover)
 
     session = _MockSession(str(tmp_path))
-    result = await gather_content(session, project, "col1,col2")
+    result = await gather_content(await _request_context(tmp_path, session), project, "col1,col2")
 
     # Same (category, name) from two collections → only one copy
     stored_results = [f for f in result if f.source == "store"]
@@ -123,7 +138,7 @@ async def test_underscore_prefix_file_excluded(tmp_path):
         categories={"policies": Category(dir="policies", name="policies", patterns=["*.md"])},
     )
     session = _MockSession(str(tmp_path))
-    result = await gather_category_fileinfos(session, project, "policies")
+    result = await gather_category_fileinfos(await _request_context(tmp_path, session), project, "policies")
 
     assert len(result) == 1
     assert result[0].name == "conservative.md"
@@ -142,7 +157,7 @@ async def test_underscore_prefix_directory_excluded(tmp_path):
         categories={"policies": Category(dir="policies", name="policies", patterns=["**/*.md"])},
     )
     session = _MockSession(str(tmp_path))
-    result = await gather_category_fileinfos(session, project, "policies")
+    result = await gather_category_fileinfos(await _request_context(tmp_path, session), project, "policies")
 
     assert len(result) == 1
     assert result[0].name == "conservative.md"
@@ -162,7 +177,7 @@ async def test_underscore_prefix_in_subdirectory_excluded(tmp_path):
         categories={"policies": Category(dir="policies", name="policies", patterns=["**/*.md"])},
     )
     session = _MockSession(str(tmp_path))
-    result = await gather_category_fileinfos(session, project, "policies")
+    result = await gather_category_fileinfos(await _request_context(tmp_path, session), project, "policies")
 
     assert len(result) == 1
     assert result[0].name == "git/ops/conservative.md"
@@ -194,7 +209,7 @@ async def test_stored_document_with_underscore_not_excluded(tmp_path):
     from unittest.mock import patch
 
     with patch("mcp_guide.content.gathering.discover_documents", side_effect=mock_discover):
-        result = await gather_category_fileinfos(session, project, "policies")
+        result = await gather_category_fileinfos(await _request_context(tmp_path, session), project, "policies")
 
     assert len(result) == 1
     assert result[0].name == "_custom.md"
@@ -226,7 +241,9 @@ async def test_trailing_slash_filters_to_matching_configured_patterns(tmp_path):
     )
     session = _MockSession(str(tmp_path))
     # trailing slash pattern → sub-path filter for "git/ops/"
-    result = await gather_category_fileinfos(session, project, "policies", patterns=["git/ops/"])
+    result = await gather_category_fileinfos(
+        await _request_context(tmp_path, session), project, "policies", patterns=["git/ops/"]
+    )
 
     assert len(result) == 1
     assert result[0].name == "git/ops/conservative.md"
@@ -250,7 +267,9 @@ async def test_trailing_slash_no_matching_configured_patterns_returns_empty(tmp_
         },
     )
     session = _MockSession(str(tmp_path))
-    result = await gather_category_fileinfos(session, project, "policies", patterns=["git/ops/"])
+    result = await gather_category_fileinfos(
+        await _request_context(tmp_path, session), project, "policies", patterns=["git/ops/"]
+    )
 
     assert result == []
 
@@ -277,7 +296,9 @@ async def test_no_trailing_slash_uses_pattern_as_override(tmp_path):
     )
     session = _MockSession(str(tmp_path))
     # No trailing slash → override: use "git/ops/conservative*" as pattern
-    result = await gather_category_fileinfos(session, project, "policies", patterns=["git/ops/conservative*"])
+    result = await gather_category_fileinfos(
+        await _request_context(tmp_path, session), project, "policies", patterns=["git/ops/conservative*"]
+    )
 
     assert len(result) == 1
     assert result[0].name == "git/ops/conservative.md"
@@ -303,7 +324,9 @@ async def test_trailing_slash_multiple_matching_patterns(tmp_path):
         },
     )
     session = _MockSession(str(tmp_path))
-    result = await gather_category_fileinfos(session, project, "policies", patterns=["git/ops/"])
+    result = await gather_category_fileinfos(
+        await _request_context(tmp_path, session), project, "policies", patterns=["git/ops/"]
+    )
 
     assert len(result) == 2
     names = {r.name for r in result}
@@ -314,25 +337,25 @@ async def test_trailing_slash_multiple_matching_patterns(tmp_path):
 
 
 @pytest.mark.anyio
-async def test_render_missing_policy_contains_constant():
+async def test_render_missing_policy_contains_constant(tmp_path):
     """Placeholder must contain INSTRUCTION_MISSING_POLICY."""
-    result = await render_missing_policy(_MockSession(""), "git/ops")
+    result = await render_missing_policy(await _request_context(tmp_path, _MockSession("")), "git/ops")
     assert INSTRUCTION_MISSING_POLICY in result
 
 
 @pytest.mark.anyio
-async def test_render_missing_policy_contains_topic():
+async def test_render_missing_policy_contains_topic(tmp_path):
     """Placeholder must contain the topic name."""
-    result = await render_missing_policy(_MockSession(""), "testing")
+    result = await render_missing_policy(await _request_context(tmp_path, _MockSession("")), "testing")
     assert "testing" in result
 
 
 @pytest.mark.anyio
-async def test_render_missing_policy_different_topics():
+async def test_render_missing_policy_different_topics(tmp_path):
     """Each topic produces distinct output."""
-    session = _MockSession("")
-    a = await render_missing_policy(session, "git/ops")
-    b = await render_missing_policy(session, "testing")
+    context = await _request_context(tmp_path, _MockSession(""))
+    a = await render_missing_policy(context, "git/ops")
+    b = await render_missing_policy(context, "testing")
     assert a != b
 
 
@@ -352,7 +375,9 @@ async def test_gather_policy_partials_no_policies_key_returns_empty(tmp_path):
         mtime=datetime(2024, 1, 1),
         name="doc.md",
     )
-    result = await _gather_policy_partials(_MockSession(str(tmp_path)), file_info, TemplateContext({}), {})
+    result = await _gather_policy_partials(
+        await _request_context(tmp_path, _MockSession(str(tmp_path))), file_info, TemplateContext({}), {}
+    )
     assert result == {}
 
 
@@ -370,7 +395,9 @@ async def test_gather_policy_partials_unbound_session_returns_empty(tmp_path):
         name="doc.md",
     )
 
-    result = await _gather_policy_partials(_MockSession(str(tmp_path)), file_info, TemplateContext({}), {})
+    result = await _gather_policy_partials(
+        await _request_context(tmp_path, _MockSession(str(tmp_path))), file_info, TemplateContext({}), {}
+    )
     assert result == {}
 
 
@@ -388,7 +415,9 @@ async def test_gather_policy_partials_no_project_returns_empty(tmp_path):
         name="doc.md",
     )
     session = _MockSession(str(tmp_path), project=None)
-    result = await _gather_policy_partials(session, file_info, TemplateContext({}), {})
+    result = await _gather_policy_partials(
+        await _request_context(tmp_path, session), file_info, TemplateContext({}), {}
+    )
     assert result == {}
 
 
@@ -413,7 +442,9 @@ async def test_gather_policy_partials_no_match_returns_placeholder(tmp_path, mon
     (tmp_path / "policies" / "testing").mkdir(parents=True)
     (tmp_path / "policies" / "testing" / "strict.md").write_text("# Strict")
     session = _MockSession(str(tmp_path), project=project)
-    result = await _gather_policy_partials(session, file_info, TemplateContext({}), {})
+    result = await _gather_policy_partials(
+        await _request_context(tmp_path, session), file_info, TemplateContext({}), {}
+    )
 
     assert "git/ops" in result
     assert INSTRUCTION_MISSING_POLICY in result["git/ops"]
@@ -453,7 +484,9 @@ async def test_gather_policy_partials_matching_topic_renders_content(tmp_path, m
     session = _MockSession(str(tmp_path), project=project)
     rendered = type("Rendered", (), {"content": "Use conservative git ops."})()
     monkeypatch.setattr("mcp_guide.content.utils.render_template", AsyncMock(return_value=rendered))
-    result = await _gather_policy_partials(session, file_info, TemplateContext({}), {})
+    result = await _gather_policy_partials(
+        await _request_context(tmp_path, session), file_info, TemplateContext({}), {}
+    )
 
     assert "git/ops" in result
     assert "Use conservative git ops." in result["git/ops"]

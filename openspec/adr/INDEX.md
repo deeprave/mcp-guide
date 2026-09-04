@@ -63,6 +63,13 @@ This index tracks all ADRs including historical decisions that have been superse
 **Dependencies:** ADR-011
 **Summary:** Defines explicit FastMCP interaction IDs, GuideRuntime-owned Sessions, and the limited stdio PWD bootstrap.
 
+### ADR-013: Portable Configuration Path Values
+**Status:** Accepted
+**Date:** 2026-09-03
+**File:** [013-portable-configuration-paths.md](013-portable-configuration-paths.md)
+**Related change:** `use-request-context`
+**Summary:** User-supplied configuration paths, including `docroot`, stay as written. A user-anchored value is already absolute from the user's point of view and must not be rewritten into a host-absolute path. Missing-key defaults remain host-absolute beside the configuration file.
+
 ## Historical ADRs
 
 ### ADR-002: MCP Server Framework
@@ -104,7 +111,7 @@ ADR numbers are assigned sequentially and are never reused. When an ADR is super
 ## Maintenance
 
 When creating a new ADR:
-1. Use the next available number (currently: 013)
+1. Use the next available number (currently: 014)
 2. Add entry to this index
 3. Update "Supersedes" field if replacing an existing ADR
 4. Move superseded ADR to "Historical ADRs" section

@@ -44,9 +44,10 @@ application-facing façade for configuration operations.
 Public FastMCP decorators and resource/prompt adapters will be the only layer
 that accepts a raw FastMCP context.  They will resolve the interaction and
 construct a `RequestContext` before calling application code.  The resulting
-context will carry the validated interaction owner, protocol/client metadata,
-resolved `Session`, response metadata facilities, and, when bound, root and
-project values.
+context carries the client `session_id`, resolved `Session`, and, when bound,
+root and project values. Protocol revision, request identity, owner keys, and
+client metadata are consumed at the transport boundary and are not application
+context fields.
 
 Internal tool, prompt, resource, command, rendering, and result-processing
 functions will accept this `RequestContext` (or an explicitly supplied
@@ -57,17 +58,15 @@ the identifier and silently resolve a different Session.
 
 ### Model active configuration as the actual Project
 
-`RequestContext` will contain `root: RootIdentity | None` and
-`project: Project | None`.  The project reference is the exact immutable object
-currently selected by the resolved Session, not an `ActiveConfiguration` copy
-or a second identity shape.  `ActiveConfiguration` will be removed.
-
+`RequestContext` will contain `session_id: str | None`, `session: Session`,
+`root: RootIdentity | None`, and `project: Project | None`. The project reference is the Session's currently selected immutable Project,
+exposed as a `RequestContext.project` property rather than a frozen snapshot.
 An unbound interaction has neither root nor project.  Helpers that require a
 bound project will reject that state clearly.  Configuration writes remain
-Session operations: the Session performs the update and returns/rebinds a
-replacement immutable Project; later work in the request uses that replacement
-instead of mutating the context's prior project reference.  This preserves the
-existing immutability model while making normal configuration reads direct.
+Session operations: the Session performs the update and rebinds a replacement
+immutable Project; later work in the request reads `RequestContext.project` and
+therefore sees that replacement.  This preserves the existing immutability
+model while making normal configuration reads direct.
 
 ### Keep application services behind context and runtime helpers
 
@@ -76,10 +75,23 @@ needs during an invocation: project/root access, task-result processing, and
 runtime-owned services.  These helpers delegate to its resolved Session or
 `GuideRuntime` rather than re-discovering state from FastMCP.
 
-`ConfigManager` remains private to `GuideRuntime`.  For example, the runtime
-will provide a docroot/configuration façade that always obtains the current
-value from the manager; it will not cache a second docroot value.  Tests may
-access the manager only through explicit test fixtures or construction seams.
+`ConfigManager` remains private to `GuideRuntime`. `create_runtime()` is the
+only site that constructs a `GuideRuntime` and installs it as the process
+singleton. A second install while that slot is occupied raises.
+`get_runtime()` returns that instance. `stop()` is the only
+release, after which a later `create_runtime()` may install a successor.
+Session keeps a private `_runtime` for
+its own configuration-service use and does not publish it. Feature flags are
+a runtime concern, not a Session concern. RequestContext never exposes the
+configured document root. It captures a sync resolver once via
+`get_docroot_resolver` (or asks the runtime to provide that function).
+That function is sync so a hot path can resolve many document paths without
+awaiting each join. Formatters receive that function rather than a
+document-root path. The
+runtime still returns the configured docroot for installer-state and
+security-boundary checks; a missing user-supplied value uses the
+config-adjacent default. Tests may access the manager only through explicit
+test fixtures or construction seams.
 
 ### Remove ambient interaction ownership
 

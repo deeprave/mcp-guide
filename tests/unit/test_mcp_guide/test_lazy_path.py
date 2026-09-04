@@ -124,6 +124,24 @@ async def test_lazypath_expanduser_only():
 
 
 @pytest.mark.anyio
+async def test_lazypath_aresolve_matches_resolve_and_supports_async_io(tmp_path):
+    """aresolve uses the same path rule and returns an anyio path."""
+    from anyio import Path as AsyncPath
+
+    target = tmp_path / "docs"
+    target.mkdir()
+    os.environ["GUIDE_LAZY_DOCS"] = str(target)
+    lazy = LazyPath("$GUIDE_LAZY_DOCS")
+    resolved = lazy.resolve()
+    async_resolved = await LazyPath("$GUIDE_LAZY_DOCS").aresolve()
+    assert isinstance(async_resolved, AsyncPath)
+    assert Path(async_resolved) == resolved
+    assert await async_resolved.exists()
+    cached = await lazy.aresolve()
+    assert Path(cached) == resolved
+
+
+@pytest.mark.anyio
 async def test_lazypath_expandvars_only():
     """Test expandvars() only expands env vars, not tilde."""
     os.environ["TEST_VAR"] = "value"

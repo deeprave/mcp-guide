@@ -5,7 +5,6 @@
 from dataclasses import replace
 from typing import Any, Literal, Optional
 
-from fastmcp import Context
 from pydantic import Field
 
 from mcp_guide.core.mcp_log import get_logger
@@ -19,22 +18,19 @@ from mcp_guide.result_constants import (
     ERROR_INVALID_NAME,
     ERROR_NOT_FOUND,
     ERROR_PROJECT,
+    ERROR_PROJECT_LOAD,
     ERROR_SAFEGUARD,
-    ERROR_UNEXPECTED,
     INSTRUCTION_NOTFOUND_ERROR,
-    make_invalid_session_result,
     make_no_project_result,
 )
+from mcp_guide.runtime import RequestContext
 from mcp_guide.session import (
-    InvalidGuideSessionError,
-    get_session,
+    bind_session_project,
     list_all_projects,
-    mint_modern_session_id,
-    retire_minted_session,
 )
-from mcp_guide.session import set_project as session_set_project
 from mcp_guide.tools.tool_helpers import get_session_and_project
 from mcp_guide.tools.tool_result import ToolResult, tool_result
+from mcp_guide.validation import InvalidProjectNameError
 
 logger = get_logger(__name__)
 
@@ -98,11 +94,19 @@ class CloneProjectArgs(ToolArguments):
     from_project: str = Field(
         description="Source project name, or its exact <name>-<hash> configuration key when the name is ambiguous"
     )
-    merge: bool = Field(default=True, description="If True, merge with existing config; if False, replace")
-    force: bool = Field(default=False, description="If True, bypass safeguards")
+    merge: bool = Field(
+        default=True, description="If True, merge with the bound project's config; if False, replace it"
+    )
+    force: bool = Field(
+        default=False,
+        description=(
+            "If True, allow replace mode (merge=False) when the bound project already has "
+            "categories or collections. Ignored when merge=True."
+        ),
+    )
 
 
-async def internal_get_project(args: GetCurrentProjectArgs, ctx: Optional[Context] = None) -> Result[dict]:
+async def internal_get_project(args: GetCurrentProjectArgs, request_context: RequestContext) -> Result[dict]:
     """Get information about the currently active project.
 
     Returns project name, collections, and categories. Use verbose=True for
@@ -110,12 +114,12 @@ async def internal_get_project(args: GetCurrentProjectArgs, ctx: Optional[Contex
 
     Args:
         args: Tool arguments with verbose flag
-        ctx: MCP Context (auto-injected by FastMCP)
+        request_context: Resolved application request context
 
     Returns:
         Result containing project information
     """
-    session, project = await get_session_and_project(ctx, session_id=getattr(args, "session_id", None))
+    session, project = await get_session_and_project(request_context)
     if project is None:
         return await make_no_project_result()
 
@@ -127,94 +131,58 @@ async def internal_get_project(args: GetCurrentProjectArgs, ctx: Optional[Contex
 
 
 @toolfunc(GetCurrentProjectArgs)
-async def get_project(args: GetCurrentProjectArgs, ctx: Optional[Context] = None) -> ToolResult:
+async def get_project(args: GetCurrentProjectArgs, request_context: RequestContext) -> ToolResult:
     """Get information about the currently active project.
 
     Returns project name, collections, and categories. Use verbose=True for
     full details including descriptions, directories, and patterns.
     """
-    result = await internal_get_project(args, ctx)
-    return await tool_result("get_project", result, ctx=ctx, session_id=args.session_id)
+    result = await internal_get_project(args, request_context)
+    return await tool_result("get_project", result, session=request_context.session, session_id=args.session_id)
 
 
-async def internal_set_project(args: SetCurrentProjectArgs, ctx: Optional[Context] = None) -> Result[dict[str, Any]]:
+async def internal_set_project(args: SetCurrentProjectArgs, request_context: RequestContext) -> Result[dict[str, Any]]:
     """Bind this interaction to a client project root.
 
-    Creates new project with default categories if it doesn't exist. Use verbose=True
-    for full project details after switching.
+    Creates a new project with default categories if none exists. Use verbose=True
+    for full project details after binding.
 
     Args:
         args: Tool arguments with absolute path and verbose flag
-        ctx: MCP Context (auto-injected by FastMCP)
+        request_context: Resolved application request context
 
     Returns:
         Result containing switch confirmation and optional project details
     """
-    session_id = args.session_id
-    minted_session_id: str | None = None
-    # FastMCP's modern Context exposes the supported persistent session store.
-    # Mint only while binding a new modern interaction; retained clients keep
-    # their FastMCP connection identity and test callers deliberately avoid an
-    # SDK-backed Context.
-    if session_id is None and isinstance(ctx, Context):
-        request = ctx.request_context
-        if request is not None and request.protocol_version == "2026-07-28":
-            session_id = await mint_modern_session_id(ctx)
-            assert session_id is not None
-            minted_session_id = session_id
+    try:
+        project = await bind_session_project(request_context.session, args.path)
+    except InvalidProjectNameError as error:
+        return Result.failure(str(error), error_type=ERROR_INVALID_NAME)
+    except ValueError as error:
+        return Result.failure(str(error), error_type=ERROR_PROJECT)
+    except Exception as error:
+        return Result.failure(str(error), error_type=ERROR_PROJECT_LOAD)
 
-    set_result: Result[Project] = await session_set_project(args.path, ctx, session_id=session_id)
-
-    if set_result.is_ok():
-        project = set_result.value
-        assert project is not None  # is_ok() guarantees value is set
-
-        # Get session for flag resolution
-        session = None
-        try:
-            session = await get_session(ctx, session_id=session_id)
-        except InvalidGuideSessionError:
-            return make_invalid_session_result()
-        except ValueError:
-            # Continue with session=None, which will include empty flags
-            pass
-
-        response = await format_project_data(project, verbose=args.verbose, session=session)
-
-        # Include project name in response for single project operations
-        response["project"] = project.name
-        if minted_session_id is not None:
-            args.session_id = minted_session_id
-            response["session_id"] = minted_session_id
-
-        return Result.ok(response, message=f"Bound project root for '{project.name}'")
-
-    # Convert Result[Project] error to Result[dict] error while preserving metadata
-    if minted_session_id is not None:
-        await retire_minted_session(ctx, minted_session_id)
-    return Result.failure(
-        set_result.error or "Unknown error",
-        error_type=set_result.error_type or ERROR_UNEXPECTED,
-        instruction=set_result.instruction,
-        message=set_result.message,
-    )
+    response = await format_project_data(project, verbose=args.verbose, session=request_context.session)
+    response["project"] = project.name
+    return Result.ok(response, message=f"Bound project root for '{project.name}'")
 
 
 @toolfunc(SetCurrentProjectArgs, requires_project=False, binds_project=True)
-async def set_project(args: SetCurrentProjectArgs, ctx: Optional[Context] = None) -> ToolResult:
+async def set_project(args: SetCurrentProjectArgs, request_context: RequestContext) -> ToolResult:
     """Bind this interaction to a client project root.
 
-    Creates new project with default categories if it doesn't exist. Use verbose=True
-    for full project details after switching.
+    Creates a new project with default categories if none exists. Use verbose=True
+    for full project details after binding.
     """
-    result = await internal_set_project(args, ctx)
-    return await tool_result("set_project", result, ctx=ctx, session_id=args.session_id)
+    result = await internal_set_project(args, request_context)
+    return await tool_result("set_project", result, session=request_context.session, session_id=args.session_id)
 
 
-async def internal_switch_project(args: SwitchProjectArgs, ctx: Optional[Context] = None) -> Result[dict[str, Any]]:
+async def internal_switch_project(args: SwitchProjectArgs, request_context: RequestContext) -> Result[dict[str, Any]]:
     """Select a named configuration without changing the bound filesystem root."""
     try:
-        session = await get_session(ctx, session_id=args.session_id)
+        session = request_context.session
         if not session.project_is_bound:
             return await make_no_project_result()
         await session.switch_project(args.name)
@@ -222,20 +190,18 @@ async def internal_switch_project(args: SwitchProjectArgs, ctx: Optional[Context
         response = await format_project_data(project, verbose=args.verbose, session=session)
         response["project"] = project.name
         return Result.ok(response, message=f"Selected configuration project '{project.name}'")
-    except InvalidGuideSessionError:
-        return make_invalid_session_result()
     except ValueError as error:
         return Result.failure(str(error), error_type=ERROR_INVALID_NAME)
 
 
 @toolfunc(SwitchProjectArgs)
-async def switch_project(args: SwitchProjectArgs, ctx: Optional[Context] = None) -> ToolResult:
+async def switch_project(args: SwitchProjectArgs, request_context: RequestContext) -> ToolResult:
     """Switch active configuration project while retaining the bound root."""
-    result = await internal_switch_project(args, ctx)
-    return await tool_result("switch_project", result, ctx=ctx, session_id=args.session_id)
+    result = await internal_switch_project(args, request_context)
+    return await tool_result("switch_project", result, session=request_context.session, session_id=args.session_id)
 
 
-async def internal_list_projects(args: ListProjectsArgs, ctx: Optional[Context] = None) -> Result[dict]:
+async def internal_list_projects(args: ListProjectsArgs, request_context: RequestContext) -> Result[dict]:
     """List all available projects.
 
     Returns project names (non-verbose) or full project details (verbose).
@@ -243,27 +209,26 @@ async def internal_list_projects(args: ListProjectsArgs, ctx: Optional[Context] 
 
     Args:
         args: Tool arguments with verbose flag
-        ctx: MCP Context (auto-injected by FastMCP)
+        request_context: Resolved application request context
 
     Returns:
         Result containing projects list or dict
     """
-    session = await get_session(ctx, session_id=args.session_id)
-    return await list_all_projects(verbose=args.verbose, session=session)
+    return await list_all_projects(verbose=args.verbose, session=request_context.session)
 
 
 @toolfunc(ListProjectsArgs, requires_project=False)
-async def list_projects(args: ListProjectsArgs, ctx: Optional[Context] = None) -> ToolResult:
+async def list_projects(args: ListProjectsArgs, request_context: RequestContext) -> ToolResult:
     """List all available projects.
 
     Returns project names (non-verbose) or full project details (verbose).
     Does not require a current project context.
     """
-    result = await internal_list_projects(args, ctx)
-    return await tool_result("list_projects", result, ctx=ctx, session_id=args.session_id)
+    result = await internal_list_projects(args, request_context)
+    return await tool_result("list_projects", result, session=request_context.session, session_id=args.session_id)
 
 
-async def internal_list_project(args: ListProjectArgs, ctx: Optional[Context] = None) -> Result[dict[str, Any]]:
+async def internal_list_project(args: ListProjectArgs, request_context: RequestContext) -> Result[dict[str, Any]]:
     """Get information about a specific project by name.
 
     Returns project details without switching the current project.
@@ -271,7 +236,7 @@ async def internal_list_project(args: ListProjectArgs, ctx: Optional[Context] = 
 
     Args:
         args: Tool arguments with name and verbose flag
-        ctx: MCP Context (auto-injected by FastMCP)
+        request_context: Resolved application request context
 
     Returns:
         Result containing project data
@@ -281,13 +246,13 @@ async def internal_list_project(args: ListProjectArgs, ctx: Optional[Context] = 
 
         if args.name is None:
             # Get current project - always need session
-            session = await get_session(ctx, session_id=args.session_id)
+            session = request_context.session
             project = await session.get_project()
             project_name = session.project_name
         else:
             # A configuration key is exact. A display name is accepted only
             # when it selects one strict, valid configuration.
-            session = await get_session(ctx, session_id=args.session_id)
+            session = request_context.session
             projects = await session.get_all_projects()
             if args.name in projects:
                 project = projects[args.name]
@@ -305,8 +270,7 @@ async def internal_list_project(args: ListProjectArgs, ctx: Optional[Context] = 
         data = dataclasses.asdict(project)
         data["project"] = project_name
 
-        # Add flags if verbose and session available
-        if args.verbose and session is not None:
+        if args.verbose:
             try:
                 flags = await session.project_flags().list()
                 if flags:
@@ -320,17 +284,17 @@ async def internal_list_project(args: ListProjectArgs, ctx: Optional[Context] = 
 
 
 @toolfunc(ListProjectArgs)
-async def list_project(args: ListProjectArgs, ctx: Optional[Context] = None) -> ToolResult:
+async def list_project(args: ListProjectArgs, request_context: RequestContext) -> ToolResult:
     """Get information about a specific project by name.
 
     Returns project details without switching the current project.
     If no name provided, returns current project information.
     """
-    result = await internal_list_project(args, ctx)
-    return await tool_result("list_project", result, ctx=ctx, session_id=args.session_id)
+    result = await internal_list_project(args, request_context)
+    return await tool_result("list_project", result, session=request_context.session, session_id=args.session_id)
 
 
-async def internal_clone_project(args: CloneProjectArgs, ctx: Optional[Context] = None) -> Result[dict]:
+async def internal_clone_project(args: CloneProjectArgs, request_context: RequestContext) -> Result[dict]:
     """Copy project configuration into the currently bound project.
 
     Clones categories and collections from source project to target project.
@@ -338,7 +302,7 @@ async def internal_clone_project(args: CloneProjectArgs, ctx: Optional[Context] 
 
     Args:
         args: Tool arguments with from_project, merge, and force flags
-        ctx: MCP Context (auto-injected by FastMCP)
+        request_context: Resolved application request context
 
     Returns:
         Result containing clone statistics and warnings
@@ -363,12 +327,8 @@ async def internal_clone_project(args: CloneProjectArgs, ctx: Optional[Context] 
         )
 
     # Cloning is only meaningful for an explicitly bound current project.
-    try:
-        session = await get_session(ctx, session_id=args.session_id)
-        current_project = await session.get_project()
-    except InvalidGuideSessionError:
-        return make_invalid_session_result()
-    except ValueError:
+    session, current_project = await get_session_and_project(request_context)
+    if current_project is None:
         return await make_no_project_result()
 
     # Resolve the source through the shared configuration.  This admits an
@@ -464,14 +424,15 @@ async def internal_clone_project(args: CloneProjectArgs, ctx: Optional[Context] 
 
 
 @toolfunc(CloneProjectArgs)
-async def clone_project(args: CloneProjectArgs, ctx: Optional[Context] = None) -> ToolResult:
-    """Copy project configuration from one project to another.
+async def clone_project(args: CloneProjectArgs, request_context: RequestContext) -> ToolResult:
+    """Copy categories and collections from a source project into the currently bound project.
 
-    Clones categories and collections from source project to target project.
-    Supports merge (combine configs) or replace (overwrite) modes with safeguards.
+    There is no target argument; the destination is always this interaction's bound project.
+    merge=True combines configs; merge=False replaces. force=True is required to replace a
+    non-empty target.
     """
-    result = await internal_clone_project(args, ctx)
-    return await tool_result("clone_project", result, ctx=ctx, session_id=args.session_id)
+    result = await internal_clone_project(args, request_context)
+    return await tool_result("clone_project", result, session=request_context.session, session_id=args.session_id)
 
 
 def _detect_conflicts(source: Project, target: Project) -> tuple[list[str], list[str]]:
@@ -562,7 +523,7 @@ class UseProjectProfileArgs(ToolArguments):
     profile: str = Field(description="Name of the profile to apply (e.g., 'python', 'jira')")
 
 
-async def internal_use_project_profile(args: UseProjectProfileArgs, ctx: Optional[Context] = None) -> Result[str]:
+async def internal_use_project_profile(args: UseProjectProfileArgs, request_context: RequestContext) -> Result[str]:
     """Apply a profile to the current project.
 
     Profiles are additive - they add categories and collections without removing existing ones.
@@ -570,14 +531,14 @@ async def internal_use_project_profile(args: UseProjectProfileArgs, ctx: Optiona
 
     Args:
         args: Profile arguments
-        ctx: MCP context
+        request_context: Resolved application request context
 
     Returns:
         Result with success message or error
     """
     from mcp_guide.models.profile import Profile
 
-    session, project = await get_session_and_project(ctx, session_id=getattr(args, "session_id", None))
+    session, project = await get_session_and_project(request_context)
     if project is None:
         return await make_no_project_result()
 
@@ -599,15 +560,15 @@ async def internal_use_project_profile(args: UseProjectProfileArgs, ctx: Optiona
 
 
 @toolfunc(UseProjectProfileArgs)
-async def use_project_profile(args: UseProjectProfileArgs, ctx: Optional[Context] = None) -> ToolResult:
+async def use_project_profile(args: UseProjectProfileArgs, request_context: RequestContext) -> ToolResult:
     """Apply a profile to the current project.
 
     Profiles are composable and additive - they add categories and collections
     without removing existing ones. Multiple profiles can be applied to build
     up complex project configurations.
     """
-    result = await internal_use_project_profile(args, ctx)
-    return await tool_result("use_project_profile", result, ctx=ctx, session_id=args.session_id)
+    result = await internal_use_project_profile(args, request_context)
+    return await tool_result("use_project_profile", result, session=request_context.session, session_id=args.session_id)
 
 
 class ListProfilesArgs(ToolArguments):
@@ -618,12 +579,12 @@ class ListProfilesArgs(ToolArguments):
     )
 
 
-async def internal_list_profiles(args: ListProfilesArgs, ctx: Optional[Context] = None) -> Result[list[str]]:
+async def internal_list_profiles(args: ListProfilesArgs, request_context: RequestContext) -> Result[list[str]]:
     """List available profiles.
 
     Args:
         args: List profiles arguments
-        ctx: MCP context
+        request_context: Resolved application request context
 
     Returns:
         Result with list of profile names
@@ -652,14 +613,14 @@ async def internal_list_profiles(args: ListProfilesArgs, ctx: Optional[Context] 
 
 
 @toolfunc(ListProfilesArgs, requires_project=False)
-async def list_profiles(args: ListProfilesArgs, ctx: Optional[Context] = None) -> ToolResult:
+async def list_profiles(args: ListProfilesArgs, request_context: RequestContext) -> ToolResult:
     """List available profiles.
 
     Returns names of pre-configured project profiles. Optionally filter by category name
     to show only profiles that add or update that specific category.
     """
-    result = await internal_list_profiles(args, ctx)
-    return await tool_result("list_profiles", result, ctx=ctx, session_id=args.session_id)
+    result = await internal_list_profiles(args, request_context)
+    return await tool_result("list_profiles", result, session=request_context.session, session_id=args.session_id)
 
 
 class ShowProfileArgs(ToolArguments):
@@ -668,12 +629,12 @@ class ShowProfileArgs(ToolArguments):
     profile: str = Field(description="Name of the profile to show")
 
 
-async def internal_show_profile(args: ShowProfileArgs, ctx: Optional[Context] = None) -> Result[dict[str, Any]]:
+async def internal_show_profile(args: ShowProfileArgs, request_context: RequestContext) -> Result[dict[str, Any]]:
     """Show profile details.
 
     Args:
         args: Show profile arguments
-        ctx: MCP context
+        request_context: Resolved application request context
 
     Returns:
         Result with profile details
@@ -714,14 +675,14 @@ async def internal_show_profile(args: ShowProfileArgs, ctx: Optional[Context] = 
 
 
 @toolfunc(ShowProfileArgs, requires_project=False)
-async def show_profile(args: ShowProfileArgs, ctx: Optional[Context] = None) -> ToolResult:
+async def show_profile(args: ShowProfileArgs, request_context: RequestContext) -> ToolResult:
     """Show profile details.
 
     Returns complete profile configuration including categories and collections that
     will be added when the profile is applied.
     """
-    result = await internal_show_profile(args, ctx)
-    return await tool_result("show_profile", result, ctx=ctx, session_id=args.session_id)
+    result = await internal_show_profile(args, request_context)
+    return await tool_result("show_profile", result, session=request_context.session, session_id=args.session_id)
 
 
 # Permission Management Tools
@@ -731,29 +692,39 @@ class AddPermissionPathArgs(ToolArguments):
     """Arguments for add_permission_path tool."""
 
     permission_type: Literal["read", "write"] = Field(description="Permission type: 'read' or 'write'")
-    path: str = Field(description="Path to add to permissions")
+    path: str = Field(
+        description=(
+            "Client filesystem path to grant. Write paths may be project-relative or absolute "
+            "and must not be a system directory. Read paths must be absolute and must not be a "
+            "system directory."
+        ),
+    )
 
 
 class RemovePermissionPathArgs(ToolArguments):
     """Arguments for remove_permission_path tool."""
 
     permission_type: Literal["read", "write"] = Field(description="Permission type: 'read' or 'write'")
-    path: str = Field(description="Path to remove from permissions")
+    path: str = Field(
+        description=(
+            "Client filesystem path to revoke. Must match a path previously added for the same permission_type."
+        ),
+    )
 
 
-async def internal_add_permission_path(args: AddPermissionPathArgs, ctx: Optional[Context] = None) -> Result:
+async def internal_add_permission_path(args: AddPermissionPathArgs, request_context: RequestContext) -> Result:
     """Add path to project permissions.
 
     Args:
         args: Add permission path arguments
-        ctx: MCP context
+        request_context: Resolved application request context
 
     Returns:
         Result with success message
     """
     from mcp_guide.models.project import Project
 
-    session, project = await get_session_and_project(ctx, session_id=getattr(args, "session_id", None))
+    session, project = await get_session_and_project(request_context)
     if project is None:
         return await make_no_project_result()
 
@@ -789,17 +760,17 @@ async def internal_add_permission_path(args: AddPermissionPathArgs, ctx: Optiona
     return Result.ok(f"Added '{args.path}' to {args.permission_type} permissions")
 
 
-async def internal_remove_permission_path(args: RemovePermissionPathArgs, ctx: Optional[Context] = None) -> Result:
+async def internal_remove_permission_path(args: RemovePermissionPathArgs, request_context: RequestContext) -> Result:
     """Remove path from project permissions.
 
     Args:
         args: Remove permission path arguments
-        ctx: MCP context
+        request_context: Resolved application request context
 
     Returns:
         Result with success message
     """
-    session, project = await get_session_and_project(ctx, session_id=getattr(args, "session_id", None))
+    session, project = await get_session_and_project(request_context)
     if project is None:
         return await make_no_project_result()
 
@@ -820,22 +791,24 @@ async def internal_remove_permission_path(args: RemovePermissionPathArgs, ctx: O
 
 
 @toolfunc(AddPermissionPathArgs)
-async def add_permission_path(args: AddPermissionPathArgs, ctx: Optional[Context] = None) -> ToolResult:
+async def add_permission_path(args: AddPermissionPathArgs, request_context: RequestContext) -> ToolResult:
     """Add path to project permissions.
 
     Grants read or write permission for the specified path in the current project.
     Paths are stored in project configuration and enforced by the MCP server.
     """
-    result = await internal_add_permission_path(args, ctx)
-    return await tool_result("add_permission_path", result, ctx=ctx, session_id=args.session_id)
+    result = await internal_add_permission_path(args, request_context)
+    return await tool_result("add_permission_path", result, session=request_context.session, session_id=args.session_id)
 
 
 @toolfunc(RemovePermissionPathArgs)
-async def remove_permission_path(args: RemovePermissionPathArgs, ctx: Optional[Context] = None) -> ToolResult:
+async def remove_permission_path(args: RemovePermissionPathArgs, request_context: RequestContext) -> ToolResult:
     """Remove path from project permissions.
 
     Revokes read or write permission for the specified path in the current project.
     The path must have been previously added to permissions.
     """
-    result = await internal_remove_permission_path(args, ctx)
-    return await tool_result("remove_permission_path", result, ctx=ctx, session_id=args.session_id)
+    result = await internal_remove_permission_path(args, request_context)
+    return await tool_result(
+        "remove_permission_path", result, session=request_context.session, session_id=args.session_id
+    )

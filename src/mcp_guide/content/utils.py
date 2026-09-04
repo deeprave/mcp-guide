@@ -27,7 +27,7 @@ from mcp_guide.result_constants import (
 )
 
 if TYPE_CHECKING:
-    from mcp_guide.session import Session
+    from mcp_guide.runtime import RequestContext
 
 logger = get_logger(__name__)
 
@@ -177,7 +177,7 @@ def combine_instructions(instructions_with_importance: list[tuple[str, bool]]) -
 
 
 async def _gather_policy_partials(
-    session: "Session",
+    request_context: "RequestContext",
     file_info: FileInfo,
     template_context: TemplateContext,
     project_flags: dict[str, Any],
@@ -197,6 +197,8 @@ async def _gather_policy_partials(
     """
     # Deferred import to avoid circular dependency (content.gathering imports content.utils)
     from mcp_guide.content.gathering import gather_category_fileinfos
+
+    session = request_context.session
 
     # Quick-parse frontmatter to detect `policies:` key
     try:
@@ -226,8 +228,7 @@ async def _gather_policy_partials(
         logger.trace("_gather_policy_partials: project has no 'policies' category — skipping")
         return {}
 
-    docroot = Path(await session.runtime.get_docroot())
-    policy_base_dir = docroot / policies_category.dir
+    policy_base_dir = request_context.resolve_document_path(policies_category.dir)
     logger.trace(
         "_gather_policy_partials: policies base dir=%s, patterns=%s", policy_base_dir, policies_category.patterns
     )
@@ -239,7 +240,7 @@ async def _gather_policy_partials(
             continue
 
         try:
-            policy_files = await gather_category_fileinfos(session, project, "policies", patterns=[f"{topic}/"])
+            policy_files = await gather_category_fileinfos(request_context, project, "policies", patterns=[f"{topic}/"])
         except (CategoryNotFoundError, OSError):
             logger.warning("Failed to discover policy files for topic %r", topic, exc_info=True)
             policy_files = []
@@ -248,16 +249,18 @@ async def _gather_policy_partials(
 
         if not policy_files:
             logger.trace("_gather_policy_partials: topic=%r — no files found, using placeholder", topic)
-            pre_partials[topic] = await render_missing_policy(session, topic)
+            pre_partials[topic] = await render_missing_policy(request_context, topic)
             continue
 
         rendered_parts: list[str] = []
         for policy_file in policy_files:
-            policy_file.resolve(policy_base_dir, docroot)
-            try:
-                policy_path = str(policy_file.path.relative_to(docroot))
-            except ValueError:
-                policy_path = policy_file.path.name
+            relative_policy = (
+                Path(policies_category.dir) / policy_file.path
+                if not policy_file.path.is_absolute()
+                else Path(policy_file.name)
+            )
+            policy_file.resolve(request_context.resolve_document_path, policies_category.dir)
+            policy_path = relative_policy.as_posix()
             policy_context = template_context.new_child(
                 {
                     "policy_topic": topic,
@@ -286,14 +289,14 @@ async def _gather_policy_partials(
                 logger.warning("Failed to render policy file %s for topic %r", policy_file.path, topic, exc_info=True)
 
         pre_partials[topic] = (
-            "\n\n".join(rendered_parts) if rendered_parts else await render_missing_policy(session, topic)
+            "\n\n".join(rendered_parts) if rendered_parts else await render_missing_policy(request_context, topic)
         )
         logger.trace("_gather_policy_partials: topic=%r → %d chars", topic, len(pre_partials[topic]))
 
     return pre_partials
 
 
-async def render_missing_policy(session: "Session", topic: str) -> str:
+async def render_missing_policy(request_context: "RequestContext", topic: str) -> str:
     """Render the missing-policy placeholder for a topic with no active selection.
 
     Renders `_missing_policy` from the _system category so the placeholder content
@@ -303,7 +306,13 @@ async def render_missing_policy(session: "Session", topic: str) -> str:
     """
     context = TemplateContext({"policy_topic": topic})
     try:
-        rendered = await render_content(session, "_missing_policy", "_system", context)
+        rendered = await render_content(
+            request_context.session,
+            "_missing_policy",
+            "_system",
+            context,
+            resolver=request_context.get_docroot_resolver(),
+        )
         if rendered is not None:
             return rendered.content
     except Exception:
@@ -326,25 +335,25 @@ def resolve_patterns(override_pattern: Optional[str], default_patterns: list[str
 
 
 async def read_and_render_file_contents(
-    session: "Session",
+    request_context: "RequestContext",
     files: list[FileInfo],
     base_dir: Path,
-    docroot: Path,
     template_context: Optional[TemplateContext] = None,
     category_prefix: Optional[str] = None,
 ) -> list[str]:
     """Read and render content for FileInfo objects with template support.
 
     Args:
+        request_context: Resolved application request context
         files: List of FileInfo objects to read and render
-        base_dir: Base directory for resolving file paths
-        docroot: Document root for security validation
+        base_dir: Template render base directory
         template_context: Optional template context for rendering
         category_prefix: Optional prefix to add to basenames (e.g. "category")
 
     Returns:
         List of error messages for files that failed to read or render
     """
+    session = request_context.session
     file_read_errors: list[str] = []
 
     # Check if any files are templates to avoid unnecessary context validation
@@ -381,7 +390,8 @@ async def read_and_render_file_contents(
     for file_info in files:
         try:
             # Resolve the file path with security validation
-            file_info.resolve(base_dir, docroot)
+            relative_dir = file_info.category.dir if file_info.category is not None else ""
+            file_info.resolve(request_context.resolve_document_path, relative_dir)
 
             # For template files, use render_template API (it handles parsing)
             if has_templates and is_template_file(file_info):
@@ -403,7 +413,7 @@ async def read_and_render_file_contents(
                 try:
                     # Pre-render any policy partials declared in the template's frontmatter
                     pre_partials = await _gather_policy_partials(
-                        session, file_info, template_context, requirements_context
+                        request_context, file_info, template_context, requirements_context
                     )
                     # Use the render_template API (handles parsing and requirements checking)
                     rendered = await render_template(

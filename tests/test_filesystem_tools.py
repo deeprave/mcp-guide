@@ -1,6 +1,7 @@
 """Tests for filesystem MCP tools."""
 
-from unittest.mock import patch
+from types import SimpleNamespace
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -16,12 +17,18 @@ from mcp_guide.tools.tool_filesystem import (
 )
 
 
+@pytest.fixture
+def request_context():
+    """Provide the explicit application context required by filesystem handlers."""
+    return SimpleNamespace(session=MagicMock())
+
+
 class TestSendFileContentTool:
     """Tests for internal_send_file_content function."""
 
     @pytest.mark.anyio
     @patch("mcp_guide.tools.tool_filesystem.fs_send_file_content")
-    async def test_send_file_content_success(self, mock_send):
+    async def test_send_file_content_success(self, mock_send, request_context):
         """internal_send_file_content should call underlying function."""
         from mcp_guide.result import Result
 
@@ -35,7 +42,7 @@ class TestSendFileContentTool:
 
         args = SendFileContentArgs(path="docs/readme.md", content="# Hello World\nThis is a test file.")
 
-        result = await internal_send_file_content(args)
+        result = await internal_send_file_content(args, request_context)
 
         assert result.success is True
         assert result.value["message"] == "File cached successfully"
@@ -43,7 +50,7 @@ class TestSendFileContentTool:
         assert result.value["size"] == 25
 
         mock_send.assert_called_once_with(
-            context=None,
+            session=request_context.session,
             path="docs/readme.md",
             content="# Hello World\nThis is a test file.",
             mtime=None,
@@ -54,12 +61,11 @@ class TestSendFileContentTool:
             type=None,
             force=None,
             metadata=None,
-            session_id=None,
         )
 
     @pytest.mark.anyio
     @patch("mcp_guide.tools.tool_filesystem.fs_send_file_content")
-    async def test_send_file_content_forwards_ingestion_fields(self, mock_send):
+    async def test_send_file_content_forwards_ingestion_fields(self, mock_send, request_context):
         """internal_send_file_content should forward document ingestion fields."""
         from mcp_guide.result import Result
 
@@ -75,10 +81,10 @@ class TestSendFileContentTool:
             force=True,
         )
 
-        await internal_send_file_content(args)
+        await internal_send_file_content(args, request_context)
 
         mock_send.assert_called_once_with(
-            context=None,
+            session=request_context.session,
             path="doc.md",
             content="content",
             mtime=None,
@@ -89,12 +95,11 @@ class TestSendFileContentTool:
             type="agent/instruction",
             force=True,
             metadata=None,
-            session_id=None,
         )
 
     @pytest.mark.anyio
     @patch("mcp_guide.tools.tool_filesystem.fs_send_file_content")
-    async def test_send_file_content_error(self, mock_send):
+    async def test_send_file_content_error(self, mock_send, request_context):
         """internal_send_file_content should handle errors."""
         from mcp_guide.result import Result
 
@@ -102,7 +107,7 @@ class TestSendFileContentTool:
 
         args = SendFileContentArgs(path="docs/readme.md", content="content")
 
-        result = await internal_send_file_content(args)
+        result = await internal_send_file_content(args, request_context)
 
         assert result.success is False
         assert result.error_type == "unexpected_error"
@@ -114,7 +119,7 @@ class TestSendDirectoryListingTool:
 
     @pytest.mark.anyio
     @patch("mcp_guide.tools.tool_filesystem.fs_send_directory_listing")
-    async def test_send_directory_listing_success(self, mock_send):
+    async def test_send_directory_listing_success(self, mock_send, request_context):
         """internal_send_directory_listing should call underlying function."""
         from mcp_guide.result import Result
 
@@ -132,23 +137,23 @@ class TestSendDirectoryListingTool:
 
         args = SendDirectoryListingArgs(path="docs/", entries=entries)
 
-        result = await internal_send_directory_listing(args)
+        result = await internal_send_directory_listing(args, request_context)
 
         assert result.success is True
         assert result.value["path"] == "docs/"
         assert len(result.value["entries"]) == 2
 
-        mock_send.assert_called_once_with(context=None, path="docs/", files=entries, session_id=None)
+        mock_send.assert_called_once_with(session=request_context.session, path="docs/", files=entries)
 
     @pytest.mark.anyio
     @patch("mcp_guide.tools.tool_filesystem.fs_send_directory_listing")
-    async def test_send_directory_listing_error(self, mock_send):
+    async def test_send_directory_listing_error(self, mock_send, request_context):
         """internal_send_directory_listing should handle errors."""
         mock_send.side_effect = Exception("Test error")
 
         args = SendDirectoryListingArgs(path="docs/", entries=[])
 
-        result = await internal_send_directory_listing(args)
+        result = await internal_send_directory_listing(args, request_context)
 
         assert result.success is False
         assert result.error_type == "unexpected_error"
@@ -160,7 +165,7 @@ class TestSendCommandLocationTool:
 
     @pytest.mark.anyio
     @patch("mcp_guide.tools.tool_filesystem.fs_send_command_location")
-    async def test_send_command_location_success_found(self, mock_send):
+    async def test_send_command_location_success_found(self, mock_send, request_context):
         """internal_send_command_location should handle found commands."""
         from mcp_guide.result import Result
 
@@ -174,23 +179,22 @@ class TestSendCommandLocationTool:
 
         args = SendCommandLocationArgs(command="python", location="/usr/bin/python")
 
-        result = await internal_send_command_location(args)
+        result = await internal_send_command_location(args, request_context)
 
         assert result.success is True
         assert result.value["command"] == "python"
         assert result.value["path"] == "/usr/bin/python"
 
         mock_send.assert_called_once_with(
-            context=None,
+            session=request_context.session,
             command="python",
             path="/usr/bin/python",
             found=True,
-            session_id=None,
         )
 
     @pytest.mark.anyio
     @patch("mcp_guide.tools.tool_filesystem.fs_send_command_location")
-    async def test_send_command_location_success_not_found(self, mock_send):
+    async def test_send_command_location_success_not_found(self, mock_send, request_context):
         """internal_send_command_location should handle missing commands."""
         from mcp_guide.result import Result
 
@@ -204,29 +208,28 @@ class TestSendCommandLocationTool:
 
         args = SendCommandLocationArgs(command="nonexistent", location=None)
 
-        result = await internal_send_command_location(args)
+        result = await internal_send_command_location(args, request_context)
 
         assert result.success is True
         assert result.value["command"] == "nonexistent"
         assert result.value["path"] is None
 
         mock_send.assert_called_once_with(
-            context=None,
+            session=request_context.session,
             command="nonexistent",
             path=None,
             found=False,
-            session_id=None,
         )
 
     @pytest.mark.anyio
     @patch("mcp_guide.tools.tool_filesystem.fs_send_command_location")
-    async def test_send_command_location_error(self, mock_send):
+    async def test_send_command_location_error(self, mock_send, request_context):
         """internal_send_command_location should handle errors."""
         mock_send.side_effect = Exception("Test error")
 
         args = SendCommandLocationArgs(command="python", location="/usr/bin/python")
 
-        result = await internal_send_command_location(args)
+        result = await internal_send_command_location(args, request_context)
 
         assert result.success is False
         assert result.error_type == "unexpected_error"
@@ -238,7 +241,7 @@ class TestSendWorkingDirectoryTool:
 
     @pytest.mark.anyio
     @patch("mcp_guide.tools.tool_filesystem.fs_send_working_directory")
-    async def test_send_working_directory_success(self, mock_send):
+    async def test_send_working_directory_success(self, mock_send, request_context):
         """internal_send_working_directory should call underlying function."""
         from mcp_guide.result import Result
 
@@ -246,26 +249,25 @@ class TestSendWorkingDirectoryTool:
 
         args = SendWorkingDirectoryArgs(path="/home/user/project")
 
-        result = await internal_send_working_directory(args)
+        result = await internal_send_working_directory(args, request_context)
 
         assert result.success is True
         assert result.value["path"] == "/home/user/project"
 
         mock_send.assert_called_once_with(
-            context=None,
+            session=request_context.session,
             working_directory="/home/user/project",
-            session_id=None,
         )
 
     @pytest.mark.anyio
     @patch("mcp_guide.tools.tool_filesystem.fs_send_working_directory")
-    async def test_send_working_directory_error(self, mock_send):
+    async def test_send_working_directory_error(self, mock_send, request_context):
         """internal_send_working_directory should handle errors."""
         mock_send.side_effect = Exception("Test error")
 
         args = SendWorkingDirectoryArgs(path="/home/user/project")
 
-        result = await internal_send_working_directory(args)
+        result = await internal_send_working_directory(args, request_context)
 
         assert result.success is False
         assert result.error_type == "unexpected_error"

@@ -3,15 +3,13 @@
 Prompt Implementation Pattern
 =============================
 
-All prompts should follow this pattern for session access:
+All prompts receive the resolved application context:
 
-    from mcp_guide.session import get_session
+    from mcp_guide.runtime import RequestContext
 
-    async def my_prompt(args: PromptArguments, ctx: Optional[Context] = None) -> dict:
-        session = await get_session(ctx)
-
-        project = await session.get_project()
-        # Use project config...
+    async def my_prompt(args: PromptArguments, request_context: RequestContext) -> dict:
+        project = request_context.project  # None when unbound
+        # request_context.require_project() raises NoProjectError if unbound
 
         return {"success": True, "data": ...}
 

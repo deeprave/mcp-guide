@@ -55,7 +55,7 @@ async def test_format_empty_list(docroot):
     from mcp_guide.content.formatters.mime import MimeFormatter
 
     formatter = MimeFormatter()
-    result = await formatter.format([], docroot)
+    result = await formatter.format([], docroot.joinpath)
     assert result == ""
 
 
@@ -74,7 +74,7 @@ async def test_format_single_file_delegates(mock_category, docroot):
         content="test content",
         category=mock_category,
     )
-    result = await formatter.format([file_info], docroot)
+    result = await formatter.format([file_info], docroot.joinpath)
     # Should delegate to format_single and return formatted output
     assert "Content-Type:" in result
     assert "test content" in result
@@ -96,7 +96,7 @@ async def test_format_single_markdown_file(mock_category, docroot):
         content=content,
         category=mock_category,
     )
-    result = await formatter.format_single(file_info, docroot)
+    result = await formatter.format_single(file_info, docroot.joinpath)
 
     # Check headers are present
     assert "Content-Type: text/markdown" in result
@@ -125,7 +125,7 @@ async def test_format_single_text_file(docroot):
         content=content,
         category=category,
     )
-    result = await formatter.format_single(file_info, docroot)
+    result = await formatter.format_single(file_info, docroot.joinpath)
 
     assert "Content-Type: text/plain" in result
     assert "Content-Location: guide://docs/notes.txt" in result
@@ -148,7 +148,7 @@ async def test_format_single_unknown_extension(docroot):
         content=content,
         category=category,
     )
-    result = await formatter.format_single(file_info, docroot)
+    result = await formatter.format_single(file_info, docroot.joinpath)
 
     assert "Content-Type: text/plain" in result
 
@@ -170,7 +170,7 @@ async def test_format_single_utf8_content(docroot):
         content=content,
         category=category,
     )
-    result = await formatter.format_single(file_info, docroot)
+    result = await formatter.format_single(file_info, docroot.joinpath)
 
     byte_count = len(content.encode("utf-8"))
     assert f"Content-Length: {byte_count}" in result
@@ -196,7 +196,7 @@ async def test_format_single_uses_content_size_not_content_length(docroot):
         content=content,
         category=category,
     )
-    result = await formatter.format_single(file_info, docroot)
+    result = await formatter.format_single(file_info, docroot.joinpath)
 
     # Should use actual content length (12), not content_size (50)
     # This is correct behavior after template rendering
@@ -230,7 +230,7 @@ async def test_format_multiple_main_header(mock_category, docroot):
             category=mock_category,
         ),
     ]
-    result = await formatter.format(files, docroot)
+    result = await formatter.format(files, docroot.joinpath)
 
     assert result.startswith("Content-Type: multipart/mixed; boundary=")
     # Extract boundary from header
@@ -264,7 +264,7 @@ async def test_format_multiple_boundary_format(mock_category, docroot):
             category=mock_category,
         ),
     ]
-    result = await formatter.format(files, docroot)
+    result = await formatter.format(files, docroot.joinpath)
 
     # Extract boundary
     first_line = result.split("\r\n")[0]
@@ -307,7 +307,7 @@ async def test_format_multiple_part_headers(mock_category, docroot):
             category=mock_category,
         ),
     ]
-    result = await formatter.format(files, docroot)
+    result = await formatter.format(files, docroot.joinpath)
 
     # Check first part headers - should detect markdown
     assert "Content-Type: text/markdown" in result
@@ -351,7 +351,7 @@ async def test_format_multiple_uses_actual_content_length(mock_category, docroot
             category=mock_category,
         ),
     ]
-    result = await formatter.format(files, docroot)
+    result = await formatter.format(files, docroot.joinpath)
 
     # Should use actual final content length for HTTP headers
     assert f"Content-Length: {len('Content 1'.encode('utf-8'))}" in result
@@ -389,7 +389,7 @@ async def test_format_multiple_crlf_line_endings(mock_category, docroot):
             category=mock_category,
         ),
     ]
-    result = await formatter.format(files, docroot)
+    result = await formatter.format(files, docroot.joinpath)
 
     # Check CRLF is used
     assert "\r\n" in result
@@ -427,7 +427,7 @@ async def test_format_multiple_content_preserved(mock_category, docroot):
             category=mock_category,
         ),
     ]
-    result = await formatter.format(files, docroot)
+    result = await formatter.format(files, docroot.joinpath)
 
     assert content1 in result
     assert content2 in result

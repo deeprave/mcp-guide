@@ -6,9 +6,9 @@ from tests.helpers import create_test_session
 
 
 @pytest.mark.anyio
-async def test_instruction_acknowledgement_api(tmp_path):
+async def test_instruction_acknowledgement_api(runtime, tmp_path):
     """Test instruction acknowledgement public API."""
-    session = await create_test_session("task-manager", _config_dir_for_tests=str(tmp_path))
+    session = await create_test_session(runtime, "task-manager")
     manager = session.task_manager
 
     # Queue with tracking - returns ID

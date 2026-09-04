@@ -1,6 +1,5 @@
 """Integration tests for get_content unified access tool via MCP client."""
 
-import inspect
 import json
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -9,10 +8,11 @@ import pytest
 from fastmcp.client import Client, FastMCPTransport
 
 from mcp_guide.models import Category, Collection
-from mcp_guide.session import Session, get_session
+from mcp_guide.runtime import get_runtime
+from mcp_guide.session import Session
 from mcp_guide.tools.tool_content import ContentArgs
 from tests.conftest import call_mcp_tool
-from tests.helpers import create_unbound_test_session
+from tests.helpers import application_runtime, bind_isolated_test_session, create_test_session
 
 
 @pytest.fixture
@@ -21,19 +21,14 @@ def anyio_backend():
     return "asyncio"
 
 
-async def _create_bound_session(tmp_path: Path) -> Session:
+async def _create_bound_session(runtime) -> Session:
     """Create a lightweight bound session for integration tests."""
-    config_dir = str(tmp_path.resolve())
-    session = create_unbound_test_session(config_dir)
-    project_root = Path(config_dir) / "client-roots" / "test"
-    project_root.mkdir(parents=True, exist_ok=True)
-    await session.bind_project_path(project_root)
-    return session
+    return await bind_isolated_test_session(runtime)
 
 
 def _route_legacy_session(mcp_server, monkeypatch, session: Session) -> None:
     """Route the in-process legacy client to its isolated test Session."""
-    runtime = inspect.getclosurevars(mcp_server._lifespan).nonlocals["runtime"]
+    runtime = application_runtime(mcp_server)
     original_session_request = runtime.session_request
 
     @asynccontextmanager
@@ -45,6 +40,11 @@ def _route_legacy_session(mcp_server, monkeypatch, session: Session) -> None:
     monkeypatch.setattr(runtime, "session_request", session_request)
 
 
+async def _runtime_docroot() -> Path:
+    """Place fixture files in the process runtime's document root."""
+    return Path(await get_runtime().get_docroot())
+
+
 @pytest.fixture(scope="module")
 def mcp_server(mcp_server_factory):
     """Create fresh MCP server for this test module."""
@@ -52,19 +52,19 @@ def mcp_server(mcp_server_factory):
 
 
 @pytest.mark.anyio
-async def test_get_content_category_only(mcp_server, tmp_path, monkeypatch):
+async def test_get_content_category_only(mcp_server, runtime, tmp_path, monkeypatch):
     """Test get_content with category-only match."""
     from .test_data_generator import generate_test_files
 
     monkeypatch.setenv("PWD", "/fake/path/test")
 
-    session = await _create_bound_session(tmp_path)
+    session = await _create_bound_session(runtime)
     _route_legacy_session(mcp_server, monkeypatch, session)
 
     # Add category
     await session.update_config(lambda p: p.with_category("guide", Category(dir="guide", patterns=["*.md"])))
 
-    docroot = Path(tmp_path.resolve()) / "docs"
+    docroot = await _runtime_docroot()
     generate_test_files(docroot)
 
     async with Client(FastMCPTransport(mcp_server, raise_exceptions=True), mode="legacy") as client:
@@ -77,11 +77,11 @@ async def test_get_content_category_only(mcp_server, tmp_path, monkeypatch):
 
 
 @pytest.mark.anyio
-async def test_get_content_collection_only(mcp_server, tmp_path, monkeypatch):
+async def test_get_content_collection_only(mcp_server, runtime, tmp_path, monkeypatch):
     """Test get_content with collection-only match."""
     monkeypatch.setenv("PWD", "/fake/path/test")
 
-    session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
+    session = await create_test_session(runtime, "test")
     _route_legacy_session(mcp_server, monkeypatch, session)
 
     # Add categories and collection
@@ -93,7 +93,7 @@ async def test_get_content_collection_only(mcp_server, tmp_path, monkeypatch):
         )
     )
 
-    docroot = Path(tmp_path.resolve()) / "docs"
+    docroot = await _runtime_docroot()
     guide_dir = docroot / "guide"
     lang_dir = docroot / "lang"
     guide_dir.mkdir(parents=True, exist_ok=True)
@@ -112,13 +112,13 @@ async def test_get_content_collection_only(mcp_server, tmp_path, monkeypatch):
 
 
 @pytest.mark.anyio
-async def test_get_content_both_match_deduplicates(mcp_server, tmp_path, monkeypatch):
+async def test_get_content_both_match_deduplicates(mcp_server, runtime, tmp_path, monkeypatch):
     """Test get_content when name matches both collection and category - should deduplicate."""
     from .test_data_generator import generate_test_files
 
     monkeypatch.setenv("PWD", "/fake/path/test")
 
-    session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
+    session = await create_test_session(runtime, "test")
     _route_legacy_session(mcp_server, monkeypatch, session)
 
     # Add category "guide" and collection "guide" containing "guide" category
@@ -128,7 +128,7 @@ async def test_get_content_both_match_deduplicates(mcp_server, tmp_path, monkeyp
         )
     )
 
-    docroot = Path(tmp_path.resolve()) / "docs"
+    docroot = await _runtime_docroot()
     generate_test_files(docroot)
 
     async with Client(FastMCPTransport(mcp_server, raise_exceptions=True), mode="legacy") as client:
@@ -146,13 +146,13 @@ async def test_get_content_both_match_deduplicates(mcp_server, tmp_path, monkeyp
 
 
 @pytest.mark.anyio
-async def test_get_content_pattern_override(mcp_server, tmp_path, monkeypatch):
+async def test_get_content_pattern_override(mcp_server, runtime, tmp_path, monkeypatch):
     """Test get_content with pattern override."""
     from .test_data_generator import generate_test_files
 
     monkeypatch.setenv("PWD", "/fake/path/test")
 
-    session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
+    session = await create_test_session(runtime, "test")
     _route_legacy_session(mcp_server, monkeypatch, session)
 
     # Add category with multiple file types
@@ -160,7 +160,7 @@ async def test_get_content_pattern_override(mcp_server, tmp_path, monkeypatch):
         lambda p: p.with_category("context", Category(dir="context", patterns=["*.md", "*.yaml"]))
     )
 
-    docroot = Path(tmp_path.resolve()) / "docs"
+    docroot = await _runtime_docroot()
     generate_test_files(docroot)
 
     async with Client(FastMCPTransport(mcp_server, raise_exceptions=True), mode="legacy") as client:
@@ -175,11 +175,11 @@ async def test_get_content_pattern_override(mcp_server, tmp_path, monkeypatch):
 
 
 @pytest.mark.anyio
-async def test_get_content_empty_result(mcp_server, tmp_path, monkeypatch):
+async def test_get_content_empty_result(mcp_server, runtime, tmp_path, monkeypatch):
     """Test get_content with no matching files."""
     monkeypatch.setenv("PWD", "/fake/path/test")
 
-    session = await get_session(project_name="test", _config_dir_for_tests=str(tmp_path.resolve()))
+    session = await create_test_session(runtime, "test")
     _route_legacy_session(mcp_server, monkeypatch, session)
 
     # Add category with no files
@@ -188,7 +188,7 @@ async def test_get_content_empty_result(mcp_server, tmp_path, monkeypatch):
     )
 
     # Create empty directory
-    docroot = Path(tmp_path.resolve()) / "docs"
+    docroot = await _runtime_docroot()
     empty_dir = docroot / "empty"
     empty_dir.mkdir(parents=True, exist_ok=True)
 
@@ -203,11 +203,11 @@ async def test_get_content_empty_result(mcp_server, tmp_path, monkeypatch):
 
 
 @pytest.mark.anyio
-async def test_get_content_nested_collection(mcp_server, tmp_path, monkeypatch):
+async def test_get_content_nested_collection(mcp_server, runtime, tmp_path, monkeypatch):
     """Test get_content with nested collection reference."""
     monkeypatch.setenv("PWD", "/fake/path/test")
 
-    session = await _create_bound_session(tmp_path)
+    session = await _create_bound_session(runtime)
     _route_legacy_session(mcp_server, monkeypatch, session)
     session._Session__delegate.bind(
         session._Session__delegate.project.with_category("guide", Category(dir="guide", patterns=["*.md"]))
@@ -216,7 +216,7 @@ async def test_get_content_nested_collection(mcp_server, tmp_path, monkeypatch):
         .with_collection("all", Collection(categories=["docs", "lang"]))
     )
 
-    docroot = Path(tmp_path.resolve()) / "docs"
+    docroot = await _runtime_docroot()
     guide_dir = docroot / "guide"
     lang_dir = docroot / "lang"
     guide_dir.mkdir(parents=True, exist_ok=True)
@@ -235,11 +235,11 @@ async def test_get_content_nested_collection(mcp_server, tmp_path, monkeypatch):
 
 
 @pytest.mark.anyio
-async def test_get_content_circular_collection_reference(mcp_server, tmp_path, monkeypatch):
+async def test_get_content_circular_collection_reference(mcp_server, runtime, tmp_path, monkeypatch):
     """Test get_content with circular collection references."""
     monkeypatch.setenv("PWD", "/fake/path/test")
 
-    session = await _create_bound_session(tmp_path)
+    session = await _create_bound_session(runtime)
     _route_legacy_session(mcp_server, monkeypatch, session)
     session._Session__delegate.bind(
         session._Session__delegate.project.with_category("guide", Category(dir="guide", patterns=["*.md"]))
@@ -248,7 +248,7 @@ async def test_get_content_circular_collection_reference(mcp_server, tmp_path, m
         .with_collection("col2", Collection(categories=["lang", "col1"]))
     )
 
-    docroot = Path(tmp_path.resolve()) / "docs"
+    docroot = await _runtime_docroot()
     guide_dir = docroot / "guide"
     lang_dir = docroot / "lang"
     guide_dir.mkdir(parents=True, exist_ok=True)

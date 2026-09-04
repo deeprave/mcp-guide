@@ -1,14 +1,15 @@
 """Deferred resource registration infrastructure."""
 
+import inspect
 import weakref
 from dataclasses import dataclass
 from functools import wraps
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, cast
 
 from fastmcp import Context
-from fastmcp.resources import ResourceResult
 
 from mcp_guide.core.mcp_log import get_logger
+from mcp_guide.mcp_context import resource_uri_from_fastmcp
 
 logger = get_logger(__name__)
 
@@ -35,6 +36,17 @@ _RESOURCE_REGISTRY: dict[str, ResourceRegistration] = {}
 _REGISTERED_RESOURCE_SERVERS: dict[int, weakref.ReferenceType[Any]] = {}
 
 
+def _transport_signature(func: Callable[..., Any]) -> inspect.Signature:
+    """Expose resource URI parameters and FastMCP context, not application inputs."""
+    parameters = []
+    for parameter in inspect.signature(func).parameters.values():
+        if parameter.name in {"request_context", "request_uri"}:
+            continue
+        parameters.append(parameter)
+    parameters.append(inspect.Parameter("ctx", inspect.Parameter.KEYWORD_ONLY, annotation=Context, default=None))
+    return inspect.signature(func).replace(parameters=parameters)
+
+
 def resourcefunc(
     uri_template: str, description: Optional[str] = None
 ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
@@ -57,10 +69,27 @@ def resourcefunc(
             if ctx is None:
                 ctx = next((arg for arg in reversed(args) if isinstance(arg, Context)), None)
 
-            from mcp_guide.session import request_session_scope
+            from mcp_guide.session import InvalidGuideSessionError, request_context_scope
 
-            async with request_session_scope(ctx, kwargs.get("session_id")):
-                result = await func(*args, **kwargs)
+            if ctx is None:
+                raise RuntimeError("A resource invocation requires a FastMCP context")
+            application_kwargs = dict(kwargs)
+            application_kwargs.pop("ctx", None)
+            try:
+                async with request_context_scope(
+                    ctx, application_kwargs.get("session_id"), allow_pwd_bootstrap=True
+                ) as request_context:
+                    result = await func(
+                        *args,
+                        request_context=request_context,
+                        request_uri=resource_uri_from_fastmcp(ctx),
+                        **application_kwargs,
+                    )
+            except InvalidGuideSessionError:
+                from mcp_guide.mcp_result_adapter import resource_response
+                from mcp_guide.result_constants import make_invalid_session_result
+
+                return resource_response(make_invalid_session_result())
 
             from mcp_guide.result import Result
 
@@ -69,19 +98,18 @@ def resourcefunc(
 
                 return resource_response(result)
 
-            if isinstance(result, ResourceResult) and not isinstance(ctx, Context):
-                # Direct Python callers (not FastMCP resource dispatch) have
-                # historically received the JSON text.  Keep that unit-test
-                # and compatibility surface while preserving ResourceResult
-                # for the actual SDK boundary.
-                return result.contents[0].content
-
             return result
 
+        advertised_description = description or inspect.cleandoc(func.__doc__ or "") or None
         metadata = ResourceMetadata(
-            name=resource_name, uri_template=uri_template, func=wrapped, description=description
+            name=resource_name,
+            uri_template=uri_template,
+            func=wrapped,
+            description=advertised_description,
         )
         _RESOURCE_REGISTRY[resource_name] = ResourceRegistration(metadata=metadata)
+        cast(Any, wrapped).__signature__ = _transport_signature(func)
+        cast(Any, wrapped).__annotations__ = {**getattr(func, "__annotations__", {}), "ctx": Context}
         logger.trace(f"Resource {resource_name} added to registry (not yet registered)")
 
         return wrapped

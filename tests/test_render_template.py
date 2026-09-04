@@ -11,12 +11,14 @@ from mcp_guide.render.template import render_template as _render_template
 from tests.helpers import create_unbound_test_session
 
 _TEST_CONFIG_DIR: Path | None = None
+_TEST_RUNTIME = None
 
 
 @pytest.fixture(autouse=True)
-def test_config_dir(tmp_path: Path) -> None:
+def test_config_dir(runtime, tmp_path: Path) -> None:
     """Provide an isolated configuration directory to each renderer test."""
-    global _TEST_CONFIG_DIR
+    global _TEST_CONFIG_DIR, _TEST_RUNTIME
+    _TEST_RUNTIME = runtime
     _TEST_CONFIG_DIR = tmp_path / "config"
     _TEST_CONFIG_DIR.mkdir()
 
@@ -30,7 +32,8 @@ def _template_path(name: str) -> Path:
 async def render_template(*args, **kwargs):
     """Call the renderer with a test-owned explicit Session."""
     assert _TEST_CONFIG_DIR is not None
-    kwargs["session"] = create_unbound_test_session(str(_TEST_CONFIG_DIR))
+    assert _TEST_RUNTIME is not None
+    kwargs["session"] = create_unbound_test_session(_TEST_RUNTIME)
     return await _render_template(*args, **kwargs)
 
 

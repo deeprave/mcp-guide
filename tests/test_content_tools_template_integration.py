@@ -9,7 +9,7 @@ import pytest
 from mcp_guide.content.utils import read_and_render_file_contents
 from mcp_guide.discovery.files import FileInfo
 from mcp_guide.render.context import TemplateContext
-from tests.helpers import create_unbound_test_session
+from tests.helpers import create_test_runtime, create_unbound_test_session, request_context_for
 
 
 class TestContentToolsTemplateIntegration:
@@ -67,7 +67,12 @@ Current status: active""")
             context = TemplateContext({"project_name": "test-project"})
 
             errors = await read_and_render_file_contents(
-                create_unbound_test_session(str(tmp_path)), [file_info], tmp_path, tmp_path, context
+                await request_context_for(
+                    create_unbound_test_session(create_test_runtime(str(tmp_path), docroot=tmp_path))
+                ),
+                [file_info],
+                tmp_path,
+                context,
             )
 
             assert len(errors) == 0
@@ -105,7 +110,12 @@ Current status: active""")
 
             # Process files
             errors = await read_and_render_file_contents(
-                create_unbound_test_session(str(temp_path)), files, temp_path, temp_path, context
+                await request_context_for(
+                    create_unbound_test_session(create_test_runtime(str(temp_path), docroot=temp_path))
+                ),
+                files,
+                temp_path,
+                context,
             )
 
             # Verify template error was captured
@@ -137,7 +147,12 @@ Current status: active""")
 
             # Process files
             errors = await read_and_render_file_contents(
-                create_unbound_test_session(str(temp_path)), files, temp_path, temp_path, invalid_context
+                await request_context_for(
+                    create_unbound_test_session(create_test_runtime(str(temp_path), docroot=temp_path))
+                ),
+                files,
+                temp_path,
+                invalid_context,
             )
 
             # Verify validation error was captured

@@ -27,7 +27,7 @@ class TestRuntimeLifespan:
     @pytest.mark.anyio
     async def test_lifespan_executes_handlers(self):
         """Test that the runtime starts and stops its registered process services."""
-        from mcp_guide.runtime import GuideRuntime
+        from mcp_guide.runtime import create_runtime
 
         handler1_called = False
         handler2_called = False
@@ -40,7 +40,7 @@ class TestRuntimeLifespan:
             nonlocal handler2_called
             handler2_called = True
 
-        runtime = GuideRuntime(lambda _owner: object())
+        runtime = create_runtime(lambda _owner: object())
         runtime._on_start = handler1
         runtime._on_stop = handler2
 
@@ -53,12 +53,12 @@ class TestRuntimeLifespan:
     @pytest.mark.anyio
     async def test_lifespan_continues_on_handler_error(self):
         """Test that failed initialization leaves the runtime unstarted."""
-        from mcp_guide.runtime import GuideRuntime
+        from mcp_guide.runtime import create_runtime
 
         async def failing_handler():
             raise RuntimeError("Test error")
 
-        runtime = GuideRuntime(lambda _owner: object(), on_start=failing_handler)
+        runtime = create_runtime(lambda _owner: object(), on_start=failing_handler)
 
         with pytest.raises(RuntimeError, match="Test error"):
             await runtime.start()

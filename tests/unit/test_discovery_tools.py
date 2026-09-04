@@ -1,14 +1,33 @@
 """Tests for discovery tools."""
 
-from unittest.mock import MagicMock, patch
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from tests.helpers import tool_result_payload
 
+from mcp_guide.core import prompt_decorator, resource_decorator
 from mcp_guide.core.prompt_decorator import PromptMetadata, PromptRegistration, clear_prompt_registry
 from mcp_guide.core.resource_decorator import ResourceMetadata, ResourceRegistration, clear_resource_registry
-from mcp_guide.core.tool_decorator import ToolMetadata, ToolRegistration, clear_tool_registry
+from mcp_guide.core.tool_decorator import ToolMetadata, ToolRegistration
 from mcp_guide.tools.tool_discovery import ListToolsArgs, list_prompts, list_resources, list_tools
+
+
+def _restore_prompt_registry(original: dict) -> None:
+    clear_prompt_registry()
+    prompt_decorator._PROMPT_REGISTRY.update(original)
+
+
+def _restore_resource_registry(original: dict) -> None:
+    clear_resource_registry()
+    resource_decorator._RESOURCE_REGISTRY.update(original)
+
+
+def request_context() -> SimpleNamespace:
+    """Return explicit application context for a decorated-handler unit test."""
+
+    task_manager = SimpleNamespace(process_result=AsyncMock(side_effect=lambda result: result))
+    return SimpleNamespace(session=SimpleNamespace(session_id=None, task_manager=task_manager))
 
 
 @pytest.mark.anyio
@@ -32,7 +51,7 @@ async def test_list_tools_returns_registered_tools():
 
     try:
         args = ListToolsArgs(include_args=False)
-        result = tool_result_payload(await list_tools(args))
+        result = tool_result_payload(await list_tools.__wrapped__(args, request_context()))
 
         assert result["success"] is True
         assert "tools" in result["value"]
@@ -42,7 +61,7 @@ async def test_list_tools_returns_registered_tools():
         tool_names = [t["name"] for t in result["value"]["tools"]]
         assert "guide_test_tool" in tool_names
     finally:
-        clear_tool_registry()
+        _TOOL_REGISTRY.pop("guide_test_tool", None)
 
 
 @pytest.mark.anyio
@@ -66,13 +85,13 @@ async def test_list_tools_with_args_schema():
 
     try:
         args = ListToolsArgs(include_args=True)
-        result = tool_result_payload(await list_tools(args))
+        result = tool_result_payload(await list_tools.__wrapped__(args, request_context()))
 
         assert result["success"] is True
         tools_with_args = [t for t in result["value"]["tools"] if "args_schema" in t]
         assert len(tools_with_args) > 0
     finally:
-        clear_tool_registry()
+        _TOOL_REGISTRY.pop("guide_test_tool", None)
 
 
 @pytest.mark.anyio
@@ -91,7 +110,7 @@ async def test_list_prompts_returns_registered_prompts():
         from mcp_guide.tools.tool_discovery import ListPromptsArgs
 
         args = ListPromptsArgs()
-        result = tool_result_payload(await list_prompts(args))
+        result = tool_result_payload(await list_prompts.__wrapped__(args, request_context()))
 
         assert result["success"] is True
         assert "prompts" in result["value"]
@@ -101,7 +120,7 @@ async def test_list_prompts_returns_registered_prompts():
         prompt_names = [p["name"] for p in result["value"]["prompts"]]
         assert "test_prompt" in prompt_names
     finally:
-        clear_prompt_registry()
+        _PROMPT_REGISTRY.pop("test_prompt", None)
 
 
 @pytest.mark.anyio
@@ -125,7 +144,7 @@ async def test_list_resources_returns_registered_resources():
         from mcp_guide.tools.tool_discovery import ListResourcesArgs
 
         args = ListResourcesArgs()
-        result = tool_result_payload(await list_resources(args))
+        result = tool_result_payload(await list_resources.__wrapped__(args, request_context()))
 
         assert result["success"] is True
         assert "resources" in result["value"]
@@ -140,7 +159,7 @@ async def test_list_resources_returns_registered_resources():
         assert "uri_template" in test_res
         assert test_res["uri_template"] == "test://{collection}"
     finally:
-        clear_resource_registry()
+        _RESOURCE_REGISTRY.pop("test_resource", None)
 
 
 def test_register_prompts_uses_prompt_name_override():
@@ -149,6 +168,9 @@ def test_register_prompts_uses_prompt_name_override():
         _PROMPT_REGISTRY,
         register_prompts,
     )
+
+    original = dict(_PROMPT_REGISTRY)
+    clear_prompt_registry()
 
     async def guide() -> str:
         return "prompt"
@@ -167,12 +189,15 @@ def test_register_prompts_uses_prompt_name_override():
         mcp.prompt.assert_called_once_with(name="g")
         prompt_decorator.assert_called_once_with(guide)
     finally:
-        clear_prompt_registry()
+        _restore_prompt_registry(original)
 
 
 def test_register_prompts_is_idempotent_for_the_same_server():
     """Prompt registration keeps a weak reference to the actual server."""
     from mcp_guide.core.prompt_decorator import _PROMPT_REGISTRY, register_prompts
+
+    original = dict(_PROMPT_REGISTRY)
+    clear_prompt_registry()
 
     async def guide() -> str:
         return "prompt"
@@ -188,12 +213,15 @@ def test_register_prompts_is_idempotent_for_the_same_server():
 
         mcp.prompt.assert_called_once_with(name="guide")
     finally:
-        clear_prompt_registry()
+        _restore_prompt_registry(original)
 
 
 def test_register_resources_is_idempotent_for_the_same_server():
     """Resource registration keeps a weak reference to the actual server."""
     from mcp_guide.core.resource_decorator import _RESOURCE_REGISTRY, register_resources
+
+    original = dict(_RESOURCE_REGISTRY)
+    clear_resource_registry()
 
     async def resource() -> str:
         return "resource"
@@ -210,7 +238,7 @@ def test_register_resources_is_idempotent_for_the_same_server():
 
         mcp.resource.assert_called_once_with("guide://resource")
     finally:
-        clear_resource_registry()
+        _restore_resource_registry(original)
 
 
 def test_register_prompts_uses_default_guide_name_without_override():
@@ -219,6 +247,9 @@ def test_register_prompts_uses_default_guide_name_without_override():
         _PROMPT_REGISTRY,
         register_prompts,
     )
+
+    original = dict(_PROMPT_REGISTRY)
+    clear_prompt_registry()
 
     async def guide() -> str:
         return "prompt"
@@ -237,7 +268,7 @@ def test_register_prompts_uses_default_guide_name_without_override():
         mcp.prompt.assert_called_once_with(name="guide")
         prompt_decorator.assert_called_once_with(guide)
     finally:
-        clear_prompt_registry()
+        _restore_prompt_registry(original)
 
 
 def test_register_prompts_keeps_non_guide_prompt_name():
@@ -246,6 +277,9 @@ def test_register_prompts_keeps_non_guide_prompt_name():
         _PROMPT_REGISTRY,
         register_prompts,
     )
+
+    original = dict(_PROMPT_REGISTRY)
+    clear_prompt_registry()
 
     async def status() -> str:
         return "prompt"
@@ -264,4 +298,4 @@ def test_register_prompts_keeps_non_guide_prompt_name():
         mcp.prompt.assert_called_once_with(name="status")
         prompt_decorator.assert_called_once_with(status)
     finally:
-        clear_prompt_registry()
+        _restore_prompt_registry(original)

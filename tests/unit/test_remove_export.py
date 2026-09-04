@@ -3,24 +3,23 @@
 from dataclasses import replace as dc_replace
 
 import pytest
-from tests.helpers import create_test_session, tool_result_payload
+from tests.helpers import create_test_session, request_context_for, tool_result_payload
 
-from mcp_guide.tools.tool_content import RemoveExportArgs, remove_export
+from mcp_guide.tools.tool_content import RemoveExportArgs
+from mcp_guide.tools.tool_content import remove_export as _remove_export
 
 
 @pytest.fixture
-async def bound_session(tmp_path, monkeypatch):
+async def bound_session(runtime, tmp_path):
     """Provide each tool test with its own bound production-shaped Session."""
-    session = await create_test_session("remove-export", _config_dir_for_tests=str(tmp_path))
+    session = await create_test_session(runtime, "remove-export")
 
-    async def get_bound_session_and_project(_ctx=None, *, session_id=None):
-        return session, await session.get_project()
-
-    monkeypatch.setattr(
-        "mcp_guide.tools.tool_content.get_session_and_project",
-        get_bound_session_and_project,
-    )
     yield session
+
+
+async def remove_export(args, session):
+    """Exercise export removal with an explicit application context."""
+    return await _remove_export.__wrapped__(args, await request_context_for(session))
 
 
 @pytest.mark.anyio
@@ -33,7 +32,7 @@ async def test_remove_export_success(bound_session):
 
     # Execute
     args = RemoveExportArgs(expression="docs", pattern=None)
-    result = await remove_export(args)
+    result = await remove_export(args, session)
 
     # Verify
     data = tool_result_payload(result)
@@ -54,7 +53,7 @@ async def test_remove_export_not_found(bound_session):
 
     # Execute
     args = RemoveExportArgs(expression="nonexistent", pattern=None)
-    result = await remove_export(args)
+    result = await remove_export(args, session)
 
     # Verify
     data = tool_result_payload(result)
@@ -73,7 +72,7 @@ async def test_remove_export_with_pattern(bound_session):
 
     # Remove only the one with pattern
     args = RemoveExportArgs(expression="docs", pattern="*.md")
-    result = await remove_export(args)
+    result = await remove_export(args, session)
 
     # Verify
     data = tool_result_payload(result)

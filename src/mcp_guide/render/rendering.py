@@ -18,12 +18,13 @@ logger = get_logger(__name__)
 
 
 async def discover_single_file(
-    category_path: Path,
+    resolver: Callable[[str | Path], Path],
+    category_dir: str,
     pattern: str,
-    docroot: Path,
     display_name: str,
 ) -> list[FileInfo]:
     """Discover a single file matching pattern, raising an error if multiple or none found."""
+    category_path = resolver(category_dir)
     files = await discover_document_files(category_path, [pattern])
 
     if not files:
@@ -34,7 +35,7 @@ async def discover_single_file(
         raise FileNotFoundError(f"Multiple templates found matching pattern '{pattern}': {file_paths}")
 
     file_info = files[0]
-    file_info.resolve(category_path, docroot)
+    file_info.resolve(resolver, category_dir)
     return [file_info]
 
 
@@ -44,8 +45,10 @@ async def render_content(
     category_dir: str,
     extra_context: Optional[TemplateContext] = None,
     category_name: Optional[str] = None,
-    discover_files: Optional[Callable[[Path, str, Path, str], Awaitable[list[FileInfo]]]] = None,
+    discover_files: Optional[Callable[[Callable[[str | Path], Path], str, str, str], Awaitable[list[FileInfo]]]] = None,
     process_context: Optional[Callable[[TemplateContext, FileInfo], Awaitable[TemplateContext]]] = None,
+    *,
+    resolver: Callable[[str | Path], Path] | None = None,
 ) -> RenderedContent | None:
     """Render template from the category directory matching pattern.
 
@@ -56,6 +59,9 @@ async def render_content(
         category_name: Optional category name for error messages (defaults to category_dir)
         discover_files: Optional function to discover files (defaults to single-file discovery)
         process_context: Optional function to process context before rendering
+        resolver: Document-path resolver. Request paths must pass the captured
+            RequestContext resolver. When omitted, the process runtime resolver
+            is used (background listeners and tasks).
 
     Returns:
         RenderedContent with content and frontmatter, or None if filtered by requires-*
@@ -66,15 +72,17 @@ async def render_content(
     """
     if session is None:
         raise RuntimeError("Content rendering requires an explicit Session")
-    docroot = Path(await session.runtime.get_docroot())
-    category_path = docroot / category_dir
+    if resolver is None:
+        from mcp_guide.runtime import get_runtime
+
+        resolver = await get_runtime().get_docroot_resolver()
     display_name = category_name or category_dir
 
     # Use the provided discovery function or default to single-file
     if discover_files is None:
-        files = await discover_single_file(category_path, pattern, docroot, display_name)
+        files = await discover_single_file(resolver, category_dir, pattern, display_name)
     else:
-        files = await discover_files(category_path, pattern, docroot, display_name)
+        files = await discover_files(resolver, category_dir, pattern, display_name)
 
     requirements_context = await resolve_all_flags(session)
 

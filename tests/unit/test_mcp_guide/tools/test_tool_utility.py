@@ -1,140 +1,100 @@
 """Tests for utility tools."""
 
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import Mock
 
 import pytest
-from fastmcp import FastMCP
-from tests.helpers import tool_result_payload
 
-from mcp_guide.agent_detection import AgentInfo
-from mcp_guide.tools.tool_utility import GetClientInfoArgs, client_info
+from mcp_guide.agent_detection import AgentInfo, detect_agent
+from mcp_guide.tools.tool_utility import GetClientInfoArgs, internal_client_info
 
 
-def _make_ctx(agent_info=None, client_params=None):
-    """Build a mock context with a mock session."""
+def _make_request_context(agent_info=None, client_params=None):
+    """Build an explicit application context with a resolved Session."""
     session = Mock()
     session.agent_info = agent_info
     session.client_params = client_params
-
-    ctx = Mock()
-    ctx.fastmcp = FastMCP(name="test-server")
-    ctx.session = session
-
-    return ctx, session
+    return SimpleNamespace(session=session), session
 
 
 @pytest.mark.anyio
-async def test_client_info_no_cache():
-    """Test client_info detects agent info when session has none."""
-    ctx, session = _make_ctx(
-        agent_info=None,
-        client_params={"clientInfo": {"name": "Kiro CLI", "version": "1.0.0"}},
+async def test_client_info_formats_agent_cached_at_the_boundary():
+    """Test client_info formats agent information already cached by the boundary."""
+    request_context, _session = _make_request_context(
+        agent_info=detect_agent({"clientInfo": {"name": "Kiro CLI", "version": "1.0.0"}}),
     )
+    result = await internal_client_info(GetClientInfoArgs(), request_context)
 
-    with patch("mcp_guide.session.get_session", new=AsyncMock(return_value=session)):
-        result = tool_result_payload(await client_info(args=GetClientInfoArgs(), ctx=ctx))
-
-    assert result["success"] is True
-    assert result["value"]["agent"] == "Kiro CLI"
-    assert result["value"]["normalized_name"] == "q-dev"
-    assert result["value"]["version"] == "1.0.0"
-    assert result["value"]["command_prefix"] == "@"
-    assert "Kiro CLI" in result["message"]
-
-    from mcp_guide.result_constants import INSTRUCTION_DISPLAY_ONLY
-
-    assert result["instruction"] == INSTRUCTION_DISPLAY_ONLY
-
-    # Verify agent_info stored on session
-    assert session.agent_info is not None
-    assert session.agent_info.name == "Kiro CLI"
+    assert result.success is True
+    assert result.value["agent"] == "Kiro CLI"
+    assert result.value["normalized_name"] == "q-dev"
+    assert result.value["version"] == "1.0.0"
+    assert result.value["command_prefix"] == "@"
+    assert "Kiro CLI" in result.message
 
 
 @pytest.mark.anyio
 async def test_client_info_with_cache():
     """Test client_info returns session-cached agent info."""
     cached = AgentInfo(name="Cached Agent", normalized_name="cached", version="2.0.0", prompt_prefix="/")
-    ctx, session = _make_ctx(
+    request_context, _session = _make_request_context(
         agent_info=cached,
         client_params={"clientInfo": {"name": "Different Agent", "version": "3.0.0"}},
     )
 
-    with patch("mcp_guide.session.get_session", new=AsyncMock(return_value=session)):
-        result = tool_result_payload(await client_info(args=GetClientInfoArgs(), ctx=ctx))
+    result = await internal_client_info(GetClientInfoArgs(), request_context)
 
-    assert result["success"] is True
-    assert result["value"]["agent"] == "Cached Agent"
-    assert result["value"]["version"] == "2.0.0"
-    assert "Different Agent" not in result["message"]
+    assert result.success is True
+    assert result.value["agent"] == "Cached Agent"
+    assert result.value["version"] == "2.0.0"
+    assert "Different Agent" not in result.message
 
 
 @pytest.mark.anyio
 async def test_client_info_no_client_params():
     """Test client_info handles missing client_params."""
-    ctx, session = _make_ctx(agent_info=None, client_params=None)
+    request_context, _session = _make_request_context(agent_info=None, client_params=None)
+    result = await internal_client_info(GetClientInfoArgs(), request_context)
 
-    with patch("mcp_guide.session.get_session", new=AsyncMock(return_value=session)):
-        result = tool_result_payload(await client_info(args=GetClientInfoArgs(), ctx=ctx))
-
-    assert result["success"] is False
-    assert "No client information available" in result["error"]
-
-
-@pytest.mark.anyio
-async def test_client_info_no_context():
-    """Test client_info handles missing context."""
-    result = tool_result_payload(await client_info(args=GetClientInfoArgs(), ctx=None))
-
-    assert result["success"] is False
-    assert "Context not available" in result["error"]
+    assert result.success is False
+    assert "No client information available" in result.error
 
 
 @pytest.mark.anyio
 async def test_client_info_dict_without_client_info():
     """Test client_info with dict missing clientInfo."""
-    ctx, session = _make_ctx(agent_info=None, client_params={})
+    request_context, _session = _make_request_context(agent_info=detect_agent({}), client_params={})
+    result = await internal_client_info(GetClientInfoArgs(), request_context)
 
-    with patch("mcp_guide.session.get_session", new=AsyncMock(return_value=session)):
-        result = tool_result_payload(await client_info(args=GetClientInfoArgs(), ctx=ctx))
-
-    assert result["success"] is True
-    assert result["value"]["agent"] == "Unknown"
-    assert result["value"]["normalized_name"] == "unknown"
-    assert result["value"]["command_prefix"] is None
+    assert result.success is True
+    assert result.value["agent"] == "Unknown"
+    assert result.value["normalized_name"] == "unknown"
+    assert result.value["command_prefix"] is None
 
 
 @pytest.mark.anyio
 async def test_client_info_codex_reports_no_command_prefix():
     """Test client_info reports no prompt prefix for Codex."""
-    ctx, session = _make_ctx(
-        agent_info=None,
-        client_params={"clientInfo": {"name": "codex-mcp-client", "version": "0.116.0"}},
+    request_context, _session = _make_request_context(
+        agent_info=detect_agent({"clientInfo": {"name": "codex-mcp-client", "version": "0.116.0"}}),
     )
+    result = await internal_client_info(GetClientInfoArgs(), request_context)
 
-    with patch("mcp_guide.session.get_session", new=AsyncMock(return_value=session)):
-        result = tool_result_payload(await client_info(args=GetClientInfoArgs(), ctx=ctx))
-
-    assert result["success"] is True
-    assert result["value"]["agent"] == "codex-mcp-client"
-    assert result["value"]["normalized_name"] == "codex"
-    assert result["value"]["command_prefix"] is None
-    assert "Command Prefix: None" in result["message"]
+    assert result.success is True
+    assert result.value["agent"] == "codex-mcp-client"
+    assert result.value["normalized_name"] == "codex"
+    assert result.value["command_prefix"] is None
+    assert "Command Prefix: None" in result.message
 
 
 @pytest.mark.anyio
-async def test_client_info_reads_modern_request_metadata():
-    """Modern requests provide client information per request, not via initialize."""
-    ctx, session = _make_ctx(agent_info=None, client_params=None)
-    ctx.request_context = SimpleNamespace(
-        meta={"io.modelcontextprotocol/clientInfo": {"name": "Cursor", "version": "1.0.0"}},
-        protocol_version="2026-07-28",
-        request_id="request-1",
-        lifespan_context=None,
+async def test_client_info_formats_modern_metadata_cached_at_boundary():
+    """Modern request metadata is already cached before application dispatch."""
+    client_params = {"clientInfo": {"name": "Cursor", "version": "1.0.0"}}
+    request_context, session = _make_request_context(
+        agent_info=detect_agent(client_params), client_params=client_params
     )
-
-    with patch("mcp_guide.session.get_session", new=AsyncMock(return_value=session)):
-        result = tool_result_payload(await client_info(args=GetClientInfoArgs(), ctx=ctx))
-    assert result["success"] is True
-    assert result["value"]["agent"] == "Cursor"
-    assert session.client_params == {"clientInfo": {"name": "Cursor", "version": "1.0.0"}}
+    result = await internal_client_info(GetClientInfoArgs(), request_context)
+    assert result.success is True
+    assert result.value["agent"] == "Cursor"
+    assert session.client_params == client_params

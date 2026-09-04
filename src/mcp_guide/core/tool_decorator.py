@@ -4,37 +4,33 @@ import inspect
 import json
 import os
 import weakref
-from contextvars import ContextVar
 from dataclasses import dataclass
 from functools import cache, wraps
-from typing import TYPE_CHECKING, Any, Callable, Coroutine, Optional
+from typing import TYPE_CHECKING, Any, Callable, Coroutine, Optional, cast
 
+from fastmcp import Context
 from fastmcp.tools.base import ToolResult
 from mcp_types import TextContent
 
 from mcp_guide.core.mcp_log import get_logger
-from mcp_guide.core.result import Result as CoreResult
 from mcp_guide.mcp_result_adapter import add_session_continuation, tool_response
 from mcp_guide.result import Result
 from mcp_guide.result_constants import (
     ERROR_INVALID_NAME,
     ERROR_VALIDATION,
     INSTRUCTION_VALIDATION_ERROR,
-    RESULT_NO_PROJECT,
     make_invalid_session_result,
     make_no_project_result,
+    make_unmintable_session_result,
 )
-from mcp_guide.session import InvalidGuideSessionError, get_session
+from mcp_guide.runtime import RequestContext
+from mcp_guide.session import InvalidGuideSessionError, UnmintableGuideSessionError
 from mcp_guide.validation import InvalidProjectNameError
 
 if TYPE_CHECKING:
     from mcp_guide.session import Session
 
 logger = get_logger(__name__)
-
-
-# Internal test mode control - not exposed to external manipulation
-_test_mode: ContextVar[bool] = ContextVar("tool_test_mode", default=False)
 
 
 # Deferred registration infrastructure
@@ -74,17 +70,7 @@ def get_tool_prefix() -> str:
     return f"{tool_prefix}_" if tool_prefix else ""
 
 
-def enable_test_mode() -> None:
-    """Enable test mode (for testing only)."""
-    _test_mode.set(True)
-
-
-def disable_test_mode() -> None:
-    """Disable test mode."""
-    _test_mode.set(False)
-
-
-async def _call_on_tool(tool_name: str, ctx: Optional[Any] = None, session_id: str | None = None) -> Any:
+async def _call_on_tool(tool_name: str, request_context: RequestContext) -> None:
     """Call TaskManager.on_tool() at tool invocation start.
 
     Note: This handles tool START events. Tool END events and result processing
@@ -94,46 +80,35 @@ async def _call_on_tool(tool_name: str, ctx: Optional[Any] = None, session_id: s
         tool_name: Name of the tool being invoked
     """
     try:
-        if session_id is None:
-            session = await get_session(ctx)
-        else:
-            session = await get_session(ctx, session_id=session_id)
+        session = request_context.session
         task_manager = session.task_manager
         logger.trace(f"Calling on_tool at start of {tool_name}")
         await task_manager.on_tool()
-        return session
     except InvalidGuideSessionError:
         raise
     except InvalidProjectNameError:
         raise
     except Exception as e:
         logger.error(f"on_tool execution failed at start of {tool_name}: {e}")
-        return None
 
 
-async def _check_project_bound(ctx: Optional[Any], session_id: str | None = None) -> Optional[object]:
+async def _check_project_bound(request_context: RequestContext) -> Optional[object]:
     """Return a native no-project response if the session is unbound."""
-    # In direct unit calls (no FastMCP context), bypass this boundary so tests can call
-    # decorators without needing a synthetic active session.
-    if ctx is None and session_id is None:
-        return None
-
-    try:
-        if session_id is None:
-            session = await get_session(ctx)
-        else:
-            session = await get_session(ctx, session_id=session_id)
-    except InvalidGuideSessionError:
-        return tool_response(make_invalid_session_result())
-    except InvalidProjectNameError as error:
-        return tool_response(Result.failure(str(error), error_type=ERROR_INVALID_NAME))
-    except ValueError:
-        return tool_response(RESULT_NO_PROJECT)
-
-    if not session.project_is_bound:
+    if not request_context.is_bound:
         return tool_response(await make_no_project_result())
 
     return None
+
+
+def _transport_signature(func: Callable[..., Any]) -> inspect.Signature:
+    """Expose FastMCP's injected ``ctx`` while keeping it out of application code."""
+    parameters = []
+    for parameter in inspect.signature(func).parameters.values():
+        if parameter.name == "request_context":
+            parameters.append(parameter.replace(name="ctx", annotation=Context, default=None))
+        else:
+            parameters.append(parameter)
+    return inspect.signature(func).replace(parameters=parameters)
 
 
 async def _normalize_tool_output(
@@ -165,7 +140,7 @@ async def _normalize_tool_output(
 
 
 def toolfunc(
-    args_class: Optional[type] = None,
+    args_class: type,
     description: Optional[str] = None,
     prefix: Optional[str] = None,
     requires_project: bool = True,
@@ -174,7 +149,8 @@ def toolfunc(
     """Decorator for deferred tool registration.
 
     Stores tool metadata without registering with MCP. Registration happens
-    later via register_tools().
+    later via register_tools(). Every tool takes an args class because the
+    transport always carries at least ``session_id``.
 
     Args:
         args_class: ToolArguments subclass
@@ -186,118 +162,70 @@ def toolfunc(
     """
 
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
-        if _test_mode.get():
-            return func
-
         if not inspect.iscoroutinefunction(func):
             raise TypeError(f"Tool {func.__name__} must be async")  # ty: ignore[unresolved-attribute]
 
         # Auto-generate description
         final_description = description
-        if args_class is not None and description is None and hasattr(args_class, "build_description"):
+        if description is None and hasattr(args_class, "build_description"):
             final_description = args_class.build_description(func)  # ty: ignore[call-non-callable]
 
         # Determine prefix and tool name
         tool_prefix = prefix if prefix is not None else get_tool_prefix().rstrip("_")
         tool_name = f"{tool_prefix}_{func.__name__}" if tool_prefix else func.__name__  # ty: ignore[unresolved-attribute]
 
-        # Create wrapped function with logging/validation
-        wrapped: Callable[..., Coroutine[Any, Any, object]]
-        if args_class is not None:
+        @wraps(func)
+        async def async_wrapper(args: Any, ctx: Optional[Any] = None) -> object:
+            logger.debug(f"Invoking async tool: {tool_name}")
+            from mcp_guide.session import request_context_scope
 
-            @wraps(func)
-            async def async_wrapper(args: Any, ctx: Optional[Any] = None) -> object:
-                logger.debug(f"Invoking async tool: {tool_name}")
-                from mcp_guide.session import request_session_scope
-
-                async with request_session_scope(ctx, getattr(args, "session_id", None)):
-                    # Project binding mints its modern FastMCP session inside the
-                    # implementation. Starting task interception here would
-                    # otherwise allocate a transient unbound Guide Session first.
-                    session = None
+            try:
+                context_scope = request_context_scope(
+                    ctx,
+                    getattr(args, "session_id", None),
+                    allow_pwd_bootstrap=not binds_project,
+                    mint_session_if_unbound=binds_project,
+                )
+                async with context_scope as request_context:
+                    session = request_context.session
+                    if hasattr(args, "session_id") and getattr(args, "session_id", None) is None:
+                        args.session_id = request_context.session_id
                     if not binds_project:
-                        try:
-                            session = await _call_on_tool(tool_name, ctx, getattr(args, "session_id", None))
-                        except InvalidGuideSessionError:
-                            return tool_response(make_invalid_session_result())
-                        except InvalidProjectNameError as error:
-                            return tool_response(Result.failure(str(error), error_type=ERROR_INVALID_NAME))
-                        if (
-                            hasattr(args, "session_id")
-                            and getattr(args, "session_id", None) is None
-                            and session is not None
-                        ):
-                            args.session_id = getattr(session, "session_id", None)
+                        await _call_on_tool(tool_name, request_context)
                     if requires_project:
-                        unbound = await _check_project_bound(ctx, getattr(args, "session_id", None))
+                        unbound = await _check_project_bound(request_context)
                         if unbound is not None:
                             return unbound
-                    from mcp_guide.tools.tool_result import bind_tool_session, reset_tool_session
+                    result = await func(args, request_context)
+                    return await _normalize_tool_output(result, tool_name, request_context.session_id, session=session)
+            except InvalidGuideSessionError:
+                return tool_response(make_invalid_session_result())
+            except UnmintableGuideSessionError:
+                return tool_response(make_unmintable_session_result())
+            except InvalidProjectNameError as error:
+                return tool_response(Result.failure(str(error), error_type=ERROR_INVALID_NAME))
+            except Exception as error:
+                from pydantic import ValidationError as PydanticValidationError
 
-                    session_token = bind_tool_session(session)
-                    try:
-                        result = await func(args, ctx)
-                        # Existing Guide tools use ``tool_result`` themselves.
-                        # Accepting an internal Result here lets newly migrated
-                        # tools use the same native SDK boundary without a second
-                        # serialisation convention.
-                        return await _normalize_tool_output(
-                            result, tool_name, getattr(args, "session_id", None), session=session
-                        )
-                    except Exception as e:
-                        from pydantic import ValidationError as PydanticValidationError
+                if isinstance(error, PydanticValidationError):
+                    error_details = [
+                        {"field": str(err["loc"][0]) if err["loc"] else "unknown", "message": err["msg"]}
+                        for err in error.errors()
+                    ]
+                    error_result: Result[Any] = Result.failure(
+                        f"Invalid tool arguments: {len(error_details)} validation error(s)",
+                        error_type=ERROR_VALIDATION,
+                        instruction=INSTRUCTION_VALIDATION_ERROR,
+                    )
+                    error_result.error_data = {"validation_errors": error_details}
+                    logger.error(f"Tool {tool_name} argument validation failed: {error_details}")
+                    return tool_response(error_result)
+                logger.error(f"Tool {tool_name} failed: {error}")
+                raise
 
-                        if isinstance(e, PydanticValidationError):
-                            error_details = [
-                                {"field": str(err["loc"][0]) if err["loc"] else "unknown", "message": err["msg"]}
-                                for err in e.errors()
-                            ]
-                            error_result: CoreResult[Any] = CoreResult.failure(
-                                f"Invalid tool arguments: {len(error_details)} validation error(s)",
-                                error_type=ERROR_VALIDATION,
-                                instruction=INSTRUCTION_VALIDATION_ERROR,
-                            )
-                            error_result.error_data = {"validation_errors": error_details}
-                            logger.error(f"Tool {tool_name} argument validation failed: {error_details}")
-                            return tool_response(error_result)
-                        logger.error(f"Tool {tool_name} failed: {e}")
-                        raise
-                    finally:
-                        reset_tool_session(session_token)
-
-            wrapped = async_wrapper
-        else:
-
-            @wraps(func)
-            async def async_wrapper_no_args(ctx: Optional[Any] = None) -> object:
-                logger.debug(f"Invoking async tool: {tool_name}")
-                from mcp_guide.session import request_session_scope
-
-                async with request_session_scope(ctx):
-                    session = None
-                    try:
-                        session = await _call_on_tool(tool_name, ctx)
-                    except InvalidGuideSessionError:
-                        return tool_response(make_invalid_session_result())
-                    except InvalidProjectNameError as error:
-                        return tool_response(Result.failure(str(error), error_type=ERROR_INVALID_NAME))
-                    if requires_project:
-                        unbound = await _check_project_bound(ctx)
-                        if unbound is not None:
-                            return unbound
-                    from mcp_guide.tools.tool_result import bind_tool_session, reset_tool_session
-
-                    session_token = bind_tool_session(session)
-                    try:
-                        result = await func(ctx=ctx)
-                        return await _normalize_tool_output(result, tool_name, session=session)
-                    except Exception as e:
-                        logger.error(f"Tool {tool_name} failed: {e}")
-                        raise
-                    finally:
-                        reset_tool_session(session_token)
-
-            wrapped = async_wrapper_no_args
+        wrapped: Callable[..., Coroutine[Any, Any, object]] = async_wrapper
+        cast(Any, wrapped).__signature__ = _transport_signature(func)
+        cast(Any, wrapped).__annotations__ = {**getattr(func, "__annotations__", {}), "ctx": Context}
 
         # Store in registry
         metadata = ToolMetadata(

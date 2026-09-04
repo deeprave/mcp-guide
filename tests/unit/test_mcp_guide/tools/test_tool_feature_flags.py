@@ -2,14 +2,14 @@
 
 import pytest
 
-from mcp_guide.runtime import GuideRuntime
+from mcp_guide.runtime import create_runtime
 
 
 @pytest.mark.anyio
 async def test_runtime_global_flags_without_a_session(tmp_path):
     """GuideRuntime owns global flag list/get/set/remove without a Session."""
     (tmp_path / "config.yaml").write_text("feature_flags: {}\nprojects: {}\n")
-    runtime = GuideRuntime(lambda _owner: object(), config_dir=str(tmp_path))
+    runtime = create_runtime(lambda _owner: object(), config_dir=str(tmp_path))
     flags = runtime.feature_flags()
 
     await flags.set("workflow", True)

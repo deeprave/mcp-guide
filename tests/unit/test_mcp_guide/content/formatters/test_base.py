@@ -8,6 +8,8 @@ import pytest
 from mcp_guide.content.formatters.base import BaseFormatter
 from mcp_guide.discovery.files import FileInfo
 
+_RESOLVE = Path("docs").joinpath
+
 
 class TestBaseFormatter:
     """Test BaseFormatter functionality."""
@@ -16,7 +18,7 @@ class TestBaseFormatter:
     async def test_format_empty_list(self):
         """Test format method with empty file list."""
         formatter = BaseFormatter()
-        result = await formatter.format([], "test")
+        result = await formatter.format([], _RESOLVE)
         assert result == ""
 
     @pytest.mark.anyio
@@ -31,7 +33,7 @@ class TestBaseFormatter:
             name="test.txt",
             content="Hello World",
         )
-        result = await formatter.format([file_info], "test")
+        result = await formatter.format([file_info], _RESOLVE)
         assert result == "Hello World"
 
     @pytest.mark.anyio
@@ -46,7 +48,7 @@ class TestBaseFormatter:
                 path=Path("file2.txt"), size=6, content_size=6, mtime=datetime.now(), name="file2.txt", content="Second"
             ),
         ]
-        result = await formatter.format(files, "test")
+        result = await formatter.format(files, _RESOLVE)
         assert result == "First\nSecond"
 
     @pytest.mark.anyio
@@ -64,7 +66,7 @@ class TestBaseFormatter:
                 path=Path("file3.txt"), size=5, content_size=5, mtime=datetime.now(), name="file3.txt", content="Third"
             ),
         ]
-        result = await formatter.format(files, "test")
+        result = await formatter.format(files, _RESOLVE)
         assert result == "First\n\nThird"
 
     @pytest.mark.anyio
@@ -89,6 +91,6 @@ class TestBaseFormatter:
                 content="Second\n",
             ),
         ]
-        result = await formatter.format(files, "test")
+        result = await formatter.format(files, _RESOLVE)
         # Files with trailing newlines will produce extra blank lines between files
         assert result == "First\n\nSecond\n"

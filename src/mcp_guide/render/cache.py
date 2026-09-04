@@ -286,7 +286,9 @@ class TemplateContextCache(SessionListener):
         global_flags_list = []
         try:
             if session:
-                global_flags_dict = await session.runtime.feature_flags().list()
+                from mcp_guide.runtime import get_runtime
+
+                global_flags_dict = await get_runtime().feature_flags().list()
                 global_flags_list = [
                     {"key": k, "value": v.to_display() if isinstance(v, FeatureValue) else v}
                     for k, v in global_flags_dict.items()

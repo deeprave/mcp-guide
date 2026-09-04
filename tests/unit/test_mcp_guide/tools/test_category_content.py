@@ -1,8 +1,9 @@
 """Tests for category_content tool."""
 
+from types import SimpleNamespace
+
 import pytest
 from pydantic import ValidationError
-from tests.helpers import tool_result_payload
 
 
 def create_mock_session(project, tmp_path):
@@ -16,11 +17,24 @@ def create_mock_session(project, tmp_path):
             return project
 
         @property
+        def project_is_bound(self):
+            return True
+
+        @property
+        def project(self):
+            return project
+
+        @property
         def runtime(self):
             return self
 
         async def get_docroot(self):
             return str(tmp_path)
+
+        def resolve_document_path(self, relative_path):
+            from pathlib import Path
+
+            return Path(tmp_path) / relative_path
 
         def project_flags(self):
             class MockFlags:
@@ -37,6 +51,19 @@ def create_mock_session(project, tmp_path):
             return MockFlags()
 
     return MockSession()
+
+
+def create_request_context(project, tmp_path):
+    """Create the resolved application context for direct handler tests."""
+    from pathlib import Path
+
+    session = create_mock_session(project, tmp_path)
+    return SimpleNamespace(
+        session=session,
+        project=project,
+        is_bound=True,
+        resolve_document_path=lambda relative_path: Path(tmp_path) / relative_path,
+    )
 
 
 @pytest.mark.parametrize(
@@ -136,7 +163,7 @@ async def test_tool_returns_result_ok_on_success(tmp_path, monkeypatch):
     from mcp_guide.models import Category, Project
     from mcp_guide.tools.tool_category import (
         CategoryContentArgs,
-        category_content,
+        internal_category_content,
     )
 
     # Create test files
@@ -148,21 +175,10 @@ async def test_tool_returns_result_ok_on_success(tmp_path, monkeypatch):
         name="test", categories={"docs": Category(dir=".", name="docs", patterns=["README"])}, collections={}
     )
 
-    # Mock get_session
-    async def mock_get_session(ctx=None):
-        return create_mock_session(project, tmp_path)
-
-    monkeypatch.setattr("mcp_guide.tools.tool_helpers.get_session", mock_get_session)
-
-    # Call tool
     args = CategoryContentArgs(expression="docs")
-    tool_result = await category_content(args)
-
-    # Parse result
-    result = tool_result_payload(tool_result)
-    assert result["success"] is True
-    assert "value" in result
-    assert "Test Content" in result["value"]
+    result = await internal_category_content(args, create_request_context(project, tmp_path))
+    assert result.success is True
+    assert "Test Content" in result.value
 
 
 @pytest.mark.anyio
@@ -173,27 +189,18 @@ async def test_category_not_found_returns_failure(tmp_path, monkeypatch):
         ERROR_NOT_FOUND,
         INSTRUCTION_NOTFOUND_ERROR,
         CategoryContentArgs,
-        category_content,
+        internal_category_content,
     )
 
     # Create test project with no categories
     project = Project(name="test", categories={}, collections={})
 
-    async def mock_get_session(ctx=None):
-        return create_mock_session(project, tmp_path)
-
-    monkeypatch.setattr("mcp_guide.tools.tool_helpers.get_session", mock_get_session)
-
-    # Call tool with non-existent category
     args = CategoryContentArgs(expression="nonexistent")
-    tool_result = await category_content(args)
-
-    # Parse result
-    result = tool_result_payload(tool_result)
-    assert result["success"] is False
-    assert result["error_type"] == ERROR_NOT_FOUND
-    assert result["instruction"] == INSTRUCTION_NOTFOUND_ERROR
-    assert "nonexistent" in result["error"]
+    result = await internal_category_content(args, create_request_context(project, tmp_path))
+    assert result.success is False
+    assert result.error_type == ERROR_NOT_FOUND
+    assert result.instruction == INSTRUCTION_NOTFOUND_ERROR
+    assert "nonexistent" in result.error
 
 
 @pytest.mark.anyio
@@ -203,7 +210,7 @@ async def test_no_matches_returns_failure(tmp_path, monkeypatch):
     from mcp_guide.tools.tool_category import (
         INSTRUCTION_PATTERN_ERROR,
         CategoryContentArgs,
-        category_content,
+        internal_category_content,
     )
 
     # Create test project with category but no matching files
@@ -211,26 +218,19 @@ async def test_no_matches_returns_failure(tmp_path, monkeypatch):
         name="test", categories={"docs": Category(dir=".", name="docs", patterns=["README"])}, collections={}
     )
 
-    async def mock_get_session(ctx=None):
-        return create_mock_session(project, tmp_path)
-
-    monkeypatch.setattr("mcp_guide.tools.tool_helpers.get_session", mock_get_session)
-
     # Test 1: Default patterns - should return success
     args = CategoryContentArgs(expression="docs")
-    tool_result = await category_content(args)
-    result = tool_result_payload(tool_result)
-    assert result["success"] is True
-    assert result["instruction"] == INSTRUCTION_PATTERN_ERROR
-    assert "No files found" in result["value"]
+    result = await internal_category_content(args, create_request_context(project, tmp_path))
+    assert result.success is True
+    assert result.instruction == INSTRUCTION_PATTERN_ERROR
+    assert "No files found" in result.value
 
     # Test 2: Pattern override - should also return success (consistent with other tools)
     args = CategoryContentArgs(expression="docs", pattern="*.txt")
-    tool_result = await category_content(args)
-    result = tool_result_payload(tool_result)
-    assert result["success"] is True
-    assert result["instruction"] == INSTRUCTION_PATTERN_ERROR
-    assert "*.txt" in result["value"]
+    result = await internal_category_content(args, create_request_context(project, tmp_path))
+    assert result.success is True
+    assert result.instruction == INSTRUCTION_PATTERN_ERROR
+    assert "*.txt" in result.value
 
 
 @pytest.mark.anyio
@@ -261,7 +261,7 @@ async def test_file_read_error_scenarios(tmp_path, monkeypatch, scenario, patter
         ERROR_FILE_READ,
         INSTRUCTION_FILE_ERROR,
         CategoryContentArgs,
-        category_content,
+        internal_category_content,
     )
 
     # Create test project with category
@@ -281,10 +281,7 @@ async def test_file_read_error_scenarios(tmp_path, monkeypatch, scenario, patter
         for pattern in patterns
     ]
 
-    async def mock_get_session(ctx=None):
-        return create_mock_session(project, tmp_path)
-
-    async def mock_gather_content(session, project, expression):
+    async def mock_gather_content(request_context, project, expression):
         assert expression == "docs"
         return file_infos
 
@@ -294,16 +291,14 @@ async def test_file_read_error_scenarios(tmp_path, monkeypatch, scenario, patter
         return None
 
     async def mock_read_and_render_file_contents(
-        session, category_files, category_dir, docroot, template_context, category_prefix
+        request_context, category_files, category_dir, template_context, category_prefix
     ):
         assert category_files == file_infos
         assert category_dir == tmp_path
-        assert docroot == tmp_path
         assert template_context is None
         assert category_prefix == "docs"
         return [f"{filename}: {error}" for filename, error in error_map.items()]
 
-    monkeypatch.setattr("mcp_guide.tools.tool_helpers.get_session", mock_get_session)
     monkeypatch.setattr("mcp_guide.tools.tool_category.gather_content", mock_gather_content)
     monkeypatch.setattr(
         "mcp_guide.tools.tool_category.get_template_context_if_needed",
@@ -314,23 +309,19 @@ async def test_file_read_error_scenarios(tmp_path, monkeypatch, scenario, patter
         mock_read_and_render_file_contents,
     )
 
-    # Call tool
     args = CategoryContentArgs(expression="docs")
-    tool_result = await category_content(args)
-
-    # Parse result
-    result = tool_result_payload(tool_result)
-    assert result["success"] is False
-    assert result["error_type"] == ERROR_FILE_READ
-    assert result["instruction"] == INSTRUCTION_FILE_ERROR
+    result = await internal_category_content(args, create_request_context(project, tmp_path))
+    assert result.success is False
+    assert result.error_type == ERROR_FILE_READ
+    assert result.instruction == INSTRUCTION_FILE_ERROR
 
     # All files should be in error message
     for filename in error_map.keys():
-        assert filename in result["error"]
+        assert filename in result.error
 
     # Multiple files should have semicolon aggregation
     if len(error_map) > 1:
-        assert ";" in result["error"]
+        assert ";" in result.error
 
 
 @pytest.mark.anyio
@@ -339,25 +330,40 @@ async def test_error_responses_include_all_fields(tmp_path, monkeypatch):
     from mcp_guide.models import Project
     from mcp_guide.tools.tool_category import (
         CategoryContentArgs,
-        category_content,
+        internal_category_content,
     )
 
     # Create test project with no categories
     project = Project(name="test", categories={}, collections={})
 
-    async def mock_get_session(ctx=None):
-        return create_mock_session(project, tmp_path)
-
-    monkeypatch.setattr("mcp_guide.tools.tool_helpers.get_session", mock_get_session)
-
-    # Call tool
     args = CategoryContentArgs(expression="test")
-    tool_result = await category_content(args)
+    result = await internal_category_content(args, create_request_context(project, tmp_path))
+    assert result.success is False
+    assert result.error_type is not None
+    assert result.instruction is not None
+    assert result.error is not None
 
-    # Parse result
-    result = tool_result_payload(tool_result)
-    assert "success" in result
-    assert "error_type" in result
-    assert "instruction" in result
-    assert "error" in result
-    assert result["success"] is False
+
+@pytest.mark.anyio
+async def test_gather_valueerror_returns_validation_error(tmp_path, monkeypatch):
+    """An escaping category dir raised in gather_content is a validation failure."""
+    from mcp_guide.models import Category, Project
+    from mcp_guide.tools.tool_category import (
+        ERROR_VALIDATION,
+        CategoryContentArgs,
+        internal_category_content,
+    )
+
+    async def boom(*_args, **_kwargs):
+        raise ValueError("Document path must remain within the configured document root")
+
+    monkeypatch.setattr("mcp_guide.tools.tool_category.gather_content", boom)
+    project = Project(
+        name="test", categories={"docs": Category(dir="docs", name="docs", patterns=["README"])}, collections={}
+    )
+    result = await internal_category_content(
+        CategoryContentArgs(expression="docs"), create_request_context(project, tmp_path)
+    )
+    assert result.success is False
+    assert result.error_type == ERROR_VALIDATION
+    assert "document root" in result.error

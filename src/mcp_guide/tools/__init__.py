@@ -3,13 +3,13 @@
 Tool Implementation Pattern
 ===========================
 
-All tools should follow this pattern for session access:
+All tools receive the resolved application context:
 
     from mcp_guide.result_constants import make_no_project_result
-    from mcp_guide.tools.tool_helpers import get_session_and_project
+    from mcp_guide.runtime import RequestContext
 
-    async def my_tool(ctx) -> dict:
-        session, project = await get_session_and_project(ctx)
+    async def my_tool(args: ToolArguments, request_context: RequestContext) -> dict:
+        project = request_context.project
         if project is None:
             return await make_no_project_result()
 

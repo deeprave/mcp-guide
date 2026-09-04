@@ -5,6 +5,7 @@ import io
 import json
 import re
 import tomllib
+from collections.abc import Callable
 from pathlib import Path
 
 from uuid_extensions import uuid7
@@ -101,12 +102,12 @@ class MimeFormatter:
         }
         return type_to_ext.get(detected_type, "")
 
-    def _get_relative_path(self, file_info: FileInfo, docroot: Path) -> Path:
+    def _get_relative_path(self, file_info: FileInfo, resolve_document_path: Callable[[str | Path], Path]) -> Path:
         """Get relative path within category directory.
 
         Args:
             file_info: File information with category object set
-            docroot: Document root path
+            resolve_document_path: Sync document-root-relative path resolver
 
         Returns:
             Relative path within category directory
@@ -124,22 +125,18 @@ class MimeFormatter:
         if not file_info.category:
             raise ValueError(f"Cannot convert absolute path to relative: file has no category: {path}")
 
-        # Get category directory and resolve both paths to handle symlinks
-        category_dir = (docroot / file_info.category.dir).resolve()
-        resolved_path = path.resolve()
-
-        # Convert to relative
+        category_dir = resolve_document_path(file_info.category.dir)
         try:
-            return resolved_path.relative_to(category_dir)
+            return path.relative_to(category_dir)
         except ValueError as e:
             raise ValueError(f"Path is outside category directory: {path}") from e
 
-    async def format(self, file_infos: list[FileInfo], docroot: Path) -> str:
+    async def format(self, file_infos: list[FileInfo], resolve_document_path: Callable[[str | Path], Path]) -> str:
         """Format file content with MIME headers.
 
         Args:
             file_infos: List of files with content and category set
-            docroot: Document root path
+            resolve_document_path: Sync document-root-relative path resolver
 
         Returns:
             Formatted content with MIME headers
@@ -148,16 +145,16 @@ class MimeFormatter:
             return ""
 
         if len(file_infos) == 1:
-            return await self.format_single(file_infos[0], docroot)
+            return await self.format_single(file_infos[0], resolve_document_path)
 
-        return await self.format_multiple(file_infos, docroot)
+        return await self.format_multiple(file_infos, resolve_document_path)
 
-    async def format_single(self, file_info: FileInfo, docroot: Path) -> str:
+    async def format_single(self, file_info: FileInfo, resolve_document_path: Callable[[str | Path], Path]) -> str:
         """Format single file with MIME headers.
 
         Args:
             file_info: File with content and category set
-            docroot: Document root path
+            resolve_document_path: Sync document-root-relative path resolver
 
         Returns:
             Formatted content with MIME headers
@@ -168,7 +165,7 @@ class MimeFormatter:
         content = file_info.content or ""
 
         # Get relative path within category
-        doc_path = self._get_relative_path(file_info, docroot)
+        doc_path = self._get_relative_path(file_info, resolve_document_path)
         # Use POSIX path for URI (forward slashes on all platforms)
         doc_path_str = doc_path.as_posix()
 
@@ -199,12 +196,14 @@ class MimeFormatter:
         # Return headers + blank line + content
         return headers + "\r\n" + content
 
-    async def format_multiple(self, file_infos: list[FileInfo], docroot: Path) -> str:
+    async def format_multiple(
+        self, file_infos: list[FileInfo], resolve_document_path: Callable[[str | Path], Path]
+    ) -> str:
         """Format multiple files as multipart/mixed.
 
         Args:
             file_infos: List of files with content and category set
-            docroot: Document root path
+            resolve_document_path: Sync document-root-relative path resolver
 
         Returns:
             RFC 2046 multipart/mixed formatted content
@@ -223,7 +222,7 @@ class MimeFormatter:
             content = file_info.content or ""
 
             # Get relative path within category
-            doc_path = self._get_relative_path(file_info, docroot)
+            doc_path = self._get_relative_path(file_info, resolve_document_path)
             doc_path_str = doc_path.as_posix()
 
             # Strip template extensions

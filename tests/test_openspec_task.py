@@ -42,12 +42,14 @@ def mock_task_manager():
 
 
 @pytest.fixture
-def mock_session():
-    """Create a mock session with feature flags."""
+def mock_session(monkeypatch):
+    """Create a mock session with process-global feature flags."""
     session = MagicMock()
     flags_mock = MagicMock()
     flags_mock.list = AsyncMock(return_value={"openspec": True})
-    session.runtime.feature_flags.return_value = flags_mock
+    runtime = MagicMock()
+    runtime.feature_flags.return_value = flags_mock
+    monkeypatch.setattr("mcp_guide.runtime.get_runtime", lambda: runtime)
     return session
 
 

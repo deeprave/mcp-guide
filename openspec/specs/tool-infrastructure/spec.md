@@ -38,7 +38,7 @@ The system SHALL provide ToolArguments base class in mcp_core with tool collecti
 #### Scenario: Base model inheritance
 - **WHEN** a tool defines argument model
 - **THEN** model inherits from ToolArguments
-- **AND** model benefits from common validation (extra="forbid", validate_assignment=True)
+- **AND** model benefits from common validation (extra="ignore", validate_assignment=True)
 
 #### Scenario: Schema markdown generation
 - **WHEN** ToolArguments.to_schema_markdown() is called

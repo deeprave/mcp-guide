@@ -18,7 +18,7 @@ from mcp_guide.server import create_server
 
 
 @pytest.fixture(scope="module")
-def mcp_server_factory():
+def mcp_server_factory(tmp_path_factory):
     """Factory to create MCP server with specified tool modules reloaded.
 
     Usage:
@@ -50,8 +50,23 @@ def mcp_server_factory():
 
         # Create new server instance
         from mcp_guide.cli import ServerConfig
+        from mcp_guide.runtime import get_runtime
 
-        config = ServerConfig()
+        try:
+            leftover = get_runtime()
+        except RuntimeError:
+            leftover = None
+        if leftover is not None:
+            if leftover.started:
+                import anyio
+
+                anyio.run(leftover.stop)
+            else:
+                leftover._release_process_runtime()
+        isolated = tmp_path_factory.mktemp("mcp-server")
+        docs = isolated / "docs"
+        docs.mkdir()
+        config = ServerConfig(configdir=str(isolated), docroot=str(docs))
         server = create_server(config)
 
         created_servers.append(server)

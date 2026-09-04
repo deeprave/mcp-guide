@@ -69,6 +69,20 @@ def make_invalid_session_result() -> "Result[Any]":
     )
 
 
+def make_unmintable_session_result() -> "Result[Any]":
+    """Return an in-band failure when the client protocol cannot mint a session."""
+    from mcp_guide.core.result import Result
+
+    return Result.failure(
+        "The client protocol cannot carry a Guide session",
+        error_type=ERROR_PROJECT,
+        instruction=(
+            "Present this error to the user. This MCP client cannot carry a Guide session; "
+            "it must speak protocol 2026-07-28."
+        ),
+    )
+
+
 async def make_no_project_result() -> "Result[Any]":
     """Return the fixed failure for a request without a bound project.
 

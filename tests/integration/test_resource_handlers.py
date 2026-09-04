@@ -1,18 +1,20 @@
-"""Integration tests for MCP resource handlers."""
+"""Integration tests for Guide resource application handlers."""
 
 import json
-from types import SimpleNamespace
 from typing import Any, Callable
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
+from fastmcp.resources import ResourceResult
 
 from mcp_guide.result import Result
+from mcp_guide.runtime import RequestContext
+from tests.helpers import create_unbound_test_session, request_context_for
 
 
-def _parse_result(result_str: str) -> dict:
-    """Parse a JSON result string from a resource handler."""
-    return json.loads(result_str)
+def _parse_result(result: ResourceResult) -> dict[str, Any]:
+    """Read Guide's JSON payload from a native resource response."""
+    return json.loads(result.contents[0].content)
 
 
 @pytest.fixture(scope="module")
@@ -21,310 +23,138 @@ def mcp_server(mcp_server_factory: Callable[[list[str]], Any]) -> Any:
     return mcp_server_factory([])
 
 
+@pytest.fixture
+async def request_context(runtime, mcp_server, tmp_path) -> RequestContext:
+    """Construct the resolved application input used below the resource boundary."""
+    session = create_unbound_test_session(runtime)
+    return await request_context_for(session, "resource-session")
+
+
+async def _guide_resource(
+    collection: str,
+    document: str,
+    request_context: RequestContext,
+    *,
+    request_uri: str | None = None,
+) -> ResourceResult:
+    """Invoke the resource application handler after its FastMCP boundary."""
+    from mcp_guide.resources import guide_resource
+
+    handler = getattr(guide_resource, "__wrapped__")
+    result = await handler(
+        collection,
+        document,
+        request_context=request_context,
+        request_uri=request_uri,
+    )
+    assert isinstance(result, ResourceResult)
+    return result
+
+
+async def _guide_command_resource(
+    command_path: str,
+    request_context: RequestContext,
+    *,
+    request_uri: str | None = None,
+) -> ResourceResult:
+    """Invoke the command resource application handler after its boundary."""
+    from mcp_guide.resources import guide_command_resource
+
+    handler = getattr(guide_command_resource, "__wrapped__")
+    result = await handler(
+        command_path,
+        request_context=request_context,
+        request_uri=request_uri,
+    )
+    assert isinstance(result, ResourceResult)
+    return result
+
+
 class TestResourceHandlers:
-    """Integration tests for MCP resource handlers."""
+    """Resource delegation retains the RequestContext resolved at entry."""
 
     @pytest.mark.anyio
-    async def test_guide_resource_success(self, mcp_server: Any) -> None:
-        """guide:// resource should delegate to internal_get_content."""
-        mock_ctx = MagicMock()
+    async def test_guide_resource_passes_the_resolved_context(self, mcp_server, request_context) -> None:
+        """Content dispatch receives exactly the context resolved by the boundary."""
         mock_result = Result.ok("Test content from collection")
+        with patch("mcp_guide.resources.internal_get_content", new=AsyncMock(return_value=mock_result)) as get_content:
+            result = await _guide_resource("docs", "readme", request_context)
 
-        with patch(
-            "mcp_guide.resources.internal_get_content", new=AsyncMock(return_value=mock_result)
-        ) as mock_get_content:
-            # Access the registered resource handler directly
-            from mcp_guide.resources import guide_resource
-
-            result = await guide_resource("docs", "readme", mock_ctx)
-
-            mock_get_content.assert_called_once()
-            args_call, _ = mock_get_content.call_args
-            content_args = args_call[0]
-            assert content_args.expression == "docs"
-            assert content_args.pattern == "readme"
-            parsed = _parse_result(result)
-            assert parsed["success"] is True
-            assert parsed["value"] == "Test content from collection"
+        get_content.assert_awaited_once()
+        call = get_content.await_args
+        assert call is not None
+        args, supplied_context = call.args
+        assert args.expression == "docs"
+        assert args.pattern == "readme"
+        assert supplied_context is request_context
+        payload = _parse_result(result)
+        assert payload["success"] is True
+        assert payload["value"] == "Test content from collection"
 
     @pytest.mark.anyio
-    async def test_guide_resource_passes_the_resolved_session(self, mcp_server: Any) -> None:
-        """Native resources resolve Session once and thread it into content reads."""
-        mock_ctx = MagicMock()
-        mock_session = MagicMock()
-        mock_session.session_id = "resource-session"
-        mock_session.task_manager.process_result = AsyncMock(side_effect=lambda result: result)
-        mock_result = Result.ok("session-aware content")
+    async def test_guide_resource_preserves_empty_document_and_policies_path(self, mcp_server, request_context) -> None:
+        """Resource-specific URI rules are applied before content delegation."""
+        with patch(
+            "mcp_guide.resources.internal_get_content", new=AsyncMock(return_value=Result.ok("content"))
+        ) as get_content:
+            await _guide_resource("docs", "", request_context)
+            call = get_content.await_args
+            assert call is not None
+            assert call.args[0].pattern is None
 
-        with patch("mcp_guide.resources.get_session", new=AsyncMock(return_value=mock_session)):
-            with patch(
-                "mcp_guide.resources.internal_get_content", new=AsyncMock(return_value=mock_result)
-            ) as mock_get_content:
-                from mcp_guide.resources import guide_resource
-
-                result = await guide_resource("docs", "readme", mock_ctx)
-
-                assert mock_get_content.call_args.kwargs["session"] is mock_session
-                parsed = _parse_result(result)
-                assert parsed["success"] is True
+            await _guide_resource("policies", "git/ops", request_context)
+            call = get_content.await_args
+            assert call is not None
+            assert call.args[0].pattern == "git/ops/"
 
     @pytest.mark.anyio
-    async def test_guide_resource_invalid_project_name(self, mcp_server: Any) -> None:
-        """An invalid project name is not swallowed as an unexpected resource error."""
-        from mcp_guide.validation import InvalidProjectNameError
+    @pytest.mark.parametrize(
+        ("exception", "expected_error"),
+        [
+            (ValueError("Invalid value"), "Invalid value"),
+            (FileNotFoundError("File not found"), "File not found"),
+            (PermissionError("Permission denied"), "Permission denied"),
+            (Exception("Unexpected error"), "Unexpected error: Unexpected error"),
+        ],
+    )
+    async def test_guide_resource_serialises_content_errors(
+        self, mcp_server, request_context, exception: Exception, expected_error: str
+    ) -> None:
+        """Resource errors remain native resource responses after context propagation."""
+        with patch("mcp_guide.resources.internal_get_content", new=AsyncMock(side_effect=exception)):
+            payload = _parse_result(await _guide_resource("docs", "readme", request_context))
 
-        mock_ctx = MagicMock()
+        assert payload["success"] is False
+        assert payload["error"] == expected_error
+
+    @pytest.mark.anyio
+    async def test_command_resource_passes_context_and_complete_uri(self, mcp_server, request_context) -> None:
+        """Command resources use the same context and preserve URI query arguments."""
         with patch(
-            "mcp_guide.resources.get_session",
-            new=AsyncMock(side_effect=InvalidProjectNameError("Project path basename is invalid")),
+            "mcp_guide.resources.internal_read_resource", new=AsyncMock(return_value=Result.ok("status output"))
+        ) as read_resource:
+            result = await _guide_command_resource(
+                "status",
+                request_context,
+                request_uri="guide://_status?verbose=true",
+            )
+
+        read_resource.assert_awaited_once()
+        call = read_resource.await_args
+        assert call is not None
+        args, supplied_context = call.args
+        assert args.uri == "guide://_status?verbose=true"
+        assert supplied_context is request_context
+        assert _parse_result(result)["value"] == "status output"
+
+    @pytest.mark.anyio
+    async def test_command_resource_returns_delegated_failure(self, mcp_server, request_context) -> None:
+        """Delegated command failures retain their Guide error payload."""
+        with patch(
+            "mcp_guide.resources.internal_read_resource",
+            new=AsyncMock(return_value=Result.failure("Command not found")),
         ):
-            from mcp_guide.resources import guide_resource
+            payload = _parse_result(await _guide_command_resource("unknown", request_context))
 
-            result = await guide_resource("docs", "readme", mock_ctx)
-
-            parsed = _parse_result(result)
-            assert parsed["success"] is False
-            assert parsed["error_type"] == "invalid_name"
-
-    @pytest.mark.anyio
-    async def test_guide_resource_no_document(self, mcp_server: Any) -> None:
-        """guide:// resource should handle empty document parameter."""
-        mock_ctx = MagicMock()
-        mock_result = Result.ok("All docs content")
-
-        with patch(
-            "mcp_guide.resources.internal_get_content", new=AsyncMock(return_value=mock_result)
-        ) as mock_get_content:
-            # Access the registered resource handler
-            from mcp_guide.resources import guide_resource
-
-            result = await guide_resource("docs", "", mock_ctx)
-
-            mock_get_content.assert_called_once()
-            args_call, _ = mock_get_content.call_args
-            content_args = args_call[0]
-            assert content_args.expression == "docs"
-            assert content_args.pattern is None
-            parsed = _parse_result(result)
-            assert parsed["success"] is True
-            assert parsed["value"] == "All docs content"
-
-    @pytest.mark.anyio
-    async def test_guide_resource_content_error(self, mcp_server: Any) -> None:
-        """guide:// resource should handle internal_get_content errors."""
-        mock_ctx = MagicMock()
-        mock_result: Result[str] = Result.failure("Collection not found")
-
-        with patch("mcp_guide.resources.internal_get_content", new=AsyncMock(return_value=mock_result)):
-            from mcp_guide.resources import guide_resource
-
-            result = await guide_resource("nonexistent", "", mock_ctx)
-
-            parsed = _parse_result(result)
-            assert parsed["success"] is False
-            assert parsed["error"] == "Collection not found"
-
-    @pytest.mark.anyio
-    async def test_guide_resource_exception_handling(self, mcp_server: Any) -> None:
-        """guide:// resource should handle unexpected exceptions."""
-        mock_ctx = MagicMock()
-
-        with patch(
-            "mcp_guide.resources.internal_get_content", new=AsyncMock(side_effect=Exception("Unexpected error"))
-        ):
-            from mcp_guide.resources import guide_resource
-
-            result = await guide_resource("docs", "readme", mock_ctx)
-
-            assert "Unexpected error: Unexpected error" in result
-
-    @pytest.mark.anyio
-    async def test_guide_resource_value_error_handling(self, mcp_server: Any) -> None:
-        """guide:// resource should handle ValueError specifically."""
-        mock_ctx = MagicMock()
-
-        with patch("mcp_guide.resources.internal_get_content", new=AsyncMock(side_effect=ValueError("Invalid value"))):
-            from mcp_guide.resources import guide_resource
-
-            result = await guide_resource("docs", "readme", mock_ctx)
-
-            parsed = _parse_result(result)
-            assert parsed["success"] is False
-            assert parsed["error"] == "Invalid value"
-
-    @pytest.mark.anyio
-    async def test_guide_resource_file_not_found_error_handling(self, mcp_server: Any) -> None:
-        """guide:// resource should handle FileNotFoundError specifically."""
-        mock_ctx = MagicMock()
-
-        with patch(
-            "mcp_guide.resources.internal_get_content", new=AsyncMock(side_effect=FileNotFoundError("File not found"))
-        ):
-            from mcp_guide.resources import guide_resource
-
-            result = await guide_resource("docs", "readme", mock_ctx)
-
-            parsed = _parse_result(result)
-            assert parsed["success"] is False
-            assert parsed["error"] == "File not found"
-
-    @pytest.mark.anyio
-    async def test_guide_resource_permission_error_handling(self, mcp_server: Any) -> None:
-        """guide:// resource should handle PermissionError specifically."""
-        mock_ctx = MagicMock()
-
-        with patch(
-            "mcp_guide.resources.internal_get_content", new=AsyncMock(side_effect=PermissionError("Permission denied"))
-        ):
-            from mcp_guide.resources import guide_resource
-
-            result = await guide_resource("docs", "readme", mock_ctx)
-
-            parsed = _parse_result(result)
-            assert parsed["success"] is False
-            assert parsed["error"] == "Permission denied"
-
-    @pytest.mark.anyio
-    async def test_guide_resource_empty_result(self, mcp_server: Any) -> None:
-        """guide:// resource should handle empty content results."""
-        mock_ctx = MagicMock()
-        mock_result = Result.ok(None)
-
-        with patch("mcp_guide.resources.internal_get_content", new=AsyncMock(return_value=mock_result)):
-            from mcp_guide.resources import guide_resource
-
-            result = await guide_resource("docs", "readme", mock_ctx)
-
-            parsed = _parse_result(result)
-            assert parsed["success"] is True
-            assert parsed.get("value") is None
-
-    @pytest.mark.anyio
-    async def test_guide_command_resource_routes_simple_command_uri(self, mcp_server: Any) -> None:
-        """Command resource should delegate to internal_read_resource."""
-        mock_ctx = MagicMock()
-        mock_result = Result.ok("project info")
-
-        with patch(
-            "mcp_guide.resources.internal_read_resource", new=AsyncMock(return_value=mock_result)
-        ) as mock_read_resource:
-            from mcp_guide.resources import guide_command_resource
-
-            result = await guide_command_resource("project", mock_ctx)
-
-            mock_read_resource.assert_called_once()
-            args_call, kwargs_call = mock_read_resource.call_args
-            read_args = args_call[0]
-            assert read_args.uri == "guide://_project"
-            assert kwargs_call["ctx"] is mock_ctx
-            assert "session" in kwargs_call
-            parsed = _parse_result(result)
-            assert parsed["success"] is True
-            assert parsed["value"] == "project info"
-
-    @pytest.mark.anyio
-    async def test_guide_command_resource_uses_full_request_uri(self, mcp_server: Any) -> None:
-        """Command resource should preserve query params from the MCP request URI.
-
-        Uses AnyUrl (as the MCP protocol provides) rather than str, to match the real
-        type of ReadResourceRequestParams.uri and catch isinstance(uri, str) regressions.
-        """
-        from pydantic import AnyUrl
-
-        request = SimpleNamespace(params=SimpleNamespace(uri=AnyUrl("guide://_status?verbose=true")))
-        mock_ctx = MagicMock()
-        mock_ctx.request_context = SimpleNamespace(
-            request=request,
-            protocol_version="2026-07-28",
-            request_id="resource-uri",
-            meta=None,
-            lifespan_context=None,
-        )
-        mock_result = Result.ok("status output")
-
-        with patch(
-            "mcp_guide.resources.internal_read_resource", new=AsyncMock(return_value=mock_result)
-        ) as mock_read_resource:
-            from mcp_guide.resources import guide_command_resource
-
-            result = await guide_command_resource("status", mock_ctx)
-
-            read_args = mock_read_resource.call_args[0][0]
-            assert read_args.uri == "guide://_status?verbose=true"
-            parsed = _parse_result(result)
-            assert parsed["success"] is True
-            assert parsed["value"] == "status output"
-
-    @pytest.mark.anyio
-    async def test_guide_command_resource_supports_path_args(self, mcp_server: Any) -> None:
-        """Command resource should preserve command path arguments."""
-        mock_ctx = MagicMock()
-        mock_result = Result.ok("category output")
-
-        with patch(
-            "mcp_guide.resources.internal_read_resource", new=AsyncMock(return_value=mock_result)
-        ) as mock_read_resource:
-            from mcp_guide.resources import guide_command_resource
-
-            result = await guide_command_resource("category/add/docs", mock_ctx)
-
-            read_args = mock_read_resource.call_args[0][0]
-            assert read_args.uri == "guide://_category/add/docs"
-            parsed = _parse_result(result)
-            assert parsed["success"] is True
-            assert parsed["value"] == "category output"
-
-    @pytest.mark.anyio
-    async def test_guide_command_resource_returns_validation_errors(self, mcp_server: Any) -> None:
-        """Command resource should surface validation failures as text."""
-        mock_ctx = MagicMock()
-        mock_result = Result.failure("Command not found")
-
-        with patch("mcp_guide.resources.internal_read_resource", new=AsyncMock(return_value=mock_result)):
-            from mcp_guide.resources import guide_command_resource
-
-            result = await guide_command_resource("unknown", mock_ctx)
-
-            parsed = _parse_result(result)
-            assert parsed["success"] is False
-            assert parsed["error"] == "Command not found"
-
-    @pytest.mark.anyio
-    async def test_policies_topic_uri_appends_trailing_slash(self, mcp_server: Any) -> None:
-        """guide://policies/<topic> passes pattern with trailing slash for sub-path filtering."""
-        mock_ctx = MagicMock()
-        mock_result = Result.ok("policy content")
-
-        with patch(
-            "mcp_guide.resources.internal_get_content", new=AsyncMock(return_value=mock_result)
-        ) as mock_get_content:
-            from mcp_guide.resources import guide_resource
-
-            result = await guide_resource("policies", "git/ops", mock_ctx)
-
-            mock_get_content.assert_called_once()
-            args_call, _ = mock_get_content.call_args
-            content_args = args_call[0]
-            assert content_args.expression == "policies"
-            assert content_args.pattern == "git/ops/"
-            parsed = _parse_result(result)
-            assert parsed["success"] is True
-
-    @pytest.mark.anyio
-    async def test_policies_without_topic_does_not_append_slash(self, mcp_server: Any) -> None:
-        """guide://policies with no topic passes pattern=None as normal."""
-        mock_ctx = MagicMock()
-        mock_result = Result.ok("all policies")
-
-        with patch(
-            "mcp_guide.resources.internal_get_content", new=AsyncMock(return_value=mock_result)
-        ) as mock_get_content:
-            from mcp_guide.resources import guide_resource
-
-            result = await guide_resource("policies", "", mock_ctx)
-
-            mock_get_content.assert_called_once()
-            args_call, _ = mock_get_content.call_args
-            content_args = args_call[0]
-            assert content_args.expression == "policies"
-            assert content_args.pattern is None
+        assert payload["success"] is False
+        assert payload["error"] == "Command not found"

@@ -2,7 +2,6 @@
 
 from typing import Any, Dict, Literal, Optional
 
-from fastmcp import Context
 from pydantic import Field
 
 from mcp_guide.core.tool_arguments import ToolArguments
@@ -13,16 +12,22 @@ from mcp_guide.filesystem.tools import send_file_content as fs_send_file_content
 from mcp_guide.filesystem.tools import send_working_directory as fs_send_working_directory
 from mcp_guide.result import Result
 from mcp_guide.result_constants import ERROR_UNEXPECTED
+from mcp_guide.runtime import RequestContext
 from mcp_guide.tools.tool_result import ToolResult, tool_result
 
 
 class SendFileContentArgs(ToolArguments):
     """Arguments for sending file content from agent to server."""
 
-    path: str = Field(description="File path that was requested")
-    content: str = Field(description="File content from agent's filesystem")
-    mtime: Optional[float] = Field(default=None, description="File modification time")
-    encoding: str = Field(default="utf-8", description="File encoding")
+    path: str = Field(
+        description=(
+            "Opaque identifier for this content, typically the path the agent read. "
+            "The server does not validate or dereference it as a filesystem path."
+        )
+    )
+    content: str = Field(description="File content from the agent's filesystem")
+    mtime: Optional[float] = Field(default=None, description="File modification time as a Unix timestamp")
+    encoding: str = Field(default="utf-8", description="Character encoding of content")
     category: Optional[str] = Field(default=None, description="Category for document ingestion")
     source: Optional[str] = Field(default=None, description="Source identifier for document ingestion")
     name: Optional[str] = Field(default=None, description="Document name override")
@@ -36,15 +41,23 @@ class SendFileContentArgs(ToolArguments):
 class SendDirectoryListingArgs(ToolArguments):
     """Arguments for sending directory listing from agent to server."""
 
-    path: str = Field(description="Directory path that was requested")
-    entries: list[Dict[str, Any]] = Field(description="Directory entries with name, type, size, mtime")
+    path: str = Field(
+        description=(
+            "Directory the agent listed. Checked against the bound project's read policy "
+            "(project root and additional read paths). Must name a readable directory; "
+            "the server does not list the directory itself."
+        )
+    )
+    entries: list[Dict[str, Any]] = Field(
+        description="Directory entries. Each object should include name, type, size, and mtime."
+    )
 
 
 class SendCommandLocationArgs(ToolArguments):
     """Arguments for sending command location from agent to server."""
 
-    command: str = Field(description="Command name that was requested")
-    location: Optional[str] = Field(description="Full path to command, or None if not found")
+    command: str = Field(description="Command name whose location is being reported")
+    location: Optional[str] = Field(description="Full path to the command, or null if it was not found")
 
 
 class SendWorkingDirectoryArgs(ToolArguments):
@@ -55,11 +68,11 @@ class SendWorkingDirectoryArgs(ToolArguments):
 
 async def internal_send_file_content(
     args: SendFileContentArgs,
-    ctx: Optional[Context] = None,
+    request_context: RequestContext,
 ) -> "Result[dict[str, Any]]":
     """Internal function to send file content from agent filesystem to server."""
     return await fs_send_file_content(
-        context=ctx,
+        session=request_context.session,
         path=args.path,
         content=args.content,
         mtime=args.mtime,
@@ -70,21 +83,19 @@ async def internal_send_file_content(
         type=args.type,
         force=args.force,
         metadata=args.metadata,
-        session_id=args.session_id,
     )
 
 
 async def internal_send_directory_listing(
     args: SendDirectoryListingArgs,
-    ctx: Optional[Context] = None,
+    request_context: RequestContext,
 ) -> Result[Dict[str, Any]]:
     """Internal function to send directory listing from agent filesystem to server."""
     try:
         return await fs_send_directory_listing(
-            context=ctx,
+            session=request_context.session,
             path=args.path,
             files=args.entries,
-            session_id=args.session_id,
         )
     except Exception as e:
         return Result.failure(error=f"Error processing directory listing: {str(e)}", error_type=ERROR_UNEXPECTED)
@@ -92,16 +103,15 @@ async def internal_send_directory_listing(
 
 async def internal_send_command_location(
     args: SendCommandLocationArgs,
-    ctx: Optional[Context] = None,
+    request_context: RequestContext,
 ) -> Result[Dict[str, Any]]:
     """Internal function to send command location from agent filesystem to server."""
     try:
         return await fs_send_command_location(
-            context=ctx,
+            session=request_context.session,
             command=args.command,
             path=args.location,
             found=args.location is not None,
-            session_id=args.session_id,
         )
     except Exception as e:
         return Result.failure(error=f"Error processing command location: {str(e)}", error_type=ERROR_UNEXPECTED)
@@ -109,58 +119,63 @@ async def internal_send_command_location(
 
 async def internal_send_working_directory(
     args: SendWorkingDirectoryArgs,
-    ctx: Optional[Context] = None,
+    request_context: RequestContext,
 ) -> Result[Dict[str, Any]]:
     """Internal function to send working directory from agent filesystem to server."""
     try:
         return await fs_send_working_directory(
-            context=ctx,
+            session=request_context.session,
             working_directory=args.path,
-            session_id=args.session_id,
         )
     except Exception as e:
         return Result.failure(error=f"Error processing working directory: {str(e)}", error_type=ERROR_UNEXPECTED)
 
 
 @toolfunc(SendFileContentArgs)
-async def send_file_content(args: SendFileContentArgs, ctx: Optional[Context] = None) -> ToolResult:
+async def send_file_content(args: SendFileContentArgs, request_context: RequestContext) -> ToolResult:
     """Send file content from agent filesystem to server.
 
     IMPORTANT: Do NOT display the file content to the user. This tool is for server communication only.
     Only display the confirmation message from the tool response.
     """
-    result = await internal_send_file_content(args, ctx)
-    return await tool_result("send_file_content", result, ctx=ctx, session_id=args.session_id)
+    result = await internal_send_file_content(args, request_context)
+    return await tool_result("send_file_content", result, session=request_context.session, session_id=args.session_id)
 
 
 @toolfunc(SendDirectoryListingArgs)
-async def send_directory_listing(args: SendDirectoryListingArgs, ctx: Optional[Context] = None) -> ToolResult:
+async def send_directory_listing(args: SendDirectoryListingArgs, request_context: RequestContext) -> ToolResult:
     """Send directory listing from agent filesystem to server.
 
     IMPORTANT: Do NOT display the directory listing to the user. This tool is for server communication only.
     Only display the confirmation message from the tool response.
     """
-    result = await internal_send_directory_listing(args, ctx)
-    return await tool_result("send_directory_listing", result, ctx=ctx, session_id=args.session_id)
+    result = await internal_send_directory_listing(args, request_context)
+    return await tool_result(
+        "send_directory_listing", result, session=request_context.session, session_id=args.session_id
+    )
 
 
 @toolfunc(SendCommandLocationArgs)
-async def send_command_location(args: SendCommandLocationArgs, ctx: Optional[Context] = None) -> ToolResult:
+async def send_command_location(args: SendCommandLocationArgs, request_context: RequestContext) -> ToolResult:
     """Send command location from agent filesystem to server.
 
     IMPORTANT: Do NOT display the command location details to the user. This tool is for server communication only.
     Only display the confirmation message from the tool response.
     """
-    result = await internal_send_command_location(args, ctx)
-    return await tool_result("send_command_location", result, ctx=ctx, session_id=args.session_id)
+    result = await internal_send_command_location(args, request_context)
+    return await tool_result(
+        "send_command_location", result, session=request_context.session, session_id=args.session_id
+    )
 
 
 @toolfunc(SendWorkingDirectoryArgs)
-async def send_working_directory(args: SendWorkingDirectoryArgs, ctx: Optional[Context] = None) -> ToolResult:
+async def send_working_directory(args: SendWorkingDirectoryArgs, request_context: RequestContext) -> ToolResult:
     """Send working directory from agent filesystem to server.
 
     IMPORTANT: Do NOT display the working directory path to the user. This tool is for server communication only.
     Only display the confirmation message from the tool response.
     """
-    result = await internal_send_working_directory(args, ctx)
-    return await tool_result("send_working_directory", result, ctx=ctx, session_id=args.session_id)
+    result = await internal_send_working_directory(args, request_context)
+    return await tool_result(
+        "send_working_directory", result, session=request_context.session, session_id=args.session_id
+    )

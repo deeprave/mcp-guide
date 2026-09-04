@@ -9,6 +9,13 @@ from mcp_guide.render.cache import TemplateContextCache, get_template_contexts
 from mcp_guide.render.renderer import render_template_content
 
 
+@pytest.fixture(autouse=True)
+def _runtime_without_global_flags(monkeypatch: pytest.MonkeyPatch) -> None:
+    runtime = Mock()
+    runtime.feature_flags.return_value = Mock(list=AsyncMock(return_value={}))
+    monkeypatch.setattr("mcp_guide.runtime.get_runtime", lambda: runtime)
+
+
 class TestTemplateRenderingWithFlags:
     """Test template rendering with project flags integration."""
 
@@ -31,7 +38,6 @@ Phase tracking is enabled!
         mock_session.agent_info = None
         mock_session.client_params = None
         mock_session.task_manager.get_cached_data.return_value = {}
-        mock_session.runtime.feature_flags.return_value.list = AsyncMock(return_value={})
         mock_session.template_cache = TemplateContextCache(mock_session)
 
         # Get template context with project flags.
@@ -64,7 +70,6 @@ Phase tracking is enabled!
         mock_session.agent_info = None
         mock_session.client_params = None
         mock_session.task_manager.get_cached_data.return_value = {}
-        mock_session.runtime.feature_flags.return_value.list = AsyncMock(return_value={})
         mock_session.template_cache = TemplateContextCache(mock_session)
 
         # Get template context with project flags.
@@ -102,7 +107,6 @@ Phase tracking is enabled!
         mock_session.agent_info = None
         mock_session.client_params = None
         mock_session.task_manager.get_cached_data.return_value = {}
-        mock_session.runtime.feature_flags.return_value.list = AsyncMock(return_value={})
         mock_session.template_cache = TemplateContextCache(mock_session)
 
         # Get template context with project flags.

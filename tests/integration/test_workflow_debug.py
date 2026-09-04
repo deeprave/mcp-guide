@@ -6,9 +6,9 @@ from tests.helpers import create_test_session
 
 
 @pytest.fixture(autouse=True)
-async def bound_session(tmp_path):
+async def bound_session(runtime, tmp_path):
     """Install an isolated bound Session for each task-manager interaction."""
-    session = await create_test_session("workflow", _config_dir_for_tests=str(tmp_path))
+    session = await create_test_session(runtime, "workflow")
     yield session
 
 

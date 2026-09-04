@@ -2,13 +2,13 @@
 
 from typing import Any, Optional
 
-from fastmcp import Context
 from pydantic import Field, model_validator
 
 from mcp_guide.core.arguments import Arguments as ToolArguments
 from mcp_guide.core.tool_decorator import toolfunc
 from mcp_guide.result import Result
 from mcp_guide.result_constants import ERROR_NOT_FOUND, make_no_project_result
+from mcp_guide.runtime import RequestContext
 from mcp_guide.store.document_store import update_document
 from mcp_guide.tools.tool_result import ToolResult, tool_result
 
@@ -18,15 +18,22 @@ class DocumentUpdateArgs(ToolArguments):
 
     category: str = Field(description="Category the document belongs to")
     name: str = Field(description="Document name to update")
-    new_name: Optional[str] = Field(default=None, description="New document name")
-    new_category: Optional[str] = Field(default=None, description="New category to move document to")
+    new_name: Optional[str] = Field(default=None, description="New document name. At least one mutation is required.")
+    new_category: Optional[str] = Field(
+        default=None, description="New category to move the document to. At least one mutation is required."
+    )
     metadata_add: Optional[dict[str, Any]] = Field(
-        default=None, description="Metadata entries to merge into existing metadata"
+        default=None,
+        description="Metadata entries to merge into existing metadata. Mutually exclusive with metadata_replace and metadata_clear.",
     )
     metadata_replace: Optional[dict[str, Any]] = Field(
-        default=None, description="Replace entire metadata with this dict"
+        default=None,
+        description="Replace the entire metadata dict. Mutually exclusive with metadata_add and metadata_clear.",
     )
-    metadata_clear: Optional[list[str]] = Field(default=None, description="List of metadata keys to remove")
+    metadata_clear: Optional[list[str]] = Field(
+        default=None,
+        description="Metadata keys to remove. Mutually exclusive with metadata_add and metadata_replace.",
+    )
 
     @model_validator(mode="after")
     def validate_mutations(self) -> "DocumentUpdateArgs":
@@ -41,14 +48,14 @@ class DocumentUpdateArgs(ToolArguments):
 
 async def internal_document_update(
     args: DocumentUpdateArgs,
-    ctx: Optional[Context] = None,
+    request_context: RequestContext,
 ) -> Result[dict[str, Any]]:
     """Update a document in the store."""
     # Validate target category exists if moving
     if args.new_category is not None:
         from mcp_guide.tools.tool_helpers import get_session_and_project
 
-        session, project = await get_session_and_project(ctx, session_id=getattr(args, "session_id", None))
+        session, project = await get_session_and_project(request_context)
         if project is None:
             return await make_no_project_result()
         if args.new_category not in project.categories:
@@ -80,7 +87,11 @@ async def internal_document_update(
 
 
 @toolfunc(DocumentUpdateArgs)
-async def document_update(args: DocumentUpdateArgs, ctx: Optional[Context] = None) -> ToolResult:
-    """Update a stored document: rename, move between categories, or modify metadata."""
-    result = await internal_document_update(args, ctx)
-    return await tool_result("document_update", result, ctx=ctx, session_id=args.session_id)
+async def document_update(args: DocumentUpdateArgs, request_context: RequestContext) -> ToolResult:
+    """Update a stored document: rename, move between categories, or modify metadata.
+
+    Provide at least one mutation. metadata_add, metadata_replace, and metadata_clear
+    are mutually exclusive.
+    """
+    result = await internal_document_update(args, request_context)
+    return await tool_result("document_update", result, session=request_context.session, session_id=args.session_id)
