@@ -598,3 +598,28 @@ async def test_discover_documents_with_category_combines_sources(tmp_path):
     assert len(result) == 2
     sources = {fi.source for fi in result}
     assert sources == {"file", "store"}
+
+
+def test_fileinfo_resolve_rechecks_absolute_path_containment(tmp_path) -> None:
+    """An already-absolute path still goes through the resolver's containment check."""
+    docroot = (tmp_path / "documents").resolve()
+    inside = docroot / "guides" / "intro.md"
+
+    def resolver(relative_path: str | Path) -> Path:
+        requested = Path(relative_path)
+        if requested.is_absolute():
+            candidate = requested
+        else:
+            candidate = docroot / requested
+        candidate.relative_to(docroot)
+        return candidate
+
+    relative = FileInfo(path=Path("intro.md"), size=0, content_size=0, mtime=datetime.now(), name="intro.md")
+    assert relative.resolve(resolver, "guides") == inside
+
+    already_absolute = FileInfo(path=inside, size=0, content_size=0, mtime=datetime.now(), name="intro.md")
+    assert already_absolute.resolve(resolver) == inside
+
+    escaped = FileInfo(path=tmp_path / "outside.md", size=0, content_size=0, mtime=datetime.now(), name="outside.md")
+    with pytest.raises(ValueError):
+        escaped.resolve(resolver)

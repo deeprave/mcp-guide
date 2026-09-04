@@ -70,9 +70,12 @@ Configuration locations:
 
 ### Project Detection
 
-For a local stdio server started from a project directory, mcp-guide may bind the
-inherited `PWD` as the project root. It does not use MCP roots, and HTTP servers never
-infer a client project from the server's own working directory.
+By default mcp-guide does not infer a project from inherited `PWD` or from the
+server process working directory. HTTP, container, and desktop hosts must not treat
+server `getcwd()` as the client filesystem. A CLI agent that starts a local stdio
+server from the project directory may opt in with `--use-pwd` or
+`MG_USE_PWD=1` to skip one `set_project` round trip. Guide still does not use
+MCP roots for binding.
 
 When the interaction is not already bound, the agent must call `set_project` with the
 absolute client filesystem path of the project root:
@@ -106,7 +109,7 @@ Add to `~/.codex/config.json`:
 }
 ```
 
-Once connected, the agent should call `set_project` with the current project path when the stdio `PWD` shortcut did not bind it. After that, `guide://` URIs become the primary way to access content and commands — see [Guide URIs](guide-uris.md) for details.
+Once connected, the agent should call `set_project` with the current project path. The optional stdio `PWD` shortcut is off unless `MG_USE_PWD` is enabled. After binding, `guide://` URIs become the primary way to access content and commands — see [Guide URIs](guide-uris.md) for details.
 
 ### Streamable HTTP
 

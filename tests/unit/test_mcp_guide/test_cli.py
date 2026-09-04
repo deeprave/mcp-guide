@@ -22,6 +22,7 @@ class TestParseArgs:
                 assert config.log_file is None
                 assert config.log_json is False
                 assert config.tool_prefix == ""
+                assert config.use_pwd is False
 
     def test_help_sets_should_exit_and_no_error(self) -> None:
         """`--help` should mark config for exit without an error."""
@@ -127,3 +128,17 @@ class TestParseArgs:
             with patch.dict(os.environ, {}, clear=True):
                 config = parse_args()
                 assert config.log_file == "/var/log/mcp.log"
+
+    def test_use_pwd_cli_flag(self) -> None:
+        """Test --use-pwd opts into inherited-PWD binding."""
+        with patch("sys.argv", ["mcp-guide", "--use-pwd"]):
+            with patch.dict(os.environ, {}, clear=True):
+                config = parse_args()
+                assert config.use_pwd is True
+
+    def test_use_pwd_envvar(self) -> None:
+        """Test MG_USE_PWD environment variable."""
+        with patch("sys.argv", ["mcp-guide"]):
+            with patch.dict(os.environ, {"MG_USE_PWD": "1"}, clear=True):
+                config = parse_args()
+                assert config.use_pwd is True

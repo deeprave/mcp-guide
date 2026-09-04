@@ -148,6 +148,8 @@ def create_application(config: "ServerConfig") -> GuideApplication:
             from mcp_guide.config_paths import set_docroot
 
             set_docroot(config.docroot)
+        if config.use_pwd:
+            os.environ["MG_USE_PWD"] = "1"
 
         _configure_logging_after_fastmcp(config)
         _initialize_runtime_tasks()

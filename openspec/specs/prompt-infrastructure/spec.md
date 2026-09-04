@@ -175,7 +175,8 @@ resolved application RequestContext propagation is deferred to `use-request-cont
 - **WHEN** a prompt request has no valid project context
 - **THEN** the prompt infrastructure SHALL use its defined unbound behavior
 - **AND** it SHALL not infer a project from server cwd or a previous connection,
-  except for the defined one-time inherited-`PWD` bootstrap of an unbound stdio interaction
+  except for the optional inherited-`PWD` bootstrap of an unbound stdio interaction
+  when that bootstrap has been explicitly enabled
 
 ### Requirement: Modern Prompt Result Adaptation
 The prompt registration layer SHALL return SDK-native modern prompt responses through

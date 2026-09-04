@@ -104,6 +104,7 @@ async def test_modern_stdio_client_receives_pwd_bootstrap_session_id(tmp_path):
         env={
             "MCP_GUIDE_DISABLE_SERVER_TASKS": "1",
             "PWD": str(project_root),
+            "MG_USE_PWD": "1",
         },
         cwd=str(project_root),
     )

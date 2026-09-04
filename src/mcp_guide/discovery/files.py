@@ -87,9 +87,9 @@ class FileInfo:
     """File metadata.
 
     Attributes:
-        path: Relative or absolute path to file. Initially relative to category directory,
-              but may be converted to absolute during deduplication to correctly identify
-              files with the same name across different categories.
+        path: Relative or absolute path to file. Initially relative to the category
+              directory. ``resolve()`` stores the host-absolute document path so later
+              calls can skip the relative join and still re-check containment.
         size: File size in bytes including frontmatter
         content_size: Content size in bytes excluding frontmatter
         mtime: File modification time
@@ -147,9 +147,10 @@ class FileInfo:
             Absolute lexical path within the document root
 
         Raises:
-            ValueError: If the relative path is absolute or escapes the document root
+            ValueError: If the path escapes the document root
         """
         if self.path.is_absolute():
+            self.path = resolver(self.path)
             return self.path
         relative: str | Path = self.path
         if relative_dir not in ("", ".", Path(""), Path(".")):

@@ -405,7 +405,8 @@ than requiring individual tool implementations to resolve session ownership.
 - **WHEN** a project-bound tool receives a request without valid project context
 - **THEN** the registration layer SHALL return the no-project result before invoking the tool implementation
 - **AND** it SHALL not create or persist a project from server process state, except
-  for the defined one-time inherited-`PWD` bootstrap of an unbound stdio interaction
+  for the optional inherited-`PWD` bootstrap of an unbound stdio interaction when
+  that bootstrap has been explicitly enabled
 
 ### Requirement: Path-Based Project Selection
 The public `set_project` tool SHALL accept required `path`, an absolute client

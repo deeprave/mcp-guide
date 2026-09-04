@@ -169,11 +169,16 @@ class GuideRuntime(Generic[SessionT]):
         return resolve
 
     def _resolve_against_root(self, root: Path, relative_path: str | Path) -> Path:
-        """Resolve a document-root-relative path without following symlinks."""
+        """Resolve a document path without following symlinks.
+
+        Relative paths are joined to the document root. Already-absolute paths
+        skip that join and are still checked for containment.
+        """
         requested = Path(relative_path)
         if requested.is_absolute():
-            raise ValueError("Document path must be relative to the configured document root")
-        candidate = Path(os.path.normpath(str(root / requested)))
+            candidate = Path(os.path.normpath(str(requested)))
+        else:
+            candidate = Path(os.path.normpath(str(root / requested)))
         try:
             candidate.relative_to(root)
         except ValueError as error:
@@ -183,7 +188,8 @@ class GuideRuntime(Generic[SessionT]):
     async def resolve_document_path(self, relative_path: str | Path) -> Path:
         """Resolve a document-root-relative path to a host-absolute filesystem path.
 
-        Containment is lexical. Absolute paths and ``..`` escapes are rejected.
+        Containment is lexical. Escaping paths are rejected; already-absolute
+        paths are re-checked against the document root.
         Application code should use RequestContext.get_docroot_resolver rather
         than this runtime method or ``get_docroot``.
         """

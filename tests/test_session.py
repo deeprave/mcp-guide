@@ -198,6 +198,7 @@ class TestGetOrCreateSession:
         project_root = tmp_path / "stdio-project"
         project_root.mkdir()
         monkeypatch.setenv("PWD", str(project_root))
+        monkeypatch.setenv("MG_USE_PWD", "1")
         runtime = create_test_runtime(str(tmp_path / "config"))
         monkeypatch.setattr(session_module, "Context", FakeContext)
         monkeypatch.setattr(fastmcp_sessions, "create_session", AsyncMock(return_value="minted-stdio-session"))

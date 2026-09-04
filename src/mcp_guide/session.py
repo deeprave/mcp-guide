@@ -367,10 +367,25 @@ def _attach_session_listeners(session: Session) -> None:
     setattr(session, "_guide_listeners_attached", True)
 
 
+_USE_PWD_TRUTHY = frozenset({"1", "true", "yes", "on"})
+
+
+def use_pwd_enabled() -> bool:
+    """Whether launch configuration opted into stdio inherited-PWD project binding.
+
+    Off by default. Process ``PWD`` is a client-supplied launch hint, not
+    ``getcwd()``: the server filesystem may be a container, an HTTP host, or a
+    desktop app started from ``$HOME``. CLI agents that start Guide from the
+    project directory may set ``MG_USE_PWD`` to skip one ``set_project``
+    round trip.
+    """
+    return os.environ.get("MG_USE_PWD", "").strip().lower() in _USE_PWD_TRUTHY
+
+
 async def bind_session_project(session: Session, project_path: str | Path) -> Project:
     """Bind a resolved Session through Guide's single project-binding path.
 
-    Both explicit ``set_project(path)`` and the narrow stdio-PWD bootstrap use
+    Both explicit ``set_project(path)`` and the optional stdio-PWD bootstrap use
     this operation.  Listener attachment happens before binding so the
     Session-owned task and rendering lifecycle observes the initial project
     selection exactly as it does for an explicit bind.
@@ -384,7 +399,7 @@ async def mint_modern_session_id(ctx: "Context") -> str | None:
     """Mint a resumable FastMCP session_id for a modern request.
 
     This is deliberately the only minting path used by explicit project
-    binding and by the narrow stdio ``PWD`` bootstrap.  Other sessionless
+    binding and by the optional stdio ``PWD`` bootstrap.  Other sessionless
     modern requests stay request-local and unbound.
     """
     request = getattr(ctx, "request_context", None)
@@ -451,6 +466,7 @@ async def request_context_scope(
     pwd = os.environ.get("PWD")
     pwd_bind = (
         allow_pwd_bootstrap
+        and use_pwd_enabled()
         and session_id is None
         and protocol_revision == "2026-07-28"
         and getattr(ctx, "transport", None) == "stdio"

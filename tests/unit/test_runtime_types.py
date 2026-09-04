@@ -21,6 +21,20 @@ from mcp_guide.runtime import (
 from mcp_guide.utils.project_hash import calculate_project_hash
 
 
+def test_use_pwd_is_off_unless_explicitly_enabled(monkeypatch) -> None:
+    """Process PWD binding is launch-opt-in, never implied by an unset flag."""
+    from mcp_guide.session import use_pwd_enabled
+
+    monkeypatch.delenv("MG_USE_PWD", raising=False)
+    assert use_pwd_enabled() is False
+    monkeypatch.setenv("MG_USE_PWD", "0")
+    assert use_pwd_enabled() is False
+    monkeypatch.setenv("MG_USE_PWD", "1")
+    assert use_pwd_enabled() is True
+    monkeypatch.setenv("MG_USE_PWD", "true")
+    assert use_pwd_enabled() is True
+
+
 def runtime_for_config(config_dir):
     """Create a runtime that owns configuration for ``config_dir``."""
     return create_test_runtime(str(config_dir))
@@ -143,7 +157,9 @@ async def test_request_context_resolves_only_safe_document_relative_paths(tmp_pa
     assert resolver("guides/outro.md") == (docroot / "guides" / "outro.md").resolve()
     assert context.resolve_document_path("guides/intro.md") == (docroot / "guides" / "intro.md").resolve()
     assert resolver("guides/intro.md").is_absolute()
-    with pytest.raises(ValueError, match="relative"):
+    inside = (docroot / "guides" / "intro.md").resolve()
+    assert context.resolve_document_path(inside) == inside
+    with pytest.raises(ValueError, match="within"):
         context.resolve_document_path("/tmp/outside.md")
     with pytest.raises(ValueError, match="within"):
         context.resolve_document_path("../outside.md")
@@ -738,6 +754,7 @@ async def test_stdio_without_pwd_stays_request_local(tmp_path, monkeypatch) -> N
             self.transport = "stdio"
 
     monkeypatch.delenv("PWD", raising=False)
+    monkeypatch.delenv("MG_USE_PWD", raising=False)
     runtime = runtime_for_config(tmp_path)
     create_session = AsyncMock(return_value="must-not-mint")
     monkeypatch.setattr(session_module, "Context", FakeContext)
@@ -750,6 +767,45 @@ async def test_stdio_without_pwd_stays_request_local(tmp_path, monkeypatch) -> N
     create_session.assert_not_awaited()
     assert runtime._sessions == {}
     assert not any(key.value.startswith("unbound:") for key in runtime._sessions)
+
+
+@pytest.mark.anyio
+async def test_stdio_pwd_bootstrap_is_off_by_default(tmp_path, monkeypatch) -> None:
+    """Inherited PWD does not bind unless MG_USE_PWD is enabled."""
+    from unittest.mock import AsyncMock
+
+    import fastmcp.server.sessions as fastmcp_sessions
+
+    import mcp_guide.session as session_module
+    from mcp_guide.session import request_context_scope
+
+    class FakeContext:
+        def __init__(self, runtime) -> None:
+            self.request_context = SimpleNamespace(
+                protocol_version="2026-07-28",
+                request_id="stdio-pwd-default-off",
+                meta=None,
+                lifespan_context=runtime,
+            )
+            self.session = SimpleNamespace(client_params=None)
+            self.session_id = None
+            self.transport = "stdio"
+
+    project_root = tmp_path / "stdio-project"
+    project_root.mkdir()
+    monkeypatch.setenv("PWD", str(project_root))
+    monkeypatch.delenv("MG_USE_PWD", raising=False)
+    runtime = runtime_for_config(tmp_path)
+    create_session = AsyncMock(return_value="must-not-mint")
+    monkeypatch.setattr(session_module, "Context", FakeContext)
+    monkeypatch.setattr(fastmcp_sessions, "create_session", create_session)
+
+    async with request_context_scope(FakeContext(runtime), allow_pwd_bootstrap=True) as request_context:
+        assert not request_context.session.project_is_bound
+        assert request_context.session_id is None
+
+    create_session.assert_not_awaited()
+    assert runtime._sessions == {}
 
 
 @pytest.mark.anyio
@@ -777,6 +833,7 @@ async def test_modern_stdio_pwd_bootstrap_is_runtime_owned(tmp_path, monkeypatch
     project_root = tmp_path / "stdio-project"
     project_root.mkdir()
     monkeypatch.setenv("PWD", str(project_root))
+    monkeypatch.setenv("MG_USE_PWD", "1")
     runtime = runtime_for_config(tmp_path / "config")
     create_session = AsyncMock(return_value="minted-stdio-session")
     monkeypatch.setattr(session_module, "Context", FakeContext)
@@ -816,6 +873,7 @@ async def test_failed_stdio_pwd_bind_retires_the_minted_session(tmp_path, monkey
     project_root = tmp_path / "bad name"
     project_root.mkdir()
     monkeypatch.setenv("PWD", str(project_root))
+    monkeypatch.setenv("MG_USE_PWD", "1")
     runtime = runtime_for_config(tmp_path / "config")
     create_session = AsyncMock(return_value="minted-then-fail")
     end_session = AsyncMock()
@@ -854,7 +912,7 @@ async def test_non_context_stdio_pwd_does_not_retain_a_connection_owner(tmp_path
     project_root = tmp_path / "stdio-project"
     project_root.mkdir()
     monkeypatch.setenv("PWD", str(project_root))
-    runtime = runtime_for_config(tmp_path / "config")
+    runtime = runtime_for_config(tmp_path)
 
     async with request_context_scope(FakeContext(runtime), allow_pwd_bootstrap=True) as request_context:
         session = request_context.session

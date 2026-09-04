@@ -22,9 +22,9 @@ class TestRenderTemplateAPIIntegration:
     async def test_read_and_render_uses_render_template_api(self):
         """Verify read_and_render_file_contents calls render_template API with correct arguments."""
         with tempfile.TemporaryDirectory() as temp_dir:
-            temp_path = Path(temp_dir)
+            temp_path = Path(temp_dir).resolve()
 
-            # Create a template file
+            # Create a template file inside the document root
             template_file = temp_path / "test.md.mustache"
             template_file.write_text("Hello {{name}}!")
 
@@ -55,7 +55,7 @@ class TestRenderTemplateAPIIntegration:
 
                 # Call read_and_render_file_contents
                 files = [file_info]
-                session = create_unbound_test_session(create_test_runtime(str(temp_path)))
+                session = create_unbound_test_session(create_test_runtime(str(temp_path), docroot=temp_path))
                 request_context = await request_context_for(session)
                 errors = await read_and_render_file_contents(
                     request_context, files=files, base_dir=temp_path, template_context=context

@@ -76,12 +76,15 @@ control characters, without imposing a UUID format or other needless structure.
 
 #### Scenario: Stdio context has inherited client PWD
 - **WHEN** a sessionless stdio context has a valid absolute inherited `PWD`
+- **AND** inherited-PWD bootstrap has been explicitly enabled
 - **THEN** the request adapter SHALL bind the new Guide Session from that path before
   evaluating the no-project result
 - **AND** it SHALL use the same runtime-owned Session and binding path as an explicit
   `set_project(path)` request
+- **AND** it SHALL NOT use that shortcut by default
 - **AND** it SHALL NOT use that shortcut for a remote transport
 - **AND** it SHALL NOT use that shortcut when the request supplies a `session_id`
+- **AND** it SHALL NOT treat server `getcwd()` as the client filesystem root
 
 ### Requirement: FastMCP Session-ID Cross-Request Binding
 The system SHALL use FastMCP's minted, principal-validated `session_id` as the

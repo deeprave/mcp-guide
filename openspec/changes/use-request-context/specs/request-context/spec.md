@@ -60,7 +60,8 @@ clearly when the required state is absent.
 - **THEN** it SHALL obtain a sync resolver from RequestContext.get_docroot_resolver
 - **AND** that resolver SHALL be supplied by GuideRuntime.get_docroot_resolver after awaiting the configured root once
 - **AND** callers SHALL reuse that sync function for further joins so a hot path does not await per path
-- **AND** the resolver SHALL reject absolute or escaping paths
+- **AND** the resolver SHALL reject paths that escape the document root
+- **AND** an already-absolute path SHALL still be checked for containment
 - **AND** the resolver SHALL NOT follow symlinks when checking containment
 - **AND** the returned path SHALL be host-absolute after expanduser, expandvars, and resolve
 - **AND** RequestContext SHALL NOT expose the configured document root as a path or accessor
