@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any, Callable, Optional, Protocol, cast
 from fastmcp import Context
 
 from mcp_guide.core.mcp_log import get_logger
+from mcp_guide.lazy_path import LazyPath
 from mcp_guide.mcp_context import cache_mcp_globals
 from mcp_guide.models import _NAME_REGEX, Project
 from mcp_guide.models.delegate import ProjectDelegate
@@ -164,7 +165,7 @@ class Session:
         """
         from mcp_guide.validation import InvalidProjectNameError
 
-        root_path = Path(path)
+        root_path = LazyPath(path).expand()
         if not root_path.is_absolute():
             raise InvalidProjectNameError("Project path must be an absolute client filesystem path")
         if ".." in root_path.parts:
@@ -471,7 +472,7 @@ async def request_context_scope(
         and protocol_revision == "2026-07-28"
         and getattr(ctx, "transport", None) == "stdio"
         and bool(pwd)
-        and Path(pwd).is_absolute()
+        and LazyPath(pwd).is_absolute()
     )
 
     if resolved_session_id is None and mint_session_if_unbound and isinstance(ctx, Context):

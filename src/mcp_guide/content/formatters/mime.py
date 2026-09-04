@@ -11,6 +11,7 @@ from pathlib import Path
 from uuid_extensions import uuid7
 
 from mcp_guide.discovery.files import TEMPLATE_EXTENSIONS, FileInfo
+from mcp_guide.lazy_path import LazyPath
 
 
 def detect_text_subtype(content: str) -> str:
@@ -115,17 +116,19 @@ class MimeFormatter:
         Raises:
             ValueError: If absolute path cannot be converted to relative
         """
-        path = Path(file_info.path)
+        path_value = LazyPath(file_info.path)
 
         # If already relative, return as-is
-        if not path.is_absolute():
-            return path
+        if not path_value.is_absolute():
+            return Path(file_info.path)
+
+        path = path_value.resolve()
 
         # Must have category to convert absolute path
         if not file_info.category:
             raise ValueError(f"Cannot convert absolute path to relative: file has no category: {path}")
 
-        category_dir = resolve_document_path(file_info.category.dir)
+        category_dir = LazyPath(resolve_document_path(file_info.category.dir)).resolve()
         try:
             return path.relative_to(category_dir)
         except ValueError as e:

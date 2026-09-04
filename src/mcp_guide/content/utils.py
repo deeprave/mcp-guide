@@ -7,6 +7,7 @@ import yaml
 
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.discovery.files import FileInfo
+from mcp_guide.lazy_path import LazyPath
 from mcp_guide.models.exceptions import CategoryNotFoundError, NoProjectError
 from mcp_guide.render import render_template
 from mcp_guide.render.context import TemplateContext
@@ -256,7 +257,7 @@ async def _gather_policy_partials(
         for policy_file in policy_files:
             relative_policy = (
                 Path(policies_category.dir) / policy_file.path
-                if not policy_file.path.is_absolute()
+                if not LazyPath(policy_file.path).is_absolute()
                 else Path(policy_file.name)
             )
             policy_file.resolve(request_context.resolve_document_path, policies_category.dir)

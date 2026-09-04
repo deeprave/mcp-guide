@@ -127,6 +127,26 @@ class TestInstallation:
         assert docroot.exists()
         assert (configdir / "config.yaml").exists()
 
+    def test_install_resolves_tilde_docroot_and_persists_it_as_written(self, tmp_path: Path, monkeypatch) -> None:
+        """A ``~/...`` --docroot is used via LazyPath.resolve() and stored unchanged."""
+        import yaml
+
+        from mcp_guide.installer.core import ORIGINAL_ARCHIVE
+        from mcp_guide.scripts.mcp_guide_install import cli
+
+        runner = CliRunner()
+        home = tmp_path / "home"
+        configdir = tmp_path / "config"
+        monkeypatch.setenv("HOME", str(home))
+        use_minimal_templates(monkeypatch, tmp_path)
+
+        result = runner.invoke(cli, ["install", "--docroot", "~/guide-docs", "--configdir", str(configdir)])
+
+        assert result.exit_code == 0
+        assert (home / "guide-docs" / ORIGINAL_ARCHIVE).exists()
+        persisted = yaml.safe_load((configdir / "config.yaml").read_text(encoding="utf-8"))["docroot"]
+        assert persisted == "~/guide-docs"
+
 
 class TestEndToEndInstallation:
     """End-to-end tests for install command with smart update strategy."""

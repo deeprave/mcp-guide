@@ -14,6 +14,7 @@ import anyio
 from anyio import Path as AsyncPath
 
 from mcp_guide.discovery.patterns import safe_glob_search
+from mcp_guide.lazy_path import LazyPath
 from mcp_guide.store.document_store import get_document_content, list_documents
 
 # Template file extensions
@@ -149,8 +150,8 @@ class FileInfo:
         Raises:
             ValueError: If the path escapes the document root
         """
-        if self.path.is_absolute():
-            self.path = resolver(self.path)
+        if LazyPath(self.path).is_absolute():
+            self.path = resolver(LazyPath(self.path).resolve())
             return self.path
         relative: str | Path = self.path
         if relative_dir not in ("", ".", Path(""), Path(".")):
@@ -358,16 +359,18 @@ async def discover_document_files(
     """Discover files in directory with metadata.
 
     Args:
-        base_dir: Absolute path to base directory
+        base_dir: Base directory. ``~``, ``$VAR``, and relative paths are
+            resolved at use time through ``LazyPath.resolve()``.
         patterns: Glob patterns to match files
 
     Returns:
         List of FileInfo with relative paths, size, mtime
 
     Raises:
-        ValueError: If base_dir is not absolute
+        ValueError: If base_dir is not absolute after resolution
         FileNotFoundError: If base_dir doesn't exist
     """
+    base_dir = LazyPath(base_dir).resolve()
     if not base_dir.is_absolute():
         raise ValueError(f"Base directory must be absolute: {base_dir}")
 

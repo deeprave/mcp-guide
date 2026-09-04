@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any
 from anyio import Path as AsyncPath
 
 from mcp_guide.core.mcp_log import get_logger
+from mcp_guide.lazy_path import LazyPath
 
 if TYPE_CHECKING:
     from mcp_guide.render.frontmatter import Frontmatter
@@ -38,14 +39,13 @@ async def load_partial_content(
         PartialNotFoundError: If the partial file does not exist
     """
     # Convert to AsyncPath immediately
-    partial_async = AsyncPath(partial_path)
     base_async = AsyncPath(base_path)
 
-    logger.trace(f"Loading partial: partial_path={partial_async}, base_path={base_async}")
+    logger.trace(f"Loading partial: partial_path={partial_path}, base_path={base_async}")
 
     # Resolve the final path
-    if partial_async.is_absolute():
-        resolved_base = partial_async
+    if LazyPath(partial_path).is_absolute():
+        resolved_base = await LazyPath(partial_path).aresolve()
     else:
         resolved_base = base_async / partial_path
 

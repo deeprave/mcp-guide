@@ -3,6 +3,8 @@
 from pathlib import Path
 from typing import Union
 
+from mcp_guide.lazy_path import LazyPath
+
 
 def client_resolve(path: Union[str, Path], client_cwd: Union[str, Path]) -> Path:
     """Resolve a path relative to the client's working directory.
@@ -28,7 +30,7 @@ def client_resolve(path: Union[str, Path], client_cwd: Union[str, Path]) -> Path
         >>> client_resolve("/absolute/path.txt", "/home/username/project")
         PosixPath('/absolute/path.txt')
     """
-    path_obj = Path(path)
+    path_obj = LazyPath(path).expand()
     client_cwd_obj = Path(client_cwd)
 
     if path_obj.is_absolute():

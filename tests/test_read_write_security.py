@@ -30,11 +30,27 @@ class TestReadWriteSecurityPolicy:
         with pytest.raises(SecurityError, match="not in additional_read_paths"):
             policy.validate_read_path("/other/path/file.txt")
 
+    def test_read_user_anchored_path_is_treated_as_absolute(self, tmp_path, monkeypatch):
+        """A user-anchored read path cannot bypass absolute-path policy."""
+        monkeypatch.setenv("HOME", str(tmp_path))
+        policy = ReadWriteSecurityPolicy()
+
+        with pytest.raises(SecurityError, match="not in additional_read_paths"):
+            policy.validate_read_path("~/outside-project.txt")
+
     def test_read_system_directory_blocked(self):
         """Test reading from system directories is blocked."""
         policy = ReadWriteSecurityPolicy(additional_read_paths=["/etc"])
         with pytest.raises(SecurityError, match="System directory access denied"):
             policy.validate_read_path("/etc/passwd")
+
+    def test_read_user_anchored_system_directory_is_blocked(self, monkeypatch):
+        """Expanded user anchors cannot bypass the system-directory blacklist."""
+        monkeypatch.setenv("HOME", "/etc")
+        policy = ReadWriteSecurityPolicy(additional_read_paths=["/etc"])
+
+        with pytest.raises(SecurityError, match="System directory access denied"):
+            policy.validate_read_path("~/passwd")
 
     def test_write_relative_path_in_allowed_paths(self):
         """Test writing to allowed relative paths."""
@@ -54,6 +70,14 @@ class TestReadWriteSecurityPolicy:
         with pytest.raises(SecurityError, match="Write to absolute path not allowed"):
             policy.validate_write_path("/home/user/file.txt")
 
+    def test_write_user_anchored_path_is_treated_as_absolute(self, monkeypatch):
+        """A user-anchored write path cannot bypass absolute-path policy."""
+        monkeypatch.setenv("HOME", "/home/test-user")
+        policy = ReadWriteSecurityPolicy(write_allowed_paths=["docs/"])
+
+        with pytest.raises(SecurityError, match="Write to absolute path not allowed"):
+            policy.validate_write_path("~/outside-project.txt")
+
     def test_write_temp_directory_allowed(self):
         """Test writing to safe temporary directories is allowed."""
         policy = ReadWriteSecurityPolicy()
@@ -64,7 +88,7 @@ class TestReadWriteSecurityPolicy:
         for temp_path in temp_paths:
             with patch("mcp_guide.filesystem.temp_directories.is_safe_temp_path", return_value=True):
                 result = policy.validate_write_path(temp_path)
-                assert result == temp_path
+                assert result == str(Path(temp_path).expanduser())
 
     def test_path_traversal_prevention_read(self):
         """Test path traversal attacks are prevented for read operations."""

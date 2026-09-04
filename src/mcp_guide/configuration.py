@@ -38,8 +38,9 @@ class _ConfigManagerCore:
         self.__feature_flags: Optional[dict[str, Any]] = None
         # Import here to avoid circular dependency with config_paths module
         from mcp_guide.config_paths import get_config_file
+        from mcp_guide.lazy_path import LazyPath
 
-        self.config_file = get_config_file(self.__config_dir).resolve()
+        self.config_file = LazyPath(get_config_file(self.__config_dir)).resolve()
         if docroot is None:
             self._cli_docroot: str | None = None
         else:

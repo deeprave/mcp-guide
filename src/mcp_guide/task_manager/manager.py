@@ -566,7 +566,7 @@ class TaskManager:
         if hasattr(data, "value") and hasattr(data, "success"):
             # It's a Result object
             result_data = data.value if data.success else {}
-            actual_data = result_data if isinstance(result_data, dict) else {}  # ty: ignore[invalid-assignment]
+            actual_data = result_data if isinstance(result_data, dict) else {}
         else:
             # It's already a dict
             actual_data = data if isinstance(data, dict) else {}

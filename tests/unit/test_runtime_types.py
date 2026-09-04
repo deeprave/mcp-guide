@@ -315,6 +315,18 @@ def test_root_identity_rejects_relative_client_path() -> None:
         RootIdentity.from_path("demo")
 
 
+def test_root_identity_expands_user_anchored_client_path(tmp_path, monkeypatch) -> None:
+    """A root identity is derived from an expanded user-anchored path."""
+    home = tmp_path / "home"
+    monkeypatch.setenv("HOME", str(home))
+
+    identity = RootIdentity.from_path("~/demo")
+
+    assert identity.path == str(home / "demo")
+    assert identity.name == "demo"
+    assert identity.hash == calculate_project_hash(str(home / "demo"))
+
+
 def test_runtime_resolves_sessions_by_explicit_owner() -> None:
     """The global runtime owns a registry instead of using MCP connection objects."""
     created: list[object] = []

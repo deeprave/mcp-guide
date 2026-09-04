@@ -4,6 +4,7 @@ from pathlib import Path, PurePath
 from typing import Callable, List, Optional, Union
 
 from mcp_guide.core.mcp_log import get_logger
+from mcp_guide.lazy_path import LazyPath
 
 from .system_directories import is_system_directory
 from .temp_directories import is_safe_temp_path
@@ -37,13 +38,13 @@ class ReadWriteSecurityPolicy:
         """
         self.write_allowed_paths = write_allowed_paths or []
         self.additional_read_paths = additional_read_paths or []
-        self.project_root = Path(project_root) if project_root else None
+        self.project_root = LazyPath(project_root).expand() if project_root else None
         self.client_resolve = client_resolve
         self._violation_count = 0
 
     def set_project_root(self, project_root: str) -> None:
         """Inject project root once discovered."""
-        self.project_root = Path(project_root)
+        self.project_root = LazyPath(project_root).expand()
 
     def validate_read_path(self, path: str) -> str:
         """Validate path for read operations.
@@ -57,7 +58,7 @@ class ReadWriteSecurityPolicy:
         Raises:
             SecurityError: If path violates read security policy
         """
-        path_obj = Path(path)
+        path_obj = LazyPath(path).expand()
 
         # Handle absolute paths
         if path_obj.is_absolute():
@@ -65,10 +66,10 @@ class ReadWriteSecurityPolicy:
 
             # Check if it's in additional read paths
             for allowed_abs in self.additional_read_paths:
-                allowed_abs_clean = allowed_abs.rstrip("/")
+                allowed_abs_clean = str(LazyPath(allowed_abs).expand()).rstrip("/")
                 if path_posix.startswith(allowed_abs_clean + "/") or path_posix == allowed_abs_clean:
                     # Check system directory blacklist
-                    if is_system_directory(path):
+                    if is_system_directory(str(path_obj)):
                         self._violation_count += 1
                         logger.warning(
                             f"Security violation #{self._violation_count}: read denied for system directory {path}"
@@ -106,7 +107,7 @@ class ReadWriteSecurityPolicy:
                     project_root_posix = self.project_root.as_posix().rstrip("/")
                     if path_posix.startswith(project_root_posix + "/") or path_posix == project_root_posix:
                         # Check system directory blacklist
-                        if is_system_directory(path):
+                        if is_system_directory(str(path_obj)):
                             self._violation_count += 1
                             logger.warning(
                                 f"Security violation #{self._violation_count}: read denied for system directory {path}"
@@ -160,7 +161,7 @@ class ReadWriteSecurityPolicy:
         Raises:
             SecurityError: If path violates write security policy
         """
-        path_obj = Path(path)
+        path_obj = LazyPath(path).expand()
 
         # Handle absolute paths - not allowed for write unless temp
         if path_obj.is_absolute():
