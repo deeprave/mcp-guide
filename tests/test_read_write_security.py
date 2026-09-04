@@ -70,9 +70,9 @@ class TestReadWriteSecurityPolicy:
         with pytest.raises(SecurityError, match="Write to absolute path not allowed"):
             policy.validate_write_path("/home/user/file.txt")
 
-    def test_write_user_anchored_path_is_treated_as_absolute(self, tmp_path, monkeypatch):
+    def test_write_user_anchored_path_is_treated_as_absolute(self, monkeypatch):
         """A user-anchored write path cannot bypass absolute-path policy."""
-        monkeypatch.setenv("HOME", str(tmp_path))
+        monkeypatch.setenv("HOME", "/home/test-user")
         policy = ReadWriteSecurityPolicy(write_allowed_paths=["docs/"])
 
         with pytest.raises(SecurityError, match="Write to absolute path not allowed"):
