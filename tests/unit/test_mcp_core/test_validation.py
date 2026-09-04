@@ -19,6 +19,10 @@ class TestIsAbsolutePath:
         """Unix absolute path should be detected."""
         assert is_absolute_path("/absolute/path")
 
+    def test_user_anchored_path_is_absolute(self):
+        """A user-anchored path is absolute after LazyPath expansion."""
+        assert is_absolute_path("~/documents")
+
     def test_windows_drive_letter(self):
         """Windows drive letter should be detected."""
         assert is_absolute_path("C:\\path")

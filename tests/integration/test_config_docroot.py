@@ -10,6 +10,29 @@ from tests.helpers import create_test_session
 
 
 @pytest.mark.anyio
+async def test_default_user_anchored_config_path_reads_home_configuration(tmp_path, monkeypatch):
+    """A default ``~`` config path expands only when it is used for file I/O."""
+    from mcp_guide.config_paths import clear_config_overrides
+    from mcp_guide.configuration import ConfigManager
+
+    home = tmp_path / "home"
+    config_file = home / ".config" / "mcp-guide" / "config.yaml"
+    config_file.parent.mkdir(parents=True)
+    config_file.write_text("feature_flags:\n  configured: true\nprojects: {}\n", encoding="utf-8")
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    monkeypatch.chdir(workspace)
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+    clear_config_overrides()
+
+    manager = ConfigManager()
+
+    assert manager.config_file == config_file
+    assert (await manager.get_feature_flags())["configured"].to_raw() is True
+
+
+@pytest.mark.anyio
 async def test_new_config_has_docroot(runtime, tmp_path):
     """Test new config file includes docroot field."""
     session = await create_test_session(runtime, "test-project")
@@ -165,6 +188,41 @@ async def test_first_run_persists_tilde_and_env_docroot(tmp_path, monkeypatch):
         assert (env_docs / ORIGINAL_ARCHIVE).exists()
     finally:
         await env_runtime.stop()
+
+
+@pytest.mark.anyio
+async def test_tilde_docroot_discovers_command_templates(tmp_path, monkeypatch):
+    """A persisted ``~/...`` docroot still finds ``_commands`` through Path joins and the resolver."""
+    from mcp_guide.discovery.files import discover_document_files
+
+    home = tmp_path / "home"
+    docs = home / ".config" / "mcp-guide" / "docs"
+    commands = docs / "_commands"
+    commands.mkdir(parents=True)
+    (commands / "help.mustache").write_text("help\n", encoding="utf-8")
+    monkeypatch.setenv("HOME", str(home))
+
+    cfg = tmp_path / "cfg"
+    cfg.mkdir()
+    (cfg / "config.yaml").write_text("docroot: ~/.config/mcp-guide/docs\nprojects: {}\n", encoding="utf-8")
+
+    runtime = create_runtime(lambda _owner: object(), config_dir=str(cfg))
+    await runtime.start()
+    try:
+        raw = await runtime.get_docroot()
+        assert raw == "~/.config/mcp-guide/docs"
+
+        joined = Path(raw) / "_commands"
+        assert not joined.is_absolute()
+        found_joined = await discover_document_files(joined, ["help"])
+        assert any(info.path.name == "help.mustache" for info in found_joined)
+
+        resolver = await runtime.get_docroot_resolver()
+        found_resolved = await discover_document_files(resolver("_commands"), ["help"])
+        assert any(info.path.name == "help.mustache" for info in found_resolved)
+        assert resolver("help.mustache").is_absolute()
+    finally:
+        await runtime.stop()
 
 
 @pytest.mark.anyio

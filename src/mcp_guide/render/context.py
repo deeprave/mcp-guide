@@ -72,7 +72,7 @@ class TemplateContext(ChainMap[str, Any]):
         if m is None:
             m = {}
         if isinstance(m, dict):
-            self._validate_mapping(m)  # ty: ignore[invalid-argument-type]
+            self._validate_mapping(m)
         return TemplateContext(m, *self.maps)  # ty: ignore[invalid-argument-type]
 
     @property

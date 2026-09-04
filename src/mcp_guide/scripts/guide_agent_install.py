@@ -6,6 +6,8 @@ import shutil
 import sys
 from pathlib import Path
 
+from mcp_guide.lazy_path import LazyPath
+
 
 def get_available_agents() -> dict[str, Path]:
     """Get available agents by scanning for install.dir files."""
@@ -93,7 +95,7 @@ Available agents: {", ".join(sorted(available_agents.keys()))}""",
 
     # Validate paths are relative and safe
     for path in install_paths:
-        if Path(path).is_absolute() or ".." in Path(path).parts:
+        if LazyPath(path).is_absolute() or ".." in Path(path).parts:
             print(f"Error: Invalid path in {install_dir_file}: {path}", file=sys.stderr)
             print("Paths must be relative and not contain '..'", file=sys.stderr)
             return 1

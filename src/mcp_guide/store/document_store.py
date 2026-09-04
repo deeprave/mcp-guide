@@ -9,6 +9,7 @@ from typing import Literal, Optional
 
 from mcp_guide.config_paths import get_documents_db
 from mcp_guide.core.mcp_log import get_logger
+from mcp_guide.lazy_path import LazyPath
 from mcp_guide.store.executor import run_in_thread
 
 logger = get_logger(__name__)
@@ -71,7 +72,7 @@ class DocumentRecord:
 
 def _get_conn(db_path: Optional[Path] = None) -> sqlite3.Connection:
     """Open connection and ensure schema exists."""
-    path = db_path or get_documents_db()
+    path = LazyPath(db_path or get_documents_db()).resolve()
     path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(path)
     conn.row_factory = sqlite3.Row

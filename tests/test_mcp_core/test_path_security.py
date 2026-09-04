@@ -32,6 +32,18 @@ def test_resolve_safe_path_requires_absolute_base(tmp_path: Path) -> None:
         resolve_safe_path(relative_base, "file.txt")
 
 
+def test_resolve_safe_path_expands_user_anchored_docroot(tmp_path: Path, monkeypatch) -> None:
+    """A user-anchored document root is resolved before containment checks."""
+    home = tmp_path / "home"
+    docroot = home / "docs"
+    docroot.mkdir(parents=True)
+    document = docroot / "guide.md"
+    document.write_text("guide\n", encoding="utf-8")
+    monkeypatch.setenv("HOME", str(home))
+
+    assert resolve_safe_path(Path("~/docs"), "guide.md") == document
+
+
 def test_resolve_safe_path_rejects_absolute_input(tmp_path: Path) -> None:
     """Test that absolute paths are rejected."""
     base_dir = tmp_path / "base"

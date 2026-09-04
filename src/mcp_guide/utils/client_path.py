@@ -3,6 +3,8 @@
 from pathlib import Path
 from typing import Union
 
+from mcp_guide.lazy_path import LazyPath
+
 
 def client_resolve(path: Union[str, Path], client_cwd: Union[str, Path]) -> Path:
     """Resolve a path relative to the client's working directory.
@@ -31,7 +33,7 @@ def client_resolve(path: Union[str, Path], client_cwd: Union[str, Path]) -> Path
     path_obj = Path(path)
     client_cwd_obj = Path(client_cwd)
 
-    if path_obj.is_absolute():
+    if LazyPath(path).is_absolute():
         return path_obj
     else:
         return client_cwd_obj / path_obj

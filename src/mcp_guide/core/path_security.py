@@ -2,6 +2,8 @@
 
 from pathlib import Path
 
+from mcp_guide.lazy_path import LazyPath
+
 # System paths that should be blocked for security
 SENSITIVE_SYSTEM_PATHS = {"/etc", "/proc", "/sys", "/dev", "/root", "/boot", "/var/log", "/usr/bin", "/bin", "/sbin"}
 
@@ -22,16 +24,16 @@ def resolve_safe_path(docroot: Path, path: str | Path) -> Path:
         ValueError: If path is absolute but not within docroot
         ValueError: If resolved path escapes docroot
     """
-    # Validate docroot is absolute
-    if not docroot.is_absolute():
+    docroot_value = LazyPath(docroot)
+    if not docroot_value.is_absolute():
         raise ValueError(f"Document root must be absolute: {docroot}")
+    docroot = docroot_value.resolve()
 
-    # Convert string to Path
-    if isinstance(path, str):
-        path = Path(path)
+    path_value = LazyPath(path)
 
     # Handle absolute paths - check if within docroot
-    if path.is_absolute():
+    if path_value.is_absolute():
+        path = path_value.expand()
         # Additional validation for sensitive system paths
         path_str = str(path).lower()
         if any(path_str.startswith(sensitive) for sensitive in SENSITIVE_SYSTEM_PATHS):
@@ -41,6 +43,7 @@ def resolve_safe_path(docroot: Path, path: str | Path) -> Path:
             raise ValueError(f"Absolute path must be within docroot: {path}")
         resolved = path.resolve()
     else:
+        path = Path(path)
         # Resolve relative path against docroot
         resolved = (docroot / path).resolve()
 

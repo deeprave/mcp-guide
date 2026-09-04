@@ -10,6 +10,7 @@ import patch_ng as patch
 from anyio import Path as AsyncPath
 
 from mcp_guide.core.mcp_log import get_logger
+from mcp_guide.lazy_path import LazyPath
 
 # System files
 ORIGINAL_ARCHIVE = ".original.zip"
@@ -206,7 +207,7 @@ def _normalise_archive_rel_path(rel_path: str | Path) -> str:
 def _is_safe_archive_rel_path(rel_path: str) -> bool:
     """Return True when an archive entry path is safe to map under docroot."""
     path = Path(_normalise_archive_rel_path(rel_path))
-    return not path.is_absolute() and ".." not in path.parts
+    return not LazyPath(path).is_absolute() and ".." not in path.parts
 
 
 async def compute_diff(original: Path, current: Path) -> str:

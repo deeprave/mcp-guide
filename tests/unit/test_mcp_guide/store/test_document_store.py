@@ -18,6 +18,28 @@ def db(tmp_path):
 
 
 @pytest.mark.anyio
+async def test_default_documents_db_resolves_user_anchored_config_dir(tmp_path, monkeypatch):
+    """Opening the default store must resolve ``~``, not create a CWD-relative ``~`` directory."""
+    from mcp_guide.config_paths import clear_config_overrides
+
+    home = tmp_path / "home"
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+    monkeypatch.chdir(workspace)
+    clear_config_overrides()
+
+    await add_document("docs", "readme", "/path/readme.md", "file", "# Hello")
+
+    db_path = home / ".config" / "mcp-guide" / "documents.db"
+    assert db_path.is_file()
+    assert not (workspace / "~").exists()
+    results = await list_documents(category="docs")
+    assert [record.name for record in results] == ["readme"]
+
+
+@pytest.mark.anyio
 async def test_add_and_get_round_trip(db):
     result = await add_document("docs", "readme", "/path/readme.md", "file", "# Hello", db_path=db)
     assert not result.skipped

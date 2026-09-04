@@ -10,6 +10,7 @@ from pathlib import Path, PurePath
 from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 from mcp_guide.feature_flags.types import FeatureValue
+from mcp_guide.lazy_path import LazyPath
 from mcp_guide.models import NoProjectError, Project
 from mcp_guide.utils.project_hash import calculate_project_hash
 
@@ -174,7 +175,7 @@ class GuideRuntime(Generic[SessionT]):
         Relative paths are joined to the document root. Already-absolute paths
         skip that join and are still checked for containment.
         """
-        requested = Path(relative_path)
+        requested = LazyPath(relative_path).expand()
         if requested.is_absolute():
             candidate = Path(os.path.normpath(str(requested)))
         else:
@@ -425,7 +426,7 @@ class RootIdentity:
     def from_path(cls, path: str) -> "RootIdentity":
         """Build an identity from an absolute client filesystem path."""
         pure_path = PurePath(path)
-        if not pure_path.is_absolute():
+        if not LazyPath(path).is_absolute():
             raise ValueError("Project path must be absolute")
         return cls(path=str(pure_path), name=pure_path.name, hash=calculate_project_hash(str(pure_path)))
 

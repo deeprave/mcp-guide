@@ -64,7 +64,7 @@ def get_config_dir(config_dir: Optional[str] = None) -> Path:
         xdg_config = os.environ.get("XDG_CONFIG_HOME")
         if xdg_config:
             return Path(xdg_config) / "mcp-guide"
-        return Path.home() / ".config" / "mcp-guide"
+        return Path("~") / ".config" / "mcp-guide"
 
     # Windows: APPDATA
     appdata = os.environ.get("APPDATA")
@@ -94,10 +94,12 @@ def get_docroot(config_dir: Optional[str] = None) -> Path:
     Returns:
         Path to docs directory
     """
-    if __docroot:
-        return Path(__docroot)
+    from mcp_guide.lazy_path import LazyPath
 
-    return get_config_file(config_dir).parent / "docs"
+    if __docroot:
+        return LazyPath(__docroot).resolve()
+
+    return LazyPath(get_config_file(config_dir).parent / "docs").resolve()
 
 
 def get_documents_db(config_dir: Optional[str] = None) -> Path:

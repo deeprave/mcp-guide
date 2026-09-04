@@ -111,11 +111,28 @@ async def test_directory_not_found():
 
 
 @pytest.mark.anyio
-async def test_relative_path_raises_error():
-    """Test that relative path raises ValueError."""
-    relative_path = Path("relative/path")
-    with pytest.raises(ValueError, match="must be absolute"):
-        await discover_document_files(relative_path, ["*.txt"])
+async def test_relative_base_dir_is_resolved_against_cwd(tmp_path, monkeypatch):
+    """A relative configured path is resolved at use time, not rejected."""
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "note.md").write_text("hello\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+
+    found = await discover_document_files(Path("docs"), ["*.md"])
+    assert [info.path.name for info in found] == ["note.md"]
+
+
+@pytest.mark.anyio
+async def test_tilde_base_dir_is_resolved_before_the_absolute_check(tmp_path, monkeypatch):
+    """A configured ``~/...`` path is host-absolute after LazyPath.resolve()."""
+    home = tmp_path / "home"
+    commands = home / "docs" / "_commands"
+    commands.mkdir(parents=True)
+    (commands / "help.mustache").write_text("hello\n", encoding="utf-8")
+    monkeypatch.setenv("HOME", str(home))
+
+    found = await discover_document_files(Path("~/docs/../docs/_commands"), ["help"])
+    assert [info.path.name for info in found] == ["help.mustache"]
 
 
 @pytest.mark.anyio

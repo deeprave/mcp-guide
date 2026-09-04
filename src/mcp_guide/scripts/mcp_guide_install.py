@@ -2,7 +2,6 @@
 """MCP Guide installer script."""
 
 import asyncio
-from pathlib import Path
 
 import click
 import yaml
@@ -109,16 +108,18 @@ async def main(command: str, docroot: str | None, configdir: str | None, interac
         write_version,
     )
     from mcp_guide.installer.integration import install_and_create_config
+    from mcp_guide.lazy_path import LazyPath
 
     logger = get_logger(__name__)
 
     try:
-        # Resolve config directory and file
-        configdir_path = Path(configdir) if configdir else get_config_dir()
+        # Resolve config directory and file at the filesystem boundary only
+        configdir_path = LazyPath(configdir if configdir else get_config_dir()).resolve()
         config_file = configdir_path / "config.yaml"
         default_docroot = get_docroot(str(configdir_path))
 
         # For update/status/list, read existing config
+        persisted_docroot = docroot
         if command in ("update", "status", "list"):
             if not config_file.exists():
                 click.echo("Error: No installation found. Run 'mcp-install install' first.", err=True)
@@ -127,19 +128,22 @@ async def main(command: str, docroot: str | None, configdir: str | None, interac
             # Read docroot from config
             config_content = await anyio.Path(config_file).read_text(encoding="utf-8")
             config = yaml.safe_load(config_content)
-            docroot_path = Path(docroot) if docroot else Path(config["docroot"])
+            raw_docroot = docroot if docroot else config["docroot"]
+            docroot_path = LazyPath(raw_docroot).resolve()
         else:
             # For install, use provided or default docroot
-            docroot_path = Path(docroot) if docroot else default_docroot
+            raw_docroot = docroot if docroot else str(default_docroot)
+            docroot_path = LazyPath(raw_docroot).resolve()
 
         # Interactive prompts
-        custom_docroot = docroot is not None
+        custom_docroot = persisted_docroot is not None
         if interactive:
             if command == "install" and not docroot:
                 docroot_input = click.prompt("Enter docroot path", default=str(docroot_path))
-                docroot_path = Path(docroot_input)
-                # Mark as custom if user changed it
-                custom_docroot = str(docroot_path) != str(default_docroot)
+                docroot_path = LazyPath(docroot_input).resolve()
+                if docroot_input != str(default_docroot):
+                    persisted_docroot = docroot_input
+                    custom_docroot = True
 
             if not click.confirm(f"{command.capitalize()} templates to {docroot_path}?", default=True):
                 click.echo(f"{command.capitalize()} cancelled")
@@ -173,7 +177,7 @@ async def main(command: str, docroot: str | None, configdir: str | None, interac
                     logger.info(f"Installed to {docroot_path}")
             else:
                 # Use integration function for first install or custom docroot
-                await install_and_create_config(config_file, docroot_path if custom_docroot else None)
+                await install_and_create_config(config_file, persisted_docroot if custom_docroot else None)
                 logger.info(f"Installation complete: {docroot_path}")
 
             logger.info(f"Config saved: {config_file}")
@@ -186,7 +190,7 @@ async def main(command: str, docroot: str | None, configdir: str | None, interac
             if custom_docroot:
                 config_content = await anyio.Path(config_file).read_text(encoding="utf-8")
                 config = yaml.safe_load(config_content) or {}
-                config["docroot"] = str(docroot_path)
+                config["docroot"] = persisted_docroot if persisted_docroot is not None else str(docroot_path)
                 await anyio.Path(config_file).write_text(yaml.safe_dump(config), encoding="utf-8")
 
             # Log summary statistics at INFO level

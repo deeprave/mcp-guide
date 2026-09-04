@@ -1,5 +1,7 @@
 """Tests for partial frontmatter handling."""
 
+from pathlib import Path
+
 import pytest
 
 from mcp_guide.render.context import TemplateContext
@@ -31,6 +33,19 @@ class TestPartialFrontmatter:
         content, frontmatter = await load_partial_content(partial_file, tmp_path)
         assert content == "Just content"
         assert isinstance(frontmatter, Frontmatter)
+        assert len(frontmatter) == 0
+
+    async def test_load_user_anchored_partial(self, tmp_path, monkeypatch):
+        """A user-anchored partial is resolved before asynchronous loading."""
+        home = tmp_path / "home"
+        home.mkdir()
+        partial_file = home / "_test.mustache"
+        partial_file.write_text("User-anchored content")
+        monkeypatch.setenv("HOME", str(home))
+
+        content, frontmatter = await load_partial_content(Path("~/_test.mustache"), tmp_path)
+
+        assert content == "User-anchored content"
         assert len(frontmatter) == 0
 
     async def test_load_partial_with_requirements_met(self, tmp_path):

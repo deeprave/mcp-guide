@@ -1,9 +1,9 @@
 """Validation functions for tool arguments."""
 
-from pathlib import Path
 from typing import Any, Optional
 
 from mcp_guide.core.result import Result
+from mcp_guide.lazy_path import LazyPath
 from mcp_guide.result_constants import ERROR_VALIDATION
 
 # Error messages
@@ -93,7 +93,7 @@ def is_absolute_path(path: str) -> bool:
         return True
 
     # UNC path (\\server\share)
-    return True if path.startswith("\\\\") else Path(path).is_absolute()
+    return True if path.startswith("\\\\") else LazyPath(path).is_absolute()
 
 
 def validate_directory_path(path: Optional[str], default: Optional[str] = None) -> str:
