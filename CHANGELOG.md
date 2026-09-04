@@ -2,10 +2,14 @@
 
 All notable changes to mcp-guide will be documented in this file.
 
-## [Unreleased]
+## [2.0.0]
 
 ### Changed
-- Some project configuration hashes have changed because a previous bug could hash Guide's configuration directory instead of the project root. To retain an affected existing configuration after upgrading, clone the old project by its `-<hash>` suffix into the newly created project configuration.
+- MCP v2 (2026-07-28) is now fully supported including fallback to legacy mode as per the MCP spec.
+- Some project configuration hashes will have changed due to a bug. The previous project can be merged into the new project by cloning the previous project using the former `<name>-<hash>`: `clone_project <name>-<old-hash>`.
+- The clone_project tool no longer accepts a destination - it always clones/merges projects into the current one.
+- `set_project` now reports caller-correctable failures such as an already-bound root as `project_error`. Unexpected bind failures remain `project_load_error`. A client that cannot mint a session also returns `project_error` rather than a transport-level failure.
+- Inherited-`PWD` project binding is off by default. CLI stdio launches may opt in with `--use-pwd` or `MG_USE_PWD=1`; Guide still binds from `PWD`, never from server `getcwd()`.
 
 ## [1.4.0] - 2026-08-16
 

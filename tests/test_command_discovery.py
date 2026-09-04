@@ -14,9 +14,9 @@ class TestCommandDiscovery:
     """Test command discovery in _commands directory."""
 
     @pytest.fixture(autouse=True)
-    def test_session(self, tmp_path):
+    def test_session(self, runtime, tmp_path):
         """Provide the explicit Session required by command discovery."""
-        self.session = create_unbound_test_session(str(tmp_path))
+        self.session = create_unbound_test_session(runtime)
 
     @pytest.mark.anyio
     async def test_discover_commands_basic(self) -> None:

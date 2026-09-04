@@ -40,7 +40,7 @@ async def test_mime_formatter_uses_content_size_single_file(mock_category, docro
     )
 
     formatter = MimeFormatter()
-    result = await formatter.format_single(file_info, docroot)
+    result = await formatter.format_single(file_info, docroot.joinpath)
 
     # Should use content_size (12), not original size (100)
     assert f"Content-Length: {content_size}" in result
@@ -73,7 +73,7 @@ async def test_mime_formatter_uses_content_size_multiple_files(mock_category, do
     ]
 
     formatter = MimeFormatter()
-    result = await formatter.format(files, docroot)
+    result = await formatter.format(files, docroot.joinpath)
 
     # Should use actual content length after rendering
     assert f"Content-Length: {len('File 1 content'.encode('utf-8'))}" in result
@@ -103,7 +103,7 @@ async def test_content_size_equals_size_when_no_frontmatter(mock_category, docro
     )
 
     formatter = MimeFormatter()
-    result = await formatter.format_single(file_info, docroot)
+    result = await formatter.format_single(file_info, docroot.joinpath)
 
     # Should use content_size (which equals size in this case)
     assert f"Content-Length: {size}" in result
@@ -128,7 +128,7 @@ async def test_content_size_different_from_calculated_length(mock_category, docr
     )
 
     formatter = MimeFormatter()
-    result = await formatter.format_single(file_info, docroot)
+    result = await formatter.format_single(file_info, docroot.joinpath)
 
     # Should use actual content length, not content_size field
     # This is correct behavior after template rendering

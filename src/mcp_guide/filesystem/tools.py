@@ -1,29 +1,20 @@
 """Filesystem MCP tools for agent-server interaction."""
 
 import time
-from contextvars import ContextVar
 from pathlib import Path
 from typing import Any, Dict, Optional, Union
 
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.core.result import Result
-from mcp_guide.filesystem.cache import FileCache
 from mcp_guide.filesystem.read_write_security import ReadWriteSecurityPolicy
 from mcp_guide.result_constants import ERROR_CACHE, ERROR_UNEXPECTED, ERROR_VALIDATION
-from mcp_guide.session import get_session
-from mcp_guide.utils import get_or_create
+from mcp_guide.session import Session
 
 logger = get_logger(__name__)
 
-_file_cache: ContextVar[FileCache] = ContextVar("_file_cache")
-
-
-def _get_file_cache() -> FileCache:
-    return get_or_create(_file_cache, FileCache)
-
 
 async def send_file_content(
-    context: Any,
+    session: Session,
     path: str,
     content: str,
     mtime: Optional[float] = None,
@@ -34,7 +25,6 @@ async def send_file_content(
     type: Optional[str] = None,
     force: Optional[bool] = None,
     metadata: Optional[dict[str, Any]] = None,
-    session_id: str | None = None,
 ) -> "Result[dict[str, Any]]":
     """Agent tool to send file content from its filesystem to the server.
 
@@ -43,7 +33,7 @@ async def send_file_content(
     the content to the server.
 
     Args:
-        context: MCP context
+        session: Session that owns this filesystem event
         path: File path that was requested
         content: File content from agent's filesystem
         mtime: File modification time
@@ -56,7 +46,7 @@ async def send_file_content(
         metadata: Optional arbitrary metadata dict to attach to the document
 
     Returns:
-        Result with cached file metadata
+        Result with the dispatched file path
     """
     # Validate required parameters
     errors = {}
@@ -86,11 +76,9 @@ async def send_file_content(
         # meaningful security protection.
         validated_path = path
 
-        # Cache the content provided by agent
+        # Dispatch the content provided by the agent
         if mtime is None:
             mtime = time.time()
-
-        _get_file_cache().put(validated_path, content, mtime)
 
         # Dispatch to the Session selected by this request.  Filesystem
         # callbacks are a multi-round-trip protocol surface, so they must not
@@ -98,7 +86,6 @@ async def send_file_content(
         from mcp_guide.task_manager import EventType
         from mcp_guide.task_manager.manager import aggregate_event_results
 
-        session = await get_session(context, session_id=session_id)
         task_manager = session.task_manager
         event_results = await task_manager.dispatch_event(
             EventType.FS_FILE_CONTENT,
@@ -129,21 +116,20 @@ async def send_file_content(
 
         return Result.ok(
             value={"path": validated_path},
-            message=f"File content cached for {validated_path}",
+            message=f"Received file content for {validated_path}",
             instruction="",
         )
 
     except Exception as e:
-        return Result.failure(error=f"Failed to cache file content: {str(e)}", error_type=ERROR_CACHE)
+        return Result.failure(error=f"Failed to receive file content: {str(e)}", error_type=ERROR_CACHE)
 
 
 async def send_directory_listing(
-    context: Any,
+    session: Session,
     path: str,
     files: list[Dict[str, Any]],
     pattern: Optional[str] = None,
     recursive: bool = False,
-    session_id: str | None = None,
 ) -> "Result[Dict[str, Any]]":
     """Agent tool to send directory listing from its filesystem to the server.
 
@@ -152,7 +138,7 @@ async def send_directory_listing(
     the results to the server.
 
     Args:
-        context: MCP context
+        session: Session that owns this filesystem event
         path: Directory path that was requested
         files: List of files/directories from agent's filesystem
         pattern: Pattern filter that was requested
@@ -178,7 +164,6 @@ async def send_directory_listing(
         )
 
     try:
-        session = await get_session(context, session_id=session_id)
         project = await session.get_project()
 
         # Project identity comes from the request-resolved Session, never an
@@ -241,12 +226,12 @@ async def send_directory_listing(
 
 
 async def send_command_location(
-    context: Any, command: str, path: Optional[str] = None, found: bool = False, session_id: str | None = None
+    session: Session, command: str, path: Optional[str] = None, found: bool = False
 ) -> "Result[Dict[str, Any]]":
     """Agent tool to send command location to server.
 
     Args:
-        context: MCP context
+        session: Session that owns this filesystem event
         command: Command name that was searched for
         path: Full path to command if found
         found: Whether command was found
@@ -273,7 +258,6 @@ async def send_command_location(
         from mcp_guide.task_manager import EventType
         from mcp_guide.task_manager.manager import aggregate_event_results
 
-        session = await get_session(context, session_id=session_id)
         task_manager = session.task_manager
         event_results = await task_manager.dispatch_event(
             EventType.FS_COMMAND,
@@ -301,13 +285,11 @@ async def send_command_location(
         return Result.failure(error=f"Failed to provide command location: {str(e)}", error_type=ERROR_UNEXPECTED)
 
 
-async def send_working_directory(
-    context: Any, working_directory: str, session_id: str | None = None
-) -> "Result[Dict[str, Any]]":
+async def send_working_directory(session: Session, working_directory: str) -> "Result[Dict[str, Any]]":
     """Agent tool to send current working directory to server.
 
     Args:
-        context: MCP context
+        session: Session that owns this filesystem event
         working_directory: Current working directory path
 
     Returns:
@@ -332,7 +314,6 @@ async def send_working_directory(
         from mcp_guide.task_manager import EventType
         from mcp_guide.task_manager.manager import aggregate_event_results
 
-        session = await get_session(context, session_id=session_id)
         task_manager = session.task_manager
         event_results = await task_manager.dispatch_event(
             EventType.FS_CWD,
@@ -357,12 +338,12 @@ async def send_working_directory(
 
 
 async def send_found_files(
-    context: Any, pattern: str, files: list[str], start_path: str = ".", session_id: str | None = None
+    session: Session, pattern: str, files: list[str], start_path: str = "."
 ) -> "Result[Dict[str, Any]]":
     """Agent tool to send found files to server.
 
     Args:
-        context: MCP context
+        session: Session that owns this filesystem event
         pattern: Pattern that was searched for
         files: List of found file paths
         start_path: Directory search started from
@@ -391,7 +372,6 @@ async def send_found_files(
         from mcp_guide.task_manager import EventType
         from mcp_guide.task_manager.manager import aggregate_event_results
 
-        session = await get_session(context, session_id=session_id)
         task_manager = session.task_manager
         event_results = await task_manager.dispatch_event(
             EventType.FS_FOUND_FILES,

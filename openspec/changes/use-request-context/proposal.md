@@ -11,11 +11,14 @@ boundary only partially implemented.
 - Make a resolved application `RequestContext` the required context for internal
   tool, prompt, resource, rendering, command, and task-result operations; raw
   FastMCP context remains confined to the registration/transport boundary.
-- Populate the context once with the resolved Guide `Session`, immutable bound-root
-  identity, and the exact active immutable `Project` object selected by that Session.
+- Populate the context once with the client `session_id`, resolved Guide `Session`,
+  immutable bound-root identity, and the exact active immutable `Project` object
+  selected by that Session. Protocol revision, request identity, owner keys, and
+  client metadata remain transport-boundary details.
   Remove the redundant `ActiveConfiguration` identity shape.
-- Provide request-context helpers for contained application state, including
-  project access, root access, task-result processing, and runtime-owned services,
+- Provide narrow request-context helpers for contained application state, including
+  project access, root access, task-result processing, and safe document-path
+  resolution without exposing the configured docroot,
   so handlers do not rediscover state through FastMCP or `ContextVar` lookups.
 - Remove ambient Session/TaskManager `ContextVar` ownership fallbacks from production
   paths. Calls without a resolved request context or an explicitly supplied Session
@@ -26,7 +29,8 @@ boundary only partially implemented.
   project reference.
 - Keep `ConfigManager` private to `GuideRuntime`; expose required configuration
   operations through runtime or request-context facades rather than passing the
-  manager through application code.
+  manager through application code. Docroot remains opaque and is never returned
+  by application-facing APIs.
 
 ## Capabilities
 

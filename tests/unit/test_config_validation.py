@@ -11,25 +11,25 @@ class TestConfigValidation:
     """Test input validation in configuration methods."""
 
     @pytest.mark.anyio
-    async def test_set_project_flag_invalid_name(self, tmp_path):
+    async def test_set_project_flag_invalid_name(self, runtime, tmp_path):
         """Test that project flags reject invalid flag names."""
-        session = await create_test_session("test", _config_dir_for_tests=str(tmp_path))
+        session = await create_test_session(runtime, "test")
         flags = session.project_flags("test-project")
         with pytest.raises(ValidationError, match="Invalid feature flag name"):
             await flags.set("invalid.name", True)
 
     @pytest.mark.anyio
-    async def test_set_project_flag_invalid_value(self, tmp_path):
+    async def test_set_project_flag_invalid_value(self, runtime, tmp_path):
         """Test that project flags reject invalid flag values."""
-        session = await create_test_session("test", _config_dir_for_tests=str(tmp_path))
+        session = await create_test_session(runtime, "test")
         flags = session.project_flags("test-project")
         with pytest.raises(ValidationError):
             await flags.set("valid-name", 123)
 
     @pytest.mark.anyio
-    async def test_valid_inputs_accepted(self, tmp_path):
+    async def test_valid_inputs_accepted(self, runtime, tmp_path):
         """Test that valid inputs are accepted."""
-        session = await create_test_session("test", _config_dir_for_tests=str(tmp_path))
+        session = await create_test_session(runtime, "test")
         project_flags = session.project_flags("test-project")
         # These should not raise exceptions
         await project_flags.set("valid-name", True)
@@ -46,9 +46,9 @@ class TestConfigValidation:
             await session._config().get_or_create_project_config("test")
 
     @pytest.mark.anyio
-    async def test_project_snapshot_ignores_malformed_or_mismatched_entries(self, tmp_path):
+    async def test_project_snapshot_ignores_malformed_or_mismatched_entries(self, runtime, tmp_path):
         """Only generated keys with their stored full root hash are selectable."""
-        session = await create_test_session("test", _config_dir_for_tests=str(tmp_path))
+        session = await create_test_session(runtime, "test")
         config_manager = session._config()
         valid_hash = "a" * 64
         config_manager.config_file.write_text(
@@ -69,9 +69,9 @@ class TestConfigValidation:
         assert list(projects) == [f"valid-{valid_hash[:8]}"]
 
     @pytest.mark.anyio
-    async def test_project_snapshot_ignores_non_string_keys(self, tmp_path):
+    async def test_project_snapshot_ignores_non_string_keys(self, runtime, tmp_path):
         """Non-string project keys are malformed and should be skipped."""
-        session = await create_test_session("test", _config_dir_for_tests=str(tmp_path))
+        session = await create_test_session(runtime, "test")
         config_manager = session._config()
         config_manager._ensure_config_dir()
         config_manager.config_file.write_text(
@@ -88,9 +88,9 @@ class TestConfigValidation:
         assert list(projects) == []
 
     @pytest.mark.anyio
-    async def test_clone_source_ignores_hashless_entries_and_uses_first_name_match(self, tmp_path):
+    async def test_clone_source_ignores_hashless_entries_and_uses_first_name_match(self, runtime, tmp_path):
         """Clone ignores obsolete entries and takes the first valid matching name."""
-        session = await create_test_session("test", _config_dir_for_tests=str(tmp_path))
+        session = await create_test_session(runtime, "test")
         config_manager = session._config()
         first_hash = "a" * 64
         second_hash = "b" * 64

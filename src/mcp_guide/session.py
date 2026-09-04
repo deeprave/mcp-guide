@@ -41,6 +41,12 @@ class InvalidGuideSessionError(ValueError):
     pass
 
 
+class UnmintableGuideSessionError(RuntimeError):
+    """FastMCP could not mint a session_id for this request's protocol."""
+
+    pass
+
+
 class ConfigurationService(Protocol):
     """Runtime-owned configuration operations used by Session without importing ConfigManager."""
 
@@ -73,9 +79,9 @@ class Session:
         """Initialise a Session owned by one GuideRuntime.
 
         Production code MUST obtain Sessions from ``GuideRuntime`` through its
-        Session factory. That factory supplies the runtime-owned ConfigManager
-        (and will supply other shared runtime services), preserving isolation
-        while avoiding accidental per-Session configuration state.
+        Session factory. The runtime is private to this Session for its own
+        configuration-service access. Other code retrieves the process runtime
+        through ``get_runtime()``.
 
         Tests must use a dedicated GuideRuntime constructed with a config directory.
         """
@@ -115,11 +121,6 @@ class Session:
         self.agent_info: Optional["AgentInfo"] = None
         self.client_params: Optional[dict[str, Any]] = None
 
-    @property
-    def runtime(self) -> "GuideRuntime[Any]":
-        """Return the GuideRuntime that owns this Session."""
-        return self._runtime
-
     def _config(self) -> ConfigurationService:
         """Return this Session's runtime-owned configuration service."""
         return cast(ConfigurationService, self._runtime.configuration_service())
@@ -133,6 +134,13 @@ class Session:
     def project_is_bound(self) -> bool:
         """Whether the session is bound to a real project."""
         return self.__delegate.is_bound
+
+    @property
+    def project(self) -> Project | None:
+        """Return the Session's current Project, or None when unbound."""
+        if not self.__delegate.is_bound:
+            return None
+        return self.__delegate.project
 
     @property
     def bound_root_path(self) -> Path | None:
@@ -344,9 +352,8 @@ class Session:
 def _attach_session_listeners(session: Session) -> None:
     """Attach the transitional Session listeners exactly once.
 
-    Runtime-owned Sessions can be created outside the historical ContextVar
-    creation path. Keeping listener attachment here gives both paths the same
-    Session-local task and rendering lifecycle.
+    Keeping listener attachment here gives every runtime-owned Session the
+    same Session-local task and rendering lifecycle.
     """
     if getattr(session, "_guide_listeners_attached", False):
         return
@@ -360,10 +367,25 @@ def _attach_session_listeners(session: Session) -> None:
     setattr(session, "_guide_listeners_attached", True)
 
 
+_USE_PWD_TRUTHY = frozenset({"1", "true", "yes", "on"})
+
+
+def use_pwd_enabled() -> bool:
+    """Whether launch configuration opted into stdio inherited-PWD project binding.
+
+    Off by default. Process ``PWD`` is a client-supplied launch hint, not
+    ``getcwd()``: the server filesystem may be a container, an HTTP host, or a
+    desktop app started from ``$HOME``. CLI agents that start Guide from the
+    project directory may set ``MG_USE_PWD`` to skip one ``set_project``
+    round trip.
+    """
+    return os.environ.get("MG_USE_PWD", "").strip().lower() in _USE_PWD_TRUTHY
+
+
 async def bind_session_project(session: Session, project_path: str | Path) -> Project:
     """Bind a resolved Session through Guide's single project-binding path.
 
-    Both explicit ``set_project(path)`` and the narrow stdio-PWD bootstrap use
+    Both explicit ``set_project(path)`` and the optional stdio-PWD bootstrap use
     this operation.  Listener attachment happens before binding so the
     Session-owned task and rendering lifecycle observes the initial project
     selection exactly as it does for an explicit bind.
@@ -377,7 +399,7 @@ async def mint_modern_session_id(ctx: "Context") -> str | None:
     """Mint a resumable FastMCP session_id for a modern request.
 
     This is deliberately the only minting path used by explicit project
-    binding and by the narrow stdio ``PWD`` bootstrap.  Other sessionless
+    binding and by the optional stdio ``PWD`` bootstrap.  Other sessionless
     modern requests stay request-local and unbound.
     """
     request = getattr(ctx, "request_context", None)
@@ -408,244 +430,95 @@ async def retire_minted_session(ctx: Any | None, session_id: str) -> None:
 
 
 @asynccontextmanager
-async def request_session_scope(ctx: Any | None, session_id: str | None = None):
-    """Keep one resolved Session alive for a complete MCP handler invocation."""
+async def request_context_scope(
+    ctx: Any,
+    session_id: str | None = None,
+    *,
+    allow_pwd_bootstrap: bool,
+    mint_session_if_unbound: bool = False,
+):
+    """Resolve one application RequestContext for a public MCP invocation.
+
+    This is the only bridge from FastMCP's request object to Guide application
+    state.  Nested application operations receive the yielded context directly;
+    they must not resolve an interaction for themselves.
+    """
     if ctx is None:
-        yield None
-        return
-    from mcp_guide.mcp_context import request_context_from_fastmcp, runtime_from_fastmcp
+        raise RuntimeError("A public MCP invocation requires a FastMCP context")
+
+    from mcp_guide.mcp_context import runtime_from_fastmcp, session_resolution_from_fastmcp
 
     runtime = runtime_from_fastmcp(ctx)
     if runtime is None:
-        yield None
-        return
-    request_context = request_context_from_fastmcp(ctx, session_id=session_id)
-    async with runtime.session_request(request_context.owner) as session:
-        session.session_id = request_context.session_id
-        yield session
+        raise RuntimeError("A public MCP invocation requires a GuideRuntime")
 
-
-async def get_or_create_session(
-    ctx: Any | None = None,
-    project_name: Optional[str] = None,
-    *,
-    session_id: str | None = None,
-    _allow_pwd_bootstrap: bool = False,
-    _config_dir_for_tests: Optional[str] = None,
-) -> Session:
-    """Get or create session for project.
-
-    Args:
-        ctx: Optional MCP Context for public request metadata
-        project_name: Optional explicit project name (for initial creation)
-        _config_dir_for_tests: Optional config directory for test isolation (keyword-only)
-
-    Returns:
-        Session (existing or newly created, possibly unbound if project context unavailable)
-    """
-    # Resolve a public FastMCP request identity through the runtime before any
-    # ambient ContextVar compatibility path. Modern calls without an explicit
-    # ID deliberately remain unbound and therefore do not allocate runtime
-    # state here.
-    if ctx is not None:
-        from mcp_guide.mcp_context import request_context_from_fastmcp, runtime_from_fastmcp
-
-        try:
-            request_context = request_context_from_fastmcp(ctx, session_id=session_id)
-        except ValueError as error:
-            if session_id is not None:
-                raise InvalidGuideSessionError("Invalid or unknown session ID") from error
-            raise
-
-        # Explicit IDs are bearer capabilities minted by FastMCP's supported
-        # session store. Validate them before they become GuideRuntime keys,
-        # regardless of negotiated protocol era. A handshake-era request that
-        # echoes its public connection identity is not a bearer token; that
-        # value is the defined legacy owner and is not looked up in the modern
-        # store.
-        if session_id is not None and isinstance(ctx, Context):
-            connection_id = getattr(ctx, "session_id", None)
-            handshake_connection = request_context.protocol_revision != "2026-07-28" and session_id == connection_id
-            if not handshake_connection:
-                from fastmcp.server.sessions import InvalidSession
-                from fastmcp.server.sessions import get_session as get_fastmcp_session
-
-                try:
-                    await get_fastmcp_session(session_id)
-                except InvalidSession as error:
-                    raise InvalidGuideSessionError("Invalid or unknown session ID") from error
-        runtime = runtime_from_fastmcp(ctx)
-        if runtime is not None and request_context.session_source is not None:
-            await runtime.expire_inactive_sessions()
-            runtime_session = cast(
-                Session,
-                runtime.find_session(request_context.owner) or runtime.create_transient_session(request_context.owner),
-            )
-            runtime_session.session_id = request_context.session_id
-            if (
-                _allow_pwd_bootstrap
-                and getattr(ctx, "transport", None) == "stdio"
-                and not runtime_session.project_is_bound
-                and (pwd := os.environ.get("PWD"))
-                and Path(pwd).is_absolute()
-            ):
-                await bind_session_project(runtime_session, Path(pwd))
-            else:
-                _attach_session_listeners(runtime_session)
-            if runtime_session.agent_info is None:
-                await cache_mcp_globals(ctx, runtime_session)
-            return runtime_session
-        if (
-            runtime is not None
-            and request_context.protocol_revision == "2026-07-28"
-            and getattr(ctx, "transport", None) == "stdio"
-        ):
-            if isinstance(ctx, Context):
-                minted_session_id = await mint_modern_session_id(ctx)
-                if minted_session_id is not None:
-                    async with runtime.session_request(OwnerKey(minted_session_id)):
-                        try:
-                            bootstrap_session = await get_or_create_session(
-                                ctx,
-                                session_id=minted_session_id,
-                                _allow_pwd_bootstrap=True,
-                            )
-                            runtime.retain_session(OwnerKey(minted_session_id), bootstrap_session)
-                            return bootstrap_session
-                        except Exception:
-                            await retire_minted_session(ctx, minted_session_id)
-                            raise
-            connection_id = getattr(ctx, "session_id", None)
-            if isinstance(connection_id, str) and connection_id:
-                runtime_session = cast(Session, runtime.resolve_session(OwnerKey(f"stdio:{connection_id}")))
-                try:
-                    if not runtime_session.project_is_bound:
-                        pwd = os.environ.get("PWD")
-                        if pwd and Path(pwd).is_absolute():
-                            await bind_session_project(runtime_session, Path(pwd))
-                    _attach_session_listeners(runtime_session)
-                    await cache_mcp_globals(ctx, runtime_session)
-                    return runtime_session
-                except Exception:
-                    await runtime.discard_session(OwnerKey(f"stdio:{connection_id}"))
-                    raise
-        if runtime is not None and request_context.protocol_revision == "2026-07-28":
-            # A sessionless modern request is the normal unbound state. It may
-            # use request-local helpers, but must not inherit ContextVar state
-            # or become a cross-request runtime owner.
-            transient = cast(
-                Session,
-                runtime.find_session(request_context.owner) or runtime.create_transient_session(request_context.owner),
-            )
-            await cache_mcp_globals(ctx, transient)
-            _attach_session_listeners(transient)
-            return transient
-
-    # Create session, binding project if name was resolved
-    if _config_dir_for_tests is None:
-        raise RuntimeError("A GuideRuntime is required to create a Session")
-    from mcp_guide.runtime import GuideRuntime
-
-    test_runtime: GuideRuntime[Session]
-    test_runtime = GuideRuntime(lambda _owner: Session(test_runtime), config_dir=_config_dir_for_tests)
-    session = test_runtime.resolve_session(OwnerKey("test-session"))
-    if project_name is not None:
-        if _config_dir_for_tests is None:
-            raise ValueError("project_name bootstrap is test-only; bind a client root with set_project(path)")
-        test_root = Path(_config_dir_for_tests) / "client-roots" / project_name
-        test_root.mkdir(parents=True, exist_ok=True)
-        await bind_session_project(session, test_root)
-    elif getattr(ctx, "transport", None) == "stdio":
-        # A local stdio process inherits the client's working directory.  It
-        # is the one safe implicit-root case and binds this newly created
-        # session without requiring a set_project round trip.
-        pwd = os.environ.get("PWD")
-        if pwd and Path(pwd).is_absolute():
-            await bind_session_project(session, Path(pwd))
-    # Historical compatibility fallback: callers can still initialize sessions in a
-    # pre-bound state by passing an explicit project name (test mode) or by
-    # using set_project(path) as the first request interaction.
-
-    if ctx is not None:
-        await cache_mcp_globals(ctx, session)
-    _attach_session_listeners(session)
-
-    return session
-
-
-async def get_session(
-    ctx: Any | None = None,
-    *,
-    project_name: Optional[str] = None,
-    session_id: str | None = None,
-    _config_dir_for_tests: Optional[str] = None,
-) -> Session:
-    """Get the current session, creating one if none exists.
-
-    This is the primary entry point for session access. On first call it creates
-    a session with auto-resolved project name and caches MCP context from ctx.
-    On subsequent calls it returns the existing session.
-
-    Args:
-        ctx: Optional MCP Context for public request metadata
-        project_name: Optional explicit project name (for initial creation or set_project)
-        _config_dir_for_tests: Optional config directory for test isolation
-
-    Returns:
-        The current Session (never None)
-    """
-    return await get_or_create_session(
-        ctx,
-        project_name,
-        session_id=session_id,
-        _config_dir_for_tests=_config_dir_for_tests,
-    )
-
-
-async def set_project(
-    project_path: str,
-    ctx: Any | None = None,
-    *,
-    session_id: str | None = None,
-) -> Result[Project]:
-    """Bind the current Session to a client project path.
-
-    Args:
-        project_path: Absolute client filesystem path of the project root
-        ctx: Optional MCP Context
-        session_id: Optional explicit FastMCP Session ID supplied by a modern caller
-
-    Returns:
-        Result[Project]: Success with Project object, or failure with error
-
-    Note:
-        Creates or loads the default root-hashed project configuration.
-    """
-    from mcp_guide.result_constants import ERROR_INVALID_NAME, ERROR_PROJECT_LOAD, make_invalid_session_result
-    from mcp_guide.validation import InvalidProjectNameError
+    seq = runtime.next_request_seq()
+    minted_session_id: str | None = None
+    session: Session | None = None
 
     try:
-        from mcp_guide.mcp_context import request_context_from_fastmcp, runtime_from_fastmcp
+        protocol_revision, resolved_session_id = session_resolution_from_fastmcp(ctx, session_id=session_id)
+    except ValueError as error:
+        if session_id is not None:
+            raise InvalidGuideSessionError("Invalid or unknown session ID") from error
+        raise
 
-        runtime = runtime_from_fastmcp(ctx)
-        if runtime is None:
-            session = await get_session(ctx=ctx, session_id=session_id)
-            project = await bind_session_project(session, project_path)
-        else:
-            request_context = request_context_from_fastmcp(ctx, session_id=session_id)
-            async with runtime.session_request(request_context.owner) as session:
-                session.session_id = request_context.session_id
-                project = await bind_session_project(session, project_path)
-                runtime.retain_session(request_context.owner, session)
-        return Result.ok(project)
-    except InvalidGuideSessionError:
-        return make_invalid_session_result()
-    except InvalidProjectNameError as e:
-        return Result.failure(str(e), error_type=ERROR_INVALID_NAME)
-    except ValueError as e:
-        return Result.failure(str(e), error_type=ERROR_PROJECT_LOAD)
-    except Exception as e:
-        return Result.failure(str(e), error_type=ERROR_PROJECT_LOAD)
+    pwd = os.environ.get("PWD")
+    pwd_bind = (
+        allow_pwd_bootstrap
+        and use_pwd_enabled()
+        and session_id is None
+        and protocol_revision == "2026-07-28"
+        and getattr(ctx, "transport", None) == "stdio"
+        and bool(pwd)
+        and Path(pwd).is_absolute()
+    )
+
+    if resolved_session_id is None and mint_session_if_unbound and isinstance(ctx, Context):
+        session = await runtime.create_session(ctx)
+        minted_session_id = session.session_id
+        resolved_session_id = minted_session_id
+    elif resolved_session_id is None and pwd_bind and isinstance(ctx, Context):
+        session = await runtime.create_session(ctx)
+        minted_session_id = session.session_id
+        resolved_session_id = minted_session_id
+
+    if resolved_session_id is not None:
+        owner = OwnerKey(resolved_session_id)
+    else:
+        owner = OwnerKey(f"unbound:{seq}")
+
+    async with runtime.session_request(owner):
+        if session is None:
+            if resolved_session_id is not None:
+                if isinstance(ctx, Context):
+                    connection_id = getattr(ctx, "session_id", None)
+                    handshake_connection = protocol_revision != "2026-07-28" and resolved_session_id == connection_id
+                    if not handshake_connection:
+                        from fastmcp.server.sessions import InvalidSession
+                        from fastmcp.server.sessions import get_session as get_fastmcp_session
+
+                        try:
+                            await get_fastmcp_session(resolved_session_id)
+                        except InvalidSession as error:
+                            raise InvalidGuideSessionError("Invalid or unknown session ID") from error
+                await runtime.expire_inactive_sessions()
+                session = runtime.get_current_session(resolved_session_id)
+            else:
+                session = cast(Session, runtime.find_session(owner) or runtime.create_transient_session(owner))
+        try:
+            if pwd_bind and session_id is None and not session.project_is_bound and pwd is not None:
+                await bind_session_project(session, Path(pwd))
+            else:
+                _attach_session_listeners(session)
+            if session.agent_info is None:
+                await cache_mcp_globals(ctx, session)
+            yield await runtime.request_context(session, session_id=session.session_id, seq=seq)
+        finally:
+            if session.project_is_bound and not owner.value.startswith("unbound:"):
+                runtime.retain_session(owner, session)
+            elif minted_session_id is not None:
+                await retire_minted_session(ctx, minted_session_id)
 
 
 async def list_all_projects(session: "Session", verbose: bool = False) -> Result[dict[str, Any]]:

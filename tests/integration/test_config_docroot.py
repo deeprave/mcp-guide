@@ -5,13 +5,14 @@ from pathlib import Path
 import pytest
 import yaml
 
+from mcp_guide.runtime import create_runtime, get_runtime
 from tests.helpers import create_test_session
 
 
 @pytest.mark.anyio
-async def test_new_config_has_docroot(tmp_path):
+async def test_new_config_has_docroot(runtime, tmp_path):
     """Test new config file includes docroot field."""
-    session = await create_test_session("test-project", _config_dir_for_tests=str(tmp_path))
+    session = await create_test_session(runtime, "test-project")
 
     # Create a project to trigger config file creation
     await session.get_project()
@@ -28,7 +29,7 @@ async def test_new_config_has_docroot(tmp_path):
 
 @pytest.mark.anyio
 @pytest.mark.parametrize("configured_docroot", [None, "", "   "], ids=["absent", "empty", "whitespace"])
-async def test_blank_docroot_is_replaced_with_and_persists_the_default(tmp_path, configured_docroot):
+async def test_blank_docroot_is_replaced_with_and_persists_the_default(runtime, tmp_path, configured_docroot):
     """An unusable docroot is normalised before it can resolve relative to the checkout."""
     config_file = tmp_path / "config.yaml"
     config = {"projects": {}, "feature_flags": {}}
@@ -36,9 +37,9 @@ async def test_blank_docroot_is_replaced_with_and_persists_the_default(tmp_path,
         config["docroot"] = configured_docroot
     config_file.write_text(yaml.dump(config))
 
-    session = await create_test_session("test-project", _config_dir_for_tests=str(tmp_path))
+    session = await create_test_session(runtime, "test-project")
 
-    assert await session.runtime.get_docroot() == str(tmp_path / "docs")
+    assert await get_runtime().get_docroot() == str(tmp_path / "docs")
     persisted = yaml.safe_load(config_file.read_text())["docroot"]
     assert persisted == str(tmp_path / "docs")
     assert Path(persisted).is_absolute()
@@ -47,14 +48,12 @@ async def test_blank_docroot_is_replaced_with_and_persists_the_default(tmp_path,
 @pytest.mark.anyio
 async def test_config_manager_retains_its_effective_docroot_until_restart(tmp_path):
     """A running manager keeps its startup docroot after external config changes."""
-    from mcp_guide.runtime import GuideRuntime
-
     config_file = tmp_path / "config.yaml"
     initial_docroot = tmp_path / "initial-docs"
     updated_docroot = tmp_path / "updated-docs"
     config_file.write_text(yaml.dump({"docroot": str(initial_docroot), "projects": {}}))
 
-    runtime = GuideRuntime(lambda _owner: object(), config_dir=str(tmp_path))
+    runtime = create_runtime(lambda _owner: object(), config_dir=str(tmp_path))
     await runtime.start()
     try:
         assert await runtime.get_docroot() == str(initial_docroot)
@@ -66,7 +65,7 @@ async def test_config_manager_retains_its_effective_docroot_until_restart(tmp_pa
     finally:
         await runtime.stop()
 
-    restarted = GuideRuntime(lambda _owner: object(), config_dir=str(tmp_path))
+    restarted = create_runtime(lambda _owner: object(), config_dir=str(tmp_path))
     await restarted.start()
     try:
         assert await restarted.get_docroot() == str(updated_docroot)
@@ -77,12 +76,10 @@ async def test_config_manager_retains_its_effective_docroot_until_restart(tmp_pa
 @pytest.mark.anyio
 async def test_filling_missing_docroot_does_not_unpack_templates(tmp_path):
     """Persisting a default docroot must not install the packaged template tree."""
-    from mcp_guide.runtime import GuideRuntime
-
     config_file = tmp_path / "config.yaml"
     config_file.write_text("projects: {}\n")
 
-    runtime = GuideRuntime(lambda _owner: object(), config_dir=str(tmp_path))
+    runtime = create_runtime(lambda _owner: object(), config_dir=str(tmp_path))
     await runtime.start()
     try:
         await runtime.get_docroot()
@@ -95,15 +92,89 @@ async def test_filling_missing_docroot_does_not_unpack_templates(tmp_path):
 
 
 @pytest.mark.anyio
+async def test_first_run_persists_supplied_docroot(tmp_path, monkeypatch):
+    """First-run --docroot docs leaves the supplied value in config.yaml."""
+    from mcp_guide.installer.core import ORIGINAL_ARCHIVE
+
+    monkeypatch.chdir(tmp_path)
+    runtime = create_runtime(lambda _owner: object(), config_dir=str(tmp_path), docroot="docs")
+    await runtime.start()
+    try:
+        assert await runtime.get_docroot() == "docs"
+    finally:
+        await runtime.stop()
+
+    persisted = yaml.safe_load((tmp_path / "config.yaml").read_text())["docroot"]
+    assert persisted == "docs"
+    assert (tmp_path / "docs" / ORIGINAL_ARCHIVE).exists()
+
+
+@pytest.mark.anyio
+async def test_relative_docroot_resolver_returns_absolute_paths(tmp_path, monkeypatch):
+    """A persisted relative docroot still yields host-absolute resolved paths."""
+    from mcp_guide.discovery.files import discover_document_files
+
+    monkeypatch.chdir(tmp_path)
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "intro.md").write_text("hello\n", encoding="utf-8")
+    runtime = create_runtime(lambda _owner: object(), config_dir=str(tmp_path / "cfg"), docroot="docs")
+    await runtime.start()
+    try:
+        assert await runtime.get_docroot() == "docs"
+        resolver = await runtime.get_docroot_resolver()
+        resolved = resolver("intro.md")
+        assert resolved.is_absolute()
+        assert resolved == (docs / "intro.md").resolve()
+        found = await discover_document_files(resolver(""), ["*.md"])
+        assert any(path.name == "intro.md" for path in (info.path for info in found))
+    finally:
+        await runtime.stop()
+
+
+@pytest.mark.anyio
+async def test_first_run_persists_tilde_and_env_docroot(tmp_path, monkeypatch):
+    """CLI tilde and $VAR docroot values are written unchanged; the resolver expands them."""
+    from mcp_guide.installer.core import ORIGINAL_ARCHIVE
+
+    home = tmp_path / "home"
+    env_docs = tmp_path / "from-var"
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("GUIDE_DOCS", str(env_docs))
+
+    tilde_runtime = create_runtime(lambda _owner: object(), config_dir=str(tmp_path / "tilde"), docroot="~/guide-docs")
+    await tilde_runtime.start()
+    try:
+        assert await tilde_runtime.get_docroot() == "~/guide-docs"
+        resolver = await tilde_runtime.get_docroot_resolver()
+        resolved = resolver("intro.md")
+        assert resolved.is_absolute()
+        assert resolved == (home / "guide-docs" / "intro.md").resolve()
+        assert (home / "guide-docs" / ORIGINAL_ARCHIVE).exists()
+    finally:
+        await tilde_runtime.stop()
+
+    env_runtime = create_runtime(lambda _owner: object(), config_dir=str(tmp_path / "env"), docroot="$GUIDE_DOCS")
+    await env_runtime.start()
+    try:
+        assert await env_runtime.get_docroot() == "$GUIDE_DOCS"
+        resolver = await env_runtime.get_docroot_resolver()
+        resolved = resolver("intro.md")
+        assert resolved.is_absolute()
+        assert resolved == (env_docs / "intro.md").resolve()
+        assert (env_docs / ORIGINAL_ARCHIVE).exists()
+    finally:
+        await env_runtime.stop()
+
+
+@pytest.mark.anyio
 async def test_relative_config_dir_persists_absolute_docroot(tmp_path, monkeypatch):
     """First-run install stores an absolute docroot even when config_dir is relative."""
-    from mcp_guide.runtime import GuideRuntime
-
     monkeypatch.chdir(tmp_path)
     relative_dir = Path("relative-config")
     relative_dir.mkdir()
 
-    runtime = GuideRuntime(lambda _owner: object(), config_dir=str(relative_dir))
+    runtime = create_runtime(lambda _owner: object(), config_dir=str(relative_dir))
     await runtime.start()
     try:
         docroot = await runtime.get_docroot()
@@ -120,9 +191,9 @@ async def test_relative_config_dir_persists_absolute_docroot(tmp_path, monkeypat
 
 
 @pytest.mark.anyio
-async def test_saving_project_preserves_docroot(tmp_path):
+async def test_saving_project_preserves_docroot(runtime, tmp_path):
     """Test saving a project preserves existing docroot."""
-    session = await create_test_session("test-project", _config_dir_for_tests=str(tmp_path))
+    session = await create_test_session(runtime, "test-project")
 
     # Create initial project
     project = await session.get_project()
@@ -144,9 +215,9 @@ async def test_saving_project_preserves_docroot(tmp_path):
 
 
 @pytest.mark.anyio
-async def test_docroot_with_tilde_preserved(tmp_path):
+async def test_docroot_with_tilde_preserved(runtime, tmp_path):
     """Test docroot with tilde is preserved."""
-    session = await create_test_session("test-project", _config_dir_for_tests=str(tmp_path))
+    session = await create_test_session(runtime, "test-project")
 
     # Create project
     await session.get_project()
@@ -159,7 +230,7 @@ async def test_docroot_with_tilde_preserved(tmp_path):
     config_file.write_text(yaml.dump(data))
 
     # Create another project
-    session2 = await create_test_session("another-project", _config_dir_for_tests=str(tmp_path))
+    session2 = await create_test_session(runtime, "another-project")
     await session2.get_project()
 
     # Verify tilde path preserved
@@ -169,9 +240,9 @@ async def test_docroot_with_tilde_preserved(tmp_path):
 
 
 @pytest.mark.anyio
-async def test_docroot_with_env_var_preserved(tmp_path):
+async def test_docroot_with_env_var_preserved(runtime, tmp_path):
     """Test docroot with environment variable is preserved."""
-    session = await create_test_session("test-project", _config_dir_for_tests=str(tmp_path))
+    session = await create_test_session(runtime, "test-project")
 
     # Create project
     await session.get_project()

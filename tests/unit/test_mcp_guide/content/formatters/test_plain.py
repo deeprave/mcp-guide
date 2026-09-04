@@ -7,6 +7,8 @@ import pytest
 
 from mcp_guide.discovery.files import FileInfo
 
+_RESOLVE = Path("docs").joinpath
+
 
 def test_module_imports():
     """Test that module can be imported."""
@@ -46,7 +48,7 @@ async def test_format_empty_list():
     from mcp_guide.content.formatters.plain import PlainFormatter
 
     formatter = PlainFormatter()
-    result = await formatter.format([], "test-category")
+    result = await formatter.format([], _RESOLVE)
     assert result == ""
 
 
@@ -65,7 +67,7 @@ async def test_format_single_file_returns_content():
         mtime=datetime.now(),
         content=content,
     )
-    result = await formatter.format([file_info], "test-category")
+    result = await formatter.format([file_info], _RESOLVE)
     assert result == content
 
 
@@ -189,7 +191,7 @@ async def test_format_multiple_two_files():
         mtime=datetime.now(),
         content="Content 2",
     )
-    result = await formatter.format([file1, file2], "test")
+    result = await formatter.format([file1, file2], _RESOLVE)
 
     expected = "--- file1.md ---\nContent 1\n--- file2.md ---\nContent 2"
     assert result == expected
@@ -212,7 +214,7 @@ async def test_format_multiple_three_files():
         )
         for i in range(1, 4)
     ]
-    result = await formatter.format(files, "test")
+    result = await formatter.format(files, _RESOLVE)
 
     expected = "--- file1.md ---\nContent 1\n--- file2.md ---\nContent 2\n--- file3.md ---\nContent 3"
     assert result == expected
@@ -240,7 +242,7 @@ async def test_format_multiple_uses_basename():
         mtime=datetime.now(),
         content="Test",
     )
-    result = await formatter.format([file1, file2], "test")
+    result = await formatter.format([file1, file2], _RESOLVE)
 
     assert "--- file.md ---" in result
     assert "--- test.md ---" in result
@@ -273,7 +275,7 @@ async def test_format_multiple_preserves_content():
         mtime=datetime.now(),
         content=content2,
     )
-    result = await formatter.format([file1, file2], "test")
+    result = await formatter.format([file1, file2], _RESOLVE)
 
     assert content1 in result
     assert content2 in result

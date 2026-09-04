@@ -37,7 +37,7 @@ async def guide(
     arg2: Optional[str] = None,
     arg3: Optional[str] = None,
     # ... up to argF
-    ctx: Optional["Context"] = None,
+    request_context: "RequestContext",
 ) -> str:
 ```
 

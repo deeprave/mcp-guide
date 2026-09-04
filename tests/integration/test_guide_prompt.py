@@ -7,7 +7,6 @@ import pytest
 
 from mcp_guide.result import Result
 from mcp_guide.result_constants import INSTRUCTION_DISPLAY_ONLY, INSTRUCTION_ERROR_MESSAGE
-from mcp_guide.session import InvalidGuideSessionError
 
 
 class TestGuidePromptIntegration:
@@ -36,38 +35,60 @@ class TestGuidePromptIntegration:
             assert result["instruction"] == INSTRUCTION_DISPLAY_ONLY
 
     @pytest.mark.anyio
-    async def test_guide_prompt_passes_resolved_session_to_content_dispatch(self, guide_function) -> None:
-        """Prompt content dispatch must retain the Session resolved at the request boundary."""
-        resolved_session = AsyncMock()
-        resolved_session.session_id = "minted-session"
-        resolved_session.task_manager.on_tool = AsyncMock()
-        resolved_session.task_manager.process_result = AsyncMock(side_effect=lambda result: result)
+    async def test_guide_prompt_forwards_supplied_request_context_to_content_dispatch(self, guide_function) -> None:
+        """The application handler passes its RequestContext through to content dispatch."""
+        from mcp_guide.runtime import RequestContext
+
+        with patch(
+            "mcp_guide.prompts.guide_prompt.internal_get_content",
+            new=AsyncMock(return_value=Result.ok("Test content")),
+        ) as get_content:
+            result_str = await guide_function("test_category")
+
+        get_content.assert_awaited_once()
+        request_context = get_content.await_args.args[1]
+        assert isinstance(request_context, RequestContext)
+        assert request_context.session is not None
+        result = json.loads(result_str)
+        assert result["value"] == "Test content"
+
+    @pytest.mark.anyio
+    async def test_guide_prompt_wrapper_does_not_mint_for_a_known_session_id(self, tmp_path) -> None:
+        """The real promptfunc wrapper looks up a supplied session_id and does not mint."""
+        from types import SimpleNamespace
+
+        from mcp_guide.prompts.guide_prompt import guide
+        from mcp_guide.runtime import OwnerKey
+        from tests.helpers import create_test_runtime
+
+        runtime = create_test_runtime(str(tmp_path))
+        session = runtime.resolve_session(OwnerKey("already-resolved"))
+        session.session_id = "already-resolved"
+        ctx = SimpleNamespace(
+            request_context=SimpleNamespace(
+                protocol_version="2026-07-28",
+                request_id="prompt-1",
+                meta=None,
+                lifespan_context=runtime,
+            ),
+            session=SimpleNamespace(client_params=None),
+            transport="streamable-http",
+        )
+
+        async def mint_must_not_run(*_args, **_kwargs):
+            raise AssertionError("a known session_id must not mint a Session")
 
         with (
-            patch("mcp_guide.session.get_session", new=AsyncMock(return_value=resolved_session)),
+            patch("mcp_guide.runtime.GuideRuntime.create_session", new=AsyncMock(side_effect=mint_must_not_run)),
             patch(
                 "mcp_guide.prompts.guide_prompt.internal_get_content",
                 new=AsyncMock(return_value=Result.ok("Test content")),
             ) as get_content,
         ):
-            result_str = await guide_function("test_category")
+            await guide("test_category", session_id="already-resolved", ctx=ctx)
 
-        assert get_content.call_args.kwargs["session"] is resolved_session
-        result = json.loads(result_str)
-        assert result["session_id"] == "minted-session"
-
-    @pytest.mark.anyio
-    async def test_guide_prompt_returns_invalid_session_recovery_result(self, guide_function) -> None:
-        """An invalid prompt session ID must return recovery guidance rather than escape."""
-        with patch(
-            "mcp_guide.session.get_session",
-            new=AsyncMock(side_effect=InvalidGuideSessionError("expired")),
-        ):
-            result_str = await guide_function("test_category", session_id="expired")
-
-        result = json.loads(result_str)
-        assert result["success"] is False
-        assert "discard" in result["instruction"].lower()
+        get_content.assert_awaited_once()
+        assert get_content.await_args.args[1].session is session
 
     @pytest.mark.anyio
     async def test_guide_prompt_with_error(self, guide_function) -> None:

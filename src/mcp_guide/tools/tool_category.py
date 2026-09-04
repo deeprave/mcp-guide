@@ -9,11 +9,10 @@ from types import SimpleNamespace
 from typing import Any, Literal, Optional, Union
 
 from anyio import Path as AsyncPath
-from fastmcp import Context
 from pydantic import Field, model_validator
 
 from mcp_guide.content.formatters.selection import ContentFormat, get_formatter_from_flag
-from mcp_guide.content.gathering import gather_content
+from mcp_guide.content.gathering import CONTENT_EXPRESSION_DESCRIPTION, gather_content
 from mcp_guide.content.utils import read_and_render_file_contents
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.core.tool_arguments import ToolArguments
@@ -36,11 +35,13 @@ from mcp_guide.result_constants import (
     ERROR_FILE_READ,
     ERROR_NOT_FOUND,
     ERROR_SAVE,
+    ERROR_VALIDATION,
     INSTRUCTION_FILE_ERROR,
     INSTRUCTION_NOTFOUND_ERROR,
     INSTRUCTION_PATTERN_ERROR,
     make_no_project_result,
 )
+from mcp_guide.runtime import RequestContext
 from mcp_guide.store.document_store import list_documents
 from mcp_guide.tools.tool_helpers import get_session_and_project
 from mcp_guide.tools.tool_result import ToolResult, tool_result
@@ -75,9 +76,9 @@ class CategoryListArgs(ToolArguments):
 class CategoryContentArgs(ToolArguments):
     """Arguments for category_content tool."""
 
-    expression: str = Field(description="Category expression (e.g., 'docs', 'docs/api', 'docs/api+guide')")
+    expression: str = Field(description=CONTENT_EXPRESSION_DESCRIPTION)
     pattern: str | None = Field(
-        default=None, description="Optional glob pattern to override category's default patterns"
+        default=None, description="Optional glob pattern to override default patterns for all matched names"
     )
 
 
@@ -91,19 +92,19 @@ class CategoryListFilesArgs(ToolArguments):
     name: Optional[str] = Field(default=None, description="Filter by document name (exact match)")
 
 
-async def internal_category_list(args: CategoryListArgs, ctx: Optional[Context] = None) -> Result[list]:
+async def internal_category_list(args: CategoryListArgs, request_context: RequestContext) -> Result[list]:
     """List all categories in the current project.
 
     Args:
         args: Tool arguments with verbose flag
-        ctx: MCP Context (auto-injected by FastMCP)
+        request_context: Resolved application request context
 
     Returns:
         Result containing:
         - If verbose=True: list of category dictionaries with name, dir, patterns, description
         - If verbose=False: list of category names only
     """
-    session, project = await get_session_and_project(ctx, session_id=getattr(args, "session_id", None))
+    session, project = await get_session_and_project(request_context)
     if project is None:
         return await make_no_project_result()
 
@@ -133,18 +134,18 @@ class CategoryAddArgs(ToolArguments):
     description: Optional[str] = Field(None, description="Optional description of the category's purpose")
 
 
-async def internal_category_add(args: CategoryAddArgs, ctx: Optional[Context] = None) -> Result[str]:
+async def internal_category_add(args: CategoryAddArgs, request_context: RequestContext) -> Result[str]:
     """Add a new category to the current project.
 
     Args:
         args: Tool arguments with name, dir, patterns, and description
-        ctx: MCP Context (auto-injected by FastMCP)
+        request_context: Resolved application request context
 
     Returns:
         Result containing success message
     """
 
-    session, project = await get_session_and_project(ctx, session_id=getattr(args, "session_id", None))
+    session, project = await get_session_and_project(request_context)
     if project is None:
         return await make_no_project_result()
 
@@ -173,9 +174,10 @@ async def internal_category_add(args: CategoryAddArgs, ctx: Optional[Context] = 
 
     # Create the directory if it doesn't exist
     try:
-        docroot = Path(await session.runtime.get_docroot())
-        category_dir = docroot / validated_dir
+        category_dir = request_context.resolve_document_path(validated_dir)
         await AsyncPath(category_dir).mkdir(parents=True, exist_ok=True)
+    except ValueError as exc:
+        return Result.failure(str(exc), error_type=ERROR_VALIDATION)
     except OSError as exc:
         _log_dir_error(logger, exc, args.name, category_dir)
     try:
@@ -193,7 +195,7 @@ class CategoryRemoveArgs(ToolArguments):
     name: str = Field(..., description="Name of the category to remove")
 
 
-async def internal_category_remove(args: CategoryRemoveArgs, ctx: Optional[Context] = None) -> Result[str]:
+async def internal_category_remove(args: CategoryRemoveArgs, request_context: RequestContext) -> Result[str]:
     """Remove a category from the current project.
 
     Removes the specified category and automatically removes it from all collections.
@@ -201,7 +203,7 @@ async def internal_category_remove(args: CategoryRemoveArgs, ctx: Optional[Conte
 
     Args:
         args: Tool arguments with category name
-        ctx: MCP Context (auto-injected by FastMCP)
+        request_context: Resolved application request context
 
     Returns:
         Result containing success message
@@ -210,7 +212,7 @@ async def internal_category_remove(args: CategoryRemoveArgs, ctx: Optional[Conte
         >>> category_remove(name="docs")
     """
 
-    session, project = await get_session_and_project(ctx, session_id=getattr(args, "session_id", None))
+    session, project = await get_session_and_project(request_context)
     if project is None:
         return await make_no_project_result()
 
@@ -245,18 +247,18 @@ class CategoryChangeArgs(ToolArguments):
     new_description: Optional[str] = Field(None, description="New description for the category")
 
 
-async def internal_category_change(args: CategoryChangeArgs, ctx: Optional[Context] = None) -> Result[str]:
+async def internal_category_change(args: CategoryChangeArgs, request_context: RequestContext) -> Result[str]:
     """Change properties of an existing category.
 
     Args:
         args: Tool arguments with name and optional new values
-        ctx: MCP Context (auto-injected by FastMCP)
+        request_context: Resolved application request context
 
     Returns:
         Result containing success message
     """
 
-    session, project = await get_session_and_project(ctx, session_id=getattr(args, "session_id", None))
+    session, project = await get_session_and_project(request_context)
     if project is None:
         return await make_no_project_result()
 
@@ -322,9 +324,10 @@ async def internal_category_change(args: CategoryChangeArgs, ctx: Optional[Conte
     # Create the directory if it's being updated
     if args.new_dir is not None:
         try:
-            docroot = Path(await session.runtime.get_docroot())
-            category_dir = docroot / args.new_dir
+            category_dir = request_context.resolve_document_path(args.new_dir)
             await AsyncPath(category_dir).mkdir(parents=True, exist_ok=True)
+        except ValueError as exc:
+            return Result.failure(str(exc), error_type=ERROR_VALIDATION)
         except OSError as exc:
             _log_dir_error(logger, exc, args.name, category_dir)
 
@@ -366,18 +369,18 @@ class CategoryUpdateArgs(ToolArguments):
     remove_patterns: Optional[list[str]] = Field(None, description="File patterns to remove from the category")
 
 
-async def internal_category_update(args: CategoryUpdateArgs, ctx: Optional[Context] = None) -> Result[str]:
+async def internal_category_update(args: CategoryUpdateArgs, request_context: RequestContext) -> Result[str]:
     """Update category patterns incrementally.
 
     Args:
         args: Tool arguments with name and pattern changes
-        ctx: MCP Context (auto-injected by FastMCP)
+        request_context: Resolved application request context
 
     Returns:
         Result containing success message
     """
 
-    session, project = await get_session_and_project(ctx, session_id=getattr(args, "session_id", None))
+    session, project = await get_session_and_project(request_context)
     if project is None:
         return await make_no_project_result()
 
@@ -433,18 +436,18 @@ async def internal_category_update(args: CategoryUpdateArgs, ctx: Optional[Conte
 
 async def internal_category_list_files(
     args: CategoryListFilesArgs,
-    ctx: Optional[Context] = None,
+    request_context: RequestContext,
 ) -> Result[list[dict[str, Any]]]:
     """List all files in a category directory.
 
     Args:
         args: Tool arguments with category name
-        ctx: MCP Context (auto-injected by FastMCP)
+        request_context: Resolved application request context
 
     Returns:
         Result containing list of file information
     """
-    session, project = await get_session_and_project(ctx, session_id=getattr(args, "session_id", None))
+    session, project = await get_session_and_project(request_context)
     if project is None:
         return await make_no_project_result()
 
@@ -458,9 +461,10 @@ async def internal_category_list_files(
         )
         return result
 
-    # Discover files using **/* pattern to get all files
-    docroot = Path(await session.runtime.get_docroot())
-    category_dir = docroot / category.dir
+    try:
+        category_dir = request_context.resolve_document_path(category.dir)
+    except (OSError, ValueError) as error:
+        return Result.failure(str(error), error_type=ERROR_VALIDATION)
 
     if args.source == "stored":
         # Fetch records directly — avoids redundant discovery + second query
@@ -513,30 +517,31 @@ async def internal_category_list_files(
 
 
 @toolfunc(CategoryListFilesArgs)
-async def category_list_files(args: CategoryListFilesArgs, ctx: Optional[Context] = None) -> ToolResult:
-    """List all files in a category directory.
+async def category_list_files(args: CategoryListFilesArgs, request_context: RequestContext) -> ToolResult:
+    """List documents in a category directory and the document store.
 
-    Returns file information including names, sizes, and modification times for all
-    files matching the category's patterns.
+    Returns path, size, basename, and source for each entry. Does not filter by the
+    category's configured patterns; use source to limit to filesystem or stored
+    documents, and name for an exact document name.
     """
-    result = await internal_category_list_files(args, ctx)
-    return await tool_result("category_list_files", result, ctx=ctx, session_id=args.session_id)
+    result = await internal_category_list_files(args, request_context)
+    return await tool_result("category_list_files", result, session=request_context.session, session_id=args.session_id)
 
 
 async def internal_category_content(
     args: CategoryContentArgs,
-    ctx: Optional[Context] = None,
+    request_context: RequestContext,
 ) -> Result[str]:
     """Get content from a category.
 
     Args:
         args: Tool arguments with category name and optional pattern
-        ctx: MCP Context (auto-injected by FastMCP)
+        request_context: Resolved application request context
 
     Returns:
         Result containing formatted content or error
     """
-    session, project = await get_session_and_project(ctx, session_id=getattr(args, "session_id", None))
+    session, project = await get_session_and_project(request_context)
     if project is None:
         return await make_no_project_result()
 
@@ -554,7 +559,7 @@ async def internal_category_content(
                 expression = f"{expression}/{args.pattern}"
 
         # Delegate to gather_content for file gathering and deduplication
-        files = await gather_content(session, project, expression)
+        files = await gather_content(request_context, project, expression)
 
         # Check for no matches
         if not files:
@@ -566,7 +571,6 @@ async def internal_category_content(
             return Result.ok(message, instruction=INSTRUCTION_PATTERN_ERROR)
 
         # Group files by category for reading (files may span multiple categories)
-        docroot = Path(await session.runtime.get_docroot())
         files_by_category: dict[str, list[FileInfo]] = {}
         for file in files:
             category_name = (
@@ -585,11 +589,11 @@ async def internal_category_content(
             if not category:
                 raise CategoryNotFoundError(f"Invalid category '{category_name}' found in FileInfo object")
 
-            category_dir = docroot / category.dir
+            category_dir = request_context.resolve_document_path(category.dir)
             template_context = await get_template_context_if_needed(session, category_files, category_name)
 
             errors = await read_and_render_file_contents(
-                session, category_files, category_dir, docroot, template_context, category_prefix=category_name
+                request_context, category_files, category_dir, template_context, category_prefix=category_name
             )
             file_read_errors.extend(errors)
             final_files.extend(category_files)
@@ -604,7 +608,7 @@ async def internal_category_content(
 
         # Format and return content
         formatter = get_formatter_from_flag(format_type)
-        content = await formatter.format(final_files, docroot)
+        content = await formatter.format(final_files, request_context.resolve_document_path)
 
         return Result.ok(content)
 
@@ -614,6 +618,8 @@ async def internal_category_content(
             error_type=ERROR_NOT_FOUND,
             instruction=INSTRUCTION_NOTFOUND_ERROR,
         )
+    except (OSError, ValueError) as e:
+        return Result.failure(str(e), error_type=ERROR_VALIDATION)
     except FileReadError as e:
         return Result.failure(
             str(e),
@@ -625,15 +631,15 @@ async def internal_category_content(
 @toolfunc(CategoryContentArgs)
 async def category_content(
     args: CategoryContentArgs,
-    ctx: Optional[Context] = None,
+    request_context: RequestContext,
 ) -> ToolResult:
-    """Get content from a category.
+    """Get content for a collection or category expression.
 
-    Retrieves file content matching the category's directory and patterns. Supports
-    optional pattern override for selective content retrieval.
+    Uses the same expression grammar as get_content. An optional pattern overrides
+    default globs for the matched names.
     """
-    result = await internal_category_content(args, ctx)
-    return await tool_result("category_content", result, ctx=ctx, session_id=args.session_id)
+    result = await internal_category_content(args, request_context)
+    return await tool_result("category_content", result, session=request_context.session, session_id=args.session_id)
 
 
 # Consolidated category/collection tools
@@ -643,36 +649,41 @@ class CategoryCollectionListArgs(ToolArguments):
     """Arguments for category_collection_list tool."""
 
     type: Literal["category", "collection"] = Field(description="Type of items to list")
-    verbose: bool = Field(default=True, description="If True, return full details; if False, return names only")
+    verbose: bool = Field(
+        default=True,
+        description="If True (default), return full details; if False, return names only",
+    )
 
 
 async def internal_category_collection_list(
     args: CategoryCollectionListArgs,
-    ctx: Optional[Context] = None,
+    request_context: RequestContext,
 ) -> Result[list]:
     """List categories or collections based on type."""
     if args.type == "category":
         category_args = CategoryListArgs(verbose=args.verbose, session_id=args.session_id)
-        return await internal_category_list(category_args, ctx)
+        return await internal_category_list(category_args, request_context)
     else:
         from mcp_guide.tools.tool_collection import CollectionListArgs, internal_collection_list
 
         collection_args = CollectionListArgs(verbose=args.verbose, session_id=args.session_id)
-        return await internal_collection_list(collection_args, ctx)
+        return await internal_collection_list(collection_args, request_context)
 
 
 @toolfunc(CategoryCollectionListArgs)
 async def category_collection_list(
     args: CategoryCollectionListArgs,
-    ctx: Optional[Context] = None,
+    request_context: RequestContext,
 ) -> ToolResult:
-    """List all categories or collections in the current project.
+    """List categories or collections in the current project.
 
-    Returns names only by default, or full details including descriptions, directories,
-    and patterns when verbose=True.
+    Returns full details by default (descriptions, directories, and patterns).
+    Set verbose=False for names only.
     """
-    result = await internal_category_collection_list(args, ctx)
-    return await tool_result("category_collection_list", result, ctx=ctx, session_id=args.session_id)
+    result = await internal_category_collection_list(args, request_context)
+    return await tool_result(
+        "category_collection_list", result, session=request_context.session, session_id=args.session_id
+    )
 
 
 class CategoryCollectionRemoveArgs(ToolArguments):
@@ -684,31 +695,33 @@ class CategoryCollectionRemoveArgs(ToolArguments):
 
 async def internal_category_collection_remove(
     args: CategoryCollectionRemoveArgs,
-    ctx: Optional[Context] = None,
+    request_context: RequestContext,
 ) -> Result[str]:
     """Remove a category or collection based on type."""
     if args.type == "category":
         category_args = CategoryRemoveArgs(name=args.name, session_id=args.session_id)
-        return await internal_category_remove(category_args, ctx)
+        return await internal_category_remove(category_args, request_context)
     else:
         from mcp_guide.tools.tool_collection import CollectionRemoveArgs, internal_collection_remove
 
         collection_args = CollectionRemoveArgs(name=args.name, session_id=args.session_id)
-        return await internal_collection_remove(collection_args, ctx)
+        return await internal_collection_remove(collection_args, request_context)
 
 
 @toolfunc(CategoryCollectionRemoveArgs)
 async def category_collection_remove(
     args: CategoryCollectionRemoveArgs,
-    ctx: Optional[Context] = None,
+    request_context: RequestContext,
 ) -> ToolResult:
     """Remove a category or collection from the current project.
 
     Deletes the specified category or collection by name. This operation cannot be undone.
     Use with caution as removing a category referenced by collections may cause errors.
     """
-    result = await internal_category_collection_remove(args, ctx)
-    return await tool_result("category_collection_remove", result, ctx=ctx, session_id=args.session_id)
+    result = await internal_category_collection_remove(args, request_context)
+    return await tool_result(
+        "category_collection_remove", result, session=request_context.session, session_id=args.session_id
+    )
 
 
 class CategoryCollectionAddArgs(ToolArguments):
@@ -733,7 +746,7 @@ class CategoryCollectionAddArgs(ToolArguments):
 
 async def internal_category_collection_add(
     args: CategoryCollectionAddArgs,
-    ctx: Optional[Context] = None,
+    request_context: RequestContext,
 ) -> Result[str]:
     """Add a category or collection based on type."""
     if args.type == "category":
@@ -744,7 +757,7 @@ async def internal_category_collection_add(
             description=args.description,
             session_id=args.session_id,
         )
-        return await internal_category_add(category_args, ctx)
+        return await internal_category_add(category_args, request_context)
     else:
         from mcp_guide.tools.tool_collection import CollectionAddArgs, internal_collection_add
 
@@ -754,13 +767,13 @@ async def internal_category_collection_add(
             categories=args.categories or [],
             session_id=args.session_id,
         )
-        return await internal_collection_add(collection_args, ctx)
+        return await internal_collection_add(collection_args, request_context)
 
 
 @toolfunc(CategoryCollectionAddArgs)
 async def category_collection_add(
     args: CategoryCollectionAddArgs,
-    ctx: Optional[Context] = None,
+    request_context: RequestContext,
 ) -> ToolResult:
     """Add a new category or collection to the current project.
 
@@ -768,8 +781,10 @@ async def category_collection_add(
     multiple categories. Category-specific fields (dir, patterns) and collection-specific
     fields (categories) are validated based on the type parameter.
     """
-    result = await internal_category_collection_add(args, ctx)
-    return await tool_result("category_collection_add", result, ctx=ctx, session_id=args.session_id)
+    result = await internal_category_collection_add(args, request_context)
+    return await tool_result(
+        "category_collection_add", result, session=request_context.session, session_id=args.session_id
+    )
 
 
 class CategoryCollectionChangeArgs(ToolArguments):
@@ -795,7 +810,7 @@ class CategoryCollectionChangeArgs(ToolArguments):
 
 async def internal_category_collection_change(
     args: CategoryCollectionChangeArgs,
-    ctx: Optional[Context] = None,
+    request_context: RequestContext,
 ) -> Result[str]:
     """Change a category or collection based on type."""
     if args.type == "category":
@@ -807,7 +822,7 @@ async def internal_category_collection_change(
             new_description=args.new_description,
             session_id=args.session_id,
         )
-        return await internal_category_change(category_args, ctx)
+        return await internal_category_change(category_args, request_context)
     else:
         from mcp_guide.tools.tool_collection import CollectionChangeArgs, internal_collection_change
 
@@ -818,21 +833,23 @@ async def internal_category_collection_change(
             new_categories=args.new_categories,
             session_id=args.session_id,
         )
-        return await internal_collection_change(collection_args, ctx)
+        return await internal_collection_change(collection_args, request_context)
 
 
 @toolfunc(CategoryCollectionChangeArgs)
 async def category_collection_change(
     args: CategoryCollectionChangeArgs,
-    ctx: Optional[Context] = None,
+    request_context: RequestContext,
 ) -> ToolResult:
     """Change properties of an existing category or collection.
 
     Replaces entire property values (name, description, directory, patterns, or categories).
     For incremental updates (adding/removing patterns or categories), use category_collection_update instead.
     """
-    result = await internal_category_collection_change(args, ctx)
-    return await tool_result("category_collection_change", result, ctx=ctx, session_id=args.session_id)
+    result = await internal_category_collection_change(args, request_context)
+    return await tool_result(
+        "category_collection_change", result, session=request_context.session, session_id=args.session_id
+    )
 
 
 class CategoryCollectionUpdateArgs(ToolArguments):
@@ -857,7 +874,7 @@ class CategoryCollectionUpdateArgs(ToolArguments):
 
 async def internal_category_collection_update(
     args: CategoryCollectionUpdateArgs,
-    ctx: Optional[Context] = None,
+    request_context: RequestContext,
 ) -> Result[str]:
     """Update a category or collection based on type."""
     if args.type == "category":
@@ -867,7 +884,7 @@ async def internal_category_collection_update(
             remove_patterns=args.remove_patterns,
             session_id=args.session_id,
         )
-        return await internal_category_update(category_args, ctx)
+        return await internal_category_update(category_args, request_context)
     else:
         from mcp_guide.tools.tool_collection import CollectionUpdateArgs, internal_collection_update
 
@@ -877,18 +894,20 @@ async def internal_category_collection_update(
             remove_categories=args.remove_categories,
             session_id=args.session_id,
         )
-        return await internal_collection_update(collection_args, ctx)
+        return await internal_collection_update(collection_args, request_context)
 
 
 @toolfunc(CategoryCollectionUpdateArgs)
 async def category_collection_update(
     args: CategoryCollectionUpdateArgs,
-    ctx: Optional[Context] = None,
+    request_context: RequestContext,
 ) -> ToolResult:
     """Update category or collection incrementally.
 
     Add or remove individual patterns (for categories) or category references (for collections)
     without replacing the entire list. For complete property replacement, use category_collection_change.
     """
-    result = await internal_category_collection_update(args, ctx)
-    return await tool_result("category_collection_update", result, ctx=ctx, session_id=args.session_id)
+    result = await internal_category_collection_update(args, request_context)
+    return await tool_result(
+        "category_collection_update", result, session=request_context.session, session_id=args.session_id
+    )

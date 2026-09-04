@@ -3,7 +3,6 @@
 Tests feature flag tools through MCP protocol with real session management.
 """
 
-import inspect
 import json
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -29,14 +28,13 @@ def mcp_server(mcp_server_factory):
 
 
 @pytest.fixture
-async def test_session(mcp_server, tmp_path, monkeypatch):
+async def test_session(runtime, mcp_server, tmp_path, monkeypatch):
     """Create a Session routed to the in-process legacy client."""
     config_dir = str(tmp_path)
-    session = create_unbound_test_session(config_dir)
+    session = create_unbound_test_session(runtime)
     project_root = Path(config_dir).resolve() / "client-roots" / "test"
     project_root.mkdir(parents=True, exist_ok=True)
     await session.bind_project_path(project_root)
-    runtime = inspect.getclosurevars(mcp_server._lifespan).nonlocals["runtime"]
     original_session_request = runtime.session_request
 
     @asynccontextmanager

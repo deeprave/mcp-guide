@@ -1,4 +1,4 @@
-"""Integration tests for read_resource tool."""
+"""Integration tests for the read_resource application handler."""
 
 from typing import Any, Callable
 from unittest.mock import AsyncMock, patch
@@ -6,7 +6,9 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from mcp_guide.result import Result
+from mcp_guide.runtime import RequestContext
 from mcp_guide.tools.tool_resource import ReadResourceArgs, internal_read_resource
+from tests.helpers import create_unbound_test_session, request_context_for
 
 
 @pytest.fixture(scope="module")
@@ -15,232 +17,132 @@ def mcp_server(mcp_server_factory: Callable[[list[str]], Any]) -> Any:
     return mcp_server_factory(["tool_resource"])
 
 
+@pytest.fixture
+async def request_context(runtime, mcp_server, tmp_path) -> RequestContext:
+    """Provide the already-resolved context expected by internal routing."""
+    return await request_context_for(create_unbound_test_session(runtime), "resource-session")
+
+
 class TestReadResourceContent:
     """Content URI integration tests."""
 
     @pytest.mark.anyio
-    async def test_content_uri(self, mcp_server: Any) -> None:
-        """Content URI should delegate to internal_get_content."""
-        mock_result = Result.ok("docs content")
-
+    @pytest.mark.parametrize(
+        ("uri", "expression", "pattern"), [("guide://docs", "docs", None), ("guide://docs/readme", "docs", "readme")]
+    )
+    async def test_content_uri(
+        self, mcp_server, request_context, uri: str, expression: str, pattern: str | None
+    ) -> None:
+        """Content URI dispatch retains the supplied RequestContext."""
+        expected = Result.ok("docs content")
         with patch(
-            "mcp_guide.tools.tool_resource.internal_get_content", new=AsyncMock(return_value=mock_result)
-        ) as mock_get:
-            args = ReadResourceArgs(uri="guide://docs")
-            result = await internal_read_resource(args)
+            "mcp_guide.tools.tool_resource.internal_get_content", new=AsyncMock(return_value=expected)
+        ) as get_content:
+            result = await internal_read_resource(ReadResourceArgs(uri=uri), request_context)
 
-            mock_get.assert_called_once()
-            content_args = mock_get.call_args[0][0]
-            assert content_args.expression == "docs"
-            assert content_args.pattern is None
-            assert result is mock_result
-
-    @pytest.mark.anyio
-    async def test_content_uri_with_pattern(self, mcp_server: Any) -> None:
-        """Content URI with pattern should pass pattern to get_content."""
-        mock_result = Result.ok("readme content")
-
-        with patch(
-            "mcp_guide.tools.tool_resource.internal_get_content", new=AsyncMock(return_value=mock_result)
-        ) as mock_get:
-            args = ReadResourceArgs(uri="guide://docs/readme")
-            result = await internal_read_resource(args)
-
-            content_args = mock_get.call_args[0][0]
-            assert content_args.expression == "docs"
-            assert content_args.pattern == "readme"
-            assert result is mock_result
+        get_content.assert_awaited_once()
+        call = get_content.await_args
+        assert call is not None
+        content_args, supplied_context = call.args
+        assert content_args.expression == expression
+        assert content_args.pattern == pattern
+        assert supplied_context is request_context
+        assert result is expected
 
 
 class TestReadResourceCommand:
     """Command URI integration tests."""
 
     @pytest.mark.anyio
-    async def test_command_uri(self, mcp_server: Any) -> None:
-        """Command URI should delegate to handle_command."""
-        mock_result = Result.ok("project info")
-        commands = [{"name": "project"}]
+    @pytest.mark.parametrize(
+        ("uri", "commands", "command", "kwargs", "arguments"),
+        [
+            ("guide://_project", [{"name": "project"}], "project", {}, []),
+            (
+                "guide://_openspec/show/my-change?verbose=true",
+                [{"name": "openspec/show"}],
+                "openspec/show",
+                {"verbose": True},
+                ["my-change"],
+            ),
+            (
+                "guide://_project?table=true",
+                [{"name": "project/project", "aliases": ["project?verbose"]}],
+                "project",
+                {"table": True},
+                [],
+            ),
+        ],
+    )
+    async def test_command_uri(
+        self,
+        mcp_server,
+        request_context,
+        uri: str,
+        commands: list[dict[str, Any]],
+        command: str,
+        kwargs: dict[str, Any],
+        arguments: list[str],
+    ) -> None:
+        """Command routing receives the original RequestContext exactly once."""
+        expected = Result.ok("command output")
+        with (
+            patch(
+                "mcp_guide.prompts.guide_prompt.handle_command", new=AsyncMock(return_value=expected)
+            ) as handle_command,
+            patch("mcp_guide.tools.tool_resource.discover_commands", new=AsyncMock(return_value=commands)),
+        ):
+            result = await internal_read_resource(ReadResourceArgs(uri=uri), request_context)
 
-        with patch(
-            "mcp_guide.prompts.guide_prompt.handle_command", new=AsyncMock(return_value=mock_result)
-        ) as mock_cmd:
-            with patch("mcp_guide.tools.tool_resource.get_session", new=AsyncMock()) as mock_session:
-                session = mock_session.return_value
-                session.runtime.get_docroot = AsyncMock(return_value="/fake")
-
-                with patch("mcp_guide.tools.tool_resource.discover_commands", new=AsyncMock(return_value=commands)):
-                    mock_ctx = AsyncMock()
-                    args = ReadResourceArgs(uri="guide://_project")
-                    result = await internal_read_resource(args, ctx=mock_ctx)
-
-                    mock_cmd.assert_called_once_with(
-                        "project", kwargs={}, args=[], ctx=mock_ctx, session=session, session_id=None
-                    )
-                    assert result is mock_result
-
-    @pytest.mark.anyio
-    async def test_command_uri_with_args_and_kwargs(self, mcp_server: Any) -> None:
-        """Command URI with args and kwargs should pass them to handle_command."""
-        mock_result = Result.ok("openspec output")
-        commands = [{"name": "openspec/show"}]
-
-        with patch(
-            "mcp_guide.prompts.guide_prompt.handle_command", new=AsyncMock(return_value=mock_result)
-        ) as mock_cmd:
-            with patch("mcp_guide.tools.tool_resource.get_session", new=AsyncMock()) as mock_session:
-                session = mock_session.return_value
-                session.runtime.get_docroot = AsyncMock(return_value="/fake")
-
-                with patch("mcp_guide.tools.tool_resource.discover_commands", new=AsyncMock(return_value=commands)):
-                    mock_ctx = AsyncMock()
-                    args = ReadResourceArgs(uri="guide://_openspec/show/my-change?verbose=true")
-                    result = await internal_read_resource(args, ctx=mock_ctx)
-
-                    mock_cmd.assert_called_once_with(
-                        "openspec/show",
-                        kwargs={"verbose": True},
-                        args=["my-change"],
-                        ctx=mock_ctx,
-                        session=session,
-                        session_id=None,
-                    )
-                    assert result is mock_result
-
-    @pytest.mark.anyio
-    async def test_command_uri_alias_uses_alias_path_for_resolution(self, mcp_server: Any) -> None:
-        """Command URI aliases should parse against alias paths, not raw alias strings."""
-        mock_result = Result.ok("project info")
-        commands = [
-            {
-                "name": "project/project",
-                "aliases": ["project?verbose"],
-                "alias_metadata": [{"raw": "project?verbose", "path": "project", "implied_kwargs": {"verbose": True}}],
-            }
-        ]
-
-        with patch(
-            "mcp_guide.prompts.guide_prompt.handle_command", new=AsyncMock(return_value=mock_result)
-        ) as mock_cmd:
-            with patch("mcp_guide.tools.tool_resource.get_session", new=AsyncMock()) as mock_session:
-                session = mock_session.return_value
-                session.runtime.get_docroot = AsyncMock(return_value="/fake")
-
-                with patch("mcp_guide.tools.tool_resource.discover_commands", new=AsyncMock(return_value=commands)):
-                    mock_ctx = AsyncMock()
-                    args = ReadResourceArgs(uri="guide://_project?table=true")
-                    result = await internal_read_resource(args, ctx=mock_ctx)
-
-                    mock_cmd.assert_called_once_with(
-                        "project", kwargs={"table": True}, args=[], ctx=mock_ctx, session=session, session_id=None
-                    )
-                    assert result is mock_result
-
-    @pytest.mark.anyio
-    async def test_command_uri_keeps_legacy_aliases_when_alias_metadata_exists(self, mcp_server: Any) -> None:
-        """Command URI parsing should consider legacy aliases and normalized alias metadata."""
-        mock_result = Result.ok("legacy output")
-        commands = [
-            {
-                "name": "canonical/command",
-                "aliases": ["legacy/path", "short?verbose"],
-                "alias_metadata": [{"raw": "short?verbose", "path": "short", "implied_kwargs": {"verbose": True}}],
-            }
-        ]
-
-        with patch(
-            "mcp_guide.prompts.guide_prompt.handle_command", new=AsyncMock(return_value=mock_result)
-        ) as mock_cmd:
-            with patch("mcp_guide.tools.tool_resource.get_session", new=AsyncMock()) as mock_session:
-                session = mock_session.return_value
-                session.runtime.get_docroot = AsyncMock(return_value="/fake")
-
-                with patch("mcp_guide.tools.tool_resource.discover_commands", new=AsyncMock(return_value=commands)):
-                    mock_ctx = AsyncMock()
-                    args = ReadResourceArgs(uri="guide://_legacy/path/arg")
-                    result = await internal_read_resource(args, ctx=mock_ctx)
-
-                    mock_cmd.assert_called_once_with(
-                        "legacy/path", kwargs={}, args=["arg"], ctx=mock_ctx, session=session, session_id=None
-                    )
-                    assert result is mock_result
-
-    @pytest.mark.anyio
-    async def test_command_uri_ignores_malformed_alias_metadata_paths(self, mcp_server: Any) -> None:
-        """Command URI parsing should skip empty or malformed alias metadata paths."""
-        mock_result = Result.ok("legacy output")
-        commands = [
-            {
-                "name": "canonical/command",
-                "aliases": ["legacy/path"],
-                "alias_metadata": [
-                    {"raw": "empty", "path": "", "implied_kwargs": {}},
-                    {"raw": "missing", "implied_kwargs": {}},
-                    {"raw": "none", "path": None, "implied_kwargs": {}},
-                    "not-a-dict",
-                ],
-            }
-        ]
-
-        with patch(
-            "mcp_guide.prompts.guide_prompt.handle_command", new=AsyncMock(return_value=mock_result)
-        ) as mock_cmd:
-            with patch("mcp_guide.tools.tool_resource.get_session", new=AsyncMock()) as mock_session:
-                session = mock_session.return_value
-                session.runtime.get_docroot = AsyncMock(return_value="/fake")
-
-                with patch("mcp_guide.tools.tool_resource.discover_commands", new=AsyncMock(return_value=commands)):
-                    mock_ctx = AsyncMock()
-                    args = ReadResourceArgs(uri="guide://_legacy/path/arg")
-                    result = await internal_read_resource(args, ctx=mock_ctx)
-
-                    mock_cmd.assert_called_once_with(
-                        "legacy/path", kwargs={}, args=["arg"], ctx=mock_ctx, session=session, session_id=None
-                    )
-                    assert result is mock_result
-
-    @pytest.mark.anyio
-    async def test_command_uri_uses_the_caller_session(self, mcp_server: Any) -> None:
-        """A pre-resolved Session must not be looked up again for command URIs."""
-        mock_result = Result.ok("project info")
-        commands = [{"name": "project"}]
-        session = AsyncMock()
-        session.runtime.get_docroot = AsyncMock(return_value="/fake")
-
-        with patch(
-            "mcp_guide.prompts.guide_prompt.handle_command", new=AsyncMock(return_value=mock_result)
-        ) as mock_cmd:
-            with patch("mcp_guide.tools.tool_resource.get_session", new=AsyncMock()) as mock_get_session:
-                with patch("mcp_guide.tools.tool_resource.discover_commands", new=AsyncMock(return_value=commands)):
-                    mock_ctx = AsyncMock()
-                    args = ReadResourceArgs(uri="guide://_project")
-                    result = await internal_read_resource(args, ctx=mock_ctx, session=session)
-
-                    mock_get_session.assert_not_called()
-                    mock_cmd.assert_called_once_with(
-                        "project", kwargs={}, args=[], ctx=mock_ctx, session=session, session_id=None
-                    )
-                    assert result is mock_result
+        handle_command.assert_awaited_once_with(
+            command,
+            kwargs=kwargs,
+            args=arguments,
+            request_context=request_context,
+        )
+        assert result is expected
 
 
 class TestReadResourceValidation:
     """Validation and error handling tests."""
 
     @pytest.mark.anyio
-    async def test_invalid_scheme(self, mcp_server: Any) -> None:
-        """Non-guide:// URI should return validation error."""
-        args = ReadResourceArgs(uri="http://example.com")
-        result = await internal_read_resource(args)
+    async def test_invalid_scheme(self, mcp_server, request_context) -> None:
+        """Non-guide URI returns a validation result without a new lookup."""
+        result = await internal_read_resource(ReadResourceArgs(uri="http://example.com"), request_context)
 
         assert result.success is False
         assert result.error_type == "validation_error"
+        assert result.error is not None
         assert "guide://" in result.error
 
-    @pytest.mark.anyio
-    async def test_command_uri_without_context(self, mcp_server: Any) -> None:
-        """Command URI without ctx should return clear error."""
-        args = ReadResourceArgs(uri="guide://_project")
-        result = await internal_read_resource(args, ctx=None)
 
-        assert result.success is False
-        assert result.error_type == "validation_error"
-        assert "Context" in result.error
+@pytest.mark.anyio
+async def test_read_resource_uri_session_id_resumes_bound_session(runtime, tmp_path) -> None:
+    """A unique URI session_id selects the already-bound Session before scope."""
+    from types import SimpleNamespace
+
+    from mcp_guide.runtime import OwnerKey
+    from mcp_guide.session import bind_session_project, request_context_scope
+
+    session = runtime.resolve_session(OwnerKey("bound-session"))
+    session.session_id = "bound-session"
+    await bind_session_project(session, "/client/workspace/bound-session")
+    runtime.retain_session(OwnerKey("bound-session"), session)
+
+    args = ReadResourceArgs(uri="guide://docs?session_id=bound-session")
+    assert args.session_id == "bound-session"
+
+    ctx = SimpleNamespace(
+        request_context=SimpleNamespace(
+            protocol_version="2026-07-28",
+            request_id="uri-resume",
+            meta=None,
+            lifespan_context=runtime,
+        ),
+        session=SimpleNamespace(client_params=None),
+        transport="streamable-http",
+    )
+    async with request_context_scope(ctx, args.session_id, allow_pwd_bootstrap=False) as request_context:
+        assert request_context.session is session
+        assert request_context.session.project_is_bound is True

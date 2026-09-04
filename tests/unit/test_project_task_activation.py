@@ -33,10 +33,9 @@ class TestRuntimeProjectTaskActivation:
 
         with (
             patch(
-                "mcp_guide.task_manager.manager.get_session",
+                "mcp_guide.runtime.GuideRuntime.create_session",
                 new_callable=AsyncMock,
                 return_value=ambient_session,
-                create=True,
             ) as mock_get_session,
             patch(
                 "mcp_guide.task_manager.manager.resolve_all_flags",
@@ -75,10 +74,9 @@ class TestRuntimeProjectTaskActivation:
 
         with (
             patch(
-                "mcp_guide.task_manager.manager.get_session",
+                "mcp_guide.runtime.GuideRuntime.create_session",
                 new_callable=AsyncMock,
                 return_value=ambient_session,
-                create=True,
             ) as mock_get_session,
             patch(
                 "mcp_guide.task_manager.manager.resolve_all_flags",
@@ -113,10 +111,9 @@ class TestRuntimeProjectTaskActivation:
 
         with (
             patch(
-                "mcp_guide.task_manager.manager.get_session",
+                "mcp_guide.runtime.GuideRuntime.create_session",
                 new_callable=AsyncMock,
                 return_value=ambient_session,
-                create=True,
             ) as mock_get_session,
             patch(
                 "mcp_guide.task_manager.manager.resolve_all_flags",

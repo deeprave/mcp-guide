@@ -1,8 +1,7 @@
 """Discovery tools for introspecting available MCP tools, prompts, and resources."""
 
-from typing import Any, Optional
+from typing import Any
 
-from fastmcp import Context
 from pydantic import Field
 
 from mcp_guide.core.prompt_decorator import get_prompt_registry
@@ -10,6 +9,7 @@ from mcp_guide.core.resource_decorator import get_resource_registry
 from mcp_guide.core.tool_arguments import ToolArguments
 from mcp_guide.core.tool_decorator import get_tool_registry, toolfunc
 from mcp_guide.result import Result
+from mcp_guide.runtime import RequestContext
 from mcp_guide.tools.tool_result import ToolResult, tool_result
 
 
@@ -32,17 +32,11 @@ class ListResourcesArgs(ToolArguments):
 
 
 @toolfunc(ListToolsArgs, requires_project=False)
-async def list_tools(args: ListToolsArgs, ctx: Optional[Context] = None) -> ToolResult:
+async def list_tools(args: ListToolsArgs, request_context: RequestContext) -> ToolResult:
     """List all registered MCP tools.
 
-    Returns tool names, descriptions, and optionally argument schemas.
-
-    Args:
-        args: List tools arguments
-        ctx: MCP context
-
-    Returns:
-        Result with list of tools
+    Returns tool names, descriptions, and optionally argument schemas. Does not require
+    a bound project. Set include_args=True to include each tool's argument schema.
     """
     tools = []
     for tool_name, registration in get_tool_registry().items():
@@ -60,22 +54,18 @@ async def list_tools(args: ListToolsArgs, ctx: Optional[Context] = None) -> Tool
         tools.append(tool_info)
 
     return await tool_result(
-        "list_tools", Result.ok({"tools": tools, "count": len(tools)}), ctx=ctx, session_id=args.session_id
+        "list_tools",
+        Result.ok({"tools": tools, "count": len(tools)}),
+        session=request_context.session,
+        session_id=args.session_id,
     )
 
 
 @toolfunc(ListPromptsArgs, requires_project=False)
-async def list_prompts(args: ListPromptsArgs, ctx: Optional[Context] = None) -> ToolResult:
+async def list_prompts(args: ListPromptsArgs, request_context: RequestContext) -> ToolResult:
     """List all registered MCP prompts.
 
-    Returns prompt names and descriptions.
-
-    Args:
-        args: List prompts arguments
-        ctx: MCP context
-
-    Returns:
-        Result with list of prompts
+    Returns prompt names and descriptions. Does not require a bound project.
     """
     prompts = []
     for prompt_name, registration in get_prompt_registry().items():
@@ -90,22 +80,18 @@ async def list_prompts(args: ListPromptsArgs, ctx: Optional[Context] = None) -> 
     from mcp_guide.tools.tool_result import tool_result
 
     return await tool_result(
-        "list_prompts", Result.ok({"prompts": prompts, "count": len(prompts)}), ctx=ctx, session_id=args.session_id
+        "list_prompts",
+        Result.ok({"prompts": prompts, "count": len(prompts)}),
+        session=request_context.session,
+        session_id=args.session_id,
     )
 
 
 @toolfunc(ListResourcesArgs, requires_project=False)
-async def list_resources(args: ListResourcesArgs, ctx: Optional[Context] = None) -> ToolResult:
+async def list_resources(args: ListResourcesArgs, request_context: RequestContext) -> ToolResult:
     """List all registered MCP resources.
 
-    Returns resource names, URI templates, and descriptions.
-
-    Args:
-        args: List resources arguments
-        ctx: MCP context
-
-    Returns:
-        Result with list of resources
+    Returns resource names, URI templates, and descriptions. Does not require a bound project.
     """
     resources = []
     for resource_name, registration in get_resource_registry().items():
@@ -123,6 +109,6 @@ async def list_resources(args: ListResourcesArgs, ctx: Optional[Context] = None)
     return await tool_result(
         "list_resources",
         Result.ok({"resources": resources, "count": len(resources)}),
-        ctx=ctx,
+        session=request_context.session,
         session_id=args.session_id,
     )

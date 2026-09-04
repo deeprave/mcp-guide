@@ -40,7 +40,11 @@ class _ConfigManagerCore:
         from mcp_guide.config_paths import get_config_file
 
         self.config_file = get_config_file(self.__config_dir).resolve()
-        self._explicit_docroot = Path(docroot).expanduser().resolve() if docroot else None
+        if docroot is None:
+            self._cli_docroot: str | None = None
+        else:
+            text = docroot if isinstance(docroot, str) else str(docroot)
+            self._cli_docroot = text if text.strip() else None
 
     def _invalidate_feature_flags(self) -> None:
         """Invalidate the feature flags cache."""
@@ -76,7 +80,7 @@ class _ConfigManagerCore:
             # Import here to avoid loading installer code unless needed
             from mcp_guide.installer.integration import install_and_create_config
 
-            await install_and_create_config(file_path, self._explicit_docroot)
+            await install_and_create_config(file_path, self._cli_docroot)
             return await read_file_content(file_path)
 
     async def get_docroot(self) -> str:
@@ -88,8 +92,10 @@ class _ConfigManagerCore:
                 data = yaml.safe_load(content) or {}
                 configured_docroot = data.get("docroot")
                 if not isinstance(configured_docroot, str) or not configured_docroot.strip():
-                    default = self._explicit_docroot or (file_path.parent.resolve() / "docs")
-                    docroot = str(default)
+                    if self._cli_docroot is not None:
+                        docroot = self._cli_docroot
+                    else:
+                        docroot = str(file_path.parent.resolve() / "docs")
                     data["docroot"] = docroot
                     await AsyncPath(file_path).write_text(yaml.dump(data))
                 else:

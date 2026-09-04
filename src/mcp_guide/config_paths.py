@@ -33,6 +33,17 @@ def set_docroot(docroot: str) -> None:
     __docroot = docroot
 
 
+def clear_config_overrides() -> None:
+    """Clear process-level config and docroot overrides.
+
+    Tests that start a server or runtime apply these overrides for isolation.
+    They must not leak into later tests that read XDG-backed defaults.
+    """
+    global __config_dir, __docroot
+    __config_dir = None
+    __docroot = None
+
+
 def get_config_dir(config_dir: Optional[str] = None) -> Path:
     """Get configuration directory.
 

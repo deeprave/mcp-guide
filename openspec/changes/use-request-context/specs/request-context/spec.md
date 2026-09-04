@@ -8,9 +8,11 @@ application code uses resolved Guide state without depending on FastMCP internal
 ### Requirement: Resolved Application Request Context
 The system SHALL construct a framework-neutral RequestContext for every tool,
 prompt, and resource invocation before application handler execution. The context
-SHALL contain the validated interaction owner, protocol and client metadata, the
-resolved Guide Session, and response metadata facilities. Application handlers SHALL
-NOT require a raw FastMCP context to resolve or select Guide state.
+SHALL contain the client `session_id`, resolved Guide Session, and response metadata
+facilities. When bound it SHALL contain root and Project values. Protocol revision,
+request identity, owner keys, and client metadata SHALL remain transport-boundary
+details. Application handlers SHALL NOT require a raw FastMCP context to resolve or
+select Guide state.
 
 #### Scenario: Context-bearing application invocation
 - **WHEN** a public MCP operation enters the Guide application boundary
@@ -34,11 +36,16 @@ SHALL represent unbound interactions with absent root and project values.
 #### Scenario: Project configuration changes during a request
 - **WHEN** an operation updates the active Project configuration
 - **THEN** it SHALL perform the update through the owning Session
-- **AND** it SHALL use the replacement immutable Project returned by that operation for later work in the request
-- **AND** it SHALL NOT mutate the prior Project object or a root identity
+- **AND** `RequestContext.project` SHALL return that Session's current Project
+- **AND** it SHALL NOT snapshot a prior Project object onto the request context
+
+#### Scenario: Bound root tracks in-request bind
+- **WHEN** an operation binds the Session to a project root during a request
+- **THEN** `RequestContext.root` SHALL expose that Session's current bound-root identity
+- **AND** `RequestContext.is_bound` SHALL become true without reconstructing the context
 
 ### Requirement: Request Context Helper Boundary
-RequestContext SHALL provide application-facing helpers for contained state that
+RequestContext SHALL provide narrow application-facing helpers for contained state that
 would otherwise require raw transport context or ambient Session lookup. Helpers
 SHALL delegate to the resolved Session or GuideRuntime as appropriate and SHALL fail
 clearly when the required state is absent.
@@ -48,3 +55,36 @@ clearly when the required state is absent.
 - **THEN** it SHALL obtain that state through RequestContext or its resolved Session
 - **AND** it SHALL NOT infer ownership from a ContextVar or raw FastMCP object
 
+#### Scenario: Document path resolution
+- **WHEN** an application operation needs a document-root-relative path
+- **THEN** it SHALL obtain a sync resolver from RequestContext.get_docroot_resolver
+- **AND** that resolver SHALL be supplied by GuideRuntime.get_docroot_resolver after awaiting the configured root once
+- **AND** callers SHALL reuse that sync function for further joins so a hot path does not await per path
+- **AND** the resolver SHALL reject paths that escape the document root
+- **AND** an already-absolute path SHALL still be checked for containment
+- **AND** the resolver SHALL NOT follow symlinks when checking containment
+- **AND** the returned path SHALL be host-absolute after expanduser, expandvars, and resolve
+- **AND** RequestContext SHALL NOT expose the configured document root as a path or accessor
+- **AND** content formatters SHALL receive that resolver function, not a document-root path
+- **AND** application code SHALL NOT resolve or join against the document root directly
+- **AND** Session SHALL NOT resolve document paths
+- **AND** Session SHALL NOT publish GuideRuntime
+
+#### Scenario: Process runtime is independent of Session
+- **WHEN** application code needs GuideRuntime
+- **THEN** it SHALL call get_runtime()
+- **AND** it SHALL NOT retrieve the runtime through a Session accessor
+
+#### Scenario: Process runtime is a singleton
+- **WHEN** the process starts
+- **THEN** create_runtime() SHALL be the only site that constructs GuideRuntime
+- **AND** get_runtime() SHALL return that installed instance
+- **AND** create_runtime() SHALL raise if a process runtime is already installed
+- **AND** start() SHALL reinstall this instance when the process slot is empty
+- **AND** start() SHALL raise if a different process runtime is already installed
+- **AND** stop() SHALL release the process runtime so a later create_runtime() may install a successor
+
+#### Scenario: Security-boundary check needs the configured root
+- **WHEN** an operation must compare a path against the configured document root
+- **THEN** it MAY obtain that root through get_runtime().get_docroot
+- **AND** application path joins and formatters SHALL still use the request-context resolver

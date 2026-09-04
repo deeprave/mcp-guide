@@ -57,8 +57,6 @@ async def project_dir(tmp_path: Path, monkeypatch) -> AsyncGenerator[Path, None]
         - PWD and CWD are set to the project directory
         - Session is automatically cleaned up after test
     """
-    from mcp_guide.session import remove_current_session
-
     project_name = "test"
     test_project_dir = tmp_path / project_name
     test_project_dir.mkdir(exist_ok=True)
@@ -67,5 +65,3 @@ async def project_dir(tmp_path: Path, monkeypatch) -> AsyncGenerator[Path, None]
     monkeypatch.setenv("CWD", str(test_project_dir))
 
     yield test_project_dir
-
-    await remove_current_session()

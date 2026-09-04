@@ -1,14 +1,13 @@
 """Deferred prompt registration infrastructure."""
 
-import json
+import inspect
 import os
 import weakref
 from dataclasses import dataclass
 from functools import wraps
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, cast
 
 from fastmcp import Context
-from fastmcp.prompts import Message, PromptResult
 
 from mcp_guide.core.mcp_log import get_logger
 
@@ -36,6 +35,15 @@ _PROMPT_REGISTRY: dict[str, PromptRegistration] = {}
 _REGISTERED_PROMPT_SERVERS: dict[int, weakref.ReferenceType[Any]] = {}
 
 
+def _transport_signature(func: Callable[..., Any]) -> inspect.Signature:
+    """Keep the application context out of the client-visible prompt schema."""
+    parameters = [
+        parameter for parameter in inspect.signature(func).parameters.values() if parameter.name != "request_context"
+    ]
+    parameters.append(inspect.Parameter("ctx", inspect.Parameter.KEYWORD_ONLY, annotation=Context, default=None))
+    return inspect.signature(func).replace(parameters=parameters)
+
+
 def get_prompt_name(default: str = "guide") -> str:
     """Return the effective MCP prompt name."""
     return os.getenv("MCP_PROMPT_NAME", default)
@@ -53,7 +61,7 @@ def promptfunc(description: Optional[str] = None) -> Callable[[Callable[..., Any
 
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         prompt_name = func.__name__  # ty: ignore[unresolved-attribute]
-        prompt_description = description or func.__doc__
+        prompt_description = description or inspect.cleandoc(func.__doc__ or "") or None
 
         @wraps(func)
         async def wrapped(*args: Any, **kwargs: Any) -> object:
@@ -61,28 +69,39 @@ def promptfunc(description: Optional[str] = None) -> Callable[[Callable[..., Any
             if ctx is None:
                 ctx = next((arg for arg in reversed(args) if isinstance(arg, Context)), None)
 
-            from mcp_guide.session import request_session_scope
+            from mcp_guide.session import InvalidGuideSessionError, request_context_scope
 
-            async with request_session_scope(ctx, kwargs.get("session_id")):
-                result = await func(*args, **kwargs)
+            if ctx is None:
+                raise RuntimeError("A prompt invocation requires a FastMCP context")
+            application_kwargs = dict(kwargs)
+            application_kwargs.pop("ctx", None)
+            try:
+                async with request_context_scope(
+                    ctx, application_kwargs.get("session_id"), allow_pwd_bootstrap=True
+                ) as request_context:
+                    result = await func(*args, request_context=request_context, **application_kwargs)
+                    from mcp_guide.result import Result
 
-            from mcp_guide.result import Result
+                    if isinstance(result, Result):
+                        from mcp_guide.tools.tool_result import prompt_result
 
-            if isinstance(result, Result):
-                from mcp_guide.tools.tool_result import prompt_result
+                        result = await prompt_result(
+                            prompt_name,
+                            result,
+                            session=request_context.session,
+                            session_id=request_context.session_id,
+                        )
+                return result
+            except InvalidGuideSessionError:
+                from mcp_guide.mcp_result_adapter import prompt_response
+                from mcp_guide.result_constants import make_invalid_session_result
 
-                result = await prompt_result(prompt_name, result)
-            if isinstance(result, PromptResult) and not isinstance(ctx, Context):
-                return _extract_prompt_result_json(result)
-
-            if not isinstance(ctx, Context):
-                if isinstance(result, str):
-                    return result
-                return json.dumps({"success": False, "error": "Unsupported prompt result shape"})
-            return result
+                return prompt_response(make_invalid_session_result())
 
         metadata = PromptMetadata(name=prompt_name, func=wrapped, description=prompt_description)
         _PROMPT_REGISTRY[prompt_name] = PromptRegistration(metadata=metadata)
+        cast(Any, wrapped).__signature__ = _transport_signature(func)
+        cast(Any, wrapped).__annotations__ = {**getattr(func, "__annotations__", {}), "ctx": Context}
         logger.trace(f"Prompt {prompt_name} added to registry (not yet registered)")
 
         return wrapped
@@ -132,27 +151,3 @@ def clear_prompt_registry() -> None:
     """
     _PROMPT_REGISTRY.clear()
     _REGISTERED_PROMPT_SERVERS.clear()
-
-
-def _extract_prompt_result_json(result: PromptResult) -> str:
-    """Convert a native FastMCP prompt result into JSON text."""
-    messages = getattr(result, "messages", None)
-    if not messages:
-        return json.dumps({"success": False, "error": "Unsupported prompt result shape"})
-    if isinstance(messages, str):
-        return messages
-
-    first_message = messages[0]
-    if isinstance(first_message, Message):
-        content = getattr(first_message, "content", None)
-        if isinstance(content, list):
-            if content and hasattr(content[0], "text"):
-                text_value = content[0].text
-                if isinstance(text_value, str):
-                    return text_value
-        if hasattr(content, "text") and isinstance(getattr(content, "text"), str):
-            return content.text
-        if isinstance(content, str):
-            return content
-
-    return json.dumps({"success": False, "error": "Unsupported prompt result shape"})

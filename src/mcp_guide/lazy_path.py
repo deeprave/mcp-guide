@@ -2,7 +2,10 @@
 
 import os
 from pathlib import Path
-from typing import Optional, Union
+from typing import TYPE_CHECKING, Optional, Union
+
+if TYPE_CHECKING:
+    from anyio import Path as AsyncPath
 
 
 class LazyPath:
@@ -33,6 +36,10 @@ class LazyPath:
         """
         return os.path.expandvars(self.path_str)
 
+    def expand(self) -> Path:
+        """Expand ~ and environment variables without resolving the filesystem path."""
+        return Path(os.path.expandvars(self.path_str)).expanduser()
+
     def resolve(self, *, strict: bool = False, expand: bool = True) -> Path:
         """Resolve the path.
 
@@ -52,10 +59,7 @@ class LazyPath:
             return self._resolved_path
 
         try:
-            path_str = self.path_str
-            if expand:
-                path_str = os.path.expandvars(path_str)
-                path_str = str(Path(path_str).expanduser())
+            path_str = str(self.expand()) if expand else self.path_str
             self._resolved_path = Path(path_str).resolve(strict=strict)
         except FileNotFoundError:
             raise
@@ -64,14 +68,34 @@ class LazyPath:
 
         return self._resolved_path
 
+    async def aresolve(self, *, strict: bool = False, expand: bool = True) -> "AsyncPath":
+        """Resolve the path and return an anyio path for async IO.
+
+        Uses the same expandvars, expanduser, and resolve rule as ``resolve()``.
+        """
+        from anyio import Path as AsyncPath
+
+        if self._resolved_path is not None and not strict:
+            return AsyncPath(self._resolved_path)
+
+        try:
+            path_str = str(self.expand()) if expand else self.path_str
+            resolved = await AsyncPath(path_str).resolve(strict=strict)
+        except FileNotFoundError:
+            raise
+        except (OSError, ValueError, RuntimeError) as e:
+            raise OSError(f"Failed to resolve path '{self.path_str}': {e}") from e
+
+        self._resolved_path = Path(resolved)
+        return resolved
+
     def is_absolute(self) -> bool:
         """Check if path is absolute, accounting for ~ and ${VAR} expansions.
 
         Returns:
             True if the path is absolute after variable expansion
         """
-        expanded = Path(os.path.expandvars(self.path_str)).expanduser()
-        return expanded.is_absolute()
+        return self.expand().is_absolute()
 
     def __str__(self) -> str:
         return self.path_str

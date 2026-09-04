@@ -58,17 +58,15 @@ _.access_count
 _.original_event_types
 
 # Test-mode hooks (called from test fixtures)
-_.enable_test_mode
-_.disable_test_mode
 _.clear_tool_registry
 _.get_tool_registration
 _.clear_registered_tasks_for_testing
 _.clear_prompt_registry
 _.clear_resource_registry
+_.clear_config_overrides
 _._reset_for_testing
 _.send_found_files
 _.set_filesystem_trust_mode
-_.remove_current_session  # used in test teardown across many test files
 _.on_init  # GuideMCP startup decorator — no current callers but infrastructure retained
 _.plan  # Pydantic model field on WorkflowState; populated from .guide.yaml
 
@@ -93,6 +91,12 @@ _.clear_registered_tool_servers
 _.task_init
 _.from_path
 _.create_server
+_.__signature__  # FastMCP transport signature on wrapped handlers
+_.require_root  # RequestContext fail-fast helper
+_.require_project
+_.is_ok  # public Result API
+_.get_or_create  # WatcherRegistry public API
+_.resolve_session  # GuideRuntime public owner lookup
 # Module-level names
 _.__all__
 _.main

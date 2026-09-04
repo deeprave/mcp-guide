@@ -2,9 +2,9 @@
 
 import json
 import tempfile
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import anyio
 import pytest
 
 
@@ -18,15 +18,20 @@ class TestCommandIntegration:
         ctx.session.session_id = "test-session-id"
         with tempfile.TemporaryDirectory() as temp_dir:
             ctx.session.project_root = temp_dir
-            ctx.session.runtime.get_docroot = AsyncMock(return_value=temp_dir)
             yield ctx
 
     @pytest.fixture
-    def commands_setup(self, mock_ctx):
+    def commands_setup(self, tmp_path):
         """Set up commands directory with test templates."""
-        project_root = Path(mock_ctx.session.project_root)
-        commands_dir = project_root / "_commands"
-        commands_dir.mkdir()
+        from mcp_guide.configuration import ConfigManager
+
+        # Create the isolated configuration and its standard documents before
+        # adding test-owned command files.  The first lazy configuration read
+        # otherwise installs standard documents after this fixture has written
+        # them, which can replace a same-named command such as ``help``.
+        anyio.run(ConfigManager(str(tmp_path)).get_docroot)
+        commands_dir = tmp_path / "docs" / "_commands"
+        commands_dir.mkdir(parents=True, exist_ok=True)
 
         # Create test command template
         test_template = commands_dir / "test.mustache"
@@ -52,7 +57,6 @@ Indexed args: {{#args}}{{#first}}FIRST: {{/first}}{{value}}{{^last}} {{/last}}{{
         with (
             patch("mcp_guide.prompts.guide_prompt.get_template_contexts", new=AsyncMock()) as mock_context,
             patch("mcp_guide.render.template.get_template_contexts", new=AsyncMock()) as mock_render_context,
-            patch("mcp_guide.session.get_session", new=AsyncMock(return_value=mock_ctx.session)) as mock_session,
         ):
             from mcp_guide.render.context import TemplateContext
 
@@ -82,7 +86,6 @@ Indexed args: {{#args}}{{#first}}FIRST: {{/first}}{{value}}{{^last}} {{/last}}{{
         with (
             patch("mcp_guide.prompts.guide_prompt.get_template_contexts", new=AsyncMock()) as mock_context,
             patch("mcp_guide.render.template.get_template_contexts", new=AsyncMock()) as mock_render_context,
-            patch("mcp_guide.session.get_session", new=AsyncMock(return_value=mock_ctx.session)) as mock_session,
         ):
             from mcp_guide.render.context import TemplateContext
 
@@ -120,7 +123,6 @@ Indexed args: {{#args}}{{#first}}FIRST: {{/first}}{{value}}{{^last}} {{/last}}{{
         with (
             patch("mcp_guide.prompts.guide_prompt.get_template_contexts", new=AsyncMock()) as mock_context,
             patch("mcp_guide.render.template.get_template_contexts", new=AsyncMock()) as mock_render_context,
-            patch("mcp_guide.session.get_session", new=AsyncMock(return_value=mock_ctx.session)) as mock_session,
         ):
             from mcp_guide.render.context import TemplateContext
 
@@ -173,7 +175,7 @@ Available commands:
         """Test subcommand routing and execution."""
         # Create subcommand directory and template
         info_dir = commands_setup / "info"
-        info_dir.mkdir()
+        info_dir.mkdir(exist_ok=True)
 
         project_template = info_dir / "project.mustache"
         project_template.write_text("""---
@@ -191,7 +193,6 @@ Current project: {{project.name}}
         with (
             patch("mcp_guide.prompts.guide_prompt.get_template_contexts", new=AsyncMock()) as mock_context,
             patch("mcp_guide.render.template.get_template_contexts", new=AsyncMock()) as mock_render_context,
-            patch("mcp_guide.session.get_session", new=AsyncMock(return_value=mock_ctx.session)) as mock_session,
         ):
             from mcp_guide.render.context import TemplateContext
 
@@ -211,7 +212,6 @@ Current project: {{project.name}}
         with (
             patch("mcp_guide.prompts.guide_prompt.get_template_contexts", new=AsyncMock()) as mock_context,
             patch("mcp_guide.render.template.get_template_contexts", new=AsyncMock()) as mock_render_context,
-            patch("mcp_guide.session.get_session", new=AsyncMock(return_value=mock_ctx.session)) as mock_session,
         ):
             from mcp_guide.render.context import TemplateContext
 
@@ -252,7 +252,6 @@ includes:
         with (
             patch("mcp_guide.prompts.guide_prompt.get_template_contexts", new=AsyncMock()) as mock_context,
             patch("mcp_guide.render.template.get_template_contexts", new=AsyncMock()) as mock_render_context,
-            patch("mcp_guide.session.get_session", new=AsyncMock(return_value=mock_ctx.session)) as mock_session,
         ):
             from mcp_guide.render.context import TemplateContext
 

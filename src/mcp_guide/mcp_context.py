@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from mcp_guide.core.mcp_log import get_logger
-from mcp_guide.runtime import ClientMetadata, GuideRuntime, OwnerKey, RequestContext
+from mcp_guide.runtime import GuideRuntime, validate_session_id
 
 logger = get_logger(__name__)
 
@@ -45,47 +45,27 @@ def extract_client_params(ctx: Any) -> dict[str, Any] | None:
     return None
 
 
-def request_context_from_fastmcp(ctx: Any, *, session_id: str | None = None) -> RequestContext:
-    """Adapt public FastMCP request data into Guide's application context.
+def session_resolution_from_fastmcp(ctx: Any, *, session_id: str | None = None) -> tuple[str, str | None]:
+    """Derive transport-only session-resolution inputs from public FastMCP state.
 
     Modern requests must provide the session identifier in their tool arguments.
     Retained handshake-era requests use FastMCP's public connection session ID as
-    their compatibility owner. An unbound modern request gets an ephemeral owner
-    derived from the live FastMCP request context. It is not a cross-request
-    Session key, and must not use the client-controlled JSON-RPC request ID.
+    their compatibility owner. Unbound owners are assigned later from the
+    RequestContext sequence. This function is used only at the transport
+    boundary; application handlers receive a resolved RequestContext instead.
     """
     request = getattr(ctx, "request_context", None)
     protocol_revision = request.protocol_version if request is not None else "legacy"
-    request_id = request.request_id if request is not None else None
-    client_params = extract_client_params(ctx) or {}
-    client_info = client_params.get("clientInfo")
-    if not isinstance(client_info, Mapping):
-        client_info = {}
-    client = ClientMetadata(name=client_info.get("name"), version=client_info.get("version"))
 
     if session_id is not None:
-        source = "explicit"
         resolved_session_id = session_id
     elif protocol_revision != "2026-07-28":
-        source = "legacy"
         resolved_session_id = getattr(ctx, "session_id", None)
     else:
-        source = None
         resolved_session_id = None
 
-    if resolved_session_id is not None:
-        owner = OwnerKey(resolved_session_id)
-    else:
-        owner = OwnerKey(f"unbound:{id(request)}")
-
-    return RequestContext(
-        protocol_revision=protocol_revision,
-        request_id=request_id,
-        owner=owner,
-        client=client,
-        session_id=resolved_session_id,
-        session_source=source,
-    )
+    validate_session_id(resolved_session_id)
+    return protocol_revision, resolved_session_id
 
 
 def runtime_from_fastmcp(ctx: Any) -> GuideRuntime[Any] | None:

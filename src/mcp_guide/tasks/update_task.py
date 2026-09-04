@@ -3,12 +3,15 @@
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 
-from anyio import Path as AsyncPath
-
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.feature_flags.constants import FLAG_AUTOUPDATE
 from mcp_guide.feature_flags.validators import coerce_boolean_like
-from mcp_guide.installer.core import DocrootValidationError, read_version, validate_docroot_safety
+from mcp_guide.installer.core import (
+    DocrootValidationError,
+    read_version,
+    validate_docroot_safety,
+)
+from mcp_guide.lazy_path import LazyPath
 from mcp_guide.task_manager.interception import EventType
 from mcp_guide.task_manager.manager import EventResult
 
@@ -67,11 +70,13 @@ class McpUpdateTask:
                 logger.debug("McpUpdateTask disabled - autoupdate explicitly set to false")
                 return EventResult(result=True)
 
-            # Get current project
-            # Check if update is needed
-            docroot = Path(await session.runtime.get_docroot())
-            if not await AsyncPath(docroot).exists():
+            from mcp_guide.runtime import get_runtime
+
+            raw_docroot = await get_runtime().get_docroot()
+            docroot_async = await LazyPath(raw_docroot).aresolve()
+            if not await docroot_async.exists():
                 return EventResult(result=True)
+            docroot = Path(docroot_async)
 
             try:
                 await validate_docroot_safety(docroot)
@@ -127,7 +132,6 @@ class McpUpdateTask:
         from mcp_guide.render.context import TemplateContext
         from mcp_guide.render.rendering import render_content
 
-        # Render update prompt template
         context = TemplateContext()
         rendered = await render_content(self.session, "_update", "_system", context)
 

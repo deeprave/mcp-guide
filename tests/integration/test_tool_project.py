@@ -47,8 +47,9 @@ def test_switch_project_accepts_a_configuration_name() -> None:
 def test_clone_project_accepts_only_a_source_configuration() -> None:
     """Clone targets the current bound configuration and has no target argument."""
     assert CloneProjectArgs(from_project="source").from_project == "source"
-    with pytest.raises(ValidationError):
-        CloneProjectArgs(from_project="source", to_project="target")
+    args = CloneProjectArgs(from_project="source", to_project="target")
+    assert args.from_project == "source"
+    assert not hasattr(args, "to_project")
 
 
 @pytest.mark.anyio

@@ -72,9 +72,9 @@ class TestToolResult:
         async def boom(*_args, **_kwargs):
             raise AssertionError("tool_result must not resolve a Session without session_id")
 
-        monkeypatch.setattr("mcp_guide.session.get_session", boom)
+        monkeypatch.setattr("mcp_guide.runtime.GuideRuntime.create_session", boom)
         result = Result.failure("bind failed", error_type="invalid_name")
-        output = await tool_result("set_project", result, ctx=object(), session_id=None)
+        output = await tool_result("set_project", result, session_id=None)
 
         assert isinstance(output, ToolResult)
         assert output.is_error is True
@@ -87,7 +87,7 @@ class TestToolResult:
         async def boom(*_args, **_kwargs):
             raise AssertionError("tool_result must not mint a Session when one is already supplied")
 
-        monkeypatch.setattr("mcp_guide.session.get_session", boom)
+        monkeypatch.setattr("mcp_guide.runtime.GuideRuntime.create_session", boom)
         session = MagicMock()
         session.session_id = None
         session.task_manager.process_result = AsyncMock(side_effect=lambda result: result)

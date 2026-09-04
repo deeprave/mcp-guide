@@ -3,16 +3,17 @@
 import os
 
 import pytest
-from tests.helpers import create_unbound_test_session
+from tests.helpers import create_unbound_test_session, request_context_for
 
 from mcp_guide.prompts.guide_prompt import _execute_command
+from mcp_guide.runtime import get_runtime
 
 
 @pytest.fixture
-async def cmd_docroot(session_temp_dir):
+async def cmd_docroot(runtime, session_temp_dir):
     """Provide a session-backed docroot with a _commands dir."""
-    session = create_unbound_test_session(str(session_temp_dir / "config"))
-    docroot = await session.runtime.get_docroot()
+    session = create_unbound_test_session(runtime)
+    docroot = await get_runtime().get_docroot()
     os.makedirs(f"{docroot}/_commands", exist_ok=True)
     return session, docroot
 
@@ -24,7 +25,8 @@ def _write_template(docroot, minargs):
 
 async def _run(session, docroot, args, minargs):
     _write_template(docroot, minargs)
-    return await _execute_command("test", {}, args, None, session, argv=[":test", *args])
+    request_context = await request_context_for(session)
+    return await _execute_command("test", {}, args, request_context, argv=[":test", *args])
 
 
 @pytest.mark.anyio

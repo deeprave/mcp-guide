@@ -5,50 +5,34 @@ from pathlib import Path
 from unittest.mock import AsyncMock
 
 import pytest
-from tests.helpers import create_unbound_test_session, tool_result_payload
+from tests.helpers import create_unbound_test_session, request_context_for, tool_result_payload
 
+from mcp_guide.runtime import get_runtime
 from mcp_guide.tools.tool_content import ListExportsArgs
 from mcp_guide.tools.tool_content import list_exports as _list_exports
 
-_test_session = None
 
-
-@pytest.fixture(autouse=True)
-def explicit_test_session(monkeypatch):
-    """Route tool implementation calls through the session created by each test."""
-
-    async def get_bound_session_and_project(ctx=None, *, session_id=None):
-        assert _test_session is not None
-        return _test_session, await _test_session.get_project()
-
-    monkeypatch.setattr("mcp_guide.tools.tool_content.get_session_and_project", get_bound_session_and_project)
-
-
-async def list_exports(args):
+async def list_exports(args, session):
     """Exercise list-export behaviour with the test's explicit Session."""
-    return await _list_exports.__wrapped__(args)
+    return await _list_exports.__wrapped__(args, await request_context_for(session))
 
 
 @pytest.mark.anyio
-async def test_list_exports_empty(session_temp_dir):
+async def test_list_exports_empty(runtime, session_temp_dir):
     """Test list_exports returns empty array when no exports exist."""
-    global _test_session
-    session = create_unbound_test_session(str(Path(session_temp_dir) / "config"))
-    _test_session = session
+    session = create_unbound_test_session(runtime)
     await session.bind_project_path(Path(session_temp_dir))
     args = ListExportsArgs(glob=None)
-    result = await list_exports(args)
+    result = await list_exports(args, session)
 
     assert tool_result_payload(result)["value"] == []
 
 
 @pytest.mark.anyio
-async def test_list_exports_single(session_temp_dir):
+async def test_list_exports_single(runtime, session_temp_dir):
     """Test list_exports returns array with one export entry."""
     # Setup: Add export entry to project
-    global _test_session
-    session = create_unbound_test_session(str(Path(session_temp_dir) / "config"))
-    _test_session = session
+    session = create_unbound_test_session(runtime)
     await session.bind_project_path(Path(session_temp_dir))
     project = await session.get_project()
     updated = project.upsert_export_entry("docs", None, "/export.md", "a3f5c8d1")
@@ -56,7 +40,7 @@ async def test_list_exports_single(session_temp_dir):
 
     # Execute
     args = ListExportsArgs(glob=None)
-    result = await list_exports(args)
+    result = await list_exports(args, session)
 
     # Verify
     data = tool_result_payload(result)
@@ -70,14 +54,12 @@ async def test_list_exports_single(session_temp_dir):
 
 
 @pytest.mark.anyio
-async def test_list_exports_with_timestamp(session_temp_dir, tmp_path, monkeypatch):
+async def test_list_exports_with_timestamp(runtime, session_temp_dir, tmp_path, monkeypatch):
     """Test list_exports includes exported_at timestamp stored at export time."""
     import time
 
     # Setup: Add export entry with a known timestamp
-    global _test_session
-    session = create_unbound_test_session(str(Path(session_temp_dir) / "config"))
-    _test_session = session
+    session = create_unbound_test_session(runtime)
     await session.bind_project_path(Path(session_temp_dir))
     project = await session.get_project()
     ts = time.time()
@@ -89,7 +71,7 @@ async def test_list_exports_with_timestamp(session_temp_dir, tmp_path, monkeypat
 
     # Execute
     args = ListExportsArgs(glob=None)
-    result = await list_exports(args)
+    result = await list_exports(args, session)
 
     # Verify
     data = tool_result_payload(result)
@@ -99,14 +81,12 @@ async def test_list_exports_with_timestamp(session_temp_dir, tmp_path, monkeypat
 
 
 @pytest.mark.anyio
-async def test_list_exports_staleness(session_temp_dir, tmp_path):
+async def test_list_exports_staleness(runtime, session_temp_dir, tmp_path):
     """Test list_exports computes staleness indicator."""
     # Create a category with a file
     from mcp_guide.models.project import Category
 
-    global _test_session
-    session = create_unbound_test_session(str(Path(session_temp_dir) / "config"))
-    _test_session = session
+    session = create_unbound_test_session(runtime)
     await session.bind_project_path(Path(session_temp_dir))
 
     # Clear any existing exports
@@ -114,12 +94,12 @@ async def test_list_exports_staleness(session_temp_dir, tmp_path):
     updated = dc_replace(project, exports={})
     await session.update_config(lambda _: updated)
 
-    # Create test file
-    test_file = tmp_path / "test.md"
-    test_file.write_text("original content")
+    docroot = Path(await get_runtime().get_docroot())
+    category_dir = docroot / "test-cat"
+    category_dir.mkdir(parents=True, exist_ok=True)
+    (category_dir / "test.md").write_text("original content")
 
-    # Add category
-    category = Category(name="test-cat", dir=str(tmp_path), patterns=["*.md"])
+    category = Category(name="test-cat", dir="test-cat", patterns=["*.md"])
     project = await session.get_project()
     updated = dc_replace(project, categories={"test-cat": category})
     await session.update_config(lambda _: updated)
@@ -135,7 +115,7 @@ async def test_list_exports_staleness(session_temp_dir, tmp_path):
 
     # Execute
     args = ListExportsArgs(glob=None)
-    result = await list_exports(args)
+    result = await list_exports(args, session)
 
     # Verify - should be stale (hash doesn't match)
     data = tool_result_payload(result)
@@ -145,11 +125,9 @@ async def test_list_exports_staleness(session_temp_dir, tmp_path):
 
 
 @pytest.mark.anyio
-async def test_list_exports_glob_filter(session_temp_dir, tmp_path, monkeypatch):
+async def test_list_exports_glob_filter(runtime, session_temp_dir, tmp_path, monkeypatch):
     """Test list_exports filters by glob pattern."""
-    global _test_session
-    session = create_unbound_test_session(str(Path(session_temp_dir) / "config"))
-    _test_session = session
+    session = create_unbound_test_session(runtime)
     await session.bind_project_path(Path(session_temp_dir))
     monkeypatch.setattr("mcp_guide.tools.tool_content.gather_content", AsyncMock(return_value=[]))
     monkeypatch.setattr("mcp_guide.tools.tool_content.compute_metadata_hash", lambda files: "unchanged")
@@ -164,7 +142,7 @@ async def test_list_exports_glob_filter(session_temp_dir, tmp_path, monkeypatch)
 
     # Test: filter by expression glob
     args = ListExportsArgs(glob="doc*")
-    result = await list_exports(args)
+    result = await list_exports(args, session)
     data = tool_result_payload(result)
     exports = data["value"]
     assert len(exports) == 1
@@ -172,7 +150,7 @@ async def test_list_exports_glob_filter(session_temp_dir, tmp_path, monkeypatch)
 
     # Test: filter by path glob
     args = ListExportsArgs(glob="*/other/*")
-    result = await list_exports(args)
+    result = await list_exports(args, session)
     data = tool_result_payload(result)
     exports = data["value"]
     assert len(exports) == 1
@@ -180,7 +158,7 @@ async def test_list_exports_glob_filter(session_temp_dir, tmp_path, monkeypatch)
 
     # Test: filter by pattern glob
     args = ListExportsArgs(glob="*.py")
-    result = await list_exports(args)
+    result = await list_exports(args, session)
     data = tool_result_payload(result)
     exports = data["value"]
     assert len(exports) == 1

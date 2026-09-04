@@ -9,6 +9,13 @@ from mcp_guide.render.cache import TemplateContextCache
 from mcp_guide.result import Result
 
 
+@pytest.fixture(autouse=True)
+def _runtime_without_global_flags(monkeypatch: pytest.MonkeyPatch) -> None:
+    runtime = Mock()
+    runtime.feature_flags.return_value = Mock(list=AsyncMock(return_value={}))
+    monkeypatch.setattr("mcp_guide.runtime.get_runtime", lambda: runtime)
+
+
 class TestTemplateContextCache:
     """Test TemplateContextCache class functionality."""
 
@@ -43,14 +50,12 @@ class TestTemplateContextCache:
         """Test that _build_project_context handles missing project gracefully."""
         cache = TemplateContextCache()
 
-        # Mock get_session to return None
-        with patch("mcp_guide.session.get_session", return_value=None):
-            # Should not raise exception
-            context = await cache._build_project_context()
+        # Unbound cache has no Session and must not look one up.
+        context = await cache._build_project_context()
 
-            # Should return empty project context
-            assert "project" in context
-            assert context["project"]["name"] == ""
+        # Should return empty project context
+        assert "project" in context
+        assert context["project"]["name"] == ""
 
     @pytest.mark.anyio
     async def test_build_project_context_with_session_without_project_returns_empty_name(self) -> None:
@@ -62,10 +67,7 @@ class TestTemplateContextCache:
         cache = TemplateContextCache(mock_session)
         logger_error = Mock()
 
-        with (
-            patch("mcp_guide.session.get_session", return_value=mock_session),
-            patch("mcp_guide.render.cache.logger.error", logger_error),
-        ):
+        with patch("mcp_guide.render.cache.logger.error", logger_error):
             # Should not raise exception
             context = await cache._build_project_context()
 
@@ -76,8 +78,6 @@ class TestTemplateContextCache:
     @pytest.mark.anyio
     async def test_build_project_context_includes_project_flags(self) -> None:
         """Test that _build_project_context includes project flags in context."""
-        from unittest.mock import patch
-
         from mcp_guide.models import Project
 
         mock_session = Mock()
@@ -90,31 +90,28 @@ class TestTemplateContextCache:
         mock_session.get_project = AsyncMock(return_value=mock_project)
         cache = TemplateContextCache(mock_session)
 
-        with patch("mcp_guide.session.get_session", return_value=mock_session):
-            # Get project context
-            context = await cache._build_project_context()
+        # Get project context
+        context = await cache._build_project_context()
 
-            # Verify project flags are in context under project.project_flag_values as key-value pairs
-            assert "project" in context
-            assert "project_flag_values" in context["project"]
-            flags_list = context["project"]["project_flag_values"]
-            assert isinstance(flags_list, list)
+        # Verify project flags are in context under project.project_flag_values as key-value pairs
+        assert "project" in context
+        assert "project_flag_values" in context["project"]
+        flags_list = context["project"]["project_flag_values"]
+        assert isinstance(flags_list, list)
 
-            # Convert back to dict for easier testing
-            flags_dict = {item["key"]: item["value"] for item in flags_list}
-            assert flags_dict["phase-tracking"] == "true"
-            assert flags_dict["debug-mode"] == "false"
+        # Convert back to dict for easier testing
+        flags_dict = {item["key"]: item["value"] for item in flags_list}
+        assert flags_dict["phase-tracking"] == "true"
+        assert flags_dict["debug-mode"] == "false"
 
-            # Also verify wrapped dict format is available
-            assert "project_flags" in context["project"]
-            assert context["project"]["project_flags"]["phase-tracking"] == FeatureValue(True)
-            assert context["project"]["project_flags"]["debug-mode"] == FeatureValue(False)
+        # Also verify wrapped dict format is available
+        assert "project_flags" in context["project"]
+        assert context["project"]["project_flags"]["phase-tracking"] == FeatureValue(True)
+        assert context["project"]["project_flags"]["debug-mode"] == FeatureValue(False)
 
     @pytest.mark.anyio
     async def test_build_project_context_handles_missing_flags(self) -> None:
         """Test that _build_project_context handles projects without flags gracefully."""
-        from unittest.mock import patch
-
         from mcp_guide.models import Project
 
         mock_session = Mock()
@@ -123,33 +120,27 @@ class TestTemplateContextCache:
         mock_session.get_project = AsyncMock(return_value=mock_project)
         cache = TemplateContextCache(mock_session)
 
-        with patch("mcp_guide.session.get_session", return_value=mock_session):
-            # Get project context
-            context = await cache._build_project_context()
+        # Get project context
+        context = await cache._build_project_context()
 
-            # Verify empty flags list and dict are provided
-            assert "project" in context
-            assert "project_flag_values" in context["project"]
-            assert context["project"]["project_flag_values"] == []
-            assert "project_flags" in context["project"]
-            assert context["project"]["project_flags"] == {}
+        # Verify empty flags list and dict are provided
+        assert "project" in context
+        assert "project_flag_values" in context["project"]
+        assert context["project"]["project_flag_values"] == []
+        assert "project_flags" in context["project"]
+        assert context["project"]["project_flags"] == {}
 
     @pytest.mark.anyio
     async def test_build_project_context_handles_expected_exception(self) -> None:
         """Test that _build_project_context swallows expected exceptions and returns empty project context."""
         from unittest.mock import patch
 
-        cache = TemplateContextCache()
+        mock_session = Mock()
+        mock_session.get_project = AsyncMock(side_effect=AttributeError("missing attribute"))
+        cache = TemplateContextCache(mock_session)
         logger_error = Mock()
 
-        # Mock get_session to raise an expected exception
-        with (
-            patch(
-                "mcp_guide.session.get_session",
-                side_effect=AttributeError("missing attribute"),
-            ),
-            patch("mcp_guide.render.cache.logger.error", logger_error),
-        ):
+        with patch("mcp_guide.render.cache.logger.error", logger_error):
             # Should not raise exception
             context = await cache._build_project_context()
 
@@ -163,19 +154,17 @@ class TestTemplateContextCache:
         cache = TemplateContextCache()
 
         with patch(
-            "mcp_guide.session.get_session",
+            "mcp_guide.runtime.GuideRuntime.create_session",
             side_effect=Exception("unexpected error"),
-        ) as get_session:
+        ) as get_or_create_session:
             context = await cache._build_project_context()
 
-        get_session.assert_not_called()
+        get_or_create_session.assert_not_called()
         assert context["project"]["name"] == ""
 
     @pytest.mark.anyio
     async def test_project_context_accessible_in_layered_contexts(self) -> None:
         """Test that project context is accessible in the layered context chain."""
-        from unittest.mock import patch
-
         from mcp_guide.models import Project
 
         mock_session = Mock()
@@ -187,19 +176,16 @@ class TestTemplateContextCache:
         mock_session.get_project = AsyncMock(return_value=mock_project)
         cache = TemplateContextCache(mock_session)
 
-        with patch("mcp_guide.session.get_session", return_value=mock_session):
-            # Get layered contexts
-            context = await cache.get_template_contexts()
+        # Get layered contexts
+        context = await cache.get_template_contexts()
 
-            # Verify project context is accessible (highest priority)
-            assert "project" in context
-            assert context["project"]["name"] == "test-project"
+        # Verify project context is accessible (highest priority)
+        assert "project" in context
+        assert context["project"]["name"] == "test-project"
 
     @pytest.mark.anyio
     async def test_context_precedence_project_overrides_agent_overrides_system(self) -> None:
         """Test that project context values override agent and system values in precedence order."""
-        from unittest.mock import patch
-
         from mcp_guide.models import Project
 
         mock_session = Mock()
@@ -211,18 +197,17 @@ class TestTemplateContextCache:
         mock_session.get_project = AsyncMock(return_value=mock_project)
         cache = TemplateContextCache(mock_session)
 
-        with patch("mcp_guide.session.get_session", return_value=mock_session):
-            # Get layered contexts
-            context = await cache.get_template_contexts()
+        # Get layered contexts
+        context = await cache.get_template_contexts()
 
-            # Test precedence: project should override server values
-            # Server context has "server" key, project should be accessible with higher precedence
-            assert "project" in context
-            assert context["project"]["name"] == "project-value"
+        # Test precedence: project should override server values
+        # Server context has "server" key, project should be accessible with higher precedence
+        assert "project" in context
+        assert context["project"]["name"] == "project-value"
 
-            # Server context should still be accessible
-            assert "server" in context
-            assert "os" in context["server"]
+        # Server context should still be accessible
+        assert "server" in context
+        assert "os" in context["server"]
 
     @pytest.mark.anyio
     async def test_build_category_context_method_exists(self) -> None:
@@ -236,8 +221,6 @@ class TestTemplateContextCache:
     @pytest.mark.anyio
     async def test_build_category_context_returns_category_data(self) -> None:
         """Test that _build_category_context returns category data in context."""
-        from unittest.mock import patch
-
         from mcp_guide.models import Category, Project
 
         mock_session = Mock()
@@ -246,43 +229,35 @@ class TestTemplateContextCache:
         mock_session.get_project = AsyncMock(return_value=mock_project)
         cache = TemplateContextCache(mock_session)
 
-        with patch("mcp_guide.session.get_session", return_value=mock_session):
-            # Get category context
-            context = await cache._build_category_context("docs")
+        # Get category context
+        context = await cache._build_category_context("docs")
 
-            # Verify category data is in context
-            assert "category" in context
-            assert context["category"]["name"] == "docs"
-            assert context["category"]["dir"] == "./docs/"
-            assert context["category"]["patterns"][0]["value"] == "*.md"
+        # Verify category data is in context
+        assert "category" in context
+        assert context["category"]["name"] == "docs"
+        assert context["category"]["dir"] == "./docs/"
+        assert context["category"]["patterns"][0]["value"] == "*.md"
 
     @pytest.mark.anyio
     async def test_build_category_context_handles_missing_category(self) -> None:
         """Test that _build_category_context handles missing category gracefully."""
-        from unittest.mock import patch
-
         from mcp_guide.models import Project
 
-        cache = TemplateContextCache()
-
-        # Mock session with project without the requested category
         mock_session = Mock()
         mock_project = Project(name="test-project", categories={}, collections={})
         mock_session.get_project = AsyncMock(return_value=mock_project)
+        cache = TemplateContextCache(mock_session)
 
-        with patch("mcp_guide.session.get_session", return_value=mock_session):
-            # Should not raise exception
-            context = await cache._build_category_context("nonexistent")
+        # Should not raise exception
+        context = await cache._build_category_context("nonexistent")
 
-            # Should return empty category context
-            assert "category" in context
-            assert context["category"]["name"] == ""
+        # Should return empty category context
+        assert "category" in context
+        assert context["category"]["name"] == ""
 
     @pytest.mark.anyio
     async def test_complete_context_chain_provides_all_context_types(self) -> None:
         """Test that complete context chain provides access to all context types."""
-        from unittest.mock import patch
-
         from mcp_guide.models import Project
 
         mock_session = Mock()
@@ -294,24 +269,23 @@ class TestTemplateContextCache:
         mock_session.get_project = AsyncMock(return_value=mock_project)
         cache = TemplateContextCache(mock_session)
 
-        with patch("mcp_guide.session.get_session", return_value=mock_session):
-            # Get complete layered contexts
-            context = await cache.get_template_contexts()
+        # Get complete layered contexts
+        context = await cache.get_template_contexts()
 
-            # Verify all context types are accessible
-            # Server context
-            assert "server" in context
-            assert "os" in context["server"]
-            assert "platform" in context["server"]
-            assert "python_version" in context["server"]
+        # Verify all context types are accessible
+        # Server context
+        assert "server" in context
+        assert "os" in context["server"]
+        assert "platform" in context["server"]
+        assert "python_version" in context["server"]
 
-            # Agent context (@ symbol)
-            assert "@" in context
-            assert context["@"] == "@"
+        # Agent context (@ symbol)
+        assert "@" in context
+        assert context["@"] == "@"
 
-            # Project context
-            assert "project" in context
-            assert context["project"]["name"] == "integration-test"
+        # Project context
+        assert "project" in context
+        assert context["project"]["name"] == "integration-test"
 
     def test_get_transient_context_structure(self) -> None:
         """Test that get_transient_context returns correct structure and types."""
@@ -511,7 +485,6 @@ class TestTemplateContextCache:
         mock_project = Project(name="test-project", key="test", hash="abc123", categories={}, collections={})
         mock_session.get_project = AsyncMock(return_value=mock_project)
         mock_session.get_all_projects = AsyncMock(return_value={})
-        mock_session.runtime.feature_flags = Mock(return_value=Mock(list=AsyncMock(return_value={})))
         cache = TemplateContextCache(mock_session)
 
         mock_workflow_state = Mock(
@@ -554,7 +527,6 @@ class TestTemplateContextCache:
         mock_project = Project(name="test-project", key="test", hash="abc123", categories={}, collections={})
         mock_session.get_project = AsyncMock(return_value=mock_project)
         mock_session.get_all_projects = AsyncMock(return_value={})
-        mock_session.runtime.feature_flags = Mock(return_value=Mock(list=AsyncMock(return_value={})))
         cache = TemplateContextCache(mock_session)
 
         mock_workflow_state = Mock(
@@ -598,7 +570,6 @@ class TestTemplateContextCache:
         mock_project = Project(name="test-project", key="test", hash="abc123", categories={}, collections={})
         mock_session.get_project = AsyncMock(return_value=mock_project)
         mock_session.get_all_projects = AsyncMock(return_value={})
-        mock_session.runtime.feature_flags = Mock(return_value=Mock(list=AsyncMock(return_value={})))
         cache = TemplateContextCache(mock_session)
 
         mock_workflow_state = Mock(
@@ -644,7 +615,6 @@ class TestTemplateContextCache:
         mock_project = Project(name="test-project", key="test", hash="abc123", categories={}, collections={})
         mock_session.get_project = AsyncMock(return_value=mock_project)
         mock_session.get_all_projects = AsyncMock(return_value={})
-        mock_session.runtime.feature_flags = Mock(return_value=Mock(list=AsyncMock(return_value={})))
         cache = TemplateContextCache(mock_session)
 
         mock_workflow_state = Mock(
@@ -686,7 +656,6 @@ class TestTemplateContextCache:
         mock_project = Project(name="test-project", key="test", hash="abc123", categories={}, collections={})
         mock_session.get_project = AsyncMock(return_value=mock_project)
         mock_session.get_all_projects = AsyncMock(return_value={})
-        mock_session.runtime.feature_flags = Mock(return_value=Mock(list=AsyncMock(return_value={})))
         cache = TemplateContextCache(mock_session)
 
         mock_workflow_state = Mock(
@@ -735,7 +704,6 @@ class TestTemplateContextCache:
         mock_project = Project(name="test-project", key="test", hash="abc123", categories={}, collections={})
         mock_session.get_project = AsyncMock(return_value=mock_project)
         mock_session.get_all_projects = AsyncMock(return_value={})
-        mock_session.runtime.feature_flags = Mock(return_value=Mock(list=AsyncMock(return_value={})))
         cache = TemplateContextCache(mock_session)
 
         mock_workflow_state = Mock(

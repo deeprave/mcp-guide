@@ -11,7 +11,14 @@ from mcp_guide.models import (
     ExpressionParseError,
     Project,
 )
-from mcp_guide.session import Session
+from mcp_guide.runtime import RequestContext
+
+CONTENT_EXPRESSION_DESCRIPTION = (
+    "Comma-separated collection or category names, each optionally followed by "
+    "/pattern (for example 'docs', 'docs/*.md', 'docs,examples', or 'review/commit+guide'). "
+    "Each name is resolved as a collection first, then as a category. "
+    "Results are aggregated and de-duplicated."
+)
 
 
 def parse_expression(expression: str) -> list[DocumentExpression]:
@@ -73,7 +80,7 @@ def parse_expression(expression: str) -> list[DocumentExpression]:
 
 
 async def gather_content(
-    session: Session,
+    request_context: RequestContext,
     project: Project,
     expression: str,
     visited_collections: Optional[set[str]] = None,
@@ -81,7 +88,7 @@ async def gather_content(
     """Process expression and return unified FileInfo list.
 
     Args:
-        session: Current session
+        request_context: Resolved application request context
         project: Project configuration
         expression: User expression to process
         visited_collections: Set of collection names already visited (for circular reference prevention)
@@ -119,7 +126,7 @@ async def gather_content(
                 # If it's both a collection and category, treat it as a category
                 if category_expr in project.collections and category_expr not in project.categories:
                     # Recursively resolve nested collection
-                    nested_files = await gather_content(session, project, category_expr, visited_collections)
+                    nested_files = await gather_content(request_context, project, category_expr, visited_collections)
                     all_files.extend(nested_files)
                 else:
                     # Parse category expression (e.g., "review/commit")
@@ -133,7 +140,7 @@ async def gather_content(
                         if combination_key not in processed_combinations:
                             try:
                                 files = await gather_category_fileinfos(
-                                    session, project, cat_expr.name, merged_patterns
+                                    request_context, project, cat_expr.name, merged_patterns
                                 )
                                 all_files.extend(files)
                                 processed_combinations.add(combination_key)
@@ -149,7 +156,7 @@ async def gather_content(
             combination_key = (expr.name, patterns_key)
 
             if combination_key not in processed_combinations:
-                files = await gather_category_fileinfos(session, project, expr.name, expr.patterns)
+                files = await gather_category_fileinfos(request_context, project, expr.name, expr.patterns)
                 all_files.extend(files)
                 processed_combinations.add(combination_key)
         else:
@@ -159,7 +166,6 @@ async def gather_content(
     seen_paths: set[Path] = set()
     seen_docs: set[tuple[str, str]] = set()
     unique_files = []
-    docroot = Path(await session.runtime.get_docroot())
 
     for file in all_files:
         if not file.category or file.category.name not in project.categories:
@@ -170,7 +176,7 @@ async def gather_content(
                 seen_docs.add(doc_key)
                 unique_files.append(file)
         else:
-            category_dir = docroot / file.category.dir
+            category_dir = request_context.resolve_document_path(file.category.dir)
             absolute_path = category_dir / file.path
             if absolute_path not in seen_paths:
                 seen_paths.add(absolute_path)
@@ -180,7 +186,7 @@ async def gather_content(
 
 
 async def gather_category_fileinfos(
-    session: Session,
+    request_context: RequestContext,
     project: Project,
     category_name: str,
     patterns: Optional[list[str]] = None,
@@ -189,7 +195,7 @@ async def gather_category_fileinfos(
     """Common function to gather FileInfo for a category with pattern resolution.
 
     Args:
-        session: Current session
+        request_context: Resolved application request context
         project: Project configuration
         category_name: Name of the category
         patterns: Optional patterns to override defaults
@@ -230,8 +236,7 @@ async def gather_category_fileinfos(
         resolved_patterns = resolve_patterns(None, category.patterns)
 
     # Discover files
-    docroot = Path(await session.runtime.get_docroot())
-    category_dir = docroot / category.dir
+    category_dir = request_context.resolve_document_path(category.dir)
     files = await discover_documents(category_dir, resolved_patterns, category=category_name)
 
     # Exclude filesystem files where any path component starts with '_' (system/partial files).

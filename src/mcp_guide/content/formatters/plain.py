@@ -1,5 +1,6 @@
 """Plain content formatter for single file responses."""
 
+from collections.abc import Callable
 from pathlib import Path
 
 from mcp_guide.discovery.files import FileInfo
@@ -8,12 +9,12 @@ from mcp_guide.discovery.files import FileInfo
 class PlainFormatter:
     """Formats file content as plain text without headers."""
 
-    async def format(self, file_infos: list[FileInfo], docroot: Path) -> str:
+    async def format(self, file_infos: list[FileInfo], resolve_document_path: Callable[[str | Path], Path]) -> str:
         """Format file content as plain text.
 
         Args:
             file_infos: List of files with content
-            docroot: Document root path (unused for plain format)
+            resolve_document_path: Sync document-root-relative path resolver
 
         Returns:
             Plain content without headers

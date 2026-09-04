@@ -2,17 +2,13 @@
 
 """Documentation update tool."""
 
-from pathlib import Path
-from typing import Optional
-
-from fastmcp import Context
-
 from mcp_guide.core.tool_arguments import ToolArguments
 from mcp_guide.core.tool_decorator import toolfunc
 from mcp_guide.installer.core import ORIGINAL_ARCHIVE, perform_locked_update, read_version
+from mcp_guide.lazy_path import LazyPath
 from mcp_guide.result import Result
 from mcp_guide.result_constants import ERROR_CONFIG_READ, ERROR_FILE_ERROR
-from mcp_guide.session import get_session
+from mcp_guide.runtime import RequestContext, get_runtime
 from mcp_guide.tools.tool_result import ToolResult, tool_result
 
 __all__ = ["internal_update_documents", "update_documents"]
@@ -26,7 +22,7 @@ class UpdateDocumentsArgs(ToolArguments):
 
 async def internal_update_documents(
     args: UpdateDocumentsArgs,
-    ctx: Optional[Context] = None,
+    request_context: RequestContext,
 ) -> Result[dict]:
     """Update documentation files using the configured docroot.
 
@@ -35,16 +31,16 @@ async def internal_update_documents(
 
     Args:
         args: Tool arguments (currently no parameters)
-        ctx: MCP Context (auto-injected by FastMCP)
+        request_context: Resolved application request context
 
     Returns:
         Result containing update statistics
     """
     try:
-        session = await get_session(ctx, session_id=args.session_id)
-        docroot = Path(await session.runtime.get_docroot())
+        session = request_context.session
+        docroot = LazyPath(await get_runtime().get_docroot()).resolve()
         archive_path = docroot / ORIGINAL_ARCHIVE
-    except (OSError, ValueError) as e:
+    except (OSError, ValueError, RuntimeError) as e:
         return Result.failure(f"Failed to resolve documentation root: {e}", error_type=ERROR_CONFIG_READ)
 
     # Check version
@@ -82,12 +78,12 @@ async def internal_update_documents(
 @toolfunc(UpdateDocumentsArgs, requires_project=False)
 async def update_documents(
     args: UpdateDocumentsArgs,
-    ctx: Optional[Context] = None,
+    request_context: RequestContext,
 ) -> ToolResult:
     """Update documentation files using the configured docroot.
 
     Checks for version changes and updates files using smart merge strategy.
     Uses file locking to prevent concurrent updates.
     """
-    result = await internal_update_documents(args, ctx)
-    return await tool_result("update_documents", result, ctx=ctx, session_id=args.session_id)
+    result = await internal_update_documents(args, request_context)
+    return await tool_result("update_documents", result, session=request_context.session, session_id=args.session_id)

@@ -213,3 +213,5 @@ q.json
 .cline
 .clinerules
 .aider*
+.cursor/
+.mcp.json

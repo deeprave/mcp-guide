@@ -20,14 +20,18 @@ def _session_with_style(*, style: str | None = None, list_side_effect: Exception
         mock_project_flags_obj.list = AsyncMock(return_value={FLAG_CONTENT_STYLE: style})
     mock_session.project_flags.return_value = mock_project_flags_obj
 
-    mock_feature_flags_obj = Mock()
-    mock_feature_flags_obj.list = AsyncMock(return_value={})
-    mock_session.runtime.feature_flags.return_value = mock_feature_flags_obj
     mock_session.agent_info = None
     mock_session.task_manager.get_task_statistics.return_value = {}
     mock_session.task_manager.get_cached_data.return_value = None
     mock_session.get_project = AsyncMock(side_effect=ValueError("no project"))
     return mock_session
+
+
+@pytest.fixture(autouse=True)
+def _runtime_without_global_flags(monkeypatch: pytest.MonkeyPatch) -> None:
+    runtime = Mock()
+    runtime.feature_flags.return_value = Mock(list=AsyncMock(return_value={}))
+    monkeypatch.setattr("mcp_guide.runtime.get_runtime", lambda: runtime)
 
 
 class TestTemplateStylingFlag:

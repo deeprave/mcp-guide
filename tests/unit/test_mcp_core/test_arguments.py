@@ -2,9 +2,6 @@
 
 from typing import Literal
 
-import pytest
-from pydantic import ValidationError
-
 from mcp_guide.core.arguments import Arguments
 
 
@@ -25,12 +22,12 @@ class LiteralArgs(Arguments):
 class TestArgumentsValidation:
     """Tests for Pydantic validation."""
 
-    def test_extra_forbid_rejects_unknown_fields(self):
-        """Arguments should reject unknown fields with extra='forbid'."""
-        with pytest.raises(ValidationError) as exc_info:
-            SimpleArgs(name="test", unknown_field="value")
+    def test_extra_fields_are_ignored(self):
+        """Unknown fields are ignored so leftover caller arguments are not protocol errors."""
+        args = SimpleArgs(name="test", unknown_field="value")
 
-        assert "extra_forbidden" in str(exc_info.value)
+        assert args.name == "test"
+        assert not hasattr(args, "unknown_field")
 
 
 class TestSchemaGeneration:
@@ -54,6 +51,17 @@ class TestSchemaGeneration:
         assert "create" in schema
         assert "update" in schema
         assert "delete" in schema
+
+    def test_to_schema_markdown_optional_union_is_not_any(self):
+        """Optional and union fields should not advertise as any."""
+        schema = SimpleArgs.to_schema_markdown()
+
+        assert "session_id" in schema
+        assert "string | null" in schema
+        assert "FastMCP session identifier" not in schema
+        assert "Opaque Guide interaction identifier" in schema
+        session_line = next(line for line in schema.splitlines() if "**session_id**" in line)
+        assert ": any" not in session_line
 
     def test_build_description_combines_docstring_and_schema(self):
         """build_description() should combine function docstring with schema."""

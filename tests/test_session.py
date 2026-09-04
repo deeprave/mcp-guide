@@ -8,11 +8,10 @@ import pytest
 from mcp_guide.runtime import GuideRuntime, OwnerKey
 from mcp_guide.session import (
     Session,
-    get_session,
-    request_session_scope,
-    set_project,
+    bind_session_project,
+    request_context_scope,
 )
-from tests.helpers import create_test_runtime, create_unbound_test_session
+from tests.helpers import create_test_runtime, create_test_session, create_unbound_test_session
 
 
 def runtime_context(tmp_path: Path, request_id: str = "test-request") -> tuple[GuideRuntime[Session], MagicMock]:
@@ -28,53 +27,87 @@ def runtime_context(tmp_path: Path, request_id: str = "test-request") -> tuple[G
 
 
 class TestSetProject:
-    """Tests for set_project tool function."""
+    """Tests for explicit project binding."""
 
     @pytest.mark.anyio
     async def test_set_project_creates_and_loads(self, tmp_path, monkeypatch):
-        """set_project creates/loads project successfully."""
+        """Binding creates/loads project successfully."""
         _runtime, ctx = runtime_context(tmp_path)
-        result = await set_project("/client/workspace/new-project", ctx, session_id="new-project-session")
+        async with request_context_scope(
+            ctx, "new-project-session", allow_pwd_bootstrap=False, mint_session_if_unbound=True
+        ) as request_context:
+            project = await bind_session_project(request_context.session, "/client/workspace/new-project")
 
-        assert result.is_ok()
-        assert result.value is not None
-        assert result.value.name == "new-project"
+        assert project.name == "new-project"
 
     @pytest.mark.anyio
     async def test_set_project_with_invalid_name(self, tmp_path, monkeypatch):
-        """set_project returns error for invalid project name."""
-        from mcp_guide.result_constants import ERROR_INVALID_NAME
+        """Binding raises for an invalid project name."""
+        from mcp_guide.validation import InvalidProjectNameError
 
         _runtime, ctx = runtime_context(tmp_path)
-        result = await set_project("relative/invalid@name", ctx, session_id="invalid-project-session")
-
-        assert result.is_failure()
-        assert result.error_type == ERROR_INVALID_NAME
+        async with request_context_scope(
+            ctx, "invalid-project-session", allow_pwd_bootstrap=False, mint_session_if_unbound=True
+        ) as request_context:
+            with pytest.raises(InvalidProjectNameError):
+                await bind_session_project(request_context.session, "relative/invalid@name")
 
     @pytest.mark.anyio
     async def test_set_project_rejects_second_binding(self, tmp_path, monkeypatch):
         """A Session root is immutable after the first explicit binding."""
         _runtime, ctx = runtime_context(tmp_path)
-        assert (await set_project("/client/workspace/first-project", ctx, session_id="binding-session")).is_ok()
-        result = await set_project("/client/workspace/second-project", ctx, session_id="binding-session")
-
-        assert result.is_failure()
-        assert "already bound" in (result.error or "")
+        async with request_context_scope(
+            ctx, "binding-session", allow_pwd_bootstrap=False, mint_session_if_unbound=True
+        ) as request_context:
+            await bind_session_project(request_context.session, "/client/workspace/first-project")
+            with pytest.raises(ValueError, match="already bound"):
+                await bind_session_project(request_context.session, "/client/workspace/second-project")
 
     @pytest.mark.anyio
     async def test_set_project_binds_the_explicit_runtime_session(self, tmp_path, monkeypatch):
         """Modern binding updates the Session selected by the supplied FastMCP ID."""
         runtime, ctx = runtime_context(tmp_path, "set-project-request")
 
-        result = await set_project("/client/workspace/runtime-project", ctx, session_id="runtime-session")
+        async with request_context_scope(
+            ctx, "runtime-session", allow_pwd_bootstrap=False, mint_session_if_unbound=True
+        ) as request_context:
+            await bind_session_project(request_context.session, "/client/workspace/runtime-project")
 
-        assert result.is_ok()
         session = runtime.resolve_session(OwnerKey("runtime-session"))
         assert session.bound_root_path == Path("/client/workspace/runtime-project")
 
+    @pytest.mark.anyio
+    async def test_unmintable_legacy_set_project_raises_typed_error(self, tmp_path, monkeypatch):
+        """A legacy client with no connection session cannot mint via set_project."""
+        from types import SimpleNamespace
+
+        import mcp_guide.session as session_module
+        from mcp_guide.session import UnmintableGuideSessionError
+
+        class FakeContext:
+            def __init__(self, runtime) -> None:
+                self.request_context = SimpleNamespace(
+                    protocol_version="legacy",
+                    request_id="unmintable-set-project",
+                    meta=None,
+                    lifespan_context=runtime,
+                )
+                self.session = SimpleNamespace(client_params=None)
+                self.session_id = None
+                self.transport = "streamable-http"
+
+        runtime = create_test_runtime(str(tmp_path))
+        monkeypatch.setattr(session_module, "Context", FakeContext)
+
+        with pytest.raises(UnmintableGuideSessionError, match="cannot carry a Guide session"):
+            async with request_context_scope(
+                FakeContext(runtime), allow_pwd_bootstrap=False, mint_session_if_unbound=True
+            ):
+                pass
+
 
 class TestGetOrCreateSession:
-    """Tests for get_session function."""
+    """Tests for public session resolution."""
 
     def test_session_requires_a_runtime_owned_configuration_service(self) -> None:
         """A Session cannot create or select a configuration service for itself."""
@@ -82,17 +115,9 @@ class TestGetOrCreateSession:
             Session()  # ty: ignore[missing-argument]
 
     @pytest.mark.anyio
-    async def test_creates_session_with_explicit_name(self, tmp_path, monkeypatch):
+    async def test_creates_session_with_explicit_name(self, runtime, tmp_path, monkeypatch):
         """Creates session when explicit project_name provided."""
-        from mcp_guide.models import Project
-
-        async def mock_switch_project(self, project_name):
-            self._Session__delegate.bind(Project(name=project_name, categories={}, collections={}))
-
-        monkeypatch.setattr(Session, "switch_project", mock_switch_project)
-        monkeypatch.setattr(Session, "add_listener", lambda self, listener: None)
-
-        session = await get_session(project_name="explicit-project", _config_dir_for_tests=str(tmp_path))
+        session = await create_test_session(runtime, "explicit-project")
         assert session.project_name == "explicit-project"
 
     @pytest.mark.anyio
@@ -101,8 +126,8 @@ class TestGetOrCreateSession:
         _runtime, mock_ctx = runtime_context(tmp_path)
         mock_ctx.transport = "streamable-http"
 
-        session = await get_session(ctx=mock_ctx)
-        assert session.project_is_bound is False
+        async with request_context_scope(mock_ctx, allow_pwd_bootstrap=False) as request_context:
+            assert request_context.session.project_is_bound is False
 
     @pytest.mark.anyio
     async def test_stdio_context_with_session_id_does_not_bind_from_inherited_pwd(self, tmp_path, monkeypatch):
@@ -111,8 +136,8 @@ class TestGetOrCreateSession:
         monkeypatch.setenv("PWD", "/client/workspace/stdio-project")
         mock_ctx.transport = "stdio"
 
-        session = await get_session(ctx=mock_ctx, session_id="stdio-session")
-        assert session.project_is_bound is False
+        async with request_context_scope(mock_ctx, "stdio-session", allow_pwd_bootstrap=True) as request_context:
+            assert request_context.session.project_is_bound is False
 
     @pytest.mark.anyio
     async def test_set_project_uses_explicit_path_when_stdio_has_pwd(self, tmp_path, monkeypatch):
@@ -121,21 +146,69 @@ class TestGetOrCreateSession:
         ctx.transport = "stdio"
         monkeypatch.setenv("PWD", "/client/workspace/stdio-project")
 
-        result = await set_project("/client/workspace/explicit-project", ctx, session_id="stdio-session")
+        async with request_context_scope(
+            ctx, "stdio-session", allow_pwd_bootstrap=False, mint_session_if_unbound=True
+        ) as request_context:
+            project = await bind_session_project(request_context.session, "/client/workspace/explicit-project")
 
-        assert result.is_ok()
-        assert result.value is not None
-        assert result.value.name == "explicit-project"
+        assert project.name == "explicit-project"
 
     @pytest.mark.anyio
     async def test_request_scope_reuses_and_releases_unbound_session(self, tmp_path, monkeypatch):
         """An unbound Session is shared only for one request."""
         runtime, ctx = runtime_context(tmp_path)
-        async with request_session_scope(ctx, "same-session") as session1:
-            session2 = await get_session(ctx=ctx, session_id="same-session")
-            assert session1 is session2
+        async with request_context_scope(ctx, "same-session", allow_pwd_bootstrap=False) as request_context:
+            assert request_context.session is runtime.get_current_session("same-session")
 
         assert runtime.find_session(OwnerKey("same-session")) is None
+
+    @pytest.mark.anyio
+    async def test_request_context_scope_constructs_one_context_from_the_runtime_session(self, tmp_path):
+        """The transport boundary supplies the exact resolved Session downstream."""
+        runtime, ctx = runtime_context(tmp_path)
+
+        async with request_context_scope(ctx, "request-context-session", allow_pwd_bootstrap=False) as context:
+            assert context.session is runtime.find_session(OwnerKey("request-context-session"))
+            assert context.session_id == "request-context-session"
+            assert context.root is None
+            assert context.project is None
+
+    @pytest.mark.anyio
+    async def test_stdio_pwd_bootstrap_does_not_retain_unbound_owner(self, tmp_path, monkeypatch):
+        """A PWD-bound Session is retained only under its minted id, never unbound:*."""
+        from types import SimpleNamespace
+        from unittest.mock import AsyncMock
+
+        import fastmcp.server.sessions as fastmcp_sessions
+
+        import mcp_guide.session as session_module
+
+        class FakeContext:
+            def __init__(self, runtime) -> None:
+                self.request_context = SimpleNamespace(
+                    protocol_version="2026-07-28",
+                    request_id="stdio-pwd",
+                    meta=None,
+                    lifespan_context=runtime,
+                )
+                self.session = SimpleNamespace(client_params=None)
+                self.session_id = None
+                self.transport = "stdio"
+
+        project_root = tmp_path / "stdio-project"
+        project_root.mkdir()
+        monkeypatch.setenv("PWD", str(project_root))
+        monkeypatch.setenv("MG_USE_PWD", "1")
+        runtime = create_test_runtime(str(tmp_path / "config"))
+        monkeypatch.setattr(session_module, "Context", FakeContext)
+        monkeypatch.setattr(fastmcp_sessions, "create_session", AsyncMock(return_value="minted-stdio-session"))
+        monkeypatch.setattr(fastmcp_sessions, "get_session", AsyncMock(return_value=object()))
+
+        async with request_context_scope(FakeContext(runtime), allow_pwd_bootstrap=True) as request_context:
+            assert request_context.session.project_is_bound is True
+
+        assert not any(key.value.startswith("unbound:") for key in runtime._sessions)
+        assert OwnerKey("minted-stdio-session") in runtime._sessions
 
     @pytest.mark.anyio
     async def test_runtime_session_receives_standard_listeners(self, tmp_path):
@@ -149,7 +222,8 @@ class TestGetOrCreateSession:
         mock_ctx.request_context.lifespan_context = runtime
         mock_ctx.session.client_params = None
 
-        session = await get_session(ctx=mock_ctx, session_id="runtime-session")
+        async with request_context_scope(mock_ctx, "runtime-session", allow_pwd_bootstrap=False) as request_context:
+            session = request_context.session
 
         assert session is runtime_session
         assert getattr(session, "_guide_listeners_attached") is True
@@ -168,8 +242,14 @@ class TestGetOrCreateSession:
             ctx.session.client_params = None
             return ctx
 
-        first = await get_session(ctx=context("first-request"), session_id="first-session")
-        second = await get_session(ctx=context("second-request"), session_id="second-session")
+        async with request_context_scope(
+            context("first-request"), "first-session", allow_pwd_bootstrap=False
+        ) as first_context:
+            first = first_context.session
+        async with request_context_scope(
+            context("second-request"), "second-session", allow_pwd_bootstrap=False
+        ) as second_context:
+            second = second_context.session
 
         assert first is not second
 
@@ -185,23 +265,23 @@ class TestGetOrCreateSession:
         ctx.session.client_params = None
         ctx.session_id = "legacy-fastmcp-session"
 
-        async with request_session_scope(ctx) as session:
-            assert session is await get_session(ctx=ctx)
+        async with request_context_scope(ctx, allow_pwd_bootstrap=False) as request_context:
+            assert request_context.session is runtime.get_current_session("legacy-fastmcp-session")
 
         assert runtime.find_session(OwnerKey("legacy-fastmcp-session")) is None
 
     @pytest.mark.anyio
-    async def test_project_name_bootstrap_is_test_local(self, tmp_path):
+    async def test_project_name_bootstrap_is_test_local(self, runtime, tmp_path):
         """Test-only project-name bootstrap does not create global session state."""
-        session1 = await get_session(project_name="project1", _config_dir_for_tests=str(tmp_path))
-        session2 = await get_session(project_name="project2", _config_dir_for_tests=str(tmp_path))
+        session1 = await create_test_session(runtime, "project1")
+        session2 = await create_test_session(runtime, "project2")
 
         assert session1 is not session2
         assert session1.project_name == "project1"
         assert session2.project_name == "project2"
 
     @pytest.mark.anyio
-    async def test_project_switch_regenerates_startup_instructions_after_restart(self, tmp_path, monkeypatch):
+    async def test_project_switch_regenerates_startup_instructions_after_restart(self, runtime, tmp_path, monkeypatch):
         """Switching projects clears stale queued instructions, then queues fresh startup guidance."""
         from mcp_guide.decorators import clear_registered_tasks_for_testing
         from mcp_guide.task_manager.manager import TaskManager
@@ -229,7 +309,7 @@ class TestGetOrCreateSession:
         monkeypatch.setattr("mcp_guide.startup_listener.render_content", render_startup_content)
         monkeypatch.setattr("mcp_guide.guide_uri_listener.render_content", render_guide_content)
 
-        session = await get_session(project_name="project-one", _config_dir_for_tests=str(tmp_path))
+        session = await create_test_session(runtime, "project-one")
         task_manager = session.task_manager
         initial_instructions = list(task_manager._pending_instructions)
         await task_manager.queue_instruction("stale project instruction")
@@ -251,27 +331,27 @@ class TestGetOrCreateSession:
 class TestUnboundSession:
     """Tests for unbound session lifecycle."""
 
-    def test_session_starts_unbound(self, tmp_path):
+    def test_session_starts_unbound(self, runtime, tmp_path):
         """Session created without project is unbound."""
         from mcp_guide.models.delegate import UNBOUND_PROJECT_NAME
 
-        session = create_unbound_test_session(str(tmp_path))
+        session = create_unbound_test_session(runtime)
         assert session.project_is_bound is False
         assert session.project_name == UNBOUND_PROJECT_NAME
 
     @pytest.mark.anyio
-    async def test_get_project_raises_when_unbound(self, tmp_path):
+    async def test_get_project_raises_when_unbound(self, runtime, tmp_path):
         """get_project raises NoProjectError on unbound session."""
         from mcp_guide.models.exceptions import NoProjectError
 
-        session = create_unbound_test_session(str(tmp_path))
+        session = create_unbound_test_session(runtime)
         with pytest.raises(NoProjectError):
             await session.get_project()
 
     @pytest.mark.anyio
-    async def test_switch_project_requires_a_bound_root(self, tmp_path, monkeypatch):
+    async def test_switch_project_requires_a_bound_root(self, runtime, tmp_path, monkeypatch):
         """switch_project changes configuration only; set_project binds the root."""
-        session = create_unbound_test_session(str(tmp_path))
+        session = create_unbound_test_session(runtime)
         assert session.project_is_bound is False
 
         with pytest.raises(ValueError, match="explicitly bound root"):

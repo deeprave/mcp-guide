@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from fastmcp.prompts import PromptResult
 from fastmcp.tools.base import ToolResult
+from tests.helpers import request_context_for
 
 from mcp_guide.result import Result
 from mcp_guide.tools.tool_resource import session_id_from_guide_uri
@@ -42,7 +43,7 @@ async def test_tool_and_prompt_boundaries_preserve_agent_directed_result_fields(
 
 
 @pytest.mark.anyio
-async def test_resource_boundary_preserves_agent_directed_result_fields() -> None:
+async def test_resource_boundary_preserves_agent_directed_result_fields(runtime) -> None:
     """Native resources preserve Guide result semantics in their metadata."""
     from mcp_guide.resources import guide_resource
 
@@ -54,21 +55,19 @@ async def test_resource_boundary_preserves_agent_directed_result_fields() -> Non
             "task_manager": type("Tasks", (), {"process_result": AsyncMock(side_effect=lambda r: r)})(),
         },
     )()
-    get_session = AsyncMock(return_value=session)
-    with (
-        patch("mcp_guide.resources.get_session", get_session),
-        patch("mcp_guide.resources.internal_get_content", new=AsyncMock(return_value=_rich_result())),
-    ):
-        resource = await guide_resource("docs", "overview", session_id="bound-session")
+    with patch("mcp_guide.resources.internal_get_content", new=AsyncMock(return_value=_rich_result())):
+        resource = await guide_resource.__wrapped__(
+            "docs",
+            "overview",
+            session_id="bound-session",
+            request_context=await request_context_for(session, "bound-session"),
+            request_uri=None,
+        )
 
-    get_session.assert_awaited_once()
-    assert get_session.await_args.kwargs["session_id"] == "bound-session"
-
-    # Direct Python calls retain their historical JSON surface; FastMCP wraps
-    # this as a ResourceResult only at resource dispatch.
+    # The resource handler returns FastMCP's native ResourceResult.
     import json
 
-    payload = json.loads(resource)
+    payload = json.loads(resource.contents[0].content)
     assert payload["instruction"].startswith("Read before continuing.")
     assert payload["session_id"] == "bound-session"
     assert payload["disposition"] == "agent/instruction"
@@ -92,3 +91,29 @@ def test_resource_uri_rejects_ambiguous_session_ids() -> None:
     """A resource URI cannot select an interaction through repeated values."""
     with pytest.raises(ValueError, match="at most one"):
         session_id_from_guide_uri("guide://docs/overview?session_id=one&session_id=two")
+
+
+def test_read_resource_args_copy_unique_uri_session_id() -> None:
+    """The tool field receives a unique URI session_id when it is absent."""
+    from mcp_guide.tools.tool_resource import ReadResourceArgs
+
+    args = ReadResourceArgs(uri="guide://docs/overview?session_id=bound-session")
+    assert args.session_id == "bound-session"
+
+
+def test_read_resource_args_keep_explicit_session_id() -> None:
+    """An explicit tool session_id is not overwritten by the URI query."""
+    from mcp_guide.tools.tool_resource import ReadResourceArgs
+
+    args = ReadResourceArgs(uri="guide://docs/overview?session_id=from-uri", session_id="from-field")
+    assert args.session_id == "from-field"
+
+
+def test_read_resource_args_reject_empty_uri_session_id() -> None:
+    """An empty URI session_id is rejected before request scope."""
+    from pydantic import ValidationError
+
+    from mcp_guide.tools.tool_resource import ReadResourceArgs
+
+    with pytest.raises(ValidationError):
+        ReadResourceArgs(uri="guide://docs/overview?session_id=")

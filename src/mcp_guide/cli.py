@@ -83,6 +83,9 @@ class ServerConfig:
     ssl_certfile: Optional[str] = None
     ssl_keyfile: Optional[str] = None
 
+    # Optional stdio inherited-PWD bind; off unless a CLI launch opts in.
+    use_pwd: bool = False
+
     # Error tracking for deferred logging
     cli_error: Optional[click.ClickException | click.exceptions.Exit | click.exceptions.Abort] = None
     should_exit: bool = False
@@ -195,6 +198,13 @@ def parse_args() -> ServerConfig:
         type=click.Path(exists=True),
         help="SSL private key file for HTTPS (env: MG_SSL_KEYFILE)",
     )
+    @click.option(
+        "--use-pwd/--no-use-pwd",
+        "use_pwd",
+        envvar="MG_USE_PWD",
+        default=False,
+        help="Bind the first sessionless stdio interaction from inherited PWD (env: MG_USE_PWD). Off by default.",
+    )
     def cli(
         transport: str,
         log_level: str,
@@ -205,6 +215,7 @@ def parse_args() -> ServerConfig:
         configdir: Optional[str],
         ssl_certfile: Optional[str],
         ssl_keyfile: Optional[str],
+        use_pwd: bool,
     ) -> None:
         """MCP Guide Server."""
         # Tool prefix: --tool-prefix > envvar > default (empty)
@@ -220,6 +231,7 @@ def parse_args() -> ServerConfig:
         config.configdir = configdir
         config.ssl_certfile = ssl_certfile
         config.ssl_keyfile = ssl_keyfile
+        config.use_pwd = use_pwd
 
         # Parse transport mode
         try:

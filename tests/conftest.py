@@ -453,32 +453,49 @@ def reset_flag_registry():
 
 @pytest.fixture(scope="function")
 def guide_function(tmp_path, monkeypatch):
-    """Import guide function with server initialization.
+    """Provide the guide application handler with a resolved test context.
 
-    Creates a temporary server instance to enable guide function import.
-    Use this fixture in any test that needs to call the guide prompt.
+    Prompt-boundary behaviour is exercised with an MCP Client. This fixture
+    invokes the application handler underneath that boundary so unit-style
+    prompt routing tests cannot reintroduce a raw FastMCP context dependency.
     """
     import logging
 
     from mcp_guide.cli import ServerConfig
     from mcp_guide.server import create_server
-    from tests.helpers import create_unbound_test_session
+    from tests.helpers import application_runtime, create_unbound_test_session, request_context_for
 
-    # Initialize server to set up mcp instance
-    config = ServerConfig()
-    create_server(config)
-
-    session = create_unbound_test_session(str(tmp_path))
-
-    async def get_test_session(*_args, **_kwargs):
-        return session
-
-    monkeypatch.setattr("mcp_guide.session.get_session", get_test_session)
+    docs = tmp_path / "docs"
+    docs.mkdir(exist_ok=True)
+    config = ServerConfig(configdir=str(tmp_path), docroot=str(docs))
+    app = create_server(config)
+    runtime = application_runtime(app)
+    session = create_unbound_test_session(runtime)
 
     # Import guide function after server is initialized
     from mcp_guide.prompts.guide_prompt import guide
 
-    yield guide
+    async def invoke(*args, **kwargs):
+        kwargs.pop("ctx", None)
+        from fastmcp.prompts import Message, PromptResult
+
+        request_context = await request_context_for(session)
+        handler = getattr(guide, "__wrapped__")
+        result = await handler(*args, request_context=request_context, **kwargs)
+        assert isinstance(result, PromptResult)
+        messages = result.messages
+        if isinstance(messages, str):
+            return messages
+        first_message = messages[0]
+        assert isinstance(first_message, Message)
+        content = first_message.content
+        if isinstance(content, str):
+            return content
+        if isinstance(content, list):
+            return content[0].text
+        return content.text
+
+    yield invoke
 
     # Clean up logging after test
     root = logging.getLogger()
@@ -494,11 +511,55 @@ def guide_function(tmp_path, monkeypatch):
     root.setLevel(logging.WARNING)
 
 
+@pytest.fixture
+def runtime(tmp_path, request):
+    """Provide the process GuideRuntime and stop() it when the test returns.
+
+    Tests that already constructed a FastMCP application reuse that instance.
+    Other tests receive a fresh runtime whose configuration lives under tmp_path.
+    The fixture is synchronous so sync tests can request it without anyio.
+    """
+    import anyio
+
+    from tests.helpers import application_runtime, create_test_runtime
+
+    if "mcp_server" in request.fixturenames:
+        installed = application_runtime(request.getfixturevalue("mcp_server"))
+        if not installed.started:
+            anyio.run(installed.start)
+        try:
+            yield installed
+        finally:
+            if installed.started:
+                anyio.run(installed.stop)
+        return
+
+    installed = create_test_runtime(str(tmp_path))
+    try:
+        yield installed
+    finally:
+        if installed.started:
+            anyio.run(installed.stop)
+        else:
+            installed._release_process_runtime()
+
+
 @pytest.fixture(scope="function", autouse=True)
 def reset_session_for_test():
-    """Keep the compatibility fixture while Sessions are explicitly owned.
-
-    Runtime-backed and directly constructed Sessions are cleaned up by the
-    tests that create them. There is no process-global session state to reset.
-    """
+    """Stop a leftover process runtime so the next test may call create_runtime()."""
     yield
+    from mcp_guide.config_paths import clear_config_overrides
+    from mcp_guide.runtime import get_runtime
+
+    try:
+        leftover = get_runtime()
+    except RuntimeError:
+        leftover = None
+    if leftover is not None:
+        if leftover.started:
+            import anyio
+
+            anyio.run(leftover.stop)
+        else:
+            leftover._release_process_runtime()
+    clear_config_overrides()

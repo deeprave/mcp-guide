@@ -29,7 +29,7 @@ class ExampleArgs(ToolArguments):
 
 ```python
 @toolfunc(ExampleArgs)
-async def example_tool(args: ExampleArgs, ctx: Optional[Context] = None) -> str:  # type: ignore[type-arg]
+async def example_tool(args: ExampleArgs, request_context: RequestContext) -> str:  # type: ignore[type-arg]
     """Process items with optional pattern filtering.
 
     Searches for items matching the specified name and applies optional pattern

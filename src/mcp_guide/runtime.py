@@ -1,22 +1,33 @@
 """Framework-neutral runtime identities, lifecycle, and request context."""
 
 import asyncio
+import os
 import time
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from pathlib import Path, PurePath
-from typing import TYPE_CHECKING, Generic, Literal, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 from mcp_guide.feature_flags.types import FeatureValue
-from mcp_guide.models import Project
+from mcp_guide.models import NoProjectError, Project
 from mcp_guide.utils.project_hash import calculate_project_hash
 
 if TYPE_CHECKING:
     from mcp_guide.configuration import ConfigManager
     from mcp_guide.feature_flags.feature_flags import FeatureFlags
+    from mcp_guide.session import Session
 
 SessionT = TypeVar("SessionT")
+
+_GUIDE_RUNTIME: "GuideRuntime[Any] | None" = None
+
+
+def get_runtime() -> "GuideRuntime[Any]":
+    """Return the process GuideRuntime installed by create_runtime()."""
+    if _GUIDE_RUNTIME is None:
+        raise RuntimeError("Guide runtime has not been created")
+    return _GUIDE_RUNTIME
 
 
 @dataclass(frozen=True)
@@ -27,7 +38,7 @@ class OwnerKey:
 
 
 class GuideRuntime(Generic[SessionT]):
-    """Process-global Guide state with explicit lifecycle and Session ownership."""
+    """Process-singleton Guide state with explicit lifecycle and Session ownership."""
 
     def __init__(
         self,
@@ -41,11 +52,13 @@ class GuideRuntime(Generic[SessionT]):
     ) -> None:
         from mcp_guide.configuration import ConfigManager
 
+        # Do not call this constructor. Install the process runtime with create_runtime().
         self._session_factory = session_factory
         self._sessions: dict[OwnerKey, SessionT] = {}
         self._inflight_sessions: dict[OwnerKey, tuple[SessionT, int]] = {}
         self._session_last_used: dict[OwnerKey, float] = {}
         self._session_leases: dict[OwnerKey, int] = {}
+        self._request_seq = 0
         if session_idle_timeout is not None and session_idle_timeout <= 0:
             raise ValueError("session_idle_timeout must be positive or None")
         self._session_idle_timeout = session_idle_timeout
@@ -62,7 +75,11 @@ class GuideRuntime(Generic[SessionT]):
 
     async def start(self) -> None:
         """Run process-level initialization once before request acceptance."""
+        global _GUIDE_RUNTIME
         async with self._lifecycle_lock:
+            if _GUIDE_RUNTIME is not None and _GUIDE_RUNTIME is not self:
+                raise RuntimeError("Guide runtime already exists; stop() the current runtime before start()")
+            _GUIDE_RUNTIME = self
             if self._started:
                 return
             if self._on_start is not None:
@@ -76,6 +93,7 @@ class GuideRuntime(Generic[SessionT]):
         """Stop process-level runtime services once after request processing."""
         async with self._lifecycle_lock:
             if not self._started:
+                self._release_process_runtime()
                 return
             failure: Exception | None = None
             try:
@@ -113,8 +131,15 @@ class GuideRuntime(Generic[SessionT]):
                             failure = error
             finally:
                 self._started = False
+                self._release_process_runtime()
             if failure is not None:
                 raise failure
+
+    def _release_process_runtime(self) -> None:
+        """Clear the process runtime when this instance is the installed one."""
+        global _GUIDE_RUNTIME
+        if _GUIDE_RUNTIME is self:
+            _GUIDE_RUNTIME = None
 
     async def get_docroot(self) -> str:
         """Return the effective docroot owned by the runtime configuration service."""
@@ -122,6 +147,53 @@ class GuideRuntime(Generic[SessionT]):
         if get_docroot is None:
             raise RuntimeError("GuideRuntime has no docroot-capable configuration service")
         return await get_docroot()
+
+    async def get_docroot_resolver(self) -> Callable[[str | Path], Path]:
+        """Await the configured docroot once and return a sync path resolver.
+
+        The configured value is not rewritten. The returned function applies
+        LazyPath.resolve() (expandvars, expanduser, resolve) so callers receive
+        a host-absolute filesystem path. Containment stays lexical and does not
+        follow symlinks.
+        """
+        from mcp_guide.lazy_path import LazyPath
+
+        raw = await self.get_docroot()
+        if not isinstance(raw, str | Path):
+            raise TypeError("Document root must be a filesystem path")
+
+        def resolve(relative_path: str | Path) -> Path:
+            root = LazyPath(raw).resolve()
+            return self._resolve_against_root(root, relative_path)
+
+        return resolve
+
+    def _resolve_against_root(self, root: Path, relative_path: str | Path) -> Path:
+        """Resolve a document path without following symlinks.
+
+        Relative paths are joined to the document root. Already-absolute paths
+        skip that join and are still checked for containment.
+        """
+        requested = Path(relative_path)
+        if requested.is_absolute():
+            candidate = Path(os.path.normpath(str(requested)))
+        else:
+            candidate = Path(os.path.normpath(str(root / requested)))
+        try:
+            candidate.relative_to(root)
+        except ValueError as error:
+            raise ValueError("Document path must remain within the configured document root") from error
+        return candidate
+
+    async def resolve_document_path(self, relative_path: str | Path) -> Path:
+        """Resolve a document-root-relative path to a host-absolute filesystem path.
+
+        Containment is lexical. Escaping paths are rejected; already-absolute
+        paths are re-checked against the document root.
+        Application code should use RequestContext.get_docroot_resolver rather
+        than this runtime method or ``get_docroot``.
+        """
+        return (await self.get_docroot_resolver())(relative_path)
 
     def configuration_service(self) -> "ConfigManager":
         """Return the runtime-owned configuration service to a Session."""
@@ -266,13 +338,79 @@ class GuideRuntime(Generic[SessionT]):
                 await cleanup()
         return len(expired)
 
+    def next_request_seq(self) -> int:
+        """Return the next request sequence number for this runtime."""
+        self._request_seq += 1
+        return self._request_seq
 
-@dataclass(frozen=True)
-class ClientMetadata:
-    """Client display metadata supplied with an MCP request."""
+    def get_current_session(self, session_id: str) -> SessionT:
+        """Return the Guide Session for a known session_id. Never mint."""
+        validate_session_id(session_id)
+        owner = OwnerKey(session_id)
+        session = self.find_session(owner)
+        if session is None:
+            session = self.create_transient_session(owner)
+            if owner not in self._sessions:
+                self._inflight_sessions.setdefault(owner, (session, 0))
+        setattr(session, "session_id", session_id)
+        return session
 
-    name: str | None = None
-    version: str | None = None
+    async def create_session(self, ctx: Any) -> SessionT:
+        """Mint a FastMCP session_id and attach a Guide Session.
+
+        Call only from PWD bind or set_project when the Session is unbound.
+        """
+        from mcp_guide.session import UnmintableGuideSessionError, mint_modern_session_id
+
+        minted = await mint_modern_session_id(ctx)
+        if minted is None:
+            raise UnmintableGuideSessionError("The client protocol cannot carry a Guide session")
+        return self.get_current_session(minted)
+
+    async def request_context(
+        self,
+        session: "Session",
+        *,
+        session_id: str | None,
+        seq: int,
+    ) -> "RequestContext":
+        """Build the only public RequestContext for a resolved Session."""
+        resolver = await get_runtime().get_docroot_resolver()
+        return RequestContext(
+            session_id=session_id,
+            session=session,
+            seq=seq,
+            document_path_resolver=resolver,
+        )
+
+
+def create_runtime(
+    session_factory: Callable[[OwnerKey], SessionT],
+    *,
+    config_dir: str | None = None,
+    docroot: str | Path | None = None,
+    on_start: Callable[[], Awaitable[None]] | None = None,
+    on_stop: Callable[[], Awaitable[None]] | None = None,
+    session_idle_timeout: float | None = 3_600,
+) -> GuideRuntime[SessionT]:
+    """Construct and install the process GuideRuntime.
+
+    This is the only site that may construct a GuideRuntime.
+    Raises if a process runtime is already installed; call stop() first.
+    """
+    global _GUIDE_RUNTIME
+    if _GUIDE_RUNTIME is not None:
+        raise RuntimeError("Guide runtime already exists; stop() the current runtime before create_runtime()")
+    runtime = GuideRuntime(
+        session_factory,
+        config_dir=config_dir,
+        docroot=docroot,
+        on_start=on_start,
+        on_stop=on_stop,
+        session_idle_timeout=session_idle_timeout,
+    )
+    _GUIDE_RUNTIME = runtime
+    return runtime
 
 
 @dataclass(frozen=True)
@@ -292,27 +430,74 @@ class RootIdentity:
         return cls(path=str(pure_path), name=pure_path.name, hash=calculate_project_hash(str(pure_path)))
 
 
+def validate_session_id(session_id: str | None) -> None:
+    """Reject unsafe client session identifiers before they become runtime keys."""
+    if session_id is None:
+        return
+    if (
+        not session_id
+        or len(session_id) > 512
+        or any(ord(character) < 32 or 127 <= ord(character) <= 159 for character in session_id)
+    ):
+        raise ValueError("session ID must be non-empty, at most 512 characters, and contain no control characters")
+
+
 @dataclass(frozen=True)
 class RequestContext:
-    """Application context derived from one MCP request."""
+    """Resolved Guide state for one application request."""
 
-    protocol_revision: str
-    request_id: str | int | None
-    owner: OwnerKey
-    client: ClientMetadata
-    session_id: str | None = None
-    session_source: Literal["explicit", "legacy"] | None = None
-    root: RootIdentity | None = None
-    project: Project | None = None
-    session: object | None = None
+    session_id: str | None
+    session: "Session"
+    seq: int
+    document_path_resolver: Callable[[str | Path], Path]
 
     def __post_init__(self) -> None:
         """Reject unsafe session identifiers before they become runtime keys."""
-        if self.session_id is None:
-            return
-        if (
-            not self.session_id
-            or len(self.session_id) > 512
-            or any(ord(character) < 32 or 127 <= ord(character) <= 159 for character in self.session_id)
-        ):
-            raise ValueError("session ID must be non-empty, at most 512 characters, and contain no control characters")
+        validate_session_id(self.session_id)
+
+    @property
+    def root(self) -> RootIdentity | None:
+        """Return the Session's bound root identity, or None when unbound."""
+        root_path = self.session.bound_root_path
+        if root_path is None:
+            return None
+        return RootIdentity.from_path(str(root_path))
+
+    @property
+    def project(self) -> Project | None:
+        """Return the Session's current Project, or None when unbound."""
+        return self.session.project
+
+    @property
+    def is_bound(self) -> bool:
+        """Whether the request has an immutable root and selected Project."""
+        return self.root is not None and self.project is not None
+
+    def require_root(self) -> RootIdentity:
+        """Return the bound root or reject an unbound request."""
+        if self.root is None:
+            raise NoProjectError("Request has no bound project root")
+        return self.root
+
+    def require_project(self) -> Project:
+        """Return the active Project or reject an unbound request."""
+        if self.project is None:
+            raise NoProjectError("Request has no active project")
+        return self.project
+
+    async def process_result(self, result: Any) -> Any:
+        """Process an application Result through this request's TaskManager."""
+        return await self.session.task_manager.process_result(result)
+
+    def get_docroot_resolver(self) -> Callable[[str | Path], Path]:
+        """Return the sync document-path resolver captured for this request.
+
+        The configured document root is not exposed. Each call returns a
+        host-absolute path. The function is sync so a hot path can resolve
+        many document paths without awaiting each join.
+        """
+        return self.document_path_resolver
+
+    def resolve_document_path(self, relative_path: str | Path) -> Path:
+        """Resolve a document-root-relative path through the request resolver."""
+        return self.get_docroot_resolver()(relative_path)

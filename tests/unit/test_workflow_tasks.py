@@ -157,7 +157,7 @@ class TestWorkflowMonitorTask:
         assert result.value == semantic_response.content
 
     @pytest.mark.anyio
-    async def test_state_format_template_provides_strict_yaml_file_guidance(self) -> None:
+    async def test_state_format_template_provides_strict_yaml_file_guidance(self, monkeypatch) -> None:
         """The rendered state-format template explains the complete YAML contract."""
         template_path = Path("src/mcp_guide/templates/_workflow/state-format.mustache")
         file_info = FileInfo(
@@ -168,11 +168,13 @@ class TestWorkflowMonitorTask:
             name=template_path.name,
         )
 
+        runtime = Mock()
+        runtime.feature_flags.return_value = Mock(list=AsyncMock(return_value={}))
+        monkeypatch.setattr("mcp_guide.runtime.get_runtime", lambda: runtime)
         session = Mock()
         session.agent_info = None
         session.client_params = None
         session.get_project = AsyncMock(side_effect=ValueError("no project"))
-        session.runtime.feature_flags.return_value.list = AsyncMock(return_value={})
         session.project_flags.return_value.list = AsyncMock(return_value={"workflow": True})
         session.task_manager.get_cached_data.return_value = None
         session.task_manager.get_task_statistics.return_value = {}

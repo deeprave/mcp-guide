@@ -1,13 +1,13 @@
 """Test that category_content sets category field on FileInfo."""
 
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from _pytest.monkeypatch import MonkeyPatch
-from tests.helpers import tool_result_payload
 
 from mcp_guide.models import Category, Project
-from mcp_guide.tools.tool_category import CategoryContentArgs, category_content
+from mcp_guide.tools.tool_category import CategoryContentArgs, internal_category_content
 
 
 def create_mock_session(tmp_path, project_data):
@@ -18,11 +18,22 @@ def create_mock_session(tmp_path, project_data):
             return project_data
 
         @property
+        def project_is_bound(self):
+            return True
+
+        @property
+        def project(self):
+            return project_data
+
+        @property
         def runtime(self):
             return self
 
         async def get_docroot(self):
             return str(tmp_path)
+
+        def resolve_document_path(self, relative_path):
+            return Path(tmp_path) / relative_path
 
         def project_flags(self):
             class MockProjectFlags:
@@ -56,30 +67,36 @@ async def test_category_field_set_on_fileinfo(tmp_path: Path, monkeypatch: Monke
         collections={},
     )
 
-    async def mock_get_session(ctx=None):
-        return create_mock_session(tmp_path, project_data)
-
     # Patch to capture FileInfo objects - must patch before module imports
     captured_files = []
 
     # Import and wrap the actual function
     from mcp_guide.content.utils import read_and_render_file_contents as original_read
 
-    async def capture_read_contents(session, files, base_dir, docroot, template_context=None, category_prefix=None):
+    async def capture_read_contents(request_context, files, base_dir, template_context=None, category_prefix=None):
         nonlocal captured_files
         captured_files = list(files)  # Capture before processing
-        return await original_read(session, files, base_dir, docroot, template_context, category_prefix)
+        return await original_read(request_context, files, base_dir, template_context, category_prefix)
 
     # Patch the imported reference in tool_category module
     import mcp_guide.tools.tool_category
 
     monkeypatch.setattr(mcp_guide.tools.tool_category, "read_and_render_file_contents", capture_read_contents)
-    monkeypatch.setattr("mcp_guide.tools.tool_helpers.get_session", mock_get_session)
+    session = create_mock_session(tmp_path, project_data)
 
-    # Call tool
+    def resolve_document_path(relative_path):
+        return Path(tmp_path) / relative_path
+
     args = CategoryContentArgs(expression="guide")
-    result = tool_result_payload(await category_content(args))
-    assert result["success"] is True
+    result = await internal_category_content(
+        args,
+        SimpleNamespace(
+            session=session,
+            project=project_data,
+            resolve_document_path=resolve_document_path,
+        ),
+    )
+    assert result.success is True
 
     # Verify category field was set
     assert len(captured_files) > 0, "Should have captured FileInfo objects"

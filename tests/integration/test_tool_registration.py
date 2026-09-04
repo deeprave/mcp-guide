@@ -7,22 +7,6 @@ import pytest
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
-from mcp_guide.core.tool_decorator import disable_test_mode, enable_test_mode
-
-
-@pytest.fixture(scope="session", autouse=True)
-def production_mode():
-    """Ensure production mode for integration tests."""
-    from mcp_guide.core.tool_decorator import _test_mode
-
-    previous_state = _test_mode.get()
-    disable_test_mode()
-    yield
-    if previous_state:
-        enable_test_mode()
-    else:
-        disable_test_mode()
-
 
 @pytest.mark.anyio
 async def test_tool_registration_with_fastmcp():
@@ -120,6 +104,7 @@ async def test_modern_stdio_client_receives_pwd_bootstrap_session_id(tmp_path):
         env={
             "MCP_GUIDE_DISABLE_SERVER_TASKS": "1",
             "PWD": str(project_root),
+            "MG_USE_PWD": "1",
         },
         cwd=str(project_root),
     )

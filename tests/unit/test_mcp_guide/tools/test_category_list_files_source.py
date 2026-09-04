@@ -53,8 +53,21 @@ def _mock_session(categories):
     project = SimpleNamespace(categories=categories)
     session = AsyncMock()
     session.get_project = AsyncMock(return_value=project)
-    session.runtime.get_docroot = AsyncMock(return_value="/fake/docroot")
     return session
+
+
+def _request_context(session, categories):
+    """Create the resolved context supplied to a direct application handler."""
+    from pathlib import Path
+
+    def resolve_document_path(relative_path):
+        return Path("/fake/docroot") / relative_path
+
+    return SimpleNamespace(
+        session=session,
+        project=SimpleNamespace(categories=categories),
+        resolve_document_path=resolve_document_path,
+    )
 
 
 @pytest.mark.anyio
@@ -80,11 +93,10 @@ async def test_name_filter_limits_results():
     )
 
     with (
-        patch("mcp_guide.tools.tool_helpers.get_session", return_value=session),
         patch("mcp_guide.tools.tool_category.list_documents", new=AsyncMock(return_value=[record_a, record_b])),
     ):
         args = CategoryListFilesArgs(category="docs", source="stored", name="a.md")
-        result = await internal_category_list_files(args)
+        result = await internal_category_list_files(args, _request_context(session, {"docs": cat}))
         assert result.success is True
         assert len(result.value) == 1
         assert result.value[0]["path"] == "a.md"
@@ -105,11 +117,10 @@ async def test_stored_doc_enriched_with_metadata():
     )
 
     with (
-        patch("mcp_guide.tools.tool_helpers.get_session", return_value=session),
         patch("mcp_guide.tools.tool_category.list_documents", new=AsyncMock(return_value=[record])),
     ):
         args = CategoryListFilesArgs(category="docs", source="stored")
-        result = await internal_category_list_files(args)
+        result = await internal_category_list_files(args, _request_context(session, {"docs": cat}))
         assert result.success is True
         info = result.value[0]
         assert info["description"] == "A readme"

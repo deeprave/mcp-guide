@@ -2,55 +2,44 @@
 
 import pytest
 
+from mcp_guide.models import Category
 from mcp_guide.tools.tool_category import (
     CategoryAddArgs,
     CategoryChangeArgs,
     internal_category_add,
     internal_category_change,
 )
-from tests.helpers import create_test_session
+from tests.helpers import create_test_session, request_context_for
 
 
 @pytest.mark.anyio
-async def test_category_add_rejects_underscore_prefix(tmp_path, monkeypatch):
+async def test_category_add_rejects_underscore_prefix(runtime, tmp_path):
     """Test that category_add rejects names starting with underscore."""
-    session = await create_test_session("test", _config_dir_for_tests=str(tmp_path))
+    session = await create_test_session(runtime, "test")
     await session.get_project()
 
-    async def get_bound_session_and_project(_ctx=None, *, session_id=None):
-        return session, await session.get_project()
-
-    monkeypatch.setattr(
-        "mcp_guide.tools.tool_category.get_session_and_project",
-        get_bound_session_and_project,
-    )
+    request_context = await request_context_for(session)
 
     args = CategoryAddArgs(name="_commands")
-    result = await internal_category_add(args)
+    result = await internal_category_add(args, request_context)
 
     assert "Category names cannot start with underscore (reserved for system use)" in result.error
 
 
 @pytest.mark.anyio
-async def test_category_change_rejects_underscore_prefix(tmp_path, monkeypatch):
+async def test_category_change_rejects_underscore_prefix(runtime, tmp_path):
     """Test that category_change rejects new names starting with underscore."""
-    session = await create_test_session("test", _config_dir_for_tests=str(tmp_path))
+    session = await create_test_session(runtime, "test")
     await session.get_project()
 
-    async def get_bound_session_and_project(_ctx=None, *, session_id=None):
-        return session, await session.get_project()
-
-    monkeypatch.setattr(
-        "mcp_guide.tools.tool_category.get_session_and_project",
-        get_bound_session_and_project,
-    )
+    request_context = await request_context_for(session)
 
     # First create a valid category
-    add_args = CategoryAddArgs(name="docs")
-    await internal_category_add(add_args)
+    await session.update_config(lambda project: project.with_category("docs", Category(dir="docs", patterns=["*.md"])))
+    request_context = await request_context_for(session)
 
     # Try to rename to underscore prefix
     change_args = CategoryChangeArgs(name="docs", new_name="_commands")
-    result = await internal_category_change(change_args)
+    result = await internal_category_change(change_args, request_context)
 
     assert "Category names cannot start with underscore (reserved for system use)" in result.error
