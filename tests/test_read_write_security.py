@@ -44,6 +44,14 @@ class TestReadWriteSecurityPolicy:
         with pytest.raises(SecurityError, match="System directory access denied"):
             policy.validate_read_path("/etc/passwd")
 
+    def test_read_user_anchored_system_directory_is_blocked(self, monkeypatch):
+        """Expanded user anchors cannot bypass the system-directory blacklist."""
+        monkeypatch.setenv("HOME", "/etc")
+        policy = ReadWriteSecurityPolicy(additional_read_paths=["/etc"])
+
+        with pytest.raises(SecurityError, match="System directory access denied"):
+            policy.validate_read_path("~/passwd")
+
     def test_write_relative_path_in_allowed_paths(self):
         """Test writing to allowed relative paths."""
         policy = ReadWriteSecurityPolicy(write_allowed_paths=["docs/", "output/"])

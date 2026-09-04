@@ -69,7 +69,7 @@ class ReadWriteSecurityPolicy:
                 allowed_abs_clean = str(LazyPath(allowed_abs).expand()).rstrip("/")
                 if path_posix.startswith(allowed_abs_clean + "/") or path_posix == allowed_abs_clean:
                     # Check system directory blacklist
-                    if is_system_directory(path):
+                    if is_system_directory(str(path_obj)):
                         self._violation_count += 1
                         logger.warning(
                             f"Security violation #{self._violation_count}: read denied for system directory {path}"
@@ -107,7 +107,7 @@ class ReadWriteSecurityPolicy:
                     project_root_posix = self.project_root.as_posix().rstrip("/")
                     if path_posix.startswith(project_root_posix + "/") or path_posix == project_root_posix:
                         # Check system directory blacklist
-                        if is_system_directory(path):
+                        if is_system_directory(str(path_obj)):
                             self._violation_count += 1
                             logger.warning(
                                 f"Security violation #{self._violation_count}: read denied for system directory {path}"

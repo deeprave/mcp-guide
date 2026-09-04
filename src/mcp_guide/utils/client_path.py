@@ -30,10 +30,10 @@ def client_resolve(path: Union[str, Path], client_cwd: Union[str, Path]) -> Path
         >>> client_resolve("/absolute/path.txt", "/home/username/project")
         PosixPath('/absolute/path.txt')
     """
-    path_obj = Path(path)
+    path_obj = LazyPath(path).expand()
     client_cwd_obj = Path(client_cwd)
 
-    if LazyPath(path).is_absolute():
+    if path_obj.is_absolute():
         return path_obj
     else:
         return client_cwd_obj / path_obj

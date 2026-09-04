@@ -165,8 +165,8 @@ class Session:
         """
         from mcp_guide.validation import InvalidProjectNameError
 
-        root_path = Path(path)
-        if not LazyPath(path).is_absolute():
+        root_path = LazyPath(path).expand()
+        if not root_path.is_absolute():
             raise InvalidProjectNameError("Project path must be an absolute client filesystem path")
         if ".." in root_path.parts:
             raise InvalidProjectNameError("Project path must not contain directory traversals (..)")

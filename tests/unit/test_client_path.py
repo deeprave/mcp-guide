@@ -23,6 +23,13 @@ class TestClientPathResolution:
         result = client_resolve("/absolute/path.txt", "/home/username/project")
         assert result == Path("/absolute/path.txt")
 
+    def test_client_resolve_user_anchored_path(self, tmp_path, monkeypatch):
+        """Test resolving a user-anchored path to an absolute client path."""
+        home = tmp_path / "home"
+        monkeypatch.setenv("HOME", str(home))
+
+        assert client_resolve("~/file.txt", "/client/project") == home / "file.txt"
+
     def test_client_resolve_path_object_input(self):
         """Test resolving with Path object input."""
         result = client_resolve(Path("src/main.py"), "/home/username/project")

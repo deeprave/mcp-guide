@@ -6,7 +6,7 @@ import time
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from pathlib import Path, PurePath
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 from mcp_guide.feature_flags.types import FeatureValue
@@ -425,8 +425,8 @@ class RootIdentity:
     @classmethod
     def from_path(cls, path: str) -> "RootIdentity":
         """Build an identity from an absolute client filesystem path."""
-        pure_path = PurePath(path)
-        if not LazyPath(path).is_absolute():
+        pure_path = LazyPath(path).expand()
+        if not pure_path.is_absolute():
             raise ValueError("Project path must be absolute")
         return cls(path=str(pure_path), name=pure_path.name, hash=calculate_project_hash(str(pure_path)))
 

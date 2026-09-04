@@ -42,6 +42,20 @@ async def test_binding_is_path_based_immutable_and_configuration_switches_keep_r
 
 
 @pytest.mark.anyio
+async def test_binding_user_anchored_root_expands_before_storing(tmp_path: Path, monkeypatch) -> None:
+    """A bound root stores the expanded absolute client path."""
+    home = tmp_path / "home"
+    monkeypatch.setenv("HOME", str(home))
+    runtime = runtime_for_config(tmp_path)
+    session = runtime.resolve_session(OwnerKey("user-anchored-root"))
+
+    await session.bind_project_path("~/project")
+
+    assert session.bound_root_path == home / "project"
+    await session.cleanup()
+
+
+@pytest.mark.anyio
 async def test_same_configuration_name_at_distinct_roots_has_independent_strict_keys(tmp_path: Path) -> None:
     """Hash-suffixed keys prevent name-only cross-root selection."""
     runtime = runtime_for_config(tmp_path)
