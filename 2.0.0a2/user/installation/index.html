@@ -1589,9 +1589,12 @@ It requires uv, Python 3.13+ to be installed, and the "uvx" command to be availa
 - GitHub Copilot CLI: <code>~/.config/.copilot/mcp.json</code>
 - Codex: <code>~/.codex/config.json</code> (see <a href="#codex-setup">Codex Setup</a> below)</p>
 <h3 id="project-detection">Project Detection<a class="headerlink" href="#project-detection" title="Permanent link">&para;</a></h3>
-<p>For a local stdio server started from a project directory, mcp-guide may bind the
-inherited <code>PWD</code> as the project root. It does not use MCP roots, and HTTP servers never
-infer a client project from the server's own working directory.</p>
+<p>By default mcp-guide does not infer a project from inherited <code>PWD</code> or from the
+server process working directory. HTTP, container, and desktop hosts must not treat
+server <code>getcwd()</code> as the client filesystem. A CLI agent that starts a local stdio
+server from the project directory may opt in with <code>--use-pwd</code> or
+<code>MG_USE_PWD=1</code> to skip one <code>set_project</code> round trip. Guide still does not use
+MCP roots for binding.</p>
 <p>When the interaction is not already bound, the agent must call <code>set_project</code> with the
 absolute client filesystem path of the project root:</p>
 <div class="codehilite"><pre><span></span><code>set_project({&quot;path&quot;: &quot;/path/to/your/project&quot;})
@@ -1615,7 +1618,7 @@ different Guide configuration while retaining the same bound root.</p>
 <span class="p">}</span>
 </code></pre></div>
 
-<p>Once connected, the agent should call <code>set_project</code> with the current project path when the stdio <code>PWD</code> shortcut did not bind it. After that, <code>guide://</code> URIs become the primary way to access content and commands — see <a href="../guide-uris/">Guide URIs</a> for details.</p>
+<p>Once connected, the agent should call <code>set_project</code> with the current project path. The optional stdio <code>PWD</code> shortcut is off unless <code>MG_USE_PWD</code> is enabled. After binding, <code>guide://</code> URIs become the primary way to access content and commands — see <a href="../guide-uris/">Guide URIs</a> for details.</p>
 <h3 id="streamable-http">Streamable HTTP<a class="headerlink" href="#streamable-http" title="Permanent link">&para;</a></h3>
 <h4 id="http-transport">HTTP transport<a class="headerlink" href="#http-transport" title="Permanent link">&para;</a></h4>
 <p>MCP client configuration (HTTP):</p>

@@ -1475,9 +1475,11 @@ Some clients also expose equivalent prompt syntax, but the URI form is the stabl
 <p>For clients that support prompts, <code>guide://commit</code> may also be available as a prompt-style form. Commands like <code>guide://_status</code> remain the canonical documented syntax. If the agent can't read URIs directly, the <code>read_resource</code> tool works as a fallback.</p>
 <p>See <a href="../guide-uris/">Guide URIs</a> for the full details.</p>
 <h2 id="project-detection">Project Detection<a class="headerlink" href="#project-detection" title="Permanent link">&para;</a></h2>
-<p>mcp-guide needs an explicit project binding. A local stdio server may use its inherited
-absolute <code>PWD</code> for the initial binding; other interactions must call <code>set_project</code>
-with the absolute client project path. Modern clients then replay the returned
+<p>mcp-guide needs an explicit project binding. Call <code>set_project</code> with the absolute
+client project path. A local stdio server may optionally bind from its inherited
+absolute <code>PWD</code> when launched with <code>--use-pwd</code> or <code>MG_USE_PWD=1</code>; this
+is off by default because process <code>PWD</code> is not the client filesystem (HTTP,
+containers, and desktop hosts). Modern clients then replay the returned
 <code>session_id</code> on later project-bound requests. See <a href="../installation/#project-detection">Installation — Project
 Detection</a> and <a href="../protocol-and-sessions/">Protocol and
 Sessions</a> for details.</p>
