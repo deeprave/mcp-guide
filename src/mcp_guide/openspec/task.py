@@ -160,7 +160,7 @@ class OpenSpecTask(InitialisableMixin):
         """
         return self._version
 
-    def meets_minimum_version(self, minimum: str) -> bool:
+    def meets_minimum_version(self, minimum: str) -> bool:  # noqa: Vulture
         """Check if current OpenSpec version meets minimum requirement.
 
         Args:

@@ -51,7 +51,7 @@ async def format_project_data(
     Args:
         project: Project to format
         verbose: If True, include full details; if False, names only
-        session: Session for flag resolution (optional)
+        session: When supplied, include the project's stored flags (optional)
 
     Returns:
         Formatted project data dictionary

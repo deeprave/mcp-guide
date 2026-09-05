@@ -3,6 +3,8 @@
 import platform
 from typing import TYPE_CHECKING, Any, Optional
 
+from packaging.version import InvalidVersion, Version
+
 if TYPE_CHECKING:
     from mcp_guide.session import Session
 
@@ -214,7 +216,15 @@ class TemplateContextCache(SessionListener):
                         True if current version >= minimum
                     """
                     minimum = render(text).strip()
-                    return openspec_task_subscriber.meets_minimum_version(minimum)
+                    if not openspec_state.version:
+                        return False
+                    try:
+                        return Version(openspec_state.version.lstrip("v")) >= Version(minimum.lstrip("v"))
+                    except InvalidVersion:
+                        logger.warning(
+                            f"Invalid OpenSpec version comparison: current={openspec_state.version}, minimum={minimum}"
+                        )
+                        return False
 
                 agent_vars["openspec"] = {
                     "available": openspec_state.validated,
