@@ -1,11 +1,14 @@
 """Focused unit coverage for Section 4 project-context migration."""
 
 import asyncio
+from dataclasses import asdict
 from pathlib import Path
 
 import pytest
+import yaml
 from tests.helpers import create_test_runtime
 
+from mcp_guide.models.project import Project
 from mcp_guide.runtime import GuideRuntime, OwnerKey
 from mcp_guide.session import Session
 from mcp_guide.tools.tool_project import SetCurrentProjectArgs, SwitchProjectArgs
@@ -134,6 +137,33 @@ async def test_concurrent_bind_project_path_rejects_the_second_root(tmp_path: Pa
 
 
 @pytest.mark.anyio
+async def test_saving_legacy_openspec_project_state_discards_it_without_migrating(tmp_path: Path) -> None:
+    """A project save removes legacy fields without creating or changing global state."""
+    runtime = runtime_for_config(tmp_path)
+    session = runtime.resolve_session(OwnerKey("legacy-openspec"))
+    await session.bind_project_path("/client/workspace/legacy-openspec")
+    project = await session.get_project()
+    assert project.key is not None
+    await session.project_flags().set("openspec", True)
+
+    config_path = runtime.configuration_service().config_file
+    config = yaml.safe_load(config_path.read_text())
+    config["feature_flags"] = {"openspec-state": {"validated": "false", "checked": "10.0"}}
+    config["projects"][project.key]["openspec_validated"] = True
+    config["projects"][project.key]["openspec_version"] = "1.10.0"
+    config_path.write_text(yaml.safe_dump(config))
+
+    await session.invalidate_cache()
+    await session.update_config(lambda current: current)
+
+    persisted = yaml.safe_load(config_path.read_text())
+    assert "openspec_validated" not in persisted["projects"][project.key]
+    assert "openspec_version" not in persisted["projects"][project.key]
+    assert persisted["feature_flags"]["openspec-state"] == {"validated": "false", "checked": "10.0"}
+    await session.cleanup()
+
+
+@pytest.mark.anyio
 async def test_bind_notifies_after_releasing_the_bind_lock(tmp_path: Path) -> None:
     """Project-change listeners must not run while the bind lock is held."""
     runtime = runtime_for_config(tmp_path)
@@ -158,3 +188,11 @@ def test_project_selection_schemas_separate_root_path_from_configuration_name() 
     assert "name" not in set_schema["properties"]
     assert switch_schema["required"] == ["name"]
     assert "path" not in switch_schema["properties"]
+
+
+def test_project_serialisation_excludes_machine_wide_openspec_state() -> None:
+    """Project data cannot persist CLI state that belongs to the machine."""
+    project = Project(name="project", openspec_validated=True, openspec_version="1.10.0")
+
+    assert "openspec_validated" not in asdict(project)
+    assert "openspec_version" not in asdict(project)

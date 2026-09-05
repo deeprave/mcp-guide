@@ -3,6 +3,7 @@
 # Client context flags
 FLAG_ALLOW_CLIENT_INFO = "allow-client-info"
 FLAG_OPENSPEC = "openspec"
+FLAG_OPENSPEC_STATE = "openspec-state"
 
 # Workflow flags
 FLAG_WORKFLOW = "workflow"

@@ -25,29 +25,6 @@ The system SHALL request directory listings from the agent using MCP sampling re
 - **AND** only matching files are returned
 - **AND** filtering happens on agent side for efficiency
 
-### Requirement: Sampling-Based File Reading
-The system SHALL request file contents from the agent using MCP sampling requests.
-
-#### Scenario: Read file content
-- **WHEN** FilesystemBridge.read_file(path) is called
-- **THEN** creates sampling request with prompt to read file at path
-- **AND** path is validated against security policy before request
-- **AND** agent provides file content via guide_cache_file tool
-- **AND** content is stored in server-side cache
-- **AND** returns file content as string
-
-#### Scenario: Read file with encoding
-- **WHEN** read_file is called with specific encoding
-- **THEN** agent reads file with specified encoding
-- **AND** encoding errors are handled gracefully
-- **AND** fallback encodings are attempted if specified encoding fails
-
-#### Scenario: Read binary file
-- **WHEN** read_file is called with binary=True
-- **THEN** agent provides base64-encoded content
-- **AND** server decodes content to bytes
-- **AND** returns binary data
-
 ### Requirement: Path Validation and Security
 The system SHALL validate all filesystem paths against security policy before operations.
 
@@ -94,40 +71,6 @@ The system SHALL provide configurable security policy for filesystem access.
 - **AND** trailing slashes are removed
 - **AND** paths are resolved relative to project root
 
-### Requirement: File Content Caching
-The system SHALL cache file contents to minimize redundant sampling requests.
-
-#### Scenario: Cache file content
-- **WHEN** agent provides file content via guide_cache_file
-- **THEN** FileCache stores content with path as key
-- **AND** stores file metadata (size, mtime, encoding)
-- **AND** updates cache statistics
-
-#### Scenario: Cache hit
-- **WHEN** read_file is called for cached file
-- **AND** cache entry is valid (not expired)
-- **THEN** returns cached content without sampling request
-- **AND** increments cache hit counter
-
-#### Scenario: Cache miss
-- **WHEN** read_file is called for uncached file
-- **THEN** initiates sampling request to agent
-- **AND** caches response for future requests
-- **AND** increments cache miss counter
-
-#### Scenario: Cache invalidation by modification time
-- **WHEN** read_file is called for cached file
-- **AND** file modification time is newer than cache entry
-- **THEN** cache entry is invalidated
-- **AND** fresh content is requested from agent
-- **AND** cache is updated with new content
-
-#### Scenario: Cache size management
-- **WHEN** cache size exceeds configured limit
-- **THEN** LRU (least recently used) entries are evicted
-- **AND** eviction continues until size is below limit
-- **AND** eviction statistics are tracked
-
 ### Requirement: Error Handling and Fallbacks
 The system SHALL provide clear error handling for filesystem operations.
 
@@ -173,17 +116,27 @@ The system SHALL log all filesystem operations for security audit.
 ### Requirement: Integration with MCP Tools
 The system SHALL provide MCP tools for agent-server filesystem interaction.
 
+#### Scenario: send_file_content tool
+- **WHEN** agent calls send_file_content(path, content)
+- **THEN** path is treated as an opaque identifier and is not validated as a filesystem path
+- **AND** a missing or blank path is rejected as a validation error
+- **AND** content is dispatched as an `FS_FILE_CONTENT` Session event
+- **AND** the call returns a success result
+
+#### Scenario: Batch file delivery
+- **WHEN** agent calls send_file_content for multiple files
+- **THEN** each call treats path as an opaque identifier
+- **AND** each successful call dispatches one Session event
+- **AND** a missing or blank path does not dispatch that file
+
 #### Scenario: guide_cache_file tool
-- **WHEN** agent calls guide_cache_file(path, content)
-- **THEN** validates path against security policy
-- **AND** stores content in FileCache
-- **AND** returns success result with cache statistics
-- **AND** rejects invalid paths with security error
+- **WHEN** agent would previously call guide_cache_file(path, content)
+- **THEN** that tool SHALL NOT be provided
+- **AND** the agent SHALL use send_file_content instead
+- **AND** content is dispatched as an `FS_FILE_CONTENT` Session event rather than stored in FileCache
 
 #### Scenario: Batch file caching
-- **WHEN** agent calls guide_cache_file with multiple files
-- **THEN** validates all paths before caching any
-- **AND** caches all files atomically
-- **AND** returns batch operation statistics
-- **AND** rolls back on any validation failure
-
+- **WHEN** agent would previously batch-cache files through guide_cache_file
+- **THEN** that batch cache tool SHALL NOT be provided
+- **AND** each file SHALL be delivered through send_file_content
+- **AND** a missing or blank path SHALL NOT dispatch that file

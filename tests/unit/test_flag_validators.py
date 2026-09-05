@@ -7,11 +7,14 @@ from mcp_guide.feature_flags.constants import (
     FLAG_COMMAND,
     FLAG_GUIDE_DEVELOPMENT,
     FLAG_ONBOARDED,
+    FLAG_OPENSPEC,
+    FLAG_OPENSPEC_STATE,
     FLAG_RESOURCE,
     FLAG_WORKFLOW,
     FLAG_WORKFLOW_FILE,
 )
 from mcp_guide.feature_flags.validators import (
+    FlagScope,
     FlagValidationError,
     clear_validators,
     normalise_boolean_flag,
@@ -19,6 +22,7 @@ from mcp_guide.feature_flags.validators import (
     register_flag_validator,
     validate_boolean_flag,
     validate_flag_with_registered,
+    validate_openspec_state,
 )
 
 
@@ -303,3 +307,24 @@ class TestFlagScopeRestrictions:
 
         # Should not raise for global level
         validate_flag_with_registered("test-both", "value", is_project=False)
+
+
+def test_openspec_state_is_a_global_structured_flag() -> None:
+    """CLI state is accepted globally but cannot be attached to a Project."""
+    state = {"validated": "true", "version": "1.10.0", "checked": "100.0"}
+    register_flag_validator(FLAG_OPENSPEC_STATE, validate_openspec_state, FlagScope.FEATURE_ONLY)
+
+    validate_flag_with_registered(FLAG_OPENSPEC_STATE, state, is_project=False)
+    with pytest.raises(FlagValidationError, match="must be a feature flag"):
+        validate_flag_with_registered(FLAG_OPENSPEC_STATE, state, is_project=True)
+    with pytest.raises(FlagValidationError):
+        validate_flag_with_registered(FLAG_OPENSPEC_STATE, {"validated": "true", "checked": "nan"}, is_project=False)
+
+
+def test_openspec_enablement_is_project_only() -> None:
+    """Global state cannot become a fallback that enables OpenSpec everywhere."""
+    register_flag_validator(FLAG_OPENSPEC, validate_boolean_flag, FlagScope.PROJECT_ONLY)
+    validate_flag_with_registered(FLAG_OPENSPEC, True, is_project=True)
+
+    with pytest.raises(FlagValidationError, match="must be a project flag"):
+        validate_flag_with_registered(FLAG_OPENSPEC, True, is_project=False)

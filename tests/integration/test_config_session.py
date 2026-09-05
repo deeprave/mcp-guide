@@ -108,6 +108,7 @@ class TestConfigSessionIntegration:
         session = None
 
         try:
+            await runtime.feature_flags().set("allow-client-info", True)
             session = await self._create_bound_session(runtime, "enabled-project")
             task_manager = session.task_manager
             await session.update_config(
@@ -116,7 +117,6 @@ class TestConfigSessionIntegration:
                     project_flags={
                         "workflow": FeatureValue.from_raw(True),
                         "openspec": FeatureValue.from_raw(True),
-                        "allow-client-info": FeatureValue.from_raw(True),
                     },
                 )
             )
@@ -136,8 +136,8 @@ class TestConfigSessionIntegration:
 
             assert task_manager.get_task_by_type(WorkflowMonitorTask) is None
             assert task_manager.get_task_by_type(OpenSpecTask) is None
-            assert task_manager.get_task_by_type(ClientContextTask) is None
-            assert task_manager.get_subscription_count() == 3
+            assert task_manager.get_task_by_type(ClientContextTask) is not None
+            assert task_manager.get_subscription_count() == 4
             assert task_manager.get_cached_data("workflow_state") is None
             assert task_manager.get_cached_data("client_context_info") is None
             assert task_manager.get_cached_data("openspec_version") == "1.6.0"

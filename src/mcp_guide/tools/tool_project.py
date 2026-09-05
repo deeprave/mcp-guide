@@ -89,7 +89,7 @@ class ListProjectArgs(ToolArguments):
 
 
 class CloneProjectArgs(ToolArguments):
-    """Arguments for clone_project tool."""
+    """Arguments for cloning transferable configuration into the bound project."""
 
     from_project: str = Field(
         description="Source project name, or its exact <name>-<hash> configuration key when the name is ambiguous"
@@ -381,6 +381,8 @@ async def internal_clone_project(args: CloneProjectArgs, request_context: Reques
     if args.merge:
         merged_cats, cats_added, cats_overwritten = _merge_categories(source_project, target_project)
         merged_colls, colls_added, colls_overwritten = _merge_collections(source_project, target_project)
+        merged_flags = {**target_project.project_flags, **source_project.project_flags}
+        merged_exports = {**target_project.exports, **source_project.exports}
     else:
         # Replace: copy source entirely
         merged_cats = dict(source_project.categories)
@@ -389,15 +391,20 @@ async def internal_clone_project(args: CloneProjectArgs, request_context: Reques
         cats_overwritten = 0
         colls_added = len(merged_colls)
         colls_overwritten = 0
+        merged_flags = dict(source_project.project_flags)
+        merged_exports = dict(source_project.exports)
 
     # Create updated project and save
-    # Project-level state belongs to the destination identity.  Cloning copies
-    # categories and collections into that identity; it must not silently reset
-    # flags, permissions, OpenSpec state, or export tracking.
+    # Preserve destination identity while copying every transferable setting.
+    # In merge mode the source wins mapping conflicts and replaces path lists.
     updated_project = replace(
         target_project,
         categories=merged_cats,
         collections=merged_colls,
+        project_flags=merged_flags,
+        allowed_write_paths=list(source_project.allowed_write_paths),
+        additional_read_paths=list(source_project.additional_read_paths),
+        exports=merged_exports,
     )
 
     try:
@@ -425,11 +432,12 @@ async def internal_clone_project(args: CloneProjectArgs, request_context: Reques
 
 @toolfunc(CloneProjectArgs)
 async def clone_project(args: CloneProjectArgs, request_context: RequestContext) -> ToolResult:
-    """Copy categories and collections from a source project into the currently bound project.
+    """Copy transferable configuration into the currently bound project.
 
-    There is no target argument; the destination is always this interaction's bound project.
-    merge=True combines configs; merge=False replaces. force=True is required to replace a
-    non-empty target.
+    Categories, collections, project flags, exports, allowed-write paths, and
+    additional-read paths transfer while the destination identity is preserved.
+    In merge mode source mappings win and source path lists replace destination
+    lists; replace mode copies all transferable configuration from the source.
     """
     result = await internal_clone_project(args, request_context)
     return await tool_result("clone_project", result, session=request_context.session, session_id=args.session_id)

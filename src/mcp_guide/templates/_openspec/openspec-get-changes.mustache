@@ -3,7 +3,7 @@ type: agent/instruction
 description: Instructions for retrieving OpenSpec changes list
 ---
 {{#project}}
-{{#openspec_validated}}
+{{#openspec.available}}
 Please execute the OpenSpec list command and send the results:
 
 **Run OpenSpec list command:**
@@ -13,5 +13,5 @@ Get the changes by executing `openspec list --json`, sending the content to {{to
 **Note:** Do NOT display the file content to the user when calling send_file_content - only show the confirmation message.
 
 The file contains the JSON output from the openspec list command.
-{{/openspec_validated}}
+{{/openspec.available}}
 {{/project}}

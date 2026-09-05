@@ -132,8 +132,13 @@ Project information:
 - `{{project.project_flag_values}}` - List of project flags (for iteration)
 - `{{project.allowed_write_paths}}` - List of allowed write paths
 - `{{project.additional_read_paths}}` - List of additional read paths
-- `{{project.openspec_validated}}` - Whether OpenSpec validation completed
-- `{{project.openspec_version}}` - OpenSpec CLI version if detected
+
+### openspec.*
+
+OpenSpec information, when enabled for the project:
+
+- `{{openspec.available}}` - Whether OpenSpec is available
+- `{{openspec.version}}` - OpenSpec CLI version if detected
 
 ### path.*
 
@@ -265,4 +270,3 @@ type: user/information
 - **[Feature Flags](feature-flags.md)** - Conditional content with flags
 - **[Commands](commands.md)** - Using command templates
 - **[Content Management](content-management.md)** - Content types and organisation
-

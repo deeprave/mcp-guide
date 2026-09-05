@@ -10,17 +10,23 @@ OpenSpec integration enables structured change management with automatic monitor
 
 ## Integration Behaviour
 
-### Initial Validation
+### Validation and Shared CLI State
 
-When OpenSpec is first enabled, mcp-guide performs one-time validation checks:
-- Verifies `openspec` command is installed and available in PATH
+OpenSpec is enabled exclusively per project. When enabled, mcp-guide validates the
+project's OpenSpec configuration and tracks changes. CLI availability and version
+are shared machine-wide: an enabled project checks them when the global state is
+absent or older than 24 hours, then other enabled projects reuse that result.
+
+The shared CLI check verifies that `openspec` is installed and records its version.
+
+Project validation checks:
 - Confirms `openspec/config.yaml` exists (required by current OpenSpec versions)
 - Tests that `openspec list` executes successfully (even if no changes exist)
 
 ### Session Monitoring
 
 During each session, the integration:
-- Checks OpenSpec version once per session (determines available features)
+- Reuses the shared OpenSpec CLI availability and version result for up to 24 hours
 - Refreshes change list hourly or after agent makes OpenSpec changes
 - Caches responses to minimize redundant command execution
 
@@ -82,7 +88,7 @@ When OpenSpec is enabled, OpenSpec information is available in content templates
 
 ### The `openspec` Feature Flag
 
-This feature flag, normally set at project level, enables OpenSpec integration:
+This project-only feature flag enables OpenSpec integration:
 
 **Boolean:**
 - `false` / absent: OpenSpec integration disabled (default)

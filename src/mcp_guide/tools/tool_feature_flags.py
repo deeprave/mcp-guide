@@ -134,12 +134,18 @@ async def internal_list_project_flags(
 
     try:
         if args.active:
-            # Merged flags (global + project with project precedence)
+            # Resolve flags by scope, rather than blindly merging mappings.
+            from mcp_guide.feature_flags.resolution import resolve_flag
+
             global_proxy = get_runtime().feature_flags()
             project_proxy = session.project_flags()
             global_flags = await global_proxy.list()
             project_flags = await project_proxy.list()
-            flags = {**global_flags, **project_flags}  # project overrides global
+            flags = {
+                name: value
+                for name in global_flags.keys() | project_flags.keys()
+                if (value := resolve_flag(name, project_flags, global_flags)) is not None
+            }
         else:
             # Project flags only
             flags_proxy = session.project_flags()

@@ -1,11 +1,14 @@
 """Tests for OpenSpec CLI detection task."""
 
 import json
+import time
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from mcp_guide.feature_flags.types import FeatureValue
 from mcp_guide.openspec.task import OpenSpecTask
 from mcp_guide.render.content import RenderedContent
 from mcp_guide.render.frontmatter import Frontmatter
@@ -25,19 +28,25 @@ def make_rendered_content(content: str, instruction: str | None = None) -> Rende
 
 
 @pytest.fixture
-def mock_task_manager():
+def mock_task_manager(monkeypatch):
     """Create a mock task manager."""
     manager = MagicMock()
     manager._session = MagicMock()
     manager._session.template_cache = MagicMock()
-    manager._session.get_project = AsyncMock(return_value=MagicMock(openspec_version=None, openspec_validated=True))
-    manager._session.update_config = AsyncMock()
+    manager._session.project = SimpleNamespace(project_flags={"openspec": True})
     manager.subscribe = MagicMock()  # Synchronous
     manager.unsubscribe = AsyncMock()
     manager.queue_instruction = AsyncMock()
     manager.queue_instruction_with_ack = AsyncMock(return_value="test-id")
     manager.acknowledge_instruction = AsyncMock()
     manager.set_cached_data = MagicMock()
+    flags = MagicMock()
+    flags.get = AsyncMock(return_value=None)
+    flags.set = AsyncMock()
+    runtime = MagicMock()
+    runtime.feature_flags.return_value = flags
+    manager.global_flags = flags
+    monkeypatch.setattr("mcp_guide.openspec.task.get_runtime", lambda: runtime)
     return manager
 
 
@@ -61,7 +70,7 @@ class TestOpenSpecTask:
         """Test that task subscribes to events during explicit startup."""
         mock_task_manager.requires_flag = AsyncMock(return_value=True)
         task = OpenSpecTask(mock_task_manager)
-        started = await task.start(mock_task_manager, MagicMock())
+        started = await task.start(mock_task_manager, mock_task_manager._session)
 
         assert started is True
         assert mock_task_manager.subscribe.call_count == 1
@@ -73,6 +82,59 @@ class TestOpenSpecTask:
         assert call[0][1] & EventType.FS_FILE_CONTENT
         assert call[0][1] & EventType.TIMER
         assert call[0][2] == 3600.0  # 60 min interval
+
+    @pytest.mark.anyio
+    async def test_start_does_not_use_global_state_to_enable_a_project(self, mock_task_manager):
+        """A global CLI result cannot start OpenSpec for a project with its flag disabled."""
+        mock_task_manager._session.project = SimpleNamespace(project_flags={"openspec": False})
+        task = OpenSpecTask(mock_task_manager)
+
+        started = await task.start(mock_task_manager, mock_task_manager._session)
+
+        assert started is False
+        mock_task_manager.subscribe.assert_not_called()
+
+    @pytest.mark.anyio
+    async def test_initialise_requests_availability_for_absent_global_state(self, mock_task_manager):
+        """An enabled Project starts a fresh machine-wide OpenSpec check when state is absent."""
+        task = OpenSpecTask(mock_task_manager)
+
+        with patch.object(task, "request_cli_check", new_callable=AsyncMock) as request_cli:
+            await task._initialise()
+
+        request_cli.assert_awaited_once()
+
+    @pytest.mark.anyio
+    async def test_initialise_reuses_recent_global_state(self, mock_task_manager):
+        """A fresh global result avoids another availability or version instruction."""
+        mock_task_manager.global_flags.get.return_value = FeatureValue(
+            {"validated": "true", "version": "1.10.0", "checked": str(time.time())}
+        )
+        task = OpenSpecTask(mock_task_manager)
+
+        with (
+            patch.object(task, "request_cli_check", new_callable=AsyncMock) as request_cli,
+            patch.object(task, "request_project_check", new_callable=AsyncMock) as request_project,
+        ):
+            await task._initialise()
+
+        assert task.is_available() is True
+        assert task.get_version() == "1.10.0"
+        request_cli.assert_not_awaited()
+        request_project.assert_awaited_once()
+
+    @pytest.mark.anyio
+    async def test_initialise_refreshes_expired_global_state(self, mock_task_manager):
+        """An enabled Project refreshes a result at the end of the 24-hour guard period."""
+        mock_task_manager.global_flags.get.return_value = FeatureValue(
+            {"validated": "true", "version": "1.10.0", "checked": str(time.time() - 24 * 60 * 60)}
+        )
+        task = OpenSpecTask(mock_task_manager)
+
+        with patch.object(task, "request_cli_check", new_callable=AsyncMock) as request_cli:
+            await task._initialise()
+
+        request_cli.assert_awaited_once()
 
     @pytest.mark.anyio
     async def test_get_name(self, mock_task_manager):
@@ -136,17 +198,12 @@ class TestOpenSpecTask:
         mock_task_manager.set_cached_data.assert_called_once_with("openspec_available", False)
 
     @pytest.mark.anyio
-    async def test_handle_event_config_directory_listing_validates_project(self, mock_task_manager):
-        """A current OpenSpec config enables the project integration."""
+    async def test_handle_event_config_directory_listing_requests_changes(self, mock_task_manager):
+        """A current OpenSpec config enables the project integration without persisting project state."""
         task = OpenSpecTask(mock_task_manager)
         task._project_instruction_id = "project-check"
 
         with patch.object(task, "request_changes_json", new_callable=AsyncMock) as mock_request_changes:
-            project = MagicMock(openspec_validated=False)
-            session = AsyncMock()
-            session.get_project.return_value = project
-            task._session = session
-
             result = await task.handle_event(
                 EventType.FS_DIRECTORY,
                 {"path": "openspec", "files": [{"name": "config.yaml", "type": "file"}]},
@@ -155,7 +212,6 @@ class TestOpenSpecTask:
         assert result.result is True
         assert task._project_enabled is True
         mock_task_manager.acknowledge_instruction.assert_awaited_once_with("project-check")
-        session.update_config.assert_awaited_once()
         mock_request_changes.assert_awaited_once()
 
     @pytest.mark.anyio
@@ -185,7 +241,8 @@ class TestOpenSpecTask:
         # Task only subscribes to TIMER_ONCE, FS_COMMAND, and FS_DIRECTORY, not FS_FILE_CONTENT
         event_data = {"path": ".some-file.txt", "content": "content"}
 
-        result = await task.handle_event(EventType.FS_FILE_CONTENT, event_data)
+        with patch.object(task, "request_project_check", new_callable=AsyncMock):
+            result = await task.handle_event(EventType.FS_FILE_CONTENT, event_data)
 
         assert result is None
         mock_task_manager.set_cached_data.assert_not_called()
@@ -225,7 +282,8 @@ class TestOpenSpecTask:
 
         event_data = {"path": ".openspec-version.txt", "content": content}
 
-        result = await task.handle_event(EventType.FS_FILE_CONTENT, event_data)
+        with patch.object(task, "request_project_check", new_callable=AsyncMock):
+            result = await task.handle_event(EventType.FS_FILE_CONTENT, event_data)
 
         assert result.result is True
         assert task.get_version() == expected_version
@@ -257,7 +315,7 @@ class TestOpenSpecTask:
 
     @pytest.mark.anyio
     async def test_version_persistence(self, mock_task_manager):
-        """Test that version is stored in project config."""
+        """Test that version is stored as global structured feature-flag state."""
         task = OpenSpecTask(mock_task_manager)
 
         event_data = {
@@ -266,20 +324,16 @@ class TestOpenSpecTask:
         }
 
         with patch.object(task, "request_project_check", new_callable=AsyncMock) as mock_request_project:
-            mock_project = MagicMock()
-            mock_project.openspec_version = None
-            mock_project.openspec_validated = False  # Required for request_project_check to be called
-            mock_session_instance = AsyncMock()
-            mock_session_instance.get_project = AsyncMock(return_value=mock_project)
-            mock_session_instance.update_config = AsyncMock()
-            task._session = mock_session_instance
-
             result = await task.handle_event(EventType.FS_FILE_CONTENT, event_data)
 
         assert result.result is True
         assert task.get_version() == "1.2.3"
         assert task._version_this_session == "1.2.3"
-        mock_session_instance.update_config.assert_called_once()
+        mock_task_manager.global_flags.set.assert_awaited_once()
+        name, state = mock_task_manager.global_flags.set.await_args.args
+        assert name == "openspec-state"
+        assert state["validated"] == "true"
+        assert state["version"] == "1.2.3"
         mock_request_project.assert_called_once()
 
     @pytest.mark.anyio

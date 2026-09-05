@@ -1,17 +1,21 @@
 """OpenSpec CLI detection task."""
 
 import re
-from dataclasses import replace
-from typing import TYPE_CHECKING, Any, Optional
+import time
+from typing import TYPE_CHECKING, Any, Optional, cast
 
 from packaging.version import InvalidVersion, Version
 
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.decorators import task_register
-from mcp_guide.feature_flags.constants import FLAG_OPENSPEC
+from mcp_guide.feature_flags.constants import FLAG_OPENSPEC, FLAG_OPENSPEC_STATE
+from mcp_guide.feature_flags.types import FeatureValue, RawFeatureValue
+from mcp_guide.feature_flags.validators import is_value_true
 from mcp_guide.openspec.rendering import render_openspec_template
+from mcp_guide.openspec.state import OpenSpecState, parse_openspec_state, serialise_openspec_state
 from mcp_guide.render.content import RenderedContent
 from mcp_guide.render.context import TemplateContext
+from mcp_guide.runtime import get_runtime
 from mcp_guide.task_manager import EventType
 from mcp_guide.task_manager.protocol import DEFAULT_ONCE_INTERVAL, InitialisableMixin
 
@@ -24,6 +28,7 @@ logger = get_logger(__name__)
 # Cache and timer constants
 CHANGES_CACHE_TTL = 3600  # 1 hour
 CHANGES_CHECK_INTERVAL = 3600.0  # 60 minutes
+OPENSPEC_CHECK_INTERVAL = 24 * 60 * 60
 
 
 @task_register
@@ -56,7 +61,7 @@ class OpenSpecTask(InitialisableMixin):
         """Start OpenSpec detection if enabled for the current project."""
         self.task_manager = task_manager
         self._session = session
-        if not await self.task_manager.requires_flag(FLAG_OPENSPEC, session):
+        if not await self._is_enabled():
             logger.debug(f"OpenSpecTask disabled - {FLAG_OPENSPEC} flag not set")
             self._flag_checked = True
             return False
@@ -82,7 +87,7 @@ class OpenSpecTask(InitialisableMixin):
 
         if self._session is None:
             return EventResult(result=False, message="OpenSpec task is not attached to a Session")
-        openspec_enabled = await self.task_manager.requires_flag(FLAG_OPENSPEC, self._session)
+        openspec_enabled = await self._is_enabled()
 
         if not openspec_enabled:
             await self.task_manager.unsubscribe(self)
@@ -90,25 +95,56 @@ class OpenSpecTask(InitialisableMixin):
             self._flag_checked = True
             return EventResult(result=True)
 
-        session = self._session
-        project = await session.get_project()
-
-        if project.openspec_version:
-            self._version = project.openspec_version
+        state = await self._get_global_state()
+        if self._is_recent(state):
+            self._available = state.validated
+            self._version = state.version
+            self.task_manager.set_cached_data("openspec_available", self._available)
             self.task_manager.set_cached_data("openspec_version", self._version)
-            logger.debug(f"Loaded persisted OpenSpec version: {self._version}")
-
-        if project.openspec_validated:
-            if not self._version_requested:
-                self._version_requested = True
-                await self.request_version_check()
+            if state.validated and not self._project_requested:
+                self._project_requested = True
+                await self.request_project_check()
         elif not self._cli_requested:
             await self.request_cli_check()
             self._cli_requested = True
         self._flag_checked = True
         return EventResult(result=True)
 
-    def is_available(self) -> Optional[bool]:
+    async def _is_enabled(self) -> bool:
+        """Return whether the active Project exclusively enables OpenSpec."""
+        if self._session is None:
+            return False
+        # Configuration publication invokes task restarts while it holds the
+        # publication lock.  Read the Session's already-bound Project rather
+        # than triggering a project refresh through project_flags(), which
+        # could try to reacquire that lock for a malformed external update.
+        project = self._session.project
+        if project is None:
+            return False
+        value = project.project_flags.get(FLAG_OPENSPEC)
+        return is_value_true(value)
+
+    async def _get_global_state(self) -> OpenSpecState:
+        """Load the machine-wide OpenSpec state through the feature-flag API."""
+        value = await get_runtime().feature_flags().get(FLAG_OPENSPEC_STATE)
+        return parse_openspec_state(value)
+
+    @staticmethod
+    def _is_recent(state: OpenSpecState) -> bool:
+        """Return whether a completed global check remains within its guard period."""
+        if state.checked is None:
+            return False
+        age = time.time() - state.checked
+        return 0 <= age < OPENSPEC_CHECK_INTERVAL
+
+    async def _persist_global_state(self, *, validated: bool, version: str | None = None) -> None:
+        """Replace the complete machine-wide OpenSpec state after an attempt."""
+        state = serialise_openspec_state(OpenSpecState(validated=validated, version=version, checked=time.time()))
+        if state is None:
+            raise RuntimeError("Completed OpenSpec state must serialise")
+        await get_runtime().feature_flags().set(FLAG_OPENSPEC_STATE, FeatureValue(cast(RawFeatureValue, state)))
+
+    def is_available(self) -> Optional[bool]:  # noqa: Vulture
         """Check if OpenSpec CLI is available.
 
         Returns:
@@ -116,7 +152,7 @@ class OpenSpecTask(InitialisableMixin):
         """
         return self._available
 
-    def get_version(self) -> Optional[str]:
+    def get_version(self) -> Optional[str]:  # noqa: Vulture
         """Get OpenSpec CLI version.
 
         Returns:
@@ -286,6 +322,8 @@ class OpenSpecTask(InitialisableMixin):
                 if self._available and not self._version_requested:
                     self._version_requested = True
                     await self.request_version_check()
+                elif not self._available:
+                    await self._persist_global_state(validated=False)
 
                 return EventResult(result=True)
 
@@ -301,17 +339,7 @@ class OpenSpecTask(InitialisableMixin):
                     await self.task_manager.acknowledge_instruction(self._project_instruction_id)
                     self._project_instruction_id = None
 
-                # Mark validation as complete if the current OpenSpec config exists
                 if self._project_enabled:
-                    session = self._session
-                    if session is None:
-                        return EventResult(result=False, message="OpenSpec task is not attached to a Session")
-                    project = await session.get_project()
-
-                    if not project.openspec_validated:
-                        await session.update_config(lambda p: replace(p, openspec_validated=True))
-                        logger.info("OpenSpec validation completed and persisted")
-
                     # Request changes list after validation
                     if not self._changes_requested:
                         self._changes_requested = True
@@ -444,7 +472,7 @@ class OpenSpecTask(InitialisableMixin):
             logger.trace("OpenSpec changes cache invalidated")
 
     async def _parse_version(self, content: str) -> None:
-        """Parse OpenSpec version from command output and store in project config.
+        """Parse OpenSpec version from command output and store global state.
 
         Args:
             content: Output from openspec --version command
@@ -458,18 +486,10 @@ class OpenSpecTask(InitialisableMixin):
                 self.task_manager.set_cached_data("openspec_version", self._version)
                 logger.info(f"OpenSpec version: {self._version}")
 
-                # Store version in project config
-                if self._session is None:
-                    logger.warning("Cannot persist OpenSpec version without an owning Session")
-                    return
-                session = self._session
-                project = await session.get_project()
-                if project.openspec_version != self._version:
-                    await session.update_config(lambda p: replace(p, openspec_version=self._version))
-                    logger.info(f"Updated project config with OpenSpec version: {self._version}")
+                await self._persist_global_state(validated=True, version=self._version)
 
-                # After version is confirmed, check project structure (only if not already validated)
-                if not self._project_requested and not project.openspec_validated:
+                # CLI state is global, but OpenSpec project detection is local.
+                if not self._project_requested:
                     self._project_requested = True
                     await self.request_project_check()
             else:
@@ -477,13 +497,9 @@ class OpenSpecTask(InitialisableMixin):
                 self._version = None
                 self._version_this_session = None
                 self.task_manager.set_cached_data("openspec_version", None)
+                await self._persist_global_state(validated=False)
         finally:
             # Always acknowledge to prevent re-queuing
-            if self._version_instruction_id:
-                await self.task_manager.acknowledge_instruction(self._version_instruction_id)
-                self._version_instruction_id = None
-
-            # Acknowledge even on failure to prevent re-queuing
             if self._version_instruction_id:
                 await self.task_manager.acknowledge_instruction(self._version_instruction_id)
                 self._version_instruction_id = None

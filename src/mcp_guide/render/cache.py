@@ -191,11 +191,17 @@ class TemplateContextCache(SessionListener):
         # Add OpenSpec-specific context (version, changes, status)
         try:
             # OpenSpecTask needs lazy import
+            from mcp_guide.feature_flags.constants import FLAG_OPENSPEC_STATE
+            from mcp_guide.openspec.state import parse_openspec_state
             from mcp_guide.openspec.task import OpenSpecTask
+            from mcp_guide.runtime import get_runtime
 
             openspec_task_subscriber = task_manager.get_task_by_type(OpenSpecTask) if task_manager is not None else None
 
             if openspec_task_subscriber:
+                state_value = await get_runtime().feature_flags().get(FLAG_OPENSPEC_STATE)
+                openspec_state = parse_openspec_state(state_value)
+
                 # Create lambda for version checking
                 def has_version(text: str, render: Any) -> bool:
                     """Check if OpenSpec version meets minimum requirement.
@@ -211,8 +217,8 @@ class TemplateContextCache(SessionListener):
                     return openspec_task_subscriber.meets_minimum_version(minimum)
 
                 agent_vars["openspec"] = {
-                    "available": openspec_task_subscriber.is_available(),
-                    "version": openspec_task_subscriber.get_version(),
+                    "available": openspec_state.validated,
+                    "version": openspec_state.version,
                     "changes": openspec_task_subscriber.get_changes() or [],
                     "show": openspec_task_subscriber.get_show(),
                     "status": openspec_task_subscriber.get_status(),

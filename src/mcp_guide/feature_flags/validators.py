@@ -2,6 +2,7 @@
 
 from collections.abc import Collection
 from enum import Enum
+from math import isfinite
 from typing import Callable, Dict
 
 from mcp_guide.feature_flags.constants import (
@@ -12,6 +13,8 @@ from mcp_guide.feature_flags.constants import (
     FLAG_CONTENT_STYLE,
     FLAG_GUIDE_DEVELOPMENT,
     FLAG_ONBOARDED,
+    FLAG_OPENSPEC,
+    FLAG_OPENSPEC_STATE,
     FLAG_PATH_DOCUMENTS,
     FLAG_PATH_EXPORT,
     FLAG_RESOURCE,
@@ -32,6 +35,7 @@ __all__ = [
     "register_flag_validator",
     "validate_flag_with_registered",
     "normalise_flag",
+    "get_flag_scope",
     "clear_validators",
     "FlagValidationError",
     "FlagScope",
@@ -208,6 +212,29 @@ def validate_boolean_flag(value: FeatureValueLike | None, is_project: bool) -> b
     return coerce_boolean_like(value) is not None
 
 
+def validate_openspec_state(value: FeatureValueLike | None, is_project: bool) -> bool:
+    """Validate the global structured result of an OpenSpec CLI check."""
+    del is_project
+    if value is None:
+        return True
+    try:
+        raw = FeatureValue.from_raw(value).to_raw()
+    except TypeError:
+        return False
+    if not isinstance(raw, dict) or set(raw) - {"validated", "version", "checked"}:
+        return False
+    checked = raw.get("checked")
+    if raw.get("validated") not in {"true", "false"} or not isinstance(checked, str):
+        return False
+    try:
+        checked_at = float(checked)
+    except ValueError:
+        return False
+    if not isfinite(checked_at):
+        return False
+    return "version" not in raw or isinstance(raw["version"], str)
+
+
 def normalise_boolean_flag(value: FeatureValueLike | None) -> FeatureValue | None:
     """Normalise boolean-like flag values to True/False."""
     if value is None:
@@ -316,6 +343,11 @@ def normalise_flag(flag_name: str, value: FeatureValueLike | None) -> FeatureVal
     return normaliser(wrapped_value)
 
 
+def get_flag_scope(flag_name: str) -> FlagScope:
+    """Return the registered scope for a flag, defaulting to both scopes."""
+    return _FLAG_SCOPES.get(flag_name, FlagScope.BOTH)
+
+
 def register_flag_validator(
     flag_name: str,
     validator: Callable[[FeatureValueLike | None, bool], bool],
@@ -396,6 +428,10 @@ register_flag_validator(FLAG_PATH_EXPORT, validate_path_flag, normaliser=normali
 register_flag_validator(
     FLAG_ONBOARDED, validate_boolean_flag, scope=FlagScope.PROJECT_ONLY, normaliser=normalise_boolean_flag
 )
+register_flag_validator(
+    FLAG_OPENSPEC, validate_boolean_flag, scope=FlagScope.PROJECT_ONLY, normaliser=normalise_boolean_flag
+)
+register_flag_validator(FLAG_OPENSPEC_STATE, validate_openspec_state, scope=FlagScope.FEATURE_ONLY)
 
 # Import built-in workflow flag registrations after the core registry is defined.
 from mcp_guide.workflow import flags as _workflow_flags  # noqa: F401

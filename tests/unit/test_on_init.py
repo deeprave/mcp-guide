@@ -1,6 +1,7 @@
 """Tests for explicit runtime lifecycle and initialization flow."""
 
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -151,17 +152,16 @@ class TestTaskInitialise:
         from mcp_guide.task_manager.interception import EventType
 
         mock_task_manager = Mock()
-        mock_task_manager.requires_flag = AsyncMock(return_value=False)
         mock_task_manager.unsubscribe = AsyncMock()
 
         task = OpenSpecTask(task_manager=mock_task_manager)
         session = Mock()
+        session.project = SimpleNamespace(project_flags={"openspec": False})
         task._session = session
         result = await task.handle_event(EventType.TIMER_ONCE, {})
 
         assert result is not None
         assert result.result is True
-        mock_task_manager.requires_flag.assert_called_once_with("openspec", session)
         mock_task_manager.unsubscribe.assert_called_once_with(task)
         assert task._flag_checked
 

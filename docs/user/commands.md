@@ -232,7 +232,7 @@ guide://_flags/feature/remove/autoupdate
 ### Available Flags
 
 - **workflow** - Enable workflow phase tracking (Project and Feature)
-- **openspec** - Enable OpenSpec integration (Project and Feature)
+- **openspec** - Enable OpenSpec integration (Project only)
 - **content-style** - Markdown formatting: plain, headings, or full (Project and Feature)
 - **content-format** - Content MIME type: text or mime (Project and Feature)
 - **autoupdate** - Automatic content updates (Feature only)

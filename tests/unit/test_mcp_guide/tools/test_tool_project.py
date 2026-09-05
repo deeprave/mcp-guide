@@ -9,7 +9,9 @@ import pytest
 from fastmcp.tools.base import ToolResult
 from tests.helpers import create_test_session, create_unbound_test_session, request_context_for
 
+from mcp_guide.feature_flags.types import FeatureValue
 from mcp_guide.models import Category, Collection, Project
+from mcp_guide.models.project import ExportedTo
 from mcp_guide.result import Result
 from mcp_guide.runtime import RequestContext, get_runtime
 from mcp_guide.tools.tool_project import (
@@ -173,67 +175,44 @@ class TestGetProject:
     @pytest.mark.anyio
     async def test_flags_output(self, verbose: bool, expected_type: type):
         """Test get_project flag output format based on verbose flag."""
-        project = Project(name="test-project", categories={}, collections={})
+        project = Project(
+            name="test-project",
+            categories={},
+            collections={},
+            project_flags={"debug": FeatureValue(True), "env": FeatureValue("test")},
+        )
         session = MagicMock()
 
-        # Mock both project and global flags
-        project_flags_mock = AsyncMock()
-        project_flags_mock.list = AsyncMock(return_value={"debug": True, "env": "test"})
+        args = GetCurrentProjectArgs(verbose=verbose)
+        result_str = await internal_get_project(args, request_context(session, project))
+        result = decode_tool_result(result_str)
 
-        global_flags_mock = AsyncMock()
-        global_flags_mock.list = AsyncMock(return_value={"global_flag": "value"})
+        assert result["success"] is True
+        flags = result["value"]["flags"]
+        assert isinstance(flags, expected_type)
 
-        runtime = MagicMock()
-        runtime.feature_flags.return_value = global_flags_mock
-        with (
-            patch.object(session, "project_flags", return_value=project_flags_mock),
-            patch("mcp_guide.runtime.get_runtime", return_value=runtime),
-        ):
-            args = GetCurrentProjectArgs(verbose=verbose)
-            result_str = await internal_get_project(args, request_context(session, project))
-            result = decode_tool_result(result_str)
-
-            assert result["success"] is True
-            flags = result["value"]["flags"]
-            assert isinstance(flags, expected_type)
-
-            if verbose:
-                # Verbose: dict with values
-                assert flags["debug"] is True
-                assert flags["env"] == "test"
-                assert flags["global_flag"] == "value"
-            else:
-                # Non-verbose: list of names
-                assert set(flags) == {"debug", "env", "global_flag"}
+        if verbose:
+            assert flags == {"debug": True, "env": "test"}
+        else:
+            assert set(flags) == {"debug", "env"}
 
     @pytest.mark.anyio
-    async def test_project_flags_override_global_flags(self):
-        """Test project flags take precedence over global flags."""
-        project = Project(name="test-project", categories={}, collections={})
+    async def test_project_flags_do_not_include_global_flags(self):
+        """Test project inspection does not resolve global feature flags."""
+        project = Project(
+            name="test-project",
+            categories={},
+            collections={},
+            project_flags={"shared_flag": FeatureValue("project_value")},
+        )
         session = MagicMock()
 
-        # Mock both project and global flags with same name
-        project_flags_mock = AsyncMock()
-        project_flags_mock.list = AsyncMock(return_value={"shared_flag": "project_value"})
+        args = GetCurrentProjectArgs(verbose=True)
+        result_str = await internal_get_project(args, request_context(session, project))
+        result = decode_tool_result(result_str)
 
-        global_flags_mock = AsyncMock()
-        global_flags_mock.list = AsyncMock(return_value={"shared_flag": "global_value"})
-
-        runtime = MagicMock()
-        runtime.feature_flags.return_value = global_flags_mock
-        with (
-            patch.object(session, "project_flags", return_value=project_flags_mock),
-            patch("mcp_guide.runtime.get_runtime", return_value=runtime),
-        ):
-            args = GetCurrentProjectArgs(verbose=True)
-            result_str = await internal_get_project(args, request_context(session, project))
-            result = decode_tool_result(result_str)
-
-            assert result["success"] is True
-
-            # Check project flag overrides global flag
-            flags = result["value"]["flags"]
-            assert flags["shared_flag"] == "project_value"
+        assert result["success"] is True
+        assert result["value"]["flags"] == {"shared_flag": "project_value"}
 
 
 class TestSetProject:
@@ -534,6 +513,45 @@ class TestCloneProject:
         assert result_replace["success"] is True
         assert result_replace["value"]["collections_added"] == 2  # Both source collections
         assert result_replace["value"]["collections_overwritten"] == 0  # Replace mode
+
+    @pytest.mark.anyio
+    async def test_clone_transfers_project_settings_without_replacing_identity(self):
+        """Merge source mappings and replace source path lists while retaining destination identity."""
+        source = Project(
+            name="source",
+            project_flags={"openspec": True, "source": "value"},
+            allowed_write_paths=["source/"],
+            additional_read_paths=["/Users/source/read"],
+            exports={("docs", None): ExportedTo(path="source.md", metadata_hash="source")},
+        )
+        target = Project(
+            name="target",
+            key="target-12345678",
+            hash="1" * 64,
+            project_flags={"openspec": False, "target": "value"},
+            allowed_write_paths=["target/"],
+            additional_read_paths=["/Users/target/read"],
+            exports={("docs", None): ExportedTo(path="target.md", metadata_hash="target")},
+        )
+        session = AsyncMock()
+        session.resolve_clone_source.return_value = (source, [])
+        session.save_project = AsyncMock()
+
+        result = decode_tool_result(
+            await internal_clone_project(
+                CloneProjectArgs(from_project="source", merge=True), request_context(session, target)
+            )
+        )
+
+        assert result["success"] is True
+        cloned = session.save_project.await_args.args[0]
+        assert cloned.name == target.name
+        assert cloned.key == target.key
+        assert cloned.hash == target.hash
+        assert cloned.project_flags == {"openspec": True, "target": "value", "source": "value"}
+        assert cloned.allowed_write_paths == ["source/"]
+        assert cloned.additional_read_paths == ["/Users/source/read"]
+        assert cloned.exports[("docs", None)].path == "source.md"
 
     @pytest.mark.anyio
     async def test_1arg_mode_no_current_project(self):
