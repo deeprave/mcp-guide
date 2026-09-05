@@ -47,6 +47,17 @@ class TestFeatureFlagsViaSession:
         assert flags == {"test_flag": True, "string_flag": "test_value"}
 
     @pytest.mark.anyio
+    async def test_set_and_get_structured_openspec_state(self, tmp_path):
+        """Test the global OpenSpec state round-trips through feature flags."""
+        create_unbound_test_session(_prepare_runtime(tmp_path))
+        flags_proxy = get_runtime().feature_flags()
+        state = {"validated": "true", "version": "1.10.0", "checked": "100.0"}
+
+        await flags_proxy.set("openspec-state", state)
+
+        assert await flags_proxy.get("openspec-state") == state
+
+    @pytest.mark.anyio
     async def test_remove_global_flag(self, tmp_path):
         """Test removing global flags."""
         session = create_unbound_test_session(_prepare_runtime(tmp_path))

@@ -63,7 +63,7 @@ guide://_flags/feature/remove/autoupdate    # Remove flag entirely
 | `workflow` | Enables workflow phase tracking (discussion, planning, implementation, check, review). Can be `true` (all phases), `false` (disabled), or list of phase names. | `boolean` or `list[string]` | `false` |
 | `workflow-file` | Path to workflow tracking file. Supports variables: `{project-name}`, `{project-key}`, `{project-hash}`. | `string` | `.guide.yaml` |
 | `workflow-consent` | Controls phase transition consent requirements. Can be `true` (default consent rules), `false` (no consent required), or custom rules specifying which phases require consent to enter or exit. | `boolean` or `dict` | `true` |
-| `openspec` | Enables OpenSpec integration for structured change management. Adds OpenSpec-specific commands and workflow instructions. | `boolean` | `false` |
+| `openspec` | Enables OpenSpec integration for this project. Project only; global state cannot enable it. Adds OpenSpec-specific commands and workflow instructions. | `boolean` | `false` |
 | `startup-instruction` | Content expression to load when project session starts. Queued as high-priority instruction for immediate agent context. Supports any valid content expression (collection, category, or pattern). | `string` | (not set) |
 | `content-style` | Controls markdown formatting in template output. `plain` = strips all formatting, `headings` = renders heading markers only, `full` = renders all markdown. | `string` | `plain` |
 | `content-format` | Controls content MIME type. `text` = plain text, `mime` = MIME multipart format. | `string` | `text` |
@@ -81,6 +81,7 @@ guide://_flags/feature/remove/autoupdate    # Remove flag entirely
 - `workflow` can be a list to enable specific phases: `["discussion", "planning", "implementation"]` (`discussion` and `implementation` are mandatory)
 - `workflow-consent` set to `true` applies default consent: implementation requires entry consent, review requires exit consent
 - `workflow-consent` can be a dict for custom consent: `{"planning": ["entry"], "implementation": ["entry", "exit"]}`
+- `openspec` is project-only; set it with `guide://_flags/project/set/openspec/true`
 - `path-documents` and `path-export` accept both relative paths (`.todo/`) and absolute paths (`/tmp/knowledge/`, `~/.goose/knowledge/`)
 - Path flags automatically add trailing slash if missing and normalize backslashes to forward slashes
 - Path flags are validated for security: path traversal (`../`, `..\\`) is blocked

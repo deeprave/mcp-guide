@@ -3,43 +3,6 @@
 ## Purpose
 TBD - created by archiving change agent-server-filesystem-interaction. Update Purpose after archive.
 ## Requirements
-### Requirement: guide_cache_file Tool
-The system SHALL provide guide_cache_file tool for agents to cache file contents on the server.
-
-#### Scenario: Cache single file
-- **WHEN** agent calls guide_cache_file with path and content
-- **THEN** validates path against security policy
-- **AND** normalizes path to absolute path
-- **AND** stores content in server-side cache
-- **AND** stores metadata (size, timestamp, encoding)
-- **AND** returns success result with cache key
-
-#### Scenario: Cache with metadata
-- **WHEN** guide_cache_file includes optional metadata (mtime, encoding, size)
-- **THEN** stores metadata alongside content
-- **AND** uses metadata for cache invalidation decisions
-- **AND** returns metadata in success result
-
-#### Scenario: Security policy violation
-- **WHEN** path is outside allowed directories
-- **THEN** rejects operation with SecurityError
-- **AND** returns failure result with clear error message
-- **AND** logs security violation
-- **AND** does not cache content
-
-#### Scenario: Overwrite existing cache entry
-- **WHEN** guide_cache_file called for already-cached path
-- **THEN** overwrites existing cache entry
-- **AND** updates modification timestamp
-- **AND** increments cache update counter
-- **AND** returns success with "updated" status
-
-#### Scenario: Cache size limit exceeded
-- **WHEN** caching content would exceed cache size limit
-- **THEN** evicts LRU entries to make space
-- **AND** proceeds with caching after eviction
-- **AND** returns success with eviction statistics
-
 ### Requirement: guide_list_directory Tool
 The system SHALL provide guide_list_directory tool for agents to provide directory listings.
 
@@ -191,25 +154,4 @@ The system SHALL enforce security policies in all filesystem tools.
 - **THEN** tracks call frequency per client
 - **AND** logs warning for unusual patterns
 - **AND** provides statistics for rate limiting decisions
-
-### Requirement: Integration with FilesystemBridge
-The system SHALL integrate filesystem tools with FilesystemBridge for cohesive operation.
-
-#### Scenario: Cache synchronization
-- **WHEN** guide_cache_file is called
-- **THEN** FileCache is updated through FilesystemBridge
-- **AND** cache statistics are synchronized
-- **AND** cache eviction policies are respected
-
-#### Scenario: Security policy consistency
-- **WHEN** filesystem tools validate paths
-- **THEN** uses same SecurityPolicy as FilesystemBridge
-- **AND** validation results are consistent
-- **AND** configuration changes apply to all components
-
-#### Scenario: Error handling consistency
-- **WHEN** filesystem operations fail
-- **THEN** error handling is consistent with FilesystemBridge
-- **AND** error messages follow same format
-- **AND** error types use same enumeration
 

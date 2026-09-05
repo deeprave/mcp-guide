@@ -1,4 +1,11 @@
-## MODIFIED Requirements
+# guide-project-tools
+
+## Purpose
+
+Define project selection and project-management tool contracts.
+
+## Requirements
+
 ### Requirement: Switch Current Project
 The system SHALL provide a tool to switch to a different project by name or full path.
 

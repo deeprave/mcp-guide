@@ -11,6 +11,11 @@ retaining the destination project's identity (`name`, `key`, and `hash`).
 - **THEN** the destination project SHALL receive those settings
 - **AND** the destination project's identity fields SHALL remain unchanged
 
+#### Scenario: Clone retains per-project OpenSpec enablement
+- **WHEN** the source project enables or disables OpenSpec through `project_flags.openspec`
+- **THEN** the destination project SHALL receive the source's OpenSpec enablement value
+- **AND** global OpenSpec CLI state SHALL NOT determine the destination's enablement
+
 #### Scenario: Merge clone combines mapping configuration
 - **WHEN** `clone_project` is called with `merge=true`
 - **THEN** categories, collections, project flags, and exports from the source

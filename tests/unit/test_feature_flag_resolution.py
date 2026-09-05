@@ -1,5 +1,6 @@
 """Tests for feature flag resolution logic."""
 
+from mcp_guide.feature_flags.constants import FLAG_OPENSPEC, FLAG_OPENSPEC_STATE
 from mcp_guide.feature_flags.resolution import resolve_flag
 
 
@@ -21,6 +22,17 @@ class TestFlagResolution:
 
         result = resolve_flag("flag2", project_flags, global_flags)
         assert result == "global"
+
+    def test_project_only_flag_does_not_fall_back_to_global(self):
+        """Project-only flags require an explicit project value."""
+        assert resolve_flag(FLAG_OPENSPEC, {}, {FLAG_OPENSPEC: True}) is None
+
+    def test_feature_only_flag_ignores_project_value(self):
+        """Feature-only flags cannot be shadowed by project configuration."""
+        assert (
+            resolve_flag(FLAG_OPENSPEC_STATE, {FLAG_OPENSPEC_STATE: "project"}, {FLAG_OPENSPEC_STATE: "global"})
+            == "global"
+        )
 
     def test_resolve_flag_returns_none_when_not_found(self):
         """Test that resolution returns None when flag not found."""

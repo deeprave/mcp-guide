@@ -33,6 +33,14 @@ def mock_openspec_templates():
         yield
 
 
+@pytest.fixture(autouse=True)
+def mock_global_openspec_state(monkeypatch):
+    """Keep acknowledgement tests independent of runtime persistence."""
+    flags = Mock(get=AsyncMock(return_value=None), set=AsyncMock())
+    runtime = Mock(feature_flags=Mock(return_value=flags))
+    monkeypatch.setattr("mcp_guide.openspec.task.get_runtime", lambda: runtime)
+
+
 class TestOpenSpecTaskAcknowledgement:
     """Test OpenSpecTask acknowledgement tracking."""
 
@@ -41,10 +49,7 @@ class TestOpenSpecTaskAcknowledgement:
         """Test that CLI check stores instruction ID."""
         manager = _manager()
         task = OpenSpecTask(manager)
-        task._session = Mock(
-            get_project=AsyncMock(return_value=Mock(openspec_version=None, openspec_validated=True)),
-            update_config=AsyncMock(),
-        )
+        task._session = Mock()
 
         await task.request_cli_check()
 
@@ -83,10 +88,7 @@ class TestOpenSpecTaskAcknowledgement:
         """Test that version response acknowledges instruction."""
         manager = _manager()
         task = OpenSpecTask(manager)
-        task._session = Mock(
-            get_project=AsyncMock(return_value=Mock(openspec_version=None, openspec_validated=True)),
-            update_config=AsyncMock(),
-        )
+        task._session = Mock()
 
         await task.request_version_check()
         instruction_id = task._version_instruction_id

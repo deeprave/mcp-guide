@@ -3,6 +3,8 @@
 import platform
 from typing import TYPE_CHECKING, Any, Optional
 
+from packaging.version import InvalidVersion, Version
+
 if TYPE_CHECKING:
     from mcp_guide.session import Session
 
@@ -191,11 +193,17 @@ class TemplateContextCache(SessionListener):
         # Add OpenSpec-specific context (version, changes, status)
         try:
             # OpenSpecTask needs lazy import
+            from mcp_guide.feature_flags.constants import FLAG_OPENSPEC_STATE
+            from mcp_guide.openspec.state import parse_openspec_state
             from mcp_guide.openspec.task import OpenSpecTask
+            from mcp_guide.runtime import get_runtime
 
             openspec_task_subscriber = task_manager.get_task_by_type(OpenSpecTask) if task_manager is not None else None
 
             if openspec_task_subscriber:
+                state_value = await get_runtime().feature_flags().get(FLAG_OPENSPEC_STATE)
+                openspec_state = parse_openspec_state(state_value)
+
                 # Create lambda for version checking
                 def has_version(text: str, render: Any) -> bool:
                     """Check if OpenSpec version meets minimum requirement.
@@ -208,11 +216,19 @@ class TemplateContextCache(SessionListener):
                         True if current version >= minimum
                     """
                     minimum = render(text).strip()
-                    return openspec_task_subscriber.meets_minimum_version(minimum)
+                    if not openspec_state.version:
+                        return False
+                    try:
+                        return Version(openspec_state.version.lstrip("v")) >= Version(minimum.lstrip("v"))
+                    except InvalidVersion:
+                        logger.warning(
+                            f"Invalid OpenSpec version comparison: current={openspec_state.version}, minimum={minimum}"
+                        )
+                        return False
 
                 agent_vars["openspec"] = {
-                    "available": openspec_task_subscriber.is_available(),
-                    "version": openspec_task_subscriber.get_version(),
+                    "available": openspec_state.validated,
+                    "version": openspec_state.version,
                     "changes": openspec_task_subscriber.get_changes() or [],
                     "show": openspec_task_subscriber.get_show(),
                     "status": openspec_task_subscriber.get_status(),

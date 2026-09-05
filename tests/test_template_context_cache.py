@@ -12,7 +12,7 @@ from mcp_guide.result import Result
 @pytest.fixture(autouse=True)
 def _runtime_without_global_flags(monkeypatch: pytest.MonkeyPatch) -> None:
     runtime = Mock()
-    runtime.feature_flags.return_value = Mock(list=AsyncMock(return_value={}))
+    runtime.feature_flags.return_value = Mock(list=AsyncMock(return_value={}), get=AsyncMock(return_value=None))
     monkeypatch.setattr("mcp_guide.runtime.get_runtime", lambda: runtime)
 
 
@@ -397,6 +397,55 @@ class TestTemplateContextCache:
         else:
             # When task not registered, openspec is False (disabled)
             assert context["openspec"] is False
+
+    @pytest.mark.anyio
+    async def test_openspec_context_uses_global_state_for_enabled_project(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """OpenSpec template values come from global state, not Project fields."""
+        from mcp_guide.openspec.task import OpenSpecTask
+
+        task = Mock(spec=OpenSpecTask)
+        task.get_changes.return_value = []
+        task.get_show.return_value = None
+        task.get_status.return_value = None
+        mock_session = Mock()
+        mock_session.task_manager.get_task_by_type.return_value = task
+        mock_session.task_manager.get_task_statistics.return_value = {}
+        runtime = Mock()
+        runtime.feature_flags.return_value = Mock(
+            get=AsyncMock(return_value=FeatureValue({"validated": "true", "version": "1.10.0", "checked": "100.0"}))
+        )
+        monkeypatch.setattr("mcp_guide.runtime.get_runtime", lambda: runtime)
+
+        context = await TemplateContextCache(mock_session)._build_agent_context()
+
+        assert context["openspec"]["available"] is True
+        assert context["openspec"]["version"] == "1.10.0"
+
+    @pytest.mark.anyio
+    async def test_openspec_version_predicate_uses_global_state(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """OpenSpec template version gates use the persisted version shown to templates."""
+        from mcp_guide.openspec.task import OpenSpecTask
+
+        task = Mock(spec=OpenSpecTask)
+        task.get_changes.return_value = []
+        task.get_show.return_value = None
+        task.get_status.return_value = None
+        task.meets_minimum_version.return_value = False
+        mock_session = Mock()
+        mock_session.task_manager.get_task_by_type.return_value = task
+        mock_session.task_manager.get_task_statistics.return_value = {}
+        runtime = Mock()
+        runtime.feature_flags.return_value = Mock(
+            get=AsyncMock(return_value=FeatureValue({"validated": "true", "version": "1.10.0", "checked": "100.0"}))
+        )
+        monkeypatch.setattr("mcp_guide.runtime.get_runtime", lambda: runtime)
+
+        context = await TemplateContextCache(mock_session)._build_agent_context()
+
+        assert context["openspec"]["has_version"]("1.9.0", lambda text: text) is True
+        assert context["openspec"]["has_version"]("1.11.0", lambda text: text) is False
 
     @pytest.mark.anyio
     async def test_build_agent_context_exposes_handoff_and_membership_flags(self) -> None:

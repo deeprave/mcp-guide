@@ -51,7 +51,7 @@ async def format_project_data(
     Args:
         project: Project to format
         verbose: If True, include full details; if False, names only
-        session: Session for flag resolution (optional)
+        session: When supplied, include the project's stored flags (optional)
 
     Returns:
         Formatted project data dictionary
@@ -59,9 +59,9 @@ async def format_project_data(
     collections, categories = _format_categories_and_collections(project, verbose)
     result: dict[str, Any] = {"collections": collections, "categories": categories}
 
-    # Add resolved flags if session is available
+    # Project listings expose only stored flags for the formatted Project.
     if session is not None:
-        flags = await resolve_all_flags(session)
+        flags = project.project_flags
         result["flags"] = (
             {name: to_raw_feature_value(value) for name, value in flags.items()} if verbose else list(flags.keys())
         )
