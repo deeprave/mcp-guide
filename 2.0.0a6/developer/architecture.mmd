@@ -1,0 +1,126 @@
+```mermaid
+---
+config:
+  theme: default
+  look: neo
+---
+flowchart TB
+    Client["MCP client"] --> Server
+
+    subgraph Server["FastMCP Server"]
+        ToolRegistration["Tool registration\nExtMcpToolDecorator"]
+        PromptRegistration["Prompt registration\npromptfunc"]
+        ResourceRegistration["Resource registration\nresourcefunc"]
+        NativeResponses["Native SDK responses\nToolResult · PromptResult · ResourceResult"]
+    end
+
+    Server -->|lifespan| Runtime
+    ToolRegistration -->|invocation and project-bound check| SessionResolver
+    PromptRegistration -->|invocation| SessionResolver
+    ResourceRegistration -->|URI request| SessionResolver
+    ToolRegistration --> NativeResponses
+    PromptRegistration --> NativeResponses
+    ResourceRegistration --> NativeResponses
+
+    subgraph Runtime["GuideRuntime — process-global lifecycle and shared state"]
+        ConfigManager["ConfigManager\nconfiguration cache · watcher · shared update publication\ndocroot resolved at runtime start"]
+        SessionManager["Session manager\nruntime owner-key → Session registry\nidle-session expiry"]
+        SessionResolver["Session resolver\nFastMCP request context + optional session_id"]
+        Session["Session — per client interaction\nproject root · active configuration · agent metadata"]
+        TaskManager["TaskManager — per Session\ntask lifecycle · event subscriptions · instruction queue\nresult processing"]
+
+        SessionResolver --> SessionManager
+        SessionManager -->|creates / returns| Session
+        ConfigManager -->|injected into| Session
+        Session -->|owns| TaskManager
+        ConfigManager -->|configuration delta| Session
+    end
+
+    ToolRegistration -->|on_tool| TaskManager
+    ToolRegistration -->|Result → tool_result → process_result| TaskManager
+    PromptRegistration -->|on_tool and prompt_result| TaskManager
+    ResourceRegistration -->|process_result| TaskManager
+
+    subgraph Tools["Registered tools"]
+        direction TB
+
+        subgraph ProjectTools["Project tools — Session binding and ConfigManager-backed project configuration"]
+            GetProject["get_project"]
+            SetProject["set_project"]
+            SwitchProject["switch_project"]
+            ListProjects["list_projects"]
+            ListProject["list_project"]
+            CloneProject["clone_project"]
+            UseProjectProfile["use_project_profile"]
+            ListProfiles["list_profiles"]
+            ShowProfile["show_profile"]
+            AddPermissionPath["add_permission_path"]
+            RemovePermissionPath["remove_permission_path"]
+        end
+
+        subgraph ContentTools["Content tools — Session project configuration, document rendering, TaskManager result handling"]
+            GetContent["get_content"]
+            ExportContent["export_content"]
+            ListExports["list_exports"]
+            RemoveExport["remove_export"]
+            CategoryListFiles["category_list_files"]
+            CategoryContent["category_content"]
+            CategoryCollectionList["category_collection_list"]
+            CategoryCollectionRemove["category_collection_remove"]
+            CategoryCollectionAdd["category_collection_add"]
+            CategoryCollectionChange["category_collection_change"]
+            CategoryCollectionUpdate["category_collection_update"]
+            DocumentRemove["document_remove"]
+            DocumentUpdate["document_update"]
+            UpdateDocuments["update_documents"]
+            ReadResource["read_resource"]
+        end
+
+        subgraph FeatureFlagTools["Feature-flag tools — Session → ConfigManager, TaskManager result handling"]
+            ListProjectFlags["list_project_flags"]
+            SetProjectFlag["set_project_flag"]
+            SetFeatureFlag["set_feature_flag"]
+            ListFeatureFlags["list_feature_flags"]
+        end
+
+        subgraph FilesystemTools["Filesystem callback tools — Session TaskManager event dispatch"]
+            SendFileContent["send_file_content"]
+            SendDirectoryListing["send_directory_listing"]
+            SendCommandLocation["send_command_location"]
+            SendWorkingDirectory["send_working_directory"]
+        end
+
+        subgraph DiscoveryTools["Discovery tools — FastMCP registration registries, Session TaskManager result handling"]
+            ListTools["list_tools"]
+            ListPrompts["list_prompts"]
+            ListResources["list_resources"]
+        end
+
+        subgraph UtilityTools["Utility tools — Session client metadata, TaskManager result handling"]
+            ClientInfo["client_info"]
+        end
+    end
+
+    ProjectTools -->|bind, select, and persist configuration| Session
+    ContentTools -->|project configuration and document context| Session
+    FeatureFlagTools -->|read and mutate flags| Session
+    FilesystemTools -->|resolve request Session| Session
+    UtilityTools -->|read client metadata| Session
+    DiscoveryTools -->|inspect registries| ToolRegistration
+    FilesystemTools -->|filesystem events| TaskManager
+
+    subgraph Prompts["Registered prompts"]
+        GuidePrompt["guide\nSession resolution · command/content routing\nTaskManager on_tool + prompt_result"]
+    end
+    GuidePrompt --> SessionResolver
+    GuidePrompt --> TaskManager
+
+    subgraph Resources["Registered resources"]
+        GuideResource["guide://{collection}/{document}{?session_id}\nSession content lookup · TaskManager process_result"]
+        GuideCommandResource["guide://_{command_path*}{?session_id}\nSession command-resource lookup · TaskManager process_result"]
+    end
+    GuideResource --> SessionResolver
+    GuideResource --> TaskManager
+    GuideCommandResource --> SessionResolver
+    GuideCommandResource --> TaskManager
+```
