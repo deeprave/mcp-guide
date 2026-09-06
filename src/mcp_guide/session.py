@@ -1,10 +1,10 @@
 """Session management for per-project runtime state."""
 
-import asyncio
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Optional, Protocol, cast
+from urllib.parse import unquote, urlsplit
 
 from fastmcp import Context
 
@@ -28,6 +28,19 @@ logger = get_logger(__name__)
 
 # Module-level flag to control default profile application
 _enable_default_profile = True
+
+
+def _expand_client_path(path: str | Path) -> Path:
+    """Expand a client path or local ``file://`` URI without resolving it."""
+    path_text = str(path)
+    parsed = urlsplit(path_text)
+    if parsed.scheme.casefold() == "file":
+        if parsed.netloc.casefold() not in ("", "localhost"):
+            raise ValueError("Project file URI must refer to the local client")
+        if parsed.query or parsed.fragment:
+            raise ValueError("Project file URI must not include a query or fragment")
+        path_text = unquote(parsed.path)
+    return LazyPath(path_text).expand()
 
 
 class DocrootError(RuntimeError):
@@ -56,6 +69,9 @@ class ConfigurationService(Protocol):
     def unregister_session(self, session: object) -> None: ...
 
     def _invalidate_feature_flags(self) -> None: ...
+
+    @property
+    def coordination_lock(self) -> Any: ...
 
     async def get_all_project_configs(self) -> dict[str, Project]: ...
 
@@ -88,15 +104,17 @@ class Session:
         """
         self.__delegate: ProjectDelegate = ProjectDelegate()
         self.__bound_root_path: Path | None = None
-        self._bind_lock = asyncio.Lock()
+        self._runtime = runtime
+        self._expiring = False
+        self._active_work = 0
+        self._cleaning_up = False
+        self._disposed = False
         # The validated FastMCP session_id for this Session. It is response
         # data, never an ambient lookup key.
         self.session_id: str | None = None
         self._project_dirty = False
         self._listeners: list["SessionListener"] = []
         self._template_cache: Optional["TemplateContextCache"] = None
-        self.command_cache: dict[str, tuple[float, list[dict[str, Any]]]] = {}
-        self._runtime = runtime
         self._config().register_session(self)
         # Session owns its mutable instruction and task lifecycle state.  The
         # transitional accessor remains only for callers not yet migrated.
@@ -121,6 +139,7 @@ class Session:
         # MCP context fields (populated by cache_mcp_globals)
         self.agent_info: Optional["AgentInfo"] = None
         self.client_params: Optional[dict[str, Any]] = None
+        self._protocol_logged = False
 
     def _config(self) -> ConfigurationService:
         """Return this Session's runtime-owned configuration service."""
@@ -157,6 +176,10 @@ class Session:
         return (project.name, project.hash) if project.hash is not None else None
 
     async def bind_project_path(self, path: str | Path) -> None:
+        """Bind once, promote through runtime, then activate this instance."""
+        await self._bind_project_path(path)
+
+    async def _bind_project_path(self, path: str | Path) -> None:
         """Bind this unbound Session to an absolute client project root.
 
         The path is client-supplied identity, not a server filesystem lookup. It is
@@ -165,7 +188,12 @@ class Session:
         """
         from mcp_guide.validation import InvalidProjectNameError
 
-        root_path = LazyPath(path).expand()
+        try:
+            root_path = _expand_client_path(path)
+        except RuntimeError as error:
+            raise InvalidProjectNameError(f"Unable to expand project path '{path}': unknown user") from error
+        except ValueError as error:
+            raise InvalidProjectNameError(str(error)) from error
         if not root_path.is_absolute():
             raise InvalidProjectNameError("Project path must be an absolute client filesystem path")
         if ".." in root_path.parts:
@@ -175,19 +203,21 @@ class Session:
                 "Project path basename must contain only alphanumeric characters, underscores, and hyphens"
             )
 
-        async with self._bind_lock:
-            if self.__bound_root_path is not None:
-                raise ValueError("Project root is already bound; begin a new interaction to select another root")
+        await self.prepare_binding(root_path.name, root_path)
+        self._runtime.promote_session(self)
+        await self._notify_project_changed("", self.project_name)
 
-            config_manager = self._config()
-            _key, project = await config_manager.get_or_create_project_config(root_path.name, root_path=root_path)
-            if self.__bound_root_path is not None:
-                raise ValueError("Project root is already bound; begin a new interaction to select another root")
-            old_project = self.__delegate.name
-            self.__bound_root_path = root_path
-            self.__delegate.bind(project)
-            self._project_dirty = False
-        await self._notify_project_changed(old_project, project.name)
+    async def prepare_binding(self, name: str, root_path: Path) -> None:
+        """Bind an unpublished instance once without activating its listeners."""
+        if self.__bound_root_path is not None:
+            raise ValueError("Project root is already bound; use switch_project to select another root")
+        _key, project = await self._config().get_or_create_project_config(name, root_path=root_path)
+        # Initial preparations can await configuration I/O. Recheck before publishing.
+        if self.__bound_root_path is not None:
+            raise ValueError("Project root is already bound; use switch_project to select another root")
+        self.__bound_root_path = root_path
+        self.__delegate.bind(project)
+        self._project_dirty = False
 
     @property
     def template_cache(self) -> "TemplateContextCache":
@@ -199,67 +229,114 @@ class Session:
             self.add_listener(self._template_cache)
         return self._template_cache
 
-    async def switch_project(self, project_name: str) -> None:
-        """Switch this session to a different project.
-
-        Args:
-            project_name: Name of the project to switch to
-
-        Raises:
-            InvalidProjectNameError: If project name is invalid
-        """
+    async def switch_project(self, project_name: str | None = None, *, path: str | Path | None = None) -> "Session":
+        """Return a fresh runtime-owned Session for a different project selection."""
         from mcp_guide.validation import InvalidProjectNameError
 
-        if not project_name or not project_name.strip():
+        if self.__bound_root_path is None:
+            raise ValueError("switch_project requires an explicitly bound root")
+        owner = self._runtime.check_replacement(self)
+        if project_name is None and (path is None or not str(path).strip()):
+            raise InvalidProjectNameError("switch_project requires a name or path")
+        if project_name is not None and path is not None:
+            raise InvalidProjectNameError("switch_project accepts a name or path, not both")
+
+        root_path = self.__bound_root_path
+        if root_path is None:
+            raise ValueError("switch_project requires an explicitly bound root")
+
+        if path is not None:
+            try:
+                candidate_path = _expand_client_path(path)
+            except RuntimeError as error:
+                raise InvalidProjectNameError(f"Unable to expand project path '{path}': unknown user") from error
+            except ValueError as error:
+                raise InvalidProjectNameError(str(error)) from error
+            if not candidate_path.is_absolute():
+                candidate_path = root_path / candidate_path
+            root_path = Path(os.path.normpath(str(candidate_path)))
+            if not root_path.name or not _NAME_REGEX.match(root_path.name):
+                raise InvalidProjectNameError(
+                    "Project path basename must contain only alphanumeric characters, underscores, and hyphens"
+                )
+
+        selected_project_name = root_path.name if project_name is None else project_name
+        if not selected_project_name.strip():
             raise InvalidProjectNameError("Project name cannot be empty")
 
-        if project_name.startswith("file://") or os.sep in project_name or (os.altsep and os.altsep in project_name):
+        if (
+            selected_project_name.startswith("file://")
+            or os.sep in selected_project_name
+            or (os.altsep and os.altsep in selected_project_name)
+        ):
             raise InvalidProjectNameError("switch_project accepts a configuration name, not a filesystem path")
 
-        if not _NAME_REGEX.match(project_name):
+        if not _NAME_REGEX.match(selected_project_name):
             raise InvalidProjectNameError(
-                f"Project name '{project_name}' must contain only alphanumeric characters, underscores, and hyphens"
+                f"Project name '{selected_project_name}' must contain only alphanumeric characters, underscores, and hyphens"
             )
 
-        old_project = self.__delegate.name
-        if project_name == old_project:
-            return
+        if selected_project_name == self.project_name and root_path == self.__bound_root_path:
+            return self
 
-        config_manager = self._config()
-        _key, project = await config_manager.get_or_create_project_config(
-            project_name, root_path=self.__bound_root_path
-        )
-        self.__delegate.bind(project)
-        self._project_dirty = False
-        await self._notify_project_changed(old_project, project_name)
+        replacement = self._runtime.create_transient_session(owner)
+        replacement._config().unregister_session(replacement)
+        replacement.agent_info = self.agent_info
+        replacement.client_params = self.client_params.copy() if self.client_params is not None else None
+        replacement._protocol_logged = self._protocol_logged
+        try:
+            await replacement.prepare_binding(selected_project_name, root_path)
+            self._runtime.replace_session(self, replacement)
+        except BaseException:
+            await replacement.cleanup()
+            raise
+        _attach_session_listeners(replacement)
+        replacement._config().register_session(replacement)
+        try:
+            await replacement._notify_project_changed("", replacement.project_name)
+        finally:
+            self._runtime.dispose_expiring_session(self)
+        return replacement
+
+    @property
+    def has_active_work(self) -> bool:
+        """Whether admitted listener or task executions still own this instance."""
+        return self._active_work > 0
+
+    def begin_expiry(self) -> None:
+        """Stop external notifications and scheduling without interrupting old work."""
+        self._expiring = True
+        self._config().unregister_session(self)
+        self.task_manager.begin_expiry()
+
+    @asynccontextmanager
+    async def work(self):
+        """Keep this instance alive while an admitted execution completes."""
+        self._active_work += 1
+        try:
+            yield
+        finally:
+            self._active_work -= 1
+            if self._expiring and not self._cleaning_up:
+                self._runtime.dispose_expiring_session(self)
 
     async def _on_shared_config_changed(self, *, global_changed: bool, project_changed: bool) -> None:
         """Refresh this Session for a scoped shared-configuration publication."""
-        if project_changed and self.__delegate.is_bound:
-            config_manager = self._config()
-            current_project = self.__delegate.project
-            try:
-                latest_project = await config_manager.get_project_config_for_root(
-                    current_project.name, self.__bound_root_path
-                )
-            except Exception as error:
-                logger.debug("Failed to refresh changed project configuration: %s", error, exc_info=True)
-                self._project_dirty = True
-            else:
-                if latest_project is None:
-                    # An external writer removed or invalidated the active
-                    # entry. Do not silently recreate it while processing a
-                    # publication; the next explicit configuration operation
-                    # determines whether creation is appropriate.
-                    self._project_dirty = True
-                else:
-                    self.__delegate.bind(latest_project)
-                    self._project_dirty = False
-
-        if global_changed:
-            self._config()._invalidate_feature_flags()
-
-        await self._notify_config_changed()
+        if self._expiring:
+            return
+        async with self.work():
+            async with self._config().coordination_lock:
+                self.task_manager.clear_command_cache()
+                if project_changed and self.__delegate.is_bound:
+                    latest = await self._config().get_project_config_for_root(self.project_name, self.__bound_root_path)
+                    if latest is None:
+                        self._project_dirty = True
+                    else:
+                        self.__delegate.bind(latest)
+                        self._project_dirty = False
+                if global_changed:
+                    self._config()._invalidate_feature_flags()
+                await self._notify_config_changed()
 
     def add_listener(self, listener: "SessionListener") -> None:
         """Add a session change listener."""
@@ -268,11 +345,12 @@ class Session:
 
     async def _notify_project_changed(self, old_project: str, new_project: str) -> None:
         """Notify all listeners of project change."""
-        for listener in self._listeners:
-            try:
-                await listener.on_project_changed(self, old_project, new_project)
-            except Exception as e:
-                logger.debug(f"Project change listener notification failed: {e}")
+        async with self.work():
+            for listener in self._listeners:
+                try:
+                    await listener.on_project_changed(self, old_project, new_project)
+                except Exception as e:
+                    logger.debug(f"Project change listener notification failed: {e}")
 
     async def _notify_config_changed(self) -> None:
         """Notify all listeners of config change."""
@@ -284,8 +362,17 @@ class Session:
 
     async def cleanup(self) -> None:
         """Cleanup resources owned by this Session, including its TaskManager."""
-        self._config().unregister_session(self)
-        await self.task_manager.cleanup()
+        if self._cleaning_up or self._disposed:
+            return
+        self._cleaning_up = True
+        try:
+            self.begin_expiry()
+            await self.task_manager.cleanup()
+            self._listeners.clear()
+            self._template_cache = None
+            self._disposed = True
+        finally:
+            self._cleaning_up = False
 
     async def get_project(self) -> Project:
         """Get the current project configuration, reloading if stale.
@@ -298,20 +385,14 @@ class Session:
         return self.__delegate.project
 
     async def update_config(self, updater: Callable[[Project], Project]) -> None:
-        """Update project config using functional pattern."""
-        project = await self.get_project()
-        updated_project = updater(project)
-
-        if project.key is None:
-            raise ValueError("Project key not available")
-
-        config_manager = self._config()
-        await config_manager.save_project_config(project.key, updated_project)
-        # The writer already has the authoritative immutable value.  Adopt it
-        # immediately rather than waiting for the shared-config publication
-        # cycle that updates peer Sessions.
-        self.__delegate.bind(updated_project)
-        self._project_dirty = False
+        """Update this instance's original configuration under shared coordination."""
+        async with self._config().coordination_lock:
+            project = await self.get_project()
+            if project.key is None:
+                raise ValueError("Project key not available")
+            updated_project = updater(project)
+            await self._config().save_project_config(project.key, updated_project)
+            await self.invalidate_cache()
 
     async def get_all_projects(self) -> dict[str, Project]:
         """Get all project configurations atomically."""
@@ -323,23 +404,19 @@ class Session:
         return await self._config().resolve_clone_source(source_name)
 
     async def save_project(self, project: Project) -> None:
-        """Save project configuration using project's key."""
+        """Persist the supplied configuration without changing this instance's identity."""
         if project.key is None:
             raise ValueError("Project key not available")
-
-        config_manager = self._config()
-        await config_manager.save_project_config(project.key, project)
-        # ``save_project`` can persist a different configuration. Only refresh
-        # this interaction when it wrote its own active configuration.
-        if self.__delegate.is_bound and self.__delegate.project.key == project.key:
-            self.__delegate.bind(project)
-            self._project_dirty = False
+        async with self._config().coordination_lock:
+            await self._config().save_project_config(project.key, project)
+            if self.__delegate.is_bound and self.__delegate.project.key == project.key:
+                await self.invalidate_cache()
 
     async def invalidate_cache(self) -> None:
-        """Reload the project configuration from disk."""
-        name = self.__delegate.project.name  # raises NoProjectError if unbound
-        config_manager = self._config()
-        _key, project = await config_manager.get_or_create_project_config(name, root_path=self.__bound_root_path)
+        """Reload the configuration belonging to this immutable binding."""
+        _key, project = await self._config().get_or_create_project_config(
+            self.__delegate.project.name, root_path=self.__bound_root_path
+        )
         self.__delegate.bind(project)
         self._project_dirty = False
 
@@ -489,7 +566,7 @@ async def request_context_scope(
     else:
         owner = OwnerKey(f"unbound:{seq}")
 
-    async with runtime.session_request(owner):
+    async with runtime.session_request(owner) as captured_session:
         if session is None:
             if resolved_session_id is not None:
                 if isinstance(ctx, Context):
@@ -504,9 +581,9 @@ async def request_context_scope(
                         except InvalidSession as error:
                             raise InvalidGuideSessionError("Invalid or unknown session ID") from error
                 await runtime.expire_inactive_sessions()
-                session = runtime.get_current_session(resolved_session_id)
+                session = captured_session
             else:
-                session = cast(Session, runtime.find_session(owner) or runtime.create_transient_session(owner))
+                session = captured_session
         try:
             if pwd_bind and session_id is None and not session.project_is_bound and pwd is not None:
                 await bind_session_project(session, Path(pwd))
@@ -514,11 +591,19 @@ async def request_context_scope(
                 _attach_session_listeners(session)
             if session.agent_info is None:
                 await cache_mcp_globals(ctx, session)
+            if session.session_id is not None and not session._protocol_logged:
+                logger.info(
+                    "Established Guide session",
+                    extra={
+                        "protocol_revision": protocol_revision,
+                        "client_name": session.agent_info.name if session.agent_info else None,
+                        "client_version": session.agent_info.version if session.agent_info else None,
+                    },
+                )
+                session._protocol_logged = True
             yield await runtime.request_context(session, session_id=session.session_id, seq=seq)
         finally:
-            if session.project_is_bound and not owner.value.startswith("unbound:"):
-                runtime.retain_session(owner, session)
-            elif minted_session_id is not None:
+            if not session.project_is_bound and minted_session_id is not None:
                 await retire_minted_session(ctx, minted_session_id)
 
 

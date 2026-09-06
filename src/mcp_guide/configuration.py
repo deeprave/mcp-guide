@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any, Optional
 import yaml
 from anyio import Path as AsyncPath
 
+from mcp_guide.async_lock import AsyncReentrantLock
 from mcp_guide.core.file_reader import read_file_content
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.feature_flags.types import FeatureValue, to_raw_feature_value
@@ -461,7 +462,10 @@ class ConfigManager(_ConfigManagerCore):
         self._watcher: ConfigWatcher | None = None
         self._watcher_lock = asyncio.Lock()
         self._image_lock = asyncio.Lock()
-        self._publication_lock = asyncio.Lock()
+        # This runtime-wide gate serialises configuration writes/publication
+        # with every Session root transition. It is re-entrant because a
+        # configuration write publishes callbacks in the same task.
+        self._coordination_lock = AsyncReentrantLock()
         self._snapshot: dict[str, Any] | None = None
         self._raw_projects_snapshot: dict[str, Any] = {}
 
@@ -472,6 +476,11 @@ class ConfigManager(_ConfigManagerCore):
     def unregister_session(self, session: Session) -> None:
         """Stop publishing changes to a cleaned-up Session."""
         self._sessions.discard(session)
+
+    @property
+    def coordination_lock(self) -> AsyncReentrantLock:
+        """Return the runtime-wide lifecycle coordination lock."""
+        return self._coordination_lock
 
     async def start(self) -> None:
         """Start the one shared watcher after runtime configuration is ready."""
@@ -573,7 +582,7 @@ class ConfigManager(_ConfigManagerCore):
 
     async def _refresh_and_publish(self) -> None:
         """Load, replace, diff, and publish a shared configuration update once."""
-        async with self._publication_lock:
+        async with self._coordination_lock:
             async with self._image_lock:
                 previous, current = await self._replace_snapshot()
             await self._publish_snapshot_delta(previous, current)
@@ -599,7 +608,7 @@ class ConfigManager(_ConfigManagerCore):
 
     async def get_or_create_project_config(self, name: str, *, root_path: Path | None = None) -> tuple[str, Project]:
         """Resolve a root-bound project through the authoritative shared image."""
-        async with self._publication_lock:
+        async with self._coordination_lock:
             async with self._image_lock:
                 await self._replace_snapshot()
                 project_key, project = await super().get_or_create_project_config(name, root_path=root_path)
@@ -631,7 +640,7 @@ class ConfigManager(_ConfigManagerCore):
             return await super().resolve_clone_source(source_name)
 
     async def set_feature_flag(self, flag_name: str, value: FeatureValue) -> None:
-        async with self._publication_lock:
+        async with self._coordination_lock:
             async with self._image_lock:
                 await self._replace_snapshot()
                 await super().set_feature_flag(flag_name, value)
@@ -639,7 +648,7 @@ class ConfigManager(_ConfigManagerCore):
             await self._publish_snapshot_delta(previous, current)
 
     async def remove_feature_flag(self, flag_name: str) -> None:
-        async with self._publication_lock:
+        async with self._coordination_lock:
             async with self._image_lock:
                 await self._replace_snapshot()
                 await super().remove_feature_flag(flag_name)
@@ -647,7 +656,7 @@ class ConfigManager(_ConfigManagerCore):
             await self._publish_snapshot_delta(previous, current)
 
     async def save_project_config(self, project_key: str, project: Project) -> None:
-        async with self._publication_lock:
+        async with self._coordination_lock:
             async with self._image_lock:
                 await self._replace_snapshot()
                 await super().save_project_config(project_key, project)

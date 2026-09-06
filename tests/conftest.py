@@ -471,6 +471,8 @@ def guide_function(tmp_path, monkeypatch):
     app = create_server(config)
     runtime = application_runtime(app)
     session = create_unbound_test_session(runtime)
+    # This application-only fixture has no client interaction ID.
+    session.session_id = None
 
     # Import guide function after server is initialized
     from mcp_guide.prompts.guide_prompt import guide

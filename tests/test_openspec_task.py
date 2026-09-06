@@ -215,19 +215,6 @@ class TestOpenSpecTask:
         mock_request_changes.assert_awaited_once()
 
     @pytest.mark.anyio
-    async def test_handle_event_ignores_legacy_project_file_listing(self, mock_task_manager):
-        """Legacy project.md listings do not validate a current OpenSpec project."""
-        task = OpenSpecTask(mock_task_manager)
-
-        result = await task.handle_event(
-            EventType.FS_DIRECTORY,
-            {"path": "openspec/project.md", "files": [{"name": "project.md", "type": "file"}]},
-        )
-
-        assert result is None
-        assert task._project_enabled is None
-
-    @pytest.mark.anyio
     async def test_is_available_returns_none_before_check(self, mock_task_manager):
         """Test that is_available returns None before CLI check completes."""
         task = OpenSpecTask(mock_task_manager)

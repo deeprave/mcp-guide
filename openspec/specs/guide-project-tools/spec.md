@@ -7,39 +7,137 @@ Define project selection and project-management tool contracts.
 ## Requirements
 
 ### Requirement: Switch Current Project
-The system SHALL provide a tool to switch to a different project by name or full path.
+The system SHALL provide `set_project(path)` for initial project-root binding and
+`switch_project(name? | path?)` for selecting configuration projects during a
+retained interaction.
+
+The public `switch_project` tool description SHALL state that it can rebind the
+project root when `path` is supplied, in addition to selecting the active
+configuration project.
+
+`set_project` SHALL continue to require an initial client root path and SHALL
+reject a second root binding for the same interaction. `switch_project` SHALL
+require exactly one of `name` or `path`.
+
+A different selection SHALL create a fresh bound Session and make it current
+under the unchanged public session ID. The outgoing Session SHALL expire without
+changing its original binding. The tool SHALL reject a switch while that ID
+already has an expiring Session; it SHALL NOT queue the switch or create another
+expiring instance.
 
 #### Scenario: Switch to existing project
-- **WHEN** user calls `set_current_project` with an existing project name
-- **THEN** load that project's configuration and set it as current
+- **WHEN** a root-bound interaction calls `switch_project` with the name of an
+  existing configuration and no `path`
+- **THEN** the system SHALL load that configuration and set it as current
 
 #### Scenario: Create new project
-- **WHEN** user calls `set_current_project` with a non-existent project name
-- **THEN** create new project with default categories and set it as current
+- **WHEN** a root-bound interaction calls `switch_project` with a non-existent
+  configuration name and no `path`
+- **THEN** the system SHALL create that configuration with default categories
+- **AND** it SHALL set the configuration as current at the bound root
 
 #### Scenario: Invalid project name
-- **WHEN** user calls `set_current_project` with invalid characters or empty name
-- **THEN** return error with type `invalid_name`
+- **WHEN** a project-selection request supplies an invalid configuration name
+- **THEN** the system SHALL return an error with type `invalid_name`
 
 #### Scenario: Full path provided
-- **WHEN** user calls `set_current_project` with an absolute filesystem path
+- **WHEN** an unbound interaction calls `set_project` with an absolute filesystem path
 - **THEN** the basename of the path SHALL be used as the project name
-- **AND** the session roots SHALL be updated with the provided path
-- **AND** `resolve_project_path()` SHALL return the provided directory
+- **AND** the session root SHALL be set to the provided path
+- **AND** filesystem operations SHALL use that directory as the project root
 
 #### Scenario: File URI provided
-- **WHEN** user calls `set_current_project` with a `file://` URI
-- **THEN** the URI prefix SHALL be stripped and treated as an absolute path
+- **WHEN** an initial project-selection request supplies a `file://` URI
+- **THEN** the system SHALL percent-decode its local URI path and treat it as
+  an absolute client filesystem path
 
 #### Scenario: Relative path rejected
-- **WHEN** user calls `set_current_project` with a relative path containing separators
-- **THEN** return error with type `invalid_name`
+- **WHEN** an unbound interaction calls `set_project` with a relative path
+- **THEN** it SHALL return an error with type `invalid_name`
 - **AND** the error message SHALL indicate an absolute path is required
 
 #### Scenario: Path traversal rejected
-- **WHEN** user calls `set_current_project` with a path containing `..` components
-- **THEN** return error with type `invalid_name`
+- **WHEN** an unbound interaction calls `set_project` with a path containing
+  `..` components
+- **THEN** it SHALL return an error with type `invalid_name`
 - **AND** the error message SHALL indicate traversals are not permitted
+
+#### Scenario: Name-only configuration selection
+- **GIVEN** no Session for the interaction's ID is expiring
+- **WHEN** a root-bound interaction calls `switch_project` with `name` and no
+  `path`
+- **THEN** the system SHALL select or create that configuration at the current
+  bound root
+- **AND** it SHALL retain the bound root unchanged
+- **AND** a different configuration selection SHALL use a fresh Session under the same public ID
+
+#### Scenario: Path-only root switch
+- **GIVEN** no Session for the interaction's ID is expiring
+- **WHEN** a root-bound interaction calls `switch_project` with `path` and no
+  `name`
+- **THEN** the system SHALL change the interaction root to the normalised path
+- **AND** it SHALL select or create the configuration named by that path's basename
+- **AND** a different selection SHALL replace the bound Session without changing the public ID
+
+#### Scenario: Combined selection rejected
+- **WHEN** an interaction calls `switch_project` with both `name` and `path`
+- **THEN** the system SHALL return an invalid-selection error
+- **AND** it SHALL not change the active configuration or root
+
+#### Scenario: Relative root switch
+- **WHEN** a root-bound interaction supplies a relative `path`, including one
+  containing `.` or `..` components
+- **THEN** the system SHALL normalise it relative to the interaction's current
+  bound root
+- **AND** it SHALL use the resulting absolute client path as the new root
+
+#### Scenario: User-anchored root switch
+- **WHEN** a root-bound interaction supplies a `path` beginning with `~` or
+  `~user`
+- **THEN** the system SHALL expand that user anchor before selecting the new root
+
+#### Scenario: Switch without a current root
+- **WHEN** an unbound interaction calls `switch_project`, including with a relative `path`
+- **THEN** the system SHALL reject the request without creating or binding a project
+- **AND** it SHALL direct the agent to establish a project root with `set_project`
+
+#### Scenario: Switch request lacks a selection
+- **WHEN** an interaction calls `switch_project` without either `name` or `path`
+- **THEN** the system SHALL return an invalid-selection error
+- **AND** it SHALL not change the active configuration or root
+
+#### Scenario: Tool discovery describes root rebinding
+- **WHEN** an MCP client discovers the `switch_project` tool
+- **THEN** its description SHALL state that `path` can rebind the project root
+- **AND** it SHALL distinguish that behaviour from name-only configuration selection
+
+#### Scenario: Same selection is a no-op
+- **GIVEN** no Session for the public ID is expiring
+- **WHEN** a valid switch selects the already current configuration and root
+- **THEN** it SHALL succeed without replacing the Session or restarting its tasks
+
+#### Scenario: Switch rejected while prior Session is expiring
+- **GIVEN** the interaction's ID already has an expiring Session
+- **WHEN** another switch is requested, including an unchanged selection
+- **THEN** the request SHALL fail with an explicit pending-expiry error
+- **AND** it SHALL leave the current and expiring Sessions unchanged
+- **AND** it SHALL NOT queue or automatically retry the switch
+
+#### Scenario: Replacement preparation fails
+- **GIVEN** the interaction has a current bound Session
+- **WHEN** target validation or replacement preparation fails
+- **THEN** the tool SHALL return an error without changing the current binding
+- **AND** an unpublished candidate SHALL NOT become available to follow-up requests
+
+#### Scenario: Successful switch returns replacement context
+- **WHEN** a project switch succeeds
+- **THEN** the result SHALL describe the replacement's project and preserve the public session ID
+- **AND** any startup instructions attached to that result SHALL belong to the replacement
+- **AND** a subsequent client request SHALL resolve the replacement
+
+#### Scenario: Result Pattern Compliance
+- **WHEN** a project selection tool succeeds or fails
+- **THEN** it SHALL return its result using the standard Result pattern
 
 ### Requirement: Result Pattern Compliance
 All project management tools SHALL return responses using the Result pattern.

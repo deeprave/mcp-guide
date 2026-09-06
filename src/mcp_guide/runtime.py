@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
+from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.feature_flags.types import FeatureValue
 from mcp_guide.lazy_path import LazyPath
 from mcp_guide.models import NoProjectError, Project
@@ -22,6 +23,7 @@ if TYPE_CHECKING:
 SessionT = TypeVar("SessionT")
 
 _GUIDE_RUNTIME: "GuideRuntime[Any] | None" = None
+logger = get_logger(__name__)
 
 
 def get_runtime() -> "GuideRuntime[Any]":
@@ -57,8 +59,11 @@ class GuideRuntime(Generic[SessionT]):
         self._session_factory = session_factory
         self._sessions: dict[OwnerKey, SessionT] = {}
         self._inflight_sessions: dict[OwnerKey, tuple[SessionT, int]] = {}
+        self._expiring_sessions: dict[OwnerKey, SessionT] = {}
+        self._disposal_tasks: dict[int, asyncio.Task[None]] = {}
+        self._stopping = False
         self._session_last_used: dict[OwnerKey, float] = {}
-        self._session_leases: dict[OwnerKey, int] = {}
+        self._session_leases: dict[int, int] = {}
         self._request_seq = 0
         if session_idle_timeout is not None and session_idle_timeout <= 0:
             raise ValueError("session_idle_timeout must be positive or None")
@@ -93,12 +98,22 @@ class GuideRuntime(Generic[SessionT]):
     async def stop(self) -> None:
         """Stop process-level runtime services once after request processing."""
         async with self._lifecycle_lock:
-            if not self._started:
+            if not self._started and not (self._sessions or self._inflight_sessions or self._expiring_sessions):
                 self._release_process_runtime()
                 return
-            failure: Exception | None = None
+            failure: BaseException | None = None
+            self._stopping = True
             try:
-                sessions = [*self._sessions.values()]
+                # Disposal belongs to runtime, not to the request that released it.
+                # Finish those workers before shared services or Sessions are closed.
+                for task in tuple(self._disposal_tasks.values()):
+                    while not task.done():
+                        try:
+                            await asyncio.shield(task)
+                        except asyncio.CancelledError as error:
+                            if failure is None:
+                                failure = error
+                sessions = [*self._sessions.values(), *self._expiring_sessions.values()]
                 retained_session_ids = {id(session) for session in sessions}
                 sessions.extend(
                     session
@@ -110,28 +125,31 @@ class GuideRuntime(Generic[SessionT]):
                     if cleanup is not None:
                         try:
                             await cleanup()
-                        except Exception as error:
+                        except (Exception, asyncio.CancelledError) as error:
                             if failure is None:
                                 failure = error
                 self._sessions.clear()
                 self._inflight_sessions.clear()
+                self._expiring_sessions.clear()
+                self._disposal_tasks.clear()
                 self._session_last_used.clear()
                 self._session_leases.clear()
                 stop_config_manager = getattr(self._config_manager, "stop", None)
                 if stop_config_manager is not None:
                     try:
                         await stop_config_manager()
-                    except Exception as error:
+                    except (Exception, asyncio.CancelledError) as error:
                         if failure is None:
                             failure = error
                 if self._on_stop is not None:
                     try:
                         await self._on_stop()
-                    except Exception as error:
+                    except (Exception, asyncio.CancelledError) as error:
                         if failure is None:
                             failure = error
             finally:
                 self._started = False
+                self._stopping = False
                 self._release_process_runtime()
             if failure is not None:
                 raise failure
@@ -228,11 +246,14 @@ class GuideRuntime(Generic[SessionT]):
             await self.stop()
 
     def resolve_session(self, owner: OwnerKey) -> SessionT:
-        """Return the Session for an owner, creating it once when first needed."""
-        if owner not in self._sessions:
-            self._sessions[owner] = self._session_factory(owner)
-        self._session_last_used[owner] = time.monotonic()
-        return self._sessions[owner]
+        """Resolve active or ephemeral state without promoting an unbound Session."""
+        session = self.find_session(owner)
+        if session is None:
+            if owner in self._expiring_sessions:
+                raise ValueError("Previous Session is still expiring; project binding rejected")
+            session = self.create_transient_session(owner)
+            self._inflight_sessions[owner] = (session, 0)
+        return session
 
     def find_session(self, owner: OwnerKey) -> SessionT | None:
         """Return a retained or in-flight Session without creating state."""
@@ -243,35 +264,87 @@ class GuideRuntime(Generic[SessionT]):
 
     def retain_session(self, owner: OwnerKey, session: SessionT) -> None:
         """Retain a successfully bound Session for later requests."""
+        if not getattr(session, "project_is_bound", False):
+            raise ValueError("Only a bound Session can be retained")
+        if owner in self._expiring_sessions:
+            raise ValueError("Previous Session is still expiring; project binding rejected")
+        if self.find_session(owner) is not session:
+            raise ValueError("Only the current unbound Session can be promoted")
         self._sessions[owner] = session
+        self._inflight_sessions.pop(owner, None)
         self._session_last_used[owner] = time.monotonic()
+
+    def promote_session(self, session: SessionT) -> None:
+        """Publish a successfully bound instance under its existing runtime owner."""
+        for owner, (candidate, _count) in self._inflight_sessions.items():
+            if candidate is session:
+                self.retain_session(owner, session)
+                return
+
+    def check_replacement(self, session: SessionT) -> OwnerKey:
+        """Reject stale callers and a second switch while disposal is pending."""
+        for owner, current in self._sessions.items():
+            if current is session:
+                if owner in self._expiring_sessions:
+                    raise ValueError("Previous Session is still expiring; project switch rejected")
+                return owner
+        raise ValueError("Project switch requires the current bound Session")
+
+    def replace_session(self, original: SessionT, replacement: SessionT) -> None:
+        """Publish prepared state atomically, without yielding to another request."""
+        owner = self.check_replacement(original)
+        if not getattr(replacement, "project_is_bound", False):
+            raise ValueError("Replacement Session must be bound")
+        getattr(original, "begin_expiry")()
+        self._expiring_sessions[owner] = original
+        self._sessions[owner] = replacement
+        self._session_last_used[owner] = time.monotonic()
+
+    def dispose_expiring_session(self, session: SessionT) -> None:
+        """Schedule owned disposal without delaying or failing the releasing request."""
+        if self._stopping or id(session) in self._disposal_tasks:
+            return
+        if self._session_leases.get(id(session), 0) or getattr(session, "has_active_work", False):
+            return
+        for owner, candidate in self._expiring_sessions.items():
+            if candidate is session:
+                self._disposal_tasks[id(session)] = asyncio.create_task(self._dispose_expiring_session(owner, session))
+                return
+
+    async def _dispose_expiring_session(self, owner: OwnerKey, session: SessionT) -> None:
+        """Keep failed disposal registered and report it separately from tool results."""
+        try:
+            await getattr(session, "cleanup")()
+        except (Exception, asyncio.CancelledError):
+            logger.warning("Expiring Session disposal failed; retaining pending-expiry guard", exc_info=True)
+        else:
+            if self._expiring_sessions.get(owner) is session:
+                del self._expiring_sessions[owner]
+        finally:
+            self._disposal_tasks.pop(id(session), None)
 
     @asynccontextmanager
     async def session_request(self, owner: OwnerKey) -> AsyncIterator[SessionT]:
         """Yield one request Session and clean it unless it becomes bound/retained."""
-        if owner in self._sessions:
-            async with self.session_lease(owner):
-                yield self._sessions[owner]
-            return
-
+        session = self.resolve_session(owner)
         existing = self._inflight_sessions.get(owner)
-        if existing is None:
-            session = self.create_transient_session(owner)
-            count = 0
-        else:
-            session, count = existing
-        self._inflight_sessions[owner] = (session, count + 1)
+        if existing is not None and existing[0] is session:
+            self._inflight_sessions[owner] = (session, existing[1] + 1)
         try:
-            yield session
+            async with self.session_lease(owner, session=session):
+                yield session
         finally:
             current = self._inflight_sessions.get(owner)
-            if current is not None:
+            if current is not None and current[0] is session:
                 active_session, active_count = current
                 if active_count > 1:
                     self._inflight_sessions[owner] = (active_session, active_count - 1)
                 else:
                     self._inflight_sessions.pop(owner, None)
-                    if self._sessions.get(owner) is not active_session:
+                    if (
+                        self._sessions.get(owner) is not active_session
+                        and self._expiring_sessions.get(owner) is not active_session
+                    ):
                         cleanup = getattr(active_session, "cleanup", None)
                         if cleanup is not None:
                             await cleanup()
@@ -279,8 +352,11 @@ class GuideRuntime(Generic[SessionT]):
     async def discard_session(self, owner: OwnerKey) -> None:
         """Immediately remove an owner Session whose interaction cannot continue."""
         session = self._sessions.pop(owner, None)
+        in_flight = self._inflight_sessions.pop(owner, None)
+        if session is None and in_flight is not None:
+            session = in_flight[0]
         self._session_last_used.pop(owner, None)
-        self._session_leases.pop(owner, None)
+        self._session_leases.pop(id(session), None)
         if session is not None:
             cleanup = getattr(session, "cleanup", None)
             if cleanup is not None:
@@ -288,30 +364,37 @@ class GuideRuntime(Generic[SessionT]):
 
     def create_transient_session(self, owner: OwnerKey) -> SessionT:
         """Create request-local unbound state without registering cross-request ownership."""
-        return self._session_factory(owner)
+        session = self._session_factory(owner)
+        if hasattr(session, "session_id") and not owner.value.startswith("unbound:"):
+            setattr(session, "session_id", owner.value)
+        return session
 
     @asynccontextmanager
-    async def session_lease(self, owner: OwnerKey) -> AsyncIterator[None]:
+    async def session_lease(self, owner: OwnerKey, *, session: SessionT | None = None) -> AsyncIterator[None]:
         """Keep an already-resolved owner Session alive for one request.
 
         A lease deliberately does not create state. Callers first resolve and
         validate a request identity, then protect the resulting Session while
         its handler can await arbitrary work.
         """
-        if owner not in self._sessions:
+        if session is None:
+            session = self.find_session(owner)
+        if session is None:
             yield
             return
-        self._session_leases[owner] = self._session_leases.get(owner, 0) + 1
+        instance_id = id(session)
+        self._session_leases[instance_id] = self._session_leases.get(instance_id, 0) + 1
         try:
             yield
         finally:
-            remaining = self._session_leases.get(owner, 1) - 1
+            remaining = self._session_leases.get(instance_id, 1) - 1
             if remaining > 0:
-                self._session_leases[owner] = remaining
+                self._session_leases[instance_id] = remaining
             else:
-                self._session_leases.pop(owner, None)
-                if owner in self._sessions:
+                self._session_leases.pop(instance_id, None)
+                if self._sessions.get(owner) is session:
                     self._session_last_used[owner] = time.monotonic()
+                self.dispose_expiring_session(session)
 
     async def expire_inactive_sessions(self, *, now: float | None = None) -> int:
         """Clean up inactive owner Sessions and their contained task state.
@@ -328,15 +411,19 @@ class GuideRuntime(Generic[SessionT]):
         expired = [
             owner
             for owner, last_used in self._session_last_used.items()
-            if current_time - last_used >= self._session_idle_timeout and self._session_leases.get(owner, 0) == 0
+            if current_time - last_used >= self._session_idle_timeout
+            and owner not in self._expiring_sessions
+            and self._session_leases.get(id(self._sessions.get(owner)), 0) == 0
+            and not getattr(self._sessions.get(owner), "has_active_work", False)
         ]
         for owner in expired:
             session = self._sessions.pop(owner, None)
             self._session_last_used.pop(owner, None)
-            self._session_leases.pop(owner, None)
-            cleanup = getattr(session, "cleanup", None)
-            if cleanup is not None:
-                await cleanup()
+            self._session_leases.pop(id(session), None)
+            if session is not None:
+                getattr(session, "begin_expiry")()
+                self._expiring_sessions[owner] = session
+                self.dispose_expiring_session(session)
         return len(expired)
 
     def next_request_seq(self) -> int:
@@ -348,11 +435,7 @@ class GuideRuntime(Generic[SessionT]):
         """Return the Guide Session for a known session_id. Never mint."""
         validate_session_id(session_id)
         owner = OwnerKey(session_id)
-        session = self.find_session(owner)
-        if session is None:
-            session = self.create_transient_session(owner)
-            if owner not in self._sessions:
-                self._inflight_sessions.setdefault(owner, (session, 0))
+        session = self.resolve_session(owner)
         setattr(session, "session_id", session_id)
         return session
 

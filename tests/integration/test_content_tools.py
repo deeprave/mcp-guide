@@ -29,13 +29,11 @@ async def _create_bound_session(runtime) -> Session:
 def _route_legacy_session(mcp_server, monkeypatch, session: Session) -> None:
     """Route the in-process legacy client to its isolated test Session."""
     runtime = application_runtime(mcp_server)
-    original_session_request = runtime.session_request
 
     @asynccontextmanager
     async def session_request(owner):
-        runtime.retain_session(owner, session)
-        async with original_session_request(owner) as resolved_session:
-            yield resolved_session
+        async with runtime.session_lease(owner, session=session):
+            yield session
 
     monkeypatch.setattr(runtime, "session_request", session_request)
 

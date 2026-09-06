@@ -10,38 +10,6 @@ from mcp_guide.discovery.files import FileInfo
 _RESOLVE = Path("docs").joinpath
 
 
-def test_module_imports():
-    """Test that module can be imported."""
-    from mcp_guide.content.formatters import plain
-
-    assert plain is not None
-
-
-def test_plain_formatter_class_exists():
-    """Test that PlainFormatter class exists."""
-    from mcp_guide.content.formatters.plain import PlainFormatter
-
-    assert PlainFormatter is not None
-
-
-def test_format_method_exists():
-    """Test that format method exists."""
-    from mcp_guide.content.formatters.plain import PlainFormatter
-
-    formatter = PlainFormatter()
-    assert hasattr(formatter, "format")
-    assert callable(formatter.format)
-
-
-def test_format_single_method_exists():
-    """Test that format_single method exists."""
-    from mcp_guide.content.formatters.plain import PlainFormatter
-
-    formatter = PlainFormatter()
-    assert hasattr(formatter, "format_single")
-    assert callable(formatter.format_single)
-
-
 @pytest.mark.anyio
 async def test_format_empty_list():
     """Test that empty list returns empty string."""

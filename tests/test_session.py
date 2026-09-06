@@ -1,5 +1,6 @@
 """Tests for Session lifecycle and runtime ownership."""
 
+import logging
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -115,6 +116,72 @@ class TestGetOrCreateSession:
             Session()  # ty: ignore[missing-argument]
 
     @pytest.mark.anyio
+    async def test_session_establishment_logs_modern_protocol_revision(self, tmp_path, caplog) -> None:
+        """A newly established session records the negotiated modern protocol."""
+        _runtime, ctx = runtime_context(tmp_path)
+
+        with caplog.at_level(logging.INFO, logger="mcp_guide.session"):
+            async with request_context_scope(ctx, "protocol-log-session", allow_pwd_bootstrap=False):
+                pass
+
+        records = [record for record in caplog.records if record.msg == "Established Guide session"]
+        assert len(records) == 1
+        assert records[0].protocol_revision == "2026-07-28"
+
+    @pytest.mark.anyio
+    async def test_request_local_work_does_not_log_interaction_establishment(self, tmp_path, caplog) -> None:
+        """ID-less requests must not masquerade as newly established interactions."""
+        _runtime, ctx = runtime_context(tmp_path)
+        with caplog.at_level(logging.INFO, logger="mcp_guide.session"):
+            for _ in range(2):
+                async with request_context_scope(ctx, allow_pwd_bootstrap=False) as request:
+                    assert request.session_id is None
+        assert not [record for record in caplog.records if record.msg == "Established Guide session"]
+
+    @pytest.mark.anyio
+    async def test_session_establishment_logs_legacy_protocol_revision(self, tmp_path, caplog) -> None:
+        """A legacy connection records its negotiated protocol revision."""
+        _runtime, ctx = runtime_context(tmp_path)
+        ctx.request_context.protocol_version = "2025-06-18"
+        ctx.session_id = "legacy-protocol-log-session"
+
+        with caplog.at_level(logging.INFO, logger="mcp_guide.session"):
+            async with request_context_scope(ctx, allow_pwd_bootstrap=False):
+                pass
+
+        records = [record for record in caplog.records if record.msg == "Established Guide session"]
+        assert len(records) == 1
+        assert records[0].protocol_revision == "2025-06-18"
+
+    @pytest.mark.anyio
+    @pytest.mark.parametrize("protocol", ["2026-07-28", "2025-06-18"])
+    async def test_session_establishment_logs_protocol_once_for_retained_session(
+        self, tmp_path, caplog, protocol
+    ) -> None:
+        """Replacement preserves the interaction and does not repeat establishment logging."""
+        _runtime, ctx = runtime_context(tmp_path)
+        ctx.request_context.protocol_version = protocol
+        ctx.session_id = "protocol-log-session"
+        supplied_id = "protocol-log-session" if protocol == "2026-07-28" else None
+
+        with caplog.at_level(logging.INFO, logger="mcp_guide.session"):
+            async with request_context_scope(ctx, supplied_id, allow_pwd_bootstrap=False) as request_context:
+                await bind_session_project(request_context.session, "/client/workspace/protocol-log-project")
+                original = request_context.session
+            async with request_context_scope(ctx, supplied_id, allow_pwd_bootstrap=False) as request_context:
+                replacement = await request_context.session.switch_project(path="../replacement")
+                assert request_context.session is original
+            async with request_context_scope(ctx, supplied_id, allow_pwd_bootstrap=False) as followup:
+                assert followup.session is replacement
+                assert followup.session is not original
+                assert followup.session_id == "protocol-log-session"
+                assert followup.require_project().name == "replacement"
+
+        records = [record for record in caplog.records if record.msg == "Established Guide session"]
+        assert len(records) == 1
+        assert records[0].protocol_revision == protocol
+
+    @pytest.mark.anyio
     async def test_creates_session_with_explicit_name(self, runtime, tmp_path, monkeypatch):
         """Creates session when explicit project_name provided."""
         session = await create_test_session(runtime, "explicit-project")
@@ -161,6 +228,23 @@ class TestGetOrCreateSession:
             assert request_context.session is runtime.get_current_session("same-session")
 
         assert runtime.find_session(OwnerKey("same-session")) is None
+
+    @pytest.mark.anyio
+    async def test_request_scope_uses_legacy_fastmcp_session_id(self, tmp_path):
+        """Legacy request scopes use FastMCP's public connection ID as their owner."""
+        runtime = create_test_runtime(str(tmp_path))
+        ctx = MagicMock()
+        ctx.request_context.protocol_version = "2025-06-18"
+        ctx.request_context.request_id = "legacy-request"
+        ctx.request_context.meta = None
+        ctx.request_context.lifespan_context = runtime
+        ctx.session.client_params = None
+        ctx.session_id = "legacy-fastmcp-session"
+
+        async with request_context_scope(ctx, allow_pwd_bootstrap=False) as request_context:
+            assert request_context.session is runtime.get_current_session("legacy-fastmcp-session")
+
+        assert runtime.find_session(OwnerKey("legacy-fastmcp-session")) is None
 
     @pytest.mark.anyio
     async def test_request_context_scope_constructs_one_context_from_the_runtime_session(self, tmp_path):
@@ -254,23 +338,6 @@ class TestGetOrCreateSession:
         assert first is not second
 
     @pytest.mark.anyio
-    async def test_request_scope_uses_legacy_fastmcp_session_id(self, tmp_path):
-        """Legacy request scopes use FastMCP's public connection ID as their owner."""
-        runtime = create_test_runtime(str(tmp_path))
-        ctx = MagicMock()
-        ctx.request_context.protocol_version = "2025-06-18"
-        ctx.request_context.request_id = "legacy-request"
-        ctx.request_context.meta = None
-        ctx.request_context.lifespan_context = runtime
-        ctx.session.client_params = None
-        ctx.session_id = "legacy-fastmcp-session"
-
-        async with request_context_scope(ctx, allow_pwd_bootstrap=False) as request_context:
-            assert request_context.session is runtime.get_current_session("legacy-fastmcp-session")
-
-        assert runtime.find_session(OwnerKey("legacy-fastmcp-session")) is None
-
-    @pytest.mark.anyio
     async def test_project_name_bootstrap_is_test_local(self, runtime, tmp_path):
         """Test-only project-name bootstrap does not create global session state."""
         session1 = await create_test_session(runtime, "project1")
@@ -314,7 +381,8 @@ class TestGetOrCreateSession:
         initial_instructions = list(task_manager._pending_instructions)
         await task_manager.queue_instruction("stale project instruction")
 
-        await session.switch_project("project-two")
+        session = await session.switch_project("project-two")
+        task_manager = session.task_manager
 
         assert "stale project instruction" not in task_manager._pending_instructions
         for instruction in initial_instructions:
@@ -350,10 +418,12 @@ class TestUnboundSession:
 
     @pytest.mark.anyio
     async def test_switch_project_requires_a_bound_root(self, runtime, tmp_path, monkeypatch):
-        """switch_project changes configuration only; set_project binds the root."""
+        """switch_project requires a root before selecting or rebinding a configuration."""
         session = create_unbound_test_session(runtime)
         assert session.project_is_bound is False
 
         with pytest.raises(ValueError, match="explicitly bound root"):
             await session.switch_project("test-project")
+        with pytest.raises(ValueError, match="explicitly bound root"):
+            await session.switch_project(path="../other-project")
         assert session.project_is_bound is False

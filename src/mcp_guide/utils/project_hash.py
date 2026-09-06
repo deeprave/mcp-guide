@@ -1,7 +1,7 @@
 """Project hash utilities for unique project identification."""
 
 import hashlib
-from pathlib import Path
+import os
 
 
 def calculate_project_hash(path: str) -> str:
@@ -18,8 +18,9 @@ def calculate_project_hash(path: str) -> str:
     Returns:
         SHA256 hash as hexadecimal string
     """
-    # Normalize path to ensure consistent hashing
-    normalized_path = str(Path(path).resolve())
+    # Client roots can be remote from the Guide process. Normalise only their
+    # lexical representation; resolving would follow server-visible symlinks.
+    normalized_path = os.path.normpath(path)
     return hashlib.sha256(normalized_path.encode("utf-8")).hexdigest()
 
 

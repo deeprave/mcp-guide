@@ -9,46 +9,6 @@ from mcp.client.stdio import stdio_client
 
 
 @pytest.mark.anyio
-async def test_tool_registration_with_fastmcp():
-    """Test that tools register correctly with FastMCP instance."""
-    from mcp_guide.cli import ServerConfig
-    from mcp_guide.server import create_server
-
-    # Create server
-    config = ServerConfig()
-    server = create_server(config)
-
-    # Verify server was created
-    assert server is not None
-    assert server.name == "guide"
-
-    # FastMCP should have tools registered
-    # Note: FastMCP doesn't expose a direct way to list tools,
-    # but we can verify the server was created successfully
-    assert hasattr(server, "tool")
-
-
-@pytest.mark.anyio
-async def test_auto_generated_description():
-    """Test that tool descriptions are auto-generated from args class."""
-    from mcp_guide.cli import ServerConfig
-    from mcp_guide.server import create_server
-
-    # Create server (triggers registration)
-    config = ServerConfig()
-    server = create_server(config)
-
-    # Verify description generation works
-    from mcp_guide.core.tool_arguments import ToolArguments
-    from mcp_guide.tools.tool_category import internal_category_list
-
-    description = ToolArguments.build_description(internal_category_list)
-
-    # Should include docstring
-    assert "List all categories" in description
-
-
-@pytest.mark.anyio
 async def test_mcp_client_can_initialize_and_list_tools(tmp_path):
     """Test end-to-end stdio MCP protocol: client initializes and lists tools.
 

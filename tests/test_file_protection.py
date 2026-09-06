@@ -29,13 +29,6 @@ def test_protection_monitors_real_production_paths(session_temp_dir):
     assert REAL_PATHS["mcp_guide_config"].is_absolute(), "Real config should be an absolute path"
 
 
-def test_protection_fixture_exists():
-    """Verify the protection fixture is properly configured."""
-    # This test just needs to run - if the fixture is broken, it will fail
-    # The fixture is autouse=True, so it's already active
-    pass
-
-
 def test_can_safely_modify_test_paths(tmp_path, session_temp_dir):
     """Verify tests CAN modify test paths without triggering protection."""
     # This should NOT trigger watchdog because it's in test temp dir

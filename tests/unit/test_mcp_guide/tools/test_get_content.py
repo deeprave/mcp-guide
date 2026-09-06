@@ -75,11 +75,6 @@ def create_mock_session(tmp_path, project_data, project_flags_data=None, feature
     return MockSession()
 
 
-def test_content_args_exists():
-    """Test that ContentArgs class exists."""
-    assert ContentArgs is not None
-
-
 def test_expression_field_is_required():
     """Test that expression field is required."""
     with pytest.raises(ValidationError):

@@ -41,13 +41,11 @@ def mcp_server(mcp_server_factory):
 async def empty_session(runtime, mcp_server, monkeypatch):
     """Create an isolated Session for legacy protocol exercises."""
     session = await bind_isolated_test_session(runtime, project_name=unique_test_project_name())
-    original_session_request = runtime.session_request
 
     @asynccontextmanager
     async def session_request(owner):
-        runtime.retain_session(owner, session)
-        async with original_session_request(owner) as resolved_session:
-            yield resolved_session
+        async with runtime.session_lease(owner, session=session):
+            yield session
 
     monkeypatch.setattr(runtime, "session_request", session_request)
 

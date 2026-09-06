@@ -10,7 +10,7 @@ import yaml
 from mcp_guide.models import Category
 from mcp_guide.runtime import get_runtime
 from mcp_guide.session import Session
-from tests.helpers import create_unbound_test_session, runtime_config_dir
+from tests.helpers import create_unbound_test_session, runtime_config_dir, wait_for_session_disposals
 
 
 class _RecordingSessionListener:
@@ -89,7 +89,7 @@ class TestConfigSessionIntegration:
 
     @pytest.mark.anyio
     async def test_project_switch_replaces_runtime_tasks_and_clears_project_state(self, runtime, monkeypatch):
-        """Switching projects fully replaces runtime handlers and volatile state."""
+        """Rebinding to a same-named project root replaces runtime state."""
         from mcp_guide.context.tasks import ClientContextTask
         from mcp_guide.decorators import (
             clear_registered_tasks_for_testing,
@@ -132,7 +132,12 @@ class TestConfigSessionIntegration:
             task_manager.set_cached_data("openspec_version", "1.6.0")
             await task_manager.queue_instruction("stale project instruction")
 
-            await session.switch_project("disabled-project")
+            session = await session.switch_project(
+                path=runtime_config_dir(runtime) / "alternate-client-root" / "enabled-project"
+            )
+            await wait_for_session_disposals(runtime)
+            assert task_manager.get_subscription_count() == 0
+            task_manager = session.task_manager
 
             assert task_manager.get_task_by_type(WorkflowMonitorTask) is None
             assert task_manager.get_task_by_type(OpenSpecTask) is None
@@ -140,8 +145,8 @@ class TestConfigSessionIntegration:
             assert task_manager.get_subscription_count() == 4
             assert task_manager.get_cached_data("workflow_state") is None
             assert task_manager.get_cached_data("client_context_info") is None
-            assert task_manager.get_cached_data("openspec_version") == "1.6.0"
-            assert task_manager.is_queue_empty()
+            assert task_manager.get_cached_data("openspec_version") is None
+            assert "stale project instruction" not in task_manager._pending_instructions
         finally:
             await task_manager.cleanup()
             clear_registered_tasks_for_testing()
@@ -164,6 +169,98 @@ class TestConfigSessionIntegration:
 
         listener.config_changed.assert_awaited_once_with(session)
         assert "docs" in (await session.get_project()).categories
+
+    @pytest.mark.anyio
+    async def test_project_flag_change_clears_command_discovery_cache(self, runtime) -> None:
+        """Flag-gated command listings are rebuilt after a project flag update."""
+        from mcp_guide.feature_flags.types import FeatureValue
+
+        session = await self._create_bound_session(runtime, "current-project")
+        session.task_manager.command_cache["/client/_commands"] = (0.0, [{"name": "openspec/list"}])
+
+        await session.update_config(
+            lambda project: replace(project, project_flags={"openspec": FeatureValue.from_raw(True)})
+        )
+
+        assert session.task_manager.command_cache == {}
+
+    @pytest.mark.anyio
+    async def test_project_flag_mutation_keeps_its_original_binding(self, runtime) -> None:
+        """A flag proxy captured for one root cannot modify a replacement project."""
+        from mcp_guide.feature_flags.types import FeatureValue
+
+        session = await self._create_bound_session(runtime, "original")
+        original_project = await session.get_project()
+        assert original_project.key is not None
+        flags = session.project_flags()
+
+        replacement = await session.switch_project("review")
+
+        await flags.set("openspec", FeatureValue.from_raw(True))
+
+        assert "openspec" not in (await replacement.get_project()).project_flags
+        projects = await session.get_all_projects()
+        assert projects[original_project.key].project_flags["openspec"].to_raw() is True
+
+    @pytest.mark.anyio
+    async def test_pending_save_does_not_undo_a_name_only_project_switch(self, runtime, monkeypatch):
+        """A save finishing after a switch must not restore its old binding."""
+        session = await self._create_bound_session(runtime, "original")
+        original_project = await session.get_project()
+        config_manager = session._config()
+        save_started = asyncio.Event()
+        allow_save = asyncio.Event()
+        original_save = config_manager.save_project_config
+
+        async def gated_save(project_key, project):
+            save_started.set()
+            await allow_save.wait()
+            await original_save(project_key, project)
+
+        monkeypatch.setattr(config_manager, "save_project_config", gated_save)
+        pending_save = asyncio.create_task(session.save_project(original_project))
+        await save_started.wait()
+
+        switching = asyncio.create_task(session.switch_project("review"))
+        await asyncio.sleep(0)
+        assert not switching.done()
+        allow_save.set()
+        await pending_save
+        replacement = await switching
+
+        assert (await replacement.get_project()).name == "review"
+        assert (await session.get_project()).name == "original"
+
+    @pytest.mark.anyio
+    async def test_shared_configuration_publication_completes_before_replacement_preparation(
+        self, runtime, monkeypatch
+    ) -> None:
+        """A configuration publication cannot deadlock a concurrent root switch."""
+        session = await self._create_bound_session(runtime, "original")
+        project = await session.get_project()
+        config_manager = session._config()
+        publication_started = asyncio.Event()
+        release_publication = asyncio.Event()
+        original_publish = config_manager._publish_snapshot_delta
+
+        async def paused_publish(previous, current):
+            publication_started.set()
+            await release_publication.wait()
+            await original_publish(previous, current)
+
+        monkeypatch.setattr(config_manager, "_publish_snapshot_delta", paused_publish)
+        updated_project = project.with_category("docs", Category(dir="docs/", patterns=["*.md"]))
+        saving = asyncio.create_task(session.save_project(updated_project))
+        await publication_started.wait()
+        switching = asyncio.create_task(session.switch_project("review"))
+        await asyncio.sleep(0)
+
+        assert not switching.done()
+        release_publication.set()
+        await asyncio.wait_for(asyncio.gather(saving, switching), timeout=1)
+
+        assert (await switching.result().get_project()).name == "review"
+        assert (await session.get_project()).name == "original"
 
     @pytest.mark.anyio
     async def test_save_project_does_not_notify_for_other_project(self, runtime, monkeypatch):

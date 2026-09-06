@@ -5,7 +5,7 @@
 from dataclasses import replace
 from typing import Any, Literal, Optional
 
-from pydantic import Field
+from pydantic import ConfigDict, Field, model_validator
 
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.core.tool_arguments import ToolArguments
@@ -71,12 +71,35 @@ class ListProjectsArgs(ToolArguments):
 
 
 class SwitchProjectArgs(ToolArguments):
-    """Arguments for switching the active configuration within the bound root."""
+    """Arguments for selecting a configuration or rebinding the project root."""
 
-    name: str = Field(description="Configuration project name to select for the already bound root")
+    model_config = ConfigDict(
+        extra="ignore",
+        json_schema_extra={
+            "oneOf": [
+                {"required": ["name"], "properties": {"name": {"type": "string"}, "path": {"type": "null"}}},
+                {"required": ["path"], "properties": {"name": {"type": "null"}, "path": {"type": "string"}}},
+            ]
+        },
+    )
+
+    name: str | None = Field(default=None, description="Configuration project name to select at the current root")
+    path: str | None = Field(
+        default=None,
+        description="Project root to rebind instead of selecting a configuration name",
+    )
     verbose: bool = Field(
         default=False, description="If True, return full project details; if False, return confirmation"
     )
+
+    @model_validator(mode="after")
+    def require_name_or_path(self) -> "SwitchProjectArgs":
+        """Require exactly one configuration name or new root."""
+        if self.name is None and (self.path is None or not self.path.strip()):
+            raise ValueError("switch_project requires a name or path")
+        if self.name is not None and self.path is not None:
+            raise ValueError("switch_project accepts a name or path, not both")
+        return self
 
 
 class ListProjectArgs(ToolArguments):
@@ -180,25 +203,31 @@ async def set_project(args: SetCurrentProjectArgs, request_context: RequestConte
 
 
 async def internal_switch_project(args: SwitchProjectArgs, request_context: RequestContext) -> Result[dict[str, Any]]:
-    """Select a named configuration without changing the bound filesystem root."""
+    """Select a configuration project or rebind the project's filesystem root."""
     try:
         session = request_context.session
         if not session.project_is_bound:
             return await make_no_project_result()
-        await session.switch_project(args.name)
-        project = await session.get_project()
-        response = await format_project_data(project, verbose=args.verbose, session=session)
-        response["project"] = project.name
-        return Result.ok(response, message=f"Selected configuration project '{project.name}'")
+        session = await session.switch_project(args.name, path=args.path)
+        async with session.work():
+            project = await session.get_project()
+            response = await format_project_data(project, verbose=args.verbose, session=session)
+            response["project"] = project.name
+            message = (
+                f"Rebound project root and selected configuration project '{project.name}'"
+                if args.path is not None
+                else f"Selected configuration project '{project.name}'"
+            )
+            return await session.task_manager.process_result(Result.ok(response, message=message))
     except ValueError as error:
         return Result.failure(str(error), error_type=ERROR_INVALID_NAME)
 
 
 @toolfunc(SwitchProjectArgs)
 async def switch_project(args: SwitchProjectArgs, request_context: RequestContext) -> ToolResult:
-    """Switch active configuration project while retaining the bound root."""
+    """Switch active configuration project or rebind the project root with path."""
     result = await internal_switch_project(args, request_context)
-    return await tool_result("switch_project", result, session=request_context.session, session_id=args.session_id)
+    return await tool_result("switch_project", result, session_id=request_context.session_id)
 
 
 async def internal_list_projects(args: ListProjectsArgs, request_context: RequestContext) -> Result[dict]:

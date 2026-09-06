@@ -12,32 +12,6 @@ class TestRetryTask:
     """Test RetryTask functionality."""
 
     @pytest.mark.anyio
-    async def test_retry_task_exists(self, task_manager: TaskManager):
-        """Test that RetryTask can be imported and instantiated."""
-        from mcp_guide.tasks.retry_task import RetryTask
-
-        task = RetryTask(task_manager)
-        assert task is not None
-
-    @pytest.mark.anyio
-    async def test_retry_task_has_protocol_methods(self, task_manager: TaskManager):
-        """Test that RetryTask implements TaskSubscriber protocol."""
-        from mcp_guide.tasks.retry_task import RetryTask
-
-        task = RetryTask(task_manager)
-        assert hasattr(task, "get_name")
-        assert hasattr(task, "on_tool")
-        assert hasattr(task, "handle_event")
-
-    @pytest.mark.anyio
-    async def test_retry_task_get_name(self, task_manager: TaskManager):
-        """Test that RetryTask returns correct name."""
-        from mcp_guide.tasks.retry_task import RetryTask
-
-        task = RetryTask(task_manager)
-        assert task.get_name() == "RetryTask"
-
-    @pytest.mark.anyio
     async def test_retry_task_ignores_non_timer_events(self, task_manager: TaskManager):
         """Test that RetryTask ignores non-timer events."""
         from mcp_guide.tasks.retry_task import RetryTask

@@ -129,7 +129,8 @@ async def internal_list_project_flags(
 ) -> Result[RawFeatureValue | dict[str, RawFeatureValue] | None]:
     """List project feature flags based on project context and parameters."""
     session = request_context.session
-    if request_context.project is None:
+    project = request_context.project
+    if project is None:
         return await make_no_project_result()
 
     try:
@@ -193,7 +194,8 @@ async def internal_set_project_flag(args: SetFlagArgs, request_context: RequestC
         )
 
     session = request_context.session
-    if request_context.project is None:
+    project = request_context.project
+    if project is None:
         return await make_no_project_result()
 
     try:

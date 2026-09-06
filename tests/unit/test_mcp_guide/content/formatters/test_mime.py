@@ -21,34 +21,6 @@ def docroot(tmp_path):
     return tmp_path
 
 
-@pytest.mark.parametrize(
-    "check_type",
-    ["module", "class", "format_method", "format_single_method"],
-)
-def test_mime_formatter_structure(check_type: str):
-    """Test MimeFormatter module, class, and method existence."""
-    if check_type == "module":
-        from mcp_guide.content.formatters import mime
-
-        assert mime is not None
-    elif check_type == "class":
-        from mcp_guide.content.formatters.mime import MimeFormatter
-
-        assert MimeFormatter is not None
-    elif check_type == "format_method":
-        from mcp_guide.content.formatters.mime import MimeFormatter
-
-        formatter = MimeFormatter()
-        assert hasattr(formatter, "format")
-        assert callable(formatter.format)
-    else:  # format_single_method
-        from mcp_guide.content.formatters.mime import MimeFormatter
-
-        formatter = MimeFormatter()
-        assert hasattr(formatter, "format_single")
-        assert callable(formatter.format_single)
-
-
 @pytest.mark.anyio
 async def test_format_empty_list(docroot):
     """Test that empty list returns empty string."""

@@ -250,7 +250,7 @@ async def internal_collection_change(args: CollectionChangeArgs, request_context
     try:
         final_name = args.new_name if args.new_name is not None else args.name
         await session.update_config(
-            lambda p: p.without_collection(args.name).with_collection(final_name, updated_collection)
+            lambda p: p.without_collection(args.name).with_collection(final_name, updated_collection),
         )
     except Exception as e:
         return Result.failure(f"Failed to save project configuration: {e}", error_type=ERROR_SAVE)
@@ -340,7 +340,7 @@ async def internal_collection_update(args: CollectionUpdateArgs, request_context
 
     try:
         await session.update_config(
-            lambda p: p.without_collection(args.name).with_collection(args.name, updated_collection)
+            lambda p: p.without_collection(args.name).with_collection(args.name, updated_collection),
         )
     except Exception as e:
         return Result.failure(f"Failed to save project configuration: {e}", error_type=ERROR_SAVE)

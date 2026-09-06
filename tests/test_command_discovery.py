@@ -2,6 +2,7 @@
 
 import tempfile
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -419,7 +420,7 @@ class TestCommandDiscoveryCaching:
 
             class _Session:
                 def __init__(self) -> None:
-                    self.command_cache: dict = {}
+                    self.task_manager = SimpleNamespace(command_cache={})
 
             session_1 = _Session()
             session_2 = _Session()
@@ -427,22 +428,22 @@ class TestCommandDiscoveryCaching:
             # Session 1 gets its cache populated.
             result1 = await discover_commands(commands_dir, session_1)
             assert len(result1) > 0
-            assert len(session_1.command_cache) > 0
-            assert session_2.command_cache == {}
+            assert len(session_1.task_manager.command_cache) > 0
+            assert session_2.task_manager.command_cache == {}
 
             # Session 2 gets its own independent cache.
             result2 = await discover_commands(commands_dir, session_2)
             assert len(result2) > 0
-            assert len(session_2.command_cache) > 0
-            assert session_1.command_cache is not session_2.command_cache
+            assert len(session_2.task_manager.command_cache) > 0
+            assert session_1.task_manager.command_cache is not session_2.task_manager.command_cache
 
             # A third session's discovery leaves the first two caches unchanged.
-            snap1 = dict(session_1.command_cache)
-            snap2 = dict(session_2.command_cache)
+            snap1 = dict(session_1.task_manager.command_cache)
+            snap2 = dict(session_2.task_manager.command_cache)
             result_no_session = await discover_commands(commands_dir, _Session())
             assert len(result_no_session) > 0
-            assert session_1.command_cache == snap1
-            assert session_2.command_cache == snap2
+            assert session_1.task_manager.command_cache == snap1
+            assert session_2.task_manager.command_cache == snap2
 
     @pytest.mark.anyio
     async def test_stat_oserror_completes_without_caching(self) -> None:
@@ -456,7 +457,7 @@ class TestCommandDiscoveryCaching:
 
             class _Session:
                 def __init__(self) -> None:
-                    self.command_cache: dict = {}
+                    self.task_manager = SimpleNamespace(command_cache={})
 
             session = _Session()
 
@@ -478,7 +479,7 @@ class TestCommandDiscoveryCaching:
 
             class _Session:
                 def __init__(self) -> None:
-                    self.command_cache: dict = {}
+                    self.task_manager = SimpleNamespace(command_cache={})
 
             session = _Session()
 
@@ -490,4 +491,4 @@ class TestCommandDiscoveryCaching:
 
             # Bad files are skipped; cache not populated due to errors
             assert result == []
-            assert session.command_cache == {}
+            assert session.task_manager.command_cache == {}

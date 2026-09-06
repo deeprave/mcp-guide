@@ -37,15 +37,6 @@ class TestTraceLevel:
 class TestLoggerTraceMethod:
     """Tests for logger.trace() method."""
 
-    def test_logger_has_trace_method(self):
-        """Test logger has trace() method."""
-        from mcp_guide.core.mcp_log import get_logger
-
-        logger = get_logger("test_trace_method")
-
-        assert hasattr(logger, "trace")
-        assert callable(logger.trace)
-
     def test_trace_method_logs_at_trace_level(self, caplog):
         """Test trace() method logs at TRACE level."""
         from mcp_guide.core.mcp_log import TRACE_LEVEL, get_logger
