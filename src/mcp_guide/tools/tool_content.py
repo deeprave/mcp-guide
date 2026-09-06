@@ -37,6 +37,7 @@ from mcp_guide.result import Result
 from mcp_guide.result_constants import (
     ERROR_FILE_READ,
     ERROR_NOT_FOUND,
+    ERROR_SAVE,
     ERROR_VALIDATION,
     INSTRUCTION_FILE_ERROR,
     INSTRUCTION_NOTFOUND_ERROR,
@@ -432,7 +433,15 @@ async def export_content(
             )
         return p
 
-    await session.update_config(_apply_updates)
+    try:
+        await session.update_config(_apply_updates)
+    except ValueError as error:
+        return await tool_result(
+            "export_content",
+            Result.failure(f"Failed to save project configuration: {error}", error_type=ERROR_SAVE),
+            session=session,
+            session_id=args.session_id,
+        )
 
     instruction = _build_export_write_instruction(output_path, args.force)
 
@@ -592,7 +601,9 @@ async def remove_export(
         )
 
     # Remove entry
-    await session.update_config(lambda p: dc_replace(p, exports={k: v for k, v in p.exports.items() if k != key}))
+    await session.update_config(
+        lambda p: dc_replace(p, exports={k: v for k, v in p.exports.items() if k != key}),
+    )
 
     return await tool_result(
         "remove_export",

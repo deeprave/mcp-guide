@@ -1,5 +1,6 @@
 """Shared test helpers."""
 
+import asyncio
 import inspect
 import uuid
 from pathlib import Path
@@ -13,6 +14,11 @@ from mcp_guide.runtime import GuideRuntime, OwnerKey, create_runtime
 if TYPE_CHECKING:
     from mcp_guide.runtime import RequestContext
     from mcp_guide.session import Session
+
+
+async def wait_for_session_disposals(runtime: GuideRuntime[Any]) -> None:
+    """Wait for runtime-owned disposal workers when asserting eventual cleanup."""
+    await asyncio.gather(*tuple(runtime._disposal_tasks.values()))
 
 
 def tool_result_payload(result: ToolResult | CallToolResult) -> dict[str, Any]:

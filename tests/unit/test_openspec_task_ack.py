@@ -1,5 +1,6 @@
 """Tests for OpenSpecTask acknowledgement tracking."""
 
+from contextlib import nullcontext
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -11,7 +12,7 @@ from mcp_guide.task_manager.manager import TaskManager
 
 def _manager() -> TaskManager:
     """Create a manager with the session ownership required for cache updates."""
-    return TaskManager(session=Mock(template_cache=Mock()))
+    return TaskManager(session=Mock(template_cache=Mock(), work=nullcontext))
 
 
 @pytest.fixture(autouse=True)

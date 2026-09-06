@@ -22,7 +22,7 @@ def _set_global_flags(monkeypatch: pytest.MonkeyPatch, proxy: Mock) -> None:
     monkeypatch.setattr("mcp_guide.runtime.get_runtime", lambda: runtime)
 
 
-_DEFAULT_PROJECT = object()
+_DEFAULT_PROJECT = SimpleNamespace(key="test-project-12345678")
 
 
 def request_context(session: Mock, *, project: object | None = _DEFAULT_PROJECT) -> SimpleNamespace:
@@ -145,6 +145,7 @@ class TestTestSetProjectFlagTool:
 
         assert result.success is True
         assert expected_msg in result.value
+        mock_session.project_flags.assert_called_once_with()
 
         if mock_method == "set":
             mock_flags_proxy.set.assert_called_once_with("test_flag", value)
@@ -167,6 +168,7 @@ class TestTestSetProjectFlagTool:
 
         assert result.success is True
         assert "Flag 'test_flag' set to True" in result.value
+        mock_session.project_flags.assert_called_once_with()
         mock_flags_proxy.set.assert_called_once_with("test_flag", True)
 
     @pytest.mark.anyio

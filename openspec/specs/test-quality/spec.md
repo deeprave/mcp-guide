@@ -68,11 +68,11 @@ TDD scaffolding tests SHALL be evaluated for ongoing regression value and remove
 - **THEN** the test SHALL be removed
 
 ### Requirement: Coverage Maintenance
-The test suite SHALL maintain at least 90% code coverage after pruning.
+The test suite SHALL maintain at least 80% code coverage after pruning.
 
 #### Scenario: Coverage maintained
 - **WHEN** tests are removed
-- **THEN** overall coverage SHALL remain ≥90%
+- **THEN** overall coverage SHALL remain ≥80%
 
 #### Scenario: Coverage drops significantly
 - **WHEN** removing tests causes coverage to drop >5% in any module

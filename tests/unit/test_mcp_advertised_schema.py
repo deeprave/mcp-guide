@@ -12,7 +12,7 @@ from mcp_guide.core.tool_decorator import get_tool_registry
 from mcp_guide.tools.tool_content import ContentArgs, ExportContentArgs
 from mcp_guide.tools.tool_feature_flags import SetFeatureFlagArgs, SetFlagArgs
 from mcp_guide.tools.tool_filesystem import SendDirectoryListingArgs, SendFileContentArgs
-from mcp_guide.tools.tool_project import CloneProjectArgs, SetCurrentProjectArgs
+from mcp_guide.tools.tool_project import CloneProjectArgs, SetCurrentProjectArgs, SwitchProjectArgs
 from mcp_guide.tools.tool_utility import GetClientInfoArgs
 
 
@@ -89,6 +89,15 @@ def test_set_project_does_not_say_switching() -> None:
     description = SetCurrentProjectArgs.build_description(set_project)
     assert "after switching" not in description
     assert "after binding" in description
+
+
+def test_switch_project_advertises_root_rebinding() -> None:
+    """Tool discovery distinguishes path-based root rebinding from name selection."""
+    from mcp_guide.tools.tool_project import switch_project
+
+    description = SwitchProjectArgs.build_description(switch_project)
+    assert "rebind the project root" in description
+    assert "Project root to rebind instead" in description
 
 
 def test_client_info_has_no_unused_verbose_argument() -> None:

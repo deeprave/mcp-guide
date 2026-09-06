@@ -38,11 +38,19 @@ project, agent details, and feature configuration.
 `set_project` is an agent-facing operation, not a project-name selector. Its required
 `path` is the absolute path on the agent's filesystem. Guide derives the displayed
 project name and a path hash from that root, then binds the interaction once. A later
-`set_project` call, including one with the same path, is rejected. Start a new
-interaction to select another root.
+`set_project` call, including one with the same path, is rejected. Use
+`switch_project({"path": "..."})` to rebind the root in the retained interaction.
 
-`switch_project(name)` changes only the active Guide configuration within the bound
-root. It never changes the project root and rejects filesystem paths.
+`switch_project` accepts exactly one selection. `switch_project({"name": "..."})`
+changes the active Guide configuration within the bound root. Alternatively,
+`switch_project({"path": "..."})` rebinds the project root in the retained
+interaction and selects the configuration named by the normalised path basename.
+The path may be absolute, user-anchored (`~` or `~user`), or relative to the
+current bound root. Do not provide both `name` and `path`.
+
+A different selection creates a fresh internal Session under the same public
+`session_id`; it does not reconnect the client. Selecting the current name and
+root is a no-op unless a previous Session is still expiring.
 
 Configuration identity is strict: a stored configuration is usable only when both its
 `<project-name>-<hash>` key and stored hash match the bound root. Hashless, malformed,
@@ -66,10 +74,33 @@ caches, task state, and active configuration—isolated by session owner. Differ
 clients and subagents receive separate Sessions even when they select the same root;
 they can share durable project configuration but not transient task state.
 
+Sessions progress from **unbound → bound → expiring**, then are disposed of.
+Unbound Sessions are request-local until initial binding succeeds. A project
+switch publishes a fresh bound Session and lets the outgoing Session finish
+work already in progress, including configuration saves to its original project.
+Its original binding never changes. New requests, including delayed client
+replies, use the current Session; no additional client token is needed.
+
+The outgoing Session receives no new scheduling or configuration notifications.
+Once its work finishes, Guide disposes of its tasks, listeners, queues and caches.
+Disposal runs independently of the successful switch response. Cleanup failures
+are logged separately and keep the outgoing Session registered as expiring.
+While that Session is expiring, another switch is rejected without changing the
+current project, including an otherwise unchanged selection. Try again after
+the outstanding work has completed; switches are not queued automatically.
+
+Guide logs the negotiated protocol revision and available client name/version
+once at interaction establishment. An internal Session replacement does not
+produce another establishment log. These logs exclude session IDs and client paths.
+Modern request-local work without a public interaction ID does not emit an
+establishment log.
+
 Inactive runtime Sessions expire after one hour, checked at request boundaries. After
 expiry, begin a new interaction and bind the project again. A server restart also
 clears transient interaction state; durable configuration remains in the shared
 configuration file.
+Idle disposal uses the same expiring lifecycle: it cannot create a second
+expiring Session for an ID, and failed disposal prevents rebinding that ID.
 
 ## Operational downgrade and reconnect
 

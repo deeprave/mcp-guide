@@ -84,9 +84,12 @@ absolute client filesystem path of the project root:
 set_project({"path": "/path/to/your/project"})
 ```
 
-An interaction can bind one root only. To work on another root, begin a new
-interaction. `switch_project({"name": "..."})` remains available to select a
-different Guide configuration while retaining the same bound root.
+`set_project` binds the initial root once. A retained interaction can then use
+`switch_project({"name": "..."})` to select a different Guide configuration at
+that root, or `switch_project({"path": "../other-project"})` to rebind its root
+and select the configuration named by that path's basename. Supply exactly one of
+`name` or `path`; a switch path may be absolute, user-anchored, or relative to the
+current root.
 
 Once the project is set, all of mcp-guide's project-related functionality — categories, collections, feature flags, workflows — becomes available. Without it, tools will return an error asking the agent to set a project first. See [Protocol and Sessions](protocol-and-sessions.md) for the state rules used by modern and retained clients.
 

@@ -1,17 +1,23 @@
 """Focused unit coverage for Section 4 project-context migration."""
 
 import asyncio
+import os
+import pwd
 from dataclasses import asdict
 from pathlib import Path
 
 import pytest
-import yaml
-from tests.helpers import create_test_runtime
+from jsonschema import Draft202012Validator
+from tests.helpers import create_test_runtime, request_context_for
 
+from mcp_guide.filesystem.tools import send_directory_listing
+from mcp_guide.models import Category
 from mcp_guide.models.project import Project
 from mcp_guide.runtime import GuideRuntime, OwnerKey
 from mcp_guide.session import Session
-from mcp_guide.tools.tool_project import SetCurrentProjectArgs, SwitchProjectArgs
+from mcp_guide.tools.tool_category import CategoryAddArgs, internal_category_add
+from mcp_guide.tools.tool_project import SetCurrentProjectArgs, SwitchProjectArgs, internal_switch_project
+from mcp_guide.validation import InvalidProjectNameError
 
 
 def runtime_for_config(config_dir: str | Path) -> GuideRuntime[Session]:
@@ -20,15 +26,15 @@ def runtime_for_config(config_dir: str | Path) -> GuideRuntime[Session]:
 
 
 @pytest.mark.anyio
-async def test_binding_is_path_based_immutable_and_configuration_switches_keep_root(tmp_path: Path) -> None:
-    """Root binding happens once; configuration selection is independent."""
+async def test_binding_is_initial_only_and_name_switches_keep_root(tmp_path: Path) -> None:
+    """Initial binding is immutable while name-only switching keeps its root."""
     runtime = runtime_for_config(tmp_path)
     session = runtime.resolve_session(OwnerKey("root-project"))
     root = "/client/workspace/root-project"
 
     await session.bind_project_path(root)
     initial_identity = session.active_configuration_identity
-    await session.switch_project("review")
+    session = await session.switch_project("review")
 
     assert session.bound_root_path == Path(root)
     assert session.project_name == "review"
@@ -38,9 +44,220 @@ async def test_binding_is_path_based_immutable_and_configuration_switches_keep_r
     with pytest.raises(ValueError, match="already bound"):
         await session.bind_project_path("/client/workspace/other-project")
 
-    with pytest.raises(ValueError, match="configuration name, not a filesystem path"):
-        await session.switch_project("/client/workspace/other-project")
+    await session.cleanup()
 
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("path", "expected_root"),
+    [
+        ("file:///client/workspace/uri-project", Path("/client/workspace/uri-project")),
+        ("file:///client/workspace/uri%2Dencoded", Path("/client/workspace/uri-encoded")),
+        ("FILE:///client/workspace/case-variant", Path("/client/workspace/case-variant")),
+        ("file://LOCALHOST/client/workspace/local-host", Path("/client/workspace/local-host")),
+    ],
+)
+async def test_binding_accepts_percent_encoded_local_file_uris(tmp_path: Path, path: str, expected_root: Path) -> None:
+    """Initial binding decodes a local file URI without resolving client paths."""
+    runtime = runtime_for_config(tmp_path)
+    session = runtime.resolve_session(OwnerKey("file-uri-root"))
+
+    await session.bind_project_path(path)
+
+    assert session.bound_root_path == expected_root
+    assert session.project_name == expected_root.name
+    await session.cleanup()
+
+
+@pytest.mark.anyio
+async def test_switch_project_requires_a_name_or_path_at_the_session_boundary(tmp_path: Path) -> None:
+    """Direct Session callers cannot bypass the public selection requirement."""
+    runtime = runtime_for_config(tmp_path)
+    session = runtime.resolve_session(OwnerKey("missing-switch-selection"))
+    await session.bind_project_path("/client/workspace/current")
+
+    with pytest.raises(InvalidProjectNameError, match="requires a name or path"):
+        await session.switch_project()
+
+    assert session.bound_root_path == Path("/client/workspace/current")
+    await session.cleanup()
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("path", ["", "   "])
+async def test_switch_project_rejects_blank_path_selectors(tmp_path: Path, path: str) -> None:
+    """Blank paths are not valid root-rebinding selectors."""
+    runtime = runtime_for_config(tmp_path)
+    session = runtime.resolve_session(OwnerKey("blank-switch-path"))
+    await session.bind_project_path("/client/workspace/current")
+
+    with pytest.raises(ValueError, match="requires a name or path"):
+        SwitchProjectArgs(path=path)
+    with pytest.raises(InvalidProjectNameError, match="requires a name or path"):
+        await session.switch_project(path=path)
+
+    await session.cleanup()
+
+
+@pytest.mark.anyio
+async def test_mutating_tool_does_not_update_a_project_rebound_mid_request(tmp_path: Path, monkeypatch) -> None:
+    """A request resolved for an old root cannot persist into its replacement."""
+    from anyio import Path as AsyncPath
+
+    import mcp_guide.tools.tool_category as tool_category
+
+    runtime = runtime_for_config(tmp_path)
+    session = runtime.resolve_session(OwnerKey("fenced-category-mutation"))
+    await session.bind_project_path("/client/one/old")
+    request_context = await request_context_for(session)
+    mkdir_started = asyncio.Event()
+    release_mkdir = asyncio.Event()
+
+    class PausedPath:
+        def __init__(self, path: str | Path) -> None:
+            self._path = AsyncPath(path)
+
+        async def mkdir(self, *args, **kwargs) -> None:
+            mkdir_started.set()
+            await release_mkdir.wait()
+            await self._path.mkdir(*args, **kwargs)
+
+    monkeypatch.setattr(tool_category, "AsyncPath", PausedPath)
+    adding = asyncio.create_task(internal_category_add(CategoryAddArgs(name="leaked"), request_context))
+    await mkdir_started.wait()
+    replacement = await session.switch_project(path="/client/two/new")
+    release_mkdir.set()
+
+    result = await adding
+    assert result.success is True
+    assert "leaked" in (await session.get_project()).categories
+    assert "leaked" not in (await replacement.get_project()).categories
+    await session.cleanup()
+
+
+@pytest.mark.anyio
+async def test_switch_project_rebinds_a_relative_root_with_the_same_public_id(tmp_path: Path) -> None:
+    """A relative root is normalised from the current root without filesystem lookup."""
+    runtime = runtime_for_config(tmp_path)
+    session = runtime.resolve_session(OwnerKey("relative-root"))
+    original = session
+
+    await session.bind_project_path("/client/workspace/current")
+    session = await session.switch_project(path="../wybra-dev")
+
+    assert session.session_id == original.session_id
+    assert session is not original
+    assert session.bound_root_path == Path("/client/workspace/wybra-dev")
+    assert session.project_name == "wybra-dev"
+    await session.cleanup()
+
+
+@pytest.mark.anyio
+async def test_switch_project_rebinds_to_an_expanded_home_root(tmp_path: Path, monkeypatch) -> None:
+    """A root switch expands a user anchor and derives its configuration name."""
+    home = tmp_path / "home"
+    monkeypatch.setenv("HOME", str(home))
+    runtime = runtime_for_config(tmp_path)
+    session = runtime.resolve_session(OwnerKey("user-anchored-switch"))
+
+    await session.bind_project_path("/client/workspace/current")
+    session = await session.switch_project(path="~/Code/wybra-dev")
+
+    assert session.bound_root_path == home / "Code" / "wybra-dev"
+    assert session.project_name == "wybra-dev"
+    await session.cleanup()
+
+
+@pytest.mark.anyio
+async def test_switch_project_rebinds_to_a_specific_user_home(tmp_path: Path) -> None:
+    """A root switch expands an explicit current-user anchor lexically."""
+    runtime = runtime_for_config(tmp_path)
+    session = runtime.resolve_session(OwnerKey("specific-user-root-switch"))
+    current_user = pwd.getpwuid(os.getuid())
+
+    await session.bind_project_path("/client/workspace/current")
+    session = await session.switch_project(path=f"~{current_user.pw_name}/Code/wybra-dev")
+
+    assert session.bound_root_path == Path(current_user.pw_dir) / "Code" / "wybra-dev"
+    await session.cleanup()
+
+
+@pytest.mark.anyio
+async def test_switch_project_rejects_an_unknown_user_anchor(tmp_path: Path) -> None:
+    """An unknown user anchor returns the standard invalid-name result."""
+    runtime = runtime_for_config(tmp_path)
+    session = runtime.resolve_session(OwnerKey("unknown-user-root-switch"))
+    await session.bind_project_path("/client/workspace/current")
+
+    result = await internal_switch_project(
+        SwitchProjectArgs(path="~this-user-does-not-exist/Code/project"), await request_context_for(session)
+    )
+
+    assert result.success is False
+    assert result.error_type == "invalid_name"
+    assert "unknown user" in result.error
+    await session.cleanup()
+
+
+@pytest.mark.anyio
+async def test_switch_project_keeps_same_name_configurations_distinct_by_root(tmp_path: Path) -> None:
+    """Same-name root rebinding refreshes identity, templates, and resolved flags."""
+    runtime = runtime_for_config(tmp_path)
+    session = runtime.resolve_session(OwnerKey("same-name-root-switch"))
+
+    await session.bind_project_path("/client/one/shared")
+    first_identity = session.active_configuration_identity
+    template_cache = session.template_cache
+    template_cache._cache = object()  # type: ignore[assignment]
+    session.add_listener(session.task_manager)
+    session.task_manager._resolved_flags = {"workflow": True}
+    session = await session.switch_project(path="/client/two/shared")
+
+    assert session.project_name == "shared"
+    assert session.active_configuration_identity is not None
+    assert session.active_configuration_identity != first_identity
+    assert session.template_cache is not template_cache
+    assert session.task_manager._resolved_flags != {"workflow": True}
+    directory_result = await send_directory_listing(session, "docs", [])
+    assert directory_result.success is True
+    old_root_result = await send_directory_listing(session, "/client/one/shared/docs", [])
+    assert old_root_result.success is False
+    await session.cleanup()
+
+
+@pytest.mark.anyio
+async def test_initial_bind_listener_can_publish_a_configuration_mutation(tmp_path: Path) -> None:
+    """Initial binding runs listeners in the task that owns the transition gate."""
+    runtime = runtime_for_config(tmp_path)
+    session = runtime.resolve_session(OwnerKey("initial-bind-listener-mutation"))
+
+    class Listener:
+        async def on_project_changed(self, observed: Session, old_project: str, new_project: str) -> None:
+            await observed.update_config(
+                lambda project: project.with_category("docs", Category(dir="docs/", patterns=[]))
+            )
+
+        async def on_config_changed(self, observed: Session) -> None:
+            pass
+
+    session.add_listener(Listener())
+    await asyncio.wait_for(session.bind_project_path("/client/one/shared"), timeout=1)
+
+    assert "docs" in (await session.get_project()).categories
+    await session.cleanup()
+
+
+@pytest.mark.anyio
+async def test_switch_project_reports_root_rebinding(tmp_path: Path) -> None:
+    """A path switch reports its root-rebinding behaviour to callers."""
+    runtime = runtime_for_config(tmp_path)
+    session = runtime.resolve_session(OwnerKey("root-switch-result"))
+    await session.bind_project_path("/client/workspace/current")
+
+    result = await internal_switch_project(SwitchProjectArgs(path="../wybra-dev"), await request_context_for(session))
+
+    assert result.success is True
+    assert result.message == "Rebound project root and selected configuration project 'wybra-dev'"
     await session.cleanup()
 
 
@@ -115,7 +332,7 @@ async def test_project_writes_reject_a_key_that_does_not_match_its_hash(tmp_path
 
 @pytest.mark.anyio
 async def test_concurrent_bind_project_path_rejects_the_second_root(tmp_path: Path) -> None:
-    """A Session bind lock serialises root assignment; the loser sees an already-bound root."""
+    """Concurrent initial preparations cannot overwrite a successful binding."""
     runtime = runtime_for_config(tmp_path)
     session = runtime.resolve_session(OwnerKey("concurrent-bind"))
 
@@ -136,58 +353,29 @@ async def test_concurrent_bind_project_path_rejects_the_second_root(tmp_path: Pa
     await session.cleanup()
 
 
-@pytest.mark.anyio
-async def test_saving_legacy_openspec_project_state_discards_it_without_migrating(tmp_path: Path) -> None:
-    """A project save removes legacy fields without creating or changing global state."""
-    runtime = runtime_for_config(tmp_path)
-    session = runtime.resolve_session(OwnerKey("legacy-openspec"))
-    await session.bind_project_path("/client/workspace/legacy-openspec")
-    project = await session.get_project()
-    assert project.key is not None
-    await session.project_flags().set("openspec", True)
-
-    config_path = runtime.configuration_service().config_file
-    config = yaml.safe_load(config_path.read_text())
-    config["feature_flags"] = {"openspec-state": {"validated": "false", "checked": "10.0"}}
-    config["projects"][project.key]["openspec_validated"] = True
-    config["projects"][project.key]["openspec_version"] = "1.10.0"
-    config_path.write_text(yaml.safe_dump(config))
-
-    await session.invalidate_cache()
-    await session.update_config(lambda current: current)
-
-    persisted = yaml.safe_load(config_path.read_text())
-    assert "openspec_validated" not in persisted["projects"][project.key]
-    assert "openspec_version" not in persisted["projects"][project.key]
-    assert persisted["feature_flags"]["openspec-state"] == {"validated": "false", "checked": "10.0"}
-    await session.cleanup()
-
-
-@pytest.mark.anyio
-async def test_bind_notifies_after_releasing_the_bind_lock(tmp_path: Path) -> None:
-    """Project-change listeners must not run while the bind lock is held."""
-    runtime = runtime_for_config(tmp_path)
-    session = runtime.resolve_session(OwnerKey("notify-after-lock"))
-    original_notify = session._notify_project_changed
-
-    async def notify_outside_lock(old_project: str, new_project: str) -> None:
-        assert not session._bind_lock.locked()
-        await original_notify(old_project, new_project)
-
-    session._notify_project_changed = notify_outside_lock  # type: ignore[method-assign]
-    await session.bind_project_path("/client/workspace/notify-project")
-    await session.cleanup()
-
-
 def test_project_selection_schemas_separate_root_path_from_configuration_name() -> None:
-    """The public models cannot regress to name-based root selection."""
+    """The public schemas advertise independent switch name and path fields."""
     set_schema = SetCurrentProjectArgs.model_json_schema()
     switch_schema = SwitchProjectArgs.model_json_schema()
 
     assert set_schema["required"] == ["path"]
     assert "name" not in set_schema["properties"]
-    assert switch_schema["required"] == ["name"]
-    assert "path" not in switch_schema["properties"]
+    assert "name" not in switch_schema.get("required", [])
+    assert "path" not in switch_schema.get("required", [])
+    validator = Draft202012Validator(switch_schema)
+    assert validator.is_valid({"name": "review"})
+    assert validator.is_valid({"name": "review", "path": None})
+    assert validator.is_valid({"path": "../other-project"})
+    assert validator.is_valid({"name": None, "path": "../other-project"})
+    assert not validator.is_valid({})
+    assert not validator.is_valid({"name": None})
+    assert not validator.is_valid({"name": "review", "path": "../other-project"})
+    assert (
+        switch_schema["properties"]["name"]["description"] == "Configuration project name to select at the current root"
+    )
+    assert switch_schema["properties"]["path"]["description"] == (
+        "Project root to rebind instead of selecting a configuration name"
+    )
 
 
 def test_project_serialisation_excludes_machine_wide_openspec_state() -> None:

@@ -40,6 +40,15 @@ class TestProjectHash:
 
             assert hash1 == hash2
 
+    def test_calculate_project_hash_preserves_client_symlink_identity(self, tmp_path: Path):
+        """Hashing does not resolve links that happen to exist on the server."""
+        target = tmp_path / "target"
+        target.mkdir()
+        client_link = tmp_path / "client-link"
+        client_link.symlink_to(target, target_is_directory=True)
+
+        assert calculate_project_hash(str(client_link)) != calculate_project_hash(str(target))
+
     def test_generate_project_key(self):
         """Project key generation works correctly."""
         name = "my-project"
@@ -53,13 +62,6 @@ class TestProjectHash:
     def test_extract_name_from_key_new_format(self):
         """Name extraction works for hash-suffixed keys."""
         key = "my-project-abcdef12"
-        name = extract_name_from_key(key)
-
-        assert name == "my-project"
-
-    def test_extract_name_from_key_legacy_format(self):
-        """Name extraction works for legacy keys."""
-        key = "my-project"
         name = extract_name_from_key(key)
 
         assert name == "my-project"

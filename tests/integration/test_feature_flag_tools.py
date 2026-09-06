@@ -35,13 +35,11 @@ async def test_session(runtime, mcp_server, tmp_path, monkeypatch):
     project_root = Path(config_dir).resolve() / "client-roots" / "test"
     project_root.mkdir(parents=True, exist_ok=True)
     await session.bind_project_path(project_root)
-    original_session_request = runtime.session_request
 
     @asynccontextmanager
     async def session_request(owner):
-        runtime.retain_session(owner, session)
-        async with original_session_request(owner) as resolved_session:
-            yield resolved_session
+        async with runtime.session_lease(owner, session=session):
+            yield session
 
     monkeypatch.setattr(runtime, "session_request", session_request)
     yield session

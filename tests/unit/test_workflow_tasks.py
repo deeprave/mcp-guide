@@ -1,5 +1,6 @@
 """Tests for workflow-specific task implementations."""
 
+from contextlib import nullcontext
 from datetime import datetime
 from pathlib import Path
 from unittest.mock import AsyncMock, Mock, patch
@@ -32,7 +33,7 @@ def make_rendered_content(content: str, instruction: str = "Follow the workflow 
 
 def _manager() -> TaskManager:
     """Create a manager with the session ownership required for cache updates."""
-    return TaskManager(session=Mock(template_cache=Mock()))
+    return TaskManager(session=Mock(template_cache=Mock(), work=nullcontext))
 
 
 class TestWorkflowMonitorTask:

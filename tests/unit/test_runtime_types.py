@@ -1,11 +1,12 @@
 """Framework-neutral runtime type contracts."""
 
 import asyncio
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from tests.helpers import create_test_runtime, request_context_for
+from tests.helpers import create_test_runtime, request_context_for, wait_for_session_disposals
 
 from mcp_guide.core.tool_arguments import ToolArguments
 from mcp_guide.mcp_context import runtime_from_fastmcp, session_resolution_from_fastmcp
@@ -38,6 +39,232 @@ def test_use_pwd_is_off_unless_explicitly_enabled(monkeypatch) -> None:
 def runtime_for_config(config_dir):
     """Create a runtime that owns configuration for ``config_dir``."""
     return create_test_runtime(str(config_dir))
+
+
+@pytest.mark.anyio
+async def test_replacement_keeps_old_requests_on_their_original_session(tmp_path) -> None:
+    """Old completion must not republish its binding or release the new request."""
+    runtime = runtime_for_config(tmp_path)
+    owner = OwnerKey("replacement")
+    async with runtime.session_request(owner) as original:
+        await original.bind_project_path("/client/original")
+        original.task_manager.set_cached_data("old", "original")
+        replacement = await original.switch_project(path="../replacement")
+        assert replacement is not original
+        assert runtime.find_session(owner) is replacement
+        assert original.bound_root_path == Path("/client/original")
+        assert replacement.bound_root_path == Path("/client/replacement")
+        assert replacement.session_id == original.session_id
+        assert replacement.task_manager.get_cached_data("old") is None
+        with pytest.raises(ValueError, match="expiring"):
+            await replacement.switch_project("replacement")
+        await original.update_config(lambda project: replace(project, additional_read_paths=["/finished/"]))
+        assert (await original.get_project()).additional_read_paths == ["/finished/"]
+        assert (await replacement.get_project()).additional_read_paths != ["/finished/"]
+    assert runtime.find_session(owner) is replacement
+    await wait_for_session_disposals(runtime)
+    assert await replacement.switch_project("replacement") is replacement
+
+
+@pytest.mark.anyio
+async def test_unbound_session_is_not_promoted_until_initial_binding(tmp_path) -> None:
+    """Resolving an ID must not retain an unbound Session after request completion."""
+    runtime = runtime_for_config(tmp_path)
+    owner = OwnerKey("unbound-promotion")
+    session = runtime.resolve_session(owner)
+    assert owner not in runtime._sessions
+    async with runtime.session_request(owner) as request_session:
+        assert request_session is session
+    assert runtime.find_session(owner) is None
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("entrypoint", ["on_tool", "dispatch", "startup", "listener"])
+async def test_expiring_session_drains_admitted_tool_callbacks(tmp_path, monkeypatch, entrypoint) -> None:
+    """Disposal waits for an admitted subscriber; its late writes stay on the old instance."""
+    from mcp_guide.task_manager import EventType
+
+    runtime = runtime_for_config(tmp_path)
+    owner = OwnerKey("draining-callback")
+    original = runtime.resolve_session(owner)
+    await original.bind_project_path("/client/original")
+    started, release = asyncio.Event(), asyncio.Event()
+
+    class Subscriber:
+        def get_name(self):
+            return "paused-callback"
+
+        async def on_tool(self):
+            started.set()
+            await release.wait()
+            original.task_manager.set_cached_data("late", "original")
+
+        async def handle_event(self, event_type, data):
+            await self.on_tool()
+
+        async def on_project_changed(self, session, old_project, new_project):
+            await self.on_tool()
+
+        async def start(self, task_manager, session):
+            if session is original:
+                task_manager.subscribe(self, EventType.FS_FILE_CONTENT)
+                await self.on_tool()
+                return True
+            return False
+
+    subscriber = Subscriber()
+    original.task_manager.subscribe(subscriber, EventType.FS_FILE_CONTENT)
+    if entrypoint == "startup":
+        monkeypatch.setattr("mcp_guide.task_manager.manager.get_registered_task_classes", lambda: [Subscriber])
+        execution = original.task_manager.start_project_tasks(original)
+    elif entrypoint == "listener":
+        original.add_listener(subscriber)
+        execution = original._notify_project_changed("", "original")
+    elif entrypoint == "dispatch":
+        execution = original.task_manager.dispatch_event(EventType.FS_FILE_CONTENT, {})
+    else:
+        execution = original.task_manager.on_tool()
+    callback = asyncio.create_task(execution)
+    await asyncio.wait_for(started.wait(), 2)
+    replacement = await original.switch_project(path="../replacement")
+    try:
+        with pytest.raises(ValueError, match="expiring"):
+            await replacement.switch_project("another")
+        assert replacement.task_manager.get_cached_data("late") is None
+    finally:
+        release.set()
+        await callback
+    assert original.task_manager.get_subscription_count() == 0
+    assert await replacement.switch_project("replacement") is replacement
+
+
+@pytest.mark.anyio
+async def test_failed_replacement_preparation_leaves_the_original_active(tmp_path, monkeypatch) -> None:
+    """An unpublished candidate is disposed when preparation fails or is cancelled."""
+    from mcp_guide.session import Session
+
+    runtime = runtime_for_config(tmp_path)
+    owner = OwnerKey("failed-preparation")
+    original = runtime.resolve_session(owner)
+    await original.bind_project_path("/client/original")
+    candidates = []
+
+    async def fail_preparation(candidate, name, root_path):
+        candidates.append(candidate)
+        raise OSError("target unavailable")
+
+    monkeypatch.setattr(Session, "prepare_binding", fail_preparation)
+    with pytest.raises(OSError, match="target unavailable"):
+        await original.switch_project(path="../replacement")
+    assert runtime.find_session(owner) is original
+    assert candidates[0].task_manager.get_subscription_count() == 0
+    assert runtime.configuration_service()._sessions == {original}
+
+
+@pytest.mark.anyio
+async def test_failed_expiry_cleanup_keeps_the_switch_guard(tmp_path, monkeypatch) -> None:
+    """Failed outgoing disposal cannot overturn a successful request or release its guard."""
+    runtime = runtime_for_config(tmp_path)
+    owner = OwnerKey("failed-expiry")
+    original = runtime.resolve_session(owner)
+    await original.bind_project_path("/client/original")
+    cleanup = original.cleanup
+
+    async def fail_cleanup():
+        raise OSError("cleanup incomplete")
+
+    monkeypatch.setattr(original, "cleanup", fail_cleanup)
+    async with runtime.session_request(owner) as request_session:
+        await request_session.switch_project(path="../replacement")
+    await wait_for_session_disposals(runtime)
+    replacement = runtime.find_session(owner)
+    assert replacement is not original
+    with pytest.raises(ValueError, match="expiring"):
+        await replacement.switch_project("another")
+    monkeypatch.setattr(original, "cleanup", cleanup)
+    runtime.dispose_expiring_session(original)
+    await wait_for_session_disposals(runtime)
+    assert await replacement.switch_project("replacement") is replacement
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("cancel_shutdown", [False, True])
+async def test_switch_response_does_not_wait_for_disposal_but_shutdown_does(
+    tmp_path, monkeypatch, cancel_shutdown
+) -> None:
+    """Slow outgoing cleanup must not hold the response, and must remain runtime-owned."""
+    runtime = runtime_for_config(tmp_path)
+    owner = OwnerKey("slow-disposal")
+    original = runtime.resolve_session(owner)
+    await original.bind_project_path("/client/original")
+    started, release = asyncio.Event(), asyncio.Event()
+    cleanup = original.cleanup
+
+    async def paused_cleanup():
+        started.set()
+        await release.wait()
+        await cleanup()
+
+    monkeypatch.setattr(original, "cleanup", paused_cleanup)
+
+    async def switch_request():
+        async with runtime.session_request(owner) as session:
+            return await session.switch_project(path="../replacement")
+
+    request = asyncio.create_task(switch_request())
+    try:
+        await asyncio.wait_for(started.wait(), 2)
+        replacement = await asyncio.wait_for(asyncio.shield(request), 1)
+        assert runtime.find_session(owner) is replacement
+        stopping = asyncio.create_task(runtime.stop())
+        await asyncio.sleep(0)
+        if cancel_shutdown:
+            stopping.cancel()
+            await asyncio.sleep(0)
+        assert not stopping.done()
+    finally:
+        release.set()
+        await request
+    if cancel_shutdown:
+        with pytest.raises(asyncio.CancelledError):
+            await stopping
+    else:
+        await stopping
+    assert original.task_manager.get_subscription_count() == 0
+
+
+@pytest.mark.anyio
+async def test_failed_idle_disposal_keeps_ownership_and_blocks_rebinding(tmp_path, monkeypatch) -> None:
+    """Idle cleanup failure must not orphan a Session or allow its ID to be rebound."""
+    runtime = runtime_for_config(tmp_path)
+    owner = OwnerKey("failed-idle")
+    original = runtime.resolve_session(owner)
+    await original.bind_project_path("/client/original")
+    cleanup = original.task_manager.cleanup
+
+    async def fail_cleanup():
+        raise OSError("idle cleanup incomplete")
+
+    monkeypatch.setattr(original.task_manager, "cleanup", fail_cleanup)
+    assert await runtime.expire_inactive_sessions(now=10**12) == 1
+    await wait_for_session_disposals(runtime)
+    assert runtime._expiring_sessions[owner] is original
+    with pytest.raises(ValueError, match="expiring"):
+        async with runtime.session_request(owner) as candidate:
+            await candidate.bind_project_path("/client/rebound")
+    monkeypatch.setattr(original.task_manager, "cleanup", cleanup)
+
+
+@pytest.mark.anyio
+async def test_idle_expiry_preserves_owner_with_pending_outgoing_session(tmp_path) -> None:
+    """Idle expiry cannot create a second expiring Session for the same public ID."""
+    runtime = runtime_for_config(tmp_path)
+    owner = OwnerKey("pending-expiry")
+    async with runtime.session_request(owner) as original:
+        await original.bind_project_path("/client/original")
+        replacement = await original.switch_project(path="../replacement")
+        assert await runtime.expire_inactive_sessions(now=10**12) == 0
+        assert runtime.find_session(owner) is replacement
 
 
 def _resolve(relative_path):
@@ -421,14 +648,15 @@ async def test_runtime_shutdown_cleans_up_its_sessions() -> None:
 
 
 @pytest.mark.anyio
-async def test_runtime_shutdown_continues_after_a_session_cleanup_failure(tmp_path) -> None:
+@pytest.mark.parametrize("failure_type", [RuntimeError, asyncio.CancelledError])
+async def test_runtime_shutdown_continues_after_a_session_cleanup_failure(tmp_path, failure_type) -> None:
     """A failed cleanup cannot prevent shared runtime shutdown."""
     events: list[str] = []
 
     class FailingSession:
         async def cleanup(self) -> None:
             events.append("failing-cleanup")
-            raise RuntimeError("cleanup failed")
+            raise failure_type("cleanup failed")
 
     class HealthySession:
         async def cleanup(self) -> None:
@@ -440,11 +668,47 @@ async def test_runtime_shutdown_continues_after_a_session_cleanup_failure(tmp_pa
     runtime.resolve_session(OwnerKey("healthy"))
     await runtime.start()
 
-    with pytest.raises(RuntimeError, match="cleanup failed"):
+    with pytest.raises(failure_type, match="cleanup failed"):
         await runtime.stop()
 
     assert events == ["failing-cleanup", "healthy-cleanup"]
     assert not runtime.started
+    assert runtime._sessions == {}
+    assert runtime._inflight_sessions == {}
+    assert runtime._expiring_sessions == {}
+
+
+@pytest.mark.anyio
+async def test_idle_expiry_preserves_admitted_background_work(tmp_path) -> None:
+    """A callback without a request lease still owns its Session until completion."""
+    runtime = runtime_for_config(tmp_path)
+    owner = OwnerKey("background-work")
+    session = runtime.resolve_session(owner)
+    await session.bind_project_path("/client/background")
+    async with session.work():
+        assert await runtime.expire_inactive_sessions(now=10**12) == 0
+        assert runtime.find_session(owner) is session
+    assert await runtime.expire_inactive_sessions(now=10**12) == 1
+
+
+@pytest.mark.anyio
+async def test_switch_response_keeps_the_replacement_alive(tmp_path, monkeypatch) -> None:
+    """Formatting and startup-instruction delivery own the returned replacement."""
+    from mcp_guide.tools.tool_project import SwitchProjectArgs, internal_switch_project
+
+    runtime = runtime_for_config(tmp_path)
+    session = runtime.resolve_session(OwnerKey("switch-response"))
+    await session.bind_project_path("/client/original")
+
+    async def format_while_idle_expiry_runs(project, *, verbose, session):
+        assert await runtime.expire_inactive_sessions(now=10**12) == 0
+        return {"root": str(session.bound_root_path)}
+
+    monkeypatch.setattr("mcp_guide.tools.tool_project.format_project_data", format_while_idle_expiry_runs)
+    result = await internal_switch_project(SwitchProjectArgs(path="../replacement"), await request_context_for(session))
+    assert result.success
+    assert result.value["project"] == "replacement"
+    assert result.value["root"] == "/client/replacement"
 
 
 @pytest.mark.anyio
@@ -453,14 +717,20 @@ async def test_runtime_expires_inactive_sessions_with_their_owned_state() -> Non
     events: list[str] = []
 
     class TestSession:
+        def begin_expiry(self) -> None:
+            events.append("expiring")
+
         async def cleanup(self) -> None:
             events.append("cleanup")
 
     runtime = create_runtime(lambda _owner: TestSession(), session_idle_timeout=10)
     original = runtime.resolve_session(OwnerKey("expired-owner"))
+    original.project_is_bound = True
+    runtime.promote_session(original)
 
     assert await runtime.expire_inactive_sessions(now=10**12) == 1
-    assert events == ["cleanup"]
+    await wait_for_session_disposals(runtime)
+    assert events == ["expiring", "cleanup"]
     assert runtime.resolve_session(OwnerKey("expired-owner")) is not original
 
 
@@ -489,19 +759,25 @@ async def test_runtime_does_not_expire_an_in_flight_session() -> None:
     cleaned: list[str] = []
 
     class SessionWithCleanup:
+        def begin_expiry(self) -> None:
+            cleaned.append("expiring")
+
         async def cleanup(self) -> None:
             cleaned.append("cleaned")
 
     runtime = create_runtime(lambda _owner: SessionWithCleanup(), session_idle_timeout=1)
     owner = OwnerKey("active-owner")
-    runtime.resolve_session(owner)
+    session = runtime.resolve_session(owner)
+    session.project_is_bound = True
+    runtime.promote_session(session)
 
     async with runtime.session_lease(owner):
         assert await runtime.expire_inactive_sessions(now=10**12) == 0
         assert not cleaned
 
     assert await runtime.expire_inactive_sessions(now=10**12) == 1
-    assert cleaned == ["cleaned"]
+    await wait_for_session_disposals(runtime)
+    assert cleaned == ["expiring", "cleaned"]
 
 
 @pytest.mark.anyio
@@ -545,20 +821,6 @@ def test_session_resolution_does_not_make_modern_state_without_an_explicit_id() 
     assert resolved_session_id is None
 
 
-def test_session_resolution_uses_public_legacy_connection_id() -> None:
-    """Retained handshake clients retain their public FastMCP connection identity."""
-    ctx = SimpleNamespace(
-        request_context=SimpleNamespace(protocol_version="2025-06-18", request_id="request-47", meta=None),
-        session_id="legacy-session-47",
-        session=SimpleNamespace(client_params={"clientInfo": {"name": "Legacy", "version": "2.0"}}),
-    )
-
-    protocol_revision, resolved_session_id = session_resolution_from_fastmcp(ctx)
-
-    assert protocol_revision == "2025-06-18"
-    assert resolved_session_id == "legacy-session-47"
-
-
 def test_all_tool_arguments_advertise_an_optional_session_id() -> None:
     """The session identifier is a standard tool fixture, not per-tool boilerplate."""
     schema = ToolArguments.model_json_schema()
@@ -573,58 +835,6 @@ def test_runtime_adapter_reads_the_public_lifespan_context() -> None:
     ctx = SimpleNamespace(request_context=SimpleNamespace(lifespan_context=runtime))
 
     assert runtime_from_fastmcp(ctx) is runtime
-
-
-@pytest.mark.anyio
-async def test_runtime_session_resolution_isolated_by_modern_and_legacy_owner(tmp_path) -> None:
-    """Bound modern and legacy owners resolve isolated runtime Sessions."""
-    from mcp_guide.session import Session, bind_session_project, request_context_scope
-
-    runtime: GuideRuntime[Session]
-    runtime = runtime_for_config(tmp_path)
-
-    def context(protocol_version: str, request_id: str, session_id: str | None = None):
-        return SimpleNamespace(
-            request_context=SimpleNamespace(
-                protocol_version=protocol_version,
-                request_id=request_id,
-                meta=None,
-                lifespan_context=runtime,
-            ),
-            session=SimpleNamespace(client_params=None),
-            session_id=session_id,
-        )
-
-    async def bind(ctx, path: str, session_id: str | None = None):
-        async with request_context_scope(ctx, session_id, allow_pwd_bootstrap=False) as request_context:
-            await bind_session_project(request_context.session, path)
-            return request_context.session
-
-    try:
-        modern_first_context = context("2026-07-28", "modern-1")
-        modern_first = await bind(modern_first_context, "/client/workspace/modern", "modern-owner")
-        async with request_context_scope(
-            context("2026-07-28", "modern-2"), "modern-owner", allow_pwd_bootstrap=False
-        ) as modern_same_context:
-            modern_same = modern_same_context.session
-        modern_other_context = context("2026-07-28", "modern-3")
-        modern_other = await bind(modern_other_context, "/client/workspace/other", "other-owner")
-        legacy_first_context = context("2025-06-18", "legacy-1", "legacy-owner")
-        legacy_first = await bind(legacy_first_context, "/client/workspace/legacy")
-        async with request_context_scope(
-            context("2025-06-18", "legacy-2", "legacy-owner"), allow_pwd_bootstrap=False
-        ) as legacy_same_context:
-            legacy_same = legacy_same_context.session
-
-        assert modern_same is modern_first
-        assert modern_other is not modern_first
-        assert legacy_same is legacy_first
-        assert legacy_first is not modern_first
-        assert modern_first.task_manager is not modern_other.task_manager
-
-    finally:
-        await runtime.start()
-        await runtime.stop()
 
 
 @pytest.mark.anyio

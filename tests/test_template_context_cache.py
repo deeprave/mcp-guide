@@ -210,15 +210,6 @@ class TestTemplateContextCache:
         assert "os" in context["server"]
 
     @pytest.mark.anyio
-    async def test_build_category_context_method_exists(self) -> None:
-        """Test that _build_category_context method exists."""
-        cache = TemplateContextCache()
-
-        # Method should exist
-        assert hasattr(cache, "_build_category_context")
-        assert callable(getattr(cache, "_build_category_context"))
-
-    @pytest.mark.anyio
     async def test_build_category_context_returns_category_data(self) -> None:
         """Test that _build_category_context returns category data in context."""
         from mcp_guide.models import Category, Project
@@ -292,10 +283,6 @@ class TestTemplateContextCache:
         from mcp_guide.render.context import TemplateContext
 
         cache = TemplateContextCache()
-
-        # Method exists and returns TemplateContext
-        assert hasattr(cache, "get_transient_context")
-        assert callable(getattr(cache, "get_transient_context"))
 
         context = cache.get_transient_context()
         assert isinstance(context, TemplateContext)

@@ -1,6 +1,7 @@
 """Tests for project-scoped task lifecycle restart."""
 
 import asyncio
+from contextlib import nullcontext
 from typing import TYPE_CHECKING, Any, cast
 from unittest.mock import Mock
 
@@ -101,6 +102,7 @@ class _CancelledStartProjectTask(_ProjectTask):
     """Task whose start hook is cancelled."""
 
     async def start(self, task_manager: TaskManager, session: _ProjectSession) -> bool:
+        await super().start(task_manager, session)
         raise asyncio.CancelledError
 
 
@@ -109,6 +111,20 @@ class _CancelledStopProjectTask(_ProjectTask):
 
     async def stop(self, task_manager: TaskManager) -> None:
         raise asyncio.CancelledError
+
+
+class _BlockingStopProjectTask(_ProjectTask):
+    """Task double that permits a second restart while its stop hook waits."""
+
+    stop_started: asyncio.Event | None = None
+    allow_stop: asyncio.Event | None = None
+
+    async def stop(self, task_manager: TaskManager) -> None:
+        assert self.stop_started is not None
+        assert self.allow_stop is not None
+        self.stop_started.set()
+        await self.allow_stop.wait()
+        await super().stop(task_manager)
 
 
 @pytest.fixture(autouse=True)
@@ -137,7 +153,7 @@ class TestProjectTaskLifecycle:
         from mcp_guide.decorators import task_register
 
         task_register(_ProjectTask)
-        task_manager = TaskManager(session=Mock(template_cache=Mock()))
+        task_manager = TaskManager(session=Mock(template_cache=Mock(), work=nullcontext))
 
         await task_manager.restart_project_tasks(_session("alpha"))
         task = task_manager.get_task_by_type(_ProjectTask)
@@ -234,9 +250,32 @@ class TestProjectTaskLifecycle:
         assert task.session_name in {"alpha", "beta"}
 
     @pytest.mark.anyio
+    async def test_restart_generation_rejects_a_stale_start_after_a_waiting_stop(self) -> None:
+        """Only the newest overlapping restart may retain its task subscriptions."""
+        from mcp_guide.decorators import task_register
+
+        task_register(_BlockingStopProjectTask)
+        task_manager = TaskManager()
+        await task_manager.restart_project_tasks(_session("alpha"))
+        _BlockingStopProjectTask.stop_started = asyncio.Event()
+        _BlockingStopProjectTask.allow_stop = asyncio.Event()
+
+        first_restart = asyncio.create_task(task_manager.restart_project_tasks(_session("beta")))
+        await _BlockingStopProjectTask.stop_started.wait()
+        second_restart = asyncio.create_task(task_manager.restart_project_tasks(_session("gamma")))
+        await second_restart
+        _BlockingStopProjectTask.allow_stop.set()
+        await first_restart
+
+        active = task_manager.get_task_by_type(_BlockingStopProjectTask)
+        assert active is not None
+        assert active.session_name == "gamma"
+        assert task_manager.get_subscription_count() == 1
+
+    @pytest.mark.anyio
     async def test_restart_clears_project_scoped_cache_entries(self) -> None:
         """Lifecycle restart clears volatile cache values from the previous project."""
-        task_manager = TaskManager(session=Mock(template_cache=Mock()))
+        task_manager = TaskManager(session=Mock(template_cache=Mock(), work=nullcontext))
         task_manager.set_cached_data("workflow_state", {"phase": "discussion"})
         task_manager.set_cached_data("openspec_version", "1.2.3")
         task_manager.set_cached_data("client_os_info", {"os": "test"})
@@ -254,6 +293,16 @@ class TestProjectTaskLifecycle:
         assert "unrelated" in task_manager._cache
 
     @pytest.mark.anyio
+    async def test_restart_clears_command_discovery_cache(self) -> None:
+        """A restart cannot retain commands filtered for an earlier flag state."""
+        task_manager = TaskManager()
+        task_manager.command_cache["/client/_commands"] = (0.0, [{"name": "openspec/list"}])
+
+        await task_manager.restart_project_tasks(_session("alpha"))
+
+        assert task_manager.command_cache == {}
+
+    @pytest.mark.anyio
     async def test_restart_clears_queued_instructions(self) -> None:
         """Lifecycle restart does not leak previous-project instructions."""
         task_manager = TaskManager()
@@ -266,6 +315,89 @@ class TestProjectTaskLifecycle:
         assert task_manager._pending_instructions == []
         assert tracked_id not in task_manager._tracked_instructions
         assert result.additional_agent_instructions is None
+
+    @pytest.mark.anyio
+    async def test_stale_event_handler_cannot_restore_project_scoped_state(self) -> None:
+        """An event started before a restart cannot write into its replacement state."""
+        task_manager = TaskManager(session=Mock(template_cache=Mock(), work=nullcontext))
+        task_manager.set_cached_data("workflow_state", {"phase": "old"})
+        handler_started = asyncio.Event()
+        release_handler = asyncio.Event()
+
+        class BlockingHandler:
+            def get_name(self) -> str:
+                return "BlockingHandler"
+
+            async def handle_event(self, event_type: EventType, data: dict[str, Any]) -> EventResult | None:
+                handler_started.set()
+                await release_handler.wait()
+                await task_manager.queue_instruction("instruction from old root")
+                task_manager.set_cached_data("workflow_state", {"phase": "old"})
+                return EventResult(result=True, message="old-root result")
+
+            async def on_tool(self) -> None:
+                pass
+
+        handler = BlockingHandler()
+        task_manager.subscribe(handler, EventType.FS_FILE_CONTENT)
+        dispatching = asyncio.create_task(task_manager.dispatch_event(EventType.FS_FILE_CONTENT, {}))
+        await handler_started.wait()
+        await task_manager.restart_project_tasks(_session("alpha"))
+        release_handler.set()
+        results = await dispatching
+
+        assert task_manager._pending_instructions == []
+        assert task_manager.get_cached_data("workflow_state") is None
+        assert results == []
+
+    @pytest.mark.anyio
+    async def test_detached_task_cannot_receive_a_new_generation_dispatch(self) -> None:
+        """Subscriptions are removed before a replacement generation becomes visible."""
+        task_manager = TaskManager(session=Mock(template_cache=Mock(), work=nullcontext))
+
+        class OldTask:
+            def get_name(self) -> str:
+                return "OldTask"
+
+            async def handle_event(self, event_type: EventType, data: dict[str, Any]) -> EventResult | None:
+                await task_manager.queue_instruction("OLD ROOT")
+                task_manager.set_cached_data("workflow_state", {"phase": "old"})
+                return EventResult(result=True, message="old-root result")
+
+            async def on_tool(self) -> None:
+                pass
+
+        old_task = OldTask()
+        task_manager.subscribe(old_task, EventType.FS_FILE_CONTENT)
+        task_manager._active_project_tasks[type(old_task)] = old_task
+
+        _generation, active_tasks = await task_manager._detach_project_tasks()
+        results = await task_manager.dispatch_event(EventType.FS_FILE_CONTENT, {})
+        await task_manager._stop_project_tasks(active_tasks)
+
+        assert task_manager._pending_instructions == []
+        assert task_manager.get_cached_data("workflow_state") is None
+        assert results == []
+
+    def test_stale_command_discovery_cannot_repopulate_the_cache(self) -> None:
+        """A discovery result computed before invalidation is discarded."""
+        task_manager = TaskManager()
+        generation = task_manager.command_cache_generation
+
+        task_manager.clear_command_cache()
+
+        assert not task_manager.cache_commands("/client/_commands", 0.0, [{"name": "old"}], generation)
+        assert task_manager.command_cache == {}
+
+    @pytest.mark.anyio
+    async def test_cleanup_clears_command_discovery_cache(self) -> None:
+        """Terminal cleanup releases all project-derived command listings."""
+        task_manager = TaskManager()
+        task_manager.command_cache["/client/_commands"] = (0.0, [{"name": "openspec/list"}])
+
+        await task_manager.cleanup()
+
+        assert task_manager.command_cache == {}
 
     @pytest.mark.anyio
     async def test_stop_failure_still_unsubscribes_stale_instance(self, caplog) -> None:
@@ -343,6 +475,8 @@ class TestProjectTaskLifecycle:
             await task_manager.restart_project_tasks(_session("alpha"))
 
         assert task_manager.get_task_by_type(_CancelledStartProjectTask) is None
+        assert task_manager.get_subscription_count() == 0
+        assert _CancelledStartProjectTask.stopped_for == ["alpha"]
 
     @pytest.mark.anyio
     async def test_stop_cancellation_propagates_after_unsubscribe(self) -> None:
@@ -394,6 +528,22 @@ class TestProjectTaskLifecycle:
             await task_manager._cleanup_started_project_tasks([cancelled, remaining])
 
         assert _ProjectTask.stopped_for == ["remaining"]
+        assert task_manager.get_subscription_count() == 0
+
+    @pytest.mark.anyio
+    @pytest.mark.parametrize("failing_class", [_FailingStopProjectTask, _CancelledStopProjectTask])
+    async def test_disposal_reports_failure_after_attempting_remaining_tasks(self, failing_class) -> None:
+        """Disposal must not report success when a task's stop hook failed."""
+        task_manager = TaskManager()
+        failing, remaining = failing_class(), _ProjectTask()
+        await failing.start(task_manager, _ProjectSession("failing"))
+        await remaining.start(task_manager, _ProjectSession("remaining"))
+        task_manager._active_project_tasks = {failing_class: failing, _ProjectTask: remaining}
+
+        with pytest.raises((RuntimeError, asyncio.CancelledError)):
+            await task_manager.cleanup()
+
+        assert "remaining" in _ProjectTask.stopped_for
         assert task_manager.get_subscription_count() == 0
 
     @pytest.mark.anyio

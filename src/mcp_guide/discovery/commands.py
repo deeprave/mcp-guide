@@ -161,7 +161,20 @@ async def discover_commands(commands_dir: Path, session: "Session") -> list[dict
 
     effective_mtime: float = 0.0
 
-    command_cache = session.command_cache
+    task_manager = session.task_manager
+    command_cache = task_manager.command_cache
+    cache_generation = getattr(task_manager, "command_cache_generation", 0)
+
+    def get_cached_commands() -> tuple[float, list[dict[str, Any]]] | None:
+        if getter := getattr(task_manager, "get_cached_commands", None):
+            return getter(cache_key, cache_generation)
+        return command_cache.get(cache_key)
+
+    def cache_commands(effective_mtime: float, commands: list[dict[str, Any]]) -> None:
+        if setter := getattr(task_manager, "cache_commands", None):
+            setter(cache_key, effective_mtime, commands, cache_generation)
+        else:
+            command_cache[cache_key] = (effective_mtime, commands)
 
     # Check if development mode is enabled
     dev_mode = False
@@ -175,8 +188,9 @@ async def discover_commands(commands_dir: Path, session: "Session") -> list[dict
         pass
 
     # In production mode, use cache if available without mtime checks
-    if command_cache is not None and not dev_mode and cache_key in command_cache:
-        return command_cache[cache_key][1]
+    if not dev_mode:
+        if cached := get_cached_commands():
+            return cached[1]
 
     effective_mtime: float = 0.0
 
@@ -200,8 +214,8 @@ async def discover_commands(commands_dir: Path, session: "Session") -> list[dict
                 await asyncio.to_thread(_max_file_mtime, commands_dir, current_mtime),
             )
 
-            if cache_key in command_cache:
-                cached_mtime, cached_commands = command_cache[cache_key]
+            if cached := get_cached_commands():
+                cached_mtime, cached_commands = cached
                 if cached_mtime >= effective_mtime:
                     return cached_commands
         except OSError:
@@ -285,7 +299,7 @@ async def discover_commands(commands_dir: Path, session: "Session") -> list[dict
             logger.warning(f"... and {len(error_files) - 3} more files")
 
     # Only cache if no errors occurred
-    if not error_files and command_cache is not None:
-        command_cache[cache_key] = (effective_mtime, commands)
+    if not error_files:
+        cache_commands(effective_mtime, commands)
 
     return commands

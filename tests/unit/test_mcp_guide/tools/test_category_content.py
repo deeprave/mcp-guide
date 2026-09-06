@@ -67,23 +67,17 @@ def create_request_context(project, tmp_path):
 
 
 @pytest.mark.parametrize(
-    "scenario,expression,pattern,should_raise,expected_expression,expected_pattern",
+    "expression,pattern,should_raise,expected_expression,expected_pattern",
     [
-        ("class_exists", None, None, False, None, None),
-        ("category_required", None, None, True, None, None),
-        ("pattern_optional", "docs", None, False, "docs", None),
-        ("valid_with_pattern", "docs", "*.md", False, "docs", "*.md"),
+        (None, None, True, None, None),
+        ("docs", None, False, "docs", None),
+        ("docs", "*.md", False, "docs", "*.md"),
     ],
+    ids=["expression-required", "pattern-optional", "valid-with-pattern"],
 )
-def test_category_content_args_schema(
-    scenario, expression, pattern, should_raise, expected_expression, expected_pattern
-):
+def test_category_content_args_schema(expression, pattern, should_raise, expected_expression, expected_pattern):
     """Test CategoryContentArgs schema validation scenarios."""
     from mcp_guide.tools.tool_category import CategoryContentArgs
-
-    if scenario == "class_exists":
-        assert CategoryContentArgs is not None
-        return
 
     if should_raise:
         with pytest.raises(ValidationError):
