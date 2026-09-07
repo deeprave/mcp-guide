@@ -7,6 +7,23 @@ FastMCP. There is no separate wire protocol named “MCP v2”.
 The retained-client bridge has no scheduled end date. It remains available while it
 is required by supported clients; a future removal would be announced independently.
 
+## Response instructions
+
+Guide fixes an interaction's protocol type when its Session is established. This
+keeps response handling consistent for the life of that interaction, including after
+a project switch. A Session cannot change protocol type later.
+
+Retained clients continue to receive task-generated guidance in the existing
+`additional_agent_instructions` field of the structured Guide result. MCP
+`2026-07-28` clients receive the same single queued instruction in response metadata
+at `_meta["mcp-guide"]["instructions"]`; that field is omitted from their structured
+Guide result. When no instruction is queued, Guide emits neither the `mcp-guide`
+metadata namespace nor its `instructions` key.
+
+This is a compatibility-preserving response representation change. Clients using the
+modern protocol should inspect the response `_meta` block as well as structured
+content.
+
 ## Client migration
 
 Existing retained clients continue to use their FastMCP connection identity. They do

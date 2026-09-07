@@ -4,6 +4,7 @@ import json
 
 import pytest
 
+from mcp_guide.mcp_context import SessionProtocolType
 from mcp_guide.mcp_result_adapter import prompt_response, resource_response, tool_response
 from mcp_guide.result import Result
 
@@ -50,3 +51,27 @@ def test_native_adapter_preserves_rich_payload_errors_and_session_continuation(a
         "session_id": "session-123",
         "instruction": f"Read before continuing.\n\n{SESSION_CONTINUATION_INSTRUCTION}",
     }
+
+
+@pytest.mark.parametrize(
+    "adapter", [tool_response, prompt_response, resource_response], ids=["tool", "prompt", "resource"]
+)
+def test_modern_adapter_moves_agent_instruction_to_namespaced_metadata(adapter):
+    """MCP 2026-07-28 uses response metadata without changing Result itself."""
+
+    def payload(response):
+        if adapter is tool_response:
+            return response.structured_content
+        if adapter is prompt_response:
+            return json.loads(response.messages[0].content.text)
+        return json.loads(response.contents[0].content)
+
+    result = Result.ok("answer", additional_agent_instructions="Use the bound project only.")
+
+    response = adapter(result, protocol_type=SessionProtocolType.MCP_2026_07_28)
+
+    assert result.additional_agent_instructions == "Use the bound project only."
+    assert payload(response)["success"] is True
+    assert payload(response)["value"] == "answer"
+    assert "additional_agent_instructions" not in payload(response)
+    assert response.meta == {"mcp-guide": {"instructions": "Use the bound project only."}}

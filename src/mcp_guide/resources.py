@@ -24,7 +24,11 @@ async def _process_and_serialize(result: Result[Any], request_context: RequestCo
         result = await request_context.process_result(result)
     except Exception as e:
         logger.error(f"TaskManager processing failed for resource: {e}")
-    return resource_response(result, session_id=request_context.session_id)
+    return resource_response(
+        result,
+        session_id=request_context.session_id,
+        protocol_type=request_context.session.protocol_type,
+    )
 
 
 async def _resolve_guide_uri(uri: str, request_context: RequestContext) -> object:

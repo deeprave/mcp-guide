@@ -6,6 +6,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from mcp_guide.mcp_context import SessionProtocolType
 from mcp_guide.runtime import GuideRuntime, OwnerKey
 from mcp_guide.session import (
     Session,
@@ -146,6 +147,35 @@ class TestGetOrCreateSession:
         records = [record for record in caplog.records if record.msg == "Established Guide session"]
         assert len(records) == 1
         assert records[0].protocol_revision == "2026-07-28"
+
+    @pytest.mark.anyio
+    async def test_session_establishment_marks_modern_protocol_type(self, tmp_path) -> None:
+        """A negotiated modern interaction retains its response protocol type."""
+        runtime, ctx = runtime_context(tmp_path)
+
+        async with request_context_scope(ctx, "modern-protocol-type", allow_pwd_bootstrap=False) as request:
+            await bind_session_project(request.session, "/client/workspace/modern-protocol-type")
+            assert request.session.protocol_type is SessionProtocolType.MCP_2026_07_28
+
+        assert (
+            runtime.resolve_session(OwnerKey("modern-protocol-type")).protocol_type
+            is SessionProtocolType.MCP_2026_07_28
+        )
+
+    @pytest.mark.anyio
+    async def test_session_rejects_protocol_type_change(self, tmp_path) -> None:
+        """A retained interaction cannot silently change its response contract."""
+        _runtime, ctx = runtime_context(tmp_path)
+        session_id = "protocol-type-change"
+
+        async with request_context_scope(ctx, session_id, allow_pwd_bootstrap=False) as request:
+            await bind_session_project(request.session, "/client/workspace/protocol-type-change")
+        ctx.request_context.protocol_version = "2025-06-18"
+        ctx.session_id = session_id
+
+        with pytest.raises(ValueError, match="protocol type"):
+            async with request_context_scope(ctx, allow_pwd_bootstrap=False):
+                pass
 
     @pytest.mark.anyio
     async def test_request_local_work_does_not_log_interaction_establishment(self, tmp_path, caplog) -> None:

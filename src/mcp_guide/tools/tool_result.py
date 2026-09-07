@@ -6,6 +6,7 @@ from fastmcp.prompts import PromptResult
 from fastmcp.tools.base import ToolResult
 
 from mcp_guide.core.mcp_log import get_logger
+from mcp_guide.mcp_context import SessionProtocolType
 from mcp_guide.mcp_result_adapter import prompt_response, tool_response
 
 if TYPE_CHECKING:
@@ -44,6 +45,7 @@ async def tool_result(
     *,
     session: "Session | None" = None,
     session_id: str | None = None,
+    protocol_type: SessionProtocolType | None = None,
 ) -> ToolResult:
     """Process and log a tool result before returning a native MCP response.
 
@@ -73,7 +75,8 @@ async def tool_result(
     logger.trace(f"Tool '{tool_name}' result: {result.to_json()}")
 
     continuation_id = session_id if session_id is not None else (session.session_id if session is not None else None)
-    return tool_response(result, session_id=continuation_id)
+    response_protocol_type = session.protocol_type if session is not None else protocol_type
+    return tool_response(result, session_id=continuation_id, protocol_type=response_protocol_type)
 
 
 async def prompt_result(
@@ -82,6 +85,7 @@ async def prompt_result(
     *,
     session: "Session | None" = None,
     session_id: str | None = None,
+    protocol_type: SessionProtocolType | None = None,
 ) -> PromptResult:
     """Process and log a prompt result before returning a native MCP response.
 
@@ -110,4 +114,5 @@ async def prompt_result(
 
     logger.trace(f"Prompt '{prompt_name}' result: {result.to_json()}")
 
-    return prompt_response(result, session_id=session_id)
+    response_protocol_type = session.protocol_type if session is not None else protocol_type
+    return prompt_response(result, session_id=session_id, protocol_type=response_protocol_type)

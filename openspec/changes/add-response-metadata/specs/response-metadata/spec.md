@@ -1,54 +1,42 @@
 ## Purpose
 
-Guide responses need a separate, explicit channel for session-generated side-band information that is unrelated to the result it accompanies.
+Guide responses need a standard side-band channel for session-generated instructions in the current MCP protocol while preserving retained-client compatibility.
 
 ## ADDED Requirements
 
-### Requirement: Side-band response metadata
-The system SHALL model response metadata separately from the Guide result payload.  Response metadata SHALL carry information that is independent of the result value, success, failure, instruction, and disposition.
+### Requirement: Modern side-band instruction metadata
+The system SHALL deliver a queued scalar additional agent instruction for an MCP `2026-07-28` Session through `_meta["mcp-guide"]["instructions"]`.  The metadata value SHALL be omitted when no instruction is queued.
 
-#### Scenario: Result-specific instruction remains in the result
-- **WHEN** a result includes an instruction describing how to handle its content
-- **THEN** that instruction remains in the result payload
-- **AND** it is not converted to response metadata
-
-### Requirement: Queued agent-instruction list delivery
-The system SHALL deliver every session-queued additional agent instruction with the next outgoing response.  It SHALL remove the queued instructions in FIFO order and attach them as the `mcp-guide/additional_agent_instructions` `_meta` list, independently of the result payload.  List order SHALL express only delivery sequence, not priority or required action order.
-
-#### Scenario: Queued instructions accompany a success result
+#### Scenario: Modern instruction accompanies a success result
 - **WHEN** a session has queued additional agent instructions and a tool returns a successful result
-- **THEN** the result payload contains only result-specific fields
-- **AND** the response `_meta` contains the queued instructions as a list
+- **AND** the Session protocol type is `mcp_2026_07_28`
+- **THEN** the response `_meta` contains its next queued instruction at `mcp-guide.instructions`
+- **AND** the structured Guide result does not contain `additional_agent_instructions`
 
-#### Scenario: Queued instructions accompany a failure result
+#### Scenario: Modern instruction accompanies a failure result
 - **WHEN** a session has queued additional agent instructions and a tool returns a failure result
-- **THEN** the failure result remains unchanged
-- **AND** the response `_meta` contains the queued instructions as a list
+- **AND** the Session protocol type is `mcp_2026_07_28`
+- **THEN** the failure result remains otherwise unchanged
+- **AND** the response `_meta` contains the scalar instruction
 
-#### Scenario: Multiple queued instructions
-- **WHEN** a session has multiple queued additional agent instructions
-- **THEN** the current response metadata contains every queued instruction in FIFO order
-- **AND** the queue is empty after those instructions are attached
+#### Scenario: Legacy instruction remains in the result
+- **WHEN** a Session has a legacy protocol type and an outgoing result contains an additional agent instruction
+- **THEN** the structured Guide result contains `additional_agent_instructions`
+- **AND** the response does not add the Guide instruction metadata value
 
 ### Requirement: Public-surface metadata consistency
-The system SHALL preserve resolved response metadata through tool, prompt, and resource response adapters.  A response with no side-band metadata SHALL not include an empty Guide side-band metadata value.
+The system SHALL preserve the protocol-specific instruction contract through tool, prompt, and resource response adapters.  A modern response with no queued instruction SHALL not include an empty Guide metadata namespace or instruction key.
 
 #### Scenario: Prompt delivery
 - **WHEN** a prompt response has queued side-band metadata
+- **AND** its Session protocol type is `mcp_2026_07_28`
 - **THEN** its native response `_meta` contains the Guide metadata value
 
 #### Scenario: Resource delivery
 - **WHEN** a resource response has queued side-band metadata
+- **AND** its Session protocol type is `mcp_2026_07_28`
 - **THEN** its native response `_meta` contains the Guide metadata value
 
 #### Scenario: No queued instructions
-- **WHEN** an outgoing response has no queued additional agent instruction
-- **THEN** it does not contain `mcp-guide/additional_agent_instructions`
-
-### Requirement: No result-payload duplication
-The system SHALL NOT serialise `additional_agent_instructions` in a Guide `Result` payload or embed it within `guide_result` metadata.
-
-#### Scenario: Structured tool result
-- **WHEN** a tool response includes queued additional agent instructions
-- **THEN** its structured Guide result does not contain `additional_agent_instructions`
-- **AND** the instruction is available only through response metadata
+- **WHEN** an outgoing modern response has no queued additional agent instruction
+- **THEN** it does not contain `mcp-guide.instructions`

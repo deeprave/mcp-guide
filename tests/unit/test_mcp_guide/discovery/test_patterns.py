@@ -61,6 +61,23 @@ class TestBasicPatternMatching:
         result_names = {p.name for p in results}
         assert result_names == {"file.md", "doc.txt"}
 
+    @pytest.mark.anyio
+    async def test_results_are_ordered_by_relative_path(self, temp_project_dir, monkeypatch):
+        """Content callers receive a stable order regardless of directory iteration order."""
+        test_dir = temp_project_dir / "test_stable_order"
+        test_dir.mkdir()
+        (test_dir / "second.md").write_text("second")
+        (test_dir / "first.md").write_text("first")
+
+        async def reverse_directory_order(*_args):
+            return [test_dir / "second.md", test_dir / "first.md"]
+
+        monkeypatch.setattr("mcp_guide.discovery.patterns._walk_with_depth_limit", reverse_directory_order)
+        monkeypatch.setattr("mcp_guide.discovery.patterns.MAX_DOCUMENTS_PER_GLOB", 1)
+        results = await safe_glob_search(test_dir, ["*.md"])
+
+        assert [path.name for path in results] == ["first.md"]
+
 
 class TestRecursivePatterns:
     """Tests for recursive glob patterns."""
