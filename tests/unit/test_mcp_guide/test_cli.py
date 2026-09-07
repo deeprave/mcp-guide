@@ -6,10 +6,6 @@ from unittest.mock import patch
 from mcp_guide.cli import parse_args
 
 
-class TestServerConfig:
-    """Tests for ServerConfig dataclass."""
-
-
 class TestParseArgs:
     """Tests for parse_args function."""
 
@@ -54,23 +50,52 @@ class TestParseArgs:
 
     def test_cli_args_override_defaults(self) -> None:
         """Test CLI arguments override default values."""
-        with patch("sys.argv", ["mcp-guide", "--log-level", "DEBUG", "--log-json"]):
+        with patch(
+            "sys.argv",
+            [
+                "mcp-guide",
+                "--log-level",
+                "DEBUG",
+                "--log-json",
+                "--tool-prefix",
+                "myapp",
+                "--log-file",
+                "/var/log/mcp.log",
+                "--use-pwd",
+                "--docroot",
+                "/custom/path",
+                "--configdir",
+                "/custom/config",
+            ],
+        ):
             with patch.dict(os.environ, {}, clear=True):
                 config = parse_args()
                 assert config.log_level == "DEBUG"
                 assert config.log_json is True
+                assert config.tool_prefix == "myapp"
+                assert config.log_file == "/var/log/mcp.log"
+                assert config.use_pwd is True
+                assert config.docroot == "/custom/path"
+                assert config.configdir == "/custom/config"
 
     def test_envvar_override_defaults(self) -> None:
         """Test environment variables override defaults."""
         with patch("sys.argv", ["mcp-guide"]):
             with patch.dict(
                 os.environ,
-                {"MG_LOG_LEVEL": "WARNING", "MG_LOG_FILE": "/tmp/test.log"},
+                {
+                    "MG_LOG_LEVEL": "WARNING",
+                    "MG_LOG_FILE": "/tmp/test.log",
+                    "MCP_TOOL_PREFIX": "custom",
+                    "MG_USE_PWD": "1",
+                },
                 clear=True,
             ):
                 config = parse_args()
                 assert config.log_level == "WARNING"
                 assert config.log_file == "/tmp/test.log"
+                assert config.tool_prefix == "custom"
+                assert config.use_pwd is True
 
     def test_cli_args_override_envvar(self) -> None:
         """Test CLI arguments override environment variables."""
@@ -78,20 +103,6 @@ class TestParseArgs:
             with patch.dict(os.environ, {"MG_LOG_LEVEL": "DEBUG"}, clear=True):
                 config = parse_args()
                 assert config.log_level == "ERROR"
-
-    def test_tool_prefix_cli_arg(self) -> None:
-        """Test --tool-prefix sets custom prefix."""
-        with patch("sys.argv", ["mcp-guide", "--tool-prefix", "myapp"]):
-            with patch.dict(os.environ, {}, clear=True):
-                config = parse_args()
-                assert config.tool_prefix == "myapp"
-
-    def test_tool_prefix_envvar(self) -> None:
-        """Test MCP_TOOL_PREFIX environment variable."""
-        with patch("sys.argv", ["mcp-guide"]):
-            with patch.dict(os.environ, {"MCP_TOOL_PREFIX": "custom"}, clear=True):
-                config = parse_args()
-                assert config.tool_prefix == "custom"
 
     def test_invalid_log_level_error(self) -> None:
         """Test invalid log level stores BadParameter exception."""
@@ -108,37 +119,9 @@ class TestParseArgs:
 
     def test_all_log_levels(self) -> None:
         """Test all valid log levels."""
-        levels = ["TRACE", "DEBUG", "INFO", "WARNING", "ERROR"]
+        levels = ["TRACE", "debug", "INFO", "WARNING", "ERROR"]
         for level in levels:
             with patch("sys.argv", ["mcp-guide", "--log-level", level]):
                 with patch.dict(os.environ, {}, clear=True):
                     config = parse_args()
                     assert config.log_level == level.upper()
-
-    def test_log_level_case_insensitive(self) -> None:
-        """Test log level is case insensitive."""
-        with patch("sys.argv", ["mcp-guide", "--log-level", "debug"]):
-            with patch.dict(os.environ, {}, clear=True):
-                config = parse_args()
-                assert config.log_level == "DEBUG"
-
-    def test_log_file_path(self) -> None:
-        """Test --log-file sets file path."""
-        with patch("sys.argv", ["mcp-guide", "--log-file", "/var/log/mcp.log"]):
-            with patch.dict(os.environ, {}, clear=True):
-                config = parse_args()
-                assert config.log_file == "/var/log/mcp.log"
-
-    def test_use_pwd_cli_flag(self) -> None:
-        """Test --use-pwd opts into inherited-PWD binding."""
-        with patch("sys.argv", ["mcp-guide", "--use-pwd"]):
-            with patch.dict(os.environ, {}, clear=True):
-                config = parse_args()
-                assert config.use_pwd is True
-
-    def test_use_pwd_envvar(self) -> None:
-        """Test MG_USE_PWD environment variable."""
-        with patch("sys.argv", ["mcp-guide"]):
-            with patch.dict(os.environ, {"MG_USE_PWD": "1"}, clear=True):
-                config = parse_args()
-                assert config.use_pwd is True

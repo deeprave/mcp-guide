@@ -1,168 +1,66 @@
-"""Integration tests for export tracking and staleness detection."""
+"""Actual exports track source changes, force destinations and survive session reload."""
 
-from unittest.mock import AsyncMock, patch
+import os
 
 import pytest
+import yaml
 
-from mcp_guide.result import Result
-from mcp_guide.session import Session
+from mcp_guide.models import Category
 from mcp_guide.tools.tool_content import ExportContentArgs, export_content
-from tests.helpers import create_test_session, request_context_for, tool_result_payload
-
-_test_session: Session | None = None
-
-
-async def get_session() -> Session:
-    """Return the explicitly provisioned test Session."""
-    assert _test_session is not None
-    return _test_session
+from tests.helpers import (
+    bind_isolated_test_session,
+    create_bound_test_session,
+    request_context_for,
+    tool_result_payload,
+)
 
 
 @pytest.mark.anyio
-class TestExportStalenessIntegration:
-    """Integration tests for export staleness detection."""
+async def test_exports_track_real_content_changes_and_persist(runtime, tmp_path):
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    source = docs / "readme.md"
+    source.write_text("Original content")
+    runtime.configuration_service().config_file.write_text(yaml.safe_dump({"docroot": str(tmp_path), "projects": {}}))
+    session = await create_bound_test_session(runtime, "export-tracking")
+    await session.update_config(lambda p: p.with_category("docs", Category(dir="docs", patterns=["*.md"])))
 
-    @pytest.fixture(autouse=True)
-    async def bound_session(self, runtime, tmp_path, monkeypatch):
-        """Provide the production-shaped bound interaction required by exports."""
-        global _test_session
-        session = await create_test_session(runtime, "export-tracking")
-        _test_session = session
+    async def export(path="output.md", *, force=False, pattern=None):
+        args = ExportContentArgs(expression="docs", path=path, force=force, pattern=pattern)
+        payload = tool_result_payload(await export_content.__wrapped__(args, await request_context_for(session)))
+        assert payload["success"] is True
+        assert "RAW FILE DATA" in payload["instruction"]
+        return payload
 
-        async def get_bound_session_and_project(_ctx=None, *, session_id=None):
-            return session, await session.get_project()
+    first = await export()
+    assert first["value"].endswith("Original content")
+    initial = session.project.get_export_entry("docs", None)
+    assert initial.path == ".knowledge/output.md"
+    assert initial.metadata_hash
+    assert initial.exported_at > 0
 
-        monkeypatch.setattr(
-            "mcp_guide.tools.tool_content.get_session_and_project",
-            get_bound_session_and_project,
-        )
-        yield session
-        _test_session = None
+    repeated = await export("ignored.md")
+    assert repeated["value"] == first["value"]
+    assert "`.knowledge/output.md`" in repeated["instruction"]
+    assert session.project.get_export_entry("docs", None) == initial
 
-    async def test_first_export_creates_tracking_entry(self, session_temp_dir):
-        """Test that first export creates a tracking entry."""
-        session = await get_session()
-        project = await session.get_project()
+    forced = await export("forced.md", force=True)
+    assert forced["value"] == first["value"]
+    assert "`.knowledge/forced.md`" in forced["instruction"]
+    assert "overwrite if it already exists" in forced["instruction"]
+    assert session.project.get_export_entry("docs", None).path == ".knowledge/forced.md"
 
-        assert project.get_export_entry("docs", None) is None
+    previous_mtime = source.stat().st_mtime
+    source.write_text("Changed content")
+    os.utime(source, (previous_mtime + 2, previous_mtime + 2))
+    changed = await export("changed.md")
+    assert changed["value"].endswith("Changed content")
+    changed_entry = session.project.get_export_entry("docs", None)
+    assert changed_entry.metadata_hash != initial.metadata_hash
+    assert changed_entry.path == ".knowledge/changed.md"
 
-        updated = project.upsert_export_entry("docs", None, "/export.md", "a3f5c8d1")
-        assert updated.get_export_entry("docs", None) is not None
-
-    async def test_repeated_export_without_changes_returns_message(self, session_temp_dir):
-        """Test that repeated export without file changes returns already exported message."""
-        session = await get_session()
-        project = await session.get_project()
-
-        updated = project.upsert_export_entry("docs", None, "/export.md", "ffffffff")
-        await session.update_config(lambda _: updated)
-
-        project = await session.get_project()
-        entry = project.get_export_entry("docs", None)
-        assert entry is not None
-        assert entry.path == "/export.md"
-
-    async def test_export_after_file_modification_proceeds(self, session_temp_dir):
-        """Test that export proceeds when files have been modified."""
-        session = await get_session()
-        project = await session.get_project()
-
-        updated = project.upsert_export_entry("docs", None, "/export.md", "00001000")
-        await session.update_config(lambda _: updated)
-
-        project = await session.get_project()
-        entry = project.get_export_entry("docs", None)
-        assert entry.metadata_hash == "00001000"
-
-        # Simulate re-export with new hash after file modification
-        updated = project.upsert_export_entry("docs", None, "/export.md", "00002000")
-        await session.update_config(lambda _: updated)
-
-        project = await session.get_project()
-        entry = project.get_export_entry("docs", None)
-        assert entry.metadata_hash == "00002000"
-
-    async def test_force_flag_bypasses_staleness_check(self, session_temp_dir):
-        """Test that force=True bypasses staleness detection."""
-        session = await get_session()
-        project = await session.get_project()
-
-        updated = project.upsert_export_entry("docs", None, "/export.md", "ffffffff")
-        await session.update_config(lambda _: updated)
-
-        project = await session.get_project()
-        entry = project.get_export_entry("docs", None)
-        assert entry is not None  # Entry exists; force=True bypasses hash comparison
-
-    async def test_different_patterns_tracked_separately(self, session_temp_dir):
-        """Test that different patterns for same expression are tracked separately."""
-        session = await get_session()
-        project = await session.get_project()
-
-        updated = project.upsert_export_entry("docs", None, "/export1.md", "00001000")
-        updated = updated.upsert_export_entry("docs", "*.md", "/export2.md", "00002000")
-        await session.update_config(lambda _: updated)
-
-        project = await session.get_project()
-        entry1 = project.get_export_entry("docs", None)
-        entry2 = project.get_export_entry("docs", "*.md")
-
-        assert entry1 is not None
-        assert entry2 is not None
-        assert entry1.path == "/export1.md"
-        assert entry2.path == "/export2.md"
-        assert entry1.metadata_hash == "00001000"
-        assert entry2.metadata_hash == "00002000"
-
-    async def test_tracking_persists_across_session_reload(self, session_temp_dir):
-        """Test that export tracking persists when project config is reloaded."""
-        session1 = await get_session()
-        project1 = await session1.get_project()
-        updated = project1.upsert_export_entry("docs", None, "/export.md", "a3f5c8d1")
-        await session1.update_config(lambda _: updated)
-
-        session2 = await get_session()
-        project2 = await session2.get_project()
-        entry = project2.get_export_entry("docs", None)
-
-        assert entry is not None
-        assert entry.path == "/export.md"
-        assert entry.metadata_hash == "a3f5c8d1"
-
-    async def test_export_content_staleness_end_to_end(self, session_temp_dir):
-        """Test export_content: first call tracks, second returns stale, force bypasses."""
-        HASH = "a1b2c3d4"
-
-        with (
-            patch("mcp_guide.tools.tool_content.gather_content", new=AsyncMock(return_value=["dummy"])),
-            patch("mcp_guide.tools.tool_content.compute_metadata_hash", return_value=HASH),
-            patch(
-                "mcp_guide.tools.tool_content.internal_get_content",
-                new=AsyncMock(return_value=Result.ok("content")),
-            ),
-        ):
-            args = ExportContentArgs(expression="docs", path="output.md")
-
-            # First call - should succeed and create tracking entry
-            session = await get_session()
-            request_context = await request_context_for(session)
-            payload1 = tool_result_payload(await export_content.__wrapped__(args, request_context))
-            assert payload1["success"] is True
-            assert "RAW FILE DATA" in payload1["instruction"]
-            assert "`.knowledge/output.md`" in payload1["instruction"]
-
-            project = await session.get_project()
-            entry = project.get_export_entry("docs", None)
-            assert entry is not None
-            assert entry.metadata_hash == HASH
-
-            # Second call - same hash, should return stale message
-            payload2 = tool_result_payload(await export_content.__wrapped__(args, request_context))
-            assert payload2["success"] is True
-            assert "RAW FILE DATA" in payload2["instruction"]
-            assert "`.knowledge/output.md`" in payload2["instruction"]
-
-            # force=True bypasses staleness check
-            args_force = ExportContentArgs(expression="docs", path="output.md", force=True)
-            payload3 = tool_result_payload(await export_content.__wrapped__(args_force, request_context))
-            assert payload3["success"] is True
+    await export("pattern.md", pattern="*.md")
+    assert session.project.get_export_entry("docs", None) == changed_entry
+    assert session.project.get_export_entry("docs", "*.md").path == ".knowledge/pattern.md"
+    reloaded = await bind_isolated_test_session(runtime, project_name="export-tracking")
+    assert reloaded.project.exports == session.project.exports

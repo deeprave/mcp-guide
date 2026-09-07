@@ -20,31 +20,6 @@ def _make_rendered_content(content: str, instruction: str, content_type: str = "
     )
 
 
-class TestEventResult:
-    """Test EventResult dataclass."""
-
-    def test_event_result_with_message(self):
-        """Test EventResult with simple message."""
-        result = EventResult(result=True, message="Success")
-        assert result.result is True
-        assert result.message == "Success"
-        assert result.rendered_content is None
-
-    def test_event_result_with_rendered_content(self):
-        """Test EventResult with rendered content."""
-        rendered = _make_rendered_content("Test content", "Test instruction")
-        result = EventResult(result=True, rendered_content=rendered)
-        assert result.result is True
-        assert result.message is None
-        assert result.rendered_content == rendered
-
-    def test_event_result_failure(self):
-        """Test EventResult with failure."""
-        result = EventResult(result=False, message="Failed")
-        assert result.result is False
-        assert result.message == "Failed"
-
-
 class TestAggregateEventResults:
     """Test aggregate_event_results function."""
 

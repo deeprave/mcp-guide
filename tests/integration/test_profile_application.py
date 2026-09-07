@@ -31,17 +31,6 @@ async def test_session(runtime, tmp_path, monkeypatch, enable_default_profile):
     # Build an isolated, explicitly bound session.
     session = await create_test_session(runtime, "test")
 
-    async def get_bound_session_and_project(_ctx=None, *, session_id=None):
-        return session, await session.get_project()
-
-    monkeypatch.setattr(
-        "mcp_guide.tools.tool_content.get_session_and_project",
-        get_bound_session_and_project,
-    )
-    monkeypatch.setattr(
-        "mcp_guide.tools.tool_project.get_session_and_project",
-        get_bound_session_and_project,
-    )
     yield session
 
 
@@ -86,181 +75,54 @@ class TestProfileApplication:
             assert content.success
             assert heading in content.value
 
-    async def test_apply_single_profile(self, test_session, tmp_path, monkeypatch):
-        """Test applying a single profile to a project."""
+    async def test_profiles_compose_idempotently_and_report_missing(self, test_session, tmp_path, monkeypatch):
+        """Real profile files compose categories/collections and persist without duplicates."""
+        import yaml
+
         from mcp_guide.tools.tool_project import UseProjectProfileArgs, internal_use_project_profile
 
-        # Set fake PWD to avoid picking up real project
-        monkeypatch.setenv("PWD", str(tmp_path))
-
-        # Create a test profile
         profiles_dir = tmp_path / "_profiles"
         profiles_dir.mkdir()
-        profile_file = profiles_dir / "test.yaml"
-        profile_file.write_text("""
-categories:
-  - name: docs
-    dir: docs/
-    patterns: []
-    description: Documentation
+        (profiles_dir / "first.yaml").write_text(
+            yaml.safe_dump(
+                {
+                    "categories": [
+                        {"name": "custom-docs", "dir": "docs/", "patterns": ["*.md"], "description": "Documentation"}
+                    ],
+                    "collections": [{"name": "custom-all", "categories": ["custom-docs"]}],
+                }
+            )
+        )
+        (profiles_dir / "second.yaml").write_text(
+            yaml.safe_dump(
+                {
+                    "categories": [{"name": "custom-api", "dir": "api/", "patterns": ["*.py"]}],
+                }
+            )
+        )
 
-collections:
-  - name: all
-    categories: [docs]
-""")
-
-        # Mock get_profiles_dir
-        import mcp_guide.models.profile as profile_module
-
-        original_get_profiles_dir = profile_module.get_profiles_dir
-
-        async def mock_get_profiles_dir():
+        # Substitute only the packaged resource location; parsing and application remain real.
+        async def profile_directory():
             return profiles_dir
 
-        profile_module.get_profiles_dir = mock_get_profiles_dir
+        monkeypatch.setattr("mcp_guide.models.profile.get_profiles_dir", profile_directory)
 
-        try:
-            # Apply profile
-            args = UseProjectProfileArgs(profile="test")
-            request_context = await request_context_for(test_session)
-            result = await internal_use_project_profile(args, request_context)
+        async def apply(name):
+            return await internal_use_project_profile(
+                UseProjectProfileArgs(profile=name), await request_context_for(test_session)
+            )
 
-            assert result.success
-            assert "Applied profile 'test'" in result.value
-
-            # Verify project has the category and collection
-            project = await test_session.get_project()
-            assert "docs" in project.categories
-            assert "all" in project.collections
-        finally:
-            profile_module.get_profiles_dir = original_get_profiles_dir
-
-    async def test_apply_multiple_profiles(self, test_session, tmp_path, monkeypatch):
-        """Test applying multiple profiles to compose configuration."""
-        from mcp_guide.tools.tool_project import UseProjectProfileArgs, internal_use_project_profile
-
-        # Set fake PWD
-        monkeypatch.setenv("PWD", str(tmp_path))
-
-        # Create test profiles
-        profiles_dir = tmp_path / "_profiles"
-        profiles_dir.mkdir()
-
-        (profiles_dir / "profile1.yaml").write_text("""
-categories:
-  - name: cat1
-    dir: cat1/
-    patterns: []
-""")
-
-        (profiles_dir / "profile2.yaml").write_text("""
-categories:
-  - name: cat2
-    dir: cat2/
-    patterns: []
-""")
-
-        # Mock get_profiles_dir
-        import mcp_guide.models.profile as profile_module
-
-        original_get_profiles_dir = profile_module.get_profiles_dir
-
-        async def mock_get_profiles_dir():
-            return profiles_dir
-
-        profile_module.get_profiles_dir = mock_get_profiles_dir
-
-        try:
-            # Apply first profile
-            request_context = await request_context_for(test_session)
-            result1 = await internal_use_project_profile(UseProjectProfileArgs(profile="profile1"), request_context)
-            assert result1.success
-
-            # Apply second profile
-            request_context = await request_context_for(test_session)
-            result2 = await internal_use_project_profile(UseProjectProfileArgs(profile="profile2"), request_context)
-            assert result2.success
-
-            # Verify both categories exist
-            project = await test_session.get_project()
-            assert "cat1" in project.categories
-            assert "cat2" in project.categories
-        finally:
-            profile_module.get_profiles_dir = original_get_profiles_dir
-
-    async def test_apply_same_profile_twice_idempotent(self, test_session, tmp_path, monkeypatch):
-        """Test that applying the same profile twice is idempotent."""
-        from mcp_guide.tools.tool_project import UseProjectProfileArgs, internal_use_project_profile
-
-        # Set fake PWD
-        monkeypatch.setenv("PWD", str(tmp_path))
-
-        # Create test profile
-        profiles_dir = tmp_path / "_profiles"
-        profiles_dir.mkdir()
-        (profiles_dir / "test.yaml").write_text("""
-categories:
-  - name: docs
-    dir: docs/
-    patterns: []
-""")
-
-        # Mock get_profiles_dir
-        import mcp_guide.models.profile as profile_module
-
-        original_get_profiles_dir = profile_module.get_profiles_dir
-
-        async def mock_get_profiles_dir():
-            return profiles_dir
-
-        profile_module.get_profiles_dir = mock_get_profiles_dir
-
-        try:
-            # Apply profile first time
-            request_context = await request_context_for(test_session)
-            result1 = await internal_use_project_profile(UseProjectProfileArgs(profile="test"), request_context)
-            assert result1.success
-            assert "Applied profile" in result1.value
-
-            # Apply profile second time - should succeed (idempotent)
-            request_context = await request_context_for(test_session)
-            result2 = await internal_use_project_profile(UseProjectProfileArgs(profile="test"), request_context)
-            assert result2.success
-            assert "Applied profile" in result2.value
-
-            # Verify category exists and wasn't duplicated
-            project = await test_session.get_project()
-            assert "docs" in project.categories
-            assert len([c for c in project.categories if c == "docs"]) == 1
-        finally:
-            profile_module.get_profiles_dir = original_get_profiles_dir
-
-    async def test_apply_invalid_profile(self, test_session, tmp_path, monkeypatch):
-        """Test applying a non-existent profile."""
-        from mcp_guide.tools.tool_project import UseProjectProfileArgs, internal_use_project_profile
-
-        # Set fake PWD
-        monkeypatch.setenv("PWD", str(tmp_path))
-
-        # Create empty profiles directory
-        profiles_dir = tmp_path / "_profiles"
-        profiles_dir.mkdir()
-
-        # Mock get_profiles_dir
-        import mcp_guide.models.profile as profile_module
-
-        original_get_profiles_dir = profile_module.get_profiles_dir
-
-        async def mock_get_profiles_dir():
-            return profiles_dir
-
-        profile_module.get_profiles_dir = mock_get_profiles_dir
-
-        try:
-            # Try to apply non-existent profile
-            request_context = await request_context_for(test_session)
-            result = await internal_use_project_profile(UseProjectProfileArgs(profile="nonexistent"), request_context)
-            assert not result.success
-            assert "not" in result.message.lower() and "found" in result.message.lower()
-        finally:
-            profile_module.get_profiles_dir = original_get_profiles_dir
+        first = await apply("first")
+        assert first.success
+        assert "Applied profile 'first'" in first.value
+        assert (await apply("second")).success
+        combined = await test_session.get_project()
+        assert combined.categories["custom-docs"].patterns == ["*.md"]
+        assert combined.categories["custom-api"].patterns == ["*.py"]
+        assert combined.collections["custom-all"].categories == ["custom-docs"]
+        assert (await apply("first")).success
+        assert await test_session.get_project() == combined
+        missing = await apply("nonexistent")
+        assert not missing.success
+        assert "not found" in missing.message.lower()
+        assert await test_session.get_project() == combined

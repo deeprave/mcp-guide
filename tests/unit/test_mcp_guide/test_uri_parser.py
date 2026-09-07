@@ -22,6 +22,7 @@ class TestContentUri:
     def test_expression_only(self) -> None:
         result = parse_guide_uri("guide://docs")
         assert result == GuideUri(is_command=False, expression="docs")
+        assert result.command_path is None
 
     def test_expression_with_pattern(self) -> None:
         result = parse_guide_uri("guide://docs/readme")
@@ -46,14 +47,7 @@ class TestCommandUri:
     def test_simple_command(self) -> None:
         result = parse_guide_uri("guide://_project", COMMANDS)
         assert result == GuideUri(is_command=True, expression="project")
-
-    def test_command_path_property(self) -> None:
-        result = parse_guide_uri("guide://_project", COMMANDS)
         assert result.command_path == "project"
-
-    def test_command_path_none_for_content(self) -> None:
-        result = parse_guide_uri("guide://docs")
-        assert result.command_path is None
 
     def test_command_with_args(self) -> None:
         result = parse_guide_uri("guide://_perm/write-add/docs/", COMMANDS)

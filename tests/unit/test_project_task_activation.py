@@ -1,172 +1,70 @@
-"""Tests for runtime project-scoped task activation policy."""
-
-from types import SimpleNamespace
-from unittest.mock import AsyncMock, Mock, patch
+"""Task activation follows real project flags and the explicitly supplied session."""
 
 import pytest
+import yaml
+from tests.helpers import create_bound_test_session
 
 from mcp_guide.context.tasks import ClientContextTask
 from mcp_guide.openspec.task import OpenSpecTask
+from mcp_guide.result import Result
 from mcp_guide.task_manager import EventType, TaskManager
 from mcp_guide.workflow.tasks import WorkflowMonitorTask
 
 
-def _patch_resolved_flags(flags: dict[str, object]):
-    """Patch flag resolution for task-owned activation tests."""
-    return patch("mcp_guide.task_manager.manager.resolve_all_flags", new=AsyncMock(return_value=flags))
-
-
-class TestRuntimeProjectTaskActivation:
-    """Runtime tasks independently decide whether to subscribe."""
-
-    @pytest.mark.anyio
-    async def test_requires_flag_resolves_against_explicit_session(self) -> None:
-        """Explicit lifecycle session wins over ambient ContextVar session."""
-        task_manager = TaskManager()
-        supplied_session = Mock()
-        supplied_session.add_listener = Mock()
-        ambient_session = Mock()
-        ambient_session.add_listener = Mock()
-
-        def resolve_flags(session: Mock) -> dict[str, bool]:
-            return {"workflow": session is supplied_session}
-
-        with (
-            patch(
-                "mcp_guide.runtime.GuideRuntime.create_session",
-                new_callable=AsyncMock,
-                return_value=ambient_session,
-            ) as mock_get_session,
-            patch(
-                "mcp_guide.task_manager.manager.resolve_all_flags",
-                new_callable=AsyncMock,
-                side_effect=resolve_flags,
-            ) as mock_resolve_flags,
-        ):
-            enabled = await task_manager.requires_flag("workflow", supplied_session)
-
-        assert enabled is True
-        mock_get_session.assert_not_awaited()
-        mock_resolve_flags.assert_awaited_once_with(supplied_session)
-        supplied_session.add_listener.assert_called_once_with(task_manager)
-        ambient_session.add_listener.assert_not_called()
-
-    @pytest.mark.anyio
-    @pytest.mark.parametrize(
-        "task_cls, flag_name",
-        [
-            (WorkflowMonitorTask, "workflow"),
-            (ClientContextTask, "allow-client-info"),
-        ],
+@pytest.mark.anyio
+async def test_task_activation_and_initialisation_use_the_supplied_project(runtime, tmp_path):
+    templates = tmp_path / "docs" / "_openspec"
+    templates.mkdir(parents=True)
+    (templates / "openspec-cli-check.mustache").write_text("Check CLI for {{project.name}}")
+    context_templates = templates.parent / "_context"
+    context_templates.mkdir()
+    (context_templates / "client-context-setup.mustache").write_text("Client information for {{project.name}}")
+    runtime.configuration_service().config_file.write_text(
+        yaml.safe_dump({"docroot": str(templates.parent), "projects": {}})
     )
-    async def test_task_start_resolves_flags_from_supplied_session(self, task_cls, flag_name: str) -> None:
-        """Project-scoped task startup uses the notified session, not ambient session."""
-        task_manager = TaskManager()
-        task = task_cls(task_manager=task_manager)
-        supplied_session = Mock()
-        supplied_session.add_listener = Mock()
-        ambient_session = Mock()
-        ambient_session.add_listener = Mock()
+    await runtime.feature_flags().set("allow-client-info", True)
+    enabled = await create_bound_test_session(runtime, "enabled")
+    await enabled.project_flags().set("workflow", True)
+    await enabled.project_flags().set("openspec", True)
+    disabled = await create_bound_test_session(runtime, "disabled")
 
-        def resolve_flags(session: Mock) -> dict[str, bool]:
-            return {flag_name: session is supplied_session}
+    manager = TaskManager(session=disabled)
+    try:
+        assert await manager.requires_flag("workflow", enabled) is True
+        assert await manager.requires_flag("workflow", disabled) is False
+        for task_class in (WorkflowMonitorTask, OpenSpecTask):
+            task = task_class(task_manager=manager)
+            assert await task.start(manager, disabled) is False
+            assert manager.get_subscription_count() == 0
+            assert await task.start(manager, enabled) is True
+            assert manager.get_subscription_count() == 1
+            if task_class is OpenSpecTask:
+                result = await task.handle_event(EventType.TIMER_ONCE, {})
+                assert result.result is True
+                delivered = await manager.process_result(Result.ok())
+                assert delivered.additional_agent_instructions == "Check CLI for enabled"
+            await manager.unsubscribe(task)
 
-        with (
-            patch(
-                "mcp_guide.runtime.GuideRuntime.create_session",
-                new_callable=AsyncMock,
-                return_value=ambient_session,
-            ) as mock_get_session,
-            patch(
-                "mcp_guide.task_manager.manager.resolve_all_flags",
-                new_callable=AsyncMock,
-                side_effect=resolve_flags,
-            ),
-        ):
-            started = await task.start(task_manager, supplied_session)
-
-        assert started is True
-        mock_get_session.assert_not_awaited()
-        assert task_manager.get_subscription_count() == 1
-
-    @pytest.mark.anyio
-    async def test_openspec_initialise_reads_global_state_for_supplied_session(self) -> None:
-        """Deferred OpenSpec state reads use the global service and supplied session flag."""
-        task_manager = TaskManager()
-        task = OpenSpecTask(task_manager=task_manager)
-        supplied_session = Mock()
-        supplied_session.add_listener = Mock()
-        supplied_session.project = SimpleNamespace(project_flags={"openspec": True})
-        ambient_session = Mock()
-        ambient_session.add_listener = Mock()
-        ambient_session.project = SimpleNamespace(project_flags={"openspec": False})
-        flags = Mock(get=AsyncMock(return_value=None))
-        runtime = Mock(feature_flags=Mock(return_value=flags))
-
-        with (
-            patch(
-                "mcp_guide.runtime.GuideRuntime.create_session",
-                new_callable=AsyncMock,
-                return_value=ambient_session,
-            ) as mock_get_session,
-            patch("mcp_guide.openspec.task.get_runtime", return_value=runtime),
-            patch.object(task, "request_cli_check", new_callable=AsyncMock),
-        ):
-            started = await task.start(task_manager, supplied_session)
-            result = await task.handle_event(EventType.TIMER_ONCE, {})
-
-        assert started is True
-        assert result is not None
+        client_task = ClientContextTask(task_manager=manager)
+        assert await client_task.start(manager, enabled) is True
+        assert await client_task.start(manager, enabled) is True
+        assert manager.get_subscription_count() == 1
+        result = await client_task.handle_event(EventType.TIMER_ONCE, {})
         assert result.result is True
-        mock_get_session.assert_not_awaited()
-        assert supplied_session.project.project_flags["openspec"] is True
-        assert ambient_session.project.project_flags["openspec"] is False
-
-    @pytest.mark.anyio
-    async def test_workflow_task_subscribes_when_workflow_enabled(self) -> None:
-        """Workflow activation is owned by WorkflowMonitorTask."""
-        task_manager = TaskManager()
-        task = WorkflowMonitorTask(task_manager=task_manager)
-
-        with _patch_resolved_flags({"workflow": True}):
-            started = await task.start(task_manager, Mock())
-
-        assert started is True
-        assert task_manager.get_subscription_count() == 1
-
-    @pytest.mark.anyio
-    async def test_workflow_task_stays_inactive_when_workflow_disabled(self) -> None:
-        """Workflow task can decline activation without task-manager flag policy."""
-        task_manager = TaskManager()
-        task = WorkflowMonitorTask(task_manager=task_manager)
-
-        with _patch_resolved_flags({"workflow": False}):
-            started = await task.start(task_manager, Mock())
-
-        assert started is False
-        assert task_manager.get_subscription_count() == 0
-
-    @pytest.mark.anyio
-    async def test_client_context_task_owns_allow_client_info_policy(self) -> None:
-        """Client context activation is independent of workflow/OpenSpec."""
-        task_manager = TaskManager()
-        task = ClientContextTask(task_manager=task_manager)
-
-        with _patch_resolved_flags({"allow-client-info": True}):
-            started = await task.start(task_manager, Mock())
-
-        assert started is True
-        assert task_manager.get_subscription_count() == 1
-
-    @pytest.mark.anyio
-    async def test_openspec_task_owns_openspec_policy(self) -> None:
-        """OpenSpec activation is controlled only by the supplied Project flag."""
-        task_manager = TaskManager()
-        task = OpenSpecTask(task_manager=task_manager)
-        session = Mock()
-        session.project = SimpleNamespace(project_flags={"openspec": True})
-
-        started = await task.start(task_manager, session)
-
-        assert started is True
-        assert task_manager.get_subscription_count() == 1
+        delivered = await manager.process_result(Result.ok())
+        assert delivered.additional_agent_instructions == "Client information for enabled"
+        await manager.unsubscribe(client_task)
+        await runtime.feature_flags().set("allow-client-info", False)
+        # Flag publication restarts registered tasks; declining this task adds no subscription.
+        subscriptions = manager.get_subscription_count()
+        assert await ClientContextTask(task_manager=manager).start(manager, disabled) is False
+        assert manager.get_subscription_count() == subscriptions
+        for task_class in (ClientContextTask, OpenSpecTask):
+            task = task_class(task_manager=manager)
+            assert await task.start(manager, disabled) is False
+            manager.subscribe(task, EventType.TIMER_ONCE)
+            result = await task.handle_event(EventType.TIMER_ONCE, {})
+            assert result.result is True
+            assert manager.get_subscription_count() == subscriptions
+    finally:
+        await manager.cleanup()

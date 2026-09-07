@@ -3,7 +3,6 @@
 import asyncio
 import os
 import pwd
-from dataclasses import asdict
 from pathlib import Path
 
 import pytest
@@ -12,7 +11,6 @@ from tests.helpers import create_test_runtime, request_context_for
 
 from mcp_guide.filesystem.tools import send_directory_listing
 from mcp_guide.models import Category
-from mcp_guide.models.project import Project
 from mcp_guide.runtime import GuideRuntime, OwnerKey
 from mcp_guide.session import Session
 from mcp_guide.tools.tool_category import CategoryAddArgs, internal_category_add
@@ -392,11 +390,3 @@ def test_project_selection_schemas_separate_root_path_from_configuration_name() 
     )
     assert "Project root to rebind" in switch_schema["properties"]["path"]["description"]
     assert "verified stdio filesystem sharing" in switch_schema["properties"]["path"]["description"]
-
-
-def test_project_serialisation_excludes_machine_wide_openspec_state() -> None:
-    """Project data cannot persist CLI state that belongs to the machine."""
-    project = Project(name="project", openspec_validated=True, openspec_version="1.10.0")
-
-    assert "openspec_validated" not in asdict(project)
-    assert "openspec_version" not in asdict(project)

@@ -79,94 +79,6 @@ async def _get_test_session(runtime, project_name: str = "test") -> Session:
 
 
 @pytest.mark.anyio
-async def test_add_collection_via_mcp(mcp_server, test_session, monkeypatch):
-    """Test adding collection through MCP client."""
-    monkeypatch.setenv("PWD", "/fake/path/test")
-
-    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True), mode="legacy") as client:
-        args = CategoryCollectionAddArgs(
-            type="collection", name="backend", categories=["api", "tests"], description="Backend code"
-        )
-        result = await call_mcp_tool(client, "category_collection_add", args)
-        response = json.loads(result.content[0].text)  # type: ignore[union-attr]
-        assert response["success"] is True
-
-
-@pytest.mark.anyio
-async def test_list_collections_via_mcp(mcp_server, test_session, monkeypatch):
-    """Test listing collections through MCP client."""
-    monkeypatch.setenv("PWD", "/fake/path/test")
-
-    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True), mode="legacy") as client:
-        # Add collection
-        args1 = CategoryCollectionAddArgs(
-            type="collection", name="backend", categories=["api", "tests"], description="Backend code"
-        )
-        await call_mcp_tool(client, "category_collection_add", args1)
-
-        # List collections
-        args = CategoryCollectionListArgs(type="collection", verbose=True)
-        result = await call_mcp_tool(client, "category_collection_list", args)
-        response = json.loads(result.content[0].text)  # type: ignore[union-attr]
-
-        assert response["success"] is True
-        collections = response["value"]
-        assert len(collections) == 1
-        assert collections[0]["name"] == "backend"
-        assert collections[0]["categories"] == ["api", "tests"]
-
-
-@pytest.mark.anyio
-async def test_update_collection_via_mcp(mcp_server, test_session, monkeypatch):
-    """Test updating collection through MCP client."""
-
-    monkeypatch.setenv("PWD", "/fake/path/test")
-
-    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True), mode="legacy") as client:
-        # Add collection
-        args1 = CategoryCollectionAddArgs(type="collection", name="backend", categories=["api", "tests"])
-        await call_mcp_tool(client, "category_collection_add", args1)
-
-        # Update collection
-        args = CategoryCollectionUpdateArgs(type="collection", name="backend", add_categories=["docs"])
-        result = await call_mcp_tool(client, "category_collection_update", args)
-        response = json.loads(result.content[0].text)  # type: ignore[union-attr]
-        assert response["success"] is True
-
-        # Verify update
-        args2 = CategoryCollectionListArgs(type="collection", verbose=True)
-        result = await call_mcp_tool(client, "category_collection_list", args2)
-        response = json.loads(result.content[0].text)  # type: ignore[union-attr]
-        collections = response["value"]
-        assert "docs" in collections[0]["categories"]
-
-
-@pytest.mark.anyio
-async def test_remove_collection_via_mcp(mcp_server, test_session, monkeypatch):
-    """Test removing collection through MCP client."""
-
-    monkeypatch.setenv("PWD", "/fake/path/test")
-
-    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True), mode="legacy") as client:
-        # Add collection
-        args1 = CategoryCollectionAddArgs(type="collection", name="backend", categories=["api"])
-        await call_mcp_tool(client, "category_collection_add", args1)
-
-        # Remove collection
-        args = CategoryCollectionRemoveArgs(type="collection", name="backend")
-        result = await call_mcp_tool(client, "category_collection_remove", args)
-        response = json.loads(result.content[0].text)  # type: ignore[union-attr]
-        assert response["success"] is True
-
-        # Verify removed
-        args2 = CategoryCollectionListArgs(type="collection", verbose=True)
-        result = await call_mcp_tool(client, "category_collection_list", args2)
-        response = json.loads(result.content[0].text)  # type: ignore[union-attr]
-        collections = response["value"]
-        assert len(collections) == 0
-
-
-@pytest.mark.anyio
 async def test_collection_management_workflow(mcp_server, test_session, monkeypatch):
     """Test complete collection management workflow through MCP client."""
 
@@ -186,6 +98,8 @@ async def test_collection_management_workflow(mcp_server, test_session, monkeypa
         collections = json.loads(result.content[0].text)["value"]  # type: ignore[union-attr]
         assert len(collections) == 1
         assert collections[0]["name"] == "backend"
+        assert collections[0]["categories"] == ["api", "tests"]
+        assert collections[0]["description"] == "Backend code"
 
         # Update - add category
         args = CategoryCollectionUpdateArgs(type="collection", name="backend", add_categories=["docs"])

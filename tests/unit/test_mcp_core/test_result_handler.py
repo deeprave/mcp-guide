@@ -34,19 +34,20 @@ class TestValidateResult:
     async def test_success_returns_ok_result(self):
         """Successful function returns Result.ok."""
 
-        @validate_result()
+        @validate_result(success_instruction="All good")
         async def success_fn() -> str:
             return "success"
 
         result = await success_fn()
         assert result.is_ok()
         assert result.value == "success"
+        assert result.instruction == "All good"
 
     @pytest.mark.anyio
     async def test_validation_error_returns_failure_result(self):
         """ArgValidationError is caught and wrapped in Result.failure."""
 
-        @validate_result()
+        @validate_result(failure_instruction="Fix the error")
         async def error_fn() -> str:
             raise ArgValidationError([{"field": "input", "message": "Invalid input"}])
 
@@ -55,25 +56,4 @@ class TestValidateResult:
         assert "Invalid input" in result.error
         assert result.error_type == "validation_error"
         assert result.error_data == {"validation_errors": [{"field": "input", "message": "Invalid input"}]}
-
-    @pytest.mark.anyio
-    async def test_success_instruction_added(self):
-        """Success instruction is added to successful results."""
-
-        @validate_result(success_instruction="All good")
-        async def success_fn() -> str:
-            return "data"
-
-        result = await success_fn()
-        assert result.instruction == "All good"
-
-    @pytest.mark.anyio
-    async def test_failure_instruction_added(self):
-        """Failure instruction is added to failed results."""
-
-        @validate_result(failure_instruction="Fix the error")
-        async def error_fn() -> str:
-            raise ArgValidationError([{"field": "data", "message": "Bad data"}])
-
-        result = await error_fn()
         assert result.instruction == "Fix the error"

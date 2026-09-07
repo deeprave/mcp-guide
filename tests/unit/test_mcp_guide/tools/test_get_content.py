@@ -1,287 +1,77 @@
-"""Tests for get_content unified access tool."""
+"""Content formatting follows real global/project flags and rejects root escapes."""
+
+from email import policy
+from email.parser import Parser
 
 import pytest
+import yaml
 from pydantic import ValidationError
-from tests.helpers import request_context_for, tool_result_payload
+from tests.helpers import create_bound_test_session, request_context_for, tool_result_payload
 
-from mcp_guide.models import Category, Collection, Project
-from mcp_guide.tools.tool_content import ContentArgs, get_content
-
-
-async def invoke_get_content(args: ContentArgs, session) -> dict:
-    """Call the application get_content handler with an explicit RequestContext."""
-    return tool_result_payload(await get_content.__wrapped__(args, await request_context_for(session)))
-
-
-def create_mock_session(tmp_path, project_data, project_flags_data=None, feature_flags_data=None):
-    """Create a mock session with required methods."""
-
-    project_flags_data = project_flags_data or {}
-    feature_flags_data = feature_flags_data or {}
-    from mcp_guide.runtime import GuideRuntime, create_runtime
-    from mcp_guide.session import Session
-
-    runtime: GuideRuntime
-    config_dir = tmp_path / "cfg"
-    config_dir.mkdir(exist_ok=True)
-    runtime = create_runtime(lambda _owner: Session(runtime), config_dir=str(config_dir), docroot=tmp_path)
-
-    class MockSession:
-        session_id = None
-
-        class TaskManager:
-            async def process_result(self, result):
-                return result
-
-        task_manager = TaskManager()
-
-        async def get_project(self):
-            return project_data
-
-        @property
-        def project_is_bound(self):
-            return project_data is not None
-
-        @property
-        def project(self):
-            return project_data
-
-        @property
-        def runtime(self):
-            return runtime
-
-        async def get_docroot(self):
-            return str(tmp_path)
-
-        def resolve_document_path(self, relative_path):
-            from pathlib import Path
-
-            return Path(tmp_path) / relative_path
-
-        def project_flags(self):
-            class MockProjectFlags:
-                async def list(self):
-                    return project_flags_data
-
-            return MockProjectFlags()
-
-        def feature_flags(self):
-            class MockFeatureFlags:
-                async def list(self):
-                    return feature_flags_data
-
-            return MockFeatureFlags()
-
-    return MockSession()
+from mcp_guide.models import Category
+from mcp_guide.tools.tool_content import ContentArgs, get_content, internal_get_content
 
 
 def test_expression_field_is_required():
-    """Test that expression field is required."""
     with pytest.raises(ValidationError):
         ContentArgs()
 
 
-def test_pattern_field_is_optional():
-    """Test that pattern field is optional."""
-    args = ContentArgs(expression="test")
-    assert args.pattern is None
-
-
-def test_schema_validates_correctly():
-    """Test that schema validates correctly."""
-    args = ContentArgs(expression="test", pattern="*.md")
-    assert args.expression == "test"
-    assert args.pattern == "*.md"
-
-
-@pytest.mark.anyio
-async def test_get_content_collection_only(tmp_path):
-    """Test get_content with collection-only match."""
-    category_dir = tmp_path / "guide"
-    category_dir.mkdir()
-    (category_dir / "README").write_text("# Test")
-
-    project_data = Project(
-        name="test",
-        categories={"guide": Category(dir="guide", name="guide", patterns=["README", "guide"])},
-        collections={"all": Collection(categories=["guide"])},
-    )
-
-    result = await invoke_get_content(ContentArgs(expression="all"), create_mock_session(tmp_path, project_data))
-    assert result["success"] is True
-
-
-@pytest.mark.anyio
-async def test_get_content_category_only(tmp_path):
-    """Test get_content with category-only match."""
-    category_dir = tmp_path / "guide"
-    category_dir.mkdir()
-    (category_dir / "README").write_text("# Test")
-
-    project_data = Project(
-        name="test",
-        categories={"guide": Category(dir="guide", name="guide", patterns=["README", "guide"])},
-        collections={},
-    )
-
-    result = await invoke_get_content(ContentArgs(expression="guide"), create_mock_session(tmp_path, project_data))
-    assert result["success"] is True
-
-
-@pytest.mark.anyio
-async def test_get_content_deduplicates(tmp_path):
-    """Test get_content with collection and category names that overlap."""
-    category_dir = tmp_path / "guide"
-    category_dir.mkdir()
-    (category_dir / "README").write_text("# Test")
-
-    project_data = Project(
-        name="test",
-        categories={"guide": Category(dir="guide", name="guide", patterns=["README", "guide"])},
-        collections={"guide": Collection(categories=["guide"])},
-    )
-
-    result = await invoke_get_content(ContentArgs(expression="guide"), create_mock_session(tmp_path, project_data))
-    assert result["success"] is True
-    assert "# Test" in result["value"]
-
-
-@pytest.mark.anyio
-async def test_get_content_empty_result(tmp_path):
-    """Test get_content with no matching files."""
-    category_dir = tmp_path / "empty"
-    category_dir.mkdir()
-
-    project_data = Project(
-        name="test",
-        categories={"empty": Category(dir="empty", name="empty", patterns=["README", "guide"])},
-        collections={},
-    )
-
-    result = await invoke_get_content(ContentArgs(expression="empty"), create_mock_session(tmp_path, project_data))
-    assert result["success"] is True
-    assert "No matching content found" in result["value"]
-    assert "instruction" in result
-
-
-@pytest.mark.anyio
-async def test_get_content_pattern_override(tmp_path):
-    """Test get_content with pattern override."""
-    category_dir = tmp_path / "docs"
-    category_dir.mkdir()
-    (category_dir / "README").write_text("# Test")
-    (category_dir / "guide").write_text("Guide content")
-    (category_dir / "tutorial").write_text("Tutorial content")
-
-    project_data = Project(
-        name="test",
-        categories={"docs": Category(dir="docs", name="docs", patterns=["README", "guide", "tutorial"])},
-        collections={},
-    )
-
-    result = await invoke_get_content(
-        ContentArgs(expression="docs", pattern="README"), create_mock_session(tmp_path, project_data)
-    )
-    assert result["success"] is True
-    assert "# Test" in result["value"]
-    assert "Guide content" not in result["value"]
-    assert "Tutorial content" not in result["value"]
-
-
 @pytest.mark.anyio
 @pytest.mark.parametrize(
-    "scenario,expression,has_collection",
+    "project_format,global_format,expected",
     [
-        ("category_only", "docs", False),
-        ("collection", "all", True),
+        (None, None, "none"),
+        ("plain", None, "plain"),
+        ("mime", None, "mime"),
+        ("none", None, "none"),
+        (None, "plain", "plain"),
+        (None, "mime", "mime"),
+        (None, "none", "none"),
+        ("plain", "mime", "plain"),
+        ("mime", "plain", "mime"),
+        ("none", "plain", "none"),
     ],
-    ids=["category_only", "collection"],
 )
-async def test_get_content_metadata_scenarios(tmp_path, scenario, expression, has_collection):
-    """Test that category and collection searches set appropriate metadata on FileInfo."""
-    category_dir = tmp_path / "docs"
-    category_dir.mkdir()
-    (category_dir / "README").write_text("# Test")
-
-    collections = {"all": Collection(categories=["docs"])} if has_collection else {}
-    project_data = Project(
-        name="test",
-        categories={"docs": Category(dir="docs", name="docs", patterns=["README", "guide"])},
-        collections=collections,
+async def test_content_format_resolution_uses_actual_headers_and_separators(
+    runtime, tmp_path, project_format, global_format, expected
+):
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "first.md").write_text("First content")
+    (docs / "second.md").write_text("Second content")
+    flags = {} if global_format is None else {"content-format": global_format}
+    runtime.configuration_service().config_file.write_text(
+        yaml.safe_dump({"docroot": str(tmp_path), "projects": {}, "feature_flags": flags})
     )
-
-    result = await invoke_get_content(ContentArgs(expression=expression), create_mock_session(tmp_path, project_data))
-    assert result["success"] is True
-    assert "# Test" in result["value"]
+    session = await create_bound_test_session(runtime, "formatting")
+    await session.update_config(lambda p: p.with_category("docs", Category(dir="docs", patterns=["*.md"])))
+    if project_format is not None:
+        await session.project_flags().set("content-format", project_format)
+    result = await get_content.__wrapped__(ContentArgs(expression="docs"), await request_context_for(session))
+    payload = tool_result_payload(result)
+    assert payload["success"] is True
+    content = payload["value"]
+    if expected == "mime":
+        message = Parser(policy=policy.default).parsestr(content)
+        assert message.is_multipart()
+        assert message.get_content_type() == "multipart/mixed"
+        assert [part.get_payload() for part in message.iter_parts()] == ["First content", "Second content"]
+    elif expected == "plain":
+        assert content == "--- docs/first.md ---\nFirst content\n--- docs/second.md ---\nSecond content"
+    else:
+        assert content == "First content\nSecond content"
 
 
 @pytest.mark.anyio
-@pytest.mark.parametrize(
-    "project_flags,feature_flags,expected_format",
-    [
-        ({}, {}, "none"),
-        ({"content-format": "plain"}, {}, "plain"),
-        ({"content-format": "mime"}, {}, "mime"),
-        ({"content-format": "none"}, {}, "none"),
-        ({}, {"content-format": "plain"}, "plain"),
-        ({}, {"content-format": "mime"}, "mime"),
-        ({}, {"content-format": "none"}, "none"),
-        ({"content-format": "plain"}, {"content-format": "mime"}, "plain"),
-        ({"content-format": "mime"}, {"content-format": "plain"}, "mime"),
-        ({"content-format": "none"}, {"content-format": "plain"}, "none"),
-    ],
-)
-async def test_get_content_flag_resolution(tmp_path, project_flags, feature_flags, expected_format):
-    """Test content-format-mime flag resolution and precedence."""
-    category_dir = tmp_path / "docs"
-    category_dir.mkdir()
-    (category_dir / "README").write_text("# Test Content\n\nSome text.")
-
-    project_data = Project(
-        name="test",
-        categories={"docs": Category(dir="docs", name="docs", patterns=["README", "guide"])},
-        collections={},
-    )
-
-    result = await invoke_get_content(
-        ContentArgs(expression="docs"),
-        create_mock_session(tmp_path, project_data, project_flags, feature_flags),
-    )
-    assert result["success"] is True
-
-    content = result["value"]
-
-    if expected_format == "none":
-        assert "# Test Content" in content
-        assert "Some text." in content
-        assert content.count("\n") >= 2
-    elif expected_format == "plain":
-        assert "# Test Content" in content
-        assert "Some text." in content
-    elif expected_format == "mime":
-        assert "# Test Content" in content
-        assert "Some text." in content
-
-
-@pytest.mark.anyio
-async def test_gather_valueerror_returns_validation_error(tmp_path, monkeypatch):
-    """An escaping category dir raised in gather_content is a validation failure."""
-    from mcp_guide.result_constants import ERROR_VALIDATION
-    from mcp_guide.tools.tool_content import ContentArgs, internal_get_content
-
-    async def boom(*_args, **_kwargs):
-        raise ValueError("Document path must remain within the configured document root")
-
-    monkeypatch.setattr("mcp_guide.tools.tool_content.gather_content", boom)
-    project_data = Project(
-        name="test",
-        categories={"docs": Category(dir="docs", name="docs", patterns=["README"])},
-        collections={},
-    )
-    result = await internal_get_content(
-        ContentArgs(expression="docs"),
-        await request_context_for(create_mock_session(tmp_path, project_data)),
-    )
-    assert result.success is False
-    assert result.error_type == ERROR_VALIDATION
+async def test_escaping_category_directory_returns_validation_error(runtime, tmp_path):
+    docroot = tmp_path / "docs"
+    docroot.mkdir()
+    (tmp_path / "outside.md").write_text("Must not be read")
+    runtime.configuration_service().config_file.write_text(yaml.safe_dump({"docroot": str(docroot), "projects": {}}))
+    session = await create_bound_test_session(runtime, "escape")
+    await session.update_config(lambda p: p.with_category("docs", Category(dir="../", patterns=["outside.md"])))
+    result = await internal_get_content(ContentArgs(expression="docs"), await request_context_for(session))
+    assert not result.success
+    assert result.error_type == "validation_error"
     assert "document root" in result.error

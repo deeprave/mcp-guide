@@ -4,13 +4,9 @@ from pathlib import Path
 
 import pytest
 
-try:
-    from mcp_guide.discovery.files import FileInfo
-    from mcp_guide.prompts.guide_prompt import _build_command_context, _merge_alias_kwargs, _resolve_command_alias
-    from mcp_guide.render.context import TemplateContext
-except AttributeError:
-    # Skip tests if mcp is not initialized
-    pytest.skip("MCP server not initialized", allow_module_level=True)
+from mcp_guide.discovery.files import FileInfo
+from mcp_guide.prompts.guide_prompt import _build_command_context, _merge_alias_kwargs, _resolve_command_alias
+from mcp_guide.render.context import TemplateContext
 
 
 class TestCommandPrecedence:
@@ -147,7 +143,8 @@ class TestCommandPrecedence:
 
         assert merged == {"verbose": False, "table": True}
 
-    def test_build_command_context_help_matches_raw_alias_metadata(self):
+    @pytest.mark.parametrize("alias", ["project?verbose", "project?verbose&table"])
+    def test_build_command_context_help_matches_alias_metadata(self, alias):
         """Help lookup should match raw query aliases through alias metadata."""
         file_info = FileInfo(path=Path("help.md"), size=0, content_size=0, mtime=0, name="help.md")
         commands = [
@@ -163,29 +160,7 @@ class TestCommandPrecedence:
             "help",
             file_info,
             kwargs={},
-            args=["project?verbose"],
-            commands=commands,
-        )
-
-        assert context["command_help"]["name"] == "project/project"
-
-    def test_build_command_context_help_matches_alias_with_additional_query(self):
-        """Help lookup should normalize query-bearing alias requests."""
-        file_info = FileInfo(path=Path("help.md"), size=0, content_size=0, mtime=0, name="help.md")
-        commands = [
-            {
-                "name": "project/project",
-                "aliases": [],
-                "alias_metadata": [{"raw": "project?verbose", "path": "project", "implied_kwargs": {"verbose": True}}],
-            }
-        ]
-
-        context = _build_command_context(
-            TemplateContext({}),
-            "help",
-            file_info,
-            kwargs={},
-            args=["project?verbose&table"],
+            args=[alias],
             commands=commands,
         )
 
@@ -217,35 +192,3 @@ class TestCommandPrecedence:
         )
 
         assert "command_help" not in context
-
-
-class TestUnderscoreFiltering:
-    """Tests for underscore filtering in command discovery."""
-
-    def test_command_validation_excludes_underscore_files(self):
-        """Test that command validation excludes underscore-prefixed files."""
-        from pathlib import Path
-
-        from mcp_guide.discovery.patterns import is_valid_command
-
-        # Arrange
-        normal_file = Path("_commands/review.md")
-        underscore_file = Path("_commands/_private.md")
-
-        # Act & Assert
-        assert is_valid_command(normal_file) is True
-        assert is_valid_command(underscore_file) is False
-
-    def test_command_validation_excludes_underscore_directories(self):
-        """Test that command validation excludes files in underscore directories (except _commands)."""
-        from pathlib import Path
-
-        from mcp_guide.discovery.patterns import is_valid_command
-
-        # Arrange
-        commands_file = Path("_commands/review.md")  # Should be allowed
-        private_file = Path("_private/secret.md")  # Should be rejected
-
-        # Act & Assert
-        assert is_valid_command(commands_file) is True
-        assert is_valid_command(private_file) is False

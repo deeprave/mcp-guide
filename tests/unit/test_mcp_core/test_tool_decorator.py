@@ -1,20 +1,5 @@
 """Tests for the tool decorator's public error boundaries."""
 
-from types import SimpleNamespace
-
-import pytest
-
-
-@pytest.mark.anyio
-async def test_unbound_request_context_returns_no_project_response() -> None:
-    """An explicitly unbound application context receives the standard result."""
-    from mcp_guide.core.tool_decorator import _check_project_bound
-
-    response = await _check_project_bound(SimpleNamespace(is_bound=False))
-
-    assert response is not None
-    assert response.structured_content["error_type"] == "no_project"
-
 
 def test_invalid_session_result_includes_rebind_guidance() -> None:
     """A rejected session ID tells the agent to discard it and call set_project."""

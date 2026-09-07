@@ -31,7 +31,7 @@ class TestValidationRegistration:
     """Test flag validation registration system."""
 
     @pytest.fixture(autouse=True)
-    def _clear_validators(self):
+    def _clear_validators(self, reset_flag_registry):
         """Clear validators before each test."""
         clear_validators()
 
@@ -136,7 +136,6 @@ class TestBooleanValidator:
     def test_boolean_flag_validation(self, scenario, value, is_project, expected):
         """Test boolean flag validation with various inputs."""
         assert validate_boolean_flag(value, is_project=is_project) is expected
-        assert validate_boolean_flag({"enabled": True}, is_project=False) is False
 
     @pytest.mark.parametrize(
         ("value", "expected"),
@@ -176,7 +175,7 @@ class TestGuideDevelopmentValidator:
     """Test guide-development flag validation."""
 
     @pytest.fixture(autouse=True)
-    def _register_guide_development_validator(self):
+    def _register_guide_development_validator(self, reset_flag_registry):
         """Ensure validator is registered (may have been cleared by other tests)."""
         from mcp_guide.feature_flags.constants import FLAG_GUIDE_DEVELOPMENT
         from mcp_guide.feature_flags.validators import register_flag_validator, validate_boolean_flag
@@ -309,7 +308,7 @@ class TestFlagScopeRestrictions:
         validate_flag_with_registered("test-both", "value", is_project=False)
 
 
-def test_openspec_state_is_a_global_structured_flag() -> None:
+def test_openspec_state_is_a_global_structured_flag(reset_flag_registry) -> None:
     """CLI state is accepted globally but cannot be attached to a Project."""
     state = {"validated": "true", "version": "1.10.0", "checked": "100.0"}
     register_flag_validator(FLAG_OPENSPEC_STATE, validate_openspec_state, FlagScope.FEATURE_ONLY)
@@ -321,7 +320,7 @@ def test_openspec_state_is_a_global_structured_flag() -> None:
         validate_flag_with_registered(FLAG_OPENSPEC_STATE, {"validated": "true", "checked": "nan"}, is_project=False)
 
 
-def test_openspec_enablement_is_project_only() -> None:
+def test_openspec_enablement_is_project_only(reset_flag_registry) -> None:
     """Global state cannot become a fallback that enables OpenSpec everywhere."""
     register_flag_validator(FLAG_OPENSPEC, validate_boolean_flag, FlagScope.PROJECT_ONLY)
     validate_flag_with_registered(FLAG_OPENSPEC, True, is_project=True)

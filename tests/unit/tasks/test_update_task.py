@@ -1,273 +1,78 @@
-"""Tests for McpUpdateTask."""
-
-from pathlib import Path
-from unittest.mock import AsyncMock, Mock, patch
+"""Startup document-update prompts use real flags, version files and rendering."""
 
 import pytest
+import yaml
+from tests.helpers import bind_isolated_test_session, create_unbound_test_session
 
-from mcp_guide.task_manager.interception import EventType
+from mcp_guide import __version__
+from mcp_guide.result import Result
+from mcp_guide.task_manager import EventType
 from mcp_guide.tasks.update_task import McpUpdateTask
 
 
-def _set_docroot(monkeypatch: pytest.MonkeyPatch, root: str | Path) -> None:
-    """Point get_runtime().get_docroot() at ``root``."""
-    runtime = Mock()
-    runtime.get_docroot = AsyncMock(return_value=str(root))
-    monkeypatch.setattr("mcp_guide.runtime.get_runtime", lambda: runtime)
-
-
 @pytest.mark.anyio
-async def test_update_task_enabled_without_flag(tmp_path, monkeypatch):
-    """Test task treats unset autoupdate as enabled when an update is needed."""
-    task_manager = Mock()
-    task_manager.subscribe = Mock()
-    task_manager.resolved_flags = AsyncMock(return_value={})
-    task_manager.queue_instruction_with_ack = AsyncMock(return_value="test-id")
-    task_manager.unsubscribe = AsyncMock()
-
-    session = Mock()
-    _set_docroot(monkeypatch, tmp_path)
-
-    version_file = tmp_path / ".version"
-    version_file.write_text("0.0.1")
-
-    with patch("mcp_guide.render.rendering.render_content", new_callable=AsyncMock) as mock_render:
-        mock_content = Mock()
-        mock_content.content = "Update prompt"
-        mock_render.return_value = mock_content
-
-        task = McpUpdateTask(task_manager, session=session)
-        result = await task.handle_event(EventType.TIMER_ONCE, {})
-
-        task_manager.resolved_flags.assert_called_once_with(session)
-        task_manager.queue_instruction_with_ack.assert_called_once_with("Update prompt")
-        assert result is not None
-        assert result.result is True
-
-
-@pytest.mark.anyio
-async def test_update_task_uses_owning_session_without_ambient_lookup(tmp_path):
-    """A session-owned update task does not consult ambient request state."""
-    task_manager = Mock()
-    task_manager.subscribe = Mock()
-    task_manager.resolved_flags = AsyncMock(return_value={"autoupdate": False})
-    task_manager.unsubscribe = AsyncMock()
-    session = Mock()
-
-    with patch("mcp_guide.runtime.GuideRuntime.create_session") as create_session:
-        task = McpUpdateTask(task_manager, session=session)
-        result = await task.handle_event(EventType.TIMER_ONCE, {})
-
-    assert result is not None and result.result is True
-    create_session.assert_not_called()
-
-
-@pytest.mark.anyio
-async def test_update_task_disabled_with_explicit_false():
-    """Test task is disabled only when autoupdate is explicitly false."""
-    task_manager = Mock()
-    task_manager.subscribe = Mock()
-    task_manager.resolved_flags = AsyncMock(return_value={"autoupdate": False})
-    task_manager.queue_instruction_with_ack = AsyncMock()
-    task_manager.unsubscribe = AsyncMock()
-
-    task = McpUpdateTask(task_manager, session=Mock())
+@pytest.mark.parametrize(
+    "flag,version,exists,prompt",
+    [
+        (None, "0.0.1", True, True),
+        (True, "0.0.1", True, True),
+        (False, "0.0.1", True, False),
+        (True, __version__, True, False),
+        (True, None, True, False),
+        (True, None, False, False),
+    ],
+    ids=["opt-out-default", "enabled-old", "disabled-old", "current-version", "missing-version", "missing-root"],
+)
+async def test_startup_prompt_and_acknowledgement(runtime, tmp_path, flag, version, exists, prompt):
+    docroot = tmp_path / "documents"
+    if exists:
+        (docroot / "_system").mkdir(parents=True)
+        (docroot / "_system" / "_update.mustache").write_text("Update documents now")
+        if version is not None:
+            (docroot / ".version").write_text(version)
+    runtime.configuration_service().config_file.write_text(
+        yaml.safe_dump(
+            {"docroot": str(docroot), "projects": {}, "feature_flags": {} if flag is None else {"autoupdate": flag}}
+        )
+    )
+    session = await bind_isolated_test_session(runtime)
+    manager = session.task_manager
+    task = manager.get_task_by_type(McpUpdateTask)
+    assert task is not None
+    assert await task.handle_event(EventType.FS_DIRECTORY, {}) is None
     result = await task.handle_event(EventType.TIMER_ONCE, {})
-
-    task_manager.resolved_flags.assert_called_once()
-    task_manager.queue_instruction_with_ack.assert_not_called()
-    assert result is not None
-    assert result.result is True
+    assert result.result
+    assert manager.get_task_by_type(McpUpdateTask) is None
+    assert manager.is_queue_empty() is not prompt
+    if prompt:
+        delivered = await manager.process_result(Result.ok())
+        assert delivered.additional_agent_instructions == "Update documents now"
+        # Acknowledging also removes an already queued retry, not just a private ID.
+        await manager.queue_instruction("Update documents now")
+        await task.acknowledge_update()
+        await task.acknowledge_update()
+        assert manager.is_queue_empty()
+    else:
+        assert (await manager.process_result(Result.ok())).additional_agent_instructions is None
 
 
 @pytest.mark.anyio
-async def test_update_task_does_not_queue_instruction_for_resolved_false_flag(tmp_path, monkeypatch):
-    """A resolved false autoupdate flag prevents any update instruction."""
-    from mcp_guide.feature_flags.types import FeatureValue
-
-    task_manager = Mock()
-    task_manager.subscribe = Mock()
-    task_manager.resolved_flags = AsyncMock(return_value={"autoupdate": FeatureValue(False)})
-    task_manager.queue_instruction_with_ack = AsyncMock()
-    task_manager.unsubscribe = AsyncMock()
-
-    session = Mock()
-    _set_docroot(monkeypatch, tmp_path)
+@pytest.mark.parametrize("missing", [False, True], ids=["unsafe-docroot", "missing-package"])
+async def test_unavailable_template_source_prevents_prompt(runtime, tmp_path, monkeypatch, missing):
+    runtime.configuration_service().config_file.write_text(yaml.safe_dump({"docroot": str(tmp_path), "projects": {}}))
     (tmp_path / ".version").write_text("0.0.1")
 
-    with patch("mcp_guide.render.rendering.render_content", new_callable=AsyncMock) as render_content:
-        render_content.return_value = Mock(content="Update prompt")
-        task = McpUpdateTask(task_manager, session=session)
-        result = await task.handle_event(EventType.TIMER_ONCE, {})
+    # Control package location, leaving actual docroot validation in place.
+    async def package_templates():
+        if missing:
+            raise FileNotFoundError("Templates directory not found")
+        return tmp_path
 
-    task_manager.queue_instruction_with_ack.assert_not_called()
-    assert result is not None
-    assert result.result is True
-
-
-@pytest.mark.anyio
-async def test_update_task_no_project(monkeypatch):
-    """Test task handles missing project gracefully."""
-    task_manager = Mock()
-    task_manager.subscribe = Mock()
-    task_manager.resolved_flags = AsyncMock(return_value={})
-    task_manager.unsubscribe = AsyncMock()
-
-    session = Mock()
-    _set_docroot(monkeypatch, "/missing-docroot")
-    task = McpUpdateTask(task_manager, session=session)
+    monkeypatch.setattr("mcp_guide.installer.core.get_templates_path", package_templates)
+    session = create_unbound_test_session(runtime)
+    task = session.task_manager.get_task_by_type(McpUpdateTask)
+    assert task is not None
     result = await task.handle_event(EventType.TIMER_ONCE, {})
-
-    task_manager.resolved_flags.assert_called_once_with(session)
-    assert result is not None
-    assert result.result is True
-
-
-@pytest.mark.anyio
-async def test_update_task_no_version_file(tmp_path, monkeypatch):
-    """Test task skips prompt when no version file exists."""
-    task_manager = Mock()
-    task_manager.subscribe = Mock()
-    task_manager.resolved_flags = AsyncMock(return_value={})
-    task_manager.queue_instruction_with_ack = AsyncMock()
-    task_manager.unsubscribe = AsyncMock()
-
-    session = Mock()
-    _set_docroot(monkeypatch, tmp_path)
-
-    task = McpUpdateTask(task_manager, session=session)
-    result = await task.handle_event(EventType.TIMER_ONCE, {})
-
-    task_manager.queue_instruction_with_ack.assert_not_called()
-    assert result is not None
-    assert result.result is True
-
-
-@pytest.mark.anyio
-async def test_update_task_version_mismatch(tmp_path, monkeypatch):
-    """Test task prompts when version differs."""
-    task_manager = Mock()
-    task_manager.subscribe = Mock()
-    task_manager.resolved_flags = AsyncMock(return_value={"autoupdate": True})
-    task_manager.queue_instruction_with_ack = AsyncMock(return_value="test-id")
-    task_manager.unsubscribe = AsyncMock()
-
-    session = Mock()
-    _set_docroot(monkeypatch, tmp_path)
-
-    # Create version file with old version
-    version_file = tmp_path / ".version"
-    with open(version_file, "w") as f:
-        f.write("0.0.1")
-
-    with patch("mcp_guide.render.rendering.render_content", new_callable=AsyncMock) as mock_render:
-        mock_content = Mock()
-        mock_content.content = "Update prompt"
-        mock_render.return_value = mock_content
-
-        task = McpUpdateTask(task_manager, session=session)
-        result = await task.handle_event(EventType.TIMER_ONCE, {})
-
-        # Should queue instruction
-        task_manager.queue_instruction_with_ack.assert_called_once()
-        assert result is not None
-        assert result.result is True
-
-
-@pytest.mark.anyio
-async def test_update_task_version_current(tmp_path, monkeypatch):
-    """Test task skips prompt when version is current."""
-    task_manager = Mock()
-    task_manager.subscribe = Mock()
-    task_manager.resolved_flags = AsyncMock(return_value={"autoupdate": True})
-    task_manager.queue_instruction_with_ack = AsyncMock()
-    task_manager.unsubscribe = AsyncMock()
-
-    session = Mock()
-    _set_docroot(monkeypatch, tmp_path)
-
-    # Create version file with current version
-    version_file = tmp_path / ".version"
-    with open(version_file, "w") as f:
-        from mcp_guide import __version__
-
-        f.write(__version__)
-
-    task = McpUpdateTask(task_manager, session=session)
-    result = await task.handle_event(EventType.TIMER_ONCE, {})
-
-    # Should NOT queue instruction
-    task_manager.queue_instruction_with_ack.assert_not_called()
-    assert result is not None
-    assert result.result is True
-
-
-@pytest.mark.anyio
-async def test_update_task_skips_prompt_for_unsafe_docroot(tmp_path, monkeypatch) -> None:
-    """Test task skips prompt when docroot is not safe for updates."""
-    from mcp_guide.installer.core import DocrootValidationError
-
-    task_manager = Mock()
-    task_manager.subscribe = Mock()
-    task_manager.resolved_flags = AsyncMock(return_value={"autoupdate": True})
-    task_manager.queue_instruction_with_ack = AsyncMock()
-    task_manager.unsubscribe = AsyncMock()
-
-    session = Mock()
-    _set_docroot(monkeypatch, tmp_path)
-
-    with patch(
-        "mcp_guide.tasks.update_task.validate_docroot_safety",
-        new=AsyncMock(side_effect=DocrootValidationError("unsafe")),
-    ):
-        task = McpUpdateTask(task_manager, session=session)
-        result = await task.handle_event(EventType.TIMER_ONCE, {})
-
-        task_manager.queue_instruction_with_ack.assert_not_called()
-        assert result is not None
-        assert result.result is True
-
-
-@pytest.mark.anyio
-async def test_update_task_skips_prompt_when_templates_missing(tmp_path, monkeypatch) -> None:
-    """Test task skips prompt when template validation cannot locate templates."""
-    task_manager = Mock()
-    task_manager.subscribe = Mock()
-    task_manager.resolved_flags = AsyncMock(return_value={"autoupdate": True})
-    task_manager.queue_instruction_with_ack = AsyncMock()
-    task_manager.unsubscribe = AsyncMock()
-
-    session = Mock()
-    _set_docroot(monkeypatch, tmp_path)
-
-    version_file = tmp_path / ".version"
-    version_file.write_text("0.0.1")
-
-    with (
-        patch(
-            "mcp_guide.tasks.update_task.validate_docroot_safety",
-            new=AsyncMock(side_effect=FileNotFoundError("Templates directory not found")),
-        ),
-    ):
-        task = McpUpdateTask(task_manager, session=session)
-        result = await task.handle_event(EventType.TIMER_ONCE, {})
-
-        task_manager.queue_instruction_with_ack.assert_not_called()
-        assert result is not None
-        assert result.result is True
-
-
-@pytest.mark.anyio
-async def test_acknowledge_update_clears_tracked_instruction():
-    """Test acknowledge_update acknowledges and clears the tracked instruction id."""
-    task_manager = Mock()
-    task_manager.subscribe = Mock()
-    task_manager.acknowledge_instruction = AsyncMock()
-
-    task = McpUpdateTask(task_manager, session=Mock())
-    task._instruction_id = "tracked-id"
-
-    await task.acknowledge_update()
-
-    task_manager.acknowledge_instruction.assert_called_once_with("tracked-id")
-    assert task._instruction_id is None
+    assert result.result
+    assert session.task_manager.is_queue_empty()
+    assert session.task_manager.get_task_by_type(McpUpdateTask) is None

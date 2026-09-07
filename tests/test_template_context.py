@@ -1,7 +1,5 @@
 """Tests for template context management."""
 
-from collections import ChainMap
-
 import pytest
 
 from mcp_guide.render.context import TemplateContext
@@ -9,17 +7,6 @@ from mcp_guide.render.context import TemplateContext
 
 class TestTemplateContext:
     """Test TemplateContext class functionality."""
-
-    def test_template_context_extends_chainmap(self):
-        """Test that TemplateContext extends ChainMap[str, Any]."""
-        context = TemplateContext({"key": "value"})
-
-        # Should be instance of ChainMap
-        assert isinstance(context, ChainMap)
-
-        # Should work like ChainMap
-        assert context["key"] == "value"
-        assert len(context) == 1
 
     def test_type_validation_valid_keys_and_values(self):
         """Test that valid string keys and template-safe values are accepted."""

@@ -1,266 +1,119 @@
-"""Integration tests for command-based prompt system."""
+"""Command and content routing through real templates and bound project data."""
 
 import json
-import tempfile
-from unittest.mock import AsyncMock, MagicMock, patch
 
-import anyio
 import pytest
+import yaml
+
+from mcp_guide.models import Category
+from mcp_guide.prompts.guide_prompt import guide
+from tests.helpers import create_bound_test_session, request_context_for
 
 
-class TestCommandIntegration:
-    """Test complete command system integration."""
+@pytest.fixture
+async def command_project(runtime, tmp_path):
+    docroot = tmp_path / "docs"
+    commands = docroot / "_commands"
+    commands.mkdir(parents=True)
+    runtime.configuration_service().config_file.write_text(yaml.safe_dump({"docroot": str(docroot), "projects": {}}))
+    (commands / "test.mustache").write_text(
+        "---\ndescription: Test command\n---\n"
+        "Test command executed successfully!\n"
+        "{{#kwargs.verbose}}Verbose mode enabled.{{/kwargs.verbose}}\n"
+        "Args: {{#args}}{{value}} {{/args}}\n"
+        "Indexed args: {{#args}}{{#first}}FIRST: {{/first}}{{value}}"
+        "{{^last}} {{/last}}{{#last}} LAST{{/last}}{{/args}}"
+    )
+    session = await create_bound_test_session(runtime, "test-project")
+    for name in ["docs", "examples", "tests"]:
+        folder = docroot / name
+        folder.mkdir()
+        (folder / "overview.md").write_text(f"Content from {name}")
+        await session.update_config(lambda p, name=name: p.with_category(name, Category(dir=name, patterns=["*.md"])))
 
-    @pytest.fixture
-    def mock_ctx(self):
-        """Create mock context with temporary project root."""
-        ctx = MagicMock()
-        ctx.session.session_id = "test-session-id"
-        with tempfile.TemporaryDirectory() as temp_dir:
-            ctx.session.project_root = temp_dir
-            yield ctx
+    async def invoke(*args):
+        response = await guide.__wrapped__(*args, request_context=await request_context_for(session))
+        return json.loads(response.messages[0].content.text)
 
-    @pytest.fixture
-    def commands_setup(self, tmp_path):
-        """Set up commands directory with test templates."""
-        from mcp_guide.configuration import ConfigManager
+    return commands, invoke
 
-        # Create the isolated configuration and its standard documents before
-        # adding test-owned command files.  The first lazy configuration read
-        # otherwise installs standard documents after this fixture has written
-        # them, which can replace a same-named command such as ``help``.
-        anyio.run(ConfigManager(str(tmp_path)).get_docroot)
-        commands_dir = tmp_path / "docs" / "_commands"
-        commands_dir.mkdir(parents=True, exist_ok=True)
 
-        # Create test command template
-        test_template = commands_dir / "test.mustache"
-        test_template.write_text("""---
-type: guide-command
-description: Test command
-required_args: []
-optional_args: []
-required_kwargs: []
-optional_kwargs: [verbose]
----
-Test command executed successfully!
-{{#kwargs.verbose}}Verbose mode enabled.{{/kwargs.verbose}}
-Args: {{#args}}{{value}} {{/args}}
-Indexed args: {{#args}}{{#first}}FIRST: {{/first}}{{value}}{{^last}} {{/last}}{{#last}} LAST{{/last}}{{/args}}
-""")
+@pytest.mark.anyio
+@pytest.mark.parametrize("prefix", [":", ";"], ids=["colon", "semicolon"])
+async def test_command_arguments_render_in_order(command_project, prefix):
+    _, invoke = command_project
+    result = await invoke(f"{prefix}test", "--verbose", "arg1", "arg2", "arg3")
+    assert result["success"] is True
+    assert "Test command executed successfully!" in result["value"]
+    assert "Verbose mode enabled." in result["value"]
+    assert "Args: arg1 arg2 arg3" in result["value"]
+    assert "Indexed args: FIRST: arg1 arg2 arg3 LAST" in result["value"]
 
-        return commands_dir
 
-    @pytest.mark.anyio
-    async def test_command_vs_content_routing(self, mock_ctx, commands_setup, guide_function):
-        """Test that commands and content are routed correctly."""
-        with (
-            patch("mcp_guide.prompts.guide_prompt.get_template_contexts", new=AsyncMock()) as mock_context,
-            patch("mcp_guide.render.template.get_template_contexts", new=AsyncMock()) as mock_render_context,
-        ):
-            from mcp_guide.render.context import TemplateContext
+@pytest.mark.anyio
+async def test_content_routing_combines_real_category_expressions(command_project):
+    _, invoke = command_project
+    single = await invoke("docs")
+    assert single["success"] is True
+    assert single["value"] == "Content from docs"
+    combined = await invoke("docs", "examples", "tests")
+    assert combined["success"] is True
+    for name in ["docs", "examples", "tests"]:
+        assert f"Content from {name}" in combined["value"]
+    missing = await invoke("nonexistent")
+    assert missing["success"] is False
+    assert missing["error"]
 
-            mock_context.return_value = TemplateContext({})
-            mock_render_context.return_value = TemplateContext({})
 
-            # Test command routing (should use command handler)
-            result_str = await guide_function(":test", ctx=mock_ctx)
-            result = json.loads(result_str)
-            assert result["success"] is True
-            assert "Test command executed successfully!" in result["value"]
-
-            # Test content routing (should use get_content)
-            with patch("mcp_guide.prompts.guide_prompt.internal_get_content") as mock_get_content:
-                from mcp_guide.result import Result
-
-                mock_get_content.return_value = Result.ok("Regular content")
-
-                result_str = await guide_function("docs", ctx=mock_ctx)
-                result = json.loads(result_str)
-                assert result["success"] is True
-                mock_get_content.assert_called_once()
-
-    @pytest.mark.anyio
-    async def test_argument_parsing_integration(self, mock_ctx, commands_setup, guide_function):
-        """Test argument parsing with real command execution."""
-        with (
-            patch("mcp_guide.prompts.guide_prompt.get_template_contexts", new=AsyncMock()) as mock_context,
-            patch("mcp_guide.render.template.get_template_contexts", new=AsyncMock()) as mock_render_context,
-        ):
-            from mcp_guide.render.context import TemplateContext
-
-            mock_context.return_value = TemplateContext({})
-            mock_render_context.return_value = TemplateContext({})
-
-            # Test with flags and arguments
-            result_str = await guide_function(":test", "--verbose", "arg1", "arg2", "arg3", ctx=mock_ctx)
-            result = json.loads(result_str)
-
-            assert result["success"] is True
-            assert "Test command executed successfully!" in result["value"]
-            assert "Verbose mode enabled." in result["value"]
-            assert "Args: arg1 arg2 arg3" in result["value"]
-            assert "Indexed args: FIRST: arg1 arg2 arg3 LAST" in result["value"]
-
-    @pytest.mark.anyio
-    async def test_security_validation_integration(self, mock_ctx, guide_function):
-        """Test security validation in real command flow."""
-        # Test directory traversal prevention
-        result_str = await guide_function(":../../../etc/passwd", ctx=mock_ctx)
-        result = json.loads(result_str)
+@pytest.mark.anyio
+async def test_security_rejects_traversal_and_command_injection(command_project):
+    _, invoke = command_project
+    for command in [":../../../etc/passwd", ":test;rm"]:
+        result = await invoke(command)
         assert result["success"] is False
         assert "security validation failed" in result["error"].lower()
 
-        # Test command injection prevention
-        result_str = await guide_function(":test;rm", ctx=mock_ctx)
-        result = json.loads(result_str)
-        assert result["success"] is False
-        assert "security validation failed" in result["error"].lower()
 
-    @pytest.mark.anyio
-    async def test_help_system_integration(self, mock_ctx, commands_setup, guide_function):
-        """Test help system with real command discovery."""
-        with (
-            patch("mcp_guide.prompts.guide_prompt.get_template_contexts", new=AsyncMock()) as mock_context,
-            patch("mcp_guide.render.template.get_template_contexts", new=AsyncMock()) as mock_render_context,
-        ):
-            from mcp_guide.render.context import TemplateContext
+@pytest.mark.anyio
+async def test_help_discovers_actual_commands(command_project):
+    commands, invoke = command_project
+    (commands / "help.mustache").write_text(
+        "---\ndescription: Show help information\n---\n"
+        "Available commands:\n{{#commands}}- {{name}}: {{description}}\n{{/commands}}"
+    )
+    result = await invoke(":help")
+    assert result["success"] is True
+    assert "Available commands:" in result["value"]
+    assert "test: Test command" in result["value"]
+    assert "help: Show help information" in result["value"]
 
-            mock_context.return_value = TemplateContext({})
-            mock_render_context.return_value = TemplateContext({})
 
-            # Create help template
-            help_template = commands_setup / "help.mustache"
-            help_template.write_text("""---
-type: guide-command
-description: Show help information
-required_args: []
-optional_args: [command]
-required_kwargs: []
-optional_kwargs: []
----
-Available commands:
-{{#commands}}
-- {{name}}: {{description}}
-{{/commands}}
-""")
+@pytest.mark.anyio
+async def test_subcommand_partials_use_current_project_context(command_project):
+    commands, invoke = command_project
+    info = commands / "info"
+    partials = commands / "_partials"
+    info.mkdir()
+    partials.mkdir()
+    (partials / "_project.mustache").write_text("Project: {{project.name}}")
+    (info / "project.mustache").write_text(
+        "---\ntype: user/information\nincludes:\n  - ../_partials/project\n---\nProject Information:\n{{>project}}"
+    )
+    result = await invoke(":info/project")
+    assert result["success"] is True
+    assert "Project Information:" in result["value"]
+    assert "Project: test-project" in result["value"]
 
-            result_str = await guide_function(":help", ctx=mock_ctx)
-            result = json.loads(result_str)
 
-            assert result["success"] is True
-            assert "Available commands:" in result["value"]
-            assert "test: Test command" in result["value"]
-            assert "help: Show help information" in result["value"]
-
-    @pytest.mark.anyio
-    async def test_multiple_expressions_regression(self, mock_ctx, guide_function):
-        """Test that multiple expressions still work for content."""
-        with patch("mcp_guide.prompts.guide_prompt.internal_get_content") as mock_get_content:
-            from mcp_guide.result import Result
-
-            mock_get_content.return_value = Result.ok("Combined content")
-
-            result_str = await guide_function("docs", "examples", "tests", ctx=mock_ctx)
-            result = json.loads(result_str)
-
-            assert result["success"] is True
-            # Should call internal_get_content with comma-separated expressions
-            mock_get_content.assert_called_once()
-            call_args = mock_get_content.call_args[0]
-            assert "docs,examples,tests" in str(call_args)
-
-    @pytest.mark.anyio
-    async def test_subcommand_integration(self, mock_ctx, commands_setup, guide_function):
-        """Test subcommand routing and execution."""
-        # Create subcommand directory and template
-        info_dir = commands_setup / "info"
-        info_dir.mkdir(exist_ok=True)
-
-        project_template = info_dir / "project.mustache"
-        project_template.write_text("""---
-type: guide-command
-description: Show project information
-required_args: []
-optional_args: []
-required_kwargs: []
-optional_kwargs: []
----
-Project Information:
-Current project: {{project.name}}
-""")
-
-        with (
-            patch("mcp_guide.prompts.guide_prompt.get_template_contexts", new=AsyncMock()) as mock_context,
-            patch("mcp_guide.render.template.get_template_contexts", new=AsyncMock()) as mock_render_context,
-        ):
-            from mcp_guide.render.context import TemplateContext
-
-            mock_context.return_value = TemplateContext({"project": {"name": "test-project"}})
-            mock_render_context.return_value = TemplateContext({"project": {"name": "test-project"}})
-
-            result_str = await guide_function(":info/project", ctx=mock_ctx)
-            result = json.loads(result_str)
-
-            assert result["success"] is True
-            assert "Project Information:" in result["value"]
-            assert "Current project: test-project" in result["value"]
-
-    @pytest.mark.anyio
-    async def test_semicolon_prefix_integration(self, mock_ctx, commands_setup, guide_function):
-        """Test semicolon prefix works the same as colon."""
-        with (
-            patch("mcp_guide.prompts.guide_prompt.get_template_contexts", new=AsyncMock()) as mock_context,
-            patch("mcp_guide.render.template.get_template_contexts", new=AsyncMock()) as mock_render_context,
-        ):
-            from mcp_guide.render.context import TemplateContext
-
-            mock_context.return_value = TemplateContext({})
-            mock_render_context.return_value = TemplateContext({})
-
-            # Test semicolon prefix
-            result_str = await guide_function(";test", "--verbose", ctx=mock_ctx)
-            result = json.loads(result_str)
-
-            assert result["success"] is True
-            assert "Test command executed successfully!" in result["value"]
-            assert "Verbose mode enabled." in result["value"]
-
-    @pytest.mark.anyio
-    async def test_partial_resolution_via_guide_command(self, mock_ctx, commands_setup, guide_function):
-        """End-to-end test: partials resolve correctly when invoked via guide command path."""
-        # Create directory structure with partial
-        info_dir = commands_setup / "info"
-        partials_dir = commands_setup / "_partials"
-        info_dir.mkdir(parents=True, exist_ok=True)
-        partials_dir.mkdir(parents=True, exist_ok=True)
-
-        # Create partial
-        partial_file = partials_dir / "_project.mustache"
-        partial_file.write_text("Project: {{project_name}}")
-
-        # Create command that includes partial
-        command_file = info_dir / "project.mustache"
-        command_file.write_text("""---
-type: user/information
-includes:
-  - ../_partials/project
----
-{{>project}}
-""")
-
-        with (
-            patch("mcp_guide.prompts.guide_prompt.get_template_contexts", new=AsyncMock()) as mock_context,
-            patch("mcp_guide.render.template.get_template_contexts", new=AsyncMock()) as mock_render_context,
-        ):
-            from mcp_guide.render.context import TemplateContext
-
-            mock_context.return_value = TemplateContext({"project_name": "test-project"})
-            mock_render_context.return_value = TemplateContext({"project_name": "test-project"})
-
-            # Invoke via guide command path
-            result_str = await guide_function(":info/project", ctx=mock_ctx)
-            result = json.loads(result_str)
-
-            assert result["success"] is True
-            assert "Project: test-project" in result["value"]
+@pytest.mark.anyio
+async def test_command_errors_are_returned_in_native_prompt_payload(command_project):
+    commands, invoke = command_project
+    parse_error = await invoke(":test", "--bad=", "=value")
+    assert parse_error["success"] is False
+    assert parse_error["error_type"] == "validation_error"
+    assert "Argument parsing failed" in parse_error["error"]
+    (commands / "broken.mustache").write_text("{{#_error}}Missing required argument: name{{/_error}}")
+    rendered_error = await invoke(":broken")
+    assert rendered_error["success"] is False
+    assert rendered_error["error_type"] == "validation_error"
+    assert rendered_error["error_data"]["errors"] == ["Missing required argument: name"]

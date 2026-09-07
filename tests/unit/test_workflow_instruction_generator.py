@@ -1,75 +1,27 @@
-"""Tests for workflow instruction generator functionality."""
+"""Workflow changes select phase-specific or general monitoring guidance."""
+
+import pytest
 
 from mcp_guide.workflow.change_detection import ChangeEvent, ChangeType
-from mcp_guide.workflow.constants import (
-    PHASE_CHECK,
-    PHASE_DISCUSSION,
-    PHASE_IMPLEMENTATION,
-    PHASE_PLANNING,
-    PHASE_REVIEW,
-)
 from mcp_guide.workflow.instruction_generator import get_instruction_template_for_change
 
 
-class TestInstructionGenerator:
-    """Test workflow instruction template selection."""
+@pytest.mark.parametrize(
+    "phase,expected",
+    [
+        ("planning", "*planning"),
+        ("implementation", "*implementation"),
+        ("review", "*review"),
+        (None, "monitoring-result"),
+    ],
+    ids=["planning", "implementation", "review", "no-target"],
+)
+def test_phase_changes_select_target_guidance(phase, expected):
+    change = ChangeEvent(change_type=ChangeType.PHASE, from_value="discussion", to_value=phase)
+    assert get_instruction_template_for_change(change) == expected
 
-    def test_phase_change_template_selection(self):
-        """Test that phase changes use phase-specific templates."""
-        change = ChangeEvent(change_type=ChangeType.PHASE, from_value=PHASE_DISCUSSION, to_value=PHASE_PLANNING)
 
-        template_pattern = get_instruction_template_for_change(change)
-        assert template_pattern == "*planning"
-
-    def test_issue_change_template_selection(self):
-        """Test that issue changes use monitoring-result template."""
-        change = ChangeEvent(change_type=ChangeType.ISSUE, from_value="old-issue", to_value="new-issue")
-
-        template_pattern = get_instruction_template_for_change(change)
-        assert template_pattern == "monitoring-result"
-
-    def test_tracking_change_template_selection(self):
-        """Test that tracking changes use monitoring-result template."""
-        change = ChangeEvent(change_type=ChangeType.TRACKING, from_value="PROJ-123", to_value="PROJ-456")
-
-        template_pattern = get_instruction_template_for_change(change)
-        assert template_pattern == "monitoring-result"
-
-    def test_description_change_template_selection(self):
-        """Test that description changes use monitoring-result template."""
-        change = ChangeEvent(
-            change_type=ChangeType.DESCRIPTION, from_value="Old description", to_value="New description"
-        )
-
-        template_pattern = get_instruction_template_for_change(change)
-        assert template_pattern == "monitoring-result"
-
-    def test_queue_change_template_selection(self):
-        """Test that queue changes use monitoring-result template."""
-        change = ChangeEvent(
-            change_type=ChangeType.QUEUE, from_value=["item1"], to_value=["item1", "item2"], added_items=["item2"]
-        )
-
-        template_pattern = get_instruction_template_for_change(change)
-        assert template_pattern == "monitoring-result"
-
-    def test_phase_change_to_implementation(self):
-        """Test phase change to implementation phase."""
-        change = ChangeEvent(change_type=ChangeType.PHASE, from_value=PHASE_PLANNING, to_value=PHASE_IMPLEMENTATION)
-
-        template_pattern = get_instruction_template_for_change(change)
-        assert template_pattern == "*implementation"
-
-    def test_phase_change_to_review(self):
-        """Test phase change to review phase."""
-        change = ChangeEvent(change_type=ChangeType.PHASE, from_value=PHASE_CHECK, to_value=PHASE_REVIEW)
-
-        template_pattern = get_instruction_template_for_change(change)
-        assert template_pattern == "*review"
-
-    def test_phase_change_with_none_to_value(self):
-        """Test phase change with None to_value falls back to monitoring-result."""
-        change = ChangeEvent(change_type=ChangeType.PHASE, from_value=PHASE_REVIEW, to_value=None)
-
-        template_pattern = get_instruction_template_for_change(change)
-        assert template_pattern == "monitoring-result"
+def test_non_phase_changes_select_monitoring_guidance():
+    for kind in (ChangeType.ISSUE, ChangeType.TRACKING, ChangeType.DESCRIPTION, ChangeType.QUEUE):
+        change = ChangeEvent(change_type=kind, from_value=None, to_value=None)
+        assert get_instruction_template_for_change(change) == "monitoring-result", kind

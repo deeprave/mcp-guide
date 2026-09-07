@@ -9,20 +9,12 @@ import pytest
 
 from mcp_guide.core.tool_decorator import get_tool_prefix
 from mcp_guide.render.context import TemplateContext
-from mcp_guide.render.functions import SyntaxHighlighter, TemplateFunctions
+from mcp_guide.render.functions import TemplateFunctions
 from mcp_guide.render.renderer import render_template_content
 
 
 class TestTemplateFunctions:
     """Test TemplateFunctions class."""
-
-    def test_init_with_chainmap_context(self):
-        """Test TemplateFunctions initialization with ChainMap context."""
-        context = ChainMap({"key": "value"})
-        functions = TemplateFunctions(context)
-
-        assert functions.context is context
-        assert functions.context["key"] == "value"
 
     def test_format_date_lambda(self):
         """Test format_date lambda function."""
@@ -44,13 +36,6 @@ class TestTemplateFunctions:
 
 class TestSyntaxHighlighter:
     """Test SyntaxHighlighter class."""
-
-    def test_init_checks_pygments(self):
-        """Test SyntaxHighlighter initialization checks for Pygments."""
-        highlighter = SyntaxHighlighter()
-
-        assert hasattr(highlighter, "pygments_available")
-        assert isinstance(highlighter.pygments_available, bool)
 
     def test_highlight_code_lambda(self):
         """Test highlight_code lambda function."""

@@ -62,78 +62,6 @@ async def _get_test_session(runtime, project_name: str = "test") -> Session:
     return await bind_isolated_test_session(runtime, project_name=project_name)
 
 
-# Basic CRUD Operations
-
-
-@pytest.mark.anyio
-async def test_add_category_via_mcp(mcp_server, test_session, monkeypatch):
-    """Test adding category through MCP client."""
-    monkeypatch.setenv("PWD", "/fake/path/test")
-
-    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True), mode="legacy") as client:
-        args = CategoryCollectionAddArgs(type="category", name="api", dir="src/api", patterns=["*.py"])
-        result = await call_mcp_tool(client, "category_collection_add", args)
-        response = json.loads(result.content[0].text)  # type: ignore[union-attr]
-
-        assert response["success"] is True, response
-        assert "api" in response["value"]
-
-
-@pytest.mark.anyio
-async def test_list_categories_via_mcp(mcp_server, test_session, monkeypatch):
-    """Test listing categories through MCP client."""
-    monkeypatch.setenv("PWD", "/fake/path/test")
-
-    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True), mode="legacy") as client:
-        args1 = CategoryCollectionAddArgs(type="category", name="api", dir="src/api", patterns=["*.py"])
-        await call_mcp_tool(client, "category_collection_add", args1)
-        args2 = CategoryCollectionAddArgs(type="category", name="docs", dir="docs", patterns=["*.md"])
-        await call_mcp_tool(client, "category_collection_add", args2)
-
-        args = CategoryCollectionListArgs(type="category", verbose=False)
-        result = await call_mcp_tool(client, "category_collection_list", args)
-        response = json.loads(result.content[0].text)  # type: ignore[union-attr]
-
-        assert response["success"] is True
-        assert len(response["value"]) == 2
-        assert "api" in response["value"]
-        assert "docs" in response["value"]
-
-
-@pytest.mark.anyio
-async def test_update_category_via_mcp(mcp_server, test_session, monkeypatch):
-    """Test updating category through MCP client."""
-    monkeypatch.setenv("PWD", "/fake/path/test")
-
-    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True), mode="legacy") as client:
-        args1 = CategoryCollectionAddArgs(type="category", name="api", dir="src/api", patterns=["*.py"])
-        await call_mcp_tool(client, "category_collection_add", args1)
-
-        args = CategoryCollectionUpdateArgs(type="category", name="api", add_patterns=["*.pyi"])
-        result = await call_mcp_tool(client, "category_collection_update", args)
-        response = json.loads(result.content[0].text)  # type: ignore[union-attr]
-
-        assert response["success"] is True
-        assert "api" in response["value"]
-
-
-@pytest.mark.anyio
-async def test_remove_category_via_mcp(mcp_server, test_session, monkeypatch):
-    """Test removing category through MCP client."""
-    monkeypatch.setenv("PWD", "/fake/path/test")
-
-    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True), mode="legacy") as client:
-        args1 = CategoryCollectionAddArgs(type="category", name="api", dir="src/api", patterns=["*.py"])
-        await call_mcp_tool(client, "category_collection_add", args1)
-
-        args = CategoryCollectionRemoveArgs(type="category", name="api")
-        result = await call_mcp_tool(client, "category_collection_remove", args)
-        response = json.loads(result.content[0].text)  # type: ignore[union-attr]
-
-        assert response["success"] is True
-        assert "api" in response["value"]
-
-
 # Workflow Tests
 
 
@@ -147,6 +75,22 @@ async def test_category_management_workflow(mcp_server, test_session, monkeypatc
         args = CategoryCollectionAddArgs(type="category", name="api", dir="src/api", patterns=["*.py"])
         result = await call_mcp_tool(client, "category_collection_add", args)
         assert json.loads(result.content[0].text)["success"] is True  # type: ignore[union-attr]
+
+        # Preserve names-only listing and multiple-category coverage in this lifecycle.
+        result = await call_mcp_tool(
+            client,
+            "category_collection_add",
+            CategoryCollectionAddArgs(type="category", name="docs", dir="docs", patterns=["*.md"]),
+        )
+        assert result.structured_content["success"] is True
+        result = await call_mcp_tool(
+            client, "category_collection_list", CategoryCollectionListArgs(type="category", verbose=False)
+        )
+        assert result.structured_content["value"] == ["api", "docs"]
+        result = await call_mcp_tool(
+            client, "category_collection_remove", CategoryCollectionRemoveArgs(type="category", name="docs")
+        )
+        assert result.structured_content["success"] is True
 
         # Update category
         args = CategoryCollectionUpdateArgs(type="category", name="api", add_patterns=["*.pyi"])

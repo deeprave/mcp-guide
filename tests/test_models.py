@@ -3,43 +3,7 @@
 import pytest
 from pydantic import ValidationError
 
-from mcp_guide.models import Category, Collection, Project, SessionState
-
-
-class TestSessionState:
-    """Tests for SessionState model."""
-
-    def test_session_state_is_mutable(self):
-        """SessionState should be mutable (not frozen)."""
-        state = SessionState()
-        state.current_dir = "/new/path"
-        assert state.current_dir == "/new/path"
-
-    def test_session_state_cache(self):
-        """SessionState cache should be mutable."""
-        state = SessionState()
-        state.cache["key"] = "value"
-        assert state.cache["key"] == "value"
-
-
-class TestCategory:
-    """Tests for Category model."""
-
-    def test_category_creation(self):
-        """Category can be created with valid data."""
-        category = Category(dir="docs/", patterns=["*.md"])
-        assert category.dir == "docs/"
-        assert category.patterns == ["*.md"]
-
-
-class TestCollection:
-    """Tests for Collection model."""
-
-    def test_collection_creation(self):
-        """Collection can be created with valid data."""
-        collection = Collection(categories=["api", "database"], description="Backend services")
-        assert collection.categories == ["api", "database"]
-        assert collection.description == "Backend services"
+from mcp_guide.models import Category, Project
 
 
 class TestProject:

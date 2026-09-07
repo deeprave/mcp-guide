@@ -1,131 +1,76 @@
-"""Tests for category_list_files source filter parameter."""
+"""Category file listing through real filesystem and document-store data."""
 
-from types import SimpleNamespace
-from unittest.mock import AsyncMock, patch
+from dataclasses import replace
 
 import pytest
+import yaml
 from pydantic import ValidationError
+from tests.helpers import create_bound_test_session, request_context_for
 
+from mcp_guide.models import Category
+from mcp_guide.store.document_store import add_document
 from mcp_guide.tools.tool_category import CategoryListFilesArgs, internal_category_list_files
 
 
-def test_source_filter_accepts_files():
-    """Source filter accepts 'files'."""
-    args = CategoryListFilesArgs(category="docs", source="files")
-    assert args.source == "files"
-
-
-def test_source_filter_accepts_stored():
-    """Source filter accepts 'stored'."""
-    args = CategoryListFilesArgs(category="docs", source="stored")
-    assert args.source == "stored"
-
-
-def test_source_filter_defaults_to_none():
-    """Source filter defaults to None (both sources)."""
-    args = CategoryListFilesArgs(category="docs")
-    assert args.source is None
-
-
 def test_source_filter_rejects_invalid_value():
-    """Source filter rejects invalid values."""
+    """The advertised source constraint rejects unsupported filters."""
     with pytest.raises(ValidationError):
         CategoryListFilesArgs(category="docs", source="invalid")
 
 
-def test_name_filter_defaults_to_none():
-    """Name filter defaults to None."""
-    args = CategoryListFilesArgs(category="docs")
-    assert args.name is None
-
-
-def test_name_filter_accepts_string():
-    """Name filter accepts a string value."""
-    args = CategoryListFilesArgs(category="docs", name="readme.md")
-    assert args.name == "readme.md"
-
-
-# --- Integration-style tests for name filter and enriched stored doc info ---
-
-
-def _mock_session(categories):
-    """Create a mock session with given categories."""
-    project = SimpleNamespace(categories=categories)
-    session = AsyncMock()
-    session.get_project = AsyncMock(return_value=project)
-    return session
-
-
-def _request_context(session, categories):
-    """Create the resolved context supplied to a direct application handler."""
-    from pathlib import Path
-
-    def resolve_document_path(relative_path):
-        return Path("/fake/docroot") / relative_path
-
-    return SimpleNamespace(
-        session=session,
-        project=SimpleNamespace(categories=categories),
-        resolve_document_path=resolve_document_path,
-    )
-
-
 @pytest.mark.anyio
-async def test_name_filter_limits_results():
-    """Name filter returns only matching document."""
-    cat = SimpleNamespace(dir="docs", patterns=["**/*"])
-    session = _mock_session({"docs": cat})
-    record_a = SimpleNamespace(
-        name="a.md",
-        metadata={"description": "Doc A"},
-        source_type="file",
-        source="/path/a.md",
-        created_at="2026-01-01",
-        updated_at="2026-01-02",
+async def test_source_and_name_filters_preserve_document_metadata(runtime, tmp_path, monkeypatch):
+    """Default, explicit source and exact-name filtering expose the correct documents."""
+    docroot = tmp_path / "docs"
+    category_dir = docroot / "guidance"
+    category_dir.mkdir(parents=True)
+    (category_dir / "local.md").write_text("---\ndescription: Local guidance\n---\nLocal content")
+    config = runtime.configuration_service().config_file
+    config.parent.mkdir(parents=True, exist_ok=True)
+    config.write_text(yaml.safe_dump({"docroot": str(docroot), "projects": {}}))
+    # Redirect only the database location; all persistence and discovery remain real.
+    monkeypatch.setattr("mcp_guide.store.document_store.get_documents_db", lambda: tmp_path / "documents.db")
+    session = await create_bound_test_session(runtime, "listing")
+    await session.update_config(
+        lambda project: replace(project, categories={"docs": Category(name="docs", dir="guidance", patterns=["*.txt"])})
     )
-    record_b = SimpleNamespace(
-        name="b.md",
-        metadata={},
-        source_type="file",
-        source="/path/b.md",
-        created_at="2026-01-01",
-        updated_at="2026-01-02",
-    )
+    context = await request_context_for(session)
+    metadata = {"description": "Stored guidance", "type": "agent/information"}
+    saved = await add_document("docs", "stored.md", "/client/stored.md", "file", "Stored content", metadata)
+    await add_document("docs", "other.md", "/client/other.md", "file", "Other content")
 
-    with (
-        patch("mcp_guide.tools.tool_category.list_documents", new=AsyncMock(return_value=[record_a, record_b])),
-    ):
-        args = CategoryListFilesArgs(category="docs", source="stored", name="a.md")
-        result = await internal_category_list_files(args, _request_context(session, {"docs": cat}))
-        assert result.success is True
-        assert len(result.value) == 1
-        assert result.value[0]["path"] == "a.md"
+    async def listed(**filters):
+        result = await internal_category_list_files(CategoryListFilesArgs(category="docs", **filters), context)
+        assert result.success, result
+        return result.value
 
-
-@pytest.mark.anyio
-async def test_stored_doc_enriched_with_metadata():
-    """Stored doc includes metadata, timestamps, source info."""
-    cat = SimpleNamespace(dir="docs", patterns=["**/*"])
-    session = _mock_session({"docs": cat})
-    record = SimpleNamespace(
-        name="readme.md",
-        metadata={"description": "A readme", "type": "agent/information"},
-        source_type="file",
-        source="/path/readme.md",
-        created_at="2026-01-01T00:00:00",
-        updated_at="2026-01-02T00:00:00",
-    )
-
-    with (
-        patch("mcp_guide.tools.tool_category.list_documents", new=AsyncMock(return_value=[record])),
-    ):
-        args = CategoryListFilesArgs(category="docs", source="stored")
-        result = await internal_category_list_files(args, _request_context(session, {"docs": cat}))
-        assert result.success is True
-        info = result.value[0]
-        assert info["description"] == "A readme"
-        assert info["metadata"] == {"description": "A readme", "type": "agent/information"}
-        assert info["source_type"] == "file"
-        assert info["source_path"] == "/path/readme.md"
-        assert info["created_at"] == "2026-01-01T00:00:00"
-        assert info["updated_at"] == "2026-01-02T00:00:00"
+    combined = await listed()
+    assert {(item["path"], item["source"]) for item in combined} == {
+        ("local.md", "file"),
+        ("stored.md", "store"),
+        ("other.md", "store"),
+    }
+    files = await listed(source="files")
+    assert len(files) == 1
+    assert files[0]["path"] == "local.md"
+    assert files[0]["description"] == "Local guidance"
+    assert files[0]["size"] == (category_dir / "local.md").stat().st_size
+    stored = await listed(source="stored")
+    assert {item["path"] for item in stored} == {"stored.md", "other.md"}
+    selected = await listed(source="stored", name="stored.md")
+    assert selected == [next(item for item in combined if item["path"] == "stored.md")]
+    assert saved.record is not None
+    assert selected[0] == {
+        "path": "stored.md",
+        "basename": "stored.md",
+        "size": 0,
+        "source": "store",
+        "description": "Stored guidance",
+        "metadata": metadata,
+        "source_type": "file",
+        "source_path": "/client/stored.md",
+        "created_at": saved.record.created_at,
+        "updated_at": saved.record.updated_at,
+    }
+    assert await listed(name="stored") == []
+    assert await listed(source="files", name="stored.md") == []

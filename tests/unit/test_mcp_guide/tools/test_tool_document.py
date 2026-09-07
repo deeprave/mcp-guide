@@ -1,47 +1,28 @@
-"""Tests for document_remove tool."""
+"""Document removal uses the store and reports repeat removal as missing."""
 
 import pytest
 from tests.helpers import create_unbound_test_session, request_context_for
 
+from mcp_guide.store.document_store import add_document, get_document
 from mcp_guide.tools.tool_document import DocumentRemoveArgs, internal_document_remove
 
 
-@pytest.fixture
-def db(tmp_path):
-    return tmp_path / "test_documents.db"
-
-
 @pytest.mark.anyio
-async def test_remove_existing_document(runtime, db, tmp_path):
-    """Removing an existing document returns success."""
-    from mcp_guide.store.document_store import add_document
+async def test_remove_document_persists_deletion_and_reports_missing(runtime, tmp_path, monkeypatch):
+    # Isolate the database location, not the persistence operations.
+    monkeypatch.setattr("mcp_guide.store.document_store.get_documents_db", lambda: tmp_path / "documents.db")
+    await add_document("docs", "readme.md", "/path", "file", "content")
+    await add_document("other", "readme.md", "/other", "file", "keep")
+    context = await request_context_for(create_unbound_test_session(runtime))
+    args = DocumentRemoveArgs(category="docs", name="readme.md")
 
-    await add_document("docs", "readme.md", "/path", "file", "content", db_path=db)
-
-    from unittest.mock import patch
-
-    with patch("mcp_guide.tools.tool_document.remove_document") as mock_remove:
-        mock_remove.return_value = True
-        result = await internal_document_remove(
-            DocumentRemoveArgs(category="docs", name="readme.md"),
-            await request_context_for(create_unbound_test_session(runtime)),
-        )
-
+    result = await internal_document_remove(args, context)
     assert result.success is True
-    assert result.value["name"] == "readme.md"
+    assert result.value == {"category": "docs", "name": "readme.md"}
+    assert await get_document("docs", "readme.md") is None
+    assert await get_document("other", "readme.md") is not None
 
-
-@pytest.mark.anyio
-async def test_remove_nonexistent_document(runtime, tmp_path):
-    """Removing a non-existent document returns failure."""
-    from unittest.mock import patch
-
-    with patch("mcp_guide.tools.tool_document.remove_document") as mock_remove:
-        mock_remove.return_value = False
-        result = await internal_document_remove(
-            DocumentRemoveArgs(category="docs", name="missing.md"),
-            await request_context_for(create_unbound_test_session(runtime)),
-        )
-
+    result = await internal_document_remove(args, context)
     assert result.success is False
-    assert "not found" in result.error
+    assert result.error_type == "not_found"
+    assert result.error == "Document docs/readme.md not found"

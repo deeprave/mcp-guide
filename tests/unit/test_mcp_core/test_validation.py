@@ -176,79 +176,36 @@ class TestValidatePattern:
 
 
 class TestArgValidationError:
-    """Tests for ArgValidationError class."""
+    """Validation errors preserve grouped details and explicit guidance."""
 
     @pytest.mark.parametrize(
         "errors,expected_message",
         [
             ([{"field": "name", "message": "Required field"}], "Validation error: Required field"),
             (
-                [
-                    {"field": "name", "message": "Required field"},
-                    {"field": "age", "message": "Must be positive"},
-                ],
+                [{"field": "name", "message": "Required field"}, {"field": "age", "message": "Must be positive"}],
                 "2 validation errors occurred",
             ),
         ],
-        ids=["single_error", "multiple_errors"],
+        ids=["single", "multiple"],
     )
-    def test_error_messages(self, errors, expected_message):
-        """Test error message generation for single and multiple errors."""
+    def test_error_details_survive_result_conversion(self, errors, expected_message):
         error = ArgValidationError(errors)
-        assert error.message == expected_message
-
-    def test_custom_message(self):
-        """Custom message should override generated message."""
-        errors = [{"field": "name", "message": "Required field"}]
-        error = ArgValidationError(errors, message="Custom error message")
-        assert error.message == "Custom error message"
-
-    def test_default_instruction(self):
-        """Default instruction should be set."""
-        error = ArgValidationError([{"field": "name", "message": "Required"}])
-        assert error.instruction == DEFAULT_INSTRUCTION
-
-    def test_custom_instruction(self):
-        """Custom instruction should override default."""
-        error = ArgValidationError(
-            [{"field": "name", "message": "Required"}],
-            instruction="Custom instruction",
-        )
-        assert error.instruction == "Custom instruction"
-
-    def test_to_result_basic(self):
-        """to_result() should create Result with error_data."""
-        errors = [{"field": "name", "message": "Required field"}]
-        error = ArgValidationError(errors)
+        assert str(error) == expected_message
         result = error.to_result()
-
         assert result.success is False
-        assert result.error == "Validation error: Required field"
+        assert result.error == expected_message
         assert result.error_type == "validation_error"
         assert result.error_data == {"validation_errors": errors}
         assert result.instruction == DEFAULT_INSTRUCTION
 
-    def test_to_result_with_overrides(self):
-        """to_result() should accept message and instruction overrides."""
-        errors = [{"field": "name", "message": "Required field"}]
-        error = ArgValidationError(errors)
-        result = error.to_result(
-            message="Override message",
-            instruction="Override instruction",
-        )
-
-        assert result.error == "Override message"
-        assert result.instruction == "Override instruction"
-
-    def test_to_result_multiple_errors(self):
-        """to_result() should handle multiple errors."""
-        errors = [
-            {"field": "name", "message": "Required field"},
-            {"field": "age", "message": "Must be positive"},
-        ]
-        error = ArgValidationError(errors)
-        result = error.to_result()
-
-        assert result.error == "2 validation errors occurred"
-        assert result.error_data == {"validation_errors": errors}
-        assert len(result.error_data["validation_errors"]) == 2
+    def test_explicit_error_guidance_and_result_overrides(self):
+        errors = [{"field": "name", "message": "Required"}]
+        error = ArgValidationError(errors, message="Custom message", instruction="Custom instruction")
+        initial = error.to_result()
+        assert initial.error == "Custom message"
+        assert initial.instruction == "Custom instruction"
+        overridden = error.to_result(message="Override message", instruction="Override instruction")
+        assert overridden.error == "Override message"
+        assert overridden.instruction == "Override instruction"
+        assert overridden.error_data == {"validation_errors": errors}

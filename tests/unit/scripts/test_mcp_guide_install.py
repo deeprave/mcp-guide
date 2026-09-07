@@ -19,11 +19,7 @@ def use_minimal_templates(monkeypatch, tmp_path: Path) -> Path:
     async def fake_get_templates_path() -> Path:
         return templates_dir
 
-    async def fake_list_template_files() -> list[Path]:
-        return sorted(path for path in templates_dir.rglob("*") if path.is_file())
-
     monkeypatch.setattr("mcp_guide.installer.core.get_templates_path", fake_get_templates_path)
-    monkeypatch.setattr("mcp_guide.installer.core.list_template_files", fake_list_template_files)
     return templates_dir
 
 
@@ -38,24 +34,14 @@ class TestArgumentParsing:
         runner = CliRunner()
 
         # Act
-        result = runner.invoke(cli, ["install", "--docroot", "/custom/path", "--dry-run"])
+        result = runner.invoke(
+            cli, ["install", "--docroot", "/custom/path", "--configdir", "/custom/config", "--dry-run"]
+        )
 
         # Assert
         assert result.exit_code == 0
-        assert "/custom/path" in result.output or result.exit_code == 0
-
-    def test_parse_configdir_option(self) -> None:
-        """Test that CLI accepts -c/--configdir option."""
-        # Arrange
-        from mcp_guide.scripts.mcp_guide_install import cli
-
-        runner = CliRunner()
-
-        # Act
-        result = runner.invoke(cli, ["install", "--configdir", "/custom/config", "--dry-run"])
-
-        # Assert
-        assert result.exit_code == 0
+        assert "Would use docroot: /custom/path" in result.output
+        assert "Would use configdir: /custom/config" in result.output
 
     def test_mcp_install_entry_point_is_declared_and_runnable(self) -> None:
         """Test that the console script mapping exists and targets a runnable command.
@@ -89,7 +75,6 @@ class TestArgumentParsing:
         subprocess.check_call([sys.executable, "-m", "venv", str(venv_dir)])
 
         bin_dir = venv_dir / ("Scripts" if os.name == "nt" else "bin")
-        python_exe = bin_dir / ("python.exe" if os.name == "nt" else "python")
 
         project_root = Path(__file__).resolve().parents[3]
         env = os.environ.copy()
@@ -126,6 +111,10 @@ class TestInstallation:
         assert result.exit_code == 0
         assert docroot.exists()
         assert (configdir / "config.yaml").exists()
+        assert (docroot / ".original.zip").is_file()
+        assert (docroot / "example.md").read_text() == "# Example\n"
+        assert (docroot / "nested" / "guide.mustache").read_text() == "Guide content\n"
+        assert "Enter docroot" not in result.output
 
     def test_install_resolves_tilde_docroot_and_persists_it_as_written(self, tmp_path: Path, monkeypatch) -> None:
         """A ``~/...`` --docroot is used via LazyPath.resolve() and stored unchanged."""
@@ -150,27 +139,6 @@ class TestInstallation:
 
 class TestEndToEndInstallation:
     """End-to-end tests for install command with smart update strategy."""
-
-    def test_first_install_creates_all_files(self, tmp_path: Path, monkeypatch) -> None:
-        """Test that first install creates all template files."""
-        # Arrange
-        from mcp_guide.scripts.mcp_guide_install import cli
-
-        runner = CliRunner()
-        docroot = tmp_path / "docs"
-        configdir = tmp_path / "config"
-        use_minimal_templates(monkeypatch, tmp_path)
-
-        # Act
-        result = runner.invoke(cli, ["install", "--docroot", str(docroot), "--configdir", str(configdir)])
-
-        # Assert
-        assert result.exit_code == 0
-        assert docroot.exists()
-        assert (docroot / ".original.zip").exists()
-        # Check at least one template file was created
-        template_files = list(docroot.rglob("*.md"))
-        assert len(template_files) > 0
 
     def test_second_install_skips_unchanged_files(self, tmp_path: Path, monkeypatch) -> None:
         """Test that second install does not modify already-installed files (by content hash)."""
@@ -240,72 +208,6 @@ class TestEndToEndInstallation:
         assert result2.exit_code == 0
         final_content = test_file.read_text()
         assert "User Added Section" in final_content
-
-    def test_install_creates_backup_on_patch_failure(self, tmp_path: Path) -> None:
-        """Test that install creates backup when patch fails."""
-        # Arrange
-        import asyncio
-
-        from mcp_guide.installer.core import install_file
-        from mcp_guide.scripts.mcp_guide_install import cli
-
-        docroot = tmp_path / "docs"
-        configdir = tmp_path / "config"
-        runner = CliRunner()
-
-        # First install
-        result1 = runner.invoke(cli, ["install", "--docroot", str(docroot), "--configdir", str(configdir)])
-        assert result1.exit_code == 0
-
-        # Create a scenario where patch will fail
-        # Modify a file in a way that conflicts with template changes
-        template_files = list(docroot.rglob("*.md"))
-        if template_files:
-            test_file = template_files[0]
-            # Completely replace content to force patch failure
-            test_file.write_text("# Completely Different Content\nThis will conflict\n")
-
-            # Create a modified "new" version to trigger conflict
-            source_file = tmp_path / "new_version.md"
-            source_file.write_text("# New Template Version\nUpdated content\n")
-
-            archive_path = docroot / ".original.zip"
-
-            # Act - Try to install with conflict
-            async def test_conflict():
-                return await install_file(source_file, test_file, archive_path)
-
-            status = asyncio.run(test_conflict())
-
-            # Assert - must be a conflict
-            assert status == "conflict", f"Expected conflict but got {status}"
-            backup_file = test_file.parent / f"orig.{test_file.name}"
-            assert backup_file.exists(), "Backup file should exist"
-            assert "Completely Different Content" in backup_file.read_text()
-
-    def test_install_reports_correct_statistics(self, tmp_path: Path, monkeypatch) -> None:
-        """Test that install reports correct statistics."""
-        # Arrange
-        from mcp_guide.scripts.mcp_guide_install import cli
-
-        runner = CliRunner()
-        docroot = tmp_path / "docs"
-        configdir = tmp_path / "config"
-        use_minimal_templates(monkeypatch, tmp_path)
-
-        # Act - First install
-        result = runner.invoke(cli, ["install", "--docroot", str(docroot), "--configdir", str(configdir)])
-
-        # Assert
-        assert result.exit_code == 0
-        # Should report installation completion
-        assert "Installation complete" in result.output or result.exit_code == 0
-        result = runner.invoke(cli, ["install", "--docroot", str(docroot), "--configdir", str(configdir)])
-
-        # Assert
-        assert result.exit_code == 0
-        assert docroot.exists()
-        assert (configdir / "config.yaml").exists()
 
 
 class TestInteractiveMode:
@@ -377,23 +279,6 @@ class TestQuietMode:
         assert result.exit_code == 0
         assert docroot.exists()
 
-    def test_skips_prompts_in_non_interactive_mode(self, tmp_path: Path, monkeypatch) -> None:
-        """Test that non-interactive mode skips prompts."""
-        # Arrange
-        from mcp_guide.scripts.mcp_guide_install import cli
-
-        runner = CliRunner()
-        docroot = tmp_path / "docs"
-        configdir = tmp_path / "config"
-        use_minimal_templates(monkeypatch, tmp_path)
-
-        # Act - no input provided
-        result = runner.invoke(cli, ["install", "--docroot", str(docroot), "--configdir", str(configdir)])
-
-        # Assert
-        assert result.exit_code == 0
-        assert "Enter docroot" not in result.output
-
     def test_displays_progress_in_verbose_mode(self, tmp_path: Path, monkeypatch) -> None:
         """Test that verbose mode enables DEBUG logging."""
         # Arrange
@@ -425,33 +310,13 @@ class TestQuietMode:
 class TestErrorHandling:
     """Tests for error handling."""
 
-    def test_handles_invalid_docroot_path(self, tmp_path: Path, monkeypatch) -> None:
-        """Test that invalid docroot path is handled gracefully."""
-        # Arrange
-        import mcp_guide.installer.core
-        from mcp_guide.scripts.mcp_guide_install import cli
-
-        async def mock_install(*args, **kwargs):
-            raise PermissionError("Permission denied for docroot")
-
-        monkeypatch.setattr(mcp_guide.installer.core, "install_templates", mock_install)
-
-        runner = CliRunner()
-        invalid_docroot = tmp_path / "invalid-docroot"
-
-        # Act - attempt install to a temporary "invalid" docroot
-        result = runner.invoke(cli, ["install", "--docroot", str(invalid_docroot)])
-
-        # Assert
-        assert result.exit_code == 1
-        assert "permission denied" in result.output.lower()
-
     def test_handles_permission_errors(self, tmp_path: Path, monkeypatch) -> None:
         """Test that permission errors are handled gracefully."""
         # Arrange
         import mcp_guide.installer.core
         from mcp_guide.scripts.mcp_guide_install import cli
 
+        # Deterministic unavailable-installation boundary; OS permissions vary by test user.
         async def mock_install(*args, **kwargs):
             raise PermissionError("Permission denied")
 
@@ -474,6 +339,7 @@ class TestErrorHandling:
         import mcp_guide.installer.core
         from mcp_guide.scripts.mcp_guide_install import cli
 
+        # Deterministic unavailable-installation boundary; OS permissions vary by test user.
         async def mock_install(*args, **kwargs):
             raise FileNotFoundError("Templates directory not found")
 
@@ -507,11 +373,8 @@ class TestUpdateCommand:
         # First install
         runner.invoke(cli, ["install", "--docroot", str(docroot), "--configdir", str(configdir)])
 
-        # Modify a file
-        (docroot / "_commands").mkdir(parents=True, exist_ok=True)
-        test_file = docroot / "_commands" / "test.mustache"
-        if test_file.exists():
-            test_file.write_text("User modified content\n")
+        test_file = docroot / "example.md"
+        test_file.write_text("# Example\nUser modified content\n")
 
         # Act - update without specifying docroot
         result = runner.invoke(cli, ["update", "--configdir", str(configdir)])
@@ -519,7 +382,10 @@ class TestUpdateCommand:
         # Assert
         assert result.exit_code == 0
         # Check for completion message (statistics are now in logs)
-        assert "Update complete" in result.output or result.exit_code == 0
+        assert test_file.read_text() == "# Example\nUser modified content\n"
+        from mcp_guide import __version__
+
+        assert (docroot / ".version").read_text() == __version__
 
     def test_update_command_updates_config_when_docroot_specified(self, tmp_path: Path, monkeypatch) -> None:
         """Test that update command updates config when -d specified."""

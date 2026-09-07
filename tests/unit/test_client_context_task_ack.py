@@ -1,92 +1,54 @@
-"""Tests for ClientContextTask acknowledgement tracking."""
+"""Client context collection and acknowledgement through delivered instructions."""
 
-from contextlib import nullcontext
-from unittest.mock import AsyncMock, Mock, patch
+import json
 
 import pytest
+import yaml
+from tests.helpers import create_bound_test_session
 
 from mcp_guide.context.tasks import ClientContextTask
-from mcp_guide.task_manager.interception import EventType
-from mcp_guide.task_manager.manager import TaskManager
+from mcp_guide.result import Result
+from mcp_guide.task_manager import EventType
 
 
-def _manager() -> TaskManager:
-    """Create a manager with the session ownership required for cache updates."""
-    return TaskManager(session=Mock(template_cache=Mock(), work=nullcontext))
+@pytest.mark.anyio
+async def test_client_responses_advance_collection_and_stop_acknowledged_retries(runtime, tmp_path, monkeypatch):
+    """Real context templates are retried until their corresponding client response arrives."""
+    docroot = tmp_path / "docs"
+    templates = docroot / "_context"
+    templates.mkdir(parents=True)
+    (templates / "client-context-setup.mustache").write_text("Send basic OS details")
+    (templates / "client-context-detailed.mustache").write_text("Send context for {{client.os}}")
+    config = runtime.configuration_service().config_file
+    config.parent.mkdir(parents=True, exist_ok=True)
+    config.write_text(yaml.safe_dump({"docroot": str(docroot), "projects": {}}))
+    await runtime.feature_flags().set("allow-client-info", True)
+    session = await create_bound_test_session(runtime, "context")
+    manager = session.task_manager
+    task = manager.get_task_by_type(ClientContextTask)
+    assert task is not None
+    now = 100.0
+    monkeypatch.setattr("time.time", lambda: now)
 
+    async def delivered():
+        return (await manager.process_result(Result.ok())).additional_agent_instructions
 
-@pytest.fixture(autouse=True)
-async def reset_task_manager():
-    """Reset TaskManager singleton before each test."""
-    await TaskManager._reset_for_testing()
-    yield
-    await TaskManager._reset_for_testing()
-
-
-@pytest.fixture(autouse=True)
-def mock_context_templates():
-    """Keep acknowledgement tests focused on task tracking, not rendering."""
-
-    async def render(session, template_name, context=None):
-        return Mock(content=f"client context request: {template_name}")
-
-    with patch("mcp_guide.context.tasks.render_context_template", new=AsyncMock(side_effect=render)):
-        yield
-
-
-class TestClientContextTaskAcknowledgement:
-    """Test ClientContextTask acknowledgement tracking."""
-
-    @pytest.mark.anyio
-    async def test_os_info_request_stores_instruction_id(self):
-        """Test that OS info request stores instruction ID."""
-        manager = _manager()
-        task = ClientContextTask(manager)
-
-        await task.request_basic_os_info()
-
-        assert task._os_instruction_id is not None
-        assert task._os_instruction_id in manager._tracked_instructions
-
-    @pytest.mark.anyio
-    async def test_os_info_response_acknowledges_instruction(self):
-        """Test that OS info response acknowledges instruction."""
-        manager = _manager()
-        task = ClientContextTask(manager)
-        task._session = manager._session
-
-        await task.request_basic_os_info()
-        instruction_id = task._os_instruction_id
-        task._flag_checked = True
-
-        # Simulate OS info response
-        await task.handle_event(EventType.FS_FILE_CONTENT, {"path": ".client-os.json", "content": '{"client": {}}'})
-
-        assert instruction_id not in manager._tracked_instructions
-
-    @pytest.mark.anyio
-    async def test_detailed_context_request_stores_instruction_id(self):
-        """Test that detailed context request stores instruction ID."""
-        manager = _manager()
-        task = ClientContextTask(manager)
-
-        await task._request_detailed_context({"client": {}})
-
-        assert task._context_instruction_id is not None
-        assert task._context_instruction_id in manager._tracked_instructions
-
-    @pytest.mark.anyio
-    async def test_detailed_context_response_acknowledges_instruction(self):
-        """Test that detailed context response acknowledges instruction."""
-        manager = _manager()
-        task = ClientContextTask(manager)
-        task._session = manager._session
-
-        await task._request_detailed_context({"client": {}})
-        instruction_id = task._context_instruction_id
-        task._flag_checked = True
-
-        # Simulate context response
-        await task.handle_event(EventType.FS_FILE_CONTENT, {"path": ".client-context.json", "content": "{}"})
-
-        assert instruction_id not in manager._tracked_instructions
+    await task.handle_event(EventType.TIMER_ONCE, {})
+    assert await delivered() == "Send basic OS details"
+    now += 31
+    await manager.retry_unacknowledged()
+    assert await delivered() == "Send basic OS details"
+    os_info = {"client": {"os": "linux"}}
+    await task.handle_event(EventType.FS_FILE_CONTENT, {"path": ".client-os.json", "content": json.dumps(os_info)})
+    assert manager.get_cached_data("client_os_info") == os_info
+    assert await delivered() == "Send context for linux"
+    now += 31
+    await manager.retry_unacknowledged()
+    assert await delivered() == "Send context for linux"
+    assert manager.is_queue_empty()  # Basic OS instruction has been acknowledged.
+    details = {"editor": {"name": "test-editor"}}
+    await task.handle_event(EventType.FS_FILE_CONTENT, {"path": ".client-context.json", "content": json.dumps(details)})
+    assert manager.get_cached_data("client_context_info") == details
+    now += 31
+    await manager.retry_unacknowledged()
+    assert manager.is_queue_empty()

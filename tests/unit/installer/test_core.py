@@ -79,42 +79,9 @@ class TestArchiveOperations:
             assert "file2.txt" in zf.namelist()
             assert zf.read("file1.txt").decode() == "Content 1"
             assert zf.read("file2.txt").decode() == "Content 2"
-
-    @pytest.mark.anyio
-    async def test_create_archive_includes_readme(self, tmp_path: Path) -> None:
-        """Test that create_archive includes a README.md explaining the archive."""
-        # Arrange
-        source_dir = tmp_path / "source"
-        source_dir.mkdir()
-        file1 = source_dir / "file1.txt"
-        file1.write_text("content1")
-
-        archive_path = tmp_path / "test.zip"
-
-        # Act
-        await create_archive(archive_path, [file1], source_dir)
-
-        # Assert
-        with ZipFile(archive_path, "r") as zf:
-            names = zf.namelist()
-            assert "README.md" in names
-            readme_content = zf.read("README.md").decode()
-            assert "original files" in readme_content.lower()
-            assert "do not modify" in readme_content.lower()
-
-    @pytest.mark.anyio
-    async def test_extract_from_archive_retrieves_file_content(self, tmp_path: Path) -> None:
-        """Test that extract_from_archive retrieves file content from zip."""
-        # Arrange
-        archive_path = tmp_path / "archive.zip"
-        with ZipFile(archive_path, "w") as zf:
-            zf.writestr("test.txt", "Test content")
-
-        # Act
-        content = await extract_from_archive(archive_path, "test.txt")
-
-        # Assert
-        assert content == b"Test content"
+            readme = zf.read("README.md").decode().lower()
+            assert "original files" in readme and "do not modify" in readme
+        assert await extract_from_archive(archive_path, "file1.txt") == b"Content 1"
 
     @pytest.mark.parametrize(
         "filename,expected",
@@ -205,24 +172,12 @@ class TestTemplateDiscovery:
     """Tests for template discovery."""
 
     @pytest.mark.anyio
-    async def test_get_templates_path_returns_package_directory(self) -> None:
-        """Test that get_templates_path returns the templates directory from package."""
-        # Arrange
-        from mcp_guide.installer.core import get_templates_path
-
-        # Act
-        templates_path = await get_templates_path()
-
-        # Assert
-        assert templates_path.exists()
-        assert templates_path.is_dir()
-        assert templates_path.name == "templates"
-
-    @pytest.mark.anyio
     async def test_list_template_files_returns_all_files(self) -> None:
         """Test that list_template_files returns all files recursively."""
         # Arrange
-        from mcp_guide.installer.core import list_template_files
+        from mcp_guide.installer.core import get_templates_path, list_template_files
+
+        templates_path = await get_templates_path()
 
         # Act
         files = await list_template_files()
@@ -230,7 +185,7 @@ class TestTemplateDiscovery:
         # Assert
         assert len(files) > 0
         assert all(isinstance(f, Path) for f in files)
-        assert all(f.is_file() for f in files)
+        assert all(f.is_file() and f.is_relative_to(templates_path) for f in files)
         # Verify no dot-prefixed files are included
         assert all(not f.name.startswith(".") for f in files)
 
@@ -246,6 +201,7 @@ class TestFileInstallation:
 
         source = tmp_path / "source.txt"
         source.write_text("content")
+        source.chmod(0o755)
 
         dest = tmp_path / "nested" / "dir" / "dest.txt"
 
@@ -256,41 +212,6 @@ class TestFileInstallation:
         assert dest.exists()
         assert dest.read_text() == "content"
         assert dest.parent.exists()
-
-    @pytest.mark.anyio
-    async def test_install_file_skips_binary_files(self, tmp_path: Path) -> None:
-        """Test that install_file skips binary files with warning."""
-        # Arrange
-        from mcp_guide.installer.core import install_file
-
-        source = tmp_path / "binary.bin"
-        source.write_bytes(b"\x00\x01\x02\xff\xfe")
-
-        dest = tmp_path / "dest.bin"
-
-        # Act
-        result = await install_file(source, dest)
-
-        # Assert
-        assert result == "skipped_binary"  # Returns status string
-        assert not dest.exists()
-
-    @pytest.mark.anyio
-    async def test_install_file_preserves_permissions(self, tmp_path: Path) -> None:
-        """Test that install_file preserves file permissions."""
-        # Arrange
-        from mcp_guide.installer.core import install_file
-
-        source = tmp_path / "source.txt"
-        source.write_text("content")
-        source.chmod(0o755)
-
-        dest = tmp_path / "dest.txt"
-
-        # Act
-        await install_file(source, dest)
-
-        # Assert
         assert dest.stat().st_mode & 0o777 == 0o755
 
 
@@ -318,13 +239,9 @@ class TestInstallationOrchestration:
         async def fake_get_templates_path() -> Path:
             return templates_dir
 
-        async def fake_list_template_files() -> list[Path]:
-            return [template_file, nested_file]
-
         # Act
         monkeypatch = pytest.MonkeyPatch()
         monkeypatch.setattr(installer_core, "get_templates_path", fake_get_templates_path)
-        monkeypatch.setattr(installer_core, "list_template_files", fake_list_template_files)
         try:
             result = await install_templates(docroot, archive_path)
         finally:
@@ -367,12 +284,8 @@ class TestInstallationOrchestration:
         async def fake_get_templates_path() -> Path:
             return templates_dir
 
-        async def fake_list_template_files() -> list[Path]:
-            return [template_file]
-
         monkeypatch = pytest.MonkeyPatch()
         monkeypatch.setattr(installer_core, "get_templates_path", fake_get_templates_path)
-        monkeypatch.setattr(installer_core, "list_template_files", fake_list_template_files)
 
         # Act
         try:
@@ -381,7 +294,16 @@ class TestInstallationOrchestration:
             monkeypatch.undo()
 
         # Assert
-        assert "unchanged" in result or "patched" in result or "updated" in result or "installed" in result
+        assert result == {
+            "installed": 0,
+            "updated": 0,
+            "patched": 0,
+            "unchanged": 0,
+            "conflicts": 1,
+            "skipped_binary": 0,
+        }
+        assert (docroot / "file.txt").read_text() == "Template content\n"
+        assert (docroot / "orig.file.txt").read_text() == "User modified content\n"
 
     @pytest.mark.anyio
     async def test_update_documents_deletes_removed_unchanged_file(self, tmp_path: Path) -> None:
@@ -410,12 +332,8 @@ class TestInstallationOrchestration:
         async def fake_get_templates_path() -> Path:
             return templates_dir
 
-        async def fake_list_template_files() -> list[Path]:
-            return [template_file]
-
         monkeypatch = pytest.MonkeyPatch()
         monkeypatch.setattr(installer_core, "get_templates_path", fake_get_templates_path)
-        monkeypatch.setattr(installer_core, "list_template_files", fake_list_template_files)
 
         try:
             await update_documents(docroot, archive_path)
@@ -451,12 +369,8 @@ class TestInstallationOrchestration:
         async def fake_get_templates_path() -> Path:
             return templates_dir
 
-        async def fake_list_template_files() -> list[Path]:
-            return [template_file]
-
         monkeypatch = pytest.MonkeyPatch()
         monkeypatch.setattr(installer_core, "get_templates_path", fake_get_templates_path)
-        monkeypatch.setattr(installer_core, "list_template_files", fake_list_template_files)
 
         try:
             await update_documents(docroot, archive_path)
@@ -493,12 +407,8 @@ class TestInstallationOrchestration:
         async def fake_get_templates_path() -> Path:
             return templates_dir
 
-        async def fake_list_template_files() -> list[Path]:
-            return [template_file]
-
         monkeypatch = pytest.MonkeyPatch()
         monkeypatch.setattr(installer_core, "get_templates_path", fake_get_templates_path)
-        monkeypatch.setattr(installer_core, "list_template_files", fake_list_template_files)
 
         try:
             await update_documents(docroot, archive_path)
@@ -533,12 +443,8 @@ class TestInstallationOrchestration:
         async def fake_get_templates_path() -> Path:
             return templates_dir
 
-        async def fake_list_template_files() -> list[Path]:
-            return [template_file]
-
         monkeypatch = pytest.MonkeyPatch()
         monkeypatch.setattr(installer_core, "get_templates_path", fake_get_templates_path)
-        monkeypatch.setattr(installer_core, "list_template_files", fake_list_template_files)
 
         try:
             await update_documents(docroot, archive_path)
@@ -653,6 +559,8 @@ class TestInstallFileSmartUpdate:
 
         if scenario == "skipped_binary":
             assert not dest.exists()
+        elif scenario in {"installed", "updated", "unchanged", "no_archive_unchanged"}:
+            assert dest.read_text() == source_content
         elif scenario == "patched":
             content = dest.read_text()
             assert "line 2 updated" in content
@@ -660,7 +568,8 @@ class TestInstallFileSmartUpdate:
 
         if check_backup:
             backup = tmp_path / "orig.dest.txt"
-            assert backup.exists()
+            assert backup.read_text() == dest_content
+            assert dest.read_text() == source_content
 
     @pytest.mark.anyio
     async def test_install_file_uses_archive_name_for_subdirectory_files(self, tmp_path: Path) -> None:

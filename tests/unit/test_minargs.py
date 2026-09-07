@@ -1,20 +1,22 @@
 """Tests for minargs frontmatter feature in _execute_command."""
 
-import os
+from pathlib import Path
 
 import pytest
-from tests.helpers import create_unbound_test_session, request_context_for
+from tests.helpers import create_unbound_test_session, request_context_for, runtime_config_dir
 
 from mcp_guide.prompts.guide_prompt import _execute_command
-from mcp_guide.runtime import get_runtime
 
 
 @pytest.fixture
 async def cmd_docroot(runtime, session_temp_dir):
     """Provide a session-backed docroot with a _commands dir."""
+    config_dir = runtime_config_dir(runtime)
+    config_dir.mkdir(parents=True, exist_ok=True)
+    (config_dir / "config.yaml").write_text("projects: {}\nfeature_flags: {}\n")
     session = create_unbound_test_session(runtime)
-    docroot = await get_runtime().get_docroot()
-    os.makedirs(f"{docroot}/_commands", exist_ok=True)
+    docroot = Path(await runtime.get_docroot())
+    (docroot / "_commands").mkdir(parents=True, exist_ok=True)
     return session, docroot
 
 
@@ -51,4 +53,5 @@ async def test_minargs_rejects_too_few_args(cmd_docroot, minargs, args):
 async def test_minargs_allows_sufficient_args(cmd_docroot, minargs, args):
     session, docroot = cmd_docroot
     result = await _run(session, docroot, args, minargs)
-    assert "Missing required argument" not in (result.error or "")
+    assert result.success, result.error
+    assert result.value.strip() == "ok"

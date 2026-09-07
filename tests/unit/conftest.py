@@ -3,7 +3,7 @@
 import hashlib
 import uuid
 from pathlib import Path
-from typing import AsyncGenerator, Generator
+from typing import Generator
 
 import pytest
 
@@ -36,32 +36,3 @@ def unique_category_name(request):
     test_id = request.node.nodeid
     hash_val = hashlib.md5(test_id.encode()).hexdigest()[:8]
     return f"cat_{hash_val}"
-
-
-@pytest.fixture
-async def project_dir(tmp_path: Path, monkeypatch) -> AsyncGenerator[Path, None]:
-    """Set up isolated project directory with PWD and CWD.
-
-    Creates a project directory named "test" and sets environment variables
-    so that _determine_project_name() will correctly identify the project.
-
-    Args:
-        tmp_path: pytest's tmp_path fixture
-        monkeypatch: pytest's monkeypatch fixture for isolated env var changes
-
-    Yields:
-        Path to the project directory
-
-    Note:
-        - Project name will be "test" (derived from directory name)
-        - PWD and CWD are set to the project directory
-        - Session is automatically cleaned up after test
-    """
-    project_name = "test"
-    test_project_dir = tmp_path / project_name
-    test_project_dir.mkdir(exist_ok=True)
-
-    monkeypatch.setenv("PWD", str(test_project_dir))
-    monkeypatch.setenv("CWD", str(test_project_dir))
-
-    yield test_project_dir

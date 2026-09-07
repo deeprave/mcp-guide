@@ -3,6 +3,7 @@
 from pathlib import Path
 
 import pytest
+import yaml
 from _pytest.monkeypatch import MonkeyPatch
 from tests.helpers import create_test_session, request_context_for
 
@@ -46,8 +47,14 @@ async def _create_bound_session(runtime) -> Session:
 
 
 @pytest.fixture
-async def test_session_with_categories(runtime):
+async def test_session_with_categories(runtime, tmp_path):
     """Function-scoped fixture providing a session with sample categories."""
+    # Category configuration tests do not need first-run template installation.
+    docroot = tmp_path / "docs"
+    docroot.mkdir()
+    config_file = runtime.configuration_service().config_file
+    config_file.parent.mkdir(parents=True, exist_ok=True)
+    config_file.write_text(yaml.safe_dump({"docroot": str(docroot), "projects": {}}))
     session = await _create_bound_session(runtime)
     set_current_session(session)
     session._Session__delegate.bind(
@@ -60,13 +67,14 @@ async def test_session_with_categories(runtime):
     await remove_current_session()
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture
 async def setup_session(test_session_with_categories):
-    """Auto-use fixture to ensure session is set for each test."""
+    """Select a Session for the category behaviour classes."""
     set_current_session(test_session_with_categories)
     yield
 
 
+@pytest.mark.usefixtures("setup_session")
 class TestCategoryList:
     """Tests for category_list tool."""
 
@@ -120,6 +128,7 @@ class TestCategoryList:
                 assert item[key] == value
 
 
+@pytest.mark.usefixtures("setup_session")
 class TestCategoryAdd:
     """Tests for category_add tool."""
 
@@ -315,6 +324,7 @@ class TestCategoryAdd:
         assert "save" in result.error.lower()
 
 
+@pytest.mark.usefixtures("setup_session")
 class TestCategoryRemove:
     """Tests for category_remove tool."""
 
@@ -449,6 +459,7 @@ class TestCategoryRemove:
         assert "save" in result.error.lower()
 
 
+@pytest.mark.usefixtures("setup_session")
 class TestCategoryChange:
     """Tests for category_change tool."""
 
@@ -642,8 +653,7 @@ class TestCategoryCollectionArgsValidation:
             "update_collection_with_remove_patterns",
         ],
     )
-    @pytest.mark.anyio
-    async def test_incompatible_field_validation(
+    def test_incompatible_field_validation(
         self, args_class: str, type_value: str, invalid_field: str, invalid_value, error_match: str
     ) -> None:
         """Reject incompatible fields based on type."""
@@ -676,8 +686,7 @@ class TestCategoryCollectionArgsValidation:
             "update_valid_collection",
         ],
     )
-    @pytest.mark.anyio
-    async def test_valid_field_combinations(self, args_class: str, type_value: str, valid_fields: dict) -> None:
+    def test_valid_field_combinations(self, args_class: str, type_value: str, valid_fields: dict) -> None:
         """Accept valid field combinations."""
         from mcp_guide.tools import tool_category
 

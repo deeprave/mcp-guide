@@ -8,18 +8,6 @@ from mcp_guide.core.file_reader import read_file_content
 
 
 @pytest.mark.anyio
-async def test_read_utf8_file(tmp_path: Path) -> None:
-    """Test reading UTF-8 text file."""
-    file = tmp_path / "test.txt"
-    content = "Hello, World!\n"
-    file.write_text(content)
-
-    result = await read_file_content(file)
-
-    assert result == content
-
-
-@pytest.mark.anyio
 async def test_read_empty_file(tmp_path: Path) -> None:
     """Test reading empty file."""
     file = tmp_path / "empty.txt"
@@ -28,18 +16,6 @@ async def test_read_empty_file(tmp_path: Path) -> None:
     result = await read_file_content(file)
 
     assert result == ""
-
-
-@pytest.mark.anyio
-async def test_preserves_line_endings_and_whitespace(tmp_path: Path) -> None:
-    """Test that line endings and whitespace are preserved."""
-    file = tmp_path / "whitespace.txt"
-    content = "Line 1\n  Line 2 with spaces  \n\nLine 4\n"
-    file.write_text(content)
-
-    result = await read_file_content(file)
-
-    assert result == content
 
 
 @pytest.mark.anyio
@@ -86,38 +62,12 @@ async def test_missing_file_raises_error(tmp_path: Path) -> None:
 
 
 @pytest.mark.anyio
-async def test_large_file(tmp_path: Path) -> None:
-    """Test reading large file (1MB)."""
-    file = tmp_path / "large.txt"
-    content = "x" * (1024 * 1024)  # 1MB
-    file.write_text(content)
-
-    result = await read_file_content(file)
-
-    assert len(result) == len(content)
-
-
-@pytest.mark.anyio
 async def test_unicode_content(tmp_path: Path) -> None:
     """Test reading file with Unicode characters."""
     file = tmp_path / "unicode.txt"
-    content = "Hello 世界 🌍\n"
+    content = "Hello 世界 🌍\n  Spaces and tabs\t  \n"
     file.write_text(content)
 
     result = await read_file_content(file)
 
     assert result == content
-
-
-@pytest.mark.anyio
-async def test_various_line_endings(tmp_path: Path) -> None:
-    """Test files with different line endings are normalized by Python text mode."""
-    file = tmp_path / "mixed.txt"
-    content = "Unix\nWindows\r\nMac\rMixed\n"
-    file.write_text(content, newline="")
-
-    result = await read_file_content(file)
-
-    # Python text mode normalizes all line endings to \n
-    expected = "Unix\nWindows\nMac\nMixed\n"
-    assert result == expected

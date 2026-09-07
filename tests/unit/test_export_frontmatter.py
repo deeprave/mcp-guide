@@ -17,50 +17,25 @@ def _make_file(frontmatter: dict | None = None) -> FileInfo:
 
 
 class TestResolveContentDisposition:
-    """Tests for resolve_content_disposition precedence logic."""
-
-    def test_defaults_to_user_information_when_no_files(self):
-        assert resolve_content_disposition([]) == "user/information"
-
-    def test_defaults_to_user_information_when_no_frontmatter(self):
-        assert resolve_content_disposition([_make_file()]) == "user/information"
-
-    def test_single_user_information(self):
-        assert resolve_content_disposition([_make_file({"type": "user/information"})]) == "user/information"
-
-    def test_single_agent_information(self):
-        assert resolve_content_disposition([_make_file({"type": "agent/information"})]) == "agent/information"
-
-    def test_single_agent_instruction(self):
-        assert resolve_content_disposition([_make_file({"type": "agent/instruction"})]) == "agent/instruction"
-
-    def test_agent_information_outranks_user_information(self):
-        files = [_make_file({"type": "user/information"}), _make_file({"type": "agent/information"})]
-        assert resolve_content_disposition(files) == "agent/information"
-
-    def test_agent_instruction_outranks_all(self):
-        files = [
-            _make_file({"type": "user/information"}),
-            _make_file({"type": "agent/information"}),
-            _make_file({"type": "agent/instruction"}),
-        ]
-        assert resolve_content_disposition(files) == "agent/instruction"
-
-    def test_unknown_type_ignored(self):
-        files = [_make_file({"type": "unknown/type"}), _make_file({"type": "user/information"})]
-        assert resolve_content_disposition(files) == "user/information"
+    """Disposition precedence is independent of input order."""
 
     @pytest.mark.parametrize(
         "types,expected",
         [
-            (["agent/instruction", "user/information"], "agent/instruction"),
-            (["agent/information", "agent/instruction"], "agent/instruction"),
-            (["user/information", "user/information"], "user/information"),
+            ([], "user/information"),
+            ([None], "user/information"),
+            (["user/information"], "user/information"),
+            (["agent/information"], "agent/information"),
+            (["agent/instruction"], "agent/instruction"),
+            (["unknown/type", "user/information"], "user/information"),
+            (["user/information", "agent/information"], "agent/information"),
+            (["user/information", "agent/information", "agent/instruction"], "agent/instruction"),
         ],
     )
-    def test_precedence_combinations(self, types, expected):
-        files = [_make_file({"type": t}) for t in types]
-        assert resolve_content_disposition(files) == expected
+    def test_precedence(self, types, expected):
+        for ordered in (types, list(reversed(types))):
+            files = [_make_file({"type": kind}) if kind is not None else _make_file() for kind in ordered]
+            assert resolve_content_disposition(files) == expected
 
 
 class TestPrependExportFrontmatter:
@@ -75,10 +50,11 @@ class TestPrependExportFrontmatter:
         assert prepend_export_frontmatter(None, "user/information", None) is None
 
     def test_prepends_type_only(self):
-        result = prepend_export_frontmatter("body", "agent/information", None)
+        content = "# Title\n\nSome content here."
+        result = prepend_export_frontmatter(content, "agent/information", None)
         parsed, body = self._parse_frontmatter(result)
         assert parsed == {"type": "agent/information"}
-        assert body == "body"
+        assert body == content
 
     def test_prepends_type_and_instruction(self):
         result = prepend_export_frontmatter("body", "user/information", "Display this to the user")
@@ -97,7 +73,7 @@ class TestPrependExportFrontmatter:
         assert "instruction: |" in result
         assert body == "body"
 
-    def test_instruction_whitespace_is_compacted(self):
+    def test_instruction_indentation_and_empty_lines_are_preserved(self):
         result = prepend_export_frontmatter(
             "body",
             "agent/instruction",
@@ -109,11 +85,6 @@ class TestPrependExportFrontmatter:
 
     def test_no_disposition_no_instruction_returns_content_unchanged(self):
         assert prepend_export_frontmatter("body", None, None) == "body"
-
-    def test_body_preserved_after_frontmatter(self):
-        body = "# Title\n\nSome content here."
-        result = prepend_export_frontmatter(body, "user/information", None)
-        assert result.endswith(body)
 
     def test_special_yaml_characters_in_instruction(self):
         result = prepend_export_frontmatter("body", "agent/instruction", 'Use key: value and "quotes"')

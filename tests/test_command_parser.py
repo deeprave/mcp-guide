@@ -8,58 +8,28 @@ from mcp_guide.prompts.command_parser import parse_command_arguments
 class TestCommandArgumentParser:
     """Tests for parse_command_arguments function."""
 
-    def test_parse_simple_flags(self):
-        """Test parsing simple flags."""
-        argv = [":help", "--verbose", "--dry-run"]
-        kwargs, args, errors = parse_command_arguments(argv)
-
-        assert kwargs == {"verbose": True, "dry_run": True}
-        assert args == []
-        assert errors == []
-
-    def test_parse_negation_flags(self):
-        """Test parsing --no-flag negation."""
-        argv = [":command", "--no-verbose", "--no-dry-run"]
-        kwargs, args, errors = parse_command_arguments(argv)
-
-        assert kwargs == {"verbose": False, "dry_run": False}
-        assert args == []
-        assert errors == []
-
-    def test_parse_flag_with_value(self):
-        """Test parsing --key=value flags."""
-        argv = [":command", "--type=docs", "--name=test-category"]
-        kwargs, args, errors = parse_command_arguments(argv)
-
-        assert kwargs == {"type": "docs", "name": "test-category"}
-        assert args == []
-        assert errors == []
-
-    def test_parse_key_value_pairs(self):
-        """Test parsing key=value pairs without dashes."""
-        argv = [":command", "description=test desc", "setting=config"]
-        kwargs, args, errors = parse_command_arguments(argv)
-
-        assert kwargs == {"description": "test desc", "setting": "config"}
-        assert args == []
-        assert errors == []
-
-    def test_parse_positional_args(self):
-        """Test parsing positional arguments."""
-        argv = [":command", "arg1", "arg2", "arg with spaces"]
-        kwargs, args, errors = parse_command_arguments(argv)
-
-        assert kwargs == {}
-        assert args == ["arg1", "arg2", "arg with spaces"]
-        assert errors == []
-
     def test_parse_mixed_arguments(self):
         """Test parsing mixed argument types."""
-        argv = [":create/collection", "--dry-run", "--type=docs", "description=test", "my-collection", "category1"]
+        argv = [
+            ":create/collection",
+            "--dry-run-mode",
+            "--no-verbose-output",
+            "--type=docs",
+            "description=test desc",
+            "setting=config",
+            "my-collection",
+            "arg with spaces",
+        ]
         kwargs, args, errors = parse_command_arguments(argv)
 
-        assert kwargs == {"dry_run": True, "type": "docs", "description": "test"}
-        assert args == ["my-collection", "category1"]
+        assert kwargs == {
+            "dry_run_mode": True,
+            "verbose_output": False,
+            "type": "docs",
+            "description": "test desc",
+            "setting": "config",
+        }
+        assert args == ["my-collection", "arg with spaces"]
         assert errors == []
 
     @pytest.mark.parametrize(
@@ -80,15 +50,6 @@ class TestCommandArgumentParser:
         assert kwargs == {}
         assert args == []
         assert errors == [expected_error]
-
-    def test_hyphen_to_underscore_conversion(self):
-        """Test that hyphens are converted to underscores in flag names."""
-        argv = [":command", "--dry-run-mode", "--no-verbose-output"]
-        kwargs, args, errors = parse_command_arguments(argv)
-
-        assert kwargs == {"dry_run_mode": True, "verbose_output": False}
-        assert args == []
-        assert errors == []
 
     def test_empty_command_args(self):
         """Test parsing command with no arguments."""
@@ -215,10 +176,8 @@ class TestArgRequiredFeature:
         assert "5" in kwargs  # -5 parsed as short flag
         assert errors == ["Flag --threshold requires a value, got flag -5"]
 
-    def test_argrequired_accepts_quoted_negative_values(self):
-        """Test that quoted negative values work (shell removes quotes)."""
-        # Shell would pass this as: [":command", "--threshold", "-5"]
-        # But with equals syntax, it works:
+    def test_argrequired_accepts_negative_values_with_equals(self):
+        """Equals syntax keeps a negative value attached to its flag."""
         argv = [":command", "--threshold=-5"]
         kwargs, args, errors = parse_command_arguments(argv, argrequired=["threshold"])
 
@@ -244,19 +203,11 @@ class TestArgRequiredFeature:
         assert args == ["arg1", "arg2"]
         assert errors == []
 
-    def test_argrequired_none_preserves_current_behavior(self):
-        """Test that argrequired=None preserves current boolean flag behavior."""
+    @pytest.mark.parametrize("required", [None, []], ids=["none", "empty"])
+    def test_no_required_values_leaves_positionals_unconsumed(self, required):
+        """Without required-value flags, following words stay positional."""
         argv = [":command", "--verbose", "arg1"]
-        kwargs, args, errors = parse_command_arguments(argv, argrequired=None)
-
-        assert kwargs == {"verbose": True}
-        assert args == ["arg1"]
-        assert errors == []
-
-    def test_argrequired_empty_list_preserves_current_behavior(self):
-        """Test that argrequired=[] preserves current boolean flag behavior."""
-        argv = [":command", "--verbose", "arg1"]
-        kwargs, args, errors = parse_command_arguments(argv, argrequired=[])
+        kwargs, args, errors = parse_command_arguments(argv, argrequired=required)
 
         assert kwargs == {"verbose": True}
         assert args == ["arg1"]

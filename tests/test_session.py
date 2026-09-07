@@ -15,6 +15,25 @@ from mcp_guide.session import (
 from tests.helpers import create_test_runtime, create_test_session, create_unbound_test_session
 
 
+@pytest.fixture
+def empty_task_registry():
+    """Isolate listener delivery from project tasks without leaking registry state."""
+    from mcp_guide.decorators import (
+        clear_registered_tasks_for_testing,
+        get_registered_task_classes,
+        task_register,
+    )
+
+    registered = get_registered_task_classes()
+    clear_registered_tasks_for_testing()
+    try:
+        yield
+    finally:
+        clear_registered_tasks_for_testing()
+        for task_class in registered:
+            task_register(task_class)
+
+
 def runtime_context(tmp_path: Path, request_id: str = "test-request") -> tuple[GuideRuntime[Session], MagicMock]:
     """Create a modern request context with an isolated runtime-owned Session."""
     runtime = create_test_runtime(str(tmp_path))
@@ -351,14 +370,10 @@ class TestGetOrCreateSession:
         assert session2.project_name == "project2"
 
     @pytest.mark.anyio
-    async def test_project_switch_regenerates_startup_instructions_after_restart(self, runtime, tmp_path, monkeypatch):
+    async def test_project_switch_regenerates_startup_instructions_after_restart(
+        self, runtime, tmp_path, monkeypatch, empty_task_registry
+    ):
         """Switching projects clears stale queued instructions, then queues fresh startup guidance."""
-        from mcp_guide.decorators import clear_registered_tasks_for_testing
-        from mcp_guide.task_manager.manager import TaskManager
-
-        await TaskManager._reset_for_testing()
-        clear_registered_tasks_for_testing()
-
         startup_rendered: list[str] = []
         guide_rendered: list[str] = []
 
@@ -395,8 +410,6 @@ class TestGetOrCreateSession:
         assert any(instruction.startswith("_startup:") for instruction in pending_instructions)
         assert any(instruction.startswith("_onboard_prompt:") for instruction in pending_instructions)
         assert any(instruction.startswith("_guide-uri:") for instruction in pending_instructions)
-
-        await TaskManager._reset_for_testing()
 
 
 class TestUnboundSession:

@@ -92,41 +92,6 @@ def test_category_content_args_schema(expression, pattern, should_raise, expecte
         assert args.pattern == expected_pattern
 
 
-def test_schema_has_field_descriptions():
-    """Test that fields have descriptions."""
-    from mcp_guide.tools.tool_category import CategoryContentArgs
-
-    schema = CategoryContentArgs.model_json_schema()
-    assert "expression" in schema["properties"]
-    assert "description" in schema["properties"]["expression"]
-    assert "pattern" in schema["properties"]
-    assert "description" in schema["properties"]["pattern"]
-
-
-def test_error_types_defined():
-    """Test that error types are defined."""
-    from mcp_guide.tools.tool_category import ERROR_NOT_FOUND
-
-    assert ERROR_NOT_FOUND == "not_found"
-
-
-def test_error_instructions_defined():
-    """Test that error instructions are defined."""
-    from mcp_guide.result_constants import (
-        INSTRUCTION_NOTFOUND_ERROR as CONST_NOTFOUND_ERROR,
-    )
-    from mcp_guide.result_constants import (
-        INSTRUCTION_PATTERN_ERROR as CONST_PATTERN_ERROR,
-    )
-    from mcp_guide.tools.tool_category import (
-        INSTRUCTION_NOTFOUND_ERROR,
-        INSTRUCTION_PATTERN_ERROR,
-    )
-
-    assert INSTRUCTION_NOTFOUND_ERROR == CONST_NOTFOUND_ERROR
-    assert INSTRUCTION_PATTERN_ERROR == CONST_PATTERN_ERROR
-
-
 def test_instructions_prevent_futile_remediation():
     """Test that instructions explicitly prevent agent remediation."""
     from mcp_guide.tools.tool_category import (
@@ -140,15 +105,6 @@ def test_instructions_prevent_futile_remediation():
         phrase in INSTRUCTION_PATTERN_ERROR.lower()
         for phrase in ["do not attempt", "don't attempt", "no further action"]
     )
-
-
-@pytest.mark.anyio
-async def test_category_content_function_exists():
-    """Test that category_content function exists."""
-    from mcp_guide.tools.tool_category import category_content
-
-    assert category_content is not None
-    assert callable(category_content)
 
 
 @pytest.mark.anyio

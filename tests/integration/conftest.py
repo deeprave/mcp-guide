@@ -10,7 +10,6 @@ server per module.
 """
 
 from importlib import import_module
-from pathlib import Path
 
 import pytest
 
@@ -26,7 +25,11 @@ def mcp_server_factory(tmp_path_factory):
         def mcp_server(mcp_server_factory):
             return mcp_server_factory(["tool_category"])
     """
-    created_servers = []
+    from copy import deepcopy
+
+    from mcp_guide.core import tool_decorator
+
+    saved_registry = deepcopy(tool_decorator._TOOL_REGISTRY)
 
     def _create_server(tool_modules: list[str]):
         # Clear tool registration state before bootstrap so each fixture has
@@ -69,7 +72,6 @@ def mcp_server_factory(tmp_path_factory):
         config = ServerConfig(configdir=str(isolated), docroot=str(docs))
         server = create_server(config)
 
-        created_servers.append(server)
         return server
 
     yield _create_server
@@ -78,16 +80,34 @@ def mcp_server_factory(tmp_path_factory):
     from mcp_guide.core.tool_decorator import clear_tool_registry
 
     clear_tool_registry()
+    tool_decorator._TOOL_REGISTRY.update(saved_registry)
 
 
 @pytest.fixture
-def installer_config(tmp_path: Path) -> Path:
-    """Create installer config to skip first-run installation.
+async def resource_project(runtime, tmp_path):
+    """Real content and command fixtures shared by the two resource entry points."""
+    import yaml
 
-    Returns:
-        Path to config directory
-    """
-    config_dir = tmp_path / "config"
-    config_dir.mkdir()
-    (config_dir / "installer.yaml").write_text("docroot: /tmp/test\n")
-    return config_dir
+    from mcp_guide.models import Category
+    from tests.helpers import create_bound_test_session, request_context_for
+
+    docroot = tmp_path / "resource-docs"
+    for folder in ("docs", "policies/git/ops", "_commands/project", "_commands/openspec"):
+        (docroot / folder).mkdir(parents=True, exist_ok=True)
+    (docroot / "docs/readme.md").write_text("docs content")
+    (docroot / "policies/git/ops/rules.md").write_text("git policy")
+    (docroot / "policies/other.md").write_text("unrelated policy")
+    (docroot / "_commands/project/project.mustache").write_text(
+        "---\naliases: ['project?verbose']\n---\n"
+        "{{project.name}}{{#kwargs.verbose}} verbose{{/kwargs.verbose}}{{#kwargs.table}} table{{/kwargs.table}}"
+    )
+    (docroot / "_commands/openspec/show.mustache").write_text(
+        "Show {{#args}}{{value}}{{/args}}{{#kwargs.verbose}} verbose{{/kwargs.verbose}}"
+    )
+    runtime.configuration_service().config_file.write_text(yaml.safe_dump({"docroot": str(docroot), "projects": {}}))
+    session = await create_bound_test_session(runtime, "resource-project")
+    for name, patterns in (("docs", ["*.md"]), ("policies", ["git/ops/*.md", "other.md"])):
+        await session.update_config(
+            lambda p, name=name, patterns=patterns: p.with_category(name, Category(dir=name, patterns=patterns))
+        )
+    return await request_context_for(session, "resource-session")

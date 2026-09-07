@@ -8,17 +8,16 @@ from unittest.mock import patch
 import pytest
 from fastmcp import Client
 
-from mcp_guide.transports.base import Transport
 from mcp_guide.transports.http import HttpTransport
 
 
-class MockMcpServer:
-    """Mock MCP server for testing."""
+class RecordingMcpServer:
+    """Record the SDK boundary request and return a minimal ASGI app."""
 
     def http_app(self, *, transport, path):
         """Mock streamable HTTP app."""
         assert transport == "streamable-http"
-        assert path.startswith("/")
+        self.endpoint_path = path
 
         # Return a minimal ASGI app
         async def app(scope, receive, send):
@@ -34,71 +33,57 @@ class MockMcpServer:
         return app
 
 
-def test_http_transport_implements_protocol():
-    """Test that HttpTransport implements Transport protocol."""
-    mock_server = MockMcpServer()
-    transport = HttpTransport("http", "localhost", 8080, mock_server)
-    assert isinstance(transport, Transport)
-
-
-def test_https_transport_implements_protocol():
-    """Test that HttpTransport works with HTTPS."""
-    mock_server = MockMcpServer()
-    transport = HttpTransport("https", "0.0.0.0", 443, mock_server)
-    assert isinstance(transport, Transport)
-
-
-def test_http_transport_with_mcp_path():
-    """Test that path ending with 'mcp' doesn't get /mcp appended."""
-    mock_server = MockMcpServer()
-    transport = HttpTransport("http", "localhost", 8080, mock_server, path_prefix="mcp")
-    assert transport.path_prefix == "mcp"
-
-
-def test_http_transport_with_api_mcp_path():
-    """Test that nested path ending with 'mcp' doesn't get /mcp appended."""
-    mock_server = MockMcpServer()
-    transport = HttpTransport("http", "localhost", 8080, mock_server, path_prefix="api/mcp")
-    assert transport.path_prefix == "api/mcp"
-
-
 @pytest.mark.anyio
-async def test_http_transport_lifecycle():
+@pytest.mark.parametrize(
+    "prefix,expected", [(None, "/mcp"), ("mcp", "/mcp"), ("api/mcp", "/api/mcp"), ("api", "/api/mcp")]
+)
+async def test_http_transport_lifecycle(prefix, expected):
     """Test HttpTransport start/stop lifecycle."""
-    import asyncio
+    started = asyncio.Event()
+    stopped = asyncio.Event()
 
-    # Mock uvicorn.Server to avoid real I/O
+    # Control the external Uvicorn boundary; real negotiated clients are tested below.
     class FakeServer:
         def __init__(self, config):
             self.config = config
-            self.should_exit = False
-            self.started = False
+            self._should_exit = False
+
+        @property
+        def should_exit(self):
+            return self._should_exit
+
+        @should_exit.setter
+        def should_exit(self, value):
+            self._should_exit = value
+            if value:
+                stopped.set()
 
         async def serve(self):
-            self.started = True
-            while not self.should_exit:
-                await asyncio.sleep(0.01)
+            started.set()
+            await stopped.wait()
 
-    mock_server = MockMcpServer()
+    mock_server = RecordingMcpServer()
 
     with patch("uvicorn.Server", FakeServer):
-        transport = HttpTransport("http", "localhost", 8081, mock_server)
+        transport = HttpTransport("http", "localhost", 8081, mock_server, path_prefix=prefix)
 
         # Start in background
         await transport.start()
 
-        # Give server task time to start
-        await asyncio.sleep(0.05)
+        await started.wait()
+        assert mock_server.endpoint_path == expected
 
         # Verify server started
         assert transport.server is not None
-        assert transport.server.started
+        assert transport.server.config.host == "localhost"
+        assert transport.server.config.port == 8081
 
         # Stop server
         await transport.stop()
 
         # Verify server stopped
         assert transport.server.should_exit
+        assert transport.server_task.done()
 
 
 @pytest.mark.anyio

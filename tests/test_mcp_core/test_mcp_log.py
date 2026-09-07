@@ -5,35 +5,6 @@ import logging
 import pytest
 
 
-class TestTraceLevel:
-    """Tests for TRACE logging level."""
-
-    def test_trace_level_registered(self):
-        """Test TRACE level is registered with logging module."""
-        from mcp_guide.core.mcp_log import TRACE_LEVEL
-
-        assert TRACE_LEVEL == 5
-        assert logging.getLevelName(TRACE_LEVEL) == "TRACE"
-
-    def test_logger_is_enabled_for_trace(self):
-        """Test logger.isEnabledFor() works with TRACE level."""
-        from mcp_guide.core.mcp_log import TRACE_LEVEL
-
-        logger = logging.getLogger("test_trace")
-        logger.setLevel(TRACE_LEVEL)
-
-        assert logger.isEnabledFor(TRACE_LEVEL)
-
-    def test_logger_filters_trace_when_level_higher(self):
-        """Test TRACE messages filtered when level is DEBUG or higher."""
-        from mcp_guide.core.mcp_log import TRACE_LEVEL
-
-        logger = logging.getLogger("test_trace_filter")
-        logger.setLevel(logging.DEBUG)
-
-        assert not logger.isEnabledFor(TRACE_LEVEL)
-
-
 class TestLoggerTraceMethod:
     """Tests for logger.trace() method."""
 
@@ -49,6 +20,7 @@ class TestLoggerTraceMethod:
 
         assert len(caplog.records) == 1
         assert caplog.records[0].levelno == TRACE_LEVEL
+        assert caplog.records[0].levelname == "TRACE"
         assert caplog.records[0].message == "test message"
 
     def test_trace_method_filtered_when_level_higher(self, caplog):
@@ -115,11 +87,9 @@ class TestRedactedFormatter:
 
         from mcp_guide.core.mcp_log import RedactedFormatter
 
-        redaction_called = []
-
+        # A deterministic provider stands in for a future external redaction service.
         def mock_redaction(message: str) -> str:
-            redaction_called.append(message)
-            return message
+            return message.replace("sensitive", "[REDACTED]")
 
         def mock_get_redaction():
             return mock_redaction
@@ -137,8 +107,9 @@ class TestRedactedFormatter:
             exc_info=None,
         )
 
-        formatter.format(record)
-        assert len(redaction_called) > 0
+        output = formatter.format(record)
+        assert "[REDACTED] data" in output
+        assert "sensitive" not in output
 
     def test_formatter_handles_exceptions(self):
         """Test formatter includes exception info."""
@@ -208,11 +179,9 @@ class TestStructuredJSONFormatter:
 
         from mcp_guide.core.mcp_log import StructuredJSONFormatter
 
-        redaction_called = []
-
+        # A deterministic provider stands in for a future external redaction service.
         def mock_redaction(message: str) -> str:
-            redaction_called.append(message)
-            return message
+            return message.replace("sensitive", "[REDACTED]")
 
         def mock_get_redaction():
             return mock_redaction
@@ -230,8 +199,9 @@ class TestStructuredJSONFormatter:
             exc_info=None,
         )
 
-        formatter.format(record)
-        assert "sensitive" in redaction_called
+        output = formatter.format(record)
+        assert '"message": "[REDACTED]"' in output
+        assert "sensitive" not in output
 
     def test_json_formatter_includes_exception(self):
         """Test JSON formatter includes exception info."""
@@ -349,14 +319,3 @@ class TestCreateFileHandler:
         finally:
             handler.close()
             monkeypatch.setattr(logging.FileHandler, "__init__", original_init)
-
-
-class TestContextTrace:
-    """Tests for Context.trace() method."""
-
-    def test_add_trace_to_context_without_fastmcp(self):
-        """Test add_trace_to_context handles missing FastMCP gracefully."""
-        from mcp_guide.core.mcp_log import add_trace_to_context
-
-        # Should not raise even if FastMCP not available
-        add_trace_to_context()

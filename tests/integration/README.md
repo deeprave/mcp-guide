@@ -1,60 +1,33 @@
-# Integration Tests
+# Integration tests
 
-Integration tests verify that tools are properly registered with the MCP server and work through the MCP protocol.
+Integration tests exercise observable behaviour across Guide components: real
+configuration, files, rendering, session lifecycles and MCP client interactions.
+Assert returned content, persisted state and emitted instructions, rather than
+registration existence or calls to mocked Guide methods.
 
-## The Problem: Tool Registration and Module Caching
+## Isolation
 
-**Critical**: Tools are registered with the MCP server via decorators that execute **ON MODULE IMPORT**.
+Use `mcp_server_factory` for protocol tests. It clears deferred tool registrations,
+reloads the requested modules and creates a server with a temporary configuration
+and document root. The previous registry is restored after the module finishes.
+Python's import cache otherwise prevents decorators from repopulating a cleared
+registry. Production registration is deferred and tracked per server; there is
+no ToolsProxy singleton.
 
-When pytest runs multiple test modules, Python's import system caches modules and does NOT re-import them. This causes contamination:
+Use the `runtime` fixture and helpers in `tests/helpers.py` for component tests.
+Bind a real project when the behaviour requires one, and construct an explicit
+request context. Keep all filesystem writes in pytest temporary directories.
 
-1. First test module imports `tool_category` → decorators register with ToolsProxy
-2. Second test module creates new server → but `tool_category` already cached
-3. Tools still registered with OLD server instance
-4. Tests fail with signature mismatches
+## Coverage and runtime
 
-## The Solution: mcp_server_factory Fixture
+Preserve both modern and legacy MCP protocol coverage. Legacy protocol support
+is not obsolete application-state compatibility.
 
-The `mcp_server_factory` fixture in `conftest.py` solves this by:
-1. Resetting the ToolsProxy singleton
-2. Creating a fresh server instance
-3. Reloading specified tool modules to re-execute decorators
-4. Cleaning up after tests complete
+Combine repeated setup where scenarios form one meaningful behavioural flow.
+Parametrise cases with matching setup and assertions. Do not duplicate a protocol
+round trip for every unit-level input, or count fewer test functions as evidence
+of improved runtime. Compare complete suite runs under the same settings.
 
-## Usage Pattern
-
-```python
-@pytest.fixture(scope="module")
-def mcp_server(mcp_server_factory):
-    """Create fresh MCP server for this test module."""
-    return mcp_server_factory(["tool_category", "tool_collection"])
-
-
-@pytest.mark.anyio
-async def test_something(mcp_server):
-    """Test via MCP client."""
-    async with create_connected_server_and_client_session(mcp_server) as client:
-        result = await client.call_tool("category_add", {...})
-        # Assert on result...
-```
-
-## What to Test Here
-
-Integration tests should ONLY verify:
-- Tool is registered with MCP server
-- Tool works through MCP protocol (optional, usually covered by unit tests)
-
-**Do NOT test tool logic here** - that belongs in unit tests (`tests/unit/`).
-
-## Unit Tests vs Integration Tests
-
-| Aspect | Unit Tests | Integration Tests |
-|--------|-----------|-------------------|
-| Location | `tests/unit/` | `tests/integration/` |
-| Purpose | Test tool logic | Test MCP registration |
-| Function calls | Direct: `await tool(args)` | Via MCP client |
-| Fixture needed | No `mcp_server` | Yes, `mcp_server_factory` |
-| Speed | Fast | Slower |
-| Coverage | 99% of tests | Minimal, registration only |
-
-See `docs/testing-tools.md` for comprehensive testing guide.
+Run every pytest command in a persistent foreground terminal and wait for its
+complete result. Do not edit tracked worktree files during a run: the safety
+fixture treats those writes as a test isolation failure.

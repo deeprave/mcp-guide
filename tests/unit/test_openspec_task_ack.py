@@ -1,138 +1,79 @@
-"""Tests for OpenSpecTask acknowledgement tracking."""
-
-from contextlib import nullcontext
-from unittest.mock import AsyncMock, Mock, patch
+"""OpenSpec acknowledgement behaviour with real rendering, queueing and persistence."""
 
 import pytest
+import yaml
+from tests.helpers import create_unbound_test_session
 
+from mcp_guide.openspec.state import parse_openspec_state
 from mcp_guide.openspec.task import OpenSpecTask
-from mcp_guide.task_manager.interception import EventType
-from mcp_guide.task_manager.manager import TaskManager
+from mcp_guide.result import Result
+from mcp_guide.task_manager import EventType
 
 
-def _manager() -> TaskManager:
-    """Create a manager with the session ownership required for cache updates."""
-    return TaskManager(session=Mock(template_cache=Mock(), work=nullcontext))
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    "check_kind,event,data,followup",
+    [
+        ("cli", EventType.FS_COMMAND, {"command": "openspec", "found": True, "path": "/usr/bin/openspec"}, "version"),
+        ("version", EventType.FS_FILE_CONTENT, {"path": ".openspec-version.txt", "content": "1.2.3"}, "project"),
+        ("project", EventType.FS_DIRECTORY, {"path": "openspec", "files": [{"name": "config.yaml"}]}, "changes"),
+        ("changes", EventType.FS_FILE_CONTENT, {"path": ".openspec-changes.json", "content": '{"changes": []}'}, None),
+    ],
+    ids=["cli", "version", "project", "changes"],
+)
+async def test_responses_acknowledge_requests_and_only_followup_is_retried(
+    runtime, tmp_path, monkeypatch, check_kind, event, data, followup
+):
+    """A delivered response stops its request's retries and advances the OpenSpec check."""
+    docroot = tmp_path / "docs"
+    templates = docroot / "_openspec"
+    templates.mkdir(parents=True)
+    for name, pattern in {
+        "cli": "openspec-cli-check",
+        "version": "openspec-version-check",
+        "project": "openspec-project-check",
+        "changes": "openspec-get-changes",
+    }.items():
+        (templates / f"{pattern}.mustache").write_text(f"Request {name}")
+    (templates / "_list-format.mustache").write_text("Current changes")
+    config = runtime.configuration_service().config_file
+    config.parent.mkdir(parents=True, exist_ok=True)
+    config.write_text(yaml.safe_dump({"docroot": str(docroot), "projects": {}}))
+    # Acknowledgement is independent of binding/activation, which has lifecycle coverage.
+    session = create_unbound_test_session(runtime)
+    manager = session.task_manager
+    task = OpenSpecTask(manager)
+    now = 100.0
+    monkeypatch.setattr("time.time", lambda: now)
 
+    async def delivered():
+        return (await manager.process_result(Result.ok())).additional_agent_instructions
 
-@pytest.fixture(autouse=True)
-async def reset_task_manager():
-    """Reset TaskManager singleton before each test."""
-    await TaskManager._reset_for_testing()
-    yield
-    await TaskManager._reset_for_testing()
-
-
-@pytest.fixture(autouse=True)
-def mock_openspec_templates():
-    """Keep acknowledgement tests focused on task tracking, not rendering."""
-
-    async def render(session, template_name, extra_context=None):
-        return Mock(content=f"openspec request: {template_name}")
-
-    with patch("mcp_guide.openspec.task.render_openspec_template", new=AsyncMock(side_effect=render)):
-        yield
-
-
-@pytest.fixture(autouse=True)
-def mock_global_openspec_state(monkeypatch):
-    """Keep acknowledgement tests independent of runtime persistence."""
-    flags = Mock(get=AsyncMock(return_value=None), set=AsyncMock())
-    runtime = Mock(feature_flags=Mock(return_value=flags))
-    monkeypatch.setattr("mcp_guide.openspec.task.get_runtime", lambda: runtime)
-
-
-class TestOpenSpecTaskAcknowledgement:
-    """Test OpenSpecTask acknowledgement tracking."""
-
-    @pytest.mark.anyio
-    async def test_cli_check_stores_instruction_id(self):
-        """Test that CLI check stores instruction ID."""
-        manager = _manager()
-        task = OpenSpecTask(manager)
-        task._session = Mock()
-
-        await task.request_cli_check()
-
-        assert task._cli_instruction_id is not None
-        assert task._cli_instruction_id in manager._tracked_instructions
-
-    @pytest.mark.anyio
-    async def test_cli_response_acknowledges_instruction(self):
-        """Test that CLI response acknowledges instruction."""
-        manager = _manager()
-        task = OpenSpecTask(manager)
-
-        await task.request_cli_check()
-        instruction_id = task._cli_instruction_id
-
-        # Simulate CLI response
-        await task.handle_event(
-            EventType.FS_COMMAND, {"command": "openspec", "found": True, "path": "/usr/bin/openspec"}
-        )
-
-        assert instruction_id not in manager._tracked_instructions
-
-    @pytest.mark.anyio
-    async def test_version_check_stores_instruction_id(self):
-        """Test that version check stores instruction ID."""
-        manager = _manager()
-        task = OpenSpecTask(manager)
-
-        await task.request_version_check()
-
-        assert task._version_instruction_id is not None
-        assert task._version_instruction_id in manager._tracked_instructions
-
-    @pytest.mark.anyio
-    async def test_version_response_acknowledges_instruction(self):
-        """Test that version response acknowledges instruction."""
-        manager = _manager()
-        task = OpenSpecTask(manager)
-        task._session = Mock()
-
-        await task.request_version_check()
-        instruction_id = task._version_instruction_id
-
-        # Simulate version response
-        await task.handle_event(EventType.FS_FILE_CONTENT, {"path": ".openspec-version.txt", "content": "1.2.3"})
-
-        assert instruction_id not in manager._tracked_instructions
-
-    @pytest.mark.anyio
-    async def test_project_check_stores_instruction_id(self):
-        """Test that project check stores instruction ID."""
-        manager = _manager()
-        task = OpenSpecTask(manager)
-
-        await task.request_project_check()
-
-        assert task._project_instruction_id is not None
-        assert task._project_instruction_id in manager._tracked_instructions
-
-    @pytest.mark.anyio
-    async def test_changes_request_stores_instruction_id(self):
-        """Test that changes request stores instruction ID."""
-        manager = _manager()
-        task = OpenSpecTask(manager)
-
-        await task.request_changes_json()
-
-        assert task._changes_instruction_id is not None
-        assert task._changes_instruction_id in manager._tracked_instructions
-
-    @pytest.mark.anyio
-    async def test_changes_response_acknowledges_instruction(self):
-        """Test that changes response acknowledges instruction."""
-        manager = _manager()
-        task = OpenSpecTask(manager)
-
-        await task.request_changes_json()
-        instruction_id = task._changes_instruction_id
-
-        # Simulate changes response
-        await task.handle_event(
-            EventType.FS_FILE_CONTENT, {"path": ".openspec-changes.json", "content": '{"changes": []}'}
-        )
-
-        assert instruction_id not in manager._tracked_instructions
+    methods = {
+        "cli": task.request_cli_check,
+        "version": task.request_version_check,
+        "project": task.request_project_check,
+        "changes": task.request_changes_json,
+    }
+    await methods[check_kind]()
+    assert await delivered() == f"Request {check_kind}"
+    now += 31
+    await manager.retry_unacknowledged()
+    assert await delivered() == f"Request {check_kind}"
+    response = await task.handle_event(event, data)
+    assert response is not None and response.result
+    if followup:
+        assert await delivered() == f"Request {followup}"
+    else:
+        assert response.rendered_content.content == "Current changes"
+        assert manager.get_cached_data("openspec_changes") == []
+    now += 31
+    await manager.retry_unacknowledged()
+    if followup:
+        assert await delivered() == f"Request {followup}"
+    assert manager.is_queue_empty()
+    if check_kind == "version":
+        state = parse_openspec_state(await runtime.feature_flags().get("openspec-state"))
+        assert state.validated is True
+        assert state.version == "1.2.3"
+        assert state.checked == 131.0

@@ -15,7 +15,6 @@ from mcp_guide.feature_flags.validators import (
     validate_boolean_or_string_flag,
     validate_content_format_mime,
     validate_flag_name,
-    validate_flag_value,
     validate_flag_with_registered,
     validate_template_styling,
 )
@@ -57,63 +56,6 @@ class TestFlagNameValidation:
     def test_flag_name_empty_string(self):
         """Test validation of empty flag names."""
         assert validate_flag_name("") is False
-
-
-class TestFlagValueValidation:
-    """Test flag value type validation."""
-
-    def test_flag_value_accepts_boolean(self):
-        """Test that flag values accept boolean types."""
-        assert validate_flag_value(True) is True
-        assert validate_flag_value(False) is True
-
-    def test_flag_value_accepts_string(self):
-        """Test that flag values accept string types."""
-        assert validate_flag_value("test") is True
-        assert validate_flag_value("") is True
-        assert validate_flag_value("multi word string") is True
-
-    def test_flag_value_accepts_list_of_strings(self):
-        """Test that flag values accept list[str] types."""
-        assert validate_flag_value(["a", "b", "c"]) is True
-        assert validate_flag_value([]) is True
-        assert validate_flag_value(["single"]) is True
-        assert validate_flag_value(["", "empty", ""]) is True
-
-    def test_flag_value_accepts_dict_str_str(self):
-        """Test that flag values accept dict[str, str] types."""
-        assert validate_flag_value({"key": "value"}) is True
-        assert validate_flag_value({}) is True
-        assert validate_flag_value({"k1": "v1", "k2": "v2"}) is True
-        assert validate_flag_value({"": ""}) is True
-
-    def test_flag_value_rejects_numeric_types(self):
-        """Test that flag values reject numeric types."""
-        assert validate_flag_value(123) is False
-        assert validate_flag_value(12.34) is False
-        assert validate_flag_value(0) is False
-        assert validate_flag_value(-1) is False
-
-    def test_flag_value_rejects_mixed_lists(self):
-        """Test that flag values reject lists with non-string elements."""
-        assert validate_flag_value([1, 2, 3]) is False
-        assert validate_flag_value(["string", 123]) is False
-        assert validate_flag_value([True, False]) is False
-        assert validate_flag_value(["string", True, 123]) is False
-
-    def test_flag_value_rejects_invalid_dict_types(self):
-        """Test that flag values reject dicts with non-string keys/values."""
-        assert validate_flag_value({1: "value"}) is False
-        assert validate_flag_value({"key": 123}) is False
-        assert validate_flag_value({1: 2}) is False
-        assert validate_flag_value({"key": True}) is False
-
-    def test_flag_value_rejects_other_types(self):
-        """Test that flag values reject other types."""
-        assert validate_flag_value(None) is False
-        assert validate_flag_value(object()) is False
-        assert validate_flag_value(set()) is False
-        assert validate_flag_value(tuple()) is False
 
 
 class TestContentFormatMimeValidator:
@@ -180,7 +122,7 @@ class TestValidatorRegistration:
     """Test validator registration and usage."""
 
     @pytest.fixture(autouse=True)
-    def _register_test_validators(self):
+    def _register_test_validators(self, reset_flag_registry):
         """Register the validators used by this test class."""
         clear_validators()
         register_flag_validator("content-format", validate_content_format_mime)
@@ -205,7 +147,7 @@ class TestDefaultGenericFlagBehavior:
     """Test default validator/normalizer behavior for unregistered flags."""
 
     @pytest.fixture(autouse=True)
-    def _reset_registry(self):
+    def _reset_registry(self, reset_flag_registry):
         clear_validators()
 
     def test_default_validator_accepts_bool_and_string(self):

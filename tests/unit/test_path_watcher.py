@@ -23,18 +23,6 @@ def _bump_mtime(path: str, previous_mtime: float | None = None) -> float:
 class TestPathWatcherBasic:
     """Test basic PathWatcher instantiation and validation."""
 
-    def test_path_watcher_can_be_instantiated_with_file_path(self):
-        """PathWatcher can be instantiated with a file path."""
-        with tempfile.NamedTemporaryFile() as tmp_file:
-            watcher = PathWatcher(tmp_file.name)
-            assert watcher.path == tmp_file.name
-
-    def test_path_watcher_can_be_instantiated_with_directory_path(self):
-        """PathWatcher can be instantiated with a directory path."""
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            watcher = PathWatcher(tmp_dir)
-            assert watcher.path == tmp_dir
-
     @pytest.mark.anyio
     async def test_path_watcher_raises_error_for_non_existent_paths(self):
         """PathWatcher raises error for non-existent paths on first check."""
@@ -43,21 +31,6 @@ class TestPathWatcherBasic:
 
         with pytest.raises(FileNotFoundError):
             await watcher.has_changed()
-
-    @pytest.mark.anyio
-    async def test_path_watcher_tracks_initial_mtime_and_inode(self):
-        """PathWatcher tracks initial mtime and inode after first check."""
-        with tempfile.NamedTemporaryFile() as tmp_file:
-            watcher = PathWatcher(tmp_file.name)
-
-            # Get actual file stats
-            stat = os.stat(tmp_file.name)
-
-            # Initialize by calling has_changed
-            await watcher.has_changed()
-
-            assert watcher._last_mtime == stat.st_mtime
-            assert watcher._last_inode == stat.st_ino
 
 
 class TestPathWatcherChangeDetection:

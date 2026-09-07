@@ -1,6 +1,7 @@
 """Tests for permission management tools."""
 
 import pytest
+import yaml
 from tests.helpers import create_bound_test_session, request_context_for
 
 from mcp_guide.tools.tool_project import (
@@ -12,8 +13,14 @@ from mcp_guide.tools.tool_project import (
 
 
 @pytest.fixture
-async def base_test_session(runtime):
+async def base_test_session(runtime, tmp_path):
     """Create an isolated test session for each permission-tool test."""
+    # Permission tests exercise an existing configuration, not first-run template installation.
+    docroot = tmp_path / "docs"
+    docroot.mkdir()
+    config_file = runtime.configuration_service().config_file
+    config_file.parent.mkdir(parents=True, exist_ok=True)
+    config_file.write_text(yaml.safe_dump({"docroot": str(docroot), "projects": {}}))
     session = await create_bound_test_session(runtime, "test-project")
     yield session
     await session.cleanup()
@@ -128,8 +135,7 @@ async def test_remove_permission_path(permission_type, path, test_session):
         assert path not in project.additional_read_paths, "Path should be removed from read paths"
 
 
-@pytest.mark.anyio
-async def test_remove_permission_path_invalid_type(test_session):
+def test_remove_permission_path_invalid_type():
     """Test that invalid permission type is rejected at parse time by Literal type."""
     from pydantic_core import ValidationError
 
@@ -139,8 +145,7 @@ async def test_remove_permission_path_invalid_type(test_session):
     assert "literal_error" in str(exc_info.value)
 
 
-@pytest.mark.anyio
-async def test_write_permission_file_vs_directory(test_session):
+def test_write_permission_file_vs_directory():
     """Test that file and directory write permissions work correctly."""
     from mcp_guide.filesystem.read_write_security import ReadWriteSecurityPolicy, SecurityError
 

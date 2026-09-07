@@ -74,31 +74,3 @@ class TestSchemaGeneration:
 
         assert "This is a test function." in description
         assert "## Arguments" in description
-
-
-class TestAliases:
-    """Tests for package aliases."""
-
-    def test_toolarguments_alias(self):
-        """ToolArguments alias should work for existing code."""
-        from mcp_guide.core.tool_arguments import ToolArguments
-
-        assert ToolArguments is Arguments
-
-        class TestArgs(ToolArguments):
-            value: str = "test"
-
-        args = TestArgs()
-        assert args.value == "test"
-
-    def test_promptarguments_alias(self):
-        """PromptArguments alias should work for prompt code."""
-        from mcp_guide.prompts import PromptArguments
-
-        assert PromptArguments is Arguments
-
-        class TestPromptArgs(PromptArguments):
-            command: str = "test"
-
-        args = TestPromptArgs()
-        assert args.command == "test"

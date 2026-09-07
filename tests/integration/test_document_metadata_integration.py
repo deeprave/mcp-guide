@@ -1,25 +1,24 @@
 """Integration test: metadata round-trips through DocumentTask into the SQLite store."""
 
-from unittest.mock import AsyncMock, MagicMock, patch
-
 import pytest
 
+from mcp_guide.models import Category
 from mcp_guide.store.document_store import get_document
 from mcp_guide.task_manager.interception import EventType
 from mcp_guide.tasks.document_task import DocumentTask
+from tests.helpers import create_bound_test_session
 
 
 @pytest.mark.anyio
-async def test_metadata_persisted_through_document_task(tmp_path):
+async def test_metadata_persisted_through_document_task(runtime, tmp_path, monkeypatch):
     """Event metadata and frontmatter merge correctly and persist in the store."""
     db = tmp_path / "documents.db"
 
-    project = AsyncMock()
-    project.categories = {"docs": object()}
-    session = AsyncMock()
-    session.get_project = AsyncMock(return_value=project)
-
-    task = DocumentTask(task_manager=MagicMock(), session=session)
+    # Select an isolated database without mocking ingestion or persistence.
+    monkeypatch.setattr("mcp_guide.store.document_store.get_documents_db", lambda: db)
+    session = await create_bound_test_session(runtime, "metadata")
+    await session.update_config(lambda p: p.with_category("docs", Category(dir="docs", patterns=["*.md"])))
+    task = DocumentTask(task_manager=session.task_manager, session=session)
 
     content = "---\nauthor: Jane\ntags: [guide]\n---\n# Hello"
     event_data = {
@@ -31,13 +30,7 @@ async def test_metadata_persisted_through_document_task(tmp_path):
         "metadata": {"author": "Override", "custom-key": "custom-value"},
     }
 
-    async def _add(**kw):
-        return await _add_with_db(db, **kw)
-
-    with (
-        patch("mcp_guide.tasks.document_task.add_document", side_effect=_add),
-    ):
-        result = await task.handle_event(EventType.FS_FILE_CONTENT, event_data)
+    result = await task.handle_event(EventType.FS_FILE_CONTENT, event_data)
 
     assert result is not None
     assert result.result is True
@@ -53,9 +46,3 @@ async def test_metadata_persisted_through_document_task(tmp_path):
     # Auto-detected fields present
     assert "content-type" in record.metadata
     assert record.metadata["type"] == "agent/instruction"
-
-
-async def _add_with_db(db, **kwargs):
-    from mcp_guide.store.document_store import add_document
-
-    return await add_document(**kwargs, db_path=db)

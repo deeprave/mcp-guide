@@ -13,17 +13,42 @@ from mcp_guide.feature_flags.types import (
 class TestFeatureValueType:
     """Test FeatureValue wrapper and validation."""
 
-    def test_feature_value_constructs_from_valid_raw_values(self):
-        assert FeatureValue(True).to_raw() is True
-        assert FeatureValue("test").to_raw() == "test"
-        assert FeatureValue(["a", "b"]).to_raw() == ["a", "b"]
-        assert FeatureValue({"key": "value"}).to_raw() == {"key": "value"}
+    def test_supported_shapes_validate_and_round_trip_through_the_wrapper(self):
+        # Canonical shape coverage; validators.validate_flag_value is only an alias.
+        values = [
+            True,
+            False,
+            "",
+            "multi word",
+            [],
+            ["", "value"],
+            {},
+            {"": ""},
+            {"key": ["entry"]},
+            FeatureValue("wrapped"),
+        ]
+        for value in values:
+            assert validate_feature_value_type(value), value
+            assert FeatureValue(value).to_raw() == to_raw_feature_value(value)
 
-    def test_feature_value_rejects_invalid_raw_values(self):
-        with pytest.raises(TypeError):
-            FeatureValue(123)
-        with pytest.raises(TypeError):
-            FeatureValue({"key": 123})
+    def test_unsupported_shapes_are_rejected_by_validation_and_construction(self):
+        values = [
+            123,
+            12.34,
+            [1, 2],
+            ["string", True],
+            {1: "value"},
+            {"key": 123},
+            {"key": True},
+            None,
+            object(),
+            set(),
+            tuple(),
+        ]
+        for value in values:
+            assert not validate_feature_value_type(value), value
+            with pytest.raises(TypeError):
+                FeatureValue(value)
 
     def test_feature_value_display_formatting(self):
         assert FeatureValue(True).to_display() == "true"
@@ -44,25 +69,6 @@ class TestFeatureValueType:
         wrapped = FeatureValue(["a", "b"])
         assert to_raw_feature_value(wrapped) == ["a", "b"]
         assert to_raw_feature_value(True) is True
-
-    def test_validate_feature_value_type_accepts_valid_types(self):
-        assert validate_feature_value_type(True) is True
-        assert validate_feature_value_type(False) is True
-        assert validate_feature_value_type("test") is True
-        assert validate_feature_value_type(["a", "b", "c"]) is True
-        assert validate_feature_value_type({"key": "value"}) is True
-        assert validate_feature_value_type(FeatureValue("wrapped")) is True
-
-    def test_validate_feature_value_type_rejects_invalid_types(self):
-        assert validate_feature_value_type(123) is False
-        assert validate_feature_value_type(12.34) is False
-        assert validate_feature_value_type([1, 2, 3]) is False
-        assert validate_feature_value_type(["string", 123]) is False
-        assert validate_feature_value_type({1: "value"}) is False
-        assert validate_feature_value_type({"key": 123}) is False
-        assert validate_feature_value_type(None) is False
-        assert validate_feature_value_type(object()) is False
-        assert validate_feature_value_type(set()) is False
 
     def test_format_feature_value_for_display_accepts_raw_and_wrapped_values(self):
         assert format_feature_value_for_display(False) == "false"

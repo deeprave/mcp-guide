@@ -14,7 +14,7 @@ from mcp_guide.feature_flags.validators import (
 
 
 @pytest.fixture(autouse=True)
-def _ensure_path_flags_registered():
+def _ensure_path_flags_registered(reset_flag_registry):
     """Ensure path flag validators are registered (other tests may clear them)."""
     register_flag_validator(FLAG_PATH_DOCUMENTS, validate_path_flag, normaliser=normalise_path_flag)
     register_flag_validator(FLAG_PATH_EXPORT, validate_path_flag, normaliser=normalise_path_flag)

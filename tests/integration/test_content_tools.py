@@ -1,265 +1,65 @@
-"""Integration tests for get_content unified access tool via MCP client."""
-
-import json
-from contextlib import asynccontextmanager
-from pathlib import Path
+"""Legacy MCP content retrieval through real project binding and configuration."""
 
 import pytest
+import yaml
 from fastmcp.client import Client, FastMCPTransport
 
-from mcp_guide.models import Category, Collection
-from mcp_guide.runtime import get_runtime
-from mcp_guide.session import Session
 from mcp_guide.tools.tool_content import ContentArgs
+from mcp_guide.tools.tool_project import SetCurrentProjectArgs
+from mcp_guide.utils.project_hash import calculate_project_hash, generate_project_key
 from tests.conftest import call_mcp_tool
-from tests.helpers import application_runtime, bind_isolated_test_session, create_test_session
-
-
-@pytest.fixture
-def anyio_backend():
-    """Use asyncio for async tests."""
-    return "asyncio"
-
-
-async def _create_bound_session(runtime) -> Session:
-    """Create a lightweight bound session for integration tests."""
-    return await bind_isolated_test_session(runtime)
-
-
-def _route_legacy_session(mcp_server, monkeypatch, session: Session) -> None:
-    """Route the in-process legacy client to its isolated test Session."""
-    runtime = application_runtime(mcp_server)
-
-    @asynccontextmanager
-    async def session_request(owner):
-        async with runtime.session_lease(owner, session=session):
-            yield session
-
-    monkeypatch.setattr(runtime, "session_request", session_request)
-
-
-async def _runtime_docroot() -> Path:
-    """Place fixture files in the process runtime's document root."""
-    return Path(await get_runtime().get_docroot())
 
 
 @pytest.fixture(scope="module")
 def mcp_server(mcp_server_factory):
-    """Create fresh MCP server for this test module."""
-    return mcp_server_factory(["tool_content", "tool_category", "tool_collection"])
+    return mcp_server_factory(["tool_content", "tool_project"])
 
 
 @pytest.mark.anyio
-async def test_get_content_category_only(mcp_server, runtime, tmp_path, monkeypatch):
-    """Test get_content with category-only match."""
-    from .test_data_generator import generate_test_files
-
-    monkeypatch.setenv("PWD", "/fake/path/test")
-
-    session = await _create_bound_session(runtime)
-    _route_legacy_session(mcp_server, monkeypatch, session)
-
-    # Add category
-    await session.update_config(lambda p: p.with_category("guide", Category(dir="guide", patterns=["*.md"])))
-
-    docroot = await _runtime_docroot()
-    generate_test_files(docroot)
-
+async def test_legacy_content_retrieval_combines_filters_and_deduplicates(mcp_server, runtime, tmp_path):
+    root = tmp_path / "content-test"
+    root_hash = calculate_project_hash(str(root))
+    key = generate_project_key("content-test", root_hash)
+    config = runtime.configuration_service().config_file
+    docroot = config.parent / "docs"
+    for folder in ("guide", "lang", "context", "empty"):
+        (docroot / folder).mkdir(parents=True, exist_ok=True)
+    (docroot / "guide/guidelines.md").write_text("Project Guidelines")
+    (docroot / "lang/python.md").write_text("Python Guide")
+    (docroot / "context/jira.md").write_text("Jira Integration")
+    (docroot / "context/settings.yaml").write_text("Unwanted YAML content")
+    project = {
+        "name": "content-test",
+        "hash": root_hash,
+        "categories": {
+            name: {"dir": name, "patterns": ["*.md", "*.yaml"]} for name in ("guide", "lang", "context", "empty")
+        },
+        "collections": {
+            "guide": {"categories": ["guide"]},
+            "docs": {"categories": ["guide"]},
+            "all": {"categories": ["docs", "lang"]},
+            "col1": {"categories": ["guide", "col2"]},
+            "col2": {"categories": ["lang", "col1"]},
+        },
+    }
+    config.write_text(yaml.safe_dump({"docroot": str(docroot), "projects": {key: project}}))
     async with Client(FastMCPTransport(mcp_server, raise_exceptions=True), mode="legacy") as client:
-        args = ContentArgs(expression="guide")
-        result = await call_mcp_tool(client, "get_content", args)
-        response = json.loads(result.content[0].text)  # type: ignore[union-attr]
+        bound = await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(path=str(root)))
+        assert bound.structured_content["success"] is True
 
-        assert response["success"] is True
-        assert "Project Guidelines" in response["value"]
+        async def read(expression, pattern=None):
+            response = await call_mcp_tool(client, "get_content", ContentArgs(expression=expression, pattern=pattern))
+            payload = response.structured_content
+            assert payload["success"] is True
+            return payload
 
-
-@pytest.mark.anyio
-async def test_get_content_collection_only(mcp_server, runtime, tmp_path, monkeypatch):
-    """Test get_content with collection-only match."""
-    monkeypatch.setenv("PWD", "/fake/path/test")
-
-    session = await create_test_session(runtime, "test")
-    _route_legacy_session(mcp_server, monkeypatch, session)
-
-    # Add categories and collection
-    await session.update_config(
-        lambda p: (
-            p.with_category("guide", Category(dir="guide", patterns=["*.md"]))
-            .with_category("lang", Category(dir="lang", patterns=["*.md"]))
-            .with_collection("all", Collection(categories=["guide", "lang"]))
-        )
-    )
-
-    docroot = await _runtime_docroot()
-    guide_dir = docroot / "guide"
-    lang_dir = docroot / "lang"
-    guide_dir.mkdir(parents=True, exist_ok=True)
-    lang_dir.mkdir(parents=True, exist_ok=True)
-    (guide_dir / "guidelines.md").write_text("# Project Guidelines\n")
-    (lang_dir / "python.md").write_text("# Python Guide\n")
-
-    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True), mode="legacy") as client:
-        args = ContentArgs(expression="all")
-        result = await call_mcp_tool(client, "get_content", args)
-        response = json.loads(result.content[0].text)  # type: ignore[union-attr]
-
-        assert response["success"] is True
-        assert "Project Guidelines" in response["value"]
-        assert "Python Guide" in response["value"]
-
-
-@pytest.mark.anyio
-async def test_get_content_both_match_deduplicates(mcp_server, runtime, tmp_path, monkeypatch):
-    """Test get_content when name matches both collection and category - should deduplicate."""
-    from .test_data_generator import generate_test_files
-
-    monkeypatch.setenv("PWD", "/fake/path/test")
-
-    session = await create_test_session(runtime, "test")
-    _route_legacy_session(mcp_server, monkeypatch, session)
-
-    # Add category "guide" and collection "guide" containing "guide" category
-    await session.update_config(
-        lambda p: p.with_category("guide", Category(dir="guide", patterns=["*.md"])).with_collection(
-            "guide", Collection(categories=["guide"])
-        )
-    )
-
-    docroot = await _runtime_docroot()
-    generate_test_files(docroot)
-
-    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True), mode="legacy") as client:
-        args = ContentArgs(expression="guide")
-        result = await call_mcp_tool(client, "get_content", args)
-        response = json.loads(result.content[0].text)  # type: ignore[union-attr]
-
-        assert response["success"] is True
-        # File should appear only once (de-duplicated)
-        content = response["value"]
-        assert "Project Guidelines" in content
-        # Count occurrences - should be 1 (in MIME header) + 1 (in content) = 2 total
-        # If not de-duplicated, would appear 4 times
-        assert content.count("guidelines.md") <= 3  # Allow for MIME headers
-
-
-@pytest.mark.anyio
-async def test_get_content_pattern_override(mcp_server, runtime, tmp_path, monkeypatch):
-    """Test get_content with pattern override."""
-    from .test_data_generator import generate_test_files
-
-    monkeypatch.setenv("PWD", "/fake/path/test")
-
-    session = await create_test_session(runtime, "test")
-    _route_legacy_session(mcp_server, monkeypatch, session)
-
-    # Add category with multiple file types
-    await session.update_config(
-        lambda p: p.with_category("context", Category(dir="context", patterns=["*.md", "*.yaml"]))
-    )
-
-    docroot = await _runtime_docroot()
-    generate_test_files(docroot)
-
-    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True), mode="legacy") as client:
-        # Call with pattern override to only get .md files
-        args = ContentArgs(expression="context", pattern="*.md")
-        result = await call_mcp_tool(client, "get_content", args)
-        response = json.loads(result.content[0].text)  # type: ignore[union-attr]
-
-        assert response["success"] is True
-        assert "Jira Integration" in response["value"]
-        assert "jira-settings.yaml" not in response["value"]  # YAML file should be excluded
-
-
-@pytest.mark.anyio
-async def test_get_content_empty_result(mcp_server, runtime, tmp_path, monkeypatch):
-    """Test get_content with no matching files."""
-    monkeypatch.setenv("PWD", "/fake/path/test")
-
-    session = await create_test_session(runtime, "test")
-    _route_legacy_session(mcp_server, monkeypatch, session)
-
-    # Add category with no files
-    session._Session__delegate.bind(
-        session._Session__delegate.project.with_category("empty", Category(dir="empty", patterns=["*.md"]))
-    )
-
-    # Create empty directory
-    docroot = await _runtime_docroot()
-    empty_dir = docroot / "empty"
-    empty_dir.mkdir(parents=True, exist_ok=True)
-
-    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True), mode="legacy") as client:
-        args = ContentArgs(expression="empty")
-        result = await call_mcp_tool(client, "get_content", args)
-        response = json.loads(result.content[0].text)  # type: ignore[union-attr]
-
-        assert response["success"] is True
-        assert "No matching content found" in response["value"]
-        assert "instruction" in response
-
-
-@pytest.mark.anyio
-async def test_get_content_nested_collection(mcp_server, runtime, tmp_path, monkeypatch):
-    """Test get_content with nested collection reference."""
-    monkeypatch.setenv("PWD", "/fake/path/test")
-
-    session = await _create_bound_session(runtime)
-    _route_legacy_session(mcp_server, monkeypatch, session)
-    session._Session__delegate.bind(
-        session._Session__delegate.project.with_category("guide", Category(dir="guide", patterns=["*.md"]))
-        .with_category("lang", Category(dir="lang", patterns=["*.md"]))
-        .with_collection("docs", Collection(categories=["guide"]))
-        .with_collection("all", Collection(categories=["docs", "lang"]))
-    )
-
-    docroot = await _runtime_docroot()
-    guide_dir = docroot / "guide"
-    lang_dir = docroot / "lang"
-    guide_dir.mkdir(parents=True, exist_ok=True)
-    lang_dir.mkdir(parents=True, exist_ok=True)
-    (guide_dir / "guidelines.md").write_text("# Project Guidelines\n")
-    (lang_dir / "python.md").write_text("# Python Guide\n")
-
-    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True), mode="legacy") as client:
-        args = ContentArgs(expression="all")
-        result = await call_mcp_tool(client, "get_content", args)
-        response = json.loads(result.content[0].text)  # type: ignore[union-attr]
-
-        assert response["success"] is True
-        assert "Project Guidelines" in response["value"]  # From guide (via docs collection)
-        assert "Python Guide" in response["value"]  # From lang
-
-
-@pytest.mark.anyio
-async def test_get_content_circular_collection_reference(mcp_server, runtime, tmp_path, monkeypatch):
-    """Test get_content with circular collection references."""
-    monkeypatch.setenv("PWD", "/fake/path/test")
-
-    session = await _create_bound_session(runtime)
-    _route_legacy_session(mcp_server, monkeypatch, session)
-    session._Session__delegate.bind(
-        session._Session__delegate.project.with_category("guide", Category(dir="guide", patterns=["*.md"]))
-        .with_category("lang", Category(dir="lang", patterns=["*.md"]))
-        .with_collection("col1", Collection(categories=["guide", "col2"]))
-        .with_collection("col2", Collection(categories=["lang", "col1"]))
-    )
-
-    docroot = await _runtime_docroot()
-    guide_dir = docroot / "guide"
-    lang_dir = docroot / "lang"
-    guide_dir.mkdir(parents=True, exist_ok=True)
-    lang_dir.mkdir(parents=True, exist_ok=True)
-    (guide_dir / "guidelines.md").write_text("# Project Guidelines\n")
-    (lang_dir / "python.md").write_text("# Python Guide\n")
-
-    async with Client(FastMCPTransport(mcp_server, raise_exceptions=True), mode="legacy") as client:
-        args = ContentArgs(expression="col1")
-        result = await call_mcp_tool(client, "get_content", args)
-        response = json.loads(result.content[0].text)  # type: ignore[union-attr]
-
-        # Should not hang or error - circular reference should be handled
-        assert response["success"] is True
-        assert "Project Guidelines" in response["value"]  # From guide
-        assert "Python Guide" in response["value"]  # From lang
+        assert (await read("lang"))["value"] == "Python Guide"
+        assert (await read("guide"))["value"] == "Project Guidelines"
+        for expression in ("all", "col1"):
+            content = (await read(expression))["value"]
+            assert content.count("Project Guidelines") == 1
+            assert content.count("Python Guide") == 1
+        assert (await read("context", "*.md"))["value"] == "Jira Integration"
+        empty = await read("empty")
+        assert empty["value"] == "No matching content found for 'empty'"
+        assert empty["instruction"]

@@ -1,494 +1,134 @@
-"""Tests for command discovery functionality."""
+"""Command discovery reads real files, metadata, requirements and session-local caches."""
 
-import tempfile
+import asyncio
 from pathlib import Path
-from types import SimpleNamespace
-from unittest.mock import AsyncMock, patch
 
 import pytest
-
-from mcp_guide.discovery.files import FileInfo
-from tests.helpers import create_unbound_test_session
-
-
-class TestCommandDiscovery:
-    """Test command discovery in _commands directory."""
-
-    @pytest.fixture(autouse=True)
-    def test_session(self, runtime, tmp_path):
-        """Provide the explicit Session required by command discovery."""
-        self.session = create_unbound_test_session(runtime)
-
-    @pytest.mark.anyio
-    async def test_discover_commands_basic(self) -> None:
-        """Should discover basic commands in _commands directory."""
-        # Create temporary directory structure
-        with tempfile.TemporaryDirectory() as temp_dir:
-            commands_dir = Path(temp_dir) / "_commands"
-            commands_dir.mkdir()
-
-            # Create test command files
-            (commands_dir / "help.md").write_text("# Help Command\nShows available commands.")
-            (commands_dir / "status.mustache").write_text("# Status\nSystem status information.")
-
-            # Mock discover_document_files to return our test files
-            mock_files = [
-                FileInfo(
-                    path=Path("help.md"),  # Relative path
-                    size=100,
-                    content_size=100,
-                    mtime=1234567890,
-                    name="help.md",
-                    content="",
-                    ctime=1234567890,
-                ),
-                FileInfo(
-                    path=Path("status.mustache"),  # Relative path
-                    size=150,
-                    content_size=150,
-                    mtime=1234567890,
-                    name="status.mustache",
-                    content="",
-                    ctime=1234567890,
-                ),
-            ]
-
-            with patch("mcp_guide.discovery.commands.discover_document_files", new=AsyncMock(return_value=mock_files)):
-                # Import and test the function (to be implemented)
-                from mcp_guide.discovery.commands import discover_commands
-
-                commands = await discover_commands(commands_dir, self.session)
-
-                assert len(commands) == 2
-                assert any(cmd["name"] == "help" for cmd in commands)
-                assert any(cmd["name"] == "status" for cmd in commands)
-
-    @pytest.mark.anyio
-    async def test_discover_subcommands(self) -> None:
-        """Should discover subcommands in nested directories."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            commands_dir = Path(temp_dir) / "_commands"
-            create_dir = commands_dir / "create"
-            create_dir.mkdir(parents=True)
-
-            # Create nested command files
-            (create_dir / "category.md").write_text("# Create Category\nCreates a new category.")
-            (create_dir / "collection.mustache").write_text("# Create Collection\nCreates a new collection.")
-
-            mock_files = [
-                FileInfo(
-                    path=Path("create/category.md"),  # Relative path
-                    size=100,
-                    content_size=100,
-                    mtime=1234567890,
-                    name="create/category.md",
-                    content="",
-                    ctime=1234567890,
-                ),
-                FileInfo(
-                    path=Path("create/collection.mustache"),  # Relative path
-                    size=150,
-                    content_size=150,
-                    mtime=1234567890,
-                    name="create/collection.mustache",
-                    content="",
-                    ctime=1234567890,
-                ),
-            ]
-
-            with patch("mcp_guide.discovery.commands.discover_document_files", new=AsyncMock(return_value=mock_files)):
-                from mcp_guide.discovery.commands import discover_commands
-
-                commands = await discover_commands(commands_dir, self.session)
-
-                assert len(commands) == 2
-                assert any(cmd["name"] == "create/category" for cmd in commands)
-                assert any(cmd["name"] == "create/collection" for cmd in commands)
-
-    @pytest.mark.anyio
-    async def test_discover_commands_with_front_matter(self) -> None:
-        """Should extract metadata from front matter."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            commands_dir = Path(temp_dir) / "_commands"
-            commands_dir.mkdir()
-
-            # Create command with front matter
-            help_content = """---
-description: Shows available commands and usage information
-usage: ":help [command]"
-examples:
-  - ":help"
-  - ":help create/category"
----
-# Help Command
-
-This command shows all available commands.
-"""
-            (commands_dir / "help.md").write_text(help_content)
-
-            mock_files = [
-                FileInfo(
-                    path=Path("help.md"),  # Relative path
-                    size=len(help_content),
-                    content_size=len(help_content),
-                    mtime=1234567890,
-                    name="help.md",
-                    content=help_content,
-                    ctime=1234567890,
-                )
-            ]
-
-            with patch("mcp_guide.discovery.commands.discover_document_files", new=AsyncMock(return_value=mock_files)):
-                from mcp_guide.discovery.commands import discover_commands
-
-                commands = await discover_commands(commands_dir, self.session)
-
-                assert len(commands) == 1
-                cmd = commands[0]
-                assert cmd["name"] == "help"
-                assert cmd["description"] == "Shows available commands and usage information"
-                assert cmd["usage"] == ":help [command]"
-                assert len(cmd["examples"]) == 2
-
-    @pytest.mark.anyio
-    async def test_discover_commands_without_front_matter(self) -> None:
-        """Should handle commands without front matter gracefully."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            commands_dir = Path(temp_dir) / "_commands"
-            commands_dir.mkdir()
-
-            # Create command without front matter
-            (commands_dir / "simple.md").write_text("# Simple Command\nJust a simple command.")
-
-            mock_files = [
-                FileInfo(
-                    path=Path("simple.md"),  # Relative path
-                    size=100,
-                    content_size=100,
-                    mtime=1234567890,
-                    name="simple.md",
-                    content="# Simple Command\nJust a simple command.",
-                    ctime=1234567890,
-                )
-            ]
-
-            with patch("mcp_guide.discovery.commands.discover_document_files", new=AsyncMock(return_value=mock_files)):
-                from mcp_guide.discovery.commands import discover_commands
-
-                commands = await discover_commands(commands_dir, self.session)
-
-                assert len(commands) == 1
-                cmd = commands[0]
-                assert cmd["name"] == "simple"
-                assert cmd["description"] == ""  # Should default to empty
-                assert cmd["usage"] == ""
-                assert cmd["examples"] == []
-
-    @pytest.mark.anyio
-    async def test_discover_commands_filters_by_requirements(self) -> None:
-        """Should filter commands based on requires-* frontmatter."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            commands_dir = Path(temp_dir) / "_commands"
-            commands_dir.mkdir()
-
-            # Command with unmet requirement
-            filtered_content = """---
-requires-feature: enabled
-description: Feature command
----
-# Feature Command
-"""
-            (commands_dir / "feature.md").write_text(filtered_content)
-
-            # Command with met requirement
-            included_content = """---
-requires-workflow: true
-description: Workflow command
----
-# Workflow Command
-"""
-            (commands_dir / "workflow.md").write_text(included_content)
-
-            mock_files = [
-                FileInfo(
-                    path=Path("feature.md"),
-                    size=100,
-                    content_size=100,
-                    mtime=1234567890,
-                    name="feature.md",
-                    content=filtered_content,
-                    ctime=1234567890,
-                ),
-                FileInfo(
-                    path=Path("workflow.md"),
-                    size=100,
-                    content_size=100,
-                    mtime=1234567890,
-                    name="workflow.md",
-                    content=included_content,
-                    ctime=1234567890,
-                ),
-            ]
-
-            # Mock context with workflow=true but feature=false
-            mock_context = {"workflow": True, "feature": False}
-
-            with (
-                patch("mcp_guide.discovery.commands.discover_document_files", new=AsyncMock(return_value=mock_files)),
-                patch("mcp_guide.render.cache.get_template_contexts", new=AsyncMock(return_value=mock_context)),
-            ):
-                from mcp_guide.discovery.commands import discover_commands
-
-                commands = await discover_commands(commands_dir, self.session)
-
-                # Should only include workflow command
-                assert len(commands) == 1
-                assert commands[0]["name"] == "workflow"
-
-    @pytest.mark.anyio
-    async def test_discover_commands_matches_workflow_phase_requirements_for_boolean_true(self) -> None:
-        """workflow: true should satisfy phase-list requirements using default workflow phases."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            commands_dir = Path(temp_dir) / "_commands"
-            commands_dir.mkdir()
-
-            planning_content = """---
-requires-workflow: [planning]
-description: Planning command
----
-# Planning Command
-"""
-            (commands_dir / "plan.md").write_text(planning_content)
-
-            mock_files = [
-                FileInfo(
-                    path=Path("plan.md"),
-                    size=100,
-                    content_size=100,
-                    mtime=1234567890,
-                    name="plan.md",
-                    content=planning_content,
-                    ctime=1234567890,
-                )
-            ]
-
-            mock_context = {"workflow": True}
-
-            with (
-                patch("mcp_guide.discovery.commands.discover_document_files", new=AsyncMock(return_value=mock_files)),
-                patch("mcp_guide.render.cache.get_template_contexts", new=AsyncMock(return_value=mock_context)),
-            ):
-                from mcp_guide.discovery.commands import discover_commands
-
-                commands = await discover_commands(commands_dir, self.session)
-
-                assert len(commands) == 1
-                assert commands[0]["name"] == "plan"
-
-    @pytest.mark.anyio
-    async def test_discovers_general_phase_commands_without_workflow(self) -> None:
-        """Phase guidance should remain available when workflow state is disabled."""
-        commands_dir = Path("src/mcp_guide/templates/_commands").resolve()
-
-        with patch(
-            "mcp_guide.render.cache.get_template_contexts",
-            new=AsyncMock(return_value={"workflow": False}),
-        ):
-            from mcp_guide.discovery.commands import discover_commands
-
-            commands = await discover_commands(commands_dir, self.session)
-
-        command_names = {command["name"] for command in commands}
-        assert {
-            "workflow/discuss",
-            "workflow/explore",
-            "workflow/plan",
-            "workflow/implement",
-            "workflow/check",
-            "workflow/review",
-        } <= command_names
-        assert (
-            not {
-                "workflow/show",
-                "workflow/issue",
-                "workflow/reset",
-                "workflow/phase",
-            }
-            & command_names
-        )
-
-    @pytest.mark.anyio
-    async def test_discover_commands_filters_invalid_aliases(self) -> None:
-        """Should drop aliases that are unsafe as command paths and keep valid nested aliases."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            commands_dir = Path(temp_dir) / "_commands"
-            commands_dir.mkdir()
-
-            help_content = """---
-description: Shows available commands
-aliases:
-  - h
-  - "?"
-  - "?foo=bar"
-  - project/perm
-  - ../escape
----
-# Help Command
-"""
-            (commands_dir / "help.md").write_text(help_content)
-
-            mock_files = [
-                FileInfo(
-                    path=Path("help.md"),
-                    size=len(help_content),
-                    content_size=len(help_content),
-                    mtime=1234567890,
-                    name="help.md",
-                    content=help_content,
-                    ctime=1234567890,
-                )
-            ]
-
-            with (
-                patch("mcp_guide.discovery.commands.discover_document_files", new=AsyncMock(return_value=mock_files)),
-                patch("mcp_guide.discovery.commands.logger.warning") as warning,
-            ):
-                from mcp_guide.discovery.commands import discover_commands
-
-                commands = await discover_commands(commands_dir, self.session)
-
-            assert len(commands) == 1
-            assert commands[0]["aliases"] == ["h", "project/perm"]
-            assert warning.call_count == 3
-
-    @pytest.mark.anyio
-    async def test_discover_commands_preserves_alias_query_metadata(self) -> None:
-        """Should parse alias query strings into path and implied kwargs metadata."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            commands_dir = Path(temp_dir) / "_commands"
-            commands_dir.mkdir()
-
-            project_content = """---
-description: Shows project info
-aliases:
-  - project?verbose
-  - project/table?table=true
-  - project/topic?label=a?b
----
-# Project Command
-"""
-            (commands_dir / "project.md").write_text(project_content)
-
-            mock_files = [
-                FileInfo(
-                    path=Path("project.md"),
-                    size=len(project_content),
-                    content_size=len(project_content),
-                    mtime=1234567890,
-                    name="project.md",
-                    content=project_content,
-                    ctime=1234567890,
-                )
-            ]
-
-            with patch("mcp_guide.discovery.commands.discover_document_files", new=AsyncMock(return_value=mock_files)):
-                from mcp_guide.discovery.commands import discover_commands
-
-                commands = await discover_commands(commands_dir, self.session)
-
-            assert len(commands) == 1
-            assert commands[0]["aliases"] == ["project?verbose", "project/table?table=true", "project/topic?label=a?b"]
-            assert commands[0]["alias_metadata"] == [
-                {"raw": "project?verbose", "path": "project", "implied_kwargs": {"verbose": True}},
-                {"raw": "project/table?table=true", "path": "project/table", "implied_kwargs": {"table": True}},
-                {"raw": "project/topic?label=a?b", "path": "project/topic", "implied_kwargs": {"label": "a?b"}},
-            ]
-
-
-class TestCommandDiscoveryCaching:
-    """Test command discovery caching with guide-development flag."""
-
-    @pytest.mark.anyio
-    async def test_cache_behavior_documented(self) -> None:
-        """Cache is per-session: each session gets its own cache; no-session path works too."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            commands_dir = Path(temp_dir) / "_commands"
-            commands_dir.mkdir()
-            (commands_dir / "test.md").write_text("# Test")
-
-            from mcp_guide.discovery.commands import discover_commands
-
-            class _Session:
-                def __init__(self) -> None:
-                    self.task_manager = SimpleNamespace(command_cache={})
-
-            session_1 = _Session()
-            session_2 = _Session()
-
-            # Session 1 gets its cache populated.
-            result1 = await discover_commands(commands_dir, session_1)
-            assert len(result1) > 0
-            assert len(session_1.task_manager.command_cache) > 0
-            assert session_2.task_manager.command_cache == {}
-
-            # Session 2 gets its own independent cache.
-            result2 = await discover_commands(commands_dir, session_2)
-            assert len(result2) > 0
-            assert len(session_2.task_manager.command_cache) > 0
-            assert session_1.task_manager.command_cache is not session_2.task_manager.command_cache
-
-            # A third session's discovery leaves the first two caches unchanged.
-            snap1 = dict(session_1.task_manager.command_cache)
-            snap2 = dict(session_2.task_manager.command_cache)
-            result_no_session = await discover_commands(commands_dir, _Session())
-            assert len(result_no_session) > 0
-            assert session_1.task_manager.command_cache == snap1
-            assert session_2.task_manager.command_cache == snap2
-
-    @pytest.mark.anyio
-    async def test_stat_oserror_completes_without_caching(self) -> None:
-        """OSError on directory stat is handled gracefully; cache is not populated."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            commands_dir = Path(temp_dir) / "_commands"
-            commands_dir.mkdir()
-            (commands_dir / "test.md").write_text("# Test")
-
-            from mcp_guide.discovery.commands import discover_commands
-
-            class _Session:
-                def __init__(self) -> None:
-                    self.task_manager = SimpleNamespace(command_cache={})
-
-            session = _Session()
-
-            with patch("mcp_guide.discovery.commands.asyncio.to_thread", side_effect=OSError("stat failed")):
-                result = await discover_commands(commands_dir, session)
-
-            # Discovery completes without raising even when mtime stat fails
-            assert isinstance(result, list)
-
-    @pytest.mark.anyio
-    async def test_frontmatter_error_skips_file_and_suppresses_cache(self) -> None:
-        """Parsing errors are aggregated; cache is not populated when any file fails."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            commands_dir = Path(temp_dir) / "_commands"
-            commands_dir.mkdir()
-            (commands_dir / "test.md").write_text("# Test")
-
-            from mcp_guide.discovery.commands import discover_commands
-
-            class _Session:
-                def __init__(self) -> None:
-                    self.task_manager = SimpleNamespace(command_cache={})
-
-            session = _Session()
-
-            with patch(
-                "mcp_guide.discovery.commands.parse_content_with_frontmatter",
-                side_effect=ValueError("bad frontmatter"),
-            ):
-                result = await discover_commands(commands_dir, session)
-
-            # Bad files are skipped; cache not populated due to errors
-            assert result == []
-            assert session.task_manager.command_cache == {}
+import yaml
+
+from mcp_guide.discovery.commands import discover_commands
+from tests.helpers import create_bound_test_session
+
+
+@pytest.fixture
+async def command_session(runtime, tmp_path):
+    runtime.configuration_service().config_file.write_text(yaml.safe_dump({"docroot": str(tmp_path), "projects": {}}))
+    return await create_bound_test_session(runtime, "commands")
+
+
+@pytest.mark.anyio
+async def test_discovery_metadata_aliases_and_nested_commands(command_session, tmp_path, caplog):
+    commands = tmp_path / "_commands"
+    nested = commands / "create"
+    nested.mkdir(parents=True)
+    (nested / "category.mustache").write_text("Create category")
+    (commands / "simple.md").write_text("Simple command")
+    (commands / "help.md").write_text(
+        "---\ndescription: Show commands\nusage: ':help [command]'\n"
+        "examples: [':help', ':help create/category']\n"
+        "aliases: [h, '?', '?foo=bar', project/perm, ../escape, 'project?verbose', "
+        "'project/table?table=true', 'project/topic?label=a?b']\n---\nHelp"
+    )
+    found = {item["name"]: item for item in await discover_commands(commands, command_session)}
+    assert set(found) == {"create/category", "simple", "help"}
+    assert found["simple"] == {
+        "name": "simple",
+        "path": str(commands / "simple.md"),
+        "description": "",
+        "usage": "",
+        "examples": [],
+        "aliases": [],
+        "alias_metadata": [],
+        "category": "general",
+    }
+    help_command = found["help"]
+    assert help_command["description"] == "Show commands"
+    assert help_command["usage"] == ":help [command]"
+    assert help_command["examples"] == [":help", ":help create/category"]
+    assert help_command["aliases"] == [
+        "h",
+        "project/perm",
+        "project?verbose",
+        "project/table?table=true",
+        "project/topic?label=a?b",
+    ]
+    assert help_command["alias_metadata"] == [
+        {"raw": "h", "path": "h", "implied_kwargs": {}},
+        {"raw": "project/perm", "path": "project/perm", "implied_kwargs": {}},
+        {"raw": "project?verbose", "path": "project", "implied_kwargs": {"verbose": True}},
+        {"raw": "project/table?table=true", "path": "project/table", "implied_kwargs": {"table": True}},
+        {"raw": "project/topic?label=a?b", "path": "project/topic", "implied_kwargs": {"label": "a?b"}},
+    ]
+    for invalid in ("?", "?foo=bar", "../escape"):
+        assert repr(invalid) in caplog.text
+
+
+@pytest.mark.anyio
+async def test_requirements_follow_real_workflow_enablement(command_session, tmp_path):
+    commands = tmp_path / "_commands"
+    commands.mkdir()
+    (commands / "plan.md").write_text("---\nrequires-workflow: [planning]\n---\nPlan")
+    (commands / "workflow.md").write_text("---\nrequires-workflow: true\n---\nWorkflow")
+    (commands / "feature.md").write_text("---\nrequires-feature: enabled\n---\nFeature")
+    assert await discover_commands(commands, command_session) == []
+    await command_session.project_flags().set("workflow", True)
+    assert {item["name"] for item in await discover_commands(commands, command_session)} == {"plan", "workflow"}
+
+
+@pytest.mark.anyio
+async def test_general_phase_guidance_remains_available_without_workflow(command_session):
+    commands = Path("src/mcp_guide/templates/_commands").resolve()
+    names = {item["name"] for item in await discover_commands(commands, command_session)}
+    assert {f"workflow/{name}" for name in ("discuss", "explore", "plan", "implement", "check", "review")} <= names
+    assert not {f"workflow/{name}" for name in ("show", "issue", "reset", "phase")} & names
+
+
+@pytest.mark.anyio
+async def test_cache_is_session_local_and_development_mode_refreshes_files(command_session, runtime, tmp_path):
+    commands = tmp_path / "_commands"
+    commands.mkdir()
+    (commands / "first.md").write_text("First")
+    original = await discover_commands(commands, command_session)
+    assert [item["name"] for item in original] == ["first"]
+    (commands / "second.md").write_text("Second")
+    assert await discover_commands(commands, command_session) == original
+    second_session = await create_bound_test_session(runtime, "second")
+    assert {item["name"] for item in await discover_commands(commands, second_session)} == {"first", "second"}
+    assert await discover_commands(commands, command_session) == original
+    await runtime.feature_flags().set("guide-development", True)
+    assert {item["name"] for item in await discover_commands(commands, command_session)} == {"first", "second"}
+
+
+@pytest.mark.anyio
+async def test_unreadable_file_is_skipped_and_does_not_poison_cache(command_session, tmp_path, caplog):
+    commands = tmp_path / "_commands"
+    commands.mkdir()
+    broken = commands / "broken.md"
+    broken.write_bytes(bytes([255]))
+    (commands / "valid.md").write_text("Valid")
+    assert [item["name"] for item in await discover_commands(commands, command_session)] == ["valid"]
+    assert command_session.task_manager.command_cache == {}
+    assert "Failed to parse 1 command files" in caplog.text
+    broken.write_text("Repaired")
+    assert {item["name"] for item in await discover_commands(commands, command_session)} == {"broken", "valid"}
+
+
+@pytest.mark.anyio
+async def test_development_stat_failure_still_discovers_commands(command_session, runtime, tmp_path, monkeypatch):
+    commands = tmp_path / "_commands"
+    commands.mkdir()
+    (commands / "test.md").write_text("Test")
+    await runtime.feature_flags().set("guide-development", True)
+    to_thread = asyncio.to_thread
+    stat_attempts = []
+
+    async def fail_directory_stat(function, *args, **kwargs):
+        if function.__name__ == "_max_file_mtime":
+            stat_attempts.append(True)
+            raise OSError("stat failed")
+        return await to_thread(function, *args, **kwargs)
+
+    # Deterministic OS stat failure; file discovery and parsing still use the real filesystem.
+    monkeypatch.setattr("mcp_guide.discovery.commands.asyncio.to_thread", fail_directory_stat)
+    assert [item["name"] for item in await discover_commands(commands, command_session)] == ["test"]
+    assert stat_attempts == [True]

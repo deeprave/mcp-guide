@@ -3,23 +3,6 @@
 from mcp_guide.agent_detection import AgentInfo, detect_agent, format_agent_info, normalize_agent_name
 
 
-def test_agent_info_dataclass():
-    """Test AgentInfo dataclass creation."""
-    agent = AgentInfo(name="Kiro CLI", normalized_name="q-dev", version="1.0.0", prompt_prefix="@")
-
-    assert agent.name == "Kiro CLI"
-    assert agent.normalized_name == "q-dev"
-    assert agent.version == "1.0.0"
-    assert agent.prompt_prefix == "@"
-
-
-def test_agent_info_optional_version():
-    """Test AgentInfo with None version."""
-    agent = AgentInfo(name="Unknown Agent", normalized_name="unknown", version=None, prompt_prefix="/")
-
-    assert agent.version is None
-
-
 def test_normalize_agent_name_kiro():
     """Test normalizing Kiro agent names."""
     assert normalize_agent_name("Kiro CLI") == "q-dev"

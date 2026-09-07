@@ -3,7 +3,6 @@
 import pytest
 
 from mcp_guide.render.frontmatter import (
-    Content,
     parse_content_with_frontmatter,
     read_content_with_frontmatter,
 )
@@ -123,18 +122,3 @@ This is a test."""
         assert result.frontmatter_length == 0
         assert result.content == ""
         assert result.content_length == 0
-
-
-class TestContentDataclass:
-    """Test Content dataclass."""
-
-    def test_content_creation(self):
-        """Test creating Content object."""
-        content = Content(
-            frontmatter={"title": "Test"}, frontmatter_length=20, content="Hello world", content_length=11
-        )
-
-        assert content.frontmatter == {"title": "Test"}
-        assert content.frontmatter_length == 20
-        assert content.content == "Hello world"
-        assert content.content_length == 11

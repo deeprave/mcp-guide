@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from mcp_guide.config_constants import MAX_DOCUMENTS_PER_GLOB, MAX_GLOB_DEPTH
+from mcp_guide.config_constants import MAX_GLOB_DEPTH
 from mcp_guide.discovery.patterns import safe_glob_search
 
 
@@ -337,45 +337,22 @@ class TestDepthLimit:
 
 
 class TestDocumentLimit:
-    """Tests for MAX_DOCUMENTS_PER_GLOB enforcement."""
+    """The document limit is shared by all patterns, including overlapping matches."""
 
     @pytest.mark.anyio
-    async def test_stop_at_max_documents(self, temp_project_dir):
-        """Ensure a single pattern is truncated at MAX_DOCUMENTS_PER_GLOB."""
-        # Arrange
-        test_dir = temp_project_dir / "test_limit"
-        test_dir.mkdir()
+    async def test_single_and_combined_patterns_respect_limit(self, tmp_path, monkeypatch):
+        # A small configured limit exercises truncation without hundreds of files.
+        monkeypatch.setattr("mcp_guide.discovery.patterns.MAX_DOCUMENTS_PER_GLOB", 3)
+        for name in ["a.md", "b.md", "c.txt", "d.txt", "e.txt"]:
+            (tmp_path / name).write_text(name)
 
-        total_files = MAX_DOCUMENTS_PER_GLOB + 50
-        for i in range(total_files):
-            (test_dir / f"file{i:03d}.md").write_text(f"content{i}")
-
-        # Act
-        results = await safe_glob_search(test_dir, ["*.md"])
-
-        # Assert
-        assert len(results) == MAX_DOCUMENTS_PER_GLOB
-
-    @pytest.mark.anyio
-    async def test_combined_patterns_respects_global_limit(self, temp_project_dir):
-        """Ensure MAX_DOCUMENTS_PER_GLOB is applied across all patterns."""
-        # Arrange
-        test_dir = temp_project_dir / "test_combined"
-        test_dir.mkdir()
-
-        for i in range(MAX_DOCUMENTS_PER_GLOB):
-            (test_dir / f"doc_{i}.md").write_text("markdown")
-        for i in range(MAX_DOCUMENTS_PER_GLOB):
-            (test_dir / f"note_{i}.txt").write_text("text")
-
-        # Act
-        results = await safe_glob_search(test_dir, ["*.md", "*.txt"])
-
-        # Assert
-        assert len(results) <= MAX_DOCUMENTS_PER_GLOB
-        assert results  # Sanity check we got some results
-        suffixes = {path.suffix for path in results}
-        assert suffixes & {".md", ".txt"}
+        single = await safe_glob_search(tmp_path, ["*"])
+        assert len(single) == 3
+        combined = await safe_glob_search(tmp_path, ["*.md", "a.md", "*.txt"])
+        assert len(combined) == 3
+        assert len(set(combined)) == 3
+        assert {path.name for path in combined if path.suffix == ".md"} == {"a.md", "b.md"}
+        assert sum(path.suffix == ".txt" for path in combined) == 1
 
 
 class TestUnderscoreFiltering:
@@ -399,37 +376,12 @@ class TestUnderscoreFiltering:
         names = {p.name for p in results}
         assert names == {"normal.md", "_partial.md", "_helper.txt"}
 
-    @pytest.mark.anyio
-    async def test_command_validation_excludes_underscore_files(self, temp_project_dir):
-        """Test that command validation excludes underscore-prefixed files."""
+    def test_command_validation_excludes_underscore_files_and_directories(self):
         from mcp_guide.discovery.patterns import is_valid_command
 
-        # Arrange
-        test_dir = temp_project_dir / "test_commands"
-        test_dir.mkdir()
-
-        normal_file = test_dir / "review.md"
-        underscore_file = test_dir / "_private.md"
-
-        # Act & Assert
-        assert is_valid_command(normal_file) is True
-        assert is_valid_command(underscore_file) is False
-
-    @pytest.mark.anyio
-    async def test_command_validation_excludes_underscore_directories(self, temp_project_dir):
-        """Test that command validation excludes files in underscore directories."""
-        from mcp_guide.discovery.patterns import is_valid_command
-
-        # Arrange
-        test_dir = temp_project_dir / "test_commands"
-        test_dir.mkdir()
-
-        normal_path = test_dir / "public" / "review.md"
-        underscore_path = test_dir / "_private" / "secret.md"
-
-        # Act & Assert
-        assert is_valid_command(normal_path) is True
-        assert is_valid_command(underscore_path) is False
+        assert is_valid_command(Path("_commands/public/review.md")) is True
+        assert is_valid_command(Path("_commands/_private.md")) is False
+        assert is_valid_command(Path("_commands/_private/secret.md")) is False
 
     @pytest.mark.anyio
     async def test_allow_underscore_in_middle_of_names(self, temp_project_dir):

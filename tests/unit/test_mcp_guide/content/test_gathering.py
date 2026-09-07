@@ -1,10 +1,12 @@
 """Tests for content gathering deduplication logic."""
 
+from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
-from unittest.mock import AsyncMock
 
 import pytest
+import yaml
+from tests.helpers import create_bound_test_session, request_context_for
 
 from mcp_guide.content.gathering import gather_category_fileinfos, gather_content
 from mcp_guide.content.utils import _gather_policy_partials, render_missing_policy
@@ -14,18 +16,7 @@ from mcp_guide.models.exceptions import NoProjectError
 from mcp_guide.render.context import TemplateContext
 from mcp_guide.result_constants import INSTRUCTION_MISSING_POLICY
 from mcp_guide.runtime import RequestContext
-
-
-def _make_file(name: str, *, source: str = "file") -> FileInfo:
-    return FileInfo(
-        path=Path(name),
-        size=0,
-        content_size=0,
-        mtime=datetime(2024, 1, 1),
-        name=name,
-        source=source,
-        content=f"content of {name}",
-    )
+from mcp_guide.store.document_store import add_document
 
 
 class _MockSession:
@@ -61,158 +52,44 @@ async def _request_context(tmp_path, session=None):
 
 
 @pytest.mark.anyio
-async def test_stored_and_filesystem_same_name_both_appear(tmp_path, monkeypatch):
-    """Stored document and filesystem file with same name must both appear."""
+async def test_discovery_keeps_both_sources_and_deduplicates_collections(tmp_path, monkeypatch):
+    """Same-named sources remain distinct; overlapping collections do not duplicate either."""
     category_dir = tmp_path / "docs"
     category_dir.mkdir()
-    (category_dir / "readme.md").write_text("filesystem content")
-
+    (category_dir / "readme.md").write_text("Filesystem content")
+    monkeypatch.setattr("mcp_guide.store.document_store.get_documents_db", lambda: tmp_path / "documents.db")
+    await add_document("docs", "readme.md", "/client/readme.md", "file", "Stored content")
     project = Project(
         name="test",
         categories={"docs": Category(dir="docs", name="docs", patterns=["*.md"])},
+        collections={"col1": Collection(categories=["docs"]), "col2": Collection(categories=["docs"])},
     )
-
-    stored_file = _make_file("readme.md", source="store")
-    stored_file.category = project.categories["docs"]
-
-    original_gather = gather_content.__wrapped__ if hasattr(gather_content, "__wrapped__") else None
-
-    # Patch discover_documents to return both filesystem and stored
-    async def mock_discover(category_dir, patterns, category=None):
-        fs_file = _make_file("readme.md", source="file")
-        return [fs_file, stored_file]
-
-    monkeypatch.setattr("mcp_guide.content.gathering.discover_documents", mock_discover)
-
-    session = _MockSession(str(tmp_path))
-    result = await gather_content(await _request_context(tmp_path, session), project, "docs")
-
-    assert len(result) == 2
-    sources = {f.source for f in result}
-    assert sources == {"file", "store"}
+    context = await _request_context(tmp_path)
+    for expression in ("docs", "col1,col2"):
+        result = await gather_content(context, project, expression)
+        assert {(file.name, file.source) for file in result} == {("readme.md", "file"), ("readme.md", "store")}
+        assert len(result) == 2
+        for file in result:
+            file.resolve(context.resolve_document_path, "docs")
+        assert {await file.read_raw() for file in result} == {"Filesystem content", "Stored content"}
 
 
 @pytest.mark.anyio
-async def test_stored_doc_deduped_across_overlapping_collections(tmp_path, monkeypatch):
-    """Same stored document appearing via two collections must be deduped."""
-    category_dir = tmp_path / "docs"
-    category_dir.mkdir()
-
-    project = Project(
-        name="test",
-        categories={"docs": Category(dir="docs", name="docs", patterns=["*.md"])},
-        collections={
-            "col1": Collection(categories=["docs"]),
-            "col2": Collection(categories=["docs"]),
-        },
-    )
-
-    async def mock_discover(category_dir, patterns, category=None):
-        stored = _make_file("notes.md", source="store")
-        stored.category = project.categories["docs"]
-        return [stored]
-
-    monkeypatch.setattr("mcp_guide.content.gathering.discover_documents", mock_discover)
-
-    session = _MockSession(str(tmp_path))
-    result = await gather_content(await _request_context(tmp_path, session), project, "col1,col2")
-
-    # Same (category, name) from two collections → only one copy
-    stored_results = [f for f in result if f.source == "store"]
-    assert len(stored_results) == 1
-
-
-# --- Tests for _ prefix exclusion in gather_category_fileinfos ---
-
-
-@pytest.mark.anyio
-async def test_underscore_prefix_file_excluded(tmp_path):
-    """Filesystem files with _ prefix are excluded from category discovery."""
+async def test_underscore_components_exclude_files_but_not_stored_documents(tmp_path, monkeypatch):
+    """Filter every filesystem path component without filtering user-stored document names."""
     category_dir = tmp_path / "policies"
-    category_dir.mkdir()
-    (category_dir / "_INDEX.md").write_text("# Index")
-    (category_dir / "conservative.md").write_text("# Conservative")
-
-    project = Project(
-        name="test",
-        categories={"policies": Category(dir="policies", name="policies", patterns=["*.md"])},
-    )
-    session = _MockSession(str(tmp_path))
-    result = await gather_category_fileinfos(await _request_context(tmp_path, session), project, "policies")
-
-    assert len(result) == 1
-    assert result[0].name == "conservative.md"
-
-
-@pytest.mark.anyio
-async def test_underscore_prefix_directory_excluded(tmp_path):
-    """Files inside _ prefixed subdirectories are excluded from category discovery."""
-    category_dir = tmp_path / "policies"
-    (category_dir / "_system").mkdir(parents=True)
-    (category_dir / "_system" / "missing_policy.md").write_text("# Missing")
-    (category_dir / "conservative.md").write_text("# Conservative")
-
+    for name in ("_INDEX.md", "_system/hidden.md", "git/ops/_notes.md", "git/ops/visible.md"):
+        path = category_dir / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(name)
+    monkeypatch.setattr("mcp_guide.store.document_store.get_documents_db", lambda: tmp_path / "documents.db")
+    await add_document("policies", "_custom.md", "/client/custom.md", "file", "Stored policy")
     project = Project(
         name="test",
         categories={"policies": Category(dir="policies", name="policies", patterns=["**/*.md"])},
     )
-    session = _MockSession(str(tmp_path))
-    result = await gather_category_fileinfos(await _request_context(tmp_path, session), project, "policies")
-
-    assert len(result) == 1
-    assert result[0].name == "conservative.md"
-
-
-@pytest.mark.anyio
-async def test_underscore_prefix_in_subdirectory_excluded(tmp_path):
-    """_ prefixed files in nested subdirectories are excluded."""
-    category_dir = tmp_path / "policies"
-    subdir = category_dir / "git" / "ops"
-    subdir.mkdir(parents=True)
-    (subdir / "_notes.md").write_text("# Notes")
-    (subdir / "conservative.md").write_text("# Conservative")
-
-    project = Project(
-        name="test",
-        categories={"policies": Category(dir="policies", name="policies", patterns=["**/*.md"])},
-    )
-    session = _MockSession(str(tmp_path))
-    result = await gather_category_fileinfos(await _request_context(tmp_path, session), project, "policies")
-
-    assert len(result) == 1
-    assert result[0].name == "git/ops/conservative.md"
-
-
-@pytest.mark.anyio
-async def test_stored_document_with_underscore_not_excluded(tmp_path):
-    """Stored documents with _ prefix are NOT excluded — they are user-imported."""
-    category_dir = tmp_path / "policies"
-    category_dir.mkdir()
-
-    project = Project(
-        name="test",
-        categories={"policies": Category(dir="policies", name="policies", patterns=["*.md"])},
-    )
-
-    async def mock_discover(base_dir, patterns, category=None):
-        stored = FileInfo(
-            path=Path("_custom.md"),
-            size=0,
-            content_size=0,
-            mtime=datetime(2024, 1, 1),
-            name="_custom.md",
-            source="store",
-        )
-        return [stored]
-
-    session = _MockSession(str(tmp_path))
-    from unittest.mock import patch
-
-    with patch("mcp_guide.content.gathering.discover_documents", side_effect=mock_discover):
-        result = await gather_category_fileinfos(await _request_context(tmp_path, session), project, "policies")
-
-    assert len(result) == 1
-    assert result[0].name == "_custom.md"
+    result = await gather_category_fileinfos(await _request_context(tmp_path), project, "policies")
+    assert {(file.name, file.source) for file in result} == {("git/ops/visible.md", "file"), ("_custom.md", "store")}
 
 
 # --- Tests for sub-path filtering via trailing slash ---
@@ -337,26 +214,11 @@ async def test_trailing_slash_multiple_matching_patterns(tmp_path):
 
 
 @pytest.mark.anyio
-async def test_render_missing_policy_contains_constant(tmp_path):
-    """Placeholder must contain INSTRUCTION_MISSING_POLICY."""
-    result = await render_missing_policy(await _request_context(tmp_path, _MockSession("")), "git/ops")
-    assert INSTRUCTION_MISSING_POLICY in result
-
-
-@pytest.mark.anyio
-async def test_render_missing_policy_contains_topic(tmp_path):
-    """Placeholder must contain the topic name."""
-    result = await render_missing_policy(await _request_context(tmp_path, _MockSession("")), "testing")
-    assert "testing" in result
-
-
-@pytest.mark.anyio
-async def test_render_missing_policy_different_topics(tmp_path):
-    """Each topic produces distinct output."""
+async def test_missing_policy_fallback_identifies_each_topic(tmp_path):
+    """A missing template produces actionable, topic-specific fallback text."""
     context = await _request_context(tmp_path, _MockSession(""))
-    a = await render_missing_policy(context, "git/ops")
-    b = await render_missing_policy(context, "testing")
-    assert a != b
+    for topic in ("git/ops", "testing"):
+        assert await render_missing_policy(context, topic) == f"{INSTRUCTION_MISSING_POLICY}\n\nTopic: `{topic}`"
 
 
 # --- Tests for _gather_policy_partials ---
@@ -402,26 +264,6 @@ async def test_gather_policy_partials_unbound_session_returns_empty(tmp_path):
 
 
 @pytest.mark.anyio
-async def test_gather_policy_partials_no_project_returns_empty(tmp_path):
-    """When session.get_project() raises NoProjectError, returns empty dict."""
-    policy_file = tmp_path / "doc.md.mustache"
-    policy_file.write_text("---\npolicies:\n  - git/ops\n---\nContent.")
-
-    file_info = FileInfo(
-        path=policy_file,
-        size=policy_file.stat().st_size,
-        content_size=0,
-        mtime=datetime(2024, 1, 1),
-        name="doc.md",
-    )
-    session = _MockSession(str(tmp_path), project=None)
-    result = await _gather_policy_partials(
-        await _request_context(tmp_path, session), file_info, TemplateContext({}), {}
-    )
-    assert result == {}
-
-
-@pytest.mark.anyio
 async def test_gather_policy_partials_no_match_returns_placeholder(tmp_path, monkeypatch):
     """Topic with no matching policy files → placeholder content for that topic."""
     policy_file = tmp_path / "doc.md.mustache"
@@ -452,7 +294,7 @@ async def test_gather_policy_partials_no_match_returns_placeholder(tmp_path, mon
 
 
 @pytest.mark.anyio
-async def test_gather_policy_partials_matching_topic_renders_content(tmp_path, monkeypatch):
+async def test_gather_policy_partials_matching_topic_renders_content(runtime, tmp_path):
     """Topic with a matching policy file → rendered content returned."""
     doc_file = tmp_path / "doc.md.mustache"
     doc_file.write_text("---\npolicies:\n  - git/ops\n---\nContent.")
@@ -481,12 +323,11 @@ async def test_gather_policy_partials_matching_topic_renders_content(tmp_path, m
             )
         },
     )
-    session = _MockSession(str(tmp_path), project=project)
-    rendered = type("Rendered", (), {"content": "Use conservative git ops."})()
-    monkeypatch.setattr("mcp_guide.content.utils.render_template", AsyncMock(return_value=rendered))
-    result = await _gather_policy_partials(
-        await _request_context(tmp_path, session), file_info, TemplateContext({}), {}
-    )
+    config = runtime.configuration_service().config_file
+    config.parent.mkdir(parents=True, exist_ok=True)
+    config.write_text(yaml.safe_dump({"docroot": str(tmp_path), "projects": {}}))
+    session = await create_bound_test_session(runtime, "policies")
+    await session.update_config(lambda current: replace(current, categories=project.categories))
+    result = await _gather_policy_partials(await request_context_for(session), file_info, TemplateContext({}), {})
 
-    assert "git/ops" in result
-    assert "Use conservative git ops." in result["git/ops"]
+    assert result == {"git/ops": "Use conservative git ops."}

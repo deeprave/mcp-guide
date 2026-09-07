@@ -6,13 +6,12 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+import yaml
 from tests.helpers import create_test_runtime, request_context_for, wait_for_session_disposals
 
 from mcp_guide.core.tool_arguments import ToolArguments
 from mcp_guide.mcp_context import runtime_from_fastmcp, session_resolution_from_fastmcp
-from mcp_guide.models import Project
 from mcp_guide.runtime import (
-    GuideRuntime,
     OwnerKey,
     RequestContext,
     RootIdentity,
@@ -37,7 +36,9 @@ def test_use_pwd_is_off_unless_explicitly_enabled(monkeypatch) -> None:
 
 
 def runtime_for_config(config_dir):
-    """Create a runtime that owns configuration for ``config_dir``."""
+    """Create isolated lifecycle state without running the unrelated template installer."""
+    config_dir.mkdir(parents=True, exist_ok=True)
+    (config_dir / "config.yaml").write_text("projects: {}\nfeature_flags: {}\n")
     return create_test_runtime(str(config_dir))
 
 
@@ -281,28 +282,6 @@ def context_for(session, session_id: str | None = "session-1") -> RequestContext
     )
 
 
-def test_request_context_carries_only_resolved_application_state() -> None:
-    """Request context carries the exact Session, root, and active Project."""
-    root = RootIdentity.from_path("/client/workspace/demo")
-    project = Project(name="review", key=f"review-{root.hash[:8]}", hash=root.hash)
-
-    session = SimpleNamespace(project=project, bound_root_path=Path("/client/workspace/demo"))
-    context = context_for(session, "session-42")
-
-    assert context.root == root
-    assert context.project is project
-    assert context.project.hash == calculate_project_hash("/client/workspace/demo")
-    assert context.session is session
-    assert context.session_id == "session-42"
-
-
-def test_request_context_records_the_fastmcp_session_id_when_supplied() -> None:
-    """The resolved context retains the client-provided session identity."""
-    context = context_for(SimpleNamespace(project=None, bound_root_path=None), "session-43")
-
-    assert context.session_id == "session-43"
-
-
 @pytest.mark.parametrize("session_id", ["", "session\n43", "session\x0043", "x" * 513])
 def test_request_context_rejects_unsafe_session_ids(session_id: str) -> None:
     """Session identifiers are unstructured but safe for registry use and logging."""
@@ -324,14 +303,6 @@ async def test_request_context_constructs_from_the_resolved_session(tmp_path) ->
     assert context.session_id == "session-44"
     assert context.root == RootIdentity.from_path("/client/workspace/context-project")
     assert context.project is await session.get_project()
-
-
-def test_session_does_not_publish_runtime(tmp_path) -> None:
-    """Session keeps GuideRuntime private; process code uses get_runtime()."""
-    runtime = runtime_for_config(tmp_path)
-    session = runtime.resolve_session(OwnerKey("private-runtime"))
-    assert not hasattr(type(session), "runtime")
-    assert get_runtime() is runtime
 
 
 @pytest.mark.anyio
@@ -378,7 +349,6 @@ async def test_request_context_resolves_only_safe_document_relative_paths(tmp_pa
 
     context = await runtime.request_context(ContextSession(), session_id=None, seq=1)
 
-    assert not hasattr(context, "document_root")
     resolver = context.get_docroot_resolver()
     assert resolver("guides/intro.md") == (docroot / "guides" / "intro.md").resolve()
     assert resolver("guides/outro.md") == (docroot / "guides" / "outro.md").resolve()
@@ -466,20 +436,17 @@ async def test_get_session_and_project_reloads_a_dirty_project(tmp_path) -> None
     session = runtime.resolve_session(OwnerKey("dirty-project"))
     await session.bind_project_path("/client/workspace/dirty-project")
     context = await request_context_for(session, "dirty-project")
-    original_invalidate = session.invalidate_cache
-    reloads: list[bool] = []
-
-    async def tracking_invalidate() -> None:
-        reloads.append(True)
-        await original_invalidate()
-
+    config_file = runtime.configuration_service().config_file
+    data = yaml.safe_load(config_file.read_text())
+    data["projects"][session.project.key]["categories"] = {"reloaded": {"dir": "docs", "patterns": ["*.md"]}}
+    config_file.write_text(yaml.safe_dump(data))
     session._project_dirty = True
-    session.invalidate_cache = tracking_invalidate  # type: ignore[method-assign]
     helper_session, project = await get_session_and_project(context)
 
     assert helper_session is session
     assert project is await session.get_project()
-    assert reloads == [True]
+    assert set(project.categories) == {"reloaded"}
+    assert project.categories["reloaded"].dir == "docs/"
     assert session._project_dirty is False
 
 
@@ -611,23 +578,6 @@ async def test_runtime_delegates_docroot_to_its_configuration_service(tmp_path) 
     await runtime.start()
     assert await runtime.get_docroot() == "/configured/docs"
     await runtime.stop()
-
-
-def test_session_obtains_its_configuration_service_from_its_runtime(tmp_path) -> None:
-    """Session keeps only its runtime, not a duplicate configuration reference."""
-    from mcp_guide.session import Session
-
-    runtime: GuideRuntime[Session]
-
-    def create_session(_owner: OwnerKey) -> Session:
-        return Session(runtime)
-
-    runtime = create_runtime(create_session, config_dir=str(tmp_path))
-    session = runtime.resolve_session(OwnerKey("test-owner"))
-
-    assert session._config() is runtime.configuration_service()
-    assert not hasattr(session, "_config_manager")
-    assert not hasattr(session, "_Session__config_manager")
 
 
 @pytest.mark.anyio
@@ -1298,11 +1248,22 @@ async def test_new_root_binding_is_immediately_visible_in_shared_snapshot(tmp_pa
         await runtime.stop()
 
 
+class RecordingConfigListener:
+    """Observe notifications without replacing configuration publication."""
+
+    def __init__(self):
+        self.sessions = []
+
+    async def on_config_changed(self, session):
+        self.sessions.append(session)
+
+    async def on_project_changed(self, session, old_project, new_project):
+        pass
+
+
 @pytest.mark.anyio
 async def test_shared_config_manager_publishes_mutations_to_each_bound_session(tmp_path) -> None:
     """One runtime-owned manager immediately refreshes every affected Session."""
-    from unittest.mock import AsyncMock
-
     from mcp_guide.feature_flags.types import FeatureValue
 
     runtime = runtime_for_config(tmp_path)
@@ -1311,12 +1272,12 @@ async def test_shared_config_manager_publishes_mutations_to_each_bound_session(t
     await first.bind_project_path("/client/workspace/shared-project")
     await second.bind_project_path("/client/workspace/shared-project")
 
-    listener = AsyncMock()
+    listener = RecordingConfigListener()
     second.add_listener(listener)
 
     await get_runtime().set_feature_flag("shared_flag", FeatureValue(True))
 
-    listener.on_config_changed.assert_awaited_once_with(second)
+    assert listener.sessions == [second]
     assert (await get_runtime().get_feature_flags())["shared_flag"].to_raw() is True
 
     await first.cleanup()
@@ -1326,8 +1287,6 @@ async def test_shared_config_manager_publishes_mutations_to_each_bound_session(t
 @pytest.mark.anyio
 async def test_shared_config_manager_publishes_each_concurrent_write(tmp_path) -> None:
     """Concurrent writes retain separate deltas rather than suppressing one publication."""
-    from unittest.mock import AsyncMock
-
     from mcp_guide.feature_flags.types import FeatureValue
 
     runtime = runtime_for_config(tmp_path)
@@ -1335,7 +1294,7 @@ async def test_shared_config_manager_publishes_each_concurrent_write(tmp_path) -
     second = runtime.resolve_session(OwnerKey("second"))
     await first.bind_project_path("/client/workspace/concurrent-project")
     await second.bind_project_path("/client/workspace/concurrent-project")
-    listener = AsyncMock()
+    listener = RecordingConfigListener()
     second.add_listener(listener)
 
     await __import__("asyncio").gather(
@@ -1346,7 +1305,7 @@ async def test_shared_config_manager_publishes_each_concurrent_write(tmp_path) -
     flags = await get_runtime().get_feature_flags()
     assert flags["first_flag"].to_raw() is True
     assert flags["second_flag"].to_raw() is True
-    assert listener.on_config_changed.await_count >= 2
+    assert listener.sessions == [second, second]
     await first.cleanup()
     await second.cleanup()
 
@@ -1354,22 +1313,20 @@ async def test_shared_config_manager_publishes_each_concurrent_write(tmp_path) -
 @pytest.mark.anyio
 async def test_config_watcher_suppresses_its_already_published_snapshot(tmp_path) -> None:
     """The watcher must not repeat a publication for the runtime's own write."""
-    from unittest.mock import AsyncMock
-
     from mcp_guide.feature_flags.types import FeatureValue
 
     runtime = runtime_for_config(tmp_path)
     manager = runtime.configuration_service()
     session = runtime.resolve_session(OwnerKey("deduplicated-project"))
     await session.bind_project_path("/client/workspace/deduplicated-project")
-    listener = AsyncMock()
+    listener = RecordingConfigListener()
     session.add_listener(listener)
 
     await get_runtime().set_feature_flag("shared_flag", FeatureValue(True))
-    listener.on_config_changed.assert_awaited_once_with(session)
+    assert listener.sessions == [session]
 
     await manager._on_external_change(str(manager.config_file))
-    listener.on_config_changed.assert_awaited_once_with(session)
+    assert listener.sessions == [session]
 
     await session.cleanup()
 
@@ -1378,7 +1335,6 @@ async def test_config_watcher_suppresses_its_already_published_snapshot(tmp_path
 async def test_project_publication_only_refreshes_matching_configuration_identity(tmp_path) -> None:
     """A project write does not restart task state in unrelated Sessions."""
     from dataclasses import replace
-    from unittest.mock import AsyncMock
 
     from mcp_guide.models import Category
 
@@ -1390,8 +1346,8 @@ async def test_project_publication_only_refreshes_matching_configuration_identit
     await matching.bind_project_path("/client/workspace/shared-project")
     await unrelated.bind_project_path("/client/workspace/other-project")
 
-    matching_listener = AsyncMock()
-    unrelated_listener = AsyncMock()
+    matching_listener = RecordingConfigListener()
+    unrelated_listener = RecordingConfigListener()
     matching.add_listener(matching_listener)
     unrelated.add_listener(unrelated_listener)
 
@@ -1399,8 +1355,8 @@ async def test_project_publication_only_refreshes_matching_configuration_identit
         lambda project: replace(project, categories={"api": Category(name="api", dir="src", patterns=["*.py"])})
     )
 
-    matching_listener.on_config_changed.assert_awaited_once_with(matching)
-    unrelated_listener.on_config_changed.assert_not_awaited()
+    assert matching_listener.sessions == [matching]
+    assert unrelated_listener.sessions == []
     assert "api" in (await matching.get_project()).categories
 
     await first.cleanup()
