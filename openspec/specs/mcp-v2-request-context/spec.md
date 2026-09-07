@@ -76,6 +76,7 @@ control characters, without imposing a UUID format or other needless structure.
 - **AND** the result SHALL direct the agent to call project selection with an absolute client filesystem `path`, not a project name
 
 #### Scenario: Stdio context has inherited client PWD
+- **GIVEN** stdio filesystem sharing has been verified
 - **WHEN** a sessionless stdio context has a valid absolute inherited `PWD`
 - **AND** inherited-PWD bootstrap has been explicitly enabled
 - **THEN** the request adapter SHALL bind the new Guide Session from that path before
@@ -166,3 +167,16 @@ session IDs or client filesystem paths.
 - **GIVEN** a modern request has no validated or minted public interaction ID
 - **WHEN** it uses an ephemeral unbound Session
 - **THEN** it SHALL NOT emit an interaction-establishment log
+
+### Requirement: Client-aware inherited-PWD bootstrap
+Inherited-PWD bootstrap SHALL require verified shared stdio state as well as its
+existing explicit opt-in. It SHALL NOT use server PWD while verification is
+pending, failed or disabled.
+
+#### Scenario: Unverified or HTTP inherited PWD
+- **WHEN** bootstrap is enabled but shared stdio access is not verified
+- **THEN** the interaction SHALL remain unbound until given an absolute client root
+
+#### Scenario: Verified inherited PWD
+- **WHEN** stdio sharing is verified and inherited-PWD bootstrap is explicitly enabled
+- **THEN** bootstrap MAY bind through LazyPath.client_resolve()
