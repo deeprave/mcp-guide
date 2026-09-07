@@ -50,11 +50,10 @@ def _response_payload_and_metadata(
 def tool_response(
     result: Result[Any], *, session_id: str | None = None, protocol_type: SessionProtocolType | None = None
 ) -> ToolResult:
-    """Return a native FastMCP result without dropping Guide result fields.
+    """Return a native FastMCP result using the Session response contract.
 
-    The structured payload is the canonical Guide result representation. The
-    matching text block retains compatibility with clients that only render
-    text content.
+    Legacy sessions preserve the complete Guide payload. Modern sessions move
+    ``additional_agent_instructions`` to ``_meta["mcp-guide"]["instructions"]``.
     """
     payload, meta = _response_payload_and_metadata(result, session_id=session_id, protocol_type=protocol_type)
     return ToolResult(
@@ -68,9 +67,10 @@ def tool_response(
 def prompt_response(
     result: Result[Any], *, session_id: str | None = None, protocol_type: SessionProtocolType | None = None
 ) -> PromptResult:
-    """Return a native FastMCP prompt response without discarding Guide data.
+    """Return a native FastMCP prompt response using the Session response contract.
 
-    Prompt results carry the canonical Guide payload as their message body.
+    Legacy prompts retain the complete Guide payload; modern prompts move
+    ``additional_agent_instructions`` to response metadata.
     """
     payload, meta = _response_payload_and_metadata(result, session_id=session_id, protocol_type=protocol_type)
     return PromptResult(json.dumps(payload), meta=meta)
@@ -79,7 +79,11 @@ def prompt_response(
 def resource_response(
     result: Result[Any], *, session_id: str | None = None, protocol_type: SessionProtocolType | None = None
 ) -> ResourceResult:
-    """Return a native FastMCP resource result preserving the Guide payload."""
+    """Return a native FastMCP resource result using the Session response contract.
+
+    Legacy resources retain the complete Guide payload; modern resources move
+    ``additional_agent_instructions`` to response metadata.
+    """
     payload, meta = _response_payload_and_metadata(result, session_id=session_id, protocol_type=protocol_type)
     return ResourceResult(json.dumps(payload), meta=meta)
 

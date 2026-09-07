@@ -231,7 +231,12 @@ async def internal_switch_project(args: SwitchProjectArgs, request_context: Requ
 async def switch_project(args: SwitchProjectArgs, request_context: RequestContext) -> ToolResult:
     """Switch active configuration project or rebind the project root with path."""
     result = await internal_switch_project(args, request_context)
-    return await tool_result("switch_project", result, session_id=request_context.session_id)
+    return await tool_result(
+        "switch_project",
+        result,
+        session_id=request_context.session_id,
+        protocol_type=request_context.session.protocol_type,
+    )
 
 
 async def internal_list_projects(args: ListProjectsArgs, request_context: RequestContext) -> Result[dict]:
