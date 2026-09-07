@@ -442,6 +442,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#response-instructions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Response instructions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#client-migration" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1086,6 +1097,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#response-instructions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Response instructions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#client-migration" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1183,6 +1205,19 @@ protocol revision <code>2026-07-28</code> and retained handshake-era clients neg
 FastMCP. There is no separate wire protocol named “MCP v2”.</p>
 <p>The retained-client bridge has no scheduled end date. It remains available while it
 is required by supported clients; a future removal would be announced independently.</p>
+<h2 id="response-instructions">Response instructions<a class="headerlink" href="#response-instructions" title="Permanent link">&para;</a></h2>
+<p>Guide fixes an interaction's protocol type when its Session is established. This
+keeps response handling consistent for the life of that interaction, including after
+a project switch. A Session cannot change protocol type later.</p>
+<p>Retained clients continue to receive task-generated guidance in the existing
+<code>additional_agent_instructions</code> field of the structured Guide result. MCP
+<code>2026-07-28</code> clients receive the same single queued instruction in response metadata
+at <code>_meta["mcp-guide"]["instructions"]</code>; that field is omitted from their structured
+Guide result. When no instruction is queued, Guide emits neither the <code>mcp-guide</code>
+metadata namespace nor its <code>instructions</code> key.</p>
+<p>This is a compatibility-preserving response representation change. Clients using the
+modern protocol should inspect the response <code>_meta</code> block as well as structured
+content.</p>
 <h2 id="client-migration">Client migration<a class="headerlink" href="#client-migration" title="Permanent link">&para;</a></h2>
 <p>Existing retained clients continue to use their FastMCP connection identity. They do
 not need to replay an identifier returned by Guide.</p>
