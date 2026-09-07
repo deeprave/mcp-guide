@@ -218,6 +218,7 @@ async def safe_glob_search(search_dir: Path, patterns: List[str]) -> List[Path]:
         except Exception as e:
             logger.warning(f"Pattern '{pattern}' failed: {e}")
             continue
+        candidate_paths.sort(key=lambda path: path.as_posix())
 
         for match_path in candidate_paths:
             if len(matched_files) >= MAX_DOCUMENTS_PER_GLOB:
@@ -236,6 +237,7 @@ async def safe_glob_search(search_dir: Path, patterns: List[str]) -> List[Path]:
             except Exception as e:
                 logger.warning(f"Pattern '{wildcard_pattern}' failed: {e}")
                 continue
+            candidate_paths.sort(key=lambda path: path.as_posix())
 
             for match_path in candidate_paths:
                 if len(matched_files) >= MAX_DOCUMENTS_PER_GLOB:

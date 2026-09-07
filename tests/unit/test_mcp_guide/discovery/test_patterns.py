@@ -73,9 +73,10 @@ class TestBasicPatternMatching:
             return [test_dir / "second.md", test_dir / "first.md"]
 
         monkeypatch.setattr("mcp_guide.discovery.patterns._walk_with_depth_limit", reverse_directory_order)
+        monkeypatch.setattr("mcp_guide.discovery.patterns.MAX_DOCUMENTS_PER_GLOB", 1)
         results = await safe_glob_search(test_dir, ["*.md"])
 
-        assert [path.name for path in results] == ["first.md", "second.md"]
+        assert [path.name for path in results] == ["first.md"]
 
 
 class TestRecursivePatterns:
