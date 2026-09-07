@@ -1476,10 +1476,11 @@ Some clients also expose equivalent prompt syntax, but the URI form is the stabl
 <p>See <a href="../guide-uris/">Guide URIs</a> for the full details.</p>
 <h2 id="project-detection">Project Detection<a class="headerlink" href="#project-detection" title="Permanent link">&para;</a></h2>
 <p>mcp-guide needs an explicit project binding. Call <code>set_project</code> with the absolute
-client project path. A local stdio server may optionally bind from its inherited
-absolute <code>PWD</code> when launched with <code>--use-pwd</code> or <code>MG_USE_PWD=1</code>; this
-is off by default because process <code>PWD</code> is not the client filesystem (HTTP,
-containers, and desktop hosts). Modern clients then replay the returned
+client project path. Stdio then performs a one-shot filesystem check; only a
+successful check enables relative root switches, <code>~</code>, <code>~user</code> and <code>$VAR</code> expansion.
+HTTP/HTTPS never enables these conveniences. The optional inherited absolute <code>PWD</code>
+bootstrap (<code>--use-pwd</code> or <code>MG_USE_PWD=1</code>) also requires already verified stdio
+sharing and is off by default. Modern clients then replay the returned
 <code>session_id</code> on later project-bound requests. See <a href="../installation/#project-detection">Installation — Project
 Detection</a> and <a href="../protocol-and-sessions/">Protocol and
 Sessions</a> for details.</p>

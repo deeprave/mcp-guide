@@ -461,6 +461,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Project and configuration identity">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#client-filesystem-verification" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Client filesystem verification
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1088,6 +1105,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Project and configuration identity">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#client-filesystem-verification" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Client filesystem verification
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1173,12 +1207,42 @@ project, agent details, and feature configuration.</p>
 project name and a path hash from that root, then binds the interaction once. A later
 <code>set_project</code> call, including one with the same path, is rejected. Use
 <code>switch_project({"path": "..."})</code> to rebind the root in the retained interaction.</p>
+<p>Initial binding never accepts a relative path, even after filesystem verification.
+Permitted user/environment expansion must produce an absolute path. Absolute paths
+containing <code>..</code> are normalised before binding; server CWD is never used to make
+relative initial input absolute.</p>
 <p><code>switch_project</code> accepts exactly one selection. <code>switch_project({"name": "..."})</code>
 changes the active Guide configuration within the bound root. Alternatively,
 <code>switch_project({"path": "..."})</code> rebinds the project root in the retained
 interaction and selects the configuration named by the normalised path basename.
-The path may be absolute, user-anchored (<code>~</code> or <code>~user</code>), or relative to the
-current bound root. Do not provide both <code>name</code> and <code>path</code>.</p>
+Use an absolute client path unless stdio filesystem sharing has been verified.
+After verification, the path may also use <code>~</code>, <code>~user</code>, <code>$VAR</code> or <code>${VAR}</code>, or
+be relative to the current bound root. Do not provide both <code>name</code> and <code>path</code>.</p>
+<h3 id="client-filesystem-verification">Client filesystem verification<a class="headerlink" href="#client-filesystem-verification" title="Permanent link">&para;</a></h3>
+<p>The first stdio binding requires an absolute client root. Guide creates a
+uniquely named <code>.mcp-guide-fs-probe-&lt;random-id&gt;</code> file there and queues a one-time
+instruction asking the agent to read it and return its exact contents through
+<code>send_file_content</code>. The agent must not create or modify the probe. If it cannot
+read the file, it should report <code>unreadable</code> as instructed.</p>
+<p>The response timeout is <strong>60 seconds</strong>, starting when the instruction is attached
+to an outgoing response, not when queued. This notification does not confirm
+client receipt. A matching response enables shorthand process-wide until the
+server restarts. Failure, timeout or disposal of the owning Session leaves it
+disabled. Guide removes the probe and its instruction/subscriptions on completion;
+there is no automatic retry. Until verification succeeds, supply absolute paths.</p>
+<p>Verified sharing permits server-side user, environment and symlink resolution.
+Guide assumes the client and server use the same user/home; <code>~user</code> and variables
+use the server's accounts and environment. Matching access is sufficient; matching
+every mount or environment variable is not independently verified. Relative root
+switches use the current bound root, never the server working directory.</p>
+<p>Stdio alone does not prove sharing: a Docker stdio deployment without the same
+project mount at the same absolute path cannot use shorthand. HTTP and HTTPS
+always disable shorthand and never send a probe, including localhost HTTP and
+container or remote servers. Their roots are normalised lexically without server
+symlink resolution. Resolve shorthand on the client and submit an absolute path.</p>
+<p>Server-owned configuration paths and docroot retain ordinary server-side expansion.
+The optional inherited-<code>PWD</code> bootstrap additionally requires already verified stdio
+sharing, so it cannot replace the first explicit binding after server startup.</p>
 <p>A different selection creates a fresh internal Session under the same public
 <code>session_id</code>; it does not reconnect the client. Selecting the current name and
 root is a no-op unless a previous Session is still expiring.</p>

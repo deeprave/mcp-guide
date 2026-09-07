@@ -1593,8 +1593,9 @@ It requires uv, Python 3.13+ to be installed, and the "uvx" command to be availa
 server process working directory. HTTP, container, and desktop hosts must not treat
 server <code>getcwd()</code> as the client filesystem. A CLI agent that starts a local stdio
 server from the project directory may opt in with <code>--use-pwd</code> or
-<code>MG_USE_PWD=1</code> to skip one <code>set_project</code> round trip. Guide still does not use
-MCP roots for binding.</p>
+<code>MG_USE_PWD=1</code>, but this shortcut additionally requires already verified filesystem
+sharing. It cannot replace the first absolute-root binding after server startup.
+Guide still does not use MCP roots for binding.</p>
 <p>When the interaction is not already bound, the agent must call <code>set_project</code> with the
 absolute client filesystem path of the project root:</p>
 <div class="codehilite"><pre><span></span><code>set_project({"path": "/path/to/your/project"})
@@ -1602,10 +1603,16 @@ absolute client filesystem path of the project root:</p>
 
 <p><code>set_project</code> binds the initial root once. A retained interaction can then use
 <code>switch_project({"name": "..."})</code> to select a different Guide configuration at
-that root, or <code>switch_project({"path": "../other-project"})</code> to rebind its root
+that root, or <code>switch_project({"path": "/absolute/client/other-project"})</code> to rebind its root
 and select the configuration named by that path's basename. Supply exactly one of
-<code>name</code> or <code>path</code>; a switch path may be absolute, user-anchored, or relative to the
-current root.</p>
+<code>name</code> or <code>path</code>; use an absolute client path until stdio filesystem sharing is
+verified. After verification, <code>~</code>, <code>~user</code>, <code>$VAR</code> and paths relative to the current
+bound root are also accepted. HTTP/HTTPS always requires absolute client paths and
+never probes. Docker stdio requires successful verification of the project mount
+at the same absolute path; stdio alone is not sufficient. The one-shot probe times
+out 60 seconds after its instruction is attached to an outgoing response, excluding
+time waiting in the queue. See <a href="../protocol-and-sessions/#client-filesystem-verification">Client filesystem
+verification</a>.</p>
 <p>Once the project is set, all of mcp-guide's project-related functionality — categories, collections, feature flags, workflows — becomes available. Without it, tools will return an error asking the agent to set a project first. See <a href="../protocol-and-sessions/">Protocol and Sessions</a> for the state rules used by modern and retained clients.</p>
 <p>If you're using an agent that doesn't automatically detect the project, you can include a brief instruction in your agent's system prompt or project configuration to call <code>set_project</code> at the start of each session.</p>
 <h3 id="codex-setup">Codex Setup<a class="headerlink" href="#codex-setup" title="Permanent link">&para;</a></h3>
@@ -1621,7 +1628,7 @@ current root.</p>
 <span class="p">}</span>
 </code></pre></div>
 
-<p>Once connected, the agent should call <code>set_project</code> with the current project path. The optional stdio <code>PWD</code> shortcut is off unless <code>MG_USE_PWD</code> is enabled. After binding, <code>guide://</code> URIs become the primary way to access content and commands — see <a href="../guide-uris/">Guide URIs</a> for details.</p>
+<p>Once connected, the agent should call <code>set_project</code> with the absolute client project path. The optional stdio <code>PWD</code> shortcut requires both <code>MG_USE_PWD</code> and already verified filesystem sharing. After binding, <code>guide://</code> URIs become the primary way to access content and commands — see <a href="../guide-uris/">Guide URIs</a> for details.</p>
 <h3 id="streamable-http">Streamable HTTP<a class="headerlink" href="#streamable-http" title="Permanent link">&para;</a></h3>
 <h4 id="http-transport">HTTP transport<a class="headerlink" href="#http-transport" title="Permanent link">&para;</a></h4>
 <p>MCP client configuration (HTTP):</p>
