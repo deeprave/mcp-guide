@@ -8,6 +8,7 @@ from fastmcp.prompts import PromptResult
 from fastmcp.tools.base import ToolResult
 from tests.helpers import create_bound_test_session, request_context_for
 
+from mcp_guide.mcp_context import SessionProtocolType
 from mcp_guide.models import Category
 from mcp_guide.result import Result
 from mcp_guide.tools.tool_resource import session_id_from_guide_uri
@@ -21,6 +22,12 @@ def _rich_result() -> Result[str]:
         disposition="agent/instruction",
         additional_agent_instructions="Use only the bound project.",
     )
+
+
+async def _drain_pending_instructions(session) -> None:
+    """Remove setup-task instructions before asserting a deliberately supplied result."""
+    while (await session.task_manager.process_result(Result.ok())).additional_agent_instructions is not None:
+        pass
 
 
 @pytest.mark.anyio
@@ -45,6 +52,24 @@ async def test_tool_and_prompt_boundaries_preserve_agent_directed_result_fields(
 
 
 @pytest.mark.anyio
+async def test_modern_tool_and_prompt_boundaries_use_response_metadata(runtime) -> None:
+    """Modern Session protocol type reaches both non-resource response adapters."""
+    import json
+
+    session = await create_bound_test_session(runtime, "modern-surface")
+    session.establish_protocol_type(SessionProtocolType.MCP_2026_07_28)
+    await _drain_pending_instructions(session)
+
+    tool = await tool_result("surface-test", _rich_result(), session=session)
+    prompt = await prompt_result("surface-test", _rich_result(), session=session)
+
+    assert tool.meta == {"mcp-guide": {"instructions": "Use only the bound project."}}
+    assert "additional_agent_instructions" not in tool.structured_content
+    assert prompt.meta == {"mcp-guide": {"instructions": "Use only the bound project."}}
+    assert "additional_agent_instructions" not in json.loads(prompt.messages[0].content.text)
+
+
+@pytest.mark.anyio
 async def test_resource_boundary_preserves_agent_directed_result_fields(runtime, tmp_path) -> None:
     """Rendered file guidance and queued instructions reach the native resource payload."""
     import json
@@ -61,6 +86,8 @@ async def test_resource_boundary_preserves_agent_directed_result_fields(runtime,
     config.parent.mkdir(parents=True, exist_ok=True)
     config.write_text(yaml.safe_dump({"docroot": str(docroot), "projects": {}}))
     session = await create_bound_test_session(runtime, "surface")
+    session.establish_protocol_type(SessionProtocolType.MCP_2026_07_28)
+    await _drain_pending_instructions(session)
     await session.update_config(
         lambda project: replace(project, categories={"docs": Category(name="docs", dir="guidance", patterns=["*"])})
     )
@@ -75,7 +102,8 @@ async def test_resource_boundary_preserves_agent_directed_result_fields(runtime,
     assert payload["instruction"].startswith("Read before continuing.")
     assert payload["session_id"] == "bound-session"
     assert payload["disposition"] == "agent/instruction"
-    assert payload["additional_agent_instructions"] == "Use only the bound project."
+    assert "additional_agent_instructions" not in payload
+    assert resource.meta == {"mcp-guide": {"instructions": "Use only the bound project."}}
 
 
 @pytest.mark.parametrize(

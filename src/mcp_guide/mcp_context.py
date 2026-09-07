@@ -1,6 +1,7 @@
 """MCP context data structures and management."""
 
 from collections.abc import Mapping
+from enum import StrEnum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -11,6 +12,20 @@ logger = get_logger(__name__)
 
 if TYPE_CHECKING:
     from mcp_guide.session import Session
+
+
+class SessionProtocolType(StrEnum):
+    """Response-contract type derived from a negotiated MCP revision."""
+
+    LEGACY = "legacy"
+    MCP_2026_07_28 = "mcp_2026_07_28"
+
+
+def protocol_type_from_revision(protocol_revision: str) -> SessionProtocolType:
+    """Classify a negotiated protocol revision for Session response adaptation."""
+    if protocol_revision == "2026-07-28":
+        return SessionProtocolType.MCP_2026_07_28
+    return SessionProtocolType.LEGACY
 
 
 def extract_client_params(ctx: Any) -> dict[str, Any] | None:

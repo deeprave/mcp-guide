@@ -10,7 +10,7 @@ from fastmcp import Context
 
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.lazy_path import LazyPath
-from mcp_guide.mcp_context import cache_mcp_globals
+from mcp_guide.mcp_context import SessionProtocolType, cache_mcp_globals
 from mcp_guide.models import _NAME_REGEX, Project
 from mcp_guide.models.delegate import ProjectDelegate
 from mcp_guide.runtime import OwnerKey
@@ -139,6 +139,7 @@ class Session:
         # MCP context fields (populated by cache_mcp_globals)
         self.agent_info: Optional["AgentInfo"] = None
         self.client_params: Optional[dict[str, Any]] = None
+        self._protocol_type: SessionProtocolType | None = None
         self._protocol_logged = False
 
     def _config(self) -> ConfigurationService:
@@ -166,6 +167,19 @@ class Session:
     def bound_root_path(self) -> Path | None:
         """The immutable client root selected for this Session, if any."""
         return self.__bound_root_path
+
+    @property
+    def protocol_type(self) -> SessionProtocolType | None:
+        """Return the immutable response-contract type for this Session."""
+        return self._protocol_type
+
+    def establish_protocol_type(self, protocol_type: SessionProtocolType) -> None:
+        """Set the negotiated response contract once, rejecting a later mismatch."""
+        if self._protocol_type is None:
+            self._protocol_type = protocol_type
+            return
+        if self._protocol_type is not protocol_type:
+            raise ValueError("Session protocol type cannot change after establishment")
 
     @property
     def active_configuration_identity(self) -> tuple[str, str] | None:
@@ -281,6 +295,7 @@ class Session:
         replacement._config().unregister_session(replacement)
         replacement.agent_info = self.agent_info
         replacement.client_params = self.client_params.copy() if self.client_params is not None else None
+        replacement._protocol_type = self._protocol_type
         replacement._protocol_logged = self._protocol_logged
         try:
             await replacement.prepare_binding(selected_project_name, root_path)
@@ -522,7 +537,11 @@ async def request_context_scope(
     if ctx is None:
         raise RuntimeError("A public MCP invocation requires a FastMCP context")
 
-    from mcp_guide.mcp_context import runtime_from_fastmcp, session_resolution_from_fastmcp
+    from mcp_guide.mcp_context import (
+        protocol_type_from_revision,
+        runtime_from_fastmcp,
+        session_resolution_from_fastmcp,
+    )
 
     runtime = runtime_from_fastmcp(ctx)
     if runtime is None:
@@ -584,6 +603,7 @@ async def request_context_scope(
             else:
                 session = captured_session
         try:
+            session.establish_protocol_type(protocol_type_from_revision(protocol_revision))
             if pwd_bind and session_id is None and not session.project_is_bound and pwd is not None:
                 await bind_session_project(session, Path(pwd))
             else:

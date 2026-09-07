@@ -73,7 +73,7 @@ async def tool_result(
     logger.trace(f"Tool '{tool_name}' result: {result.to_json()}")
 
     continuation_id = session_id if session_id is not None else (session.session_id if session is not None else None)
-    return tool_response(result, session_id=continuation_id)
+    return tool_response(result, session_id=continuation_id, protocol_type=session.protocol_type if session else None)
 
 
 async def prompt_result(
@@ -110,4 +110,4 @@ async def prompt_result(
 
     logger.trace(f"Prompt '{prompt_name}' result: {result.to_json()}")
 
-    return prompt_response(result, session_id=session_id)
+    return prompt_response(result, session_id=session_id, protocol_type=session.protocol_type if session else None)

@@ -11,6 +11,7 @@ from fastmcp.tools.base import ToolResult
 from mcp_types import TextContent
 
 from mcp_guide.core.result import Result
+from mcp_guide.mcp_context import SessionProtocolType
 
 SESSION_CONTINUATION_INSTRUCTION = (
     "In future requests, provide session_id unchanged in tools and prompts. "
@@ -32,34 +33,55 @@ def add_session_continuation(payload: dict[str, Any], session_id: str | None) ->
     return payload
 
 
-def tool_response(result: Result[Any], *, session_id: str | None = None) -> ToolResult:
+def _response_payload_and_metadata(
+    result: Result[Any],
+    *,
+    session_id: str | None,
+    protocol_type: SessionProtocolType | None,
+) -> tuple[dict[str, Any], dict[str, dict[str, str]] | None]:
+    """Adapt a Result according to the established Session response contract."""
+    payload = add_session_continuation(result.to_json(), session_id)
+    if protocol_type is not SessionProtocolType.MCP_2026_07_28:
+        return payload, None
+    instruction = payload.pop("additional_agent_instructions", None)
+    return payload, {"mcp-guide": {"instructions": instruction}} if instruction else None
+
+
+def tool_response(
+    result: Result[Any], *, session_id: str | None = None, protocol_type: SessionProtocolType | None = None
+) -> ToolResult:
     """Return a native FastMCP result without dropping Guide result fields.
 
     The structured payload is the canonical Guide result representation. The
     matching text block retains compatibility with clients that only render
     text content.
     """
-    payload = add_session_continuation(result.to_json(), session_id)
+    payload, meta = _response_payload_and_metadata(result, session_id=session_id, protocol_type=protocol_type)
     return ToolResult(
         content=[TextContent(type="text", text=json.dumps(payload))],
         structured_content=payload,
+        meta=meta,
         is_error=not result.success,
     )
 
 
-def prompt_response(result: Result[Any], *, session_id: str | None = None) -> PromptResult:
+def prompt_response(
+    result: Result[Any], *, session_id: str | None = None, protocol_type: SessionProtocolType | None = None
+) -> PromptResult:
     """Return a native FastMCP prompt response without discarding Guide data.
 
     Prompt results carry the canonical Guide payload as their message body.
     """
-    payload = add_session_continuation(result.to_json(), session_id)
-    return PromptResult(json.dumps(payload))
+    payload, meta = _response_payload_and_metadata(result, session_id=session_id, protocol_type=protocol_type)
+    return PromptResult(json.dumps(payload), meta=meta)
 
 
-def resource_response(result: Result[Any], *, session_id: str | None = None) -> ResourceResult:
+def resource_response(
+    result: Result[Any], *, session_id: str | None = None, protocol_type: SessionProtocolType | None = None
+) -> ResourceResult:
     """Return a native FastMCP resource result preserving the Guide payload."""
-    payload = add_session_continuation(result.to_json(), session_id)
-    return ResourceResult(json.dumps(payload))
+    payload, meta = _response_payload_and_metadata(result, session_id=session_id, protocol_type=protocol_type)
+    return ResourceResult(json.dumps(payload), meta=meta)
 
 
 __all__ = ["prompt_response", "resource_response", "tool_response"]
