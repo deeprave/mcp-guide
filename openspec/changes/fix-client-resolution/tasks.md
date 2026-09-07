@@ -1,17 +1,20 @@
 ## 1. Client-path policy
 
-- [ ] 1.1 Add process-wide tri-state client-filesystem configuration and `LazyPath.client_resolve()`; verify unit tests cover unconfigured, shared, and separate states.
-- [ ] 1.2 Add an explicit server startup CLI/environment configuration surface that sets the client-filesystem state independently of transport; verify startup tests cover both configured values and the default.
-- [ ] 1.3 Update existing client-path utilities and root-identity hashing to use lexical client resolution where applicable; verify server-visible symlinks cannot collapse distinct client root identities.
+- [x] 1.1 Add global tri-state sharing policy and LazyPath.client_resolve(), covering verified shared, unverified and disabled paths without changing server-owned resolution.
+- [x] 1.2 Initialise stdio as unverified and HTTP/HTTPS as disabled; ensure HTTP/HTTPS never schedules a probe.
+- [x] 1.3 Route initial binding, root switching, URI decoding, root identity and inherited-PWD bootstrap through the policy; preserve root-relative switching only when verified.
 
-## 2. Project and session integration
+## 2. One-shot shared-filesystem verification
 
-- [ ] 2.1 Route initial project binding and `file://` URI decoding through client resolution; verify percent-encoded URIs and separate-filesystem absolute roots are accepted without host expansion.
-- [ ] 2.2 Route retained root rebinding through client resolution, preserving root-relative paths only for shared filesystems; verify separate and unconfigured deployments reject relative and user-anchored roots with the standard invalid-path result.
-- [ ] 2.3 Gate the opt-in inherited-PWD bootstrap on client-path validity; verify separate and unconfigured deployments remain unbound even when `MG_USE_PWD` is enabled.
+- [x] 2.1 Register a one-shot task after initial absolute-root binding, reserve one global attempt and exclusively create a unique probe file containing a random challenge.
+- [x] 2.2 Queue one read-and-send instruction without revealing expected contents; start the 60-second timeout from outgoing-response dispatch notification rather than queue insertion.
+- [x] 2.3 Intercept the exact probe response before ordinary file handling, validate contents and record the global sharing result.
+- [x] 2.4 Clean up the probe, queued/tracked instruction and subscriptions after success, mismatch, failure, timeout or Session disposal; leave no recurring task or automatic retry.
+- [x] 2.5 Verify lifecycle behaviour using existing task/acknowledgement test patterns, including delayed delivery, unrelated replies, HTTP exclusion and terminal cleanup.
 
-## 3. Documentation and verification
+## 3. Documentation
 
-- [ ] 3.1 Update agent-facing installation and protocol/session documentation to explain deployment-level filesystem sharing, absolute roots for separate filesystems, and the distinction from server-owned docroot/config paths; verify links and examples are accurate.
-- [ ] 3.2 Run targeted client-resolution, session, request-context, and project-selection tests in a foreground PTY; verify all pass.
-- [ ] 3.3 Run the full test suite in a foreground PTY and `openspec validate fix-client-resolution --strict`; verify both pass.
+- [x] 3.1 Update user and agent documentation for verified stdio shorthand, HTTP/HTTPS absolute-only policy, Docker/remote examples, initial binding, dispatch-based timeout and the same-user/environment assumption.
+
+Full-suite and pre-commit checks remain normal repository hygiene, not OpenSpec
+implementation tasks.

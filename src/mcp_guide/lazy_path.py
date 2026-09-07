@@ -1,8 +1,9 @@
 """Lazy path resolution with support for ~ and environment variables."""
 
 import os
+import re
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING, ClassVar, Optional, Union
 
 if TYPE_CHECKING:
     from anyio import Path as AsyncPath
@@ -10,6 +11,25 @@ if TYPE_CHECKING:
 
 class LazyPath:
     """Path that resolves lazily when accessed, supporting ~ and ${VAR} expansion."""
+
+    client_filesystem_shared: ClassVar[bool | None] = None
+
+    def client_resolve(self, *, relative_to: Path | None = None) -> Path:
+        """Resolve client identity, enabling host expansion only after verification."""
+        if self.client_filesystem_shared:
+            path = self.expand()
+            if not path.is_absolute():
+                if relative_to is None:
+                    raise ValueError("Provide an absolute client path when no project root is bound")
+                path = relative_to / path
+            return LazyPath(path).resolve()
+        if (
+            not Path(self.path_str).is_absolute()
+            or self.path_str.startswith("~")
+            or re.search(r"\$(?:\w+|\{[^}]*\})|%[^%]+%", self.path_str)
+        ):
+            raise ValueError("Provide an absolute client path; client filesystem sharing is not verified")
+        return Path(os.path.normpath(self.path_str))
 
     def __init__(self, path: Union[str, Path]):
         """Create a LazyPath from string or Path.

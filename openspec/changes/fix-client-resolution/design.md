@@ -1,99 +1,91 @@
 ## Context
 
-`LazyPath` currently represents server-owned paths and expands `~`, `~user`, and
-environment variables before optional filesystem resolution. Project roots and
-request root identity reuse that behaviour even though they originate from an
-MCP client and may name a different filesystem. See [proposal.md](proposal.md)
-for the motivation and the delta specifications for the behavioural contract.
-
-## Goals / Non-Goals
-
-**Goals:**
-
-- Make filesystem ownership explicit at the path API boundary.
-- Configure client/server filesystem sharing once during server startup.
-- Retain normal server resolution for configuration, docroot, installation, and
-  other server-owned paths.
-- Preserve lexical client-root identity when filesystems are separate.
-
-**Non-Goals:**
-
-- Inferring shared filesystems from MCP transport, client metadata, host names,
-  or Docker detection.
-- Providing client-home lookup or environment expansion for a remote client.
-- Supporting a single Guide process that applies different sharing policies to
-  different clients.
+Client roots currently reuse server-side LazyPath expansion. The approved policy
+makes verified shared stdio filesystems the exception and disables all shorthand
+over HTTP/HTTPS, irrespective of where any individual HTTP client runs.
 
 ## Decisions
 
-### Process-wide tri-state policy on LazyPath
+### Global tri-state in LazyPath
 
-`LazyPath` will own a class-level client-filesystem sharing state and a startup
-configuration method. The state begins as `None`; `client_resolve()` treats that
-as separate for safety. Server startup sets it explicitly to `True` or `False`
-from an explicit deployment setting, irrespective of stdio, HTTP, or HTTPS.
+LazyPath owns process-wide sharing state: None initially/unverified, True after
+successful stdio verification, False when disabled or verification fails. Falsy
+state always rejects client shorthand. HTTP/HTTPS sets False and never probes.
+Stdio initialises None and schedules one verification attempt after its first
+successful absolute-root binding. Do not persist this result or infer success
+from stdio alone, matching paths, existing files, or client names.
 
-This is process-wide because one server deployment has one filesystem contract.
-Passing a Boolean at every call site would allow inconsistent policy and obscure
-the client/server boundary. A per-transport policy is rejected because either
-transport can be local/shared or remote/containerised.
+### Resolution remains on LazyPath
 
-### Separate client resolution from server resolution in the same type
+Add client_resolve() to LazyPath rather than a separate resolver implementation.
+True delegates to ordinary resolve(), including ~, ~user and environment
+expansion. Relative switch paths are joined to the currently bound root first,
+not the server working directory. Initial binding still requires an absolute
+path, including after permitted user/environment expansion when verified. Never
+use server CWD to make relative initial input absolute. Absolute parent components
+are normalised rather than rejected. False/None requires absolute input, rejects user anchors
+and variable references, and lexically normalises without filesystem access.
+URI decoding remains at the project-input boundary, before policy enforcement.
 
-`LazyPath.resolve()` remains the server-path operation: it expands user and
-environment values and resolves filesystem links. `LazyPath.client_resolve()`
-will be the only operation for client-root identity. In a shared deployment it
-delegates to the normal server resolver. In a separate or unconfigured
-deployment it rejects user-anchored and relative inputs, does not expand
-environment variables, and lexically normalises an absolute path without
-filesystem access.
+A successful probe is sufficient assurance for all three conveniences. Available
+client information may corroborate the result but is not an additional gate.
+Assume the same user/home otherwise. Server environment values are used; this is
+an explicit convenience trade-off, not proof of identical process environments.
 
-Keeping both methods on `LazyPath` makes the caller's filesystem authority
-visible while preserving existing server-path behaviour. A separate client-path
-class or helper is rejected because it permits the old ambiguous path API to
-remain in use at client boundaries.
+### One-shot verification task
 
-### Preserve retained root-relative switching only for shared filesystems
+Integrate with existing Session task ownership, queued acknowledged instructions,
+file-content events and timer handling. Reserve a single global pending attempt
+so more than one stdio Session cannot start competing probes.
 
-`switch_project(path=...)` will first identify a relative input. It rejects that
-input for separate or unconfigured filesystems. For shared filesystems it joins
-the path to the current bound root before invoking `client_resolve()`, retaining
-the existing root-relative switch contract rather than resolving against an
-unrelated process working directory.
+Create .mcp-guide-fs-probe-<random-id> directly under the first bound absolute
+project root, using exclusive creation and unpredictable contents. Never
+overwrite an existing file or include the expected contents in the instruction.
+Ask the agent to read the exact absolute file path and submit its contents via
+send_file_content. Failure to create the probe records False without blocking
+the project binding.
 
-### Keep URI decoding at the project-input boundary
+Match the exact registered path, not a filename prefix, and consume the response
+before document ingestion or unrelated file consumers. Only the owning task may
+complete the pending attempt. Compare returned contents with the challenge.
+Matching contents records True; mismatch/read failure records False.
 
-Project-tool input parsing will decode a local `file://` URI before creating a
-`LazyPath`. URI syntax is not a generic filesystem path concern. The decoded
-path then follows `client_resolve()` like every other client root.
+### Dispatch-based timeout and finalisation
 
-### Startup configuration surface
+Queue one instruction using the existing acknowledgement mechanism. Do not start
+the response timeout at task construction, file creation or queue insertion.
+Start a 60-second monotonic timeout when the instruction is attached to an
+outgoing response. This dispatch notification is distinct from the existing
+result acknowledgement and does not confirm client receipt. Time spent waiting
+in the queue does not count towards the response timeout.
 
-The server CLI configuration will expose an explicit global client-filesystem
-sharing option (with an environment-variable equivalent). Its default value is
-separate. The `LazyPath` class still begins as `None` until startup consumes this
-configuration, allowing early use to fail closed and tests to assert lifecycle
-initialisation.
+On success, failure or timeout, record the global result, remove only the probe
+file created by this task, clear its queued/tracked instruction and unsubscribe.
+Session disposal/cancellation also cleans up the owned file and subscriptions.
+No recurring verification task or automatic retry remains after completion.
+Do not let an unfinished probe on an expiring Session enable state from an
+unrelated later file reply.
 
-## Risks / Trade-offs
+### Binding, identity and server paths
 
-- [A shared deployment is misconfigured as separate] → Agents must send
-  absolute roots; no incorrect host path is selected.
-- [A separate deployment is misconfigured as shared] → Host expansion could be
-  used incorrectly; documentation and an explicit opt-in option make this a
-  deployment operator responsibility.
-- [Existing clients send `~` or relative roots remotely] → Return a precise
-  invalid-path response directing them to resolve and send an absolute client
-  path.
-- [Tests leak global policy between cases] → Reset the tri-state configuration
-  in test fixtures and cover all three state values.
+Gate inherited-PWD bootstrap on verified sharing, avoiding server-PWD binding
+before verification; an explicit initial absolute client root remains available.
+Use the client resolver at client root boundaries. Shared resolution may follow
+server symlinks; unverified/separate root identity stays lexical. Leave
+server-owned config, docroot and installation resolution unchanged.
 
-## Migration Plan
+### Documentation
 
-1. Introduce the startup setting and initialise the global state at server
-   startup.
-2. Route client project-root paths through `client_resolve()` and update the
-   PWD bootstrap condition.
-3. Update agent-facing documentation and regression coverage.
-4. Roll back by configuring a known shared deployment as shared; no persisted
-   project configuration schema changes are required.
+Update installation, protocol/session, project-selection and agent guidance.
+Explain initial absolute binding, stdio verification, pending/failed states,
+dispatch-based timeout, user/environment assumptions, and server-owned paths.
+Document that Docker stdio needs successful verification and ordinary unshared
+container deployments lack shorthand. HTTP/HTTPS always lacks shorthand and
+never probes, including localhost HTTP and HTTP from Docker or another host.
+
+## Risks and Non-Goals
+
+The challenge checks shared access, not a hostile client's honesty or equivalence
+of all mounts/users/environments. Read-only roots can fail verification safely.
+Do not add per-HTTP-session sharing, Docker heuristics, global user/environment
+comparison, automatic retries or a new configuration subsystem.

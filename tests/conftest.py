@@ -549,6 +549,9 @@ def runtime(tmp_path, request):
 @pytest.fixture(scope="function", autouse=True)
 def reset_session_for_test():
     """Stop a leftover process runtime so the next test may call create_runtime()."""
+    from mcp_guide.lazy_path import LazyPath
+
+    LazyPath.client_filesystem_shared = None
     yield
     from mcp_guide.config_paths import clear_config_overrides
     from mcp_guide.runtime import get_runtime

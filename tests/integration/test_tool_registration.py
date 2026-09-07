@@ -48,8 +48,8 @@ async def test_mcp_client_can_initialize_and_list_tools(tmp_path):
 
 
 @pytest.mark.anyio
-async def test_modern_stdio_client_receives_pwd_bootstrap_session_id(tmp_path):
-    """A modern stdio client receives the ID for the Session bound from PWD."""
+async def test_unverified_stdio_requires_explicit_binding_despite_pwd_opt_in(tmp_path):
+    """An unverified subprocess cannot infer the client root from server PWD."""
     import sys
 
     from fastmcp import Client
@@ -70,7 +70,9 @@ async def test_modern_stdio_client_receives_pwd_bootstrap_session_id(tmp_path):
     )
 
     async with Client(transport, mode="2026-07-28") as client:
-        result = await client.call_tool("get_project", {"args": {}})
+        unbound = await client.call_tool("get_project", {"args": {}}, raise_on_error=False)
+        assert unbound.is_error
+        result = await client.call_tool("set_project", {"args": {"path": str(project_root)}})
 
     assert result.structured_content is not None
     payload = result.structured_content

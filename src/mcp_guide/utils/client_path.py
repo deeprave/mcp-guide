@@ -9,9 +9,9 @@ from mcp_guide.lazy_path import LazyPath
 def client_resolve(path: Union[str, Path], client_cwd: Union[str, Path]) -> Path:
     """Resolve a path relative to the client's working directory.
 
-    This function handles path resolution from the server's perspective when
-    dealing with client filesystem paths. The server cannot use Path.resolve()
-    directly since it doesn't have access to the client's filesystem.
+    Delegates to LazyPath's process-wide client policy. Relative paths and
+    user/environment expansion require verified sharing; otherwise input must be
+    absolute and is normalised without server filesystem access.
 
     Args:
         path: Path to resolve (relative or absolute)
@@ -20,7 +20,7 @@ def client_resolve(path: Union[str, Path], client_cwd: Union[str, Path]) -> Path
     Returns:
         Absolute Path object representing the resolved client path
 
-    Examples:
+    Examples (with verified sharing):
         >>> client_resolve(".guide.yaml", "/home/username/project")
         PosixPath('/home/username/project/.guide.yaml')
 
@@ -30,10 +30,4 @@ def client_resolve(path: Union[str, Path], client_cwd: Union[str, Path]) -> Path
         >>> client_resolve("/absolute/path.txt", "/home/username/project")
         PosixPath('/absolute/path.txt')
     """
-    path_obj = LazyPath(path).expand()
-    client_cwd_obj = Path(client_cwd)
-
-    if path_obj.is_absolute():
-        return path_obj
-    else:
-        return client_cwd_obj / path_obj
+    return LazyPath(path).client_resolve(relative_to=Path(client_cwd))

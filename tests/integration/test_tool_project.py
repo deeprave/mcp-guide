@@ -96,7 +96,7 @@ async def test_switch_project_supports_name_and_root_rebinding_forms(mcp_server:
         path_result = await call_mcp_tool(
             client,
             "switch_project",
-            SwitchProjectArgs(path="../derived-root", session_id=supplied_id),
+            SwitchProjectArgs(path="/client/workspace/derived-root", session_id=supplied_id),
         )
         followup = await call_mcp_tool(client, "get_project", session_id=supplied_id)
 

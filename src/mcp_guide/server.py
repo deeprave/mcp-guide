@@ -38,6 +38,7 @@ def _initialize_runtime_tasks() -> None:
     from mcp_guide.openspec.task import OpenSpecTask  # noqa: F401
     from mcp_guide.task_manager import TaskManager  # noqa: F401
     from mcp_guide.tasks.document_task import DocumentTask  # noqa: F401
+    from mcp_guide.tasks.filesystem_probe import FilesystemProbeTask  # noqa: F401
     from mcp_guide.tasks.retry_task import RetryTask  # noqa: F401
     from mcp_guide.tasks.update_task import McpUpdateTask  # noqa: F401
     from mcp_guide.workflow.tasks import WorkflowMonitorTask  # noqa: F401
@@ -140,6 +141,9 @@ def create_application(config: "ServerConfig") -> GuideApplication:
 
     async def start_runtime() -> None:
         """Apply process-level Guide configuration before serving begins."""
+        from mcp_guide.lazy_path import LazyPath
+
+        LazyPath.client_filesystem_shared = None if config.transport_mode == "stdio" else False
         if config.configdir:
             from mcp_guide.config_paths import set_config_dir
 

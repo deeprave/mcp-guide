@@ -136,8 +136,11 @@ async def test_mutating_tool_does_not_update_a_project_rebound_mid_request(tmp_p
 
 
 @pytest.mark.anyio
-async def test_switch_project_rebinds_a_relative_root_with_the_same_public_id(tmp_path: Path) -> None:
+async def test_switch_project_rebinds_a_relative_root_with_the_same_public_id(tmp_path: Path, monkeypatch) -> None:
     """A relative root is normalised from the current root without filesystem lookup."""
+    from mcp_guide.lazy_path import LazyPath
+
+    monkeypatch.setattr(LazyPath, "client_filesystem_shared", True)
     runtime = runtime_for_config(tmp_path)
     session = runtime.resolve_session(OwnerKey("relative-root"))
     original = session
@@ -155,6 +158,9 @@ async def test_switch_project_rebinds_a_relative_root_with_the_same_public_id(tm
 @pytest.mark.anyio
 async def test_switch_project_rebinds_to_an_expanded_home_root(tmp_path: Path, monkeypatch) -> None:
     """A root switch expands a user anchor and derives its configuration name."""
+    from mcp_guide.lazy_path import LazyPath
+
+    monkeypatch.setattr(LazyPath, "client_filesystem_shared", True)
     home = tmp_path / "home"
     monkeypatch.setenv("HOME", str(home))
     runtime = runtime_for_config(tmp_path)
@@ -169,8 +175,11 @@ async def test_switch_project_rebinds_to_an_expanded_home_root(tmp_path: Path, m
 
 
 @pytest.mark.anyio
-async def test_switch_project_rebinds_to_a_specific_user_home(tmp_path: Path) -> None:
+async def test_switch_project_rebinds_to_a_specific_user_home(tmp_path: Path, monkeypatch) -> None:
     """A root switch expands an explicit current-user anchor lexically."""
+    from mcp_guide.lazy_path import LazyPath
+
+    monkeypatch.setattr(LazyPath, "client_filesystem_shared", True)
     runtime = runtime_for_config(tmp_path)
     session = runtime.resolve_session(OwnerKey("specific-user-root-switch"))
     current_user = pwd.getpwuid(os.getuid())
@@ -183,8 +192,11 @@ async def test_switch_project_rebinds_to_a_specific_user_home(tmp_path: Path) ->
 
 
 @pytest.mark.anyio
-async def test_switch_project_rejects_an_unknown_user_anchor(tmp_path: Path) -> None:
+async def test_switch_project_rejects_an_unknown_user_anchor(tmp_path: Path, monkeypatch) -> None:
     """An unknown user anchor returns the standard invalid-name result."""
+    from mcp_guide.lazy_path import LazyPath
+
+    monkeypatch.setattr(LazyPath, "client_filesystem_shared", True)
     runtime = runtime_for_config(tmp_path)
     session = runtime.resolve_session(OwnerKey("unknown-user-root-switch"))
     await session.bind_project_path("/client/workspace/current")
@@ -254,7 +266,9 @@ async def test_switch_project_reports_root_rebinding(tmp_path: Path) -> None:
     session = runtime.resolve_session(OwnerKey("root-switch-result"))
     await session.bind_project_path("/client/workspace/current")
 
-    result = await internal_switch_project(SwitchProjectArgs(path="../wybra-dev"), await request_context_for(session))
+    result = await internal_switch_project(
+        SwitchProjectArgs(path="/client/workspace/wybra-dev"), await request_context_for(session)
+    )
 
     assert result.success is True
     assert result.message == "Rebound project root and selected configuration project 'wybra-dev'"
@@ -264,6 +278,9 @@ async def test_switch_project_reports_root_rebinding(tmp_path: Path) -> None:
 @pytest.mark.anyio
 async def test_binding_user_anchored_root_expands_before_storing(tmp_path: Path, monkeypatch) -> None:
     """A bound root stores the expanded absolute client path."""
+    from mcp_guide.lazy_path import LazyPath
+
+    monkeypatch.setattr(LazyPath, "client_filesystem_shared", True)
     home = tmp_path / "home"
     monkeypatch.setenv("HOME", str(home))
     runtime = runtime_for_config(tmp_path)
@@ -373,9 +390,8 @@ def test_project_selection_schemas_separate_root_path_from_configuration_name() 
     assert (
         switch_schema["properties"]["name"]["description"] == "Configuration project name to select at the current root"
     )
-    assert switch_schema["properties"]["path"]["description"] == (
-        "Project root to rebind instead of selecting a configuration name"
-    )
+    assert "Project root to rebind" in switch_schema["properties"]["path"]["description"]
+    assert "verified stdio filesystem sharing" in switch_schema["properties"]["path"]["description"]
 
 
 def test_project_serialisation_excludes_machine_wide_openspec_state() -> None:

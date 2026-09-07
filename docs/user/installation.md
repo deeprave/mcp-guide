@@ -74,8 +74,9 @@ By default mcp-guide does not infer a project from inherited `PWD` or from the
 server process working directory. HTTP, container, and desktop hosts must not treat
 server `getcwd()` as the client filesystem. A CLI agent that starts a local stdio
 server from the project directory may opt in with `--use-pwd` or
-`MG_USE_PWD=1` to skip one `set_project` round trip. Guide still does not use
-MCP roots for binding.
+`MG_USE_PWD=1`, but this shortcut additionally requires already verified filesystem
+sharing. It cannot replace the first absolute-root binding after server startup.
+Guide still does not use MCP roots for binding.
 
 When the interaction is not already bound, the agent must call `set_project` with the
 absolute client filesystem path of the project root:
@@ -86,10 +87,16 @@ set_project({"path": "/path/to/your/project"})
 
 `set_project` binds the initial root once. A retained interaction can then use
 `switch_project({"name": "..."})` to select a different Guide configuration at
-that root, or `switch_project({"path": "../other-project"})` to rebind its root
+that root, or `switch_project({"path": "/absolute/client/other-project"})` to rebind its root
 and select the configuration named by that path's basename. Supply exactly one of
-`name` or `path`; a switch path may be absolute, user-anchored, or relative to the
-current root.
+`name` or `path`; use an absolute client path until stdio filesystem sharing is
+verified. After verification, `~`, `~user`, `$VAR` and paths relative to the current
+bound root are also accepted. HTTP/HTTPS always requires absolute client paths and
+never probes. Docker stdio requires successful verification of the project mount
+at the same absolute path; stdio alone is not sufficient. The one-shot probe times
+out 60 seconds after its instruction is attached to an outgoing response, excluding
+time waiting in the queue. See [Client filesystem
+verification](protocol-and-sessions.md#client-filesystem-verification).
 
 Once the project is set, all of mcp-guide's project-related functionality — categories, collections, feature flags, workflows — becomes available. Without it, tools will return an error asking the agent to set a project first. See [Protocol and Sessions](protocol-and-sessions.md) for the state rules used by modern and retained clients.
 
@@ -112,7 +119,7 @@ Add to `~/.codex/config.json`:
 }
 ```
 
-Once connected, the agent should call `set_project` with the current project path. The optional stdio `PWD` shortcut is off unless `MG_USE_PWD` is enabled. After binding, `guide://` URIs become the primary way to access content and commands — see [Guide URIs](guide-uris.md) for details.
+Once connected, the agent should call `set_project` with the absolute client project path. The optional stdio `PWD` shortcut requires both `MG_USE_PWD` and already verified filesystem sharing. After binding, `guide://` URIs become the primary way to access content and commands — see [Guide URIs](guide-uris.md) for details.
 
 ### Streamable HTTP
 
