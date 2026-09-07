@@ -3,6 +3,7 @@
 from pathlib import Path
 
 import pytest
+import yaml
 from _pytest.monkeypatch import MonkeyPatch
 from tests.helpers import (
     create_bound_test_session,
@@ -65,8 +66,14 @@ async def unbound_request_context(runtime) -> RequestContext:
 
 
 @pytest.fixture
-async def test_session_with_data(runtime):
+async def test_session_with_data(runtime, tmp_path):
     """Function-scoped fixture providing a session with sample data."""
+    # Collection tests exercise existing configuration, not bundled installation.
+    docroot = tmp_path / "docs"
+    docroot.mkdir()
+    config_file = runtime.configuration_service().config_file
+    config_file.parent.mkdir(parents=True, exist_ok=True)
+    config_file.write_text(yaml.safe_dump({"docroot": str(docroot), "projects": {}}))
     session = await create_bound_test_session(runtime, "test")
     set_current_session(session)
 

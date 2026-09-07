@@ -1,12 +1,14 @@
 """Regression coverage for native Guide MCP public-surface adapters."""
 
-from unittest.mock import AsyncMock, patch
+from dataclasses import replace
 
 import pytest
+import yaml
 from fastmcp.prompts import PromptResult
 from fastmcp.tools.base import ToolResult
-from tests.helpers import request_context_for
+from tests.helpers import create_bound_test_session, request_context_for
 
+from mcp_guide.models import Category
 from mcp_guide.result import Result
 from mcp_guide.tools.tool_resource import session_id_from_guide_uri
 from mcp_guide.tools.tool_result import prompt_result, tool_result
@@ -43,31 +45,33 @@ async def test_tool_and_prompt_boundaries_preserve_agent_directed_result_fields(
 
 
 @pytest.mark.anyio
-async def test_resource_boundary_preserves_agent_directed_result_fields(runtime) -> None:
-    """Native resources preserve Guide result semantics in their metadata."""
-    from mcp_guide.resources import guide_resource
-
-    session = type(
-        "Session",
-        (),
-        {
-            "session_id": "bound-session",
-            "task_manager": type("Tasks", (), {"process_result": AsyncMock(side_effect=lambda r: r)})(),
-        },
-    )()
-    with patch("mcp_guide.resources.internal_get_content", new=AsyncMock(return_value=_rich_result())):
-        resource = await guide_resource.__wrapped__(
-            "docs",
-            "overview",
-            session_id="bound-session",
-            request_context=await request_context_for(session, "bound-session"),
-            request_uri=None,
-        )
-
-    # The resource handler returns FastMCP's native ResourceResult.
+async def test_resource_boundary_preserves_agent_directed_result_fields(runtime, tmp_path) -> None:
+    """Rendered file guidance and queued instructions reach the native resource payload."""
     import json
 
+    from mcp_guide.resources import guide_resource
+
+    docroot = tmp_path / "docs"
+    content_dir = docroot / "guidance"
+    content_dir.mkdir(parents=True)
+    (content_dir / "overview.mustache").write_text(
+        "---\ntype: agent/instruction\ninstruction: Read before continuing.\n---\nrendered guide content"
+    )
+    config = runtime.configuration_service().config_file
+    config.parent.mkdir(parents=True, exist_ok=True)
+    config.write_text(yaml.safe_dump({"docroot": str(docroot), "projects": {}}))
+    session = await create_bound_test_session(runtime, "surface")
+    await session.update_config(
+        lambda project: replace(project, categories={"docs": Category(name="docs", dir="guidance", patterns=["*"])})
+    )
+    await session.task_manager.queue_instruction("Use only the bound project.")
+    context = await request_context_for(session, "bound-session")
+    resource = await guide_resource.__wrapped__(
+        "docs", "overview", session_id="bound-session", request_context=context, request_uri=None
+    )
     payload = json.loads(resource.contents[0].content)
+    assert payload["success"] is True
+    assert payload["value"] == "rendered guide content"
     assert payload["instruction"].startswith("Read before continuing.")
     assert payload["session_id"] == "bound-session"
     assert payload["disposition"] == "agent/instruction"

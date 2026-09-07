@@ -1,123 +1,24 @@
-"""Integration tests for template rendering with project flags."""
-
-from unittest.mock import AsyncMock, Mock
+"""Flag changes immediately affect conditionals rendered from real project context."""
 
 import pytest
 
-from mcp_guide.models import Project
-from mcp_guide.render.cache import TemplateContextCache, get_template_contexts
+from mcp_guide.render.cache import get_template_contexts
 from mcp_guide.render.renderer import render_template_content
+from tests.helpers import create_bound_test_session
 
 
-@pytest.fixture(autouse=True)
-def _runtime_without_global_flags(monkeypatch: pytest.MonkeyPatch) -> None:
-    runtime = Mock()
-    runtime.feature_flags.return_value = Mock(list=AsyncMock(return_value={}))
-    monkeypatch.setattr("mcp_guide.runtime.get_runtime", lambda: runtime)
-
-
-class TestTemplateRenderingWithFlags:
-    """Test template rendering with project flags integration."""
-
-    @pytest.mark.anyio
-    async def test_template_renders_with_phase_tracking_flag_true(self) -> None:
-        """Test that template content renders when phase-tracking flag is true."""
-        # Create a simple template with conditional content using dict format
-        template_content = """{{#project.project_flags.phase-tracking}}
-Phase tracking is enabled!
-{{/project.project_flags.phase-tracking}}"""
-
-        # Mock project with phase-tracking flag enabled
-        mock_project = Project(
-            name="test-project", categories={}, collections={}, project_flags={"phase-tracking": True}
-        )
-
-        # Mock session
-        mock_session = Mock()
-        mock_session.get_project = AsyncMock(return_value=mock_project)
-        mock_session.agent_info = None
-        mock_session.client_params = None
-        mock_session.task_manager.get_cached_data.return_value = {}
-        mock_session.template_cache = TemplateContextCache(mock_session)
-
-        # Get template context with project flags.
-        context = await get_template_contexts(mock_session)
-
-        # Render template.
-        result = await render_template_content(template_content, context)
-
-        # Verify content is rendered.
+@pytest.mark.anyio
+async def test_flag_changes_update_rendered_project_conditionals(runtime):
+    runtime.configuration_service().config_file.write_text("projects: {}\n")
+    session = await create_bound_test_session(runtime, "render-flags")
+    template = "{{#project.project_flags.example}}Enabled{{/project.project_flags.example}}"
+    for value, expected in ((True, "Enabled"), (False, ""), (None, "")):
+        flags = session.project_flags()
+        if value is None:
+            await flags.remove("example")
+        else:
+            await flags.set("example", value)
+        context = await get_template_contexts(session)
+        result = await render_template_content(template, context)
         assert result.success
-        rendered_content, _, _ = result.value
-        assert "Phase tracking is enabled!" in rendered_content
-
-    @pytest.mark.anyio
-    async def test_template_does_not_render_with_phase_tracking_flag_false(self) -> None:
-        """Test that template content does not render when phase-tracking flag is false."""
-        # Create a simple template with conditional content
-        template_content = """{{#project.flags.phase-tracking}}
-Phase tracking is enabled!
-{{/project.flags.phase-tracking}}"""
-
-        # Mock project with phase-tracking flag disabled
-        mock_project = Project(
-            name="test-project", categories={}, collections={}, project_flags={"phase-tracking": False}
-        )
-
-        # Mock session
-        mock_session = Mock()
-        mock_session.get_project = AsyncMock(return_value=mock_project)
-        mock_session.agent_info = None
-        mock_session.client_params = None
-        mock_session.task_manager.get_cached_data.return_value = {}
-        mock_session.template_cache = TemplateContextCache(mock_session)
-
-        # Get template context with project flags.
-        context = await get_template_contexts(mock_session)
-
-        # Render template.
-        result = await render_template_content(template_content, context)
-
-        # Verify content is not rendered.
-        assert result.success
-        rendered_content, _, _ = result.value
-        assert "Phase tracking is enabled!" not in rendered_content
-        # Should be empty or just whitespace.
-        assert rendered_content.strip() == ""
-
-    @pytest.mark.anyio
-    async def test_template_does_not_render_with_missing_flag(self) -> None:
-        """Test that template content does not render when flag is missing."""
-        # Create a simple template with conditional content
-        template_content = """{{#project.flags.phase-tracking}}
-Phase tracking is enabled!
-{{/project.flags.phase-tracking}}"""
-
-        # Mock project without phase-tracking flag
-        mock_project = Project(
-            name="test-project",
-            categories={},
-            collections={},
-            project_flags={},  # No flags
-        )
-
-        # Mock session
-        mock_session = Mock()
-        mock_session.get_project = AsyncMock(return_value=mock_project)
-        mock_session.agent_info = None
-        mock_session.client_params = None
-        mock_session.task_manager.get_cached_data.return_value = {}
-        mock_session.template_cache = TemplateContextCache(mock_session)
-
-        # Get template context with project flags.
-        context = await get_template_contexts(mock_session)
-
-        # Render template.
-        result = await render_template_content(template_content, context)
-
-        # Verify content is not rendered.
-        assert result.success
-        rendered_content, _, _ = result.value
-        assert "Phase tracking is enabled!" not in rendered_content
-        # Should be empty or just whitespace.
-        assert rendered_content.strip() == ""
+        assert result.value == (expected, [], [])

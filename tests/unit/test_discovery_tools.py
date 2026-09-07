@@ -1,301 +1,126 @@
-"""Tests for discovery tools."""
+"""Discovery payloads and deferred registration on real MCP servers."""
 
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from fastmcp import FastMCP
 from tests.helpers import tool_result_payload
 
-from mcp_guide.core import prompt_decorator, resource_decorator
-from mcp_guide.core.prompt_decorator import PromptMetadata, PromptRegistration, clear_prompt_registry
-from mcp_guide.core.resource_decorator import ResourceMetadata, ResourceRegistration, clear_resource_registry
+from mcp_guide.core import prompt_decorator, resource_decorator, tool_decorator
+from mcp_guide.core.prompt_decorator import PromptMetadata, PromptRegistration, register_prompts
+from mcp_guide.core.resource_decorator import ResourceMetadata, ResourceRegistration, register_resources
 from mcp_guide.core.tool_decorator import ToolMetadata, ToolRegistration
-from mcp_guide.tools.tool_discovery import ListToolsArgs, list_prompts, list_resources, list_tools
+from mcp_guide.tools.tool_discovery import (
+    ListPromptsArgs,
+    ListResourcesArgs,
+    ListToolsArgs,
+    list_prompts,
+    list_resources,
+    list_tools,
+)
 
 
-def _restore_prompt_registry(original: dict) -> None:
-    clear_prompt_registry()
-    prompt_decorator._PROMPT_REGISTRY.update(original)
+@pytest.fixture
+def isolated_registries(monkeypatch):
+    for module, names in (
+        (tool_decorator, ("_TOOL_REGISTRY", "_REGISTERED_TOOL_SERVERS")),
+        (prompt_decorator, ("_PROMPT_REGISTRY", "_REGISTERED_PROMPT_SERVERS")),
+        (resource_decorator, ("_RESOURCE_REGISTRY", "_REGISTERED_RESOURCE_SERVERS")),
+    ):
+        for name in names:
+            monkeypatch.setattr(module, name, {})
 
 
-def _restore_resource_registry(original: dict) -> None:
-    clear_resource_registry()
-    resource_decorator._RESOURCE_REGISTRY.update(original)
-
-
-def request_context() -> SimpleNamespace:
-    """Return explicit application context for a decorated-handler unit test."""
-
-    task_manager = SimpleNamespace(process_result=AsyncMock(side_effect=lambda result: result))
-    return SimpleNamespace(session=SimpleNamespace(session_id=None, task_manager=task_manager))
-
-
-@pytest.mark.anyio
-async def test_list_tools_returns_registered_tools():
-    """Test that list_tools returns all registered tools."""
-    # Manually add a test tool to registry
-    from mcp_guide.core.tool_decorator import _TOOL_REGISTRY
-
-    async def test_tool(ctx=None) -> str:
-        return '{"success": true}'
-
-    metadata = ToolMetadata(
-        name="guide_test_tool",
-        func=test_tool,
-        description="Test tool",
-        args_class=None,
-        prefix="guide",
-        wrapped_func=test_tool,
-    )
-    _TOOL_REGISTRY["guide_test_tool"] = ToolRegistration(metadata=metadata, registered=True)
-
-    try:
-        args = ListToolsArgs(include_args=False)
-        result = tool_result_payload(await list_tools.__wrapped__(args, request_context()))
-
-        assert result["success"] is True
-        assert "tools" in result["value"]
-        assert result["value"]["count"] > 0
-
-        # Check that our test tool is in the list
-        tool_names = [t["name"] for t in result["value"]["tools"]]
-        assert "guide_test_tool" in tool_names
-    finally:
-        _TOOL_REGISTRY.pop("guide_test_tool", None)
+async def example() -> str:
+    return "Example content"
 
 
 @pytest.mark.anyio
-async def test_list_tools_with_args_schema():
-    """Test that list_tools includes argument schemas when requested."""
-    from mcp_guide.core.tool_decorator import _TOOL_REGISTRY
-
-    # Add tool with args_class
-    async def test_tool(args, ctx=None) -> str:
-        return '{"success": true}'
-
-    metadata = ToolMetadata(
-        name="guide_test_tool",
-        func=test_tool,
-        description="Test tool",
-        args_class=ListToolsArgs,
-        prefix="guide",
-        wrapped_func=test_tool,
-    )
-    _TOOL_REGISTRY["guide_test_tool"] = ToolRegistration(metadata=metadata, registered=True)
-
-    try:
-        args = ListToolsArgs(include_args=True)
-        result = tool_result_payload(await list_tools.__wrapped__(args, request_context()))
-
-        assert result["success"] is True
-        tools_with_args = [t for t in result["value"]["tools"] if "args_schema" in t]
-        assert len(tools_with_args) > 0
-    finally:
-        _TOOL_REGISTRY.pop("guide_test_tool", None)
+async def test_tool_discovery_returns_exact_metadata_and_optional_schema(isolated_registries):
+    context = SimpleNamespace(session=None)
+    empty = tool_result_payload(await list_tools.__wrapped__(ListToolsArgs(), context))
+    assert empty["success"]
+    assert empty["value"] == {"tools": [], "count": 0}
+    for name, args_class, registered in (("with_args", ListToolsArgs, True), ("without_args", None, False)):
+        tool_decorator._TOOL_REGISTRY[name] = ToolRegistration(
+            ToolMetadata(name, example, "Description", args_class, None, example), registered=registered
+        )
+    expected = [
+        {"name": "with_args", "description": "Description", "registered": True},
+        {"name": "without_args", "description": "Description", "registered": False},
+    ]
+    for include_args in (False, True):
+        result = tool_result_payload(await list_tools.__wrapped__(ListToolsArgs(include_args=include_args), context))
+        if include_args:
+            expected[0]["args_schema"] = ListToolsArgs.model_json_schema()
+        assert result["success"]
+        assert result["value"] == {"tools": expected, "count": 2}
 
 
 @pytest.mark.anyio
-async def test_list_prompts_returns_registered_prompts():
-    """Test that list_prompts returns all registered prompts."""
-    from mcp_guide.core.prompt_decorator import _PROMPT_REGISTRY
-
-    # Manually add a test prompt to registry
-    async def test_prompt() -> str:
-        return "Test prompt"
-
-    metadata = PromptMetadata(name="test_prompt", func=test_prompt, description="Test prompt")
-    _PROMPT_REGISTRY["test_prompt"] = PromptRegistration(metadata=metadata, registered=True)
-
-    try:
-        from mcp_guide.tools.tool_discovery import ListPromptsArgs
-
-        args = ListPromptsArgs()
-        result = tool_result_payload(await list_prompts.__wrapped__(args, request_context()))
-
-        assert result["success"] is True
-        assert "prompts" in result["value"]
-        assert result["value"]["count"] > 0
-
-        # Check that test prompt is in the list
-        prompt_names = [p["name"] for p in result["value"]["prompts"]]
-        assert "test_prompt" in prompt_names
-    finally:
-        _PROMPT_REGISTRY.pop("test_prompt", None)
+async def test_prompt_and_resource_discovery_returns_exact_metadata(isolated_registries):
+    context = SimpleNamespace(session=None)
+    prompt_decorator._PROMPT_REGISTRY["example"] = PromptRegistration(
+        PromptMetadata("example", example, "Prompt description"), registered=True
+    )
+    resource_decorator._RESOURCE_REGISTRY["example"] = ResourceRegistration(
+        ResourceMetadata("example", "test://{collection}", example, "Resource description"), registered=False
+    )
+    prompts = tool_result_payload(await list_prompts.__wrapped__(ListPromptsArgs(), context))
+    assert prompts["success"]
+    assert prompts["value"] == {
+        "prompts": [{"name": "example", "description": "Prompt description", "registered": True}],
+        "count": 1,
+    }
+    resources = tool_result_payload(await list_resources.__wrapped__(ListResourcesArgs(), context))
+    assert resources["success"]
+    assert resources["value"] == {
+        "resources": [
+            {
+                "name": "example",
+                "uri_template": "test://{collection}",
+                "description": "Resource description",
+                "registered": False,
+            }
+        ],
+        "count": 1,
+    }
 
 
 @pytest.mark.anyio
-async def test_list_resources_returns_registered_resources():
-    """Test that list_resources returns all registered resources."""
-    from mcp_guide.core.resource_decorator import _RESOURCE_REGISTRY
-
-    # Manually add a test resource to registry
-    async def test_resource(collection: str) -> str:
-        return "Test resource"
-
-    metadata = ResourceMetadata(
-        name="test_resource",
-        uri_template="test://{collection}",
-        func=test_resource,
-        description="Test resource",
-    )
-    _RESOURCE_REGISTRY["test_resource"] = ResourceRegistration(metadata=metadata, registered=True)
-
-    try:
-        from mcp_guide.tools.tool_discovery import ListResourcesArgs
-
-        args = ListResourcesArgs()
-        result = tool_result_payload(await list_resources.__wrapped__(args, request_context()))
-
-        assert result["success"] is True
-        assert "resources" in result["value"]
-        assert result["value"]["count"] > 0
-
-        # Check that test resource is in the list
-        resource_names = [r["name"] for r in result["value"]["resources"]]
-        assert "test_resource" in resource_names
-
-        # Check URI template is included
-        test_res = next(r for r in result["value"]["resources"] if r["name"] == "test_resource")
-        assert "uri_template" in test_res
-        assert test_res["uri_template"] == "test://{collection}"
-    finally:
-        _RESOURCE_REGISTRY.pop("test_resource", None)
+@pytest.mark.parametrize("override", [None, "g"])
+async def test_prompt_names_and_registration_are_per_server(isolated_registries, monkeypatch, override):
+    if override is None:
+        monkeypatch.delenv("MCP_PROMPT_NAME", raising=False)
+    else:
+        monkeypatch.setenv("MCP_PROMPT_NAME", override)
+    registry = prompt_decorator._PROMPT_REGISTRY
+    for name in ("guide", "status"):
+        registry[name] = PromptRegistration(PromptMetadata(name, example, "Prompt"))
+    first = FastMCP("first")
+    register_prompts(first)
+    expected = {override or "guide", "status"}
+    assert {prompt.name for prompt in await first.list_prompts()} == expected
+    assert all(entry.registered for entry in registry.values())
+    registry["later"] = PromptRegistration(PromptMetadata("later", example, "Later"))
+    register_prompts(first)
+    assert {prompt.name for prompt in await first.list_prompts()} == expected
+    second = FastMCP("second")
+    register_prompts(second)
+    assert {prompt.name for prompt in await second.list_prompts()} == expected | {"later"}
 
 
-def test_register_prompts_uses_prompt_name_override():
-    """Prompt registration should respect MCP_PROMPT_NAME for the guide prompt."""
-    from mcp_guide.core.prompt_decorator import (
-        _PROMPT_REGISTRY,
-        register_prompts,
-    )
-
-    original = dict(_PROMPT_REGISTRY)
-    clear_prompt_registry()
-
-    async def guide() -> str:
-        return "prompt"
-
-    metadata = PromptMetadata(name="guide", func=guide, description="Guide prompt")
-    _PROMPT_REGISTRY["guide"] = PromptRegistration(metadata=metadata, registered=False)
-
-    mcp = MagicMock()
-    prompt_decorator = MagicMock()
-    mcp.prompt.return_value = prompt_decorator
-
-    try:
-        with patch.dict("os.environ", {"MCP_PROMPT_NAME": "g"}):
-            register_prompts(mcp)
-
-        mcp.prompt.assert_called_once_with(name="g")
-        prompt_decorator.assert_called_once_with(guide)
-    finally:
-        _restore_prompt_registry(original)
-
-
-def test_register_prompts_is_idempotent_for_the_same_server():
-    """Prompt registration keeps a weak reference to the actual server."""
-    from mcp_guide.core.prompt_decorator import _PROMPT_REGISTRY, register_prompts
-
-    original = dict(_PROMPT_REGISTRY)
-    clear_prompt_registry()
-
-    async def guide() -> str:
-        return "prompt"
-
-    _PROMPT_REGISTRY["guide"] = PromptRegistration(
-        metadata=PromptMetadata(name="guide", func=guide, description="Guide prompt"), registered=False
-    )
-    mcp = MagicMock()
-
-    try:
-        register_prompts(mcp)
-        register_prompts(mcp)
-
-        mcp.prompt.assert_called_once_with(name="guide")
-    finally:
-        _restore_prompt_registry(original)
-
-
-def test_register_resources_is_idempotent_for_the_same_server():
-    """Resource registration keeps a weak reference to the actual server."""
-    from mcp_guide.core.resource_decorator import _RESOURCE_REGISTRY, register_resources
-
-    original = dict(_RESOURCE_REGISTRY)
-    clear_resource_registry()
-
-    async def resource() -> str:
-        return "resource"
-
-    _RESOURCE_REGISTRY["resource"] = ResourceRegistration(
-        metadata=ResourceMetadata(name="resource", uri_template="guide://resource", func=resource, description=None),
-        registered=False,
-    )
-    mcp = MagicMock()
-
-    try:
-        register_resources(mcp)
-        register_resources(mcp)
-
-        mcp.resource.assert_called_once_with("guide://resource")
-    finally:
-        _restore_resource_registry(original)
-
-
-def test_register_prompts_uses_default_guide_name_without_override():
-    """Guide prompt should register under its own name when no override is set."""
-    from mcp_guide.core.prompt_decorator import (
-        _PROMPT_REGISTRY,
-        register_prompts,
-    )
-
-    original = dict(_PROMPT_REGISTRY)
-    clear_prompt_registry()
-
-    async def guide() -> str:
-        return "prompt"
-
-    metadata = PromptMetadata(name="guide", func=guide, description="Guide prompt")
-    _PROMPT_REGISTRY["guide"] = PromptRegistration(metadata=metadata, registered=False)
-
-    mcp = MagicMock()
-    prompt_decorator = MagicMock()
-    mcp.prompt.return_value = prompt_decorator
-
-    try:
-        with patch.dict("os.environ", {}, clear=True):
-            register_prompts(mcp)
-
-        mcp.prompt.assert_called_once_with(name="guide")
-        prompt_decorator.assert_called_once_with(guide)
-    finally:
-        _restore_prompt_registry(original)
-
-
-def test_register_prompts_keeps_non_guide_prompt_name():
-    """Non-guide prompts should ignore MCP_PROMPT_NAME overrides."""
-    from mcp_guide.core.prompt_decorator import (
-        _PROMPT_REGISTRY,
-        register_prompts,
-    )
-
-    original = dict(_PROMPT_REGISTRY)
-    clear_prompt_registry()
-
-    async def status() -> str:
-        return "prompt"
-
-    metadata = PromptMetadata(name="status", func=status, description="Status prompt")
-    _PROMPT_REGISTRY["status"] = PromptRegistration(metadata=metadata, registered=False)
-
-    mcp = MagicMock()
-    prompt_decorator = MagicMock()
-    mcp.prompt.return_value = prompt_decorator
-
-    try:
-        with patch.dict("os.environ", {"MCP_PROMPT_NAME": "g"}):
-            register_prompts(mcp)
-
-        mcp.prompt.assert_called_once_with(name="status")
-        prompt_decorator.assert_called_once_with(status)
-    finally:
-        _restore_prompt_registry(original)
+@pytest.mark.anyio
+async def test_resource_registration_is_per_server(isolated_registries):
+    registry = resource_decorator._RESOURCE_REGISTRY
+    registry["example"] = ResourceRegistration(ResourceMetadata("example", "guide://example", example, None))
+    first = FastMCP("first")
+    register_resources(first)
+    assert {str(resource.uri) for resource in await first.list_resources()} == {"guide://example"}
+    assert registry["example"].registered
+    registry["later"] = ResourceRegistration(ResourceMetadata("later", "guide://later", example, None))
+    register_resources(first)
+    assert {str(resource.uri) for resource in await first.list_resources()} == {"guide://example"}
+    second = FastMCP("second")
+    register_resources(second)
+    assert {str(resource.uri) for resource in await second.list_resources()} == {"guide://example", "guide://later"}

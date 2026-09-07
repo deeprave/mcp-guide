@@ -2,6 +2,7 @@
 
 import asyncio
 
+import anyio
 import pytest
 
 from mcp_guide.async_lock import AsyncReentrantLock
@@ -12,15 +13,20 @@ async def test_async_reentrant_lock_allows_nested_acquisition_by_the_owner() -> 
     """Nested configuration callbacks may retain the shared gate safely."""
     lock = AsyncReentrantLock()
 
-    async with lock:
-        async with lock:
-            assert True
-
     acquired = asyncio.Event()
+    attempted = asyncio.Event()
 
     async def acquire_from_another_task() -> None:
+        attempted.set()
         async with lock:
             acquired.set()
 
-    await asyncio.create_task(acquire_from_another_task())
+    with anyio.fail_after(1):
+        async with lock:
+            async with lock:
+                competitor = asyncio.create_task(acquire_from_another_task())
+                await attempted.wait()
+                assert not acquired.is_set()
+            assert not acquired.is_set()
+        await competitor
     assert acquired.is_set()

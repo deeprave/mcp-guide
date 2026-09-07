@@ -2,7 +2,7 @@
 
 import pytest
 from pydantic_core import ValidationError
-from tests.helpers import create_test_runtime, create_test_session
+from tests.helpers import create_test_runtime, create_test_session, create_unbound_test_session
 
 from mcp_guide.runtime import OwnerKey
 
@@ -48,8 +48,10 @@ class TestConfigValidation:
     @pytest.mark.anyio
     async def test_project_snapshot_ignores_malformed_or_mismatched_entries(self, runtime, tmp_path):
         """Only generated keys with their stored full root hash are selectable."""
-        session = await create_test_session(runtime, "test")
+        # Snapshot validation does not require a bound project's task listeners.
+        session = create_unbound_test_session(runtime)
         config_manager = session._config()
+        config_manager.config_file.parent.mkdir(parents=True, exist_ok=True)
         valid_hash = "a" * 64
         config_manager.config_file.write_text(
             "projects:\n"
@@ -71,7 +73,7 @@ class TestConfigValidation:
     @pytest.mark.anyio
     async def test_project_snapshot_ignores_non_string_keys(self, runtime, tmp_path):
         """Non-string project keys are malformed and should be skipped."""
-        session = await create_test_session(runtime, "test")
+        session = create_unbound_test_session(runtime)
         config_manager = session._config()
         config_manager._ensure_config_dir()
         config_manager.config_file.write_text(

@@ -140,19 +140,8 @@ def test_is_path_within_directory_exact_match(tmp_path: Path) -> None:
     assert is_path_within_directory(base_dir, base_dir)
 
 
-def test_resolve_safe_path_accepts_string(tmp_path: Path) -> None:
-    """Test that string paths are accepted."""
-    base_dir = tmp_path / "base"
-    base_dir.mkdir()
-    test_file = base_dir / "file.txt"
-    test_file.write_text("content")
-
-    result = resolve_safe_path(base_dir, "file.txt")
-    assert result == test_file
-
-
-def test_resolve_safe_path_rejects_empty(tmp_path: Path) -> None:
-    """Test that empty paths are rejected."""
+def test_resolve_safe_path_accepts_current_directory(tmp_path: Path) -> None:
+    """The current directory is a valid path within its own root."""
     base_dir = tmp_path / "base"
     base_dir.mkdir()
 

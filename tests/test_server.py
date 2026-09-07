@@ -3,27 +3,7 @@
 from unittest.mock import patch
 
 import pytest
-from fastmcp import Client, FastMCP
-
-
-def test_create_server_returns_fastmcp_v4_server() -> None:
-    """Server construction uses the independently maintained FastMCP v4 surface."""
-    from mcp_guide.cli import ServerConfig
-    from mcp_guide.server import create_server
-
-    config = ServerConfig()
-    server = create_server(config)
-    assert isinstance(server, FastMCP)
-
-
-def test_server_has_correct_name() -> None:
-    """Test that server has correct name."""
-    from mcp_guide.cli import ServerConfig
-    from mcp_guide.server import create_server
-
-    config = ServerConfig()
-    server = create_server(config)
-    assert server.name == "guide"
+from fastmcp import Client
 
 
 def test_server_has_instructions() -> None:
@@ -34,6 +14,7 @@ def test_server_has_instructions() -> None:
     config = ServerConfig()
     server = create_server(config)
     assert isinstance(server.instructions, str)
+    assert server.name == "guide"
     assert server.instructions.strip()
     assert "project documentation" in server.instructions.lower()
 

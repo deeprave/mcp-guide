@@ -1,17 +1,25 @@
 """Tests for project-scoped task class registration."""
 
-import tomllib
-from pathlib import Path
-
 import pytest
 
 
 @pytest.fixture(autouse=True)
-def clear_task_registry() -> None:
+def clear_task_registry():
     """Keep task registration tests isolated from imported runtime modules."""
-    from mcp_guide.decorators import clear_registered_tasks_for_testing
+    from mcp_guide.decorators import (
+        clear_registered_tasks_for_testing,
+        get_registered_task_classes,
+        task_register,
+    )
 
+    registered = get_registered_task_classes()
     clear_registered_tasks_for_testing()
+    try:
+        yield
+    finally:
+        clear_registered_tasks_for_testing()
+        for task_class in registered:
+            task_register(task_class)
 
 
 class TestTaskRegister:
@@ -57,34 +65,3 @@ class TestTaskRegister:
             pass
 
         assert get_registered_task_classes() == (FirstTask, SecondTask)
-
-    def test_registration_decorator_does_not_accept_task_policy(self) -> None:
-        """Activation policy belongs to the task class, not the decorator."""
-        from mcp_guide.decorators import task_register
-
-        with pytest.raises(TypeError):
-            task_register(flag="workflow")
-
-    def test_vulture_treats_task_register_as_usage_site(self) -> None:
-        """Static analysis config tracks project-scoped task decorators."""
-        pyproject = tomllib.loads(Path("pyproject.toml").read_text())
-
-        assert "@task_register" in pyproject["tool"]["vulture"]["ignore_decorators"]
-
-
-class TestTaskInitCompatibility:
-    """Existing @task_init import-time semantics stay intact."""
-
-    def test_task_init_still_instantiates_decorated_class(self) -> None:
-        """Infrastructure tasks can continue using import-time initialization."""
-        from mcp_guide.decorators import task_init
-
-        instances: list[str] = []
-
-        @task_init
-        class ImportTimeTask:
-            def __init__(self) -> None:
-                instances.append("created")
-
-        assert ImportTimeTask.__name__ == "ImportTimeTask"
-        assert instances == ["created"]

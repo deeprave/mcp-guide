@@ -1,776 +1,174 @@
-"""Tests for template context cache functionality."""
+"""Template cache composition through real sessions, flags and task state."""
 
-from unittest.mock import AsyncMock, Mock, patch
+import platform
+from dataclasses import replace
+from datetime import datetime, timezone
 
 import pytest
 
-from mcp_guide.feature_flags.types import FeatureValue
-from mcp_guide.render.cache import TemplateContextCache
-from mcp_guide.result import Result
+from mcp_guide.agent_detection import AgentInfo
+from mcp_guide.models import Category
+from mcp_guide.openspec.task import OpenSpecTask
+from mcp_guide.render.cache import TemplateContextCache, get_template_contexts
+from mcp_guide.workflow.schema import WorkflowState
+from tests.helpers import create_bound_test_session, create_unbound_test_session
 
 
-@pytest.fixture(autouse=True)
-def _runtime_without_global_flags(monkeypatch: pytest.MonkeyPatch) -> None:
-    runtime = Mock()
-    runtime.feature_flags.return_value = Mock(list=AsyncMock(return_value={}), get=AsyncMock(return_value=None))
-    monkeypatch.setattr("mcp_guide.runtime.get_runtime", lambda: runtime)
+@pytest.fixture
+async def session(runtime):
+    runtime.configuration_service().config_file.write_text("projects: {}\nfeature_flags: {}\n")
+    return await create_bound_test_session(runtime, "context-project")
 
 
-class TestTemplateContextCache:
-    """Test TemplateContextCache class functionality."""
+@pytest.mark.anyio
+async def test_complete_context_contains_real_project_category_and_system(session):
+    project = await session.get_project()
+    await session.save_project(replace(project, categories={"docs": Category(dir="./docs", patterns=["*.md"])}))
+    context = await get_template_contexts(session)
+    assert context["project"]["name"] == "context-project"
+    assert context["project"]["project_flags"] == {}
+    assert context["project"]["project_flag_values"] == []
+    assert context["projects"]["projects"][0]["current"] is True
+    assert context["server"]["os"] == platform.system()
+    assert context["server"]["platform"] == platform.platform()
+    assert context["server"]["python_version"] == platform.python_version()
+    assert context["@"] == "@"
+    assert await get_template_contexts(session) is context
+    category = (await get_template_contexts(session, "docs"))["category"]
+    assert category["name"] == "docs"
+    assert category["dir"] == "./docs/"
+    assert category["patterns"][0]["value"] == "*.md"
+    missing = (await get_template_contexts(session, "missing"))["category"]
+    assert missing["name"] == ""
+    assert missing["patterns"] == []
 
-    @pytest.mark.anyio
-    async def test_build_project_context_returns_project_name(self) -> None:
-        """Test that _build_project_context returns project name in context."""
-        from mcp_guide.models import Project
 
-        mock_session = Mock()
-        mock_session.agent_info = None
-        mock_session.task_manager.get_cached_data.return_value = {}
-        mock_session.task_manager.get_task_statistics.return_value = {}
-        mock_session.task_manager.get_task_by_type.return_value = None
-        mock_project = Project(name="test-project", key="test-project-abc123", categories={}, collections={})
-        mock_session.get_project = AsyncMock(return_value=mock_project)
-        cache = TemplateContextCache(mock_session)
-
-        with patch(
-            "mcp_guide.session.list_all_projects",
-            new=AsyncMock(return_value=Result.ok({"projects": {"test-project-abc123": {}}})),
-        ):
-            # Get project context
-            context = await cache._build_project_context()
-
-            # Verify project data is in context
-            assert "project" in context
-            assert context["project"]["name"] == "test-project"
-            assert context["projects"]["projects"][0]["current"] is True
-
-    @pytest.mark.anyio
-    async def test_build_project_context_handles_missing_project(self) -> None:
-        """Test that _build_project_context handles missing project gracefully."""
-        cache = TemplateContextCache()
-
-        # Unbound cache has no Session and must not look one up.
-        context = await cache._build_project_context()
-
-        # Should return empty project context
-        assert "project" in context
+@pytest.mark.anyio
+async def test_unbound_context_does_not_create_or_borrow_a_project(runtime):
+    unbound = create_unbound_test_session(runtime)
+    for cache in (TemplateContextCache(), unbound.template_cache):
+        context = await cache.get_template_contexts()
         assert context["project"]["name"] == ""
+        assert context["project"]["categories"] == []
+    assert unbound.bound_root_path is None
+    assert unbound.project is None
 
-    @pytest.mark.anyio
-    async def test_build_project_context_with_session_without_project_returns_empty_name(self) -> None:
-        """Test that _build_project_context handles session without cached project."""
-        from unittest.mock import patch
 
-        mock_session = Mock()
-        mock_session.get_project = AsyncMock(side_effect=ValueError("No project"))
-        cache = TemplateContextCache(mock_session)
-        logger_error = Mock()
+@pytest.mark.anyio
+@pytest.mark.parametrize("error", [ValueError, AttributeError])
+async def test_project_read_failure_uses_empty_context(session, monkeypatch, error):
+    # Inject an unavailable configuration boundary; normal fixtures cannot reliably cause it.
+    async def unavailable():
+        raise error("Project unavailable")
 
-        with patch("mcp_guide.render.cache.logger.error", logger_error):
-            # Should not raise exception
-            context = await cache._build_project_context()
+    monkeypatch.setattr(session, "get_project", unavailable)
+    context = await get_template_contexts(session)
+    assert context["project"]["name"] == ""
+    assert context["project"]["categories"] == []
 
-            # Should return empty project context
-            assert "project" in context
-            assert context["project"]["name"] == ""
 
-    @pytest.mark.anyio
-    async def test_build_project_context_includes_project_flags(self) -> None:
-        """Test that _build_project_context includes project flags in context."""
-        from mcp_guide.models import Project
+def test_transient_timestamps_are_fresh_consistent_and_formatted(monkeypatch):
+    import time
 
-        mock_session = Mock()
-        mock_project = Project(
-            name="test-project",
-            categories={},
-            collections={},
-            project_flags={"phase-tracking": True, "debug-mode": False},
-        )
-        mock_session.get_project = AsyncMock(return_value=mock_project)
-        cache = TemplateContextCache(mock_session)
+    ticks = iter([1_700_000_000_000_000_000, 1_700_000_001_000_000_000])
+    monkeypatch.setattr(time, "time_ns", lambda: next(ticks))
+    cache = TemplateContextCache()
+    contexts = [cache.get_transient_context(), cache.get_transient_context()]
+    assert contexts[1]["timestamp"] - contexts[0]["timestamp"] == 1
+    for context in contexts:
+        assert context["timestamp"] == context["timestamp_ns"] / 1_000_000_000
+        assert context["timestamp_ms"] == context["timestamp_ns"] / 1_000_000
+        expected = datetime.fromtimestamp(context["timestamp"], tz=timezone.utc)
+        assert context["now_utc"] == {
+            "date": expected.strftime("%Y-%m-%d"),
+            "day": expected.strftime("%A"),
+            "time": expected.strftime("%H:%M"),
+            "tz": "+0000",
+            "datetime": expected.strftime("%Y-%m-%d %H:%M:%SZ"),
+        }
+        local = context["now"]
+        assert local["date"] and local["day"] and local["time"] and local["tz"]
+        parsed_local = datetime.strptime(local["datetime"], "%Y-%m-%d %H:%M:%S%z")
+        assert parsed_local.replace(tzinfo=None) == datetime.fromtimestamp(context["timestamp"])
 
-        # Get project context
-        context = await cache._build_project_context()
 
-        # Verify project flags are in context under project.project_flag_values as key-value pairs
-        assert "project" in context
-        assert "project_flag_values" in context["project"]
-        flags_list = context["project"]["project_flag_values"]
-        assert isinstance(flags_list, list)
-
-        # Convert back to dict for easier testing
-        flags_dict = {item["key"]: item["value"] for item in flags_list}
-        assert flags_dict["phase-tracking"] == "true"
-        assert flags_dict["debug-mode"] == "false"
-
-        # Also verify wrapped dict format is available
-        assert "project_flags" in context["project"]
-        assert context["project"]["project_flags"]["phase-tracking"] == FeatureValue(True)
-        assert context["project"]["project_flags"]["debug-mode"] == FeatureValue(False)
-
-    @pytest.mark.anyio
-    async def test_build_project_context_handles_missing_flags(self) -> None:
-        """Test that _build_project_context handles projects without flags gracefully."""
-        from mcp_guide.models import Project
-
-        mock_session = Mock()
-        mock_project = Project(name="test-project", categories={}, collections={})
-        # No project_flags attribute set
-        mock_session.get_project = AsyncMock(return_value=mock_project)
-        cache = TemplateContextCache(mock_session)
-
-        # Get project context
-        context = await cache._build_project_context()
-
-        # Verify empty flags list and dict are provided
-        assert "project" in context
-        assert "project_flag_values" in context["project"]
-        assert context["project"]["project_flag_values"] == []
-        assert "project_flags" in context["project"]
-        assert context["project"]["project_flags"] == {}
-
-    @pytest.mark.anyio
-    async def test_build_project_context_handles_expected_exception(self) -> None:
-        """Test that _build_project_context swallows expected exceptions and returns empty project context."""
-        from unittest.mock import patch
-
-        mock_session = Mock()
-        mock_session.get_project = AsyncMock(side_effect=AttributeError("missing attribute"))
-        cache = TemplateContextCache(mock_session)
-        logger_error = Mock()
-
-        with patch("mcp_guide.render.cache.logger.error", logger_error):
-            # Should not raise exception
-            context = await cache._build_project_context()
-
-            # Should return empty project context
-            assert "project" in context
-            assert context["project"]["name"] == ""
-
-    @pytest.mark.anyio
-    async def test_build_project_context_does_not_use_an_ambient_session(self) -> None:
-        """An unbound cache must not obtain a Session from ambient request state."""
-        cache = TemplateContextCache()
-
-        with patch(
-            "mcp_guide.runtime.GuideRuntime.create_session",
-            side_effect=Exception("unexpected error"),
-        ) as get_or_create_session:
-            context = await cache._build_project_context()
-
-        get_or_create_session.assert_not_called()
-        assert context["project"]["name"] == ""
-
-    @pytest.mark.anyio
-    async def test_project_context_accessible_in_layered_contexts(self) -> None:
-        """Test that project context is accessible in the layered context chain."""
-        from mcp_guide.models import Project
-
-        mock_session = Mock()
-        mock_session.agent_info = None
-        mock_session.task_manager.get_cached_data.return_value = {}
-        mock_session.task_manager.get_task_statistics.return_value = {}
-        mock_session.task_manager.get_task_by_type.return_value = None
-        mock_project = Project(name="test-project", categories={}, collections={})
-        mock_session.get_project = AsyncMock(return_value=mock_project)
-        cache = TemplateContextCache(mock_session)
-
-        # Get layered contexts
-        context = await cache.get_template_contexts()
-
-        # Verify project context is accessible (highest priority)
-        assert "project" in context
-        assert context["project"]["name"] == "test-project"
-
-    @pytest.mark.anyio
-    async def test_context_precedence_project_overrides_agent_overrides_system(self) -> None:
-        """Test that project context values override agent and system values in precedence order."""
-        from mcp_guide.models import Project
-
-        mock_session = Mock()
-        mock_session.agent_info = None
-        mock_session.task_manager.get_cached_data.return_value = {}
-        mock_session.task_manager.get_task_statistics.return_value = {}
-        mock_session.task_manager.get_task_by_type.return_value = None
-        mock_project = Project(name="project-value", categories={}, collections={})
-        mock_session.get_project = AsyncMock(return_value=mock_project)
-        cache = TemplateContextCache(mock_session)
-
-        # Get layered contexts
-        context = await cache.get_template_contexts()
-
-        # Test precedence: project should override server values
-        # Server context has "server" key, project should be accessible with higher precedence
-        assert "project" in context
-        assert context["project"]["name"] == "project-value"
-
-        # Server context should still be accessible
-        assert "server" in context
-        assert "os" in context["server"]
-
-    @pytest.mark.anyio
-    async def test_build_category_context_returns_category_data(self) -> None:
-        """Test that _build_category_context returns category data in context."""
-        from mcp_guide.models import Category, Project
-
-        mock_session = Mock()
-        test_category = Category(dir="./docs", patterns=["*.md"])
-        mock_project = Project(name="test-project", categories={"docs": test_category}, collections={})
-        mock_session.get_project = AsyncMock(return_value=mock_project)
-        cache = TemplateContextCache(mock_session)
-
-        # Get category context
-        context = await cache._build_category_context("docs")
-
-        # Verify category data is in context
-        assert "category" in context
-        assert context["category"]["name"] == "docs"
-        assert context["category"]["dir"] == "./docs/"
-        assert context["category"]["patterns"][0]["value"] == "*.md"
-
-    @pytest.mark.anyio
-    async def test_build_category_context_handles_missing_category(self) -> None:
-        """Test that _build_category_context handles missing category gracefully."""
-        from mcp_guide.models import Project
-
-        mock_session = Mock()
-        mock_project = Project(name="test-project", categories={}, collections={})
-        mock_session.get_project = AsyncMock(return_value=mock_project)
-        cache = TemplateContextCache(mock_session)
-
-        # Should not raise exception
-        context = await cache._build_category_context("nonexistent")
-
-        # Should return empty category context
-        assert "category" in context
-        assert context["category"]["name"] == ""
-
-    @pytest.mark.anyio
-    async def test_complete_context_chain_provides_all_context_types(self) -> None:
-        """Test that complete context chain provides access to all context types."""
-        from mcp_guide.models import Project
-
-        mock_session = Mock()
-        mock_session.agent_info = None  # No agent info
-        mock_session.task_manager.get_cached_data.return_value = {}
-        mock_session.task_manager.get_task_statistics.return_value = {}
-        mock_session.task_manager.get_task_by_type.return_value = None
-        mock_project = Project(name="integration-test", categories={}, collections={})
-        mock_session.get_project = AsyncMock(return_value=mock_project)
-        cache = TemplateContextCache(mock_session)
-
-        # Get complete layered contexts
-        context = await cache.get_template_contexts()
-
-        # Verify all context types are accessible
-        # Server context
-        assert "server" in context
-        assert "os" in context["server"]
-        assert "platform" in context["server"]
-        assert "python_version" in context["server"]
-
-        # Agent context (@ symbol)
-        assert "@" in context
-        assert context["@"] == "@"
-
-        # Project context
-        assert "project" in context
-        assert context["project"]["name"] == "integration-test"
-
-    def test_get_transient_context_structure(self) -> None:
-        """Test that get_transient_context returns correct structure and types."""
-        from mcp_guide.render.context import TemplateContext
-
-        cache = TemplateContextCache()
-
-        context = cache.get_transient_context()
-        assert isinstance(context, TemplateContext)
-
-        # Required fields exist
-        required_fields = ["now", "now_utc", "timestamp", "timestamp_ms", "timestamp_ns"]
-        for field in required_fields:
-            assert field in context
-
-        # Field types are correct
-        assert isinstance(context["now"], dict)
-        assert isinstance(context["now_utc"], dict)
-        assert isinstance(context["timestamp"], float)
-        assert isinstance(context["timestamp_ms"], float)
-        assert isinstance(context["timestamp_ns"], int)
-
-        # Structured datetime fields
-        for dt_field in ["now", "now_utc"]:
-            assert isinstance(context[dt_field]["date"], str)
-            assert isinstance(context[dt_field]["day"], str)
-            assert isinstance(context[dt_field]["time"], str)
-            assert isinstance(context[dt_field]["tz"], str)
-            assert isinstance(context[dt_field]["datetime"], str)
-
-        # Timezone awareness
-        assert context["now"]["tz"]  # Should have timezone offset
-        assert context["now_utc"]["tz"] == "+0000"  # UTC always +0000
-        assert context["now_utc"]["datetime"].endswith("Z")  # UTC should end with Z
-
-    def test_transient_context_freshness(self) -> None:
-        """Test that transient context provides fresh timestamps on each call."""
-        import time
-
-        cache = TemplateContextCache()
-
-        context1 = cache.get_transient_context()
-        time.sleep(0.001)  # Small delay
-        context2 = cache.get_transient_context()
-
-        # Timestamps should be different
-        assert context1["timestamp_ns"] != context2["timestamp_ns"]
-        assert context1["timestamp_ms"] != context2["timestamp_ms"]
-        assert context1["timestamp"] != context2["timestamp"]
-
-    def test_transient_context_timestamp_consistency(self) -> None:
-        """Test that all timestamp fields represent the same moment."""
-        cache = TemplateContextCache()
-        context = cache.get_transient_context()
-
-        timestamp_ns = context["timestamp_ns"]
-        timestamp_ms = context["timestamp_ms"]
-        timestamp = context["timestamp"]
-
-        # Verify calculations are consistent
-        expected_timestamp = timestamp_ns / 1_000_000_000
-        expected_timestamp_ms = timestamp_ns / 1_000_000
-
-        # Allow small floating point differences
-        assert abs(timestamp - expected_timestamp) < 1e-9
-        assert abs(timestamp_ms - expected_timestamp_ms) < 1e-6
-
-    @pytest.mark.anyio
-    @pytest.mark.parametrize(
-        "scenario,is_available,has_task",
-        [
-            ("cli_available_enabled", True, True),
-            ("cli_available_not_enabled", True, True),
-            ("cli_not_available", False, True),
-            ("task_not_registered", False, False),
-        ],
-        ids=["cli_available_enabled", "cli_available_not_enabled", "cli_not_available", "task_not_registered"],
+@pytest.mark.anyio
+@pytest.mark.parametrize("enabled,available", [(True, True), (True, False), (False, False)])
+async def test_openspec_context_uses_global_state_not_task_local_availability(session, runtime, enabled, available):
+    await runtime.feature_flags().set(
+        "openspec-state", {"validated": str(available).lower(), "version": "1.10.0", "checked": "100.0"}
     )
-    async def test_openspec_context_scenarios(self, scenario, is_available, has_task) -> None:
-        """Test OpenSpec context with various CLI and task registration scenarios."""
-        from mcp_guide.openspec.task import OpenSpecTask
-
-        if has_task:
-            mock_task = Mock(spec=OpenSpecTask)
-            mock_task.is_available.return_value = is_available
-            mock_task.get_version.return_value = "1.2.3" if is_available else None
-            mock_task.get_changes.return_value = []
-            mock_task.get_show.return_value = None
-            mock_task.get_status.return_value = None
-            mock_task.meets_minimum_version.return_value = is_available
-        else:
-            mock_task = None
-
-        mock_session = Mock()
-        mock_session.task_manager.get_task_by_type.return_value = mock_task
-        mock_session.task_manager.get_task_statistics.return_value = {}
-        cache = TemplateContextCache(mock_session)
-
-        context = await cache._build_agent_context()
-
-        if has_task:
-            # Task registered, so openspec is truthy (a dict)
-            assert context["openspec"]
-            assert isinstance(context["openspec"], dict)
-        else:
-            # When task not registered, openspec is False (disabled)
-            assert context["openspec"] is False
-
-    @pytest.mark.anyio
-    async def test_openspec_context_uses_global_state_for_enabled_project(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """OpenSpec template values come from global state, not Project fields."""
-        from mcp_guide.openspec.task import OpenSpecTask
-
-        task = Mock(spec=OpenSpecTask)
-        task.get_changes.return_value = []
-        task.get_show.return_value = None
-        task.get_status.return_value = None
-        mock_session = Mock()
-        mock_session.task_manager.get_task_by_type.return_value = task
-        mock_session.task_manager.get_task_statistics.return_value = {}
-        runtime = Mock()
-        runtime.feature_flags.return_value = Mock(
-            get=AsyncMock(return_value=FeatureValue({"validated": "true", "version": "1.10.0", "checked": "100.0"}))
-        )
-        monkeypatch.setattr("mcp_guide.runtime.get_runtime", lambda: runtime)
-
-        context = await TemplateContextCache(mock_session)._build_agent_context()
-
-        assert context["openspec"]["available"] is True
-        assert context["openspec"]["version"] == "1.10.0"
-
-    @pytest.mark.anyio
-    async def test_openspec_version_predicate_uses_global_state(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """OpenSpec template version gates use the persisted version shown to templates."""
-        from mcp_guide.openspec.task import OpenSpecTask
-
-        task = Mock(spec=OpenSpecTask)
-        task.get_changes.return_value = []
-        task.get_show.return_value = None
-        task.get_status.return_value = None
-        task.meets_minimum_version.return_value = False
-        mock_session = Mock()
-        mock_session.task_manager.get_task_by_type.return_value = task
-        mock_session.task_manager.get_task_statistics.return_value = {}
-        runtime = Mock()
-        runtime.feature_flags.return_value = Mock(
-            get=AsyncMock(return_value=FeatureValue({"validated": "true", "version": "1.10.0", "checked": "100.0"}))
-        )
-        monkeypatch.setattr("mcp_guide.runtime.get_runtime", lambda: runtime)
-
-        context = await TemplateContextCache(mock_session)._build_agent_context()
-
-        assert context["openspec"]["has_version"]("1.9.0", lambda text: text) is True
-        assert context["openspec"]["has_version"]("1.11.0", lambda text: text) is False
-
-    @pytest.mark.anyio
-    async def test_build_agent_context_exposes_handoff_and_membership_flags(self) -> None:
-        """Test that agent context includes handoff and normalized membership flags."""
-        from mcp_guide.agent_detection import AgentInfo
-
-        mock_session = Mock()
-        mock_session.agent_info = AgentInfo(
-            name="Kiro CLI",
-            normalized_name="q-dev",
-            version="1.0.0",
-            prompt_prefix="@",
-        )
-        mock_session.task_manager.get_task_statistics.return_value = {}
-        mock_session.task_manager.get_task_by_type.return_value = None
-        cache = TemplateContextCache(mock_session)
-
-        with (
-            patch("mcp_guide.models.resolve_all_flags", return_value={}),
-        ):
-            context = await cache._build_agent_context()
-
-            assert context["agent"]["class"] == "q-dev"
-            assert context["agent"]["prefix"] == "@"
-            assert context["agent"]["has_handoff"] is True
-            assert context["agent"]["is_q_dev"] is True
-            assert context["agent"]["is_kiro"] is True
-            assert context["agent"]["is_codex"] is False
-
-    @pytest.mark.anyio
-    async def test_build_agent_context_exposes_pi_membership_flag(self) -> None:
-        """Test that Pi clients expose their normalized membership flag."""
-        from mcp_guide.agent_detection import AgentInfo
-
-        mock_session = Mock()
-        mock_session.agent_info = AgentInfo(
-            name="pi-mcp-guide",
-            normalized_name="pi",
-            version="1.0.0",
-            prompt_prefix=None,
-        )
-        mock_session.task_manager.get_task_statistics.return_value = {}
-        mock_session.task_manager.get_task_by_type.return_value = None
-        cache = TemplateContextCache(mock_session)
-
-        with (
-            patch("mcp_guide.models.resolve_all_flags", return_value={}),
-        ):
-            context = await cache._build_agent_context()
-
-            assert context["agent"]["is_pi"] is True
-            assert context["agent"]["is_cursor"] is False
-
-    @pytest.mark.anyio
-    async def test_build_agent_context_defaults_unknown_agent_to_no_handoff(self) -> None:
-        """Test that non-validated agents default to inline behavior."""
-        from mcp_guide.agent_detection import AgentInfo
-
-        mock_session = Mock()
-        mock_session.agent_info = AgentInfo(
-            name="Custom Agent",
-            normalized_name="custom-agent",
-            version="1.0.0",
-            prompt_prefix="/",
-        )
-        mock_session.task_manager.get_task_statistics.return_value = {}
-        mock_session.task_manager.get_task_by_type.return_value = None
-        cache = TemplateContextCache(mock_session)
-
-        with (
-            patch("mcp_guide.models.resolve_all_flags", return_value={}),
-        ):
-            context = await cache._build_agent_context()
-
-            assert context["agent"]["class"] == "custom-agent"
-            assert context["agent"]["has_handoff"] is False
-            assert context["agent"]["is_unknown"] is False
-            assert context["agent"]["is_codex"] is False
-
-    @pytest.mark.anyio
-    async def test_workflow_context_with_phase_booleans(self) -> None:
-        """Test workflow context includes phase-specific boolean flags for configured phases."""
-        from mcp_guide.models import Project
-
-        mock_session = Mock()
-        mock_project = Project(name="test-project", key="test", hash="abc123", categories={}, collections={})
-        mock_session.get_project = AsyncMock(return_value=mock_project)
-        mock_session.get_all_projects = AsyncMock(return_value={})
-        cache = TemplateContextCache(mock_session)
-
-        mock_workflow_state = Mock(
-            phase="implementation",
-            issue="test-issue",
-            tracking={},
-            description="",
-            queue=[],
-        )
-
-        with (
-            patch("mcp_guide.models.resolve_all_flags", return_value={"workflow": True}),
-            patch("mcp_guide.mcp_context.resolve_project_path", return_value="/test/path"),
-        ):
-            # Configure mock to return workflow_state when called with "workflow_state"
-            def get_cached_data_side_effect(key):
-                if key == "workflow_state":
-                    return mock_workflow_state
-                return None
-
-            mock_session.task_manager.get_cached_data.side_effect = get_cached_data_side_effect
-
-            context = await cache._build_project_context()
-
-            assert "workflow" in context
-            assert context["workflow"]["phase"] == "implementation"
-            # All configured phases should be True
-            assert context["workflow"]["discussion"] is True
-            assert context["workflow"]["planning"] is True
-            assert context["workflow"]["implementation"] is True
-            assert context["workflow"]["check"] is True
-            assert context["workflow"]["review"] is True
-
-    @pytest.mark.anyio
-    async def test_workflow_context_with_consent_structure(self) -> None:
-        """Test workflow context includes consent with entry/exit structure."""
-        from mcp_guide.models import Project
-
-        mock_session = Mock()
-        mock_project = Project(name="test-project", key="test", hash="abc123", categories={}, collections={})
-        mock_session.get_project = AsyncMock(return_value=mock_project)
-        mock_session.get_all_projects = AsyncMock(return_value={})
-        cache = TemplateContextCache(mock_session)
-
-        mock_workflow_state = Mock(
-            phase="discussion",
-            issue="test-issue",
-            tracking={},
-            description="",
-            queue=[],
-        )
-
-        with (
-            patch("mcp_guide.models.resolve_all_flags", return_value={"workflow": True}),
-            patch("mcp_guide.mcp_context.resolve_project_path", return_value="/test/path"),
-        ):
-
-            def get_cached_data_side_effect(key):
-                if key == "workflow_state":
-                    return mock_workflow_state
-                return None
-
-            mock_session.task_manager.get_cached_data.side_effect = get_cached_data_side_effect
-
-            context = await cache._build_project_context()
-
-            assert "workflow" in context
-            assert "consent" in context["workflow"]
-            # Default consent: implementation entry, review exit
-            assert context["workflow"]["consent"]["implementation"]["entry"] is True
-            assert context["workflow"]["consent"]["implementation"]["exit"] is False
-            assert context["workflow"]["consent"]["review"]["entry"] is False
-            assert context["workflow"]["consent"]["review"]["exit"] is True
-            assert context["workflow"]["consent"]["discussion"]["entry"] is False
-            assert context["workflow"]["consent"]["discussion"]["exit"] is False
-
-    @pytest.mark.anyio
-    async def test_workflow_context_with_custom_consent(self) -> None:
-        """Test workflow context with custom consent configuration."""
-        from mcp_guide.models import Project
-
-        mock_session = Mock()
-        mock_project = Project(name="test-project", key="test", hash="abc123", categories={}, collections={})
-        mock_session.get_project = AsyncMock(return_value=mock_project)
-        mock_session.get_all_projects = AsyncMock(return_value={})
-        cache = TemplateContextCache(mock_session)
-
-        mock_workflow_state = Mock(
-            phase="planning",
-            issue="test-issue",
-            tracking={},
-            description="",
-            queue=[],
-        )
-
-        custom_consent = {"planning": ["entry", "exit"], "check": ["entry"]}
-
-        with (
-            patch(
-                "mcp_guide.models.resolve_all_flags",
-                return_value={"workflow": True, "workflow-consent": custom_consent},
-            ),
-            patch("mcp_guide.mcp_context.resolve_project_path", return_value="/test/path"),
-        ):
-
-            def get_cached_data_side_effect(key):
-                if key == "workflow_state":
-                    return mock_workflow_state
-                return None
-
-            mock_session.task_manager.get_cached_data.side_effect = get_cached_data_side_effect
-
-            context = await cache._build_project_context()
-
-            assert "workflow" in context
-            assert "consent" in context["workflow"]
-            assert context["workflow"]["consent"]["planning"]["entry"] is True
-            assert context["workflow"]["consent"]["planning"]["exit"] is True
-            assert context["workflow"]["consent"]["check"]["entry"] is True
-            assert context["workflow"]["consent"]["check"]["exit"] is False
-
-    @pytest.mark.anyio
-    async def test_workflow_context_with_disabled_consent(self) -> None:
-        """False workflow-consent should disable all consent requirements."""
-        from mcp_guide.models import Project
-
-        mock_session = Mock()
-        mock_project = Project(name="test-project", key="test", hash="abc123", categories={}, collections={})
-        mock_session.get_project = AsyncMock(return_value=mock_project)
-        mock_session.get_all_projects = AsyncMock(return_value={})
-        cache = TemplateContextCache(mock_session)
-
-        mock_workflow_state = Mock(
-            phase="planning",
-            issue="test-issue",
-            tracking={},
-            description="",
-            queue=[],
-        )
-
-        with (
-            patch(
-                "mcp_guide.models.resolve_all_flags",
-                return_value={"workflow": True, "workflow-consent": False},
-            ),
-            patch("mcp_guide.mcp_context.resolve_project_path", return_value="/test/path"),
-        ):
-
-            def get_cached_data_side_effect(key):
-                if key == "workflow_state":
-                    return mock_workflow_state
-                return None
-
-            mock_session.task_manager.get_cached_data.side_effect = get_cached_data_side_effect
-
-            context = await cache._build_project_context()
-
-            assert context["workflow"]["consent"]["planning"]["entry"] is False
-            assert context["workflow"]["consent"]["planning"]["exit"] is False
-            assert context["workflow"]["consent"]["implementation"]["entry"] is False
-            assert context["workflow"]["consent"]["review"]["exit"] is False
-
-    @pytest.mark.anyio
-    async def test_workflow_context_with_current_phase_consent(self) -> None:
-        """Test workflow context includes current phase consent flags."""
-        from mcp_guide.models import Project
-
-        mock_session = Mock()
-        mock_project = Project(name="test-project", key="test", hash="abc123", categories={}, collections={})
-        mock_session.get_project = AsyncMock(return_value=mock_project)
-        mock_session.get_all_projects = AsyncMock(return_value={})
-        cache = TemplateContextCache(mock_session)
-
-        mock_workflow_state = Mock(
-            phase="implementation",
-            issue="test-issue",
-            tracking={},
-            description="",
-            queue=[],
-        )
-
-        with (
-            patch("mcp_guide.models.resolve_all_flags", return_value={"workflow": True}),
-            patch("mcp_guide.mcp_context.resolve_project_path", return_value="/test/path"),
-        ):
-
-            def get_cached_data_side_effect(key):
-                if key == "workflow_state":
-                    return mock_workflow_state
-                return None
-
-            mock_session.task_manager.get_cached_data.side_effect = get_cached_data_side_effect
-
-            context = await cache._build_project_context()
-
-            assert "workflow" in context
-            assert "consent" in context["workflow"]
-            # Current phase is implementation, which has entry consent by default
-            assert context["workflow"]["consent"]["entry"] is True
-            assert context["workflow"]["consent"]["exit"] is False
-
-    @pytest.mark.anyio
-    @pytest.mark.parametrize(
-        ("phase", "issue", "expected_next"),
-        [
-            ("implementation", "test-issue", "check"),
-            ("review", "test-issue", "discussion"),
-            ("exploration", "explor-test", None),
-        ],
-        ids=["ordered_next", "ordered_wraparound", "exploration_no_next"],
-    )
-    async def test_workflow_next_phase_behavior(self, phase: str, issue: str, expected_next: str | None) -> None:
-        """Workflow next-phase behavior should reflect ordered and non-ordered phases."""
-        from mcp_guide.models import Project
-
-        mock_session = Mock()
-        mock_project = Project(name="test-project", key="test", hash="abc123", categories={}, collections={})
-        mock_session.get_project = AsyncMock(return_value=mock_project)
-        mock_session.get_all_projects = AsyncMock(return_value={})
-        cache = TemplateContextCache(mock_session)
-
-        mock_workflow_state = Mock(
-            phase=phase,
-            issue=issue,
-            tracking={},
-            description="",
-            queue=[],
-        )
-
-        with (
-            patch("mcp_guide.models.resolve_all_flags", return_value={"workflow": True}),
-            patch("mcp_guide.mcp_context.resolve_project_path", return_value="/test/path"),
-        ):
-
-            def get_cached_data_side_effect(key):
-                if key == "workflow_state":
-                    return mock_workflow_state
-                return None
-
-            mock_session.task_manager.get_cached_data.side_effect = get_cached_data_side_effect
-
-            context = await cache._build_project_context()
-
-            assert "workflow" in context
-            if expected_next is None:
-                assert context["workflow"]["next"] is None
-            else:
-                assert context["workflow"]["next"]["value"] == expected_next
-
-            if phase == "exploration":
-                assert context["workflow"]["phases"]["exploration"]["ordered"] is False
-                assert "next" not in context["workflow"]["phases"]["exploration"]
-                assert context["workflow"]["issue_is_exploratory"] is False
+    if enabled:
+        await session.project_flags().set("openspec", True)
+        task = session.task_manager.get_task_by_type(OpenSpecTask)
+        assert task is not None
+        assert task.is_available() is None
+    context = await get_template_contexts(session)
+    if not enabled:
+        assert context["openspec"] is False
+        return
+    openspec = context["openspec"]
+    assert openspec["available"] is available
+    assert openspec["version"] == "1.10.0"
+    assert openspec["changes"] == []
+    assert openspec["show"] is None
+    assert openspec["status"] is None
+    assert openspec["has_version"]("1.9.0", lambda text: text) is True
+    assert openspec["has_version"]("1.11.0", lambda text: text) is False
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    "name,normalised,prefix,handoff,membership",
+    [
+        ("Kiro CLI", "q-dev", "@", True, {"is_q_dev", "is_kiro"}),
+        ("pi-mcp-guide", "pi", None, False, {"is_pi"}),
+        ("Custom Agent", "custom-agent", "/", False, set()),
+    ],
+)
+async def test_agent_context_reports_membership_and_handoff(session, name, normalised, prefix, handoff, membership):
+    session.agent_info = AgentInfo(name=name, normalized_name=normalised, version="1.0.0", prompt_prefix=prefix)
+    agent = (await get_template_contexts(session))["agent"]
+    assert agent["class"] == normalised
+    assert agent["prefix"] == (prefix or "")
+    assert agent["has_handoff"] is handoff
+    assert {key for key, value in agent.items() if key.startswith("is_") and value} == membership
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    "phase,issue,consent,next_phase,entry,exit",
+    [
+        ("implementation", "test-issue", True, "check", True, False),
+        ("review", "test-issue", True, "discussion", False, True),
+        ("exploration", "explor-test", True, None, False, True),
+        ("planning", "test-issue", {"planning": ["entry", "exit"], "check": ["entry"]}, "implementation", True, True),
+        ("implementation", "test-issue", False, "check", False, False),
+    ],
+    ids=["default-entry", "default-exit-wrap", "unordered-exploration", "custom-consent", "disabled-consent"],
+)
+async def test_workflow_context_combines_state_phase_order_and_consent(
+    session, phase, issue, consent, next_phase, entry, exit
+):
+    await session.project_flags().set("workflow", True)
+    await session.project_flags().set("workflow-consent", consent)
+    session.task_manager.set_cached_data("workflow_state", WorkflowState(phase=phase, issue=issue))
+    workflow = (await get_template_contexts(session))["workflow"]
+    assert workflow["phase"] == phase
+    assert workflow["issue"] == issue
+    assert workflow["next"] == ({"value": next_phase} if next_phase else None)
+    assert workflow["consent"]["entry"] is entry
+    assert workflow["consent"]["exit"] is exit
+    for name in ("discussion", "planning", "implementation", "check", "review"):
+        assert workflow[name] is True
+    assert workflow["phases"]["exploration"]["ordered"] is False
+    assert "next" not in workflow["phases"]["exploration"]
+    assert workflow["issue_is_exploratory"] is False
+    if isinstance(consent, dict):
+        assert workflow["consent"]["check"] == {"entry": True, "exit": False, "any": True}
+    elif consent:
+        assert workflow["consent"]["implementation"] == {"entry": True, "exit": False, "any": True}
+        assert workflow["consent"]["review"] == {"entry": False, "exit": True, "any": True}
+        assert workflow["consent"]["discussion"] == {"entry": False, "exit": False, "any": False}
+    else:
+        assert all(not workflow["consent"][name]["any"] for name in workflow["phases"])

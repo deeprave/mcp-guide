@@ -9,11 +9,22 @@ from mcp_guide.task_manager.manager import EventResult, TrackedInstruction
 
 
 @pytest.fixture(autouse=True)
-def clear_task_registry() -> None:
-    """Keep project-scoped task registration isolated from other test modules."""
-    from mcp_guide.decorators import clear_registered_tasks_for_testing
+def clear_task_registry():
+    """Keep task registration isolated and restore imported production tasks."""
+    from mcp_guide.decorators import (
+        clear_registered_tasks_for_testing,
+        get_registered_task_classes,
+        task_register,
+    )
 
+    registered = get_registered_task_classes()
     clear_registered_tasks_for_testing()
+    try:
+        yield
+    finally:
+        clear_registered_tasks_for_testing()
+        for task_class in registered:
+            task_register(task_class)
 
 
 class MockSubscriber:
@@ -35,15 +46,6 @@ class MockSubscriber:
     async def on_tool(self) -> None:
         """Handle post-tool hook."""
         return None
-
-
-class TestTaskManagerInstantiation:
-    """Test TaskManager can be created."""
-
-    def test_task_manager_can_be_instantiated(self) -> None:
-        """TaskManager should be instantiable."""
-        manager = TaskManager()
-        assert manager is not None
 
 
 class TestTaskManagerCleanup:

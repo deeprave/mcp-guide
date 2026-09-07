@@ -1,7 +1,6 @@
 """Tests for utility tools."""
 
 from types import SimpleNamespace
-from unittest.mock import Mock
 
 import pytest
 
@@ -11,9 +10,7 @@ from mcp_guide.tools.tool_utility import GetClientInfoArgs, internal_client_info
 
 def _make_request_context(agent_info=None, client_params=None):
     """Build an explicit application context with a resolved Session."""
-    session = Mock()
-    session.agent_info = agent_info
-    session.client_params = client_params
+    session = SimpleNamespace(agent_info=agent_info, client_params=client_params)
     return SimpleNamespace(session=session), session
 
 

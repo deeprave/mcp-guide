@@ -15,22 +15,14 @@ class TestToolResult:
     @pytest.mark.anyio
     async def test_returns_native_structured_response(self) -> None:
         """Tool results retain Guide data without JSON-string serialization."""
-        result = Result.ok(value={"data": "test"})
+        result = Result.ok(value={"data": "test"}, instruction="Do something", message="Operation completed")
         output = await tool_result("test_tool", result)
 
         assert isinstance(output, ToolResult)
         assert output.structured_content["success"] is True
         assert output.structured_content["value"] == {"data": "test"}
-
-    @pytest.mark.anyio
-    async def test_logs_result_at_trace_level(self, caplog: pytest.LogCaptureFixture) -> None:
-        """Test that tool_result logs at TRACE level."""
-        import logging
-
-        caplog.set_level(logging.DEBUG)  # TRACE is below DEBUG, but we can check the call
-
-        result = Result.ok(value={"test": "data"})
-        await tool_result("my_tool", result)
+        assert output.structured_content["instruction"] == "Do something"
+        assert output.structured_content["message"] == "Operation completed"
 
         # Note: TRACE level logs may not appear in caplog depending on configuration
         # This test verifies the function doesn't raise errors during logging
@@ -46,24 +38,6 @@ class TestToolResult:
         assert output.structured_content["success"] is False
         assert output.structured_content["error"] == "Something went wrong"
         assert output.structured_content["error_type"] == "test_error"
-
-    @pytest.mark.anyio
-    async def test_handles_result_with_instruction(self) -> None:
-        """Test that tool_result preserves instruction field."""
-        result = Result.ok(value={"data": "test"}, instruction="Do something")
-        output = await tool_result("instructed_tool", result)
-
-        assert isinstance(output, ToolResult)
-        assert output.structured_content["instruction"] == "Do something"
-
-    @pytest.mark.anyio
-    async def test_handles_result_with_message(self) -> None:
-        """Test that tool_result preserves message field."""
-        result = Result.ok(value={"data": "test"}, message="Operation completed")
-        output = await tool_result("message_tool", result)
-
-        assert isinstance(output, ToolResult)
-        assert output.structured_content["message"] == "Operation completed"
 
     @pytest.mark.anyio
     async def test_does_not_resolve_session_when_session_id_is_missing(self, monkeypatch) -> None:

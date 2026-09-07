@@ -311,15 +311,6 @@ def pytest_unconfigure(config):
         robust_cleanup(_session_temp_dir)
         _session_temp_dir = None
 
-    # Clean up MCP SDK artifacts
-    from pathlib import Path
-
-    project_root = Path(__file__).parent.parent
-    for artifact in ["API", "Event"]:
-        artifact_path = project_root / artifact
-        if artifact_path.exists():
-            artifact_path.unlink()
-
 
 def pytest_sessionfinish(session, exitstatus):
     """Close any remaining event loops after test session."""
@@ -338,14 +329,6 @@ def session_temp_dir() -> Path:
     global _session_temp_dir
     assert _session_temp_dir is not None, "Session temp dir not initialized by pytest_configure"
     return _session_temp_dir
-
-
-@pytest.fixture(scope="module")
-def event_loop_policy():
-    """Set event loop policy for the test module."""
-    # pytest-asyncio handles event loop management automatically
-    # This fixture is kept for backwards compatibility but does nothing
-    yield None
 
 
 def robust_cleanup(directory: Path) -> None:

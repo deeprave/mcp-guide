@@ -86,9 +86,8 @@ class TestReadWriteSecurityPolicy:
         temp_paths = ["/tmp/file.txt", "/var/tmp/data.json", "/private/tmp/cache.db", "~/.cache/app/data.txt"]
 
         for temp_path in temp_paths:
-            with patch("mcp_guide.filesystem.temp_directories.is_safe_temp_path", return_value=True):
-                result = policy.validate_write_path(temp_path)
-                assert result == str(Path(temp_path).expanduser())
+            result = policy.validate_write_path(temp_path)
+            assert result == str(Path(temp_path).expanduser())
 
     def test_path_traversal_prevention_read(self):
         """Test path traversal attacks are prevented for read operations."""
@@ -101,17 +100,6 @@ class TestReadWriteSecurityPolicy:
         policy = ReadWriteSecurityPolicy(write_allowed_paths=["docs/"])
         with pytest.raises(SecurityError, match="Path traversal detected"):
             policy.validate_write_path("docs/../config.txt")
-
-    def test_project_root_injection(self):
-        """Test project root can be injected after initialization."""
-        policy = ReadWriteSecurityPolicy()
-
-        # Initially no project root
-        assert policy.project_root is None
-
-        # Inject project root
-        policy.set_project_root("/home/user/project")
-        assert policy.project_root == Path("/home/user/project")
 
     def test_read_absolute_path_within_project_root(self):
         """Test absolute path within project root is allowed when project root is set."""

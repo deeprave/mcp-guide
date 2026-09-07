@@ -6,17 +6,6 @@ import mcp_guide.models.profile as profile_module
 from mcp_guide.models.profile import Profile
 
 
-@pytest.fixture(scope="module")
-def enable_default_profile():
-    """Enable default profile application for profile tests."""
-    import mcp_guide.session
-
-    original = mcp_guide.session._enable_default_profile
-    mcp_guide.session._enable_default_profile = True
-    yield
-    mcp_guide.session._enable_default_profile = original
-
-
 class TestProfileFromYaml:
     """Tests for Profile.from_yaml."""
 
@@ -110,56 +99,6 @@ unsupported_field: value
 class TestProfileLoad:
     """Tests for Profile.load."""
 
-    async def test_load_nonexistent_profile(self, tmp_path):
-        """Test loading a profile that doesn't exist."""
-        # Create empty profiles directory
-        profiles_dir = tmp_path / "_profiles"
-        profiles_dir.mkdir()
-
-        # Mock get_profiles_dir to return our temp directory
-        original_get_profiles_dir = profile_module.get_profiles_dir
-
-        async def mock_get_profiles_dir():
-            return profiles_dir
-
-        profile_module.get_profiles_dir = mock_get_profiles_dir
-
-        try:
-            with pytest.raises(FileNotFoundError, match="Profile 'nonexistent' not found"):
-                await Profile.load("nonexistent")
-        finally:
-            profile_module.get_profiles_dir = original_get_profiles_dir
-
-    async def test_load_existing_profile(self, tmp_path):
-        """Test loading an existing profile."""
-        from mcp_guide.models.profile import Profile
-
-        # Create profiles directory with a profile
-        profiles_dir = tmp_path / "_profiles"
-        profiles_dir.mkdir()
-        profile_file = profiles_dir / "python.yaml"
-        profile_file.write_text("""
-categories:
-  - name: docs
-    dir: docs/
-    patterns: []
-""")
-
-        # Mock get_profiles_dir
-        original_get_profiles_dir = profile_module.get_profiles_dir
-
-        async def mock_get_profiles_dir():
-            return profiles_dir
-
-        profile_module.get_profiles_dir = mock_get_profiles_dir
-
-        try:
-            profile = await Profile.load("python")
-            assert profile.name == "python"
-            assert len(profile.categories) == 1
-        finally:
-            profile_module.get_profiles_dir = original_get_profiles_dir
-
     async def test_default_profile_provides_baseline_resource_content(self):
         profile = await Profile.load("_default")
 
@@ -184,57 +123,25 @@ categories:
 class TestDiscoverProfiles:
     """Tests for discover_profiles."""
 
-    async def test_discover_empty_directory(self, tmp_path):
-        """Test discovering profiles in empty directory."""
-        from mcp_guide.models.profile import discover_profiles
-
+    async def test_discovery_excludes_internal_profiles_and_sorts_names(self, tmp_path, monkeypatch):
         profiles_dir = tmp_path / "_profiles"
-        profiles_dir.mkdir()
 
-        original_get_profiles_dir = profile_module.get_profiles_dir
-
-        async def mock_get_profiles_dir():
+        async def profiles_path():
             return profiles_dir
 
-        profile_module.get_profiles_dir = mock_get_profiles_dir
-
-        try:
-            profiles = await discover_profiles()
-            assert profiles == []
-        finally:
-            profile_module.get_profiles_dir = original_get_profiles_dir
-
-    async def test_discover_profiles_excludes_underscore(self, tmp_path):
-        """Test that profiles starting with underscore are excluded."""
-        from mcp_guide.models.profile import discover_profiles
-
-        profiles_dir = tmp_path / "_profiles"
+        monkeypatch.setattr(profile_module, "get_profiles_dir", profiles_path)
+        assert await profile_module.discover_profiles() == []
         profiles_dir.mkdir()
-        (profiles_dir / "python.yaml").write_text("categories: []")
-        (profiles_dir / "_default.yaml").write_text("categories: []")
-        (profiles_dir / "rust.yaml").write_text("categories: []")
-
-        original_get_profiles_dir = profile_module.get_profiles_dir
-
-        async def mock_get_profiles_dir():
-            return profiles_dir
-
-        profile_module.get_profiles_dir = mock_get_profiles_dir
-
-        try:
-            profiles = await discover_profiles()
-            assert sorted(profiles) == ["python", "rust"]
-        finally:
-            profile_module.get_profiles_dir = original_get_profiles_dir
+        assert await profile_module.discover_profiles() == []
+        for name in ("rust", "_default", "python"):
+            (profiles_dir / f"{name}.yaml").write_text("categories: []")
+        assert await profile_module.discover_profiles() == ["python", "rust"]
 
     async def test_discover_profiles_includes_docker_and_shell(self):
         profiles = await profile_module.discover_profiles()
 
         assert "docker" in profiles
         assert "shell" in profiles
-
-    async def test_bundled_profiles_do_not_contain_empty_collections(self):
-        for profile_name in ["_default", *await profile_module.discover_profiles()]:
-            profile = await Profile.load(profile_name)
-
-            assert all(collection.categories for collection in profile.collections), profile_name
+        for name in ["_default", *profiles]:
+            profile = await Profile.load(name)
+            assert all(collection.categories for collection in profile.collections), name

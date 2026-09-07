@@ -1,6 +1,5 @@
-"""Tests for LazyPath."""
+"""Host path expansion, deferred resolution and synchronous/asynchronous IO."""
 
-import os
 from pathlib import Path
 
 import pytest
@@ -8,145 +7,58 @@ import pytest
 from mcp_guide.lazy_path import LazyPath
 
 
-@pytest.mark.anyio
-async def test_lazypath_with_tilde():
-    """Test LazyPath with tilde path."""
-    lazy = LazyPath("~/test/path")
-    assert str(lazy) == "~/test/path"
-    assert "~" not in lazy.expanduser()
-    assert lazy.expanduser().startswith(str(Path.home()))
+def test_expansion_methods_keep_user_and_environment_expansion_distinct(monkeypatch):
+    monkeypatch.setenv("GUIDE_LAZY_COMPONENT", "docs")
+    lazy = LazyPath(Path("~/${GUIDE_LAZY_COMPONENT}"))
+    assert str(lazy) == "~/${GUIDE_LAZY_COMPONENT}"
+    assert repr(lazy) == "LazyPath('~/${GUIDE_LAZY_COMPONENT}')"
+    assert lazy.expanduser() == str(Path.home() / "${GUIDE_LAZY_COMPONENT}")
+    assert lazy.expandvars() == "~/docs"
+    assert lazy.expand() == Path.home() / "docs"
+    assert lazy.resolve() == (Path.home() / "docs").resolve()
 
 
-@pytest.mark.anyio
-async def test_lazypath_with_environment_variable():
-    """Test LazyPath with environment variable."""
-    os.environ["TEST_VAR"] = "/test/value"
-    lazy = LazyPath("${TEST_VAR}/path")
-    assert str(lazy) == "${TEST_VAR}/path"
-    assert lazy.expandvars() == "/test/value/path"
+@pytest.mark.parametrize("path,absolute", [("~/docs", True), ("$GUIDE_LAZY_ROOT/docs", True), ("docs/file", False)])
+def test_absolute_classification_uses_expansion(monkeypatch, tmp_path, path, absolute):
+    monkeypatch.setenv("GUIDE_LAZY_ROOT", str(tmp_path))
+    assert LazyPath(path).is_absolute() is absolute
 
 
-@pytest.mark.anyio
-async def test_lazypath_resolve_expands_both():
-    """Test LazyPath.resolve() expands both tilde and env vars."""
-    os.environ["TEST_VAR"] = "subdir"
-    lazy = LazyPath("~/${TEST_VAR}/file.txt")
-    resolved = lazy.resolve()
-    assert "~" not in str(resolved)
-    assert "${TEST_VAR}" not in str(resolved)
-    assert str(Path.home()) in str(resolved)
-    assert "subdir" in str(resolved)
-
-
-@pytest.mark.anyio
-async def test_lazypath_is_absolute_after_expansion():
-    """Test LazyPath.is_absolute() checks after expansion."""
-    lazy_tilde = LazyPath("~/test")
-    assert lazy_tilde.is_absolute()
-
-    os.environ["TEST_VAR"] = str(Path.home())
-    lazy_var = LazyPath("${TEST_VAR}/test")
-    assert lazy_var.is_absolute()
-
-    lazy_relative = LazyPath("relative/path")
-    assert not lazy_relative.is_absolute()
-
-
-@pytest.mark.anyio
-async def test_lazypath_lazy_evaluation():
-    """Test LazyPath doesn't resolve until .resolve() is called."""
-    lazy = LazyPath("~/test")
-    assert lazy._resolved_path is None
-    lazy.resolve()
-    assert lazy._resolved_path is not None
-
-
-@pytest.mark.anyio
-async def test_lazypath_caches_resolved_path():
-    """Test LazyPath caches resolved path after first resolution."""
-    lazy = LazyPath("~/test")
+def test_resolution_is_deferred_then_cached(monkeypatch, tmp_path):
+    monkeypatch.setenv("GUIDE_LAZY_ROOT", str(tmp_path / "initial"))
+    lazy = LazyPath("$GUIDE_LAZY_ROOT/docs")
+    monkeypatch.setenv("GUIDE_LAZY_ROOT", str(tmp_path / "before-resolution"))
     first = lazy.resolve()
-    second = lazy.resolve()
-    assert first is second
+    assert first == tmp_path / "before-resolution" / "docs"
+    monkeypatch.setenv("GUIDE_LAZY_ROOT", str(tmp_path / "after-resolution"))
+    assert lazy.resolve() is first
+    assert str(lazy) == "$GUIDE_LAZY_ROOT/docs"
 
 
-@pytest.mark.anyio
-async def test_lazypath_str_returns_original():
-    """Test __str__ returns original path string."""
-    original = "~/test/${VAR}/path"
-    lazy = LazyPath(original)
-    assert str(lazy) == original
-
-
-@pytest.mark.anyio
-async def test_lazypath_repr():
-    """Test __repr__ format."""
-    lazy = LazyPath("~/test")
-    assert repr(lazy) == "LazyPath('~/test')"
-
-
-@pytest.mark.anyio
-async def test_lazypath_from_path_object():
-    """Test LazyPath can be created from Path object."""
-    path = Path("~/test")
-    lazy = LazyPath(path)
-    assert str(lazy) == "~/test"
-
-
-@pytest.mark.anyio
-async def test_lazypath_resolve_no_expand():
-    """Test LazyPath.resolve(expand=False) doesn't expand variables."""
-    os.environ["TEST_VAR"] = "value"
-    lazy = LazyPath("${TEST_VAR}/path")
-
-    # With expand=False, should try to resolve literal path
-    # This will fail if path doesn't exist, but we can check the behavior
-    with pytest.raises(OSError):
-        lazy.resolve(expand=False, strict=True)
-
-
-@pytest.mark.anyio
-async def test_lazypath_resolve_strict():
-    """Test LazyPath.resolve(strict=True) raises if path doesn't exist."""
-    lazy = LazyPath("~/nonexistent_path_12345")
+@pytest.mark.parametrize("expand", [True, False])
+def test_strict_resolution_distinguishes_literal_and_expanded_paths(monkeypatch, tmp_path, expand):
+    target = tmp_path / "actual"
+    target.mkdir()
+    monkeypatch.setenv("GUIDE_LAZY_COMPONENT", "actual")
+    lazy = LazyPath(tmp_path / "$GUIDE_LAZY_COMPONENT")
+    if expand:
+        assert lazy.resolve(strict=True) == target
+    else:
+        with pytest.raises(FileNotFoundError):
+            lazy.resolve(strict=True, expand=False)
     with pytest.raises(FileNotFoundError):
-        lazy.resolve(strict=True)
+        LazyPath(tmp_path / "missing").resolve(strict=True, expand=expand)
 
 
 @pytest.mark.anyio
-async def test_lazypath_expanduser_only():
-    """Test expanduser() only expands tilde, not env vars."""
-    os.environ["TEST_VAR"] = "value"
-    lazy = LazyPath("~/${TEST_VAR}")
-    expanded = lazy.expanduser()
-    assert "~" not in expanded
-    assert "${TEST_VAR}" in expanded
-
-
-@pytest.mark.anyio
-async def test_lazypath_aresolve_matches_resolve_and_supports_async_io(tmp_path):
-    """aresolve uses the same path rule and returns an anyio path."""
-    from anyio import Path as AsyncPath
-
+async def test_aresolve_matches_resolve_and_supports_async_io(tmp_path, monkeypatch):
     target = tmp_path / "docs"
     target.mkdir()
-    os.environ["GUIDE_LAZY_DOCS"] = str(target)
+    monkeypatch.setenv("GUIDE_LAZY_DOCS", str(target))
     lazy = LazyPath("$GUIDE_LAZY_DOCS")
     resolved = lazy.resolve()
     async_resolved = await LazyPath("$GUIDE_LAZY_DOCS").aresolve()
-    assert isinstance(async_resolved, AsyncPath)
     assert Path(async_resolved) == resolved
     assert await async_resolved.exists()
     cached = await lazy.aresolve()
     assert Path(cached) == resolved
-
-
-@pytest.mark.anyio
-async def test_lazypath_expandvars_only():
-    """Test expandvars() only expands env vars, not tilde."""
-    os.environ["TEST_VAR"] = "value"
-    lazy = LazyPath("~/${TEST_VAR}")
-    expanded = lazy.expandvars()
-    assert "~" in expanded
-    assert "${TEST_VAR}" not in expanded
-    assert "value" in expanded

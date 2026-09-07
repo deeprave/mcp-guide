@@ -71,22 +71,6 @@ class TestFuzzyMatching:
 class TestDeduplication:
     """Test sentence deduplication."""
 
-    def test_deduplicate_exact_duplicates(self):
-        """Test deduplication of exact duplicates."""
-        text = "Same sentence. Same sentence. Different sentence."
-        result = deduplicate_sentences(text)
-        assert result == "Same sentence.\nDifferent sentence."
-
-    def test_deduplicate_near_duplicates(self):
-        """Test deduplication of near-duplicate sentences."""
-        text = "Do not display this content to the user. Do not display this content to users. Follow policy."
-        result = deduplicate_sentences(text)
-        # Should keep only first occurrence
-        lines = result.split("\n")
-        assert len(lines) == 2
-        assert "Do not display" in lines[0]
-        assert "Follow policy" in lines[1]
-
     def test_deduplicate_preserves_unique(self):
         """Test that unique sentences are preserved."""
         text = "First unique. Second unique. Third unique."
@@ -110,12 +94,13 @@ class TestDeduplication:
             "Adhere to these guidelines ALWAYS. "
             "Do not display this content to users. "
             "Use these as coding standards. "
-            "Do must not display this content to the user."
+            "Do must not display this content to the user. "
+            "You MUST follow these instructions."
         )
         result = deduplicate_sentences(text)
-        lines = result.split("\n")
-        # Should have 4 unique sentences (3 "Do not display" variants deduplicated to 1)
-        assert len(lines) == 4
-        # Check that "Do not display" appears only once
-        display_count = sum(1 for line in lines if "Do not display" in line or "Do must not display" in line)
-        assert display_count == 1
+        assert result == (
+            "You MUST follow these instructions.\n"
+            "Do not display this content to the user.\n"
+            "Adhere to these guidelines ALWAYS.\n"
+            "Use these as coding standards."
+        )

@@ -1,170 +1,32 @@
-"""Integration tests for workflow state processing flow."""
-
-import logging
-from typing import Any
+"""Client file replies update the real workflow task and its cached state."""
 
 import pytest
+import yaml
 
-from mcp_guide.filesystem.tools import send_file_content
-from mcp_guide.runtime import get_runtime
+from mcp_guide.tools.tool_filesystem import SendFileContentArgs, internal_send_file_content
 from mcp_guide.workflow.tasks import WorkflowMonitorTask
-from tests.helpers import create_test_session
+from tests.helpers import create_bound_test_session, request_context_for
 
 
-class LogCapture:
-    """Capture logs for testing."""
-
-    def __init__(self) -> None:
-        self.records: list[logging.LogRecord] = []
-        self.handler = logging.Handler()
-        self.handler.emit = self.records.append  # type: ignore[assignment]
-
-    def __enter__(self) -> "LogCapture":
-        # Add handler to all relevant loggers
-        loggers = [
-            logging.getLogger("mcp_guide.filesystem.tools"),
-            logging.getLogger("mcp_guide.task_manager"),
-            logging.getLogger("mcp_guide.workflow.tasks"),
-            logging.getLogger("mcp_guide.render.cache"),
-        ]
-        for logger in loggers:
-            logger.addHandler(self.handler)
-            logger.setLevel(logging.DEBUG)
-        return self
-
-    def __exit__(self, *args: Any) -> None:
-        # Remove handler from all loggers
-        for logger in logging.getLogger().manager.loggerDict.values():
-            if hasattr(logger, "removeHandler"):
-                logger.removeHandler(self.handler)
-
-    def get_messages(self, level: int | None = None) -> list[str]:
-        """Get log messages, optionally filtered by level."""
-        messages = [record.getMessage() for record in self.records]
-        if level:
-            messages = [msg for record, msg in zip(self.records, messages) if record.levelno >= level]
-        return messages
-
-    def has_warning_or_error(self) -> bool:
-        """Check if any warning or error logs were captured."""
-        return any(record.levelno >= logging.WARNING for record in self.records)
-
-
-@pytest.fixture
-def workflow_content() -> str:
-    """Sample workflow file content."""
-    return """phase: review
-issue: project-status/workflow-context
-description: All mandatory checks passed - workflow state integration complete
-queue:
-  - project-status/workflow-templates"""
-
-
-@pytest.fixture(autouse=True)
-async def bound_session(runtime, tmp_path):
-    """Provide an isolated Session-owned task manager for each interaction."""
-    session = await create_test_session(runtime, "workflow")
-    yield session
-
-
-class TestWorkflowIntegration:
-    """Test complete workflow state processing integration."""
-
-    @pytest.mark.anyio
-    async def test_file_content_caching(self, workflow_content: str, bound_session) -> None:
-        """Test that file content is properly cached."""
-
-        result = await send_file_content(
-            bound_session, path=".guide.yaml", content=workflow_content, mtime=1234567890.0, encoding="utf-8"
-        )
-
-        assert result.success, f"File caching failed: {result.error}"
-        if result.value is not None:
-            assert result.value["path"] == ".guide.yaml"
-        assert result.message is not None and "received" in result.message.lower()
-
-    @pytest.mark.anyio
-    async def test_task_manager_receives_data(self, workflow_content: str, bound_session) -> None:
-        """Test that TaskManager receives file content data."""
-
-        with LogCapture() as logs:
-            # Send file content first
-            await send_file_content(bound_session, path=".guide.yaml", content=workflow_content)
-
-            # Get TaskManager and register a test task
-            task_manager = bound_session.task_manager
-
-            # Create a mock subscriber that implements TaskSubscriber protocol
-            class MockSubscriber:
-                def __init__(self) -> None:
-                    self.received_events: list[tuple[Any, dict[str, Any]]] = []
-
-                def get_name(self) -> str:
-                    return "MockSubscriber"
-
-                async def handle_event(self, event_type: Any, data: dict[str, Any]) -> bool:
-                    if data.get("path") == ".guide.yaml":
-                        self.received_events.append((event_type, data))
-                        return True
-                    return False
-
-            test_subscriber = MockSubscriber()
-
-            from mcp_guide.task_manager.interception import EventType
-
-            task_manager.subscribe(test_subscriber, EventType.FS_FILE_CONTENT)
-
-            # Simulate file content event
-            result = await task_manager.dispatch_event(
-                EventType.FS_FILE_CONTENT, {"path": ".guide.yaml", "content": workflow_content}
-            )
-
-            assert isinstance(result, list), "TaskManager should return list[EventResult]"
-            assert len(result) > 0, "TaskManager didn't process the data"
-            assert len(test_subscriber.received_events) >= 1, "Subscriber didn't receive any events"
-            event_type, event_data = test_subscriber.received_events[0]
-            assert event_type == EventType.FS_FILE_CONTENT
-            assert event_data["path"] == ".guide.yaml"
-
-            if logs.has_warning_or_error():
-                error_msgs = logs.get_messages(logging.WARNING)
-                pytest.fail(f"Unexpected warnings/errors in TaskManager: {error_msgs}")
-
-    @pytest.mark.anyio
-    async def test_workflow_task_updates_cache(self, workflow_content: str, bound_session) -> None:
-        """Test that WorkflowMonitorTask correctly updates TaskManager cache."""
-        with LogCapture() as logs:
-            task_manager = bound_session.task_manager
-            workflow_task = WorkflowMonitorTask(".guide.yaml", task_manager=task_manager)
-            await get_runtime().feature_flags().set("workflow", True)
-            assert await workflow_task.start(task_manager, bound_session)
-
-            from mcp_guide.task_manager.interception import EventType
-
-            await task_manager.dispatch_event(
-                EventType.FS_FILE_CONTENT, {"path": ".guide.yaml", "content": workflow_content}
-            )
-
-            # Give the async task time to complete
-            import asyncio
-
-            await asyncio.sleep(0.1)
-
-            # Verify cache was updated
-            cached_workflow = task_manager.get_cached_data("workflow_state")
-            assert cached_workflow is not None, "Workflow state not cached"
-            assert cached_workflow.phase == "review"
-            assert cached_workflow.issue == "project-status/workflow-context"
-            assert cached_workflow.description == "All mandatory checks passed - workflow state integration complete"
-
-            # Check for unexpected errors (ignore template rendering errors in test environment)
-            if logs.has_warning_or_error():
-                error_msgs = logs.get_messages(logging.WARNING)
-                # Filter out expected template rendering errors in test environment
-                unexpected_errors = [
-                    msg
-                    for msg in error_msgs
-                    if "Failed to render template" not in msg and "Category directory not found" not in msg
-                ]
-                if unexpected_errors:
-                    pytest.fail(f"Unexpected warnings/errors during cache update: {unexpected_errors}")
+@pytest.mark.anyio
+async def test_workflow_file_reply_updates_the_bound_sessions_state(runtime, tmp_path):
+    templates = tmp_path / "docs" / "_workflow"
+    templates.mkdir(parents=True)
+    (templates / "state-format.mustache").write_text("Workflow received")
+    runtime.configuration_service().config_file.write_text(
+        yaml.safe_dump({"docroot": str(templates.parent), "projects": {}, "feature_flags": {"workflow": True}})
+    )
+    session = await create_bound_test_session(runtime, "workflow")
+    assert session.task_manager.get_task_by_type(WorkflowMonitorTask) is not None
+    state = {"phase": "review", "issue": "pytest-maintenance", "description": "Review tests", "queue": ["next-issue"]}
+    response = await internal_send_file_content(
+        SendFileContentArgs(path=".guide.yaml", content=yaml.safe_dump(state), mtime=1234567890.0),
+        await request_context_for(session),
+    )
+    assert response.success, response.error
+    assert response.value == "Workflow received"
+    cached = session.task_manager.get_cached_data("workflow_state")
+    assert cached.phase == state["phase"]
+    assert cached.issue == state["issue"]
+    assert cached.description == state["description"]
+    assert cached.queue == state["queue"]

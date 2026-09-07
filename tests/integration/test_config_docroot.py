@@ -249,73 +249,14 @@ async def test_relative_config_dir_persists_absolute_docroot(tmp_path, monkeypat
 
 
 @pytest.mark.anyio
-async def test_saving_project_preserves_docroot(runtime, tmp_path):
-    """Test saving a project preserves existing docroot."""
-    session = await create_test_session(runtime, "test-project")
-
-    # Create initial project
-    project = await session.get_project()
-
-    # Manually edit docroot in config file
-    config_file = tmp_path / "config.yaml"
-    content = config_file.read_text()
-    data = yaml.safe_load(content)
-    data["docroot"] = "~/custom-docs"
-    config_file.write_text(yaml.dump(data))
-
-    # Save project again
-    await session.update_config(lambda p: p)
-
-    # Verify docroot is preserved
-    content = config_file.read_text()
-    data = yaml.safe_load(content)
-    assert data["docroot"] == "~/custom-docs"
-
-
-@pytest.mark.anyio
-async def test_docroot_with_tilde_preserved(runtime, tmp_path):
-    """Test docroot with tilde is preserved."""
-    session = await create_test_session(runtime, "test-project")
-
-    # Create project
-    await session.get_project()
-
-    # Set docroot with tilde
-    config_file = tmp_path / "config.yaml"
-    content = config_file.read_text()
-    data = yaml.safe_load(content)
-    data["docroot"] = "~/my-docs"
-    config_file.write_text(yaml.dump(data))
-
-    # Create another project
-    session2 = await create_test_session(runtime, "another-project")
-    await session2.get_project()
-
-    # Verify tilde path preserved
-    content = config_file.read_text()
-    data = yaml.safe_load(content)
-    assert data["docroot"] == "~/my-docs"
-
-
-@pytest.mark.anyio
-async def test_docroot_with_env_var_preserved(runtime, tmp_path):
-    """Test docroot with environment variable is preserved."""
-    session = await create_test_session(runtime, "test-project")
-
-    # Create project
-    await session.get_project()
-
-    # Set docroot with env var
-    config_file = tmp_path / "config.yaml"
-    content = config_file.read_text()
-    data = yaml.safe_load(content)
-    data["docroot"] = "${HOME}/docs"
-    config_file.write_text(yaml.dump(data))
-
-    # Update project to trigger save
-    await session.update_config(lambda p: p)
-
-    # Verify env var path preserved
-    content = config_file.read_text()
-    data = yaml.safe_load(content)
-    assert data["docroot"] == "${HOME}/docs"
+@pytest.mark.parametrize("raw_docroot", ["~/custom-docs", "${HOME}/docs"], ids=["tilde", "environment"])
+async def test_project_creation_and_save_preserve_raw_docroot(runtime, tmp_path, raw_docroot):
+    """Project writes preserve configured server-side path expressions verbatim."""
+    config_file = runtime.configuration_service().config_file
+    config_file.write_text(yaml.safe_dump({"docroot": raw_docroot, "projects": {}}))
+    first = await create_test_session(runtime, "first")
+    await first.update_config(lambda project: project)
+    assert yaml.safe_load(config_file.read_text())["docroot"] == raw_docroot
+    second = await create_test_session(runtime, "second")
+    assert (await second.get_project()).name == "second"
+    assert yaml.safe_load(config_file.read_text())["docroot"] == raw_docroot

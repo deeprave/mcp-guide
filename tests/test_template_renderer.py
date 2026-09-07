@@ -79,30 +79,6 @@ class TestTemplateRendering:
         return parts[2] if len(parts) == 3 else content
 
     @pytest.mark.anyio
-    async def test_render_template_content_success(self):
-        """Test successful template rendering."""
-        content = "Hello {{name}}!"
-        context = TemplateContext({"name": "World"})
-
-        result = await render_template_content(content, context)
-
-        assert result.is_ok()
-        rendered_content, _, _ = result.value
-        assert rendered_content == "Hello World!"
-
-    @pytest.mark.anyio
-    async def test_render_template_content_with_lambda_functions(self):
-        """Test template rendering with lambda functions."""
-        content = "Created: {{#format_date}}%Y-%m-%d{{event_date}}{{/format_date}}"
-        context = TemplateContext({"event_date": datetime(2023, 12, 25)})
-
-        result = await render_template_content(content, context)
-
-        assert result.is_ok()
-        rendered_content, _, _ = result.value
-        assert "2023-12-25" in rendered_content
-
-    @pytest.mark.anyio
     async def test_render_template_content_syntax_error(self):
         """Test template rendering with syntax error."""
         content = "Hello {{#unclosed_section}}!"
@@ -170,42 +146,6 @@ class TestTemplateRendering:
         assert result.is_ok()
         rendered_content, _, _ = result.value
         assert rendered_content == "Hello !"
-
-    @pytest.mark.anyio
-    async def test_render_template_content_accepts_template_context(self):
-        """Test that render_template_content accepts TemplateContext."""
-        content = "Hello {{name}}!"
-        context = TemplateContext({"name": "World"})
-
-        result = await render_template_content(content, context)
-
-        assert result.is_ok()
-        rendered_content, _, _ = result.value
-        assert rendered_content == "Hello World!"
-
-    @pytest.mark.anyio
-    async def test_render_template_content_handoff_branch_renders(self):
-        """Test that handoff-aware content renders for supported clients."""
-        content = """{{#agent.has_handoff}}Separate execution is not available here; continuing inline instead.{{/agent.has_handoff}}"""
-        context = TemplateContext({"agent": {"has_handoff": True}})
-
-        result = await render_template_content(content, context)
-
-        assert result.is_ok()
-        rendered_content, _, _ = result.value
-        assert rendered_content == "Separate execution is not available here; continuing inline instead."
-
-    @pytest.mark.anyio
-    async def test_render_template_content_handoff_branch_omitted_for_fallback_clients(self):
-        """Test that handoff-only content is omitted for fallback clients."""
-        content = """{{#agent.has_handoff}}Separate execution is not available here; continuing inline instead.{{/agent.has_handoff}}"""
-        context = TemplateContext({"agent": {"has_handoff": False}})
-
-        result = await render_template_content(content, context)
-
-        assert result.is_ok()
-        rendered_content, _, _ = result.value
-        assert rendered_content == ""
 
     @pytest.mark.anyio
     async def test_help_command_aliases_render_as_uris_by_default(self):

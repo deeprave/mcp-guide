@@ -1,9 +1,8 @@
 """Tests for RetryTask."""
 
-import time
-
 import pytest
 
+from mcp_guide.result import Result
 from mcp_guide.task_manager.interception import EventType
 from mcp_guide.task_manager.manager import TaskManager
 
@@ -12,53 +11,26 @@ class TestRetryTask:
     """Test RetryTask functionality."""
 
     @pytest.mark.anyio
-    async def test_retry_task_ignores_non_timer_events(self, task_manager: TaskManager):
-        """Test that RetryTask ignores non-timer events."""
+    async def test_retry_is_delivered_only_on_an_idle_timer_tick(self, task_manager, monkeypatch):
         from mcp_guide.tasks.retry_task import RetryTask
 
+        now = 100.0
+        monkeypatch.setattr("mcp_guide.task_manager.manager.time.time", lambda: now)
         task = RetryTask(task_manager)
+        await task_manager.queue_instruction_with_ack("Retry me")
+        assert (await task_manager.process_result(Result.ok())).additional_agent_instructions == "Retry me"
+        now += 31
 
-        # Should not raise exception
-        result = await task.handle_event(EventType.FS_COMMAND, {})
-        assert result is None
+        assert await task.handle_event(EventType.FS_COMMAND, {}) is None
+        assert task_manager.is_queue_empty()
+        await task_manager.queue_instruction("Busy")
+        await task.handle_event(EventType.TIMER, {})
+        assert (await task_manager.process_result(Result.ok())).additional_agent_instructions == "Busy"
+        assert task_manager.is_queue_empty()
 
-    @pytest.mark.anyio
-    async def test_retry_task_skips_retry_when_queue_not_empty(self, task_manager: TaskManager):
-        """Test that RetryTask skips retry when queue is not empty."""
-        from mcp_guide.tasks.retry_task import RetryTask
-
-        task = RetryTask(task_manager)
-
-        # Add instruction to queue
-        await task_manager.queue_instruction("Test")
-
-        # Handle timer event - should not retry
-        await task.handle_event(EventType.TIMER, {"timer_interval": 60.0})
-
-        # Queue should still have the original instruction only
-        assert len(task_manager._pending_instructions) == 1
-
-    @pytest.mark.anyio
-    async def test_retry_task_calls_retry_when_queue_empty(self, task_manager: TaskManager):
-        """Test that RetryTask calls retry_unacknowledged when queue is empty."""
-        from mcp_guide.tasks.retry_task import RetryTask
-
-        task = RetryTask(task_manager)
-
-        # Queue tracked instruction
-        instruction_id = await task_manager.queue_instruction_with_ack("Test instruction")
-        # Clear queue to simulate dispatch
-        task_manager._pending_instructions.clear()
-
-        # Set last_sent_at to past to allow retry
-        tracked = task_manager._tracked_instructions[instruction_id]
-        tracked.last_sent_at = time.time() - 31.0
-
-        # Handle timer event - should retry
-        await task.handle_event(EventType.TIMER, {"timer_interval": 60.0})
-
-        # Instruction should be requeued
-        assert "Test instruction" in task_manager._pending_instructions
+        await task.handle_event(EventType.TIMER, {})
+        assert (await task_manager.process_result(Result.ok())).additional_agent_instructions == "Retry me"
+        assert task_manager.is_queue_empty()
 
     @pytest.mark.anyio
     async def test_retry_task_respects_grace_period(self, task_manager: TaskManager):

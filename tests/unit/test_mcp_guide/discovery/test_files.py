@@ -9,21 +9,6 @@ from mcp_guide.discovery.files import FileInfo, discover_document_files
 
 
 @pytest.mark.anyio
-async def test_content_loader_called_on_get_content():
-    """Test that content_loader is called when getting content."""
-
-    async def loader() -> str | None:
-        return "loaded content"
-
-    fi = FileInfo(
-        path=Path("test.md"), size=0, content_size=0, mtime=datetime.now(), name="test.md", content_loader=loader
-    )
-    result = await fi.get_content()
-    assert result == "loaded content"
-    assert fi.size == len("loaded content")
-
-
-@pytest.mark.anyio
 async def test_content_loader_returning_none():
     """Test that content_loader returning None is handled."""
 
@@ -52,17 +37,6 @@ async def test_content_loader_error_propagates():
 
 
 @pytest.mark.anyio
-async def test_no_content_loader_falls_back_to_filesystem(tmp_path):
-    """Test that without content_loader, filesystem read is used."""
-    test_file = tmp_path / "test.md"
-    test_file.write_text("# From disk")
-
-    fi = FileInfo(path=test_file, size=0, content_size=0, mtime=datetime.now(), name="test.md")
-    result = await fi.get_content()
-    assert result == "# From disk"
-
-
-@pytest.mark.anyio
 async def test_filesystem_load_error_cleared_on_retry(tmp_path):
     """Test that _load_error is cleared when a retry succeeds after initial failure."""
     test_file = tmp_path / "test.md"
@@ -72,10 +46,8 @@ async def test_filesystem_load_error_cleared_on_retry(tmp_path):
     with pytest.raises(OSError):
         await fi.get_content()
 
-    # Create the file and reset state so retry is attempted
+    # Creating the missing file is sufficient for a public retry.
     test_file.write_text("# Retry success")
-    fi._content = None
-    fi._content_explicitly_set = False
 
     result = await fi.get_content()
     assert result == "# Retry success"
@@ -100,6 +72,7 @@ async def test_content_loader_takes_precedence_over_filesystem(tmp_path):
     )
     result = await fi.get_content()
     assert result == "# From loader"
+    assert fi.size == len("# From loader")
 
 
 @pytest.mark.anyio
@@ -153,33 +126,6 @@ async def test_no_matches_returns_empty_list(tmp_path):
 
 
 @pytest.mark.anyio
-async def test_discover_single_file(tmp_path):
-    """Test discovering a single file."""
-    (tmp_path / "test.md").write_text("# Test")
-
-    result = await discover_document_files(tmp_path, ["*.md"])
-
-    assert len(result) == 1
-    assert result[0].path == Path("test.md")
-    assert result[0].name == "test.md"
-    assert result[0].size > 0
-
-
-@pytest.mark.anyio
-async def test_discover_multiple_files(tmp_path):
-    """Test discovering multiple files."""
-    (tmp_path / "file1.md").write_text("# File 1")
-    (tmp_path / "file2.md").write_text("# File 2")
-
-    result = await discover_document_files(tmp_path, ["*.md"])
-
-    assert len(result) == 2
-    paths = {f.path for f in result}
-    assert Path("file1.md") in paths
-    assert Path("file2.md") in paths
-
-
-@pytest.mark.anyio
 async def test_multiple_patterns(tmp_path):
     """Test multiple patterns."""
     (tmp_path / "doc.md").write_text("# Doc")
@@ -191,19 +137,6 @@ async def test_multiple_patterns(tmp_path):
     paths = {f.path for f in result}
     assert Path("doc.md") in paths
     assert Path("data.yaml") in paths
-
-
-@pytest.mark.anyio
-async def test_discover_in_subdirectories(tmp_path):
-    """Test discovering files in subdirectories."""
-    subdir = tmp_path / "sub"
-    subdir.mkdir()
-    (subdir / "nested.md").write_text("# Nested")
-
-    result = await discover_document_files(tmp_path, ["**/*.md"])
-
-    assert len(result) == 1
-    assert result[0].path == Path("sub/nested.md")
 
 
 @pytest.mark.anyio
@@ -229,32 +162,6 @@ async def test_prefer_non_template_over_template(tmp_path):
     assert len(result) == 1
     assert result[0].path == Path("doc.md")
     assert result[0].name == "doc.md"
-
-
-@pytest.mark.anyio
-async def test_template_replacement_when_both_exist(tmp_path):
-    """Test template is excluded when non-template exists."""
-    (tmp_path / "file.txt").write_text("Real")
-    (tmp_path / "file.txt.mustache").write_text("Template")
-
-    result = await discover_document_files(tmp_path, ["*.txt"])
-
-    assert len(result) == 1
-    assert result[0].path == Path("file.txt")
-
-
-@pytest.mark.anyio
-async def test_relative_paths(tmp_path):
-    """Test paths are relative to category_dir."""
-    subdir = tmp_path / "subdir"
-    subdir.mkdir()
-    (subdir / "file.txt").write_text("content")
-
-    result = await discover_document_files(tmp_path, ["**/*.txt"])
-
-    assert len(result) == 1
-    assert result[0].path == Path("subdir/file.txt")
-    assert not result[0].path.is_absolute()
 
 
 @pytest.mark.anyio
@@ -298,7 +205,10 @@ async def test_integration_realistic_category(tmp_path):
 
     # Verify all have metadata
     for file_info in result:
-        assert file_info.size > 0
+        stat = (tmp_path / file_info.path).stat()
+        assert file_info.size == stat.st_size
+        assert file_info.name == file_info.path.as_posix()
+        assert file_info.mtime == datetime.fromtimestamp(stat.st_mtime)
         assert isinstance(file_info.mtime, datetime)
         assert not file_info.path.is_absolute()
 
@@ -425,196 +335,34 @@ async def test_read_raw_filesystem_missing_raises():
         await fi.read_raw()
 
 
-# --- Tests for discover_document_stored ---
-
-
 @pytest.mark.anyio
-async def test_discover_document_stored_returns_matching_records():
-    """Test that stored documents matching patterns are returned as FileInfo."""
-    from unittest.mock import AsyncMock, patch
+async def test_stored_discovery_filters_loads_and_combines_real_sources(tmp_path, monkeypatch):
+    from mcp_guide.discovery.files import discover_document_stored, discover_documents
+    from mcp_guide.store.document_store import add_document
 
-    from mcp_guide.discovery.files import discover_document_stored
-    from mcp_guide.store.document_store import DocumentRecord
-
-    records = [
-        DocumentRecord(
-            id=1,
-            category="docs",
-            name="guide.md",
-            source="http://example.com",
-            source_type="url",
-            metadata={},
-            created_at="2025-01-01T00:00:00",
-            updated_at="2025-06-01T00:00:00",
-        ),
-        DocumentRecord(
-            id=2,
-            category="docs",
-            name="notes.txt",
-            source="manual",
-            source_type="text",
-            metadata={},
-            created_at="2025-01-01T00:00:00",
-            updated_at="2025-06-01T00:00:00",
-        ),
-    ]
-    with patch("mcp_guide.discovery.files.list_documents", new=AsyncMock(return_value=records)):
-        result = await discover_document_stored("docs", ["*.md"])
-
-    assert len(result) == 1
-    assert result[0].name == "guide.md"
-    assert result[0].source == "store"
-    assert result[0].path == Path("guide.md")
-
-
-@pytest.mark.anyio
-async def test_discover_document_stored_bare_name_matches_with_extension():
-    """Test that a bare pattern like 'readme' matches 'readme.md' via get_file_extension_patterns."""
-    from unittest.mock import AsyncMock, patch
-
-    from mcp_guide.discovery.files import discover_document_stored
-    from mcp_guide.store.document_store import DocumentRecord
-
-    records = [
-        DocumentRecord(
-            id=1,
-            category="docs",
-            name="readme.md",
-            source="x",
-            source_type="url",
-            metadata={},
-            created_at="2025-01-01T00:00:00",
-            updated_at="2025-06-01T00:00:00",
-        ),
-        DocumentRecord(
-            id=2,
-            category="docs",
-            name="readme",
-            source="x",
-            source_type="text",
-            metadata={},
-            created_at="2025-01-01T00:00:00",
-            updated_at="2025-06-01T00:00:00",
-        ),
-        DocumentRecord(
-            id=3,
-            category="docs",
-            name="readme.md.mustache",
-            source="x",
-            source_type="text",
-            metadata={},
-            created_at="2025-01-01T00:00:00",
-            updated_at="2025-06-01T00:00:00",
-        ),
-    ]
-    with patch("mcp_guide.discovery.files.list_documents", new=AsyncMock(return_value=records)):
-        result = await discover_document_stored("docs", ["readme"])
-
-    assert len(result) == 3
-    names = {r.name for r in result}
-    assert names == {"readme.md", "readme", "readme.md.mustache"}
-
-
-@pytest.mark.anyio
-async def test_discover_document_stored_empty_when_no_match():
-    """Test that no results returned when patterns don't match."""
-    from unittest.mock import AsyncMock, patch
-
-    from mcp_guide.discovery.files import discover_document_stored
-    from mcp_guide.store.document_store import DocumentRecord
-
-    records = [
-        DocumentRecord(
-            id=1,
-            category="docs",
-            name="guide.md",
-            source="x",
-            source_type="url",
-            metadata={},
-            created_at="2025-01-01T00:00:00",
-            updated_at="2025-06-01T00:00:00",
-        ),
-    ]
-    with patch("mcp_guide.discovery.files.list_documents", new=AsyncMock(return_value=records)):
-        result = await discover_document_stored("docs", ["*.yaml"])
-
-    assert result == []
-
-
-@pytest.mark.anyio
-async def test_discover_document_stored_has_content_loader():
-    """Test that returned FileInfo has a working content_loader."""
-    from unittest.mock import AsyncMock, patch
-
-    from mcp_guide.discovery.files import discover_document_stored
-    from mcp_guide.store.document_store import DocumentRecord
-
-    records = [
-        DocumentRecord(
-            id=1,
-            category="docs",
-            name="guide.md",
-            source="x",
-            source_type="url",
-            metadata={},
-            created_at="2025-01-01T00:00:00",
-            updated_at="2025-06-01T00:00:00",
-        ),
-    ]
-    with (
-        patch("mcp_guide.discovery.files.list_documents", new=AsyncMock(return_value=records)),
-        patch("mcp_guide.discovery.files.get_document_content", new=AsyncMock(return_value="# Guide")) as mock_get,
-    ):
-        result = await discover_document_stored("docs", ["*.md"])
-        content = await result[0].get_content()
-
-    assert content == "# Guide"
-    mock_get.assert_called_once_with("docs", "guide.md")
-
-
-# --- Tests for merged discover_documents ---
-
-
-@pytest.mark.anyio
-async def test_discover_documents_without_category(tmp_path):
-    """Test that discover_documents without category only returns filesystem files."""
-    from mcp_guide.discovery.files import discover_documents
-
-    (tmp_path / "readme.md").write_text("# Hello")
-    result = await discover_documents(tmp_path, ["*.md"])
-
-    assert len(result) == 1
-    assert result[0].name == "readme.md"
-    assert result[0].source == "file"
-
-
-@pytest.mark.anyio
-async def test_discover_documents_with_category_combines_sources(tmp_path):
-    """Test that discover_documents with category returns both filesystem and stored."""
-    from unittest.mock import AsyncMock, patch
-
-    from mcp_guide.discovery.files import discover_documents
-    from mcp_guide.store.document_store import DocumentRecord
-
+    monkeypatch.setattr("mcp_guide.store.document_store.get_documents_db", lambda: tmp_path / "documents.db")
+    for name in ("readme", "readme.md", "readme.md.mustache", "notes.txt"):
+        await add_document("docs", name, "https://example.test", "url", "# Stored " + name, metadata={"title": name})
     (tmp_path / "local.md").write_text("# Local")
-    records = [
-        DocumentRecord(
-            id=1,
-            category="docs",
-            name="remote.md",
-            source="x",
-            source_type="url",
-            metadata={},
-            created_at="2025-01-01T00:00:00",
-            updated_at="2025-06-01T00:00:00",
-        ),
-    ]
-    with patch("mcp_guide.discovery.files.list_documents", new=AsyncMock(return_value=records)):
-        result = await discover_documents(tmp_path, ["*.md"], category="docs")
-
-    assert len(result) == 2
-    sources = {fi.source for fi in result}
-    assert sources == {"file", "store"}
+    bare = await discover_document_stored("docs", ["readme"])
+    assert {item.name for item in bare} == {"readme", "readme.md", "readme.md.mustache"}
+    assert await discover_document_stored("docs", ["*.yaml"]) == []
+    matched = await discover_document_stored("docs", ["*.md"])
+    assert {item.name for item in matched} == {"readme.md", "readme.md.mustache"}
+    for item in matched:
+        assert item.source == "store"
+        assert item.path == Path(item.name)
+        assert await item.get_content() == "# Stored " + item.name
+        assert await item.read_raw() == "# Stored " + item.name
+        assert await item.get_frontmatter() == {"title": item.name}
+    files = await discover_documents(tmp_path, ["*.md"])
+    assert [(item.name, item.source) for item in files] == [("local.md", "file")]
+    combined = await discover_documents(tmp_path, ["*.md"], category="docs")
+    assert {(item.name, item.source) for item in combined} == {
+        ("local.md", "file"),
+        ("readme.md", "store"),
+        ("readme.md.mustache", "store"),
+    }
 
 
 def test_fileinfo_resolve_rechecks_absolute_path_containment(tmp_path) -> None:

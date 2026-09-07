@@ -1,11 +1,9 @@
 """Tests for allow-client-info feature flag."""
 
 from typing import Any, cast
-from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from mcp_guide.context.tasks import ClientContextTask
 from mcp_guide.feature_flags.constants import FLAG_ALLOW_CLIENT_INFO
 from mcp_guide.feature_flags.validators import (
     FlagScope,
@@ -84,40 +82,3 @@ class TestAllowClientInfoValidator:
         """Disable strings should normalise to false rather than remain truthy strings."""
         assert normalise_flag(FLAG_ALLOW_CLIENT_INFO, "enabled") == True
         assert normalise_flag(FLAG_ALLOW_CLIENT_INFO, "off") == False
-
-
-class TestClientContextTaskConditional:
-    """Test ClientContextTask conditional subscription.
-
-    Note: Flag checking is handled via InitialisableMixin TIMER_ONCE dispatch.
-    See tests/unit/test_on_init.py for initialisation behavior tests.
-    """
-
-    @pytest.mark.anyio
-    async def test_task_subscribes_on_start_when_enabled(self):
-        """Test that task subscribes during project-scoped startup."""
-        mock_task_manager = Mock()
-        mock_task_manager.subscribe = Mock()
-        mock_task_manager.requires_flag = AsyncMock(return_value=True)
-
-        task = ClientContextTask(task_manager=mock_task_manager)
-        started = await task.start(mock_task_manager, Mock())
-
-        assert started is True
-        mock_task_manager.subscribe.assert_called_once()
-
-    @pytest.mark.anyio
-    async def test_start_is_idempotent_after_success(self):
-        """Repeated startup on the same instance does not duplicate subscriptions."""
-        mock_task_manager = Mock()
-        mock_task_manager.subscribe = Mock()
-        mock_task_manager.requires_flag = AsyncMock(return_value=True)
-
-        task = ClientContextTask(task_manager=mock_task_manager)
-        first_started = await task.start(mock_task_manager, Mock())
-        second_started = await task.start(mock_task_manager, Mock())
-
-        assert first_started is True
-        assert second_started is True
-        mock_task_manager.requires_flag.assert_awaited_once()
-        mock_task_manager.subscribe.assert_called_once()

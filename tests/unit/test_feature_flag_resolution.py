@@ -1,62 +1,37 @@
-"""Tests for feature flag resolution logic."""
+"""Feature-value resolution respects project precedence and registered scopes."""
 
 from mcp_guide.feature_flags.constants import FLAG_OPENSPEC, FLAG_OPENSPEC_STATE
 from mcp_guide.feature_flags.resolution import resolve_flag
+from mcp_guide.feature_flags.types import FeatureValue
 
 
-class TestFlagResolution:
-    """Test flag resolution hierarchy."""
+def test_generic_flags_prefer_project_values_then_global_then_absence():
+    project = {
+        "boolean": FeatureValue(False),
+        "list": FeatureValue(["project"]),
+        "text": FeatureValue("project text"),
+    }
+    global_flags = {
+        "boolean": FeatureValue(True),
+        "list": FeatureValue(["global"]),
+        "mapping": FeatureValue({"key": "value"}),
+    }
+    for key in project:
+        assert resolve_flag(key, project, global_flags) is project[key]
+    assert resolve_flag("mapping", project, global_flags) is global_flags["mapping"]
+    assert resolve_flag("missing", project, global_flags) is None
+    assert resolve_flag("missing", {}, {}) is None
 
-    def test_resolve_flag_project_takes_precedence(self):
-        """Test that project flags take precedence over global flags."""
-        global_flags = {"flag1": True, "flag2": "global"}
-        project_flags = {"flag1": False}  # overrides global
 
-        result = resolve_flag("flag1", project_flags, global_flags)
-        assert result is False
+def test_project_only_flag_does_not_fall_back_to_global():
+    assert resolve_flag(FLAG_OPENSPEC, {}, {FLAG_OPENSPEC: FeatureValue(True)}) is None
 
-    def test_resolve_flag_falls_back_to_global(self):
-        """Test that resolution falls back to global flags."""
-        global_flags = {"flag1": True, "flag2": "global"}
-        project_flags = {"flag3": "project"}
 
-        result = resolve_flag("flag2", project_flags, global_flags)
-        assert result == "global"
-
-    def test_project_only_flag_does_not_fall_back_to_global(self):
-        """Project-only flags require an explicit project value."""
-        assert resolve_flag(FLAG_OPENSPEC, {}, {FLAG_OPENSPEC: True}) is None
-
-    def test_feature_only_flag_ignores_project_value(self):
-        """Feature-only flags cannot be shadowed by project configuration."""
-        assert (
-            resolve_flag(FLAG_OPENSPEC_STATE, {FLAG_OPENSPEC_STATE: "project"}, {FLAG_OPENSPEC_STATE: "global"})
-            == "global"
+def test_feature_only_flag_cannot_be_shadowed_by_project():
+    global_value = FeatureValue({"validated": "true", "checked": "100"})
+    assert (
+        resolve_flag(
+            FLAG_OPENSPEC_STATE, {FLAG_OPENSPEC_STATE: FeatureValue("project")}, {FLAG_OPENSPEC_STATE: global_value}
         )
-
-    def test_resolve_flag_returns_none_when_not_found(self):
-        """Test that resolution returns None when flag not found."""
-        global_flags = {"flag1": True}
-        project_flags = {"flag2": False}
-
-        result = resolve_flag("flag3", project_flags, global_flags)
-        assert result is None
-
-    def test_resolve_flag_handles_empty_dicts(self):
-        """Test that resolution handles empty flag dictionaries."""
-        result = resolve_flag("flag1", {}, {})
-        assert result is None
-
-    def test_resolve_flag_with_complex_values(self):
-        """Test resolution with complex FeatureValue types."""
-        global_flags = {"list_flag": ["global", "values"], "dict_flag": {"global": "value"}}
-        project_flags = {"list_flag": ["project", "override"], "string_flag": "project_string"}
-
-        # Project list overrides global
-        assert resolve_flag("list_flag", project_flags, global_flags) == ["project", "override"]
-
-        # Global dict when not in project
-        assert resolve_flag("dict_flag", project_flags, global_flags) == {"global": "value"}
-
-        # Project string
-        assert resolve_flag("string_flag", project_flags, global_flags) == "project_string"
+        is global_value
+    )

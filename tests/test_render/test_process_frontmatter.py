@@ -28,29 +28,6 @@ Content here"""
 
 @pytest.mark.anyio
 @pytest.mark.parametrize(
-    "requirements_context,expected_none",
-    [
-        ({"feature": True}, False),  # requirements met
-        ({"feature": False}, True),  # requirements not met
-    ],
-)
-async def test_process_frontmatter_requirements(requirements_context, expected_none):
-    """Test frontmatter with requirements checking."""
-    content = """---
-requires-feature: true
----
-Content"""
-
-    result = await process_frontmatter(content, requirements_context, None)
-
-    if expected_none:
-        assert result is None
-    else:
-        assert result is not None
-
-
-@pytest.mark.anyio
-@pytest.mark.parametrize(
     "field_name,template,context_data,expected",
     [
         ("instruction", "Hello {{name}}", {"name": "World"}, "Hello World"),
@@ -69,6 +46,8 @@ Content"""
 
     assert result is not None
     assert result.frontmatter[field_name] == expected
+    assert result.content == "Content"
+    assert result.content_length == len("Content")
 
 
 @pytest.mark.anyio

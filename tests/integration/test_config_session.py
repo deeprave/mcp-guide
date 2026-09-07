@@ -2,7 +2,6 @@
 
 import asyncio
 from dataclasses import replace
-from unittest.mock import AsyncMock
 
 import pytest
 import yaml
@@ -17,17 +16,22 @@ class _RecordingSessionListener:
     """Session listener that records config-change notifications."""
 
     def __init__(self) -> None:
-        self.config_changed = AsyncMock(return_value=None)
+        self.config_changed: list[Session] = []
 
     async def on_project_changed(self, session: Session, old_project: str, new_project: str) -> None:
         pass
 
     async def on_config_changed(self, session: Session) -> None:
-        await self.config_changed(session)
+        self.config_changed.append(session)
 
 
 class TestConfigSessionIntegration:
     """End-to-end integration tests."""
+
+    @pytest.fixture(autouse=True)
+    def existing_config(self, runtime):
+        """These scenarios test configuration, not first-run template installation."""
+        runtime.configuration_service().config_file.write_text("projects: {}\nfeature_flags: {}\n")
 
     @staticmethod
     async def _create_bound_session(runtime, project_name: str) -> Session:
@@ -146,7 +150,10 @@ class TestConfigSessionIntegration:
             assert task_manager.get_cached_data("workflow_state") is None
             assert task_manager.get_cached_data("client_context_info") is None
             assert task_manager.get_cached_data("openspec_version") is None
-            assert "stale project instruction" not in task_manager._pending_instructions
+            from mcp_guide.result import Result
+
+            delivered = await task_manager.process_result(Result.ok())
+            assert "stale project instruction" not in (delivered.additional_agent_instructions or "")
         finally:
             await task_manager.cleanup()
             clear_registered_tasks_for_testing()
@@ -167,7 +174,7 @@ class TestConfigSessionIntegration:
 
         await session.save_project(updated_project)
 
-        listener.config_changed.assert_awaited_once_with(session)
+        assert listener.config_changed == [session]
         assert "docs" in (await session.get_project()).categories
 
     @pytest.mark.anyio
@@ -279,7 +286,7 @@ class TestConfigSessionIntegration:
 
         await session.save_project(updated_other_project)
 
-        listener.config_changed.assert_not_awaited()
+        assert listener.config_changed == []
         reloaded_projects = await session.get_all_projects()
         assert "api" in reloaded_projects[other_key].categories
         assert (await session.get_project()).name == "current-project"
@@ -299,7 +306,7 @@ class TestConfigSessionIntegration:
         await session.save_project(other_project.with_category("api", Category(dir="api/", patterns=["*.py"])))
         await config_manager._on_external_change(str(config_manager.config_file))
 
-        listener.config_changed.assert_not_awaited()
+        assert listener.config_changed == []
         assert (await session.get_project()).name == "current-project"
 
     @pytest.mark.anyio
@@ -316,7 +323,7 @@ class TestConfigSessionIntegration:
         await config_manager.save_project_config(project.key, updated_project)
         await config_manager._on_external_change(str(config_manager.config_file))
 
-        listener.config_changed.assert_awaited_once_with(session)
+        assert listener.config_changed == [session]
         assert "docs" in (await session.get_project()).categories
 
     @pytest.mark.anyio
@@ -328,7 +335,7 @@ class TestConfigSessionIntegration:
 
         await get_runtime().feature_flags().set("workflow", True)
 
-        listener.config_changed.assert_awaited_once_with(session)
+        assert listener.config_changed == [session]
 
     @pytest.mark.anyio
     async def test_config_file_change_notifies_for_cached_global_feature_flags(self, runtime, monkeypatch):
@@ -344,7 +351,7 @@ class TestConfigSessionIntegration:
         config_manager.config_file.write_text(yaml.dump(config_data))
         await config_manager._on_external_change(str(config_manager.config_file))
 
-        listener.config_changed.assert_awaited_once_with(session)
+        assert listener.config_changed == [session]
 
     @pytest.mark.anyio
     async def test_config_file_change_notifies_for_uncached_global_feature_flags(self, runtime, monkeypatch):
@@ -359,7 +366,7 @@ class TestConfigSessionIntegration:
         config_manager.config_file.write_text(yaml.dump(config_data))
         await config_manager._on_external_change(str(config_manager.config_file))
 
-        listener.config_changed.assert_awaited_once_with(session)
+        assert listener.config_changed == [session]
 
     @pytest.mark.anyio
     async def test_file_locking_prevents_corruption(self, runtime, monkeypatch):

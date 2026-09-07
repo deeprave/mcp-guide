@@ -1,376 +1,112 @@
-"""Integration tests for guide prompt functionality."""
+"""Prompt routing uses real content, templates and explicit request contexts."""
 
 import json
-from unittest.mock import AsyncMock, MagicMock, patch
+from types import SimpleNamespace
 
 import pytest
 
-from mcp_guide.result import Result
+from mcp_guide.models import Category
+from mcp_guide.prompts.guide_prompt import guide
 from mcp_guide.result_constants import INSTRUCTION_DISPLAY_ONLY, INSTRUCTION_ERROR_MESSAGE
 
 
-class TestGuidePromptIntegration:
-    """Integration tests for @guide prompt."""
+async def invoke(context, *args, **kwargs):
+    result = await guide.__wrapped__(*args, request_context=context, **kwargs)
+    return json.loads(result.messages[0].content.text)
 
-    @pytest.mark.anyio
-    async def test_guide_prompt_with_command(self, guide_function) -> None:
-        """@guide prompt should call internal_get_content with command parameter."""
-        mock_ctx = MagicMock()
-        mock_result = Result.ok("Test content from category")
 
-        with patch(
-            "mcp_guide.prompts.guide_prompt.internal_get_content", new=AsyncMock(return_value=mock_result)
-        ) as mock_get_content:
-            result_str = await guide_function("test_category", ctx=mock_ctx)
+@pytest.mark.anyio
+async def test_known_session_prompt_uses_its_content_without_minting(resource_project, monkeypatch):
+    from mcp_guide.runtime import OwnerKey, get_runtime
+    from mcp_guide.session import bind_session_project
 
-            mock_get_content.assert_called_once()
-            args_call, _ = mock_get_content.call_args
-            content_args = args_call[0]
-            assert content_args.expression == "test_category"
-            assert content_args.pattern is None
+    runtime = get_runtime()
+    session = runtime.resolve_session(OwnerKey("known-session"))
+    await bind_session_project(session, resource_project.session.bound_root_path)
+    # The public boundary must resolve this exact session, not create another.
+    session.session_id = "known-session"
 
-            result = json.loads(result_str)
-            assert result["success"] is True
-            assert result["value"] == "Test content from category"
-            assert result["instruction"] == INSTRUCTION_DISPLAY_ONLY
+    def cannot_mint(*args, **kwargs):
+        raise AssertionError("Known session must not mint")
 
-    @pytest.mark.anyio
-    async def test_guide_prompt_forwards_supplied_request_context_to_content_dispatch(self, guide_function) -> None:
-        """The application handler passes its RequestContext through to content dispatch."""
-        from mcp_guide.runtime import RequestContext
-
-        with patch(
-            "mcp_guide.prompts.guide_prompt.internal_get_content",
-            new=AsyncMock(return_value=Result.ok("Test content")),
-        ) as get_content:
-            result_str = await guide_function("test_category")
-
-        get_content.assert_awaited_once()
-        request_context = get_content.await_args.args[1]
-        assert isinstance(request_context, RequestContext)
-        assert request_context.session is not None
-        result = json.loads(result_str)
-        assert result["value"] == "Test content"
-
-    @pytest.mark.anyio
-    async def test_guide_prompt_wrapper_does_not_mint_for_a_known_session_id(self, tmp_path) -> None:
-        """The real promptfunc wrapper looks up a supplied session_id and does not mint."""
-        from types import SimpleNamespace
-
-        from mcp_guide.prompts.guide_prompt import guide
-        from mcp_guide.runtime import OwnerKey
-        from tests.helpers import create_test_runtime
-
-        runtime = create_test_runtime(str(tmp_path))
-        session = runtime.resolve_session(OwnerKey("already-resolved"))
-        session.session_id = "already-resolved"
-        ctx = SimpleNamespace(
-            request_context=SimpleNamespace(
-                protocol_version="2026-07-28",
-                request_id="prompt-1",
-                meta=None,
-                lifespan_context=runtime,
-            ),
-            session=SimpleNamespace(client_params=None),
-            transport="streamable-http",
-        )
-
-        async def mint_must_not_run(*_args, **_kwargs):
-            raise AssertionError("a known session_id must not mint a Session")
-
-        with (
-            patch("mcp_guide.runtime.GuideRuntime.create_session", new=AsyncMock(side_effect=mint_must_not_run)),
-            patch(
-                "mcp_guide.prompts.guide_prompt.internal_get_content",
-                new=AsyncMock(return_value=Result.ok("Test content")),
-            ) as get_content,
-        ):
-            await guide("test_category", session_id="already-resolved", ctx=ctx)
-
-        get_content.assert_awaited_once()
-        assert get_content.await_args.args[1].session is session
-
-    @pytest.mark.anyio
-    async def test_guide_prompt_with_error(self, guide_function) -> None:
-        """@guide prompt should handle internal_get_content errors gracefully."""
-        mock_ctx = MagicMock()
-        mock_result: Result[str] = Result.failure("Category not found")
-
-        with patch("mcp_guide.prompts.guide_prompt.internal_get_content", new=AsyncMock(return_value=mock_result)):
-            result_str = await guide_function("nonexistent", ctx=mock_ctx)
-
-            result = json.loads(result_str)
-            assert result["success"] is False
-            assert result["error"] == "Category not found"
-            assert result["instruction"] == INSTRUCTION_ERROR_MESSAGE
-
-    @pytest.mark.anyio
-    async def test_guide_prompt_without_command(self, guide_function) -> None:
-        """@guide prompt should return usage error when no arguments given."""
-        mock_ctx = MagicMock()
-
-        result_str = await guide_function(ctx=mock_ctx)
-
-        result = json.loads(result_str)
-        assert result["success"] is False
-        assert "guide prompt requires one or more arguments" in result["error"]
-        assert ":help" in result["error"]
-        assert result["error_type"] == "validation_error"
-        assert result["instruction"] == INSTRUCTION_ERROR_MESSAGE
-
-    @pytest.mark.anyio
-    async def test_guide_prompt_without_command_uses_prompt_name_override(self, guide_function) -> None:
-        """Prompt usage errors should respect MCP_PROMPT_NAME."""
-        mock_ctx = MagicMock()
-
-        with patch.dict("os.environ", {"MCP_PROMPT_NAME": "g"}):
-            result_str = await guide_function(ctx=mock_ctx)
-
-        result = json.loads(result_str)
-        assert result["success"] is False
-        assert "g :help" in result["error"]
-
-    @pytest.mark.anyio
-    @pytest.mark.parametrize(
-        "scenario,args,kwargs,expected_expression",
-        [
-            ("none_termination", ("a",), {"arg3": "c"}, "a"),  # arg2 is None, stops at "a"
-            ("argument_ordering", ("first",), {"arg2": "second"}, "first,second"),
-            ("multiple_arguments", ("lang/python", "advanced", "tutorial"), {}, "lang/python,advanced,tutorial"),
-            (
-                "maximum_arguments",
-                ("1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B", "C", "D", "E", "F"),
-                {},
-                "1,2,3,4,5,6,7,8,9,A,B,C,D,E,F",
-            ),
-        ],
+    monkeypatch.setattr(runtime, "create_session", cannot_mint)
+    ctx = SimpleNamespace(
+        request_context=SimpleNamespace(
+            protocol_version="2026-07-28", request_id="prompt", meta=None, lifespan_context=runtime
+        ),
+        session=SimpleNamespace(client_params=None),
+        transport="streamable-http",
     )
-    async def test_argv_parsing(self, guide_function, scenario, args, kwargs, expected_expression) -> None:
-        """Test argv parsing with different argument scenarios."""
-        mock_ctx = MagicMock()
-        mock_result = Result.ok("Test content")
+    result = await guide("docs", session_id="known-session", ctx=ctx)
+    payload = json.loads(result.messages[0].content.text)
+    assert payload["success"]
+    assert "docs content" in payload["value"]
 
-        with patch(
-            "mcp_guide.prompts.guide_prompt.internal_get_content", new=AsyncMock(return_value=mock_result)
-        ) as mock_get_content:
-            await guide_function(*args, **kwargs, ctx=mock_ctx)
 
-            args_call, _ = mock_get_content.call_args
-            content_args = args_call[0]
-            assert content_args.expression == expected_expression
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    "args,override,expected",
+    [
+        ((), None, "@guide :help"),
+        (("",), "g", "@g :help"),
+        ((":",), None, "Command name cannot be empty"),
+        ((";",), None, "Command name cannot be empty"),
+    ],
+)
+async def test_empty_prompt_and_command_errors(resource_project, monkeypatch, args, override, expected):
+    if override:
+        monkeypatch.setenv("MCP_PROMPT_NAME", override)
+    result = await invoke(resource_project, *args)
+    assert not result["success"]
+    assert result["error_type"] == "validation_error"
+    assert expected in result["error"]
+    assert result["instruction"] == INSTRUCTION_ERROR_MESSAGE
 
-    @pytest.mark.anyio
-    @pytest.mark.parametrize(
-        "scenario,command,expected_error",
-        [
-            ("empty_string", "", "guide prompt requires one or more arguments"),
-            ("colon_only", ":", "Command name cannot be empty"),
-            ("semicolon_only", ";", "Command name cannot be empty"),
-        ],
-        ids=["empty_string", "colon_only", "semicolon_only"],
-    )
-    async def test_guide_prompt_empty_command_scenarios(
-        self, guide_function, scenario, command, expected_error
-    ) -> None:
-        """@guide prompt should handle various empty command scenarios."""
-        mock_ctx = MagicMock()
 
-        result_str = await guide_function(command, ctx=mock_ctx)
-        result = json.loads(result_str)
-        assert result["success"] is False
-        assert expected_error in result["error"]
-        if scenario == "empty_string":
-            assert ":help" in result["error"]
-            assert result["instruction"] == INSTRUCTION_ERROR_MESSAGE
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    "args,kwargs,names",
+    [
+        (("docs",), {"arg3": "policies"}, ["docs"]),
+        (("docs",), {"arg2": "policies"}, ["docs", "policies"]),
+        (("docs/readme,policies/git/ops/*", "extra"), {}, ["docs", "policies", "extra"]),
+        (tuple(f"cat{i}" for i in range(15)), {}, [f"cat{i}" for i in range(15)]),
+    ],
+    ids=["first-omission", "ordering", "mixed-expressions", "fifteen-arguments"],
+)
+async def test_argument_routing_returns_requested_content(resource_project, args, kwargs, names):
+    session = resource_project.session
+    for name in names:
+        if name in {"docs", "policies"}:
+            continue
+        folder = resource_project.resolve_document_path(name)
+        folder.mkdir()
+        (folder / "readme.md").write_text(f"Unique {name} content")
+        await session.update_config(lambda p, name=name: p.with_category(name, Category(dir=name, patterns=["*.md"])))
+    result = await invoke(resource_project, *args, **kwargs)
+    assert result["success"], result
+    body = result["value"]
+    previous = -1
+    for name in names:
+        text = {"docs": "docs content", "policies": "git policy"}.get(name, f"Unique {name} content")
+        position = body.index(text)
+        assert position > previous
+        previous = position
+    if names == ["docs"]:
+        assert "git policy" not in body
+    assert result["instruction"].startswith(INSTRUCTION_DISPLAY_ONLY)
 
-    @pytest.mark.anyio
-    async def test_guide_prompt_with_arguments_reserved(self, guide_function) -> None:
-        """@guide prompt should use all arguments for content access."""
-        mock_ctx = MagicMock()
-        mock_result = Result.ok("Test content")
 
-        with patch(
-            "mcp_guide.prompts.guide_prompt.internal_get_content", new=AsyncMock(return_value=mock_result)
-        ) as mock_get_content:
-            result_str = await guide_function("test", "arg1", "arg2", ctx=mock_ctx)
-
-            args_call, _ = mock_get_content.call_args
-            content_args = args_call[0]
-            assert content_args.expression == "test,arg1,arg2"
-
-            result = json.loads(result_str)
-            assert result["success"] is True
-            assert result["value"] == "Test content"
-            assert result["instruction"] == INSTRUCTION_DISPLAY_ONLY
-
-    @pytest.mark.anyio
-    async def test_guide_prompt_with_content_result(self, guide_function) -> None:
-        """@guide prompt should handle Result objects directly."""
-        mock_ctx = MagicMock()
-        mock_result = Result.ok("Plain text content, not JSON")
-
-        with patch("mcp_guide.prompts.guide_prompt.internal_get_content", new=AsyncMock(return_value=mock_result)):
-            result_str = await guide_function("test", ctx=mock_ctx)
-
-            result = json.loads(result_str)
-            assert result["success"] is True
-            assert result["value"] == "Plain text content, not JSON"
-            assert result["instruction"] == INSTRUCTION_DISPLAY_ONLY
-
-    @pytest.mark.anyio
-    async def test_guide_prompt_with_empty_content(self, guide_function) -> None:
-        """@guide prompt should handle empty content in successful Result."""
-        mock_ctx = MagicMock()
-        mock_result = Result.ok("")
-
-        with patch("mcp_guide.prompts.guide_prompt.internal_get_content", new=AsyncMock(return_value=mock_result)):
-            result_str = await guide_function("test", ctx=mock_ctx)
-
-            result = json.loads(result_str)
-            assert result["success"] is True
-            assert result["value"] == ""
-            assert result["instruction"] == INSTRUCTION_DISPLAY_ONLY
-
-    @pytest.mark.anyio
-    async def test_guide_prompt_with_multiple_expressions(self, guide_function) -> None:
-        """@guide prompt should join multiple expressions with commas."""
-        mock_ctx = MagicMock()
-        mock_result = Result.ok("Combined content")
-
-        with patch(
-            "mcp_guide.prompts.guide_prompt.internal_get_content", new=AsyncMock(return_value=mock_result)
-        ) as mock_get_content:
-            result_str = await guide_function("review,review/pr+commit", "lang/python", ctx=mock_ctx)
-
-            mock_get_content.assert_called_once()
-            args_call, _ = mock_get_content.call_args
-            content_args = args_call[0]
-            # Should join all arguments with commas
-            assert content_args.expression == "review,review/pr+commit,lang/python"
-            assert content_args.pattern is None
-
-            result = json.loads(result_str)
-            assert result["success"] is True
-            assert result["value"] == "Combined content"
-            assert result["instruction"] == INSTRUCTION_DISPLAY_ONLY
-
-    @pytest.mark.anyio
-    async def test_guide_prompt_with_colon_command(self, guide_function) -> None:
-        """@guide prompt should route :command to separate command handler."""
-        mock_ctx = MagicMock()
-        mock_result = Result.ok("Help content")
-
-        with patch(
-            "mcp_guide.prompts.guide_prompt.handle_command", new=AsyncMock(return_value=mock_result)
-        ) as mock_handle_command:
-            result_str = await guide_function(":help", ctx=mock_ctx)
-
-            mock_handle_command.assert_called_once()
-            call_kwargs = mock_handle_command.call_args
-            assert call_kwargs[0][0] == "help"  # command_path is first positional
-            assert call_kwargs[1]["argv"] == [":help"]
-
-            result = json.loads(result_str)
-            assert result["success"] is True
-            assert result["value"] == "Help content"
-
-    @pytest.mark.anyio
-    async def test_guide_prompt_with_semicolon_command(self, guide_function) -> None:
-        """@guide prompt should route ;command to separate command handler."""
-        mock_ctx = MagicMock()
-        mock_result = Result.ok("Status content")
-
-        with patch(
-            "mcp_guide.prompts.guide_prompt.handle_command", new=AsyncMock(return_value=mock_result)
-        ) as mock_handle_command:
-            await guide_function(";status", ctx=mock_ctx)
-
-            mock_handle_command.assert_called_once()
-            call_kwargs = mock_handle_command.call_args
-            assert call_kwargs[0][0] == "status"
-            assert call_kwargs[1]["argv"] == [";status"]
-
-    @pytest.mark.anyio
-    async def test_guide_prompt_with_subcommand(self, guide_function) -> None:
-        """@guide prompt should handle subcommands like :create/category."""
-        mock_ctx = MagicMock()
-        mock_result = Result.ok("Create category content")
-
-        with patch(
-            "mcp_guide.prompts.guide_prompt.handle_command", new=AsyncMock(return_value=mock_result)
-        ) as mock_handle_command:
-            await guide_function(":create/category", ctx=mock_ctx)
-
-            mock_handle_command.assert_called_once()
-            call_kwargs = mock_handle_command.call_args
-            assert call_kwargs[0][0] == "create/category"
-            assert call_kwargs[1]["argv"] == [":create/category"]
-
-    @pytest.mark.anyio
-    async def test_guide_prompt_with_command_arguments(self, guide_function) -> None:
-        """@guide prompt should pass raw argv to handle_command for deferred parsing."""
-        mock_ctx = MagicMock()
-        mock_result = Result.ok("Command with args")
-
-        with patch(
-            "mcp_guide.prompts.guide_prompt.handle_command", new=AsyncMock(return_value=mock_result)
-        ) as mock_handle_command:
-            await guide_function(":create/collection", "--verbose", "description=test", "arg1", "arg2", ctx=mock_ctx)
-
-            # Verify command handler was called with raw argv
-            mock_handle_command.assert_called_once()
-            call_kwargs = mock_handle_command.call_args
-            assert call_kwargs[0][0] == "create/collection"
-            assert call_kwargs[1]["argv"] == [
-                ":create/collection",
-                "--verbose",
-                "description=test",
-                "arg1",
-                "arg2",
-            ]
-
-    @pytest.mark.anyio
-    async def test_guide_prompt_with_parse_errors(self, guide_function) -> None:
-        """@guide prompt should return failure for argument parsing errors via _execute_command."""
-        mock_ctx = MagicMock()
-
-        # Mock _execute_command to simulate parse error from deferred parsing
-        error_result = Result.failure(
-            "Argument parsing failed: Invalid flag: --bad=; Missing key: =value", error_type="validation_error"
-        )
-        with patch("mcp_guide.prompts.guide_prompt._execute_command", new=AsyncMock(return_value=error_result)):
-            result_str = await guide_function(":create", "--bad=", "=value", ctx=mock_ctx)
-
-            result = json.loads(result_str)
-            assert result["success"] is False
-            assert "Argument parsing failed" in result["error"]
-            assert "--bad=" in result["error"]
-            assert "=value" in result["error"]
-
-    @pytest.mark.anyio
-    async def test_execute_command_returns_failure_on_template_errors(self, guide_function) -> None:
-        """_execute_command should return Result.failure when rendered.errors is non-empty."""
-        from pathlib import Path
-        from unittest.mock import AsyncMock, patch
-
-        from mcp_guide.render.content import RenderedContent
-        from mcp_guide.render.frontmatter import Frontmatter
-
-        mock_ctx = MagicMock()
-        rendered = RenderedContent(
-            frontmatter=Frontmatter({}),
-            frontmatter_length=0,
-            content="",
-            content_length=0,
-            template_path=Path("fake/command.mustache"),
-            template_name="command.mustache",
-            errors=["Missing required argument: name"],
-        )
-
-        with patch("mcp_guide.prompts.guide_prompt.render_template", new=AsyncMock(return_value=rendered)):
-            result_str = await guide_function(":project/category/add", ctx=mock_ctx)
-
-        result = json.loads(result_str)
-        assert result["success"] is False
-        assert result["error_type"] == "validation_error"
-        assert result["error_data"]["errors"] == ["Missing required argument: name"]
+@pytest.mark.anyio
+async def test_empty_content_and_template_error(resource_project):
+    resource_project.resolve_document_path("docs/readme.md").write_text("")
+    empty = await invoke(resource_project, "docs")
+    assert empty["success"]
+    assert empty["value"] == ""
+    assert empty["instruction"].startswith(INSTRUCTION_DISPLAY_ONLY)
+    command = resource_project.resolve_document_path("_commands/error.mustache")
+    command.write_text("{{#_error}}Missing required argument: name{{/_error}}")
+    error = await invoke(resource_project, ":error")
+    assert not error["success"]
+    assert error["error_type"] == "validation_error"
+    assert error["error_data"]["errors"] == ["Missing required argument: name"]

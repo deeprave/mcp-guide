@@ -16,11 +16,22 @@ if TYPE_CHECKING:
 
 
 @pytest.fixture(autouse=True)
-def clear_task_registry() -> None:
-    """Keep project task registration isolated per test."""
-    from mcp_guide.decorators import clear_registered_tasks_for_testing
+def clear_task_registry():
+    """Keep task registration isolated and restore imported production tasks."""
+    from mcp_guide.decorators import (
+        clear_registered_tasks_for_testing,
+        get_registered_task_classes,
+        task_register,
+    )
 
+    registered = get_registered_task_classes()
     clear_registered_tasks_for_testing()
+    try:
+        yield
+    finally:
+        clear_registered_tasks_for_testing()
+        for task_class in registered:
+            task_register(task_class)
 
 
 class _ProjectSession:

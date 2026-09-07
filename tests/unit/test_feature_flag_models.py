@@ -1,5 +1,6 @@
 """Tests for feature flag integration with data models."""
 
+from mcp_guide.feature_flags.types import FeatureValue
 from mcp_guide.models import Project
 
 
@@ -16,3 +17,6 @@ class TestProjectFeatureFlags:
         }
         project = Project(name="test", project_flags=project_flags)
         assert project.project_flags == project_flags
+        assert all(isinstance(value, FeatureValue) for value in project.project_flags.values())
+        project_flags["list_flag"].append("later")
+        assert project.project_flags["list_flag"].to_raw() == ["x", "y"]

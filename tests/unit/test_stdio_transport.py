@@ -4,20 +4,13 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from mcp_guide.transports.base import Transport
 from mcp_guide.transports.stdio import StdioTransport
-
-
-def test_stdio_transport_implements_protocol():
-    """Test that StdioTransport implements Transport protocol."""
-    mock_server = Mock()
-    transport = StdioTransport(mock_server)
-    assert isinstance(transport, Transport)
 
 
 @pytest.mark.anyio
 async def test_stdio_transport_lifecycle():
     """Stdio delegates lifecycle ownership to FastMCP's public runner."""
+    # The external SDK runner owns stdin/stdout; keep the substitute at that boundary.
     mock_server = Mock()
     mock_server.run_stdio_async = AsyncMock()
 

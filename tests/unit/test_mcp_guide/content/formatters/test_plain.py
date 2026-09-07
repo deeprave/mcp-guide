@@ -1,249 +1,45 @@
-"""Tests for plain content formatter."""
+"""Plain formatter output for empty, single and multiple documents."""
 
 from datetime import datetime
 from pathlib import Path
 
 import pytest
 
+from mcp_guide.content.formatters.plain import PlainFormatter
 from mcp_guide.discovery.files import FileInfo
 
-_RESOLVE = Path("docs").joinpath
 
-
-@pytest.mark.anyio
-async def test_format_empty_list():
-    """Test that empty list returns empty string."""
-    from mcp_guide.content.formatters.plain import PlainFormatter
-
-    formatter = PlainFormatter()
-    result = await formatter.format([], _RESOLVE)
-    assert result == ""
-
-
-@pytest.mark.anyio
-async def test_format_single_file_returns_content():
-    """Test that single file returns content unchanged."""
-    from mcp_guide.content.formatters.plain import PlainFormatter
-
-    formatter = PlainFormatter()
-    content = "# Test\n\nThis is test content."
-    file_info = FileInfo(
-        path=Path("test.md"),
-        name="test.md",
-        size=len(content.encode("utf-8")),
-        content_size=len(content.encode("utf-8")),
-        mtime=datetime.now(),
+def _file(path, content):
+    return FileInfo(
+        path=Path(path),
+        name=Path(path).name,
+        size=len(content or ""),
+        content_size=len(content or ""),
+        mtime=datetime(2024, 1, 1),
         content=content,
     )
-    result = await formatter.format([file_info], _RESOLVE)
-    assert result == content
 
 
 @pytest.mark.anyio
-async def test_format_single_preserves_line_endings():
-    """Test that line endings are preserved."""
-    from mcp_guide.content.formatters.plain import PlainFormatter
-
-    formatter = PlainFormatter()
-    content = "Line 1\nLine 2\r\nLine 3\n"
-    file_info = FileInfo(
-        path=Path("test.txt"),
-        name="test.txt",
-        size=len(content.encode("utf-8")),
-        content_size=len(content.encode("utf-8")),
-        mtime=datetime.now(),
-        content=content,
-    )
-    result = await formatter.format_single(file_info)
-    assert result == content
+async def test_empty_list_has_no_output():
+    assert await PlainFormatter().format([], Path("docs").joinpath) == ""
 
 
 @pytest.mark.anyio
-async def test_format_single_preserves_whitespace():
-    """Test that whitespace is preserved."""
-    from mcp_guide.content.formatters.plain import PlainFormatter
-
-    formatter = PlainFormatter()
-    content = "  Leading spaces\n\tTabs\n  Trailing  "
-    file_info = FileInfo(
-        path=Path("test.txt"),
-        name="test.txt",
-        size=len(content.encode("utf-8")),
-        content_size=len(content.encode("utf-8")),
-        mtime=datetime.now(),
-        content=content,
-    )
-    result = await formatter.format_single(file_info)
-    assert result == content
+@pytest.mark.parametrize(
+    "content", ["# Title\n  Leading\r\n\tTabs\nTrailing  ", "", None], ids=["whitespace", "empty", "none"]
+)
+async def test_single_document_preserves_content_without_headers(content):
+    assert await PlainFormatter().format([_file("nested/file.md", content)], Path("docs").joinpath) == (content or "")
 
 
 @pytest.mark.anyio
-async def test_format_single_no_headers():
-    """Test that no headers are added."""
-    from mcp_guide.content.formatters.plain import PlainFormatter
-
-    formatter = PlainFormatter()
-    content = "Plain content"
-    file_info = FileInfo(
-        path=Path("test.md"),
-        name="test.md",
-        size=len(content.encode("utf-8")),
-        content_size=len(content.encode("utf-8")),
-        mtime=datetime.now(),
-        content=content,
-    )
-    result = await formatter.format_single(file_info)
-    # Verify no MIME headers
-    assert "Content-Type:" not in result
-    assert "Content-Location:" not in result
-    assert "Content-Length:" not in result
-    assert "\r\n\r\n" not in result
-    assert result == content
-
-
-@pytest.mark.anyio
-async def test_format_single_empty_file():
-    """Test that empty files work correctly."""
-    from mcp_guide.content.formatters.plain import PlainFormatter
-
-    formatter = PlainFormatter()
-    file_info = FileInfo(
-        path=Path("empty.txt"),
-        name="empty.txt",
-        size=0,
-        content_size=0,
-        mtime=datetime.now(),
-        content="",
-    )
-    result = await formatter.format_single(file_info)
-    assert result == ""
-
-
-@pytest.mark.anyio
-async def test_format_single_none_content():
-    """Test that None content returns empty string."""
-    from mcp_guide.content.formatters.plain import PlainFormatter
-
-    formatter = PlainFormatter()
-    file_info = FileInfo(
-        path=Path("test.txt"),
-        name="test.txt",
-        size=0,
-        content_size=0,
-        mtime=datetime.now(),
-        content=None,
-    )
-    result = await formatter.format_single(file_info)
-    assert result == ""
-
-
-@pytest.mark.anyio
-async def test_format_multiple_two_files():
-    """Test formatting two files with separators."""
-    from mcp_guide.content.formatters.plain import PlainFormatter
-
-    formatter = PlainFormatter()
-    file1 = FileInfo(
-        path=Path("docs/file1.md"),
-        name="file1.md",
-        size=10,
-        content_size=10,
-        mtime=datetime.now(),
-        content="Content 1",
-    )
-    file2 = FileInfo(
-        path=Path("docs/file2.md"),
-        name="file2.md",
-        size=10,
-        content_size=10,
-        mtime=datetime.now(),
-        content="Content 2",
-    )
-    result = await formatter.format([file1, file2], _RESOLVE)
-
-    expected = "--- file1.md ---\nContent 1\n--- file2.md ---\nContent 2"
-    assert result == expected
-
-
-@pytest.mark.anyio
-async def test_format_multiple_three_files():
-    """Test formatting three files with separators."""
-    from mcp_guide.content.formatters.plain import PlainFormatter
-
-    formatter = PlainFormatter()
+async def test_multiple_documents_preserve_content_and_use_basename_separators():
     files = [
-        FileInfo(
-            path=Path(f"file{i}.md"),
-            name=f"file{i}.md",
-            size=10,
-            content_size=10,
-            mtime=datetime.now(),
-            content=f"Content {i}",
-        )
-        for i in range(1, 4)
+        _file("docs/subdir/first.md", "# Title\n  Spaces  \r\n\tTabs\n"),
+        _file("other/path/empty.md", None),
+        _file("third.md", "Last"),
     ]
-    result = await formatter.format(files, _RESOLVE)
-
-    expected = "--- file1.md ---\nContent 1\n--- file2.md ---\nContent 2\n--- file3.md ---\nContent 3"
-    assert result == expected
-
-
-@pytest.mark.anyio
-async def test_format_multiple_uses_basename():
-    """Test that separator uses basename not full path."""
-    from mcp_guide.content.formatters.plain import PlainFormatter
-
-    formatter = PlainFormatter()
-    file1 = FileInfo(
-        path=Path("docs/subdir/file.md"),
-        name="file.md",
-        size=10,
-        content_size=10,
-        mtime=datetime.now(),
-        content="Content",
+    assert await PlainFormatter().format(files, Path("docs").joinpath) == (
+        "--- first.md ---\n# Title\n  Spaces  \r\n\tTabs\n\n--- empty.md ---\n\n--- third.md ---\nLast"
     )
-    file2 = FileInfo(
-        path=Path("other/path/test.md"),
-        name="test.md",
-        size=10,
-        content_size=10,
-        mtime=datetime.now(),
-        content="Test",
-    )
-    result = await formatter.format([file1, file2], _RESOLVE)
-
-    assert "--- file.md ---" in result
-    assert "--- test.md ---" in result
-    assert "docs/subdir" not in result
-    assert "other/path" not in result
-
-
-@pytest.mark.anyio
-async def test_format_multiple_preserves_content():
-    """Test that content is preserved exactly in multiple files."""
-    from mcp_guide.content.formatters.plain import PlainFormatter
-
-    formatter = PlainFormatter()
-    content1 = "# Title\n\nWith **formatting**"
-    content2 = "  Spaces  \n\tTabs\n"
-
-    file1 = FileInfo(
-        path=Path("file1.md"),
-        name="file1.md",
-        size=len(content1),
-        content_size=len(content1),
-        mtime=datetime.now(),
-        content=content1,
-    )
-    file2 = FileInfo(
-        path=Path("file2.md"),
-        name="file2.md",
-        size=len(content2),
-        content_size=len(content2),
-        mtime=datetime.now(),
-        content=content2,
-    )
-    result = await formatter.format([file1, file2], _RESOLVE)
-
-    assert content1 in result
-    assert content2 in result

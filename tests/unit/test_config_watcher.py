@@ -1,136 +1,59 @@
-"""Tests for simplified ConfigWatcher functionality."""
+"""Configuration polling delivers changes despite a failing callback."""
 
 import asyncio
 import os
-from unittest.mock import Mock
+from pathlib import Path
 
 import pytest
 
 from mcp_guide.watchers.config_watcher import ConfigWatcher
 
-POLL_INTERVAL = 0.02
-SETTLE_DELAY = 0.02
-DETECTION_DELAY = 0.12
+
+@pytest.mark.anyio
+async def test_config_watcher_requires_existing_file(tmp_path):
+    watcher = ConfigWatcher(str(tmp_path / "missing.yaml"))
+    with pytest.raises(FileNotFoundError, match="Path does not exist"):
+        await watcher.has_changed()
 
 
-def _bump_mtime(path: str, previous_mtime: float) -> float:
-    """Force a deterministic mtime change for config watcher tests."""
-    current = os.stat(path).st_mtime
-    target = max(previous_mtime, current) + 1.0
-    os.utime(path, (target, target))
-    return os.stat(path).st_mtime
+@pytest.mark.anyio
+async def test_polling_notifies_all_callbacks_and_survives_callback_failure(tmp_path, monkeypatch):
+    # Suppress expected exception logging, not watcher execution.
+    monkeypatch.setattr("mcp_guide.core.path_watcher.logger.exception", lambda *args, **kwargs: None)
+    config_file = tmp_path / "config.yaml"
+    config_file.write_text("initial: value")
+    received = []
+    notified = asyncio.Event()
 
+    def record_first(path):
+        received.append(("first", path, Path(path).read_text()))
 
-class TestConfigWatcher:
-    """Test ConfigWatcher functionality."""
+    def fail(path):
+        raise RuntimeError("Callback error")
 
-    @pytest.mark.anyio
-    async def test_config_watcher_requires_existing_file(self):
-        """ConfigWatcher requires config file to exist on first check."""
-        non_existent_config = "/nonexistent/config.yaml"
+    async def record_last(path):
+        received.append(("last", path, Path(path).read_text()))
+        notified.set()
 
-        watcher = ConfigWatcher(non_existent_config)
-        with pytest.raises(FileNotFoundError, match="Path does not exist"):
-            await watcher.has_changed()
-
-    @pytest.mark.anyio
-    async def test_config_watcher_detects_file_changes(self, tmp_path):
-        """ConfigWatcher detects when config file is modified."""
-        config_file = tmp_path / "config.yaml"
-        config_file.write_text("initial: value")
-
-        callback = Mock()
-        watcher = ConfigWatcher(str(config_file), callback, poll_interval=POLL_INTERVAL)
-
-        await watcher.start()
-        previous_mtime = os.stat(config_file).st_mtime
-
-        # Modify file
-        await asyncio.sleep(SETTLE_DELAY)
-        config_file.write_text("modified: value")
-        _bump_mtime(str(config_file), previous_mtime)
-
-        # Wait for detection (a few poll intervals)
-        await asyncio.sleep(DETECTION_DELAY)
-
+    watcher = ConfigWatcher(str(config_file), record_first, poll_interval=0.01)
+    watcher.add_callback(fail)
+    watcher.add_callback(record_last)
+    assert not await watcher.has_changed()
+    assert not watcher.is_running()
+    await watcher.start()
+    try:
+        assert watcher.is_running()
+        for value in ("modified: value", "modified: again"):
+            notified.clear()
+            previous_mtime = config_file.stat().st_mtime
+            config_file.write_text(value)
+            os.utime(config_file, (previous_mtime + 1, previous_mtime + 1))
+            await asyncio.wait_for(notified.wait(), timeout=2)
+            assert received[-2:] == [
+                ("first", str(config_file), value),
+                ("last", str(config_file), value),
+            ]
+        assert len(received) == 4
+    finally:
         await watcher.stop()
-
-        # Should detect change
-        callback.assert_called_with(str(config_file))
-
-    @pytest.mark.anyio
-    async def test_multiple_callbacks_receive_notifications(self, tmp_path):
-        """Multiple callbacks can be registered and all receive notifications."""
-        config_file = tmp_path / "config.yaml"
-        config_file.write_text("initial: value")
-
-        callback1 = Mock()
-        callback2 = Mock()
-
-        watcher = ConfigWatcher(str(config_file), callback1, poll_interval=POLL_INTERVAL)
-        watcher.add_callback(callback2)
-
-        await watcher.start()
-        previous_mtime = os.stat(config_file).st_mtime
-
-        # Modify file
-        await asyncio.sleep(SETTLE_DELAY)
-        config_file.write_text("modified: value")
-        _bump_mtime(str(config_file), previous_mtime)
-
-        # Wait for detection (a few poll intervals)
-        await asyncio.sleep(DETECTION_DELAY)
-
-        await watcher.stop()
-
-        # Both callbacks should be called
-        callback1.assert_called_with(str(config_file))
-        callback2.assert_called_with(str(config_file))
-
-    @pytest.mark.anyio
-    async def test_callback_exceptions_dont_crash_watcher(self, tmp_path, monkeypatch):
-        """Callback exceptions don't crash the watcher."""
-        monkeypatch.setattr("mcp_guide.core.path_watcher.logger.exception", lambda *args, **kwargs: None)
-        config_file = tmp_path / "config.yaml"
-        config_file.write_text("initial: value")
-
-        def failing_callback(path):
-            raise Exception("Callback error")
-
-        good_callback = Mock()
-
-        watcher = ConfigWatcher(str(config_file), failing_callback, poll_interval=POLL_INTERVAL)
-        watcher.add_callback(good_callback)
-
-        await watcher.start()
-        previous_mtime = os.stat(config_file).st_mtime
-
-        # Modify file
-        await asyncio.sleep(SETTLE_DELAY)
-        config_file.write_text("modified: value")
-        _bump_mtime(str(config_file), previous_mtime)
-
-        # Wait for detection (a few poll intervals)
-        await asyncio.sleep(DETECTION_DELAY)
-
-        await watcher.stop()
-
-        # Good callback should still be called despite failing callback
-        good_callback.assert_called_with(str(config_file))
-
-    @pytest.mark.anyio
-    async def test_watcher_lifecycle_management(self, tmp_path):
-        """Watcher can be started and stopped properly."""
-        config_file = tmp_path / "config.yaml"
-        config_file.write_text("test: content")
-
-        watcher = ConfigWatcher(str(config_file))
-
-        # Should start successfully
-        await watcher.start()
-        assert watcher._task is not None
-        assert not watcher._task.done()
-
-        # Should stop successfully
-        await watcher.stop()
-        assert watcher._task is None or watcher._task.done()
+    assert not watcher.is_running()
