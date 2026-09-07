@@ -30,8 +30,8 @@ logger = get_logger(__name__)
 _enable_default_profile = True
 
 
-def _expand_client_path(path: str | Path) -> Path:
-    """Expand a client path or local ``file://`` URI without resolving it."""
+def _expand_client_path(path: str | Path, *, relative_to: Path | None = None) -> Path:
+    """Decode a local file URI and apply the verified client-path policy."""
     path_text = str(path)
     parsed = urlsplit(path_text)
     if parsed.scheme.casefold() == "file":
@@ -40,7 +40,7 @@ def _expand_client_path(path: str | Path) -> Path:
         if parsed.query or parsed.fragment:
             raise ValueError("Project file URI must not include a query or fragment")
         path_text = unquote(parsed.path)
-    return LazyPath(path_text).expand()
+    return LazyPath(path_text).client_resolve(relative_to=relative_to)
 
 
 class DocrootError(RuntimeError):
@@ -190,14 +190,12 @@ class Session:
 
         try:
             root_path = _expand_client_path(path)
-        except RuntimeError as error:
+        except (RuntimeError, OSError) as error:
             raise InvalidProjectNameError(f"Unable to expand project path '{path}': unknown user") from error
         except ValueError as error:
             raise InvalidProjectNameError(str(error)) from error
         if not root_path.is_absolute():
             raise InvalidProjectNameError("Project path must be an absolute client filesystem path")
-        if ".." in root_path.parts:
-            raise InvalidProjectNameError("Project path must not contain directory traversals (..)")
         if not root_path.name or not _NAME_REGEX.match(root_path.name):
             raise InvalidProjectNameError(
                 "Project path basename must contain only alphanumeric characters, underscores, and hyphens"
@@ -247,8 +245,8 @@ class Session:
 
         if path is not None:
             try:
-                candidate_path = _expand_client_path(path)
-            except RuntimeError as error:
+                candidate_path = _expand_client_path(path, relative_to=root_path)
+            except (RuntimeError, OSError) as error:
                 raise InvalidProjectNameError(f"Unable to expand project path '{path}': unknown user") from error
             except ValueError as error:
                 raise InvalidProjectNameError(str(error)) from error
@@ -544,6 +542,7 @@ async def request_context_scope(
     pwd = os.environ.get("PWD")
     pwd_bind = (
         allow_pwd_bootstrap
+        and LazyPath.client_filesystem_shared is True
         and use_pwd_enabled()
         and session_id is None
         and protocol_revision == "2026-07-28"

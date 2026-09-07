@@ -41,12 +41,49 @@ project name and a path hash from that root, then binds the interaction once. A 
 `set_project` call, including one with the same path, is rejected. Use
 `switch_project({"path": "..."})` to rebind the root in the retained interaction.
 
+Initial binding never accepts a relative path, even after filesystem verification.
+Permitted user/environment expansion must produce an absolute path. Absolute paths
+containing `..` are normalised before binding; server CWD is never used to make
+relative initial input absolute.
+
 `switch_project` accepts exactly one selection. `switch_project({"name": "..."})`
 changes the active Guide configuration within the bound root. Alternatively,
 `switch_project({"path": "..."})` rebinds the project root in the retained
 interaction and selects the configuration named by the normalised path basename.
-The path may be absolute, user-anchored (`~` or `~user`), or relative to the
-current bound root. Do not provide both `name` and `path`.
+Use an absolute client path unless stdio filesystem sharing has been verified.
+After verification, the path may also use `~`, `~user`, `$VAR` or `${VAR}`, or
+be relative to the current bound root. Do not provide both `name` and `path`.
+
+### Client filesystem verification
+
+The first stdio binding requires an absolute client root. Guide creates a
+uniquely named `.mcp-guide-fs-probe-<random-id>` file there and queues a one-time
+instruction asking the agent to read it and return its exact contents through
+`send_file_content`. The agent must not create or modify the probe. If it cannot
+read the file, it should report `unreadable` as instructed.
+
+The response timeout is **60 seconds**, starting when the instruction is attached
+to an outgoing response, not when queued. This notification does not confirm
+client receipt. A matching response enables shorthand process-wide until the
+server restarts. Failure, timeout or disposal of the owning Session leaves it
+disabled. Guide removes the probe and its instruction/subscriptions on completion;
+there is no automatic retry. Until verification succeeds, supply absolute paths.
+
+Verified sharing permits server-side user, environment and symlink resolution.
+Guide assumes the client and server use the same user/home; `~user` and variables
+use the server's accounts and environment. Matching access is sufficient; matching
+every mount or environment variable is not independently verified. Relative root
+switches use the current bound root, never the server working directory.
+
+Stdio alone does not prove sharing: a Docker stdio deployment without the same
+project mount at the same absolute path cannot use shorthand. HTTP and HTTPS
+always disable shorthand and never send a probe, including localhost HTTP and
+container or remote servers. Their roots are normalised lexically without server
+symlink resolution. Resolve shorthand on the client and submit an absolute path.
+
+Server-owned configuration paths and docroot retain ordinary server-side expansion.
+The optional inherited-`PWD` bootstrap additionally requires already verified stdio
+sharing, so it cannot replace the first explicit binding after server startup.
 
 A different selection creates a fresh internal Session under the same public
 `session_id`; it does not reconnect the client. Selecting the current name and

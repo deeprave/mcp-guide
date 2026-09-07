@@ -49,7 +49,7 @@ async def test_replacement_keeps_old_requests_on_their_original_session(tmp_path
     async with runtime.session_request(owner) as original:
         await original.bind_project_path("/client/original")
         original.task_manager.set_cached_data("old", "original")
-        replacement = await original.switch_project(path="../replacement")
+        replacement = await original.switch_project(path="/client/replacement")
         assert replacement is not original
         assert runtime.find_session(owner) is replacement
         assert original.bound_root_path == Path("/client/original")
@@ -126,7 +126,7 @@ async def test_expiring_session_drains_admitted_tool_callbacks(tmp_path, monkeyp
         execution = original.task_manager.on_tool()
     callback = asyncio.create_task(execution)
     await asyncio.wait_for(started.wait(), 2)
-    replacement = await original.switch_project(path="../replacement")
+    replacement = await original.switch_project(path="/client/replacement")
     try:
         with pytest.raises(ValueError, match="expiring"):
             await replacement.switch_project("another")
@@ -155,7 +155,7 @@ async def test_failed_replacement_preparation_leaves_the_original_active(tmp_pat
 
     monkeypatch.setattr(Session, "prepare_binding", fail_preparation)
     with pytest.raises(OSError, match="target unavailable"):
-        await original.switch_project(path="../replacement")
+        await original.switch_project(path="/client/replacement")
     assert runtime.find_session(owner) is original
     assert candidates[0].task_manager.get_subscription_count() == 0
     assert runtime.configuration_service()._sessions == {original}
@@ -175,7 +175,7 @@ async def test_failed_expiry_cleanup_keeps_the_switch_guard(tmp_path, monkeypatc
 
     monkeypatch.setattr(original, "cleanup", fail_cleanup)
     async with runtime.session_request(owner) as request_session:
-        await request_session.switch_project(path="../replacement")
+        await request_session.switch_project(path="/client/replacement")
     await wait_for_session_disposals(runtime)
     replacement = runtime.find_session(owner)
     assert replacement is not original
@@ -209,7 +209,7 @@ async def test_switch_response_does_not_wait_for_disposal_but_shutdown_does(
 
     async def switch_request():
         async with runtime.session_request(owner) as session:
-            return await session.switch_project(path="../replacement")
+            return await session.switch_project(path="/client/replacement")
 
     request = asyncio.create_task(switch_request())
     try:
@@ -262,7 +262,7 @@ async def test_idle_expiry_preserves_owner_with_pending_outgoing_session(tmp_pat
     owner = OwnerKey("pending-expiry")
     async with runtime.session_request(owner) as original:
         await original.bind_project_path("/client/original")
-        replacement = await original.switch_project(path="../replacement")
+        replacement = await original.switch_project(path="/client/replacement")
         assert await runtime.expire_inactive_sessions(now=10**12) == 0
         assert runtime.find_session(owner) is replacement
 
@@ -286,7 +286,7 @@ def test_request_context_carries_only_resolved_application_state() -> None:
     root = RootIdentity.from_path("/client/workspace/demo")
     project = Project(name="review", key=f"review-{root.hash[:8]}", hash=root.hash)
 
-    session = SimpleNamespace(project=project, bound_root_path="/client/workspace/demo")
+    session = SimpleNamespace(project=project, bound_root_path=Path("/client/workspace/demo"))
     context = context_for(session, "session-42")
 
     assert context.root == root
@@ -544,6 +544,9 @@ def test_root_identity_rejects_relative_client_path() -> None:
 
 def test_root_identity_expands_user_anchored_client_path(tmp_path, monkeypatch) -> None:
     """A root identity is derived from an expanded user-anchored path."""
+    from mcp_guide.lazy_path import LazyPath
+
+    monkeypatch.setattr(LazyPath, "client_filesystem_shared", True)
     home = tmp_path / "home"
     monkeypatch.setenv("HOME", str(home))
 
@@ -705,7 +708,9 @@ async def test_switch_response_keeps_the_replacement_alive(tmp_path, monkeypatch
         return {"root": str(session.bound_root_path)}
 
     monkeypatch.setattr("mcp_guide.tools.tool_project.format_project_data", format_while_idle_expiry_runs)
-    result = await internal_switch_project(SwitchProjectArgs(path="../replacement"), await request_context_for(session))
+    result = await internal_switch_project(
+        SwitchProjectArgs(path="/client/replacement"), await request_context_for(session)
+    )
     assert result.success
     assert result.value["project"] == "replacement"
     assert result.value["root"] == "/client/replacement"
@@ -1033,6 +1038,9 @@ async def test_stdio_pwd_bootstrap_is_off_by_default(tmp_path, monkeypatch) -> N
 @pytest.mark.anyio
 async def test_modern_stdio_pwd_bootstrap_is_runtime_owned(tmp_path, monkeypatch) -> None:
     """The local PWD shortcut mints a FastMCP session_id and binds that runtime Session."""
+    from mcp_guide.lazy_path import LazyPath
+
+    monkeypatch.setattr(LazyPath, "client_filesystem_shared", True)
     from unittest.mock import AsyncMock
 
     import fastmcp.server.sessions as fastmcp_sessions
@@ -1073,6 +1081,9 @@ async def test_modern_stdio_pwd_bootstrap_is_runtime_owned(tmp_path, monkeypatch
 @pytest.mark.anyio
 async def test_failed_stdio_pwd_bind_retires_the_minted_session(tmp_path, monkeypatch) -> None:
     """A rejected PWD basename must not leave a minted FastMCP or GuideRuntime Session."""
+    from mcp_guide.lazy_path import LazyPath
+
+    monkeypatch.setattr(LazyPath, "client_filesystem_shared", True)
     from unittest.mock import AsyncMock
 
     import fastmcp.server.sessions as fastmcp_sessions

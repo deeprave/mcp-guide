@@ -86,7 +86,11 @@ class SwitchProjectArgs(ToolArguments):
     name: str | None = Field(default=None, description="Configuration project name to select at the current root")
     path: str | None = Field(
         default=None,
-        description="Project root to rebind instead of selecting a configuration name",
+        description=(
+            "Project root to rebind instead of selecting a configuration name. Use an absolute client path; "
+            "relative paths, ~, ~user and environment expansion require verified stdio filesystem sharing. "
+            "HTTP/HTTPS permits absolute paths only."
+        ),
     )
     verbose: bool = Field(
         default=False, description="If True, return full project details; if False, return confirmation"

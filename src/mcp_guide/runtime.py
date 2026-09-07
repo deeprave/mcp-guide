@@ -508,7 +508,7 @@ class RootIdentity:
     @classmethod
     def from_path(cls, path: str) -> "RootIdentity":
         """Build an identity from an absolute client filesystem path."""
-        pure_path = LazyPath(path).expand()
+        pure_path = LazyPath(path).client_resolve()
         if not pure_path.is_absolute():
             raise ValueError("Project path must be absolute")
         return cls(path=str(pure_path), name=pure_path.name, hash=calculate_project_hash(str(pure_path)))
@@ -545,7 +545,9 @@ class RequestContext:
         root_path = self.session.bound_root_path
         if root_path is None:
             return None
-        return RootIdentity.from_path(str(root_path))
+        # Binding has already resolved this identity. A later probe result must
+        # not reinterpret it (for example by following a previously lexical link).
+        return RootIdentity(path=str(root_path), name=root_path.name, hash=calculate_project_hash(str(root_path)))
 
     @property
     def project(self) -> Project | None:

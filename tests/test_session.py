@@ -169,7 +169,7 @@ class TestGetOrCreateSession:
                 await bind_session_project(request_context.session, "/client/workspace/protocol-log-project")
                 original = request_context.session
             async with request_context_scope(ctx, supplied_id, allow_pwd_bootstrap=False) as request_context:
-                replacement = await request_context.session.switch_project(path="../replacement")
+                replacement = await request_context.session.switch_project(path="/client/workspace/replacement")
                 assert request_context.session is original
             async with request_context_scope(ctx, supplied_id, allow_pwd_bootstrap=False) as followup:
                 assert followup.session is replacement
@@ -260,6 +260,9 @@ class TestGetOrCreateSession:
     @pytest.mark.anyio
     async def test_stdio_pwd_bootstrap_does_not_retain_unbound_owner(self, tmp_path, monkeypatch):
         """A PWD-bound Session is retained only under its minted id, never unbound:*."""
+        from mcp_guide.lazy_path import LazyPath
+
+        monkeypatch.setattr(LazyPath, "client_filesystem_shared", True)
         from types import SimpleNamespace
         from unittest.mock import AsyncMock
 

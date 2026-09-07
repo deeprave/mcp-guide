@@ -1,11 +1,19 @@
 ## ADDED Requirements
 
-### Requirement: Lexical client root identity
-Request-context root identity SHALL preserve the lexical path declared by the
-client after applicable client-path normalisation. It SHALL not collapse distinct
-client roots because the Guide host can resolve one or more server-visible
-symlinks.
+### Requirement: Client-aware root identity
+RequestContext root identity SHALL use the applicable client resolution policy.
+Unverified/disabled paths SHALL remain lexical without resolving server symlinks;
+verified shared stdio paths MAY use ordinary server filesystem resolution.
 
-#### Scenario: Server-visible client-path symlink
-- **WHEN** two bound client roots have distinct lexical paths but one is a symlink on the Guide host
-- **THEN** RequestContext SHALL expose distinct root identities and configuration hashes for the two paths
+#### Scenario: Unshared server-visible symlink
+- **WHEN** distinct absolute client roots include a symlink visible only to the server and sharing is unverified or disabled
+- **THEN** their lexical root identities and hashes SHALL remain distinct
+
+#### Scenario: Verified shared root
+- **WHEN** verified stdio resolves a client root
+- **THEN** its identity SHALL match the shared filesystem resolution result
+
+#### Scenario: Verification after initial binding
+- **WHEN** sharing becomes verified after a root was already bound lexically
+- **THEN** that existing binding and its configuration identity SHALL remain unchanged
+- **AND** subsequent root selections SHALL use the verified resolution policy

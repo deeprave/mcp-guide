@@ -37,10 +37,11 @@ See [Guide URIs](guide-uris.md) for the full details.
 ## Project Detection
 
 mcp-guide needs an explicit project binding. Call `set_project` with the absolute
-client project path. A local stdio server may optionally bind from its inherited
-absolute `PWD` when launched with `--use-pwd` or `MG_USE_PWD=1`; this
-is off by default because process `PWD` is not the client filesystem (HTTP,
-containers, and desktop hosts). Modern clients then replay the returned
+client project path. Stdio then performs a one-shot filesystem check; only a
+successful check enables relative root switches, `~`, `~user` and `$VAR` expansion.
+HTTP/HTTPS never enables these conveniences. The optional inherited absolute `PWD`
+bootstrap (`--use-pwd` or `MG_USE_PWD=1`) also requires already verified stdio
+sharing and is off by default. Modern clients then replay the returned
 `session_id` on later project-bound requests. See [Installation — Project
 Detection](installation.md#project-detection) and [Protocol and
 Sessions](protocol-and-sessions.md) for details.

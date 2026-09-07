@@ -5,6 +5,7 @@ import contextlib
 import inspect
 import time
 import zlib
+from collections.abc import Awaitable, Callable
 from contextvars import ContextVar
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, TypeVar, Union, cast
@@ -64,6 +65,7 @@ class EventResult:
     result: bool  # True=success, False=failure
     message: Optional[str] = None  # Simple string result
     rendered_content: Optional[RenderedContent] = None  # Rendered template
+    consumed: bool = False  # Exclusive response correlation stops further dispatch
 
 
 def _dedupe_and_combine_messages(messages: list[str]) -> str | None:
@@ -174,6 +176,7 @@ class TrackedInstruction:
     last_sent_at: float  # Timestamp of last send/retry
     retry_count: int = 0
     max_retries: int = 3
+    on_dispatch: Callable[[], Awaitable[None]] | None = None
 
 
 class TaskManager:
@@ -464,6 +467,8 @@ class TaskManager:
         timer_interval: Optional[float] = None,
         initial_delay: Optional[float] = None,
         once_interval: Optional[float] = None,
+        *,
+        priority: bool = False,
     ) -> None:
         """Subscribe to events with optional timer support."""
         if self._expiring:
@@ -532,7 +537,10 @@ class TaskManager:
                 }
         else:
             regular_subscription = Subscription(subscriber, event_types)
-            self._subscriptions.append(regular_subscription)
+            if priority:
+                self._subscriptions.insert(0, regular_subscription)
+            else:
+                self._subscriptions.append(regular_subscription)
 
             # Track regular task statistics
             task_id = f"{subscriber_name}_{id(subscriber)}"
@@ -713,6 +721,8 @@ class TaskManager:
                     # has been replaced while it was running.
                     if result is not None and self._project_task_lifecycle_generation == dispatch_generation:
                         event_results.append(result)
+                        if result.consumed:
+                            break
                         logger.trace(f"Event handled by {subscriber.get_name()}")
                     elif result is not None:
                         logger.trace(f"Discarding stale event result from {subscriber.get_name()}")
@@ -787,12 +797,16 @@ class TaskManager:
             else:
                 self._pending_instructions.append(instruction)
 
-    async def queue_instruction_with_ack(self, content: str, max_retries: int = 3) -> str:
+    async def queue_instruction_with_ack(
+        self, content: str, max_retries: int = 3, *, on_dispatch: Callable[[], Awaitable[None]] | None = None
+    ) -> str:
         """Queue instruction with acknowledgement tracking.
 
         Args:
             content: Instruction text
-            max_retries: Maximum retry attempts (default: 3)
+            max_retries: Maximum retry attempts (default: 3); zero disables retries
+            on_dispatch: Optional one-shot notification when attached to an outgoing result,
+                not confirmation that the client received it
 
         Returns:
             Instruction ID for acknowledgement
@@ -817,6 +831,7 @@ class TaskManager:
             last_sent_at=current_time,
             retry_count=0,
             max_retries=max_retries,
+            on_dispatch=on_dispatch,
         )
 
         self._tracked_instructions[content_id] = tracked
@@ -830,8 +845,12 @@ class TaskManager:
         Args:
             instruction_id: ID returned from queue_instruction_with_ack()
         """
-        if instruction_id in self._tracked_instructions:
-            del self._tracked_instructions[instruction_id]
+        if tracked := self._tracked_instructions.pop(instruction_id, None):
+            self._pending_instructions = [
+                item
+                for item in self._pending_instructions
+                if item not in (tracked.content, f"**IMPORTANT:** {tracked.content}", f"**URGENT:** {tracked.content}")
+            ]
 
     def is_queue_empty(self) -> bool:
         """Check if instruction queue is empty.
@@ -851,6 +870,8 @@ class TaskManager:
         min_retry_delay = 30.0  # Minimum seconds before retry
 
         for instr_id, tracked in list(self._tracked_instructions.items()):
+            if tracked.max_retries == 0 or tracked.on_dispatch is not None:
+                continue
             # Check if enough time has passed since last send
             time_since_send = current_time - tracked.last_sent_at
             if time_since_send < min_retry_delay:
@@ -886,6 +907,10 @@ class TaskManager:
         if self._pending_instructions:
             # Get the first instruction (FIFO)
             instruction = self._pending_instructions.pop(0)
+            tracked = self._tracked_instructions.get(_get_content_id(instruction.encode()))
+            if tracked is not None and tracked.on_dispatch is not None:
+                on_dispatch, tracked.on_dispatch = tracked.on_dispatch, None
+                await on_dispatch()
             from dataclasses import replace
 
             return replace(result, additional_agent_instructions=instruction)

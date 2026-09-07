@@ -56,11 +56,11 @@ expiring instance.
 - **THEN** it SHALL return an error with type `invalid_name`
 - **AND** the error message SHALL indicate an absolute path is required
 
-#### Scenario: Path traversal rejected
-- **WHEN** an unbound interaction calls `set_project` with a path containing
+#### Scenario: Absolute path normalised
+- **WHEN** an unbound interaction calls `set_project` with an absolute path containing
   `..` components
-- **THEN** it SHALL return an error with type `invalid_name`
-- **AND** the error message SHALL indicate traversals are not permitted
+- **THEN** it SHALL normalise the path before binding the resulting root
+- **AND** normalisation SHALL NOT turn relative input into an accepted absolute path
 
 #### Scenario: Name-only configuration selection
 - **GIVEN** no Session for the interaction's ID is expiring
