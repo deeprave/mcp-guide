@@ -246,4 +246,4 @@ async def safe_glob_search(search_dir: Path, patterns: List[str]) -> List[Path]:
 
                 await _process_match(match_path, search_dir_expanded, seen_files, matched_files)
 
-    return matched_files
+    return sorted(matched_files, key=lambda path: path.as_posix())
