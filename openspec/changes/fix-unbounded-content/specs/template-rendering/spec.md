@@ -1,37 +1,37 @@
 ## ADDED Requirements
 
-### Requirement: Canonically contained frontmatter partials
-The system SHALL resolve each frontmatter partial reference relative to its
-rendering template and SHALL load it only when the final canonical file target,
-after extension resolution, is contained within the configured document root.
-It SHALL not read, render, or merge frontmatter from an unsafe partial target.
+### Requirement: Bounded Template and Partial Input
 
-#### Scenario: Parent-relative partial remains inside the document root
-- **WHEN** a nested template references a partial with `..` path components
-- **AND** the final canonical partial target remains within the document root
-- **THEN** the system SHALL render that partial using the existing partial
-  composition behaviour
+The system SHALL check the byte size of every template and partial before reading
+or parsing its body. A template or partial larger than the configured template
+source limit SHALL fail with `max_size_exceeded` and SHALL NOT be parsed or
+rendered.
 
-#### Scenario: Absolute or home-anchored partial reference
-- **WHEN** frontmatter names a partial with an absolute or home-anchored path
-- **THEN** the system SHALL reject that partial reference
-- **AND** it SHALL not read content from the named host path
+For one template render, the system SHALL also limit resolved partial input to 32
+partials and 1 MiB of aggregate UTF-8 source bytes. This includes frontmatter
+includes and policy partials; cached content remains subject to the same limits.
 
-#### Scenario: Relative partial escapes the document root
-- **WHEN** a relative frontmatter partial reference canonically resolves outside
-  the configured document root
-- **THEN** the system SHALL reject that partial reference
-- **AND** it SHALL not render the outside file's content
+#### Scenario: Oversized template is rejected before parsing
+- **WHEN** a selected template is larger than the configured template source limit
+- **THEN** rendering fails with `max_size_exceeded`
+- **AND** the template body is not loaded for frontmatter processing or Mustache rendering
 
-#### Scenario: In-root symlink points outside the document root
-- **WHEN** a frontmatter partial reference resolves through a symlink whose
-  canonical target is outside the configured document root
-- **THEN** the system SHALL reject that partial reference
-- **AND** it SHALL not read the symlink target
+#### Scenario: Partial expansion exceeds the aggregate input budget
+- **WHEN** a template resolves more than 32 partials or more than 1 MiB of aggregate partial source bytes
+- **THEN** rendering fails with `max_size_exceeded`
+- **AND** it does not render a partial result
 
-#### Scenario: One unsafe partial does not suppress safe rendering
-- **WHEN** a template declares both a safe in-root partial and an unsafe
-  partial reference
-- **THEN** the system SHALL render the template and the safe partial
-- **AND** it SHALL omit the unsafe partial without exposing its content
+### Requirement: Bounded Template Expansion
 
+The system SHALL enforce the configured per-template rendered-output byte limit
+while expanding Mustache content. A template expansion that would exceed the limit
+SHALL stop and fail with `max_size_exceeded`; it SHALL NOT first construct the
+full oversized rendered string in memory.
+
+Rendered template bytes SHALL also count toward the enclosing content request's
+aggregate response-byte limit.
+
+#### Scenario: Repeated Mustache expansion exceeds the output limit
+- **WHEN** template variables or sections would expand a template beyond its rendered-output byte limit
+- **THEN** rendering stops with `max_size_exceeded`
+- **AND** no oversized rendered value is passed to content formatting

@@ -1,40 +1,30 @@
 ## Why
 
-Frontmatter-controlled Mustache partials bypass the document-root containment
-rules used by ordinary document loading. A stored template can therefore cause
-rendering to read an underscore-prefixed partial outside the configured
-document root through an absolute, home-expanded, traversal, or symlinked path.
+Document discovery currently limits individual glob expansion, but document bodies, stored content, templates, partials, rendered expansions, and aggregate tool responses can still consume unbounded memory and bandwidth.  An HTTP client or a document author can therefore cause disproportionate work or prevent other clients from receiving service.
 
 ## What Changes
 
-- Resolve frontmatter partial references relative to the rendering template
-  while enforcing canonical containment within the configured document root.
-- Reject absolute and home-anchored partial references and reject any relative
-  reference whose final, extension-resolved target escapes the document root.
-- Preserve valid nested and parent-relative includes that resolve inside the
-  document root, including existing command partial layouts.
-- Prevent unsafe partial references from being read or rendered while allowing
-  the containing template and other valid partials to render normally.
-- Add regression coverage for traversal, absolute, home-anchored, and symlink
-  escape attempts, as well as in-root relative partial resolution.
+- Add finite, server-configurable defaults for the number of documents and the bytes of content that one content request may read, render, and return.
+- Reject filesystem and SQLite document additions or reads that exceed the document-byte limit before loading an unbounded body.
+- Add stricter source, partial-input, and rendered-output limits to template processing so Mustache expansion cannot bypass document or response budgets.
+- Enforce a combined document-count limit across a resolved content expression, rather than relying solely on the existing per-glob discovery cap.
+- Apply HTTP-only byte-rate budgets to each request and to the server as a whole. A request that exceeds its own budget returns a size-limit failure; a request that cannot reserve the shared server budget receives a retryable server-busy response.
 
 ## Capabilities
 
 ### New Capabilities
 
-None.
+- `content-serving-limits`: Defines request-wide document-count and response-byte budgets, limit errors, and the configuration surface for bounded content delivery.
 
 ### Modified Capabilities
 
-- `template-rendering`: constrain frontmatter partial loading to canonical
-  targets inside the configured document root.
-- `frontmatter-processing`: validate the `partials` frontmatter field against
-  the safe partial-reference contract.
+- `file-discovery`: Bound the number of documents selected by a complete content request across filesystem and stored-document sources.
+- `document-store`: Reject document additions and content reads that exceed the configured document-size limit.
+- `template-rendering`: Bound template and partial reads, template expansion, and policy-partial rendering.
+- `http-transport`: Apply per-request and server-wide HTTP response byte-rate limits with distinct overload responses.
 
 ## Impact
 
-- Affects template rendering, frontmatter include validation, partial loader
-  APIs, and tests around command/template composition.
-- **BREAKING:** templates whose partial references resolve outside the document
-  root will no longer render that partial.
-- Does not change ordinary document loading or valid in-root relative includes.
+- Affected code: document discovery and SQLite loading, content gathering and formatting, template/partial rendering, and the HTTP transport boundary.
+- Affected behaviour: oversized documents, templates, partials, rendered content, and aggregate responses become deterministic failures instead of being read or rendered without limit; HTTP callers may receive a size-limit or retryable busy response.
+- Configuration: introduces server-owned content and byte-rate limit settings with secure defaults. Stdio retains the hard content limits but does not use HTTP throughput limiting.

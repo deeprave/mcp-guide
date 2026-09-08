@@ -25,3 +25,4 @@ contained within the configured document root.
   canonically-out-of-root partial reference
 - **THEN** the system SHALL reject that reference
 - **AND** it SHALL not allow the reference to cause a host file read
+
