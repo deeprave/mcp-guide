@@ -1,3 +1,7 @@
+---
+cache: long
+---
+
 # Rust Testing Best Practices For Agents
 
 ## Purpose

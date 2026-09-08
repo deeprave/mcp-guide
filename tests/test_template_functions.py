@@ -166,7 +166,7 @@ class TestSafeLambdaWrapper:
         result = await render_template_content("Date: {{#format_date}}%Y-{{invalid_date}}{{/format_date}}", context)
 
         assert result.is_ok()
-        rendered_content, _, _ = result.value
+        rendered_content, _, _, _ = result.value
         assert "[Template Error (" in rendered_content
         assert "not a datetime object" in rendered_content
 
@@ -179,7 +179,7 @@ class TestSafeLambdaWrapper:
         result = await render_template_content("{{#truncate}}-5{{text}}{{/truncate}}", context)
 
         assert result.is_ok()
-        rendered_content, _, _ = result.value
+        rendered_content, _, _, _ = result.value
         assert "[Template Error (" in rendered_content
 
     @pytest.mark.anyio
@@ -191,7 +191,7 @@ class TestSafeLambdaWrapper:
         result = await render_template_content("{{#highlight_code}}py@thon{{code}}{{/highlight_code}}", context)
 
         assert result.is_ok()
-        rendered_content, _, _ = result.value
+        rendered_content, _, _, _ = result.value
         assert "[Template Error (" in rendered_content
 
     def test_full_template_rendering_with_lambdas(self):
@@ -312,7 +312,7 @@ class TestErrorLambda:
         result = await render_template_content(template, ctx)
         assert result.success
         assert result.value is not None
-        rendered_text, _, errors = result.value
+        rendered_text, _, _, errors = result.value
         assert rendered_text == ""
         assert errors == ["missing arg"]
 
@@ -326,7 +326,7 @@ class TestErrorLambda:
         result = await render_template_content(template, ctx, file_path="path/to/_my-command.mustache")
         assert result.success
         assert result.value is not None
-        rendered_text, _, _ = result.value
+        rendered_text, _, _, _ = result.value
         assert rendered_text == "my-command"
 
     @pytest.mark.anyio
@@ -337,7 +337,7 @@ class TestErrorLambda:
         result = await render_template_content("hello", TemplateContext({}))
         assert result.success
         assert result.value is not None
-        _, _, errors = result.value
+        _, _, _, errors = result.value
         assert errors == []
 
 
@@ -410,7 +410,7 @@ class TestCommandLambda:
             result = await render_template_content("{{prompt}}", context)
 
         assert result.is_ok()
-        rendered_content, _, _ = result.value
+        rendered_content, _, _, _ = result.value
         assert rendered_content == "g"
 
     def test_command_defaults_to_uri(self):
@@ -516,7 +516,7 @@ class TestWorkflowContainsLambdas:
         )
 
         assert result.is_ok()
-        rendered_content, _, errors = result.value
+        rendered_content, _, _, errors = result.value
         assert rendered_content == "OK: planning"
         assert errors == []
 
@@ -537,7 +537,7 @@ class TestWorkflowContainsLambdas:
         )
 
         assert result.is_ok()
-        rendered_content, _, errors = result.value
+        rendered_content, _, _, errors = result.value
         assert rendered_content == ""
         assert errors == []
 
@@ -558,7 +558,7 @@ class TestWorkflowContainsLambdas:
         )
 
         assert result.is_ok()
-        rendered_content, _, errors = result.value
+        rendered_content, _, _, errors = result.value
         assert rendered_content == ""
         assert errors == ["Unknown or unavailable workflow phase: planning"]
 
@@ -579,6 +579,6 @@ class TestWorkflowContainsLambdas:
         )
 
         assert result.is_ok()
-        rendered_content, _, errors = result.value
+        rendered_content, _, _, errors = result.value
         assert rendered_content == ""
         assert errors == []

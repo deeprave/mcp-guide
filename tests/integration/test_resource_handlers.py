@@ -41,6 +41,18 @@ async def test_command_resource_preserves_query_aliases_and_failure(resource_pro
 
 
 @pytest.mark.anyio
+async def test_document_resource_exposes_cache_metadata_but_command_resource_does_not(resource_project):
+    """Only non-command Guide resources expose a document cache policy."""
+    resource_project.resolve_document_path("docs/readme.md").write_text("---\ncache: long\n---\ndocs content")
+
+    document = await guide_resource.__wrapped__("docs", "readme", request_context=resource_project, request_uri=None)
+    command = await guide_command_resource.__wrapped__("project", request_context=resource_project, request_uri=None)
+
+    assert document.meta == {"mcp-guide": {"cache": {"ttl_ms": 86_400_000, "scope": "public"}}}
+    assert command.meta is None
+
+
+@pytest.mark.anyio
 @pytest.mark.parametrize(
     "exception,expected",
     [

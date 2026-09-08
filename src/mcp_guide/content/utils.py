@@ -9,7 +9,8 @@ from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.discovery.files import FileInfo
 from mcp_guide.lazy_path import LazyPath
 from mcp_guide.models.exceptions import CategoryNotFoundError, NoProjectError
-from mcp_guide.render import render_template
+from mcp_guide.render import FM_REQUIRES_PREFIX, render_template
+from mcp_guide.render.cache_policy import CachePolicy
 from mcp_guide.render.context import TemplateContext
 from mcp_guide.render.frontmatter import (
     get_frontmatter_type,
@@ -110,6 +111,25 @@ def resolve_content_disposition(files: list[FileInfo]) -> str:
     )
 
 
+def resolve_content_cache_policy(files: Iterable[FileInfo]) -> CachePolicy:
+    """Resolve the restrictive policy across rendered document files."""
+    return CachePolicy.combine(
+        file_info.cache_policy
+        if file_info.cache_policy is not None
+        else CachePolicy.parse(file_info.frontmatter.get("cache") if file_info.frontmatter else None)
+        for file_info in files
+    )
+
+
+def resolve_file_cache_policy(file_info: FileInfo) -> tuple[CachePolicy, str | None]:
+    """Resolve a document policy, defaulting ordinary Markdown to long/public."""
+    frontmatter = file_info.frontmatter
+    has_requirements = bool(frontmatter and any(key.startswith(FM_REQUIRES_PREFIX) for key in frontmatter))
+    if str(file_info.path).endswith(".md") and not has_requirements and (not frontmatter or "cache" not in frontmatter):
+        return CachePolicy.long_public(), None
+    return CachePolicy.parse_with_diagnostic(frontmatter.get("cache") if frontmatter else None)
+
+
 def prepend_export_frontmatter(
     content: Optional[str], disposition: Optional[str], instruction: Optional[str]
 ) -> Optional[str]:
@@ -182,7 +202,7 @@ async def _gather_policy_partials(
     file_info: FileInfo,
     template_context: TemplateContext,
     project_flags: dict[str, Any],
-) -> dict[str, str]:
+) -> tuple[dict[str, str], dict[str, list[dict[str, Any]]], dict[str, list[CachePolicy]]]:
     """Pre-render policy partials for a template that declares a `policies:` frontmatter key.
 
     For each topic declared in `policies:`, discovers matching documents from the `policies`
@@ -193,8 +213,9 @@ async def _gather_policy_partials(
     `template_context` is used only as the parent context for `new_child()` when building
     per-policy-file render context. Session state is supplied explicitly.
 
-    Returns an empty dict when the template has no `policies:` key, or when no active
-    session or project is available.
+    Returns rendered partial text, frontmatter, and resolved cache policies grouped by
+    topic. All mappings are empty when the template has no `policies:` key, or when no
+    active session or project is available.
     """
     # Deferred import to avoid circular dependency (content.gathering imports content.utils)
     from mcp_guide.content.gathering import gather_category_fileinfos
@@ -205,13 +226,13 @@ async def _gather_policy_partials(
     try:
         raw = await file_info.read_raw()
     except (OSError, FileNotFoundError):
-        return {}
+        return {}, {}, {}
 
     parsed = parse_content_with_frontmatter(raw)
     policy_topics = parsed.frontmatter.get("policies")
     if not policy_topics or not isinstance(policy_topics, list):
         logger.trace("_gather_policy_partials: no 'policies:' key in %r", file_info.name)
-        return {}
+        return {}, {}, {}
 
     logger.trace("_gather_policy_partials: %r declares topics %s", file_info.name, policy_topics)
 
@@ -219,15 +240,15 @@ async def _gather_policy_partials(
         project = await session.get_project()
     except NoProjectError:
         logger.trace("_gather_policy_partials: no active project — skipping")
-        return {}
+        return {}, {}, {}
     if project is None:
         logger.trace("_gather_policy_partials: no active project — skipping")
-        return {}
+        return {}, {}, {}
 
     policies_category = project.categories.get("policies")
     if policies_category is None:
         logger.trace("_gather_policy_partials: project has no 'policies' category — skipping")
-        return {}
+        return {}, {}, {}
 
     policy_base_dir = request_context.resolve_document_path(policies_category.dir)
     logger.trace(
@@ -235,6 +256,8 @@ async def _gather_policy_partials(
     )
 
     pre_partials: dict[str, str] = {}
+    pre_partial_frontmatter: dict[str, list[dict[str, Any]]] = {}
+    pre_partial_cache_policies: dict[str, list[CachePolicy]] = {}
 
     for topic in policy_topics:
         if not isinstance(topic, str):
@@ -251,9 +274,12 @@ async def _gather_policy_partials(
         if not policy_files:
             logger.trace("_gather_policy_partials: topic=%r — no files found, using placeholder", topic)
             pre_partials[topic] = await render_missing_policy(request_context, topic)
+            pre_partial_cache_policies[topic] = [CachePolicy.no_cache()]
             continue
 
         rendered_parts: list[str] = []
+        rendered_frontmatter: list[dict[str, Any]] = []
+        rendered_cache_policies: list[CachePolicy] = []
         for policy_file in policy_files:
             relative_policy = (
                 Path(policies_category.dir) / policy_file.path
@@ -282,6 +308,8 @@ async def _gather_policy_partials(
                         "_gather_policy_partials: rendered %s (%d chars)", policy_file.path, len(rendered.content)
                     )
                     rendered_parts.append(rendered.content)
+                    rendered_frontmatter.append(dict(rendered.frontmatter))
+                    rendered_cache_policies.append(rendered.cache_policy)
                 else:
                     logger.trace(
                         "_gather_policy_partials: %s rendered None (filtered by requirements?)", policy_file.path
@@ -292,9 +320,12 @@ async def _gather_policy_partials(
         pre_partials[topic] = (
             "\n\n".join(rendered_parts) if rendered_parts else await render_missing_policy(request_context, topic)
         )
+        if rendered_frontmatter:
+            pre_partial_frontmatter[topic] = rendered_frontmatter
+        pre_partial_cache_policies[topic] = rendered_cache_policies or [CachePolicy.no_cache()]
         logger.trace("_gather_policy_partials: topic=%r → %d chars", topic, len(pre_partials[topic]))
 
-    return pre_partials
+    return pre_partials, pre_partial_frontmatter, pre_partial_cache_policies
 
 
 async def render_missing_policy(request_context: "RequestContext", topic: str) -> str:
@@ -413,7 +444,7 @@ async def read_and_render_file_contents(
 
                 try:
                     # Pre-render any policy partials declared in the template's frontmatter
-                    pre_partials = await _gather_policy_partials(
+                    pre_partials, pre_partial_frontmatter, pre_partial_cache_policies = await _gather_policy_partials(
                         request_context, file_info, template_context, requirements_context
                     )
                     # Use the render_template API (handles parsing and requirements checking)
@@ -424,6 +455,8 @@ async def read_and_render_file_contents(
                         project_flags=requirements_context,
                         context=template_context,
                         pre_partials=pre_partials or None,
+                        pre_partial_frontmatter=pre_partial_frontmatter or None,
+                        pre_partial_cache_policies=pre_partial_cache_policies or None,
                     )
                 except Exception as e:
                     # Template rendering raised an exception - log with full context
@@ -439,6 +472,7 @@ async def read_and_render_file_contents(
                 # Extract rendered content and frontmatter
                 file_info.content = rendered.content
                 file_info.frontmatter = rendered.frontmatter
+                file_info.cache_policy = rendered.cache_policy
             else:
                 # Non-template files: use process_file
                 try:
@@ -456,6 +490,9 @@ async def read_and_render_file_contents(
 
                 file_info.content = processed.content
                 file_info.frontmatter = processed.frontmatter or file_info.frontmatter
+                file_info.cache_policy, diagnostic = resolve_file_cache_policy(file_info)
+                if diagnostic:
+                    logger.warning("%s in %s", diagnostic, file_info.path)
 
             # Update content_size to reflect the final content size after all processing
             content = file_info.content or ""

@@ -1,14 +1,14 @@
 ## Why
 
-Guide currently emits guessed cache hints through non-standard `_meta` fields on every adapted response.  That neither identifies which content is safe to cache nor lets hosted-document authors override the decision, despite some rendered content and deterministic responses being cacheable.
+Guide previously emitted guessed cache hints through non-standard `_meta` fields, but a separate change removed them.  Guide currently has no response cache-policy output.  Hosted-document authors therefore have no explicit way to declare content that is safe to cache, despite some rendered content and deterministic responses being cacheable.
 
 ## What Changes
 
-- Remove the generic, non-standard `io.modelcontextprotocol/cache-*` `_meta` fields from response adaptation.
-- Add an explicit `cache` frontmatter setting for hosted documents, with a safe no-cache default and validated scope and lifetime when authors opt in.
+- Add an explicit, concise `cache` frontmatter setting for hosted documents, with a safe no-cache default for rendered and non-Markdown content; ordinary Markdown defaults to a validated long/shared policy because it is delivered verbatim.
 - Resolve one cache policy for each delivered content result, including composed and templated content, using the declared policy rather than heuristics about templating or response type.
-- Expose the resolved policy in Guide-namespaced result metadata; map it to the MCP protocol's native cache fields for resource responses when the installed FastMCP public API supports them.
-- Require non-document tools that opt in to caching to declare their policy explicitly, rather than inheriting a global adapter guess.
+- Expose the resolved policy in Guide-namespaced result metadata; map it to MCP-native resource cache fields only when a future installed FastMCP public API supports them.
+- Keep commands, prompts, command URIs, and non-document tools opted out of cache-policy delivery.
+- Audit every bundled template under `src/mcp_guide/templates` and add cache frontmatter to each cacheable non-command document.
 
 ## Capabilities
 
@@ -23,5 +23,5 @@ Guide currently emits guessed cache hints through non-standard `_meta` fields on
 ## Impact
 
 - Affects frontmatter parsing and rendered-content composition, `Result`/response metadata, `get_content`, `read_resource`, native `guide://` resources, and FastMCP response adaptation.
-- Changes the external cache metadata contract: the existing undocumented `io.modelcontextprotocol/cache-ttl-ms` and `io.modelcontextprotocol/cache-scope` `_meta` entries are removed.  Cache information becomes explicit, namespaced Guide metadata, with native protocol fields used only where supported by the installed SDK.
-- Requires focused tests for default-deny behaviour, invalid frontmatter, composition, templated documents, tool opt-in, and resource delivery.
+- Adds an explicit cache-policy contract without restoring the previously removed undocumented `io.modelcontextprotocol/cache-*` entries.  Cache information becomes namespaced Guide metadata, with native protocol fields used only where supported by the installed SDK.
+- Requires focused tests for default-deny behaviour, symbolic frontmatter, composition, templated documents, bundled-template coverage, and resource delivery.

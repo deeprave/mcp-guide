@@ -13,6 +13,7 @@ from mcp_guide.content.utils import _gather_policy_partials, render_missing_poli
 from mcp_guide.discovery.files import FileInfo
 from mcp_guide.models import Category, Collection, Project
 from mcp_guide.models.exceptions import NoProjectError
+from mcp_guide.render.cache_policy import CachePolicy
 from mcp_guide.render.context import TemplateContext
 from mcp_guide.result_constants import INSTRUCTION_MISSING_POLICY
 from mcp_guide.runtime import RequestContext
@@ -240,7 +241,7 @@ async def test_gather_policy_partials_no_policies_key_returns_empty(tmp_path):
     result = await _gather_policy_partials(
         await _request_context(tmp_path, _MockSession(str(tmp_path))), file_info, TemplateContext({}), {}
     )
-    assert result == {}
+    assert result == ({}, {}, {})
 
 
 @pytest.mark.anyio
@@ -260,7 +261,7 @@ async def test_gather_policy_partials_unbound_session_returns_empty(tmp_path):
     result = await _gather_policy_partials(
         await _request_context(tmp_path, _MockSession(str(tmp_path))), file_info, TemplateContext({}), {}
     )
-    assert result == {}
+    assert result == ({}, {}, {})
 
 
 @pytest.mark.anyio
@@ -288,9 +289,12 @@ async def test_gather_policy_partials_no_match_returns_placeholder(tmp_path, mon
         await _request_context(tmp_path, session), file_info, TemplateContext({}), {}
     )
 
-    assert "git/ops" in result
-    assert INSTRUCTION_MISSING_POLICY in result["git/ops"]
-    assert "git/ops" in result["git/ops"]
+    partials, frontmatter, cache_policies = result
+    assert "git/ops" in partials
+    assert INSTRUCTION_MISSING_POLICY in partials["git/ops"]
+    assert "git/ops" in partials["git/ops"]
+    assert frontmatter == {}
+    assert cache_policies == {"git/ops": [CachePolicy.no_cache()]}
 
 
 @pytest.mark.anyio
@@ -330,4 +334,7 @@ async def test_gather_policy_partials_matching_topic_renders_content(runtime, tm
     await session.update_config(lambda current: replace(current, categories=project.categories))
     result = await _gather_policy_partials(await request_context_for(session), file_info, TemplateContext({}), {})
 
-    assert result == {"git/ops": "Use conservative git ops."}
+    partials, frontmatter, cache_policies = result
+    assert partials == {"git/ops": "Use conservative git ops."}
+    assert frontmatter == {"git/ops": [{"type": "agent/instruction"}]}
+    assert cache_policies["git/ops"] == [CachePolicy.long_public()]

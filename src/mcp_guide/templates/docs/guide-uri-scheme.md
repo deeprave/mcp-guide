@@ -1,3 +1,7 @@
+---
+cache: long
+---
+
 {{h1}}Guide URI Scheme
 
 The `guide://` URI scheme provides MCP resource access to guide content.

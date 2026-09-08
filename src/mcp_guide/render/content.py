@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from mcp_guide.core.mcp_log import get_logger
+from mcp_guide.render.cache_policy import CachePolicy
 from mcp_guide.render.frontmatter import Content, resolve_instruction
 from mcp_guide.result_constants import AGENT_INSTRUCTION
 
@@ -18,6 +19,7 @@ FM_CATEGORY = "category"
 FM_USAGE = "usage"
 FM_ALIASES = "aliases"
 FM_INCLUDES = "includes"
+FM_CACHE = "cache"
 
 
 @dataclass
@@ -34,6 +36,7 @@ class RenderedContent(Content):
     template_path: Path
     template_name: str
     partial_frontmatter: list[dict[str, Any]] = field(default_factory=list)
+    partial_cache_policies: list[CachePolicy] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
 
     @property
@@ -89,6 +92,17 @@ class RenderedContent(Content):
     def aliases(self) -> Optional[list[str]]:
         """Get command aliases from frontmatter."""
         return self.frontmatter.get_list(FM_ALIASES)
+
+    @property
+    def cache_policy(self) -> CachePolicy:
+        """Resolve the restrictive cache policy for this rendered document."""
+        if str(self.template_path).endswith(".md") and FM_CACHE not in self.frontmatter:
+            parent_policy = CachePolicy.long_public()
+        else:
+            parent_policy, diagnostic = CachePolicy.parse_with_diagnostic(self.frontmatter.get(FM_CACHE))
+            if diagnostic:
+                logger.warning("%s in %s", diagnostic, self.template_path)
+        return CachePolicy.combine((parent_policy, *self.partial_cache_policies))
 
     def log_discarded_errors(self, source: str) -> None:
         """Log and acknowledge any template errors that won't be surfaced to the client."""

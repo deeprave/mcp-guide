@@ -10,11 +10,12 @@ import pytest
 from mcp_guide.content.formatters.mime import MimeFormatter
 from mcp_guide.discovery.files import FileInfo
 from mcp_guide.models.project import Category
+from mcp_guide.render.cache_policy import CachePolicy
 
 
-def document(path, content):
+def document(path, content, cache: str | None = None):
     # Stale source sizes must never leak into final rendered Content-Length.
-    return FileInfo(
+    file_info = FileInfo(
         path=Path(path),
         name=Path(path).name,
         size=200,
@@ -23,6 +24,8 @@ def document(path, content):
         content=content,
         category=Category(dir="docs", patterns=["*"], name="docs"),
     )
+    file_info.cache_policy = CachePolicy.parse(cache)
+    return file_info
 
 
 @pytest.mark.anyio
@@ -47,6 +50,7 @@ async def test_single_file_headers_and_exact_content(tmp_path, path, content, co
         f"Content-Type: {content_type}",
         f"Content-Location: guide://docs/{path}",
         f"Content-Length: {len(content.encode('utf-8'))}",
+        "Cache-Control: no-cache",
     ]
     assert payload == content
 
@@ -70,5 +74,16 @@ async def test_multipart_headers_framing_and_content(tmp_path):
         assert part.get_content_type() == content_type
         assert part["Content-Location"] == f"guide://docs/{file.path.as_posix()}"
         assert int(part["Content-Length"]) == len(content.encode("utf-8"))
+        assert part["Cache-Control"] == "no-cache"
         assert part.get_payload() == content
         assert f"--{boundary}\r\nContent-Type: {content_type}\r\n" in result
+
+
+@pytest.mark.anyio
+async def test_multipart_headers_preserve_each_documents_cache_policy(tmp_path):
+    files = [document("public.md", "Public", "long"), document("dynamic.md", "Dynamic")]
+
+    result = await MimeFormatter().format(files, tmp_path.joinpath)
+    parts = list(Parser(policy=policy.default).parsestr(result).iter_parts())
+
+    assert [part["Cache-Control"] for part in parts] == ["public, max-age=86400", "no-cache"]

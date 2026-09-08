@@ -51,10 +51,20 @@ Common frontmatter fields:
 - **instruction**: Custom instruction for agents (rendered as template)
 - **requires-***: Conditional requirements (e.g., `requires-workflow: true`)
 - **includes**: List of partial templates to include
+- **cache**: Explicit response-cache policy (`long`, `medium`, `short`, optionally `public`, `private`, or `shared`)
 -
 > **Note**:
 
 All frontmatter keys are case-insensitive and normalized to lowercase.
+
+Cache declarations are conservative. `none`, `no-cache`, and malformed values disable
+caching; malformed values are logged as content-author diagnostics. Ordinary non-template
+Markdown without `cache` defaults to long/public, while rendered content omits caching
+unless it declares a policy. `shared` is an alias for public.
+`long`, `medium`, and `short` map to 24 hours, 15 minutes, and 2 minutes. A policy
+without a scope is public. Partial rendering combines policies using no-cache first,
+then the shortest TTL and private scope. Template interpolation alone does not require
+private scope; use it when the rendered output varies by project or feature state.
 
 ## Rendering Templates
 
