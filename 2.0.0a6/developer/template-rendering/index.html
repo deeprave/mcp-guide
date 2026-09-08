@@ -1009,10 +1009,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#includes-list-of-partial-templates-to-include" class="md-nav__link">
+  <a href="#cache-explicit-response-cache-policy-long-medium-short-optionally-public-private-or-shared" class="md-nav__link">
     <span class="md-ellipsis">
       
-        includes: List of partial templates to include
+        cache: Explicit response-cache policy (long, medium, short, optionally public, private, or shared)
       
     </span>
   </a>
@@ -1256,10 +1256,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#includes-list-of-partial-templates-to-include" class="md-nav__link">
+  <a href="#cache-explicit-response-cache-policy-long-medium-short-optionally-public-private-or-shared" class="md-nav__link">
     <span class="md-ellipsis">
       
-        includes: List of partial templates to include
+        cache: Explicit response-cache policy (long, medium, short, optionally public, private, or shared)
       
     </span>
   </a>
@@ -1486,14 +1486,23 @@ and add text between each item
 <li><strong>description</strong>: Brief description (rendered as template)</li>
 <li><strong>instruction</strong>: Custom instruction for agents (rendered as template)</li>
 <li><strong>requires-</strong>*: Conditional requirements (e.g., <code>requires-workflow: true</code>)</li>
+<li><strong>includes</strong>: List of partial templates to include</li>
 <li>
-<h2 id="includes-list-of-partial-templates-to-include"><strong>includes</strong>: List of partial templates to include<a class="headerlink" href="#includes-list-of-partial-templates-to-include" title="Permanent link">&para;</a></h2>
+<h2 id="cache-explicit-response-cache-policy-long-medium-short-optionally-public-private-or-shared"><strong>cache</strong>: Explicit response-cache policy (<code>long</code>, <code>medium</code>, <code>short</code>, optionally <code>public</code>, <code>private</code>, or <code>shared</code>)<a class="headerlink" href="#cache-explicit-response-cache-policy-long-medium-short-optionally-public-private-or-shared" title="Permanent link">&para;</a></h2>
 <blockquote>
 <p><strong>Note</strong>:</p>
 </blockquote>
 </li>
 </ul>
 <p>All frontmatter keys are case-insensitive and normalized to lowercase.</p>
+<p>Cache declarations are conservative. <code>none</code>, <code>no-cache</code>, and malformed values disable
+caching; malformed values are logged as content-author diagnostics. Ordinary non-template
+Markdown without <code>cache</code> defaults to long/public, while rendered content omits caching
+unless it declares a policy. <code>shared</code> is an alias for public.
+<code>long</code>, <code>medium</code>, and <code>short</code> map to 24 hours, 15 minutes, and 2 minutes. A policy
+without a scope is public. Partial rendering combines policies using no-cache first,
+then the shortest TTL and private scope. Template interpolation alone does not require
+private scope; use it when the rendered output varies by project or feature state.</p>
 <h2 id="rendering-templates">Rendering Templates<a class="headerlink" href="#rendering-templates" title="Permanent link">&para;</a></h2>
 <h3 id="render_template">render_template()<a class="headerlink" href="#render_template" title="Permanent link">&para;</a></h3>
 <p>Use <code>render_template()</code> for complete template rendering with partials support:</p>

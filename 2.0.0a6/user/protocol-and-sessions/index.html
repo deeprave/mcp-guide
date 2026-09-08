@@ -453,6 +453,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#document-cache-metadata" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Document cache metadata
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#client-migration" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1108,6 +1119,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#document-cache-metadata" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Document cache metadata
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#client-migration" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1218,6 +1240,17 @@ metadata namespace nor its <code>instructions</code> key.</p>
 <p>This is a compatibility-preserving response representation change. Clients using the
 modern protocol should inspect the response <code>_meta</code> block as well as structured
 content.</p>
+<h2 id="document-cache-metadata">Document cache metadata<a class="headerlink" href="#document-cache-metadata" title="Permanent link">&para;</a></h2>
+<p>When a document resolves to a cache policy, <code>get_content</code>, category-content
+retrieval, and non-command <code>guide://</code> resources include it in response metadata as
+<code>_meta["mcp-guide"]["cache"]</code>, with <code>ttl_ms</code> and <code>scope</code> fields. This is Guide's
+explicit document-cache contract; it does not restore the former undocumented
+<code>io.modelcontextprotocol/cache-*</code> metadata keys. Commands, prompts, and other tools
+currently do not emit cache metadata, though a future operation may explicitly opt
+in with its own resolved policy.</p>
+<p>For MIME-formatted multi-document content, each MIME part also carries a standard
+<code>Cache-Control</code> header based on that file's own policy. This remains useful when the
+overall response is no-cache because another contributing document is undeclared.</p>
 <h2 id="client-migration">Client migration<a class="headerlink" href="#client-migration" title="Permanent link">&para;</a></h2>
 <p>Existing retained clients continue to use their FastMCP connection identity. They do
 not need to replay an identifier returned by Guide.</p>

@@ -531,6 +531,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#document-cache-policies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Document cache policies
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1208,6 +1219,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#document-cache-policies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Document cache policies
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1396,12 +1418,36 @@ Your content here...
 <td><code>instruction</code></td>
 <td>Specific directive for the agent (not always required)</td>
 </tr>
+<tr>
+<td><code>cache</code></td>
+<td>Optional response-cache policy for document content</td>
+</tr>
 </tbody>
 </table>
 <p>Other metadata keys are used for specific purposes: <code>tags</code>, <code>title</code>, <code>requires-&lt;feature-flag&gt;</code>, <code>includes</code> (for partial templates). Commands use additional keys like <code>category</code>, <code>aliases</code>, <code>usage</code>, and <code>examples</code>.</p>
 <p><strong>Note on using <code>instruction</code></strong>: A default instruction is automatically applied based on the value in its <code>type</code>.
 This means that <code>instruction</code> should only be used to vary that in some way, or add additional instruction.
 If the document has <code>type: agent/instruction</code> (and most are), the document's content is read as an instruction and can contain the additional context there.</p>
+<h3 id="document-cache-policies">Document cache policies<a class="headerlink" href="#document-cache-policies" title="Permanent link">&para;</a></h3>
+<p>Ordinary non-template Markdown defaults to <code>long, public</code> because Guide delivers its
+exact document content. Other documents are not cacheable unless they explicitly declare
+<code>cache</code>. Use <code>long</code> for content that changes rarely (24 hours), <code>medium</code> for content likely to change with
+project settings (15 minutes), or <code>short</code> for safely reusable dynamic content (2
+minutes). Scope is <code>public</code> by default; add <code>private</code> for output that depends on
+feature flags, project settings, or conditional <code>requires-*</code> rendering.</p>
+<div class="codehilite"><pre><span></span><code><span class="nt">cache</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">long</span>
+<span class="nt">cache</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">medium, private</span>
+<span class="nt">cache</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">public</span><span class="w">             </span><span class="c1"># equivalent to medium, public</span>
+<span class="nt">cache</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">shared</span><span class="w">             </span><span class="c1"># alias for public</span>
+<span class="nt">cache</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">no-cache</span>
+</code></pre></div>
+
+<p>When a document renders partials, every rendered part participates: an omitted or
+<code>no-cache</code> rendered-template policy disables caching for the combined response; otherwise the shortest
+TTL and the most restrictive scope win. Commands and prompts do not expose document
+cache policies. When the content format is MIME, each document part also carries its
+own standard <code>Cache-Control</code> header, so mixed-policy responses remain individually
+cacheable where appropriate.</p>
 <h2 id="document-types">Document Types<a class="headerlink" href="#document-types" title="Permanent link">&para;</a></h2>
 <p>The <code>type</code> metadata key determines how content is used:</p>
 <table>
