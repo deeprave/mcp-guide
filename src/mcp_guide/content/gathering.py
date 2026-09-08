@@ -194,7 +194,6 @@ async def gather_content(
                 seen_paths.add(absolute_path)
                 unique_files.append(file)
 
-    ensure_within_limit(len(unique_files), limit_name="max-document-limit", limit=limits.max_document_limit)
     for file_info in unique_files:
         ensure_within_limit(file_info.size, limit_name="max-content-limit", limit=limits.max_content_limit)
 

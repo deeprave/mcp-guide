@@ -7,8 +7,9 @@ requests can also overwhelm one server process before normal MCP handling.
 
 - Add static, global operator configuration for a 500 MB default content limit
   and 100-document request limit.
-- Apply those limits before filesystem or stored bodies are materialised, while
-  rendering templates and partials, and to final document responses.
+- Preflight static filesystem and stored-document sources, then apply the
+  aggregate content limit to retained non-empty rendered documents; bound each
+  template or partial render and final document response.
 - Add HTTP-only inbound request admission: 5 requests/second per established
   session and 100 requests/second per server process, measured over 15 seconds.
 - Return HTTP 429 for a session limit and 503 for exhausted service capacity,

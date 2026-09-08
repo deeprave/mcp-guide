@@ -7,8 +7,8 @@ The system SHALL check a template or partial source byte size against the global
 template before document formatting.
 
 Policy-partial discovery and rendering SHALL receive the active global limits.
-The server SHALL bound the aggregate rendered policy content before joining it
-for the parent template.
+The server SHALL bound aggregate rendered policy content before joining it for
+the parent template.
 
 #### Scenario: Oversized template source is rejected
 - **WHEN** a selected template exceeds `max-content-limit`

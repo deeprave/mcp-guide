@@ -56,22 +56,25 @@ async def test_invalid_template_context_removes_file_with_validation_error(conte
 
 
 @pytest.mark.anyio
-async def test_batch_budget_counts_static_source_bytes_not_rendered_template_size(content_context, tmp_path):
-    """The aggregate budget bounds static document inputs, not template expansion."""
-    template = tmp_path / "expanded.mustache"
-    template.write_text("{{value}}")
-    files = [file_info(template)]
-    budget = ContentBudget(20)
+async def test_batch_budget_counts_only_retained_rendered_content(content_context, tmp_path):
+    """Filtered sources do not consume the aggregate content budget."""
+    filtered = tmp_path / "filtered.md"
+    filtered.write_text("---\nrequires-feature: true\n---\n" + "x" * 60)
+    retained = tmp_path / "retained.md"
+    retained.write_text("ok")
+    files = [file_info(filtered), file_info(retained)]
+    budget = ContentBudget(2)
 
     errors = await read_and_render_file_contents(
         content_context,
         files,
         tmp_path,
-        TemplateContext({"value": "x" * 60}),
+        TemplateContext({}),
         max_content_limit=100,
         content_budget=budget,
     )
 
     assert errors == []
-    assert files[0].content == "x" * 60
-    assert budget.remaining == 20 - template.stat().st_size
+    assert [file.name for file in files] == ["retained.md"]
+    assert files[0].content == "ok"
+    assert budget.remaining == 0

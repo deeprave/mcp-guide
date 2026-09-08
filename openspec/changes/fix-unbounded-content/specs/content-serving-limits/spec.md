@@ -17,21 +17,28 @@ client or project setting, or changed until process restart.
 ### Requirement: Bounded document delivery
 
 `get_content`, category content, and non-command `guide://` document delivery
-SHALL reject a response selecting more documents than the configured maximum or
-whose source, rendered body, or final serialised response exceeds the configured
-content maximum. Failures SHALL use `max_size_exceeded` and SHALL not return a
-partial body.
+SHALL reject a response containing more documents than the configured maximum,
+whose source or rendered template exceeds the configured content maximum, or
+whose final serialised response exceeds that maximum. Failures SHALL use
+`max_size_exceeded` and SHALL not return a partial body.
 
-The server SHALL reserve one aggregate UTF-8 byte budget while retaining selected
-rendered documents and while adding formatter framing, delimiters, and content.
-It SHALL reject an overflowing addition before constructing the final serialised
-response.
+The server SHALL reserve one aggregate UTF-8 byte budget only for retained,
+non-empty rendered document content. A document filtered by requirements or
+rendering as empty SHALL not consume that budget or count toward the document
+maximum. The formatter SHALL reject an overflowing framing, delimiter, or content
+addition before constructing the final serialised response.
 
 #### Scenario: A document response exceeds its limit
 - **WHEN** a document body or its final formatted response exceeds `max-content-limit`
 - **THEN** delivery fails with `max_size_exceeded` without a partial response
 
-#### Scenario: Multiple individually valid documents exceed the aggregate limit
-- **WHEN** selected documents are individually within the source limit but their
-  rendered content and formatter framing exceed `max-content-limit` together
-- **THEN** delivery fails before constructing the aggregate response
+#### Scenario: Multiple retained documents exceed the aggregate content budget
+- **WHEN** individually valid rendered documents consume more than
+  `max-content-limit` together
+- **THEN** delivery fails before retaining a document that would overflow the
+  aggregate content budget
+
+#### Scenario: Filtered or empty documents do not count
+- **WHEN** a selected document is filtered by requirements or renders as empty
+- **THEN** it does not consume aggregate content budget or count toward the
+  document maximum

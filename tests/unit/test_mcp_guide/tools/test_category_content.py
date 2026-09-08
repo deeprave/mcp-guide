@@ -132,6 +132,35 @@ async def test_tool_returns_result_ok_on_success(tmp_path, monkeypatch):
 
 
 @pytest.mark.anyio
+async def test_category_content_counts_only_retained_documents(tmp_path, monkeypatch):
+    """Requirement-filtered documents do not consume the final document limit."""
+    from mcp_guide.content_limits import ContentLimits
+    from mcp_guide.models import Category, Project
+    from mcp_guide.tools.tool_category import CategoryContentArgs, internal_category_content
+
+    (tmp_path / "filtered.md").write_text("---\nrequires-feature: true\n---\nHidden")
+    (tmp_path / "retained.md").write_text("Visible")
+    project = Project(
+        name="test",
+        categories={"docs": Category(dir=".", name="docs", patterns=["*.md"])},
+        collections={},
+    )
+
+    async def get_limits():
+        return ContentLimits(max_document_limit=1)
+
+    monkeypatch.setattr("mcp_guide.tools.tool_category.get_content_limits", get_limits)
+
+    result = await internal_category_content(
+        CategoryContentArgs(expression="docs"), create_request_context(project, tmp_path)
+    )
+
+    assert result.success is True
+    assert "Visible" in result.value
+    assert "Hidden" not in result.value
+
+
+@pytest.mark.anyio
 async def test_category_not_found_returns_failure(tmp_path, monkeypatch):
     """Test that category not found returns Result.failure()."""
     from mcp_guide.models import Project

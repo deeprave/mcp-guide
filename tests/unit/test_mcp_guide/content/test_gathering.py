@@ -95,17 +95,18 @@ async def test_underscore_components_exclude_files_but_not_stored_documents(tmp_
 
 
 @pytest.mark.anyio
-async def test_gather_content_rejects_combined_document_limit(tmp_path):
+async def test_gather_content_defers_document_limit_until_content_is_retained(tmp_path):
     docs = tmp_path / "docs"
     docs.mkdir()
     (docs / "first.md").write_text("first")
     (docs / "second.md").write_text("second")
     project = Project(name="test", categories={"docs": Category(dir="docs", name="docs", patterns=["*.md"])})
 
-    with pytest.raises(ContentLimitExceeded, match="max-document-limit"):
-        await gather_content(
-            await _request_context(tmp_path), project, "docs", limits=ContentLimits(max_document_limit=1)
-        )
+    result = await gather_content(
+        await _request_context(tmp_path), project, "docs", limits=ContentLimits(max_document_limit=1)
+    )
+
+    assert len(result) == 2
 
 
 # --- Tests for sub-path filtering via trailing slash ---
