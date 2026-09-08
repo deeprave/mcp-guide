@@ -563,7 +563,7 @@ async def internal_category_content(
 
         # Delegate to gather_content for file gathering and deduplication
         limits = await get_content_limits()
-        files = await gather_content(request_context, project, expression)
+        files = await gather_content(request_context, project, expression, limits=limits)
 
         # Check for no matches
         if not files:
@@ -587,7 +587,7 @@ async def internal_category_content(
         # Read content for each category group
         final_files: list[FileInfo] = []
         file_read_errors: list[str] = []
-        response_budget = ContentBudget(limits.max_content_limit)
+        source_budget = ContentBudget(limits.max_content_limit)
 
         for category_name, category_files in files_by_category.items():
             category = project.categories.get(category_name)
@@ -603,7 +603,7 @@ async def internal_category_content(
                 category_dir,
                 template_context,
                 category_prefix=category_name,
-                content_budget=response_budget,
+                content_budget=source_budget,
             )
             file_read_errors.extend(errors)
             final_files.extend(category_files)

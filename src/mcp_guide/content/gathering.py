@@ -94,6 +94,7 @@ async def gather_content(
         project: Project configuration
         expression: User expression to process
         visited_collections: Set of collection names already visited (for circular reference prevention)
+        limits: Static server content-limit configuration snapshot
 
     Returns:
         List of FileInfo objects from all matched categories/collections

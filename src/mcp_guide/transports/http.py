@@ -41,6 +41,7 @@ class HttpTransport:
             path_prefix: Optional path prefix (e.g., 'v1' for /v1/mcp endpoint)
             log_level: Log level for uvicorn
             log_json: Whether to use JSON logging
+            content_limits: Static server capacity limits for HTTP request admission
         """
         self.scheme = scheme
         self.host = host or "localhost"

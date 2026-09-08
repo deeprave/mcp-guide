@@ -29,7 +29,7 @@ def ensure_within_limit(size: int, *, limit_name: str, limit: int) -> None:
 
 
 class ContentBudget:
-    """Accumulate UTF-8 text without exceeding one response budget."""
+    """Track bytes within one bounded operation."""
 
     def __init__(self, limit: int) -> None:
         self.limit = limit
@@ -40,9 +40,14 @@ class ContentBudget:
         self.add_size(len(content.encode("utf-8")))
 
     def add_size(self, size: int) -> None:
-        """Reserve a known byte size before retaining or serialising it."""
+        """Reserve a known byte size."""
         ensure_within_limit(self.used + size, limit_name="max-content-limit", limit=self.limit)
         self.used += size
+
+    @property
+    def remaining(self) -> int:
+        """Return the remaining byte capacity."""
+        return self.limit - self.used
 
 
 class BoundedTextAccumulator:

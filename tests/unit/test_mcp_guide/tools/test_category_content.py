@@ -231,8 +231,9 @@ async def test_file_read_error_scenarios(tmp_path, monkeypatch, scenario, patter
         for pattern in patterns
     ]
 
-    async def mock_gather_content(request_context, project, expression):
+    async def mock_gather_content(request_context, project, expression, *, limits):
         assert expression == "docs"
+        assert limits.max_content_limit == 500_000_000
         return file_infos
 
     async def mock_get_template_context_if_needed(session, category_files, category_name):

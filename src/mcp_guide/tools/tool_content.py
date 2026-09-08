@@ -173,7 +173,7 @@ async def internal_get_content(
         expression = _build_expression(args.expression, args.pattern)
 
         limits = await get_content_limits()
-        files = await gather_content(request_context, project, expression)
+        files = await gather_content(request_context, project, expression, limits=limits)
 
         if not files:
             return Result.ok(
@@ -193,7 +193,7 @@ async def internal_get_content(
         # Read content for each category group
         final_files: list[FileInfo] = []
         file_read_errors: list[str] = []
-        response_budget = ContentBudget(limits.max_content_limit)
+        source_budget = ContentBudget(limits.max_content_limit)
 
         for category_name, category_files in files_by_category.items():
             category = project.categories.get(category_name)
@@ -209,7 +209,7 @@ async def internal_get_content(
                 category_dir,
                 template_context,
                 category_prefix=category_name,
-                content_budget=response_budget,
+                content_budget=source_budget,
             )
             file_read_errors.extend(errors)
             final_files.extend(category_files)

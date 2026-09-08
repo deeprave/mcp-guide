@@ -47,6 +47,8 @@ async def read_file_content(file_path: Path, *, max_bytes: int | None = None) ->
     """
     async_path = AsyncPath(file_path)
     if max_bytes is not None:
+        # Guide serves static documents.  The preflight is intentionally sufficient:
+        # concurrent source-file growth is outside the server's document contract.
         stat = await async_path.stat()
         ensure_within_limit(stat.st_size, limit_name="max-content-limit", limit=max_bytes)
     return await async_path.read_text(encoding="utf-8")

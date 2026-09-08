@@ -5,6 +5,7 @@ from datetime import datetime
 import pytest
 
 from mcp_guide.content.utils import read_and_render_file_contents
+from mcp_guide.content_limits import ContentBudget
 from mcp_guide.discovery.files import FileInfo
 from mcp_guide.render.context import TemplateContext
 from tests.helpers import create_unbound_test_session, request_context_for
@@ -52,3 +53,25 @@ async def test_invalid_template_context_removes_file_with_validation_error(conte
     errors = await read_and_render_file_contents(content_context, files, tmp_path, {"name": "World"})
     assert errors == ["'test.mustache' template error: Invalid template context type"]
     assert files == []
+
+
+@pytest.mark.anyio
+async def test_batch_budget_counts_static_source_bytes_not_rendered_template_size(content_context, tmp_path):
+    """The aggregate budget bounds static document inputs, not template expansion."""
+    template = tmp_path / "expanded.mustache"
+    template.write_text("{{value}}")
+    files = [file_info(template)]
+    budget = ContentBudget(20)
+
+    errors = await read_and_render_file_contents(
+        content_context,
+        files,
+        tmp_path,
+        TemplateContext({"value": "x" * 60}),
+        max_content_limit=100,
+        content_budget=budget,
+    )
+
+    assert errors == []
+    assert files[0].content == "x" * 60
+    assert budget.remaining == 20 - template.stat().st_size

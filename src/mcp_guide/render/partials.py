@@ -69,6 +69,8 @@ async def load_partial_content(
     logger.trace(f"Resolved final partial path: {final_path}")
 
     try:
+        # Partials are static Guide documents.  A size preflight is sufficient because
+        # they are not expected to change while a request is being rendered.
         stat = await final_path.stat()
         ensure_within_limit(stat.st_size, limit_name="max-content-limit", limit=max_content_limit)
         content = await final_path.read_text(encoding="utf-8")

@@ -313,6 +313,7 @@ async def _gather_policy_partials(
                 }
             )
             try:
+                policy_budget.add_size(policy_file.size)
                 rendered = await render_template(
                     session,
                     file_info=policy_file,
@@ -325,7 +326,6 @@ async def _gather_policy_partials(
                     logger.trace(
                         "_gather_policy_partials: rendered %s (%d chars)", policy_file.path, len(rendered.content)
                     )
-                    policy_budget.add_text(rendered.content)
                     rendered_parts.append(rendered.content)
                     rendered_frontmatter.append(dict(rendered.frontmatter))
                     rendered_cache_policies.append(rendered.cache_policy)
@@ -403,6 +403,9 @@ async def read_and_render_file_contents(
         base_dir: Template render base directory
         template_context: Optional template context for rendering
         category_prefix: Optional prefix to add to basenames (e.g. "category")
+        max_content_limit: Per-document source and final-response limit
+        limits: Static server content-limit configuration snapshot
+        content_budget: Shared static source-document budget; template expansion is excluded
 
     Returns:
         List of error messages for files that failed to read or render
@@ -414,7 +417,7 @@ async def read_and_render_file_contents(
     if max_content_limit is None:
         max_content_limit = limits.max_content_limit
     session = request_context.session
-    response_budget = content_budget or ContentBudget(max_content_limit)
+    source_budget = content_budget or ContentBudget(max_content_limit)
     file_read_errors: list[str] = []
 
     # Check if any files are templates to avoid unnecessary context validation
@@ -453,6 +456,10 @@ async def read_and_render_file_contents(
             # Resolve the file path with security validation
             relative_dir = file_info.category.dir if file_info.category is not None else ""
             file_info.resolve(request_context.resolve_document_path, relative_dir)
+            # Documents served by Guide are static.  This deliberately budgets their
+            # recorded source sizes; template expansion is not part of this approximate
+            # request budget and remains subject to its own per-render response limit.
+            source_budget.add_size(file_info.size)
 
             # For template files, use render_template API (it handles parsing)
             if has_templates and is_template_file(file_info):
@@ -537,10 +544,10 @@ async def read_and_render_file_contents(
                 if diagnostic:
                     logger.warning("%s in %s", diagnostic, file_info.path)
 
-            # Update content_size to reflect the final content size after all processing
+            # Update content_size to reflect the final content size after all processing.
+            # The shared budget intentionally tracks only static source-document bytes.
             content = file_info.content or ""
             file_info.content_size = len(content.encode("utf-8"))
-            response_budget.add_size(file_info.content_size)
 
             # Apply category prefix
             if category_prefix:
