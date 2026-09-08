@@ -1,6 +1,7 @@
 """Client expansion requires verified sharing; dispatch starts response timing."""
 
 import asyncio
+import stat
 from pathlib import Path
 
 import pytest
@@ -95,22 +96,27 @@ async def test_only_one_probe_is_pending_and_disposal_removes_queued_probe(runti
     from tests.helpers import create_unbound_test_session
 
     from mcp_guide import decorators
+    from mcp_guide.tasks import filesystem_probe
     from mcp_guide.tasks.filesystem_probe import FilesystemProbeTask
 
     monkeypatch.setattr(decorators, "_registered_task_classes", [FilesystemProbeTask])
     monkeypatch.setattr(FilesystemProbeTask, "_pending", False)
+    probe_base = tmp_path / "server-tmp"
+    probe_base.mkdir()
+    monkeypatch.setattr(filesystem_probe, "PROBE_BASE", probe_base, raising=False)
     first = create_unbound_test_session(runtime)
     second = create_unbound_test_session(runtime)
     await first.prepare_binding("first", tmp_path)
     await second.prepare_binding("second", tmp_path)
     await first.task_manager.start_project_tasks(first)
     await second.task_manager.start_project_tasks(second)
-    assert len(list(tmp_path.glob(".mcp-guide-fs-probe-*"))) == 1
+    assert len(list(probe_base.glob(".mcp-guide-fs-probe-*"))) == 1
+    assert not list(tmp_path.glob(".mcp-guide-fs-probe-*"))
     assert second.task_manager.is_queue_empty()
     await first.cleanup()
     assert LazyPath.client_filesystem_shared is False
     assert not FilesystemProbeTask._pending
-    assert not list(tmp_path.glob(".mcp-guide-fs-probe-*"))
+    assert not list(probe_base.glob(".mcp-guide-fs-probe-*"))
     assert first.task_manager.is_queue_empty()
     assert not first.task_manager._tracked_instructions
     assert not first.task_manager._subscriptions
@@ -123,10 +129,12 @@ async def test_probe_creation_failure_leaves_binding_usable(runtime, tmp_path, m
     from tests.helpers import create_unbound_test_session
 
     from mcp_guide import decorators
+    from mcp_guide.tasks import filesystem_probe
     from mcp_guide.tasks.filesystem_probe import FilesystemProbeTask
 
     monkeypatch.setattr(decorators, "_registered_task_classes", [FilesystemProbeTask])
     monkeypatch.setattr(FilesystemProbeTask, "_pending", False)
+    monkeypatch.setattr(filesystem_probe, "PROBE_BASE", tmp_path / "missing-probe-base", raising=False)
     session = create_unbound_test_session(runtime)
     root = tmp_path / parent / "project"
     await session.bind_project_path(root)
@@ -138,6 +146,39 @@ async def test_probe_creation_failure_leaves_binding_usable(runtime, tmp_path, m
     assert not session.task_manager._tracked_instructions
     assert not any(isinstance(s.subscriber, FilesystemProbeTask) for s in session.task_manager._subscriptions)
     await session.cleanup()
+
+
+@pytest.mark.anyio
+async def test_probe_creation_cancellation_removes_created_probe(runtime, tmp_path, monkeypatch):
+    """Cancellation after exclusive creation cannot orphan a server-owned probe."""
+    from tests.helpers import create_unbound_test_session
+
+    from mcp_guide.tasks import filesystem_probe
+    from mcp_guide.tasks.filesystem_probe import FilesystemProbeTask
+
+    monkeypatch.setattr(LazyPath, "client_filesystem_shared", None)
+    monkeypatch.setattr(FilesystemProbeTask, "_pending", False)
+    probe_base = tmp_path / "server-tmp"
+    probe_base.mkdir()
+    monkeypatch.setattr(filesystem_probe, "PROBE_BASE", probe_base, raising=False)
+    original_open = filesystem_probe.AsyncPath.open
+
+    async def create_then_cancel(path, *args, **kwargs):
+        stream = await original_open(path, *args, **kwargs)
+        await stream.aclose()
+        raise asyncio.CancelledError
+
+    monkeypatch.setattr(filesystem_probe.AsyncPath, "open", create_then_cancel)
+    session = create_unbound_test_session(runtime)
+    await session.prepare_binding(tmp_path.name, tmp_path)
+    task = FilesystemProbeTask(session.task_manager)
+
+    with pytest.raises(asyncio.CancelledError):
+        await task.start(session.task_manager, session)
+
+    assert not list(probe_base.glob(".mcp-guide-fs-probe-*"))
+    assert not FilesystemProbeTask._pending
+    assert session.task_manager.is_queue_empty()
 
 
 @pytest.mark.anyio
@@ -164,10 +205,14 @@ async def test_probe_consumes_only_its_response_and_cleans_up(runtime, tmp_path,
     from tests.helpers import create_unbound_test_session
 
     from mcp_guide.task_manager import EventType
+    from mcp_guide.tasks import filesystem_probe
     from mcp_guide.tasks.filesystem_probe import FilesystemProbeTask
 
     monkeypatch.setattr(LazyPath, "client_filesystem_shared", None)
     monkeypatch.setattr(FilesystemProbeTask, "_pending", False)
+    probe_base = tmp_path / "server-tmp"
+    probe_base.mkdir()
+    monkeypatch.setattr(filesystem_probe, "PROBE_BASE", probe_base, raising=False)
     session = create_unbound_test_session(runtime)
     await session.prepare_binding(tmp_path.name, tmp_path)
     manager = session.task_manager
@@ -185,7 +230,9 @@ async def test_probe_consumes_only_its_response_and_cleans_up(runtime, tmp_path,
     task = FilesystemProbeTask(manager)
     try:
         assert await task.start(manager, session)
-        (probe,) = tmp_path.glob(".mcp-guide-fs-probe-*")
+        (probe,) = probe_base.glob(".mcp-guide-fs-probe-*")
+        assert not list(tmp_path.glob(".mcp-guide-fs-probe-*"))
+        assert probe.stat().st_mode & stat.S_IROTH
         challenge = probe.read_text()
         response = await manager.process_result(Result.ok())
         assert str(probe) in response.additional_agent_instructions
@@ -215,23 +262,37 @@ async def test_probe_timeout_starts_at_dispatch_not_queue(runtime, tmp_path, mon
     monkeypatch.setattr(LazyPath, "client_filesystem_shared", None)
     monkeypatch.setattr(filesystem_probe.FilesystemProbeTask, "_pending", False)
     monkeypatch.setattr(filesystem_probe, "PROBE_TIMEOUT_SECONDS", 0.02)
+    probe_base = tmp_path / "server-tmp"
+    probe_base.mkdir()
+    monkeypatch.setattr(filesystem_probe, "PROBE_BASE", probe_base, raising=False)
     session = create_unbound_test_session(runtime)
     await session.prepare_binding(tmp_path.name, tmp_path)
     manager = session.task_manager
     task = filesystem_probe.FilesystemProbeTask(manager)
+
+    async def wait_for_probe_result() -> None:
+        async with asyncio.timeout(1):
+            while (
+                LazyPath.client_filesystem_shared is None
+                or list(probe_base.glob(".mcp-guide-fs-probe-*"))
+                or manager._tracked_instructions
+            ):
+                await asyncio.sleep(0)
+
     try:
         await manager.queue_instruction("earlier")
         assert await task.start(manager, session)
         await asyncio.sleep(0.04)
         assert LazyPath.client_filesystem_shared is None
-        assert list(tmp_path.glob(".mcp-guide-fs-probe-*"))
+        assert list(probe_base.glob(".mcp-guide-fs-probe-*"))
+        assert not list(tmp_path.glob(".mcp-guide-fs-probe-*"))
         await manager.process_result(Result.ok())
         await asyncio.sleep(0.04)
         assert LazyPath.client_filesystem_shared is None
         await manager.process_result(Result.ok())
-        await asyncio.sleep(0.04)
+        await wait_for_probe_result()
         assert LazyPath.client_filesystem_shared is False
-        assert not list(tmp_path.glob(".mcp-guide-fs-probe-*"))
+        assert not list(probe_base.glob(".mcp-guide-fs-probe-*"))
         assert manager.is_queue_empty()
         assert not manager._tracked_instructions
     finally:
@@ -242,14 +303,18 @@ async def test_probe_timeout_starts_at_dispatch_not_queue(runtime, tmp_path, mon
 async def test_disabled_probe_does_not_create_or_queue(runtime, tmp_path, monkeypatch):
     from tests.helpers import create_unbound_test_session
 
+    from mcp_guide.tasks import filesystem_probe
     from mcp_guide.tasks.filesystem_probe import FilesystemProbeTask
 
     monkeypatch.setattr(LazyPath, "client_filesystem_shared", False)
+    probe_base = tmp_path / "server-tmp"
+    probe_base.mkdir()
+    monkeypatch.setattr(filesystem_probe, "PROBE_BASE", probe_base, raising=False)
     session = create_unbound_test_session(runtime)
     await session.prepare_binding(tmp_path.name, tmp_path)
     task = FilesystemProbeTask(session.task_manager)
     assert not await task.start(session.task_manager, session)
-    assert not list(tmp_path.glob(".mcp-guide-fs-probe-*"))
+    assert not list(probe_base.glob(".mcp-guide-fs-probe-*"))
     assert session.task_manager.is_queue_empty()
 
 
@@ -262,12 +327,16 @@ async def test_application_start_sets_probe_policy(tmp_path, monkeypatch, transp
     from mcp_guide.cli import ServerConfig
     from mcp_guide.server import create_application
     from mcp_guide.session import bind_session_project
+    from mcp_guide.tasks import filesystem_probe
     from mcp_guide.tasks.filesystem_probe import FilesystemProbeTask
 
     monkeypatch.setattr(LazyPath, "client_filesystem_shared", True)
     # Other task tests clear the import-time registry; model fresh startup explicitly.
     monkeypatch.setattr(decorators, "_registered_task_classes", [FilesystemProbeTask])
     monkeypatch.setattr(FilesystemProbeTask, "_pending", False)
+    probe_base = tmp_path / "server-tmp"
+    probe_base.mkdir()
+    monkeypatch.setattr(filesystem_probe, "PROBE_BASE", probe_base, raising=False)
     app = create_application(
         ServerConfig(configdir=str(tmp_path / "config"), docroot=str(tmp_path / "docs"), transport_mode=transport)
     )
@@ -278,10 +347,11 @@ async def test_application_start_sets_probe_policy(tmp_path, monkeypatch, transp
         root.mkdir()
         session = create_unbound_test_session(app.runtime)
         await bind_session_project(session, root)
-        assert bool(list(root.glob(".mcp-guide-fs-probe-*"))) is (transport == "stdio")
+        assert bool(list(probe_base.glob(".mcp-guide-fs-probe-*"))) is (transport == "stdio")
+        assert not list(root.glob(".mcp-guide-fs-probe-*"))
     finally:
         await app.runtime.stop()
-    assert not list(tmp_path.glob("project/.mcp-guide-fs-probe-*"))
+    assert not list(probe_base.glob(".mcp-guide-fs-probe-*"))
 
 
 @pytest.mark.anyio
