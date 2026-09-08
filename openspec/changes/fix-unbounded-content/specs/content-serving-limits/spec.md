@@ -1,64 +1,37 @@
-## Purpose
-
-Define finite, configurable budgets for collecting, rendering, and returning
-project content so a single request cannot consume unbounded server resources.
-
 ## ADDED Requirements
 
-### Requirement: Server-Owned Content Limit Configuration
+### Requirement: Static global content limits
 
-The system SHALL provide server-owned, positive integer limits with these secure defaults:
+The server SHALL read optional global `max-content-limit` and
+`max-document-limit` settings once during startup. Omitted values SHALL use
+500 MB (500,000,000 bytes) and 100 respectively. Values SHALL be positive;
+content values SHALL accept decimal `B`, `KB`, `MB`, and `GB` suffixes.
 
-- 100 documents selected by one content request
-- 1 MiB of UTF-8 source bytes for one document
-- 256 KiB of UTF-8 source bytes for one template or partial
-- 1 MiB of UTF-8 rendered bytes for one template
-- 4 MiB of UTF-8 content returned by one request
+The values SHALL not be written to configuration by default, exposed as a
+client or project setting, or changed until process restart.
 
-The server SHALL allow an operator to configure each limit before startup. A missing
-setting SHALL use its default. Zero, negative, non-integer, or unlimited values
-SHALL be rejected at startup.
+#### Scenario: Omitted values use static defaults
+- **WHEN** the server starts without either setting
+- **THEN** it applies the documented defaults without persisting them
 
-#### Scenario: Defaults bound a content request
-- **WHEN** an operator starts the server without content-limit configuration
-- **THEN** the server applies all documented default limits
-- **AND** no content limit is unbounded
+### Requirement: Bounded document delivery
 
-#### Scenario: Invalid content limit prevents startup
-- **WHEN** an operator configures a content limit as zero, negative, non-integer, or unlimited
-- **THEN** the server refuses to start
-- **AND** the startup error identifies the invalid setting
+`get_content`, category content, and non-command `guide://` document delivery
+SHALL reject a response selecting more documents than the configured maximum or
+whose source, rendered body, or final serialised response exceeds the configured
+content maximum. Failures SHALL use `max_size_exceeded` and SHALL not return a
+partial body.
 
-### Requirement: Aggregate Content Request Budget
+The server SHALL reserve one aggregate UTF-8 byte budget while retaining selected
+rendered documents and while adding formatter framing, delimiters, and content.
+It SHALL reject an overflowing addition before constructing the final serialised
+response.
 
-The system SHALL enforce one aggregate document-count budget and one aggregate
-returned-content byte budget for each content request, including `get_content`
-and `export_content`. The document-count budget SHALL include every distinct
-filesystem or stored document selected through all categories, collections, and
-sub-expressions in the request.
+#### Scenario: A document response exceeds its limit
+- **WHEN** a document body or its final formatted response exceeds `max-content-limit`
+- **THEN** delivery fails with `max_size_exceeded` without a partial response
 
-The returned-content byte budget SHALL include formatted rendered document content
-and export frontmatter when present. The system SHALL reject a request before it
-returns content beyond either budget and SHALL NOT return a partial content result.
-
-#### Scenario: Expression exceeds the document-count budget
-- **WHEN** a content expression resolves more distinct documents than the configured request limit
-- **THEN** the system rejects the request before reading or rendering documents beyond the limit
-- **AND** the result identifies the document-count limit
-
-#### Scenario: Formatted content exceeds the request byte budget
-- **WHEN** the UTF-8 bytes of a content response, including export frontmatter where applicable, exceed the configured response limit
-- **THEN** the system returns a `max_size_exceeded` failure
-- **AND** it does not return a partial content payload
-
-### Requirement: Stable Content Limit Failures
-
-The system SHALL report a content-limit failure with error type
-`max_size_exceeded`, the limit that was exceeded, and safe remediation
-guidance to narrow the request or reduce the source content. It SHALL NOT include
-the rejected document body in the failure.
-
-#### Scenario: Oversized content is rejected safely
-- **WHEN** a document, template, rendered template, or aggregate response exceeds its applicable content limit
-- **THEN** the caller receives `max_size_exceeded`
-- **AND** the failure names the applicable limit without disclosing rejected content
+#### Scenario: Multiple individually valid documents exceed the aggregate limit
+- **WHEN** selected documents are individually within the source limit but their
+  rendered content and formatter framing exceed `max-content-limit` together
+- **THEN** delivery fails before constructing the aggregate response

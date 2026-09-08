@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Optional
 
 from mcp_guide.content.utils import resolve_patterns
+from mcp_guide.content_limits import ContentLimits, ensure_within_limit
 from mcp_guide.discovery.files import FileInfo, discover_documents
 from mcp_guide.models import (
     CategoryNotFoundError,
@@ -84,6 +85,7 @@ async def gather_content(
     project: Project,
     expression: str,
     visited_collections: Optional[set[str]] = None,
+    limits: ContentLimits | None = None,
 ) -> list[FileInfo]:
     """Process expression and return unified FileInfo list.
 
@@ -101,6 +103,11 @@ async def gather_content(
         CategoryNotFoundError: If a referenced category doesn't exist
         CollectionNotFoundError: If a referenced collection doesn't exist
     """
+    if limits is None:
+        from mcp_guide.content_limits import get_content_limits
+
+        limits = await get_content_limits()
+
     # Initialize visited collections set if not provided
     if visited_collections is None:
         visited_collections = set()
@@ -126,7 +133,9 @@ async def gather_content(
                 # If it's both a collection and category, treat it as a category
                 if category_expr in project.collections and category_expr not in project.categories:
                     # Recursively resolve nested collection
-                    nested_files = await gather_content(request_context, project, category_expr, visited_collections)
+                    nested_files = await gather_content(
+                        request_context, project, category_expr, visited_collections, limits
+                    )
                     all_files.extend(nested_files)
                 else:
                     # Parse category expression (e.g., "review/commit")
@@ -140,7 +149,7 @@ async def gather_content(
                         if combination_key not in processed_combinations:
                             try:
                                 files = await gather_category_fileinfos(
-                                    request_context, project, cat_expr.name, merged_patterns
+                                    request_context, project, cat_expr.name, merged_patterns, limits=limits
                                 )
                                 all_files.extend(files)
                                 processed_combinations.add(combination_key)
@@ -156,7 +165,9 @@ async def gather_content(
             combination_key = (expr.name, patterns_key)
 
             if combination_key not in processed_combinations:
-                files = await gather_category_fileinfos(request_context, project, expr.name, expr.patterns)
+                files = await gather_category_fileinfos(
+                    request_context, project, expr.name, expr.patterns, limits=limits
+                )
                 all_files.extend(files)
                 processed_combinations.add(combination_key)
         else:
@@ -182,6 +193,10 @@ async def gather_content(
                 seen_paths.add(absolute_path)
                 unique_files.append(file)
 
+    ensure_within_limit(len(unique_files), limit_name="max-document-limit", limit=limits.max_document_limit)
+    for file_info in unique_files:
+        ensure_within_limit(file_info.size, limit_name="max-content-limit", limit=limits.max_content_limit)
+
     return unique_files
 
 
@@ -191,6 +206,7 @@ async def gather_category_fileinfos(
     category_name: str,
     patterns: Optional[list[str]] = None,
     collection_overrides: Optional[dict[str, list[str]]] = None,
+    limits: ContentLimits | None = None,
 ) -> list[FileInfo]:
     """Common function to gather FileInfo for a category with pattern resolution.
 
@@ -237,7 +253,12 @@ async def gather_category_fileinfos(
 
     # Discover files
     category_dir = request_context.resolve_document_path(category.dir)
-    files = await discover_documents(category_dir, resolved_patterns, category=category_name)
+    files = await discover_documents(
+        category_dir,
+        resolved_patterns,
+        category=category_name,
+        max_content_limit=limits.max_content_limit if limits is not None else None,
+    )
 
     # Exclude filesystem files where any path component starts with '_' (system/partial files).
     # Stored documents are user-imported and not subject to this exclusion.

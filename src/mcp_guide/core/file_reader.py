@@ -4,8 +4,10 @@ from pathlib import Path
 
 from anyio import Path as AsyncPath
 
+from mcp_guide.content_limits import ensure_within_limit
 
-async def read_file_content(file_path: Path) -> str:
+
+async def read_file_content(file_path: Path, *, max_bytes: int | None = None) -> str:
     """
     Read file content as UTF-8 text asynchronously.
 
@@ -43,4 +45,8 @@ async def read_file_content(file_path: Path) -> str:
             ...
         UnicodeDecodeError: ...
     """
-    return await AsyncPath(file_path).read_text(encoding="utf-8")
+    async_path = AsyncPath(file_path)
+    if max_bytes is not None:
+        stat = await async_path.stat()
+        ensure_within_limit(stat.st_size, limit_name="max-content-limit", limit=max_bytes)
+    return await async_path.read_text(encoding="utf-8")

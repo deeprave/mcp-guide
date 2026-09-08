@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any, Iterable, Optional
 
 import yaml
 
+from mcp_guide.content_limits import ContentBudget, ContentLimitExceeded, ContentLimits
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.discovery.files import FileInfo
 from mcp_guide.lazy_path import LazyPath
@@ -202,6 +203,7 @@ async def _gather_policy_partials(
     file_info: FileInfo,
     template_context: TemplateContext,
     project_flags: dict[str, Any],
+    limits: ContentLimits | None = None,
 ) -> tuple[dict[str, str], dict[str, list[dict[str, Any]]], dict[str, list[CachePolicy]]]:
     """Pre-render policy partials for a template that declares a `policies:` frontmatter key.
 
@@ -220,11 +222,17 @@ async def _gather_policy_partials(
     # Deferred import to avoid circular dependency (content.gathering imports content.utils)
     from mcp_guide.content.gathering import gather_category_fileinfos
 
+    if limits is None:
+        from mcp_guide.content_limits import get_content_limits
+
+        limits = await get_content_limits()
     session = request_context.session
+    policy_budget = ContentBudget(limits.max_content_limit)
+    policy_document_count = 0
 
     # Quick-parse frontmatter to detect `policies:` key
     try:
-        raw = await file_info.read_raw()
+        raw = await file_info.read_raw(max_bytes=limits.max_content_limit)
     except (OSError, FileNotFoundError):
         return {}, {}, {}
 
@@ -264,12 +272,21 @@ async def _gather_policy_partials(
             continue
 
         try:
-            policy_files = await gather_category_fileinfos(request_context, project, "policies", patterns=[f"{topic}/"])
+            policy_files = await gather_category_fileinfos(
+                request_context,
+                project,
+                "policies",
+                patterns=[f"{topic}/"],
+                limits=limits,
+            )
         except (CategoryNotFoundError, OSError):
             logger.warning("Failed to discover policy files for topic %r", topic, exc_info=True)
             policy_files = []
 
         logger.trace("_gather_policy_partials: topic=%r matched %d file(s)", topic, len(policy_files))
+        policy_document_count += len(policy_files)
+        if policy_document_count > limits.max_document_limit:
+            raise ContentLimitExceeded("max-document-limit", limits.max_document_limit)
 
         if not policy_files:
             logger.trace("_gather_policy_partials: topic=%r — no files found, using placeholder", topic)
@@ -302,11 +319,13 @@ async def _gather_policy_partials(
                     base_dir=policy_base_dir,
                     project_flags=project_flags,
                     context=policy_context,
+                    max_content_limit=limits.max_content_limit,
                 )
                 if rendered is not None:
                     logger.trace(
                         "_gather_policy_partials: rendered %s (%d chars)", policy_file.path, len(rendered.content)
                     )
+                    policy_budget.add_text(rendered.content)
                     rendered_parts.append(rendered.content)
                     rendered_frontmatter.append(dict(rendered.frontmatter))
                     rendered_cache_policies.append(rendered.cache_policy)
@@ -372,6 +391,9 @@ async def read_and_render_file_contents(
     base_dir: Path,
     template_context: Optional[TemplateContext] = None,
     category_prefix: Optional[str] = None,
+    max_content_limit: int | None = None,
+    limits: ContentLimits | None = None,
+    content_budget: ContentBudget | None = None,
 ) -> list[str]:
     """Read and render content for FileInfo objects with template support.
 
@@ -385,7 +407,14 @@ async def read_and_render_file_contents(
     Returns:
         List of error messages for files that failed to read or render
     """
+    if limits is None:
+        from mcp_guide.content_limits import get_content_limits
+
+        limits = await get_content_limits()
+    if max_content_limit is None:
+        max_content_limit = limits.max_content_limit
     session = request_context.session
+    response_budget = content_budget or ContentBudget(max_content_limit)
     file_read_errors: list[str] = []
 
     # Check if any files are templates to avoid unnecessary context validation
@@ -445,7 +474,11 @@ async def read_and_render_file_contents(
                 try:
                     # Pre-render any policy partials declared in the template's frontmatter
                     pre_partials, pre_partial_frontmatter, pre_partial_cache_policies = await _gather_policy_partials(
-                        request_context, file_info, template_context, requirements_context
+                        request_context,
+                        file_info,
+                        template_context,
+                        requirements_context,
+                        limits,
                     )
                     # Use the render_template API (handles parsing and requirements checking)
                     rendered = await render_template(
@@ -457,7 +490,10 @@ async def read_and_render_file_contents(
                         pre_partials=pre_partials or None,
                         pre_partial_frontmatter=pre_partial_frontmatter or None,
                         pre_partial_cache_policies=pre_partial_cache_policies or None,
+                        max_content_limit=max_content_limit,
                     )
+                except ContentLimitExceeded:
+                    raise
                 except Exception as e:
                     # Template rendering raised an exception - log with full context
                     error_path = f"{category_prefix}/{file_info.name}" if category_prefix else file_info.name
@@ -476,7 +512,14 @@ async def read_and_render_file_contents(
             else:
                 # Non-template files: use process_file
                 try:
-                    processed = await process_file(file_info, requirements_context, template_context)
+                    processed = await process_file(
+                        file_info,
+                        requirements_context,
+                        template_context,
+                        max_content_limit=max_content_limit,
+                    )
+                except ContentLimitExceeded:
+                    raise
                 except Exception as e:
                     # File processing raised an exception
                     error_path = f"{category_prefix}/{file_info.name}" if category_prefix else file_info.name
@@ -497,6 +540,7 @@ async def read_and_render_file_contents(
             # Update content_size to reflect the final content size after all processing
             content = file_info.content or ""
             file_info.content_size = len(content.encode("utf-8"))
+            response_budget.add_size(file_info.content_size)
 
             # Apply category prefix
             if category_prefix:
@@ -507,6 +551,8 @@ async def read_and_render_file_contents(
         except (FileNotFoundError, PermissionError, UnicodeDecodeError) as e:
             error_path = f"{category_prefix}/{file_info.name}" if category_prefix else file_info.name
             file_read_errors.append(f"'{error_path}': {e}")
+        except ContentLimitExceeded:
+            raise
         except Exception as e:
             # Catch any unexpected exceptions to prevent batch termination
             error_path = f"{category_prefix}/{file_info.name}" if category_prefix else file_info.name

@@ -6,6 +6,7 @@ from typing import Any, Callable, Dict, Optional, TypeVar
 import chevron
 from chevron import ChevronError
 
+from mcp_guide.content_limits import DEFAULT_MAX_CONTENT_LIMIT, ensure_within_limit
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.core.prompt_decorator import get_prompt_name
 from mcp_guide.discovery.files import TEMPLATE_EXTENSIONS, FileInfo
@@ -85,6 +86,7 @@ async def render_template_content(
     pre_rendered_partial_cache_policies: Optional[Dict[str, list[CachePolicy]]] = None,
     metadata: Optional[Dict[str, Any]] = None,
     base_dir: Optional[Path] = None,
+    max_content_limit: int = DEFAULT_MAX_CONTENT_LIMIT,
 ) -> Result[tuple[str, list[Dict[str, Any]], list[CachePolicy], list[str]]]:
     """Render template content with context.
 
@@ -141,13 +143,13 @@ async def render_template_content(
 
                             if base_dir:
                                 partial_content, partial_frontmatter = await load_partial_content(
-                                    full_include_path, base_dir, context_dict
+                                    full_include_path, base_dir, context_dict, max_content_limit=max_content_limit
                                 )
                             else:
                                 # Fallback to file path parent if no base_dir provided
                                 file_parent = Path(file_path).parent if file_path != "<template>" else Path.cwd()
                                 partial_content, partial_frontmatter = await load_partial_content(
-                                    full_include_path, file_parent, context_dict
+                                    full_include_path, file_parent, context_dict, max_content_limit=max_content_limit
                                 )
 
                             processed_partials[partial_name] = partial_content
@@ -213,6 +215,7 @@ async def render_template_content(
         # Render template with Chevron (TemplateContext works as ChainMap)
         logger.trace(f"Rendering template {file_path} with partials: {list(processed_partials.keys())}")
         rendered = chevron.render(content, template_context, partials_dict=tracking_partials)
+        ensure_within_limit(len(rendered.encode("utf-8")), limit_name="max-content-limit", limit=max_content_limit)
         logger.trace(f"Template {file_path} rendered content ({len(rendered)} chars): {rendered[:1024]}")
 
         # Only collect frontmatter from partials that were actually rendered

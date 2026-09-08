@@ -14,6 +14,7 @@ from pydantic import Field, model_validator
 from mcp_guide.content.formatters.selection import ContentFormat, get_formatter_from_flag
 from mcp_guide.content.gathering import CONTENT_EXPRESSION_DESCRIPTION, gather_content
 from mcp_guide.content.utils import read_and_render_file_contents, resolve_content_cache_policy
+from mcp_guide.content_limits import ContentBudget, ContentLimitExceeded, get_content_limits
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.core.tool_arguments import ToolArguments
 from mcp_guide.core.tool_decorator import toolfunc
@@ -470,7 +471,9 @@ async def internal_category_list_files(
         # Fetch records directly — avoids redundant discovery + second query
         all_records = await list_documents(args.category)
         stored_records = {r.name: r for r in all_records}
-        files = [SimpleNamespace(name=r.name, size=0, path=Path(r.name), source="store") for r in all_records]
+        files = [
+            SimpleNamespace(name=r.name, size=r.content_size, path=Path(r.name), source="store") for r in all_records
+        ]
     elif args.source == "files":
         files = await discover_document_files(category_dir, ["**/*"])
         stored_records = {}
@@ -559,6 +562,7 @@ async def internal_category_content(
                 expression = f"{expression}/{args.pattern}"
 
         # Delegate to gather_content for file gathering and deduplication
+        limits = await get_content_limits()
         files = await gather_content(request_context, project, expression)
 
         # Check for no matches
@@ -583,6 +587,7 @@ async def internal_category_content(
         # Read content for each category group
         final_files: list[FileInfo] = []
         file_read_errors: list[str] = []
+        response_budget = ContentBudget(limits.max_content_limit)
 
         for category_name, category_files in files_by_category.items():
             category = project.categories.get(category_name)
@@ -593,7 +598,12 @@ async def internal_category_content(
             template_context = await get_template_context_if_needed(session, category_files, category_name)
 
             errors = await read_and_render_file_contents(
-                request_context, category_files, category_dir, template_context, category_prefix=category_name
+                request_context,
+                category_files,
+                category_dir,
+                template_context,
+                category_prefix=category_name,
+                content_budget=response_budget,
             )
             file_read_errors.extend(errors)
             final_files.extend(category_files)
@@ -608,7 +618,11 @@ async def internal_category_content(
 
         # Format and return content
         formatter = get_formatter_from_flag(format_type)
-        content = await formatter.format(final_files, request_context.resolve_document_path)
+        content = await formatter.format(
+            final_files,
+            request_context.resolve_document_path,
+            max_content_limit=limits.max_content_limit,
+        )
 
         return Result.ok(content, cache_policy=resolve_content_cache_policy(final_files))
 
@@ -618,6 +632,8 @@ async def internal_category_content(
             error_type=ERROR_NOT_FOUND,
             instruction=INSTRUCTION_NOTFOUND_ERROR,
         )
+    except ContentLimitExceeded as e:
+        return Result.failure(str(e), error_type="max_size_exceeded")
     except (OSError, ValueError) as e:
         return Result.failure(str(e), error_type=ERROR_VALIDATION)
     except FileReadError as e:

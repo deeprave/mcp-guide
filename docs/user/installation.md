@@ -364,6 +364,34 @@ export MG_LOG_FILE=/var/log/mcp-guide.log
 export MG_LOG_JSON=1
 ```
 
+### Server capacity limits
+
+The following optional settings belong at the top level of the server's
+`config.yaml`. They are global, server-owned values: clients and projects cannot
+change them, and a configuration edit takes effect only after restart.
+
+```yaml
+# Defaults shown; omit either setting to use its default.
+max-content-limit: 500mb
+max-document-limit: 100
+
+# HTTP/HTTPS only, measured across a rolling 15-second window.
+http-session-rate-limit: 5
+http-service-rate-limit: 100
+```
+
+`max-content-limit` accepts positive decimal byte values such as `500mb`,
+`2GB`, or `1000kb`. It bounds source documents, templates and partials, rendered
+content, and the final document response. `max-document-limit` bounds the number
+of documents selected by one request. Omitted values are not written back into
+the configuration file.
+
+The HTTP limits are requests per second, with capacities of 75 requests per
+established MCP session and 1,500 per server process at the defaults. A session
+that is at capacity receives HTTP 429; a process at capacity receives HTTP 503.
+Both include `Retry-After`, which falls naturally as admitted requests leave the
+window. Stdio does not use HTTP request-rate limiting.
+
 ### Tool Naming
 
 Environment variable:

@@ -192,7 +192,7 @@ class FileInfo:
             self._content = None
             self._load_error = str(e)
 
-    async def read_raw(self) -> str:
+    async def read_raw(self, *, max_bytes: int | None = None) -> str:
         """Read raw content from source without frontmatter processing.
 
         Uses content_loader for stored documents, filesystem for files.
@@ -207,7 +207,17 @@ class FileInfo:
             Exception: Any exception from content_loader is propagated
         """
         if self._raw_cache is not None:
+            if max_bytes is not None:
+                from mcp_guide.content_limits import ensure_within_limit
+
+                ensure_within_limit(
+                    len(self._raw_cache.encode("utf-8")), limit_name="max-content-limit", limit=max_bytes
+                )
             return self._raw_cache
+        if max_bytes is not None:
+            from mcp_guide.content_limits import ensure_within_limit
+
+            ensure_within_limit(self.size, limit_name="max-content-limit", limit=max_bytes)
         if self._content_loader is not None:
             content = await self._content_loader()
             if content is None:
@@ -216,7 +226,7 @@ class FileInfo:
             return content
         from mcp_guide.core import read_file_content
 
-        result = await read_file_content(self.path)
+        result = await read_file_content(self.path, max_bytes=max_bytes)
         self._raw_cache = result
         return result
 
@@ -277,6 +287,7 @@ class FileInfo:
 async def discover_document_stored(
     category: str,
     patterns: list[str],
+    max_content_limit: int | None = None,
 ) -> list[FileInfo]:
     """Discover documents from the document store.
 
@@ -301,12 +312,12 @@ async def discover_document_stored(
         if not any(PurePosixPath(record.name).full_match(ep) for ep in expanded):
             continue
         mtime = datetime.fromisoformat(record.updated_at)
-        loader = partial(get_document_content, record.category, record.name)
+        loader = partial(get_document_content, record.category, record.name, max_content_limit=max_content_limit)
         results.append(
             FileInfo(
                 path=Path(record.name),
-                size=0,
-                content_size=0,
+                size=record.content_size,
+                content_size=record.content_size,
                 mtime=mtime,
                 name=record.name,
                 ctime=datetime.fromisoformat(record.created_at),
@@ -322,6 +333,7 @@ async def discover_documents(
     base_dir: Path,
     patterns: list[str],
     category: Optional[str] = None,
+    max_content_limit: int | None = None,
 ) -> list[FileInfo]:
     """Discover documents from filesystem and optionally the document store.
 
@@ -348,7 +360,7 @@ async def discover_documents(
             file_results.extend(await discover_document_files(base_dir, patterns))
 
         async def _stored() -> None:
-            store_results.extend(await discover_document_stored(category, patterns))
+            store_results.extend(await discover_document_stored(category, patterns, max_content_limit))
 
         tg.start_soon(_files)
         tg.start_soon(_stored)

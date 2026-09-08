@@ -2,6 +2,7 @@
 
 import pytest
 
+from mcp_guide.content_limits import ContentLimitExceeded
 from mcp_guide.store.document_store import (
     add_document,
     get_document,
@@ -56,6 +57,25 @@ async def test_upsert_updates_content_and_timestamp(db):
 async def test_invalid_source_type_raises(db):
     with pytest.raises(ValueError, match="source_type"):
         await add_document("docs", "readme", "/path", "ftp", "content", db_path=db)  # type: ignore[arg-type]
+
+
+@pytest.mark.anyio
+async def test_oversized_replacement_preserves_existing_content(db):
+    """Validate the body before opening a transaction that could replace it."""
+    await add_document("docs", "readme", "/path", "file", "small", db_path=db)
+
+    with pytest.raises(ContentLimitExceeded, match="max-content-limit"):
+        await add_document("docs", "readme", "/path", "file", "too large", db_path=db, max_content_limit=5)
+
+    assert await get_document_content("docs", "readme", db_path=db) == "small"
+
+
+@pytest.mark.anyio
+async def test_oversized_stored_document_is_not_materialised(db):
+    await add_document("docs", "readme", "/path", "file", "too large", db_path=db)
+
+    with pytest.raises(ContentLimitExceeded, match="max-content-limit"):
+        await get_document_content("docs", "readme", db_path=db, max_content_limit=5)
 
 
 @pytest.mark.anyio

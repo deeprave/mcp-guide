@@ -468,9 +468,10 @@ async def test_category_content_file_read_error(mcp_server, test_session, tmp_pa
     test_file.write_text("# Test Content")
 
     async def mock_read_and_render_file_contents(
-        request_context, category_files, category_dir, template_context, category_prefix
+        request_context, category_files, category_dir, template_context, category_prefix, content_budget
     ):
         assert category_prefix == "docs"
+        assert content_budget is not None
         return ["test.md: Permission denied"]
 
     monkeypatch.setattr(

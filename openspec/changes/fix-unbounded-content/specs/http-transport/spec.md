@@ -1,34 +1,24 @@
 ## ADDED Requirements
 
-### Requirement: HTTP Content Byte-Rate Limits
+### Requirement: HTTP inbound request admission
 
-For HTTP and HTTPS transports, the server SHALL enforce positive, server-owned
-byte-rate limits of 1 MiB per second for one request and 10 MiB per second shared
-across concurrent requests by default. Operators SHALL be able to configure both
-limits before startup, but SHALL NOT disable either limit.
+HTTP and HTTPS SHALL admit at most the configured per-session and per-process
+request rates measured in a rolling 15-second window. Defaults are
+`http-session-rate-limit: 5` and `http-service-rate-limit: 100` requests per
+second. Before an MCP session is established, only the process-wide limit
+applies.
 
-The budgets SHALL account for UTF-8 bytes emitted in a content-bearing MCP
-response, including response framing and export frontmatter. Stdio SHALL not use
-these HTTP byte-rate budgets.
+The limiter SHALL use FastMCP's live Streamable HTTP session registry to decide
+whether a supplied session identifier is established. It SHALL not retain local
+counter state for unknown identifiers and SHALL remove a session counter after
+its rolling window expires.
 
-#### Scenario: HTTP request is paced to its byte-rate budget
-- **WHEN** an HTTP or HTTPS content response would otherwise emit bytes faster than the configured per-request byte-rate budget
-- **THEN** the server paces delivery so the response does not exceed that rate
-- **AND** a response that exceeds the separate maximum content size returns `max_size_exceeded`
+The session limit SHALL return HTTP 429; the process-wide limit SHALL return
+HTTP 503. Both SHALL include `Retry-After` for the earliest expiring admitted
+request. Rejected requests SHALL not consume capacity, so retries become
+available naturally as the rolling window expires. Stdio SHALL not use this
+limiter.
 
-#### Scenario: Stdio content response is not throughput-limited
-- **WHEN** a stdio client receives a content response within the hard content-size limits
-- **THEN** the server does not apply HTTP byte-rate accounting to that response
-
-### Requirement: Shared HTTP Content Capacity
-
-The HTTP and HTTPS transports SHALL use one concurrency-safe shared byte-rate
-budget for all content-bearing responses served by the process. A request that
-cannot reserve its required shared capacity SHALL fail promptly with a retryable
-`server_busy` response and SHALL NOT wait indefinitely or displace bytes reserved
-for another request.
-
-#### Scenario: Concurrent requests exhaust server capacity
-- **WHEN** concurrent HTTP or HTTPS content requests exhaust the configured shared byte-rate budget
-- **THEN** a later request receives a retryable `server_busy` response
-- **AND** already admitted requests retain their reserved capacity
+#### Scenario: An established session reaches its request capacity
+- **WHEN** an HTTP request would exceed the session's 15-second capacity
+- **THEN** the server returns HTTP 429 with `Retry-After`

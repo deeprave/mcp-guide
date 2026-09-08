@@ -10,6 +10,7 @@ from pathlib import Path
 
 from uuid_extensions import uuid7
 
+from mcp_guide.content_limits import BoundedTextAccumulator
 from mcp_guide.discovery.files import TEMPLATE_EXTENSIONS, FileInfo
 from mcp_guide.lazy_path import LazyPath
 from mcp_guide.render.cache_policy import CachePolicy
@@ -145,7 +146,13 @@ class MimeFormatter:
         except ValueError as e:
             raise ValueError(f"Path is outside category directory: {path}") from e
 
-    async def format(self, file_infos: list[FileInfo], resolve_document_path: Callable[[str | Path], Path]) -> str:
+    async def format(
+        self,
+        file_infos: list[FileInfo],
+        resolve_document_path: Callable[[str | Path], Path],
+        *,
+        max_content_limit: int | None = None,
+    ) -> str:
         """Format file content with MIME headers.
 
         Args:
@@ -159,11 +166,17 @@ class MimeFormatter:
             return ""
 
         if len(file_infos) == 1:
-            return await self.format_single(file_infos[0], resolve_document_path)
+            return await self.format_single(file_infos[0], resolve_document_path, max_content_limit=max_content_limit)
 
-        return await self.format_multiple(file_infos, resolve_document_path)
+        return await self.format_multiple(file_infos, resolve_document_path, max_content_limit=max_content_limit)
 
-    async def format_single(self, file_info: FileInfo, resolve_document_path: Callable[[str | Path], Path]) -> str:
+    async def format_single(
+        self,
+        file_info: FileInfo,
+        resolve_document_path: Callable[[str | Path], Path],
+        *,
+        max_content_limit: int | None = None,
+    ) -> str:
         """Format single file with MIME headers.
 
         Args:
@@ -208,11 +221,20 @@ class MimeFormatter:
         headers += f"Content-Length: {content_length}\r\n"
         headers += f"{cache_control_header(file_info)}\r\n"
 
-        # Return headers + blank line + content
-        return headers + "\r\n" + content
+        if max_content_limit is None:
+            return headers + "\r\n" + content
+        accumulator = BoundedTextAccumulator(max_content_limit)
+        accumulator.append(headers)
+        accumulator.append("\r\n")
+        accumulator.append(content)
+        return accumulator.render()
 
     async def format_multiple(
-        self, file_infos: list[FileInfo], resolve_document_path: Callable[[str | Path], Path]
+        self,
+        file_infos: list[FileInfo],
+        resolve_document_path: Callable[[str | Path], Path],
+        *,
+        max_content_limit: int | None = None,
     ) -> str:
         """Format multiple files as multipart/mixed.
 
@@ -226,8 +248,13 @@ class MimeFormatter:
         # Generate boundary using UUID7 (time-ordered)
         boundary = f"guide-boundary-{uuid7()}"
 
-        # Build main header
-        result = f'Content-Type: multipart/mixed; boundary="{boundary}"\r\n\r\n'
+        if max_content_limit is None:
+            result = f'Content-Type: multipart/mixed; boundary="{boundary}"\r\n\r\n'
+            accumulator = None
+        else:
+            result = ""
+            accumulator = BoundedTextAccumulator(max_content_limit)
+            accumulator.append(f'Content-Type: multipart/mixed; boundary="{boundary}"\r\n\r\n')
 
         # Build each part
         for file_info in file_infos:
@@ -259,17 +286,24 @@ class MimeFormatter:
             # Calculate Content-Length from final rendered content
             content_length = len(content.encode("utf-8"))
 
-            # Add boundary and headers for this part
-            result += f"--{boundary}\r\n"
-            result += f"Content-Type: {detected_type}\r\n"
-            result += f"Content-Location: {content_location}\r\n"
-            result += f"Content-Length: {content_length}\r\n"
-            result += f"{cache_control_header(file_info)}\r\n"
-            result += "\r\n"
-            result += content
-            result += "\r\n"
+            parts = (
+                f"--{boundary}\r\n",
+                f"Content-Type: {detected_type}\r\n",
+                f"Content-Location: {content_location}\r\n",
+                f"Content-Length: {content_length}\r\n",
+                f"{cache_control_header(file_info)}\r\n",
+                "\r\n",
+                content,
+                "\r\n",
+            )
+            if accumulator is None:
+                result += "".join(parts)
+            else:
+                for part in parts:
+                    accumulator.append(part)
 
-        # Add closing boundary
-        result += f"--{boundary}--\r\n"
-
-        return result
+        closing_boundary = f"--{boundary}--\r\n"
+        if accumulator is None:
+            return result + closing_boundary
+        accumulator.append(closing_boundary)
+        return accumulator.render()

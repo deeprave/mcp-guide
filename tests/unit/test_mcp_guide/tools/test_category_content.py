@@ -241,12 +241,13 @@ async def test_file_read_error_scenarios(tmp_path, monkeypatch, scenario, patter
         return None
 
     async def mock_read_and_render_file_contents(
-        request_context, category_files, category_dir, template_context, category_prefix
+        request_context, category_files, category_dir, template_context, category_prefix, content_budget
     ):
         assert category_files == file_infos
         assert category_dir == tmp_path
         assert template_context is None
         assert category_prefix == "docs"
+        assert content_budget is not None
         return [f"{filename}: {error}" for filename, error in error_map.items()]
 
     monkeypatch.setattr("mcp_guide.tools.tool_category.gather_content", mock_gather_content)

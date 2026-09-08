@@ -100,6 +100,9 @@ class DocumentTask:
         # Determine source_type from source string
         source_type = "url" if source.startswith(("http://", "https://")) else "file"
 
+        from mcp_guide.content_limits import get_content_limits
+
+        max_content_limit = (await get_content_limits()).max_content_limit
         result = await add_document(
             category=category,
             name=name,
@@ -109,6 +112,7 @@ class DocumentTask:
             metadata=metadata,
             mtime=mtime,
             force=force,
+            max_content_limit=max_content_limit,
         )
 
         if result.skipped:
