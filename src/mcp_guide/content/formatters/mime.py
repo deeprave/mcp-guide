@@ -12,6 +12,7 @@ from uuid_extensions import uuid7
 
 from mcp_guide.discovery.files import TEMPLATE_EXTENSIONS, FileInfo
 from mcp_guide.lazy_path import LazyPath
+from mcp_guide.render.cache_policy import CachePolicy
 
 
 def detect_text_subtype(content: str) -> str:
@@ -80,6 +81,16 @@ def detect_text_subtype(content: str) -> str:
         return "text/markdown"
 
     return "text/plain"
+
+
+def cache_control_header(file_info: FileInfo) -> str:
+    """Return the MIME cache header for this document's resolved policy."""
+    policy = file_info.cache_policy or CachePolicy.no_cache()
+    if not policy.is_cacheable:
+        return "Cache-Control: no-cache"
+    assert policy.scope is not None
+    assert policy.ttl_ms is not None
+    return f"Cache-Control: {policy.scope.value}, max-age={policy.ttl_ms // 1000}"
 
 
 class MimeFormatter:
@@ -195,6 +206,7 @@ class MimeFormatter:
         headers = f"Content-Type: {detected_type}\r\n"
         headers += f"Content-Location: {content_location}\r\n"
         headers += f"Content-Length: {content_length}\r\n"
+        headers += f"{cache_control_header(file_info)}\r\n"
 
         # Return headers + blank line + content
         return headers + "\r\n" + content
@@ -252,6 +264,7 @@ class MimeFormatter:
             result += f"Content-Type: {detected_type}\r\n"
             result += f"Content-Location: {content_location}\r\n"
             result += f"Content-Length: {content_length}\r\n"
+            result += f"{cache_control_header(file_info)}\r\n"
             result += "\r\n"
             result += content
             result += "\r\n"

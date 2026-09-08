@@ -38,13 +38,15 @@ def _response_payload_and_metadata(
     *,
     session_id: str | None,
     protocol_type: SessionProtocolType | None,
-) -> tuple[dict[str, Any], dict[str, dict[str, str]] | None]:
+) -> tuple[dict[str, Any], dict[str, dict[str, Any]] | None]:
     """Adapt a Result according to the established Session response contract."""
     payload = add_session_continuation(result.to_json(), session_id)
+    cache_metadata = result.cache_policy.metadata if result.cache_policy is not None else None
     if protocol_type is not SessionProtocolType.MCP_2026_07_28:
-        return payload, None
+        return payload, {"mcp-guide": {"cache": cache_metadata}} if cache_metadata else None
     instruction = payload.pop("additional_agent_instructions", None)
-    return payload, {"mcp-guide": {"instructions": instruction}} if instruction else None
+    metadata = {key: value for key, value in {"instructions": instruction, "cache": cache_metadata}.items() if value}
+    return payload, {"mcp-guide": metadata} if metadata else None
 
 
 def tool_response(

@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: Explicit tool cache-policy metadata
-The tool response adapter SHALL attach Guide cache-policy information to `_meta` only when the tool supplies an explicitly resolved valid policy.  It SHALL preserve existing non-cache result metadata independently.
+The tool response adapter SHALL attach Guide cache-policy information to `_meta["mcp-guide"]["cache"]` only when the tool supplies an explicitly resolved valid policy.  It SHALL preserve existing non-cache result metadata independently.
 
 The adapter SHALL NOT emit `io.modelcontextprotocol/cache-ttl-ms` or `io.modelcontextprotocol/cache-scope` on tool, prompt, or resource results.
 

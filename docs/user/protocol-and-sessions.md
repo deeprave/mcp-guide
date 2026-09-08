@@ -24,6 +24,19 @@ This is a compatibility-preserving response representation change. Clients using
 modern protocol should inspect the response `_meta` block as well as structured
 content.
 
+## Document cache metadata
+
+When a document resolves to a cache policy, `get_content`, category-content
+retrieval, and non-command `guide://` resources include it in response metadata as
+`_meta["mcp-guide"]["cache"]`, with `ttl_ms` and `scope` fields. This is Guide's
+explicit document-cache contract; it does not restore the former undocumented
+`io.modelcontextprotocol/cache-*` metadata keys. Commands, prompts, and other tools
+do not emit document cache metadata.
+
+For MIME-formatted multi-document content, each MIME part also carries a standard
+`Cache-Control` header based on that file's own policy. This remains useful when the
+overall response is no-cache because another contributing document is undeclared.
+
 ## Client migration
 
 Existing retained clients continue to use their FastMCP connection identity. They do

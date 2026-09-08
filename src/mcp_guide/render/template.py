@@ -1,5 +1,7 @@
 """Template rendering implementation."""
 
+from __future__ import annotations
+
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
@@ -11,6 +13,7 @@ from mcp_guide.render.context import TemplateContext
 from mcp_guide.render.renderer import is_template_file, render_template_content
 
 if TYPE_CHECKING:
+    from mcp_guide.render.cache_policy import CachePolicy
     from mcp_guide.session import Session
 
 logger = get_logger(__name__)
@@ -23,6 +26,8 @@ async def render_template(
     project_flags: Dict[str, Any],
     context: Optional[TemplateContext] = None,
     pre_partials: Optional[Dict[str, str]] = None,
+    pre_partial_frontmatter: Optional[Dict[str, list[Dict[str, Any]]]] = None,
+    pre_partial_cache_policies: Optional[Dict[str, list[CachePolicy]]] = None,
 ) -> Optional[RenderedContent]:
     """Render a template file with frontmatter and context.
 
@@ -76,14 +81,17 @@ async def render_template(
             metadata=dict(processed.frontmatter),
             base_dir=base_dir,
             partials=pre_partials,
+            pre_rendered_partial_frontmatter=pre_partial_frontmatter,
+            pre_rendered_partial_cache_policies=pre_partial_cache_policies,
         )
         if not result.success:
             raise RuntimeError(f"Template rendering failed: {result.error}")
         assert result.value is not None, "Result value should not be None when success is True"
-        rendered_content, partial_frontmatter_list, template_errors = result.value
+        rendered_content, partial_frontmatter_list, partial_cache_policies, template_errors = result.value
     else:
         rendered_content = processed.content
         partial_frontmatter_list = []
+        partial_cache_policies = []
         template_errors = []
 
     return RenderedContent(
@@ -94,5 +102,6 @@ async def render_template(
         template_path=file_info.path,
         template_name=file_info.path.name,
         partial_frontmatter=partial_frontmatter_list,
+        partial_cache_policies=partial_cache_policies,
         errors=template_errors,
     )

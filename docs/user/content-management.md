@@ -35,12 +35,37 @@ Your content here...
 | `type` | Document type (see below) - determines how content is used |
 | `description` | Human-readable description of the document |
 | `instruction` | Specific directive for the agent (not always required) |
+| `cache` | Optional response-cache policy for document content |
 
 Other metadata keys are used for specific purposes: `tags`, `title`, `requires-<feature-flag>`, `includes` (for partial templates). Commands use additional keys like `category`, `aliases`, `usage`, and `examples`.
 
 **Note on using `instruction`**: A default instruction is automatically applied based on the value in its `type`.
 This means that `instruction` should only be used to vary that in some way, or add additional instruction.
 If the document has `type: agent/instruction` (and most are), the document's content is read as an instruction and can contain the additional context there.
+
+### Document cache policies
+
+Ordinary non-template Markdown defaults to `long, public` because Guide delivers its
+exact document content. Other documents are not cacheable unless they explicitly declare
+`cache`. Use `long` for content that changes rarely (24 hours), `medium` for content likely to change with
+project settings (15 minutes), or `short` for safely reusable dynamic content (2
+minutes). Scope is `public` by default; add `private` for output that depends on
+feature flags, project settings, or conditional `requires-*` rendering.
+
+```yaml
+cache: long
+cache: medium, private
+cache: public             # equivalent to medium, public
+cache: shared             # alias for public
+cache: no-cache
+```
+
+When a document renders partials, every rendered part participates: an omitted or
+`no-cache` rendered-template policy disables caching for the combined response; otherwise the shortest
+TTL and the most restrictive scope win. Commands and prompts do not expose document
+cache policies. When the content format is MIME, each document part also carries its
+own standard `Cache-Control` header, so mixed-policy responses remain individually
+cacheable where appropriate.
 
 ## Document Types
 

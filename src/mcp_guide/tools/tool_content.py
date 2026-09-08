@@ -18,6 +18,7 @@ from mcp_guide.content.utils import (
     extract_and_deduplicate_instructions,
     prepend_export_frontmatter,
     read_and_render_file_contents,
+    resolve_content_cache_policy,
     resolve_content_disposition,
 )
 from mcp_guide.core.mcp_log import get_logger
@@ -230,7 +231,12 @@ async def internal_get_content(
         instruction = extract_and_deduplicate_instructions(final_files)
         disposition = resolve_content_disposition(final_files)
 
-        return Result.ok(content, instruction=instruction, disposition=disposition)
+        return Result.ok(
+            content,
+            instruction=instruction,
+            disposition=disposition,
+            cache_policy=resolve_content_cache_policy(final_files),
+        )
 
     except ExpressionParseError as e:
         return Result.failure(str(e), error_type=ERROR_NOT_FOUND, instruction=INSTRUCTION_NOTFOUND_ERROR)

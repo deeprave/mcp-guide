@@ -6,6 +6,7 @@ import pytest
 
 from mcp_guide.mcp_context import SessionProtocolType
 from mcp_guide.mcp_result_adapter import prompt_response, resource_response, tool_response
+from mcp_guide.render.cache_policy import CachePolicy
 from mcp_guide.result import Result
 
 SESSION_CONTINUATION_INSTRUCTION = (
@@ -75,3 +76,13 @@ def test_modern_adapter_moves_agent_instruction_to_namespaced_metadata(adapter):
     assert payload(response)["value"] == "answer"
     assert "additional_agent_instructions" not in payload(response)
     assert response.meta == {"mcp-guide": {"instructions": "Use the bound project only."}}
+
+
+@pytest.mark.parametrize("adapter", [tool_response, resource_response], ids=["tool", "resource"])
+def test_document_adapter_adds_explicit_cache_policy_to_namespaced_metadata(adapter):
+    """Cache metadata comes only from the resolved document policy."""
+    result = Result.ok("answer", cache_policy=CachePolicy.parse("medium, private"))
+
+    response = adapter(result, protocol_type=SessionProtocolType.MCP_2026_07_28)
+
+    assert response.meta == {"mcp-guide": {"cache": {"ttl_ms": 900_000, "scope": "private"}}}

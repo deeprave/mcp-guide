@@ -13,7 +13,7 @@ from pydantic import Field, model_validator
 
 from mcp_guide.content.formatters.selection import ContentFormat, get_formatter_from_flag
 from mcp_guide.content.gathering import CONTENT_EXPRESSION_DESCRIPTION, gather_content
-from mcp_guide.content.utils import read_and_render_file_contents
+from mcp_guide.content.utils import read_and_render_file_contents, resolve_content_cache_policy
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.core.tool_arguments import ToolArguments
 from mcp_guide.core.tool_decorator import toolfunc
@@ -610,7 +610,7 @@ async def internal_category_content(
         formatter = get_formatter_from_flag(format_type)
         content = await formatter.format(final_files, request_context.resolve_document_path)
 
-        return Result.ok(content)
+        return Result.ok(content, cache_policy=resolve_content_cache_policy(final_files))
 
     except CategoryNotFoundError as e:
         return Result.failure(

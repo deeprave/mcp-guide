@@ -1,8 +1,13 @@
 """Result pattern for rich error handling."""
 
+from __future__ import annotations
+
 import json
 from dataclasses import dataclass, field
-from typing import Any, ClassVar, Generic, Optional, TypeVar
+from typing import TYPE_CHECKING, Any, ClassVar, Generic, Optional, TypeVar
+
+if TYPE_CHECKING:
+    from mcp_guide.render.cache_policy import CachePolicy
 
 T = TypeVar("T")
 
@@ -28,6 +33,7 @@ class Result(Generic[T]):
     instruction: Optional[str] = None
     disposition: Optional[str] = None
     additional_agent_instructions: Optional[str] = None
+    cache_policy: Optional[CachePolicy] = None
     error_data: Optional[dict[str, Any]] = None
 
     default_success_instruction: ClassVar[Optional[str]] = None
@@ -50,6 +56,7 @@ class Result(Generic[T]):
         instruction: Optional[str] = None,
         disposition: Optional[str] = None,
         additional_agent_instructions: Optional[str] = None,
+        cache_policy: Optional[CachePolicy] = None,
     ) -> "Result[T]":
         """Create a successful result.
 
@@ -72,6 +79,7 @@ class Result(Generic[T]):
             instruction=instruction if instruction is not None else cls.default_success_instruction,
             disposition=disposition,
             additional_agent_instructions=additional_agent_instructions,
+            cache_policy=cache_policy,
         )
 
     @classmethod
