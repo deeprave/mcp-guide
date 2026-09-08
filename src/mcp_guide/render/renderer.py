@@ -106,7 +106,7 @@ async def render_template_content(
         render_context = context
         processed_partials: Dict[str, str] = partials or {}
         partial_frontmatter_list: list[Dict[str, Any]] = []
-        # Maps partial name → its frontmatter (only for partials with content)
+        # Maps partial name → frontmatter contributors for rendered partial content.
         partial_frontmatter_by_name: Dict[str, list[Dict[str, Any]]] = {
             name: list(frontmatter) for name, frontmatter in (pre_rendered_partial_frontmatter or {}).items()
         }
@@ -222,7 +222,9 @@ async def render_template_content(
             for frontmatter in partial_frontmatter_by_name.get(name, [])
         ]
         partial_cache_policies = [
-            policy for name in tracking_partials.accessed for policy in partial_cache_policies_by_name.get(name, [])
+            policy
+            for name in tracking_partials.accessed
+            for policy in partial_cache_policies_by_name.get(name) or [CachePolicy.no_cache()]
         ]
 
         return Result.ok((rendered, partial_frontmatter_list, partial_cache_policies, functions.errors))

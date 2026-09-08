@@ -294,7 +294,7 @@ async def test_gather_policy_partials_no_match_returns_placeholder(tmp_path, mon
     assert INSTRUCTION_MISSING_POLICY in partials["git/ops"]
     assert "git/ops" in partials["git/ops"]
     assert frontmatter == {}
-    assert cache_policies == {}
+    assert cache_policies == {"git/ops": [CachePolicy.no_cache()]}
 
 
 @pytest.mark.anyio

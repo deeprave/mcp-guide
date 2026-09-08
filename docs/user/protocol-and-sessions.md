@@ -31,7 +31,8 @@ retrieval, and non-command `guide://` resources include it in response metadata 
 `_meta["mcp-guide"]["cache"]`, with `ttl_ms` and `scope` fields. This is Guide's
 explicit document-cache contract; it does not restore the former undocumented
 `io.modelcontextprotocol/cache-*` metadata keys. Commands, prompts, and other tools
-do not emit document cache metadata.
+currently do not emit cache metadata, though a future operation may explicitly opt
+in with its own resolved policy.
 
 For MIME-formatted multi-document content, each MIME part also carries a standard
 `Cache-Control` header based on that file's own policy. This remains useful when the

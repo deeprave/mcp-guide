@@ -9,7 +9,7 @@ from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.discovery.files import FileInfo
 from mcp_guide.lazy_path import LazyPath
 from mcp_guide.models.exceptions import CategoryNotFoundError, NoProjectError
-from mcp_guide.render import render_template
+from mcp_guide.render import FM_REQUIRES_PREFIX, render_template
 from mcp_guide.render.cache_policy import CachePolicy
 from mcp_guide.render.context import TemplateContext
 from mcp_guide.render.frontmatter import (
@@ -124,7 +124,8 @@ def resolve_content_cache_policy(files: Iterable[FileInfo]) -> CachePolicy:
 def resolve_file_cache_policy(file_info: FileInfo) -> tuple[CachePolicy, str | None]:
     """Resolve a document policy, defaulting ordinary Markdown to long/public."""
     frontmatter = file_info.frontmatter
-    if str(file_info.path).endswith(".md") and (not frontmatter or "cache" not in frontmatter):
+    has_requirements = bool(frontmatter and any(key.startswith(FM_REQUIRES_PREFIX) for key in frontmatter))
+    if str(file_info.path).endswith(".md") and not has_requirements and (not frontmatter or "cache" not in frontmatter):
         return CachePolicy.long_public(), None
     return CachePolicy.parse_with_diagnostic(frontmatter.get("cache") if frontmatter else None)
 
@@ -273,6 +274,7 @@ async def _gather_policy_partials(
         if not policy_files:
             logger.trace("_gather_policy_partials: topic=%r — no files found, using placeholder", topic)
             pre_partials[topic] = await render_missing_policy(request_context, topic)
+            pre_partial_cache_policies[topic] = [CachePolicy.no_cache()]
             continue
 
         rendered_parts: list[str] = []
@@ -320,7 +322,7 @@ async def _gather_policy_partials(
         )
         if rendered_frontmatter:
             pre_partial_frontmatter[topic] = rendered_frontmatter
-            pre_partial_cache_policies[topic] = rendered_cache_policies
+        pre_partial_cache_policies[topic] = rendered_cache_policies or [CachePolicy.no_cache()]
         logger.trace("_gather_policy_partials: topic=%r → %d chars", topic, len(pre_partials[topic]))
 
     return pre_partials, pre_partial_frontmatter, pre_partial_cache_policies

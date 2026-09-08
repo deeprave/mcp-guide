@@ -60,11 +60,11 @@ Native `guide://` resource delivery will receive the same resolved Guide policy.
 
 Alternative considered: depend on FastMCP internals now.  That would make caching behaviour version-fragile and contradicts the existing public-API migration boundary.
 
-### Limit cacheability to document delivery
+### Limit this change's cache producers to document delivery
 
-Only document-delivery operations (`get_content`, category-content retrieval, and non-command `guide://` resources) participate in cache-policy delivery.  Commands, prompts, command URIs, and non-document tools remain no-cache.  The presence of structured content alone has no effect.
+The cache-policy carrier and response adapter accept an explicitly resolved policy from any response producer. This change only attaches a policy from document-delivery operations (`get_content`, category-content retrieval, and non-command `guide://` resources); commands, prompts, command URIs, and non-document tools remain no-cache unless a later change explicitly opts them in. The presence of structured content alone has no effect.
 
-Alternative considered: opt in deterministic non-document tools.  Their dynamic data and command semantics make a document-only boundary clearer and safer.
+Alternative considered: opt in deterministic non-document tools now. Their dynamic data and command semantics make a document-only producer scope clearer and safer for this change, while preserving the adapter capability for a later explicit opt-in.
 
 ## Risks / Trade-offs
 

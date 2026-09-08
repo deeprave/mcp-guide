@@ -1,10 +1,11 @@
 """Tests for document cache policy frontmatter."""
 
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
-from mcp_guide.content.utils import resolve_content_cache_policy
+from mcp_guide.content.utils import resolve_content_cache_policy, resolve_file_cache_policy
 from mcp_guide.render.cache_policy import CachePolicy, CacheScope
 from mcp_guide.render.content import RenderedContent
 from mcp_guide.render.context import TemplateContext
@@ -96,6 +97,32 @@ async def test_pre_rendered_policy_partial_contributes_to_cache_policy(tmp_path)
 
 
 @pytest.mark.anyio
+async def test_undeclared_pre_rendered_partial_disables_parent_caching(tmp_path) -> None:
+    """An accessed partial without policy metadata is an implicit no-cache contributor."""
+    result = await render_template_content(
+        "Parent {{> policy}}",
+        TemplateContext({}),
+        partials={"policy": "policy content"},
+    )
+
+    assert result.success
+    assert result.value is not None
+    content, partial_frontmatter, partial_cache_policies, _ = result.value
+    rendered = RenderedContent(
+        frontmatter=Frontmatter({"cache": "long"}),
+        frontmatter_length=0,
+        content=content,
+        content_length=len(content),
+        template_path=tmp_path / "parent.mustache",
+        template_name="parent",
+        partial_frontmatter=partial_frontmatter,
+        partial_cache_policies=partial_cache_policies,
+    )
+
+    assert rendered.cache_policy == CachePolicy.no_cache()
+
+
+@pytest.mark.anyio
 async def test_pre_rendered_policy_uses_its_resolved_nested_policy(tmp_path) -> None:
     """A policy's nested no-cache contributor cannot be lost at its parent boundary."""
     result = await render_template_content(
@@ -131,6 +158,16 @@ def test_collected_content_uses_each_rendered_document_policy() -> None:
     ]
 
     assert resolve_content_cache_policy(files) == CachePolicy.parse("short, private")
+
+
+def test_requirement_filtered_markdown_defaults_to_no_cache() -> None:
+    """Requirement-filtered Markdown is dynamic unless it declares a policy."""
+    file_info = SimpleNamespace(path=Path("document.md"), frontmatter={"requires-example": True})
+
+    policy, diagnostic = resolve_file_cache_policy(file_info)
+
+    assert policy == CachePolicy.no_cache()
+    assert diagnostic is None
 
 
 def test_invalid_rendered_cache_policy_is_diagnostic_and_not_cacheable(tmp_path, caplog) -> None:

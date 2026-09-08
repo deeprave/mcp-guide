@@ -68,8 +68,8 @@ The system SHALL resolve a cache policy for a content delivery from every hosted
 - **WHEN** a cacheable document includes a partial with no cache declaration
 - **THEN** the resolved delivery policy is no-cache
 
-### Requirement: Document-only cache delivery
-The system SHALL attach cache policy only to document-delivery operations.  Commands, prompts, command URIs, and non-document tools SHALL carry no cache policy.
+### Requirement: Document-only cache delivery in this change
+The cache-policy carrier and response adapter SHALL accept an explicitly resolved policy from any response producer. This change SHALL attach cache policy only to document-delivery operations. Commands, prompts, command URIs, and non-document tools SHALL carry no cache policy unless a later change explicitly opts them in.
 
 When document content is delivered with MIME formatting, every MIME document part SHALL include its own `Cache-Control` header. A cacheable part SHALL express its resolved scope and TTL in seconds; a no-cache part SHALL use `Cache-Control: no-cache`. Part headers SHALL use each file's own resolved policy, independently of the conservative aggregate policy attached to the overall response.
 
