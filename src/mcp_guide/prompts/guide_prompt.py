@@ -112,6 +112,7 @@ async def get_command_help(
             base_dir=help_file_info.path.parent,
             project_flags={},
             context=command_context,
+            resolver=resolve_document_path,
         )
 
         if rendered is None:
@@ -459,6 +460,7 @@ async def _execute_command(
             base_dir=file_info.path.parent,
             project_flags=requirements_context,
             context=command_context,
+            resolver=request_context.get_docroot_resolver(),
         )
     except FileNotFoundError as e:
         logger.exception(f"Command file not found: {command_path}")

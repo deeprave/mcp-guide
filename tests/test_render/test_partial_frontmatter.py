@@ -4,10 +4,16 @@ from pathlib import Path
 
 import pytest
 
+from mcp_guide.core.path_security import resolve_safe_path
 from mcp_guide.render.context import TemplateContext
 from mcp_guide.render.frontmatter import Frontmatter
-from mcp_guide.render.partials import load_partial_content
+from mcp_guide.render.partials import UnsafePartialPathError, load_partial_content
 from mcp_guide.render.renderer import render_template_content
+
+
+def document_root_resolver(document_root: Path):
+    """Return the server-side containment resolver used by partial tests."""
+    return lambda path: resolve_safe_path(document_root, path)
 
 
 @pytest.mark.anyio
@@ -19,7 +25,9 @@ class TestPartialFrontmatter:
         partial_file = tmp_path / "_test.mustache"
         partial_file.write_text("---\ntype: user/information\ninstruction: '^ Display this'\n---\nContent here")
 
-        content, frontmatter = await load_partial_content(partial_file, tmp_path)
+        content, frontmatter = await load_partial_content(
+            partial_file, tmp_path, resolver=document_root_resolver(tmp_path)
+        )
         assert content == "Content here"
         assert isinstance(frontmatter, Frontmatter)
         assert frontmatter.get("type") == "user/information"
@@ -30,23 +38,77 @@ class TestPartialFrontmatter:
         partial_file = tmp_path / "_test.mustache"
         partial_file.write_text("Just content")
 
-        content, frontmatter = await load_partial_content(partial_file, tmp_path)
+        content, frontmatter = await load_partial_content(
+            partial_file, tmp_path, resolver=document_root_resolver(tmp_path)
+        )
         assert content == "Just content"
         assert isinstance(frontmatter, Frontmatter)
         assert len(frontmatter) == 0
 
-    async def test_load_user_anchored_partial(self, tmp_path, monkeypatch):
-        """A user-anchored partial is resolved before asynchronous loading."""
+    async def test_load_partial_rejects_symlink_escape(self, tmp_path):
+        """An in-root partial symlink may not target content outside docroot."""
+        document_root = tmp_path / "docs"
+        document_root.mkdir()
+        outside = tmp_path / "outside"
+        outside.mkdir()
+        (outside / "_secret.mustache").write_text("outside sentinel")
+        (document_root / "_secret.mustache").symlink_to(outside / "_secret.mustache")
+
+        with pytest.raises(UnsafePartialPathError, match="document root"):
+            await load_partial_content(
+                Path("_secret"),
+                document_root,
+                resolver=document_root_resolver(document_root),
+            )
+
+    async def test_load_partial_rejects_canonicalisation_failure(self, tmp_path, monkeypatch):
+        """A canonicalisation failure is handled as an unsafe partial reference."""
+        partial_file = tmp_path / "_loop.mustache"
+        partial_file.write_text("unreachable")
+        original_resolve = Path.resolve
+
+        def raise_for_partial(path, *args, **kwargs):
+            if path == partial_file:
+                raise RuntimeError("symlink loop")
+            return original_resolve(path, *args, **kwargs)
+
+        monkeypatch.setattr(Path, "resolve", raise_for_partial)
+
+        with pytest.raises(UnsafePartialPathError, match="document root"):
+            await load_partial_content(
+                Path("_loop"),
+                tmp_path,
+                resolver=document_root_resolver(tmp_path),
+            )
+
+    async def test_load_partial_ignores_directory_candidates(self, tmp_path):
+        """A directory must not mask an extension-backed partial file."""
+        (tmp_path / "_child").mkdir()
+        (tmp_path / "_child.mustache").write_text("partial content")
+
+        content, _ = await load_partial_content(
+            Path("_child"),
+            tmp_path,
+            resolver=document_root_resolver(tmp_path),
+        )
+
+        assert content == "partial content"
+
+    async def test_load_user_anchored_partial_is_rejected(self, tmp_path, monkeypatch):
+        """A partial reference must not expand a server user home path."""
         home = tmp_path / "home"
         home.mkdir()
         partial_file = home / "_test.mustache"
         partial_file.write_text("User-anchored content")
         monkeypatch.setenv("HOME", str(home))
 
-        content, frontmatter = await load_partial_content(Path("~/_test.mustache"), tmp_path)
+        with pytest.raises(UnsafePartialPathError, match="home-anchored"):
+            await load_partial_content(Path("~/_test.mustache"), tmp_path)
 
-        assert content == "User-anchored content"
-        assert len(frontmatter) == 0
+    async def test_load_environment_variable_partial_is_rejected(self, tmp_path):
+        """A partial reference must not expand environment variables."""
+        with pytest.raises(UnsafePartialPathError, match="environment-variable"):
+            await load_partial_content(Path("${HOME}/_test.mustache"), tmp_path)
 
     async def test_load_partial_with_requirements_met(self, tmp_path):
         """Test partial with met requirements returns content and frontmatter."""
@@ -54,7 +116,9 @@ class TestPartialFrontmatter:
         partial_file.write_text("---\nrequires-feature: true\ninstruction: Show this\n---\nContent")
 
         context = {"feature": True}
-        content, frontmatter = await load_partial_content(partial_file, tmp_path, context)
+        content, frontmatter = await load_partial_content(
+            partial_file, tmp_path, context, resolver=document_root_resolver(tmp_path)
+        )
         assert content == "Content"
         assert frontmatter.get("instruction") == "Show this"
 
@@ -64,7 +128,9 @@ class TestPartialFrontmatter:
         partial_file.write_text("---\nrequires-feature: true\ninstruction: Show this\n---\nContent")
 
         context = {"feature": False}
-        content, frontmatter = await load_partial_content(partial_file, tmp_path, context)
+        content, frontmatter = await load_partial_content(
+            partial_file, tmp_path, context, resolver=document_root_resolver(tmp_path)
+        )
         assert content == ""
         # Frontmatter should still be returned even if requirements not met
         assert frontmatter.get("instruction") == "Show this"
@@ -90,6 +156,7 @@ async def test_partial_regular_instruction_does_not_override_parent(tmp_path):
         file_path=str(tmp_path / "parent.mustache"),
         metadata=parent_metadata,
         base_dir=tmp_path,
+        resolver=document_root_resolver(tmp_path),
     )
 
     assert result.is_ok()
@@ -104,7 +171,9 @@ async def test_partial_instruction_rendered_with_context(tmp_path):
     partial_file.write_text("---\ninstruction: 'Hello {{name}}'\ndescription: 'Project {{project}}'\n---\nContent")
 
     context = {"name": "World", "project": "test"}
-    content, frontmatter = await load_partial_content(partial_file, tmp_path, context)
+    content, frontmatter = await load_partial_content(
+        partial_file, tmp_path, context, resolver=document_root_resolver(tmp_path)
+    )
 
     assert content == "Content"
     assert frontmatter.get("instruction") == "Hello World"
@@ -137,6 +206,7 @@ async def test_unused_partial_instruction_not_applied(tmp_path):
         file_path=str(tmp_path / "status.mustache"),
         metadata=dict(metadata),
         base_dir=tmp_path,
+        resolver=document_root_resolver(tmp_path),
     )
 
     assert result.is_ok()
@@ -167,6 +237,7 @@ async def test_used_partial_instruction_is_applied(tmp_path):
         file_path=str(tmp_path / "status.mustache"),
         metadata=dict(metadata),
         base_dir=tmp_path,
+        resolver=document_root_resolver(tmp_path),
     )
 
     assert result.is_ok()
@@ -197,6 +268,7 @@ async def test_partial_instruction_placeholders_resolved(tmp_path):
         file_path=str(tmp_path / "parent.mustache"),
         metadata=dict(metadata),
         base_dir=tmp_path,
+        resolver=document_root_resolver(tmp_path),
     )
 
     assert result.is_ok()
@@ -204,3 +276,29 @@ async def test_partial_instruction_placeholders_resolved(tmp_path):
     assert len(partial_frontmatter_list) == 1
     # Placeholder must be resolved
     assert partial_frontmatter_list[0].get("instruction") == "Run my_client_info"
+
+
+@pytest.mark.anyio
+async def test_unsafe_partial_is_omitted_without_suppressing_safe_partial(tmp_path, caplog):
+    """An unsafe partial is excluded while safe parent output remains available."""
+    document_root = tmp_path / "docs"
+    document_root.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (document_root / "_safe.mustache").write_text("safe content")
+    (outside / "_secret.mustache").write_text("outside sentinel")
+
+    result = await render_template_content(
+        "parent {{>safe}} {{>secret}}",
+        TemplateContext({}),
+        file_path=str(document_root / "parent.mustache"),
+        metadata={"includes": ["safe", "../outside/secret"]},
+        base_dir=document_root,
+        resolver=document_root_resolver(document_root),
+    )
+
+    assert result.is_ok()
+    assert result.value[0] == "parent safe content "
+    assert "outside sentinel" not in result.value[0]
+    assert any("Unsafe partial reference omitted" in message for message in caplog.messages)
+    assert all("../outside/secret" not in message for message in caplog.messages)

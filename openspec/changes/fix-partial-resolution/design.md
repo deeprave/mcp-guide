@@ -16,7 +16,9 @@ composition.
   containment check against the document root.
 - Preserve valid relative includes, including nested `..` references that
   canonically remain in root.
-- Ensure no unsafe candidate is read, rendered, or contributes frontmatter.
+- Ensure no unsafe candidate is read, rendered, or contributes frontmatter,
+  while logging the same non-fatal warning-and-omit outcome used for unsafe
+  template paths.
 - Keep renderer failures local to the rejected partial so safe template output
   remains available.
 
@@ -31,18 +33,33 @@ composition.
 
 ## Decisions
 
-### 1. Resolve relative references, then enforce canonical containment
+### 1. Resolve from the including template, then enforce canonical containment
 
-The partial loader will accept a relative frontmatter reference, the rendering
-template's directory, and a document-root resolver supplied by the calling
-request path. It will reject absolute and home-anchored references before any
-resolution. For a permitted relative reference, it will construct candidates
-from the template directory, apply the existing extension search order, and
-validate the final resolved candidate through the supplied resolver before
+The partial loader will accept a frontmatter reference, the directory of the
+template that includes it, and a document-root resolver supplied by the calling
+request path. This is exclusively a server-side document-root containment
+operation: it SHALL NOT use `LazyPath.client_resolve()` or any client
+filesystem semantics. Relative references are always resolved from that
+including template's directory; they are never relative to the process
+directory, document root, or another partial. Absolute references are allowed
+only when the final canonical candidate remains in document root.
+Home-anchored (`~` or `~user`) and environment-variable expansion syntax are
+invalid template path forms and are rejected without expansion.
+
+For a permitted reference, the loader derives the partial filename separately:
+frontmatter names a partial without its leading underscore and the loader
+selects the corresponding underscore-prefixed filename. Any explicit extension
+or extension search is independent of the reference base and containment
+calculation. The filename prefix is significant beyond loader convention:
+ordinary command and category discovery excludes underscore-prefixed files, so
+partials cannot be selected as normal documents by a category pattern. It
+validates the final resolved candidate through the supplied resolver before
 opening it.
 
-This permits `../_partials/status` when it resolves within the configured root
-and rejects it when it does not. Validating only the initial joined path is
+This permits a template at `some_category/subcategory/somefile.md.mustache` to
+include `../partials/some_partial.mustache`, resolving it as
+`some_category/partials/_some_partial.mustache` when it remains within the
+configured root. Validating only the initial joined path is
 insufficient because extension resolution and symlinks can change the eventual
 file target.
 
@@ -69,13 +86,13 @@ This keeps partial resolution aligned with the project’s explicit
 request-context boundary and prevents a convenience fallback from reviving an
 unbounded host-path read.
 
-### 3. Treat unsafe includes like rejected partials, not template failures
+### 3. Treat unsafe includes like unsafe template paths, not template failures
 
 Introduce a specific safe-resolution failure that carries no resolved host path
-or file content. The renderer will record a concise diagnostic, omit the unsafe
-partial, and continue processing other declared partials and the parent
-template. The failure must occur before `read_text`, frontmatter parsing, cache
-policy parsing, or partial-frontmatter merging.
+or file content. The renderer will log a concise warning, omit the unsafe
+partial from the rendering set, and continue processing other declared partials
+and the parent template. The failure must occur before `read_text`, frontmatter
+parsing, cache-policy parsing, or partial-frontmatter merging.
 
 Alternatives considered:
 
@@ -87,11 +104,11 @@ Alternatives considered:
 
 ### 4. Validate the frontmatter contract at both layers
 
-Frontmatter parsing will reject plainly unsafe reference forms early. The
-partial loader remains the final authority and repeats canonical containment
-after extension lookup, since it is the only layer that knows the file actually
-selected for reading. This defence in depth protects direct loader callers as
-well as the normal renderer path.
+Frontmatter parsing will identify plainly invalid expansion syntax early, but
+will not fail the parent document. The partial loader remains the final
+authority and repeats canonical containment after extension lookup, since it is
+the only layer that knows the file actually selected for reading. This defence
+in depth protects direct loader callers as well as the normal renderer path.
 
 ## Risks / Trade-offs
 
@@ -116,4 +133,3 @@ well as the normal renderer path.
 3. If a valid template is rejected, move the shared partial under the document
    root and update its reference; rollback consists of reverting the release,
    not relaxing the root boundary.
-

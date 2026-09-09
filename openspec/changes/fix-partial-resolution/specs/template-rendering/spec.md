@@ -1,10 +1,14 @@
 ## ADDED Requirements
 
 ### Requirement: Canonically contained frontmatter partials
-The system SHALL resolve each frontmatter partial reference relative to its
-rendering template and SHALL load it only when the final canonical file target,
-after extension resolution, is contained within the configured document root.
-It SHALL not read, render, or merge frontmatter from an unsafe partial target.
+The system SHALL resolve each relative frontmatter partial reference from the
+directory of its including template and SHALL load it only when the final
+canonical file target, after independent partial-filename and extension
+resolution, is contained within the configured document root. It SHALL accept
+an absolute reference only when its final canonical target is contained within
+that root. This resolution SHALL use server-side document-root containment and
+SHALL NOT use client-filesystem resolution semantics. It SHALL not read, render,
+or merge frontmatter from an unsafe partial target.
 
 #### Scenario: Parent-relative partial remains inside the document root
 - **WHEN** a nested template references a partial with `..` path components
@@ -12,9 +16,15 @@ It SHALL not read, render, or merge frontmatter from an unsafe partial target.
 - **THEN** the system SHALL render that partial using the existing partial
   composition behaviour
 
-#### Scenario: Absolute or home-anchored partial reference
-- **WHEN** frontmatter names a partial with an absolute or home-anchored path
-- **THEN** the system SHALL reject that partial reference
+#### Scenario: Absolute partial reference remains inside the document root
+- **WHEN** frontmatter names a partial with an absolute path whose final
+  canonical target is inside the configured document root
+- **THEN** the system SHALL load that partial
+
+#### Scenario: Home-anchored or environment-variable partial reference
+- **WHEN** frontmatter names a partial using home-anchored or
+  environment-variable expansion syntax
+- **THEN** the system SHALL reject that partial reference without expansion
 - **AND** it SHALL not read content from the named host path
 
 #### Scenario: Relative partial escapes the document root
@@ -34,5 +44,4 @@ It SHALL not read, render, or merge frontmatter from an unsafe partial target.
   partial reference
 - **THEN** the system SHALL render the template and the safe partial
 - **AND** it SHALL omit the unsafe partial without exposing its content
-
-
+- **AND** it SHALL log a non-sensitive warning

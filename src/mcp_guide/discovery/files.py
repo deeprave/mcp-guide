@@ -24,45 +24,6 @@ from mcp_guide.store.document_store import get_document_content, list_documents
 TEMPLATE_EXTENSIONS = (".mustache", ".hbs", ".handlebars", ".chevron")
 
 
-async def resolve_file_with_extensions(base_path: Path) -> Path | None:
-    """Resolve file path trying multiple extension patterns.
-
-    Tries in order:
-    1. Exact filename (as is)
-    2. <filename>.md
-    3. <filename>.<ext> for each ext in TEMPLATE_EXTENSIONS
-    4. <filename>.md.<ext> for each ext in TEMPLATE_EXTENSIONS
-
-    Args:
-        base_path: Base path without extension
-
-    Returns:
-        Resolved path if found, None otherwise
-    """
-    # Try exact filename first
-    if await AsyncPath(base_path).exists():
-        return base_path
-
-    # Try .md
-    md_path = base_path.with_suffix(".md")
-    if await AsyncPath(md_path).exists():
-        return md_path
-
-    # Try template extensions
-    for ext in TEMPLATE_EXTENSIONS:
-        ext_path = base_path.with_suffix(ext)
-        if await AsyncPath(ext_path).exists():
-            return ext_path
-
-    # Try .md + template extensions
-    for ext in TEMPLATE_EXTENSIONS:
-        md_ext_path = base_path.with_suffix(f".md{ext}")
-        if await AsyncPath(md_ext_path).exists():
-            return md_ext_path
-
-    return None
-
-
 def get_file_extension_patterns(base_pattern: str) -> list[str]:
     """Get all file extension patterns for a base pattern.
 

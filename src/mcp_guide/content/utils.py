@@ -319,6 +319,7 @@ async def _gather_policy_partials(
                     base_dir=policy_base_dir,
                     project_flags=project_flags,
                     context=policy_context,
+                    resolver=request_context.get_docroot_resolver(),
                     max_content_limit=limits.max_content_limit,
                 )
                 if rendered is not None:
@@ -492,6 +493,7 @@ async def read_and_render_file_contents(
                         pre_partials=pre_partials or None,
                         pre_partial_frontmatter=pre_partial_frontmatter or None,
                         pre_partial_cache_policies=pre_partial_cache_policies or None,
+                        resolver=request_context.get_docroot_resolver(),
                         max_content_limit=max_content_limit,
                     )
                 except ContentLimitExceeded:
