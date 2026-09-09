@@ -14,7 +14,7 @@ from mcp_guide.render.cache_policy import CachePolicy
 from mcp_guide.render.context import TemplateContext
 from mcp_guide.render.frontmatter import get_frontmatter_includes
 from mcp_guide.render.functions import TemplateFunctions
-from mcp_guide.render.partials import PartialNotFoundError, load_partial_content
+from mcp_guide.render.partials import PartialNotFoundError, UnsafePartialPathError, load_partial_content
 from mcp_guide.result import Result
 from mcp_guide.result_constants import ERROR_TEMPLATE, INSTRUCTION_VALIDATION_ERROR
 
@@ -86,6 +86,7 @@ async def render_template_content(
     pre_rendered_partial_cache_policies: Optional[Dict[str, list[CachePolicy]]] = None,
     metadata: Optional[Dict[str, Any]] = None,
     base_dir: Optional[Path] = None,
+    resolver: Callable[[str | Path], Path] | None = None,
     max_content_limit: int = DEFAULT_MAX_CONTENT_LIMIT,
 ) -> Result[tuple[str, list[Dict[str, Any]], list[CachePolicy], list[str]]]:
     """Render template content with context.
@@ -99,6 +100,7 @@ async def render_template_content(
         pre_rendered_partial_frontmatter: Frontmatter for pre-rendered partial contributors
         pre_rendered_partial_cache_policies: Resolved policies for pre-rendered partial contributors
         metadata: Optional frontmatter metadata to merge into context
+        resolver: Server-side document-root resolver for filesystem partials
 
     Returns:
         Result with rendered content, partial frontmatter, cache policies, and errors
@@ -141,15 +143,17 @@ async def render_template_content(
                             # Build context for frontmatter requirements checking
                             context_dict = dict(render_context) if render_context else {}
 
-                            if base_dir:
+                            if base_dir and resolver:
                                 partial_content, partial_frontmatter = await load_partial_content(
-                                    full_include_path, base_dir, context_dict, max_content_limit=max_content_limit
+                                    full_include_path,
+                                    base_dir,
+                                    context_dict,
+                                    resolver=resolver,
+                                    max_content_limit=max_content_limit,
                                 )
                             else:
-                                # Fallback to file path parent if no base_dir provided
-                                file_parent = Path(file_path).parent if file_path != "<template>" else Path.cwd()
-                                partial_content, partial_frontmatter = await load_partial_content(
-                                    full_include_path, file_parent, context_dict, max_content_limit=max_content_limit
+                                raise UnsafePartialPathError(
+                                    "filesystem partial loading requires a document-root resolver"
                                 )
 
                             processed_partials[partial_name] = partial_content
@@ -165,6 +169,8 @@ async def render_template_content(
                             logger.error(f"Partial template not found: {include_path} - {e}")
                         except (OSError, PermissionError) as e:
                             logger.error(f"Failed to read partial file {include_path}: {e}")
+                        except UnsafePartialPathError as e:
+                            logger.warning("Unsafe partial reference omitted: %s", e)
                         except ValueError as e:
                             logger.error(f"Invalid partial path {include_path}: {e}")
 

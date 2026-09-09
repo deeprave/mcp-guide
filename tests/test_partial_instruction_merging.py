@@ -5,6 +5,7 @@ from datetime import datetime
 import pytest
 import yaml
 
+from mcp_guide.core.path_security import resolve_safe_path
 from mcp_guide.discovery.files import FileInfo
 from mcp_guide.render.template import render_template
 from mcp_guide.result_constants import INSTRUCTION_DISPLAY_ONLY
@@ -57,7 +58,13 @@ async def test_partial_instruction_merging(runtime, tmp_path, parent, children, 
         )
     stat = parent_file.stat()
     info = FileInfo(parent_file, stat.st_size, stat.st_size, datetime.fromtimestamp(stat.st_mtime), "parent")
-    result = await render_template(create_unbound_test_session(runtime), info, tmp_path, {})
+    result = await render_template(
+        create_unbound_test_session(runtime),
+        info,
+        tmp_path,
+        {},
+        resolver=lambda path: resolve_safe_path(tmp_path, path),
+    )
     assert result is not None
     assert result.content == "".join(names)
     assert result.instruction == expected

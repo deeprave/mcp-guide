@@ -99,6 +99,7 @@ async def render_content(
             base_dir=files[0].path.parent,
             project_flags=requirements_context,
             context=context,
+            resolver=resolver,
         )
     except (FileNotFoundError, PermissionError, UnicodeDecodeError) as e:
         logger.error(f"Failed to read {display_name} template {pattern}: {e}")

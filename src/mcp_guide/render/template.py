@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
 
 from mcp_guide.content_limits import DEFAULT_MAX_CONTENT_LIMIT, ensure_within_limit
 from mcp_guide.core.mcp_log import get_logger
@@ -29,6 +29,7 @@ async def render_template(
     pre_partials: Optional[Dict[str, str]] = None,
     pre_partial_frontmatter: Optional[Dict[str, list[Dict[str, Any]]]] = None,
     pre_partial_cache_policies: Optional[Dict[str, list[CachePolicy]]] = None,
+    resolver: Callable[[str | Path], Path] | None = None,
     max_content_limit: int = DEFAULT_MAX_CONTENT_LIMIT,
 ) -> Optional[RenderedContent]:
     """Render a template file with frontmatter and context.
@@ -38,6 +39,7 @@ async def render_template(
         base_dir: Base directory for template resolution
         project_flags: Project feature flags for requires-* checking
         context: Optional caller-provided context
+        resolver: Server-side document-root resolver for filesystem partials
 
     Returns:
         RenderedContent if successful, None if filtered by requires-*
@@ -82,6 +84,7 @@ async def render_template(
             file_path=str(file_info.path),
             metadata=dict(processed.frontmatter),
             base_dir=base_dir,
+            resolver=resolver,
             partials=pre_partials,
             pre_rendered_partial_frontmatter=pre_partial_frontmatter,
             pre_rendered_partial_cache_policies=pre_partial_cache_policies,

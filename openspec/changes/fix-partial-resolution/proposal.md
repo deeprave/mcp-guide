@@ -7,14 +7,23 @@ document root through an absolute, home-expanded, traversal, or symlinked path.
 
 ## What Changes
 
-- Resolve frontmatter partial references relative to the rendering template
-  while enforcing canonical containment within the configured document root.
-- Reject absolute and home-anchored partial references and reject any relative
-  reference whose final, extension-resolved target escapes the document root.
+- Resolve relative frontmatter partial references relative to the rendering
+  template while enforcing canonical containment within the configured document
+  root. Absolute references are permitted only when their final canonical
+  target remains within that root.
+- Reject home-anchored and environment-variable expansion syntax, and reject
+  any relative or absolute reference whose final, extension-resolved target
+  escapes the document root.
 - Preserve valid nested and parent-relative includes that resolve inside the
   document root, including existing command partial layouts.
-- Prevent unsafe partial references from being read or rendered while allowing
-  the containing template and other valid partials to render normally.
+- Prevent unsafe partial references from being read or rendered, log a warning
+  without exposing the target, and allow the containing template and other
+  valid partials to render normally.
+- Preserve the partial naming convention: a frontmatter reference names a
+  partial without its leading underscore; the loader resolves the corresponding
+  underscore-prefixed filename independently of any extension suffix. The
+  underscore also keeps partial files excluded from ordinary command and
+  category document discovery.
 - Add regression coverage for traversal, absolute, home-anchored, and symlink
   escape attempts, as well as in-root relative partial resolution.
 
@@ -38,4 +47,3 @@ None.
 - **BREAKING:** templates whose partial references resolve outside the document
   root will no longer render that partial.
 - Does not change ordinary document loading or valid in-root relative includes.
-
