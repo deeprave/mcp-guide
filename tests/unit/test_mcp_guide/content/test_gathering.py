@@ -10,6 +10,7 @@ from tests.helpers import create_bound_test_session, request_context_for
 
 from mcp_guide.content.gathering import gather_category_fileinfos, gather_content
 from mcp_guide.content.utils import _gather_policy_partials, render_missing_policy
+from mcp_guide.content_limits import ContentLimitExceeded, ContentLimits
 from mcp_guide.discovery.files import FileInfo
 from mcp_guide.models import Category, Collection, Project
 from mcp_guide.models.exceptions import NoProjectError
@@ -91,6 +92,21 @@ async def test_underscore_components_exclude_files_but_not_stored_documents(tmp_
     )
     result = await gather_category_fileinfos(await _request_context(tmp_path), project, "policies")
     assert {(file.name, file.source) for file in result} == {("git/ops/visible.md", "file"), ("_custom.md", "store")}
+
+
+@pytest.mark.anyio
+async def test_gather_content_defers_document_limit_until_content_is_retained(tmp_path):
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "first.md").write_text("first")
+    (docs / "second.md").write_text("second")
+    project = Project(name="test", categories={"docs": Category(dir="docs", name="docs", patterns=["*.md"])})
+
+    result = await gather_content(
+        await _request_context(tmp_path), project, "docs", limits=ContentLimits(max_document_limit=1)
+    )
+
+    assert len(result) == 2
 
 
 # --- Tests for sub-path filtering via trailing slash ---
@@ -338,3 +354,27 @@ async def test_gather_policy_partials_matching_topic_renders_content(runtime, tm
     assert partials == {"git/ops": "Use conservative git ops."}
     assert frontmatter == {"git/ops": [{"type": "agent/instruction"}]}
     assert cache_policies["git/ops"] == [CachePolicy.long_public()]
+
+
+@pytest.mark.anyio
+async def test_policy_partials_use_the_active_content_limit(runtime, tmp_path):
+    doc_file = tmp_path / "doc.md.mustache"
+    doc_file.write_text("---\npolicies:\n  - git/ops\n---\nContent.")
+    file_info = FileInfo(doc_file, doc_file.stat().st_size, 0, datetime(2024, 1, 1), "doc.md")
+    policies_dir = tmp_path / "policies" / "git" / "ops"
+    policies_dir.mkdir(parents=True)
+    (policies_dir / "oversized.md").write_text("x" * 80)
+    project = Project(
+        name="test",
+        categories={"policies": Category(dir="policies", name="policies", patterns=["git/ops/oversized*"])},
+    )
+    config = runtime.configuration_service().config_file
+    config.parent.mkdir(parents=True, exist_ok=True)
+    config.write_text(yaml.safe_dump({"docroot": str(tmp_path), "projects": {}}))
+    session = await create_bound_test_session(runtime, "policy-limit")
+    await session.update_config(lambda current: replace(current, categories=project.categories))
+
+    with pytest.raises(ContentLimitExceeded, match="max-content-limit"):
+        await _gather_policy_partials(
+            await request_context_for(session), file_info, TemplateContext({}), {}, ContentLimits(max_content_limit=50)
+        )

@@ -5,6 +5,8 @@ import secrets
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
 
+from anyio import Path as AsyncPath
+
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.decorators import task_register
 from mcp_guide.lazy_path import LazyPath
@@ -17,6 +19,7 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 PROBE_TIMEOUT_SECONDS = 60.0
+PROBE_BASE = Path("/tmp")  # nosec B108: required shared base for the stdio filesystem probe.
 
 
 @task_register
@@ -48,12 +51,14 @@ class FilesystemProbeTask:
         self.task_manager = task_manager
         self._session = session
         self._challenge = secrets.token_hex(32)
-        path = session.bound_root_path / f".mcp-guide-fs-probe-{secrets.token_hex(16)}"
+        path = PROBE_BASE / f".mcp-guide-fs-probe-{secrets.token_hex(16)}"
+        self._path = path
         try:
-            # Exclusive creation and the small write form one non-awaiting ownership step.
-            with path.open("x", encoding="utf-8") as stream:
-                self._path = path
-                stream.write(self._challenge)
+            # Exclusive creation establishes ownership before the path is announced.
+            async_path = AsyncPath(path)
+            async with await async_path.open("x", encoding="utf-8") as stream:
+                await stream.write(self._challenge)
+            await async_path.chmod(0o444)
             task_manager.subscribe(self, EventType.FS_FILE_CONTENT, priority=True)
             self._instruction_id = await task_manager.queue_instruction_with_ack(
                 f"Read the existing file {str(path)!r} using the client's filesystem and send its exact contents "
@@ -109,7 +114,9 @@ class FilesystemProbeTask:
                 pass
         if self._path is not None:
             try:
-                self._path.unlink(missing_ok=True)
+                await AsyncPath(self._path).unlink()
+            except FileNotFoundError:
+                pass
             except OSError as error:
                 logger.warning(f"Unable to remove shared filesystem probe: {error}")
         if self._instruction_id is not None:

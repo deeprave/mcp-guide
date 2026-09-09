@@ -68,6 +68,7 @@ class DocumentRecord:
     updated_at: str
     content: Optional[str] = None
     mtime: Optional[float] = None
+    content_size: int = 0
 
 
 def _get_conn(db_path: Optional[Path] = None) -> sqlite3.Connection:
@@ -94,7 +95,8 @@ def _now() -> str:
 
 # Metadata-only query, deliberately excluding document content.
 _SELECT_METADATA = (
-    "SELECT id, category, name, source, source_type, metadata, created_at, updated_at, mtime FROM documents"
+    "SELECT id, category, name, source, source_type, metadata, created_at, updated_at, mtime, "
+    "length(CAST(content AS BLOB)) AS content_size FROM documents"
 )
 
 
@@ -116,6 +118,7 @@ def _row_to_record(row: sqlite3.Row) -> DocumentRecord:
         updated_at=row["updated_at"],
         content=row["content"],
         mtime=row["mtime"],
+        content_size=len(row["content"].encode("utf-8")),
     )
 
 
@@ -131,6 +134,7 @@ def _row_to_metadata_record(row: sqlite3.Row) -> DocumentRecord:
         created_at=row["created_at"],
         updated_at=row["updated_at"],
         mtime=row["mtime"],
+        content_size=row["content_size"],
     )
 
 
@@ -144,11 +148,16 @@ def _add_document(
     mtime: Optional[float] = None,
     force: bool = False,
     db_path: Optional[Path] = None,
+    max_content_limit: int | None = None,
 ) -> UpsertResult:
     if not category or not name:
         raise ValueError("category and name must be non-empty")
     if source_type not in _VALID_SOURCE_TYPES:
         raise ValueError(f"source_type must be one of {sorted(_VALID_SOURCE_TYPES)}, got {source_type!r}")
+    if max_content_limit is not None:
+        from mcp_guide.content_limits import ensure_within_limit
+
+        ensure_within_limit(len(content.encode("utf-8")), limit_name="max-content-limit", limit=max_content_limit)
     now = _now()
     meta_json = json.dumps(metadata) if metadata else None
     conn = _get_conn(db_path)
@@ -205,9 +214,20 @@ def _get_document(category: str, name: str, db_path: Optional[Path] = None) -> O
     return _row_to_metadata_record(row) if row else None
 
 
-def _get_document_content(category: str, name: str, db_path: Optional[Path] = None) -> Optional[str]:
+def _get_document_content(
+    category: str, name: str, db_path: Optional[Path] = None, max_content_limit: int | None = None
+) -> Optional[str]:
     conn = _get_conn(db_path)
     try:
+        if max_content_limit is not None:
+            size_row = conn.execute(
+                "SELECT length(CAST(content AS BLOB)) AS content_size FROM documents WHERE category = ? AND name = ?",
+                (category, name),
+            ).fetchone()
+            if size_row is not None:
+                from mcp_guide.content_limits import ensure_within_limit
+
+                ensure_within_limit(size_row["content_size"], limit_name="max-content-limit", limit=max_content_limit)
         row = conn.execute(
             "SELECT content FROM documents WHERE category = ? AND name = ?",
             (category, name),
@@ -325,10 +345,15 @@ async def add_document(
     mtime: Optional[float] = None,
     force: bool = False,
     db_path: Optional[Path] = None,
+    max_content_limit: int | None = None,
 ) -> UpsertResult:
     """Insert or update a document. Returns UpsertResult with record or skip reason."""
+    if max_content_limit is None:
+        from mcp_guide.content_limits import get_content_limits
+
+        max_content_limit = (await get_content_limits()).max_content_limit
     return await run_in_thread(
-        _add_document, category, name, source, source_type, content, metadata, mtime, force, db_path
+        _add_document, category, name, source, source_type, content, metadata, mtime, force, db_path, max_content_limit
     )
 
 
@@ -337,9 +362,15 @@ async def get_document(category: str, name: str, db_path: Optional[Path] = None)
     return await run_in_thread(_get_document, category, name, db_path)
 
 
-async def get_document_content(category: str, name: str, db_path: Optional[Path] = None) -> Optional[str]:
+async def get_document_content(
+    category: str, name: str, db_path: Optional[Path] = None, max_content_limit: int | None = None
+) -> Optional[str]:
     """Return document content by (category, name), or None if not found."""
-    return await run_in_thread(_get_document_content, category, name, db_path)
+    if max_content_limit is None:
+        from mcp_guide.content_limits import get_content_limits
+
+        max_content_limit = (await get_content_limits()).max_content_limit
+    return await run_in_thread(_get_document_content, category, name, db_path, max_content_limit)
 
 
 async def remove_document(category: str, name: str, db_path: Optional[Path] = None) -> bool:

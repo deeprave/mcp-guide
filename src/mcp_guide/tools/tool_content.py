@@ -21,6 +21,7 @@ from mcp_guide.content.utils import (
     resolve_content_cache_policy,
     resolve_content_disposition,
 )
+from mcp_guide.content_limits import ContentBudget, ContentLimitExceeded, ensure_within_limit, get_content_limits
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.core.tool_arguments import ToolArguments
 from mcp_guide.core.tool_decorator import toolfunc
@@ -171,7 +172,8 @@ async def internal_get_content(
         # If a pattern is provided, append it to the expression
         expression = _build_expression(args.expression, args.pattern)
 
-        files = await gather_content(request_context, project, expression)
+        limits = await get_content_limits()
+        files = await gather_content(request_context, project, expression, limits=limits)
 
         if not files:
             return Result.ok(
@@ -191,6 +193,7 @@ async def internal_get_content(
         # Read content for each category group
         final_files: list[FileInfo] = []
         file_read_errors: list[str] = []
+        response_budget = ContentBudget(limits.max_content_limit)
 
         for category_name, category_files in files_by_category.items():
             category = project.categories.get(category_name)
@@ -201,10 +204,17 @@ async def internal_get_content(
             template_context = await get_template_context_if_needed(session, category_files, category_name)
 
             errors = await read_and_render_file_contents(
-                request_context, category_files, category_dir, template_context, category_prefix=category_name
+                request_context,
+                category_files,
+                category_dir,
+                template_context,
+                category_prefix=category_name,
+                content_budget=response_budget,
             )
             file_read_errors.extend(errors)
             final_files.extend(category_files)
+
+        ensure_within_limit(len(final_files), limit_name="max-document-limit", limit=limits.max_document_limit)
 
         # Check for file read errors
         if file_read_errors:
@@ -225,7 +235,11 @@ async def internal_get_content(
 
         # Format and return content
         formatter = get_formatter_from_flag(format_type)
-        content = await formatter.format(final_files, request_context.resolve_document_path)
+        content = await formatter.format(
+            final_files,
+            request_context.resolve_document_path,
+            max_content_limit=limits.max_content_limit,
+        )
 
         # Extract instructions from frontmatter
         instruction = extract_and_deduplicate_instructions(final_files)
@@ -242,6 +256,8 @@ async def internal_get_content(
         return Result.failure(str(e), error_type=ERROR_NOT_FOUND, instruction=INSTRUCTION_NOTFOUND_ERROR)
     except (CategoryNotFoundError, CollectionNotFoundError) as e:
         return Result.failure(str(e), error_type=ERROR_NOT_FOUND, instruction=INSTRUCTION_NOTFOUND_ERROR)
+    except ContentLimitExceeded as e:
+        return Result.failure(str(e), error_type="max_size_exceeded")
     except (OSError, ValueError) as e:
         return Result.failure(str(e), error_type=ERROR_VALIDATION)
     except FileReadError as e:

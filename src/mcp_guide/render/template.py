@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
+from mcp_guide.content_limits import DEFAULT_MAX_CONTENT_LIMIT, ensure_within_limit
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.discovery.files import FileInfo
 from mcp_guide.render.cache import get_template_contexts
@@ -28,6 +29,7 @@ async def render_template(
     pre_partials: Optional[Dict[str, str]] = None,
     pre_partial_frontmatter: Optional[Dict[str, list[Dict[str, Any]]]] = None,
     pre_partial_cache_policies: Optional[Dict[str, list[CachePolicy]]] = None,
+    max_content_limit: int = DEFAULT_MAX_CONTENT_LIMIT,
 ) -> Optional[RenderedContent]:
     """Render a template file with frontmatter and context.
 
@@ -44,7 +46,7 @@ async def render_template(
         RuntimeError: If template rendering fails
         Exception: Other errors during processing
     """
-    content = await file_info.read_raw()
+    content = await file_info.read_raw(max_bytes=max_content_limit)
 
     # Build context for frontmatter field rendering
     base_context = await get_template_contexts(session)
@@ -83,6 +85,7 @@ async def render_template(
             partials=pre_partials,
             pre_rendered_partial_frontmatter=pre_partial_frontmatter,
             pre_rendered_partial_cache_policies=pre_partial_cache_policies,
+            max_content_limit=max_content_limit,
         )
         if not result.success:
             raise RuntimeError(f"Template rendering failed: {result.error}")
@@ -94,6 +97,7 @@ async def render_template(
         partial_cache_policies = []
         template_errors = []
 
+    ensure_within_limit(len(rendered_content.encode("utf-8")), limit_name="max-content-limit", limit=max_content_limit)
     return RenderedContent(
         frontmatter=processed.frontmatter,
         frontmatter_length=processed.frontmatter_length,

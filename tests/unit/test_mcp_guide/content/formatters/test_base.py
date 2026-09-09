@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from mcp_guide.content.formatters.base import BaseFormatter
+from mcp_guide.content_limits import ContentLimitExceeded
 from mcp_guide.discovery.files import FileInfo
 
 _RESOLVE = Path("docs").joinpath
@@ -94,3 +95,14 @@ class TestBaseFormatter:
         result = await formatter.format(files, _RESOLVE)
         # Files with trailing newlines will produce extra blank lines between files
         assert result == "First\n\nSecond\n"
+
+    @pytest.mark.anyio
+    async def test_format_rejects_aggregate_content_before_joining(self):
+        formatter = BaseFormatter()
+        files = [
+            FileInfo(Path("first.md"), 4, 4, datetime.now(), "first.md", content="four"),
+            FileInfo(Path("second.md"), 4, 4, datetime.now(), "second.md", content="four"),
+        ]
+
+        with pytest.raises(ContentLimitExceeded, match="max-content-limit"):
+            await formatter.format(files, _RESOLVE, max_content_limit=8)

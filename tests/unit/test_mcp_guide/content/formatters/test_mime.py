@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from mcp_guide.content.formatters.mime import MimeFormatter
+from mcp_guide.content_limits import ContentLimitExceeded
 from mcp_guide.discovery.files import FileInfo
 from mcp_guide.models.project import Category
 from mcp_guide.render.cache_policy import CachePolicy
@@ -87,3 +88,9 @@ async def test_multipart_headers_preserve_each_documents_cache_policy(tmp_path):
     parts = list(Parser(policy=policy.default).parsestr(result).iter_parts())
 
     assert [part["Cache-Control"] for part in parts] == ["public, max-age=86400", "no-cache"]
+
+
+@pytest.mark.anyio
+async def test_mime_headers_count_towards_aggregate_limit(tmp_path):
+    with pytest.raises(ContentLimitExceeded, match="max-content-limit"):
+        await MimeFormatter().format([document("test.md", "body")], tmp_path.joinpath, max_content_limit=4)

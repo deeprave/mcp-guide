@@ -2,10 +2,13 @@
 
 import asyncio
 import errno
+from collections.abc import Callable
 from typing import Any, Optional
 
+from mcp_guide.content_limits import ContentLimits
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.transports import MissingDependencyError
+from mcp_guide.transports.rate_limit import HttpRateLimitMiddleware
 
 logger = get_logger(__name__)
 
@@ -24,6 +27,7 @@ class HttpTransport:
         path_prefix: Optional[str] = None,
         log_level: str = "INFO",
         log_json: bool = False,
+        content_limits: ContentLimits | None = None,
     ):
         """Initialize HTTP transport.
 
@@ -37,6 +41,7 @@ class HttpTransport:
             path_prefix: Optional path prefix (e.g., 'v1' for /v1/mcp endpoint)
             log_level: Log level for uvicorn
             log_json: Whether to use JSON logging
+            content_limits: Static server capacity limits for HTTP request admission
         """
         self.scheme = scheme
         self.host = host or "localhost"
@@ -47,6 +52,7 @@ class HttpTransport:
         self.path_prefix = path_prefix
         self.log_level = log_level
         self.log_json = log_json
+        self.content_limits = content_limits or ContentLimits.from_config({})
         self.server: Optional[Any] = None
         self.server_task: Optional[asyncio.Task[None]] = None
 
@@ -84,6 +90,11 @@ class HttpTransport:
             app = self.mcp_server.http_app(
                 transport="streamable-http",
                 path=endpoint_path,
+            )
+            app = HttpRateLimitMiddleware(
+                app,
+                self.content_limits,
+                session_is_established=_http_session_is_established(app),
             )
 
             # Configure uvicorn
@@ -161,3 +172,22 @@ class HttpTransport:
         raise NotImplementedError(
             "HTTP transport does not use receive() - MCP protocol is handled by FastMCP's http_app()"
         )
+
+
+def _http_session_is_established(application: Any) -> Callable[[str], bool]:
+    """Return a live Streamable HTTP session lookup for the FastMCP ASGI app."""
+
+    def is_established(session_id: str) -> bool:
+        for route in getattr(application, "routes", []):
+            endpoint = getattr(route, "endpoint", None)
+            while endpoint is not None:
+                session_manager = getattr(endpoint, "session_manager", None)
+                if session_manager is not None:
+                    # FastMCP exposes its stateful Streamable HTTP manager through
+                    # the route endpoint. Its live transport map is the only
+                    # authoritative record before application request handling.
+                    return session_id in session_manager._server_instances
+                endpoint = getattr(endpoint, "app", None)
+        return False
+
+    return is_established

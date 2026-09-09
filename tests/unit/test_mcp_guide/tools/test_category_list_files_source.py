@@ -63,7 +63,7 @@ async def test_source_and_name_filters_preserve_document_metadata(runtime, tmp_p
     assert selected[0] == {
         "path": "stored.md",
         "basename": "stored.md",
-        "size": 0,
+        "size": len("Stored content".encode("utf-8")),
         "source": "store",
         "description": "Stored guidance",
         "metadata": metadata,

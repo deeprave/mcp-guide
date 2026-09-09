@@ -5,6 +5,7 @@ from datetime import datetime
 import pytest
 
 from mcp_guide.content.utils import read_and_render_file_contents
+from mcp_guide.content_limits import ContentBudget
 from mcp_guide.discovery.files import FileInfo
 from mcp_guide.render.context import TemplateContext
 from tests.helpers import create_unbound_test_session, request_context_for
@@ -52,3 +53,28 @@ async def test_invalid_template_context_removes_file_with_validation_error(conte
     errors = await read_and_render_file_contents(content_context, files, tmp_path, {"name": "World"})
     assert errors == ["'test.mustache' template error: Invalid template context type"]
     assert files == []
+
+
+@pytest.mark.anyio
+async def test_batch_budget_counts_only_retained_rendered_content(content_context, tmp_path):
+    """Filtered sources do not consume the aggregate content budget."""
+    filtered = tmp_path / "filtered.md"
+    filtered.write_text("---\nrequires-feature: true\n---\n" + "x" * 60)
+    retained = tmp_path / "retained.md"
+    retained.write_text("ok")
+    files = [file_info(filtered), file_info(retained)]
+    budget = ContentBudget(2)
+
+    errors = await read_and_render_file_contents(
+        content_context,
+        files,
+        tmp_path,
+        TemplateContext({}),
+        max_content_limit=100,
+        content_budget=budget,
+    )
+
+    assert errors == []
+    assert [file.name for file in files] == ["retained.md"]
+    assert files[0].content == "ok"
+    assert budget.remaining == 0

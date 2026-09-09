@@ -333,6 +333,8 @@ async def process_file(
     file_info: Any,
     requirements_context: Optional[Dict[str, Any]],
     render_context: Optional["TemplateContext"],
+    *,
+    max_content_limit: int | None = None,
 ) -> Optional[ProcessedFrontmatter]:
     """Process a non-template file: read, parse frontmatter, check requirements.
 
@@ -349,6 +351,6 @@ async def process_file(
         PermissionError: If file can't be read
         UnicodeDecodeError: If file isn't valid UTF-8
     """
-    content = await file_info.read_raw()
+    content = await file_info.read_raw(max_bytes=max_content_limit)
 
     return await process_frontmatter(content, requirements_context, render_context)

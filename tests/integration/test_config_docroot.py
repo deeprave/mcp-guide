@@ -97,6 +97,24 @@ async def test_config_manager_retains_its_effective_docroot_until_restart(tmp_pa
 
 
 @pytest.mark.anyio
+async def test_config_manager_retains_content_limits_until_restart(tmp_path):
+    """Content limits are startup configuration and ignore later file edits."""
+    config_file = tmp_path / "config.yaml"
+    config_file.write_text("max-content-limit: 500mb\nmax-document-limit: 100\nprojects: {}\n", encoding="utf-8")
+
+    runtime = create_runtime(lambda _owner: object(), config_dir=str(tmp_path))
+    await runtime.start()
+    try:
+        limits = await runtime.configuration_service().get_content_limits()
+        assert limits.max_content_limit == 500_000_000
+        config_file.write_text("max-content-limit: 1mb\nmax-document-limit: 1\nprojects: {}\n", encoding="utf-8")
+        await runtime.configuration_service()._on_external_change(str(config_file))
+        assert await runtime.configuration_service().get_content_limits() == limits
+    finally:
+        await runtime.stop()
+
+
+@pytest.mark.anyio
 async def test_filling_missing_docroot_does_not_unpack_templates(tmp_path):
     """Persisting a default docroot must not install the packaged template tree."""
     config_file = tmp_path / "config.yaml"

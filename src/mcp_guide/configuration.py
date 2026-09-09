@@ -24,6 +24,7 @@ from mcp_guide.utils.project_hash import (
 from mcp_guide.watchers.config_watcher import ConfigWatcher
 
 if TYPE_CHECKING:
+    from mcp_guide.content_limits import ContentLimits
     from mcp_guide.session import Session
 
 logger = get_logger(__name__)
@@ -37,6 +38,7 @@ class _ConfigManagerCore:
         self.__config_dir = config_dir
         self.__docroot: Optional[str] = None
         self.__feature_flags: Optional[dict[str, Any]] = None
+        self.__content_limits: ContentLimits | None = None
         # Import here to avoid circular dependency with config_paths module
         from mcp_guide.config_paths import get_config_file
         from mcp_guide.lazy_path import LazyPath
@@ -120,6 +122,23 @@ class _ConfigManagerCore:
             self.__feature_flags = await lock_update(self.config_file, _get_flags)
             logger.trace(f"get_feature_flags: loaded from disk, flags={self.__feature_flags!r}")
         return self.__feature_flags
+
+    async def get_content_limits(self) -> "ContentLimits":
+        """Return startup-snapshotted global content limits."""
+        if self.__content_limits is None:
+            from mcp_guide.content_limits import ContentLimits
+
+            self._ensure_config_dir()
+
+            async def _get_limits(file_path: Path) -> ContentLimits:
+                content = await self.get_or_create_config(file_path)
+                data = yaml.safe_load(content) or {}
+                if not isinstance(data, dict):
+                    raise ValueError("Guide configuration must be a YAML mapping")
+                return ContentLimits.from_config(data)
+
+            self.__content_limits = await lock_update(self.config_file, _get_limits)
+        return self.__content_limits
 
     async def set_feature_flag(self, flag_name: str, value: FeatureValue) -> None:
         """Set a feature flag."""
@@ -492,6 +511,7 @@ class ConfigManager(_ConfigManagerCore):
             # Docroot is process-global operational state. Resolve it once at
             # runtime start and retain that effective value until restart.
             await self.get_docroot()
+            await self.get_content_limits()
             self._watcher = ConfigWatcher(str(self.config_file), callback=self._on_external_change, poll_interval=1.0)
             await self._watcher.start()
 
@@ -600,6 +620,11 @@ class ConfigManager(_ConfigManagerCore):
         """Read feature flags through the coordinated in-memory image."""
         async with self._image_lock:
             return await super().get_feature_flags()
+
+    async def get_content_limits(self) -> "ContentLimits":
+        """Read startup-snapshotted limits through the coordinated image."""
+        async with self._image_lock:
+            return await super().get_content_limits()
 
     async def get_all_project_configs(self) -> dict[str, Project]:
         """Read project configurations through the coordinated in-memory image."""

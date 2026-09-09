@@ -80,6 +80,7 @@ async def async_main(config: ServerConfig) -> None:
     # selected transport accepts requests.
     application = create_application(config)
     mcp = application.server
+    content_limits = await application.runtime.configuration_service().get_content_limits()
 
     # Handle CLI errors after logging is configured
     _handle_cli_error(config)
@@ -96,6 +97,7 @@ async def async_main(config: ServerConfig) -> None:
             config.transport_path,
             config.log_level,
             config.log_json,
+            content_limits,
         )
         await transport.start()
 

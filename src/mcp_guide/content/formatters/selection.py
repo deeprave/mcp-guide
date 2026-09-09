@@ -21,7 +21,13 @@ logger = get_logger(__name__)
 class ContentFormatter(Protocol):
     """Protocol for content formatters."""
 
-    async def format(self, files: list["FileInfo"], resolve_document_path: Callable[[str | Path], Path]) -> str:
+    async def format(
+        self,
+        files: list["FileInfo"],
+        resolve_document_path: Callable[[str | Path], Path],
+        *,
+        max_content_limit: int | None = None,
+    ) -> str:
         """Format files into a string representation."""
         ...
 
