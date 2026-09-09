@@ -55,7 +55,7 @@ build-backend = "uv_build"
 
 [tool.uv]
 package = true
-constraint-dependencies = ["fastmcp-slim==4.0.0b3"]
+constraint-dependencies = ["fastmcp-slim==4.0.3"]
 
 [tool.uv.build-backend]
 module-name = ["mcp_guide"]
