@@ -572,7 +572,15 @@ async def internal_category_content(
                 if args.pattern
                 else f"No files found matching expression '{args.expression}'"
             )
-            return Result.ok(message, instruction=INSTRUCTION_PATTERN_ERROR)
+            return Result.ok(
+                message,
+                message=(
+                    "Glob discovery was truncated by: " + ", ".join(sorted(files.truncation_reasons))
+                    if files.truncation_reasons
+                    else None
+                ),
+                instruction=INSTRUCTION_PATTERN_ERROR,
+            )
 
         # Group files by category for reading (files may span multiple categories)
         files_by_category: dict[str, list[FileInfo]] = {}
@@ -626,7 +634,10 @@ async def internal_category_content(
             max_content_limit=limits.max_content_limit,
         )
 
-        return Result.ok(content, cache_policy=resolve_content_cache_policy(final_files))
+        warning = None
+        if files.truncation_reasons:
+            warning = "Glob discovery was truncated by: " + ", ".join(sorted(files.truncation_reasons))
+        return Result.ok(content, message=warning, cache_policy=resolve_content_cache_policy(final_files))
 
     except CategoryNotFoundError as e:
         return Result.failure(

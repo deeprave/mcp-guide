@@ -177,7 +177,13 @@ async def internal_get_content(
 
         if not files:
             return Result.ok(
-                f"No matching content found for '{args.expression}'", instruction=INSTRUCTION_PATTERN_ERROR
+                f"No matching content found for '{args.expression}'",
+                message=(
+                    "Glob discovery was truncated by: " + ", ".join(sorted(files.truncation_reasons))
+                    if files.truncation_reasons
+                    else None
+                ),
+                instruction=INSTRUCTION_PATTERN_ERROR,
             )
 
         # Group files by category for reading
@@ -247,6 +253,11 @@ async def internal_get_content(
 
         return Result.ok(
             content,
+            message=(
+                "Glob discovery was truncated by: " + ", ".join(sorted(files.truncation_reasons))
+                if files.truncation_reasons
+                else None
+            ),
             instruction=instruction,
             disposition=disposition,
             cache_policy=resolve_content_cache_policy(final_files),

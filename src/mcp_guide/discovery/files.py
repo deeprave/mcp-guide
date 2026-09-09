@@ -24,6 +24,14 @@ from mcp_guide.store.document_store import get_document_content, list_documents
 TEMPLATE_EXTENSIONS = (".mustache", ".hbs", ".handlebars", ".chevron")
 
 
+class FileInfoList(list["FileInfo"]):
+    """Discovered files with any filesystem truncation diagnostics."""
+
+    def __init__(self, files: list["FileInfo"] | None = None, truncation_reasons: set[str] | None = None):
+        super().__init__(files or [])
+        self.truncation_reasons = truncation_reasons or set()
+
+
 def get_file_extension_patterns(base_pattern: str) -> list[str]:
     """Get all file extension patterns for a base pattern.
 
@@ -249,7 +257,7 @@ async def discover_document_stored(
     category: str,
     patterns: list[str],
     max_content_limit: int | None = None,
-) -> list[FileInfo]:
+) -> FileInfoList:
     """Discover documents from the document store.
 
     Uses the same pattern expansion as filesystem discovery
@@ -287,7 +295,7 @@ async def discover_document_stored(
                 frontmatter=record.metadata or {},
             )
         )
-    return results
+    return FileInfoList(results)
 
 
 async def discover_documents(
@@ -295,7 +303,7 @@ async def discover_documents(
     patterns: list[str],
     category: Optional[str] = None,
     max_content_limit: int | None = None,
-) -> list[FileInfo]:
+) -> FileInfoList:
     """Discover documents from filesystem and optionally the document store.
 
     Args:
@@ -312,13 +320,15 @@ async def discover_documents(
     if category is None:
         return await discover_document_files(base_dir, patterns)
 
-    file_results: list[FileInfo] = []
+    file_results = FileInfoList()
     store_results: list[FileInfo] = []
 
     async with anyio.create_task_group() as tg:
 
         async def _files() -> None:
-            file_results.extend(await discover_document_files(base_dir, patterns))
+            discovered_files = await discover_document_files(base_dir, patterns)
+            file_results.extend(discovered_files)
+            file_results.truncation_reasons.update(discovered_files.truncation_reasons)
 
         async def _stored() -> None:
             store_results.extend(await discover_document_stored(category, patterns, max_content_limit))
@@ -326,13 +336,13 @@ async def discover_documents(
         tg.start_soon(_files)
         tg.start_soon(_stored)
 
-    return file_results + store_results
+    return FileInfoList(file_results + store_results, file_results.truncation_reasons)
 
 
 async def discover_document_files(
     base_dir: Path,
     patterns: list[str],
-) -> list[FileInfo]:
+) -> FileInfoList:
     """Discover files in directory with metadata.
 
     Args:
@@ -408,4 +418,4 @@ async def discover_document_files(
         )
         results.append(file_info)
 
-    return results
+    return FileInfoList(results, matched_paths.truncation_reasons)

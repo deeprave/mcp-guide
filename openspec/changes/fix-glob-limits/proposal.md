@@ -7,16 +7,15 @@ result set.
 
 ## What Changes
 
-- Replace recursive candidate collection with bounded, deterministic traversal
-  that emits candidates in the same canonical path order used for result
-  selection.
-- Preserve the existing path-sorted result semantics across filesystem types;
-  traversal shall not select a platform-dependent prefix based on directory
-  enumeration order.
+- Replace recursive candidate collection with bounded, incremental traversal
+  that sorts a limited set of entries from one directory at a time.
+- Preserve canonical path-sorted result semantics for directories within the
+  entry budget. When a directory exceeds that budget, select and sort its
+  native-enumeration prefix, and report the resulting portability limitation.
 - Introduce finite limits for patterns, directory entries, total traversal work,
   and elapsed traversal time.
-- Return an explicit glob-limit failure when a traversal cannot finish within a
-  resource limit, rather than returning silently truncated or reordered results.
+- Log and report traversal-limit truncation without failing an otherwise useful
+  result.
 - Retain the existing depth, symlink-cycle, validity, de-duplication, extension
   fallback, and 100-document result limits.
 
@@ -28,15 +27,16 @@ None.
 
 ### Modified Capabilities
 
-- `file-discovery`: Make recursive filesystem glob discovery deterministic and
-  resource-bounded without changing the selected result set for successful
-  searches.
+- `file-discovery`: Make recursive filesystem glob discovery incrementally
+  resource-bounded while preserving canonical selection except for documented
+  wide-directory truncation.
 
 ## Impact
 
 - Affected code: glob traversal and candidate processing in
   `src/mcp_guide/discovery/patterns.py`, discovery constants, and filesystem
   discovery tests.
-- Affected behaviour: over-budget recursive searches fail deterministically with
-  safe limit guidance; successful searches remain ordered by canonical relative
-  path on every supported filesystem.
+- Affected behaviour: over-budget recursive searches return their bounded result
+  with a warning naming every reached guard. Successful searches remain canonically
+  ordered except where a directory's native-enumeration prefix exceeds the
+  per-directory budget.

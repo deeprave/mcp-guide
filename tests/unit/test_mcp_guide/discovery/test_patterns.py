@@ -1,11 +1,12 @@
 """Tests for pattern matching utilities."""
 
+import os
 from pathlib import Path
 
 import pytest
 
 from mcp_guide.config_constants import MAX_GLOB_DEPTH
-from mcp_guide.discovery.patterns import safe_glob_search
+from mcp_guide.discovery.patterns import GlobSearchResult, safe_glob_search
 
 
 class TestBasicPatternMatching:
@@ -69,10 +70,6 @@ class TestBasicPatternMatching:
         (test_dir / "second.md").write_text("second")
         (test_dir / "first.md").write_text("first")
 
-        async def reverse_directory_order(*_args):
-            return [test_dir / "second.md", test_dir / "first.md"]
-
-        monkeypatch.setattr("mcp_guide.discovery.patterns._walk_with_depth_limit", reverse_directory_order)
         monkeypatch.setattr("mcp_guide.discovery.patterns.MAX_DOCUMENTS_PER_GLOB", 1)
         results = await safe_glob_search(test_dir, ["*.md"])
 
@@ -370,6 +367,118 @@ class TestDocumentLimit:
         assert len(set(combined)) == 3
         assert {path.name for path in combined if path.suffix == ".md"} == {"a.md", "b.md"}
         assert sum(path.suffix == ".txt" for path in combined) == 1
+
+
+class TestGlobTruncation:
+    """Glob safety guards retain bounded results and expose their diagnostics."""
+
+    @pytest.mark.anyio
+    async def test_pattern_limit_returns_bounded_result_with_diagnostic(self, tmp_path, monkeypatch, caplog):
+        (tmp_path / "first.md").write_text("first")
+        (tmp_path / "second.md").write_text("second")
+        monkeypatch.setattr("mcp_guide.discovery.patterns.MAX_GLOB_PATTERNS", 1)
+
+        result = await safe_glob_search(tmp_path, ["first.md", "second.md"])
+
+        assert isinstance(result, GlobSearchResult)
+        assert [path.name for path in result.paths] == ["first.md"]
+        assert result.truncation_reasons == {"pattern count"}
+        assert "Glob discovery truncated by pattern count" in caplog.text
+
+    @pytest.mark.anyio
+    async def test_directory_limit_retains_bounded_result_with_diagnostic(self, tmp_path, monkeypatch, caplog):
+        (tmp_path / "first.md").write_text("first")
+        (tmp_path / "second.md").write_text("second")
+        monkeypatch.setattr("mcp_guide.discovery.patterns.MAX_GLOB_DIRECTORY_ENTRIES", 1)
+
+        result = await safe_glob_search(tmp_path, ["**/*.md"])
+
+        assert len(result.paths) == 1
+        assert "directory entry count" in result.truncation_reasons
+        assert "Glob discovery truncated by directory entry count" in caplog.text
+
+    @pytest.mark.anyio
+    async def test_non_recursive_directory_limit_retains_bounded_result_with_diagnostic(self, tmp_path, monkeypatch):
+        (tmp_path / "first.md").write_text("first")
+        (tmp_path / "second.md").write_text("second")
+        monkeypatch.setattr("mcp_guide.discovery.patterns.MAX_GLOB_DIRECTORY_ENTRIES", 1)
+
+        result = await safe_glob_search(tmp_path, ["*.md"])
+
+        assert len(result.paths) == 1
+        assert result.truncation_reasons == {"directory entry count"}
+
+    @pytest.mark.anyio
+    async def test_aggregate_limit_retains_prefix_with_diagnostic(self, tmp_path, monkeypatch):
+        (tmp_path / "first.md").write_text("first")
+        (tmp_path / "second.md").write_text("second")
+        monkeypatch.setattr("mcp_guide.discovery.patterns.MAX_GLOB_ENTRIES", 1)
+
+        result = await safe_glob_search(tmp_path, ["**/*.md"])
+
+        assert [path.name for path in result.paths] == ["first.md"]
+        assert "aggregate entry count" in result.truncation_reasons
+
+    @pytest.mark.anyio
+    async def test_enumeration_time_limit_retains_bounded_result_with_diagnostic(self, tmp_path, monkeypatch):
+        (tmp_path / "first.md").write_text("first")
+        monotonic_values = iter((0.0, 2.1))
+        monkeypatch.setattr("mcp_guide.discovery.patterns.monotonic", lambda: next(monotonic_values))
+
+        result = await safe_glob_search(tmp_path, ["**/*.md"])
+
+        assert [path.name for path in result.paths] == ["first.md"]
+        assert result.truncation_reasons == {"enumeration time"}
+
+    @pytest.mark.anyio
+    async def test_depth_limit_reports_truncation(self, tmp_path, monkeypatch):
+        monkeypatch.setattr("mcp_guide.discovery.patterns.MAX_GLOB_DEPTH", 0)
+        nested = tmp_path / "nested"
+        nested.mkdir()
+        (nested / "hidden.md").write_text("hidden")
+
+        result = await safe_glob_search(tmp_path, ["**/*.md"])
+
+        assert result == []
+        assert result.truncation_reasons == {"depth"}
+
+    @pytest.mark.anyio
+    async def test_recursive_selection_uses_global_canonical_prefix(self, tmp_path, monkeypatch):
+        (tmp_path / "a-z.md").write_text("root")
+        nested = tmp_path / "a"
+        nested.mkdir()
+        (nested / "inside.md").write_text("nested")
+        monkeypatch.setattr("mcp_guide.discovery.patterns.MAX_DOCUMENTS_PER_GLOB", 1)
+
+        result = await safe_glob_search(tmp_path, ["**/*.md"])
+
+        assert [path.relative_to(tmp_path).as_posix() for path in result.paths] == ["a-z.md"]
+
+    @pytest.mark.anyio
+    async def test_bounded_directory_order_does_not_change_canonical_selection(self, tmp_path, monkeypatch):
+        """Within the entry budget, native enumeration order is not observable."""
+        for name in ("c.md", "a.md", "b.md"):
+            (tmp_path / name).write_text(name)
+        monkeypatch.setattr("mcp_guide.discovery.patterns.MAX_DOCUMENTS_PER_GLOB", 2)
+
+        native = await safe_glob_search(tmp_path, ["**/*.md"])
+        original_scandir = os.scandir
+
+        class ReverseScandir:
+            def __init__(self, path):
+                self.entries = list(original_scandir(path))
+
+            def __enter__(self):
+                return iter(reversed(self.entries))
+
+            def __exit__(self, *_):
+                return False
+
+        monkeypatch.setattr("mcp_guide.discovery.patterns.os.scandir", ReverseScandir)
+        reversed_order = await safe_glob_search(tmp_path, ["**/*.md"])
+
+        assert [path.name for path in native] == ["a.md", "b.md"]
+        assert [path.name for path in reversed_order] == ["a.md", "b.md"]
 
 
 class TestUnderscoreFiltering:

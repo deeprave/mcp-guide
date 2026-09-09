@@ -108,6 +108,24 @@ async def test_get_content_defaults_plain_markdown_to_long_public_cache(runtime,
 
 
 @pytest.mark.anyio
+async def test_get_content_reports_glob_truncation_when_no_files_are_retained(runtime, tmp_path, monkeypatch):
+    docs = tmp_path / "docs" / "nested"
+    docs.mkdir(parents=True)
+    (docs / "hidden.md").write_text("Hidden content")
+    runtime.configuration_service().config_file.write_text(yaml.safe_dump({"docroot": str(tmp_path), "projects": {}}))
+    session = await create_bound_test_session(runtime, "content-glob-truncation")
+    await session.update_config(
+        lambda project: project.with_category("docs", Category(dir="docs", patterns=["**/*.md"]))
+    )
+    monkeypatch.setattr("mcp_guide.discovery.patterns.MAX_GLOB_DEPTH", 0)
+
+    result = await internal_get_content(ContentArgs(expression="docs"), await request_context_for(session))
+
+    assert result.success is True
+    assert result.message == "Glob discovery was truncated by: depth"
+
+
+@pytest.mark.anyio
 async def test_get_content_logs_invalid_plain_markdown_cache_policy(runtime, tmp_path, caplog):
     """Unsupported cache tokens remain visible to content authors."""
     docs = tmp_path / "docs"
