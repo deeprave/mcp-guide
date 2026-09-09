@@ -24,6 +24,14 @@ async def get_profiles_dir() -> Path:
     return templates_path / "_profiles"
 
 
+def validate_profile_name(profile_name: str) -> None:
+    """Validate that a profile name is a simple profile basename."""
+    if not 1 <= len(profile_name) <= 50 or not all(
+        character.isalnum() or character in "_-" for character in profile_name
+    ):
+        raise ValueError("Invalid profile name")
+
+
 async def discover_profiles() -> list[str]:
     """Discover available profile names.
 
@@ -102,15 +110,21 @@ class Profile:
 
         Raises:
             FileNotFoundError: If profile file doesn't exist
-            ValueError: If profile YAML is invalid
+            ValueError: If profile name or source is invalid, or profile YAML is invalid
         """
-        profiles_dir = await get_profiles_dir()
-        profile_path = profiles_dir / f"{profile_name}.yaml"
+        validate_profile_name(profile_name)
+        profiles_dir = (await get_profiles_dir()).resolve()
+        profile_path = (profiles_dir / f"{profile_name}.yaml").resolve()
+
+        try:
+            profile_path.relative_to(profiles_dir)
+        except ValueError:
+            raise ValueError("Invalid profile source") from None
 
         if not profile_path.exists():
-            raise FileNotFoundError(f"Profile '{profile_name}' not found at {profile_path}")
+            raise FileNotFoundError(f"Profile '{profile_name}' not found")
 
-        yaml_content = profile_path.read_text()
+        yaml_content = profile_path.read_text(encoding="utf-8")
         return cls.from_yaml(profile_name, yaml_content)
 
     def apply_to_project(self, project: "Project") -> "Project":

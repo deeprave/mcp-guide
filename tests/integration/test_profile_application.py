@@ -126,3 +126,41 @@ class TestProfileApplication:
         assert not missing.success
         assert "not found" in missing.message.lower()
         assert await test_session.get_project() == combined
+
+    async def test_profile_application_rejects_invalid_and_escaping_profile_sources(
+        self, test_session, tmp_path, monkeypatch
+    ):
+        from mcp_guide.result_constants import ERROR_INVALID_NAME
+        from mcp_guide.tools.tool_project import (
+            ShowProfileArgs,
+            UseProjectProfileArgs,
+            internal_show_profile,
+            internal_use_project_profile,
+        )
+
+        profiles_dir = tmp_path / "_profiles"
+        profiles_dir.mkdir()
+        outside_profile = tmp_path / "outside.yaml"
+        outside_profile.write_text("categories: []")
+        (profiles_dir / "escape.yaml").symlink_to(outside_profile)
+
+        async def profile_directory():
+            return profiles_dir
+
+        monkeypatch.setattr("mcp_guide.models.profile.get_profiles_dir", profile_directory)
+
+        async def apply(name):
+            return await internal_use_project_profile(
+                UseProjectProfileArgs(profile=name), await request_context_for(test_session)
+            )
+
+        for name in ("../outside", "escape"):
+            application_result = await apply(name)
+            inspection_result = await internal_show_profile(
+                ShowProfileArgs(profile=name), await request_context_for(test_session)
+            )
+
+            for result in (application_result, inspection_result):
+                assert not result.success
+                assert result.error_type == ERROR_INVALID_NAME
+                assert "outside.yaml" not in (result.error or "")
