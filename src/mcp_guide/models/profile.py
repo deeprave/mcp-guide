@@ -110,7 +110,7 @@ class Profile:
 
         Raises:
             FileNotFoundError: If profile file doesn't exist
-            ValueError: If profile YAML is invalid
+            ValueError: If profile name or source is invalid, or profile YAML is invalid
         """
         validate_profile_name(profile_name)
         profiles_dir = (await get_profiles_dir()).resolve()
@@ -124,7 +124,7 @@ class Profile:
         if not profile_path.exists():
             raise FileNotFoundError(f"Profile '{profile_name}' not found")
 
-        yaml_content = profile_path.read_text()
+        yaml_content = profile_path.read_text(encoding="utf-8")
         return cls.from_yaml(profile_name, yaml_content)
 
     def apply_to_project(self, project: "Project") -> "Project":
