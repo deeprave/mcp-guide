@@ -637,6 +637,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#server-capacity-limits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Server capacity limits
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#tool-naming" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1487,6 +1498,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#server-capacity-limits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Server capacity limits
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#tool-naming" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1814,6 +1836,29 @@ HTTPS transport is recommended when accessing the server from another host, howe
 <span class="nb">export</span><span class="w"> </span><span class="nv">MG_LOG_JSON</span><span class="o">=</span><span class="m">1</span>
 </code></pre></div>
 
+<h3 id="server-capacity-limits">Server capacity limits<a class="headerlink" href="#server-capacity-limits" title="Permanent link">&para;</a></h3>
+<p>The following optional settings belong at the top level of the server's
+<code>config.yaml</code>. They are global, server-owned values: clients and projects cannot
+change them, and a configuration edit takes effect only after restart.</p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># Defaults shown; omit either setting to use its default.</span>
+<span class="nt">max-content-limit</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">500mb</span>
+<span class="nt">max-document-limit</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100</span>
+
+<span class="c1"># HTTP/HTTPS only, measured across a rolling 15-second window.</span>
+<span class="nt">http-session-rate-limit</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
+<span class="nt">http-service-rate-limit</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100</span>
+</code></pre></div>
+
+<p><code>max-content-limit</code> accepts positive decimal byte values such as <code>500mb</code>,
+<code>2GB</code>, or <code>1000kb</code>. It bounds source documents, templates and partials, rendered
+content, and the final document response. <code>max-document-limit</code> bounds the number
+of documents selected by one request. Omitted values are not written back into
+the configuration file.</p>
+<p>The HTTP limits are requests per second, with capacities of 75 requests per
+established MCP session and 1,500 per server process at the defaults. A session
+that is at capacity receives HTTP 429; a process at capacity receives HTTP 503.
+Both include <code>Retry-After</code>, which falls naturally as admitted requests leave the
+window. Stdio does not use HTTP request-rate limiting.</p>
 <h3 id="tool-naming">Tool Naming<a class="headerlink" href="#tool-naming" title="Permanent link">&para;</a></h3>
 <p>Environment variable:</p>
 <div class="codehilite"><pre><span></span><code><span class="c1"># Tool name prefix (default: "guide")</span>
