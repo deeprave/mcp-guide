@@ -132,17 +132,20 @@ async def _resolve_contained_file_with_extensions(
         *(base_path.with_suffix(extension) for extension in TEMPLATE_EXTENSIONS),
         *(base_path.with_suffix(f".md{extension}") for extension in TEMPLATE_EXTENSIONS),
     ]
-    document_root = resolver(".").resolve()
+    try:
+        document_root = resolver(".").resolve()
+    except (ValueError, RuntimeError) as error:
+        raise UnsafePartialPathError("partial reference must remain within the document root") from error
 
     for candidate in candidates:
         try:
             contained_path = resolver(candidate)
             canonical_path = contained_path.resolve()
             canonical_path.relative_to(document_root)
-        except ValueError as error:
+        except (ValueError, RuntimeError) as error:
             raise UnsafePartialPathError("partial reference must remain within the document root") from error
 
-        if await AsyncPath(canonical_path).exists():
+        if await AsyncPath(canonical_path).is_file():
             return canonical_path
 
     return None

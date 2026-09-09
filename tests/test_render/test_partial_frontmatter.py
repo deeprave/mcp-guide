@@ -61,6 +61,39 @@ class TestPartialFrontmatter:
                 resolver=document_root_resolver(document_root),
             )
 
+    async def test_load_partial_rejects_canonicalisation_failure(self, tmp_path, monkeypatch):
+        """A canonicalisation failure is handled as an unsafe partial reference."""
+        partial_file = tmp_path / "_loop.mustache"
+        partial_file.write_text("unreachable")
+        original_resolve = Path.resolve
+
+        def raise_for_partial(path, *args, **kwargs):
+            if path == partial_file:
+                raise RuntimeError("symlink loop")
+            return original_resolve(path, *args, **kwargs)
+
+        monkeypatch.setattr(Path, "resolve", raise_for_partial)
+
+        with pytest.raises(UnsafePartialPathError, match="document root"):
+            await load_partial_content(
+                Path("_loop"),
+                tmp_path,
+                resolver=document_root_resolver(tmp_path),
+            )
+
+    async def test_load_partial_ignores_directory_candidates(self, tmp_path):
+        """A directory must not mask an extension-backed partial file."""
+        (tmp_path / "_child").mkdir()
+        (tmp_path / "_child.mustache").write_text("partial content")
+
+        content, _ = await load_partial_content(
+            Path("_child"),
+            tmp_path,
+            resolver=document_root_resolver(tmp_path),
+        )
+
+        assert content == "partial content"
+
     async def test_load_user_anchored_partial_is_rejected(self, tmp_path, monkeypatch):
         """A partial reference must not expand a server user home path."""
         home = tmp_path / "home"
