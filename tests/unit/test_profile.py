@@ -118,6 +118,58 @@ class TestProfileLoad:
         assert shell_profile.categories[0].name == "lang"
         assert shell_profile.categories[0].patterns == ["shell"]
 
+    @pytest.mark.parametrize(
+        "profile_name",
+        ["", "../outside", r"..\\outside", "nested/profile", "/absolute", "profile.yaml", "with space", "bad!"],
+    )
+    async def test_rejects_non_basename_profile_identifiers(self, profile_name):
+        with pytest.raises(ValueError, match="Invalid profile name"):
+            await Profile.load(profile_name)
+
+    async def test_rejects_profile_symlink_that_escapes_profiles_directory(self, tmp_path, monkeypatch):
+        profiles_dir = tmp_path / "_profiles"
+        profiles_dir.mkdir()
+        outside_profile = tmp_path / "outside.yaml"
+        outside_profile.write_text("categories: []")
+        (profiles_dir / "escape.yaml").symlink_to(outside_profile)
+
+        async def profiles_path():
+            return profiles_dir
+
+        monkeypatch.setattr(profile_module, "get_profiles_dir", profiles_path)
+
+        with pytest.raises(ValueError, match="Invalid profile source"):
+            await Profile.load("escape")
+
+    async def test_loads_profile_symlink_contained_by_profiles_directory(self, tmp_path, monkeypatch):
+        profiles_dir = tmp_path / "_profiles"
+        profiles_dir.mkdir()
+        (profiles_dir / "target.yaml").write_text("categories: []")
+        (profiles_dir / "contained.yaml").symlink_to("target.yaml")
+
+        async def profiles_path():
+            return profiles_dir
+
+        monkeypatch.setattr(profile_module, "get_profiles_dir", profiles_path)
+
+        profile = await Profile.load("contained")
+
+        assert profile.name == "contained"
+
+    async def test_reports_missing_valid_profile_without_disclosing_its_path(self, tmp_path, monkeypatch):
+        profiles_dir = tmp_path / "_profiles"
+        profiles_dir.mkdir()
+
+        async def profiles_path():
+            return profiles_dir
+
+        monkeypatch.setattr(profile_module, "get_profiles_dir", profiles_path)
+
+        with pytest.raises(FileNotFoundError, match="Profile 'missing' not found") as error:
+            await Profile.load("missing")
+
+        assert str(profiles_dir) not in str(error.value)
+
 
 @pytest.mark.anyio
 class TestDiscoverProfiles:

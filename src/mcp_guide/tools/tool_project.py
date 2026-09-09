@@ -592,9 +592,11 @@ async def internal_use_project_profile(args: UseProjectProfileArgs, request_cont
     try:
         profile = await Profile.load(args.profile)
     except FileNotFoundError as e:
-        return Result.failure(ERROR_NOT_FOUND, message=str(e), instruction=INSTRUCTION_NOTFOUND_ERROR)
+        return Result.failure(
+            str(e), error_type=ERROR_NOT_FOUND, message=str(e), instruction=INSTRUCTION_NOTFOUND_ERROR
+        )
     except ValueError as e:
-        return Result.failure(ERROR_INVALID_NAME, message=str(e))
+        return Result.failure(str(e), error_type=ERROR_INVALID_NAME, message=str(e))
 
     # Apply profile to project (idempotent - won't duplicate existing categories/collections)
     project = profile.apply_to_project(project)
@@ -690,9 +692,9 @@ async def internal_show_profile(args: ShowProfileArgs, request_context: RequestC
     try:
         profile = await Profile.load(args.profile)
     except FileNotFoundError as e:
-        return Result.failure(str(e), ERROR_NOT_FOUND, instruction=INSTRUCTION_NOTFOUND_ERROR)
+        return Result.failure(str(e), error_type=ERROR_NOT_FOUND, instruction=INSTRUCTION_NOTFOUND_ERROR)
     except ValueError as e:
-        return Result.failure(str(e), ERROR_INVALID_NAME)
+        return Result.failure(str(e), error_type=ERROR_INVALID_NAME)
 
     # Build categories, omitting null values
     categories = []
