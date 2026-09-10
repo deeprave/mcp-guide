@@ -1,9 +1,9 @@
 ## ADDED Requirements
 
 ### Requirement: Expanded profile catalogue documentation
-User documentation for profiles SHALL describe the new Apple platform, Swift, Objective-C, and test-stack profiles, and SHALL show that they compose additively with existing profiles.
+User documentation for profiles SHALL describe the composable base-language, extension/framework, platform, and test-stack model. It SHALL distinguish `lang/` language guidance, `lang/build/` build guidance, and `checks/` testing guidance, and name only profiles that exist.
 
-#### Scenario: Profiles documentation lists the new profiles
+#### Scenario: Profiles documentation explains composition
 - **WHEN** a user reads the profiles documentation
-- **THEN** it SHALL mention the Apple platform, Swift, Objective-C, and test-stack profiles
-- **AND** every named profile example SHALL refer to a profile that exists
+- **THEN** it SHALL show a valid composed selection such as `swift`, `swiftui`, `ios`, and `xctest`
+- **AND** it SHALL explain that these profiles add guidance rather than replacing one another

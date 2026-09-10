@@ -1,16 +1,14 @@
 ## ADDED Requirements
 
-### Requirement: Apple, language, and test profile selection
-The onboarding flow SHALL offer the new Apple platform, Swift, Objective-C, and test-stack profiles where it already offers language or technology profile choices. Inspection SHALL treat Xcode, Swift package, and Apple project markers as evidence for those profiles. iPadOS SHALL stage the `ios` profile.
+### Requirement: Positive profile detection and selection
+The onboarding flow SHALL use inspection evidence to stage every compatible base-language, framework, aspect, platform, build, and test profile that it can positively identify. It SHALL obtain valid profile identifiers through `list_profiles` and retain user confirmation before application.
 
-#### Scenario: Select Swift and iOS during onboarding
-- **WHEN** a user identifies Swift and iOS as used by the project
-- **THEN** onboarding SHALL stage the `swift` and `ios` profiles for confirmation
+#### Scenario: Detect a composable Apple project stack
+- **WHEN** inspection finds positive evidence for Swift, SwiftUI, iOS, and XCTest
+- **THEN** onboarding SHALL stage `swift`, `swiftui`, `ios`, and `xctest` for confirmation
+- **AND** it SHALL NOT replace an existing staged profile
 
-#### Scenario: Infer Apple markers from the repository
-- **WHEN** onboarding inspection finds Apple project markers such as an Xcode project or Swift package manifest
-- **THEN** onboarding SHALL propose the matching language, platform, and test-stack profiles where those can be inferred
-
-#### Scenario: Select a test-stack profile during onboarding
-- **WHEN** a user identifies XCTest or Swift Testing as the project test stack
-- **THEN** onboarding SHALL stage the corresponding test profile for confirmation
+#### Scenario: Ambiguous project marker
+- **WHEN** inspection finds only a general Xcode project marker
+- **THEN** onboarding MAY stage profiles established by that marker
+- **AND** it SHALL NOT infer a specific Apple platform without target evidence

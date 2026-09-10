@@ -1,0 +1,5 @@
+categories:
+  - name: lang
+    patterns: [build/android]
+  - name: checks
+    patterns: [kotlin/android, java/android, dart/android]

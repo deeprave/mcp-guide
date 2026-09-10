@@ -1,29 +1,29 @@
 ## Purpose
 
-Provide bundled test-stack profiles so a project can select generic testing checks and Apple test frameworks without changing the existing testing-policy dimension.
+Provide testing and verification profiles and documents that compose with language and platform profiles while keeping build guidance out of the checks category.
 
 ## ADDED Requirements
 
 ### Requirement: Generic testing profile
-The system SHALL provide a bundled `testing` profile that selects the existing general testing check guidance.
+The system SHALL provide a bundled, selectable `testing` profile that selects the existing general testing guidance from the `checks` category.
 
-#### Scenario: Apply the testing profile
+#### Scenario: Apply generic testing guidance
 - **WHEN** a user applies the `testing` profile
-- **THEN** the project checks category SHALL select the existing testing check guidance
-- **AND** testing-policy selections SHALL remain unchanged
+- **THEN** the project checks category SHALL select the existing general testing guidance
+- **AND** existing testing and policy selections SHALL remain
 
-### Requirement: XCTest profile
-The system SHALL provide a bundled `xctest` profile that adds XCTest guidance.
+### Requirement: Platform-specific testing guidance
+The system SHALL provide focused testing guidance under `checks/<language>/<platform>/` for supported language/platform combinations. Shared framework guidance MAY be grouped where doing so avoids repetition.
 
-#### Scenario: Apply the XCTest profile
-- **WHEN** a user applies the `xctest` profile
-- **THEN** the project SHALL receive XCTest guidance
-- **AND** existing categories and collections SHALL remain
+#### Scenario: Select platform testing guidance
+- **WHEN** a user applies compatible Swift and iOS profiles
+- **THEN** the project SHALL select iOS-specific Swift testing guidance from the `checks` category
+- **AND** that guidance SHALL remain separate from `lang/build/` guidance
 
-### Requirement: Swift Testing profile
-The system SHALL provide a bundled `swift-testing` profile that adds Swift Testing framework guidance.
+### Requirement: Apple testing framework profiles
+The system SHALL provide bundled, selectable `xctest` and `swift-testing` profiles with focused test-framework guidance. Applying both SHALL preserve both sets of guidance.
 
-#### Scenario: Apply the Swift Testing profile
-- **WHEN** a user applies the `swift-testing` profile
-- **THEN** the project SHALL receive Swift Testing guidance
-- **AND** applying `xctest` as well SHALL keep both test-stack selections
+#### Scenario: Compose Apple test frameworks
+- **WHEN** a user applies `xctest` and `swift-testing`
+- **THEN** the project SHALL receive both framework guidance selections
+- **AND** applying either profile again SHALL not duplicate selections

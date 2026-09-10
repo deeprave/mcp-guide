@@ -1,0 +1,3 @@
+categories:
+  - name: checks
+    patterns: [testing]

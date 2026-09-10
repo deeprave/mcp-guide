@@ -12,6 +12,51 @@ from mcp_guide.runtime import get_runtime
 from mcp_guide.tools.tool_content import ContentArgs, internal_get_content
 from tests.helpers import create_test_session, request_context_for
 
+EXPANDED_PROFILE_NAMES = (
+    "android",
+    "angular",
+    "appkit",
+    "aspnet-core",
+    "browser",
+    "c",
+    "clojure",
+    "dart",
+    "elixir",
+    "f-sharp",
+    "flutter",
+    "haskell",
+    "ios",
+    "ipados",
+    "laravel",
+    "linux",
+    "lua",
+    "macos",
+    "nestjs",
+    "nodejs",
+    "nuxt",
+    "objective-c",
+    "r",
+    "rails",
+    "react-native",
+    "ruby",
+    "scala",
+    "svelte",
+    "swift",
+    "swift-concurrency",
+    "swift-package-manager",
+    "swift-testing",
+    "swiftui",
+    "symfony",
+    "testing",
+    "tvos",
+    "uikit",
+    "visionos",
+    "watchos",
+    "windows",
+    "xctest",
+    "zig",
+)
+
 
 @pytest.fixture(scope="module")
 def enable_default_profile():
@@ -74,6 +119,56 @@ class TestProfileApplication:
             content = await internal_get_content(ContentArgs(expression="lang", force=True), request_context)
             assert content.success
             assert heading in content.value
+
+    async def test_swift_platform_and_test_profiles_compose(self, test_session):
+        from mcp_guide.tools.tool_project import UseProjectProfileArgs, internal_use_project_profile
+
+        for profile_name in ("swift", "swiftui", "ios", "xctest"):
+            result = await internal_use_project_profile(
+                UseProjectProfileArgs(profile=profile_name), await request_context_for(test_session)
+            )
+            assert result.success, profile_name
+
+        request_context = await request_context_for(test_session)
+        language = await internal_get_content(ContentArgs(expression="lang", force=True), request_context)
+        checks = await internal_get_content(ContentArgs(expression="checks", force=True), request_context)
+
+        assert language.success
+        assert "# Swift Guidelines" in language.value
+        assert "# SwiftUI Guidelines" in language.value
+        assert "# iOS Build Guidance" in language.value
+        assert checks.success
+        assert "# Swift iOS Testing" in checks.value
+        assert "# XCTest Guidance" in checks.value
+
+    async def test_testing_profile_renders_general_testing_guidance(self, test_session):
+        from mcp_guide.tools.tool_project import UseProjectProfileArgs, internal_use_project_profile
+
+        result = await internal_use_project_profile(
+            UseProjectProfileArgs(profile="testing"), await request_context_for(test_session)
+        )
+
+        assert result.success
+        checks = await internal_get_content(
+            ContentArgs(expression="checks", force=True), await request_context_for(test_session)
+        )
+        assert checks.success
+        assert "These are the guidelines to follow for general code and quality testing." in checks.value
+
+    @pytest.mark.parametrize("profile_name", EXPANDED_PROFILE_NAMES)
+    async def test_expanded_profiles_apply_their_declared_patterns(self, test_session, profile_name):
+        from mcp_guide.models.profile import Profile
+        from mcp_guide.tools.tool_project import UseProjectProfileArgs, internal_use_project_profile
+
+        result = await internal_use_project_profile(
+            UseProjectProfileArgs(profile=profile_name), await request_context_for(test_session)
+        )
+
+        assert result.success, profile_name
+        profile = await Profile.load(profile_name)
+        project = await test_session.get_project()
+        for category in profile.categories:
+            assert set(category.patterns) <= set(project.categories[category.name].patterns)
 
     async def test_profiles_compose_idempotently_and_report_missing(self, test_session, tmp_path, monkeypatch):
         """Real profile files compose categories/collections and persist without duplicates."""

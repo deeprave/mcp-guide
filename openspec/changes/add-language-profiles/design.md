@@ -1,61 +1,60 @@
 ## Context
 
-See [proposal.md](proposal.md) for motivation. Profiles are additive YAML files under the bundled `_profiles` directory. Language and framework profiles add patterns to the `lang` category; Docker already uses that same category for a non-language technology. Guidance lives in matching `lang/<pattern>.mustache` documents. Discovery lists every non-underscore `*.yaml` basename. Onboarding asks for language and framework profiles after calling `list_profiles`, and already mentions Docker and shell.
+Profiles are additive YAML files under the bundled `_profiles` directory. A profile contributes category patterns; applying several profiles merges those patterns idempotently. The default profile already provides `lang` and `checks` categories. Category names cannot contain `/`, but category patterns and document paths can, so `lang/build/` is a document hierarchy inside the existing `lang` category rather than a new category.
 
-`fix-profile-traversal` is in progress and hardens profile identifier and containment rules. New profile names MUST remain simple basenames (`swift`, `objective-c`, `swift-testing`) so they stay valid under that loader.
+The project already provides base profiles for Python, JavaScript, TypeScript, Java, Kotlin, C#, C++, Go, Rust, PHP, SQL, shell, and selected frameworks. This change fills the highest-value gaps while establishing a repeatable catalogue structure for later additions.
 
 ## Goals / Non-Goals
 
 **Goals:**
 
-- Reuse the existing profile schema, discovery, and apply path with no loader or model changes.
-- Give each new profile a matching bundled guidance document so applying it produces non-empty `lang` or `checks` content.
-- Keep Apple language, platform, and test-stack selections independently composable.
-- Extend onboarding inspection hints so Xcode and Swift package markers can propose the new profiles.
+- Reuse profile discovery, application, and the existing YAML schema without loader or model changes.
+- Model a project as independently composable base-language, extension/framework, platform, and test-stack selections.
+- Keep guidance additive: documents contribute focused material and only repeat important fundamentals.
+- Place language guidance in `lang/`, build guidance in `lang/build/`, and testing/verification guidance in `checks/`.
+- Detect and stage every compatible profile that onboarding can positively identify, while retaining user confirmation.
+- Add all named platform profiles now; expand individual guidance later where it requires deeper ecosystem coverage.
 
 **Non-Goals:**
 
-- A new `platform` category or profile YAML fields.
-- A separate iPadOS profile.
-- Additional languages beyond Swift and Objective-C in this wave.
+- A new profile schema, platform category, or `lang/build` category name.
+- Creating a profile for every language/framework/platform combination.
 - Changing testing-policy documents (`policies/testing/*`) or methodology selection.
 - User-defined or out-of-tree profile directories.
 
 ## Decisions
 
-1. **Reuse `lang` for Apple platforms**
-   - Platform profiles add a `lang` pattern (`ios`, `macos`, and so on) and a `lang/<platform>.mustache` document, matching Docker.
-   - Alternative considered: add a `platform` category to `_default`. Rejected because it changes the default profile surface for every project and is not needed for composition.
+1. **Composable profiles instead of use-case profiles**
+   - `swift` contributes base language guidance. `swiftui`, `swift-concurrency`, and similar profiles contribute only additive aspect guidance. `ios`, `xctest`, and other compatible selections compose with it.
+   - This avoids combinations such as `swift-ios-xctest`, which cannot scale and repeat the same material.
 
-2. **Keep language, platform, and test-stack profiles separate**
-   - `swift` does not imply `ios`; `ios` does not imply `xctest`.
-   - Alternative considered: one `ios` profile that also selects Swift and XCTest. Rejected because macOS, server-side Swift, and mixed test stacks would then have to undo bundled defaults.
+2. **Language owns build guidance; checks own testing**
+   - Build documents use paths such as `lang/build/swift/ios.mustache` and are selected by language and platform profiles where possible.
+   - Testing documents use paths such as `checks/swift/ios.mustache`; shared framework guidance may use a grouped path such as `checks/swift/xctest.mustache`.
+   - `checks` remains exclusively for testing and verification; `lang/build` is not a category name because category identifiers cannot contain slashes.
 
-3. **Generic `testing` selects existing checks guidance**
-   - The `testing` profile adds the `testing` pattern to the `checks` category, which already has `checks/testing.mustache`.
-   - `xctest` and `swift-testing` add `lang` patterns with dedicated guidance, because they are framework-specific rather than another testing posture.
-   - Alternative considered: fold XCTest into the generic testing profile. Rejected because XCTest is not the only Apple test stack.
+3. **Base, extension, platform, and test profiles are independently selectable**
+   - Base profiles cover C, Swift, Objective-C, Ruby, Dart, Scala, Elixir, Clojure, Lua, R, F#, Haskell, and Zig.
+   - Additive profiles cover Node.js, Angular, Svelte, Nuxt, NestJS, Rails, Laravel, Symfony, ASP.NET Core, Flutter, React Native, SwiftUI, UIKit, AppKit, Swift Concurrency, Swift Package Manager, XCTest, and Swift Testing.
+   - Platform profiles cover macOS, iOS, iPadOS, watchOS, tvOS, visionOS, Android, Windows, Linux, and browser/web automation.
+   - Later changes may deepen a profile but should not invent combination profiles.
 
-4. **Hyphenated profile identifiers**
-   - Use `objective-c` and `swift-testing` as YAML basenames. They match existing `c-sharp` and `c-plusplus` naming and remain simple basenames.
-   - Alternative considered: `objc` and `swifttesting`. Rejected because the hyphenated forms are clearer in `list_profiles` output.
+4. **Onboarding stages every positive detection**
+   - Inspection markers identify compatible base, framework, platform, build, and test profiles. Onboarding obtains valid identifiers through `list_profiles`, stages all positively detected matches, and lets the user confirm them.
+   - Where markers establish a close match rather than an exact target, the closest profile may be staged. For example, an Xcode project establishes an Apple/Xcode context but must not assert an Apple platform absent target evidence.
 
-5. **Onboarding uses discovery rather than a hard-coded technology list**
-   - Onboarding already calls `list_profiles`. Add inspection hints (Xcode project, `Package.swift`, `.xctestplan`) and mention the new names as examples; do not maintain a second catalogue of profile names in command text beyond those hints.
-   - Alternative considered: enumerate every new profile in the onboard template. Rejected because discovery already returns the live set.
+5. **Platform-specific build and test material remains focused**
+   - macOS guidance may cover native UI automation. iOS, iPadOS, tvOS, watchOS, visionOS, and Android guidance covers simulator/device or hidden-window constraints as appropriate.
+   - Documents should state durable workflow guidance, not volatile SDK/API inventories.
 
 ## Risks / Trade-offs
 
-- [Apple guidance drifts from current SDK practice] → Keep documents to durable conventions (sandboxing, Swift concurrency, XCTest vs Swift Testing) rather than API lists that age quickly.
-- [Users expect iPadOS as its own profile] → Document that iPadOS uses `ios`; add `ipados` later only if composition cannot express the difference.
-- [Overlap between generic `testing` and Apple test-stack profiles] → `testing` stays language-neutral check guidance; Apple test profiles stay framework-specific.
+- [Catalogue breadth dilutes guidance] → Each profile has a small, focused document; follow-up changes deepen coverage instead of duplicating general advice.
+- [Marker ambiguity selects an incorrect profile] → Stage only positive evidence and preserve confirmation; do not infer platform solely from a general Xcode marker.
+- [Overlap across language, build, and testing documents] → Keep each document’s responsibility explicit and repeat only important fundamentals.
 
 ## Migration Plan
 
-- Ship the new YAML files and templates with the existing bundled resources. No project configuration migration is required.
-- Existing projects gain the new profiles only when an agent applies them.
-- Rollback is removal of the new profile files and templates; applied projects keep any patterns already merged into their categories.
-
-## Open Questions
-
-- Whether later language profiles (Ruby, Dart, and similar) should share this change's `language-profiles` capability or arrive as a follow-up change. Deferred; this wave stays at Swift and Objective-C.
+- Ship bundled YAML files and templates using the existing profile mechanism. No project configuration migration is required.
+- Existing projects gain profiles only when a user or onboarding applies them.
+- Rollback removes newly bundled profile files and templates; applied projects retain already merged category patterns.
