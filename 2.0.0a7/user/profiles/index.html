@@ -682,6 +682,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#profile-guidance-layout" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Profile guidance layout
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#methodology-and-policies" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1113,6 +1124,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#profile-guidance-layout" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Profile guidance layout
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#methodology-and-policies" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1146,7 +1168,9 @@
 <h1 id="profiles">Profiles<a class="headerlink" href="#profiles" title="Permanent link">&para;</a></h1>
 <p>Profiles give you quick project setup with pre-configured categories and collections.</p>
 <h2 id="what-are-profiles">What are Profiles?<a class="headerlink" href="#what-are-profiles" title="Permanent link">&para;</a></h2>
-<p>Think of profiles as templates for your project. Instead of manually creating categories and collections, you can apply a profile that sets everything up for you. There are profiles for common scenarios like Python development, Jira integration, and various programming languages and frameworks.</p>
+<p>Think of profiles as additive project guidance. Instead of manually selecting every
+document, apply profiles for the languages, frameworks, platforms, build systems,
+and test stacks that genuinely apply to the project.</p>
 <h2 id="discovering-profiles">Discovering Profiles<a class="headerlink" href="#discovering-profiles" title="Permanent link">&para;</a></h2>
 <p>Ask your AI agent what's available:</p>
 <div class="codehilite"><pre><span></span><code>list all project profiles
@@ -1166,8 +1190,30 @@ Add the jira profile
 Apply the jira profile
 </code></pre></div>
 
-<p>This gives you Python + Jira setup combined.</p>
-<p>Applying the same profile multiple times has no effect - profiles are idempotent.</p>
+<p>This gives you Python + Jira setup combined. Profiles can also describe different
+parts of one technology stack:</p>
+<div class="codehilite"><pre><span></span><code>Apply the swift profile
+Apply the swiftui profile
+Apply the ios profile
+Apply the xctest profile
+</code></pre></div>
+
+<p>This composes base Swift language guidance, SwiftUI guidance, iOS build and test
+guidance, and XCTest guidance. Applying the same profile multiple times has no effect.</p>
+<p>Apply the <code>testing</code> profile to add the language-neutral testing guidance for any project.</p>
+<h2 id="profile-guidance-layout">Profile guidance layout<a class="headerlink" href="#profile-guidance-layout" title="Permanent link">&para;</a></h2>
+<ul>
+<li><code>lang/</code> holds base language, framework, and additive aspect guidance.</li>
+<li><code>lang/build/</code> holds language and platform build guidance.</li>
+<li><code>checks/</code> holds testing and verification guidance only.</li>
+</ul>
+<p>The bundled catalogue includes established language profiles such as C, Swift,
+Objective-C, Ruby, Dart, Scala, Elixir, Clojure, Lua, R, F#, Haskell, and Zig;
+additive profiles including Node.js, Angular, Svelte, Nuxt, NestJS, Rails, Laravel,
+Symfony, ASP.NET Core, Flutter, React Native, SwiftUI, UIKit, AppKit, Swift
+Concurrency, Swift Package Manager, testing, XCTest, and Swift Testing; and platform profiles
+for macOS, iOS, iPadOS, watchOS, tvOS, visionOS, Android, Windows, Linux, and browser
+automation. Use <code>list_profiles</code> to see the authoritative installed set.</p>
 <h2 id="methodology-and-policies">Methodology and Policies<a class="headerlink" href="#methodology-and-policies" title="Permanent link">&para;</a></h2>
 <p>Methodology preferences (TDD, BDD, SOLID, YAGNI, DDD) are no longer configured through profiles. Instead, they are selected through the <code>policies</code> category. See <a href="../policies/">Policy Selection</a> for details.</p>
 
