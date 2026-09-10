@@ -535,3 +535,15 @@ async def test_bare_recursive_pattern_searches_from_root(tmp_path):
     result = await safe_glob_search(tmp_path, ["**"])
 
     assert [path.relative_to(tmp_path).as_posix() for path in result] == ["nested/document.md"]
+
+
+@pytest.mark.anyio
+async def test_non_recursive_wildcard_uses_full_path_order(tmp_path, monkeypatch):
+    for directory in ("a", "a-foo"):
+        (tmp_path / directory).mkdir()
+        (tmp_path / directory / "README.md").write_text(directory)
+    monkeypatch.setattr("mcp_guide.discovery.patterns.MAX_DOCUMENTS_PER_GLOB", 1)
+
+    result = await safe_glob_search(tmp_path, ["*/README.md"])
+
+    assert [path.relative_to(tmp_path).as_posix() for path in result] == ["a-foo/README.md"]

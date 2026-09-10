@@ -271,15 +271,35 @@ async def _iter_non_recursive_matches(search_dir: Path, pattern: str, state: _Tr
                     next_directories.append(candidate)
         directories = sorted(next_directories, key=lambda path: path.relative_to(search_dir).as_posix())
 
+    directory_matches: list[list[Path]] = []
     for directory in directories:
         if state.stopped:
             break
+        matches: list[Path] = []
         for entry in _read_directory_entries(directory, state):
             try:
                 if not entry.is_dir(follow_symlinks=True) and fnmatch.fnmatch(entry.name, file_pattern):
-                    yield Path(entry.path)
+                    matches.append(Path(entry.path))
             except OSError:
                 continue
+        if matches:
+            directory_matches.append(matches)
+
+    pending: list[tuple[str, int, int, Path]] = []
+    for directory_index, matches in enumerate(directory_matches):
+        path = matches[0]
+        heapq.heappush(pending, (path.relative_to(search_dir).as_posix(), directory_index, 0, path))
+    while pending:
+        _, directory_index, match_index, path = heapq.heappop(pending)
+        yield path
+        next_index = match_index + 1
+        matches = directory_matches[directory_index]
+        if next_index < len(matches):
+            next_path = matches[next_index]
+            heapq.heappush(
+                pending,
+                (next_path.relative_to(search_dir).as_posix(), directory_index, next_index, next_path),
+            )
 
 
 async def safe_glob_search(search_dir: Path, patterns: List[str], *, limit_patterns: bool = True) -> GlobSearchResult:
