@@ -1,24 +1,20 @@
-## 1. Apple platform profiles
+## 1. Profile catalogue and language guidance
 
-- [ ] 1.1 Add bundled `ios`, `macos`, `watchos`, `tvos`, and `visionos` profiles that each add the matching `lang` pattern, and verify `list_profiles` returns those names.
-- [ ] 1.2 Add `lang/` guidance documents for each Apple platform, and verify applying each profile renders non-empty language content for that platform.
+- [x] 1.1 Add bundled base-language profiles and focused `lang/` guidance for C, Swift, Objective-C, Ruby, Dart, Scala, Elixir, Clojure, Lua, R, F#, Haskell, and Zig; verify every profile is discoverable and selects non-empty guidance.
+- [x] 1.2 Add bundled additive profiles and `lang/` guidance for Node.js, Angular, Svelte, Nuxt, NestJS, Rails, Laravel, Symfony, ASP.NET Core, Flutter, React Native, SwiftUI, UIKit, AppKit, Swift Concurrency, and Swift Package Manager; verify each composes with its corresponding base language profile without duplicate patterns.
 
-## 2. Language profiles
+## 2. Platforms, build guidance, and testing guidance
 
-- [ ] 2.1 Add bundled `swift` and `objective-c` profiles with matching `lang/` guidance, and verify applying each profile renders the corresponding language heading.
-- [ ] 2.2 Apply `swift` then `ios` on one project and verify both selections persist and a second apply of either profile does not duplicate patterns.
+- [x] 2.1 Add bundled platform profiles for macOS, iOS, iPadOS, watchOS, tvOS, visionOS, Android, Windows, Linux, and browser/web automation; verify each is discoverable and additive.
+- [x] 2.2 Add focused `lang/build/` documents for the supported language/platform combinations and select them through language/platform profiles where positive selection is possible; verify build guidance is not selected through `checks`.
+- [x] 2.3 Add platform-specific `checks/<language>/<platform>/` guidance and shared test-framework guidance where grouping avoids repetition; add `testing`, `xctest`, and `swift-testing` profiles and verify they compose with language/platform profiles.
 
-## 3. Test profiles
+## 3. Onboarding and documentation
 
-- [ ] 3.1 Add a bundled `testing` profile that selects the existing `checks` `testing` pattern, and verify applying it includes the existing testing check guidance without changing testing-policy patterns.
-- [ ] 3.2 Add bundled `xctest` and `swift-testing` profiles with matching guidance, and verify they compose so both test-stack selections remain when applied together.
+- [x] 3.1 Extend onboarding inspection hints for positively identifiable language, framework, platform, build, and test markers; verify onboarding obtains identifiers from `list_profiles` and stages every positive compatible profile for confirmation.
+- [x] 3.2 Update user profile documentation to explain the composition model, the `lang/`, `lang/build/`, and `checks/` responsibilities, and the expanded profile catalogue; verify every named example refers to an existing profile.
 
-## 4. Onboarding and documentation
+## 4. Verification
 
-- [ ] 4.1 Update onboarding inspection hints for Xcode, Swift package, and Apple test-stack markers, and verify the onboard command still stages profiles through `list_profiles` rather than a hard-coded catalogue.
-- [ ] 4.2 Update user profile documentation to mention the new Apple, language, and test-stack profiles, and verify every named example refers to a profile that exists.
-
-## 5. Verification
-
-- [ ] 5.1 Add focused profile application tests for the new profiles and composition cases, then run `uv run pytest tests/integration/test_profile_application.py tests/unit/test_profile.py` in the foreground and verify they pass.
-- [ ] 5.2 Run `openspec validate add-language-profiles --type change --strict` and verify no validation errors remain.
+- [x] 4.1 Add focused profile discovery, application, composition, and onboarding tests for the new profiles, then run the relevant pytest selection in a foreground terminal and verify it passes.
+- [x] 4.2 Run `openspec validate add-language-profiles --type change --strict` and verify no validation errors remain.

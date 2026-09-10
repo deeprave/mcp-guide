@@ -46,10 +46,16 @@ Then inspect repository files only as supporting evidence for defaults,
 applicability, or ambiguity resolution. Look for:
 
 - Language indicators: `pyproject.toml`, `package.json`, `Cargo.toml`, `go.mod`,
-  `pom.xml`, `build.gradle`, etc.
-- Framework conventions: Django, FastAPI, React, Next.js, Spring, etc.
-- Package manager / toolchain: `uv`, `poetry`, `pip`, `npm`, `pnpm`, `yarn`, etc.
-- Test runner configuration: `pytest.ini`, `vitest.config.*`, `jest.config.*`, etc.
+  `pom.xml`, `build.gradle`, `Package.swift`, `Gemfile`, `mix.exs`, `pubspec.yaml`,
+  `*.csproj`, `*.fsproj`, `*.xcodeproj`, and equivalent manifests.
+- Framework conventions: Django, FastAPI, React, Next.js, Angular, Svelte, Nuxt,
+  NestJS, Rails, Laravel, Symfony, ASP.NET Core, Flutter, React Native, SwiftUI,
+  UIKit, and AppKit.
+- Platform and build markers: Apple target settings, Android manifests and Gradle
+  modules, Windows or Linux packaging, browser automation configuration, Xcode,
+  Swift Package Manager, Gradle, Maven, and .NET build files.
+- Test runner configuration: `pytest.ini`, `vitest.config.*`, `jest.config.*`,
+  `.xctestplan`, XCTest targets, Swift Testing imports, and equivalent test setup.
 - Workflow layout: presence of `.guide.yaml`, existing category patterns
 
 Use `send_directory_listing` or `send_file_content` to inspect relevant files.
@@ -96,8 +102,11 @@ Interaction rules:
 - Do not apply any configuration changes during this step; stage choices only
 
 **1. Language / framework profile**
-Ask which language(s) and frameworks are used. Check if a matching profile exists
-(`python`, `jira`, etc.). Profiles are additive — multiple may apply.
+Ask which language(s), frameworks, platforms, and test stacks are used. Stage every
+profile that inspection positively identifies and that exists in `list_profiles`
+(`python`, `swift`, `swiftui`, `ios`, `xctest`, etc.). Profiles are additive —
+multiple may apply. Do not infer a specific platform from a general tool marker
+alone; ask when the target remains ambiguous.
 
 **2. Workflow mode**
 Present only these supported workflow options, and map them exactly to the

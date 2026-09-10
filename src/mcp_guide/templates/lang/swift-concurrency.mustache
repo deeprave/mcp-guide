@@ -1,0 +1,9 @@
+---
+cache: long
+type: agent/instruction
+description: Swift concurrency guidance
+---
+# Swift Concurrency Guidelines
+
+- Preserve actor isolation instead of bypassing compiler diagnostics.
+- Propagate cancellation and make cross-actor data transfer `Sendable`.

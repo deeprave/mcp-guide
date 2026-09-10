@@ -1,0 +1,5 @@
+categories:
+  - name: lang
+    patterns: [swift, build/visionos]
+  - name: checks
+    patterns: [swift/visionos]

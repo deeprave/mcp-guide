@@ -1,35 +1,31 @@
 ## Why
 
-Bundled profiles cover a useful but incomplete set of languages and frameworks. Apple platform work, Swift, and dedicated test stacks have no first-class profiles, so agents cannot compose those projects the same way they compose Python, Kotlin, or Docker.
+Bundled profiles cover useful mainstream languages and a small number of frameworks, but omit major language ecosystems, mobile platforms, and their build and testing guidance. Agents therefore cannot compose language, framework, platform, and test-stack instructions for those projects as they can for existing Python, Kotlin, and Docker projects.
 
 ## What Changes
 
-- Add Apple platform profiles for `ios`, `macos`, `watchos`, `tvos`, and `visionos`.
-- Add language profiles for `swift` and `objective-c`.
-- Add test profiles: a generic `testing` profile that selects existing check guidance, plus `xctest` and `swift-testing`.
-- Offer the new profiles during onboarding whenever language, platform, or test-stack choices are collected.
-- Keep profiles additive and idempotent; applying `swift` plus `ios` plus `xctest` composes without replacing existing project configuration.
-
-Assumptions recorded for review:
-
-- iPadOS uses the `ios` profile rather than a separate identifier.
-- "Other languages" beyond Swift are deferred after this first wave; further languages reuse the same additive `lang` pattern.
-- "Test profiles" means selectable test-stack profiles, not extra fixtures in the pytest suite.
+- Add base-language profiles for the highest-value missing languages: C, Swift, Objective-C, Ruby, Dart, Scala, Elixir, Clojure, Lua, R, F#, Haskell, and Zig.
+- Add additive framework and language-aspect profiles for Node.js, Angular, Svelte, Nuxt, NestJS, Rails, Laravel, Symfony, ASP.NET Core, Flutter, React Native, SwiftUI, UIKit, AppKit, Swift Concurrency, Swift Package Manager, XCTest, and Swift Testing.
+- Add platform profiles for macOS, iOS, iPadOS, watchOS, tvOS, visionOS, Android, Windows, Linux, and browser/web automation.
+- Keep base language guidance in `lang/`, build guidance in `lang/build/`, and testing guidance in `checks/`.
+- Have onboarding select every positively detected compatible profile, using the existing profile discovery and confirmation flow.
+- Keep profile application additive and idempotent. A language, extension, platform, and test framework compose without replacing existing project configuration or needlessly repeating guidance.
 
 ## Capabilities
 
 ### New Capabilities
 
-- `apple-platform-profiles`: Bundled profiles and guidance for Apple platforms.
-- `language-profiles`: Bundled Swift and Objective-C language profiles and guidance.
-- `test-profiles`: Bundled generic testing, XCTest, and Swift Testing profiles and guidance.
+- `language-profiles`: Bundled base-language, framework, extension, and platform profiles with composable language and build guidance.
+- `test-profiles`: Bundled testing-framework profiles and platform-specific test guidance.
 
 ### Modified Capabilities
 
-- `onboarding-state`: Offer the new language, platform, and test profiles where onboarding already offers technology choices.
-- `documentation`: Keep user profile documentation aligned with the expanded set.
+- `onboarding-state`: Detect and stage every positively identified compatible profile for confirmation.
+- `documentation`: Describe the expanded profile catalogue, composition model, and language/build/testing document layout.
 
 ## Impact
 
-- Bundled `_profiles` YAML, `lang/` and related templates, onboarding inspection hints, user profile documentation, and profile discovery or application tests.
-- No change to the profile YAML schema, profile composition rules, or methodology/policy selection.
+- Bundled `_profiles` YAML, `lang/`, `lang/build/`, and `checks/` templates.
+- Onboarding inspection hints and profile application tests.
+- User profile documentation.
+- No change to profile YAML schema, profile composition rules, or methodology/policy selection.

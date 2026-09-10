@@ -1,0 +1,5 @@
+categories:
+  - name: lang
+    patterns: [build/linux]
+  - name: checks
+    patterns: [c/linux, c-plusplus/linux, rust/linux, go/linux]

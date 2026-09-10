@@ -1,9 +1,18 @@
 """Tests for profile model."""
 
+from pathlib import Path
+
 import pytest
 
 import mcp_guide.models.profile as profile_module
-from mcp_guide.models.profile import Profile
+from mcp_guide.models.profile import Profile, discover_profiles
+
+PROFILE_SOURCE_DIRECTORY = Path(__file__).parents[2] / "src" / "mcp_guide" / "templates" / "_profiles"
+BUNDLED_PROFILE_NAMES = {
+    profile_path.stem
+    for profile_path in PROFILE_SOURCE_DIRECTORY.glob("*.yaml")
+    if not profile_path.stem.startswith("_")
+}
 
 
 class TestProfileFromYaml:
@@ -197,3 +206,12 @@ class TestDiscoverProfiles:
         for name in ["_default", *profiles]:
             profile = await Profile.load(name)
             assert all(collection.categories for collection in profile.collections), name
+
+    async def test_discover_profiles_matches_the_bundled_catalogue(self):
+        profiles = set(await discover_profiles())
+
+        assert profiles == BUNDLED_PROFILE_NAMES
+        for profile_name in BUNDLED_PROFILE_NAMES:
+            profile = await Profile.load(profile_name)
+            assert profile.categories, profile_name
+            assert all(category.patterns for category in profile.categories), profile_name

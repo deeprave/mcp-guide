@@ -1,0 +1,5 @@
+categories:
+  - name: lang
+    patterns: [swift, build/tvos]
+  - name: checks
+    patterns: [swift/tvos]

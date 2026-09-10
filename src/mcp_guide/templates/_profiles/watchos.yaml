@@ -1,0 +1,5 @@
+categories:
+  - name: lang
+    patterns: [swift, build/watchos]
+  - name: checks
+    patterns: [swift/watchos]
