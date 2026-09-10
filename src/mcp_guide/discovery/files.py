@@ -16,12 +16,23 @@ _SENTINEL = object()  # Sentinel value for distinguishing unset parameters
 import anyio
 from anyio import Path as AsyncPath
 
+from mcp_guide.config_constants import MAX_GLOB_PATTERNS
+from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.discovery.patterns import safe_glob_search
 from mcp_guide.lazy_path import LazyPath
 from mcp_guide.store.document_store import get_document_content, list_documents
 
 # Template file extensions
 TEMPLATE_EXTENSIONS = (".mustache", ".hbs", ".handlebars", ".chevron")
+logger = get_logger(__name__)
+
+
+class FileInfoList(list["FileInfo"]):
+    """Discovered files with any filesystem truncation diagnostics."""
+
+    def __init__(self, files: list["FileInfo"] | None = None, truncation_reasons: set[str] | None = None):
+        super().__init__(files or [])
+        self.truncation_reasons = truncation_reasons or set()
 
 
 def get_file_extension_patterns(base_pattern: str) -> list[str]:
@@ -249,7 +260,7 @@ async def discover_document_stored(
     category: str,
     patterns: list[str],
     max_content_limit: int | None = None,
-) -> list[FileInfo]:
+) -> FileInfoList:
     """Discover documents from the document store.
 
     Uses the same pattern expansion as filesystem discovery
@@ -287,7 +298,7 @@ async def discover_document_stored(
                 frontmatter=record.metadata or {},
             )
         )
-    return results
+    return FileInfoList(results)
 
 
 async def discover_documents(
@@ -295,7 +306,7 @@ async def discover_documents(
     patterns: list[str],
     category: Optional[str] = None,
     max_content_limit: int | None = None,
-) -> list[FileInfo]:
+) -> FileInfoList:
     """Discover documents from filesystem and optionally the document store.
 
     Args:
@@ -312,13 +323,15 @@ async def discover_documents(
     if category is None:
         return await discover_document_files(base_dir, patterns)
 
-    file_results: list[FileInfo] = []
+    file_results = FileInfoList()
     store_results: list[FileInfo] = []
 
     async with anyio.create_task_group() as tg:
 
         async def _files() -> None:
-            file_results.extend(await discover_document_files(base_dir, patterns))
+            discovered_files = await discover_document_files(base_dir, patterns)
+            file_results.extend(discovered_files)
+            file_results.truncation_reasons.update(discovered_files.truncation_reasons)
 
         async def _stored() -> None:
             store_results.extend(await discover_document_stored(category, patterns, max_content_limit))
@@ -326,13 +339,13 @@ async def discover_documents(
         tg.start_soon(_files)
         tg.start_soon(_stored)
 
-    return file_results + store_results
+    return FileInfoList(file_results + store_results, file_results.truncation_reasons)
 
 
 async def discover_document_files(
     base_dir: Path,
     patterns: list[str],
-) -> list[FileInfo]:
+) -> FileInfoList:
     """Discover files in directory with metadata.
 
     Args:
@@ -362,11 +375,18 @@ async def discover_document_files(
                 "Template files are automatically discovered."
             )
 
-    # Expand patterns to include extension variants and template variants
+    truncated_patterns = len(patterns) > MAX_GLOB_PATTERNS
+    if truncated_patterns:
+        logger.warning("Glob discovery truncated by pattern count")
+        patterns = patterns[:MAX_GLOB_PATTERNS]
+
+    # Extension variants belong to each accepted original expression.
     expanded_patterns: list[str] = []
     for pattern in patterns:
         expanded_patterns.extend(get_file_extension_patterns(pattern))
-    matched_paths = await safe_glob_search(base_dir, expanded_patterns)
+    matched_paths = await safe_glob_search(base_dir, expanded_patterns, limit_patterns=False)
+    if truncated_patterns:
+        matched_paths.truncation_reasons.add("pattern count")
 
     # Group by full relative path and prefer non-template over template
     # Note: safe_glob_search returns sorted results, so non-template always comes before template
@@ -408,4 +428,4 @@ async def discover_document_files(
         )
         results.append(file_info)
 
-    return results
+    return FileInfoList(results, matched_paths.truncation_reasons)

@@ -388,3 +388,15 @@ def test_fileinfo_resolve_rechecks_absolute_path_containment(tmp_path) -> None:
     escaped = FileInfo(path=tmp_path / "outside.md", size=0, content_size=0, mtime=datetime.now(), name="outside.md")
     with pytest.raises(ValueError):
         escaped.resolve(resolver)
+
+
+@pytest.mark.anyio
+async def test_filesystem_discovery_preserves_glob_truncation_diagnostic(tmp_path, monkeypatch):
+    (tmp_path / "first.md").write_text("first")
+    (tmp_path / "second.md").write_text("second")
+    monkeypatch.setattr("mcp_guide.discovery.patterns.MAX_GLOB_DIRECTORY_ENTRIES", 1)
+
+    files = await discover_document_files(tmp_path, ["**/*.md"])
+
+    assert len(files) == 1
+    assert files.truncation_reasons == {"directory entry count"}

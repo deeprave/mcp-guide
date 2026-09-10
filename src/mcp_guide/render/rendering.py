@@ -27,6 +27,9 @@ async def discover_single_file(
     category_path = resolver(category_dir)
     files = await discover_document_files(category_path, [pattern])
 
+    if files.truncation_reasons:
+        raise FileNotFoundError(f"Template discovery was truncated matching pattern '{pattern}' in {display_name}")
+
     if not files:
         raise FileNotFoundError(f"No template found matching pattern '{pattern}' in {display_name}")
 

@@ -132,6 +132,53 @@ async def test_tool_returns_result_ok_on_success(tmp_path, monkeypatch):
 
 
 @pytest.mark.anyio
+async def test_tool_returns_success_with_glob_truncation_warning(tmp_path, monkeypatch):
+    """Bounded filesystem discovery remains visible to the content caller."""
+    from mcp_guide.models import Category, Project
+    from mcp_guide.tools.tool_category import CategoryContentArgs, internal_category_content
+
+    (tmp_path / "first.md").write_text("# First")
+    (tmp_path / "second.md").write_text("# Second")
+    monkeypatch.setattr("mcp_guide.discovery.patterns.MAX_GLOB_DIRECTORY_ENTRIES", 1)
+    project = Project(
+        name="test",
+        categories={"docs": Category(dir=".", name="docs", patterns=["**/*.md"])},
+        collections={},
+    )
+
+    result = await internal_category_content(
+        CategoryContentArgs(expression="docs"), create_request_context(project, tmp_path)
+    )
+
+    assert result.success is True
+    assert result.message == "Glob discovery was truncated by: directory entry count"
+
+
+@pytest.mark.anyio
+async def test_tool_returns_glob_truncation_warning_when_no_files_are_retained(tmp_path, monkeypatch):
+    """An empty content response remains explicit about bounded discovery."""
+    from mcp_guide.models import Category, Project
+    from mcp_guide.tools.tool_category import CategoryContentArgs, internal_category_content
+
+    nested = tmp_path / "nested"
+    nested.mkdir()
+    (nested / "hidden.md").write_text("# Hidden")
+    monkeypatch.setattr("mcp_guide.discovery.patterns.MAX_GLOB_DEPTH", 0)
+    project = Project(
+        name="test",
+        categories={"docs": Category(dir=".", name="docs", patterns=["**/*.md"])},
+        collections={},
+    )
+
+    result = await internal_category_content(
+        CategoryContentArgs(expression="docs"), create_request_context(project, tmp_path)
+    )
+
+    assert result.success is True
+    assert result.message == "Glob discovery was truncated by: depth"
+
+
+@pytest.mark.anyio
 async def test_category_content_counts_only_retained_documents(tmp_path, monkeypatch):
     """Requirement-filtered documents do not consume the final document limit."""
     from mcp_guide.content_limits import ContentLimits

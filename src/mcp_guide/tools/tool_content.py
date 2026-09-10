@@ -165,7 +165,11 @@ async def internal_get_content(
                 session, "_export", "_system", context, resolver=request_context.get_docroot_resolver()
             )
             if rendered:
-                return Result.ok(rendered.content, instruction=rendered.instruction)
+                return Result.ok(
+                    rendered.content,
+                    message=original_result.message if original_result.success else None,
+                    instruction=rendered.instruction,
+                )
 
     try:
         # Use gather_content to handle comma-separated expressions
@@ -177,7 +181,13 @@ async def internal_get_content(
 
         if not files:
             return Result.ok(
-                f"No matching content found for '{args.expression}'", instruction=INSTRUCTION_PATTERN_ERROR
+                f"No matching content found for '{args.expression}'",
+                message=(
+                    "Glob discovery was truncated by: " + ", ".join(sorted(files.truncation_reasons))
+                    if files.truncation_reasons
+                    else None
+                ),
+                instruction=INSTRUCTION_PATTERN_ERROR,
             )
 
         # Group files by category for reading
@@ -247,6 +257,11 @@ async def internal_get_content(
 
         return Result.ok(
             content,
+            message=(
+                "Glob discovery was truncated by: " + ", ".join(sorted(files.truncation_reasons))
+                if files.truncation_reasons
+                else None
+            ),
             instruction=instruction,
             disposition=disposition,
             cache_policy=resolve_content_cache_policy(final_files),

@@ -2,17 +2,68 @@
 
 import fnmatch
 import glob
+import heapq
 import os
+from collections.abc import AsyncIterator
+from dataclasses import dataclass, field
 from pathlib import Path
+from time import monotonic
 from typing import List, Set
 
 from anyio import Path as AsyncPath
 
-from mcp_guide.config_constants import COMMANDS_DIR, MAX_DOCUMENTS_PER_GLOB, MAX_GLOB_DEPTH
+from mcp_guide.config_constants import (
+    COMMANDS_DIR,
+    MAX_DOCUMENTS_PER_GLOB,
+    MAX_GLOB_DEPTH,
+    MAX_GLOB_DIRECTORY_ENTRIES,
+    MAX_GLOB_ENTRIES,
+    MAX_GLOB_ENUMERATION_SECONDS,
+    MAX_GLOB_PATTERNS,
+)
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.lazy_path import LazyPath
 
 logger = get_logger(__name__)
+
+
+@dataclass
+class GlobSearchResult:
+    """Bounded glob matches with guards that truncated discovery."""
+
+    paths: list[Path]
+    truncation_reasons: set[str] = field(default_factory=set)
+
+    def __iter__(self):
+        return iter(self.paths)
+
+    def __len__(self) -> int:
+        return len(self.paths)
+
+    def __getitem__(self, index: int) -> Path:
+        return self.paths[index]
+
+    def __eq__(self, other: object) -> bool:
+        return self.paths == other
+
+
+@dataclass
+class _TraversalState:
+    """Mutable accounting shared by all patterns in one glob search."""
+
+    truncation_reasons: set[str]
+    inspected_entries: int = 0
+    enumeration_seconds: float = 0.0
+
+    @property
+    def stopped(self) -> bool:
+        return bool(self.truncation_reasons & {"aggregate entry count", "enumeration time"})
+
+    def truncate(self, reason: str) -> None:
+        """Record and log a traversal guard the first time it is reached."""
+        if reason not in self.truncation_reasons:
+            self.truncation_reasons.add(reason)
+            logger.warning("Glob discovery truncated by %s", reason)
 
 
 def is_valid_file(path: Path) -> bool:
@@ -89,7 +140,7 @@ async def _process_match(
     # Resolve only for deduplication
     try:
         resolved_path = match_path.resolve()
-    except OSError as e:
+    except (OSError, RuntimeError) as e:
         logger.warning(f"Failed to resolve symlink {match_path}: {e}")
         return False
 
@@ -111,85 +162,147 @@ async def _process_match(
     return True
 
 
-async def _walk_with_depth_limit(search_dir: Path, pattern: str) -> List[Path]:
-    """Walk directory tree with depth limit, matching pattern.
+def _read_directory_entries(path: Path, state: _TraversalState) -> list[os.DirEntry[str]]:
+    """Read one bounded directory prefix in canonical entry-name order."""
+    entries: list[os.DirEntry[str]] = []
+    try:
+        with os.scandir(path) as iterator:
+            while len(entries) < MAX_GLOB_DIRECTORY_ENTRIES:
+                started = monotonic()
+                try:
+                    entry = next(iterator)
+                except StopIteration:
+                    break
+                state.enumeration_seconds += monotonic() - started
+                state.inspected_entries += 1
+                entries.append(entry)
+                if state.enumeration_seconds >= MAX_GLOB_ENUMERATION_SECONDS:
+                    state.truncate("enumeration time")
+                    break
+                if state.inspected_entries >= MAX_GLOB_ENTRIES:
+                    state.truncate("aggregate entry count")
+                    break
+            else:
+                try:
+                    next(iterator)
+                except StopIteration:
+                    pass
+                else:
+                    state.truncate("directory entry count")
+    except OSError as error:
+        logger.warning("Failed to enumerate path %s during glob discovery: %s", path, error)
+    return sorted(entries, key=lambda item: item.name)
 
-    Uses os.walk() with manual depth tracking to prevent DOS from deep traversal.
-    Only traverses up to MAX_GLOB_DEPTH levels.
 
-    Paths are returned relative to search_dir as-given (symlinks not resolved).
-    """
-    matched_paths: List[Path] = []
-    visited_dirs: set[Path] = set()  # Track resolved directories to avoid symlink cycles
-
-    # Check if pattern contains ** (recursive)
-    if "**" not in pattern:
-        # Non-recursive: use glob directly (safe, only checks one level)
-        for match_str in glob.iglob(pattern, root_dir=search_dir, recursive=False):
-            matched_paths.append(search_dir / match_str)
-        return matched_paths
-
-    # Recursive pattern: use os.walk with depth limit
-    # Parse pattern to extract directory prefix and file pattern
-    # Examples:
-    #   "**/*.md" -> prefix="", file_pattern="*.md"
-    #   "docs/**/*.py" -> prefix="docs", file_pattern="*.py"
-    #   "**/*" -> prefix="", file_pattern="*"
-
-    pattern_parts = pattern.split("**/")
-    if len(pattern_parts) == 2:
-        prefix = pattern_parts[0].rstrip("/")
-        file_pattern = pattern_parts[1] if pattern_parts[1] else "*"
-    elif pattern.startswith("**/"):
-        prefix = ""
-        file_pattern = pattern[3:] if len(pattern) > 3 else "*"
-    else:
-        # Pattern like "**" alone
-        prefix = ""
-        file_pattern = "*"
-
-    start_dir = search_dir / prefix if prefix else search_dir
-
+async def _iter_recursive_matches(search_dir: Path, pattern: str, state: _TraversalState) -> AsyncIterator[Path]:
+    """Yield recursive matches in canonical relative-path order without a tree-wide list."""
+    prefix, _, suffix = pattern.partition("**/")
+    if pattern == "**":
+        prefix, suffix = "", "*"
+    start_dir = search_dir / prefix.rstrip("/") if prefix else search_dir
+    file_pattern = suffix or "*"
     if not await AsyncPath(start_dir).exists():
-        return matched_paths
+        return
 
-    for root, dirs, files in os.walk(start_dir, followlinks=True):
-        root_path = Path(root)
-
-        # Guard against symlink cycles by tracking resolved paths
+    pending: list[tuple[str, int, Path, bool]] = [
+        (start_dir.relative_to(search_dir).as_posix() + "/", 0, start_dir, True)
+    ]
+    sequence = 1
+    visited_dirs: set[Path] = set()
+    while pending:
+        _, _, path, is_directory = heapq.heappop(pending)
+        if not is_directory:
+            yield path
+            continue
+        if state.stopped:
+            continue
         try:
-            root_real = root_path.resolve()
-        except OSError:
-            logger.warning("Failed to resolve path %s during glob discovery; skipping", root_path)
-            dirs[:] = []
+            resolved = path.resolve()
+            if resolved in visited_dirs:
+                continue
+            visited_dirs.add(resolved)
+            depth = len(path.relative_to(search_dir).parts)
+        except (OSError, RuntimeError, ValueError):
+            logger.warning("Failed to resolve path %s during glob discovery; skipping", path)
             continue
 
-        if root_real in visited_dirs:
-            dirs[:] = []
+        for entry in _read_directory_entries(path, state):
+            entry_path = Path(entry.path)
+            try:
+                directory = entry.is_dir(follow_symlinks=True)
+            except OSError:
+                continue
+            if directory:
+                if depth >= MAX_GLOB_DEPTH:
+                    state.truncate("depth")
+                    continue
+                key = entry_path.relative_to(search_dir).as_posix() + "/"
+                heapq.heappush(pending, (key, sequence, entry_path, True))
+                sequence += 1
+            elif fnmatch.fnmatch(entry.name, file_pattern):
+                key = entry_path.relative_to(search_dir).as_posix()
+                heapq.heappush(pending, (key, sequence, entry_path, False))
+                sequence += 1
+
+
+async def _iter_non_recursive_matches(search_dir: Path, pattern: str, state: _TraversalState) -> AsyncIterator[Path]:
+    """Yield a bounded, canonically sorted non-recursive glob stream."""
+    parent_pattern, separator, file_pattern = pattern.rpartition("/")
+    parent_parts = parent_pattern.split("/") if separator else []
+    directories = [search_dir]
+
+    for part in parent_parts:
+        if not part or part == ".":
             continue
-        visited_dirs.add(root_real)
+        next_directories: list[Path] = []
+        for directory in directories:
+            if state.stopped:
+                break
+            if glob.has_magic(part):
+                for entry in _read_directory_entries(directory, state):
+                    try:
+                        if entry.is_dir(follow_symlinks=True) and fnmatch.fnmatch(entry.name, part):
+                            next_directories.append(Path(entry.path))
+                    except OSError:
+                        continue
+            else:
+                candidate = directory / part
+                if await AsyncPath(candidate).is_dir():
+                    next_directories.append(candidate)
+        directories = sorted(next_directories, key=lambda path: path.relative_to(search_dir).as_posix())
 
-        # Calculate depth relative to search_dir
-        try:
-            relative = root_path.relative_to(search_dir)
-            depth = len(relative.parts)
-        except ValueError:
-            # Outside search_dir, skip
-            continue
+    directory_matches: list[list[Path]] = []
+    for directory in directories:
+        if state.stopped:
+            break
+        matches: list[Path] = []
+        for entry in _read_directory_entries(directory, state):
+            try:
+                if not entry.is_dir(follow_symlinks=True) and fnmatch.fnmatch(entry.name, file_pattern):
+                    matches.append(Path(entry.path))
+            except OSError:
+                continue
+        if matches:
+            directory_matches.append(matches)
 
-        # Stop traversing deeper if we've hit the limit
-        if depth >= MAX_GLOB_DEPTH:
-            dirs.clear()  # Don't descend into subdirectories
+    pending: list[tuple[str, int, int, Path]] = []
+    for directory_index, matches in enumerate(directory_matches):
+        path = matches[0]
+        heapq.heappush(pending, (path.relative_to(search_dir).as_posix(), directory_index, 0, path))
+    while pending:
+        _, directory_index, match_index, path = heapq.heappop(pending)
+        yield path
+        next_index = match_index + 1
+        matches = directory_matches[directory_index]
+        if next_index < len(matches):
+            next_path = matches[next_index]
+            heapq.heappush(
+                pending,
+                (next_path.relative_to(search_dir).as_posix(), directory_index, next_index, next_path),
+            )
 
-        # Match files in this directory
-        for filename in files:
-            if fnmatch.fnmatch(filename, file_pattern):
-                matched_paths.append(root_path / filename)
 
-    return matched_paths
-
-
-async def safe_glob_search(search_dir: Path, patterns: List[str]) -> List[Path]:
+async def safe_glob_search(search_dir: Path, patterns: List[str], *, limit_patterns: bool = True) -> GlobSearchResult:
     """Safely search for files using glob patterns with safety limits.
 
     Args:
@@ -197,13 +310,19 @@ async def safe_glob_search(search_dir: Path, patterns: List[str]) -> List[Path]:
         patterns: List of glob patterns (e.g., ["*.md", "**/*.py"])
 
     Returns:
-        List of Path objects matching patterns, limited to MAX_DOCUMENTS_PER_GLOB
+        Bounded matching paths and any guards that truncated discovery
     """
     # Expand ~ and ${VAR} without resolving symlinks
     search_dir_expanded = LazyPath(search_dir).expand()
 
     matched_files: List[Path] = []
     seen_files: Set[Path] = set()
+    truncation_reasons: set[str] = set()
+    state = _TraversalState(truncation_reasons)
+
+    if limit_patterns and len(patterns) > MAX_GLOB_PATTERNS:
+        state.truncate("pattern count")
+        patterns = patterns[:MAX_GLOB_PATTERNS]
 
     for pattern in patterns:
         if len(matched_files) >= MAX_DOCUMENTS_PER_GLOB:
@@ -212,15 +331,11 @@ async def safe_glob_search(search_dir: Path, patterns: List[str]) -> List[Path]:
 
         matches_found = False
 
-        # Use depth-limited walk for safety
-        try:
-            candidate_paths = await _walk_with_depth_limit(search_dir_expanded, pattern)
-        except Exception as e:
-            logger.warning(f"Pattern '{pattern}' failed: {e}")
-            continue
-        candidate_paths.sort(key=lambda path: path.as_posix())
-
-        for match_path in candidate_paths:
+        if "**" in pattern:
+            candidates = _iter_recursive_matches(search_dir_expanded, pattern, state)
+        else:
+            candidates = _iter_non_recursive_matches(search_dir_expanded, pattern, state)
+        async for match_path in candidates:
             if len(matched_files) >= MAX_DOCUMENTS_PER_GLOB:
                 logger.warning(f"Reached maximum document limit ({MAX_DOCUMENTS_PER_GLOB}) for glob search")
                 break
@@ -232,14 +347,11 @@ async def safe_glob_search(search_dir: Path, patterns: List[str]) -> List[Path]:
         if not matches_found and "." not in Path(pattern).name:
             wildcard_pattern = f"{pattern}.*"
 
-            try:
-                candidate_paths = await _walk_with_depth_limit(search_dir_expanded, wildcard_pattern)
-            except Exception as e:
-                logger.warning(f"Pattern '{wildcard_pattern}' failed: {e}")
-                continue
-            candidate_paths.sort(key=lambda path: path.as_posix())
-
-            for match_path in candidate_paths:
+            if "**" in wildcard_pattern:
+                fallback_candidates = _iter_recursive_matches(search_dir_expanded, wildcard_pattern, state)
+            else:
+                fallback_candidates = _iter_non_recursive_matches(search_dir_expanded, wildcard_pattern, state)
+            async for match_path in fallback_candidates:
                 if len(matched_files) >= MAX_DOCUMENTS_PER_GLOB:
                     logger.warning(
                         f"Reached maximum document limit ({MAX_DOCUMENTS_PER_GLOB}) for glob search (.* fallback)"
@@ -248,4 +360,4 @@ async def safe_glob_search(search_dir: Path, patterns: List[str]) -> List[Path]:
 
                 await _process_match(match_path, search_dir_expanded, seen_files, matched_files)
 
-    return sorted(matched_files, key=lambda path: path.as_posix())
+    return GlobSearchResult(sorted(matched_files, key=lambda path: path.as_posix()), truncation_reasons)

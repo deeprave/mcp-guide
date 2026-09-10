@@ -5,7 +5,8 @@ from typing import Optional
 
 from mcp_guide.content.utils import resolve_patterns
 from mcp_guide.content_limits import ContentLimits, ensure_within_limit
-from mcp_guide.discovery.files import FileInfo, discover_documents
+from mcp_guide.core.validation import validate_pattern
+from mcp_guide.discovery.files import FileInfoList, discover_documents
 from mcp_guide.models import (
     CategoryNotFoundError,
     DocumentExpression,
@@ -59,7 +60,7 @@ def parse_expression(expression: str) -> list[DocumentExpression]:
                 pattern_list: list[str] = []
                 for p in pattern_part.split("+"):
                     if p := p.strip():
-                        pattern_list.append(p)
+                        pattern_list.append(validate_pattern(p))
 
                 # If no valid patterns after filtering, treat as None
                 patterns: Optional[list[str]] = pattern_list or None
@@ -86,7 +87,7 @@ async def gather_content(
     expression: str,
     visited_collections: Optional[set[str]] = None,
     limits: ContentLimits | None = None,
-) -> list[FileInfo]:
+) -> FileInfoList:
     """Process expression and return unified FileInfo list.
 
     Args:
@@ -115,6 +116,7 @@ async def gather_content(
 
     expressions = parse_expression(expression)
     all_files = []
+    truncation_reasons: set[str] = set()
     # Track processed (category_name, patterns) combinations to allow multiple pattern sets per category
     processed_combinations = set()
 
@@ -137,6 +139,7 @@ async def gather_content(
                     nested_files = await gather_content(
                         request_context, project, category_expr, visited_collections, limits
                     )
+                    truncation_reasons.update(getattr(nested_files, "truncation_reasons", set()))
                     all_files.extend(nested_files)
                 else:
                     # Parse category expression (e.g., "review/commit")
@@ -152,6 +155,7 @@ async def gather_content(
                                 files = await gather_category_fileinfos(
                                     request_context, project, cat_expr.name, merged_patterns, limits=limits
                                 )
+                                truncation_reasons.update(getattr(files, "truncation_reasons", set()))
                                 all_files.extend(files)
                                 processed_combinations.add(combination_key)
                             except CategoryNotFoundError as e:
@@ -169,6 +173,7 @@ async def gather_content(
                 files = await gather_category_fileinfos(
                     request_context, project, expr.name, expr.patterns, limits=limits
                 )
+                truncation_reasons.update(getattr(files, "truncation_reasons", set()))
                 all_files.extend(files)
                 processed_combinations.add(combination_key)
         else:
@@ -197,7 +202,7 @@ async def gather_content(
     for file_info in unique_files:
         ensure_within_limit(file_info.size, limit_name="max-content-limit", limit=limits.max_content_limit)
 
-    return unique_files
+    return FileInfoList(unique_files, truncation_reasons)
 
 
 async def gather_category_fileinfos(
@@ -207,7 +212,7 @@ async def gather_category_fileinfos(
     patterns: Optional[list[str]] = None,
     collection_overrides: Optional[dict[str, list[str]]] = None,
     limits: ContentLimits | None = None,
-) -> list[FileInfo]:
+) -> FileInfoList:
     """Common function to gather FileInfo for a category with pattern resolution.
 
     Args:
@@ -262,7 +267,10 @@ async def gather_category_fileinfos(
 
     # Exclude filesystem files where any path component starts with '_' (system/partial files).
     # Stored documents are user-imported and not subject to this exclusion.
-    files = [f for f in files if f.source == "store" or not any(part.startswith("_") for part in f.path.parts)]
+    files = FileInfoList(
+        [f for f in files if f.source == "store" or not any(part.startswith("_") for part in f.path.parts)],
+        getattr(files, "truncation_reasons", set()),
+    )
 
     # Set category object on all FileInfo objects
     for file in files:
