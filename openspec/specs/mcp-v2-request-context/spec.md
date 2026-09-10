@@ -13,8 +13,14 @@ revision, request identity, client and agent metadata when supplied, an explicit
 validated root binding and active configuration-project selection when available, and
 safe response metadata APIs.
 
-This change confines request-context construction to the FastMCP boundary. Propagating
-the resolved context through application handlers is deferred to
+Each established Session SHALL retain an immutable protocol type derived from the
+negotiated revision: `mcp_2026_07_28` for MCP `2026-07-28`, otherwise `legacy`.
+The exact revision SHALL remain available for protocol-establishment logging. A request
+that resolves an established Session under a different protocol type SHALL fail rather
+than change that Session's response contract.
+
+This change confines request-context construction to the FastMCP boundary.
+Propagating the resolved context through application handlers is deferred to
 `use-request-context`; transitional handlers may continue to receive raw FastMCP
 context while using the validated Session boundary defined here.
 
@@ -32,6 +38,11 @@ application services.
 Before either source becomes a GuideRuntime key, the adapter SHALL validate the
 session ID as unstructured input. It SHALL reject empty or overlong values and C0/C1
 control characters, without imposing a UUID format or other needless structure.
+
+#### Scenario: Modern protocol type is established
+- **WHEN** a Session is first established through a request negotiated as `2026-07-28`
+- **THEN** its protocol type is `mcp_2026_07_28`
+- **AND** later requests using that Session retain the same type
 
 #### Scenario: Context-bearing tool request
 - **WHEN** a negotiated MCP tool request is dispatched
@@ -73,7 +84,8 @@ control characters, without imposing a UUID format or other needless structure.
 - **AND** project-bound operations SHALL return the defined no-project result
 - **AND** the server SHALL NOT infer client identity from its process working directory
   for HTTP or other remote transports
-- **AND** the result SHALL direct the agent to call project selection with an absolute client filesystem `path`, not a project name
+- **AND** the result SHALL direct the agent to call project selection with an absolute
+  client filesystem `path`, not a project name
 
 #### Scenario: Stdio context has inherited client PWD
 - **GIVEN** stdio filesystem sharing has been verified
@@ -87,6 +99,16 @@ control characters, without imposing a UUID format or other needless structure.
 - **AND** it SHALL NOT use that shortcut for a remote transport
 - **AND** it SHALL NOT use that shortcut when the request supplies a `session_id`
 - **AND** it SHALL NOT treat server `getcwd()` as the client filesystem root
+
+#### Scenario: Retained protocol type is established
+- **WHEN** a Session is first established through any retained protocol revision
+- **THEN** its protocol type is `legacy`
+- **AND** later requests using that Session retain the same type
+
+#### Scenario: Protocol type mismatch
+- **WHEN** a request resolves an established Session with a different protocol type
+- **THEN** the request fails before response adaptation
+- **AND** the existing Session protocol type remains unchanged
 
 ### Requirement: FastMCP Session-ID Cross-Request Binding
 

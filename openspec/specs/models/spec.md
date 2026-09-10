@@ -2,7 +2,9 @@
 
 ## Purpose
 TBD - created by archiving change config-session-management. Update Purpose after archive.
+
 ## Requirements
+
 ### Requirement: Pydantic Model Configuration
 The system SHALL configure Pydantic models to ignore extra fields not defined in the model schema, improving resilience to hand-edited configurations and backward compatibility.
 
@@ -110,6 +112,7 @@ The configuration system SHALL support project-specific feature flags with flexi
 #### Scenario: Default empty project flags
 - **WHEN** new project is created
 - **THEN** project_flags defaults to empty dict
+
 ### Requirement: Feature Flag Value Types
 Feature flag values SHALL be restricted to supported types for consistency and validation.
 
@@ -147,6 +150,7 @@ Feature flag names SHALL follow project name validation rules with additional re
 #### Scenario: Name length validation
 - **WHEN** flag name is validated
 - **THEN** enforce same length restrictions as project names
+
 ### Requirement: Feature Flag Resolution
 The system SHALL resolve feature flag values using project-specific → global → None hierarchy.
 
@@ -198,3 +202,58 @@ The system SHALL configure every resource referenced by an unconditional baselin
 #### Scenario: Resolve baseline review and check guidance
 - **WHEN** the default profile is applied to a new project
 - **THEN** the `code-review`, `review`, and `checks` resources SHALL each resolve to non-empty rendered content
+
+### Requirement: Safe Profile Identifiers
+
+The system SHALL accept a profile identifier only when it is a simple basename of
+one to 50 Unicode alphanumeric, underscore, or hyphen characters. The identifier
+SHALL name the profile without a `.yaml` suffix. Internal basenames beginning with
+an underscore, including `_default`, remain valid.
+
+The system SHALL reject empty identifiers and identifiers containing a path
+separator, backslash, period, whitespace, absolute-path marker, or any other
+unsupported character before checking for a file or reading from the filesystem.
+
+#### Scenario: Valid built-in and user profile basenames load
+- **WHEN** a caller loads `_default`, `python`, or `team_profile-2`
+- **THEN** the identifier passes validation
+- **AND** profile loading continues using the corresponding `.yaml` file
+
+#### Scenario: Traversal-style profile identifier is rejected before lookup
+- **WHEN** a caller supplies `../outside`, `nested/profile`, `..\\outside`, an absolute path, or `profile.yaml`
+- **THEN** profile loading fails as an invalid name
+- **AND** the system does not perform an existence check or read for the supplied target
+
+### Requirement: Canonically Contained Profile Files
+
+Before reading a profile file, the system SHALL resolve the configured profiles
+directory and the candidate `.yaml` file to canonical paths. The candidate's final
+canonical target SHALL be contained by the canonical profiles directory. A target
+outside that directory, including one reached through a symlink, SHALL be rejected
+as an invalid profile source and SHALL NOT be read.
+
+This containment rule SHALL apply to every profile load, including profile
+inspection, profile application, profile filtering, and internal default-profile
+loading.
+
+#### Scenario: Escaping profile symlink is rejected
+- **WHEN** a valid basename names a `.yaml` symlink in the profiles directory whose canonical target is outside that directory
+- **THEN** profile loading fails as an invalid profile source
+- **AND** the external YAML content is not read or returned
+
+#### Scenario: Contained profile symlink remains usable
+- **WHEN** a valid basename names a `.yaml` symlink whose canonical target remains inside the profiles directory
+- **THEN** the profile loads normally
+- **AND** its configuration is available to the caller
+
+### Requirement: Safe Profile Load Failures
+
+Profile-name and containment failures SHALL report a stable invalid-name failure
+without disclosing the contents or canonical location of an external target. A
+valid, contained basename whose file is absent SHALL continue to report a not-found
+failure.
+
+#### Scenario: Missing contained profile remains not found
+- **WHEN** a valid simple profile basename has no corresponding contained `.yaml` file
+- **THEN** the caller receives the existing not-found profile failure
+- **AND** no external path is included in the failure

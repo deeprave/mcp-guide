@@ -476,3 +476,35 @@ FastMCP context.
   or task-result work
 - **THEN** the delegated work SHALL receive the same resolved RequestContext
 - **AND** it SHALL operate on the same Session and Project as the public tool invocation
+
+### Requirement: Protocol-specific response adaptation
+The common response adapters SHALL use the resolved Session protocol type to serialise queued additional agent instructions.  Legacy responses SHALL preserve the canonical structured Result payload.  MCP `2026-07-28` responses SHALL serialise a queued scalar instruction through `_meta["mcp-guide"]["instructions"]` and omit it from the structured payload.
+
+#### Scenario: Modern metadata and structured content are independent
+- **WHEN** a modern Session adapter receives a Result with an additional agent instruction
+- **THEN** the native response includes the instruction in `_meta`
+- **AND** its structured content does not include `additional_agent_instructions`
+
+#### Scenario: Legacy structured content is unchanged
+- **WHEN** a legacy Session adapter receives a Result with an additional agent instruction
+- **THEN** its structured content includes `additional_agent_instructions`
+- **AND** it does not add the Guide instruction metadata value
+
+### Requirement: Explicit tool cache-policy metadata
+The tool response adapter SHALL attach Guide cache-policy information to `_meta["mcp-guide"]["cache"]` only when the tool supplies an explicitly resolved valid policy.  It SHALL preserve existing non-cache result metadata independently.
+
+The adapter SHALL NOT emit `io.modelcontextprotocol/cache-ttl-ms` or `io.modelcontextprotocol/cache-scope` on tool, prompt, or resource results.
+
+#### Scenario: Explicitly cacheable tool result
+- **WHEN** a tool supplies an explicitly resolved cache policy
+- **THEN** the tool result `_meta` contains the Guide cache-policy information
+- **AND** it does not contain either undocumented `io.modelcontextprotocol/cache-*` key
+
+#### Scenario: Prompt without a policy
+- **WHEN** a prompt response has no explicit cache policy
+- **THEN** its existing result metadata is preserved
+- **AND** it does not contain cache-policy metadata
+
+#### Scenario: Resource adapter without a policy
+- **WHEN** the resource adapter receives no explicit cache policy
+- **THEN** it does not emit either undocumented `io.modelcontextprotocol/cache-*` key

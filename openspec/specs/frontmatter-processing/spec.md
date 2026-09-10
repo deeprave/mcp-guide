@@ -2,7 +2,9 @@
 
 ## Purpose
 TBD - created by archiving change frontmatter-instruction-handling. Update Purpose after archive.
+
 ## Requirements
+
 ### Requirement: Content-Size HTTP Headers
 The MIME formatter MUST use the `content_size` field from FileInfo for HTTP Content-Length headers instead of calculating content length manually.
 
@@ -63,12 +65,38 @@ The system MUST handle content types with appropriate behavior and default instr
 - **AND** frontmatter `Instruction` field MUST be used
 
 ### Requirement: Partial Template Support (Basic)
-The system SHALL support basic parsing of `partials` field in frontmatter for future template composition.
+The system SHALL parse the `partials` field in frontmatter and validate every
+partial reference before template rendering. Relative references SHALL be
+interpreted from the rendering template's location. Absolute references SHALL
+be permitted only when their final canonical target is contained within the
+configured document root. Home-anchored and environment-variable expansion
+syntax SHALL be invalid. Relative references, including those containing parent
+components, SHALL be permitted only when the final canonical target is
+contained within the configured document root. A reference names the partial
+without its leading underscore; underscore filename derivation and extension
+handling are separate from reference resolution. The derived underscore-prefixed
+filename SHALL remain excluded from ordinary command and category document
+discovery.
 
 #### Scenario: Partials field parsing
-- **WHEN** frontmatter contains a `partials` field
-- **THEN** system MUST parse and validate partial references
-- **AND** provide foundation for future add-template-partials implementation
+- **WHEN** frontmatter contains a `partials` field with relative references
+  whose canonical targets are inside the document root
+- **THEN** the system SHALL parse and accept those partial references
+- **AND** provide them for template composition
+
+#### Scenario: Parent-relative in-root partial parsing
+- **WHEN** frontmatter contains a relative partial reference with `..`
+  components whose final canonical target is inside the document root
+- **THEN** the system SHALL accept the reference
+- **AND** preserve existing nested-template composition behaviour
+
+#### Scenario: Unsafe partial reference
+- **WHEN** frontmatter contains a home-anchored, environment-variable, or
+  canonically-out-of-root partial reference
+- **THEN** the system SHALL exclude that reference from the rendering set
+- **AND** it SHALL log a non-sensitive warning without failing the parent
+  template
+- **AND** it SHALL not allow the reference to cause a host file read
 
 ### Requirement: Argument Requirements Field
 Frontmatter SHALL support `argrequired` top-level field to declare command flags that require values.
@@ -94,3 +122,10 @@ Frontmatter SHALL support `argrequired` top-level field to declare command flags
 - **AND** treat `argrequired` as empty list
 - **AND** continue processing with default behavior
 
+### Requirement: Cache frontmatter preservation
+The frontmatter processor SHALL parse the `cache` field for cache-policy resolution while continuing to strip frontmatter from delivered document content.
+
+#### Scenario: Cache field does not leak into content
+- **WHEN** a hosted document includes a valid `cache` frontmatter field
+- **THEN** the rendered body excludes the frontmatter
+- **AND** cache-policy resolution receives the parsed field
