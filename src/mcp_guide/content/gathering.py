@@ -5,6 +5,7 @@ from typing import Optional
 
 from mcp_guide.content.utils import resolve_patterns
 from mcp_guide.content_limits import ContentLimits, ensure_within_limit
+from mcp_guide.core.validation import validate_pattern
 from mcp_guide.discovery.files import FileInfoList, discover_documents
 from mcp_guide.models import (
     CategoryNotFoundError,
@@ -59,7 +60,7 @@ def parse_expression(expression: str) -> list[DocumentExpression]:
                 pattern_list: list[str] = []
                 for p in pattern_part.split("+"):
                     if p := p.strip():
-                        pattern_list.append(p)
+                        pattern_list.append(validate_pattern(p))
 
                 # If no valid patterns after filtering, treat as None
                 patterns: Optional[list[str]] = pattern_list or None

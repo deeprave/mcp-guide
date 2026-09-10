@@ -140,7 +140,7 @@ async def _process_match(
     # Resolve only for deduplication
     try:
         resolved_path = match_path.resolve()
-    except OSError as e:
+    except (OSError, RuntimeError) as e:
         logger.warning(f"Failed to resolve symlink {match_path}: {e}")
         return False
 
@@ -197,6 +197,8 @@ def _read_directory_entries(path: Path, state: _TraversalState) -> list[os.DirEn
 async def _iter_recursive_matches(search_dir: Path, pattern: str, state: _TraversalState) -> AsyncIterator[Path]:
     """Yield recursive matches in canonical relative-path order without a tree-wide list."""
     prefix, _, suffix = pattern.partition("**/")
+    if pattern == "**":
+        prefix, suffix = "", "*"
     start_dir = search_dir / prefix.rstrip("/") if prefix else search_dir
     file_pattern = suffix or "*"
     if not await AsyncPath(start_dir).exists():
@@ -220,7 +222,7 @@ async def _iter_recursive_matches(search_dir: Path, pattern: str, state: _Traver
                 continue
             visited_dirs.add(resolved)
             depth = len(path.relative_to(search_dir).parts)
-        except (OSError, ValueError):
+        except (OSError, RuntimeError, ValueError):
             logger.warning("Failed to resolve path %s during glob discovery; skipping", path)
             continue
 
@@ -269,21 +271,18 @@ async def _iter_non_recursive_matches(search_dir: Path, pattern: str, state: _Tr
                     next_directories.append(candidate)
         directories = sorted(next_directories, key=lambda path: path.relative_to(search_dir).as_posix())
 
-    matches: list[Path] = []
     for directory in directories:
         if state.stopped:
             break
         for entry in _read_directory_entries(directory, state):
             try:
                 if not entry.is_dir(follow_symlinks=True) and fnmatch.fnmatch(entry.name, file_pattern):
-                    matches.append(Path(entry.path))
+                    yield Path(entry.path)
             except OSError:
                 continue
-    for match in sorted(matches, key=lambda path: path.relative_to(search_dir).as_posix()):
-        yield match
 
 
-async def safe_glob_search(search_dir: Path, patterns: List[str]) -> GlobSearchResult:
+async def safe_glob_search(search_dir: Path, patterns: List[str], *, limit_patterns: bool = True) -> GlobSearchResult:
     """Safely search for files using glob patterns with safety limits.
 
     Args:
@@ -301,7 +300,7 @@ async def safe_glob_search(search_dir: Path, patterns: List[str]) -> GlobSearchR
     truncation_reasons: set[str] = set()
     state = _TraversalState(truncation_reasons)
 
-    if len(patterns) > MAX_GLOB_PATTERNS:
+    if limit_patterns and len(patterns) > MAX_GLOB_PATTERNS:
         state.truncate("pattern count")
         patterns = patterns[:MAX_GLOB_PATTERNS]
 

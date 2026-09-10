@@ -525,3 +525,13 @@ class TestUnderscoreFiltering:
         assert len(results) == 2
         names = {p.name for p in results}
         assert names == {"my_file.md", "another_name.txt"}
+
+
+@pytest.mark.anyio
+async def test_bare_recursive_pattern_searches_from_root(tmp_path):
+    (tmp_path / "nested").mkdir()
+    (tmp_path / "nested" / "document.md").write_text("content")
+
+    result = await safe_glob_search(tmp_path, ["**"])
+
+    assert [path.relative_to(tmp_path).as_posix() for path in result] == ["nested/document.md"]

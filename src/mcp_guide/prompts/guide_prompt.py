@@ -274,6 +274,9 @@ async def _discover_command_file(commands_dir: Path, command_path: str) -> Resul
     if not files:
         return Result.failure(f"Command not found: {command_path}", error_type=ERROR_NOT_FOUND)
 
+    if files.truncation_reasons:
+        return Result.failure(f"Command discovery was truncated: {command_path}", error_type=ERROR_FILE_ERROR)
+
     return Result.ok(files[0])
 
 

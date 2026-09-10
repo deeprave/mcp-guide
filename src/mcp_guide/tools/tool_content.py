@@ -165,7 +165,11 @@ async def internal_get_content(
                 session, "_export", "_system", context, resolver=request_context.get_docroot_resolver()
             )
             if rendered:
-                return Result.ok(rendered.content, instruction=rendered.instruction)
+                return Result.ok(
+                    rendered.content,
+                    message=original_result.message if original_result.success else None,
+                    instruction=rendered.instruction,
+                )
 
     try:
         # Use gather_content to handle comma-separated expressions
