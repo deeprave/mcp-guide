@@ -409,14 +409,17 @@ class TestGlobTruncation:
         assert result.truncation_reasons == {"directory entry count"}
 
     @pytest.mark.anyio
-    async def test_aggregate_limit_retains_prefix_with_diagnostic(self, tmp_path, monkeypatch):
+    async def test_aggregate_limit_retains_bounded_result_with_diagnostic(self, tmp_path, monkeypatch):
         (tmp_path / "first.md").write_text("first")
         (tmp_path / "second.md").write_text("second")
         monkeypatch.setattr("mcp_guide.discovery.patterns.MAX_GLOB_ENTRIES", 1)
 
         result = await safe_glob_search(tmp_path, ["**/*.md"])
 
-        assert [path.name for path in result.paths] == ["first.md"]
+        # The aggregate limit retains the native enumeration prefix, so the
+        # selected path is deliberately platform-dependent once it truncates.
+        assert len(result.paths) == 1
+        assert result.paths[0].name in {"first.md", "second.md"}
         assert "aggregate entry count" in result.truncation_reasons
 
     @pytest.mark.anyio

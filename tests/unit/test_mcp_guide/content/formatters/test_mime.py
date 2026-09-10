@@ -91,6 +91,37 @@ async def test_multipart_headers_preserve_each_documents_cache_policy(tmp_path):
 
 
 @pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("path", "location"),
+    [
+        ("nested/space name.md", "guide://docs/nested/space%20name.md"),
+        ("nested/100%#?.md", "guide://docs/nested/100%25%23%3F.md"),
+        ("nested/日本語.md", "guide://docs/nested/%E6%97%A5%E6%9C%AC%E8%AA%9E.md"),
+    ],
+)
+async def test_mime_content_location_encodes_each_path_segment(tmp_path, path, location):
+    result = await MimeFormatter().format([document(path, "content")], tmp_path.joinpath)
+
+    assert f"Content-Location: {location}\r\n" in result
+
+
+@pytest.mark.anyio
+async def test_multipart_legacy_control_character_name_cannot_inject_headers(tmp_path):
+    result = await MimeFormatter().format(
+        [document("safe.md", "safe"), document("unsafe\r\nInjected: value.md", "unsafe")],
+        tmp_path.joinpath,
+    )
+
+    message = Parser(policy=policy.default).parsestr(result)
+    parts = list(message.iter_parts())
+    assert message.defects == []
+    assert len(parts) == 2
+    assert parts[1].defects == []
+    assert parts[1]["Injected"] is None
+    assert parts[1]["Content-Location"] == "guide://docs/unsafe%0D%0AInjected%3A%20value.md"
+
+
+@pytest.mark.anyio
 async def test_mime_headers_count_towards_aggregate_limit(tmp_path):
     with pytest.raises(ContentLimitExceeded, match="max-content-limit"):
         await MimeFormatter().format([document("test.md", "body")], tmp_path.joinpath, max_content_limit=4)

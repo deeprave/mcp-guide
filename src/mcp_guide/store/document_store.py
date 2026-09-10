@@ -2,6 +2,7 @@
 
 import json
 import sqlite3
+import unicodedata
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -93,6 +94,12 @@ def _now() -> str:
     return datetime.now(UTC).isoformat()
 
 
+def validate_document_name(name: str) -> None:
+    """Raise ValueError when a document name contains a Unicode control character."""
+    if any(unicodedata.category(character) == "Cc" for character in name):
+        raise ValueError("Document name must not contain a control character")
+
+
 # Metadata-only query, deliberately excluding document content.
 _SELECT_METADATA = (
     "SELECT id, category, name, source, source_type, metadata, created_at, updated_at, mtime, "
@@ -152,6 +159,7 @@ def _add_document(
 ) -> UpsertResult:
     if not category or not name:
         raise ValueError("category and name must be non-empty")
+    validate_document_name(name)
     if source_type not in _VALID_SOURCE_TYPES:
         raise ValueError(f"source_type must be one of {sorted(_VALID_SOURCE_TYPES)}, got {source_type!r}")
     if max_content_limit is not None:
@@ -284,7 +292,6 @@ def _update_document(
         raise ValueError("At least one mutation parameter is required")
     if meta_ops > 1:
         raise ValueError("metadata_add, metadata_replace, and metadata_clear are mutually exclusive")
-
     conn = _get_conn(db_path)
     try:
         with conn:
@@ -297,6 +304,7 @@ def _update_document(
 
             target_cat = new_category if new_category is not None else category
             target_name = new_name if new_name is not None else name
+            validate_document_name(target_name)
 
             # Check collision if renaming/moving, excluding the current row (handles case-only renames)
             if target_cat != category or target_name != name:
