@@ -7,6 +7,7 @@ import re
 import tomllib
 from collections.abc import Callable
 from pathlib import Path
+from urllib.parse import quote
 
 from uuid_extensions import uuid7
 
@@ -96,6 +97,12 @@ def cache_control_header(file_info: FileInfo) -> str:
 
 class MimeFormatter:
     """Formats file content with MIME headers."""
+
+    @staticmethod
+    def _content_location(category_name: str, document_path: str) -> str:
+        """Return a guide URI with each document path segment percent-encoded."""
+        encoded_path = "/".join(quote(segment, safe="") for segment in document_path.split("/"))
+        return f"guide://{category_name}/{encoded_path}"
 
     def _get_appropriate_extension(self, detected_type: str) -> str:
         """Get file extension for detected content type.
@@ -209,8 +216,7 @@ class MimeFormatter:
         if appropriate_ext and not doc_path_str.endswith(appropriate_ext):
             doc_path_str += appropriate_ext
 
-        # Build Content-Location with correct URI scheme using category name
-        content_location = f"guide://{file_info.category.name}/{doc_path_str}"
+        content_location = self._content_location(file_info.category.name, doc_path_str)
 
         # Calculate Content-Length from final rendered content
         content_length = len(content.encode("utf-8"))
@@ -280,8 +286,7 @@ class MimeFormatter:
             if appropriate_ext and not doc_path_str.endswith(appropriate_ext):
                 doc_path_str += appropriate_ext
 
-            # Build Content-Location with correct URI scheme using category name
-            content_location = f"guide://{file_info.category.name}/{doc_path_str}"
+            content_location = self._content_location(file_info.category.name, doc_path_str)
 
             # Calculate Content-Length from final rendered content
             content_length = len(content.encode("utf-8"))

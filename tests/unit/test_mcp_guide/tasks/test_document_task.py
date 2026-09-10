@@ -106,6 +106,7 @@ async def test_ingestion_name_and_source_mapping(task, changes, name, source, so
         ({"category": "missing"}, "does not exist"),
         ({"mtime": "not-a-number"}, "mtime must be numeric"),
         ({"mtime": True}, "mtime must be numeric"),
+        ({"name": "unsafe\r\nname.md"}, "control character"),
     ],
 )
 async def test_invalid_ingestion_is_rejected_without_writing(task, changes, message):

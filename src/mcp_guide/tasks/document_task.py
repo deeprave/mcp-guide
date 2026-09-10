@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any
 from mcp_guide.content.formatters.mime import detect_text_subtype
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.render.frontmatter import parse_content_with_frontmatter
-from mcp_guide.store.document_store import add_document
+from mcp_guide.store.document_store import add_document, validate_document_name
 from mcp_guide.task_manager.interception import EventType
 
 if TYPE_CHECKING:
@@ -70,6 +70,10 @@ class DocumentTask:
 
         if not isinstance(name, str) or not name:
             return EventResult(result=False, message="Document name could not be determined")
+        try:
+            validate_document_name(name)
+        except ValueError as error:
+            return EventResult(result=False, message=str(error))
 
         if not isinstance(doc_type, str) or doc_type not in _VALID_DOC_TYPES:
             return EventResult(result=False, message=f"Invalid document type: {doc_type!r}")

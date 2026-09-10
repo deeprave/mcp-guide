@@ -1,5 +1,8 @@
 """Tests for document_store CRUD operations."""
 
+import sqlite3
+from contextlib import closing
+
 import pytest
 
 from mcp_guide.content_limits import ContentLimitExceeded
@@ -91,6 +94,23 @@ async def test_empty_name_raises(db):
 
 
 @pytest.mark.anyio
+@pytest.mark.parametrize("name", ["bad\rname", "bad\nname", "bad\x00name", "bad\x7fname", "bad\x85name"])
+async def test_control_character_name_is_rejected_without_creating_a_document(db, name):
+    with pytest.raises(ValueError, match="control character"):
+        await add_document("docs", name, "/path", "file", "content", db_path=db)
+
+    assert await list_documents(db_path=db) == []
+
+
+@pytest.mark.anyio
+async def test_valid_nested_unicode_name_is_preserved(db):
+    result = await add_document("docs", "nested/日本語 notes.md", "/path", "file", "content", db_path=db)
+
+    assert result.record is not None
+    assert result.record.name == "nested/日本語 notes.md"
+
+
+@pytest.mark.anyio
 async def test_same_mtime_skips_write(db):
     """Existing document is preserved when the incoming mtime is unchanged."""
     await add_document("docs", "readme", "/path", "file", "v1", mtime=100.0, db_path=db)
@@ -155,6 +175,36 @@ async def test_update_rename(db):
     assert result.name == "new.md"
     assert result.category == "docs"
     assert await get_document("docs", "old.md", db_path=db) is None
+
+
+@pytest.mark.anyio
+async def test_rename_to_control_character_name_preserves_existing_document(db):
+    await add_document("docs", "original.md", "/path", "file", "original", db_path=db)
+
+    with pytest.raises(ValueError, match="control character"):
+        await update_document("docs", "original.md", new_name="unsafe\r\nname.md", db_path=db)
+
+    assert await get_document_content("docs", "original.md", db_path=db) == "original"
+    assert await get_document("docs", "unsafe\r\nname.md", db_path=db) is None
+
+
+@pytest.mark.anyio
+async def test_legacy_unsafe_name_can_only_be_repaired_by_safe_rename(db):
+    await add_document("docs", "legacy.md", "/path", "file", "original", db_path=db)
+    unsafe_name = "unsafe\r\nname.md"
+    with closing(sqlite3.connect(db)) as connection, connection:
+        connection.execute(
+            "UPDATE documents SET name = ? WHERE category = ? AND name = ?",
+            (unsafe_name, "docs", "legacy.md"),
+        )
+
+    with pytest.raises(ValueError, match="control character"):
+        await update_document("docs", unsafe_name, metadata_add={"reviewed": "false"}, db_path=db)
+
+    renamed = await update_document("docs", unsafe_name, new_name="repaired.md", db_path=db)
+    assert renamed is not None
+    assert renamed.name == "repaired.md"
+    assert await get_document_content("docs", "repaired.md", db_path=db) == "original"
 
 
 @pytest.mark.anyio

@@ -1,5 +1,7 @@
 """Content formatting follows real global/project flags and rejects root escapes."""
 
+import sqlite3
+from contextlib import closing
 from email import policy
 from email.parser import Parser
 
@@ -9,6 +11,7 @@ from pydantic import ValidationError
 from tests.helpers import create_bound_test_session, request_context_for, tool_result_payload
 
 from mcp_guide.models import Category
+from mcp_guide.store.document_store import add_document
 from mcp_guide.tools.tool_content import ContentArgs, get_content, internal_get_content
 
 
@@ -61,6 +64,33 @@ async def test_content_format_resolution_uses_actual_headers_and_separators(
         assert content == "--- docs/first.md ---\nFirst content\n--- docs/second.md ---\nSecond content"
     else:
         assert content == "First content\nSecond content"
+
+
+@pytest.mark.anyio
+async def test_mime_output_safely_serialises_a_legacy_stored_control_character_name(runtime, tmp_path, monkeypatch):
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    db_path = tmp_path / "documents.db"
+    monkeypatch.setattr("mcp_guide.store.document_store.get_documents_db", lambda: db_path)
+    runtime.configuration_service().config_file.write_text(
+        yaml.safe_dump({"docroot": str(tmp_path), "projects": {}, "feature_flags": {"content-format": "mime"}})
+    )
+    session = await create_bound_test_session(runtime, "legacy-stored-mime")
+    await session.update_config(lambda project: project.with_category("docs", Category(dir="docs", patterns=["*"])))
+    await add_document("docs", "legacy.md", "/source", "file", "legacy content")
+    unsafe_name = "unsafe\r\nInjected: value.md"
+    with closing(sqlite3.connect(db_path)) as connection, connection:
+        connection.execute(
+            "UPDATE documents SET name = ? WHERE category = ? AND name = ?", (unsafe_name, "docs", "legacy.md")
+        )
+
+    result = await get_content.__wrapped__(ContentArgs(expression="docs"), await request_context_for(session))
+
+    message = Parser(policy=policy.default).parsestr(tool_result_payload(result)["value"])
+    assert message.defects == []
+    assert message["Injected"] is None
+    assert message["Content-Location"] == "guide://docs/unsafe%0D%0AInjected%3A%20value.md"
+    assert message.get_payload() == "legacy content"
 
 
 @pytest.mark.anyio
