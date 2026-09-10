@@ -12,49 +12,11 @@ from mcp_guide.runtime import get_runtime
 from mcp_guide.tools.tool_content import ContentArgs, internal_get_content
 from tests.helpers import create_test_session, request_context_for
 
-EXPANDED_PROFILE_NAMES = (
-    "android",
-    "angular",
-    "appkit",
-    "aspnet-core",
-    "browser",
-    "c",
-    "clojure",
-    "dart",
-    "elixir",
-    "f-sharp",
-    "flutter",
-    "haskell",
-    "ios",
-    "ipados",
-    "laravel",
-    "linux",
-    "lua",
-    "macos",
-    "nestjs",
-    "nodejs",
-    "nuxt",
-    "objective-c",
-    "r",
-    "rails",
-    "react-native",
-    "ruby",
-    "scala",
-    "svelte",
-    "swift",
-    "swift-concurrency",
-    "swift-package-manager",
-    "swift-testing",
-    "swiftui",
-    "symfony",
-    "testing",
-    "tvos",
-    "uikit",
-    "visionos",
-    "watchos",
-    "windows",
-    "xctest",
-    "zig",
+PROFILE_SOURCE_DIRECTORY = Path(__file__).parents[2] / "src" / "mcp_guide" / "templates" / "_profiles"
+BUNDLED_PROFILE_NAMES = tuple(
+    profile_path.stem
+    for profile_path in sorted(PROFILE_SOURCE_DIRECTORY.glob("*.yaml"))
+    if not profile_path.stem.startswith("_")
 )
 
 
@@ -155,8 +117,8 @@ class TestProfileApplication:
         assert checks.success
         assert "These are the guidelines to follow for general code and quality testing." in checks.value
 
-    @pytest.mark.parametrize("profile_name", EXPANDED_PROFILE_NAMES)
-    async def test_expanded_profiles_apply_their_declared_patterns(self, test_session, profile_name):
+    @pytest.mark.parametrize("profile_name", BUNDLED_PROFILE_NAMES)
+    async def test_bundled_profiles_render_their_declared_guidance(self, test_session, profile_name):
         from mcp_guide.models.profile import Profile
         from mcp_guide.tools.tool_project import UseProjectProfileArgs, internal_use_project_profile
 
@@ -169,6 +131,14 @@ class TestProfileApplication:
         project = await test_session.get_project()
         for category in profile.categories:
             assert set(category.patterns) <= set(project.categories[category.name].patterns)
+            for pattern in category.patterns:
+                content = await internal_get_content(
+                    ContentArgs(expression=category.name, pattern=pattern, force=True),
+                    await request_context_for(test_session),
+                )
+                assert content.success, f"{profile_name}: {category.name}/{pattern}"
+                assert "No matching content found" not in content.value, f"{profile_name}: {category.name}/{pattern}"
+                assert content.value.strip(), f"{profile_name}: {category.name}/{pattern}"
 
     async def test_profiles_compose_idempotently_and_report_missing(self, test_session, tmp_path, monkeypatch):
         """Real profile files compose categories/collections and persist without duplicates."""

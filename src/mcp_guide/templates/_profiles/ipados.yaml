@@ -1,5 +1,5 @@
 categories:
   - name: lang
-    patterns: [build/ipados]
+    patterns: [swift, build/ipados]
   - name: checks
     patterns: [swift/ipados]

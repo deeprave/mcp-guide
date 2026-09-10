@@ -1,5 +1,5 @@
 categories:
   - name: lang
-    patterns: [build/visionos]
+    patterns: [swift, build/visionos]
   - name: checks
     patterns: [swift/visionos]

@@ -1,53 +1,17 @@
 """Tests for profile model."""
 
+from pathlib import Path
+
 import pytest
 
 import mcp_guide.models.profile as profile_module
 from mcp_guide.models.profile import Profile, discover_profiles
 
-ADDED_PROFILE_NAMES = {
-    "android",
-    "angular",
-    "appkit",
-    "aspnet-core",
-    "browser",
-    "c",
-    "clojure",
-    "dart",
-    "elixir",
-    "f-sharp",
-    "flutter",
-    "haskell",
-    "ios",
-    "ipados",
-    "laravel",
-    "linux",
-    "lua",
-    "macos",
-    "nestjs",
-    "nodejs",
-    "nuxt",
-    "objective-c",
-    "r",
-    "rails",
-    "react-native",
-    "ruby",
-    "scala",
-    "svelte",
-    "swift",
-    "swift-concurrency",
-    "swift-package-manager",
-    "swift-testing",
-    "swiftui",
-    "symfony",
-    "testing",
-    "tvos",
-    "uikit",
-    "visionos",
-    "watchos",
-    "windows",
-    "xctest",
-    "zig",
+PROFILE_SOURCE_DIRECTORY = Path(__file__).parents[2] / "src" / "mcp_guide" / "templates" / "_profiles"
+BUNDLED_PROFILE_NAMES = {
+    profile_path.stem
+    for profile_path in PROFILE_SOURCE_DIRECTORY.glob("*.yaml")
+    if not profile_path.stem.startswith("_")
 }
 
 
@@ -243,11 +207,11 @@ class TestDiscoverProfiles:
             profile = await Profile.load(name)
             assert all(collection.categories for collection in profile.collections), name
 
-    async def test_discover_profiles_includes_the_expanded_catalogue(self):
+    async def test_discover_profiles_matches_the_bundled_catalogue(self):
         profiles = set(await discover_profiles())
 
-        assert ADDED_PROFILE_NAMES <= profiles
-        for profile_name in ADDED_PROFILE_NAMES:
+        assert profiles == BUNDLED_PROFILE_NAMES
+        for profile_name in BUNDLED_PROFILE_NAMES:
             profile = await Profile.load(profile_name)
             assert profile.categories, profile_name
             assert all(category.patterns for category in profile.categories), profile_name

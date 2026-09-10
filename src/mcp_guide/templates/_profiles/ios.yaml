@@ -1,5 +1,5 @@
 categories:
   - name: lang
-    patterns: [build/ios]
+    patterns: [swift, build/ios]
   - name: checks
     patterns: [swift/ios]

@@ -1,5 +1,5 @@
 categories:
   - name: lang
-    patterns: [build/watchos]
+    patterns: [swift, build/watchos]
   - name: checks
     patterns: [swift/watchos]
