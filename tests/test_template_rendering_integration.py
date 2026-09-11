@@ -21,4 +21,4 @@ async def test_flag_changes_update_rendered_project_conditionals(runtime):
         context = await get_template_contexts(session)
         result = await render_template_content(template, context)
         assert result.success
-        assert result.value == (expected, [], [], [])
+        assert result.value == (expected, [], [])

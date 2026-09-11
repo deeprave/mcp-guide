@@ -1,7 +1,9 @@
 """Tests for document cache policy frontmatter."""
 
+from collections.abc import Iterable
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any, Self
 
 import pytest
 
@@ -9,8 +11,48 @@ from mcp_guide.content.utils import resolve_content_cache_policy, resolve_file_c
 from mcp_guide.render.cache_policy import CachePolicy, CacheScope
 from mcp_guide.render.content import RenderedContent
 from mcp_guide.render.context import TemplateContext
+from mcp_guide.render.document_properties import (
+    DocumentContribution,
+    DocumentDisposition,
+    DocumentProperties,
+    DocumentProperty,
+)
 from mcp_guide.render.frontmatter import Frontmatter
 from mcp_guide.render.renderer import render_template_content
+
+
+def _contribution(frontmatter: dict[str, object], *, cache_default: CachePolicy | None = None) -> DocumentContribution:
+    return DocumentContribution(
+        "partial content",
+        frontmatter,
+        DocumentProperties.from_frontmatter(frontmatter, cache_default=cache_default),
+    )
+
+
+def _parse_cache_policy(value: object) -> CachePolicy:
+    """Parse cache frontmatter while disregarding diagnostics in assertions."""
+    return CachePolicy.parse(value)[0]
+
+
+class _TypeObserver(DocumentProperty):
+    """Test-only property that shares the type frontmatter key."""
+
+    def __init__(self) -> None:
+        self.values: list[str] = []
+
+    @classmethod
+    def handles_frontmatter_key(cls, key: str) -> bool:
+        return key == "type"
+
+    def apply_frontmatter(self, key: str, value: Any) -> None:
+        if isinstance(value, str):
+            self.values.append(value)
+
+    @classmethod
+    def combine(cls, properties: Iterable[Self]) -> Self:
+        combined = cls()
+        combined.values = [value for property in properties for value in property.values]
+        return combined
 
 
 @pytest.mark.parametrize(
@@ -28,21 +70,46 @@ from mcp_guide.render.renderer import render_template_content
 )
 def test_parse_cache_policy(value: object, expected: CachePolicy) -> None:
     """Frontmatter cache syntax resolves to the documented policy."""
-    assert CachePolicy.parse(value) == expected
+    assert _parse_cache_policy(value) == expected
 
 
 def test_invalid_cache_policy_is_not_cacheable() -> None:
     """Malformed cache metadata must not accidentally enable caching."""
-    policy, diagnostic = CachePolicy.parse_with_diagnostic("quick, shared")
+    policy, diagnostic = CachePolicy.parse("quick, shared")
 
     assert policy == CachePolicy.no_cache()
     assert diagnostic == "Invalid cache policy: 'quick, shared'"
 
 
+def test_document_properties_broadcasts_shared_frontmatter_keys() -> None:
+    """Multiple typed properties may consume the same frontmatter key."""
+    observer = _TypeObserver()
+    properties = DocumentProperties.from_frontmatter(
+        {"type": "agent/instruction"},
+        property_handlers=[DocumentDisposition(), observer],
+    )
+
+    assert properties.disposition == "agent/instruction"
+    assert observer.values == ["agent/instruction"]
+
+
+def test_combined_properties_retain_handlers_from_later_contributors() -> None:
+    """Composition preserves every registered property handler."""
+    observer = _TypeObserver()
+    first = DocumentProperties.from_frontmatter({"type": "user/information"}, property_handlers=[DocumentDisposition()])
+    second = DocumentProperties.from_frontmatter(
+        {"type": "agent/instruction"}, property_handlers=[DocumentDisposition(), observer]
+    )
+
+    combined = DocumentProperties.combine([first, second])
+
+    assert combined.get(_TypeObserver).values == ["agent/instruction"]
+
+
 def test_combined_documents_use_the_most_restrictive_policy() -> None:
     """Partials can only reduce the cacheability of their parent document."""
-    parent = CachePolicy.parse("long")
-    partial = CachePolicy.parse("medium, private")
+    parent = _parse_cache_policy("long")
+    partial = _parse_cache_policy("medium, private")
 
     assert parent >= partial
     assert partial <= parent
@@ -59,13 +126,41 @@ def test_rendered_content_combines_partial_cache_policies(tmp_path) -> None:
         content_length=8,
         template_path=tmp_path / "document.md.mustache",
         template_name="document",
-        partial_frontmatter=[{"cache": "short, private"}],
-        partial_cache_policies=[CachePolicy.parse("short, private")],
+        partial_contributions=[_contribution({"cache": "short, private"})],
     )
 
-    assert content.cache_policy == CachePolicy.parse("short, private")
-    content.partial_cache_policies.append(CachePolicy.no_cache())
+    assert content.cache_policy == _parse_cache_policy("short, private")
+    content.partial_contributions.append(_contribution({}))
     assert content.cache_policy == CachePolicy.no_cache()
+
+
+def test_rendered_content_combines_partial_disposition(tmp_path) -> None:
+    """A rendered partial may raise the disposition of its parent document."""
+    content = RenderedContent(
+        frontmatter=Frontmatter({"type": "user/information"}),
+        frontmatter_length=0,
+        content="Rendered",
+        content_length=8,
+        template_path=tmp_path / "document.md.mustache",
+        template_name="document",
+        partial_contributions=[_contribution({"type": "agent/instruction"})],
+    )
+
+    assert content.disposition == "agent/instruction"
+
+
+def test_rendered_content_retains_the_existing_task_disposition_default(tmp_path) -> None:
+    """Untyped task templates retain their established instruction disposition."""
+    content = RenderedContent(
+        frontmatter=Frontmatter({}),
+        frontmatter_length=0,
+        content="Rendered",
+        content_length=8,
+        template_path=tmp_path / "document.md.mustache",
+        template_name="document",
+    )
+
+    assert content.document_properties.disposition == "agent/instruction"
 
 
 @pytest.mark.anyio
@@ -75,13 +170,12 @@ async def test_pre_rendered_policy_partial_contributes_to_cache_policy(tmp_path)
         "Parent {{> policy}}",
         TemplateContext({}),
         partials={"policy": "policy content"},
-        pre_rendered_partial_frontmatter={"policy": [{"cache": "short, private"}]},
-        pre_rendered_partial_cache_policies={"policy": [CachePolicy.parse("short, private")]},
+        pre_rendered_partial_contributions={"policy": [_contribution({"cache": "short, private"})]},
     )
 
     assert result.success
     assert result.value is not None
-    content, partial_frontmatter, partial_cache_policies, _ = result.value
+    content, partial_contributions, _ = result.value
     rendered = RenderedContent(
         frontmatter=Frontmatter({"cache": "long"}),
         frontmatter_length=0,
@@ -89,11 +183,36 @@ async def test_pre_rendered_policy_partial_contributes_to_cache_policy(tmp_path)
         content_length=len(content),
         template_path=tmp_path / "parent.mustache",
         template_name="parent",
-        partial_frontmatter=partial_frontmatter,
-        partial_cache_policies=partial_cache_policies,
+        partial_contributions=partial_contributions,
     )
 
-    assert rendered.cache_policy == CachePolicy.parse("short, private")
+    assert rendered.cache_policy == _parse_cache_policy("short, private")
+
+
+@pytest.mark.anyio
+async def test_pre_rendered_policy_partial_contributes_to_disposition(tmp_path) -> None:
+    """A referenced policy partial participates in parent disposition composition."""
+    result = await render_template_content(
+        "Parent {{> policy}}",
+        TemplateContext({}),
+        partials={"policy": "policy content"},
+        pre_rendered_partial_contributions={"policy": [_contribution({"type": "agent/instruction"})]},
+    )
+
+    assert result.success
+    assert result.value is not None
+    content, partial_contributions, _ = result.value
+    rendered = RenderedContent(
+        frontmatter=Frontmatter({"type": "user/information"}),
+        frontmatter_length=0,
+        content=content,
+        content_length=len(content),
+        template_path=tmp_path / "parent.mustache",
+        template_name="parent",
+        partial_contributions=partial_contributions,
+    )
+
+    assert rendered.disposition == "agent/instruction"
 
 
 @pytest.mark.anyio
@@ -107,7 +226,7 @@ async def test_undeclared_pre_rendered_partial_disables_parent_caching(tmp_path)
 
     assert result.success
     assert result.value is not None
-    content, partial_frontmatter, partial_cache_policies, _ = result.value
+    content, partial_contributions, _ = result.value
     rendered = RenderedContent(
         frontmatter=Frontmatter({"cache": "long"}),
         frontmatter_length=0,
@@ -115,8 +234,7 @@ async def test_undeclared_pre_rendered_partial_disables_parent_caching(tmp_path)
         content_length=len(content),
         template_path=tmp_path / "parent.mustache",
         template_name="parent",
-        partial_frontmatter=partial_frontmatter,
-        partial_cache_policies=partial_cache_policies,
+        partial_contributions=partial_contributions,
     )
 
     assert rendered.cache_policy == CachePolicy.no_cache()
@@ -129,13 +247,20 @@ async def test_pre_rendered_policy_uses_its_resolved_nested_policy(tmp_path) -> 
         "Parent {{> policy}}",
         TemplateContext({}),
         partials={"policy": "policy content"},
-        pre_rendered_partial_frontmatter={"policy": [{"cache": "long"}]},
-        pre_rendered_partial_cache_policies={"policy": [CachePolicy.no_cache()]},
+        pre_rendered_partial_contributions={
+            "policy": [
+                DocumentContribution(
+                    "policy content",
+                    {"cache": "long"},
+                    DocumentProperties.from_frontmatter(None),
+                )
+            ]
+        },
     )
 
     assert result.success
     assert result.value is not None
-    content, partial_frontmatter, partial_cache_policies, _ = result.value
+    content, partial_contributions, _ = result.value
     rendered = RenderedContent(
         frontmatter=Frontmatter({"cache": "long"}),
         frontmatter_length=0,
@@ -143,8 +268,7 @@ async def test_pre_rendered_policy_uses_its_resolved_nested_policy(tmp_path) -> 
         content_length=len(content),
         template_path=tmp_path / "parent.mustache",
         template_name="parent",
-        partial_frontmatter=partial_frontmatter,
-        partial_cache_policies=partial_cache_policies,
+        partial_contributions=partial_contributions,
     )
 
     assert rendered.cache_policy == CachePolicy.no_cache()
@@ -153,11 +277,11 @@ async def test_pre_rendered_policy_uses_its_resolved_nested_policy(tmp_path) -> 
 def test_collected_content_uses_each_rendered_document_policy() -> None:
     """The aggregate policy preserves partial-aware document resolution."""
     files = [
-        SimpleNamespace(cache_policy=CachePolicy.parse("long"), frontmatter={}),
-        SimpleNamespace(cache_policy=CachePolicy.parse("short, private"), frontmatter={}),
+        SimpleNamespace(cache_policy=_parse_cache_policy("long"), frontmatter={}),
+        SimpleNamespace(cache_policy=_parse_cache_policy("short, private"), frontmatter={}),
     ]
 
-    assert resolve_content_cache_policy(files) == CachePolicy.parse("short, private")
+    assert resolve_content_cache_policy(files) == _parse_cache_policy("short, private")
 
 
 def test_requirement_filtered_markdown_defaults_to_no_cache() -> None:

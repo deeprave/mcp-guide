@@ -27,6 +27,7 @@ class TestResolveContentDisposition:
             (["user/information"], "user/information"),
             (["agent/information"], "agent/information"),
             (["agent/instruction"], "agent/instruction"),
+            (["unknown/type"], None),
             (["unknown/type", "user/information"], "user/information"),
             (["user/information", "agent/information"], "agent/information"),
             (["user/information", "agent/information", "agent/instruction"], "agent/instruction"),

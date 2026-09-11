@@ -1,6 +1,7 @@
 """Tests for event dispatch refactoring."""
 
 from mcp_guide.render.content import RenderedContent
+from mcp_guide.render.document_properties import DocumentContribution, DocumentProperties
 from mcp_guide.render.frontmatter import Frontmatter
 from mcp_guide.task_manager.manager import EventResult, aggregate_event_results
 
@@ -47,6 +48,30 @@ class TestAggregateEventResults:
         assert result.success is True
         assert result.value == "Test content"
         assert result.instruction == "Test instruction"
+        assert result.disposition == "agent/instruction"
+
+    def test_single_result_uses_rendered_partial_disposition(self):
+        """A status response preserves the effective partial disposition."""
+        from pathlib import Path
+
+        rendered = RenderedContent(
+            frontmatter=Frontmatter({"type": "user/information"}),
+            frontmatter_length=0,
+            content="Status guidance",
+            content_length=15,
+            template_path=Path("status.mustache"),
+            template_name="status",
+            partial_contributions=[
+                DocumentContribution(
+                    "Internal guidance",
+                    {"type": "agent/instruction"},
+                    DocumentProperties.from_frontmatter({"type": "agent/instruction"}),
+                )
+            ],
+        )
+
+        result = aggregate_event_results([EventResult(result=True, rendered_content=rendered)])
+
         assert result.disposition == "agent/instruction"
 
     def test_single_result_failure(self):
@@ -117,6 +142,21 @@ class TestAggregateEventResults:
 
         assert first_user.disposition == "agent/instruction"
         assert first_instruction.disposition == "agent/instruction"
+
+    def test_multiple_unknown_dispositions_remain_unknown(self):
+        """Aggregation must not replace explicit unknown types with a default."""
+        unknown_one = EventResult(
+            result=True,
+            rendered_content=_make_rendered_content("First", "Show this", "unknown/type"),
+        )
+        unknown_two = EventResult(
+            result=True,
+            rendered_content=_make_rendered_content("Second", "Show this", "unknown/type"),
+        )
+
+        result = aggregate_event_results([unknown_one, unknown_two])
+
+        assert result.disposition is None
 
     def test_message_deduplication(self):
         """Test duplicate messages are deduplicated."""

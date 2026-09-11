@@ -10,8 +10,8 @@ from mcp_guide.content_limits import DEFAULT_MAX_CONTENT_LIMIT, ensure_within_li
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.core.prompt_decorator import get_prompt_name
 from mcp_guide.discovery.files import TEMPLATE_EXTENSIONS, FileInfo
-from mcp_guide.render.cache_policy import CachePolicy
 from mcp_guide.render.context import TemplateContext
+from mcp_guide.render.document_properties import DocumentContribution, DocumentProperties
 from mcp_guide.render.frontmatter import get_frontmatter_includes
 from mcp_guide.render.functions import TemplateFunctions
 from mcp_guide.render.partials import PartialNotFoundError, UnsafePartialPathError, load_partial_content
@@ -82,13 +82,12 @@ async def render_template_content(
     file_path: str = "<template>",
     transient_fn: Optional[Callable[[TemplateContext], TemplateContext]] = None,
     partials: Optional[Dict[str, str]] = None,
-    pre_rendered_partial_frontmatter: Optional[Dict[str, list[Dict[str, Any]]]] = None,
-    pre_rendered_partial_cache_policies: Optional[Dict[str, list[CachePolicy]]] = None,
+    pre_rendered_partial_contributions: Optional[Dict[str, list[DocumentContribution]]] = None,
     metadata: Optional[Dict[str, Any]] = None,
     base_dir: Optional[Path] = None,
     resolver: Callable[[str | Path], Path] | None = None,
     max_content_limit: int = DEFAULT_MAX_CONTENT_LIMIT,
-) -> Result[tuple[str, list[Dict[str, Any]], list[CachePolicy], list[str]]]:
+) -> Result[tuple[str, list[DocumentContribution], list[str]]]:
     """Render template content with context.
 
     Args:
@@ -97,25 +96,19 @@ async def render_template_content(
         file_path: File path for error reporting
         transient_fn: Optional function to add transient data to context
         partials: Optional dictionary of partial templates
-        pre_rendered_partial_frontmatter: Frontmatter for pre-rendered partial contributors
-        pre_rendered_partial_cache_policies: Resolved policies for pre-rendered partial contributors
+        pre_rendered_partial_contributions: Rendered policy partial contributors
         metadata: Optional frontmatter metadata to merge into context
         resolver: Server-side document-root resolver for filesystem partials
 
     Returns:
-        Result with rendered content, partial frontmatter, cache policies, and errors
+        Result with rendered content, rendered partial contributors, and errors
     """
     try:
         # Process metadata (frontmatter) if provided
         render_context = context
         processed_partials: Dict[str, str] = partials or {}
-        partial_frontmatter_list: list[Dict[str, Any]] = []
-        # Maps partial name → frontmatter contributors for rendered partial content.
-        partial_frontmatter_by_name: Dict[str, list[Dict[str, Any]]] = {
-            name: list(frontmatter) for name, frontmatter in (pre_rendered_partial_frontmatter or {}).items()
-        }
-        partial_cache_policies_by_name: Dict[str, list[CachePolicy]] = {
-            name: list(policies) for name, policies in (pre_rendered_partial_cache_policies or {}).items()
+        partial_contributions_by_name: Dict[str, list[DocumentContribution]] = {
+            name: list(contributions) for name, contributions in (pre_rendered_partial_contributions or {}).items()
         }
 
         if metadata:
@@ -159,11 +152,12 @@ async def render_template_content(
                             processed_partials[partial_name] = partial_content
                             # Track frontmatter for partials that have content
                             if partial_frontmatter and partial_content:
-                                partial_frontmatter_by_name[partial_name] = [partial_frontmatter]
-                                policy, diagnostic = CachePolicy.parse_with_diagnostic(partial_frontmatter.get("cache"))
-                                if diagnostic:
-                                    logger.warning("%s in %s", diagnostic, full_include_path)
-                                partial_cache_policies_by_name[partial_name] = [policy]
+                                properties = DocumentProperties.from_frontmatter(partial_frontmatter)
+                                if properties.cache_diagnostic:
+                                    logger.warning("%s in %s", properties.cache_diagnostic, full_include_path)
+                                partial_contributions_by_name[partial_name] = [
+                                    DocumentContribution(partial_content, partial_frontmatter, properties)
+                                ]
                             logger.trace(f"Loaded partial '{partial_name}' from {include_path}")
                         except PartialNotFoundError as e:
                             logger.error(f"Partial template not found: {include_path} - {e}")
@@ -225,18 +219,17 @@ async def render_template_content(
         logger.trace(f"Template {file_path} rendered content ({len(rendered)} chars): {rendered[:1024]}")
 
         # Only collect frontmatter from partials that were actually rendered
-        partial_frontmatter_list = [
-            frontmatter
-            for name in tracking_partials.accessed
-            for frontmatter in partial_frontmatter_by_name.get(name, [])
-        ]
-        partial_cache_policies = [
-            policy
-            for name in tracking_partials.accessed
-            for policy in partial_cache_policies_by_name.get(name) or [CachePolicy.no_cache()]
-        ]
+        partial_contributions: list[DocumentContribution] = []
+        for name in tracking_partials.accessed:
+            contributions = partial_contributions_by_name.get(name)
+            if contributions is not None:
+                partial_contributions.extend(contributions)
+            elif name in processed_partials:
+                partial_contributions.append(
+                    DocumentContribution(processed_partials[name], {}, DocumentProperties.from_frontmatter(None))
+                )
 
-        return Result.ok((rendered, partial_frontmatter_list, partial_cache_policies, functions.errors))
+        return Result.ok((rendered, partial_contributions, functions.errors))
 
     except ChevronError as e:
         # Enhanced Chevron-specific error handling with line context

@@ -49,9 +49,9 @@ class TestTemplatePartials:
         result = await render_template_content(content, context, partials=partials)
 
         assert result.is_ok()
-        rendered_content, partial_frontmatter, _, _ = result.value
+        rendered_content, partial_contributions, _ = result.value
         assert rendered_content == "Project: test-project"
-        assert partial_frontmatter == []
+        assert len(partial_contributions) == 1
 
     @pytest.mark.anyio
     async def test_render_template_missing_partial(self):
@@ -64,9 +64,9 @@ class TestTemplatePartials:
 
         # Chevron silently ignores missing partials and renders empty string
         assert result.is_ok()
-        rendered_content, partial_frontmatter, _, _ = result.value
+        rendered_content, partial_contributions, _ = result.value
         assert rendered_content == ""
-        assert partial_frontmatter == []
+        assert partial_contributions == []
 
 
 class TestTemplateRendering:
@@ -100,7 +100,7 @@ class TestTemplateRendering:
         result = await render_template_content(content, context)
 
         assert result.is_ok()
-        rendered_content, _, _, _ = result.value
+        rendered_content, _, _ = result.value
         assert rendered_content == "Hello World! Project: test-project"
 
     @pytest.mark.anyio
@@ -131,7 +131,7 @@ class TestTemplateRendering:
             result = await render_template_content(content, context)
 
             assert result.is_ok(), f"Failed for: {content}"
-            rendered_content, _, _, _ = result.value
+            rendered_content, _, _ = result.value
             assert rendered_content == expected, f"Expected '{expected}', got '{rendered_content}'"
 
     @pytest.mark.anyio
@@ -144,7 +144,7 @@ class TestTemplateRendering:
 
         # Chevron renders missing variables as empty string
         assert result.is_ok()
-        rendered_content, _, _, _ = result.value
+        rendered_content, _, _ = result.value
         assert rendered_content == "Hello !"
 
     @pytest.mark.anyio
@@ -158,7 +158,7 @@ class TestTemplateRendering:
         result = await render_template_content(content, context)
 
         assert result.is_ok()
-        rendered_content, _, _, _ = result.value
+        rendered_content, _, _ = result.value
         assert rendered_content == "- `guide://_help` (`guide://_h`, `guide://_project/perm`)"
 
     @pytest.mark.anyio
@@ -168,7 +168,7 @@ class TestTemplateRendering:
 
         missing_path = await render_template_content(handoff_template, TemplateContext({"args": [], "kwargs": {}}))
         assert missing_path.is_ok()
-        _, _, _, missing_path_errors = missing_path.value
+        _, _, missing_path_errors = missing_path.value
         assert any("Missing required handoff file path" in error for error in missing_path_errors)
         assert not any("exactly one of --read or --write" in error for error in missing_path_errors)
 
@@ -177,7 +177,7 @@ class TestTemplateRendering:
             TemplateContext({"args": ["handoff.md"], "kwargs": {}}),
         )
         assert missing_mode.is_ok()
-        _, _, _, missing_mode_errors = missing_mode.value
+        _, _, missing_mode_errors = missing_mode.value
         assert any("You must specify exactly one of --read or --write." in error for error in missing_mode_errors)
         assert not any("Missing required handoff file path" in error for error in missing_mode_errors)
 
@@ -191,7 +191,7 @@ class TestTemplateRendering:
             TemplateContext({"args": ["handoff.md"], "kwargs": {"write": "true"}}),
         )
         assert write_result.is_ok()
-        write_rendered, _, _, write_errors = write_result.value
+        write_rendered, _, write_errors = write_result.value
         assert not write_errors
         assert "Handoff file: `handoff.md`" in write_rendered
         assert "Write your current context and state to the named file." in write_rendered
@@ -202,6 +202,6 @@ class TestTemplateRendering:
                 TemplateContext({"args": ["handoff.md"], "kwargs": {"read": "true"}}),
             )
         assert read_result.is_ok()
-        read_rendered, _, _, read_errors = read_result.value
+        read_rendered, _, read_errors = read_result.value
         assert not read_errors
         assert "Read the named handoff file and use it as input context for the current session." in read_rendered

@@ -257,7 +257,7 @@ async def test_gather_policy_partials_no_policies_key_returns_empty(tmp_path):
     result = await _gather_policy_partials(
         await _request_context(tmp_path, _MockSession(str(tmp_path))), file_info, TemplateContext({}), {}
     )
-    assert result == ({}, {}, {})
+    assert result == ({}, {})
 
 
 @pytest.mark.anyio
@@ -277,7 +277,7 @@ async def test_gather_policy_partials_unbound_session_returns_empty(tmp_path):
     result = await _gather_policy_partials(
         await _request_context(tmp_path, _MockSession(str(tmp_path))), file_info, TemplateContext({}), {}
     )
-    assert result == ({}, {}, {})
+    assert result == ({}, {})
 
 
 @pytest.mark.anyio
@@ -305,12 +305,12 @@ async def test_gather_policy_partials_no_match_returns_placeholder(tmp_path, mon
         await _request_context(tmp_path, session), file_info, TemplateContext({}), {}
     )
 
-    partials, frontmatter, cache_policies = result
+    partials, contributions = result
     assert "git/ops" in partials
     assert INSTRUCTION_MISSING_POLICY in partials["git/ops"]
     assert "git/ops" in partials["git/ops"]
-    assert frontmatter == {}
-    assert cache_policies == {"git/ops": [CachePolicy.no_cache()]}
+    assert contributions["git/ops"][0].frontmatter == {}
+    assert contributions["git/ops"][0].properties.cache_policy == CachePolicy.no_cache()
 
 
 @pytest.mark.anyio
@@ -350,10 +350,10 @@ async def test_gather_policy_partials_matching_topic_renders_content(runtime, tm
     await session.update_config(lambda current: replace(current, categories=project.categories))
     result = await _gather_policy_partials(await request_context_for(session), file_info, TemplateContext({}), {})
 
-    partials, frontmatter, cache_policies = result
+    partials, contributions = result
     assert partials == {"git/ops": "Use conservative git ops."}
-    assert frontmatter == {"git/ops": [{"type": "agent/instruction"}]}
-    assert cache_policies["git/ops"] == [CachePolicy.long_public()]
+    assert contributions["git/ops"][0].frontmatter == {"type": "agent/instruction"}
+    assert contributions["git/ops"][0].properties.cache_policy == CachePolicy.long_public()
 
 
 @pytest.mark.anyio

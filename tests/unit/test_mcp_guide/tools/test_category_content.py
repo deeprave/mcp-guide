@@ -129,6 +129,26 @@ async def test_tool_returns_result_ok_on_success(tmp_path, monkeypatch):
     result = await internal_category_content(args, create_request_context(project, tmp_path))
     assert result.success is True
     assert "Test Content" in result.value
+    assert result.disposition == "user/information"
+
+
+@pytest.mark.anyio
+async def test_tool_preserves_collected_document_disposition(tmp_path):
+    """Category delivery exposes a document's composed type to its caller."""
+    from mcp_guide.models import Category, Project
+    from mcp_guide.tools.tool_category import CategoryContentArgs, internal_category_content
+
+    (tmp_path / "README").write_text("---\ntype: agent/instruction\n---\n# Test Content")
+    project = Project(
+        name="test", categories={"docs": Category(dir=".", name="docs", patterns=["README"])}, collections={}
+    )
+
+    result = await internal_category_content(
+        CategoryContentArgs(expression="docs"), create_request_context(project, tmp_path)
+    )
+
+    assert result.success is True
+    assert result.disposition == "agent/instruction"
 
 
 @pytest.mark.anyio

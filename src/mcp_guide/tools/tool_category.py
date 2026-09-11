@@ -13,7 +13,11 @@ from pydantic import Field, model_validator
 
 from mcp_guide.content.formatters.selection import ContentFormat, get_formatter_from_flag
 from mcp_guide.content.gathering import CONTENT_EXPRESSION_DESCRIPTION, gather_content
-from mcp_guide.content.utils import read_and_render_file_contents, resolve_content_cache_policy
+from mcp_guide.content.utils import (
+    read_and_render_file_contents,
+    resolve_content_cache_policy,
+    resolve_content_disposition,
+)
 from mcp_guide.content_limits import ContentBudget, ContentLimitExceeded, ensure_within_limit, get_content_limits
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.core.tool_arguments import ToolArguments
@@ -637,7 +641,12 @@ async def internal_category_content(
         warning = None
         if files.truncation_reasons:
             warning = "Glob discovery was truncated by: " + ", ".join(sorted(files.truncation_reasons))
-        return Result.ok(content, message=warning, cache_policy=resolve_content_cache_policy(final_files))
+        return Result.ok(
+            content,
+            message=warning,
+            cache_policy=resolve_content_cache_policy(final_files),
+            disposition=resolve_content_disposition(final_files),
+        )
 
     except CategoryNotFoundError as e:
         return Result.failure(

@@ -25,7 +25,7 @@ def document(path, content, cache: str | None = None):
         content=content,
         category=Category(dir="docs", patterns=["*"], name="docs"),
     )
-    file_info.cache_policy = CachePolicy.parse(cache)
+    file_info.cache_policy = CachePolicy.parse(cache)[0]
     return file_info
 
 

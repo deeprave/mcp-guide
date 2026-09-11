@@ -121,7 +121,7 @@ async def get_command_help(
         if rendered.errors:
             rendered.log_discarded_errors("get_command_help")
 
-        return Result.ok(rendered.content, instruction=rendered.instruction)
+        return Result.ok(rendered.content, instruction=rendered.instruction, disposition=rendered.disposition)
 
     except Exception as e:
         return Result.failure(str(e), error_type=ERROR_CONTEXT)
@@ -514,7 +514,7 @@ async def _execute_command(
         )
 
     # Extract content and instruction from RenderedContent
-    result = Result.ok(rendered.content)
+    result = Result.ok(rendered.content, disposition=rendered.disposition)
     result.instruction = rendered.instruction  # Already has type-based default
     return result
 

@@ -32,7 +32,7 @@ Each parent document, ordinary partial, policy partial, and collected delivery d
 
 The initial handlers are `DocumentCache` and `DocumentDisposition`. When ingesting frontmatter, `DocumentProperties` SHALL offer every key and value to every handler; it SHALL not assume that a key belongs to only one handler or that a handler consumes only one key. Each handler owns its defaults and its domain-specific composition rules. The container combines the properties of the parent and actual contributors for both rendered partials and multi-document delivery.
 
-This deliberately replaces, rather than wraps, the separate cache-policy and disposition aggregation paths. A future `DocumentInstruction` handler may consume `instruction`, `type`, and any further relevant keys through the same dispatch mechanism, but instruction composition is not changed by this change.
+This deliberately replaces, rather than wraps, the separate cache-policy and disposition aggregation paths, but is a packaging refactor: cache and disposition behaviour SHALL remain exactly as it is today. Runtime callers SHALL inject the existing contextual defaults and conditions where current paths already distinguish them, including the ordinary non-template Markdown cache default and the different template versus collected-content disposition defaults. Handlers SHALL NOT infer new policy from filenames or invent broader defaults. A future `DocumentInstruction` handler may consume `instruction`, `type`, and any further relevant keys through the same dispatch mechanism, but instruction composition is not changed by this change.
 
 ### Resolve properties once from actual contributors
 
