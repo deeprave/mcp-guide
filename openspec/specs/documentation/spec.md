@@ -1,4 +1,11 @@
-## ADDED Requirements
+# documentation Specification
+
+## Purpose
+
+Defines the user-facing documentation that explains Guide features, configuration,
+and available guidance.
+
+## Requirements
 
 ### Requirement: Guide URI Documentation
 The system SHALL provide user documentation for the `guide://` URI scheme.
@@ -23,8 +30,6 @@ The system SHALL provide user documentation for stored documents and document in
 - **AND** it explains how stored documents integrate with content discovery
 - **AND** it documents `category_list_files` source filtering (`files`, `stored`, or both)
 - **AND** it documents `document_update` and `document_remove` tools
-
-## MODIFIED Requirements
 
 ### Requirement: Setup Documentation
 The system SHALL provide detailed setup and configuration documentation separate from README.
@@ -84,3 +89,16 @@ content that reflects the current set of guide documents.
   that have been removed from the guide category
 - **AND** it reflects that methodology content is now injected via the
   methodology policy partial
+
+### Requirement: Expanded profile catalogue documentation
+User documentation for profiles SHALL describe the composable base-language,
+extension/framework, platform, and test-stack model. It SHALL distinguish `lang/`
+language guidance, `lang/build/` build guidance, and `checks/` testing guidance,
+and name only profiles that exist.
+
+#### Scenario: Profiles documentation explains composition
+- **WHEN** a user reads the profiles documentation
+- **THEN** it SHALL show a valid composed selection such as `swift`, `swiftui`,
+  `ios`, and `xctest`
+- **AND** it SHALL explain that these profiles add guidance rather than replacing
+  one another

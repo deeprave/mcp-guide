@@ -1,7 +1,9 @@
-## 1. Contributor metadata
+## 1. Typed document properties and contributor metadata
 
-- [ ] 1.1 Trace every rendered-partial path, including ordinary `includes`, `policies:`, missing-policy fallback, status, and command rendering; define one contributor representation that retains rendered content and resolved disposition, and verify it does not affect unrendered partials.
-- [ ] 1.2 Extend policy pre-rendering and Mustache partial registration to retain contributor metadata until accessed-partial tracking is complete; verify a multi-document policy topic preserves each contributor's disposition.
+- [ ] 1.1 Trace document collection, ordinary `includes`, `policies:`, missing-policy fallback, status, and command rendering; define one `DocumentContribution` representation that retains rendered content, required frontmatter, and `DocumentProperties` without affecting unrendered partials.
+- [ ] 1.2 Implement `DocumentProperties` as the central frontmatter dispatcher with typed `DocumentProperty` handlers. Implement `DocumentCache` and `DocumentDisposition`, including defaults and existing domain precedence; verify handlers may consume multiple and overlapping frontmatter keys.
+- [ ] 1.3 Route both multi-document delivery and partial composition through `DocumentProperties`; remove the parallel cache-policy and disposition aggregation paths without changing their established cache or disposition semantics.
+- [ ] 1.4 Extend policy pre-rendering and Mustache partial registration to retain contributor metadata until accessed-partial tracking is complete; verify a multi-document policy topic preserves each contributor's properties.
 
 ## 2. Disposition resolution
 
@@ -11,5 +13,5 @@
 
 ## 3. Regression coverage and verification
 
-- [ ] 3.1 Add behavioural tests for direct partials, conditional/skipped partials, single and multiple policy-topic contributors, and downstream disposition delivery; verify the new tests fail before the implementation and pass afterwards.
+- [ ] 3.1 Add behavioural tests for multi-document delivery, direct partials, conditional/skipped partials, single and multiple policy-topic contributors, and downstream disposition delivery; verify cache and disposition preserve their existing independent rules while sharing contributor selection.
 - [ ] 3.2 Run the focused rendering, content, prompt, command, and status pytest suites in a foreground terminal, then run `ruff check .`, `ruff format --check .`, and `openspec validate fix-partial-disposition --strict --no-interactive`; verify all commands pass.
